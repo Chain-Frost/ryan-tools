@@ -90,10 +90,9 @@ The first two runs use `TCF_05`; the third uses `TCF_06`. A bare row such as
 Set the Python TCF to `None` for multiple imported models. When Python supplies
 a TCF, every active imported TCF must match it; a mismatch reports the paths and
 source location before validation, export, CSV history changes or execution.
-On Windows, a verified mapped-drive/UNC equivalent also matches: the reader
-queries the current session's drive mapping without opening model files.
-If the mapping is unavailable or the paths differ, a conflict is still reported.
-This comparison is separate from path-independent CSV Resume identities.
+TCF consistency checks compare the effective paths without querying network
+drive mappings. Each versioned runner has its own adjacent CSV, and Resume
+uses the TCF filename and effective flags rather than the complete path.
 
 | Input feature | Supported behavior |
 | --- | --- |

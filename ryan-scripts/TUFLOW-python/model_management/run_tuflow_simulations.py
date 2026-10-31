@@ -74,6 +74,7 @@ RUN_SIMULATIONS = True
 # resume skips latest observed successes; all resets the baseline and runs everything.
 CONTINUATION_MODE = "resume"
 # CSV: <this_wrapper_stem>_runs.csv beside this file, even with model-specific working directories.
+# Give each TCF version its own wrapper filename to keep its execution history separate.
 # Stop the previous batch before Resume. Reexecuted runs use current model output locations.
 # Refresh the complete current command plan even when Resume has no pending runs.
 EXPORT_COMMANDS = True

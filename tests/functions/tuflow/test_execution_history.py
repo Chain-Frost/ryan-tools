@@ -299,7 +299,7 @@ def test_logical_v2_duplicate_ordinals_remain_distinct() -> None:
     assert all(len(identity.key) == 64 for identity in identities.values())
 
 
-def test_resume_identity_matches_mapped_drive_unc_and_relocation(tmp_path: Path) -> None:
+def test_resume_identity_depends_on_filename_not_directory(tmp_path: Path) -> None:
     """Only the TCF filename and effective flags determine a completed run."""
     original = _plan(tmp_path, 1)
     identity = identify_runs(original, fallback_executable=Path("solver_a.exe"), base_directory=tmp_path)[1]
@@ -327,14 +327,15 @@ def test_resume_identity_matches_mapped_drive_unc_and_relocation(tmp_path: Path)
         )
 
 
-def test_same_filename_and_flags_from_different_models_are_ambiguous(tmp_path: Path) -> None:
+def test_same_filename_in_different_directories_needs_no_path_matching(tmp_path: Path) -> None:
+    """Separate logical occurrences retain distinct ordinals without filesystem comparisons."""
     plan = _plan(tmp_path, 1)
     first = plan.runs[0]
-    other = replace(first, index=2, tcf=tmp_path / "other_project" / first.tcf.name)
-    with pytest.raises(ExecutionLogError, match="Ambiguous Resume identity"):
-        identify_runs(
-            replace(plan, runs=(first, other)), fallback_executable=Path("solver.exe"), base_directory=tmp_path
-        )
+    other = replace(first, index=2, tcf=tmp_path / "other" / first.tcf.name)
+    identities = identify_runs(
+        replace(plan, runs=(first, other)), fallback_executable=Path("solver.exe"), base_directory=tmp_path
+    )
+    assert identities[1].key != identities[2].key
 
 
 def test_history_rejects_unsupported_gpu_syntax(tmp_path: Path) -> None:

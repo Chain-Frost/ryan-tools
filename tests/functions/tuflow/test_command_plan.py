@@ -341,49 +341,21 @@ def test_python_tcf_fallback_uses_configuration_base_not_changed_directory() -> 
         )
 
 
-def test_verified_mapped_drive_alias_matches_configured_python_tcf(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Only actual Windows drive mappings permit a UNC alias to satisfy the TCF constraint."""
-    from ryan_library.functions.tuflow import command_plan
-
+def test_python_tcf_constraint_uses_effective_path_without_network_mapping() -> None:
+    """The parser does not try to match a mapped drive to an unrelated UNC spelling."""
     source = PureWindowsPath(r"P:\project\launcher\runs.bat")
     cwd = PureWindowsPath(r"P:\project")
     expected = str(cwd / "model.tcf")
-    unc = r"\\server\share\nested\project\model.tcf"
-    calls: list[str] = []
-
-    def drive_mapping(drive: str) -> str | None:
-        calls.append(drive)
-        return r"\\server\share\nested" if drive.casefold() == "p:" else None
-
-    monkeypatch.setattr(command_plan, "_network_drive_target", drive_mapping)
-    plan = parse_command_plan(f'TUFLOW.exe "{unc}"', source=source, initial_directory=cwd, fallback_tcf=expected)
-    assert plan.runs[0].tcf == PureWindowsPath(unc)
-    assert "P:" in calls
-
-    # Two spellings of the same mapped file are one model selection.
-    duplicate = parse_command_plan(
-        f'TUFLOW.exe "{cwd / "model.tcf"}"\nTUFLOW.exe "{unc}"',
-        source=source,
-        initial_directory=cwd,
-        fallback_tcf=expected,
-    )
-    assert len(duplicate.runs) == 1
-    assert duplicate.duplicates_dropped == 1
+    plan = parse_command_plan(f'TUFLOW.exe "{expected}"', source=source, initial_directory=cwd, fallback_tcf=expected)
+    assert plan.runs[0].tcf == cwd / "model.tcf"
 
     with pytest.raises(CommandPlanError, match="conflicts with effective imported TCF"):
         parse_command_plan(
-            r'TUFLOW.exe "\\server\share\nested\other\model.tcf"',
+            r'TUFLOW.exe "\\server\share\project\model.tcf"',
             source=source,
             initial_directory=cwd,
             fallback_tcf=expected,
         )
-
-    def unavailable_mapping(_drive: str) -> str | None:
-        return None
-
-    monkeypatch.setattr(command_plan, "_network_drive_target", unavailable_mapping)
-    with pytest.raises(CommandPlanError, match="conflicts with effective imported TCF"):
-        parse_command_plan(f'TUFLOW.exe "{unc}"', source=source, initial_directory=cwd, fallback_tcf=expected)
 
 
 def test_overwritten_assignments_and_disabled_rows_do_not_conflict() -> None:

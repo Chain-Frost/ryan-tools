@@ -77,10 +77,13 @@ assign runtime GPU slots.
 
 ## Runner CSV continuation
 
-The single execution-history CSV uses the supplying Python wrapper's filename
-stem followed by `_runs.csv`, **beside the copied wrapper**. It is an append-only
-START / FINISH / RESET log of observed process outcomes. No saved run manifest
-or additional session directory is required.
+The execution-history CSV uses the supplying Python wrapper's filename
+stem followed by `_runs.csv`, **beside that wrapper**. The intended workflow
+is one runner file per TUFLOW project/TCF version, with a unique runner filename
+for each version; therefore each wrapper has its **own** CSV, rather than sharing
+a project-wide or network-wide history. The CSV is an append-only START / FINISH
+/ RESET log of observed process outcomes. No saved run manifest or additional
+session directory is required.
 
 **Resume is the default.** The runner regenerates the full current plan and
 selects its launch queue using the CSV:
@@ -104,20 +107,17 @@ is not detected; use Run all when prior successes should be disregarded.
 The identity uses the **TCF filename** (case-insensitive on Windows) and effective
 event/scenario, engine and model-option switches, excluding runtime GPU placement.
 The TCF directory, Python working directory, executable location and source
-command file are diagnostic CSV fields, **not** part of the completion key. Thus
-moving the model, changing the solver location or switching between a mapped drive
-and its UNC alias does not automatically rerun the same TCF/flags.
-Different TCFs with the same filename **and** flags in one batch would be
-ambiguous and are rejected; give them distinct filenames or use separate wrappers.
-A test-only `-t` run remains distinct from a full simulation.
+command file are diagnostic CSV fields, **not** part of the completion key.
+No mapped-drive/UNC resolution or cross-project path matching is performed for
+Resume. TCF filenames are expected to be unique within the versioned runner's
+project. A test-only `-t` run remains distinct from a full simulation.
 
-The Resume key now uses the path-independent `tuflow-logical-v2` identity.
-Previous pre-release `v1` CSV successes retain their historical rows but **do not**
-match new keys: the first Resume after this change may queue previously completed
-runs again. Review the CSV and the refreshed TXT, and use Run all when a deliberate
-new baseline is appropriate. Once on v2, changing ignored source engine/GPU
-switches does not change the key; changing effective Python `BATCH_COMMANDS`
-switches still can.
+The Resume key uses the path-independent `tuflow-logical-v2` identity.
+Old pre-release `v1` records, if the **same wrapper filename** is reused, remain
+in its CSV but do not match v2: previous successes may be queued again. New
+versioned wrapper filenames naturally have separate CSVs. Changing ignored
+source engine/GPU switches does not change the key; changing effective Python
+`BATCH_COMMANDS` switches still can.
 
 Stop the previous batch before resuming. A missing FINISH row does not establish
 whether an old process is still alive or failed; Resume does not scan to recover

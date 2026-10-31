@@ -24,7 +24,7 @@ The reviewer/integrator owns cross-package checks, current documentation and del
 | Help and export-only | No runtime executable-existence check, GPU allocation or occupancy scan is performed. Plan/configuration checks still apply to export. |
 | Two TCFs with identical flags | Checker and launcher both retain two correctly attributed runs. Interleave TCF A/B/A to exercise regrouping and global index restoration. |
 | Python TCF conflict | Any effective imported mismatch stops the entire plan before validation, export, CSV reset/attempt writes or launches. Report Python path, imported path and file/line. |
-| Optional Python TCF | `None` permits multiple explicit TCFs; supported abbreviated rows use a configured fallback; missing both is a clear error. Equivalent path spellings are compared at their intended bases; on Windows, verified mapped-drive/UNC aliases also match without opening the model. |
+| Optional Python TCF | `None` permits multiple explicit TCFs; supported abbreviated rows use a configured fallback; missing both is a clear error. Resolved paths are compared at their intended bases; no mapped-drive/UNC alias lookup is performed. |
 | Stateful source file | REM/commented rows are ignored; sequential SET/named TCF variables and supported directory changes affect only the appropriate later runs. |
 | Multiple input files | File ordering and per-file provenance are retained, with no implicit variable/directory-state leakage between independent files. |
 | Unsupported or unreadable later input | No earlier valid commands have launched. No partial export is presented as a complete plan. |
@@ -52,7 +52,7 @@ Also verify:
 - One CSV belongs to the supplying wrapper, independent of per-model cwd; repeated invocations append rather than truncate it.
 - START is persisted before launch and FINISH immediately when observed; launch failures and killed/unclosed attempts remain distinguishable.
 - Latest attempt is selected by its attempt identity/order, so an old success cannot hide a newer failed/unclosed attempt and a late finish cannot complete the wrong attempt.
-- Runtime GPU, display index, working directory, executable path and TCF directory do not change run identity. TCF filename and effective simulation flags (including engine/model options) do. Reject ambiguous same-name/flag selections across different TCFs. Repeated equivalent selections are removed before identity construction.
+- Runtime GPU, display index, working directory, executable path and TCF directory do not change run identity. TCF filename and effective simulation flags (including engine/model options) do. Each versioned runner uses its own adjacent CSV and uniquely named TCFs; no network alias matching or same-name collision machinery is needed. Repeated equivalent selections are removed before identity construction.
 - Resume with no log runs the complete plan. Old rows not present in the regenerated plan are retained but not executed.
 - Run all starts a new history cycle in the same file. Interrupting it halfway then using Resume cannot inherit successes from the previous cycle.
 - An interrupted final CSV record cannot manufacture a successful finish or destroy earlier valid history; earlier corruption or unsupported schema is reported clearly.

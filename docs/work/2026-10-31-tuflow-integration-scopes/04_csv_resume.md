@@ -54,11 +54,11 @@ A start without a matching finish is unfinished. Abruptly killing the Python run
 
 Build a deterministic v2 key from the **TCF filename** and effective simulation flags, including meaningful engine/model options but excluding runtime GPU placement. Use the frozen logical plan before scheduling. The executable, working directory, TCF directory, source line, display index and scheduling priority are **not** part of the key.
 
-Normalize Windows TCF filename case and known event/scenario flag mappings. The CSV still records complete TCF, working-directory and executable paths for diagnostics, but Resume does not consult Windows drive mappings or open model files. Reject two different TCFs with the same filename and flags in one batch as ambiguous. Hashing does not require another saved artifact.
+Normalize Windows TCF filename case and known event/scenario flag mappings. Each project/version has a uniquely named runner file and a CSV beside that wrapper. TCF filenames are unique within the run file's scope. The CSV still records full TCF, working-directory and executable paths for diagnostics, but Resume performs no Windows drive mapping, network path comparison or model file inspection. Hashing does not require another saved artifact.
 
 Before creating CSV run identities, discard duplicate effective TCF/flags/model-option selections, retaining the first occurrence and its provenance. Only unique runs are logged, exported and launched. Older history records remain untouched.
 
-Changing solver paths or relocating the same named TCF does not create new work. Changes to model-file contents or the solver executable's content are not detected. Use All when prior completion should be disregarded. The v2 identity does not match older pre-release v1 keys: historical CSV rows remain, but previously successful v1 runs may be queued again after upgrading.
+Changing solver paths or relocating the same named TCF does not create new work within a wrapper's history. Each new TCF version normally uses a new runner filename and starts its own CSV. Changes to model-file or solver executable contents are not detected. Use All when existing completion history should be disregarded. For a reused wrapper, v2 keys do not match pre-release v1 records: those CSV rows remain and v1 successes may be queued again.
 
 ## Resume and All
 

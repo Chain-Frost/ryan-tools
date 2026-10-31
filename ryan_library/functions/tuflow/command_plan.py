@@ -6,12 +6,10 @@ Windows path calculations are lexical and can be tested on other platforms.
 """
 
 import ntpath
-import os
 import posixpath
 import re
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field, replace
-from functools import lru_cache
 from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
 from typing import Literal
 
@@ -327,14 +325,14 @@ def deduplicate_plan(plan: CommandPlan) -> CommandPlan:
     switches and GPUs are not model selections. TCFs, event/scenario values
     and retained -etN switches are relevant. Preserve first source provenance.
     """
-    # Deduplicate true TCF selections, not just filenames. Canonicalize
-    # verified drive/UNC aliases without opening model files or quadratic scans.
+    # Plan deduplication uses the parsed TCF path; Resume identifies runs
+    # separately by filename and effective simulation flags.
     seen: set[tuple[PurePath, tuple[tuple[str, str], ...], tuple[str, ...]]] = set()
     selected: list[PlannedRun] = []
     for run in plan.runs:
         _, engine = partition_model_arguments(run)
         signature = (
-            _mapped_tcf_path(run.tcf),
+            run.tcf,
             tuple(sorted(run.flags.items())),
             tuple(sorted(option.casefold() for option in engine if option.casefold().startswith("-et"))),
         )
@@ -592,56 +590,12 @@ def _configured_tcf(
     return tcf
 
 
-@lru_cache(maxsize=26)
-def _network_drive_target(drive: str) -> str | None:
-    """Look up the mapped Windows drive's UNC root without model-file I/O.
-
-    Mappings belong to the current login session. A missing mapping never
-    establishes equivalence between differently spelled paths.
-    """
-    if os.name != "nt":
-        return None
-    import ctypes
-    from ctypes import wintypes
-
-    try:
-        query = ctypes.WinDLL("mpr.dll").WNetGetConnectionW
-        query.argtypes = (wintypes.LPCWSTR, wintypes.LPWSTR, ctypes.POINTER(wintypes.DWORD))
-        query.restype = wintypes.DWORD
-        size = wintypes.DWORD(260)
-        buffer = ctypes.create_unicode_buffer(size.value)
-        result: int = query(drive, buffer, ctypes.byref(size))
-        if result == 234 and 0 < size.value <= 32768:  # ERROR_MORE_DATA
-            buffer = ctypes.create_unicode_buffer(size.value)
-            result = query(drive, buffer, ctypes.byref(size))
-        if result == 0 and buffer.value.startswith("\\\\"):
-            return buffer.value
-    except (AttributeError, OSError, ValueError):
-        pass
-    return None
-
-
-def _mapped_tcf_path(path: PurePath) -> PurePath:
-    """Canonicalize an actual mapped-drive alias, otherwise keep its path."""
-    if not isinstance(path, PureWindowsPath) or not re.fullmatch(r"[A-Za-z]:", path.drive):
-        return path
-    unc_root = _network_drive_target(path.drive)
-    if unc_root is None:
-        return path
-    return PureWindowsPath(ntpath.normpath(str(PureWindowsPath(unc_root, *path.parts[1:]))))
-
-
-def same_tcf_path(left: PurePath, right: PurePath) -> bool:
-    """Match lexical paths or verified Windows mapped-drive/UNC equivalents."""
-    return left == right or _mapped_tcf_path(left) == _mapped_tcf_path(right)
-
-
 def _require_matching_tcf(runs: list[PlannedRun], expected: PurePath | None) -> None:
     """A configured Python TCF constrains every active imported occurrence."""
     if expected is None:
         return
     for run in runs:
-        if not same_tcf_path(run.tcf, expected):
+        if run.tcf != expected:
             message = (
                 f"{run.source}:{run.line_start}-{run.line_end}: "
                 f"Python TCF {expected} conflicts with effective imported TCF {run.tcf}"

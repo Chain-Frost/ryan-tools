@@ -15,20 +15,13 @@ import subprocess
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from io import FileIO, StringIO
-from pathlib import Path, PurePath, PureWindowsPath
+from pathlib import Path, PureWindowsPath
 from typing import Protocol
 from uuid import uuid4
 
 from loguru import logger
 
-from .command_plan import (
-    CommandPlan,
-    CommandPlanError,
-    PlannedRun,
-    effective_executable,
-    partition_model_arguments,
-    same_tcf_path,
-)
+from .command_plan import CommandPlan, CommandPlanError, PlannedRun, effective_executable, partition_model_arguments
 
 SCHEMA_VERSION = "1"
 COLUMNS = (
@@ -101,10 +94,9 @@ def identify_runs(plan: CommandPlan, *, fallback_executable: Path, base_director
 
     Same-config duplicates get a separate ordinal for that configuration.
     TCF filename and effective flags identify a run; paths, scheduling
-    priority, display index and runtime GPU do not. Ambiguous TCF names fail.
+    priority, display index and runtime GPU do not.
     """
     occurrences: dict[str, int] = {}
-    payload_sources: dict[str, PurePath] = {}
     identities: dict[int, RunIdentity] = {}
     for run in plan.runs:
         if run.index in identities:
@@ -112,23 +104,14 @@ def identify_runs(plan: CommandPlan, *, fallback_executable: Path, base_director
             raise ExecutionLogError(msg)
         executable = effective_executable(run, fallback_executable=fallback_executable, base_directory=base_directory)
         flags, remaining = _canonical_arguments(run)
-        # This wrapper owns its CSV. Drive/UNC spelling, model/solver locations
-        # and child cwd are diagnostics; they do not define the simulation.
+        # The version-specific wrapper owns this CSV. TCF filename and flags
+        # define its runs; the full paths are diagnostic fields only.
         tcf_name = run.tcf.name.casefold() if isinstance(run.tcf, PureWindowsPath) else run.tcf.name
         payload = json.dumps(
             ["tuflow-logical-v2", tcf_name, flags, remaining],
             ensure_ascii=False,
             separators=(",", ":"),
         )
-        previous = payload_sources.get(payload)
-        if previous is not None and not same_tcf_path(previous, run.tcf):
-            msg = (
-                "Ambiguous Resume identity: different TCF paths share the same filename "
-                f"and simulation flags: {previous} and {run.tcf}. "
-                "Use distinct TCF filenames or separate runner CSVs."
-            )
-            raise ExecutionLogError(msg)
-        payload_sources[payload] = run.tcf
         ordinal = occurrences.get(payload, 0) + 1
         occurrences[payload] = ordinal
         key = hashlib.sha256(json.dumps([payload, ordinal], ensure_ascii=False).encode("utf-8")).hexdigest()

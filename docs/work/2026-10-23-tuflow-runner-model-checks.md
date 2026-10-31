@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | Review candidate: complete example regression passes with eight exact pinned-PyTUFLOW allowances; upstream fix tracked in #181 |
 | Owner | ChatGPT |
-| Created / Updated | 2026-10-23 / 2026-10-31 |
+| Created / Updated | 2026-10-23 / 2026-11-01 |
 | Next review | Windows acceptance / 2026-11-07 |
 | Pull request | [ryan-tools #159](https://github.com/Chain-Frost/ryan-tools/pull/159), open and non-draft when checked |
 | Branch / delivery base | `feat/tuflow-runner-model-checks`; regression delivery based on `f780d1d243867f2a867bd2511164ba37ed809f09`; prior cleanup baseline retained below |
@@ -20,12 +20,13 @@
   flags. TCF directory, child cwd and solver executable location remain readable
   diagnostics only. Old pre-release v1 completion keys remain in the CSV but do
   not match new v2 runs; review planned reruns after upgrading.
-- A Windows Python-TCF consistency comparison can recognize the current
-  logon session's mapped drive/UNC alias using `WNetGetConnectionW`. This
-  lookup does not open the TCF or change its execution path. Unknown mappings
-  remain strict mismatches. No network mapping is needed for CSV identity.
-- Reject distinct TCF files with the same name and flags in a single batch,
-  rather than silently sharing a completion record. Preserve engine flag
+- The owner's versioned runner file belongs to one TUFLOW project;
+  each TCF version and runner filename is unique. The adjacent CSV is specific
+  to that runner, not a project-wide lifetime database.
+- Remove `WNetGetConnectionW` mapping lookup, UNC/drive path equivalence
+  matching and cross-directory filename collision machinery. The Python-TCF
+  consistency constraint remains a strict lexical effective-path check;
+  Resume keys use filenames and flags without path lookup. Preserve engine
   distinctions (including test-only `-t`).
 - TXT BAT quoting allows safely quoted CMD metacharacters such as `&`,
   parentheses and pipe in input values, but still rejects unsafe expansion
