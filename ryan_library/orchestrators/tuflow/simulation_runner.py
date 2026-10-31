@@ -455,8 +455,8 @@ def check_plan_only(plan: CommandPlan, *, check_gpkg_layers: bool = True) -> boo
 
     try:
         report = check_command_plan(plan, check_gpkg_layers=check_gpkg_layers)
-    except Exception as exc:
-        logger.exception("Input checking failed or is unavailable: %s", exc)
+    except Exception:
+        logger.exception("Input checking failed or is unavailable.")
         return False
     for issue in report.issues:
         logger.warning(
