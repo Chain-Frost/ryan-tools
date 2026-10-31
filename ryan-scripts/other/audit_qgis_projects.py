@@ -26,15 +26,15 @@ from typing import Literal
 WRAPPER_VERSION = "2026-10-31.3"
 DEFAULT_WORKING_DIR = Path(".")
 DEFAULT_PROJECT: Path | None = None  # None scans all QGS/QGZ under the working directory
-DEFAULT_AUDIT_MODE: Literal["existence", "cold-storage-ping"] = "existence"
+DEFAULT_AUDIT_MODE: Literal["existence"] = "existence"  # Ping requires explicit --mode on each CLI run
 DEFAULT_AUXILIARY_REPORT = False
 DEFAULT_SAMPLE_ROWS = 0
 DEFAULT_OLD_PROJECT_DIRECTORY: Path | None = None
 DEFAULT_REPLACE_ROOT: tuple[Path, Path] | None = None
 DEFAULT_ABSOLUTE_PATHS = False
 DEFAULT_OUTPUT: Path | None = None
-# Writing requires explicit --write. Do not add an enabled-by-default write switch.
-# Cold-storage ping must likewise be explicitly selected because retrieval may cost money.
+# Do not add a DEFAULT_WRITE toggle: only --write authorises creating a project.
+# Do not make the chargeable cold-storage mode an editable automatic default.
 
 import argparse
 import os
@@ -85,13 +85,14 @@ def _report_auxiliary(project_path: Path, sample_rows: int) -> None:
     if summary is None:
         logger.info("No QGD auxiliary storage associated with {}", project_path)
         return
-    logger.info(
-        "QGD {}: {} bytes, {} user tables", summary.location, summary.size_bytes, len(summary.tables)
-    )
+    logger.info("QGD {}: {} bytes, {} user tables", summary.location, summary.size_bytes, len(summary.tables))
     for table in summary.tables:
         logger.info(
             "  Table {} (layer: {}): {} records; fields: {}",
-            table.name, table.layer_name or "unmatched", table.row_count, ", ".join(table.columns),
+            table.name,
+            table.layer_name or "unmatched",
+            table.row_count,
+            ", ".join(table.columns),
         )
         for values in table.sample_rows:
             logger.info("    Sample: {}", values)
@@ -111,8 +112,10 @@ def _repair_project(
 ) -> int:
     try:
         changes = plan_source_path_changes(
-            project, original_project_directory=old_directory,
-            replace_root=roots, relative=not absolute_paths,
+            project,
+            original_project_directory=old_directory,
+            replace_root=roots,
+            relative=not absolute_paths,
         )
         for change in changes:
             logger.info("Layer {}: {} -> {}", change.name or change.layer_id, change.old_uri, change.new_uri)
@@ -159,7 +162,12 @@ def _audit_projects(projects: list[Path], *, mode: QgisAuditMode, auxiliary_repo
             logger.error("Could not inspect {}: {}", project, error)
             project_errors += 1
 
-    logger.info("Checked {} distinct local data files; failed: {}; project errors: {}", len(checked), len(failed), project_errors)
+    logger.info(
+        "Checked {} distinct local data files; failed: {}; project errors: {}",
+        len(checked),
+        len(failed),
+        project_errors,
+    )
     if not failed and not project_errors:
         logger.success("All inspected QGIS file sources passed")
     return 1 if failed or project_errors else 0
@@ -213,11 +221,21 @@ def main(
         return 0
     if repair:
         return _repair_project(
-            projects[0], old_directory=old_directory, roots=roots,
-            absolute_paths=absolute_paths, output=output, write=write,
-            auxiliary_report=auxiliary_report, sample_rows=sample_rows,
+            projects[0],
+            old_directory=old_directory,
+            roots=roots,
+            absolute_paths=absolute_paths,
+            output=output,
+            write=write,
+            auxiliary_report=auxiliary_report,
+            sample_rows=sample_rows,
         )
-    return _audit_projects(projects, mode=mode, auxiliary_report=auxiliary_report, sample_rows=sample_rows)
+    return _audit_projects(
+        projects,
+        mode=mode,
+        auxiliary_report=auxiliary_report,
+        sample_rows=sample_rows,
+    )
 
 
 
@@ -226,13 +244,14 @@ def _parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Audit and repair QGIS source paths without loading QGIS or referenced geospatial data."
     )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {WRAPPER_VERSION}")
     add_execution_cli_arguments(parser)
     parser.add_argument("--project", type=Path, help="One QGS/QGZ project (required for path repair).")
     parser.add_argument(
         "--mode",
         choices=("existence", "cold-storage-ping"),
         default=None,
-        help="existence checks metadata only; cold-storage-ping reads one byte per file (may incur charges).",
+        help="existence (default) checks metadata; cold-storage-ping explicitly reads one byte (may incur charges).",
     )
     parser.add_argument(
         "--auxiliary-report",
