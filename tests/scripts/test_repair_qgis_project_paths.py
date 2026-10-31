@@ -77,7 +77,9 @@ def test_repair_cli_exposes_only_repair_options() -> None:
     assert args.write is None
     assert args.console_log_level is None
     assert args.no_pause is None
-    explicit = parse_args(["--project", "model.qgs", "--replace-root", "old", "new", "--output", "fixed.qgs", "--write"])
+    explicit = parse_args(
+        ["--project", "model.qgs", "--replace-root", "old", "new", "--output", "fixed.qgs", "--write"]
+    )
     assert explicit.project == Path("model.qgs")
     assert explicit.replace_root == [Path("old"), Path("new")]
     assert explicit.output == Path("fixed.qgs")
@@ -179,9 +181,7 @@ def test_preview_does_not_overwrite_existing_output(tmp_path: Path, monkeypatch:
     assert output.read_bytes() == b"existing-output-must-survive"
 
 
-def test_copied_repair_wrapper_defaults_and_no_write_override(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_copied_repair_wrapper_defaults_and_no_write_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     project = tmp_path / "model.qgs"
     output = tmp_path / "fixed.qgs"
     _write_project(project, "roads.gpkg|layername=roads")
