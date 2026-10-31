@@ -267,6 +267,8 @@ def _copy_qgz_with_xml(project_path: Path, output: ZipFile, edited_xml: bytes) -
         for info in original.infolist():
             if info.filename == xml_member:
                 output.writestr(info, edited_xml)
+            elif info.is_dir():
+                output.writestr(info, b"")
             else:
                 with original.open(info) as src, output.open(info, "w") as dest:
                     shutil.copyfileobj(src, dest)
@@ -306,6 +308,14 @@ def write_project_path_changes(
     if old_qgd is not None and old_qgd.exists() and (new_qgd.exists() or new_qgd.is_symlink()):
         message = f"Auxiliary output already exists: {new_qgd}"
         raise FileExistsError(message)
+
+    if old_qgd is not None and old_qgd.exists():
+        # A live QGIS/SQLite connection may keep changes in a WAL file. Copying
+        # only the main database could silently omit those auxiliary edits.
+        wal = Path(f"{old_qgd}-wal")
+        if wal.exists():
+            message = f"Cannot safely copy auxiliary SQLite storage while a WAL exists: {wal}"
+            raise ValueError(message)
 
     edited_xml = _edited_project_xml(project_path, changes)
     created_project: tuple[int, int] | None = None
