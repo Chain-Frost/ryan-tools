@@ -2,8 +2,8 @@
 
 **31 October 2026 — scope 02 draft:** [PR #170](https://github.com/Chain-Frost/ryan-tools/pull/170)
 is a task branch stacked on #159. It adds strict Python TCF consistency, complete
-multi-file planning, immutable source-aware directory requirements and group-local
-result mapping. This is a draft until the #159 integrator combines scope 01's
+multi-file planning, immutable source-aware directory requirements and
+source-provenance mapping. Scope 01 owns upstream zero-based index translation. This is a draft until the #159 integrator combines scope 01's
 public PyTUFLOW validation and scope 03's runner/export work; do not treat its
 test results as acceptance for the eventual integrated runner.
 
