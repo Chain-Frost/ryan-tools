@@ -14,8 +14,9 @@ def test_real_individual_preflight_checks_multiple_tcf_groups(tmp_path: Path) ->
     report = check_command_plan(read_command_plan(source, initial_directory=tmp_path))
     assert report.passed, report.issues
     assert report.groups_checked == 2
-    assert report.completed_runs == 3
-    assert [run.index for run in report.plan.runs] == [1, 2, 3]
+    assert report.completed_runs == 2
+    assert report.plan.duplicates_dropped == 1
+    assert [run.index for run in report.plan.runs] == [1, 2]
 
 
 def test_real_missing_tcf_does_not_hide_other_runs(tmp_path: Path) -> None:
