@@ -66,7 +66,8 @@ class QgisSourceChange:
 def _qgs_member(archive: ZipFile) -> str:
     members = [info.filename for info in archive.infolist() if info.filename.lower().endswith(".qgs")]
     if len(members) != 1:
-        raise ValueError(f"Expected exactly one QGS document in archive, found {len(members)}")
+        message = f"Expected exactly one QGS document in archive, found {len(members)}"
+        raise ValueError(message)
     return members[0]
 
 
@@ -81,10 +82,12 @@ def read_project_xml(project_path: Path) -> bytes:
         with project_path.open("rb") as project:
             document = project.read(_MAX_PROJECT_XML_BYTES + 1)
     else:
-        raise ValueError(f"Not a QGS/QGZ project: {project_path}")
+        message = f"Not a QGS/QGZ project: {project_path}"
+        raise ValueError(message)
 
     if len(document) > _MAX_PROJECT_XML_BYTES:
-        raise ValueError(f"QGIS project XML exceeds {_MAX_PROJECT_XML_BYTES} bytes: {project_path}")
+        message = f"QGIS project XML exceeds {_MAX_PROJECT_XML_BYTES} bytes: {project_path}"
+        raise ValueError(message)
     return document
 
 
@@ -247,10 +250,12 @@ def _edited_project_xml(project_path: Path, changes: list[QgisSourceChange]) -> 
     layers = root.findall("./projectlayers/maplayer")
     for change in changes:
         if not 0 <= change.index < len(layers):
-            raise ValueError(f"Layer position no longer present: {change.index}")
+            message = f"Layer position no longer present: {change.index}"
+            raise ValueError(message)
         elem = layers[change.index].find("datasource")
         if elem is None or (elem.text or "") != change.old_uri:
-            raise ValueError(f"Layer source changed since preview: {change.name}")
+            message = f"Layer source changed since preview: {change.name}"
+            raise ValueError(message)
         elem.text = change.new_uri
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
 
@@ -288,16 +293,20 @@ def write_project_path_changes(
     removed only when it still has the identity created by this operation.
     """
     if not changes:
-        raise ValueError("No source changes to write")
+        message = "No source changes to write"
+        raise ValueError(message)
     if project_path.suffix.lower() != output_path.suffix.lower():
-        raise ValueError("Output must use the same QGS/QGZ format as the input")
+        message = "Output must use the same QGS/QGZ format as the input"
+        raise ValueError(message)
     if project_path.absolute() == output_path.absolute() or output_path.exists() or output_path.is_symlink():
-        raise FileExistsError(f"Output already exists or would replace the input: {output_path}")
+        message = f"Output already exists or would replace the input: {output_path}"
+        raise FileExistsError(message)
 
     old_qgd = project_path.with_suffix(".qgd") if project_path.suffix.lower() == ".qgs" else None
     new_qgd = output_path.with_suffix(".qgd")
     if old_qgd is not None and old_qgd.exists() and (new_qgd.exists() or new_qgd.is_symlink()):
-        raise FileExistsError(f"Auxiliary output already exists: {new_qgd}")
+        message = f"Auxiliary output already exists: {new_qgd}"
+        raise FileExistsError(message)
 
     edited_xml = _edited_project_xml(project_path, changes)
     created_project: tuple[int, int] | None = None
