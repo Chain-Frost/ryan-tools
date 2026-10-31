@@ -169,7 +169,7 @@ def probe_local_file(path: Path, *, read_one_byte: bool = True) -> tuple[bool, s
     """Return success and diagnostic; a one-byte open requests cold-storage hydration."""
     try:
         if read_one_byte:
-            with path.open("rb") as stream:
+            with path.open("rb", buffering=0) as stream:
                 data = stream.read(1)
             return True, "read 1 byte" if data else "opened empty file"
         if path.is_file():
