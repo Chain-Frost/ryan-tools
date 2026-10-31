@@ -115,75 +115,46 @@ def _report_auxiliary(project_path: Path, sample_rows: int) -> None:
             logger.info("    Sample: {}", values)
 
 
-def main(
+
+def _repair_project(
+    project: Path,
     *,
-    working_directory: Path | None = None,
-    project_path: Path | None = None,
-    exists_only: bool = False,
-    auxiliary_report: bool = False,
-    sample_rows: int = 0,
-    old_project_directory: Path | None = None,
-    replace_root: tuple[Path, Path] | None = None,
-    absolute_paths: bool = False,
-    output_path: Path | None = None,
-    write: bool = False,
+    old_directory: Path | None,
+    roots: tuple[Path, Path] | None,
+    absolute_paths: bool,
+    output: Path | None,
+    write: bool,
+    auxiliary_report: bool,
+    sample_rows: int,
 ) -> int:
-    """Audit or plan repairs; return 0 on success, 1 for invalid or inaccessible inputs."""
-    # Interpret configured relative paths before the wrapper changes directory.
-    directory = (working_directory if working_directory is not None else DEFAULT_WORKING_DIR).absolute()
-    selected = project_path.absolute() if project_path is not None else None
-    output = output_path.absolute() if output_path is not None else None
-    old_directory = old_project_directory.absolute() if old_project_directory is not None else None
-    roots = tuple(path.absolute() for path in replace_root) if replace_root is not None else None
-
-    if not 0 <= sample_rows <= 5:
-        logger.error("sample_rows must be 0 through 5")
+    try:
+        changes = plan_source_path_changes(
+            project, original_project_directory=old_directory,
+            replace_root=roots, relative=not absolute_paths,
+        )
+        for change in changes:
+            logger.info("Layer {}: {} -> {}", change.name or change.layer_id, change.old_uri, change.new_uri)
+        logger.info("Planned {} path updates for {}", len(changes), project)
+        if write and changes:
+            if output is None:
+                logger.error("An output path is required for --write")
+                return 1
+            write_project_path_changes(project, output, changes)
+            logger.success("Wrote repaired project copy to {}", output)
+        if write and not changes:
+            logger.warning("No changes to write")
+        if auxiliary_report:
+            _report_auxiliary(project, sample_rows)
+    except (OSError, ValueError, BadZipFile, LargeZipFile, ET.ParseError, sqlite3.DatabaseError) as error:
+        logger.error("Could not repair {}: {}", project, error)
         return 1
-    if sample_rows and not auxiliary_report:
-        logger.error("--sample-rows requires --auxiliary-report")
-        return 1
-    repair = old_directory is not None or roots is not None or absolute_paths or output is not None or write
-    if repair and (selected is None or (write and output is None)):
-        logger.error("Path repair requires --project; --write also requires --output")
-        return 1
-    if not change_working_directory(target_dir=directory):
-        return 1
+    return 0
 
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
-    projects = [selected] if selected is not None else find_qgis_projects(directory)
-    if not projects:
-        logger.warning("No QGS or QGZ project files found in {}", directory)
-        return 0
 
-    if repair:
-        project = projects[0]
-        try:
-            changes = plan_source_path_changes(
-                project,
-                original_project_directory=old_directory,
-                replace_root=roots,
-                relative=not absolute_paths,
-            )
-            for change in changes:
-                logger.info("Layer {}: {} -> {}", change.name or change.layer_id, change.old_uri, change.new_uri)
-            logger.info("Planned {} path updates for {}", len(changes), project)
-            if write:
-                if not changes:
-                    logger.warning("No changes to write")
-                    return 0
-                assert output is not None
-                write_project_path_changes(project, output, changes)
-                logger.success("Wrote repaired project copy to {}", output)
-            if auxiliary_report:
-                _report_auxiliary(project, sample_rows)
-            return 0
-        except (OSError, ValueError, BadZipFile, LargeZipFile, ET.ParseError, sqlite3.DatabaseError) as error:
-            logger.error("Could not repair {}: {}", project, error)
-            return 1
-
+def _audit_projects(projects: list[Path], *, exists_only: bool, auxiliary_report: bool, sample_rows: int) -> int:
     checked: set[Path] = set()
     failed: set[Path] = set()
-    parse_failures = 0
+    project_errors = 0
     for project in projects:
         try:
             for layer in project_layer_sources(project):
@@ -201,12 +172,57 @@ def main(
                 _report_auxiliary(project, sample_rows)
         except (OSError, ValueError, BadZipFile, LargeZipFile, ET.ParseError, sqlite3.DatabaseError) as error:
             logger.error("Could not inspect {}: {}", project, error)
-            parse_failures += 1
+            project_errors += 1
 
-    logger.info("Checked {} distinct local data files; failed: {}; project errors: {}", len(checked), len(failed), parse_failures)
-    if not failed and not parse_failures:
+    logger.info("Checked {} distinct local data files; failed: {}; project errors: {}", len(checked), len(failed), project_errors)
+    if not failed and not project_errors:
         logger.success("All inspected QGIS file sources passed")
-    return 1 if failed or parse_failures else 0
+    return 1 if failed or project_errors else 0
+
+
+def main(
+    *,
+    working_directory: Path | None = None,
+    project_path: Path | None = None,
+    exists_only: bool = False,
+    auxiliary_report: bool = False,
+    sample_rows: int = 0,
+    old_project_directory: Path | None = None,
+    replace_root: tuple[Path, Path] | None = None,
+    absolute_paths: bool = False,
+    output_path: Path | None = None,
+    write: bool = False,
+) -> int:
+    """Audit or plan repairs; return 0 on success, 1 for invalid or inaccessible inputs."""
+    directory = (working_directory if working_directory is not None else DEFAULT_WORKING_DIR).absolute()
+    selected = (directory / project_path).absolute() if project_path is not None else None
+    output = (directory / output_path).absolute() if output_path is not None else None
+    old_directory = old_project_directory.absolute() if old_project_directory is not None else None
+    roots = (replace_root[0].absolute(), replace_root[1].absolute()) if replace_root is not None else None
+
+    if not 0 <= sample_rows <= 5 or (sample_rows and not auxiliary_report):
+        logger.error("Valid --sample-rows (1-5) requires --auxiliary-report")
+        return 1
+
+    repair = old_directory is not None or roots is not None or absolute_paths or output is not None or write
+    if repair and (selected is None or (write and output is None)):
+        logger.error("Path repair requires --project; --write also requires --output")
+        return 1
+    if not change_working_directory(target_dir=directory):
+        return 1
+
+    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    projects = [selected] if selected is not None else find_qgis_projects(directory)
+    if not projects:
+        logger.warning("No QGS or QGZ project files found in {}", directory)
+        return 0
+    if repair:
+        return _repair_project(
+            projects[0], old_directory=old_directory, roots=roots,
+            absolute_paths=absolute_paths, output=output, write=write,
+            auxiliary_report=auxiliary_report, sample_rows=sample_rows,
+        )
+    return _audit_projects(projects, exists_only=exists_only, auxiliary_report=auxiliary_report, sample_rows=sample_rows)
 
 
 if __name__ == "__main__":
