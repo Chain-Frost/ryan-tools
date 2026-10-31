@@ -752,11 +752,8 @@ def test_windows_real_python_child_exit_and_callbacks(
     assert result.successful is (child_exit_code == 0)
     assert result.exit_code == (0 if child_exit_code == 0 else 1)
 
-
 @pytest.mark.skipif(sys.platform != "win32", reason="Native Windows subprocess lifecycle smoke")
-def test_windows_real_python_child_is_terminated_on_interrupt(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_windows_real_python_child_is_terminated_on_interrupt(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Reap a real sleeping Python child; record no unobserved success."""
     config = settings(tmp_path, run_variables={"e1": ("A",)}, minimize_on_launch=False)
     plan = runner.prepare_plan(config)
