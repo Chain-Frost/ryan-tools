@@ -279,9 +279,7 @@ def test_imported_bare_and_nonterminal_tcf_rows_have_stable_csv_identity(tmp_pat
 
     source.write_text("tuflow.exe model.tcf -e1 A\n", encoding="utf-8")
     nonterminal = read_command_plan(source, initial_directory=tmp_path)
-    nonterminal_key = identify_runs(
-        nonterminal, fallback_executable=fallback, base_directory=tmp_path
-    )[1].key
+    nonterminal_key = identify_runs(nonterminal, fallback_executable=fallback, base_directory=tmp_path)[1].key
 
     source.write_text("tuflow.exe -e1 A model.tcf\n", encoding="utf-8")
     terminal = read_command_plan(source, initial_directory=tmp_path)
@@ -301,6 +299,11 @@ def test_imported_bare_and_nonterminal_tcf_rows_have_stable_csv_identity(tmp_pat
             Observed(bare.runs[0], 0),
         )
     with CsvExecutionLog(tmp_path / "batch_runs.csv") as history:
-        assert select_pending(
-            bare, identify_runs(bare, fallback_executable=fallback, base_directory=tmp_path), history.successful_keys()
-        ).runs == ()
+        assert (
+            select_pending(
+                bare,
+                identify_runs(bare, fallback_executable=fallback, base_directory=tmp_path),
+                history.successful_keys(),
+            ).runs
+            == ()
+        )
