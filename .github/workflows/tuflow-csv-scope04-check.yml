@@ -36,6 +36,11 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.14"
+      - name: Initialise required test-data fixtures only (never unsorted)
+        shell: pwsh
+        run: |
+          git submodule update --init tests/test_data
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Install focused test tools
         run: python -m pip install pytest ruff==0.16.6 pyright psutil rich build 'setuptools>=69' wheel
       - name: Ruff lint and format
