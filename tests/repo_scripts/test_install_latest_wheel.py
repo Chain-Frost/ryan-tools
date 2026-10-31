@@ -12,7 +12,8 @@ import pytest
 def _installer() -> ModuleType:
     path = Path(__file__).absolute().parents[2] / "repo-scripts" / "install_latest_wheel.py"
     spec = importlib.util.spec_from_file_location("install_latest_wheel_for_test", path)
-    assert spec is not None and spec.loader is not None
+    assert spec is not None
+    assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -26,7 +27,8 @@ def test_normal_commands_pin_accepted_parser_and_preserve_gis_wheels() -> None:
     assert commands[0] == installer._gis_dependency_command()
     assert installer.GIS_WHEEL_INDEX == "https://gisidx.github.io/gwi"
     assert commands[1][-1] == pin
-    assert "--force-reinstall" in commands[1] and "--no-deps" in commands[1]
+    assert "--force-reinstall" in commands[1]
+    assert "--no-deps" in commands[1]
     assert commands[-1][-2:] == [f"{wheel}[mcp]", pin]
     assert "--only-binary=fiona" in commands[-1]
     assert "--only-binary=rasterio" in commands[-1]
@@ -69,7 +71,7 @@ def test_force_reinstall_dry_run_skips_false_verification(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     installer = _installer()
-    monkeypatch.setattr(installer, "_latest_wheel", lambda dist_dir: tmp_path / "ryan_tools.whl")
+    monkeypatch.setattr(installer, "_latest_wheel", lambda _dist_dir: tmp_path / "ryan_tools.whl")
     assert installer.main(["--dry-run", "--force-reinstall", "--skip-qgis-mcp"]) == 0
     printed = capsys.readouterr().out
     assert "--no-deps" in printed
