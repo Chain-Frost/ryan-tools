@@ -1,5 +1,11 @@
 # Scope 06 — Integration, acceptance and handoff
 
+**Superseding integration decision (31 October 2026):** Imported BAT/TXT is
+model-selection data only and is never executed. Python controls actual
+executable and launch cwd. Keep the first distinct TCF/flags/model-option
+selection and discard later duplicates; historical instructions below
+requiring duplicate preservation or source execution context are superseded.
+
 Status: prepared for delegation on 2026-10-31. This is a verification scope, not evidence that the changes have been implemented or accepted. Read [the scope index](00_scope_index.md) and the candidate repository's current instructions.
 
 ## Objective and boundary
@@ -22,9 +28,9 @@ The reviewer/integrator owns cross-package checks, current documentation and del
 | Stateful source file | REM/commented rows are ignored; sequential SET/named TCF variables and supported directory changes affect only the appropriate later runs. |
 | Multiple input files | File ordering and per-file provenance are retained, with no implicit variable/directory-state leakage between independent files. |
 | Unsupported or unreadable later input | No earlier valid commands have launched. No partial export is presented as a complete plan. |
-| Explicit defaults and duplicates | A full TUFLOW command without scenario/event flags remains a run; intentionally repeated commands remain separate occurrences. |
-| Launch fidelity | Fake processes capture the exact per-run argument list and cwd, including spaces, mapped-drive and UNC paths. Parent cwd is not changed between concurrent children. |
-| Editable TXT export | Export and reparse produce equivalent effective runs and duplicate counts. Python engine settings control BCMD; imported batch/GPU switches do not. Refresh the fixed wrapper-stem TXT, including all-complete Resume; no timestamps, backups or BAT/CMD outputs. Shared EXE/BCMD/TCF variables remain editable; no predicted GPU allocation is embedded. |
+| Explicit defaults and duplicates | A full TUFLOW command without scenario/event flags remains a run; later equivalent selections are discarded before validation/export/launch. |
+| Launch fidelity | Fake processes capture Python-configured executable, child cwd and exact model argument lists. No imported executable, CD or START setting controls execution; source TCF paths retain correct resolution. |
+| Editable TXT export | Export and reparse produce equivalent unique effective runs and report duplicate removals. Python engine settings control BCMD; imported batch/GPU switches do not. Refresh the fixed wrapper-stem TXT, including all-complete Resume; no timestamps, backups or BAT/CMD outputs. Shared EXE/BCMD/TCF variables remain editable; no predicted GPU allocation is embedded. |
 | Export replacement | Rendering failure preserves prior output; imported/model/wrapper/history paths and aliases are protected. A temporary replacement file is cleaned after success or failure. |
 | Sparse Resume preflight | Filter only the launch queue, retain full plan/history and original positive IDs, and validate all pending runs even when their IDs have gaps. |
 | Inherited BAT environment | Checker and runner capture equivalent environment state; SET/directory changes in one file do not leak into another. |
@@ -46,7 +52,7 @@ Also verify:
 - One CSV belongs to the supplying wrapper, independent of per-model cwd; repeated invocations append rather than truncate it.
 - START is persisted before launch and FINISH immediately when observed; launch failures and killed/unclosed attempts remain distinguishable.
 - Latest attempt is selected by its attempt identity/order, so an old success cannot hide a newer failed/unclosed attempt and a late finish cannot complete the wrong attempt.
-- Runtime GPU, display index and unrelated command reordering do not change run identity. Different TCF/cwd/relevant arguments/executable do. Intentional duplicate occurrences remain separately trackable.
+- Runtime GPU, display index and unrelated command reordering do not change run identity. Different TCF/cwd/relevant arguments/executable do. Repeated selections are removed before identity construction.
 - Resume with no log runs the complete plan. Old rows not present in the regenerated plan are retained but not executed.
 - Run all starts a new history cycle in the same file. Interrupting it halfway then using Resume cannot inherit successes from the previous cycle.
 - An interrupted final CSV record cannot manufacture a successful finish or destroy earlier valid history; earlier corruption or unsupported schema is reported clearly.

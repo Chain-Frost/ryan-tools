@@ -1,5 +1,11 @@
 # Agent 04 — persistent CSV log and simple batch continuation
 
+**Superseding integration decision (31 October 2026):** Imported BAT/TXT is
+model-selection data only and is never executed. Python controls actual
+executable and launch cwd. Keep the first distinct TCF/flags/model-option
+selection and discard later duplicates; historical instructions below
+requiring duplicate preservation or source execution context are superseded.
+
 **Status:** Implemented as a distinct component and integrated with the runner in #159. See the existing integration work record for corrections and current acceptance; no merge or release is included.
 
 [Scope index and shared decisions](00_scope_index.md) · [Parent runner scope](03_runner_wrappers_export.md)
@@ -50,7 +56,7 @@ Build a deterministic key from the effective TCF, working directory, executable 
 
 Use consistent lexical Windows path normalization without resolving network aliases or opening model files. Preserve meaningful argument values and ordering; normalize known event/scenario flag mappings so merely changing their presentation order does not create different simulations. Frame hashed values unambiguously. Internal serialization for hashing does not require another saved artifact.
 
-Preserve deliberate duplicate runs by adding an occurrence discriminator within the regenerated plan. Two identical requested occurrences are separate planned work: completion of occurrence one cannot skip occurrence two. Do not restore the old accidental deduplication behavior.
+Before creating CSV run identities, discard duplicate effective TCF/flags/model-option selections, retaining the first occurrence and its provenance. Only unique runs are logged, exported and launched. Older history records remain untouched.
 
 The executable path participates in identity, so changing that path creates new work. Replacing a binary at the same path is not detected. Changing model-file contents without changing the configured run is also not detected. This scope intentionally performs no content hashing or freshness scans; use All when previous completion should be disregarded.
 

@@ -1,5 +1,11 @@
 # 02 — Shared BAT/text command planning and multi-TCF support
 
+**Superseding integration decision (31 October 2026):** Imported BAT/TXT is
+model-selection data only and is never executed. Python controls actual
+executable and launch cwd. Keep the first distinct TCF/flags/model-option
+selection and discard later duplicates; historical instructions below
+requiring duplicate preservation or source execution context are superseded.
+
 ## Status, baseline and goal
 
 This is an implementation handoff based on source review; implementation is pending. Read [00_scope_index.md](00_scope_index.md) for shared decisions and coordination. The code-review baseline is PR159 commit `74dc7b2b89cf5061019285e90be942d2f065712c`; the latest rechecked PR head is `c1e35230d16ef014305ba0c196e68768dd4eb7cd`, with relevant planner/runner code unchanged. Re-read the live head and repository instructions before implementation. The sole PyTUFLOW target is PR17 commit `05e35476c02d6d8ed17c83caf1cb0d185ce51d1b`.
@@ -44,11 +50,11 @@ Document the treatment of customary `START /WAIT` and priority syntax with scope
 
 Each immutable planned occurrence retains its source file, source lines, global position, effective absolute TCF, effective launch directory, explicit executable or fallback requirement, event/scenario flags, and complete supported arguments. Preserve argument values and explicit engine switches. Scope 03 materializes the final executable and applies the agreed GPU/launch policy; this reader does not inspect GPUs or schedule processes.
 
-Preserve all imported occurrences, including exact duplicates. Do not deduplicate by flags, command text or TCF. Read multiple input files in their configured order, resetting assignment/directory state for each independent file. Retain the correct source for directory requirements as well as run rows. Parse and check configuration consistency across the complete input set before publishing exports, validating models or launching any run. Read/decode failures must stop preparation, not silently drop one file.
+Keep the first equivalent TCF/event/scenario/retained-model-option selection and discard later duplicates, even across independent source files. Read multiple input files in their configured order, resetting assignment/directory state for each independent file. Retain the correct source for directory requirements as well as run rows. Parse and check configuration consistency across the complete input set before publishing exports, validating models or launching any run. Read/decode failures must stop preparation, not silently drop one file.
 
-Keep model checking grouped by effective TCF and launch directory. Scope 01 supplies the sole public PR17 validation integration. Restore group-local upstream result indices to original global occurrences, including duplicates and interleaved models. A failed/incomplete group must yield explicit affected-run findings. No validation step changes process cwd. The standalone checker remains strict; ordinary runner input findings remain advisory. Planning/configuration errors are preparation errors in both tools.
+Keep model checking grouped by effective TCF and launch directory. Scope 01 supplies the sole public PR17 validation integration. Restore group-local upstream result indices to global unique selections, including interleaved models. A failed/incomplete group must yield explicit affected-run findings. No validation step changes process cwd. The standalone checker remains strict; ordinary runner input findings remain advisory. Planning/configuration errors are preparation errors in both tools.
 
-Scope 03 converts parameter-product inputs into the same plan contract and launches with per-run `cwd=`. Generated/exported BAT commands must roundtrip through this reader with equivalent effective TCF, executable, cwd, arguments, order and occurrence count. Avoid global `SET TCF` string replacement that changes imported models.
+Scope 03 converts parameter-product inputs into the same plan contract; Python sets the single configured child working directory. Generated/exported BAT commands must roundtrip through this reader with equivalent effective TCF, executable, cwd, arguments, order and occurrence count. Avoid global `SET TCF` string replacement that changes imported models.
 
 ## Ownership and coordination
 

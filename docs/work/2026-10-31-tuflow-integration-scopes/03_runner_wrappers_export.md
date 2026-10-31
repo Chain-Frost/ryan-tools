@@ -1,5 +1,11 @@
 # Agent 03 — runner, wrappers and command export
 
+**Superseding integration decision (31 October 2026):** Imported BAT/TXT is
+model-selection data only and is never executed. Python controls actual
+executable and launch cwd. Keep the first distinct TCF/flags/model-option
+selection and discard later duplicates; historical instructions below
+requiring duplicate preservation or source execution context are superseded.
+
 **Status:** Agreed implementation scope, prepared for delegation. This document records planned work; its preparation has not changed runtime code. Implement when assigned, coordinating delivery with the integrator. No merge or release is included.
 
 [Scope index and shared decisions](00_scope_index.md) · [Stacked CSV resume scope](04_csv_resume.md)
@@ -36,7 +42,7 @@ Use the maintained serial Loguru setup and shared dashboard renderer. Do not exp
 
 ## One plan and the TCF consistency rule
 
-Adapt parameter-product generation and supported BAT/text import to the common immutable plan. Preserve effective executable, model arguments, TCF, working directory, source location, order and deliberate duplicates. Runtime GPU assignment and process fields must not mutate the logical plan.
+Adapt parameter-product generation and supported BAT/text import to one unique model-selection plan. Preserve effective TCF, event/scenario values, relevant model arguments and first source location. Python supplies the launch executable and directory; drop repeated selections. Runtime GPU assignment and process fields must not mutate the logical plan.
 
 The Python TCF setting has an explicit consistency contract:
 
@@ -48,11 +54,11 @@ The Python TCF setting has an explicit consistency contract:
 
 Compare lexically normalized effective paths using the shared Windows path rules. The Python TCF is relative to the wrapper's explicitly selected working directory, typically the wrapper directory; do not hardwire its parent as the base. Imported TCFs use their effective command directories. Do not use filesystem resolution to make contradictory source settings appear equivalent.
 
-Each child launches with its planned `cwd`. A process-global directory change cannot represent several simultaneous run directories. Group advisory/preflight requests by effective TCF and working directory while preserving original run identities and all findings.
+Each child launches using Python's configured `WORKING_DIR`. BAT/TXT source directory changes are only parsed to resolve source TCF references, never executed or replayed. Group advisory/preflight requests by effective TCF and working directory while preserving original run identities and all findings.
 
 ## Execution policy for imported commands
 
-Runner settings own common engine switches through BATCH_COMMANDS, GPU slots, concurrency and process priority. Drop source batch engine/GPU switches when preparing imported runs; apply the Python settings before identity, export and launch. Preserve event/scenario values, other supported model switches such as -etN, effective TCFs and working directories. Treat this policy as an explicit import contract, not an incidental result of discarded tokens.
+Runner settings own common engine switches through BATCH_COMMANDS, GPU slots, concurrency and process priority. Drop source batch engine/GPU switches when preparing imported runs; apply the Python settings before identity, export and launch. Preserve event/scenario values, other supported model switches such as -etN and effective source TCFs; ignore source executable and launch directory. Treat this policy as an explicit import contract, not an incidental result of discarded tokens.
 
 The bounded BAT reader is not `cmd.exe`. Do not promise arbitrary `START` semantics. Inventory the supported modifiers and diagnose execution modifiers that cannot be represented. Explain any source scheduling/GPU/priority settings superseded by the runner policy; do not silently claim faithful replay of those settings. Preserve accepted model switches and reject unsupported material before producing a partial executable plan.
 
