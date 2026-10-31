@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+from unittest.mock import mock_open, patch
 from pathlib import Path
 from xml.etree import ElementTree as ET
 from zipfile import ZipFile
@@ -66,14 +67,39 @@ def test_layer_sources_are_not_deduplicated_and_do_not_read_linked_files(tmp_pat
     assert read_project_xml(project) == before
 
 
-def test_one_byte_probe_and_exists_only_are_non_mutating(tmp_path: Path) -> None:
+def test_existence_mode_never_opens_source_file(tmp_path: Path) -> None:
     source = tmp_path / "cold data.tif"
     source.write_bytes(b"0123456789")
     before = source.read_bytes()
-    assert probe_local_file(source) == (True, "read 1 byte")
-    assert probe_local_file(source, read_one_byte=False) == (True, "file exists")
-    assert probe_local_file(tmp_path / "missing.tif")[0] is False
+    with patch.object(Path, "open", side_effect=AssertionError("Existence must not open file contents")) as open_file:
+        assert probe_local_file(source) == (True, "file exists (no content read)")
+        assert probe_local_file(source, mode="existence") == (True, "file exists (no content read)")
+        open_file.assert_not_called()
     assert source.read_bytes() == before
+
+
+def test_cold_storage_ping_reads_exactly_one_byte_only_when_requested(tmp_path: Path) -> None:
+    source = tmp_path / "cold data.tif"
+    source.write_bytes(b"0123456789")
+    before = source.read_bytes()
+    mocked_open = mock_open(read_data=b"0123456789")
+    with patch.object(Path, "open", mocked_open):
+        assert probe_local_file(source, mode="cold-storage-ping") == (True, "read 1 byte")
+    mocked_open.assert_called_once_with("rb", buffering=0)
+    mocked_open.return_value.read.assert_called_once_with(1)
+    assert source.read_bytes() == before
+
+
+def test_missing_or_empty_file_is_not_successful_cold_storage_ping(tmp_path: Path) -> None:
+    assert probe_local_file(tmp_path / "missing.tif", mode="existence")[0] is False
+    assert probe_local_file(tmp_path / "missing.tif", mode="cold-storage-ping")[0] is False
+    empty = tmp_path / "empty.tif"
+    empty.touch()
+    assert probe_local_file(empty, mode="existence")[0] is True
+    assert probe_local_file(empty, mode="cold-storage-ping") == (
+        False,
+        "file is empty; no byte could be read",
+    )
 
 
 def test_rebase_moved_project_without_touching_source_data(tmp_path: Path) -> None:
