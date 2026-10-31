@@ -50,6 +50,8 @@ relative subfolder names; full paths are still used for file operations.
 Green denotes a successful layer rename, yellow a skipped file (already
 correct or multiple layers), and red a failed inspection or rename.
 
+[`raster_processing/create_hourly_dt_hotspots.py`](raster_processing/create_hourly_dt_hotspots.py) analyses hourly HPC dt/Nu/Nc/Nd GeoTIFF quartets or, optionally, temporal XMDF mesh-vertex control-number results. Its [interpretation and safety guide](raster_processing/HOURLY_DT_HOTSPOTS.md) explains retained dt minima, different raster/mesh spatial support, nominal Nd limit 0.3, source-specific output layers and validation limits. The GeoTIFF path has native acceptance evidence; the newly added XMDF mode still requires native mesh-data acceptance.
+
 ## Wrapper folders
 
 | Folder | Purpose |

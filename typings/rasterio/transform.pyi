@@ -1,3 +1,6 @@
-"""Minimal affine transform constructor for test fixture generation."""
+"""Narrow rasterio transform constructor used by synthetic GeoTIFF fixtures."""
 
-def from_origin(west: float, north: float, xsize: float, ysize: float) -> object: ...
+from affine import Affine
+
+
+def from_origin(west: float, north: float, xsize: float, ysize: float) -> Affine: ...
