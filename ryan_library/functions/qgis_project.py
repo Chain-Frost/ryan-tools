@@ -11,9 +11,12 @@ import shutil
 from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 from urllib.parse import unquote, urlsplit
 from xml.etree import ElementTree as ET
 from zipfile import ZipFile
+
+type QgisAuditMode = Literal["existence", "cold-storage-ping"]
 
 _MAX_PROJECT_XML_BYTES = 64 * 1024 * 1024
 _REMOTE_PREFIXES = (
@@ -165,19 +168,29 @@ def local_source_path(
     return candidate.absolute()
 
 
-def probe_local_file(path: Path, *, read_one_byte: bool = True) -> tuple[bool, str]:
-    """Return success and diagnostic; a one-byte open requests cold-storage hydration."""
+def probe_local_file(path: Path, *, mode: QgisAuditMode = "existence") -> tuple[bool, str]:
+    """Check metadata or explicitly read one byte to request cold-storage retrieval.
+
+    The default existence mode must not open or read source-file contents.
+    A ping sends a single-byte read request, but actual rehydration depends on
+    the storage implementation. Empty files cannot supply a byte.
+    """
     try:
-        if read_one_byte:
+        if mode == "existence":
+            if path.is_file():
+                return True, "file exists (no content read)"
+            return False, "not a regular file or does not exist"
+        if mode == "cold-storage-ping":
             with path.open("rb", buffering=0) as stream:
                 data = stream.read(1)
-            return True, "read 1 byte" if data else "opened empty file"
-        if path.is_file():
-            return True, "file exists"
-        return False, "not a regular file or does not exist"
+            if data:
+                return True, "read 1 byte"
+            return False, "file is empty; no byte could be read"
     except OSError as exc:
         return False, f"{type(exc).__name__}: {exc}"
 
+    message = f"Unknown QGIS audit mode: {mode}"
+    raise ValueError(message)
 
 
 def _map_root(path: Path, replace_root: tuple[Path, Path] | None) -> Path | None:
