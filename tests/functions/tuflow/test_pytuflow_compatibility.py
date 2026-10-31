@@ -16,16 +16,25 @@ from ryan_library.functions.tuflow import pytuflow_compatibility as compatibilit
 
 def _installed(tmp_path: Path, *, url: str | None = None) -> SimpleNamespace:
     root = tmp_path / "site-packages"
-    return SimpleNamespace(
-        version="1.2.7",
-        locate_file=lambda _name: root / "pytuflow",
-        read_text=lambda _name: json.dumps({"url": url}) if url else None,
-    )
+    def locate_file(_name: str) -> Path:
+        return root / "pytuflow"
+
+    def read_text(_name: str) -> str | None:
+        return json.dumps({"url": url}) if url else None
+
+    return SimpleNamespace(version="1.2.7", locate_file=locate_file, read_text=read_text)
+
+
+def _patch_distribution(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def fake_distribution(_name: str) -> SimpleNamespace:
+        return _installed(tmp_path)
+
+    monkeypatch.setattr(compatibility.metadata, "distribution", fake_distribution)
 
 
 def test_official_same_version_without_batch_api_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     root = tmp_path / "site-packages" / "pytuflow" / "__init__.py"
-    monkeypatch.setattr(compatibility.metadata, "distribution", lambda _name: _installed(tmp_path))
+    _patch_distribution(monkeypatch, tmp_path)
 
     def importer(name: str) -> object:
         if name == "pytuflow":
@@ -43,12 +52,11 @@ def test_official_same_version_without_batch_api_fails(tmp_path: Path, monkeypat
 
 
 def test_shadowing_checkout_is_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(compatibility.metadata, "distribution", lambda _name: _installed(tmp_path))
-    monkeypatch.setattr(
-        compatibility.importlib,
-        "import_module",
-        lambda _name: SimpleNamespace(__file__=str(tmp_path / "checkout" / "pytuflow" / "__init__.py")),
-    )
+    _patch_distribution(monkeypatch, tmp_path)
+    def fake_importer(_name: str) -> object:
+        return SimpleNamespace(__file__=str(tmp_path / "checkout" / "pytuflow" / "__init__.py"))
+
+    monkeypatch.setattr(compatibility.importlib, "import_module", fake_importer)
     status = compatibility.check_validation_capabilities()
     assert not status.available
     assert "shadowed" in status.problem
@@ -73,7 +81,7 @@ def test_missing_distribution_does_not_validate(monkeypatch: pytest.MonkeyPatch)
 
 
 def test_broken_transitive_import_is_diagnosed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(compatibility.metadata, "distribution", lambda _name: _installed(tmp_path))
+    _patch_distribution(monkeypatch, tmp_path)
 
     def importer(_name: str) -> object:
         message = "h5py DLL is missing"
@@ -86,7 +94,7 @@ def test_broken_transitive_import_is_diagnosed(tmp_path: Path, monkeypatch: pyte
 
 
 def test_correct_build_without_direct_url_metadata_is_accepted(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(compatibility.metadata, "distribution", lambda _name: _installed(tmp_path))
+    _patch_distribution(monkeypatch, tmp_path)
 
     class Options:
         __dataclass_fields__: ClassVar[dict[str, object]] = {
@@ -108,11 +116,15 @@ def test_correct_build_without_direct_url_metadata_is_accepted(tmp_path: Path, m
         def issues(self) -> tuple[()]:
             return ()
 
+    def fake_validate(_model: object, _flags: object, *, options: object) -> object:
+        del options
+        return object()
+
     def importer(name: str) -> object:
         if name == "pytuflow":
             return SimpleNamespace(__file__=str(tmp_path / "site-packages" / "pytuflow" / "__init__.py"))
         if name == "pytuflow.batch_validation":
-            return SimpleNamespace(validate_batch_inputs=lambda *_a, **_k: object(), BatchValidationResult=BatchResult)
+            return SimpleNamespace(validate_batch_inputs=fake_validate, BatchValidationResult=BatchResult)
         return SimpleNamespace(ValidationOptions=options, ValidationFinding=type("ValidationFinding", (), {}))
 
     monkeypatch.setattr(compatibility.importlib, "import_module", importer)
