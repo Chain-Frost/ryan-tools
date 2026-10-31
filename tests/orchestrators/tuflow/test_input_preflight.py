@@ -212,7 +212,6 @@ def test_failed_group_without_findings_cannot_pass(monkeypatch: pytest.MonkeyPat
         check_simulation_inputs(tmp_path / "model.tcf", [RunRequest(1, {})])
 
 
-
 def test_parser_errors_are_not_lost_when_the_same_run_has_missing_files(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
