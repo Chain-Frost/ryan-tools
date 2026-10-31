@@ -1,6 +1,6 @@
 # Workstream F — Windows engineering acceptance (21 October 2026)
 
-**Status:** bounded Windows acceptance executed on 22 October 2026; see evidence below. Complete engineering acceptance remains open. These steps require a Windows host, Python 3.14 or newer, a disposable local SSD location and optionally a writable test share. No model simulations should be started by these probes. Do **not** point destructive commands at live project inputs.
+**Status:** bounded Windows acceptance executed on 22 October 2026; see evidence below. TUFLOW and specific unverified Windows/UNC workflows remain open. The HY-8 numerical acceptance item AB-023 was explicitly closed by maintainer decision on 1 November 2026; its original Windows discovery-only record is preserved below. These steps require a Windows host, Python 3.14 or newer, a disposable local SSD location and optionally a writable test share. No model simulations should be started by these probes. Do **not** point destructive commands at live project inputs.
 
 ## Windows execution evidence — 22 October 2026
 
@@ -54,10 +54,34 @@ Installed hydraulic dependencies: `ryan-culverts 26.10.18.3` and
 `C:\Program Files\HY-8 8.00\HY864.exe`; TUFLOW executables exist under
 `C:\TUFLOW\tuflow-2026.3` but have no reported Windows file version.
 These are discovery evidence only. Outstanding: MCP version alignment and full project
-acceptance, licensed TUFLOW/HY-8 baselines, real-tool read-only/interruption failure
-cases, and full workflow parity. Network tests exercised wrapper copying, not
+acceptance, licensed **TUFLOW** baselines, real-tool read-only/interruption failure
+cases, and scoped workflow parity. The separate HY-8 comparison was accepted
+under [ryan-culverts PR #29](https://github.com/Chain-Frost/ryan-culverts/pull/29)
+on 1 November 2026 (AB-023 closed; no extra baseline required). Network tests exercised wrapper copying, not
 GDAL/QGIS processing over the share. No merge, publication or project simulation
 was performed; documentation evidence is committed separately from the tested code; not pushed.
+
+## 1 November 2026 — accepted HY-8 disposition and scoped follow-ups
+
+**AB-023 closed by maintainer decision:** no repeated HY-8 numerical validation
+or additional HY-8 wrapper acceptance run is required for PR #137. Accepted
+source evidence is recorded in
+[ryan-culverts PR #29](https://github.com/Chain-Frost/ryan-culverts/pull/29).
+The October Windows host did not perform HY-8 simulations; retain that historical
+fact rather than treating independent acceptance as a local run.
+
+**TUFLOW remains open** for genuine licensed/native execution and failure/output
+acceptance of the launcher (AB-012), initializer (AB-013) and ASC_to_ASC tools
+(AB-029), on authorised disposable models. Read-only preflight/TLF tool
+coverage is tracked separately under AB-046/047 and does not automatically
+require simulation execution.
+
+**Windows/UNC:** existing mapped and UNC copying, Unicode/long path and bounded
+QGIS/GDAL checks passed. Limit future network, file-lock and interruption
+acceptance to explicit affected workflow items in the
+[AB Markdown backlog](../audits/2026-10-22-script-remediation-backlog.md);
+do not re-run successful generic smoke merely because old checklist wording
+named the platform.
 
 ## 1. Prerequisites and recorded environment
 
@@ -139,7 +163,7 @@ try {
 # Inspect $Root as evidence, then delete only that scratch directory when satisfied.
 ```
 
-Expected after 31 October integration: **36** script workflow records, **34** unique script paths, **84** wheel-selected files, no source checkout. The 22 October evidence at the top is the earlier **35/33/83** baseline and does not certify the new head. No dependency imports or external applications are executed. The `--no-deps` install proves packaging/discovery, not end-to-end runnable wrappers; repeat with normal dependencies for functional acceptance if required.
+Expected after integrated PR #154: **34** unique script paths, **85** wheel-selected files, no source checkout. Validate exact catalogue-record counts against the current manifest rather than the historic #146 fixture. The 22 October evidence at the top is the earlier **35/33/83** baseline and does not certify the new head. No dependency imports or external applications are executed. The `--no-deps` install proves packaging/discovery, not end-to-end runnable wrappers; repeat with normal dependencies for functional acceptance if required.
 
 ## 4. Disposable local SSD, spaces, Unicode and long paths
 
@@ -258,10 +282,10 @@ Validate the QGIS MCP `ping` and `diagnose` in the running desktop session.
 | QGIS 4 | In QGIS Python console, import `qgis.core`, load a small *copied* GeoPackage and check layer feature count and CRS; exercise the QGIS MCP `ping` and `diagnose` separately | Screenshot/version plus validity, CRS, feature count; plugin/bridge unavailable is a failure, not a pass |
 | GDAL/OGR | Generate a tiny local DEM and simple polygon in the authorised OSGeo shell; test `gdalinfo`, `ogrinfo`, raster translation, clipping and vector layer selection on copies | Compare input SHA-256 before/after; check output CRS, nodata, extent, row/feature counts and exit codes |
 | TUFLOW | Verify configured executable and licensed environment without launching a project; separately authorise a disposable tiny TCF test run if available | Record version/license, exact command, model start/end, complete log and return code; **not accepted** without a complete actual run |
-| HY-8 | Verify installed HY-8 version and `run-hy8` dependencies; validate a supplied disposable baseline crossing through the supported wrapper | Compare retained HY-8 hydraulic output and native solver results within documented tolerances, capture errors and preserved inputs |
+| HY-8 (closed AB-023) | **No further #137 comparison run required:** the maintainer accepted independent [ryan-culverts PR #29](https://github.com/Chain-Frost/ryan-culverts/pull/29) evidence on 1 November 2026 | The historical 22 October local host only discovered the HY-8 executable; closure is based on accepted independent evidence, not a claim this host ran HY-8 |
 | Network shares | Run the exact same harmless fixture workflow on local SSD and mapped/UNC test share; capture logs, file hashes and timings | No unexpected writes outside scratch folder; distinguish filesystem contention and access denied from application bugs |
 
-For each external tool also deliberately test missing executable, invalid input, read-only destination and interrupted/failed run using a scratch project. Required result: an informative diagnostic, non-zero exit status for genuine failure, and unchanged original inputs. If a wrapper currently lacks that contract, record the exact wrapper and fixture for Agent 1 rather than editing their files in parallel.
+For each **still-open** external workflow, deliberately test relevant missing-executable, invalid-input, read-only-destination and interrupted/failed-run cases using a scratch project. Required result: an informative diagnostic, non-zero exit status for genuine failure, and unchanged original inputs. If a wrapper currently lacks that contract, record the exact wrapper and fixture for Agent 1 rather than editing their files in parallel.
 
 ## Sign-off record — reconciled 31 October 2026
 
@@ -271,12 +295,13 @@ retesting; preserve the explicit distinction between bounded and full acceptance
 
 | Requirement | Current evidence | Still needed |
 | --- | --- | --- |
-| Isolated installed wheel / no source checkout | Passed on #146: 83 selected files, 35 workflow records, 33 targets | Repeat for the reconciled 84/36/34 selection on exact PR head |
+| Isolated installed wheel / no source checkout | #146 previously passed 83 selected files/35 workflows/33 targets. #137 exact head `060fc17` passed isolated-wheel CI with 85 selected files and 34 MCP targets. | No blanket repeat; end-to-end wrapper output acceptance only for explicitly identified workflows |
 | Python 3.14 focused checks | 98 passed / 10 skipped on Windows, 22 October | Recheck current changed code; 3.13 is unsupported |
 | SSD spaces, Unicode, long paths | Bounded synthetic Windows paths passed | Current wheel/full script output contracts as applicable |
-| Mapped and UNC share | Wrapper-copy tests passed on authorised mapped and UNC scratch | Real application workflow network-path and interruption behaviour |
+| Mapped and UNC share | Wrapper-copy tests passed on authorised mapped and UNC scratch | Only specifically recorded workflow-level path, file-lock or interruption behaviour; no blanket network retest |
 | Real QGIS 4 / GDAL/OGR | Two tests each passed in the specified Windows environment | Production/locked-file, real-provider and full data-parity cases |
-| TUFLOW and HY-8 | Executables located only | Authorised licensed model/crossing runs and numerical evidence |
+| TUFLOW | Executable located at historical test; no licensed simulation performed | Controlled, authorised model-runner, project-initialisation and ASC_to_ASC results/exit/interruption tests (AB-012/013/029) |
+| HY-8 (AB-023 closed) | Historical local executable discovery only; separately reviewed comparison evidence in merged `ryan-culverts` PR #29 accepted by maintainer | **Nothing further for #137**; this does not imply a new October desktop run |
 | Failure/input preservation | Bounded synthetic and selected GDAL negative cases passed | Full destructive-script and interruption/recovery acceptance |
 
 **No merge or PyPI publishing** is authorised by this checklist. Keep source inputs and engineering runs separate from the metadata-only MCP discovery service.
@@ -296,4 +321,5 @@ registered layers were unchanged. The desktop had no loaded project/layers.
 Retained fixture: `C:\Users\Ryan\AppData\Local\Temp\ryan-cf-desktop-5ov4synv\copied.gpkg`;
 SHA-256 `9f7aa9fd20dd20943c81b8f51ae4ce3a51dd040c1e732a588a928563b8b57377`.
 This passes bounded desktop bridge/provider acceptance; version alignment,
-real-project styling/interaction and licensed hydraulic checks remain open.
+real-project styling/interaction and native TUFLOW checks remain open.
+The independent HY-8 comparison evidence was accepted subsequently under AB-023.
