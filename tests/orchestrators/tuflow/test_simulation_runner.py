@@ -80,7 +80,7 @@ def _logical_signature(run: PlannedRun, config: runner.RunnerSettings) -> tuple[
     """Exercise the internal roundtrip contract with explicit, typed test access."""
     signature = cast(
         Callable[[PlannedRun, runner.RunnerSettings], tuple[object, ...]],
-        getattr(runner, "_logical_signature"),
+        getattr(runner, "_logical_signature"),  # noqa: B009 - explicitly exercise the internal test contract
     )
     return signature(run, config)
 
@@ -88,7 +88,7 @@ def _logical_signature(run: PlannedRun, config: runner.RunnerSettings) -> tuple[
 def _command(run: PlannedRun, config: runner.RunnerSettings, gpu: tuple[str, ...]) -> list[str]:
     build = cast(
         Callable[[PlannedRun, runner.RunnerSettings, tuple[str, ...]], list[str]],
-        getattr(runner, "_command"),
+        getattr(runner, "_command"),  # noqa: B009 - explicitly exercise the internal test contract
     )
     return build(run, config, gpu)
 
