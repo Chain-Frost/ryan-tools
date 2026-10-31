@@ -24,24 +24,69 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
-# User-editable configuration: every operational CLI option has a default here.
-# Explicit CLI values override these; None means not configured.
-WRAPPER_VERSION = "2026-10-31.4"
-DEFAULT_WORKING_DIR = Path()
-DEFAULT_PROJECT: Path | None = None  # None: audit all QGS/QGZ projects recursively
-DEFAULT_AUDIT_MODE: Literal["existence", "cold-storage-ping"] = "existence"
-DEFAULT_AUXILIARY_REPORT = False
-DEFAULT_SAMPLE_ROWS = 0
-DEFAULT_OLD_PROJECT_DIRECTORY: Path | None = None
-DEFAULT_REPLACE_ROOT: tuple[Path, Path] | None = None
-DEFAULT_ABSOLUTE_PATHS = False
-DEFAULT_OUTPUT: Path | None = None
-DEFAULT_WRITE = False  # Set True to create a NEW output project; existing files remain protected
-DEFAULT_CONSOLE_LOG_LEVEL: str | None = None  # None: retain Loguru's configured verbosity
-DEFAULT_NO_PAUSE = False  # Set True for non-interactive execution
+# User-editable configuration. CLI arguments override these values when supplied.
+# Paths below may be absolute, or relative to DEFAULT_WORKING_DIR.
+# For Windows mapped drives and UNC shares, use raw strings to preserve "\":
+# Path(r"Q:\Project\GIS") or Path(r"\\server\share\Project\GIS").
+WRAPPER_VERSION = "2026-10-31.5"
 
-# A cold-storage ping can cause retrieval delays/charges. Choose it deliberately
-# in DEFAULT_AUDIT_MODE or on the CLI; the shipped default is existence-only.
+# --- Project selection ---
+# Directory to scan; Path() means the current directory when the script starts.
+# Example: Path(r"Q:\Project\GIS")
+DEFAULT_WORKING_DIR = Path()
+
+# Single .qgs/.qgz project, or None to scan all projects under the working directory recursively.
+# Example: Path("Hydraulic_Model.qgz") or Path(r"Q:\Project\GIS\Hydraulic_Model.qgs")
+DEFAULT_PROJECT: Path | None = None
+
+# --- Source-file audit ---
+# Allowed: "existence" (metadata only) or "cold-storage-ping" (open/read 1 byte per local file).
+# Example: "cold-storage-ping" to request network cold-storage retrieval; this can incur delays or charges.
+# Do not combine cold-storage-ping with path repair; run those operations separately.
+DEFAULT_AUDIT_MODE: Literal["existence", "cold-storage-ping"] = "existence"
+
+# --- QGIS auxiliary data (.qgd) ---
+# True: read QGD SQLite tables, fields and counts (may cause network I/O); False: skip QGD reads.
+# Example: True when investigating saved label positions or other auxiliary attributes.
+DEFAULT_AUXILIARY_REPORT = False
+
+# Number of example rows PER QGD table: integer from 0 to 5. Zero hides all stored values.
+# Example: 2; positive values require auxiliary reporting enabled (default or CLI) and may expose project data.
+DEFAULT_SAMPLE_ROWS = 0
+
+# --- Source-path repair (set DEFAULT_PROJECT or pass --project to select one project) ---
+# Original directory of a MOVED project, used to interpret its old relative data-source paths.
+# None: assume relative sources are based on the project's CURRENT directory.
+# Example: Path(r"Q:\Original_Project\GIS") when the project file was relocated.
+DEFAULT_OLD_PROJECT_DIRECTORY: Path | None = None
+
+# Optional prefix mapping for data-source references: (OLD_ROOT, NEW_ROOT), not a file move.
+# None: no root replacement. Example: (Path(r"Q:\Old_Data"), Path(r"Q:\New_Data"))
+# Only matching paths are remapped; the referenced source data is never modified.
+DEFAULT_REPLACE_ROOT: tuple[Path, Path] | None = None
+
+# False: generate relative paths from the output project's directory (more portable).
+# True: render absolute source paths in preview/output (less portable, but independent of project location).
+DEFAULT_ABSOLUTE_PATHS = False
+
+# Destination for a repaired project, or None for preview-only operation without a named output.
+# Example: Path("Hydraulic_Model_fixed.qgz") or Path(r"Q:\Project\GIS\Hydraulic_Model_fixed.qgs").
+# Directory must exist; extension must match the selected input project; existing outputs are never overwritten.
+DEFAULT_OUTPUT: Path | None = None
+
+# False: preview path changes only. True: create a NEW project file at the configured output path.
+# Example: True, after selecting a project and output through defaults or CLI; never overwrites files.
+# CLI --write and --no-write can override this setting.
+DEFAULT_WRITE = False
+
+# --- Logging and interactive completion ---
+# None: keep Loguru's existing console level. Examples: "INFO", "DEBUG", "WARNING", "ERROR", "SUCCESS".
+# CLI --console-log-level overrides this value.
+DEFAULT_CONSOLE_LOG_LEVEL: str | None = None
+
+# False: offer an interactive pause on completion when a console is attached.
+# True: never pause (e.g. automated or scheduled runs); CLI --no-pause/--pause overrides this value.
+DEFAULT_NO_PAUSE = False
 
 import argparse
 import os

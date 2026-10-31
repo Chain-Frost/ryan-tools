@@ -126,6 +126,44 @@ Both paths must be supported; do not hide the option from the editable block.
 Keep non-overwrite guarantees, dry-run/preview behaviour and any separate
 confirmation required for destructive actions intact.
 
+### Explain every editable option
+
+A user must be able to understand and change each `DEFAULT_*` value **without
+reading the implementation**. Keep a concise comment next to every setting
+explaining its purpose and any non-obvious behaviour. Where relevant, include:
+
+- **Accepted values:** Python type, enumerated choices, valid number range,
+  units, and what `None` or an empty value means.
+- **Paths:** expected file or directory, whether a relative path uses the
+  working directory, and a realistic Windows example using `Path(r"...")`
+  for drive/UNC paths.
+- **Dependencies:** other settings that must be enabled or supplied together,
+  and mutually exclusive modes.
+- **Effects and safeguards:** what is read or written, whether data may be
+  overwritten, and performance, cost or privacy implications.
+- **Examples:** one copy-ready Python value or expression next to each
+  non-obvious setting (especially tuples, choices, paths and thresholds).
+  Commented examples must not change behaviour until the user edits a value.
+
+For example:
+
+```python
+# Input directory; Path() means the current working directory.
+# Example: Path(r"Q:\Project\GIS") or Path(r"\\server\share\GIS")
+DEFAULT_INPUT = Path()
+
+# Include subdirectories? True or False (default excludes them).
+DEFAULT_RECURSIVE = False
+
+# Number of rows to sample: 0-5; 0 reads no example rows.
+# Example: 2 (requires the separate sample-report option to be enabled).
+DEFAULT_SAMPLE_ROWS = 0
+```
+
+Avoid repetitive commentary on self-evident values, but do not leave ambiguous
+units, `None` semantics, required settings, or complex expressions unexplained.
+An editable-default section is user documentation, not just implementation data.
+
 Keep cosmetic or highly specific terminal preferences (such as dashboard alternate-screen rendering options) as editable wrapper constants rather than shared CLI arguments. This prevents cluttering the ``--help`` menu across multiple unrelated scripts with rendering flags that users rarely change per execution.
 
 Do not add repository-root `sys.path` changes. Copied wrappers require the

@@ -43,6 +43,11 @@ experimental, vendored or versioned legacy files solely because they exist.
    CLI arguments override the editable defaults in either direction;
    parser omission must remain distinguishable from an explicit `False`,
    `0` or empty value. Built-in `--help` and `--version` are exempt.
+   Each setting must also explain its purpose, permitted values/units,
+   `None` meaning, path base and interdependencies where relevant. Include
+   a copy-ready commented Python example for non-obvious values such as
+   Windows/UNC paths, choice strings, and `tuple[Path, Path]` mappings.
+   Document costs and mutation risks beside the setting, not only in `--help`.
    Put the module docstring, minimal imports, version and defaults before
    operational imports wherever practical.
 3. **Clear process boundary:** use a guarded `if __name__ == "__main__"` and
@@ -96,6 +101,8 @@ required solely because the script is maintained.
 For genuinely interactive or long-running standalone scripts, a completion
 banner and explicit `--no-pause` may still be useful. For a narrow read-only
 utility, an ordinary argparse CLI plus a clear exit code is sufficient.
+The [editable-option comment standard](WRAPPER_STANDARD.md#explain-every-editable-option)
+applies to **both** standalone scripts and wrappers.
 Do not demote a maintained script to "legacy" merely because it remains
 self-contained. Validation is proportional to what the script actually does.
 
@@ -121,12 +128,31 @@ python .\ryan-scripts\other\audit_qgis_projects.py --project "Q:\New\GIS\Model.q
 python .\ryan-scripts\other\audit_qgis_projects.py --project "Q:\New\GIS\Model.qgz" --old-project-directory "Q:\Old\GIS" --output "Q:\New\GIS\Model_fixed.qgz" --write --no-pause
 ```
 
+For example, a copied script can preview a relocated project's source-path
+repairs **without any CLI arguments** using these editable values:
+
+```python
+DEFAULT_WORKING_DIR = Path(r"Q:\Project\GIS")
+DEFAULT_PROJECT = Path("Moved.qgz")
+DEFAULT_OLD_PROJECT_DIRECTORY = Path(r"Q:\Previous_Project\GIS")
+DEFAULT_OUTPUT = Path("Moved_fixed.qgz")
+DEFAULT_WRITE = False  # Preview only; change to True after reviewing the proposed paths
+```
+
+If the data itself moved to another root, use a mapping such as
+`DEFAULT_REPLACE_ROOT = (Path(r"Q:\Old_Data"), Path(r"Q:\New_Data"))`
+instead of, or in addition to, `DEFAULT_OLD_PROJECT_DIRECTORY`.
+Path repair changes project references only; it does not relocate data files.
+
 Path repair is separate from cold-storage ping and is preview-only unless
 writing is enabled by `DEFAULT_WRITE = True` or `--write`, **and** a new output
 project is selected via `DEFAULT_OUTPUT` or `--output`. CLI `--no-write`
 can override the editable write setting. If the output
 project is in a different directory, relative data-source paths are calculated
 against the **output** project's directory, in both previews and writes.
+The top-of-file settings include copy-ready `Path(r"Q:\Project\GIS")` examples,
+the `(OLD_ROOT, NEW_ROOT)` tuple syntax, valid audit modes, the 0-5
+sample-row range and each operation's prerequisites.
 Where Windows source and destination drives differ, an absolute source path
 is retained rather than constructing an invalid relative path. Original
 project files are never overwritten. The repair tool preserves embedded

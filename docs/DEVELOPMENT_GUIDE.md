@@ -111,8 +111,12 @@ The [common maintained-script standard](../ryan-scripts/README.md#shared-princip
 requires **every operational CLI option** to have a user-editable default at
 the top of a maintained script or wrapper, including low-frequency settings,
 write/dry-run, expensive modes, logging and pausing. These are user-owned
-entry-point settings, not orchestrator responsibilities. CLI overrides take
-precedence even when explicitly set to `False` or `0`. Shipped values
+entry-point settings, not orchestrator responsibilities. Each default needs
+adjacent, usable guidance: purpose, allowed types/values and units, `None`
+semantics, path base, dependencies, and relevant risks. Non-obvious settings
+must include a **copy-ready commented example** (e.g. a raw Windows `Path`,
+an old/new directory mapping tuple, or a valid mode string). CLI overrides
+take precedence even when explicitly set to `False` or `0`. Shipped values
 remain safe; a deliberate edit may opt into costly behaviour without bypassing
 file protection or independent confirmation.
 
