@@ -1,0 +1,84 @@
+name: TUFLOW CSV continuation acceptance
+
+on:
+  push:
+    branches:
+      - feat/tuflow-csv-continuation-scope04-20261031
+    paths:
+      - ".github/workflows/tuflow-csv-scope04-check.yml"
+      - "ryan_library/functions/tuflow/execution_history.py"
+      - "ryan-scripts/TUFLOW-python/model_management/run_tuflow_simulations.py"
+      - "tests/functions/tuflow/test_execution_history.py"
+      - "tests/scripts/test_tuflow_csv_continuation.py"
+      - "tests/scripts/test_run_tuflow_simulations.py"
+  pull_request:
+    paths:
+      - ".github/workflows/tuflow-csv-scope04-check.yml"
+      - "ryan_library/functions/tuflow/execution_history.py"
+      - "ryan-scripts/TUFLOW-python/model_management/run_tuflow_simulations.py"
+      - "tests/functions/tuflow/test_execution_history.py"
+      - "tests/scripts/test_tuflow_csv_continuation.py"
+      - "tests/scripts/test_run_tuflow_simulations.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-focused:
+    name: Windows 3.14 CSV transitions and copied wrapper
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Install focused test tools
+        run: python -m pip install pytest ruff==0.16.6 pyright psutil rich build 'setuptools>=69' wheel
+      - name: Ruff lint and format
+        shell: pwsh
+        run: |
+          $files = @(
+            "ryan_library/functions/tuflow/execution_history.py",
+            "ryan-scripts/TUFLOW-python/model_management/run_tuflow_simulations.py",
+            "tests/functions/tuflow/test_execution_history.py",
+            "tests/scripts/test_tuflow_csv_continuation.py",
+            "tests/scripts/test_run_tuflow_simulations.py"
+          )
+          python -m ruff check @files
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m ruff format --check @files
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Strict Pyright for changed Python files
+        shell: pwsh
+        run: |
+          python -m pyright ryan_library/functions/tuflow/execution_history.py ryan-scripts/TUFLOW-python/model_management/run_tuflow_simulations.py tests/functions/tuflow/test_execution_history.py tests/scripts/test_tuflow_csv_continuation.py tests/scripts/test_run_tuflow_simulations.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Fake-process focused tests (never run solver)
+        run: python -m pytest -q tests/functions/tuflow/test_execution_history.py tests/scripts/test_tuflow_csv_continuation.py tests/scripts/test_run_tuflow_simulations.py tests/orchestrators/tuflow/test_simulation_runner.py
+      - name: Build local wheel without release
+        run: python -m build --wheel --no-isolation
+      - name: Copied wrapper with installed wheel, help and export-only
+        shell: pwsh
+        run: |
+          $wheel = (Get-ChildItem dist/*.whl | Select-Object -First 1).FullName
+          python -m pip install --no-deps --force-reinstall $wheel
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $target = Join-Path $env:RUNNER_TEMP 'scope04-copied'
+          New-Item -ItemType Directory -Path $target -Force | Out-Null
+          Copy-Item "ryan-scripts/TUFLOW-python/model_management/run_tuflow_simulations.py" $target
+          Set-Content -Path (Join-Path $target 'input.txt') -Value '-e1 A "C:\models\Missing.tcf"'
+          Push-Location $target
+          try {
+            Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue
+            python .\run_tuflow_simulations.py --help
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            python .\run_tuflow_simulations.py --mode textfiles --input-file input.txt --no-tcf --solver-exe 'C:\not-installed\TUFLOW.exe' --export-only --no-pause
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            if (Test-Path .\run_tuflow_simulations_runs.csv) { throw 'Export-only created execution history' }
+          } finally {
+            Pop-Location
+          }
