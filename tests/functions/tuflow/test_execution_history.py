@@ -17,6 +17,7 @@ from ryan_library.functions.tuflow.execution_history import (
     CompletionSession,
     CsvExecutionLog,
     ExecutionLogError,
+    RunIdentity,
     identify_runs,
     select_pending,
 )
@@ -49,11 +50,7 @@ def _plan(base: Path, count: int = 3) -> CommandPlan:
     return CommandPlan(base / "batch.py", runs, (), 0, "commands", (base / "batch.py",))
 
 
-def _keys(plan: CommandPlan) -> dict[int, object]:
-    return identify_runs(plan, fallback_executable=Path("unused.exe"), base_directory=Path.cwd())
-
-
-def _success(log: CsvExecutionLog, plan: CommandPlan, identities: dict[int, object]) -> None:
+def _success(log: CsvExecutionLog, plan: CommandPlan, identities: dict[int, RunIdentity]) -> None:
     # Full callback contract is covered in the integration test; here use the
     # public history methods directly for concise transition-state fixtures.
     for run in plan.runs:
