@@ -2,10 +2,10 @@
 
 import csv
 import sys
-from types import ModuleType
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from types import ModuleType
 from typing import NoReturn
 
 import pytest
@@ -225,8 +225,6 @@ def test_validator_seam_preserves_global_ids_and_spaced_context(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Scope 01 owns the only conversion of PyTUFLOW's local positions."""
-    from collections.abc import Mapping
-
     @dataclass(frozen=True)
     class PublicRunRequest:
         index: int
@@ -241,8 +239,8 @@ def test_validator_seam_preserves_global_ids_and_spaced_context(
         return FakeReport(run_count=len(requests), issues=[FakeIssue(requests[-1].index)])
 
     fake_module = ModuleType("ryan_library.orchestrators.tuflow.input_preflight")
-    setattr(fake_module, "RunRequest", PublicRunRequest)
-    setattr(fake_module, "check_simulation_inputs", fake_validator)
+    fake_module.__dict__["RunRequest"] = PublicRunRequest
+    fake_module.__dict__["check_simulation_inputs"] = fake_validator
     monkeypatch.setitem(sys.modules, fake_module.__name__, fake_module)
 
     selected = plan(
