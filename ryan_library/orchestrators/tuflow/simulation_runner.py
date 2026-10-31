@@ -157,7 +157,7 @@ def _at_base(path: Path, base: Path) -> Path:
     return path if path.is_absolute() else (base / path).absolute()
 
 
-def _validate_settings(settings: RunnerSettings) -> tuple[str, ...]:  # noqa: C901 - validate user policy in one place
+def _validate_settings(settings: RunnerSettings) -> tuple[str, ...]:
     if settings.mode not in {"parameter_product", "textfiles", "both"}:
         message = f"Invalid runner mode: {settings.mode}"
         raise CommandPlanError(message)
