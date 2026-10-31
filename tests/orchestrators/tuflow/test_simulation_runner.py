@@ -130,6 +130,65 @@ def test_import_and_generated_use_one_ordered_plan(tmp_path: Path) -> None:
         runner.prepare_plan(config)
 
 
+@pytest.mark.parametrize("source", ["-e1 A", 'SET "TCF=model.tcf"\\n-e1 A'])
+def test_abbreviated_input_launches_and_roundtrips(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, source: str
+) -> None:
+    commands = tmp_path / "input.txt"
+    commands.write_text(source.replace("\\n", "\n") + "\n", encoding="utf-8")
+    use_python_tcf = source.startswith("-")
+    config = settings(
+        tmp_path,
+        mode="textfiles",
+        input_files=(commands,),
+        tcf=Path("model.tcf") if use_python_tcf else None,
+    )
+    plan = runner.prepare_plan(config)
+    assert len(plan.runs) == 1
+    assert plan.runs[0].arguments == ("-e1", "A")
+    assert plan.runs[0].tcf == tmp_path / "model.tcf"
+
+    exported = runner.render_batch_commands(plan, config, destination=tmp_path / "out.bat")
+    reparsed = parse_command_plan(exported, source=tmp_path / "out.bat", initial_directory=tmp_path)
+    assert runner._logical_signature(plan.runs[0], config) == runner._logical_signature(reparsed.runs[0], config)
+
+    monkeypatch.setattr(runner, "_gpu_startup_message", lambda *_args: None)
+    monkeypatch.setattr(runner, "_apply_priority", lambda *_args: None)
+    commands_seen: list[list[str]] = []
+
+    def fake_popen(*, args: list[str], **_options: object) -> FakeProcess:
+        commands_seen.append(args)
+        return FakeProcess(4455)
+
+    result = runner.launch_plan(plan, config, popen=fake_popen)
+    assert result.successful
+    assert commands_seen == [[str(config.executable), "-e1", "A", str(tmp_path / "model.tcf")]]
+
+
+def test_nonterminal_tcf_argument_roundtrips_without_losing_flags(tmp_path: Path) -> None:
+    commands = tmp_path / "input.txt"
+    commands.write_text('TUFLOW.exe "model.tcf" -e1 A -s1 B\\n'.replace("\\n", "\n"), encoding="utf-8")
+    config = settings(tmp_path, mode="textfiles", tcf=None, input_files=(commands,))
+    plan = runner.prepare_plan(config)
+    assert plan.runs[0].arguments[:2] == ("model.tcf", "-e1")
+    assert runner._command(plan.runs[0], config, ()) == [
+        "TUFLOW.exe", "-e1", "A", "-s1", "B", str(tmp_path / "model.tcf")
+    ]
+    bat = runner.render_batch_commands(plan, config, destination=tmp_path / "out.bat")
+    reparsed = parse_command_plan(bat, source=tmp_path / "out.bat", initial_directory=tmp_path)
+    assert runner._logical_signature(plan.runs[0], config) == runner._logical_signature(reparsed.runs[0], config)
+
+
+def test_scenario_value_ending_in_tcf_is_not_control_file(tmp_path: Path) -> None:
+    commands = tmp_path / "input.txt"
+    commands.write_text("-e1 event.tcf\\n".replace("\\n", "\n"), encoding="utf-8")
+    config = settings(tmp_path, mode="textfiles", input_files=(commands,), tcf=Path("model.tcf"))
+    run = runner.prepare_plan(config).runs[0]
+    assert runner._command(run, config, ()) == [
+        str(config.executable), "-e1", "event.tcf", str(tmp_path / "model.tcf")
+    ]
+
+
 def test_import_roundtrip_preserves_model_executable_cwd_order_and_duplicates(tmp_path: Path) -> None:
     bat = _make_import(tmp_path)
     config = settings(tmp_path, mode="textfiles", tcf=None, input_files=(bat,))
