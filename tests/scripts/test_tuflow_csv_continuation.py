@@ -84,6 +84,7 @@ def test_copied_wrapper_resume_no_work_all_reset_and_follow_up(
     chained: list[Path] = []
     monkeypatch.setattr(module, "launch_plan", _fake_successful_launch(calls))
     monkeypatch.setattr(module, "NEXT_RUN_FILE", Path("follow-up.py"))
+
     def fake_follow_up(path: Path, _base: Path) -> bool:
         chained.append(path)
         return True
@@ -115,6 +116,7 @@ def test_copied_wrapper_resume_no_work_all_reset_and_follow_up(
     assert calls == [[1, 2], [1, 2]]
     assert b",RESET," in log.read_bytes()
     after_all = log.read_bytes()
+
     def forbid_post_all(*_args: object, **_kwargs: object) -> None:
         pytest.fail("Post-all Resume launched")
 
