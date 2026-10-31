@@ -70,7 +70,7 @@ def test_default_operation_is_export_only_and_cli_can_override(
     module = sys.modules["tested_runner_wrapper"]
     source = _source(tmp_path)
     monkeypatch.setattr(module, "OPERATION", "export_only")
-    monkeypatch.setattr(module, "TUFLOW_EXE", tmp_path / "missing.exe")
+    monkeypatch.setattr(module, "TUFLOW_EXE", tmp_path / "TUFLOW_MISSING.exe")
 
     def forbid(*_args: object, **_kwargs: object) -> None:
         pytest.fail("Export-only attempted to launch a solver")
