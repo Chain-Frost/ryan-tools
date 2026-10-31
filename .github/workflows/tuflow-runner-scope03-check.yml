@@ -28,6 +28,11 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.14"
+      - name: Initialize required test-data submodule only (never unsorted)
+        shell: pwsh
+        run: |
+          git submodule update --init tests/test_data
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Install checks without GIS/PyTUFLOW runtime
         run: python -m pip install pytest ruff==0.16.6 pyright build psutil rich
       - name: Scoped Ruff lint and format
