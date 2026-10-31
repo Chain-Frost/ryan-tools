@@ -72,10 +72,37 @@ Those PRs remain independent work; their own technical correctness and data vali
 ## October 2026 resumed validation (PR #137 latest main integration)
 
 - Corrected the malformed wheel manifest after merging main: removed 34 duplicate entries, preserved both deliberately excluded unguarded network-copy scripts as repository-only, and retained the newly introduced protected file-inventory wrapper.
-- Merged current main including the read-only TUFLOW user-activity wrapper and standalone shapefile converter. The 31 October post-main integration selected 84 wheel files and 150 tracked files; the dedicated QGIS path-repair script in stacked PR #154 increases the proposed selection to **85 unique wheel files**, **66 repository-only files**, and **151 tracked files**. The 34 distinct MCP script paths remain a separate curated set.
+- Merged current main including the read-only TUFLOW user-activity wrapper and standalone shapefile converter. The 31 October post-main integration selected 84 wheel files and 150 tracked files; the dedicated QGIS path-repair script from now-integrated PR #154 increases the selection to **85 unique wheel files**, **66 repository-only files**, and **151 tracked files**. The 34 distinct MCP script paths remain a separate curated set.
 - Added **copied-wrapper end-to-end tests** covering disposable file-inventory CSV output, read-only GeoTIFF audit, recursive file listing and missing RORB input handling; expanded --help coverage to 17 safe wrappers. The audit report remains static evidence, not blanket runtime certification.
 - No hydraulic parity retesting is requested here: `ryan-culverts` owns HY-8 validation. PyPI naming/distribution rollout is previously implemented and does not need reimplementation.
 - Project-specific Windows network drive, QGIS/TUFLOW execution and maintainer per-file lifecycle decisions remain explicit acceptance gates for A/B, not silently waived.
+
+## 31 October 2026 — integrated #154 and final CI repair
+
+- Supporting QGIS PR #154 is **merged into the #137 branch only**, via merge commit
+  `c8d0743`. Its four inline review threads are resolved with documented
+  output-relative path rewriting, cross-drive fallback, explicit mapped-drive
+  to UNC equivalence, and auxiliary SQLite WAL/rollback-journal checks. Audit
+  remains read-only by default; path repair is a separate new-file-only tool.
+- Review at `c8d0743` found 11 strict Pyright attribute-access errors in
+  the existing raster metadata helper because Rasterio's Cython-backed
+  metadata interface was not fully visible to the checker. PR #137 now carries
+  a narrow metadata protocol and focused response/read-only tests
+  (`ad6122c`, `b338da9`), followed by Ruff spacing corrections. **Do not
+  report this fix as CI accepted until the exact final head passes.**
+- Current package selection is **151 tracked = 85 wheel + 66 repository-only**;
+  **34** unique MCP script targets. The 47-item remediation ledger includes
+  external validation, design decisions and deferred maintenance, not 47
+  newly introduced merge-blocking code defects.
+- Original A/F engineering approval, real application/UNC tests, individual
+  lifecycle decisions and numerical/output parity remain open where recorded.
+  This corrective code PR **does not declare those gates complete or approve
+  a release**. Merge/release disposition requires an explicit maintainer
+  decision. Later delivery to `main` will be a **squash merge**, not an
+  intermediate merge of all historical branch commits.
+- Final closure: verify all six exact-head CI checks, obtain one consolidated
+  integrated review, and preserve the PR as draft/unmerged pending explicit
+  authorization.
 
 ## Original non-negotiable decisions (D1–D9)
 
