@@ -65,7 +65,7 @@ import logging
 import signal
 import subprocess
 import sys
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import datetime
 from threading import Event
@@ -144,7 +144,7 @@ def _settings(arguments: argparse.Namespace) -> RunnerSettings:
 
 
 @contextmanager
-def _interruption_flag() -> Iterator[Event]:
+def _interruption_flag() -> Generator[Event]:
     """Process-boundary signal handling; always restore the caller's handler."""
     flag = Event()
     previous = signal.getsignal(signal.SIGINT)
