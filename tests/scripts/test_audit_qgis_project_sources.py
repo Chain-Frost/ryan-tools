@@ -26,6 +26,9 @@ class AuditMain(Protocol):
         mode: QgisAuditMode = "existence",
         project_path: Path | None = None,
         old_project_directory: Path | None = None,
+        replace_root: tuple[Path, Path] | None = None,
+        output_path: Path | None = None,
+        write: bool = False,
     ) -> int: ...
 
 
@@ -230,3 +233,50 @@ def test_cold_storage_ping_cannot_be_combined_with_path_repair(tmp_path: Path) -
         )
         == 1
     )
+
+
+def test_cli_repair_to_different_directory_rebases_sources(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    model_dir = tmp_path / "model"
+    data_dir = tmp_path / "data"
+    target_dir = tmp_path / "export"
+    for folder in (model_dir, data_dir, target_dir):
+        folder.mkdir()
+
+    target_data = data_dir / "roads.gpkg"
+    target_data.write_bytes(b"roads")
+    model = model_dir / "original.qgs"
+    _write_qgs(model, "./old/roads.gpkg|layername=roads")
+    original_bytes = model.read_bytes()
+    output = target_dir / "repaired.qgs"
+
+    main, get_sources, resolve = _functions()
+    monkeypatch.chdir(tmp_path)
+    assert (
+        main(
+            working_directory=tmp_path,
+            project_path=model,
+            replace_root=(model_dir / "old", data_dir),
+            output_path=output,
+            write=False,
+        )
+        == 0
+    )
+    assert not output.exists()
+
+    assert (
+        main(
+            working_directory=tmp_path,
+            project_path=model,
+            replace_root=(model_dir / "old", data_dir),
+            output_path=output,
+            write=True,
+        )
+        == 0
+    )
+    assert model.read_bytes() == original_bytes
+    assert get_sources(output) == ["../data/roads.gpkg|layername=roads"]
+    result = resolve(output, get_sources(output)[0])
+    assert result is not None
+    assert result.samefile(target_data)

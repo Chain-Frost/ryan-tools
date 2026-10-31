@@ -118,7 +118,11 @@ python .\ryan-scripts\other\audit_qgis_projects.py --project "Q:\New\GIS\Model.q
 ```
 
 Path repair is separate from cold-storage ping and is preview-only unless
-`--write` and a **new** `--output` file are both provided. Original
+`--write` and a **new** `--output` file are both provided. If the output
+project is in a different directory, relative data-source paths are calculated
+against the **output** project's directory, in both previews and writes.
+Where Windows source and destination drives differ, an absolute source path
+is retained rather than constructing an invalid relative path. Original
 project files are never overwritten. The repair tool preserves embedded
 QGZ archive members (including auxiliary SQLite `.qgd` files), or copies
 the companion `.qgd` beside a repaired `.qgs`.

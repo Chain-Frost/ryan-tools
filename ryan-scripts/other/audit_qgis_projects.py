@@ -115,6 +115,7 @@ def _repair_project(
             original_project_directory=old_directory,
             replace_root=roots,
             relative=not absolute_paths,
+            output_project_path=output,
         )
         for change in changes:
             logger.info("Layer {}: {} -> {}", change.name or change.layer_id, change.old_uri, change.new_uri)

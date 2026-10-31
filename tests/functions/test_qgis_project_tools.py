@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sqlite3
 from pathlib import Path
 from unittest.mock import mock_open, patch
@@ -12,6 +13,7 @@ import pytest
 
 from ryan_library.functions.qgis_auxiliary import inspect_auxiliary_storage
 from ryan_library.functions.qgis_project import (
+    _render_source_uri,
     local_source_path,
     plan_source_path_changes,
     probe_local_file,
@@ -131,6 +133,83 @@ def test_rebase_moved_project_without_touching_source_data(tmp_path: Path) -> No
     assert resolved_path is not None
     # Physical identity is intentional here; the public path remains lexical.
     assert resolved_path.samefile(data)
+
+
+@pytest.mark.parametrize("suffix", [".qgs", ".qgz"])
+def test_repair_copy_in_another_directory_rebases_uri_to_output(tmp_path: Path, suffix: str) -> None:
+    original_folder = tmp_path / "original"
+    output_folder = tmp_path / "relocated" / "GIS"
+    data_folder = tmp_path / "data"
+    original_folder.mkdir()
+    output_folder.mkdir(parents=True)
+    data_folder.mkdir()
+    data = data_folder / "roads.gpkg"
+    data.write_bytes(b"referenced data")
+
+    project = original_folder / f"model{suffix}"
+    xml = _xml(("roads-id", "Roads", "ogr", "./old/roads.gpkg|layername=roads"))
+    if suffix == ".qgz":
+        _qgz(project, xml)
+    else:
+        project.write_bytes(xml)
+    before = project.read_bytes()
+
+    output = output_folder / f"fixed{suffix}"
+    replace_root = (original_folder / "old", data_folder)
+    preview = plan_source_path_changes(project, replace_root=replace_root, output_project_path=output)
+    assert len(preview) == 1
+    assert preview[0].new_uri == "../../data/roads.gpkg|layername=roads"
+    assert not output.exists()
+    assert project.read_bytes() == before
+
+    write_project_path_changes(project, output, preview)
+    assert project.read_bytes() == before
+    layer = project_layer_sources(output)[0]
+    resolved = local_source_path(output, layer.uri, provider=layer.provider)
+    assert resolved is not None
+    assert resolved.samefile(data)
+
+
+def test_copy_without_root_remap_still_rebases_relative_sources(tmp_path: Path) -> None:
+    original_folder = tmp_path / "original"
+    output_folder = tmp_path / "new_location"
+    original_folder.mkdir()
+    output_folder.mkdir()
+    data = original_folder / "roads.gpkg"
+    data.write_bytes(b"source")
+    project = original_folder / "model.qgs"
+    project.write_bytes(_xml(("roads-id", "Roads", "ogr", "./roads.gpkg|layername=roads")))
+    output = output_folder / "fixed.qgs"
+
+    changes = plan_source_path_changes(project, output_project_path=output)
+    assert len(changes) == 1
+    assert changes[0].new_uri == "../original/roads.gpkg|layername=roads"
+    write_project_path_changes(project, output, changes)
+    layer = project_layer_sources(output)[0]
+    resolved = local_source_path(output, layer.uri, provider=layer.provider)
+    assert resolved is not None
+    assert resolved.samefile(data)
+
+
+def test_relative_path_error_keeps_absolute_source_and_provider_options(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    source = tmp_path / "data" / "roads.gpkg"
+    destination = tmp_path / "output" / "fixed.qgs"
+
+    def different_drives(*_args: object, **_kwargs: object) -> str:
+        raise ValueError("Different Windows drives")
+
+    monkeypatch.setattr(os.path, "relpath", different_drives)
+    uri = _render_source_uri(destination, "./old/roads.gpkg|layername=roads", source, relative=True)
+    assert uri == f"{source.as_posix()}|layername=roads"
+    assert not uri.startswith("./")
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Requires Windows drive-letter semantics")
+def test_windows_cross_drive_repair_keeps_absolute_drive_path() -> None:
+    output = Path("C:/models/fixed.qgs")
+    source = Path("D:/survey/roads.gpkg")
+    uri = _render_source_uri(output, "./old/roads.gpkg|layername=roads", source, relative=True)
+    assert uri == "D:/survey/roads.gpkg|layername=roads"
 
 
 def test_root_mapping_respects_component_boundaries(tmp_path: Path) -> None:

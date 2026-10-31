@@ -214,7 +214,8 @@ def _map_root(path: Path, replace_root: tuple[Path, Path] | None) -> Path | None
     return new_root.absolute() / relative
 
 
-def _render_source_uri(project_path: Path, original_uri: str, path: Path, *, relative: bool) -> str:
+def _render_source_uri(destination_project_path: Path, original_uri: str, path: Path, *, relative: bool) -> str:
+    """Render a local source relative to the project that will contain it."""
     original, options = _path_parts(original_uri)
     if original.lower().startswith("file:"):
         # QGIS file URLs may include delimited-text query parameters.
@@ -229,10 +230,11 @@ def _render_source_uri(project_path: Path, original_uri: str, path: Path, *, rel
     if not relative:
         return path.as_posix() + options
     try:
-        text = os.path.relpath(path, project_path.parent).replace("\\", "/")
+        text = os.path.relpath(path, destination_project_path.parent).replace("\\", "/")
     except ValueError:
-        # On Windows, sources on a different drive cannot be made relative.
-        text = path.as_posix()
+        # Different Windows drives cannot use relative paths; retain an
+        # absolute source rather than corrupting it with a "./" prefix.
+        return path.as_posix() + options
     if not text.startswith((".", "/")):
         text = f"./{text}"
     return text + options
@@ -244,8 +246,15 @@ def plan_source_path_changes(
     original_project_directory: Path | None = None,
     replace_root: tuple[Path, Path] | None = None,
     relative: bool = True,
+    output_project_path: Path | None = None,
 ) -> list[QgisSourceChange]:
-    """Plan a source-root remap and/or rebasing without opening any layer files."""
+    """Plan source rewrites without opening any layer files.
+
+    Resolve original sources against the input project (or its previous
+    directory), but encode relative URIs against the intended output project.
+    Pass output_project_path for previews as well as writes.
+    """
+    destination = output_project_path.absolute() if output_project_path is not None else project_path
     changes: list[QgisSourceChange] = []
     for layer in project_layer_sources(project_path):
         source_path = local_source_path(
@@ -259,7 +268,7 @@ def plan_source_path_changes(
         target = _map_root(source_path, replace_root)
         if target is None:
             continue
-        rewritten = _render_source_uri(project_path, layer.uri, target, relative=relative)
+        rewritten = _render_source_uri(destination, layer.uri, target, relative=relative)
         if rewritten != layer.uri:
             changes.append(
                 QgisSourceChange(
