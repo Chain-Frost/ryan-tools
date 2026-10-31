@@ -1,10 +1,12 @@
 # Python wrapper standard
 
-This document defines the preferred structure for maintained, library-backed
-scripts under `ryan-scripts`. It does not apply retroactively to archived or
-versioned standalone utilities. For actively maintained *self-contained* scripts,
-use the [minimal standalone standard](README.md#minimal-standard-for-maintained-standalone-scripts)
-instead; do not force a library-backed wrapper architecture merely for consistency.
+This document applies to **maintained library-backed wrappers**, not every
+maintained script. All maintained entry points share the
+[common script principles](README.md#shared-principles-for-maintained-scripts-and-wrappers).
+A self-contained tool may instead follow the
+[maintained standalone standard](README.md#minimal-standard-for-maintained-standalone-scripts)
+without importing `ryan_library`. Neither choice requires an orchestrator.
+Do not retrofit archived or project-specific scripts solely for architectural uniformity.
 
 ## Purpose
 
@@ -12,12 +14,16 @@ A wrapper is a small, human-editable entry point around reusable behaviour in
 `ryan_library`. Wrappers may be copied into project folders, so each file must
 remain understandable and identifiable without access to its Git history.
 
-Reusable processing, discovery and validation belong in
-`ryan_library/functions` or `ryan_library/orchestrators`. A wrapper should
-contain only documentation, editable defaults, argument parsing, configuration
-resolution, logging setup and process-boundary behaviour.
+Put independently useful algorithms, parsing and focused I/O in
+`ryan_library/functions` (or format-specific processors). A wrapper may
+**call those functions directly**. Introduce `ryan_library/orchestrators`
+only when workflow coordination is itself substantial, shared or independently
+testable; a sequence of two function calls is not sufficient reason.
+A wrapper normally owns documentation, editable defaults, argument parsing,
+configuration resolution, logging, modest workflow dispatch, and the process
+boundary. Do not introduce layers that only forward arguments.
 
-## Required file order
+## Recommended file order
 
 1. Raw module docstring with purpose, inputs, outputs and examples.
 2. `from __future__ import annotations` when annotations require it.
@@ -29,9 +35,13 @@ resolution, logging setup and process-boundary behaviour.
 7. Third-party imports.
 8. Absolute `ryan_library` imports.
 9. Small wrapper-only types such as CLI option dataclasses.
-10. `main(...) -> int`.
+10. `main(...) -> int` and focused wrapper-level dispatch helpers.
 11. CLI parser helper.
 12. `if __name__ == "__main__"` process boundary.
+
+Minor adjustments are acceptable when Python dependencies require them, but
+keep versions and frequently edited settings prominent. Avoid importing the
+`ryan_library` package merely to type a default setting near the top.
 
 Operational imports deliberately follow the editable-default block. This keeps
 the settings a user is expected to review immediately below the docstring and
@@ -73,33 +83,88 @@ contents are unchanged; the embedded revision is stable and reviewable.
 
 ## Editable defaults
 
-Keep project paths, search patterns, output templates and frequently adjusted
-settings together near the top of the file. Use uppercase names and explicit
-types where useful. A user must be able to configure an ordinary wrapper run by
-editing these constants instead of supplying command-line arguments. CLI values
-are optional overrides: resolve an explicitly supplied CLI value first, then
-fall back to the corresponding editable default.
+**Every user-facing operational option** in a maintained wrapper must have
+a corresponding user-editable `DEFAULT_*` constant near the top of its file.
+This includes paths, input selection, modes, thresholds, output destinations,
+write/dry-run flags, logging levels, and pause/headless behaviour, not only
+frequently changed settings. A normal run must be configurable by editing
+these constants without requiring CLI arguments. Built-in `--help` and
+`--version` are not operational settings and do not need defaults.
 
-Do not put the editable value only in `argparse`'s `default=` parameter. Keep
-the visible `DEFAULT_*` constant as the source of the wrapper configuration and
-normally let the CLI option default to `None`, preserving the distinction
-between "not supplied" and an explicit false, zero or empty value:
+An explicitly supplied CLI argument always overrides the corresponding
+`DEFAULT_*` constant; otherwise use the editable value. Do not bury defaults
+inside `argparse` or behind unrelated configuration files. Use `None` as the
+parser's value when an option is omitted, especially for booleans and zero:
+`--write`/`--no-write` must be able to override a changed `DEFAULT_WRITE`
+in either direction.
 
 ```python
-DEFAULT_INPUT = Path(".")
+DEFAULT_INPUT = Path()
 DEFAULT_RECURSIVE = False
+DEFAULT_WRITE = False
 
 parser.add_argument("--input", type=Path)
 parser.add_argument("--recursive", action=argparse.BooleanOptionalAction, default=None)
+parser.add_argument("--write", action=argparse.BooleanOptionalAction, default=None)
 
-input_path = Path(args.input if args.input is not None else DEFAULT_INPUT).absolute()
+input_path = (args.input if args.input is not None else DEFAULT_INPUT).absolute()
 recursive = args.recursive if args.recursive is not None else DEFAULT_RECURSIVE
+write = args.write if args.write is not None else DEFAULT_WRITE
 ```
 
-Avoid required positional or optional CLI arguments for values that are
-reasonable editable wrapper settings. A required CLI argument is appropriate
-only when there is no safe or meaningful hard-coded default, such as a secret,
-a one-off destructive confirmation or input that must be chosen for every run.
+For shared CLI helpers whose parser defaults cannot distinguish omission,
+adapt the local parser or add an opposite override (e.g. `--pause` when the
+shared helper defines `--no-pause`). Keep the shared helper's other callers
+unchanged. Avoid requiring CLI inputs that have reasonable editable defaults;
+one-time secrets and typed destructive confirmations are not normal defaults.
+
+**Safe shipped values, deliberate user overrides:** ship non-destructive,
+non-chargeable defaults. An auditor normally starts read-only
+(`DEFAULT_AUDIT_MODE = "existence"`). A dedicated repair/export tool may use
+`DEFAULT_WRITE = True` to create a **new, automatically named output copy**
+when an input is selected, provided it never changes the input or overwrites
+any existing destination. Include an explicit `--no-write` or equivalent
+preview override. Deletion, in-place replacement, and chargeable retrieval
+still require deliberate opt-in. Keep safe exclusive-create, collision checks
+and any independent confirmations for destructive operations intact.
+
+### Explain every editable option
+
+A user must be able to understand and change each `DEFAULT_*` value **without
+reading the implementation**. Keep a concise comment next to every setting
+explaining its purpose and any non-obvious behaviour. Where relevant, include:
+
+- **Accepted values:** Python type, enumerated choices, valid number range,
+  units, and what `None` or an empty value means.
+- **Paths:** expected file or directory, whether a relative path uses the
+  working directory, and a realistic Windows example using `Path(r"...")`
+  for drive/UNC paths.
+- **Dependencies:** other settings that must be enabled or supplied together,
+  and mutually exclusive modes.
+- **Effects and safeguards:** what is read or written, whether data may be
+  overwritten, and performance, cost or privacy implications.
+- **Examples:** one copy-ready Python value or expression next to each
+  non-obvious setting (especially tuples, choices, paths and thresholds).
+  Commented examples must not change behaviour until the user edits a value.
+
+For example:
+
+```python
+# Input directory; Path() means the current working directory.
+# Example: Path(r"Q:\Project\GIS") or Path(r"\\server\share\GIS")
+DEFAULT_INPUT = Path()
+
+# Include subdirectories? True or False (default excludes them).
+DEFAULT_RECURSIVE = False
+
+# Number of rows to sample: 0-5; 0 reads no example rows.
+# Example: 2 (requires the separate sample-report option to be enabled).
+DEFAULT_SAMPLE_ROWS = 0
+```
+
+Avoid repetitive commentary on self-evident values, but do not leave ambiguous
+units, `None` semantics, required settings, or complex expressions unexplained.
+An editable-default section is user documentation, not just implementation data.
 
 Keep cosmetic or highly specific terminal preferences (such as dashboard alternate-screen rendering options) as editable wrapper constants rather than shared CLI arguments. This prevents cluttering the ``--help`` menu across multiple unrelated scripts with rendering flags that users rarely change per execution.
 
@@ -128,7 +193,7 @@ def main(*, working_directory: Path | None = None) -> int:
     return 0
 ```
 
-Use these process codes consistently:
+Use these process codes consistently for maintained entry points:
 
 | Code | Meaning |
 | --- | --- |
@@ -136,7 +201,9 @@ Use these process codes consistently:
 | `1` | Working-directory, validation or processing failure. |
 | `2` | Invalid CLI arguments, normally emitted by `argparse`. |
 
-Library helpers must not call `SystemExit` or pause the console.
+Library helpers must not call `SystemExit` or pause the console. A small
+standalone script may keep its implementation inside its guarded `main()`
+and does not need a wrapper or orchestrator.
 
 ## CLI and process boundary
 
@@ -183,6 +250,9 @@ that native GDAL, NumPy or Python allocator caches will immediately return
 their reserved memory to Windows.
 
 ## Validation checklist
+
+The common [maintained-script checks](README.md#shared-principles-for-maintained-scripts-and-wrappers)
+also apply. For a library-backed wrapper:
 
 - Format modified Python files with `ruff format`.
 - Run strict Pyright on modified files.

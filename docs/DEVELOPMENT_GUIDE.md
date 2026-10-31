@@ -28,45 +28,52 @@ folder README and Git history before deciding to restructure it.
 | Maintained library code | `ryan_library/functions`, `classes` | Reusable behaviour. Keep APIs typed, composable and independent of interactive process behaviour. |
 | Processor | `ryan_library/processors` | Stateful handling of a recognised input or result format. Follow the processor factory and lifecycle documented locally. |
 | Orchestrator | `ryan_library/orchestrators` | Coordinates a complete workflow: discovery, processing, logging, multiprocessing and export. Delegate reusable algorithms to functions or processors. |
-| Maintained wrapper | Unversioned files under `ryan-scripts` | Human-editable entry point around library behaviour. Preserve editable defaults, CLI overrides, banners, working-directory handling, exit codes and optional pause. |
-| Standalone utility | Commonly under `ryan-scripts` | A useful but narrow script that may reasonably remain self-contained. Improve it proportionally; do not move it into the library without a demonstrated reuse case. |
+| Maintained library-backed wrapper | Unversioned files under `ryan-scripts` | Human-editable entry point calling functions/processors directly, or an orchestrator if coordination is complex. Preserve editable defaults, CLI overrides, banners, working-directory handling, exit codes and optional pause. |
+| Maintained standalone script | Commonly under `ryan-scripts` | Supported self-contained tool: apply the shared version, CLI, safety, path and validation principles without requiring a library split or orchestrator. |
+| Legacy/project-specific standalone utility | Commonly under `ryan-scripts` | Narrow or historical code; preserve intentional behaviour and modernise only when requested and justified. |
 | Project-specific script | `ryan-scripts` or a project checkout | Encodes project naming, paths, globs or output templates. Keep those choices visible rather than presenting them as universal library rules. |
 | Legacy or compatibility code | Versioned scripts and explicitly retained compatibility modules | Keeps narrowly scoped old behaviour. `ryan_library/scripts` was removed on 2026-10-18; do not restore it. |
 | Experimental or reference code | `ryan-scripts/python-not-polished`, files labelled accordingly | Example, incomplete or superseded material without a stability promise. Review carefully before operational use. |
 | Vendored or submodule content | `vendor`, `tests/test_data`, resource and holding-area submodules | Independently maintained code or data. Do not refactor it as if it were ordinary first-party package code. |
 
-Versioned script filenames normally identify standalone snapshots. Maintained library-backed wrappers use descriptive,
-unversioned filenames and an embedded wrapper version. See [`../ryan-scripts/WRAPPER_STANDARD.md`](../ryan-scripts/WRAPPER_STANDARD.md).
-Actively maintained standalone utilities instead follow the
-[minimal standalone standard](../ryan-scripts/README.md#minimal-standard-for-maintained-standalone-scripts);
-they may keep all their processing in one file and have no mandatory `ryan_library` dependency.
+Versioned script filenames normally identify historical standalone snapshots.
+**Maintenance status does not imply an orchestrator or a library extraction.**
+All maintained entry points follow the
+[shared script principles](../ryan-scripts/README.md#shared-principles-for-maintained-scripts-and-wrappers).
+Library-backed wrappers additionally follow
+[`WRAPPER_STANDARD.md`](../ryan-scripts/WRAPPER_STANDARD.md).
+Maintained self-contained scripts follow the
+[standalone standard](../ryan-scripts/README.md#minimal-standard-for-maintained-standalone-scripts)
+and can keep processing in one file.
 
 ## Architecture and dependency direction
 
-The preferred dependency direction is:
+Three valid execution paths are shown below. Do **not** insert unnecessary
+layers just to produce the middle or bottom form:
 
 ```text
-user, shell or project configuration
-                |
-                v
-      ryan-scripts wrapper
-                |
-                v
-  ryan_library.orchestrators
-                |
-                v
-functions / processors / classes
-                |
-                v
- external libraries and project files
+user / shell --> maintained standalone script --> external libraries / files
+
+user / shell --> library-backed wrapper --> shared functions / processors --> external libraries / files
+
+user / shell --> wrapper --> optional orchestrator --> shared functions / processors --> external libraries / files
 ```
+
+A standalone script may handle its own focused processing and call external
+dependencies directly. A library-backed wrapper may call shared functions
+directly. Add an orchestrator only when multi-stage coordination is itself
+substantial, reusable or independently testable; avoid layers that simply
+forward arguments.
 
 The layers have distinct responsibilities:
 
-- Wrappers own presentation and process-boundary behaviour: editable defaults, argument parsing, working-directory
-  selection, user banners, exit codes and interactive pausing.
-- Orchestrators own workflow sequencing and coordination. They must be callable without pausing or terminating the
-  interpreter.
+- Maintained entry points (standalone scripts and wrappers) own their process
+  boundary: editable settings, argument parsing, working-directory selection,
+  version/progress reporting, exit codes, and any interactive pause.
+- Library-backed wrappers delegate reusable logic to functions or processors
+  directly; modest workflow dispatch can remain in the wrapper.
+- Orchestrators own substantial reusable multi-step coordination **when needed**;
+  they must be callable without pausing or terminating the interpreter.
 - Functions own reusable algorithms, transformations and focused I/O helpers.
 - Processors own the state and lifecycle associated with supported file formats.
 - Classes and configuration registries own shared domain models and authoritative metadata.
@@ -78,24 +85,50 @@ namespace and the removed `ryan_functions` alias must not be reintroduced.
 
 Use these questions in order:
 
-1. Does it coordinate a complete existing workflow? Put it in an appropriate orchestrator.
-2. Is it reusable processing, discovery, validation or export behaviour? Put it in `ryan_library/functions`.
-3. Does it represent and process a supported data format with state? Add or extend a processor.
-4. Is it project configuration or a convenient human entry point? Keep it in a wrapper.
-5. Is it genuinely a narrow, single-purpose task with no expected reuse? A documented standalone script is acceptable.
-6. Is it only preserving an old import or invocation? Keep the compatibility layer minimal and add no new behaviour.
+1. Can the maintained task be understood, configured, tested and run cleanly
+   as one standalone script? Keep it self-contained and apply common safety/CLI
+   conventions. Do not extract code simply to give it a library-backed label.
+2. Is processing, discovery, validation or focused I/O reused by other scripts
+   or Python callers? Put that shared part in `ryan_library/functions`;
+   the entry point may call it directly.
+3. Does the task need a stateful format-specific processor? Use or extend a
+   processor only when that lifecycle adds value.
+4. Is there substantial, independently reusable multi-step workflow
+   coordination? Use `ryan_library/orchestrators` in that case, not for a
+   one-step call or simple dispatch.
+5. Keep project configuration, CLI, logging configuration, user-visible
+   reporting, pause and `SystemExit` in the entry-point script.
+6. Is the module only preserving a deprecated import? Keep any compatibility
+   forwarding minimal; do not recreate removed legacy APIs.
 
-For example, a TUFLOW output filename pattern or project prefix belongs in a wrapper; generic discovery and validation
-belong in the library; coordinating discovery, aggregation and workbook export belongs in an orchestrator.
+For example, a project-specific TUFLOW filename pattern belongs in the script;
+a generic source-path resolver is a shared function; combining many independent
+model runs into a reusable pipeline may justify an orchestrator.
+
+### Editable configuration for maintained entry points
+
+The [common maintained-script standard](../ryan-scripts/README.md#shared-principles-for-maintained-scripts-and-wrappers)
+requires **every operational CLI option** to have a user-editable default at
+the top of a maintained script or wrapper, including low-frequency settings,
+write/dry-run, expensive modes, logging and pausing. These are user-owned
+entry-point settings, not orchestrator responsibilities. Each default needs
+adjacent, usable guidance: purpose, allowed types/values and units, `None`
+semantics, path base, dependencies, and relevant risks. Non-obvious settings
+must include a **copy-ready commented example** (e.g. a raw Windows `Path`,
+an old/new directory mapping tuple, or a valid mode string). CLI overrides
+take precedence even when explicitly set to `False` or `0`. Shipped values
+remain safe; a deliberate edit may opt into costly behaviour without bypassing
+file protection or independent confirmation.
 
 ### MCP discovery assessment
 
 When adding or materially changing supported reusable automation, consider whether an AI agent should discover it
 through the MCP integration. This is an assessment, not a requirement to expose every script or function.
 
-- Add a maintained CLI workflow to the packaged MCP catalogue when it is useful across projects, has a stable headless
-  interface and has explicit lifecycle, mutation and approval semantics. Point the catalogue at the authoritative
-  wrapper instead of duplicating its CLI under `ryan_library`.
+- Add a maintained CLI workflow to the packaged MCP catalogue when it is
+  useful across projects, has a stable headless interface and has explicit
+  lifecycle, mutation and approval semantics. Point to the authoritative
+  maintained script **or** wrapper, not a duplicate CLI under `ryan_library`.
 - Add a focused MCP tool when a bounded, read-only or otherwise clearly controlled function provides recurring
   agent-facing value. Keep inputs typed and outputs small enough for an agent to inspect reliably.
 - Add an MCP guidance resource when agents benefit more from knowing the supported Python import, processor,
@@ -144,8 +177,9 @@ that behaviour in wrappers. Library functions and orchestrators must remain non-
 ### Headless automation
 
 Automation must be able to use CLI arguments, receive meaningful process exit codes and avoid interactive pauses.
-Maintained wrappers should expose `--no-pause`; destructive or in-place behaviour should require an explicit choice or
-confirmation.
+Any maintained script that can pause should expose a headless `--no-pause`
+or equivalent; destructive, in-place or potentially chargeable behaviour
+requires explicit opt-in even in scripts with editable defaults.
 
 ## Lifecycle terms
 
@@ -173,8 +207,9 @@ ask for more or less than this baseline.
 | --- | --- |
 | Library function, class or processor | Ruff format, strict Pyright on modified files, focused tests or a representative smoke check, then package build. |
 | Orchestrator | Ruff format, strict Pyright, focused workflow validation, then package build. |
-| Maintained wrapper | Ruff format, strict Pyright, compilation, `--help`, and relevant success/failure or dry-run behaviour; use the wrapper checklist. |
-| Standalone or project-specific script | Compilation and a focused smoke check proportional to its risks and environment. |
+| Maintained library-backed wrapper | Ruff format/lint, strict Pyright, compilation, `--help`, focused success/failure and dry-run checks, and an installed-wheel copied-wrapper check if shared library code changed. |
+| Maintained standalone script | Ruff format/lint, strict Pyright on changed maintained code, compilation, `--help` when present, and focused success/failure tests appropriate to its risk and environment; no mandatory library build or orchestration layer. |
+| Legacy, archived or project-specific utility | Compilation and focused smoke check proportional to changed behaviour; do not mandate a wholesale structural migration. |
 | Documentation-only change | Check links, commands, filenames and claims against current code; no Python test run is normally required. |
 | Compatibility layer | Verify forwarding and deprecation behaviour without treating the legacy API as the main behavioural contract. |
 | Submodule or vendored content | Validate using that component's own instructions and keep the parent repository's pinned state explicit. |
@@ -224,8 +259,8 @@ project progress in its status record; a proposed design is not adopted policy m
 | Environment setup, VS Code tasks and specialised runtimes | [`ENVIRONMENTS.md`](ENVIRONMENTS.md) |
 | Package metadata, Python and Pyright configuration | [`../pyproject.toml`](../pyproject.toml) |
 | Ruff lint and format configuration | [`../ruff.toml`](../ruff.toml) |
-| Maintained wrapper contract | [`../ryan-scripts/WRAPPER_STANDARD.md`](../ryan-scripts/WRAPPER_STANDARD.md) |
-| Script selection and operational safety | [`../ryan-scripts/README.md`](../ryan-scripts/README.md) |
+| Shared maintained-script principles and standalone contract | [`../ryan-scripts/README.md`](../ryan-scripts/README.md) |
+| Library-backed maintained wrapper contract | [`../ryan-scripts/WRAPPER_STANDARD.md`](../ryan-scripts/WRAPPER_STANDARD.md) |
 | TUFLOW processor implementation | [`../ryan_library/processors/tuflow/README.md`](../ryan_library/processors/tuflow/README.md) and local workflow documentation |
 | Test fixture contents and provenance | [`../tests/test_data/README.md`](../tests/test_data/README.md) and dataset-local documentation |
 | Current proposals and unfinished work | Roadmaps, audits and implementation plans; these are informative, not architectural authority |

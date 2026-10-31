@@ -10,7 +10,7 @@ matrix.
 - `ryan_library/functions`: reusable algorithms, transformations and focused I/O helpers.
 - `ryan_library/processors`: stateful handlers for supported file and result formats.
 - `ryan_library/orchestrators`: complete workflow coordination, including discovery, processing, logging and export.
-- `ryan-scripts`: human-facing maintained wrappers, project-specific entry points and older standalone utilities.
+- `ryan-scripts`: human-facing maintained standalone scripts and library-backed wrappers, project-specific entry points and older utilities.
 - `ryan_library/scripts` and legacy GDAL/data-processing and POMM shim APIs: removed on 2026-10-18; do not recreate these obsolete compatibility boundaries.
 - `ryan_functions`: removed import alias; use `ryan_library.functions`. The distribution is named `ryan-tools`.
 - `vendor`, `tests/test_data`, `excel-resources`, `qgis-resources` and `unsorted`: vendored content or submodules; preserve
@@ -18,8 +18,12 @@ matrix.
 - `unsorted` is excluded from all automated work. Do not initialise, inspect, traverse, search, lint, test, validate or
   otherwise check that submodule for any reason.
 
-Classify the target before changing it. Do not automatically modernise a standalone, project-specific or legacy script
-into library code. Reuse must be demonstrated, not inferred solely because code could technically be shared.
+Classify the target before changing it. A maintained standalone script is a
+first-class supported entry point: do not automatically split it into a wrapper,
+functions and an orchestrator. Reuse or meaningful complexity must justify a
+new library boundary. Apply the shared maintained-script CLI, versioning,
+configuration, safety and validation principles regardless of architecture.
+Do not automatically modernise project-specific or legacy scripts.
 
 `run_hy8` and `culvert_solver` are supplied by the independent PyPI distributions `run-hy8` and
 `ryan-culverts`. Both obsolete gitlinks `vendor/run_hy8` and `vendor/ryan_culverts`
@@ -53,7 +57,7 @@ are removed alongside their `.gitmodules` entries; do not reintroduce them or lo
   before Loguru receives them.
 - Log visibility is controlled by sink levels, not by eager versus parameterized message formatting. Do not treat
   `SUCCESS` as a formatting exception.
-- Wrappers and top-level orchestrators own configuration; reusable functions and processors only emit records.
+- Standalone scripts and wrappers own user configuration and logging setup; orchestrators may coordinate library workflows but reusable functions and processors do not configure process logging.
 - Use console level `SUCCESS` for concise AI/MCP output while retaining detailed records in a `DEBUG` file sink.
 - Notebook logging must be safe to reconfigure when cells are rerun and must not require multiprocessing.
 - Do not expose internal helper names in user-facing output.
@@ -62,14 +66,35 @@ are removed alongside their `.gitmodules` entries; do not reintroduce them or lo
 
 ## Architecture rules
 
-- Keep project paths, filename prefixes, input globs, output templates and frequently edited settings in wrappers.
-- Keep reusable processing and validation in `ryan_library/functions` or processors.
-- Keep end-to-end workflow coordination in `ryan_library/orchestrators`.
-- Keep pausing, banners, CLI parsing, working-directory selection and `SystemExit` at the wrapper process boundary.
-- Library helpers and orchestrators must not pause the console or terminate the interpreter.
-- Follow [`ryan-scripts/WRAPPER_STANDARD.md`](ryan-scripts/WRAPPER_STANDARD.md) for maintained library-backed wrappers.
-- For actively maintained self-contained scripts, follow the [minimal standalone standard](ryan-scripts/README.md#minimal-standard-for-maintained-standalone-scripts), retaining independent execution and avoiding an unnecessary library split.
-- Do not add repository-root `sys.path` manipulation to copied wrappers; require the matching package installation.
+- Follow the [shared maintained-script principles](ryan-scripts/README.md#shared-principles-for-maintained-scripts-and-wrappers)
+  for both maintained standalone scripts and library-backed wrappers: clear
+  purpose/version, editable settings, CLI precedence, safe defaults, diagnostics,
+  exit codes, path handling and proportionate verification.
+- Expose **every user-facing operational CLI option** as a top-level,
+  user-editable `DEFAULT_*` setting in maintained scripts and wrappers,
+  including paths, selection, modes, output/write, console logging and pause.
+  CLI flags override those defaults (including explicit `False`/`0`).
+  Ship safe defaults; an intentional edit may opt into chargeable operations
+  but may not bypass file-overwrite protections or independent confirmations.
+  Add concise adjacent comments explaining each default's meaning, permitted
+  values/units, `None` semantics, path base and dependent settings. Non-obvious
+  inputs require copy-ready examples (Windows raw-string `Path`, tuples,
+  valid choice strings) and any cost or mutation warning.
+- A self-contained script may keep its processing in guarded `main()` with local
+  helpers; **a library-backed wrapper does not require an orchestrator**.
+- Put genuinely reusable processing and validation in `ryan_library/functions`
+  or processors; wrappers may call them directly. Introduce
+  `ryan_library/orchestrators` only for substantial reusable workflow coordination.
+  Do not add pass-through modules merely to satisfy an architecture diagram.
+- Keep pausing, banners, CLI parsing, working-directory selection and
+  `SystemExit` at the script/wrapper process boundary. Library helpers and
+  orchestrators must not pause the console or terminate the interpreter.
+- Follow [`ryan-scripts/WRAPPER_STANDARD.md`](ryan-scripts/WRAPPER_STANDARD.md)
+  for maintained library-backed wrappers; the
+  [standalone standard](ryan-scripts/README.md#minimal-standard-for-maintained-standalone-scripts)
+  applies to maintained self-contained scripts.
+- Do not add repository-root `sys.path` manipulation to copied scripts that
+  depend on `ryan_library`; require the matching package installation.
 
 ## Testing and validation
 

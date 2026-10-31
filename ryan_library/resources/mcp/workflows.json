@@ -19,12 +19,17 @@
       "id": "audit_qgis_projects",
       "title": "Audit QGIS project sources",
       "domain": "qgis",
-      "purpose": "Scan QGIS project files and report missing local data sources.",
+      "purpose": "Read-only QGS/QGZ file-source audit and optional QGD report. Automation pins existence-only metadata checks; cold-storage pings are manually opt-in. Path repair is a separate script not exposed as an MCP workflow.",
       "script": "ryan-scripts/other/audit_qgis_projects.py",
       "profile": "analysis",
       "mutation": "read_only",
       "lifecycle": "experimental",
       "headless_arguments": [
+        "--mode",
+        "existence",
+        "--no-auxiliary-report",
+        "--sample-rows",
+        "0",
         "--no-pause"
       ]
     },
