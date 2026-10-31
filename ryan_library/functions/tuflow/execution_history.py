@@ -116,7 +116,7 @@ def _canonical_arguments(run: PlannedRun) -> tuple[tuple[tuple[str, str], ...], 
             if position + 1 >= len(arguments):
                 msg = f"Run {run.index} has an event/scenario switch without a value"
                 raise ExecutionLogError(msg)
-            flags.append((low, arguments[position + 1]))
+            flags.append((low[1:], arguments[position + 1]))
             position += 2
             continue
         if not _GPU.fullmatch(token):
