@@ -480,7 +480,7 @@
         "--run-simulations",
         "--no-pause"
       ],
-      "help_safe": true
+      "help_safe": false
     },
     {
       "id": "delete_duplicate_tuflow_files",
