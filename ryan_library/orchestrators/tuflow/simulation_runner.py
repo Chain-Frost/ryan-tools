@@ -22,7 +22,7 @@ from datetime import datetime
 from pathlib import Path
 from queue import Empty, SimpleQueue
 from threading import Event, Lock, Thread
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, cast
 
 if TYPE_CHECKING:
     from rich.live import Live
@@ -59,7 +59,7 @@ class RunnerSettings:
     working_directory: Path
     executable: Path
     tcf: Path | None
-    run_variables: Mapping[str, str | Sequence[str]] = field(default_factory=dict)
+    run_variables: Mapping[str, str | Sequence[str]] = field(default_factory=lambda: dict[str, str | Sequence[str]]())
     input_files: tuple[Path, ...] = ()
     mode: RunMode = "parameter_product"
     batch_commands: str = "-b"
@@ -366,11 +366,12 @@ def _gpu_startup_message(groups: tuple[tuple[str, ...], ...]) -> None:
         logger.info("No other running local TUFLOW models detected.")
     assigned = {identifier for process in snapshot.assigned for identifier in process.gpu_ids}
     capacity = [tuple(sorted(gpu_ids_from_flags(group))) for group in groups]
+    configured_ids: set[int] = {identifier for group in capacity for identifier in group}
     if groups and capacity and all(group and set(group).intersection(assigned) for group in capacity):
         details = ", ".join(
             f"PID {process.pid}: GPUs {sorted(process.gpu_ids)}"
             for process in snapshot.assigned
-            if process.gpu_ids.intersection(set().union(*(set(group) for group in capacity)))
+            if process.gpu_ids.intersection(configured_ids)
         )
         logger.warning("All configured GPU groups appear occupied by external TUFLOW runs (%s).", details)
     elif snapshot.assigned and groups:
@@ -549,7 +550,9 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
         message = "No runner slots configured"
         raise CommandPlanError(message)
     stop = interrupted if interrupted is not None else Event()
-    factory = popen or subprocess.Popen
+    factory: Callable[..., subprocess.Popen[bytes]] = (
+        popen if popen is not None else cast(Callable[..., subprocess.Popen[bytes]], subprocess.Popen)
+    )
     queue = deque(plan.runs)
     active: list[_OwnedChild] = []
     owned_slots: set[int] = set()
