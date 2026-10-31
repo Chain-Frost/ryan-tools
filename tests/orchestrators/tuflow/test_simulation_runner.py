@@ -10,7 +10,7 @@ from threading import Event
 import pytest
 
 from ryan_library.functions.tuflow.command_plan import CommandPlanError, parse_command_plan
-from ryan_library.functions.tuflow.gpu_occupancy import GpuOccupancySnapshot, TuflowGpuProcess
+from ryan_library.functions.tuflow.gpu_occupancy import GpuOccupancySnapshot
 from ryan_library.orchestrators.tuflow import simulation_runner as runner
 
 
@@ -136,7 +136,8 @@ def test_import_roundtrip_preserves_model_executable_cwd_order_and_duplicates(tm
     plan = runner.prepare_plan(config)
     output = tmp_path / "copied_commands.bat"
     text = runner.render_batch_commands(plan, config, destination=output)
-    assert "TCF_1" in text and "TCF_2" in text
+    assert "TCF_1" in text
+    assert "TCF_2" in text
     assert 'set "TUFLOW_EXE=TUFLOW.exe"' in text
     assert 'set "BCMD=-b"' in text
     assert text.count("START /D") == 3
@@ -189,7 +190,7 @@ def test_per_child_directory_argument_list_and_runtime_gpu_policy(
     assert [cwd for _, cwd in launched] == [str(run.working_directory) for run in plan.runs]
     assert all(isinstance(args, list) and args[0] == "TUFLOW.exe" for args, _ in launched)
     assert all(sum(arg.startswith("-pu") for arg in args) == 1 for args, _ in launched)
-    assert set(arg for args, _ in launched for arg in args if arg.startswith("-pu")) == {"-pu2", "-pu3"}
+    assert {arg for args, _ in launched for arg in args if arg.startswith("-pu")} == {"-pu2", "-pu3"}
     assert len(snapshots) == 1
 
 
@@ -204,17 +205,20 @@ def test_launch_failure_and_priority_failure_cannot_lose_scheduler_slot(
     def popen(**_options: object) -> FakeProcess:
         attempts.append(len(attempts))
         if len(attempts) == 1:
-            raise FileNotFoundError("fake launch failure")
+            message = "fake launch failure"
+            raise FileNotFoundError(message)
         return FakeProcess(321)
 
     def failed_priority(*_args: object) -> None:
-        raise PermissionError("fake priority denial")
+        message = "fake priority denial"
+        raise PermissionError(message)
 
     monkeypatch.setattr(runner, "_apply_priority", failed_priority)
     outcome = runner.launch_plan(plan, config, popen=popen)
     assert attempts == [0, 1]
     assert len(outcome.outcomes) == 2
-    assert not outcome.successful and outcome.exit_code == 1
+    assert not outcome.successful
+    assert outcome.exit_code == 1
     assert [item.return_code for item in outcome.outcomes] == [None, 0]
     assert "fake launch failure" in str(outcome.outcomes[0].error)
 
@@ -260,8 +264,10 @@ def test_interruption_terminates_owned_child_without_imaginary_success(
         return process
 
     outcome = runner.launch_plan(plan, config, interrupted=stop, popen=start)
-    assert outcome.interrupted and not outcome.successful
-    assert len(owned) == 1 and owned[0].terminated
+    assert outcome.interrupted
+    assert not outcome.successful
+    assert len(owned) == 1
+    assert owned[0].terminated
     assert [record.return_code for record in outcome.outcomes] == [-15]
 
 
