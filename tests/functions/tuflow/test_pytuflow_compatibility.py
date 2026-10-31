@@ -16,6 +16,7 @@ from ryan_library.functions.tuflow import pytuflow_compatibility as compatibilit
 
 def _installed(tmp_path: Path, *, url: str | None = None) -> SimpleNamespace:
     root = tmp_path / "site-packages"
+
     def locate_file(_name: str) -> Path:
         return root / "pytuflow"
 
@@ -53,6 +54,7 @@ def test_official_same_version_without_batch_api_fails(tmp_path: Path, monkeypat
 
 def test_shadowing_checkout_is_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_distribution(monkeypatch, tmp_path)
+
     def fake_importer(_name: str) -> object:
         return SimpleNamespace(__file__=str(tmp_path / "checkout" / "pytuflow" / "__init__.py"))
 
