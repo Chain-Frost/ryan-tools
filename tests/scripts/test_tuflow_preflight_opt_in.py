@@ -78,21 +78,22 @@ def test_standalone_uses_one_grouped_validator_with_original_run_ids(
     monkeypatch.setattr(input_preflight, "check_simulation_inputs", check)
     source = tmp_path / "runs.txt"
     source.write_text(
-        'TUFLOW.exe -e1 "Wet Season" first.tcf\n'
-        "TUFLOW.exe -e1 Dry second.tcf\n"
-        'TUFLOW.exe -e1 "Wet Season" first.tcf',
+        'TUFLOW.exe -e1 "Wet Season" first.tcf\nTUFLOW.exe -e1 Dry second.tcf\nTUFLOW.exe -e1 "Wet Season" first.tcf',
         encoding="utf-8",
     )
     output = tmp_path / "issues.csv"
 
     assert module.DEFAULT_TCF is None
-    assert main(
-        tcf=None,
-        commands=source,
-        report=output,
-        check_gpkg_layers=False,
-        working_directory=tmp_path,
-    ) == 0
+    assert (
+        main(
+            tcf=None,
+            commands=source,
+            report=output,
+            check_gpkg_layers=False,
+            working_directory=tmp_path,
+        )
+        == 0
+    )
     assert output.is_file()
     assert [(tcf, indices) for tcf, indices, _, _ in calls] == [
         ("first.tcf", (1, 3)),
@@ -106,9 +107,7 @@ def test_standalone_uses_one_grouped_validator_with_original_run_ids(
     )
 
 
-def test_standalone_reports_unavailable_validator_as_failure(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_standalone_reports_unavailable_validator_as_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """An exception in the sole validator must not become a successful check."""
 
     def unavailable(*_args: object, **_kwargs: object) -> _SuccessfulGroup:
@@ -120,12 +119,15 @@ def test_standalone_reports_unavailable_validator_as_failure(
     source = tmp_path / "runs.bat"
     source.write_text("TUFLOW.exe model.tcf", encoding="utf-8")
     report = tmp_path / "issues.csv"
-    assert main(
-        tcf=None,
-        commands=source,
-        report=report,
-        check_gpkg_layers=True,
-        working_directory=tmp_path,
-    ) == 1
+    assert (
+        main(
+            tcf=None,
+            commands=source,
+            report=report,
+            check_gpkg_layers=True,
+            working_directory=tmp_path,
+        )
+        == 1
+    )
     assert "unresolved" in report.read_text(encoding="utf-8-sig")
     assert "public validation unavailable" in report.read_text(encoding="utf-8-sig")
