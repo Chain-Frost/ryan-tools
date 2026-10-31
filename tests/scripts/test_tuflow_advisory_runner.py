@@ -139,6 +139,7 @@ def test_preflight_only_reports_every_finding_and_fails_closed(
     result.issues = [
         CommandPreflightIssue(plan.runs[0], "missing", "test", f"file-{i}", "unavailable") for i in range(13)
     ]
+
     def return_findings(*_args: object, **_kwargs: object) -> CommandPreflightReport:
         return result
 
@@ -146,6 +147,7 @@ def test_preflight_only_reports_every_finding_and_fails_closed(
     caplog.set_level(logging.INFO)
     assert runner.check_plan_only(plan) is False
     assert sum("Input check run" in record.message for record in caplog.records) == 13
+
     def unavailable(*_args: object, **_kwargs: object) -> CommandPreflightReport:
         message = "public API unavailable"
         raise ImportError(message)
@@ -200,6 +202,7 @@ def test_no_external_models_message_never_claims_overcapacity(
     monkeypatch.setattr(runner, "_apply_priority", _no_op)
     config = settings(tmp_path)
     caplog.set_level(logging.INFO)
+
     def popen(**_kwargs: object) -> FakeProcess:
         return FakeProcess(123)
 
