@@ -505,9 +505,11 @@ def parse_command_plan(
     try:
         python_tcf = _path(fallback_tcf, config_base) if fallback_tcf is not None else None
     except ValueError as exc:
-        raise CommandPlanError(f"Invalid Python TCF configuration {fallback_tcf!r}: {exc}") from exc
+        message = f"Invalid Python TCF configuration {fallback_tcf!r}: {exc}"
+        raise CommandPlanError(message) from exc
     if python_tcf is not None and python_tcf.suffix.casefold() != ".tcf":
-        raise CommandPlanError(f"Python TCF must have a .tcf suffix: {python_tcf}")
+        message = f"Python TCF must have a .tcf suffix: {python_tcf}"
+        raise CommandPlanError(message)
     reader = _Reader(
         source,
         initial_directory,
@@ -594,7 +596,8 @@ def read_command_plans(
     launch commands while building this plan.
     """
     if not paths:
-        raise CommandPlanError("At least one BAT/text input file is required")
+        message = "At least one BAT/text input file is required"
+        raise CommandPlanError(message)
     directory = (initial_directory if initial_directory is not None else Path.cwd()).absolute()
     config_base = (configuration_directory if configuration_directory is not None else directory).absolute()
     plans = tuple(
@@ -612,8 +615,7 @@ def read_command_plans(
     if len(plans) == 1:
         return plans[0]
     runs = tuple(
-        replace(run, index=position)
-        for position, run in enumerate((run for plan in plans for run in plan.runs), 1)
+        replace(run, index=position) for position, run in enumerate((run for plan in plans for run in plan.runs), 1)
     )
     syntaxes = {plan.syntax for plan in plans}
     merged_syntax: Syntax | Literal["mixed"] = plans[0].syntax if len(syntaxes) == 1 else "mixed"
