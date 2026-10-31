@@ -1,14 +1,16 @@
 # Ryan Scripts
 
-Maintained library-backed wrappers should follow
-[`WRAPPER_STANDARD.md`](WRAPPER_STANDARD.md). It defines file layout, embedded
-wrapper versions, editable defaults, CLI behaviour, exit codes, headless
-pausing and garbage-collection guidance.
+This folder includes **maintained standalone scripts**, **maintained
+library-backed wrappers**, project-specific utilities and historical code.
+All maintained entry points follow the [shared principles below](#shared-principles-for-maintained-scripts-and-wrappers);
+library-backed wrappers additionally follow
+[`WRAPPER_STANDARD.md`](WRAPPER_STANDARD.md). The wrapper standard defines
+shared-library use, opening/closing version banners and optional interactive
+completion, but does not require an orchestrator.
 
-This folder contains human-facing entry points for reusable code in `ryan_library`, together with older standalone
-utilities retained for reference. Read the module docstring at the top of a Python script before running it: the
-docstring identifies whether the script uses command-line arguments, editable settings, the current working directory,
-or the folder containing the script.
+Read each script's module docstring before running it to confirm its inputs,
+outputs, editable settings and whether paths are relative to the working
+directory, the script location or another configured base.
 
 ## Shared principles for maintained scripts and wrappers
 
