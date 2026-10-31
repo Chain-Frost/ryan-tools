@@ -664,3 +664,87 @@ Hosted CI may run after the push and will be checked later, per owner direction;
 no earlier-head hosted checks are claimed to validate the new head. Original
 checkout source/index remain unchanged. No merge, release, GitHub comment or
 native benchmark/solver execution is authorized by this delivery.
+
+## 2026-10-31 - native task-PR merge history restored
+
+The owner authorized actual task PR merges into #159, including temporary repository
+settings changes and a lease-protected rewind of #159 only. Remote backup branch
+`backup/tuflow-159-complete-20261031` preserves complete implementation commit
+`55ac56aa1de5bce614496dd39e37b395496f2ce9`, tree
+`900cfe90899687e3c2291c4ca4f8117c2cf187a4`.
+
+`gh stack view --json` reported no local stack; GraphQL inspection found remote
+stack #171 targeting main and containing #159 and the task PRs. The five closed
+PRs were reopened. The old stack was unstacked (merged #170 remains in its
+historical stack). An initial link attempt against the complete integration head
+failed to retarget #172 and created stack #178 targeting main; that stack was
+removed without a merge. No stack merge targeting main was attempted.
+
+With explicit owner approval, merge commits were temporarily enabled and automatic
+branch deletion disabled. #159 was lease-rewound from the backed-up SHA to #170's
+`507a0d8f023e975925afc1d522913c8dd8d43935`. Native stack #179 was created with
+`gh stack link --base feat/tuflow-runner-model-checks 172 173 174 176 177`.
+GraphQL verified its trunk was `feat/tuflow-runner-model-checks`, its five members
+excluded #159, and #159 still targeted main. Then `gh stack merge 179 --merge --yes`
+succeeded. GitHub records #170, #172, #173, #174, #176 and #177 as MERGED.
+All source branch tips were preserved. Repository settings were restored to
+`allow_merge_commit=false`, `delete_branch_on_merge=true`.
+
+Restored implementation head: `5edc2f5371da3a55faec4cbab2115e43574f1c43`.
+Final tree: `900cfe90899687e3c2291c4ca4f8117c2cf187a4`.
+`git diff --quiet` between backup and final trees returned 0: all tracked files,
+deletions and gitlink pointers match exactly. The handoff recorded #159 as OPEN/DRAFT;
+the live status refresh below supersedes that draft-state claim.
+Main remains `820358bb399296879c736887e0893249025a1de2`; no main merge or release.
+
+Final-head CI was triggered and inspected: Python CI run 41195430694, Fast PR checks
+41195430768, public batch-validation smoke 41195430687, command-plan contracts
+41195430688, and CSV acceptance 41195430821 were pending/queued at inspection.
+No failures suppressed or checks bypassed. Next action: inspect these exact-head
+runs and resolve integration failures subsequently on #159; scope 06 acceptance
+remains pending. Next review: after CI or 2026-11-07.
+
+At this checkpoint, the GitHub PR merge history and remote integration branch
+were updated, while the handoff and register remained local and uncommitted to
+preserve the implementation-tree comparison. The checked-out branch was not
+reset to the new remote head. The documentation delivery below supersedes that
+local-only state. Unrelated overdue work records remain untouched.
+
+### 2026-10-31 - documentation delivery and live CI refresh
+
+The owner requested preservation and publication of these two documentation
+edits. Live GitHub inspection confirmed #159 is **OPEN, not draft**, targets
+`main`, and still has implementation head
+`5edc2f5371da3a55faec4cbab2115e43574f1c43`. The six task PRs listed above are
+MERGED. Repository settings remain `allow_merge_commit=false` and
+`delete_branch_on_merge=true`.
+
+All nine checks on that exact implementation head are terminal and successful:
+
+| Workflow / run | Successful jobs |
+| --- | --- |
+| [Python CI, 41195430694](https://github.com/Chain-Frost/ryan-tools/actions/runs/41195430694) | Policy; Python 3.13 compatibility and MCP; Hosted tests; Package |
+| [Fast PR checks, 41195430768](https://github.com/Chain-Frost/ryan-tools/actions/runs/41195430768) | Ruff and whitespace |
+| [Public batch-validation smoke, 41195430687](https://github.com/Chain-Frost/ryan-tools/actions/runs/41195430687) | windows-public-validation; windows-incompatible-same-version |
+| [Command-plan contracts, 41195430688](https://github.com/Chain-Frost/ryan-tools/actions/runs/41195430688) | command-plan |
+| [CSV acceptance, 41195430821](https://github.com/Chain-Frost/ryan-tools/actions/runs/41195430821) | Windows 3.14 CSV transitions and copied wrapper |
+
+The original local tip and both edited files were backed up before reconciling
+this checkout with the restored remote history. The old local head, restored
+remote head and preserved backup have the same implementation tree. This
+follow-up changes only this status record and its work-register row; all code,
+package artifacts and gitlink pointers remain unchanged. The exact tree match
+above describes the implementation checkpoint, before these documentation edits.
+
+Validation for this documentation-only delivery checks the two files' links,
+recorded SHAs, PR states, repository settings and whitespace. No Python suite,
+package rebuild, native benchmark or solver execution is needed or claimed.
+Implementation-head CI results are not relabeled as checks of the following
+commit; verify any checks triggered by the documentation push separately.
+
+Delivery: preserve this record and register update together in a documentation
+commit on the existing #159 branch, with an ordinary fast-forward push. No merge,
+release or repository-setting change is included. Scope 06 acceptance remains
+pending: reconcile its local/native, pinned-package, copied-wrapper and combined
+head evidence before declaring the integration accepted. Next review:
+2026-11-07, or earlier when scope 06 is resumed.
