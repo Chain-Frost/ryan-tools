@@ -2,10 +2,10 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Planned implementation; agreed scope pack prepared, draft PR #159 |
+| Status | Scopes 01–03 delivered on stacked candidate #173; scope 06 acceptance **blocked**, not integrated into #159 |
 | Owner | ChatGPT |
 | Created / Updated | 2026-10-23 / 2026-10-31 |
-| Next review | 2026-11-07 or after scoped implementation delivery |
+| Next review | On exact-head main policy correction and installed PyTUFLOW/Windows acceptance; target 2026-11-07 |
 | Pull request | [ryan-tools #159](https://github.com/Chain-Frost/ryan-tools/pull/159) |
 | Branch | `feat/tuflow-runner-model-checks` |
 | PR base | `main`; main cleanup in #159, CSV/resume in a separate stacked PR |
@@ -13,7 +13,105 @@
 | Parent integration | `9cd839247c430dbd9a2ec4a7e2187f1e80cea91d` from #158, refreshed after its diagnostic implementation landed on that draft |
 | Historical merged consumer baseline | `bcc8e5c2fee78c706e2b89feb051cded5cf8d2c2` (PR #143, including #156) |
 | Historical merged parser baseline | `e162c04330d24c37bee3ade94479cc4602651060` (PyTUFLOW #12, including #13) |
-| Next action | Assign scopes 01–03 and agree shared contracts; implement and validate #159, then review the CSV child separately. |
+| Next action | Resolve #173 policy/Pyright failures; verify pinned PyTUFLOW and native Windows GIS installer/copies; integrate accepted scopes into #159 only after review. Scope 04 #174 and correction #176 remain separate. No merge/release. |
+
+## 2026-10-31 — scope 06 integration acceptance (latest, **not approved**)
+
+[Scope index and matrix](2026-10-31-tuflow-integration-scopes/00_scope_index.md) ·
+[Main #159](https://github.com/Chain-Frost/ryan-tools/pull/159) ·
+[Scopes 02 #170](https://github.com/Chain-Frost/ryan-tools/pull/170),
+[01 #172](https://github.com/Chain-Frost/ryan-tools/pull/172),
+[03 #173](https://github.com/Chain-Frost/ryan-tools/pull/173) ·
+[CSV child #174](https://github.com/Chain-Frost/ryan-tools/pull/174) ·
+[CSV correction #176](https://github.com/Chain-Frost/ryan-tools/pull/176).
+
+**Candidate ancestry and exact boundaries:** #159 at
+`4ddadca7546439a1c91d223d5f8a6f4d8e2205b7`,
+base `main@820358bb399296879c736887e0893249025a1de2`;
+#170 scope 02 `507a0d8f023e975925afc1d522913c8dd8d43935`;
+#172 scope 01 `88012cad09b2f058b4fd515d4804d4fc4cf661a5`;
+#173 main integration **candidate**, scope 03
+`722d6bfb78ad922b6f06baf5dbd3ee0f543c2c05`; and
+#174 separate scope 04 child `d7e537205ede490e19d36ce16b54bd4cd1de0036`.
+GitHub comparison confirmed sequential ancestry: #173 includes all scoped main commits,
+and #174 includes #173. The actual #159 head has **not** yet received these
+implementations. Do not mistake successful child checks for acceptance of #159 itself.
+
+**Parser:** approved immutable source remains
+`Chain-Frost/PyTuflow@05e35476c02d6d8ed17c83caf1cb0d185ce51d1b`,
+as required in `repo-scripts/pytuflow-requirement.txt`.
+[Upstream PR #17](https://github.com/TUFLOW-Support/PyTuflow/pull/17)
+currently points to `76486e82a794730c54f77538ff1c370828be1582` after a rebase.
+[Scope 05 raster-header PR #59](https://github.com/Chain-Frost/PyTuflow/pull/59)
+is independent; local raster-header checking stays excluded from this release.
+
+**Exact-head hosted evidence:**
+
+- [#173 Python CI 41190194546](https://github.com/Chain-Frost/ryan-tools/actions/runs/41190194546):
+  Windows Python 3.14, **1,501 passed, 0 failures, 0 skipped** in hosted tests;
+  Package verified-wheel build success; Python 3.13/MCP success;
+  **Policy FAILED**: strict Pyright reported **63 errors** across
+  `tests/orchestrators/tuflow/test_simulation_runner.py`,
+  `tests/scripts/test_run_tuflow_simulations.py`,
+  `tests/scripts/test_tuflow_advisory_runner.py` (fake Popen signatures,
+  untyped lambdas, internal accesses). [Fast Ruff and whitespace
+  41190194588](https://github.com/Chain-Frost/ryan-tools/actions/runs/41190194588)
+  passed. These tests need type-safe repairs and fresh exact-head CI; no blanket
+  Pyright suppression or reuse of a prior green run.
+- [#174 Python CI 41190449123](https://github.com/Chain-Frost/ryan-tools/actions/runs/41190449123):
+  Windows Python 3.14, **1,520 passed, 0 failures, 0 skipped**;
+  Package, Policy and Python 3.13/MCP all passed. [Dedicated Windows CSV
+  41190449125](https://github.com/Chain-Frost/ryan-tools/actions/runs/41190449125)
+  passed. That evidence applies to the **uncorrected #174 SHA**, not #176.
+- [Scope 01 real PyTUFLOW smoke 41186599980](https://github.com/Chain-Frost/ryan-tools/actions/runs/41186599980)
+  earlier passed 25 Windows Python 3.14 tests using the public API and
+  incompatible same-version negative case. Earlier pin/earlier code are
+  **not** equivalent to installed parser validation of the final combined head.
+
+**Independent supplemental installed-wheel tests, Linux Python 3.13.5:**
+downloaded the *exact* #173/#174 CI-built wheel artifacts, installed them to
+separate isolated directories, and executed copied wrappers from neutral folders
+without repository-path imports. Both wrapper `--help` runs succeeded.
+The #173 copied wrapper exported two identical imported occurrences without a
+locally available TUFLOW executable. Seven synthetic main cases passed (plan
+ordering and A/B/A TCFs, multiple files, source/line provenance and defaults,
+late conflicts and decode errors before export, bare-row fallback, duplicate
+export/reparse, unavailable-parser strict/advisory behavior, one fake GPU
+snapshot with out-of-order child completion, and aggregate launch failures).
+Nine synthetic child cases passed, including a **400-run / 100-success /
+three-failure** continuation selecting 300 current occurrences and a regression
+demonstrating that #174's valid bare command rows fail CSV identity creation.
+No real TUFLOW executable or production model was used.
+
+**Concrete CSV child defect and correction:** #174 `execution_history._canonical_arguments`
+assumes every accepted planned run ends in a TCF argument. The shared parser
+correctly accepts `SET TCF` plus an abbreviated `-e1 A` row and full
+commands with an earlier TCF; such valid commands fail before Resume/All
+under #174 with `ExecutionLogError: Run 1 lacks its final TCF argument`.
+Isolated [draft fix #176](https://github.com/Chain-Frost/ryan-tools/pull/176)
+against #174 changes run identity to use frozen effective TCF and adds focused
+bare/fallback/reordered-TCF/flag-value and Resume regressions, commit
+`683c2f19e95657653b3172c1c1003a100e8961c9`.
+Locally corrected logic passed supplemental checks; **new correction-head
+CI/Windows tests remain required**. Do not merge this directly to main.
+
+**Unfulfilled scope 06 acceptance:** The current execution environment is
+Linux Python 3.13.5, with no installed PyTUFLOW parser, no available native
+Windows/Python 3.14 environment and no external Git checkout (network to GitHub
+blocked). Consequently the final integrated head has *not* undergone local
+installed PR #17 public synthetic batch validation, normal Windows GIS-wheel
+installer/bootstrap and native DLL import verification, or local strict Pyright
+against source. Existing Windows hosted tests/earlier parser smoke are recorded
+with their exact SHAs, not promoted into the missing evidence. The isolated
+work used installed wheels and distinct GitHub review branches rather than
+claiming an unavailable local Git worktree.
+
+**Result and next action:** **Main #159 NOT ACCEPTED**, pending exact-head
+main Pyright/policy correction, installation/guard and native checks, document
+review and deliberate integration of #173 into #159 without losing task ancestry.
+**Scope 04 remains separately provisional**, pending #176 corrective validation,
+then its own acceptance and rebase onto the approved main parent. Keep all PRs
+unmerged and unreleased; scope 05 is not a blocker.
 
 ## 2026-10-31 — scope 02 isolated task branch
 
