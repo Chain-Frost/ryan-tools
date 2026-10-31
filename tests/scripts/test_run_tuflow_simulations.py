@@ -45,6 +45,11 @@ def wrapper(tmp_path: Path) -> _RunnerWrapper:
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
+    # A harmless file satisfies the wrapper's pre-launch existence check;
+    # fake-process callbacks still prevent any solver execution.
+    solver = tmp_path / "Synthetic_TUFLOW.exe"
+    solver.write_bytes(b"synthetic solver placeholder")
+    module.TUFLOW_EXE = solver
     return cast(_RunnerWrapper, module)
 
 

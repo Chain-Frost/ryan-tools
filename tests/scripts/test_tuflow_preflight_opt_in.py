@@ -78,7 +78,7 @@ def test_standalone_uses_one_grouped_validator_with_original_run_ids(
     monkeypatch.setattr(input_preflight, "check_simulation_inputs", check)
     source = tmp_path / "runs.txt"
     source.write_text(
-        'TUFLOW.exe -e1 "Wet Season" first.tcf\nTUFLOW.exe -e1 Dry second.tcf\nTUFLOW.exe -e1 "Wet Season" first.tcf',
+        'TUFLOW.exe -e1 "Wet Season" first.tcf\nTUFLOW.exe -e1 Dry second.tcf\nTUFLOW.exe -e1 "Spring Season" first.tcf',
         encoding="utf-8",
     )
     output = tmp_path / "issues.csv"
@@ -99,7 +99,7 @@ def test_standalone_uses_one_grouped_validator_with_original_run_ids(
         ("first.tcf", (1, 3)),
         ("second.tcf", (2,)),
     ]
-    assert calls[0][2] == ({"e1": "Wet Season"}, {"e1": "Wet Season"})
+    assert calls[0][2] == ({"e1": "Wet Season"}, {"e1": "Spring Season"})
     assert calls[1][2] == ({"e1": "Dry"},)
     assert all(
         options == {"check_gpkg_layers": False, "io_workers": 4, "maximum_directory_entries": 50_000}
