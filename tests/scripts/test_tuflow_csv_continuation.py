@@ -129,7 +129,7 @@ def test_export_and_configuration_failures_do_not_change_csv(
 
     monkeypatch.setattr(module, "EXPORT_COMMANDS", True)
     monkeypatch.setattr(module, "export_batch_commands", refuse_export)
-    assert copied_wrapper.main(_args(tmp_path, "--run-mode", "all")) == 1
+    assert copied_wrapper.main(_args(tmp_path, "--run-mode", "all", "--export")) == 1
     assert path.read_bytes() == history
 
     monkeypatch.setattr(module, "EXPORT_COMMANDS", False)
