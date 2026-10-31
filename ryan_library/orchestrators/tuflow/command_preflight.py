@@ -114,7 +114,9 @@ def _check_group(
     # Keep planning/--plan-only independent of the PyTUFLOW/GIS import stack.
     from .input_preflight import RunRequest, check_batch_files, check_simulation_inputs
 
-    requests: list[RunRequest] = [RunRequest(run.index, run.flags) for run in runs]
+    # Local zero-based positions are the PyTUFLOW batch contract. Never send
+    # global positions upstream; results are mapped back by the caller.
+    requests: list[RunRequest] = [RunRequest(position, run.flags) for position, run in enumerate(runs)]
     if files_only:
         return check_batch_files(
             _native_path(runs[0].tcf), requests, check_gpkg_layers=check_gpkg_layers, io_workers=io_workers
@@ -156,7 +158,7 @@ def check_command_plan(
     for requirement in plan.directories:
         if not _native_path(requirement.path).is_dir():
             message = (
-                f"{plan.source}:{requirement.line}: working directory is unavailable; "
+                f"{requirement.source}:{requirement.line}: working directory is unavailable; "
                 "cannot assume the batch directory change succeeds"
             )
             raise CommandPlanError(message)
@@ -167,7 +169,7 @@ def check_command_plan(
     combined = CommandPreflightReport(plan)
     for grouped_runs in groups.values():
         runs = tuple(grouped_runs)
-        by_index = {run.index: run for run in runs}
+        by_index = dict(enumerate(runs))
         try:
             if files_only:
                 report = _check_group(
@@ -181,6 +183,9 @@ def check_command_plan(
                 report = _check_group(runs, check_gpkg_layers=check_gpkg_layers, context_mode=context_mode)
             if report.run_count != len(runs) or any(issue.run_index not in by_index for issue in report.issues):
                 message = "Incomplete or incorrectly indexed preflight group report"
+                raise ValueError(message)
+            if not report.passed and not report.issues:
+                message = "Validation group reports failure but supplies no attributable findings"
                 raise ValueError(message)
             findings = [
                 CommandPreflightIssue(
