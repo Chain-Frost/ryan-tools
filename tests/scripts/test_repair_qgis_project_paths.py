@@ -331,4 +331,3 @@ def test_default_output_qgd_collision_is_rejected(tmp_path: Path, monkeypatch: p
     assert reserved.read_bytes() == b"do not replace"
     assert not (tmp_path / "model_repaired.qgs").exists()
     assert project.read_bytes() == original
-
