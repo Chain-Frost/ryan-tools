@@ -356,9 +356,7 @@ def test_verified_mapped_drive_alias_matches_configured_python_tcf(monkeypatch: 
         return r"\\server\share\nested" if drive.casefold() == "p:" else None
 
     monkeypatch.setattr(command_plan, "_network_drive_target", drive_mapping)
-    plan = parse_command_plan(
-        f'TUFLOW.exe "{unc}"', source=source, initial_directory=cwd, fallback_tcf=expected
-    )
+    plan = parse_command_plan(f'TUFLOW.exe "{unc}"', source=source, initial_directory=cwd, fallback_tcf=expected)
     assert plan.runs[0].tcf == PureWindowsPath(unc)
     assert "P:" in calls
 
@@ -372,9 +370,7 @@ def test_verified_mapped_drive_alias_matches_configured_python_tcf(monkeypatch: 
 
     monkeypatch.setattr(command_plan, "_network_drive_target", lambda _drive: None)
     with pytest.raises(CommandPlanError, match="conflicts with effective imported TCF"):
-        parse_command_plan(
-            f'TUFLOW.exe "{unc}"', source=source, initial_directory=cwd, fallback_tcf=expected
-        )
+        parse_command_plan(f'TUFLOW.exe "{unc}"', source=source, initial_directory=cwd, fallback_tcf=expected)
 
 
 def test_overwritten_assignments_and_disabled_rows_do_not_conflict() -> None:

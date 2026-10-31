@@ -9,9 +9,9 @@ import ntpath
 import os
 import posixpath
 import re
-from functools import lru_cache
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field, replace
+from functools import lru_cache
 from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
 from typing import Literal
 
