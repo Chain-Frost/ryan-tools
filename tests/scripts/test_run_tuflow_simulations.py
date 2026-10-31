@@ -26,7 +26,6 @@ class _RunnerWrapper(Protocol):
     def main(self, argv: list[str] | None = None) -> int: ...
 
 
-
 @pytest.fixture
 def wrapper() -> _RunnerWrapper:
     source = (
@@ -57,6 +56,7 @@ def test_export_only_copied_workflow_needs_neither_solver_nor_gpu(
 
     source = _source(tmp_path)
     output = tmp_path / "commands.bat"
+
     def forbid_gpu_scan(*_args: object) -> Never:
         pytest.fail("Export-only inspected GPUs")
 
@@ -97,6 +97,7 @@ def test_wrapper_preflight_only_waits_and_returns_failure(
         return False
 
     monkeypatch.setattr(module, "check_plan_only", check)
+
     def forbid_launch(*_args: object, **_kwargs: object) -> Never:
         pytest.fail("Launched during check-only")
 
@@ -152,6 +153,7 @@ def test_planning_failure_does_not_export_check_or_chain(
 ) -> None:
     module = sys.modules["tested_runner_wrapper"]
     monkeypatch.setattr(module, "NEXT_RUN_FILE", Path("post.py"))
+
     def forbid_follow_up(*_args: object) -> Never:
         pytest.fail("Chained after preparation failure")
 
