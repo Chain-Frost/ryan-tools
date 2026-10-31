@@ -233,6 +233,11 @@ class CsvExecutionLog:
         end = len(data) if data.endswith(b"\n") else data.rfind(b"\n") + 1
         complete = data[:end]
         rows = complete.splitlines(keepends=True)
+        if not rows and not csv_line(COLUMNS).startswith(data):
+            raise ExecutionLogError(
+                f"Unsupported execution CSV schema or corrupt header in {self.path}; "
+                "cannot safely repair a file without a valid header."
+            )
         if rows:
             try:
                 header = next(csv.reader([rows[0].decode("utf-8")], strict=True))
