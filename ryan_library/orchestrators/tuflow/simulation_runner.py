@@ -76,12 +76,10 @@ class RunnerSettings:
     priority_order: str | None = None
     gpu_devices: tuple[tuple[str, ...], ...] = ()
     computational_priority: str = "LOW"
-    maximum_concurrent: int | None = None
     minimize_on_launch: bool = True
     wait_time_after_run: float = 2.0
     use_live_dashboard: bool = True
     live_refresh_per_second: float = 1.0
-    check_gpkg_layers: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -165,9 +163,6 @@ def _validate_settings(settings: RunnerSettings) -> tuple[str, ...]:  # noqa: C9
         raise CommandPlanError(message)
     if settings.computational_priority.upper() not in _PRIORITY:
         message = f"Unsupported process priority: {settings.computational_priority}"
-        raise CommandPlanError(message)
-    if settings.maximum_concurrent is not None and settings.maximum_concurrent < 1:
-        message = "maximum_concurrent must be positive"
         raise CommandPlanError(message)
     if settings.wait_time_after_run < 0 or settings.live_refresh_per_second <= 0:
         message = "Launch delay must be nonnegative and dashboard refresh must be positive"
@@ -668,9 +663,9 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
         message = "No selected simulations to launch"
         raise CommandPlanError(message)
     groups = settings.gpu_devices
+    # Each configured GPU group is one execution slot; automatic placement
+    # without explicit groups provides a single slot.
     capacity = len(groups) if groups else 1
-    if settings.maximum_concurrent is not None:
-        capacity = min(capacity, settings.maximum_concurrent)
     if capacity < 1:
         message = "No runner slots configured"
         raise CommandPlanError(message)

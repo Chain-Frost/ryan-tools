@@ -159,7 +159,7 @@ def test_pypi_installer_python_support_is_open_ended(monkeypatch: pytest.MonkeyP
     pypi = runpy.run_path(str(REPO / "repo-scripts" / "install_from_pypi.py"))
     supported = cast(Callable[[int, int], bool], pypi["supported_python"])
     assert not supported(3, 12)
-    assert supported(3, 13)
+    assert not supported(3, 13)
     assert supported(3, 14)
     assert supported(3, 15)
     assert supported(3, 16)
@@ -169,7 +169,7 @@ def test_pypi_batch_launcher_accepts_supported_versions() -> None:
     script = (REPO / "install-latest-wheel.bat").read_text(encoding="utf-8")
     assert 'set "PYTHON_CMD=py -3"' in script
     assert "RYAN_TOOLS_PYTHON" in script
-    assert "sys.version_info >= (3, 13)" in script
+    assert "sys.version_info >= (3, 14)" in script
     assert "py -3.14" not in script
 
 

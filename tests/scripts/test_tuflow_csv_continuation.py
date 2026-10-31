@@ -41,6 +41,7 @@ def copied_wrapper(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Wrapper:
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
     monkeypatch.setattr(module, "EXPORT_COMMANDS", False)
+    monkeypatch.setattr(module, "OPERATION", "run")
     monkeypatch.setattr(module, "RUN_VARIABLES_RAW", {"e1": "ONE TWO"})
     monkeypatch.setattr(module, "TCF", Path("model.tcf"))
     monkeypatch.setattr(module, "USE_LIVE_DASHBOARD", False)

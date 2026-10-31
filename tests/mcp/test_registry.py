@@ -39,7 +39,9 @@ def test_gdal_catalogue_is_folded_into_generic_workflows() -> None:
 
     listing = registry.list_workflows(domain="gdal")
     workflow_ids = {workflow["id"] for workflow in listing["workflows"]}
-    assert workflow_ids == EXPECTED_GDAL_WORKFLOWS
+    # The recompression catalogue includes --replace --yes: it is privileged,
+    # even though invoking the wrapper without that flag performs an audit.
+    assert workflow_ids == EXPECTED_GDAL_WORKFLOWS - {"audit_and_recompress_geotiffs", "batch_vector_clip"}
 
 
 def test_privileged_profile_does_not_add_uncatalogued_gdal_wrappers() -> None:
@@ -51,6 +53,12 @@ def test_privileged_profile_does_not_add_uncatalogued_gdal_wrappers() -> None:
     listing = registry.list_workflows(domain="gdal")
     workflow_ids = {workflow["id"] for workflow in listing["workflows"]}
     assert workflow_ids == EXPECTED_GDAL_WORKFLOWS
+    clipping = registry.get_workflow("batch_vector_clip")
+    assert clipping["profile"] == "privileged"
+    assert clipping["mutation"] == "executes_external"
+    assert clipping["requires_explicit_approval"] is True
+    assert clipping["external_prerequisites"]["status"] == "not_verified"
+    assert clipping["external_prerequisites"]["declared_program"] == "ogr2ogr"
 
 
 def test_repository_workflow_is_unavailable_without_repository_checkout() -> None:
@@ -204,7 +212,7 @@ def test_packaged_gdal_catalogue_is_available_without_repository_checkout() -> N
     listing = registry.list_workflows(domain="gdal", include_unavailable=True)
     workflows = {workflow["id"]: workflow for workflow in listing["workflows"]}
 
-    assert set(workflows) == EXPECTED_GDAL_WORKFLOWS
+    assert set(workflows) == EXPECTED_GDAL_WORKFLOWS - {"audit_and_recompress_geotiffs", "batch_vector_clip"}
     assert workflows["translate_rasters_to_geotiff"]["available"] is False
     assert workflows["translate_rasters_to_geotiff"]["execution_kind"] == "script"
 
@@ -230,7 +238,7 @@ def test_workflow_requires_exactly_one_explicit_execution_target() -> None:
         "domain": "test",
         "purpose": "Exercise target validation.",
         "module": "package.module",
-        "script": "script.py",
+        "script": "ryan-scripts/script.py",
         "profile": "analysis",
         "mutation": "read_only",
     }
@@ -287,3 +295,38 @@ def test_culvert_workflow_relies_on_installed_distribution_dependency(monkeypatc
     assert "required_modules" not in detail
     assert "missing_modules" not in detail
     assert "command_prefix" in detail
+
+
+def test_workflow_reports_provenance_and_declared_hy8_prerequisite() -> None:
+    registry = WorkflowRegistry(configured_profile=CapabilityProfile.PRIVILEGED, repository_root=PROJECT_ROOT)
+    workflow = registry.get_workflow("tuflow_culvert_evaluate_1d_nwk_hy8")
+    assert workflow["script_source"] == "repository_checkout"
+    assert workflow["availability_scope"] == "entry_point_only"
+    assert workflow["external_prerequisites"]["status"] == "not_verified"
+    assert workflow["external_prerequisites"]["declared_program"] == "HY-8"
+    assert workflow["requires_explicit_approval"] is True
+
+
+def test_tuflow_external_prerequisites_are_declared_without_claiming_readiness() -> None:
+    registry = WorkflowRegistry(configured_profile=CapabilityProfile.PRIVILEGED, repository_root=PROJECT_ROOT)
+    for workflow_id, program in (
+        ("run_tuflow_batch", "TUFLOW executable configured by wrapper"),
+        ("tuflow_asc2asc_groups", "asc_to_asc_w64.exe"),
+    ):
+        prerequisite = registry.get_workflow(workflow_id)["external_prerequisites"]
+        assert prerequisite["status"] == "not_verified"
+        assert prerequisite["declared_program"] == program
+
+
+def test_script_provenance_reports_missing_checkout(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from ryan_library.mcp import registry as registry_module
+
+    scripts = tmp_path / "ryan-scripts"
+    scripts.mkdir()
+    monkeypatch.setattr(registry_module, "installed_scripts_directory", lambda: scripts)
+    registry = WorkflowRegistry(discover_repository=False)
+    detail = registry.get_workflow("culvert_analysis_design")
+    assert detail["script_source"] == "installed_distribution"
+    assert detail["availability_scope"] == "entry_point_only"
+    assert detail["available"] is False
+    assert detail["installed_distribution_version"] is None or isinstance(detail["installed_distribution_version"], str)

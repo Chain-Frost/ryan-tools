@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.metadata
 import json
 import os
 import re
@@ -114,7 +115,13 @@ def _load_packaged_workflows() -> tuple[str, str | None, list[WorkflowSpec]]:
 
 
 def _gdal_mutation(raw_mutation: str, *, requires_explicit_approval: bool) -> tuple[CapabilityProfile, MutationKind]:
-    if requires_explicit_approval or raw_mutation == "in_place":
+    # An external process must remain privileged even if its output is new
+    # rather than in-place. Profile controls discovery, not actual execution.
+    if raw_mutation == "executes_external":
+        return CapabilityProfile.PRIVILEGED, MutationKind.EXECUTES_EXTERNAL
+    # Recompression exposes --replace --yes; an audit-only default does
+    # not make the whole catalogue entry safe at create capability.
+    if requires_explicit_approval or raw_mutation in {"in_place", "audit_only_unless_explicit_replace"}:
         return CapabilityProfile.PRIVILEGED, MutationKind.IN_PLACE
     if "replace" in raw_mutation:
         return CapabilityProfile.CREATE, MutationKind.CREATES_OR_REPLACES
@@ -147,8 +154,11 @@ def _load_gdal_workflows() -> list[WorkflowSpec]:
         if not all(isinstance(value, str) and value for value in (tool_id, script_name, purpose)):
             continue
 
-        requires_approval: bool = bool(raw_tool.get("requires_explicit_approval", False))
         raw_mutation: str = str(raw_tool.get("mutation", "creates_outputs"))
+        requires_approval: bool = bool(raw_tool.get("requires_explicit_approval", False)) or raw_mutation in {
+            "audit_only_unless_explicit_replace",
+            "executes_external",
+        }
         profile, mutation = _gdal_mutation(raw_mutation, requires_explicit_approval=requires_approval)
         metadata: dict[str, Any] = {
             "defaults": raw_tool.get("defaults", {}),
@@ -157,6 +167,9 @@ def _load_gdal_workflows() -> list[WorkflowSpec]:
             "agent_guidance": agent_guidance,
             "scenario_program": script_name,
         }
+        external_program: Any = raw_tool.get("external_program")
+        if isinstance(external_program, str) and external_program.strip():
+            metadata["external_program"] = external_program
         if isinstance(wrapper_versions, Mapping):
             typed_wrapper_versions: Mapping[str, Any] = cast("Mapping[str, Any]", wrapper_versions)
             metadata["catalogue_wrapper_version"] = typed_wrapper_versions.get(script_name)
@@ -166,10 +179,7 @@ def _load_gdal_workflows() -> list[WorkflowSpec]:
         if isinstance(module_name, str) and module_name:
             execution = ExecutionTarget(kind=ExecutionKind.MODULE, value=module_name)
         else:
-            execution = ExecutionTarget(
-                kind=ExecutionKind.SCRIPT,
-                value=f"ryan-scripts/gdal-python/{script_name}",
-            )
+            execution = ExecutionTarget.from_mapping({"script": f"ryan-scripts/gdal-python/{script_name}"})
 
         workflows.append(
             WorkflowSpec(
@@ -238,6 +248,23 @@ class WorkflowRegistry:
             return (self.scripts_directory / relative.relative_to("ryan-scripts")).absolute()
         return None
 
+    def _script_has_linked_component(self, script_path: Path) -> bool:
+        """Reject symlinked or junction-linked wrapper entries without dereferencing user paths."""
+        root = self.repository_root / "ryan-scripts" if self.repository_root is not None else self.scripts_directory
+        if root is None:
+            return False
+        root = root.absolute()
+        current = script_path.absolute()
+        if current != root and root not in current.parents:
+            return True
+        while True:
+            if current.is_symlink() or current.is_junction():
+                return True
+            if current == root:
+                break
+            current = current.parent
+        return False
+
     def _command_prefix(self, workflow: WorkflowSpec) -> list[str] | None:
         match workflow.execution.kind:
             case ExecutionKind.MODULE:
@@ -248,7 +275,9 @@ class WorkflowRegistry:
                 return [sys.executable, "-m", workflow.execution.value] if available else None
             case ExecutionKind.SCRIPT:
                 script_path: Path | None = self._script_path(workflow)
-                return [sys.executable, str(script_path)] if script_path is not None and script_path.is_file() else None
+                if script_path is None or self._script_has_linked_component(script_path):
+                    return None
+                return [sys.executable, str(script_path)] if script_path.is_file() else None
             case ExecutionKind.CONSOLE_SCRIPT:
                 executable: str | None = shutil.which(workflow.execution.value)
                 return [executable] if executable is not None else None
@@ -306,6 +335,46 @@ class WorkflowRegistry:
             "next_step": "Call get_workflow with an id, then run its help_command through the client shell.",
         }
 
+    def _script_source(self, workflow: WorkflowSpec) -> str:
+        """Identify the selected CLI source without claiming executable readiness."""
+        if workflow.execution.kind is not ExecutionKind.SCRIPT:
+            return "module_or_console"
+        if self.repository_root is not None:
+            return "repository_checkout"
+        if self.scripts_directory is not None:
+            return "installed_distribution"
+        return "unavailable"
+
+    @staticmethod
+    def _external_prerequisites(workflow: WorkflowSpec) -> dict[str, Any]:
+        """Describe declared external execution without guessing binary availability."""
+        program = workflow.metadata.get("external_program")
+        if isinstance(program, str) and program.strip():
+            return {
+                "status": "not_verified",
+                "declared_program": program,
+                "note": "Check the external executable and its version in the target environment before execution.",
+            }
+        if workflow.mutation is MutationKind.EXECUTES_EXTERNAL:
+            return {
+                "status": "not_declared",
+                "declared_program": None,
+                "note": "Workflow invokes an external executable but the catalogue does not identify it.",
+            }
+        return {
+            "status": "not_assessed",
+            "declared_program": None,
+            "note": "File discovery does not validate optional third-party tools or runtime imports.",
+        }
+
+    @staticmethod
+    def _installed_distribution_version() -> str | None:
+        """Read the distribution version, if installed, without importing any workflow."""
+        try:
+            return importlib.metadata.version("ryan-tools")
+        except importlib.metadata.PackageNotFoundError:
+            return None
+
     def get_workflow(self, workflow_id: str) -> dict[str, Any]:
         """Return one visible workflow and its resolved CLI discovery commands."""
         workflow: WorkflowSpec | None = self._workflows.get(workflow_id)
@@ -331,14 +400,21 @@ class WorkflowRegistry:
                 ),
                 "required_headless_arguments": list(workflow.headless_arguments),
                 "metadata": dict(workflow.metadata),
+                "script_source": self._script_source(workflow),
+                "installed_distribution_version": self._installed_distribution_version(),
+                "external_prerequisites": self._external_prerequisites(workflow),
+                "availability_scope": "entry_point_only",
             }
         )
         if command_prefix is None:
             if workflow.execution.kind is ExecutionKind.SCRIPT:
-                details["error"] = (
-                    "CLI script is unavailable. Reinstall the current wheel, or set "
-                    f"{REPOSITORY_ROOT_ENVIRONMENT_VARIABLE} to a development checkout."
-                )
+                if script_path is not None and self._script_has_linked_component(script_path):
+                    details["error"] = "Refusing linked or junction-traversing CLI script path: " + str(script_path)
+                else:
+                    details["error"] = (
+                        "CLI script is unavailable. Reinstall the current wheel, or set "
+                        f"{REPOSITORY_ROOT_ENVIRONMENT_VARIABLE} to a development checkout."
+                    )
             else:
                 details["error"] = (
                     f"Installed {workflow.execution.kind.value} target is unavailable: {workflow.execution.value}"

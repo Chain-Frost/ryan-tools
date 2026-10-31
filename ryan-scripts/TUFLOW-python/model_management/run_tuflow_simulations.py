@@ -17,21 +17,34 @@ Examples:
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Literal
 
-WRAPPER_VERSION = "2026-10-31.4"
+WRAPPER_VERSION = "2026-11-01.2"
 
-# ----------------------- EDITABLE RUNNER SETTINGS -------------------------
+# ------------------------ USER-EDITABLE DEFAULTS --------------------------
+# CLI options override these defaults. Relative paths use WORKING_DIR,
+# unless stated otherwise. A copied run wrapper owns its adjacent CSV/TXT.
 
-# A Python TCF constrains every imported run and supplies missing bare-row TCFs.
-# Set None for imported lists containing distinct TCFs; generated runs need a TCF.
+# Model directory: None uses the copied Python wrapper's directory, not cwd.
+# Example: Path(r"Q:\Project\TUFLOW") or Path(r"\\server\share\TUFLOW").
+WORKING_DIR: Path | None = None
+
+# Generated TCF, also a consistency constraint/fallback for imported rows.
+# None allows distinct TCFs in "textfiles" mode; generated runs require a TCF.
+# Relative to WORKING_DIR; e.g. Path(r"runs\model_~e1~_~s1~.tcf").
 TCF: Path | None = Path(r".\runs\PROJECT_01_~s2~_~s1~_~e1~_~e2~_~e4~_~e3~_~s4~.tcf")
-TUFLOW_EXE = Path(r"C:\TUFLOW\tuflow-2026.3\TUFLOW_iSP_w64.exe")
-BATCH_COMMANDS = "-b"
-# Optional generated-flag order. Unlisted flags retain RUN_VARIABLES_RAW order.
-PRIORITY_ORDER: str | None = "e3 e2 e1"
 
-# Generated parameter product; whitespace-delimited values. An explicit list
-# may be used for individual values containing spaces.
+# Solver path used for every launch. Imported BAT/TXT executables are ignored.
+# Relative to WORKING_DIR. Example: Path(r"C:\TUFLOW\TUFLOW_iSP_w64.exe").
+TUFLOW_EXE = Path(r"C:\TUFLOW\tuflow-2026.3\TUFLOW_iSP_w64.exe")
+
+# TUFLOW engine flags, e.g. "-b" or "-b -t -nlc". "-t" performs a
+# test-only run. Imported engine switches do not control Python launches.
+# Prefer GPU_DEVICES rather than supplying a -puN flag here.
+BATCH_COMMANDS = "-b"
+
+# Generated event/scenario values: whitespace-delimited text or explicit
+# lists for values with spaces. Example: {"e1": ["Dry", "Wet Season"]}.
 RUN_VARIABLES_RAW: dict[str, str | list[str]] = {
     "e1": "01.0p 20.0p 05.0p 02.0p 10.0p 50.0p",
     "e2": "00720m 01080m 01440m 01800m 02160m 02880m 04320m",
@@ -42,59 +55,72 @@ RUN_VARIABLES_RAW: dict[str, str | list[str]] = {
     "s4": "32M",
 }
 
-# parameter_product generates combinations; textfiles reads BAT/TXT model selections
-# as inert data; both puts imported selections first. Duplicates are discarded.
-# Imported START, CD and executable commands cannot control process launching.
-MODE = "parameter_product"
-# Sources are read in this order; e.g. (Path("runs.bat"), Path("additional.txt")).
-# Do not use this wrapper's default export TXT as input while exporting to it.
+# Generated flag order, e.g. "e3 e2 e1". None preserves dictionary order.
+PRIORITY_ORDER: str | None = "e3 e2 e1"
+
+# "parameter_product": generate combinations; "textfiles": import inert
+# BAT/CMD/TXT selections; "both": imported first, then generated. Equivalent
+# selections are deduplicated. Example: "textfiles".
+MODE: Literal["parameter_product", "textfiles", "both"] = "parameter_product"
+
+# Ordered BAT/TXT sources, used for "textfiles"/"both" only. Relative to
+# WORKING_DIR. Example: (Path("runs1.bat"), Path("runs2.txt")).
+# Never import the same TXT that export will replace.
 INPUT_FILES: tuple[Path, ...] = ()
-# One tuple per concurrent GPU slot. For two slots: (("-pu0",), ("-pu1",)).
-# One multi-GPU slot: (("-pu0", "-pu1"),). Empty tuple uses automatic placement.
-# These groups control launches. Imported GPU switches are ignored. A -puN in
-# BATCH_COMMANDS is exported as written but these runtime groups take precedence.
+
+# ONE concurrent simulation per GPU group. Three copy-ready examples:
+# GPU_DEVICES = (("-pu0", "-pu1"), ("-pu2",))  # 2 runs: GPU 0+1, GPU 2
+# GPU_DEVICES = (("-pu0",), ("-pu1",))         # 2 runs: GPU 0, GPU 1
+# GPU_DEVICES = (("-pu0",),)                  # 1 run: GPU 0
+# () gives one automatic-placement slot; imported GPU flags are ignored.
 GPU_DEVICES: tuple[tuple[str, ...], ...] = (("-pu0",),)
-# None allows one child per GPU group, or one child with automatic placement.
-MAXIMUM_CONCURRENT: int | None = None
-# Windows process priority: LOW, BELOWNORMAL, NORMAL, ABOVENORMAL, HIGH, REALTIME.
+
+# Windows child priority: LOW, BELOWNORMAL, NORMAL, ABOVENORMAL, HIGH, REALTIME.
 COMPUTATIONAL_PRIORITY = "LOW"
-# Open each solver console minimized; False opens it normally.
+
+# True opens solver windows minimized; False shows them normally.
 MINIMIZE_ON_LAUNCH = True
-# Seconds between launch attempts. Zero starts available slots without a delay.
+
+# Seconds between launches (>=0). Example: 0.5. Does not change GPU slots.
 WAIT_TIME_AFTER_RUN = 2.0
-# False selects export-only behavior; explicit --preflight-only still checks inputs.
-RUN_SIMULATIONS = True
-# resume skips latest observed successes; all resets the baseline and runs everything.
-CONTINUATION_MODE = "resume"
-# CSV: <this_wrapper_stem>_runs.csv beside this file, even with model-specific working directories.
-# Give each TCF version its own wrapper filename to keep its execution history separate.
-# Stop the previous batch before Resume. Reexecuted runs use current model output locations.
-# Refresh the complete current command plan even when Resume has no pending runs.
+
+# "export_only" creates editable TXT but never launches TUFLOW (safe default).
+# "run" launches the licensed solver and may overwrite its output files.
+# "preflight_only" waits for strict input checks and never launches TUFLOW.
+# Example: "run" or use CLI --run-simulations.
+OPERATION: Literal["run", "export_only", "preflight_only"] = "export_only"
+
+# "resume": skip observed successes in this wrapper's adjacent CSV;
+# "all": reset completion baseline and rerun everything. Use a different
+# filename for each TCF version so its run wrapper gets a separate CSV.
+CONTINUATION_MODE: Literal["resume", "all"] = "resume"
+
+# True refreshes <wrapper_name>.txt (editable batch TEXT, not executable BAT).
+# Existing TXT is deliberately replaced, but protected inputs cannot be.
+# False omits optional export during "run" or "preflight_only".
 EXPORT_COMMANDS = True
-# None uses this wrapper's basename with .txt beside it, e.g. my_batch.py -> my_batch.txt.
-# An explicit .txt path is based on WORKING_DIR. Existing export content is replaced
-# only after validation; imported sources, the wrapper and history are protected.
-EXPORT_PATH: Path | None = None
-# Background input checks are advisory and never block launches. --preflight-only waits.
+
+# Enable advisory BACKGROUND model-input checks while TUFLOW runs.
+# Warnings do not block launches; "preflight_only" is strict regardless.
 CHECK_INPUTS = True
-# Include GeoPackage layer checks when input checking is selected.
-CHECK_GPKG_LAYERS = True
-# Show the shared live task display; False keeps ordinary console messages.
+
+# True shows the Rich live dashboard; False uses ordinary console logging.
 USE_LIVE_DASHBOARD = True
-# Maximum routine dashboard refreshes per second; must be greater than zero.
+
+# Dashboard refresh rate, >0 refreshes/second; e.g. 0.5 for slow terminals.
 LIVE_REFRESH_PER_SECOND = 1.0
-# INFO shows ordinary progress; SUCCESS keeps completions, warnings and errors.
+
+# Console level, e.g. "DEBUG", "INFO", "SUCCESS", "WARNING".
 CONSOLE_LOG_LEVEL = "INFO"
-# Optional Python script after normal completion, including failed children and
-# all-complete Resume. None disables chaining; e.g. Path("next_batch.py").
+
+# Optional Python follow-up after a normally completed batch (even when
+# children failed). None disables. Relative to WORKING_DIR.
+# Example: Path("next_batch.py"); not launched after an interruption.
 NEXT_RUN_FILE: Path | None = None
-# Pause at the process boundary for interactive use; --no-pause overrides this.
+
+# Pause interactively on finish; --no-pause forces False, --pause forces True.
 PAUSE_ON_FINISH = True
-# Relative paths below are based on WORKING_DIR (the supplying script's folder
-# by default), not on the current terminal directory or imported BAT locations.
-# None uses this copied wrapper's folder; e.g. Path(r"P:\Project\Model").
-WORKING_DIR: Path | None = None
-# ------------------------------------------------------------------------
+# --------------------------------------------------------------------------
 
 import argparse
 import signal
@@ -126,47 +152,6 @@ from ryan_library.orchestrators.tuflow.simulation_runner import (
 )
 
 
-def _arguments(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Run an immutable, ordered TUFLOW plan. CLI options override editable Python defaults.",
-        epilog=r"Example: python run_tuflow_simulations.py --mode textfiles --no-tcf --input-file runs.bat --no-pause",
-    )
-    add_execution_cli_arguments(parser)
-    parser.add_argument("--mode", choices=("parameter_product", "textfiles", "both"), help="Override MODE.")
-    parser.add_argument(
-        "--input-file", type=Path, action="append", help="Supply BAT/text input; repeat to preserve order."
-    )
-    model = parser.add_mutually_exclusive_group()
-    model.add_argument("--tcf", type=Path, help="Constrain imported runs to this TCF.")
-    model.add_argument("--no-tcf", action="store_true", help="Allow multiple TCFs in imported commands.")
-    parser.add_argument("--solver-exe", type=Path, help="Override the fallback TUFLOW executable.")
-    parser.add_argument(
-        "--run-mode",
-        choices=("resume", "all"),
-        help="Resume (default) skips latest observed successes; all resets the CSV completion baseline.",
-    )
-    parser.add_argument(
-        "--preflight",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help="Run advisory background input checking while launching.",
-    )
-    operation = parser.add_mutually_exclusive_group()
-    operation.add_argument("--preflight-only", action="store_true", help="Wait for strict checks; never launch.")
-    operation.add_argument("--export-only", action="store_true", help="Export the plan without solver/GPU checks.")
-    parser.add_argument(
-        "--export",
-        action=argparse.BooleanOptionalAction,
-        default=None,
-        help="Enable/disable command TXT export; defaults to editable EXPORT_COMMANDS.",
-    )
-    parser.add_argument(
-        "--export-path", type=Path, help="Replaceable .txt command output; defaults to this wrapper's basename."
-    )
-    parser.add_argument("--live-dashboard", action=argparse.BooleanOptionalAction, default=None)
-    return parser.parse_args(argv)
-
-
 def _settings(arguments: argparse.Namespace) -> RunnerSettings:
     base = arguments.working_directory if arguments.working_directory is not None else WORKING_DIR
     directory = (base if base is not None else Path(__file__).absolute().parent).absolute()
@@ -182,15 +167,20 @@ def _settings(arguments: argparse.Namespace) -> RunnerSettings:
         batch_commands=BATCH_COMMANDS,
         priority_order=PRIORITY_ORDER,
         gpu_devices=GPU_DEVICES,
-        maximum_concurrent=MAXIMUM_CONCURRENT,
         computational_priority=COMPUTATIONAL_PRIORITY,
         minimize_on_launch=MINIMIZE_ON_LAUNCH,
-        wait_time_after_run=WAIT_TIME_AFTER_RUN,
-        use_live_dashboard=USE_LIVE_DASHBOARD if arguments.live_dashboard is None else arguments.live_dashboard,
-        live_refresh_per_second=LIVE_REFRESH_PER_SECOND,
-        check_gpkg_layers=CHECK_GPKG_LAYERS,
+        wait_time_after_run=(
+            arguments.launch_delay if arguments.launch_delay is not None else WAIT_TIME_AFTER_RUN
+        ),
+        use_live_dashboard=(
+            arguments.live_dashboard if arguments.live_dashboard is not None else USE_LIVE_DASHBOARD
+        ),
+        live_refresh_per_second=(
+            arguments.live_refresh_per_second
+            if arguments.live_refresh_per_second is not None
+            else LIVE_REFRESH_PER_SECOND
+        ),
     )
-
 
 @contextmanager
 def _interruption_flag() -> Generator[Event]:
@@ -228,7 +218,8 @@ def main(argv: list[str] | None = None) -> int:
     arguments = _arguments(argv)
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     try:
-        configure_serial_logging(console_log_level=arguments.console_log_level or CONSOLE_LOG_LEVEL)
+        log_level = arguments.console_log_level if arguments.console_log_level is not None else CONSOLE_LOG_LEVEL
+        configure_serial_logging(console_log_level=log_level)
         settings = _settings(arguments)
         if not settings.working_directory.is_dir():
             logger.error("Working directory does not exist: {}", settings.working_directory)
@@ -246,18 +237,28 @@ def main(argv: list[str] | None = None) -> int:
             plan.duplicates_dropped,
             len(plan.source_files),
         )
+        operation = OPERATION
+        if arguments.run_simulations:
+            operation = "run"
+        elif arguments.preflight_only:
+            operation = "preflight_only"
+        elif arguments.export_only:
+            operation = "export_only"
+        if operation not in {"run", "export_only", "preflight_only"}:
+            msg = f"Unsupported operation: {operation}"
+            raise ValueError(msg)
         exporting = EXPORT_COMMANDS if arguments.export is None else arguments.export
-        if arguments.export_only:
+        if operation == "export_only":
             exporting = True
         if exporting:
-            path = arguments.export_path or EXPORT_PATH or Path(__file__).absolute().with_suffix(".txt")
-            destination = export_batch_commands(plan, settings, path)
+            # Fixed TXT beside the copied wrapper, not an executable BAT file.
+            destination = export_batch_commands(plan, settings, Path(__file__).absolute().with_suffix(".txt"))
             logger.success("Editable commands exported to {}", destination)
-        if arguments.export_only or (not RUN_SIMULATIONS and not arguments.preflight_only):
+        if operation == "export_only":
             logger.success("Export-only: no solver processes, GPU scan or input checking.")
             return 0
-        if arguments.preflight_only:
-            return 0 if check_plan_only(plan, check_gpkg_layers=settings.check_gpkg_layers) else 1
+        if operation == "preflight_only":
+            return 0 if check_plan_only(plan) else 1
         # Run all must verify the solver before resetting completed runs.
         # A no-work Resume must not need an installed solver.
         if requested_mode == "all":
@@ -294,7 +295,7 @@ def main(argv: list[str] | None = None) -> int:
                 advisory = None
                 checks = CHECK_INPUTS if arguments.preflight is None else arguments.preflight
                 if checks:
-                    advisory = AdvisoryInputCheck(pending, check_gpkg_layers=settings.check_gpkg_layers)
+                    advisory = AdvisoryInputCheck(pending)
                     try:
                         advisory.start()
                     except RuntimeError as exc:
@@ -341,8 +342,46 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     finally:
         print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
-        if not arguments.no_pause and PAUSE_ON_FINISH:
+        if (arguments.pause or PAUSE_ON_FINISH) and not arguments.no_pause:
             pause_console()
+
+
+def _arguments(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Plan, check or run TUFLOW simulations. CLI options override editable constants.",
+        epilog=r"Example: python run_tuflow_simulations.py --mode textfiles --no-tcf --input-file runs.bat --run-simulations --no-pause",
+    )
+    add_execution_cli_arguments(parser)
+    parser.add_argument("--mode", choices=("parameter_product", "textfiles", "both"), help="Override MODE.")
+    parser.add_argument("--input-file", type=Path, action="append", help="Supply BAT/TXT; repeat for multiple files.")
+    model = parser.add_mutually_exclusive_group()
+    model.add_argument("--tcf", type=Path, help="Constrain imported runs to this TCF.")
+    model.add_argument("--no-tcf", action="store_true", help="Allow multiple imported TCFs.")
+    parser.add_argument("--solver-exe", type=Path, help="Override TUFLOW_EXE.")
+    parser.add_argument("--run-mode", choices=("resume", "all"), help="Resume successful runs or start a new baseline.")
+    parser.add_argument(
+        "--preflight", action=argparse.BooleanOptionalAction, default=None,
+        help="Enable/disable advisory background input checking during launches.",
+    )
+    operation = parser.add_mutually_exclusive_group()
+    operation.add_argument("--run-simulations", action="store_true", help="Launch solver processes (licence/output risk).")
+    operation.add_argument("--preflight-only", action="store_true", help="Check inputs strictly; never launch.")
+    operation.add_argument("--export-only", action="store_true", help="Write TXT commands without launching.")
+    parser.add_argument(
+        "--export", action=argparse.BooleanOptionalAction, default=None,
+        help="Enable/disable command TXT export during run/preflight.",
+    )
+    parser.add_argument(
+        "--live-dashboard", action=argparse.BooleanOptionalAction, default=None,
+        help="Enable/disable the live progress display.",
+    )
+    parser.add_argument("--live-refresh-per-second", type=float, help="Override dashboard refresh rate (>0).")
+    parser.add_argument("--launch-delay", type=float, help="Seconds between launches (>=0).")
+    parser.add_argument("--pause", action="store_true", help="Pause interactively at the end.")
+    parsed = parser.parse_args(argv)
+    if parsed.pause and parsed.no_pause:
+        parser.error("--pause and --no-pause cannot be combined")
+    return parsed
 
 
 if __name__ == "__main__":

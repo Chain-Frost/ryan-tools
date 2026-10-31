@@ -72,6 +72,19 @@ class ExecutionTarget:
             if not isinstance(value, str) or not value.strip():
                 msg = f"Workflow field {kind.value!r} must be a non-empty string."
                 raise ValueError(msg)
+            if kind is ExecutionKind.SCRIPT:
+                # Workflow scripts must stay beneath the installed/copied
+                # ryan-scripts tree on both POSIX and Windows. Reject traversal
+                # in the catalogue itself, before resolving any checkout path.
+                segments = value.split("/")
+                if (
+                    len(segments) < 2
+                    or segments[0] != "ryan-scripts"
+                    or any(segment in {"", ".", ".."} for segment in segments)
+                    or "\\" in value
+                ):
+                    msg = f"Workflow script target must be a relative ryan-scripts path: {value!r}"
+                    raise ValueError(msg)
             candidates.append((kind, value))
 
         if len(candidates) != 1:

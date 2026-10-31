@@ -1,6 +1,6 @@
 # Development and execution environments
 
-`ryan-tools` can be installed in a user's normal Python 3.13+ installation; Python 3.14 is the recommended developer/CI baseline. Users are not expected to create, understand
+`ryan-tools` requires Python 3.14 or newer in the user's normal Python installation. Python 3.14 is the developer/CI baseline. Users are not expected to create, understand
 or activate a virtual environment. Wrappers copied into project folders use the same installed `ryan-tools` package.
 
 Some QGIS, OSGeo4W and GDAL workflows use their application's Python or command environment instead. An operation working
@@ -49,7 +49,7 @@ For an end user, double-click [install-ryan-tools.bat](../install-ryan-tools.bat
 This installs the current published `ryan-tools[mcp]` package from PyPI,
 the upstream QGIS MCP Python bridge and the accepted PyTUFLOW PR17 archive in
 [`repo-scripts/pytuflow-requirement.txt`](../repo-scripts/pytuflow-requirement.txt),
-using Python 3.13 or later (automatic highest-installed 3.x selection, overrideable with `RYAN_TOOLS_PYTHON`).
+using Python 3.14 or later (automatic highest-installed 3.x selection, overrideable with `RYAN_TOOLS_PYTHON`).
 Both normal installers bootstrap binary Fiona, Rasterio and GDAL first, then
 resolve `ryan-tools` and the pinned PyTUFLOW source together. The explicit archive
 replaces an incompatible official build even when its package version is the
@@ -61,7 +61,7 @@ the script safely configures its QGIS and ryan-tools MCP entries in the shared u
 it leaves Codex configuration untouched. Pass `--skip-codex` to disable automatic
 registration, `--skip-qgis-mcp` for headless/offline installation, or
 `--qgis-mcp-source <path>` to install the bridge from a local source.
-After updating Codex configuration, restart Codex or reload the Codex extension in VS Code. Python 3.13 and newer include `ryan-culverts`. Users who encounter dependency compatibility problems should upgrade Python. The QGIS desktop plugin
+After updating Codex configuration, restart Codex or reload the Codex extension in VS Code. Python 3.14 or newer is required for `ryan-tools`; `ryan-culverts` remains an independent dependency. The QGIS desktop plugin
 must still be installed and started through QGIS Plugin Manager.
 
 For developers working from the checkout, keep the local verified-wheel workflow:
@@ -150,7 +150,7 @@ py -3.14 repo-scripts\verify_wheel.py
 ## GitHub Actions CI
 
 The enabled `.github/workflows/ci.yml` workflow runs on pull requests and pushes to `main` using Windows and Python
-3.14, with a separate Python 3.13 compatibility and MCP job. Its independent jobs mean a policy failure does not hide
+3.14, with a separate Python 3.14 MCP job (retaining the old required-check label until the GitHub ruleset is updated). Its independent jobs mean a policy failure does not hide
 runtime or packaging results.
 
 The hosted test job initialises only `qgis-resources` and
@@ -199,7 +199,7 @@ Its only installed development tool is the Ruff version already pinned in
 for changed first-party Python files, without checking out submodules or installing
 GDAL/geospatial packages. Ruff and strict Pyright also remain in `Policy`, with the normal
 Python 3.14/GIS dependencies, preserving the established release gate. Repository documentation and logging checks, Python
-3.13 compatibility, hosted tests, and wheel verification are unchanged.
+3.14 MCP smoke, hosted tests, and wheel verification remain separate.
 
 The fast workflow does **not** gate or precede the full workflow: it provides an
 earlier independent failure signal without adding to successful CI wall-clock
@@ -211,7 +211,7 @@ Baseline from five recent GitHub Actions runs on 16 October 2026:
 | --- | --- | --- |
 | Hosted tests | 2:40–3:37 | Install dependencies 60–67 s; pytest 60–104 s |
 | Policy | 1:30–2:06 | GIS package installation and static analysis |
-| Python 3.13 compatibility and MCP | 1:18–2:00 | Package and MCP dependency installation 40–74 s |
+| MCP smoke (legacy Python 3.13 check label) | 1:18–2:00 | Historical Python 3.13 run timings; Python 3.14 timings not yet measured |
 | Package | 1:01–1:25 | Checkout, submodules, setup, and wheel prerequisites |
 
 The existing `setup-python` pip cache reuses downloaded packages, not installed

@@ -341,7 +341,6 @@ def test_per_child_directory_argument_list_and_runtime_gpu_policy(
         tcf=None,
         input_files=(bat,),
         gpu_devices=(("-pu2",), ("-pu3",)),
-        maximum_concurrent=2,
     )
     plan = runner.prepare_plan(config)
     launched: list[tuple[list[str], str]] = []
@@ -402,7 +401,7 @@ def test_launch_failure_and_priority_failure_cannot_lose_scheduler_slot(
 def test_out_of_order_completion_callback_precedes_ordered_output(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    config = settings(tmp_path, gpu_devices=(("-pu0",), ("-pu1",)), maximum_concurrent=2)
+    config = settings(tmp_path, gpu_devices=(("-pu0",), ("-pu1",)))
     plan = runner.prepare_plan(config)
     monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
     monkeypatch.setattr(runner, "_apply_priority", _no_op)

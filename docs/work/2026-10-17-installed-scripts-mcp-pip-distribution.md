@@ -1,117 +1,275 @@
-# Installed scripts, MCP workflow distribution and package identity
+# Installed scripts, MCP workflow distribution and package identity — requirements traceability
 
 | Field | Value |
 | --- | --- |
-| Status | In validation — implementation reconciliation for PR #130 |
-| Owner | ChatGPT / maintainer review |
+| Status | **Technical CI and consolidated review complete at `837184b`; maintainer acceptance/squash-merge decision outstanding** |
+| Owner | ChatGPT (corrective PR author); maintainer retains acceptance |
 | Created | 2026-10-17 |
-| Updated | 2026-10-19 |
-| Next review | After exact-head CI and wheel checks |
-| Branch | `planning/pip-scripts-mcp-distribution-20261017` / PR #130 |
-| Delivery | Multiple focused implementation commits; **no publishing or direct MCP execution in this PR** |
+| Updated | 2026-11-01 |
+| Next review | Maintainer decision on outstanding A/F gates and later squash merge to main |
+| Original requirements | [Complete 17 October baseline, preserved verbatim](../audits/2026-10-17-installed-scripts-original-requirements.md) |
+| Previous implementation | [Prematurely merged PR #130](https://github.com/Chain-Frost/ryan-tools/pull/130), squash commit `1ac42c6` |
+| Corrective branch | `fix/pr130-review-and-requirements-20261019` / [PR #137](https://github.com/Chain-Frost/ryan-tools/pull/137); **no automatic merge** |
 
-## Current decision and scope
+## Controlling rule: no silent scope reductions
 
-A normal `pip install ryan-tools` supplies the maintained `ryan_library` implementation, an intentionally
-**broad** engineering dependency set, a curated installed script collection and an MCP discovery server that
-locates those scripts without requiring a Git checkout. The repository name remains
-`Chain-Frost/ryan-tools`. Python imports remain `ryan_library`, not `ryan_tools`.
+The linked **original requirements document** is part of the active requirements set. **Every original bullet remains in
+scope** until it is verified against the implementation, or a later, explicit maintainer decision supersedes it.
+Historical "no implementation/leave draft" sequencing instructions describe the 17 October planning phase,
+not permanent restrictions on future authorized work.
 
-The earlier 17 October proposal was overtaken by merged implementation in PRs #100 and #120,
-and by later explicit maintainer decisions. This record supersedes the deferred-only instructions
-and unchecked historical action lists in the original draft.
+**Merged PR #130 did not prove that the original scope was complete.** It implemented a manifest and a copy helper,
+and several other requirements were already implemented in PR #120, but it prematurely converted incomplete
+validation into optional follow-ups and declared 83 files "reviewed" without per-file assessments.
+The reconciled manifest selects 85 files, including the separately packaged QGIS path-repair wrapper, and excludes 66 source-tree files; inclusion/exclusion is **provisional**.
+Neither "not included in the wheel" nor "included in the wheel" proves a file's lifecycle or operational safety.
 
-**PRs #118 and #119 are not prerequisites to merging #130.** Those RORB and TUFLOW raster
-refactors are separately reviewable, and this PR does not depend on their implementation.
-Do not merge either indirectly or treat their open status as a blocking gate.
+The requirement to finish/merge PRs #118 and #119 before PR #130 **was specifically removed by the maintainer**.
+Those PRs remain independent work; their own technical correctness and data validation remain required.
+**22 October 2026 decision supersedes earlier Python 3.13 support:** the maintainer explicitly directed removal of Python 3.13 support from this PR and repository. Python **>=3.14** is now required for `ryan-tools`; independent dependencies retain their own declared constraints.
 
-## Reconciliation with the approved requirements
+## Status definitions
 
-| Requirement | Status as of 19 October | Reviewed decision / outstanding item |
+- **Implemented, verification incomplete**: code or packaging exists, but at least one original acceptance
+  gate lacks evidence. Do not mark "complete" simply because hosted CI passed.
+- **Partially implemented**: some behavior exists, but the original requirement has an unimplemented portion.
+- **Not assessed**: evidence was not gathered; do not interpret this as working or defective.
+- **Verified (bounded)**: named tests establish the specific limited behavior, not general engineering acceptance.
+- **Superseded with decision**: a documented later maintainer decision explicitly changed the requirement.
+
+## Current A/B inventory and integration — open PR #137
+
+- Count reconciliation: **151 tracked source files**, **85 currently selected wheel files**,
+  **66 repository-only files** and **34 distinct MCP script paths**. The last
+  number is catalogue exposure, not all installed scripts.
+- Discovered two mistakenly packaged scripts with **import-time Windows
+  authentication and file-copy side effects**:
+  `file-management-python/copy_file.py` and
+  `file-management-python/copy_folder.py`. Their original editable versions
+  remain in the repository, but both are removed from the wheel manifest and
+  remain out of the MCP catalogue.
+- The non-executing 151-file AST inventory now detects import-time mutation
+  calls; its `--check` gate fails on any selected Python wrapper missing a
+  protected entry point, failing parse, or containing detected dangerous
+  import-time calls. The current selected-script audit runs in Linux CI as
+  well as Python tests.
+- A **static check is not equivalent to full behavior parity**. Workstream A
+  needs accepted per-file lifecycle/ownership dispositions. Workstream B
+  additionally needs tested CLI/default/no-pause/exit/output contracts,
+  including representative no-checkout wheel runs, and explicit decisions for
+  editable standalone scripts lacking a modern CLI. Do not mark those gates
+  complete from an AST scan alone.
+- Workstream D hydraulic package migration was implemented in earlier PRs.
+  Independent hydraulic evidence is owned by `ryan-culverts` and `run-hy8`:
+  `ryan-culverts` PR #29 is **merged** with reviewed HY-8 comparison evidence.
+  The near-crown anomaly is documented and the wider shape issue #3 remains
+  open. Do not reframe that accepted review as missing local tests in this PR.
+- Workstream E already delivered the `ryan-tools` distribution, verified
+  installed wheel, publishing workflows and upgrade documentation. Remaining
+  optional client-specific desktop install verification does **not** require
+  revisiting the distribution rename in this PR.
+
+## October 2026 resumed validation (PR #137 latest main integration)
+
+- Corrected the malformed wheel manifest after merging main: removed 34 duplicate entries, preserved both deliberately excluded unguarded network-copy scripts as repository-only, and retained the newly introduced protected file-inventory wrapper.
+- Merged current main including the read-only TUFLOW user-activity wrapper and standalone shapefile converter. The 31 October post-main integration selected 84 wheel files and 150 tracked files; the dedicated QGIS path-repair script from now-integrated PR #154 increases the selection to **85 unique wheel files**, **66 repository-only files**, and **151 tracked files**. The 34 distinct MCP script paths remain a separate curated set.
+- Added **copied-wrapper end-to-end tests** covering disposable file-inventory CSV output, read-only GeoTIFF audit, recursive file listing and missing RORB input handling; expanded --help coverage to 17 safe wrappers. The audit report remains static evidence, not blanket runtime certification.
+- No hydraulic parity retesting is requested here: `ryan-culverts` owns HY-8 validation. PyPI naming/distribution rollout is previously implemented and does not need reimplementation.
+- Project-specific Windows network drive, QGIS/TUFLOW execution and maintainer per-file lifecycle decisions remain explicit acceptance gates for A/B, not silently waived.
+
+## 31 October 2026 — integrated #154 and final CI repair
+
+- Supporting QGIS PR #154 is **merged into the #137 branch only**, via merge commit
+  `c8d0743`. Its four inline review threads are resolved with documented
+  output-relative path rewriting, cross-drive fallback, explicit mapped-drive
+  to UNC equivalence, and auxiliary SQLite WAL/rollback-journal checks. Audit
+  remains read-only by default; path repair is a separate new-file-only tool.
+- Review at `c8d0743` found 11 strict Pyright attribute-access errors in
+  the existing raster metadata helper because Rasterio's Cython-backed
+  metadata interface was not fully visible to the checker. PR #137 now carries
+  a narrow metadata protocol and focused response/read-only tests
+  (`ad6122c`, `b338da9`), followed by Ruff spacing corrections. **Do not
+  report this fix as CI accepted until the exact final head passes.**
+- Current package selection is **151 tracked = 85 wheel + 66 repository-only**;
+  **34** unique MCP script targets. The 47-entry backlog now contains
+  **46 open/deferred/partially verified items and 1 accepted-closed item (AB-023)**;
+  these are not 46 newly introduced merge-blocking defects.
+- Original A/F engineering approval, **real TUFLOW and scoped Windows/UNC tests**,
+  proportionate lifecycle decisions and output parity remain open where recorded,
+  **excluding the accepted/closed HY-8 comparison gate**.
+  This corrective code PR **does not declare those gates complete or approve
+  a release**. Merge/release disposition requires an explicit maintainer
+  decision. Later delivery to `main` will be a **squash merge**, not an
+  intermediate merge of all historical branch commits.
+- **Exact code acceptance at `837184b`: all six checks passed** — [Python CI](https://github.com/Chain-Frost/ryan-tools/actions/runs/41215916979) and [Fast PR](https://github.com/Chain-Frost/ryan-tools/actions/runs/41215916999). Hosted Windows: **1,674 passed / 25 skipped / 7 deselected**, with 127 nonfatal warnings; strict Pyright: **0 errors, 0 warnings**; wheel, MCP/Python 3.14, POSIX security and Ruff all green. Historical job label referencing Python 3.13 is not its runtime.
+- The consolidated Codex review of `350d41b` identified two new P2 QGIS issues: unmatched relative sources when output is relocated, and FileGDB directory sources wrongly failing metadata existence checks. Both were corrected with functional/unit tests (`e8fb5a4`, `07299e1`, `bc17b79`; formatting at `837184b`). Additional QGS/QGD companion collision fixed at `d181b15` with regression. All **22 PR #137 review threads resolved**, plus the four resolved on integrated #154.
+- **Current next action:** maintainer must decide the explicitly retained lifecycle/engineering acceptance gates and authorize later **squash merge** of #137 to `main`. The PR remains open/unmerged, with no PyPI publication. Original A/F unverified application, network, interruption and numerical parity gates are **not** declared complete.
+
+## 1 November 2026 — explicit maintainer acceptance disposition
+
+**HY-8 (AB-023 / H6): closed by maintainer decision.** The user accepted
+existing HY-8 / `ryan-culverts` comparison evidence from merged
+[ryan-culverts PR #29](https://github.com/Chain-Frost/ryan-culverts/pull/29).
+No further numerical-comparison campaign or HY-8-wrapper acceptance test
+is required as a gate for #137. This is a scope/evidence acceptance decision,
+**not** an assertion that the 22 October Windows #146 host ran HY-8.
+Independent future hydraulic issues and code changes keep their own review
+requirements; they do not reopen AB-023 automatically.
+
+**TUFLOW remains open** for controlled real-executable/model-run acceptance:
+simulation runner (AB-012), initialisation (AB-013) and native ASC_to_ASC
+(AB-029); read-only model preflight and TLF run coverage are tracked
+separately under AB-046/047. Test failures, exits, cancellation, output
+preservation and expected results in authorised disposable models as relevant.
+
+**Windows/UNC remains only per workflow.** Existing authorised mapped/UNC
+copy, long-path and bounded native GDAL/QGIS results remain accepted. Do not
+rerun them merely to satisfy older generic checklist wording; validate
+additional network, lock and interrupted-operation scenarios only where a
+specific AB row identifies an untested script/operation.
+
+The [Markdown backlog](../audits/2026-10-22-script-remediation-backlog.md)
+keeps all **47 historical IDs**, now **46 open/deferred/partially verified
+and 1 accepted-closed**. It groups future work into active installed safety,
+external engineering checks, historical repository-only lifecycle decisions,
+and cross-cutting inventory/contracts. A non-executable, experimental or
+historical source file does not need automatic full engineering sign-off
+unless intentionally adopted as a supported tool.
+
+The later delivery plan for #137 remains an authorised **squash merge to
+`main`**; this documentation decision does not merge or publish anything.
+
+## Original non-negotiable decisions (D1–D9)
+
+| ID | Original requirement | Current assessment and supporting evidence |
 | --- | --- | --- |
-| Keep GitHub repository named `ryan-tools` | Implemented | No further repository split. |
-| Broad default engineering dependencies | Implemented | Preserve the existing default `numpy`, `pandas`, GIS, hydraulic, and reporting environment; do not substitute narrow extras. |
-| Install source-identical maintained wrappers | Implemented in #120; hardened in #130 | The wheel places `ryan-scripts` beside `ryan_library`. PR #130 replaces blanket copying with a reviewed explicit manifest and byte-for-byte wheel verification. |
-| No-checkout MCP discovery | Implemented in #120 | Locate sibling installed scripts; development checkout is an explicit or discovered alternative. MCP provides bounded listings and details, not arbitrary execution. |
-| Curated MCP exposure and mutation profiles | Implemented | Existing workflow JSONs retain `core`, `analysis`, `create`, `privileged` and explicit approval metadata. Installation does **not** grant execution consent. |
-| Copy human-editable wrappers into project folders | Added in #130 | `ryan-scripts list` and `ryan-scripts copy` operate on the manifest, preserve source bytes and refuse accidental overwrite; an existing destination directory is required. |
-| Migrate `run-hy8` / `ryan-culverts` to pip | Implemented in main | Both are unconditional dependencies. Their former hydraulic submodule entries and bundled solver source were removed; existing wheel/installed tests exercise imports and basic operations. Engineering parity is tracked independently. |
-| PyPI distribution `ryan-tools` | Implemented in #120 | Prior conditional proposal is obsolete. Existing PyPI/local-wheel installer migration handles the former distribution. Stable `ryan_library` imports remain; removed legacy aliases are intentional breaking changes documented in the compatibility policy. |
-| Python minimum | **Revised by later maintainer decision** | Retain **Python 3.13+** including `ryan-culverts`; Python 3.14 remains the preferred development baseline. The original planned November 3.14-only switch is superseded unless explicitly reauthorised. |
-| No unconditional direct MCP execution | Retained | `run_workflow` requires a distinct design/review; never infer approval from a discovered command. |
-| Windows, QGIS, mapped/UNC paths | Existing policy retained | Preserve `Path.absolute()` default and application-specific Python/executable boundaries; installed-wheel CI does not prove external software interoperability. |
+| D1 | Keep GitHub repository `Chain-Frost/ryan-tools` | Verified (bounded): repository identity unchanged |
+| D2 | Comprehensive default engineering/scientific/GIS pip install | Partially verified: `pyproject.toml` retains broad default dependencies; full supported-environment installation matrix not independently accepted |
+| D3 | Plan to stop Python 3.13 support in November | **Superseded 22 October:** maintainer directed immediate Python >=3.14. Package metadata, installer checks, CI execution and wheel validation adopt the new floor. |
+| D4 | Install maintained scripts, preserve editable defaults and original CLI contracts | Partially implemented: sibling wheel layout exists; per-script behavioral and lifecycle audit incomplete |
+| D5 | Curated MCP exposure and capability/mutation approval metadata | Implemented, verification incomplete: JSON catalogue and profile tests exist, check individual command flags and real mutation boundaries |
+| D6 | Migrate hydraulic submodules only after tested pip parity | Dependencies and gitlink removal implemented. **HY-8 numerical comparison accepted under merged [ryan-culverts PR #29](https://github.com/Chain-Frost/ryan-culverts/pull/29); AB-023 closed by maintainer decision.** General dependency reproducibility remains tracked in H1/H4, not as another HY-8 numerical gate. |
+| D7 | Treat PyPI rename as separate deliberate transition | Later implementation in #120: distribution now `ryan-tools`; maintain upgrade/release verification, trusted publication evidence and retired-name instructions |
+| D8 | Windows/QGIS/TUFLOW/HY-8, UNC/mapped paths, `Path.absolute()` | Bounded Windows mapped/UNC copy and GDAL/QGIS checks passed; **native TUFLOW and workflow-specific network/locked-file checks remain open**. HY-8 comparison accepted separately (AB-023); the October Windows host did not run it. |
+| D9 | Original PR was planning-only, not authorized to change runtime then | Historical phase restriction; later implementation was requested but original functional/validation scope **was not cancelled** |
 
-## Curated script inventory and wheel boundary
+## Workstream A — inventory, lifecycle and packaging policy
 
-The manifest at
-[`ryan_library/resources/mcp/installed_scripts.json`](../../ryan_library/resources/mcp/installed_scripts.json)
-is the authoritative explicit list of **83 selected files** at this update, including original source scripts,
-package `__init__` companions and local documentation. These files are distributed without rewriting editable
-defaults. MCP exposure is separately determined by the existing workflow catalogues. All 33 distinct currently
-catalogued script paths are covered; module/console targets are independently checked by the registry.
+| ID | Requirement (full wording in preserved baseline) | Status and remaining acceptance |
+| --- | --- | --- |
+| A1 | Inventory every source script by domain, owner, lifecycle, dependencies, invocation, headless behavior, mutation and external application | **Partially implemented.** The [file-by-file audit ledger](../audits/2026-10-19-installed-scripts-inventory.md) enumerates current paths and the new `repo-scripts/audit_installed_scripts.py` safely generates syntax/import/headless/path signals without executing wrappers. Manual owner/lifecycle/invocation and acceptance remain outstanding |
+| A2 | Independently classify packaged maintained, packaged not MCP, or repository-only | **Not completed.** Current manifest is provisional; individual disposition/evidence still required |
+| A3 | Prioritize TUFLOW/GDAL/hydraulic/RORB/archive and other representative maintained workflows | Partially implemented; 34 catalogue script paths currently represented, not a guarantee that all useful maintained scripts were assessed |
+| A4 | Exclude unverified/obsolete/project-specific and repo maintenance material | Partially implemented; verifier excludes repo maintenance files and an allowlist exists, but individual lifecycle decisions were not justified |
+| A5 | Audit import-time side effects, hard-coded paths and checkout-relative resource behavior | **Not assessed for every included script**; cannot claim installed-runnable beyond bounded tested examples |
+| A6 | Preserve copyable original file, editable defaults and wrapper + library version display | Copy helper added in #130; version display and default/CLI parity are not verified for every maintained wrapper |
 
-Selected groups: TUFLOW Python wrappers, TUFLOW model/culvert launchers, GDAL Python wrappers,
-hydraulic entry points, selected RORB/file-management/Word helpers, the QGIS audit script
-and maintained wrapper documentation. Scripts are **installed-only** unless specifically catalogued.
+## Workstream B — wheel layout and installed invocation
 
-The **63 repository-only files** include 12D/AutoCAD and CAD experiments, versioned snapshots, legacy
-GDAL/TUFLOW BAT files, miscellaneous PDF/point-cloud/hydrology utilities and unpolished/unsorted scripts.
-This classification is conservative: it does not mean those utilities have no value. Review one
-individually before adding it to the install manifest or MCP catalogue. Existing privileged MCP targets
-(including the Excel-protection and deletion utilities) stay catalogued with their approval metadata;
-do not silently drop them from the wheel.
+| ID | Requirement | Status and remaining acceptance |
+| --- | --- | --- |
+| B1 | Stable original-script wheel strategy and resource handling | Implemented, verification incomplete: sibling `ryan-scripts` staging exists; validate layout, package resource metadata and supported install platforms |
+| B2 | **Only individually allowlisted maintained wrappers**, with companion resources | Partially implemented: 85-file allowlist and exact member checks are included in the current PR; exact-head verification is required; individual lifecycle/resource review incomplete |
+| B3 | Location resolver independent of cwd, checkout and PYTHONPATH | Implemented, bounded no-checkout wheel smoke passes; cross-install/source selection cases need additional evidence |
+| B4 | Checkout development precedence and explicit diagnostics without stale wheel execution | Partially implemented in MCP registry; test selected checkout, wheel version/source differences and diagnostics |
+| B5 | CLI help/no-pause/defaults/error codes/no implicit destructive behavior | Not verified for every packaged script |
+| B6 | Stable installed wrapper list/copy without uncontrolled PATH executables | Implemented in #130 but **P2 symlink race found in review**; corrective code/tests in new PR, pending CI and review |
+| B7 | Update wheel build/verifier/smoke/tests/install/release docs in implementation | Partially implemented; exact member tests and smoke exist, but release/migration and external acceptance remain |
 
-Build invariants:
-- `setup.py` reads the manifest and removes stale build-output script copies before staging selected source files.
-- `repo-scripts/verify_wheel.py` rejects missing, unexpected and non-byte-identical installed script files,
-  and checks the installed manifest as package data. `MANIFEST.in` retains source files in an sdist;
-  a built wheel only installs the explicit selection.
-- `ryan-scripts copy` copies a single listed source wrapper; it does not execute the script, install
-  external tools or copy an arbitrary directory. Users must still install matching library dependencies
-  and provide any project-specific inputs or external executables.
-- `ryan-mcp` continues to report availability, command prefix, help, wrapper version, mutation profile
-  and scenarios. Explicit checkout selection remains useful for development.
+## Workstream C — MCP reconciliation
 
-## Validation status and acceptance gates
+| ID | Requirement | Status and remaining acceptance |
+| --- | --- | --- |
+| C1 | Reuse existing MCP server, registry, models and JSONs | Implemented, bounded source inspection |
+| C2 | Installed wheel selection for users, explicit checkout precedence for development | Implemented, verification incomplete on mixed environments |
+| C3 | Explicit module/script/console execution targets | Implemented, catalogue validation still needed per target |
+| C4 | Command/help/scenarios, wrapper and installed version, external prerequisites and approval diagnostics | **Partially implemented**: paths/help/scenarios/version/approval metadata exist; PR #137 now reports script provenance, installed distribution version and explicit `not_verified`/`not_declared` external prerequisite state. Runtime executable/version checks and comprehensive per-workflow assessments are outstanding |
+| C5 | Small curated discovery/read-only surface; no indiscriminate command publication | Implemented, bounded hosted tests |
+| C6 | Safe capability categorization for overwrites/deletes/external programs and flag escalation | Partially implemented; catalog metadata present, per-workflow destructive-flag review incomplete |
+| C7 | Safe defaults, preview/dry run, confirmation and useful agent-facing failures | Partially implemented; test each exposed workflow and sensitive flag |
+| C8 | Reconcile all actual workflow catalogue entries; classify dead/unavailable truthfully | Catalogue script target file presence is tested, **not** equivalent to runtime capability checks or full CLI validation |
+| C9 | Distinguish installed/repository sources, absent external applications and distribution versions in `check_repo_health` | **Partially implemented**; PR #137 adds `workflow_availability_scope=entry_point_only`, `external_prerequisite_validation=not_performed`, and `active_script_source`. Verify actual external binaries and installed/checkout contexts separately |
+| C10 | Direct `run_workflow` execution requires separate reviewed design | Retained as **separate future decision**, not quietly removed; no automatic execution authorized |
 
-Acceptance already recorded in [the PR #120 delivery record](2026-10-18-installed-scripts.md) includes
-an installed wheel with no checkout override, real stdio MCP handshake/listing, all 35 catalogue workflows,
-and reported Python 3.13/3.14 compatibility decisions. These are historical results **at the earlier head**;
-they are not substitutes for validation of the new manifest and copy helper.
+## Workstream D — hydraulic pip migration
 
-PR #130 acceptance requires:
-- [ ] Five required GitHub checks pass at the **final PR head**, including Python 3.13 compatibility,
-  Ruff/whitespace, policy, hosted tests and package verification.
-- [ ] Build an exact wheel and verify **only** allowlisted script members, byte identity and preserved
-  Python 3.13+ / hydraulic dependency metadata.
-- [ ] Run an isolated no-checkout installed-wheel smoke that enumerates all MCP catalogue scripts and
-  copies an installed wrapper to a temporary project folder.
-- [ ] Confirm that `ryan-scripts list/copy` help, safe dry run, overwrite refusal and errors pass focused tests.
-- [ ] Run documentation/link checks and update the PR body to reflect implementation (not deferred-only work).
-- [ ] Verify mergeability and obtain maintainer acceptance for release/publishing impact; **do not**
-  force bypass failing checks or automatically publish from this review.
+| ID | Requirement | Status and remaining acceptance |
+| --- | --- | --- |
+| H1 | Check independent PyPI releases, ownership, trust and tested versions | Partially verified; publication/ownership provenance and cross-platform compatibility evidence incomplete |
+| H2 | Replace embedded solver contents with package dependencies | Verified (bounded): dependency metadata and wheel exclusion tests |
+| H3 | Remove obsolete solver gitlinks, package paths and utilities after parity | Removal implemented; accepted HY-8 numerical comparison is owned by the independent `ryan-culverts` evidence, with AB-023 closed by maintainer decision. No duplicate HY-8 run required for #137. |
+| H4 | Reproducible tested dependency versions/bounds/constraints | Not fully verified; existing lower bounds alone do not guarantee future numerical reproducibility |
+| H5 | Verify external solver dependency declarations and imports | Verified (bounded) by package and smoke jobs |
+| H6 | Preserve engineering parity, numerical validation, Windows HY-8 acceptance | **Closed for #137 by maintainer decision (1 November 2026)**: accept existing numerical comparisons in merged [ryan-culverts PR #29](https://github.com/Chain-Frost/ryan-culverts/pull/29); see closed AB-023. This is acceptance of independent evidence, **not** a claim that the October #146 host ran HY-8. Changes to wrappers in the future still need proportionate tests. |
 
-External acceptance not claimed by hosted tests: GUI QGIS 4, real TUFLOW runs,
-HY-8 executable/numerical parity, RORB datasets, network/mapped/UNC Windows paths and
-long-path manual tests. These require separately tracked on-machine cases as those applications
-and fixtures are available; they are not preconditions for the strictly bounded wheel-manifest change.
+## Workstream E — package identity and Python support
 
-## Post-merge work (separate from #130)
+| ID | Requirement | Status and remaining acceptance |
+| --- | --- | --- |
+| E1 | Preserve repo identity and `ryan-mcp` command | Implemented |
+| E2 | Confirm new PyPI distribution name and ownership | Renamed in #120; check actual release credentials and published migration evidence |
+| E3 | Migration, Trusted Publishing, wheel metadata, docs and old-name handling | Partially implemented; assess upgrade edge cases and release audit separately |
+| E4 | Keep Python distribution/import namespace distinctions and compatibility | `ryan_library` remains stable; legacy `ryan_functions` removal was separately authorized; verify external upgrade instructions |
+| E5 | Planned >=3.14 floor in November | **Implemented in PR #137 per 22 October maintainer decision:** Python >=3.14 is required. The legacy CI status-check label remains until GitHub branch protection is updated. |
+| E6 | Retain broad default dependency environment | Implemented metadata; end-user installation validation remains separate |
 
-1. Finish and validate PRs #118 and #119 independently, including their RORB/TUFLOW data checks.
-2. Reassess additional **individual** repository-only scripts for wheel inclusion only after wrapper/CLI
-   headless, import-safety and external dependency audits. Avoid indiscriminate auto-discovery.
-3. Retain independent HY-8 and culvert engineering validation, numerical parity and publication evidence
-   under the existing hydraulic follow-up issues (#102/#103 as relevant).
-4. Consider direct typed MCP execution only in a new explicitly approved design with safety, process
-   isolation, bounded logs and mutation approvals. Not part of this PR.
-5. Review any future Python minimum change as a separate policy decision. Python 3.13 remains supported.
+## Workstream F — validation and rollout
 
-## Progress record
+| ID | Requirement | Status and remaining acceptance |
+| --- | --- | --- |
+| F1 | Exact included/excluded maintained-script inventory tests | Wheel member equality tests pass, but maintained/legacy designation **has not been proven individually** |
+| F2 | Verified wheel in neutral no-checkout Windows Python, MCP and representative help | Verified (bounded) on #137 integrated head `060fc17`: 85-file wheel inventory, isolated-wheel package checks and representative wrapper smoke. Native engineering/output validation remains script-specific, not a new global wheel check. |
+| F3 | Synthetic read-only/creating workflow and failure behavior tests | **Partial**; systematically cover declared catalog targets and missing inputs/tools |
+| F4 | Application-specific GDAL/QGIS/TUFLOW/HY-8 acceptance | Bounded real GDAL/OGR and QGIS checks passed in October. **Native TUFLOW** model runner/project setup/ASC_to_ASC remain tracked (AB-012, AB-013, AB-029); network/locked-file checks are scoped to affected scripts. **HY-8 comparison is accepted and closed (AB-023)**, not an outstanding #137 gate. |
+| F5 | Copy wrappers on UNC/mapped/long/whitespace paths; version/log/progress/exit parity | **Accepted bounded tests** passed on SSD, long paths and authorised mapped/UNC scratch; no global rerun. Only named workflow-specific network/lock/interruption/output contracts remain in the AB rows. |
+| F6 | Profile approval filtering; no implicit MCP execution | Existing regression tests, but destructive-flag audit remains |
+| F7 | Ruff/Pyright/pytest/docs/wheel/hosted validation on exact final head | Verified on #137 integrated code head `060fc17`: all six checks green, 1,674 hosted passed/25 skipped/7 deselected, strict Pyright 0 errors/0 warnings. Later acceptance-document-only changes need their own documentation/CI verification. |
+| F8 | Migration order, constraints, publication cutover and old-name timelines | **Partially documented**, release evidence/acceptance still required |
 
-- **17 October:** Original architecture proposal drafted; installation and publishing changes deferred.
-- **18 October:** PRs #100, #120 and #129 merged; subsequent installed package and MCP work recorded in the
-  [implementation handoff](2026-10-18-installed-scripts.md).
-- **19 October:** Merged `main` into #130, reconciled completed status rows and reclassified this as
-  an implementation/reconciliation PR. Added the curated manifest, wheel enforcement, installed-script
-  list/copy command and focused acceptance tests. Final CI and maintainer review remain required.
+## PR #130 review finding and correction
+
+The automated review submitted after #130 merged identified
+[P2 destination symlink-swap vulnerability](https://github.com/Chain-Frost/ryan-tools/pull/130#discussion_r4307875276)
+in `ryan_library/mcp/installed_scripts.py`. It remained unresolved at merge.
+
+The corrective PR changes copying to use exclusive creation when not overwriting, and to stage a temporary file in
+the destination directory followed by `os.replace` when overwriting. The latter replaces the destination **entry**
+without following a symlink swapped in after validation. Regression tests simulate symlink and hard-link swaps,
+as well as a failed staging copy. Review on PR #137 additionally identified POSIX permissions loss from temporary-file mode `0600`; this is addressed by copying the source mode to the staged file before atomic replacement and testing both copy paths. Comment/thread closure must follow a verified code fix; do not dismiss feedback
+or mark a thread resolved merely because a PR merged.
+
+## Required review process
+
+1. For every review comment, record the exact link, code impact, response, fixing commit, tests and resolution state.
+2. Resolve threads **only after** evidence passes; a green CI run from before review is insufficient.
+3. Review any newly posted comments at the final head, including comments arriving after checks/ready-for-review.
+4. Complete and agree the original workstreams above or preserve each unresolved requirement as a tracked
+   blocker/open item. **Do not merge an "all scope complete" PR while A/F engineering gates remain unresolved.**
+5. Keep #118/#119 independent; do not use their open status to conceal other unfinished requirements.
+
+## Delivery state
+
+### 22 October 2026 — supporting PR #146 Windows acceptance
+
+At supporting revision `20cf28a91a1bc59e76ce42da9366299f07a354b3`, Windows Python 3.14 MCP checks
+with authorised mapped/UNC scratch, long-path and real GDAL/QGIS opt-ins:
+**98 passed, 10 skipped** (Windows symlink privileges and POSIX-only cases).
+Ruff, scoped strict Pyright, isolated current-version wheel discovery and scoped
+documentation link checks passed. All six exact-head hosted checks passed.
+Local Python 3.13 was excluded at the user's request. QGIS MCP retry and
+copied-GeoPackage desktop probe passed after the user enabled MCP; diagnostics are degraded by server 0.15.2 / plugin 0.15.1 mismatch.
+Licensed **TUFLOW** execution acceptance remains outstanding. Separately accepted HY-8 numerical comparisons were closed by maintainer decision on 1 November 2026 (AB-023); no repeated comparison is required for #137.
+See the [Windows evidence](../mcp-handoff/2026-10-21-cf-windows-acceptance.md#windows-execution-evidence--22-october-2026)
+for versions, commands, wheel hash, environment corrections and limitations.
+Evidence documentation is committed on the supporting branch at the user's request;
+no push, merge, publication or simulation. Next action: align QGIS MCP plugin/server versions
+and select disposable licensed baselines for remaining application checks.
+31 October integration carries forward that bounded evidence. The 151-row ledger now includes the separate, non-MCP QGIS path-repair script in #154 as well as the input-preflight script added on main, with 85 wheel-selected files. External licensed-tool acceptance and owner sign-off are separate follow-ups.
+
+- **2026-10-17:** Original requirements drafted in PR #130.
+- **2026-10-18:** Existing implementation in #100/#120 reviewed; partial script packaging added in #130.
+- **2026-10-18:** #130 merged at `1ac42c6`, before automated review produced the P2 finding.
+- **2026-10-19:** New corrective branch restores the complete original baseline and status matrix, introduces a
+  file-by-file inventory ledger, and fixes the P2 target-swap issue; **CI/maintainer review and follow-up work remain**.
+
+No release publication or merge is authorized merely by updating this record.

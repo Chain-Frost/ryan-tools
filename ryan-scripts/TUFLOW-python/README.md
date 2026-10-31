@@ -1,10 +1,13 @@
 # TUFLOW Python wrappers
 
-This folder contains maintained, library-backed wrappers as well as older
-standalone utilities. Maintained wrappers follow
-[`WRAPPER_STANDARD.md`](../WRAPPER_STANDARD.md); project settings remain editable
-near the top of each Python file. The TUFLOW simulation runner and its command
-exports target Windows.
+This folder contains maintained, library-backed wrappers, maintained
+standalone utilities, and older historical scripts. All maintained entry
+points follow the [shared script principles](../README.md#shared-principles-for-maintained-scripts-and-wrappers).
+Library-backed wrappers additionally follow
+[`WRAPPER_STANDARD.md`](../WRAPPER_STANDARD.md). A useful self-contained
+script need not be migrated into a wrapper or an orchestrator merely to remain
+maintained; historical/versioned snapshots retain their intentional behaviour.
+The TUFLOW runner and its command TXT exports target Windows.
 
 ## Input checker reports
 
@@ -23,8 +26,16 @@ BAT/text syntax, multiple TCFs, installation and validation boundaries.
 
 [`model_management/run_tuflow_simulations.py`](model_management/run_tuflow_simulations.py)
 accepts generated parameter combinations, BAT/text command lists, or both.
-Configure `MODE`, `RUN_VARIABLES_RAW` and `INPUT_FILES` in the Python wrapper;
-CLI arguments are optional overrides.
+Edit `MODE`, `RUN_VARIABLES_RAW` and `INPUT_FILES` near the top of a copied
+Python wrapper. Its operational constants can use concise names; the wrapper
+standard does not require a `DEFAULT_` prefix. CLI arguments override editable
+values when supplied.
+
+The shipped `OPERATION = "export_only"` only refreshes editable command TXT.
+Set `OPERATION = "run"` or explicitly pass `--run-simulations` to launch
+the licensed solver, which may overwrite existing model outputs. To check
+inputs without launching, use `OPERATION = "preflight_only"` or
+`--preflight-only`.
 
 The Python runner alone launches the configured `TUFLOW_EXE` via Python
 subprocess argument lists. Imported BAT/CMD/TXT files are **never executed**,
@@ -37,10 +48,22 @@ cannot direct launches. First occurrences are kept; duplicate model selections
 are discarded. For example, `BATCH_COMMANDS = "-b -t -nlc"` applies to
 both generated and imported runs; an imported `-x` does not override it.
 
-Use separate GPU tokens such as `("-pu0", "-pu1")` for a group using two devices.
-A single token such as `-pu0,1` is rejected. GPU occupancy is checked once at the
-start of an executing batch. The runner subsequently tracks its own children;
-it does not perform scheduled activity, CodeMeter, TLF or TSF scans.
+`GPU_DEVICES` **alone controls concurrency**: each inner tuple represents
+one simultaneous TUFLOW process. Three copy-ready examples are provided next
+to the editable setting: `(("-pu0", "-pu1"), ("-pu2",))` runs two processes
+(one with GPUs 0+1 and one with GPU 2), `(("-pu0",), ("-pu1",))` runs two
+single-GPU processes, and `(("-pu0",),)` runs one process. An empty tuple
+`()` uses one automatic-placement slot. There is no `MAXIMUM_CONCURRENT`.
+The invalid combined token `-pu0,1` is rejected. GPU occupancy is checked
+once at execution startup; the scheduler tracks its own children and does not
+rescan CodeMeter, TLF or TSF activity.
+
+The sole runner input-check switch is `CHECK_INPUTS` (`True`/`False`),
+overridden by `--preflight` or `--no-preflight`. `True` performs all
+supported advisory checks, including selected GeoPackage layers and boundary
+CSV headers. Failures are reported while launching; they do not block the
+solver. Strict `--preflight-only` always checks those inputs and never launches.
+There is no separate GeoPackage-layer toggle in the runner.
 
 Both the checker and runner capture inherited environment variables before
 reading BAT/text files. Each source file then has independent SET and directory
@@ -54,7 +77,9 @@ Command export remains enabled by default. A copied `<runner-name>.py` refreshes
 **`<runner-name>.txt` beside that Python file**. The file contains editable Windows
 batch syntax, including shared `TUFLOW_EXE`, `BCMD` and TCF variables, but its
 `.txt` extension prevents accidental batch execution by double-clicking it.
-An explicitly selected export destination must also end in `.txt`.
+There is **no alternate export path**: `<runner-name>.txt` beside the copied
+Python wrapper is the sole destination. Existing TXT is refreshed after
+reparsing and protected-file checks; input files are never replaced.
 
 The export contains the complete deduplicated plan, including completed runs, and
 is refreshed even when Resume has no remaining work. There are no timestamped
@@ -66,8 +91,9 @@ The complete export is rendered and reparsed before the destination is replaced.
 A failed render leaves the existing export intact. Imported command sources,
 model control files, the Python wrapper and execution history are protected,
 including filesystem aliases. If an imported source is also the export target,
-choose a different `EXPORT_PATH` or disable export with `EXPORT_COMMANDS = False`
-(or `--no-export`).
+disable export with `EXPORT_COMMANDS = False` (or `--no-export`)
+when running, or copy the input to a different filename. Export-only always
+writes the fixed adjacent TXT and refuses a conflict.
 
 `--export-only` prepares the text without launching TUFLOW, inspecting GPUs,
 creating execution history or requiring the unused PyTUFLOW validation stack.

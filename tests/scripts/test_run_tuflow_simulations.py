@@ -26,6 +26,11 @@ class _RunnerWrapper(Protocol):
     __file__: str
     EXPORT_COMMANDS: bool
     NEXT_RUN_FILE: Path | None
+    OPERATION: str
+
+    def _arguments(self, argv: list[str] | None = None) -> argparse.Namespace: ...
+
+    def _settings(self, arguments: argparse.Namespace) -> RunnerSettings: ...
 
     def main(self, argv: list[str] | None = None) -> int: ...
 
@@ -50,6 +55,7 @@ def wrapper(tmp_path: Path) -> _RunnerWrapper:
     solver = tmp_path / "TUFLOW_Synthetic.exe"
     solver.write_bytes(b"synthetic solver placeholder")
     module.__dict__["TUFLOW_EXE"] = solver
+    module.__dict__["OPERATION"] = "run"  # Other tests cover the safe shipped default.
     return cast(_RunnerWrapper, module)
 
 
@@ -62,13 +68,58 @@ def _source(path: Path) -> Path:
     return batch
 
 
+def test_default_operation_is_export_only_and_cli_can_override(
+    tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = sys.modules["tested_runner_wrapper"]
+    source = _source(tmp_path)
+    monkeypatch.setattr(module, "OPERATION", "export_only")
+    monkeypatch.setattr(module, "TUFLOW_EXE", tmp_path / "missing.exe")
+
+    def forbid(*_args: object, **_kwargs: object) -> None:
+        pytest.fail("Export-only attempted to launch a solver")
+
+    monkeypatch.setattr(module, "launch_plan", forbid)
+    args = ["--mode", "textfiles", "--input-file", str(source), "--no-tcf", "--no-pause"]
+    assert wrapper.main(args) == 0
+    assert Path(wrapper.__file__).with_suffix(".txt").is_file()
+    assert not Path(wrapper.__file__).with_name("run_tuflow_simulations_runs.csv").exists()
+
+    # CLI launch intent overrides the safe file default, and the missing
+    # solver then fails before writing a continuation CSV.
+    assert wrapper.main([*args, "--run-simulations"]) == 1
+    assert not Path(wrapper.__file__).with_name("run_tuflow_simulations_runs.csv").exists()
+
+
+def test_editable_settings_and_cli_precedence(
+    tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = cast(_RunnerWrapper, sys.modules["tested_runner_wrapper"])
+    monkeypatch.setattr(module, "USE_LIVE_DASHBOARD", True)
+    monkeypatch.setattr(module, "LIVE_REFRESH_PER_SECOND", 1.0)
+    monkeypatch.setattr(module, "WAIT_TIME_AFTER_RUN", 2.0)
+    args = module._arguments([
+        "--no-preflight", "--no-live-dashboard",
+        "--live-refresh-per-second", "0.5", "--launch-delay", "0",
+        "--working-directory", str(tmp_path), "--no-pause",
+    ])
+    settings = module._settings(args)
+    assert settings.use_live_dashboard is False
+    assert settings.live_refresh_per_second == 0.5
+    assert settings.wait_time_after_run == 0
+    assert args.preflight is False
+    with pytest.raises(SystemExit) as invalid:
+        module._arguments(["--pause", "--no-pause"])
+    assert invalid.value.code == 2
+
+
 def test_export_only_copied_workflow_needs_neither_solver_nor_gpu(
     tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     from ryan_library.orchestrators.tuflow import simulation_runner
 
     source = _source(tmp_path)
-    output = tmp_path / "commands.txt"
+    output = Path(wrapper.__file__).with_suffix(".txt")
 
     def forbidden_gpu(*_args: object) -> None:
         pytest.fail("Export-only inspected GPUs")
@@ -87,8 +138,6 @@ def test_export_only_copied_workflow_needs_neither_solver_nor_gpu(
                 "--export-only",
                 "--solver-exe",
                 str(tmp_path / "TUFLOW_MISSING.EXE"),
-                "--export-path",
-                str(output),
                 "--no-pause",
             ]
         )

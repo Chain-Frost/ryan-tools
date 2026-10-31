@@ -1,12 +1,12 @@
 {
   "schema_version": "1.0",
-  "catalogue_updated": "2026-10-31",
+  "catalogue_updated": "2026-10-07",
   "workflows": [
     {
       "id": "check_tuflow_inputs",
       "title": "Check proposed TUFLOW simulation inputs",
       "domain": "tuflow",
-      "purpose": "Check exact proposed multi-TCF runs without launching TUFLOW; print findings, with optional issues CSV export.",
+      "purpose": "Check scenario-resolved control files and BC Source CSVs for exact proposed runs without launching TUFLOW; write issues CSV.",
       "script": "ryan-scripts/TUFLOW-python/model_management/check_tuflow_inputs.py",
       "profile": "analysis",
       "mutation": "creates_outputs",
@@ -19,12 +19,17 @@
       "id": "audit_qgis_projects",
       "title": "Audit QGIS project sources",
       "domain": "qgis",
-      "purpose": "Scan QGIS project files and report missing local data sources.",
+      "purpose": "Read-only QGS/QGZ file-source audit and optional QGD report. Automation pins existence-only metadata checks; cold-storage pings are manually opt-in. Path repair is a separate script not exposed as an MCP workflow.",
       "script": "ryan-scripts/other/audit_qgis_projects.py",
       "profile": "analysis",
       "mutation": "read_only",
       "lifecycle": "experimental",
       "headless_arguments": [
+        "--mode",
+        "existence",
+        "--no-auxiliary-report",
+        "--sample-rows",
+        "0",
         "--no-pause"
       ]
     },
@@ -455,6 +460,7 @@
       "script": "ryan-scripts/TUFLOW-python/raster_processing/run_grouped_asc_to_asc_statistics.py",
       "profile": "privileged",
       "mutation": "executes_external",
+      "external_program": "asc_to_asc_w64.exe",
       "requires_explicit_approval": true,
       "headless_arguments": [
         "--no-pause"
@@ -464,12 +470,14 @@
       "id": "run_tuflow_batch",
       "title": "Run TUFLOW batch",
       "domain": "tuflow",
-      "purpose": "Run or resume configured Windows TUFLOW simulations; refresh a fixed TXT command export and append execution history.",
+      "purpose": "Run or resume TUFLOW simulations; refresh adjacent TXT commands and maintain CSV completion history.",
       "script": "ryan-scripts/TUFLOW-python/model_management/run_tuflow_simulations.py",
       "profile": "privileged",
       "mutation": "executes_external",
+      "external_program": "TUFLOW executable configured by wrapper",
       "requires_explicit_approval": true,
       "headless_arguments": [
+        "--run-simulations",
         "--no-pause"
       ],
       "help_safe": true

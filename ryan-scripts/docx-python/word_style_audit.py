@@ -32,7 +32,7 @@ from xml.etree import ElementTree as ET
 W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 NS = {"w": W_NS}
 
-# Optional local override: if set, this path takes precedence over CLI args.
+# Editable default used only when no positional DOCX path is provided.
 HARDCODED_DOCX_PATH: Path | None = Path(
     r"C:\Users\Ryan.Brook\Downloads\N-0001894-5000-C-REP-10003_A ABH Constructability Report.docx"
 )
@@ -445,7 +445,7 @@ def main(argv: list[str]) -> int:
     ap.add_argument("docx", type=Path, nargs="?", help="Path to .docx file")
     ap.add_argument("--out-dir", type=Path, default=Path("style_audit_report"), help="Output directory")
     args = ap.parse_args(argv)
-    docx_path = HARDCODED_DOCX_PATH if HARDCODED_DOCX_PATH is not None else args.docx
+    docx_path = args.docx if args.docx is not None else HARDCODED_DOCX_PATH
     if docx_path is None:
         ap.print_usage(sys.stderr)
         print("word_style_audit.py: error: docx is required unless HARDCODED_DOCX_PATH is set.", file=sys.stderr)

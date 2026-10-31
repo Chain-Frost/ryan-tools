@@ -6,12 +6,15 @@ duration, and temporal-pattern convention documented by
 ``extract_metadata_from_filename``. Run ``python hydrograph_extract_rorb_csv.py``.
 
 The script writes a timestamped Excel workbook and PNG plot beside itself, then
-waits for Enter. Review filename parsing and plotted hydrograph selection when
-adapting it to a different RORB naming convention.
+waits for Enter for interactive runs. Use ``--no-pause`` for headless execution
+and ``--input-directory`` to process a disposable or project folder instead.
+Review filename parsing and plotted hydrograph selection when adapting it to a
+different RORB naming convention.
 """
 
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
 
+import argparse
 import re
 import sys
 from datetime import datetime
@@ -310,9 +313,9 @@ def create_plot(
         sys.exit(1)
 
 
-def main() -> None:
-    # Get the directory where the script is located
-    script_directory = Path(__file__).absolute().parent
+def main(*, input_directory: Path | None = None) -> None:
+    # Preserve the original script-adjacent default; permit explicit CLI override.
+    script_directory = Path(__file__).absolute().parent if input_directory is None else input_directory.absolute()
 
     # Define specific combinations of AEP and TP to process
     selected_combinations: list[tuple[str, str]] = [
@@ -347,6 +350,23 @@ def main() -> None:
     create_plot(combined_df, aep_mapping, creek_name, script_directory)
 
 
+def _parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Combine and plot selected RORB hydrograph CSVs.")
+    parser.add_argument(
+        "--input-directory",
+        type=Path,
+        default=None,
+        help="Directory containing input CSVs and receiving reports; defaults to this script's directory.",
+    )
+    parser.add_argument("--no-pause", action="store_true", help="Exit without waiting for Enter.")
+    return parser.parse_args(argv)
+
+
 if __name__ == "__main__":
-    main()
-    input("Press Enter to exit...")
+    cli_args = _parse_cli_arguments()
+    if cli_args.input_directory is not None and not cli_args.input_directory.is_dir():
+        print(f"ERROR: Input directory does not exist: {cli_args.input_directory}", file=sys.stderr)
+        raise SystemExit(2)
+    main(input_directory=cli_args.input_directory)
+    if not cli_args.no_pause:
+        input("Press Enter to exit...")
