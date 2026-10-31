@@ -20,8 +20,8 @@ DEFAULT_TCF: Path | None = None
 DEFAULT_COMMANDS = Path("run_tuflow_simulations_commands.txt")
 DEFAULT_REPORT = Path("tuflow_input_preflight.csv")
 DEFAULT_CHECK_GPKG_LAYERS = True
-DEFAULT_FILES_ONLY = False
 DEFAULT_IO_WORKERS = 4
+DEFAULT_MAXIMUM_DIRECTORY_ENTRIES = 50_000
 
 import argparse
 import json
@@ -46,9 +46,8 @@ def main(
     plan_report: Path | None = None,
     syntax: Literal["auto", "batch", "commands"] = "auto",
     encoding: str = "utf-8-sig",
-    context_mode: Literal["individual", "batch"] = "individual",
-    files_only: bool = DEFAULT_FILES_ONLY,
     io_workers: int = DEFAULT_IO_WORKERS,
+    maximum_directory_entries: int = DEFAULT_MAXIMUM_DIRECTORY_ENTRIES,
 ) -> int:
     """Plan every row first, then check grouped TCFs and write a new issue CSV."""
     # Establish both bases before parsing; BAT CD never changes Python config.
@@ -87,9 +86,8 @@ def main(
     result: CommandPreflightReport = check_command_plan(
         plan,
         check_gpkg_layers=check_gpkg_layers,
-        context_mode=context_mode,
-        files_only=files_only,
         io_workers=io_workers,
+        maximum_directory_entries=maximum_directory_entries,
     )
     output: Path = result.write_csv(report)
     print(
@@ -101,16 +99,6 @@ def main(
         f"Timing: parse {result.parse_seconds:.2f}s; contexts {result.context_seconds:.2f}s; "
         f"inventory {result.inventory_seconds:.2f}s"
     )
-    if files_only:
-        print(
-            f"CSV headers: {result.csv_headers_checked} source header inspection(s) across TCF groups, "
-            f"{result.csv_column_selections_checked} run-specific column selection(s) checked"
-        )
-        print(
-            f"Dependency reuse: {result.dependency_fragment_evaluations} section evaluations, "
-            f"{result.dependency_fragment_reuses} reused sections, "
-            f"{result.dependency_fallback_runs} runs using the established evaluator"
-        )
     print(f"Issues CSV: {output}")
     for issue in result.issues:
         print(
@@ -146,20 +134,13 @@ def _parse_arguments() -> argparse.Namespace:
     parser.add_argument("--plan-report", type=Path, help="Write a NEW private JSON run manifest.")
     parser.add_argument("--syntax", choices=("auto", "batch", "commands"), default="auto")
     parser.add_argument("--encoding", default="utf-8-sig", help="Input encoding; decoding errors are not ignored.")
-    parser.add_argument(
-        "--context-mode",
-        choices=("individual", "batch"),
-        default="individual",
-        help="Batch is opt-in and requires a compatible PyTUFLOW API.",
-    )
-    parser.add_argument("--check-gpkg-layers", action=argparse.BooleanOptionalAction, default=None)
-    parser.add_argument(
-        "--files-only",
-        action=argparse.BooleanOptionalAction,
-        default=DEFAULT_FILES_ONLY,
-        help="Opt in to PR C batch file and BC CSV-header checks; requires the matching unpublished parser.",
-    )
     parser.add_argument("--io-workers", type=int, default=DEFAULT_IO_WORKERS, help="Unique-file workers, 1-32.")
+    parser.add_argument(
+        "--maximum-directory-entries",
+        type=int,
+        default=DEFAULT_MAXIMUM_DIRECTORY_ENTRIES,
+        help="Bounded file discovery entry limit.",
+    )
     parser.add_argument("--no-pause", action="store_true")
     return parser.parse_args()
 
@@ -183,9 +164,8 @@ if __name__ == "__main__":
             plan_report=options.plan_report,
             syntax=options.syntax,
             encoding=options.encoding,
-            context_mode=options.context_mode,
-            files_only=options.files_only,
             io_workers=options.io_workers,
+            maximum_directory_entries=options.maximum_directory_entries,
         )
     except Exception as exc:  # noqa: BLE001 - human-facing wrapper reports incomplete work as failure
         print(f"Input preflight failed: {exc}")
