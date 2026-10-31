@@ -233,8 +233,8 @@ def main(argv: list[str] | None = None) -> int:
         if NEXT_RUN_FILE is not None and not _run_follow_up(NEXT_RUN_FILE, settings.working_directory):
             outcome_code = 1
         return outcome_code
-    except (OSError, ValueError) as exc:
-        logger.exception("Runner preparation or execution failed: %s", exc)
+    except (OSError, ValueError):
+        logger.exception("Runner preparation or execution failed.")
         return 1
     except KeyboardInterrupt:
         logger.exception("Runner interrupted before batch completion.")
