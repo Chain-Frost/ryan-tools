@@ -26,6 +26,25 @@ REQUIREMENT = Path(__file__).absolute().parents[3] / "repo-scripts/pytuflow-requ
 ARCHIVE_SHA256 = "e374c8e072679fc6c4dc11e63b270caa1101b6aebb84d70060872cdd1b0aa7d6"
 pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="Example BAT plans require native Windows paths")
 
+# Temporary, pinned-PyTUFLOW 05e35476 findings. See upstream PR #60 and
+# ryan-tools #181. Match the entire observed finding, never just a TCF name:
+# a changed/additional issue or an unexpected recovery must fail this test.
+_ONE_D_SCHEMA_GAP = "Unsupported GIS BC/SA/RF layer schema"
+_EXPECTED_VALIDATOR_GAPS: dict[str, tuple[str, str, str]] = {
+    "EG02_013.tcf": ("Read GIS BC", "1d_bc_EG14_001_P", _ONE_D_SCHEMA_GAP),
+    "EG03_009.tcf": (
+        "Read GIS RF Triangle",
+        "2d_rf_EG03_009_R",
+        "Cannot inspect GIS attributes: Missing or unexpanded BC Name in 2d_rf_EG03_009_R: ''",
+    ),
+    "EG04_004.tcf": ("Read GIS BC", "1d_bc_EG04_004_P", _ONE_D_SCHEMA_GAP),
+    "EG04_005.tcf": ("Read GIS BC", "1d_bc_EG14_001_P", _ONE_D_SCHEMA_GAP),
+    "EG04_006.tcf": ("Read GIS BC", "1d_bc_EG04_006_P", _ONE_D_SCHEMA_GAP),
+    "EG14_001.tcf": ("Read GIS BC", "1d_bc_EG14_001_P", _ONE_D_SCHEMA_GAP),
+    "EG14_002.tcf": ("Read GIS BC", "1d_bc_EG14_002_R", _ONE_D_SCHEMA_GAP),
+    "EG14_003.tcf": ("Read GIS BC", "1d_bc_EG14_003_R", _ONE_D_SCHEMA_GAP),
+}
+
 
 @pytest.fixture(scope="module")
 def example_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
@@ -117,7 +136,7 @@ def test_example_batch_inventory(example_plan: CommandPlan) -> None:
 
 @pytest.mark.gdal
 def test_all_example_models_public_validation(example_plan: CommandPlan, tmp_path: Path) -> None:
-    """Complete all models before failing; retain per-model issues and provenance."""
+    """Check all models; permit only exact known upstream defects in the pinned validator."""
     diagnostic = require_validation_api().diagnostic
     expected_source = REQUIREMENT.read_text(encoding="utf-8").strip().split("@", 1)[1].strip()
     assert expected_source in diagnostic.source, diagnostic.message
@@ -127,10 +146,44 @@ def test_all_example_models_public_validation(example_plan: CommandPlan, tmp_pat
     for run in example_plan.runs:
         groups.setdefault(Path(str(run.tcf)), []).append(run)
     rows: list[dict[str, object]] = []
+    observed_known: list[str] = []
+    unexpected_failures: list[str] = []
+    unexpectedly_passing: list[str] = []
     for tcf, runs in groups.items():
         plan = replace(example_plan, runs=tuple(runs))
         report = check_command_plan(plan)
         report.write_csv(output / f"{tcf.stem}-issues.csv")
+
+        expected = _EXPECTED_VALIDATOR_GAPS.get(tcf.name)
+        if expected is None:
+            if not report.passed or report.completed_runs != len(runs):
+                unexpected_failures.append(
+                    f"{tcf.name}: {len(report.issues)} unexpected issue(s), "
+                    f"{report.completed_runs}/{len(runs)} runs checked"
+                )
+        elif report.passed:
+            unexpectedly_passing.append(tcf.name)
+        elif len(runs) != 1 or report.completed_runs != 1 or len(report.issues) != 1:
+            unexpected_failures.append(
+                f"{tcf.name}: expected exactly one attributed unresolved finding, "
+                f"got {len(report.issues)} finding(s), {report.completed_runs}/{len(runs)} runs checked"
+            )
+        else:
+            issue = report.issues[0]
+            finding = issue.finding
+            actual = (finding.origin, finding.layer, finding.detail)
+            if (
+                issue.run.index != runs[0].index
+                or finding.status != "unresolved"
+                or finding.kind != "attribute"
+                or finding.path is None
+                or finding.path.name != f"{finding.layer}.shp"
+                or actual != expected
+            ):
+                unexpected_failures.append(f"{tcf.name}: changed pinned-validator finding: {actual!r}")
+            else:
+                observed_known.append(tcf.name)
+
         rows.append(
             {
                 "tcf": tcf.name,
@@ -153,7 +206,18 @@ def test_all_example_models_public_validation(example_plan: CommandPlan, tmp_pat
         "passed_tcfs": sum(row["passed"] is True for row in rows),
         "passed_runs": sum(len(groups[tcf]) for tcf, row in zip(groups, rows, strict=True) if row["passed"] is True),
         "results": rows,
+        "expected_known_gaps": sorted(_EXPECTED_VALIDATOR_GAPS),
+        "verified_known_gaps": sorted(observed_known),
+        "unexpected_failures": unexpected_failures,
+        "unexpectedly_passing": unexpectedly_passing,
     }
     (output / "results.json").write_text(json.dumps(summary, indent=2, default=str), encoding="utf-8")
-    failed = [row["tcf"] for row in rows if row["passed"] is not True]
-    assert not failed, f"{len(failed)}/161 example TCFs failed: {failed}; full findings: {output}"
+
+    assert not unexpected_failures, f"Unexpected or changed model findings: {unexpected_failures}; reports: {output}"
+    assert not unexpectedly_passing, (
+        f"Pinned PyTUFLOW gap unexpectedly fixed for {unexpectedly_passing}; "
+        "remove its temporary allowance (ryan-tools #181)"
+    )
+    assert set(observed_known) == set(_EXPECTED_VALIDATOR_GAPS), (
+        f"Expected exactly the eight recorded upstream defects; verified {observed_known}"
+    )

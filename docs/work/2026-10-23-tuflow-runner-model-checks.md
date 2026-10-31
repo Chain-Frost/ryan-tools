@@ -13,6 +13,22 @@
 
 ## Current scope and decisions
 
+## Pre-upstream-merge known-failure policy (31 October 2026)
+
+PR #159 is intended to merge **before** PyTUFLOW PR #60 is adopted. The full
+native Windows archive replay continues to inspect all 161 TCFs / 174 contexts.
+A temporary, exact-signature allowlist in
+`tests/orchestrators/tuflow/test_example_models_real.py` recognises only
+the seven documented 1D BC-schema findings and the one RF-triangle Name finding
+from pinned PyTUFLOW `05e35476`. It checks the model, finding count,
+attribution, status, kind, origin, layer, source filename and diagnostic text.
+Any extra/changed failure, incomplete run or unexpectedly passing previously
+broken model fails CI; no model is skipped, no assertion is bypassed, and
+complete JSON/CSV evidence is still uploaded. See [issue #181](https://github.com/Chain-Frost/ryan-tools/issues/181)
+for removing the allowance and requiring 161/161 clean after adopting the
+reviewed upstream fix. No parser repin or TUFLOW execution occurs here.
+
+
 **31 October 2026 follow-up:** The owner clarified that imported BAT/TXT is
 never executable control and that duplicate model selections must be discarded.
 This supersedes older scope-pack statements preserving source launch directories,

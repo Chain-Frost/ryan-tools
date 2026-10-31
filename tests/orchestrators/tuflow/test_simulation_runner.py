@@ -694,6 +694,7 @@ def test_configured_solver_must_exist_for_actual_execution(tmp_path: Path) -> No
     config.executable.write_bytes(b"synthetic solver placeholder")
     runner.validate_launch_executable(plan, config)
 
+
 @pytest.mark.skipif(sys.platform != "win32", reason="Native Windows subprocess lifecycle smoke")
 @pytest.mark.parametrize("child_exit_code", [0, 7])
 def test_windows_real_python_child_exit_and_callbacks(
@@ -751,6 +752,7 @@ def test_windows_real_python_child_exit_and_callbacks(
     assert completed[0].return_code == child_exit_code
     assert result.successful is (child_exit_code == 0)
     assert result.exit_code == (0 if child_exit_code == 0 else 1)
+
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Native Windows subprocess lifecycle smoke")
 def test_windows_real_python_child_is_terminated_on_interrupt(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
