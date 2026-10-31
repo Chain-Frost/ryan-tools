@@ -372,6 +372,7 @@ def test_out_of_order_completion_callback_precedes_ordered_output(
     observed: list[int] = []
     began: list[int] = []
     caplog.set_level(logging.INFO)
+
     def popen(**_options: object) -> FakeProcess:
         return next(processes)
 
