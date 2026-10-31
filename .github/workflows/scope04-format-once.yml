@@ -1,0 +1,41 @@
+# Temporary child-branch formatter; remove after the scoped one-time run.
+name: Scope 04 branch-local format
+
+on:
+  push:
+    branches:
+      - feat/tuflow-csv-continuation-scope04-20261031
+    paths:
+      - ".github/workflows/scope04-format-once.yml"
+permissions:
+  contents: write
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: true
+          submodules: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - run: python -m pip install ruff==0.16.6
+      - name: Format exact child owned paths only
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(
+            ryan_library/functions/tuflow/execution_history.py
+            ryan-scripts/TUFLOW-python/model_management/run_tuflow_simulations.py
+            tests/functions/tuflow/test_execution_history.py
+            tests/scripts/test_run_tuflow_simulations.py
+            tests/scripts/test_tuflow_csv_continuation.py
+          )
+          python -m ruff check --fix "${files[@]}" || true
+          python -m ruff format "${files[@]}"
+          git add -- "${files[@]}"
+          if ! git diff --cached --quiet; then
+            git -c user.name='scope04-ci' -c user.email='scope04-ci@users.noreply.github.com' commit -m '[tuflow] Apply Ruff formatting to CSV continuation files'
+            git push origin HEAD:refs/heads/feat/tuflow-csv-continuation-scope04-20261031
+          fi
