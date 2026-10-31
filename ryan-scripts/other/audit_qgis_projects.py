@@ -32,11 +32,11 @@ WRAPPER_VERSION = "2026-10-31.5"
 
 # --- Project selection ---
 # Directory to scan; Path() means the current directory when the script starts.
-# Example: Path(r"Q:\Project\GIS")
+# For example, set this directory to Path(r"Q:\Project\GIS") to scan that mapped-drive folder.
 DEFAULT_WORKING_DIR = Path()
 
 # Single .qgs/.qgz project, or None to scan all projects under the working directory recursively.
-# Example: Path("Hydraulic_Model.qgz") or Path(r"Q:\Project\GIS\Hydraulic_Model.qgs")
+# For example, select Path("Hydraulic_Model.qgz") or Path(r"Q:\Project\GIS\Hydraulic_Model.qgs").
 DEFAULT_PROJECT: Path | None = None
 
 # --- Source-file audit ---
