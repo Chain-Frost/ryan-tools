@@ -99,16 +99,25 @@ those are skipped too; original run numbers can therefore have gaps. Input
 preflight and dashboard presentation preserve those original identities.
 
 Set `CONTINUATION_MODE = "all"` or pass `--run-mode all` to append a RESET row and
-run every occurrence again. Previous history is retained. Changing model files
-at the same paths is not detected; use Run all when those prior successes should
-be disregarded. Changing effective engine switches changes the run configuration
-used for continuation.
+run every occurrence again. Previous history is retained. Changing model-file contents
+is not detected; use Run all when prior successes should be disregarded.
+The identity uses the **TCF filename** (case-insensitive on Windows) and effective
+event/scenario, engine and model-option switches, excluding runtime GPU placement.
+The TCF directory, Python working directory, executable location and source
+command file are diagnostic CSV fields, **not** part of the completion key. Thus
+moving the model, changing the solver location or switching between a mapped drive
+and its UNC alias does not automatically rerun the same TCF/flags.
+Different TCFs with the same filename **and** flags in one batch would be
+ambiguous and are rejected; give them distinct filenames or use separate wrappers.
+A test-only `-t` run remains distinct from a full simulation.
 
-The new Python-controlled import policy can change how an older imported run
-matches its CSV entry, including when normalization moves an engine switch.
-Those old rows remain in the log; an affected run is queued again. Once a run
-uses the normalized plan, changing only ignored source engine/GPU switches does
-not change its continuation identity.
+The Resume key now uses the path-independent `tuflow-logical-v2` identity.
+Previous pre-release `v1` CSV successes retain their historical rows but **do not**
+match new keys: the first Resume after this change may queue previously completed
+runs again. Review the CSV and the refreshed TXT, and use Run all when a deliberate
+new baseline is appropriate. Once on v2, changing ignored source engine/GPU
+switches does not change the key; changing effective Python `BATCH_COMMANDS`
+switches still can.
 
 Stop the previous batch before resuming. A missing FINISH row does not establish
 whether an old process is still alive or failed; Resume does not scan to recover
@@ -117,9 +126,9 @@ or earlier corruption produce an error rather than an implicit migration.
 
 Actual execution first checks that the Python-configured solver exists. A
 missing executable fails before changing the CSV completion baseline. Export-only
-and preflight-only do not require a solver installation. Since the solver path and
-working directory now come exclusively from Python, previously recorded CSV
-identities based on imported executables/directories may be pending again.
+and preflight-only do not require a solver installation. The solver path and
+working directory come exclusively from Python for execution, but they are not
+part of the new v2 Resume identity.
 
 Reexecuted models use their current configured output locations and may overwrite
 existing solver outputs. This feature resumes the set of simulations; it does

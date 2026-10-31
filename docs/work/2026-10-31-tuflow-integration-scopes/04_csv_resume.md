@@ -52,13 +52,13 @@ A start without a matching finish is unfinished. Abruptly killing the Python run
 
 ## Stable run identity and repeated entries
 
-Build a deterministic key from the effective TCF, working directory, executable and relevant model arguments. Use the frozen logical plan, before runtime GPU assignment. Exclude GPU placement, display index, source line number and Windows scheduling priority.
+Build a deterministic v2 key from the **TCF filename** and effective simulation flags, including meaningful engine/model options but excluding runtime GPU placement. Use the frozen logical plan before scheduling. The executable, working directory, TCF directory, source line, display index and scheduling priority are **not** part of the key.
 
-Use consistent lexical Windows path normalization without resolving network aliases or opening model files. Preserve meaningful argument values and ordering; normalize known event/scenario flag mappings so merely changing their presentation order does not create different simulations. Frame hashed values unambiguously. Internal serialization for hashing does not require another saved artifact.
+Normalize Windows TCF filename case and known event/scenario flag mappings. The CSV still records complete TCF, working-directory and executable paths for diagnostics, but Resume does not consult Windows drive mappings or open model files. Reject two different TCFs with the same filename and flags in one batch as ambiguous. Hashing does not require another saved artifact.
 
 Before creating CSV run identities, discard duplicate effective TCF/flags/model-option selections, retaining the first occurrence and its provenance. Only unique runs are logged, exported and launched. Older history records remain untouched.
 
-The executable path participates in identity, so changing that path creates new work. Replacing a binary at the same path is not detected. Changing model-file contents without changing the configured run is also not detected. This scope intentionally performs no content hashing or freshness scans; use All when previous completion should be disregarded.
+Changing solver paths or relocating the same named TCF does not create new work. Changes to model-file contents or the solver executable's content are not detected. Use All when prior completion should be disregarded. The v2 identity does not match older pre-release v1 keys: historical CSV rows remain, but previously successful v1 runs may be queued again after upgrading.
 
 ## Resume and All
 

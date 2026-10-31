@@ -325,10 +325,12 @@ def _command(run: PlannedRun, settings: RunnerSettings, group: tuple[str, ...]) 
 
 
 def _bat_quote(value: str, *, always: bool = False) -> str:
-    if not value or any(char in value for char in '\r\n"%!^&|<>'):
+    # Double quotes protect CMD operators in data arguments. Percent/delayed
+    # expansion, embedded quotes and caret expressions remain unsupported.
+    if not value or any(char in value for char in '\r\n"%!^'):
         message = f"Cannot safely represent BAT argument {value!r}"
         raise CommandPlanError(message)
-    if always or any(char.isspace() for char in value):
+    if always or any(char.isspace() or char in "&|<>()" for char in value):
         return f'"{value}"'
     return value
 
@@ -386,7 +388,7 @@ def render_batch_commands(plan: CommandPlan, settings: RunnerSettings, *, destin
             f'START /D {cwd} {switch}{minimized}/WAIT "" "%{exe_var}%" %BCMD% {remaining} "%{tcf_var}%"'.rstrip()
         )
     result.append("")
-    result.append("REM Commands are intentionally ordered; duplicate rows are deliberate.")
+    result.append("REM Commands are ordered; repeated equivalent model selections were removed.")
     text = "\r\n".join(result) + "\r\n"
     exported = parse_command_plan(
         text,

@@ -341,6 +341,42 @@ def test_python_tcf_fallback_uses_configuration_base_not_changed_directory() -> 
         )
 
 
+def test_verified_mapped_drive_alias_matches_configured_python_tcf(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Only actual Windows drive mappings permit a UNC alias to satisfy the TCF constraint."""
+    from ryan_library.functions.tuflow import command_plan
+
+    source = PureWindowsPath(r"P:\project\launcher\runs.bat")
+    cwd = PureWindowsPath(r"P:\project")
+    expected = str(cwd / "model.tcf")
+    unc = r"\\server\share\nested\project\model.tcf"
+    calls: list[str] = []
+
+    def drive_mapping(drive: str) -> str | None:
+        calls.append(drive)
+        return r"\\server\share\nested" if drive.casefold() == "p:" else None
+
+    monkeypatch.setattr(command_plan, "_network_drive_target", drive_mapping)
+    plan = parse_command_plan(
+        f'TUFLOW.exe "{unc}"', source=source, initial_directory=cwd, fallback_tcf=expected
+    )
+    assert plan.runs[0].tcf == PureWindowsPath(unc)
+    assert "P:" in calls
+
+    with pytest.raises(CommandPlanError, match="conflicts with effective imported TCF"):
+        parse_command_plan(
+            r'TUFLOW.exe "\\server\share\nested\other\model.tcf"',
+            source=source,
+            initial_directory=cwd,
+            fallback_tcf=expected,
+        )
+
+    monkeypatch.setattr(command_plan, "_network_drive_target", lambda _drive: None)
+    with pytest.raises(CommandPlanError, match="conflicts with effective imported TCF"):
+        parse_command_plan(
+            f'TUFLOW.exe "{unc}"', source=source, initial_directory=cwd, fallback_tcf=expected
+        )
+
+
 def test_overwritten_assignments_and_disabled_rows_do_not_conflict() -> None:
     plan = parse(
         "set TCF=unused.tcf\nset TCF=good.tcf\nrem TUFLOW.exe bad.tcf\nset TCF_05=other.tcf\n-e1 A\n@rem -e1 B bad.tcf",

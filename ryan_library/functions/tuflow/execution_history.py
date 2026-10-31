@@ -9,9 +9,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
-import ntpath
 import os
-import posixpath
 import re
 import subprocess
 from dataclasses import dataclass, replace
@@ -23,7 +21,14 @@ from uuid import uuid4
 
 from loguru import logger
 
-from .command_plan import CommandPlan, CommandPlanError, PlannedRun, effective_executable, partition_model_arguments
+from .command_plan import (
+    CommandPlan,
+    CommandPlanError,
+    PlannedRun,
+    effective_executable,
+    partition_model_arguments,
+    same_tcf_path,
+)
 
 SCHEMA_VERSION = "1"
 COLUMNS = (
@@ -82,14 +87,6 @@ class _Attempt:
     outcome: str | None = None
 
 
-def _normal_path(value: str | PurePath) -> str:
-    """Normalize spelling lexically, retaining distinct drive/UNC identities."""
-    text = str(value)
-    if isinstance(value, PureWindowsPath) or PureWindowsPath(text).drive or "\\" in text:
-        return ntpath.normcase(ntpath.normpath(text))
-    return posixpath.normpath(text)
-
-
 def _canonical_arguments(run: PlannedRun) -> tuple[tuple[tuple[str, str], ...], tuple[str, ...]]:
     """Keep the existing run-key policy over the shared argument projection."""
     try:
@@ -103,31 +100,35 @@ def identify_runs(plan: CommandPlan, *, fallback_executable: Path, base_director
     """Identify all logical occurrences *before* filtering for Resume.
 
     Same-config duplicates get a separate ordinal for that configuration.
-    Display index, source line, scheduling priority and runtime GPU are excluded.
+    TCF filename and effective flags identify a run; paths, scheduling
+    priority, display index and runtime GPU do not. Ambiguous TCF names fail.
     """
     occurrences: dict[str, int] = {}
+    payload_sources: dict[str, PurePath] = {}
     identities: dict[int, RunIdentity] = {}
     for run in plan.runs:
         if run.index in identities:
             msg = f"Duplicate plan index {run.index}"
             raise ExecutionLogError(msg)
         executable = effective_executable(run, fallback_executable=fallback_executable, base_directory=base_directory)
-        executable_path = (
-            PureWindowsPath(executable) if isinstance(run.working_directory, PureWindowsPath) else executable
-        )
         flags, remaining = _canonical_arguments(run)
+        # This wrapper owns its CSV. Drive/UNC spelling, model/solver locations
+        # and child cwd are diagnostics; they do not define the simulation.
+        tcf_name = run.tcf.name.casefold() if isinstance(run.tcf, PureWindowsPath) else run.tcf.name
         payload = json.dumps(
-            [
-                "tuflow-logical-v1",
-                _normal_path(run.tcf),
-                _normal_path(run.working_directory),
-                _normal_path(executable_path),
-                flags,
-                remaining,
-            ],
+            ["tuflow-logical-v2", tcf_name, flags, remaining],
             ensure_ascii=False,
             separators=(",", ":"),
         )
+        previous = payload_sources.get(payload)
+        if previous is not None and not same_tcf_path(previous, run.tcf):
+            msg = (
+                "Ambiguous Resume identity: different TCF paths share the same filename "
+                f"and simulation flags: {previous} and {run.tcf}. "
+                "Use distinct TCF filenames or separate runner CSVs."
+            )
+            raise ExecutionLogError(msg)
+        payload_sources[payload] = run.tcf
         ordinal = occurrences.get(payload, 0) + 1
         occurrences[payload] = ordinal
         key = hashlib.sha256(json.dumps([payload, ordinal], ensure_ascii=False).encode("utf-8")).hexdigest()

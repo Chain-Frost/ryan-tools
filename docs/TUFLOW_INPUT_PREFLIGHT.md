@@ -90,6 +90,10 @@ The first two runs use `TCF_05`; the third uses `TCF_06`. A bare row such as
 Set the Python TCF to `None` for multiple imported models. When Python supplies
 a TCF, every active imported TCF must match it; a mismatch reports the paths and
 source location before validation, export, CSV history changes or execution.
+On Windows, a verified mapped-drive/UNC equivalent also matches: the reader
+queries the current session's drive mapping without opening model files.
+If the mapping is unavailable or the paths differ, a conflict is still reported.
+This comparison is separate from path-independent CSV Resume identities.
 
 | Input feature | Supported behavior |
 | --- | --- |
@@ -230,19 +234,20 @@ Use a new report directory for each invocation; issue CSVs never overwrite exist
 files. Without the environment setting, reports use pytest's temporary directory.
 The native replay is marked `gdal` and runs explicitly in the dedicated workflow;
 the ordinary hosted suite excludes it while retaining the BAT inventory check.
-The separate `windows-example-regression` job currently fails on eight known
-upstream findings; it does not change the existing public-API smoke job. The fix is
-[PyTUFLOW #60](https://github.com/Chain-Frost/PyTuflow/pull/60), based on #59.
-[Follow-up #181](https://github.com/Chain-Frost/ryan-tools/issues/181) tracks adopting
-a reviewed fixed parser revision and obtaining a complete passing replay. The
-accepted parser pin remains unchanged until that follow-up; any future pin change
-must also preserve the intended raster/CRS option scope rather than silently
-inheriting #59's new metadata defaults.
-Missing parser/GIS capabilities fail the dedicated replay rather than producing a
-passing skip. All models are checked before asserting success. JSON results and
-per-model issue CSVs retain run flags, source file/line and complete findings, and
-CI uploads them even on failure. Existing unresolved findings remain failures;
-the historical baseline is used only for coverage counts, never to waive findings.
+The separate `windows-example-regression` job now passes with a temporary,
+**exact-signature allowance for eight known upstream PyTUFLOW findings** (seven
+1D boundary-schema findings and one rainfall-triangle Name finding). Every one of
+the 161 TCFs / 174 contexts is still inspected. An additional or changed finding,
+incomplete validation, or unexpectedly passing known case fails the regression.
+The public validator itself continues to report the eight affected models as
+unsuccessful; green CI does **not** mean 161/161 models have clean preflight.
+[PyTUFLOW #60](https://github.com/Chain-Frost/PyTuflow/pull/60) is the proposed fix.
+[Follow-up #181](https://github.com/Chain-Frost/ryan-tools/issues/181) tracks
+adopting a reviewed parser and removing the allowance to obtain 161/161 clean.
+The accepted pin remains unchanged until then, and raster/CRS validation remains
+independently scoped. Missing parser/GIS capabilities or unexpected unresolved
+findings still fail CI; nothing is skipped. JSON results and per-model issue CSVs
+are uploaded even on failure.
 No BAT or TUFLOW executable is launched, and source inputs remain in the submodule;
 only a verified temporary extraction is inspected. This covers dependency validation,
 not solver execution, hydraulic correctness or raster-header checks.

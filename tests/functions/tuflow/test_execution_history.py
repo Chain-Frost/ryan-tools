@@ -221,17 +221,33 @@ def test_changed_model_inputs_change_identity_but_runtime_gpu_does_not(tmp_path:
         )[1].key
         == key
     )
-    changes = (
+    # Moving the same named TCF or selecting another installed solver must not
+    # force an already completed logical simulation to rerun.
+    for changed in (
         replace(run, executable="other.exe"),
-        replace(run, tcf=tmp_path / "another.tcf"),
+        replace(run, tcf=tmp_path / "relocated" / "effective.tcf"),
         replace(run, working_directory=tmp_path / "elsewhere"),
+    ):
+        assert (
+            identify_runs(replace(plan, runs=(changed,)), fallback_executable=Path("other.exe"), base_directory=tmp_path)[
+                1
+            ].key
+            == key
+        )
+    # Model identity and execution mode still matter. Test-only (-t) must not
+    # record a successful full simulation.
+    for changed in (
+        replace(run, tcf=tmp_path / "another.tcf"),
         replace(run, arguments=("-et5", *run.arguments)),
-    )
-    for changed in changes:
-        changed_key = identify_runs(
-            replace(plan, runs=(changed,)), fallback_executable=Path("fallback.exe"), base_directory=tmp_path
-        )[1].key
-        assert changed_key != key
+        replace(run, arguments=("-t", *run.arguments)),
+        replace(run, flag_pairs=(("e1", "other"),), arguments=("-b", "-e1", "other", str(run.tcf))),
+    ):
+        assert (
+            identify_runs(replace(plan, runs=(changed,)), fallback_executable=Path("fallback.exe"), base_directory=tmp_path)[
+                1
+            ].key
+            != key
+        )
 
 
 def test_windows_unc_and_switch_order_have_stable_identity() -> None:
@@ -262,8 +278,8 @@ def test_windows_unc_and_switch_order_have_stable_identity() -> None:
     assert signature(first) == signature(second)
 
 
-def test_existing_logical_v1_keys_survive_shared_argument_projection() -> None:
-    """Keep keys already emitted for valid flags, repeated occurrences and UNC models."""
+def test_logical_v2_duplicate_ordinals_remain_distinct() -> None:
+    """Identical repeated occurrences retain separate CSV attempt identities."""
     base = PureWindowsPath(r"Q:\Models")
     tcf = PureWindowsPath(r"\\server\share\models\flow.tcf")
     first = PlannedRun(
@@ -279,10 +295,44 @@ def test_existing_logical_v1_keys_survive_shared_argument_projection() -> None:
     )
     plan = CommandPlan(base / "list.txt", (first, replace(first, index=2)), (), 0, "commands")
     identities = identify_runs(plan, fallback_executable=Path("unused.exe"), base_directory=Path.cwd())
-    assert [identity.key for identity in identities.values()] == [
-        "875ca45fe4913751b0244c7dabd7a886b9a2e5f802d6e97e062628a062dacb89",
-        "1a691e356fd67e2ed10b32c3cbe0c71269d91936df68c0a204d7d8647baa9624",
-    ]
+    assert len({identity.key for identity in identities.values()}) == 2
+    assert all(len(identity.key) == 64 for identity in identities.values())
+
+
+def test_resume_identity_matches_mapped_drive_unc_and_relocation(tmp_path: Path) -> None:
+    """Only the TCF filename and effective flags determine a completed run."""
+    original = _plan(tmp_path, 1)
+    identity = identify_runs(original, fallback_executable=Path("solver_a.exe"), base_directory=tmp_path)[1]
+    moved = replace(
+        original.runs[0],
+        tcf=tmp_path / "elsewhere" / "effective.tcf",
+        executable="solver_b.exe",
+        working_directory=tmp_path / "other_work",
+    )
+    moved_plan = replace(original, runs=(moved,))
+    moved_identities = identify_runs(moved_plan, fallback_executable=Path("solver_b.exe"), base_directory=tmp_path)
+    assert moved_identities[1].key == identity.key
+    with CsvExecutionLog(tmp_path / "batch_runs.csv") as history:
+        attempt = history.start(identity)
+        history.finish(identity, attempt, Observed(original.runs[0], 0))
+        assert select_pending(moved_plan, moved_identities, history.successful_keys()).runs == ()
+
+    network = PureWindowsPath(r"\\server\share\project\effective.tcf")
+    mapped = PureWindowsPath(r"P:\project\effective.tcf")
+    for control in (network, mapped):
+        target = replace(original.runs[0], tcf=control)
+        target_plan = replace(original, runs=(target,))
+        assert identify_runs(target_plan, fallback_executable=Path("unused.exe"), base_directory=tmp_path)[1].key == (
+            identity.key
+        )
+
+
+def test_same_filename_and_flags_from_different_models_are_ambiguous(tmp_path: Path) -> None:
+    plan = _plan(tmp_path, 1)
+    first = plan.runs[0]
+    other = replace(first, index=2, tcf=tmp_path / "other_project" / first.tcf.name)
+    with pytest.raises(ExecutionLogError, match="Ambiguous Resume identity"):
+        identify_runs(replace(plan, runs=(first, other)), fallback_executable=Path("solver.exe"), base_directory=tmp_path)
 
 
 def test_history_rejects_unsupported_gpu_syntax(tmp_path: Path) -> None:

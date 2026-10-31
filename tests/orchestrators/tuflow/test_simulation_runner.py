@@ -129,6 +129,26 @@ def test_generated_quoted_model_value_roundtrip(tmp_path: Path) -> None:
     assert [run.flags for run in parsed.runs] == [run.flags for run in plan.runs]
 
 
+@pytest.mark.parametrize("value", ["Wet & Dry", "Storm(2)", "Rain|Wind", "Event>Base"])
+def test_bat_export_quotes_supported_cmd_metacharacters(tmp_path: Path, value: str) -> None:
+    project = tmp_path / "Hydrology & Drainage"
+    project.mkdir()
+    config = settings(project, tcf=Path("runs/model.tcf"), run_variables={"e1": [value]})
+    plan = runner.prepare_plan(config)
+    text = runner.render_batch_commands(plan, config, destination=project / "commands.txt")
+    assert f'-e1 "{value}"' in text
+    assert f'/D "{project}"' in text
+    replay = parse_command_plan(text, source=project / "commands.txt", initial_directory=project)
+    assert [run.flags for run in replay.runs] == [run.flags for run in plan.runs]
+
+
+@pytest.mark.parametrize("value", ["Embedded%Env", "Delayed!Expansion", "Caret^Escape", 'Quote"Value'])
+def test_bat_export_rejects_unrepresentable_values(tmp_path: Path, value: str) -> None:
+    config = settings(tmp_path, tcf=Path("runs/model.tcf"), run_variables={"e1": [value]})
+    with pytest.raises(CommandPlanError, match="Cannot safely represent BAT argument"):
+        runner.render_batch_commands(runner.prepare_plan(config), config, destination=tmp_path / "commands.txt")
+
+
 def _make_import(base: Path) -> Path:
     first, second = base / "Model A", base / "Model B"
     first.mkdir()

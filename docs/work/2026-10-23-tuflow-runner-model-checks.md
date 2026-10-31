@@ -13,6 +13,27 @@
 
 ## Current scope and decisions
 
+## Post-review correction — 1 November 2026
+
+- CSV Resume keys use path-independent `tuflow-logical-v2`: TCF filename
+  (case-insensitive for Windows) plus effective event/scenario, model and engine
+  flags. TCF directory, child cwd and solver executable location remain readable
+  diagnostics only. Old pre-release v1 completion keys remain in the CSV but do
+  not match new v2 runs; review planned reruns after upgrading.
+- A Windows Python-TCF consistency comparison can recognize the current
+  logon session's mapped drive/UNC alias using `WNetGetConnectionW`. This
+  lookup does not open the TCF or change its execution path. Unknown mappings
+  remain strict mismatches. No network mapping is needed for CSV identity.
+- Reject distinct TCF files with the same name and flags in a single batch,
+  rather than silently sharing a completion record. Preserve engine flag
+  distinctions (including test-only `-t`).
+- TXT BAT quoting allows safely quoted CMD metacharacters such as `&`,
+  parentheses and pipe in input values, but still rejects unsafe expansion
+  syntax. Current BAT files are assumed to be modern Windows-created text;
+  do not add a legacy codepage compatibility setting.
+- The input-preflight guide now documents the exact eight-finding temporary
+  CI allowance rather than incorrectly saying the Windows job is red.
+
 ## Pre-upstream-merge known-failure policy (31 October 2026)
 
 PR #159 is intended to merge **before** PyTUFLOW PR #60 is adopted. The full
