@@ -1167,9 +1167,7 @@ def delete_duplicate_file(action: DeleteAction) -> bool:
     # This inexpensive guard also catches aliases containing '..' (and
     # case-only differences on Windows). Proposal mode checks resolved
     # identities separately before any deletion is planned.
-    if os.path.normcase(os.path.normpath(str(path))) == os.path.normcase(
-        os.path.normpath(str(action.keep_file))
-    ):
+    if os.path.normcase(os.path.normpath(str(path))) == os.path.normcase(os.path.normpath(str(action.keep_file))):
         print(f"Refusing self-deletion: {path}")
         return False
 

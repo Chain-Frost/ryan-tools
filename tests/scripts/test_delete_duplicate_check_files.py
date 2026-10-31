@@ -254,7 +254,6 @@ def test_proposal_mode_reuses_previous_scan_without_rehash(
     assert (tmp_path / "deletions_001.txt").is_file()
 
 
-
 def test_apply_rejects_path_that_escapes_check_folder(
     utility: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
