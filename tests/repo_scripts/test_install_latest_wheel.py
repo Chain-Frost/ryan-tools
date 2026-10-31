@@ -47,7 +47,7 @@ def test_dry_run_has_public_guard_and_pip_check(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     installer = _installer()
-    monkeypatch.setattr(installer, "_latest_wheel", lambda _dist_dir: tmp_path / "ryan_tools.whl")
+    monkeypatch.setattr(installer, "_latest_wheel", lambda **_kwargs: tmp_path / "ryan_tools.whl")
     assert installer.main(["--dry-run", "--skip-qgis-mcp"]) == 0
     output = capsys.readouterr().out
     assert "gisidx.github.io/gwi" in output
@@ -71,7 +71,7 @@ def test_force_reinstall_dry_run_skips_false_verification(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     installer = _installer()
-    monkeypatch.setattr(installer, "_latest_wheel", lambda _dist_dir: tmp_path / "ryan_tools.whl")
+    monkeypatch.setattr(installer, "_latest_wheel", lambda **_kwargs: tmp_path / "ryan_tools.whl")
     assert installer.main(["--dry-run", "--force-reinstall", "--skip-qgis-mcp"]) == 0
     printed = capsys.readouterr().out
     assert "--no-deps" in printed
