@@ -19,11 +19,27 @@ Examples:
 
 from __future__ import annotations
 
+from pathlib import Path
+from typing import Literal
+
+# Editable defaults: CLI arguments override these settings.
+WRAPPER_VERSION = "2026-10-31.3"
+DEFAULT_WORKING_DIR = Path(".")
+DEFAULT_PROJECT: Path | None = None  # None scans all QGS/QGZ under the working directory
+DEFAULT_AUDIT_MODE: Literal["existence", "cold-storage-ping"] = "existence"
+DEFAULT_AUXILIARY_REPORT = False
+DEFAULT_SAMPLE_ROWS = 0
+DEFAULT_OLD_PROJECT_DIRECTORY: Path | None = None
+DEFAULT_REPLACE_ROOT: tuple[Path, Path] | None = None
+DEFAULT_ABSOLUTE_PATHS = False
+DEFAULT_OUTPUT: Path | None = None
+# Writing requires explicit --write. Do not add an enabled-by-default write switch.
+# Cold-storage ping must likewise be explicitly selected because retrieval may cost money.
+
 import argparse
 import os
 import sqlite3
 import sys
-from pathlib import Path
 from xml.etree import ElementTree as ET
 from zipfile import BadZipFile, LargeZipFile
 
@@ -44,47 +60,6 @@ from ryan_library.functions.wrapper_utils import (
     pause_console,
     print_wrapper_banner,
 )
-
-WRAPPER_VERSION = "2026-10-31.2"
-DEFAULT_WORKING_DIR = Path()
-DEFAULT_AUDIT_MODE: QgisAuditMode = "existence"
-
-
-def _parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Audit and repair QGIS source paths without loading QGIS or referenced geospatial data."
-    )
-    add_execution_cli_arguments(parser)
-    parser.add_argument("--project", type=Path, help="One QGS/QGZ project (required for path repair).")
-    parser.add_argument(
-        "--mode",
-        choices=("existence", "cold-storage-ping"),
-        default=DEFAULT_AUDIT_MODE,
-        help="existence (default): metadata check only; cold-storage-ping: read one byte per file, which may trigger retrieval charges.",
-    )
-    parser.add_argument(
-        "--auxiliary-report", action="store_true",
-        help="Describe auxiliary QGD SQLite tables, fields and record counts (no changes to QGD).",
-    )
-    parser.add_argument(
-        "--sample-rows", type=int, choices=range(6), default=0,
-        help="Optionally show up to five example rows per QGD table; zero omits stored values.",
-    )
-    parser.add_argument(
-        "--old-project-directory", type=Path,
-        help="Original folder of a moved project; rebase its relative file sources to their correct location.",
-    )
-    parser.add_argument(
-        "--replace-root", nargs=2, metavar=("OLD_ROOT", "NEW_ROOT"), type=Path,
-        help="Replace a file-path directory prefix, with component-boundary matching.",
-    )
-    parser.add_argument(
-        "--absolute-paths", action="store_true",
-        help="Write absolute paths for repaired file sources; default generates relative paths where possible.",
-    )
-    parser.add_argument("--output", type=Path, help="New project path for --write; existing files are never overwritten.")
-    parser.add_argument("--write", action="store_true", help="Write approved repairs to --output; otherwise preview only.")
-    return parser.parse_args(argv)
 
 
 def find_qgis_projects(start_dir: Path) -> list[Path]:
@@ -193,22 +168,26 @@ def _audit_projects(projects: list[Path], *, mode: QgisAuditMode, auxiliary_repo
 def main(
     *,
     working_directory: Path | None = None,
-    project_path: Path | None = None,
+    project_path: Path | None = DEFAULT_PROJECT,
     mode: QgisAuditMode = DEFAULT_AUDIT_MODE,
-    auxiliary_report: bool = False,
-    sample_rows: int = 0,
-    old_project_directory: Path | None = None,
-    replace_root: tuple[Path, Path] | None = None,
-    absolute_paths: bool = False,
-    output_path: Path | None = None,
+    auxiliary_report: bool = DEFAULT_AUXILIARY_REPORT,
+    sample_rows: int = DEFAULT_SAMPLE_ROWS,
+    old_project_directory: Path | None = DEFAULT_OLD_PROJECT_DIRECTORY,
+    replace_root: tuple[Path, Path] | None = DEFAULT_REPLACE_ROOT,
+    absolute_paths: bool = DEFAULT_ABSOLUTE_PATHS,
+    output_path: Path | None = DEFAULT_OUTPUT,
     write: bool = False,
 ) -> int:
     """Audit or plan repairs; return 0 on success, 1 for invalid or inaccessible inputs."""
     directory = (working_directory if working_directory is not None else DEFAULT_WORKING_DIR).absolute()
     selected = (directory / project_path).absolute() if project_path is not None else None
     output = (directory / output_path).absolute() if output_path is not None else None
-    old_directory = old_project_directory.absolute() if old_project_directory is not None else None
-    roots = (replace_root[0].absolute(), replace_root[1].absolute()) if replace_root is not None else None
+    old_directory = (directory / old_project_directory).absolute() if old_project_directory is not None else None
+    roots = (
+        ((directory / replace_root[0]).absolute(), (directory / replace_root[1]).absolute())
+        if replace_root is not None
+        else None
+    )
 
     if mode not in ("existence", "cold-storage-ping"):
         logger.error("Unsupported audit mode: {}", mode)
@@ -241,6 +220,60 @@ def main(
     return _audit_projects(projects, mode=mode, auxiliary_report=auxiliary_report, sample_rows=sample_rows)
 
 
+
+def _parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse explicit CLI overrides; None means use the editable DEFAULT_* setting."""
+    parser = argparse.ArgumentParser(
+        description="Audit and repair QGIS source paths without loading QGIS or referenced geospatial data."
+    )
+    add_execution_cli_arguments(parser)
+    parser.add_argument("--project", type=Path, help="One QGS/QGZ project (required for path repair).")
+    parser.add_argument(
+        "--mode",
+        choices=("existence", "cold-storage-ping"),
+        default=None,
+        help="existence checks metadata only; cold-storage-ping reads one byte per file (may incur charges).",
+    )
+    parser.add_argument(
+        "--auxiliary-report",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Report QGD SQLite tables, fields and counts without modifying auxiliary data.",
+    )
+    parser.add_argument(
+        "--sample-rows",
+        type=int,
+        choices=range(6),
+        default=None,
+        help="Show up to five example rows per QGD table; zero hides stored values.",
+    )
+    parser.add_argument(
+        "--old-project-directory",
+        type=Path,
+        help="Folder containing the original project before relocation.",
+    )
+    parser.add_argument(
+        "--replace-root",
+        nargs=2,
+        metavar=("OLD_ROOT", "NEW_ROOT"),
+        type=Path,
+        help="Map a directory prefix with component-boundary matching.",
+    )
+    parser.add_argument(
+        "--absolute-paths",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Use absolute paths for repaired file sources instead of relative paths.",
+    )
+    parser.add_argument("--output", type=Path, help="New output project path; existing files are never overwritten.")
+    parser.add_argument(
+        "--write",
+        action="store_true",
+        help="Create an explicitly named new project copy; no file is written without this flag.",
+    )
+    return parser.parse_args(argv)
+
+
 if __name__ == "__main__":
     args = _parse_cli_arguments()
     if args.console_log_level:
@@ -249,14 +282,24 @@ if __name__ == "__main__":
 
     result = main(
         working_directory=args.working_directory,
-        project_path=args.project,
-        mode=args.mode,
-        auxiliary_report=args.auxiliary_report,
-        sample_rows=args.sample_rows,
-        old_project_directory=args.old_project_directory,
-        replace_root=tuple(args.replace_root) if args.replace_root is not None else None,
-        absolute_paths=args.absolute_paths,
-        output_path=args.output,
+        project_path=args.project if args.project is not None else DEFAULT_PROJECT,
+        mode=args.mode if args.mode is not None else DEFAULT_AUDIT_MODE,
+        auxiliary_report=(
+            args.auxiliary_report if args.auxiliary_report is not None else DEFAULT_AUXILIARY_REPORT
+        ),
+        sample_rows=args.sample_rows if args.sample_rows is not None else DEFAULT_SAMPLE_ROWS,
+        old_project_directory=(
+            args.old_project_directory
+            if args.old_project_directory is not None
+            else DEFAULT_OLD_PROJECT_DIRECTORY
+        ),
+        replace_root=(
+            (args.replace_root[0], args.replace_root[1])
+            if args.replace_root is not None
+            else DEFAULT_REPLACE_ROOT
+        ),
+        absolute_paths=args.absolute_paths if args.absolute_paths is not None else DEFAULT_ABSOLUTE_PATHS,
+        output_path=args.output if args.output is not None else DEFAULT_OUTPUT,
         write=args.write,
     )
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
