@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import shutil
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
@@ -274,12 +275,10 @@ def _copy_qgz_with_xml(project_path: Path, output: ZipFile, edited_xml: bytes) -
 def _remove_if_our_file(path: Path, created_identity: tuple[int, int] | None) -> None:
     if created_identity is None:
         return
-    try:
+    with suppress(FileNotFoundError):
         st = path.lstat()
         if (st.st_dev, st.st_ino) == created_identity and not path.is_symlink():
             path.unlink()
-    except FileNotFoundError:
-        pass
 
 
 def write_project_path_changes(
@@ -311,6 +310,7 @@ def write_project_path_changes(
     edited_xml = _edited_project_xml(project_path, changes)
     created_project: tuple[int, int] | None = None
     created_aux: tuple[int, int] | None = None
+    completed = False
     try:
         with output_path.open("xb") as stream:
             stat = os.fstat(stream.fileno())
@@ -325,7 +325,8 @@ def write_project_path_changes(
                 stat = os.fstat(dest.fileno())
                 created_aux = (stat.st_dev, stat.st_ino)
                 shutil.copyfileobj(source, dest)
-    except Exception:
-        _remove_if_our_file(output_path, created_project)
-        _remove_if_our_file(new_qgd, created_aux)
-        raise
+        completed = True
+    finally:
+        if not completed:
+            _remove_if_our_file(output_path, created_project)
+            _remove_if_our_file(new_qgd, created_aux)
