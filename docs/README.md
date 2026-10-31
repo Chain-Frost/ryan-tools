@@ -49,6 +49,7 @@ These documents stay near the code they describe so that browsing a target direc
 | TUFLOW culvert engines | [Selectable TUFLOW culvert engines](TUFLOW_CULVERT_ENGINES.md) | TUFLOW Maximums/1d_nwk ingestion, HY-8 vs ryan-culverts dispatch, output and ownership boundaries |
 | TUFLOW processors | [Processor development notes](../ryan_library/processors/tuflow/README.md) | Processor lifecycle, collections, combinations, filtering, caching and extension |
 | TUFLOW wrappers | [TUFLOW Python wrappers](../ryan-scripts/TUFLOW-python/README.md) | Maintained entry points, shared CLI behavior and wrapper selection |
+| TUFLOW run preflight | [Proposed-run input preflight](TUFLOW_INPUT_PREFLIGHT.md) | Check event/scenario-dependent input references, boundary source CSVs and GPKG layers before launching simulations |
 | TUFLOW project setup | [Project setup guide](../ryan-scripts/tuflow/PROJECT_SETUP.md) | Compact project initialization, canonical empty-file generation and validation evidence |
 | Native ASC_to_ASC operations | [Native ASC_to_ASC-style raster operations](ASC_TO_ASC_NATIVE_OPERATIONS.md) | Supported commands, module responsibilities, NoData policies and executable comparison |
 | GDAL wrappers | [GDAL Python wrappers](../ryan-scripts/gdal-python/README.md) | Maintained GDAL workflows, recipes, mutation risks and automation catalogue |
@@ -62,6 +63,7 @@ These documents stay near the code they describe so that browsing a target direc
 | Vendored algorithms | [Vendor inventory](../vendor/README.md) | Third-party PyHMA and simil source, licence, import and packaging policy |
 | Vendored `simil` | [`simil` upstream README](../vendor/simil/README.md) | Bundled similarity-transform implementation, usage and upstream attribution |
 | Vendored `PyHMA` | [`PyHMA` README](../vendor/PyHMA/README.md) | Hydrograph matching usage, requirements and upstream attribution |
+| TUFLOW preflight regression harness | [Repository regression tooling](../tests/fixtures/tuflow_example_repro/README.md) | Supported Windows archive/parity checks and optional private-model diagnostic; source data remains in the test-data submodule |
 
 ## Integrations
 
@@ -72,8 +74,8 @@ These documents stay near the code they describe so that browsing a target direc
 | [Automatic PyPI releases](AUTO_PYPI_RELEASES.md) | Publishing only new verified main PR merges after a defined cutover |
 | [Automatic release cutover marker](../.github/release-cutover.md) | Recording the first commit after which new merged changes become eligible for releases |
 | [MCP workflow-target implementation](mcp-handoff/README.md) | Current execution-target design, wrapper-path reconciliation, validation contract and remaining staged migration |
-| [MCP 33-target safety assessment](mcp-handoff/2026-10-21-cf-target-assessment.md) | 21 October C/F per-target catalogue, approval, path, dependency and readiness assessment |
-| [Windows engineering acceptance checklist](mcp-handoff/2026-10-21-cf-windows-acceptance.md) | Reproducible Python, wheel, long-path, UNC/mapped-drive and external engineering integration checks |
+| [MCP target safety audit](mcp-handoff/2026-10-21-cf-target-assessment.md) | Per-target safety classification, dependencies and readiness |
+| [Windows acceptance evidence](mcp-handoff/2026-10-21-cf-windows-acceptance.md) | Recorded Windows/GDAL/QGIS checks and outstanding licensed-tool acceptance |
 
 ## File-format references
 
@@ -95,12 +97,14 @@ but they are not current architectural policy when they conflict with the canoni
 
 | Document | Scope and status |
 | --- | --- |
-| [Vendor simil and PyHMA integration](work/2026-10-19-vendor-integration.md) | PR #139 packaging, licensing, typed similarity API and wheel verification |
+| [TUFLOW proposed-run input preflight](work/2026-10-21-tuflow-input-preflight.md) | PR #143 read-only PyTUFLOW checks, integrated simulation preflight and standalone wrapper; pending validation |
+| [TUFLOW batch preflight optimisation](work/2026-10-22-tuflow-batch-preflight-optimisation.md) | Stacked draft against PR #143: consume PyTUFLOW batch API, share GIS/filesystem inspection, preserve parity and benchmark 500-run workloads |
+| [Vendor simil and PyHMA integration](work/2026-10-19-vendor-integration.md) | PR #139 packaging, licence notices, independent imports, similarity API and validation |
 | [Installed scripts and distribution rename](work/2026-10-18-installed-scripts.md) | PR #120 wheel scripts, automatic MCP resolution, removed import shim and PyPI name migration |
-| [Installed scripts and MCP requirements traceability](work/2026-10-17-installed-scripts-mcp-pip-distribution.md) | PR #130 correction: original requirements A–F retained with implementation and validation gaps |
-| [Original installed-scripts requirements](audits/2026-10-17-installed-scripts-original-requirements.md) | Complete, unedited 17 October requirement baseline preserved after premature #130 merge |
-| [Installed-script per-file audit ledger](audits/2026-10-19-installed-scripts-inventory.md) | All 149 source paths; 83 selected and 66 excluded, without claiming individual lifecycle review |
-| [Installed-script remediation backlog](audits/2026-10-22-script-remediation-backlog.md) | Prioritised outstanding per-script fixes, ownership decisions, testing and external acceptance gates for PR #137 |
+| [Installed scripts and MCP requirements](work/2026-10-17-installed-scripts-mcp-pip-distribution.md) | PR #130/#137: corrected wrapper copying, provisional packaging and outstanding engineering acceptance |
+| [Original script distribution requirements](audits/2026-10-17-installed-scripts-original-requirements.md) | Preserved original A–F requirements |
+| [Installed script inventory](audits/2026-10-19-installed-scripts-inventory.md) | 150 tracked sources, 84 wheel-selected, 66 repository-only; no lifecycle sign-off |
+| [Script remediation backlog](audits/2026-10-22-script-remediation-backlog.md) | Per-script open, partially verified and deferred acceptance work |
 | [Fast PR checks and hosted timing](work/2026-10-17-fast-pr-checks-129.md) | PR #129 implementation, exact-head hosted validation, timing evidence and remaining Python-change exercise |
 | [Mapped-drive-safe filesystem paths and raster progress](work/2026-10-16-absolute-path-policy.md) | PR #128 path policy, multiline raster progress, retained-wheel rebuild blocker and validation handoff |
 | [GitHub CI implementation handoff](work/2026-10-07-github-ci.md) | Implemented hosted checks, external-software boundaries and validation record |

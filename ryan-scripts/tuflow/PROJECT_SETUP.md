@@ -32,7 +32,7 @@ No working GeoPackage binaries are bundled as templates. The four earlier binari
 The generated `2d_loc` GeoPackage also receives a same-stem `.qml` sidecar copied from the maintained
 `qgis-resources/styles/TUFLOW/2d_loc_qa_check.qml`. The wheel includes that same file for installed use.
 
-The generated main control file follows the Bogada-style flag convention:
+The generated main control file follows the example project flag convention:
 
 ```text
 <project>_01_~s2~_~s1~_~e1~_~e2~_~e4~_~e3~_~s4~.tcf
@@ -40,7 +40,7 @@ The generated main control file follows the Bogada-style flag convention:
 
 It reads `runs/run_times_01.trd` for duration-dependent end times and `runs/model_cell_sizes_01.trd` for `VarCellSize`.
 The starter `EVENTS_01.tef` defines the matching 21 duration events, including both `~StormDuration~` and `~DUR~`
-aliases, plus starter AEP, temporal-pattern, and rainfall-method events. The TCF contains a Bogada-derived rainfall
+aliases, plus starter AEP, temporal-pattern, and rainfall-method events. The TCF contains a example project rainfall
 method block for selecting the BC database and `InitialLoss`/`ContLoss`; its database paths and loss values are
 explicitly project-specific and must be reviewed before running a model.
 

@@ -1,0 +1,162 @@
+tcf,runs,accepted_parity,eager_collection_issues,eager_missing_files,eager_error,deferred_collection_issues,deferred_error,missing_entries,extra_entries,preflight_passed,preflight_findings,preflight_reasons
+runs/EG00_001.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG00_002.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG01_002.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG01_003.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG01_004.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG01_006.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG01_007.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG02_001.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG02_002.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG02_003.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG02_004.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG02_005.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG02_006.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG02_007.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG02_008.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG02_009.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG02_010.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG02_011.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG02_012.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG02_013.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,4,1 x Database-linked dependencies require deferred inspection; 3 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG02_014.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,3,3 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG02_015.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG02_016.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG02_017.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG02_018.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG02_019.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG03_001.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG03_002.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG03_003.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG03_004.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG03_005.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG03_006.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG03_007.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG03_008.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG03_009.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG03_010.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG03_011.tcf,1,False,1,0,,1,,0,16,False,1,1 x Database-linked dependencies require deferred inspection
+runs/EG03_012.tcf,1,False,1,0,,1,,0,16,False,1,1 x Database-linked dependencies require deferred inspection
+runs/EG03_013.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG03_014.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG03_015.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG04_001.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG04_002.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG04_003.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG04_004.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,4,1 x Database-linked dependencies require deferred inspection; 3 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG04_005.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,4,1 x Database-linked dependencies require deferred inspection; 3 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG04_006.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,4,1 x Database-linked dependencies require deferred inspection; 3 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG05_001.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG05_002.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG05_003.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG05_004.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG05_005.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG05_006.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG05_007.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG05_008.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG05_009.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG05_010.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG05_011.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG05_012.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG05_013.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG05_014.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG05_015.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG05_016.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG05_017.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG05_018.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG06_001.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG06_002.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG06_003.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG06_004.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG06_005.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG06_006.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG06_007.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG07_001.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG07_002.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG07_003.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG07_004.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG07_005.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG07_006.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG07_007.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG07_008.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG07_009.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG07_010.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG07_011.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG07_012.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG08_001.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG08_002.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG08_003.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG08_004.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG08_005.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG08_006.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG08_007.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG08_008.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG08_009.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG08_010.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,2,2 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG08_011.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,1,1 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG08_012.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,2,2 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG08_013.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,1,1 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG09_001.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG09_002.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG09_003.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG10_003.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG10_004.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG10_005.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG10_006.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG10_007.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG10_008.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG10_009.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG11_001.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,1,1 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG11_002.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,3,1 x Database-linked dependencies require deferred inspection; 2 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG11_003.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,1,1 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG11_~e1~_~e2~_004.tcf,2,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,2,2 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG11_005.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,1,1 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG11_006.tcf,1,False,0,1,,,Attribute inputs require full secondary materialisation before parity,,,False,2,2 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG11_007.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,5,2 x Database-linked dependencies require deferred inspection; 3 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG11_008.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,3,1 x Database-linked dependencies require deferred inspection; 2 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG11_009.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,3,3 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG11_010.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,1,1 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG11_011.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,1,1 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG11_012.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,3,1 x Database-linked dependencies require deferred inspection; 2 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG12_001.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,3,3 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG12_002.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,3,3 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG12_003.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,3,3 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG12_004.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,3,3 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG12_005.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,1,1 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG12_006.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,1,1 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG12_007.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,1,1 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG12_008.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,1,1 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG12_009.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,1,1 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG12_010.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,1,1 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG12_011.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,3,3 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG12_012.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,3,3 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG12_013.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,3,3 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG13_001.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG13_002.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG13_003.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG13_004.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG14_001.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,4,1 x Database-linked dependencies require deferred inspection; 3 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG14_002.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,4,1 x Database-linked dependencies require deferred inspection; 3 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG14_003.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,3,3 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG15_000.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,3,3 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG15_001.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,3,3 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG15_002.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,3,3 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG15_003.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,3,3 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG15_004.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,3,3 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG15_005.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,3,3 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG15_006.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,3,3 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG15_007.tcf,1,False,0,1,,,Attribute inputs require full secondary materialisation before parity,,,False,2,2 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG15_008.tcf,1,False,0,1,,,Attribute inputs require full secondary materialisation before parity,,,False,4,4 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG15_009.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,5,1 x Database-linked dependencies require deferred inspection; 4 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG15_010.tcf,1,False,0,0,,,Attribute inputs require full secondary materialisation before parity,,,False,3,3 x GIS attribute scan currently supports GeoPackage sources only
+runs/EG16_~s1~_001.tcf,2,True,0,0,,0,,0,0,True,0,
+runs/EG16_~s1~_~s2~_002.tcf,4,True,0,0,,0,,0,0,True,0,
+runs/EG16_~s1~_~s2~_003.tcf,2,True,0,0,,0,,0,0,True,0,
+runs/EG16_~e1~_004.tcf,2,True,0,0,,0,,0,0,True,0,
+runs/EG16_~e1~_~e2~_005.tcf,4,True,0,0,,0,,0,0,True,0,
+runs/EG16_~s1~_~s2~_~e1~_~e2~_006.tcf,4,True,0,0,,0,,0,0,True,0,
+runs/EG17_001.tcf,1,False,1,0,,2,,0,0,False,2,1 x Database-linked dependencies require deferred inspection; 1 x Could not inspect deferred databases: Multiple active BC Database inputs need disambiguation
+runs/EG17_002.tcf,1,False,1,0,,2,,0,0,False,2,1 x Database-linked dependencies require deferred inspection; 1 x Could not inspect deferred databases: Multiple active BC Database inputs need disambiguation
+runs/EG17_003.tcf,1,False,1,0,,2,,0,0,False,2,1 x Database-linked dependencies require deferred inspection; 1 x Could not inspect deferred databases: Multiple active BC Database inputs need disambiguation
+runs/EG18_001.tcf,1,True,0,0,,0,,0,0,True,0,
+runs/EG18_002.tcf,1,False,1,0,,2,,0,0,False,2,1 x Database-linked dependencies require deferred inspection; 1 x Could not inspect deferred databases: Multiple active BC Database inputs need disambiguation
