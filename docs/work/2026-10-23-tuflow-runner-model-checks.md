@@ -44,6 +44,12 @@ Validation on Windows / normal Python 3.14.6, installed PyTUFLOW 1.2.6:
 
 Delivery uses an isolated worktree, preserving other existing review worktrees and all unrelated state. PRs #158/#160/#161 may close only after their integrated source/evidence is pushed to #159 and its base is main. Their branches remain available. Final single squash merge/release requires a separate owner instruction.
 
+### Consolidation delivery checkpoint
+
+Committed and pushed integration `afdf458eb5e0e8bb92da3321ea4b35b27605c8a6`. PR #159 is open/draft against main with a rewritten combined description. PRs #158, #160 and #161 are closed without merge; each closure links to #159 and retains its branch. No branch history was rewritten. Normal checkout is now `feat/tuflow-runner-model-checks`, tracking the consolidated remote branch; the transferred owner edit leaves no duplicate main-worktree modification. Other review worktrees remain untouched.
+
+New-head checks were observed running: [Python CI](https://github.com/Chain-Frost/ryan-tools/actions/runs/41170884362), [command-plan contracts](https://github.com/Chain-Frost/ryan-tools/actions/runs/41170884368), [fast checks](https://github.com/Chain-Frost/ryan-tools/actions/runs/41170884372), and [deferred consumer](https://github.com/Chain-Frost/ryan-tools/actions/runs/41170884388). These are integration-head runs, not terminal acceptance; the subsequent delivery-record commit requires its own head checks. No TUFLOW solver, private model benchmark, merge or publication was performed.
+
 ## 29 October 2026 — PR C interface and stack correction
 
 The selected parser integration is [curated PyTuflow PR C #50](https://github.com/Chain-Frost/PyTuflow/pull/50), currently proposed as 1.2.9. Its supported public API is `TCF.collect_file_dependencies(run_flags)` for syntactic collection and `pytuflow.batch_validation.validate_batch_inputs(model, run_flags, options=...)` for full read-only physical checks. PR C does not offer the prior `collect_batch_dependencies()`, a per-run producer callback, or graph on/off switches. The runner must not call these removed APIs.
