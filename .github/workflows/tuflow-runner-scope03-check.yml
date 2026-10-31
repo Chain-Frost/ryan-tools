@@ -53,6 +53,11 @@ jobs:
         run: python -m pyright ryan_library/orchestrators/tuflow/simulation_runner.py ryan-scripts/TUFLOW-python/model_management/run_tuflow_simulations.py
       - name: Fake process and wrapper tests (no solver)
         run: python -m pytest -q tests/orchestrators/tuflow/test_simulation_runner.py tests/scripts/test_run_tuflow_simulations.py tests/scripts/test_tuflow_advisory_runner.py
+      - name: Initialise package-required QGIS styles only (never unsorted)
+        shell: pwsh
+        run: |
+          git submodule update --init qgis-resources
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Package wheel (no release)
         run: python -m build --wheel --no-isolation
       - name: Install wheel into ordinary Python
