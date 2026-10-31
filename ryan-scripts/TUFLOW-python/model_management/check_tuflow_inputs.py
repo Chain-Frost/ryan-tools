@@ -1,18 +1,22 @@
-r"""Read a sequential BAT or flag list and preflight its effective TCFs, never execute it.
+r"""Inspect independent BAT/text run lists without launching simulations.
 
-    python check_tuflow_inputs.py --runs runs.bat --working-directory "T:\project" --plan-only --no-pause
-    python check_tuflow_inputs.py --runs runs.bat --working-directory "T:\project" --report issues.csv --no-pause
+Examples:
+    python check_tuflow_inputs.py --runs first.bat --runs second.txt --working-directory "T:\\project" --plan-only --no-pause
+    python check_tuflow_inputs.py --runs runs.bat --tcf "T:\\project\\model.tcf" --report issues.csv --no-pause
 
-DEFAULT_TCF / --tcf is a fallback for bare flag rows only. An explicit command
-TCF or current SET TCF takes precedence. See docs/work/2026-10-24-tuflow-command-plans.md.
+DEFAULT_TCF / --tcf, when configured, must match every active imported TCF;
+it also supplies the bare-row fallback. Set DEFAULT_TCF to None for multiple
+imported models. Relative input paths are based on the invoking cwd; relative
+Python TCF configuration has its own explicit base.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-31.1"
-DEFAULT_TCF = Path("runs/model_~e1~_~e2~.tcf")
+WRAPPER_VERSION = "2026-10-31.2"
+# None permits multiple imported TCFs; a Path also constrains all active runs.
+DEFAULT_TCF: Path | None = None
 DEFAULT_COMMANDS = Path("run_tuflow_simulations_commands.txt")
 DEFAULT_REPORT = Path("tuflow_input_preflight.csv")
 DEFAULT_CHECK_GPKG_LAYERS = True
@@ -23,19 +27,21 @@ import argparse
 import json
 import os
 from collections import Counter
+from collections.abc import Sequence
 from typing import Literal
 
-from ryan_library.functions.tuflow.command_plan import read_command_plan
+from ryan_library.functions.tuflow.command_plan import read_command_plans
 from ryan_library.orchestrators.tuflow.command_preflight import CommandPreflightReport, check_command_plan
 
 
 def main(
     *,
     tcf: Path | None,
-    commands: Path,
+    commands: Path | Sequence[Path],
     report: Path,
     check_gpkg_layers: bool,
     working_directory: Path | None = None,
+    configuration_directory: Path | None = None,
     plan_only: bool = False,
     plan_report: Path | None = None,
     syntax: Literal["auto", "batch", "commands"] = "auto",
@@ -45,16 +51,28 @@ def main(
     io_workers: int = DEFAULT_IO_WORKERS,
 ) -> int:
     """Plan every row first, then check grouped TCFs and write a new issue CSV."""
-    plan = read_command_plan(
-        commands,
-        initial_directory=working_directory,
+    # Establish both bases before parsing; BAT CD never changes Python config.
+    initial = (working_directory if working_directory is not None else Path.cwd()).absolute()
+    configured_base = (
+        configuration_directory
+        if configuration_directory is not None
+        else (working_directory if working_directory is not None else Path(__file__).absolute().parent)
+    ).absolute()
+    sources = (commands,) if isinstance(commands, Path) else tuple(commands)
+    plan = read_command_plans(
+        sources,
+        initial_directory=initial,
         fallback_tcf=str(tcf) if tcf is not None else None,
+        configuration_directory=configured_base,
         environment=dict(os.environ),
         syntax=syntax,
         encoding=encoding,
     )
     counts = Counter(str(run.tcf) for run in plan.runs)
-    print(f"Plan: {len(plan.runs)} active run(s), {len(counts)} TCF(s); duplicates retained")
+    print(
+        f"Plan: {len(plan.runs)} active run(s), {len(counts)} TCF(s) "
+        f"from {len(plan.source_files)} command file(s); duplicates retained"
+    )
     for control_file, count in counts.items():
         print(f"  {count} run(s): {control_file}")
     if plan_report is not None:
@@ -104,10 +122,24 @@ def main(
 
 def _parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Read-only, stateful TUFLOW BAT/command-list preflight.")
-    parser.add_argument("--tcf", type=Path, help="Fallback TCF for bare flag rows only (default: DEFAULT_TCF).")
-    parser.add_argument("--runs", type=Path, help="BAT/CMD or exported command list (default: DEFAULT_COMMANDS).")
+    parser.add_argument(
+        "--tcf",
+        type=Path,
+        help="Python TCF constraint for ALL runs and fallback for bare rows (default: DEFAULT_TCF).",
+    )
+    parser.add_argument(
+        "--runs",
+        type=Path,
+        action="append",
+        help="BAT/CMD or text command list; repeat --runs for independent files.",
+    )
     parser.add_argument(
         "--working-directory", type=Path, help="Initial batch launch directory (default: current directory)."
+    )
+    parser.add_argument(
+        "--configuration-directory",
+        type=Path,
+        help="Base for relative --tcf (default: --working-directory if set, else wrapper folder).",
     )
     parser.add_argument("--report", type=Path, help="NEW issue CSV path; existing files are not overwritten.")
     parser.add_argument("--plan-only", action="store_true", help="Extract runs without reading model inputs.")
@@ -146,6 +178,7 @@ if __name__ == "__main__":
                 options.check_gpkg_layers if options.check_gpkg_layers is not None else DEFAULT_CHECK_GPKG_LAYERS
             ),
             working_directory=options.working_directory,
+            configuration_directory=options.configuration_directory,
             plan_only=options.plan_only,
             plan_report=options.plan_report,
             syntax=options.syntax,
