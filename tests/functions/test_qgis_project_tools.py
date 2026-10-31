@@ -41,7 +41,7 @@ def _qgz(path: Path, xml: bytes, *, qgd: bytes | None = None) -> None:
 def _qgd(path: Path, layer_id: str) -> bytes:
     with sqlite3.connect(path) as db:
         db.execute(f'CREATE TABLE "{layer_id}" (ASPK TEXT, labeling_positionx REAL, labeling_positiony REAL)')  # noqa: S608
-        db.execute(f'INSERT INTO "{layer_id}" VALUES (?, ?, ?)', ("feature-a", 123.4, 567.8))
+        db.execute(f'INSERT INTO "{layer_id}" VALUES (?, ?, ?)', ("feature-a", 123.4, 567.8))  # noqa: S608
         db.commit()
     return path.read_bytes()
 
