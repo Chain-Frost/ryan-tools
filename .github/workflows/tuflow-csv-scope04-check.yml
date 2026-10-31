@@ -7,16 +7,20 @@ on:
     paths:
       - ".github/workflows/tuflow-csv-scope04-check.yml"
       - "ryan_library/functions/tuflow/execution_history.py"
+      - "ryan_library/orchestrators/tuflow/simulation_runner.py"
       - "ryan-scripts/TUFLOW-python/model_management/run_tuflow_simulations.py"
       - "tests/functions/tuflow/test_execution_history.py"
+      - "tests/orchestrators/tuflow/test_simulation_runner.py"
       - "tests/scripts/test_tuflow_csv_continuation.py"
       - "tests/scripts/test_run_tuflow_simulations.py"
   pull_request:
     paths:
       - ".github/workflows/tuflow-csv-scope04-check.yml"
       - "ryan_library/functions/tuflow/execution_history.py"
+      - "ryan_library/orchestrators/tuflow/simulation_runner.py"
       - "ryan-scripts/TUFLOW-python/model_management/run_tuflow_simulations.py"
       - "tests/functions/tuflow/test_execution_history.py"
+      - "tests/orchestrators/tuflow/test_simulation_runner.py"
       - "tests/scripts/test_tuflow_csv_continuation.py"
       - "tests/scripts/test_run_tuflow_simulations.py"
   workflow_dispatch:

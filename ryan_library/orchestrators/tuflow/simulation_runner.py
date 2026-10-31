@@ -35,7 +35,7 @@ from ...functions.tuflow.command_plan import (
     CommandPlanError,
     DirectoryRequirement,
     PlannedRun,
-    effective_executable,
+    deduplicate_plan,
     is_gpu_switch,
     model_arguments,
     parse_command_plan,
@@ -61,6 +61,7 @@ class RunnerSettings:
     Relative paths are interpreted against working_directory, not cwd or the
     location of the library. A None TCF permits imported multi-model batches.
     Python batch_commands replaces imported engine/GPU switches during planning.
+    BAT/TXT input never controls executable, child cwd, process scheduling or GPU.
     Runtime GPU groups and process priority control the launched children.
     """
 
@@ -234,27 +235,65 @@ def prepare_plan(settings: RunnerSettings) -> CommandPlan:
         for run in imported.runs:
             arguments = (*batch, *model_arguments(run, include_gpu=False, include_batch=False), str(run.tcf))
             validate_run_arguments(arguments)
-            runs.append(replace(run, arguments=arguments))
-        plans.append(replace(imported, runs=tuple(runs)))
-        logger.info("Imported model runs use the Python BATCH_COMMANDS engine switches and runner GPU policy.")
+            # Source START, executable, and CD declarations are parsed as data,
+            # never run or replayed. The Python settings own actual launches.
+            runs.append(
+                replace(
+                    run,
+                    arguments=arguments,
+                    executable=str(_at_base(settings.executable, settings.working_directory)),
+                    working_directory=settings.working_directory,
+                )
+            )
+        plans.append(
+            replace(
+                imported,
+                runs=tuple(runs),
+                directories=(DirectoryRequirement(settings.working_directory, 0, settings.wrapper_file),),
+            )
+        )
+        logger.info("Imported selections ignore source executable, launch directory, engine and GPU switches.")
     if settings.mode in {"parameter_product", "both"}:
         plans.append(_generated_plan(settings, batch))
     combined = tuple(replace(run, index=i) for i, run in enumerate((run for plan in plans for run in plan.runs), 1))
     if not combined:
         message = "No simulations were selected"
         raise CommandPlanError(message)
-    return CommandPlan(
-        source=plans[0].source,
-        runs=combined,
-        directories=tuple(requirement for plan in plans for requirement in plan.directories),
-        ignored_statements=sum(plan.ignored_statements for plan in plans),
-        syntax=plans[0].syntax if len(plans) == 1 else "mixed",
-        source_files=tuple(source for plan in plans for source in plan.source_files),
+    result = deduplicate_plan(
+        CommandPlan(
+            source=plans[0].source,
+            runs=combined,
+            directories=(DirectoryRequirement(settings.working_directory, 0, settings.wrapper_file),),
+            ignored_statements=sum(plan.ignored_statements for plan in plans),
+            syntax=plans[0].syntax if len(plans) == 1 else "mixed",
+            source_files=tuple(source for plan in plans for source in plan.source_files),
+            duplicates_dropped=sum(plan.duplicates_dropped for plan in plans),
+        )
     )
+    if result.duplicates_dropped:
+        logger.warning("Discarded {} duplicate TUFLOW selections, keeping the first.", result.duplicates_dropped)
+    return result
 
 
 def _executable(run: PlannedRun, settings: RunnerSettings) -> str:
-    return effective_executable(run, fallback_executable=settings.executable, base_directory=settings.working_directory)
+    """Never use an executable path supplied by an imported BAT/TXT file."""
+    del run
+    return str(_at_base(settings.executable, settings.working_directory))
+
+
+def validate_launch_executable(plan: CommandPlan, settings: RunnerSettings) -> None:
+    """Verify the Python-selected solver before CSV RESET/START writes.
+
+    Only actual execution invokes this. Export and explicit input checking
+    remain usable without a solver. Refuse Windows batch/script launchers.
+    """
+    if not plan.runs:
+        raise CommandPlanError("No simulations were selected")
+    executable = Path(_executable(plan.runs[0], settings))
+    if os.name == "nt" and executable.suffix.casefold() != ".exe":
+        raise CommandPlanError(f"Python TUFLOW_EXE must be an .exe, not a shell script: {executable}")
+    if not executable.is_file():
+        raise CommandPlanError(f"Configured Python TUFLOW_EXE does not exist: {executable}")
 
 
 def _command(run: PlannedRun, settings: RunnerSettings, group: tuple[str, ...]) -> list[str]:
@@ -717,7 +756,7 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                     try:
                         process = factory(
                             args=args,
-                            cwd=str(run.working_directory),
+                            cwd=str(settings.working_directory),
                             creationflags=subprocess.CREATE_NEW_CONSOLE if sys.platform == "win32" else 0,
                             startupinfo=_startupinfo(settings.minimize_on_launch),
                         )

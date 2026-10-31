@@ -16,11 +16,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-31.3"
+WRAPPER_VERSION = "2026-10-31.4"
 # None permits multiple imported TCFs; a Path also constrains all active runs.
 DEFAULT_TCF: Path | None = None
 # BAT/CMD or TXT input; the default matches the simulation runner's export.
-DEFAULT_COMMANDS = Path("run_tuflow_simulations.txt")
+DEFAULT_COMMANDS = Path(__file__).absolute().with_name("run_tuflow_simulations.txt")
 # None: terminal only. Set Path("issues.csv") to also export a new CSV.
 DEFAULT_REPORT: Path | None = None
 DEFAULT_CHECK_GPKG_LAYERS = True
@@ -75,7 +75,7 @@ def main(
     counts = Counter(str(run.tcf) for run in plan.runs)
     print(
         f"Plan: {len(plan.runs)} active run(s), {len(counts)} TCF(s) "
-        f"from {len(plan.source_files)} command file(s); duplicates retained"
+        f"from {len(plan.source_files)} command file(s); {plan.duplicates_dropped} duplicate(s) discarded"
     )
     for control_file, count in counts.items():
         print(f"  {count} run(s): {control_file}")

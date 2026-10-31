@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-31.3"
+WRAPPER_VERSION = "2026-10-31.4"
 
 # ----------------------- EDITABLE RUNNER SETTINGS -------------------------
 # Relative paths below are based on WORKING_DIR (the supplying script's folder
@@ -28,7 +28,7 @@ WORKING_DIR: Path | None = None
 # A Python TCF constrains every imported run and supplies missing bare-row TCFs.
 # Set None for imported lists containing distinct TCFs; generated runs need a TCF.
 TCF: Path | None = Path(r".\runs\PROJECT_01_~s2~_~s1~_~e1~_~e2~_~e4~_~e3~_~s4~.tcf")
-# Fallback executable for generated runs and abbreviated imported rows.
+# Sole executable for all launches; imported BAT/TXT executables are ignored.
 TUFLOW_EXE = Path(r"C:\TUFLOW\tuflow-2026.3\TUFLOW_iSP_w64.exe")
 # Engine switches for EVERY run: -b suppresses completion prompts; -t tests inputs.
 # For example, "-b -t -nlc" tests inputs without a licence check. Imported engine
@@ -49,8 +49,9 @@ RUN_VARIABLES_RAW: dict[str, str | list[str]] = {
     "s4": "32M",
 }
 
-# parameter_product generates combinations; textfiles imports ordered commands;
-# both places imported runs first. Intentional duplicate rows remain distinct.
+# parameter_product generates combinations; textfiles reads BAT/TXT model selections
+# as inert data; both puts imported selections first. Duplicates are discarded.
+# Imported START, CD and executable commands cannot control process launching.
 MODE = "parameter_product"
 # Sources are read in this order; e.g. (Path("runs.bat"), Path("additional.txt")).
 # Do not use this wrapper's default export TXT as input while exporting to it.
@@ -124,6 +125,7 @@ from ryan_library.orchestrators.tuflow.simulation_runner import (
     export_batch_commands,
     launch_plan,
     prepare_plan,
+    validate_launch_executable,
 )
 
 
@@ -241,7 +243,12 @@ def main(argv: list[str] | None = None) -> int:
         if requested_mode not in {"resume", "all"}:
             msg = f"Unsupported continuation mode: {requested_mode}"
             raise ValueError(msg)
-        logger.info("Selected {} ordered simulations ({} source files).", len(plan.runs), len(plan.source_files))
+        logger.info(
+            "Selected {} unique simulations ({} duplicates discarded; {} source files).",
+            len(plan.runs),
+            plan.duplicates_dropped,
+            len(plan.source_files),
+        )
         exporting = EXPORT_COMMANDS if arguments.export is None else arguments.export
         if arguments.export_only:
             exporting = True
@@ -254,6 +261,9 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if arguments.preflight_only:
             return 0 if check_plan_only(plan, check_gpkg_layers=settings.check_gpkg_layers) else 1
+        # Detect missing/misconfigured Python executables before writing a RESET
+        # or START. BAT/TXT source executables are never consulted.
+        validate_launch_executable(plan, settings)
         # The supplying wrapper, not the installed orchestrator or model cwd,
         # owns the single persistent history location.
         wrapper_path = Path(__file__).absolute()
