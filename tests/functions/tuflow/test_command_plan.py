@@ -378,7 +378,10 @@ def test_verified_mapped_drive_alias_matches_configured_python_tcf(monkeypatch: 
             fallback_tcf=expected,
         )
 
-    monkeypatch.setattr(command_plan, "_network_drive_target", lambda _drive: None)
+    def unavailable_mapping(_drive: str) -> str | None:
+        return None
+
+    monkeypatch.setattr(command_plan, "_network_drive_target", unavailable_mapping)
     with pytest.raises(CommandPlanError, match="conflicts with effective imported TCF"):
         parse_command_plan(f'TUFLOW.exe "{unc}"', source=source, initial_directory=cwd, fallback_tcf=expected)
 
