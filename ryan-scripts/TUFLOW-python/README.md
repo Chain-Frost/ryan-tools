@@ -280,19 +280,54 @@ converted files preserve every possible GDAL metadata tag.
 folders named `check` or `checks` (case-insensitive), retaining one copy per unique content group. Run from the intended result/model root
 or change `ROOT_DIR` in the script.
 
-- **Default `DRY_RUN = False`:** the script writes a proposal and report, then requires typing exactly
-  `DELETE` before removal. Set `DRY_RUN = True` for review-only operation (no prompt or deletion).
+- **Three run modes (set the constants at the top of the Python script):**
+  1. **Fresh scan, default:** `RESTORE_FROM_MANIFEST = False`, `APPLY_PROPOSAL_MANIFEST = False`.
+     Discover `check`/`checks` files, hash only duplicate-sized candidates, and create a proposal CSV
+     and TXT report. `DRY_RUN = True` creates evidence but deletes nothing. With the default
+     `DRY_RUN = False`, deletion still requires typing `DELETE`.
+  2. **Apply a saved proposal:** set `APPLY_PROPOSAL_MANIFEST = True` and change
+     `PROPOSAL_MANIFEST_FILE` to the **exact path of the existing proposal**, including any numbered
+     suffix (e.g. `duplicate_files_proposed_2026-10-28_001.csv`). This skips all folder scanning and
+     SHA-256 hashing, checks listed paths, filenames, sizes and *original scan modification times*,
+     then creates a new report and requests `DELETE` (unless `DRY_RUN = True`). The original content
+     hashes are **trusted, not reverified**; timestamp/size checks are not equivalent to rehashing.
+     Never apply a proposal that is untrusted or was prepared while files were being modified.
+     Multiple proposal rows referring to the same retained copy must agree on its content hash,
+     size, suffix and modification time; contradictory rows are rejected before any deletion.
+     The enhanced proposal format is required; old six-column proposal CSVs must be regenerated.
+  3. **Restore deleted files:** set `RESTORE_FROM_MANIFEST = True` and `MANIFEST_FILE` to the
+     corresponding dated recovery CSV. With `DRY_RUN = False`, type `RESTORE`; existing files
+     are never overwritten.
+
+  **Do not enable both apply and restore mode at once.** The script refuses to run when both
+  switches are `True`, before reading manifests or changing files. Reset both switches to
+  `False` before a fresh scan.
 - **Default `COMPARE_ACROSS_CHECK_FOLDERS = True`:** keep one copy of each content group across all scanned
   folders. With `False`, keep one representative in each check folder instead.
 - **Default `INCLUDE_RASTER_FILES = True`:** GeoTIFFs and auxiliary files are included. Set `False` to
   exclude them. Identical bytes do **not** mean the original file paths are safe to remove: linked QGIS
   projects or scripts may stop finding their inputs.
-- A new numbered proposal CSV and TXT report are written **without overwriting older runs**
-  (`duplicate_files_proposed.csv`, then `duplicate_files_proposed_001.csv`, and likewise for reports).
-  Review their listed keep/delete choices before confirming.
-- A confirmed run writes `duplicate_files_manifest.csv` before deletion and records all original
-  filenames, retained paths, hashes and outcomes. It refuses another deletion if a recovery manifest
-  already exists. Archive that manifest before starting another run.
+- Report, proposal and recovery-manifest filenames default to the **local run date** in `YYYY-MM-DD`
+  format, for example `duplicate_files_to_delete_2026-10-28.txt`,
+  `duplicate_files_proposed_2026-10-28.csv` and `duplicate_files_manifest_2026-10-28.csv`.
+  Existing proposal/report names are never overwritten: same-day reruns use numbered filenames
+  (for example `duplicate_files_proposed_2026-10-28_001.csv`). Review the keep/delete choices
+  before confirming. The three output path constants can still be edited to use custom filenames.
+- The console and TXT report show the **total size of all scanned check-folder files**,
+  **proposed deletion size in decimal GB and percent of that total**, and **estimated GB and percent
+  remaining**. The saved proposal also stores the original scan total, so apply mode reports the
+  same baseline without scanning everything again. After deletion, the console **and the
+  run's TXT report** record the actual deleted file count/bytes/GB, skipped or failed counts,
+  and corresponding remaining estimate. Failed/skipped deletions are not counted as removed.
+  Here, 1 GB means 1,000,000,000 bytes.
+- A confirmed run writes its dated recovery manifest **before deletion**, recording original
+  filenames, retained paths, hashes and outcomes. It refuses deletion if that manifest already
+  exists; archive it or choose another recovery filename before another same-day deletion run.
+  Restoring from an earlier day requires pointing `MANIFEST_FILE` at that run's saved CSV.
+  If the script is interrupted during deletion, the recovery manifest retains `pending`
+  records. Restore mode recovers missing originals from eligible `pending` or `deleted`
+  rows and never replaces an existing file. The completed manifest records `failed`
+  for skipped deletions; these are not restore candidates.
 - Each affected check folder gets one `.DUPLICATE_REMOVED.txt` placeholder per unique deleted
   content group, including groups whose kept copy is **in the same folder**. It lists every original
   deleted filename and the location of the retained file.
@@ -311,8 +346,8 @@ or change `ROOT_DIR` in the script.
 - SHA-256 reads candidate contents **once** during grouping. Deletion checks existence, size and
   modification time of both paths, rechecking the retained path before each unlink. It does **not**
   hash file content again. Run only on static/inactive results; metadata checks are not file locks.
-- Set `RESTORE_FROM_MANIFEST = True` to copy verified retained content back into missing original
-  paths. With the default `DRY_RUN = False`, restoration requires typing `RESTORE`. Existing
-  files are never overwritten; a recovery manifest (not the pre-deletion proposal) is required.
+- Restoration copies verified retained content back to missing original paths and requires
+  the recovery manifest (not the proposal). The restore workflow hashes the retained file to
+  verify content. The saved-proposal apply workflow skips hashing by design.
 
 Verify first on a disposable copy of model results, particularly on network drives.
