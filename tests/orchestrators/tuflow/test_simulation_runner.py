@@ -18,7 +18,7 @@ def settings(base: Path, **changes: object) -> runner.RunnerSettings:
     initial = runner.RunnerSettings(
         wrapper_file=base / "run_tuflow_simulations.py",
         working_directory=base,
-        executable=base / "TUFLOW iSP.exe",
+        executable=base / "TUFLOW_iSP_w64.exe",
         tcf=Path("runs/model_~e1~.tcf"),
         run_variables={"e1": ["A", "B"]},
         batch_commands="-b",
@@ -153,7 +153,7 @@ def test_import_roundtrip_preserves_model_executable_cwd_order_and_duplicates(tm
 
 
 def test_export_without_solver_or_gpu_inspection(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    config = settings(tmp_path, executable=tmp_path / "missing_solver.exe")
+    config = settings(tmp_path, executable=tmp_path / "TUFLOW_missing.exe")
     monkeypatch.setattr(runner, "_gpu_startup_message", lambda *_args: pytest.fail("GPU scanned during export"))
     output = tmp_path / "runs.bat"
     runner.export_batch_commands(runner.prepare_plan(config), config, output)
