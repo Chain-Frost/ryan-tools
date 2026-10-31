@@ -172,7 +172,12 @@ def test_nonterminal_tcf_argument_roundtrips_without_losing_flags(tmp_path: Path
     plan = runner.prepare_plan(config)
     assert plan.runs[0].arguments[:2] == ("model.tcf", "-e1")
     assert runner._command(plan.runs[0], config, ()) == [
-        "TUFLOW.exe", "-e1", "A", "-s1", "B", str(tmp_path / "model.tcf")
+        "TUFLOW.exe",
+        "-e1",
+        "A",
+        "-s1",
+        "B",
+        str(tmp_path / "model.tcf"),
     ]
     bat = runner.render_batch_commands(plan, config, destination=tmp_path / "out.bat")
     reparsed = parse_command_plan(bat, source=tmp_path / "out.bat", initial_directory=tmp_path)
