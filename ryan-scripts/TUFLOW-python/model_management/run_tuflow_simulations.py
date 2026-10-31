@@ -65,10 +65,10 @@ import logging
 import signal
 import subprocess
 import sys
+from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime
 from threading import Event
-from collections.abc import Iterator
 
 from ryan_library.functions.wrapper_utils import pause_console, print_wrapper_banner
 from ryan_library.orchestrators.tuflow.simulation_runner import (
@@ -222,10 +222,10 @@ def main(argv: list[str] | None = None) -> int:
             outcome_code = 1
         return outcome_code
     except (OSError, ValueError) as exc:
-        logger.error("Runner preparation or execution failed: %s", exc)
+        logger.exception("Runner preparation or execution failed: %s", exc)
         return 1
     except KeyboardInterrupt:
-        logger.error("Runner interrupted before batch completion.")
+        logger.exception("Runner interrupted before batch completion.")
         return 1
     except Exception:
         logger.exception("Unexpected runner failure.")
