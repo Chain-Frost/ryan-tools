@@ -28,6 +28,11 @@ def _gpkg(path: Path, layer: str) -> None:
         database.execute("INSERT INTO gpkg_contents VALUES (?)", (layer,))
 
 
+def _fake_options(**_kwargs: object) -> object:
+    """Return a typed options stand-in for pure failure-path tests."""
+    return object()
+
+
 def test_real_public_batch_validation_checks_run_specific_missing_files(tmp_path: Path) -> None:
     _public_api()
     tcf = tmp_path / "model.tcf"
@@ -184,19 +189,23 @@ def test_incomplete_public_results_cannot_pass(
     monkeypatch.setattr(
         input_preflight,
         "require_validation_api",
-        lambda: SimpleNamespace(validate_batch_inputs=validate, options_factory=lambda **_kwargs: object()),
+        lambda: SimpleNamespace(validate_batch_inputs=validate, options_factory=_fake_options),
     )
     with pytest.raises(ValueError, match=r"incomplete|missing|duplicate|invalid"):
         check_simulation_inputs(tmp_path / "model.tcf", [RunRequest(1, {}), RunRequest(2, {})])
 
 
 def test_failed_group_without_findings_cannot_pass(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def validate(_model: object, _flags: object, *, options: object) -> object:
+        del options
+        return _fake_result([0], passed=False)
+
     monkeypatch.setattr(
         input_preflight,
         "require_validation_api",
         lambda: SimpleNamespace(
-            validate_batch_inputs=lambda *_args, **_kwargs: _fake_result([0], passed=False),
-            options_factory=lambda **_kwargs: object(),
+            validate_batch_inputs=validate,
+            options_factory=_fake_options,
         ),
     )
     with pytest.raises(ValueError, match="without findings"):
