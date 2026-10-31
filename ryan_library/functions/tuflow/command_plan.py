@@ -54,6 +54,14 @@ class PlannedRun:
     flag_pairs: tuple[tuple[str, str], ...]
     arguments: tuple[str, ...]
     executable: str | None
+    # START scheduling hints are provenance only; the Python runner owns priority,
+    # process lifetime, concurrency and GPU allocation.
+    start_options: tuple[str, ...] = ()
+
+    @property
+    def requires_executable_fallback(self) -> bool:
+        """True for an abbreviated row that needs the runner's executable."""
+        return self.executable is None
 
     @property
     def flags(self) -> dict[str, str]:
@@ -67,6 +75,7 @@ class DirectoryRequirement:
 
     path: PurePath
     line: int
+    source: PurePath
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,7 +86,10 @@ class CommandPlan:
     runs: tuple[PlannedRun, ...]
     directories: tuple[DirectoryRequirement, ...]
     ignored_statements: int
-    syntax: Syntax
+    syntax: Syntax | Literal["mixed"]
+    # 'source' remains the first source for single-file callers; every run and
+    # directory requirement carries its own source for multi-file aggregation.
+    source_files: tuple[PurePath, ...] = ()
 
     def manifest(self) -> list[dict[str, object]]:
         """Return private, JSON-serialisable provenance, not benchmark acceptance."""
@@ -92,6 +104,8 @@ class CommandPlan:
                 "flags": run.flags,
                 "arguments": list(run.arguments),
                 "executable": run.executable,
+                "requires_executable_fallback": run.requires_executable_fallback,
+                "start_options": list(run.start_options),
             }
             for run in self.runs
         ]
@@ -303,7 +317,7 @@ class _Reader:
         if command == "pushd":
             self.directory_stack.append(self.cwd)
         self.cwd = target
-        self.directories.append(DirectoryRequirement(target, line))
+        self.directories.append(DirectoryRequirement(target, line, self.source))
 
     def _start(self, tokens: list[_Token], line: int) -> tuple[list[_Token], PurePath]:
         cwd = self.cwd
@@ -328,7 +342,7 @@ class _Reader:
                     raise ValueError(message)
                 if option == "/d":
                     cwd = _path(tokens[1].text, self.cwd)
-                    self.directories.append(DirectoryRequirement(cwd, line))
+                    self.directories.append(DirectoryRequirement(cwd, line, self.source))
                 tokens = tokens[2:]
             else:
                 break
@@ -484,7 +498,7 @@ def parse_command_plan(
         syntax,
         {key.casefold(): value for key, value in (environment or {}).items()},
     )
-    reader.directories.append(DirectoryRequirement(initial_directory, 0))
+    reader.directories.append(DirectoryRequirement(initial_directory, 0, source))
     start, end = 1, 1
     try:
         for start, end, raw in _statements(text.lstrip("\ufeff"), syntax):
@@ -497,7 +511,7 @@ def parse_command_plan(
     if not reader.runs:
         message = f"{source}: No active simulation commands"
         raise CommandPlanError(message)
-    return CommandPlan(source, tuple(reader.runs), tuple(reader.directories), reader.ignored, syntax)
+    return CommandPlan(source, tuple(reader.runs), tuple(reader.directories), reader.ignored, syntax, (source,))
 
 
 def read_command_plan(
