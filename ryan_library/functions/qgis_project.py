@@ -175,6 +175,42 @@ def probe_local_file(path: Path, *, read_one_byte: bool = True) -> tuple[bool, s
         return False, f"{type(exc).__name__}: {exc}"
 
 
+
+def _map_root(path: Path, replace_root: tuple[Path, Path] | None) -> Path | None:
+    if replace_root is None:
+        return path
+    old_root, new_root = replace_root
+    try:
+        relative = path.relative_to(old_root.absolute())
+    except ValueError:
+        return None
+    return new_root.absolute() / relative
+
+
+def _render_source_uri(project_path: Path, original_uri: str, path: Path, *, relative: bool) -> str:
+    original, options = _path_parts(original_uri)
+    if original.lower().startswith("file:"):
+        # QGIS file URLs may include delimited-text query parameters.
+        parsed = urlsplit(original)
+        url = path.as_uri()
+        if parsed.query:
+            url += f"?{parsed.query}"
+        if parsed.fragment:
+            url += f"#{parsed.fragment}"
+        return url + options
+
+    if not relative:
+        return path.as_posix() + options
+    try:
+        text = os.path.relpath(path, project_path.parent).replace("\\", "/")
+    except ValueError:
+        # On Windows, sources on a different drive cannot be made relative.
+        text = path.as_posix()
+    if not text.startswith((".", "/")):
+        text = f"./{text}"
+    return text + options
+
+
 def plan_source_path_changes(
     project_path: Path,
     *,
@@ -182,88 +218,31 @@ def plan_source_path_changes(
     replace_root: tuple[Path, Path] | None = None,
     relative: bool = True,
 ) -> list[QgisSourceChange]:
-    """Plan safe local-file changes. No files are opened or written.
-
-    original_project_directory is where the project originally lived before it
-    was moved without its relative sources being updated.
-    replace_root maps a path subtree to a new subtree, respecting path boundaries.
-    """
+    """Plan a source-root remap and/or rebasing without opening any layer files."""
     changes: list[QgisSourceChange] = []
     for layer in project_layer_sources(project_path):
-        path = local_source_path(
+        source_path = local_source_path(
             project_path, layer.uri, provider=layer.provider,
             original_project_directory=original_project_directory,
         )
-        if path is None:
+        if source_path is None:
             continue
-
-        if replace_root is not None:
-            old_root, new_root = replace_root
-            try:
-                suffix = path.relative_to(old_root.absolute())
-            except ValueError:
-                continue
-            path = new_root.absolute() / suffix
-
-        original, options = _path_parts(layer.uri)
-        if original.lower().startswith("file:"):
-            # Keep file URLs valid and their query string intact (e.g. delimited text).
-            parsed = urlsplit(original)
-            try:
-                rewritten = path.as_uri()
-            except ValueError:
-                continue
-            if parsed.query:
-                rewritten += f"?{parsed.query}"
-            if parsed.fragment:
-                rewritten += f"#{parsed.fragment}"
-        elif relative:
-            try:
-                rewritten = os.path.relpath(path, project_path.parent).replace("\\", "/")
-            except ValueError:
-                # Relative paths cannot cross Windows drive boundaries.
-                rewritten = path.as_posix()
-            if not rewritten.startswith((".", "/")):
-                rewritten = f"./{rewritten}"
-        else:
-            rewritten = path.as_posix()
-
-        updated_uri = rewritten + options
-        if updated_uri != layer.uri:
+        target = _map_root(source_path, replace_root)
+        if target is None:
+            continue
+        rewritten = _render_source_uri(project_path, layer.uri, target, relative=relative)
+        if rewritten != layer.uri:
             changes.append(
                 QgisSourceChange(
-                    index=layer.index,
-                    layer_id=layer.layer_id,
-                    name=layer.name,
-                    old_uri=layer.uri,
-                    new_uri=updated_uri,
+                    index=layer.index, layer_id=layer.layer_id, name=layer.name,
+                    old_uri=layer.uri, new_uri=rewritten,
                 )
             )
     return changes
 
 
-def write_project_path_changes(
-    project_path: Path,
-    output_path: Path,
-    changes: list[QgisSourceChange],
-) -> None:
-    """Save an edited COPY without overwriting any original or existing output.
 
-    Other QGZ archive members (including QGD bytes) are preserved. For QGS, a
-    companion QGD is copied alongside the new project under the new stem.
-    """
-    if not changes:
-        raise ValueError("No source changes to write")
-    if project_path.suffix.lower() != output_path.suffix.lower():
-        raise ValueError("Output must use the same QGS/QGZ format as the input")
-    if project_path.absolute() == output_path.absolute() or output_path.exists() or output_path.is_symlink():
-        raise FileExistsError(f"Output already exists or would replace the input: {output_path}")
-
-    original_qgd = project_path.with_suffix(".qgd") if project_path.suffix.lower() == ".qgs" else None
-    target_qgd = output_path.with_suffix(".qgd")
-    if original_qgd is not None and original_qgd.exists() and (target_qgd.exists() or target_qgd.is_symlink()):
-        raise FileExistsError(f"Auxiliary output already exists: {target_qgd}")
-
+def _edited_project_xml(project_path: Path, changes: list[QgisSourceChange]) -> bytes:
     root = _xml_root(project_path)
     layers = root.findall("./projectlayers/maplayer")
     for change in changes:
@@ -273,29 +252,71 @@ def write_project_path_changes(
         if elem is None or (elem.text or "") != change.old_uri:
             raise ValueError(f"Layer source changed since preview: {change.name}")
         elem.text = change.new_uri
+    return ET.tostring(root, encoding="utf-8", xml_declaration=True)
 
-    edited_xml = ET.tostring(root, encoding="utf-8", xml_declaration=True)
+
+def _copy_qgz_with_xml(project_path: Path, output: ZipFile, edited_xml: bytes) -> None:
+    with ZipFile(project_path) as original:
+        xml_member = _qgs_member(original)
+        for info in original.infolist():
+            if info.filename == xml_member:
+                output.writestr(info, edited_xml)
+            else:
+                with original.open(info) as src, output.open(info, "w") as dest:
+                    shutil.copyfileobj(src, dest)
+
+
+def _remove_if_our_file(path: Path, created_identity: tuple[int, int] | None) -> None:
+    if created_identity is None:
+        return
     try:
-        if project_path.suffix.lower() == ".qgz":
-            with ZipFile(project_path) as original, ZipFile(output_path, "x") as output:
-                xml_member = _qgs_member(original)
-                for info in original.infolist():
-                    if info.filename == xml_member:
-                        output.writestr(info, edited_xml)
-                    else:
-                        with original.open(info) as src, output.open(info, "w") as dest:
-                            shutil.copyfileobj(src, dest)
-        else:
-            with output_path.open("xb") as output:
-                output.write(edited_xml)
-            if original_qgd is not None and original_qgd.exists():
-                with original_qgd.open("rb") as src, target_qgd.open("xb") as dst:
-                    shutil.copyfileobj(src, dst)
+        st = path.lstat()
+        if (st.st_dev, st.st_ino) == created_identity and not path.is_symlink():
+            path.unlink()
+    except FileNotFoundError:
+        pass
+
+
+def write_project_path_changes(
+    project_path: Path,
+    output_path: Path,
+    changes: list[QgisSourceChange],
+) -> None:
+    """Create a repaired copy, keeping all QGZ members or companion QGS/QGD data.
+
+    Never overwrite a pre-existing file. An unsuccessful partial output is
+    removed only when it still has the identity created by this operation.
+    """
+    if not changes:
+        raise ValueError("No source changes to write")
+    if project_path.suffix.lower() != output_path.suffix.lower():
+        raise ValueError("Output must use the same QGS/QGZ format as the input")
+    if project_path.absolute() == output_path.absolute() or output_path.exists() or output_path.is_symlink():
+        raise FileExistsError(f"Output already exists or would replace the input: {output_path}")
+
+    old_qgd = project_path.with_suffix(".qgd") if project_path.suffix.lower() == ".qgs" else None
+    new_qgd = output_path.with_suffix(".qgd")
+    if old_qgd is not None and old_qgd.exists() and (new_qgd.exists() or new_qgd.is_symlink()):
+        raise FileExistsError(f"Auxiliary output already exists: {new_qgd}")
+
+    edited_xml = _edited_project_xml(project_path, changes)
+    created_project: tuple[int, int] | None = None
+    created_aux: tuple[int, int] | None = None
+    try:
+        with output_path.open("xb") as stream:
+            stat = os.fstat(stream.fileno())
+            created_project = (stat.st_dev, stat.st_ino)
+            if project_path.suffix.lower() == ".qgz":
+                with ZipFile(stream, "w") as output:
+                    _copy_qgz_with_xml(project_path, output, edited_xml)
+            else:
+                stream.write(edited_xml)
+        if old_qgd is not None and old_qgd.is_file():
+            with old_qgd.open("rb") as source, new_qgd.open("xb") as dest:
+                stat = os.fstat(dest.fileno())
+                created_aux = (stat.st_dev, stat.st_ino)
+                shutil.copyfileobj(source, dest)
     except Exception:
-        # Outputs are exclusive new names; never remove files that existed before.
-        # Recheck before removing to avoid following symlink substitutions.
-        if output_path.exists() and not output_path.is_symlink():
-            output_path.unlink()
-        if original_qgd is not None and target_qgd.exists() and not target_qgd.is_symlink():
-            target_qgd.unlink()
+        _remove_if_our_file(output_path, created_project)
+        _remove_if_our_file(new_qgd, created_aux)
         raise
