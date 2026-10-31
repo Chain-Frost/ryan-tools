@@ -1,0 +1,602 @@
+"""Plan, export and execute TUFLOW batches without interpreting a shell.
+
+The immutable :class:\`PlannedRun\` from command_plan is the only logical run
+description. GPU placement, process handles and observations are transient.
+This module neither changes the process working directory nor exits/pauses.
+"""
+
+from __future__ import annotations
+
+import itertools
+import logging
+import os
+import re
+import shlex
+import subprocess
+import sys
+import time
+from collections import deque
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, field, replace
+from datetime import datetime
+from pathlib import Path, PurePath
+from queue import Empty, SimpleQueue
+from threading import Event, Lock, Thread
+from typing import Literal
+
+from ryan_library.functions.tuflow.command_plan import (
+    CommandPlan,
+    CommandPlanError,
+    DirectoryRequirement,
+    PlannedRun,
+    parse_command_plan,
+    read_command_plans,
+)
+
+logger = logging.getLogger(__name__)
+_GPU = re.compile(r"-pu\d+(?:,\d+)*", re.IGNORECASE)
+_FLAG = re.compile(r"[es][1-9]", re.IGNORECASE)
+_PLACEHOLDER = re.compile(r"~([es][1-9])~", re.IGNORECASE)
+_PRIORITY = frozenset({"LOW", "BELOWNORMAL", "NORMAL", "ABOVENORMAL", "HIGH", "REALTIME"})
+_ENGINE = frozenset({"-b", "-x", "-t", "-nlc"})
+type RunMode = Literal["parameter_product", "textfiles", "both"]
+
+
+@dataclass(frozen=True, slots=True)
+class RunnerSettings:
+    """Effective settings supplied by the human-editable Python wrapper.
+
+    Relative paths are interpreted against working_directory, not cwd or the
+    location of the library. A None TCF permits imported multi-model batches.
+    Source -pu and START priority hints are preserved in the logical plan, but
+    are replaced by the runner's runtime GPU/priority policy on launch.
+    """
+
+    wrapper_file: Path
+    working_directory: Path
+    executable: Path
+    tcf: Path | None
+    run_variables: Mapping[str, str | Sequence[str]] = field(default_factory=dict)
+    input_files: tuple[Path, ...] = ()
+    mode: RunMode = "parameter_product"
+    batch_commands: str = "-b"
+    priority_order: str | None = None
+    gpu_devices: tuple[tuple[str, ...], ...] = ()
+    computational_priority: str = "LOW"
+    maximum_concurrent: int | None = None
+    minimize_on_launch: bool = True
+    wait_time_after_run: float = 2.0
+    use_live_dashboard: bool = True
+    live_refresh_per_second: float = 1.0
+    check_gpkg_layers: bool = True
+
+
+@dataclass(frozen=True, slots=True)
+class RunOutcome:
+    """One definitive launch failure or an actually observed process exit."""
+
+    run: PlannedRun
+    return_code: int | None
+    started_at: datetime | None
+    finished_at: datetime
+    pid: int | None
+    error: str | None = None
+
+    @property
+    def successful(self) -> bool:
+        return self.return_code == 0 and self.error is None
+
+
+@dataclass(frozen=True, slots=True)
+class BatchOutcome:
+    """Observed outcomes in completion order, not delayed console order."""
+
+    selected: tuple[PlannedRun, ...]
+    outcomes: tuple[RunOutcome, ...]
+    interrupted: bool = False
+
+    @property
+    def successful(self) -> bool:
+        return not self.interrupted and len(self.outcomes) == len(self.selected) and all(
+            result.successful for result in self.outcomes
+        )
+
+    @property
+    def exit_code(self) -> int:
+        return 0 if self.successful else 1
+
+
+# Scope 04 supplies the persistence implementation, not another plan class.
+type BeforeLaunch = Callable[[PlannedRun], None]
+type ObservedCompletion = Callable[[RunOutcome], None]
+
+
+@dataclass(slots=True)
+class _OwnedChild:
+    run: PlannedRun
+    process: subprocess.Popen[bytes]
+    started_at: datetime
+    slot: int | None
+
+
+def _at_base(path: Path, base: Path) -> Path:
+    return path if path.is_absolute() else (base / path).absolute()
+
+
+def _validate_settings(settings: RunnerSettings) -> None:
+    if settings.mode not in {"parameter_product", "textfiles", "both"}:
+        raise CommandPlanError(f"Invalid runner mode: {settings.mode}")
+    if settings.computational_priority.upper() not in _PRIORITY:
+        raise CommandPlanError(f"Unsupported process priority: {settings.computational_priority}")
+    if settings.maximum_concurrent is not None and settings.maximum_concurrent < 1:
+        raise CommandPlanError("maximum_concurrent must be positive")
+    if settings.wait_time_after_run < 0 or settings.live_refresh_per_second <= 0:
+        raise CommandPlanError("Launch delay must be nonnegative and dashboard refresh must be positive")
+    if not settings.working_directory.is_absolute():
+        raise CommandPlanError("The configured working directory must be absolute")
+    for group in settings.gpu_devices:
+        if not group or any(_GPU.fullmatch(flag) is None for flag in group):
+            raise CommandPlanError(f"Invalid runner GPU group: {group!r}")
+    try:
+        switches = shlex.split(settings.batch_commands, posix=True)
+    except ValueError as exc:
+        raise CommandPlanError(f"Invalid batch_commands quoting: {exc}") from exc
+    if any(token not in _ENGINE and not _GPU.fullmatch(token) for token in switches):
+        raise CommandPlanError("batch_commands supports only TUFLOW engine switches (-b, -x, -t, -nlc, -puN)")
+    if settings.mode in {"textfiles", "both"} and not settings.input_files:
+        raise CommandPlanError("Input BAT/text files are required for textfiles/both mode")
+
+
+def _flags(settings: RunnerSettings) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    result: list[tuple[str, tuple[str, ...]]] = []
+    for key, raw in settings.run_variables.items():
+        if _FLAG.fullmatch(key) is None:
+            raise CommandPlanError(f"Invalid generated event/scenario key: {key!r}")
+        values = tuple(raw.split() if isinstance(raw, str) else (str(value).strip() for value in raw))
+        values = tuple(value for value in values if value)
+        if values:
+            result.append((key.casefold(), values))
+    if settings.priority_order:
+        order = settings.priority_order.split()
+        result.sort(key=lambda pair: order.index(pair[0]) if pair[0] in order else len(order))
+    return tuple(result)
+
+
+def _generated_plan(settings: RunnerSettings) -> CommandPlan:
+    if settings.tcf is None:
+        raise CommandPlanError("Generated parameter-product runs require a configured Python TCF")
+    base = settings.working_directory
+    tcf = _at_base(settings.tcf, base)
+    exe = str(_at_base(settings.executable, base))
+    variables = _flags(settings)
+    required = {match.casefold() for match in _PLACEHOLDER.findall(tcf.name)}
+    present = {key for key, _ in variables}
+    if missing := required - present:
+        raise CommandPlanError(f"TCF placeholders require generated flags: {sorted(missing)}")
+    if any(key in required and not values for key, values in variables):
+        raise CommandPlanError("TCF placeholder has no generated values")
+    try:
+        batch = tuple(shlex.split(settings.batch_commands))
+    except ValueError as exc:
+        raise CommandPlanError(f"Invalid common engine switches: {exc}") from exc
+    source = settings.wrapper_file.absolute()
+    runs: list[PlannedRun] = []
+    for number, values in enumerate(itertools.product(*(v for _, v in variables)), 1):
+        pairs = tuple((key, value) for (key, _), value in zip(variables, values, strict=True))
+        args = (*batch, *(token for key, value in pairs for token in (f"-{key}", value)), str(tcf))
+        runs.append(PlannedRun(number, source, 0, 0, tcf, base, pairs, args, exe))
+    return CommandPlan(source, tuple(runs), (DirectoryRequirement(base, 0, source),), 0, "commands", (source,))
+
+
+def prepare_plan(settings: RunnerSettings) -> CommandPlan:
+    """Finish every source and TCF consistency check before any side effects.
+
+    Imported files are first, then generated combinations. Both remain one
+    immutable ordered plan, including intentional duplicate occurrences.
+    """
+    _validate_settings(settings)
+    plans: list[CommandPlan] = []
+    if settings.mode in {"textfiles", "both"}:
+        sources = tuple(_at_base(file, settings.working_directory) for file in settings.input_files)
+        imported = read_command_plans(
+            sources,
+            initial_directory=settings.working_directory,
+            configuration_directory=settings.working_directory,
+            fallback_tcf=str(settings.tcf) if settings.tcf is not None else None,
+        )
+        plans.append(imported)
+    if settings.mode in {"parameter_product", "both"}:
+        plans.append(_generated_plan(settings))
+    combined = tuple(replace(run, index=i) for i, run in enumerate((run for plan in plans for run in plan.runs), 1))
+    if not combined:
+        raise CommandPlanError("No simulations were selected")
+    return CommandPlan(
+        source=plans[0].source,
+        runs=combined,
+        directories=tuple(requirement for plan in plans for requirement in plan.directories),
+        ignored_statements=sum(plan.ignored_statements for plan in plans),
+        syntax=plans[0].syntax if len(plans) == 1 else "mixed",
+        source_files=tuple(source for plan in plans for source in plan.source_files),
+    )
+
+
+def _executable(run: PlannedRun, settings: RunnerSettings) -> str:
+    return run.executable if run.executable is not None else str(_at_base(settings.executable, settings.working_directory))
+
+
+def _model_arguments(run: PlannedRun) -> tuple[str, ...]:
+    """Use the source model switches; strip only GPU placement for execution."""
+    return tuple(token for token in run.arguments if not _GPU.fullmatch(token))
+
+
+def _command(run: PlannedRun, settings: RunnerSettings, group: tuple[str, ...]) -> list[str]:
+    args = list(_model_arguments(run))
+    if not args or not args[-1].casefold().endswith(".tcf"):
+        raise CommandPlanError(f"{run.source}:{run.line_start}: missing terminal TCF argument")
+    return [_executable(run, settings), *args[:-1], *group, str(run.tcf)]
+
+
+def _bat_quote(value: str, *, always: bool = False) -> str:
+    if not value or any(char in value for char in '\r\n"%!^&|<>'):
+        raise CommandPlanError(f"Cannot safely represent BAT argument {value!r}")
+    if always or any(char.isspace() for char in value):
+        return f'"{value}"'
+    return value
+
+
+def _logical_signature(run: PlannedRun, settings: RunnerSettings) -> tuple[object, ...]:
+    # Compare effective inputs, never the export's synthetic source or START hints.
+    if not run.arguments or not run.arguments[-1].casefold().endswith(".tcf"):
+        raise CommandPlanError(f"Run {run.index} lacks a terminal TCF argument")
+    return (str(run.tcf), str(run.working_directory), _executable(run, settings), (*run.arguments[:-1], str(run.tcf)))
+
+
+def render_batch_commands(plan: CommandPlan, settings: RunnerSettings, *, destination: Path) -> str:
+    """Produce a statically readable BAT file, then reparse and verify each run.
+
+    A shared TUFLOW_EXE and BCMD are editable. TCF[_N] and additional executable
+    variables retain different models and solvers rather than replacing them.
+    START hints are deliberately regenerated from the runner's priority policy.
+    """
+    if not plan.runs:
+        raise CommandPlanError("Cannot export an empty batch")
+    tcfs = tuple(dict.fromkeys(str(run.tcf) for run in plan.runs))
+    exes = tuple(dict.fromkeys(_executable(run, settings) for run in plan.runs))
+    tcf_names = {value: ("TCF" if len(tcfs) == 1 else f"TCF_{i}") for i, value in enumerate(tcfs, 1)}
+    exe_names = {value: ("TUFLOW_EXE" if i == 1 else f"TUFLOW_EXE_{i}") for i, value in enumerate(exes, 1)}
+    arguments = [run.arguments[:-1] for run in plan.runs]
+    # Only factor common *leading engine switches*. Event/scenario values remain
+    # visible on each START line even if they happen to match.
+    common: list[str] = []
+    if arguments:
+        for column in zip(*arguments):
+            if len(set(column)) == 1 and (column[0].casefold() in _ENGINE or _GPU.fullmatch(column[0])):
+                common.append(column[0])
+            else:
+                break
+    priority = settings.computational_priority.upper()
+    switch = f"/{priority} "
+    minimized = "/MIN " if settings.minimize_on_launch else ""
+    result = ["@echo off", "REM Edited values below apply to every matching START row."]
+    for value, name in exe_names.items():
+        result.append(f'set "{name}={_bat_quote(value)}"'.replace('=""', '="')) if False else None
+        result.append(f'set "{name}={value}"')
+    result.append(f'set "BCMD={" ".join(common) if common else " "}"')
+    for value, name in tcf_names.items():
+        result.append(f'set "{name}={value}"')
+    result.append("")
+    for run, args in zip(plan.runs, arguments, strict=True):
+        cwd = _bat_quote(str(run.working_directory), always=True)
+        exe_var = exe_names[_executable(run, settings)]
+        tcf_var = tcf_names[str(run.tcf)]
+        remaining = " ".join(_bat_quote(token) for token in args[len(common) :])
+        result.append(
+            f'START /D {cwd} {switch}{minimized}/WAIT "" "%{exe_var}%" %BCMD% '
+            f'{remaining} "%{tcf_var}%"'.rstrip()
+        )
+    result.append("")
+    result.append("REM Commands are intentionally ordered; duplicate rows are deliberate.")
+    text = "\r\n".join(result) + "\r\n"
+    exported = parse_command_plan(
+        text,
+        source=destination.absolute(),
+        initial_directory=settings.working_directory,
+        syntax="batch",
+    )
+    original = tuple(_logical_signature(run, settings) for run in plan.runs)
+    roundtrip = tuple(_logical_signature(run, settings) for run in exported.runs)
+    if original != roundtrip:
+        raise CommandPlanError("BAT export/reparse changed executable, TCF, cwd, model switches or occurrence order")
+    return text
+
+
+def export_batch_commands(plan: CommandPlan, settings: RunnerSettings, destination: Path) -> Path:
+    """Exclusive-create output: never overwrite any imported source or prior export."""
+    target = _at_base(destination, settings.working_directory)
+    for source in plan.source_files:
+        existing = Path(str(source))
+        if os.path.normcase(str(target)) == os.path.normcase(str(existing)):
+            raise CommandPlanError(f"Refusing to overwrite imported command source: {source}")
+        if target.exists() and existing.exists() and target.samefile(existing):
+            raise CommandPlanError(f"Refusing to overwrite imported command source alias: {source}")
+    content = render_batch_commands(plan, settings, destination=target)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with target.open("x", encoding="utf-8", newline="") as output:
+        output.write(content)
+    return target
+
+
+def _gpu_startup_message(groups: tuple[tuple[str, ...], ...]) -> None:
+    """Exactly one external snapshot for an executing (nonempty) batch."""
+    from ryan_library.functions.tuflow.gpu_occupancy import gpu_ids_from_flags, local_gpu_occupancy
+
+    try:
+        snapshot = local_gpu_occupancy()
+    except Exception as exc:  # noqa: BLE001 - external inspection cannot gate launches
+        logger.warning("Startup GPU inspection unavailable: %s; assignments are unknown.", exc)
+        return
+    if not snapshot.assigned and not snapshot.unknown_pids and not snapshot.inspection_incomplete:
+        logger.info("No other running local TUFLOW models detected.")
+    assigned = {identifier for process in snapshot.assigned for identifier in process.gpu_ids}
+    capacity = [tuple(sorted(gpu_ids_from_flags(group))) for group in groups]
+    if groups and capacity and all(group and set(group).intersection(assigned) for group in capacity):
+        details = ", ".join(
+            f"PID {process.pid}: GPUs {sorted(process.gpu_ids)}" for process in snapshot.assigned
+            if process.gpu_ids.intersection(set().union(*(set(group) for group in capacity)))
+        )
+        logger.warning("All configured GPU groups appear occupied by external TUFLOW runs (%s).", details)
+    elif snapshot.assigned and groups:
+        logger.info("Configured GPU pool has capacity against confirmed external assignments.")
+    elif snapshot.assigned and not groups:
+        logger.warning("GPU assignment is automatic; external model GPU sharing cannot be assessed.")
+    if snapshot.unknown_pids:
+        logger.warning("External TUFLOW GPU assignments are unknown for PIDs %s.", snapshot.unknown_pids)
+    if snapshot.inspection_incomplete:
+        logger.warning("Local process inspection is incomplete; GPU capacity is uncertain.")
+    if groups and any(not group for group in capacity):
+        logger.warning("At least one configured GPU group has no explicit device identifier.")
+
+
+class AdvisoryInputCheck:
+    """At most one daemon validation of the frozen plan; never gates launching."""
+
+    def __init__(self, plan: CommandPlan, *, check_gpkg_layers: bool = True) -> None:
+        self.plan = plan
+        self._layers = check_gpkg_layers
+        self._messages: SimpleQueue[tuple[int, str]] = SimpleQueue()
+        self._lock = Lock()
+        self._cancel = Event()
+        self.finished = Event()
+        self._thread = Thread(target=self._work, name="tuflow-runner-preflight", daemon=True)
+
+    def _work(self) -> None:
+        try:
+            from ryan_library.orchestrators.tuflow.command_preflight import check_command_plan
+
+            report = check_command_plan(self.plan, check_gpkg_layers=self._layers)
+            messages = [
+                (logging.WARNING, f"Input check run {issue.run.index} {issue.run.source}:{issue.run.line_start}: "
+                 f"[{issue.status}] {issue.origin}: {issue.reference} ({issue.detail})")
+                for issue in report.issues
+            ]
+            messages.append(
+                (logging.INFO if report.passed else logging.WARNING,
+                 f"Input check {'passed' if report.passed else 'failed or incomplete'} for "
+                 f"{report.completed_runs}/{report.run_count} runs.")
+            )
+        except Exception as exc:  # noqa: BLE001 - advisory checks are never a launch prerequisite
+            messages = [(logging.WARNING, f"Input checking unavailable or incomplete: {type(exc).__name__}: {exc}")]
+        with self._lock:
+            if not self._cancel.is_set():
+                for message in messages:
+                    self._messages.put(message)
+            self.finished.set()
+
+    def start(self) -> None:
+        self._thread.start()
+
+    def drain(self) -> None:
+        while True:
+            try:
+                level, message = self._messages.get_nowait()
+            except Empty:
+                break
+            logger.log(level, "%s", message)
+
+    def close(self) -> None:
+        self.drain()
+        with self._lock:
+            if not self.finished.is_set():
+                self._cancel.set()
+                logger.warning("Input checking incomplete at shutdown; no all-clear is implied.")
+        self.drain()
+
+
+def check_plan_only(plan: CommandPlan, *, check_gpkg_layers: bool = True) -> bool:
+    """Blocking explicit preflight; failures and unavailable APIs are nonzero."""
+    from ryan_library.orchestrators.tuflow.command_preflight import check_command_plan
+
+    try:
+        report = check_command_plan(plan, check_gpkg_layers=check_gpkg_layers)
+    except Exception as exc:  # noqa: BLE001 - strict check-only mode reports unavailable validation as failure
+        logger.error("Input checking failed or is unavailable: %s", exc)
+        return False
+    for issue in report.issues:
+        logger.warning(
+            "Input check run %d %s:%d [%s] %s: %s (%s)",
+            issue.run.index, issue.run.source, issue.run.line_start, issue.status,
+            issue.origin, issue.reference, issue.detail,
+        )
+    if not report.passed:
+        logger.error("Input checking failed or is incomplete: %d/%d completed", report.completed_runs, report.run_count)
+    return report.passed
+
+
+def _apply_priority(pid: int, name: str) -> None:
+    """Set Windows child priority without assuming POSIX scheduling parity."""
+    if sys.platform != "win32":
+        return
+    import psutil
+
+    constants = {
+        "LOW": psutil.IDLE_PRIORITY_CLASS,
+        "BELOWNORMAL": psutil.BELOW_NORMAL_PRIORITY_CLASS,
+        "NORMAL": psutil.NORMAL_PRIORITY_CLASS,
+        "ABOVENORMAL": psutil.ABOVE_NORMAL_PRIORITY_CLASS,
+        "HIGH": psutil.HIGH_PRIORITY_CLASS,
+        "REALTIME": psutil.REALTIME_PRIORITY_CLASS,
+    }
+    psutil.Process(pid).nice(constants[name.upper()])
+
+
+def _startupinfo(minimize: bool) -> subprocess.STARTUPINFO | None:
+    if not minimize or sys.platform != "win32":
+        return None
+    info = subprocess.STARTUPINFO()
+    info.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    info.wShowWindow = 7
+    return info
+
+
+def _stop_children(active: list[_OwnedChild]) -> None:
+    """Request termination and observe exits; never invent successful completion."""
+    for child in active:
+        try:
+            if child.process.poll() is None:
+                child.process.terminate()
+        except OSError as exc:
+            logger.warning("Could not terminate TUFLOW PID %s: %s", child.process.pid, exc)
+    for child in active:
+        try:
+            if child.process.poll() is None:
+                child.process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            try:
+                child.process.kill()
+                child.process.wait(timeout=5)
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                logger.warning("Could not confirm termination of PID %s: %s", child.process.pid, exc)
+        except OSError as exc:
+            logger.warning("Could not confirm termination of PID %s: %s", child.process.pid, exc)
+
+
+def launch_plan(
+    plan: CommandPlan,
+    settings: RunnerSettings,
+    *,
+    on_before_launch: BeforeLaunch | None = None,
+    on_observed_completion: ObservedCompletion | None = None,
+    interrupted: Event | None = None,
+    popen: Callable[..., subprocess.Popen[bytes]] | None = None,
+    advisory: AdvisoryInputCheck | None = None,
+) -> BatchOutcome:
+    """Launch each immutable occurrence once, with its own cwd and argv.
+
+    The prelaunch hook is called before Popen; the completion hook is called
+    immediately when poll observes exit, *before* ordered console output.
+    The hooks provide scope 04's append-only START/FINISH integration point.
+    """
+    if not plan.runs:
+        raise CommandPlanError("No selected simulations to launch")
+    groups = settings.gpu_devices
+    capacity = len(groups) if groups else 1
+    if settings.maximum_concurrent is not None:
+        capacity = min(capacity, settings.maximum_concurrent)
+    if capacity < 1:
+        raise CommandPlanError("No runner slots configured")
+    stop = interrupted if interrupted is not None else Event()
+    factory = popen or subprocess.Popen
+    queue = deque(plan.runs)
+    active: list[_OwnedChild] = []
+    owned_slots: set[int] = set()
+    outcomes: list[RunOutcome] = []
+    ordered: dict[int, RunOutcome] = {}
+    next_print = 0
+    has_source_gpu = any(_GPU.fullmatch(token) for run in plan.runs for token in run.arguments)
+    has_source_priority = any(run.start_options for run in plan.runs)
+    if has_source_gpu:
+        logger.warning("Imported -pu switches are retained for export but replaced by runner GPU settings at launch.")
+    if has_source_priority:
+        logger.info("Imported START priority/minimise/wait hints are replaced by runner scheduling settings.")
+    _gpu_startup_message(groups)
+
+    def observed(result: RunOutcome) -> None:
+        nonlocal next_print
+        outcomes.append(result)
+        ordered[result.run.index] = result
+        if on_observed_completion is not None:
+            on_observed_completion(result)
+        # Presentation can be ordered, but the lifecycle callback above cannot.
+        while next_print < len(plan.runs) and plan.runs[next_print].index in ordered:
+            item = ordered.pop(plan.runs[next_print].index)
+            logger.info(
+                "Run %d: %s (exit %s)%s", item.run.index, "OK" if item.successful else "FAIL",
+                item.return_code, f": {item.error}" if item.error else "",
+            )
+            next_print += 1
+
+    def poll_children() -> bool:
+        any_finished = False
+        for child in active.copy():
+            code = child.process.poll()
+            if code is None:
+                continue
+            active.remove(child)
+            if child.slot is not None:
+                owned_slots.discard(child.slot)
+            observed(RunOutcome(child.run, code, child.started_at, datetime.now(), child.process.pid))
+            any_finished = True
+        return any_finished
+
+    try:
+        while queue or active:
+            if advisory is not None:
+                advisory.drain()
+            if stop.is_set():
+                break
+            poll_children()
+            while queue and len(active) < capacity and not stop.is_set():
+                slot = next((i for i in range(len(groups)) if i not in owned_slots), None) if groups else None
+                if groups and slot is None:
+                    break
+                run = queue.popleft()
+                group = groups[slot] if slot is not None else ()
+                args = _command(run, settings, group)
+                started = datetime.now()
+                if on_before_launch is not None:
+                    on_before_launch(run)
+                try:
+                    process = factory(
+                        args=args,
+                        cwd=str(run.working_directory),
+                        creationflags=subprocess.CREATE_NEW_CONSOLE if sys.platform == "win32" else 0,
+                        startupinfo=_startupinfo(settings.minimize_on_launch),
+                    )
+                except OSError as exc:
+                    observed(RunOutcome(run, None, started, datetime.now(), None, f"Launch failed: {exc}"))
+                    continue
+                # Ownership *must* precede nice(), logging or any other fallible action.
+                active.append(_OwnedChild(run, process, started, slot))
+                if slot is not None:
+                    owned_slots.add(slot)
+                try:
+                    _apply_priority(process.pid, settings.computational_priority)
+                except (OSError, ValueError, ImportError) as exc:
+                    logger.warning("PID %s launched but process priority could not be set: %s", process.pid, exc)
+                logger.info("Launched %d/%d PID %s: %s", run.index, len(plan.runs), process.pid, args)
+                if queue and settings.wait_time_after_run:
+                    time.sleep(settings.wait_time_after_run)
+                poll_children()
+            if active:
+                time.sleep(0.1)
+        if stop.is_set():
+            logger.warning("Batch interrupted. Terminating owned child processes.")
+            _stop_children(active)
+            poll_children()
+        if advisory is not None:
+            advisory.drain()
+    finally:
+        if active:
+            _stop_children(active)
+            poll_children()
+    return BatchOutcome(tuple(plan.runs), tuple(outcomes), stop.is_set())
