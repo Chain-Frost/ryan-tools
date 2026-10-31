@@ -261,9 +261,10 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if arguments.preflight_only:
             return 0 if check_plan_only(plan, check_gpkg_layers=settings.check_gpkg_layers) else 1
-        # Detect missing/misconfigured Python executables before writing a RESET
-        # or START. BAT/TXT source executables are never consulted.
-        validate_launch_executable(plan, settings)
+        # Run all must verify the solver before resetting completed runs.
+        # A no-work Resume must not need an installed solver.
+        if requested_mode == "all":
+            validate_launch_executable(plan, settings)
         # The supplying wrapper, not the installed orchestrator or model cwd,
         # owns the single persistent history location.
         wrapper_path = Path(__file__).absolute()
@@ -283,6 +284,8 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 result = BatchOutcome((), ())
             else:
+                if requested_mode == "resume":
+                    validate_launch_executable(pending, settings)
                 logger.info(
                     "{}: {} pending, {} confirmed successful runs skipped. History: {}",
                     requested_mode.capitalize(),

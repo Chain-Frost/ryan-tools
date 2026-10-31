@@ -106,6 +106,8 @@ def test_copied_wrapper_resume_no_work_all_reset_and_follow_up(
         pytest.fail("No-work Resume launched")
 
     monkeypatch.setattr(module, "launch_plan", forbid_no_work)
+    solver = Path(module.TUFLOW_EXE)
+    solver.unlink()
     from ryan_library.functions.tuflow import gpu_occupancy
 
     monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", lambda: pytest.fail("No-work Resume scanned GPU"))
@@ -114,6 +116,7 @@ def test_copied_wrapper_resume_no_work_all_reset_and_follow_up(
     assert calls == [[1, 2]]
     assert len(chained) == 2  # Chaining policy applies to successful no-work Resume.
 
+    solver.write_bytes(b"synthetic solver placeholder")
     monkeypatch.setattr(module, "launch_plan", _fake_successful_launch(calls))
     assert copied_wrapper.main(_args(tmp_path, "--run-mode", "all")) == 0
     assert calls == [[1, 2], [1, 2]]
@@ -191,3 +194,21 @@ def test_definitive_launch_failure_is_logged_and_requeued(
     assert observed == [[1, 2], [1, 2]]
     content = Path(copied_wrapper.__file__).with_name("my_batch_runs.csv").read_text(encoding="utf-8")
     assert content.count(",LAUNCH_ERROR,") == 4
+
+
+def test_run_all_missing_python_solver_keeps_existing_history(
+    tmp_path: Path, copied_wrapper: _Wrapper, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = sys.modules["csv_runner_wrapper"]
+    monkeypatch.setattr(module, "launch_plan", _fake_successful_launch([]))
+    assert copied_wrapper.main(_args(tmp_path)) == 0
+    path = Path(copied_wrapper.__file__).with_name("my_batch_runs.csv")
+    before = path.read_bytes()
+    Path(module.TUFLOW_EXE).unlink()
+
+    def forbidden(*_args: object, **_kwargs: object) -> None:
+        pytest.fail("Missing solver must block an All reset and launch")
+
+    monkeypatch.setattr(module, "launch_plan", forbidden)
+    assert copied_wrapper.main(_args(tmp_path, "--run-mode", "all")) == 1
+    assert path.read_bytes() == before
