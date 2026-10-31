@@ -38,6 +38,11 @@ class FakeReport:
     dependency_fragment_evaluations: int = 0
     dependency_fragment_reuses: int = 0
     dependency_fallback_runs: int = 0
+    passed_override: bool | None = None
+
+    @property
+    def passed(self) -> bool:
+        return self.passed_override if self.passed_override is not None else not self.issues
 
 
 def outcome(runs: tuple[PlannedRun, ...], issues: Sequence[FakeIssue] = ()) -> FakeReport:
@@ -85,7 +90,7 @@ def test_one_failed_model_invalidates_its_runs_and_does_not_drop_other_models(
 
 def test_issues_csv_contains_original_line_model_and_index(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     def checker(runs: tuple[PlannedRun, ...], **_options: object) -> FakeReport:
-        issues = [FakeIssue(run.index) for run in reversed(runs)]
+        issues = [FakeIssue(index) for index in reversed(range(len(runs)))]
         return outcome(runs, issues)
 
     monkeypatch.setattr(subject, "_check_group", checker)
@@ -152,7 +157,7 @@ def test_file_only_checks_each_model_and_preserves_source_attribution(
 
     def checker(runs: tuple[PlannedRun, ...], **options: object) -> FakeReport:
         calls.append((runs, options))
-        report = outcome(runs, [FakeIssue(runs[-1].index)])
+        report = outcome(runs, [FakeIssue(len(runs) - 1)])
         report.csv_headers_checked = 1
         report.csv_column_selections_checked = len(runs)
         return report
@@ -172,3 +177,51 @@ def test_file_only_checks_each_model_and_preserves_source_attribution(
 def test_invalid_file_workers_fail_before_group_checks(tmp_path: Path, workers: int) -> None:
     with pytest.raises(ValueError, match="io_workers"):
         subject.check_command_plan(plan(tmp_path), files_only=True, io_workers=workers)
+
+
+def test_group_local_findings_map_interleaved_duplicates_exactly_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def checker(runs: tuple[PlannedRun, ...], **_options: object) -> FakeReport:
+        # The first local result from A corresponds to global run 1, while
+        # the second local result corresponds to the duplicate at global 3.
+        return outcome(runs, [FakeIssue(0, reference="first"), FakeIssue(len(runs) - 1, reference="last")])
+
+    monkeypatch.setattr(subject, "_check_group", checker)
+    report = subject.check_command_plan(plan(tmp_path))
+    assert [issue.run.index for issue in report.issues] == [1, 2, 2, 3]
+    assert [issue.run.source for issue in report.issues] == [tmp_path / "runs.bat"] * 4
+
+
+def test_incomplete_group_with_no_findings_never_passes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def checker(runs: tuple[PlannedRun, ...], **_options: object) -> FakeReport:
+        result = outcome(runs)
+        result.passed_override = False
+        return result
+
+    monkeypatch.setattr(subject, "_check_group", checker)
+    report = subject.check_command_plan(plan(tmp_path))
+    assert not report.passed
+    assert report.completed_runs == 0
+    assert report.affected_runs == 3
+    assert all(issue.status == "unresolved" for issue in report.issues)
+
+
+def test_directory_failure_identifies_actual_second_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from ryan_library.functions.tuflow.command_plan import read_command_plans
+
+    first, second = tmp_path / "first.bat", tmp_path / "second.bat"
+    first.write_text("TUFLOW.exe one.tcf", encoding="utf-8")
+    second.write_text("cd unavailable\\nested\nTUFLOW.exe two.tcf", encoding="utf-8")
+    both = read_command_plans((first, second), initial_directory=tmp_path)
+
+    def forbidden(*_args: object, **_kwargs: object) -> NoReturn:
+        pytest.fail("A missing required directory must prevent all validation")
+
+    monkeypatch.setattr(subject, "_check_group", forbidden)
+    with pytest.raises(CommandPlanError, match="second.bat:1"):
+        subject.check_command_plan(both)
