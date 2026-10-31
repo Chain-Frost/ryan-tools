@@ -42,25 +42,32 @@ actual workflow warrants those features. For reusable maintained entry points, u
 
 ## QGIS project file audit and repair
 
-\`other/audit_qgis_projects.py\` inspects QGS/QGZ XML without starting QGIS or
-loading referenced geospatial datasets. Its default audit **opens each distinct
-local source file and reads one byte** to request retrieval from tiered network
-storage. Opening network files can take time or incur retrieval charges; use
-\`--exists-only\` when only a metadata/existence check is wanted.
+`other/audit_qgis_projects.py` inspects QGS/QGZ XML without starting QGIS or
+loading referenced geospatial datasets. It has **two explicit audit modes**:
 
-\`\`\`powershell
-python .\ryan-scripts\other\audit_qgis_projects.py --working-directory "Q:\Project\GIS" --no-pause
+- `--mode existence` (default): check local source-file existence using
+  filesystem metadata; **do not open or read their contents**. Network
+  metadata requests may still occur.
+- `--mode cold-storage-ping` (opt-in): open each distinct local source file
+  and request one byte using an unbuffered read, to prompt tiered network
+  storage to rehydrate data. This can be slow or incur retrieval charges.
+  Empty files cannot provide a byte; results depend on storage-server behaviour.
+
+```powershell
+python .\ryan-scripts\other\audit_qgis_projects.py --working-directory "Q:\Project\GIS" --mode existence --no-pause
+python .\ryan-scripts\other\audit_qgis_projects.py --working-directory "Q:\Project\GIS" --mode cold-storage-ping --no-pause
 python .\ryan-scripts\other\audit_qgis_projects.py --project "Q:\Project\GIS\Model.qgz" --auxiliary-report --no-pause
 python .\ryan-scripts\other\audit_qgis_projects.py --project "Q:\New\GIS\Model.qgz" --old-project-directory "Q:\Old\GIS" --no-pause
 python .\ryan-scripts\other\audit_qgis_projects.py --project "Q:\New\GIS\Model.qgz" --old-project-directory "Q:\Old\GIS" --output "Q:\New\GIS\Model_fixed.qgz" --write --no-pause
-\`\`\`
+```
 
-Path repair is preview-only unless \`--write\` and a **new** \`--output\` file
-are both provided. Original project files are never overwritten. The repair
-tool preserves embedded QGZ archive members (including auxiliary SQLite
-\`.qgd\` files), or copies the companion \`.qgd\` beside a repaired \`.qgs\`.
-\`--auxiliary-report\` lists auxiliary tables, QGIS layer associations,
-column names and row counts; \`--sample-rows 1\` through \`5\` explicitly
+Path repair is separate from cold-storage ping and is preview-only unless
+`--write` and a **new** `--output` file are both provided. Original
+project files are never overwritten. The repair tool preserves embedded
+QGZ archive members (including auxiliary SQLite `.qgd` files), or copies
+the companion `.qgd` beside a repaired `.qgs`.
+`--auxiliary-report` lists auxiliary tables, QGIS layer associations,
+column names and row counts; `--sample-rows 1` through `5` explicitly
 includes sample stored values. No PyQGIS installation is required. Complex
 provider URIs are skipped rather than guessed, and actual QGIS compatibility
 still requires representative project validation.
