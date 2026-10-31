@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import runpy
 from collections.abc import Callable
 from pathlib import Path
@@ -177,16 +178,111 @@ def test_cli_overrides_are_distinct_from_editable_defaults() -> None:
     assert defaults.old_project_directory is None
     assert defaults.replace_root is None
     assert defaults.output is None
-    assert defaults.write is False
+    assert defaults.write is None
+    assert defaults.no_pause is None
+    assert defaults.console_log_level is None
+    assert namespace["DEFAULT_WRITE"] is False
+    assert namespace["DEFAULT_NO_PAUSE"] is False
+    assert namespace["DEFAULT_CONSOLE_LOG_LEVEL"] is None
 
     selected = parse_args(["--project", "model.qgz", "--auxiliary-report", "--sample-rows", "0", "--absolute-paths"])
     assert selected.project == Path("model.qgz")
     assert selected.auxiliary_report is True
     assert selected.sample_rows == 0
     assert selected.absolute_paths is True
-    disabled = parse_args(["--no-auxiliary-report", "--no-absolute-paths"])
+    enabled = parse_args(["--write", "--no-pause", "--console-log-level", "DEBUG"])
+    assert enabled.write is True
+    assert enabled.no_pause is True
+    assert enabled.console_log_level == "DEBUG"
+    disabled = parse_args(["--no-write", "--pause", "--no-auxiliary-report", "--no-absolute-paths"])
+    assert disabled.write is False
+    assert disabled.no_pause is False
     assert disabled.auxiliary_report is False
     assert disabled.absolute_paths is False
+
+
+def _load_copied_wrapper(tmp_path: Path, replacements: dict[str, str]) -> dict[str, object]:
+    """Change only the user-editable constants of a copied script."""
+    source = SCRIPT.read_text(encoding="utf-8")
+    for original, replacement in replacements.items():
+        assert source.count(original) == 1
+        source = source.replace(original, replacement)
+    copy = tmp_path / "editable_audit_qgis_projects.py"
+    copy.write_text(source, encoding="utf-8")
+    return runpy.run_path(str(copy))
+
+
+def test_editing_default_audit_mode_enables_cold_ping_without_cli(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "roads.gpkg"
+    source.write_bytes(b"roads")
+    _write_qgs(tmp_path / "model.qgs", "./roads.gpkg|layername=roads")
+    namespace = _load_copied_wrapper(
+        tmp_path,
+        {'DEFAULT_AUDIT_MODE: Literal["existence", "cold-storage-ping"] = "existence"':
+         'DEFAULT_AUDIT_MODE: Literal["existence", "cold-storage-ping"] = "cold-storage-ping"'},
+    )
+    main = cast(FunctionType, namespace["main"])
+    checked: list[tuple[Path, str]] = []
+
+    def record_probe(path: Path, *, mode: str = "existence") -> tuple[bool, str]:
+        checked.append((path, mode))
+        return True, "checked"
+
+    monkeypatch.setitem(main.__globals__, "probe_local_file", record_probe)
+    monkeypatch.chdir(tmp_path)
+    assert main(working_directory=tmp_path) == 0
+    assert checked == [(source, "cold-storage-ping")]
+
+    checked.clear()
+    assert main(working_directory=tmp_path, mode="existence") == 0
+    assert checked == [(source, "existence")]
+
+
+def test_editing_default_write_enables_new_copy_without_cli(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project = tmp_path / "model.qgs"
+    _write_qgs(project, "roads.gpkg|layername=roads")
+    original = project.read_bytes()
+    namespace = _load_copied_wrapper(
+        tmp_path,
+        {
+            "DEFAULT_PROJECT: Path | None = None": 'DEFAULT_PROJECT: Path | None = Path("model.qgs")',
+            "DEFAULT_OUTPUT: Path | None = None": 'DEFAULT_OUTPUT: Path | None = Path("fixed.qgs")',
+            "DEFAULT_WRITE = False": "DEFAULT_WRITE = True",
+        },
+    )
+    main = cast(FunctionType, namespace["main"])
+    parse_args = cast(Callable[[list[str] | None], argparse.Namespace], namespace["_parse_cli_arguments"])
+    monkeypatch.chdir(tmp_path)
+
+    # An explicitly supplied --no-write must override an edited True default.
+    args = parse_args(["--no-write"])
+    assert args.write is False
+    assert main(working_directory=tmp_path, write=args.write) == 0
+    assert not (tmp_path / "fixed.qgs").exists()
+
+    assert main(working_directory=tmp_path) == 0
+    assert (tmp_path / "fixed.qgs").is_file()
+    assert project.read_bytes() == original
+
+
+def test_automated_qgis_catalogue_forces_safe_audit_options() -> None:
+    registry = SCRIPT.parents[2] / "ryan_library" / "resources" / "mcp" / "workflows.json"
+    data = json.loads(registry.read_text(encoding="utf-8"))
+    workflow = next(w for w in data["workflows"] if w["id"] == "audit_qgis_projects")
+    args = workflow["headless_arguments"]
+    parse_args = cast(
+        Callable[[list[str] | None], argparse.Namespace], runpy.run_path(str(SCRIPT))["_parse_cli_arguments"]
+    )
+    selected = parse_args(args)
+    assert selected.mode == "existence"
+    assert selected.write is False
+    assert selected.auxiliary_report is False
+    assert selected.sample_rows == 0
+    assert selected.no_pause is True
 
 
 def test_missing_working_directory_returns_failure_without_audit(tmp_path: Path) -> None:

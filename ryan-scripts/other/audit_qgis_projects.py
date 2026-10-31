@@ -1,13 +1,15 @@
 r"""Audit QGS/QGZ sources in explicit existence or cold-storage-ping modes.
 
-The default --mode existence checks filesystem metadata without reading the
-referenced files. --mode cold-storage-ping explicitly opens each distinct local
-file and requests ONE unbuffered byte to prompt tiered network storage to
-retrieve it. Ping may be slow or incur storage retrieval charges.
+The shipped DEFAULT_AUDIT_MODE is existence: check source-file metadata
+without reading contents. Set DEFAULT_AUDIT_MODE to cold-storage-ping, or use
+--mode cold-storage-ping, to request one unbuffered byte per distinct local
+file. This can be slow or incur tiered-storage retrieval charges.
 No QGIS installation or geospatial file loading is required.
 
 --project selects one QGS/QGZ; --auxiliary-report inspects QGD SQLite data.
-Path repair previews changes unless --write and --output are both supplied.
+Path repair previews changes unless writing is enabled via DEFAULT_WRITE
+or --write, and a new output path is supplied via DEFAULT_OUTPUT or --output.
+Existing project files are never overwritten.
 
 Examples:
   python audit_qgis_projects.py --mode existence --no-pause
@@ -22,19 +24,24 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
-# Editable defaults: CLI arguments override these settings.
-WRAPPER_VERSION = "2026-10-31.3"
+# User-editable configuration: every operational CLI option has a default here.
+# Explicit CLI values override these; None means not configured.
+WRAPPER_VERSION = "2026-10-31.4"
 DEFAULT_WORKING_DIR = Path()
-DEFAULT_PROJECT: Path | None = None  # None scans all QGS/QGZ under the working directory
-DEFAULT_AUDIT_MODE: Literal["existence"] = "existence"  # Ping requires explicit --mode on each CLI run
+DEFAULT_PROJECT: Path | None = None  # None: audit all QGS/QGZ projects recursively
+DEFAULT_AUDIT_MODE: Literal["existence", "cold-storage-ping"] = "existence"
 DEFAULT_AUXILIARY_REPORT = False
 DEFAULT_SAMPLE_ROWS = 0
 DEFAULT_OLD_PROJECT_DIRECTORY: Path | None = None
 DEFAULT_REPLACE_ROOT: tuple[Path, Path] | None = None
 DEFAULT_ABSOLUTE_PATHS = False
 DEFAULT_OUTPUT: Path | None = None
-# Do not add a DEFAULT_WRITE toggle: only --write authorises creating a project.
-# Do not make the chargeable cold-storage mode an editable automatic default.
+DEFAULT_WRITE = False  # Set True to create a NEW output project; existing files remain protected
+DEFAULT_CONSOLE_LOG_LEVEL: str | None = None  # None: retain Loguru's configured verbosity
+DEFAULT_NO_PAUSE = False  # Set True for non-interactive execution
+
+# A cold-storage ping can cause retrieval delays/charges. Choose it deliberately
+# in DEFAULT_AUDIT_MODE or on the CLI; the shipped default is existence-only.
 
 import argparse
 import os
@@ -184,7 +191,7 @@ def main(
     replace_root: tuple[Path, Path] | None = DEFAULT_REPLACE_ROOT,
     absolute_paths: bool = DEFAULT_ABSOLUTE_PATHS,
     output_path: Path | None = DEFAULT_OUTPUT,
-    write: bool = False,
+    write: bool = DEFAULT_WRITE,
 ) -> int:
     """Audit or plan repairs; return 0 on success, 1 for invalid or inaccessible inputs."""
     directory = (working_directory if working_directory is not None else DEFAULT_WORKING_DIR).absolute()
@@ -245,6 +252,16 @@ def _parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {WRAPPER_VERSION}")
     add_execution_cli_arguments(parser)
+    # The shared --no-pause switch defaults to False; use None here so an
+    # edited DEFAULT_NO_PAUSE can be distinguished from a CLI override.
+    parser.set_defaults(no_pause=None)
+    parser.add_argument(
+        "--pause",
+        dest="no_pause",
+        action="store_false",
+        default=None,
+        help="Allow interactive completion, overriding DEFAULT_NO_PAUSE=True.",
+    )
     parser.add_argument("--project", type=Path, help="One QGS/QGZ project (required for path repair).")
     parser.add_argument(
         "--mode",
@@ -286,17 +303,21 @@ def _parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--output", type=Path, help="New output project path; existing files are never overwritten.")
     parser.add_argument(
         "--write",
-        action="store_true",
-        help="Create an explicitly named new project copy; no file is written without this flag.",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Create a new output project; --no-write overrides DEFAULT_WRITE=True.",
     )
     return parser.parse_args(argv)
 
 
 if __name__ == "__main__":
     args = _parse_cli_arguments()
-    if args.console_log_level:
+    console_log_level = (
+        args.console_log_level if args.console_log_level is not None else DEFAULT_CONSOLE_LOG_LEVEL
+    )
+    if console_log_level is not None:
         logger.remove()
-        logger.add(sys.stderr, level=args.console_log_level.upper())
+        logger.add(sys.stderr, level=console_log_level.upper())
 
     result = main(
         working_directory=args.working_directory,
@@ -312,9 +333,10 @@ if __name__ == "__main__":
         ),
         absolute_paths=args.absolute_paths if args.absolute_paths is not None else DEFAULT_ABSOLUTE_PATHS,
         output_path=args.output if args.output is not None else DEFAULT_OUTPUT,
-        write=args.write,
+        write=args.write if args.write is not None else DEFAULT_WRITE,
     )
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
-    if not getattr(args, "no_pause", False):
+    no_pause = args.no_pause if args.no_pause is not None else DEFAULT_NO_PAUSE
+    if not no_pause:
         pause_console()
     raise SystemExit(result)

@@ -70,8 +70,12 @@ are removed alongside their `.gitmodules` entries; do not reintroduce them or lo
   for both maintained standalone scripts and library-backed wrappers: clear
   purpose/version, editable settings, CLI precedence, safe defaults, diagnostics,
   exit codes, path handling and proportionate verification.
-- Keep project paths, filename prefixes, input globs, output templates and
-  frequently edited settings near the top of the human-facing entry point.
+- Expose **every user-facing operational CLI option** as a top-level,
+  user-editable `DEFAULT_*` setting in maintained scripts and wrappers,
+  including paths, selection, modes, output/write, console logging and pause.
+  CLI flags override those defaults (including explicit `False`/`0`).
+  Ship safe defaults; an intentional edit may opt into chargeable operations
+  but may not bypass file-overwrite protections or independent confirmations.
 - A self-contained script may keep its processing in guarded `main()` with local
   helpers; **a library-backed wrapper does not require an orchestrator**.
 - Put genuinely reusable processing and validation in `ryan_library/functions`

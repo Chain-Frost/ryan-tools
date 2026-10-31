@@ -83,39 +83,48 @@ contents are unchanged; the embedded revision is stable and reviewable.
 
 ## Editable defaults
 
-Keep project paths, search patterns, output templates and frequently adjusted
-settings together near the top of the file. Use uppercase names and explicit
-types where useful. A user must be able to configure an ordinary wrapper run by
-editing these constants instead of supplying command-line arguments. CLI values
-are optional overrides: resolve an explicitly supplied CLI value first, then
-fall back to the corresponding editable default.
+**Every user-facing operational option** in a maintained wrapper must have
+a corresponding user-editable `DEFAULT_*` constant near the top of its file.
+This includes paths, input selection, modes, thresholds, output destinations,
+write/dry-run flags, logging levels, and pause/headless behaviour, not only
+frequently changed settings. A normal run must be configurable by editing
+these constants without requiring CLI arguments. Built-in `--help` and
+`--version` are not operational settings and do not need defaults.
 
-Do not put the editable value only in `argparse`'s `default=` parameter. Keep
-the visible `DEFAULT_*` constant as the source of the wrapper configuration and
-normally let the CLI option default to `None`, preserving the distinction
-between "not supplied" and an explicit false, zero or empty value:
+An explicitly supplied CLI argument always overrides the corresponding
+`DEFAULT_*` constant; otherwise use the editable value. Do not bury defaults
+inside `argparse` or behind unrelated configuration files. Use `None` as the
+parser's value when an option is omitted, especially for booleans and zero:
+`--write`/`--no-write` must be able to override a changed `DEFAULT_WRITE`
+in either direction.
 
 ```python
-DEFAULT_INPUT = Path(".")
+DEFAULT_INPUT = Path()
 DEFAULT_RECURSIVE = False
+DEFAULT_WRITE = False
 
 parser.add_argument("--input", type=Path)
 parser.add_argument("--recursive", action=argparse.BooleanOptionalAction, default=None)
+parser.add_argument("--write", action=argparse.BooleanOptionalAction, default=None)
 
-input_path = Path(args.input if args.input is not None else DEFAULT_INPUT).absolute()
+input_path = (args.input if args.input is not None else DEFAULT_INPUT).absolute()
 recursive = args.recursive if args.recursive is not None else DEFAULT_RECURSIVE
+write = args.write if args.write is not None else DEFAULT_WRITE
 ```
 
-Avoid required positional or optional CLI arguments for values that are
-reasonable editable wrapper settings. A required CLI argument is appropriate
-only when there is no safe or meaningful hard-coded default, such as a secret,
-a one-off destructive confirmation or input that must be chosen for every run.
+For shared CLI helpers whose parser defaults cannot distinguish omission,
+adapt the local parser or add an opposite override (e.g. `--pause` when the
+shared helper defines `--no-pause`). Keep the shared helper's other callers
+unchanged. Avoid requiring CLI inputs that have reasonable editable defaults;
+one-time secrets and typed destructive confirmations are not normal defaults.
 
-**Safety exception:** an editable `DEFAULT_WRITE = True` or similar must
-not silently enable replacement, deletion, external execution or chargeable
-network retrieval. Keep such operations behind explicit actions or opt-in
-modes. Read-only or preview defaults must be safe even when no CLI arguments
-are supplied.
+**Safe shipped values, deliberate user overrides:** commit preview/read-only
+and non-chargeable defaults (`DEFAULT_WRITE = False`,
+`DEFAULT_AUDIT_MODE = "existence"`, etc.). An intentional edit to a visible
+default or an explicit CLI switch may select writing or a costly operation.
+Both paths must be supported; do not hide the option from the editable block.
+Keep non-overwrite guarantees, dry-run/preview behaviour and any separate
+confirmation required for destructive actions intact.
 
 Keep cosmetic or highly specific terminal preferences (such as dashboard alternate-screen rendering options) as editable wrapper constants rather than shared CLI arguments. This prevents cluttering the ``--help`` menu across multiple unrelated scripts with rendering flags that users rarely change per execution.
 

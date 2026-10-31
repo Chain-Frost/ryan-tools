@@ -105,6 +105,17 @@ For example, a project-specific TUFLOW filename pattern belongs in the script;
 a generic source-path resolver is a shared function; combining many independent
 model runs into a reusable pipeline may justify an orchestrator.
 
+### Editable configuration for maintained entry points
+
+The [common maintained-script standard](../ryan-scripts/README.md#shared-principles-for-maintained-scripts-and-wrappers)
+requires **every operational CLI option** to have a user-editable default at
+the top of a maintained script or wrapper, including low-frequency settings,
+write/dry-run, expensive modes, logging and pausing. These are user-owned
+entry-point settings, not orchestrator responsibilities. CLI overrides take
+precedence even when explicitly set to `False` or `0`. Shipped values
+remain safe; a deliberate edit may opt into costly behaviour without bypassing
+file protection or independent confirmation.
+
 ### MCP discovery assessment
 
 When adding or materially changing supported reusable automation, consider whether an AI agent should discover it

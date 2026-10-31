@@ -36,24 +36,27 @@ experimental, vendored or versioned legacy files solely because they exist.
    (`YYYY-MM-DD.N`) near the top; identify the actual script/version when run,
    without relying on file modification times. An argparse `--version` is useful.
    Library-backed wrappers report both script and installed `ryan-tools` versions.
-2. **Discoverable editable settings:** keep frequently changed `DEFAULT_*`
-   values, such as paths, modes and filenames, immediately after minimal imports
-   near the top. Ordinarily place the module docstring, future annotations,
-   minimal imports, version and defaults before operational imports.
-   CLI values override editable defaults. Use `None` as the CLI parser's
-   unspecified value when an explicit `False`, `0` or empty value must be
-   distinguishable from no override.
+2. **Complete editable configuration:** expose **every operational CLI
+   option** as a visible `DEFAULT_*` constant near the top, including
+   modes, paths, output/write controls, logging and pause behaviour. This
+   is mandatory for maintained standalone scripts as well as wrappers.
+   CLI arguments override the editable defaults in either direction;
+   parser omission must remain distinguishable from an explicit `False`,
+   `0` or empty value. Built-in `--help` and `--version` are exempt.
+   Put the module docstring, minimal imports, version and defaults before
+   operational imports wherever practical.
 3. **Clear process boundary:** use a guarded `if __name__ == "__main__"` and
    callable `main()` rather than performing filesystem work on import.
    For command-line scripts provide `--help` and meaningful exit codes:
    `0` success, `1` failed processing/validation, `2` malformed arguments.
    Scripts that may pause must provide a headless/no-pause path; never make
    noninteractive automation wait for user input.
-4. **Safe and explicit operations:** preview/dry-run where appropriate.
-   Existing source files are protected by default; replacement, deletion,
-   external launches and potentially costly storage reads require an explicit
-   opt-in, not just an editable default accidentally set to an unsafe value.
-   Report partial failures without pretending successful completion.
+4. **Safe and explicit operations:** ship read-only, preview and non-chargeable
+   defaults. Allow a deliberate user edit to an exposed `DEFAULT_*` constant,
+   or a CLI override, to opt into writing or costly storage retrieval.
+   Preserve required output paths, non-overwrite protection, optional dry-runs
+   and independent confirmations for destructive operations; a configured
+   default must not bypass those safeguards. Report partial failures clearly.
 5. **File paths and data integrity:** resolve relative inputs against the
    intended base before changing the working directory; use `Path.absolute()`
    for normal display and mapped-drive/UNC preservation. Use `Path.resolve()`
@@ -104,10 +107,11 @@ loading referenced geospatial datasets. It has **two explicit audit modes**:
 - `--mode existence` (default): check local source-file existence using
   filesystem metadata; **do not open or read their contents**. Network
   metadata requests may still occur.
-- `--mode cold-storage-ping` (opt-in): open each distinct local source file
-  and request one byte using an unbuffered read, to prompt tiered network
-  storage to rehydrate data. This can be slow or incur retrieval charges.
-  Empty files cannot provide a byte; results depend on storage-server behaviour.
+- `--mode cold-storage-ping` or `DEFAULT_AUDIT_MODE = "cold-storage-ping"`
+  (opt-in): open each distinct local source file and request one byte using
+  an unbuffered read, to prompt tiered network storage to rehydrate data.
+  This can be slow or incur retrieval charges. Empty files cannot provide
+  a byte; results depend on storage-server behaviour.
 
 ```powershell
 python .\ryan-scripts\other\audit_qgis_projects.py --working-directory "Q:\Project\GIS" --mode existence --no-pause
@@ -118,7 +122,9 @@ python .\ryan-scripts\other\audit_qgis_projects.py --project "Q:\New\GIS\Model.q
 ```
 
 Path repair is separate from cold-storage ping and is preview-only unless
-`--write` and a **new** `--output` file are both provided. If the output
+writing is enabled by `DEFAULT_WRITE = True` or `--write`, **and** a new output
+project is selected via `DEFAULT_OUTPUT` or `--output`. CLI `--no-write`
+can override the editable write setting. If the output
 project is in a different directory, relative data-source paths are calculated
 against the **output** project's directory, in both previews and writes.
 Where Windows source and destination drives differ, an absolute source path
