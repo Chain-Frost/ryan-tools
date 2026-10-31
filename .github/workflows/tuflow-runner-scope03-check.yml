@@ -56,7 +56,7 @@ jobs:
           $wheel = (Get-ChildItem dist/*.whl | Select-Object -First 1).FullName
           python -m pip install --no-deps --force-reinstall $wheel
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Copied wrapper outside checkout: help and export-only (no solver)
+      - name: "Copied wrapper outside checkout - help and export-only (no solver)"
         shell: pwsh
         run: |
           $target = Join-Path $env:RUNNER_TEMP "scope03-copied"
