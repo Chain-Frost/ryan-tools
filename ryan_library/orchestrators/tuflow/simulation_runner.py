@@ -45,6 +45,10 @@ _ENGINE = frozenset({"-b", "-x", "-t", "-nlc"})
 type RunMode = Literal["parameter_product", "textfiles", "both"]
 
 
+def _empty_run_variables() -> dict[str, str | Sequence[str]]:
+    return {}
+
+
 @dataclass(frozen=True, slots=True)
 class RunnerSettings:
     """Effective settings supplied by the human-editable Python wrapper.
@@ -59,7 +63,7 @@ class RunnerSettings:
     working_directory: Path
     executable: Path
     tcf: Path | None
-    run_variables: Mapping[str, str | Sequence[str]] = field(default_factory=lambda: dict[str, str | Sequence[str]]())
+    run_variables: Mapping[str, str | Sequence[str]] = field(default_factory=_empty_run_variables)
     input_files: tuple[Path, ...] = ()
     mode: RunMode = "parameter_product"
     batch_commands: str = "-b"
