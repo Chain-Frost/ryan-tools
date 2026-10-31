@@ -69,11 +69,16 @@ def _inspect_database(
         ).fetchall()
         for (name,) in names:
             identifier = _quoted_identifier(str(name))
-            columns = tuple(str(row[1]) for row in db.execute(f"PRAGMA table_info({identifier})"))
-            count = int(db.execute(f"SELECT count(*) FROM {identifier}").fetchone()[0])
+            columns = tuple(
+                str(row[1]) for row in db.execute(f"PRAGMA table_info({identifier})")  # noqa: S608
+            )
+            result = db.execute(f"SELECT count(*) FROM {identifier}").fetchone()  # noqa: S608 - quoted SQLite name
+            if result is None:
+                raise ValueError(f"Could not count rows in SQLite table {name}")
+            count = int(result[0])
             rows: tuple[tuple[str, ...], ...] = ()
             if sample_rows:
-                values = db.execute(f"SELECT * FROM {identifier} LIMIT ?", (sample_rows,)).fetchall()
+                values = db.execute(f"SELECT * FROM {identifier} LIMIT ?", (sample_rows,)).fetchall()  # noqa: S608
                 rows = tuple(tuple(_display_value(value) for value in row) for row in values)
             tables.append(
                 AuxiliaryTable(
@@ -87,12 +92,42 @@ def _inspect_database(
     return AuxiliarySummary(location=location, size_bytes=file_path.stat().st_size, tables=tuple(tables))
 
 
-def inspect_auxiliary_storage(project_path: Path, *, sample_rows: int = 0) -> AuxiliarySummary | None:
-    """Summarise the .qgd attached to a project; return None when it is absent.
 
-    QGIS commonly names auxiliary tables after the layer ID from the project
-    XML. Unrecognised tables are still reported, without inventing an owner.
-    Reading samples is opt-in and capped to five rows per table.
+def _inspect_embedded_qgd(
+    project_path: Path, layer_names: dict[str, str], sample_rows: int
+) -> AuxiliarySummary | None:
+    with ZipFile(project_path) as archive:
+        members = [info for info in archive.infolist() if info.filename.lower().endswith(".qgd")]
+        if not members:
+            return None
+        if len(members) != 1:
+            raise ValueError(f"Expected at most one QGD in {project_path}, found {len(members)}")
+        member = members[0]
+        if member.file_size > _MAX_EMBEDDED_QGD_BYTES:
+            raise ValueError(f"Embedded QGD is over the inspection limit: {member.file_size} bytes")
+        with TemporaryDirectory(prefix="qgis_qgd_inspect_") as temporary:
+            copy = Path(temporary) / "auxiliary.qgd"
+            with archive.open(member) as src, copy.open("xb") as dest:
+                copied = 0
+                while chunk := src.read(min(1024 * 1024, _MAX_EMBEDDED_QGD_BYTES - copied + 1)):
+                    copied += len(chunk)
+                    if copied > _MAX_EMBEDDED_QGD_BYTES:
+                        raise ValueError("Embedded QGD exceeds the inspection limit")
+                    dest.write(chunk)
+            return _inspect_database(
+                copy,
+                location=f"{project_path}!{member.filename}",
+                layer_names=layer_names,
+                sample_rows=sample_rows,
+            )
+
+
+def inspect_auxiliary_storage(project_path: Path, *, sample_rows: int = 0) -> AuxiliarySummary | None:
+    """Summarise a QGD beside a QGS, embedded in a QGZ, or supplied directly.
+
+    Table names matching project layer IDs identify the corresponding QGIS
+    layer. Unrecognised tables are reported without guessing. Samples are
+    explicitly opt-in and bounded to five records per table.
     """
     if not 0 <= sample_rows <= 5:
         raise ValueError("sample_rows must be between 0 and 5")
@@ -122,29 +157,5 @@ def inspect_auxiliary_storage(project_path: Path, *, sample_rows: int = 0) -> Au
         )
 
     if suffix == ".qgz":
-        with ZipFile(project_path) as archive:
-            members = [info for info in archive.infolist() if info.filename.lower().endswith(".qgd")]
-            if not members:
-                return None
-            if len(members) != 1:
-                raise ValueError(f"Expected at most one QGD in {project_path}, found {len(members)}")
-            member = members[0]
-            if member.file_size > _MAX_EMBEDDED_QGD_BYTES:
-                raise ValueError(f"Embedded QGD is over the inspection limit: {member.file_size} bytes")
-            with TemporaryDirectory(prefix="qgis_qgd_inspect_") as temporary:
-                copy = Path(temporary) / "auxiliary.qgd"
-                with archive.open(member) as src, copy.open("xb") as dest:
-                    copied = 0
-                    while chunk := src.read(min(1024 * 1024, _MAX_EMBEDDED_QGD_BYTES - copied + 1)):
-                        copied += len(chunk)
-                        if copied > _MAX_EMBEDDED_QGD_BYTES:
-                            raise ValueError("Embedded QGD exceeds the inspection limit")
-                        dest.write(chunk)
-                return _inspect_database(
-                    copy,
-                    location=f"{project_path}!{member.filename}",
-                    layer_names=layer_names,
-                    sample_rows=sample_rows,
-                )
-
+        return _inspect_embedded_qgd(project_path, layer_names, sample_rows)
     raise ValueError(f"Not a QGS, QGZ or QGD file: {project_path}")
