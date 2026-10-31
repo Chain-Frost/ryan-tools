@@ -1,4 +1,4 @@
-# Temporary child-branch formatter; remove after the scoped one-time run.
+# Temporary child-branch formatter; final scoped formatting pass before deletion.
 name: Scope 04 branch-local format
 
 on:
