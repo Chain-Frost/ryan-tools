@@ -158,7 +158,7 @@ def test_termination_ignores_unreachable_tail(ending: str) -> None:
         "-e1 A -e1 B",
         "-e1",
         "-e1 -s1 EXG",
-        '-e1 A B',
+        "-e1 A B",
         "-e1 A one.tcf two.tcf",
         "cd D:\\other\n-e1 A",
         "popd\n-e1 A",
@@ -316,7 +316,7 @@ def test_python_tcf_fallback_uses_configuration_base_not_changed_directory() -> 
     source = PureWindowsPath(r"T:\\project\\launcher\\runs.bat")
     base = PureWindowsPath(r"T:\\python")
     plan = parse_command_plan(
-        "cd /d T:\\\\python\n-e1 A\nSTART /D T:\\\\python \"\" TUFLOW.exe model.tcf",
+        'cd /d T:\\\\python\n-e1 A\nSTART /D T:\\\\python "" TUFLOW.exe model.tcf',
         source=source,
         initial_directory=CWD,
         configuration_directory=base,
@@ -337,8 +337,7 @@ def test_python_tcf_fallback_uses_configuration_base_not_changed_directory() -> 
 
 def test_overwritten_assignments_and_disabled_rows_do_not_conflict() -> None:
     plan = parse(
-        "set TCF=unused.tcf\nset TCF=good.tcf\nrem TUFLOW.exe bad.tcf\n"
-        "set TCF_05=other.tcf\n-e1 A\n@rem -e1 B bad.tcf",
+        "set TCF=unused.tcf\nset TCF=good.tcf\nrem TUFLOW.exe bad.tcf\nset TCF_05=other.tcf\n-e1 A\n@rem -e1 B bad.tcf",
         fallback_tcf="good.tcf",
     )
     assert len(plan.runs) == 1
@@ -378,9 +377,7 @@ def test_separate_files_must_not_leak_tcf_or_cd(tmp_path: Path) -> None:
         ("TUFLOW.exe -e1 B", "No effective TCF"),
     ],
 )
-def test_late_input_error_raises_without_a_partial_plan(
-    tmp_path: Path, late_text: str, match: str
-) -> None:
+def test_late_input_error_raises_without_a_partial_plan(tmp_path: Path, late_text: str, match: str) -> None:
     first = tmp_path / "first.bat"
     second = tmp_path / "second.bat"
     first.write_text("TUFLOW.exe good.tcf", encoding="utf-8")
@@ -397,7 +394,7 @@ def test_missing_or_undecodable_late_file_fails_with_source(tmp_path: Path) -> N
     with pytest.raises(CommandPlanError, match="Cannot read or decode"):
         read_command_plans((first, other), initial_directory=tmp_path)
     other.unlink()
-    with pytest.raises(CommandPlanError, match="b.bat.*Cannot read or decode"):
+    with pytest.raises(CommandPlanError, match=r"b\.bat.*Cannot read or decode"):
         read_command_plans((first, other), initial_directory=tmp_path)
 
 
