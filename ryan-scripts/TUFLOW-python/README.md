@@ -25,8 +25,9 @@ has an optional command-line override of its editable `CONTINUATION_MODE`:
   Append a `RESET` row to the existing CSV, then run every occurrence.
   Previously successful runs are not eligible to be skipped in the new cycle.
 
-For `my_batch.py`, the single history file is `my_batch_runs.csv` **beside
-the copied Python script**, not in any model working directory. It is an
+The single history CSV uses the supplying Python wrapper's filename stem
+followed by `_runs.csv`, **beside the copied wrapper**, not in any model
+working directory. It is an
 append-only schema-v1 `START` / `FINISH` / `RESET` record of observed
 process outcomes; it does not contain a reusable command plan. Normal startup
 retains the history, and only an incomplete trailing CSV fragment is repaired.
