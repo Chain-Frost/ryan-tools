@@ -491,10 +491,10 @@ def test_effective_executable_uses_source_or_explicit_fallback_base(tmp_path: Pa
 
 def test_deduplication_ignores_imported_executable_priority_engine_and_gpu() -> None:
     source = (
-        'TUFLOW.exe -b -pu0 -e1 A -s1 Main model.tcf\n'
-        'START /LOW /WAIT "" "C:\Tools\TUFLOW_iSP_w64.exe" -t -pu7 -s1 Main -e1 A model.tcf\n'
-        'TUFLOW.exe -b -e1 A -s1 Main -et1 model.tcf\n'
-        'TUFLOW.exe -b -e1 B -s1 Main model.tcf'
+        "TUFLOW.exe -b -pu0 -e1 A -s1 Main model.tcf\n"
+        'START /LOW /WAIT "" "C:\\Tools\\TUFLOW_iSP_w64.exe" -t -pu7 -s1 Main -e1 A model.tcf\n'
+        "TUFLOW.exe -b -e1 A -s1 Main -et1 model.tcf\n"
+        "TUFLOW.exe -b -e1 B -s1 Main model.tcf"
     )
     plan = parse(source)
     assert len(plan.runs) == 3

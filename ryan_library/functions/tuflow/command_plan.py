@@ -657,7 +657,9 @@ def parse_command_plan(
         message = f"{source}: No active simulation commands"
         raise CommandPlanError(message)
     _require_matching_tcf(reader.runs, python_tcf)
-    return deduplicate_plan(CommandPlan(source, tuple(reader.runs), tuple(reader.directories), reader.ignored, syntax, (source,)))
+    return deduplicate_plan(
+        CommandPlan(source, tuple(reader.runs), tuple(reader.directories), reader.ignored, syntax, (source,))
+    )
 
 
 def read_command_plan(

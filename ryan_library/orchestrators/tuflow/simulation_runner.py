@@ -288,12 +288,15 @@ def validate_launch_executable(plan: CommandPlan, settings: RunnerSettings) -> N
     remain usable without a solver. Refuse Windows batch/script launchers.
     """
     if not plan.runs:
-        raise CommandPlanError("No simulations were selected")
+        message = "No simulations were selected"
+        raise CommandPlanError(message)
     executable = Path(_executable(plan.runs[0], settings))
     if os.name == "nt" and executable.suffix.casefold() != ".exe":
-        raise CommandPlanError(f"Python TUFLOW_EXE must be an .exe, not a shell script: {executable}")
+        message = f"Python TUFLOW_EXE must be an .exe, not a shell script: {executable}"
+        raise CommandPlanError(message)
     if not executable.is_file():
-        raise CommandPlanError(f"Configured Python TUFLOW_EXE does not exist: {executable}")
+        message = f"Configured Python TUFLOW_EXE does not exist: {executable}"
+        raise CommandPlanError(message)
 
 
 def _command(run: PlannedRun, settings: RunnerSettings, group: tuple[str, ...]) -> list[str]:

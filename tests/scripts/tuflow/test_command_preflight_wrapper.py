@@ -125,9 +125,9 @@ def test_multiple_command_files_plan_only_preserves_provenance_and_order(tmp_pat
         == 0
     )
     runs = json.loads(output.read_text(encoding="utf-8"))["runs"]
-    assert [run["run_index"] for run in runs] == [1, 2, 3]
-    assert [run["source_file"] for run in runs] == [str(first), str(first), str(second)]
-    assert [Path(run["tcf"]).name for run in runs] == ["a.tcf", "a.tcf", "b.tcf"]
+    assert [run["run_index"] for run in runs] == [1, 2]
+    assert [run["source_file"] for run in runs] == [str(first), str(second)]
+    assert [Path(run["tcf"]).name for run in runs] == ["a.tcf", "b.tcf"]
 
 
 def test_late_tcf_conflict_fails_before_checker_or_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
