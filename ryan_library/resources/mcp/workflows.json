@@ -6,12 +6,13 @@
       "id": "audit_qgis_projects",
       "title": "Audit QGIS project sources",
       "domain": "qgis",
-      "purpose": "Scan QGIS project files and report missing local data sources.",
+      "purpose": "Read-only QGS/QGZ source audit without QGIS; CLI defaults to a one-byte open for cold-storage retrieval, while automated discovery recommends --exists-only.",
       "script": "ryan-scripts/other/audit_qgis_projects.py",
       "profile": "analysis",
       "mutation": "read_only",
       "lifecycle": "experimental",
       "headless_arguments": [
+        "--exists-only",
         "--no-pause"
       ]
     },
