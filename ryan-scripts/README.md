@@ -56,12 +56,14 @@ experimental, vendored or versioned legacy files solely because they exist.
    `0` success, `1` failed processing/validation, `2` malformed arguments.
    Scripts that may pause must provide a headless/no-pause path; never make
    noninteractive automation wait for user input.
-4. **Safe and explicit operations:** ship read-only, preview and non-chargeable
-   defaults. Allow a deliberate user edit to an exposed `DEFAULT_*` constant,
-   or a CLI override, to opt into writing or costly storage retrieval.
-   Preserve required output paths, non-overwrite protection, optional dry-runs
-   and independent confirmations for destructive operations; a configured
-   default must not bypass those safeguards. Report partial failures clearly.
+4. **Safe and explicit operations:** ship non-destructive, non-chargeable
+   defaults. Audits should be read-only; dedicated export/repair scripts may
+   create a **new, predictably named file by default** when an input is selected,
+   provided original files cannot be changed and existing outputs are never
+   overwritten. Offer an explicit preview/no-write override. Deletion,
+   in-place replacement, external execution and potentially chargeable retrieval
+   require a separate intentional opt-in. Preserve collision checks and
+   independent confirmations for destructive operations. Report failures clearly.
 5. **File paths and data integrity:** resolve relative inputs against the
    intended base before changing the working directory; use `Path.absolute()`
    for normal display and mapped-drive/UNC preservation. Use `Path.resolve()`
@@ -139,9 +141,9 @@ irrespective of any edited defaults in a copied wrapper.
 ## QGIS project path repair (separate script)
 
 [`other/repair_qgis_project_paths.py`](other/repair_qgis_project_paths.py)
-previews or writes a **new copy** of one QGS/QGZ project, changing only
-supported local source-file references. It is separately packaged and
-copyable, but is **not** automatically exposed as an MCP workflow.
+creates a **new QGS/QGZ copy by default** when source-path changes are needed,
+without altering the input project or referenced datasets. It is separately
+packaged and copyable, but is **not** exposed as an MCP workflow.
 The common processing functions remain in `ryan_library.functions.qgis_project`.
 
 - `--project` / `DEFAULT_PROJECT` selects the single source project.
@@ -151,20 +153,25 @@ The common processing functions remain in `ryan_library.functions.qgis_project`.
   no referenced data files are moved or modified.
 - `--absolute-paths` / `DEFAULT_ABSOLUTE_PATHS` controls whether the new
   references are absolute or relative to the **output** project's directory.
-- `--output` / `DEFAULT_OUTPUT` selects the destination project. Preview is
-  the default; `--write` or `DEFAULT_WRITE = True` creates a copy only if
-  an output is selected. `--no-write` overrides an edited write default.
-  Existing files cannot be overwritten.
+- `DEFAULT_WRITE = True` is the shipped default: write a **new** project
+  only when one or more source references change. `--no-write` or
+  `DEFAULT_WRITE = False` previews without writing.
+- `DEFAULT_OUTPUT = None` automatically names the copy
+  `Model_repaired.qgs` / `Model_repaired.qgz` **beside the input project**,
+  regardless of the working directory. `--output` or an edited
+  `DEFAULT_OUTPUT` selects another new file. Existing projects and QGD
+  companions are never overwritten; if the name already exists, the run
+  reports an error rather than silently incrementing or replacing it.
 
 ```powershell
-# Preview relative-path repair after moving a project.
-python .\ryan-scripts\other\repair_qgis_project_paths.py --project "Q:\New\GIS\Model.qgz" --old-project-directory "Q:\Old\GIS" --no-pause
+# Preview path repair without writing a file.
+python .\ryan-scripts\other\repair_qgis_project_paths.py --project "Q:\New\GIS\Model.qgz" --old-project-directory "Q:\Old\GIS" --no-write --no-pause
 
-# Preview old/new data-root remapping and the intended output directory.
+# Write a NEW project automatically at "Q:\New\GIS\Model_repaired.qgz".
+python .\ryan-scripts\other\repair_qgis_project_paths.py --project "Q:\New\GIS\Model.qgz" --replace-root "Q:\OldData" "Q:\NewData" --no-pause
+
+# Optionally choose another NEW output file; --write is unnecessary.
 python .\ryan-scripts\other\repair_qgis_project_paths.py --project "Q:\New\GIS\Model.qgz" --replace-root "Q:\OldData" "Q:\NewData" --output "Q:\New\GIS\Model_fixed.qgz" --no-pause
-
-# Write the reviewed changes to a NEW project, not the original.
-python .\ryan-scripts\other\repair_qgis_project_paths.py --project "Q:\New\GIS\Model.qgz" --replace-root "Q:\OldData" "Q:\NewData" --output "Q:\New\GIS\Model_fixed.qgz" --write --no-pause
 ```
 
 Both scripts provide user-editable `DEFAULT_*` settings and copy-ready

@@ -1,4 +1,4 @@
-"""Synthetic regressions for the separate, preview-first QGIS path-repair wrapper."""
+"""Synthetic regressions for safe, new-copy-by-default QGIS path repairs."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ class RepairMain(Protocol):
         replace_root: tuple[Path, Path] | None = None,
         absolute_paths: bool = False,
         output_path: Path | None = None,
-        write: bool = False,
+        write: bool = True,
     ) -> int: ...
 
 
@@ -104,13 +104,15 @@ def test_repair_cli_version_and_help(capsys: pytest.CaptureFixture[str]) -> None
     assert "usage:" in text
     assert "--replace-root" in text
     assert "--write" in text
-    assert "2026-10-31.1" in text
+    assert "--no-write" in text
+    assert "INPUT_repaired" in text
+    assert "2026-10-31.2" in text
 
 
-def test_repair_rejects_missing_project_and_output(tmp_path: Path) -> None:
+def test_repair_rejects_missing_project(tmp_path: Path) -> None:
     main, _ = _functions()
     assert main(working_directory=tmp_path) == 1
-    assert main(working_directory=tmp_path, project_path=Path("model.qgs"), write=True) == 1
+    assert main(working_directory=tmp_path, project_path=Path("model.qgs")) == 1
     assert main(working_directory=tmp_path / "missing", project_path=Path("model.qgs")) == 1
     assert not (tmp_path / "missing").exists()
 
@@ -139,6 +141,7 @@ def test_preview_then_copy_to_new_directory_preserves_data(
             project_path=project,
             replace_root=(old_dir / "old", data_dir),
             output_path=output,
+            write=False,
         )
         == 0
     )
@@ -191,9 +194,9 @@ def test_copied_repair_wrapper_defaults_and_no_write_override(tmp_path: Path, mo
         {
             "DEFAULT_PROJECT: Path | None = None": 'DEFAULT_PROJECT: Path | None = Path("model.qgs")',
             "DEFAULT_OUTPUT: Path | None = None": 'DEFAULT_OUTPUT: Path | None = Path("fixed.qgs")',
-            "DEFAULT_WRITE = False": "DEFAULT_WRITE = True",
         },
     )
+    assert namespace["DEFAULT_WRITE"] is True
     main = cast(RepairMain, namespace["main"])
     parse_args = cast(Callable[[list[str] | None], argparse.Namespace], namespace["_parse_cli_arguments"])
     monkeypatch.chdir(tmp_path)
@@ -204,3 +207,128 @@ def test_copied_repair_wrapper_defaults_and_no_write_override(tmp_path: Path, mo
     assert main(working_directory=tmp_path) == 0
     assert output.exists()
     assert project.read_bytes() == original
+
+@pytest.mark.parametrize("suffix", [".qgs", ".qgz"])
+def test_default_repair_writes_new_named_copy_and_refuses_repeat(
+    tmp_path: Path, suffix: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    project = tmp_path / f"model{suffix}"
+    _write_project(project, "./old/roads.gpkg|layername=roads")
+    source_bytes = project.read_bytes()
+    output = tmp_path / f"model_repaired{suffix}"
+    main, _ = _functions()
+    assert not output.exists()
+
+    assert (
+        main(
+            working_directory=tmp_path,
+            project_path=project,
+            replace_root=(tmp_path / "old", tmp_path / "new"),
+        )
+        == 0
+    )
+    assert output.is_file()
+    first_output_bytes = output.read_bytes()
+    assert project.read_bytes() == source_bytes
+    assert project_layer_sources(output)[0].uri == "./new/roads.gpkg|layername=roads"
+
+    # Repeated runs never overwrite the already-created copy.
+    assert (
+        main(
+            working_directory=tmp_path,
+            project_path=project,
+            replace_root=(tmp_path / "old", tmp_path / "new"),
+        )
+        == 1
+    )
+    assert output.read_bytes() == first_output_bytes
+    assert project.read_bytes() == source_bytes
+
+
+def test_default_no_output_option_rebases_in_input_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    source_dir = tmp_path / "models"
+    source_dir.mkdir()
+    project = source_dir / "model.qgs"
+    _write_project(project, "./old/roads.gpkg|layername=roads")
+    main, _ = _functions()
+
+    assert (
+        main(
+            working_directory=tmp_path,
+            project_path=Path("models/model.qgs"),
+            replace_root=(source_dir / "old", source_dir / "new"),
+        )
+        == 0
+    )
+    output = source_dir / "model_repaired.qgs"
+    assert output.exists()
+    assert not (tmp_path / "model_repaired.qgs").exists()
+
+
+def test_default_write_can_be_overridden_to_preview_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    project = tmp_path / "model.qgs"
+    _write_project(project, "./old/roads.gpkg|layername=roads")
+    original = project.read_bytes()
+    main, parse_args = _functions()
+    assert parse_args([]).write is None
+    assert parse_args(["--no-write"]).write is False
+
+    assert (
+        main(
+            working_directory=tmp_path,
+            project_path=project,
+            replace_root=(tmp_path / "old", tmp_path / "new"),
+            write=False,
+        )
+        == 0
+    )
+    assert not (tmp_path / "model_repaired.qgs").exists()
+    assert project.read_bytes() == original
+
+
+def test_default_copy_keeps_qgs_qgd_sidecar_unchanged(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    project = tmp_path / "model.qgs"
+    _write_project(project, "./old/roads.gpkg")
+    sidecar = tmp_path / "model.qgd"
+    sidecar.write_bytes(b"sample SQLite companion bytes")
+    original_bytes = project.read_bytes()
+    main, _ = _functions()
+
+    assert (
+        main(
+            working_directory=tmp_path,
+            project_path=project,
+            replace_root=(tmp_path / "old", tmp_path / "new"),
+        )
+        == 0
+    )
+    assert (tmp_path / "model_repaired.qgd").read_bytes() == sidecar.read_bytes()
+    assert project.read_bytes() == original_bytes
+    assert sidecar.read_bytes() == b"sample SQLite companion bytes"
+
+
+def test_default_output_qgd_collision_is_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    project = tmp_path / "model.qgs"
+    _write_project(project, "./old/roads.gpkg")
+    original = project.read_bytes()
+    project.with_suffix(".qgd").write_bytes(b"existing auxiliary")
+    reserved = tmp_path / "model_repaired.qgd"
+    reserved.write_bytes(b"do not replace")
+    main, _ = _functions()
+    assert (
+        main(
+            working_directory=tmp_path,
+            project_path=project,
+            replace_root=(tmp_path / "old", tmp_path / "new"),
+        )
+        == 1
+    )
+    assert reserved.read_bytes() == b"do not replace"
+    assert not (tmp_path / "model_repaired.qgs").exists()
+    assert project.read_bytes() == original
+

@@ -118,13 +118,15 @@ shared helper defines `--no-pause`). Keep the shared helper's other callers
 unchanged. Avoid requiring CLI inputs that have reasonable editable defaults;
 one-time secrets and typed destructive confirmations are not normal defaults.
 
-**Safe shipped values, deliberate user overrides:** commit preview/read-only
-and non-chargeable defaults (`DEFAULT_WRITE = False`,
-`DEFAULT_AUDIT_MODE = "existence"`, etc.). An intentional edit to a visible
-default or an explicit CLI switch may select writing or a costly operation.
-Both paths must be supported; do not hide the option from the editable block.
-Keep non-overwrite guarantees, dry-run/preview behaviour and any separate
-confirmation required for destructive actions intact.
+**Safe shipped values, deliberate user overrides:** ship non-destructive,
+non-chargeable defaults. An auditor normally starts read-only
+(`DEFAULT_AUDIT_MODE = "existence"`). A dedicated repair/export tool may use
+`DEFAULT_WRITE = True` to create a **new, automatically named output copy**
+when an input is selected, provided it never changes the input or overwrites
+any existing destination. Include an explicit `--no-write` or equivalent
+preview override. Deletion, in-place replacement, and chargeable retrieval
+still require deliberate opt-in. Keep safe exclusive-create, collision checks
+and any independent confirmations for destructive operations intact.
 
 ### Explain every editable option
 

@@ -1,25 +1,26 @@
-r"""Preview or write a repaired copy of one QGS/QGZ project's data-source paths.
+r"""Create a new repaired QGS/QGZ project copy without altering its original.
 
 This script remaps references inside QGS/QGZ projects without moving or reading
-the referenced raster/vector data. It requires an explicit project and previews
-changes by default. Writing requires a new output filename; existing project
-and companion QGD files are never overwritten. Relative references are rebased
+the referenced raster/vector data. It requires an explicit input project and
+writes a separate `<project>_repaired.qgs/.qgz` file by default, beside the
+original. Existing project and companion QGD files are never overwritten.
+Use --no-write to preview without writing. Relative references are rebased
 against the output project's folder. No QGIS installation is required.
 
 For source existence checks, cold-storage one-byte pings, or read-only QGD
 inspection, use the separate audit_qgis_projects.py script.
 
 Examples:
-  python repair_qgis_project_paths.py --project Moved.qgz --old-project-directory "Q:\Old\GIS" --no-pause
+  python repair_qgis_project_paths.py --project Moved.qgz --old-project-directory "Q:\Old\GIS" --no-write --no-pause
   python repair_qgis_project_paths.py --project Moved.qgz --replace-root "Q:\Old_Data" "Q:\New_Data" --no-pause
-  python repair_qgis_project_paths.py --project Moved.qgz --old-project-directory "Q:\Old\GIS" --output Fixed.qgz --write --no-pause
+  python repair_qgis_project_paths.py --project Moved.qgz --old-project-directory "Q:\Old\GIS" --output Fixed.qgz --no-pause
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-31.1"
+WRAPPER_VERSION = "2026-10-31.2"
 
 # All paths may be absolute or relative to DEFAULT_WORKING_DIR. Use raw Windows
 # strings such as Path(r"Q:\Project\GIS") or Path(r"\\server\share\GIS").
@@ -44,15 +45,16 @@ DEFAULT_REPLACE_ROOT: tuple[Path, Path] | None = None
 # absolute source paths (less portable). Example: True for fixed drive locations.
 DEFAULT_ABSOLUTE_PATHS = False
 
-# Proposed output .qgs/.qgz path. None means no copy can be written, only preview.
+# Optional custom output path. None automatically names the copy <project>_repaired.qgs/.qgz
+# BESIDE the selected input project, regardless of DEFAULT_WORKING_DIR.
 # For example, set to Path("Moved_fixed.qgz") or Path(r"Q:\Project\GIS\Fixed.qgs").
-# The folder must exist and the extension must match DEFAULT_PROJECT.
+# The output folder must exist and extension must match the input; existing files are protected.
 DEFAULT_OUTPUT: Path | None = None
 
-# False previews the proposed changes. True creates the NEW DEFAULT_OUTPUT copy,
-# provided a project and output are selected. No existing output is overwritten.
-# --write and --no-write override this setting on the CLI.
-DEFAULT_WRITE = False
+# True (shipped default): write a NEW output project only if at least one source
+# reference changes. False: preview without writing. Never modifies the input.
+# --no-write and --write override this setting on the CLI.
+DEFAULT_WRITE = True
 
 # None retains Loguru's console level; examples: "INFO", "DEBUG", "WARNING", "ERROR".
 DEFAULT_CONSOLE_LOG_LEVEL: str | None = None
@@ -87,22 +89,23 @@ def main(
     output_path: Path | None = DEFAULT_OUTPUT,
     write: bool = DEFAULT_WRITE,
 ) -> int:
-    """Preview or create a new QGIS project with repaired paths; return an exit code."""
+    """Create a separate repaired project by default, or preview with write=False."""
     directory = (working_directory if working_directory is not None else DEFAULT_WORKING_DIR).absolute()
     if project_path is None:
         logger.error("Path repair requires one --project (or an edited DEFAULT_PROJECT).")
         return 1
     project = (directory / project_path).absolute()
-    output = (directory / output_path).absolute() if output_path is not None else None
+    output = (
+        (directory / output_path).absolute()
+        if output_path is not None
+        else project.with_name(f"{project.stem}_repaired{project.suffix}")
+    )
     old_directory = (directory / old_project_directory).absolute() if old_project_directory is not None else None
     roots = (
         ((directory / replace_root[0]).absolute(), (directory / replace_root[1]).absolute())
         if replace_root is not None
         else None
     )
-    if write and output is None:
-        logger.error("Writing requires --output (or an edited DEFAULT_OUTPUT); preview remains available.")
-        return 1
     if not change_working_directory(target_dir=directory):
         return 1
 
@@ -119,9 +122,6 @@ def main(
             logger.info("Layer {}: {} -> {}", change.name or change.layer_id, change.old_uri, change.new_uri)
         logger.info("Planned {} path updates for {}", len(changes), project)
         if write and changes:
-            if output is None:
-                logger.error("Writing requires an output path")
-                return 1
             write_project_path_changes(project, output, changes)
             logger.success("Wrote repaired project copy to {}", output)
         elif write:
@@ -135,7 +135,7 @@ def main(
 def _parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse repair-only CLI arguments; None means use the matching DEFAULT_*."""
     parser = argparse.ArgumentParser(
-        description="Preview QGS/QGZ data-source path changes, or explicitly write a new project copy."
+        description="Create a NEW repaired QGS/QGZ copy by default; use --no-write to preview only."
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {WRAPPER_VERSION}")
     add_execution_cli_arguments(parser)
@@ -166,12 +166,16 @@ def _parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help="Write absolute instead of project-relative source references.",
     )
-    parser.add_argument("--output", type=Path, help="New QGS/QGZ copy path; existing files cannot be overwritten.")
+    parser.add_argument(
+        "--output",
+        type=Path,
+        help="New copy path (default: INPUT_repaired.qgs/.qgz beside input); existing files cannot be overwritten.",
+    )
     parser.add_argument(
         "--write",
         action=argparse.BooleanOptionalAction,
         default=None,
-        help="Create the new output copy; otherwise preview only.",
+        help="Write a new project copy by default; --no-write previews only.",
     )
     return parser.parse_args(argv)
 
