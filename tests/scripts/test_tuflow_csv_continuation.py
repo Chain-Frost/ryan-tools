@@ -12,7 +12,7 @@ from typing import Protocol, cast
 import pytest
 
 from ryan_library.functions.tuflow.command_plan import CommandPlan, PlannedRun
-from ryan_library.orchestrators.tuflow.simulation_runner import BatchOutcome, RunOutcome, RunnerSettings
+from ryan_library.orchestrators.tuflow.simulation_runner import BatchOutcome, RunnerSettings, RunOutcome
 
 
 class _Wrapper(Protocol):
@@ -134,8 +134,12 @@ def test_export_and_configuration_failures_do_not_change_csv(
 
     monkeypatch.setattr(module, "EXPORT_COMMANDS", False)
     missing = tmp_path / "missing.bat"
-    assert copied_wrapper.main(_args(tmp_path, "--run-mode", "all", "--mode", "textfiles",
-                                    "--no-tcf", "--input-file", str(missing))) == 1
+    assert (
+        copied_wrapper.main(
+            _args(tmp_path, "--run-mode", "all", "--mode", "textfiles", "--no-tcf", "--input-file", str(missing))
+        )
+        == 1
+    )
     assert path.read_bytes() == history
 
 

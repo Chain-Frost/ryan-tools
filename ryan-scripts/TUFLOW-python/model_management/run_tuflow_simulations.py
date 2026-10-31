@@ -74,13 +74,13 @@ from contextlib import contextmanager
 from datetime import datetime
 from threading import Event
 
-from ryan_library.functions.wrapper_utils import pause_console, print_wrapper_banner
 from ryan_library.functions.tuflow.execution_history import (
     CompletionSession,
     CsvExecutionLog,
     identify_runs,
     select_pending,
 )
+from ryan_library.functions.wrapper_utils import pause_console, print_wrapper_banner
 from ryan_library.orchestrators.tuflow.simulation_runner import (
     AdvisoryInputCheck,
     BatchOutcome,
@@ -109,7 +109,8 @@ def _arguments(argv: list[str] | None = None) -> argparse.Namespace:
     model.add_argument("--no-tcf", action="store_true", help="Allow multiple TCFs in imported commands.")
     parser.add_argument("--solver-exe", type=Path, help="Override the fallback TUFLOW executable.")
     parser.add_argument(
-        "--run-mode", choices=("resume", "all"),
+        "--run-mode",
+        choices=("resume", "all"),
         help="Resume (default) skips latest observed successes; all resets the CSV completion baseline.",
     )
     parser.add_argument(
@@ -235,12 +236,17 @@ def main(argv: list[str] | None = None) -> int:
             pending = select_pending(plan, identities, history.successful_keys())
             skipped = len(plan.runs) - len(pending.runs)
             if not pending.runs:
-                logger.info("Resume complete: all %d runs have observed successful finishes; no GPU scan or launch.", skipped)
+                logger.info(
+                    "Resume complete: all %d runs have observed successful finishes; no GPU scan or launch.", skipped
+                )
                 result = BatchOutcome((), ())
             else:
                 logger.info(
                     "%s: %d pending, %d confirmed successful runs skipped. History: %s",
-                    requested_mode.capitalize(), len(pending.runs), skipped, log_path,
+                    requested_mode.capitalize(),
+                    len(pending.runs),
+                    skipped,
+                    log_path,
                 )
                 session = CompletionSession(history, identities)
                 advisory = None

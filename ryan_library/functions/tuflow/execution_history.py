@@ -16,7 +16,7 @@ import posixpath
 import re
 import subprocess
 from dataclasses import dataclass, replace
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from io import FileIO, StringIO
 from pathlib import Path, PurePath, PureWindowsPath
 from typing import Protocol
@@ -132,8 +132,14 @@ def identify_runs(plan: CommandPlan, *, fallback_executable: Path, base_director
         executable = _effective_executable(run, fallback_executable, base_directory)
         flags, remaining = _canonical_arguments(run)
         payload = json.dumps(
-            ["tuflow-logical-v1", _normal_path(run.tcf), _normal_path(run.working_directory),
-             _normal_path(executable), flags, remaining],
+            [
+                "tuflow-logical-v1",
+                _normal_path(run.tcf),
+                _normal_path(run.working_directory),
+                _normal_path(executable),
+                flags,
+                remaining,
+            ],
             ensure_ascii=False,
             separators=(",", ":"),
         )
@@ -141,7 +147,10 @@ def identify_runs(plan: CommandPlan, *, fallback_executable: Path, base_director
         occurrences[payload] = ordinal
         key = hashlib.sha256(json.dumps([payload, ordinal], ensure_ascii=False).encode("utf-8")).hexdigest()
         identities[run.index] = RunIdentity(
-            key, executable, str(run.tcf), str(run.working_directory),
+            key,
+            executable,
+            str(run.tcf),
+            str(run.working_directory),
             subprocess.list2cmdline(list(run.arguments)),
         )
     return identities
@@ -157,7 +166,7 @@ def select_pending(
 
 
 def _timestamp() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="microseconds")
+    return datetime.now(UTC).isoformat(timespec="microseconds")
 
 
 def _parse_line(line: bytes, number: int) -> list[str]:
@@ -332,11 +341,7 @@ class CsvExecutionLog:
 
     def successful_keys(self) -> set[str]:
         """Only latest STARTs finished successfully since the last RESET count."""
-        return {
-            key
-            for key, attempt_id in self._latest.items()
-            if self._attempts[attempt_id].outcome == "SUCCESS"
-        }
+        return {key for key, attempt_id in self._latest.items() if self._attempts[attempt_id].outcome == "SUCCESS"}
 
     def reset(self) -> None:
         """Run all: persist a new baseline before any new attempt starts."""

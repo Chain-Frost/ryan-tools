@@ -215,7 +215,12 @@ def test_changed_model_inputs_change_identity_but_runtime_gpu_does_not(tmp_path:
     run = plan.runs[0]
     key = identify_runs(plan, fallback_executable=Path("fallback.exe"), base_directory=tmp_path)[1].key
     gpu_args = replace(run, arguments=("-pu4", *run.arguments[:-1], "-pu2", run.arguments[-1]))
-    assert identify_runs(replace(plan, runs=(gpu_args,)), fallback_executable=Path("fallback.exe"), base_directory=tmp_path)[1].key == key
+    assert (
+        identify_runs(
+            replace(plan, runs=(gpu_args,)), fallback_executable=Path("fallback.exe"), base_directory=tmp_path
+        )[1].key
+        == key
+    )
     changes = (
         replace(run, executable="other.exe"),
         replace(run, tcf=tmp_path / "another.tcf"),
@@ -223,21 +228,38 @@ def test_changed_model_inputs_change_identity_but_runtime_gpu_does_not(tmp_path:
         replace(run, arguments=("-et5", *run.arguments)),
     )
     for changed in changes:
-        changed_key = identify_runs(replace(plan, runs=(changed,)), fallback_executable=Path("fallback.exe"), base_directory=tmp_path)[1].key
+        changed_key = identify_runs(
+            replace(plan, runs=(changed,)), fallback_executable=Path("fallback.exe"), base_directory=tmp_path
+        )[1].key
         assert changed_key != key
 
 
 def test_windows_unc_and_switch_order_have_stable_identity() -> None:
     base = PureWindowsPath(r"Q:\Models")
     tcf = PureWindowsPath(r"\\server\share\models\flow.tcf")
-    common = dict(index=1, source=base / "list.bat", line_start=1, line_end=1,
-                  tcf=tcf, working_directory=base, executable=r"C:\TUFLOW\TUFLOW.exe")
-    first = PlannedRun(**common, flag_pairs=(("e1", "01p"), ("s1", "With Space")),
-                       arguments=("-b", "-e1", "01p", "-s1", "With Space", str(tcf)))
-    second = replace(first, tcf=PureWindowsPath(r"\\SERVER\SHARE\models\FLOW.tcf"),
-                     flag_pairs=(("s1", "With Space"), ("e1", "01p")),
-                     arguments=("-S1", "With Space", "-E1", "01p", "-B", str(tcf)))
+    common = dict(
+        index=1,
+        source=base / "list.bat",
+        line_start=1,
+        line_end=1,
+        tcf=tcf,
+        working_directory=base,
+        executable=r"C:\TUFLOW\TUFLOW.exe",
+    )
+    first = PlannedRun(
+        **common,
+        flag_pairs=(("e1", "01p"), ("s1", "With Space")),
+        arguments=("-b", "-e1", "01p", "-s1", "With Space", str(tcf)),
+    )
+    second = replace(
+        first,
+        tcf=PureWindowsPath(r"\\SERVER\SHARE\models\FLOW.tcf"),
+        flag_pairs=(("s1", "With Space"), ("e1", "01p")),
+        arguments=("-S1", "With Space", "-E1", "01p", "-B", str(tcf)),
+    )
+
     def signature(run: PlannedRun) -> str:
         plan = CommandPlan(base / "list.bat", (run,), (), 0, "commands")
         return identify_runs(plan, fallback_executable=Path("unused.exe"), base_directory=Path.cwd())[1].key
+
     assert signature(first) == signature(second)
