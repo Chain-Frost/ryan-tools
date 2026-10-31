@@ -2,18 +2,30 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active; consolidated draft PR #159, further runner/activity work planned |
+| Status | Planned implementation; agreed scope pack prepared, draft PR #159 |
 | Owner | ChatGPT |
 | Created / Updated | 2026-10-23 / 2026-10-31 |
-| Next review | 2026-11-07 or after integration CI completes |
+| Next review | 2026-11-07 or after scoped implementation delivery |
 | Pull request | [ryan-tools #159](https://github.com/Chain-Frost/ryan-tools/pull/159) |
 | Branch | `feat/tuflow-runner-model-checks` |
-| PR base | `main`; one eventual squash merge for one release |
+| PR base | `main`; main cleanup in #159, CSV/resume in a separate stacked PR |
 | Initial parent | `f4a214a4cd6260098c939ae6beb59a9ec6ef0945` |
 | Parent integration | `9cd839247c430dbd9a2ec4a7e2187f1e80cea91d` from #158, refreshed after its diagnostic implementation landed on that draft |
-| Merged consumer baseline | `bcc8e5c2fee78c706e2b89feb051cded5cf8d2c2` (PR #143, including #156) |
-| Merged parser baseline | `e162c04330d24c37bee3ade94479cc4602651060` (PyTUFLOW #12, including #13) |
-| Next action | Review consolidated-head CI, then implement the selected activity integration and runner improvements on this branch. |
+| Historical merged consumer baseline | `bcc8e5c2fee78c706e2b89feb051cded5cf8d2c2` (PR #143, including #156) |
+| Historical merged parser baseline | `e162c04330d24c37bee3ade94479cc4602651060` (PyTUFLOW #12, including #13) |
+| Next action | Assign scopes 01–03 and agree shared contracts; implement and validate #159, then review the CSV child separately. |
+
+## 2026-10-31 — agreed implementation scopes
+
+The owner completed the scope review. The [scope index](2026-10-31-tuflow-integration-scopes/00_scope_index.md) and its linked handoffs are the current implementation requirements. Scopes 01–03 belong in this PR; scope 04 is a separately reviewable CSV/resume PR stacked on the stable runner work; scope 05 is an independent PyTUFLOW raster-header contribution. Scope 06 defines integration acceptance.
+
+These decisions supersede incompatible instructions below to retain earlier parser backends or adapters, local raster-header validation, per-launch external GPU scans, or broad activity/CodeMeter monitoring. The current release consumes the public API from PyTUFLOW PR #17 at `05e35476c02d6d8ed17c83caf1cb0d185ce51d1b`; local raster-header checking is removed until supported upstream.
+
+Shared BAT/text plans must preserve multiple TCFs, per-run cwd/arguments and source order. A configured Python TCF must match every effective imported TCF; `None` permits multiple models. Conflicts stop preparation before validation, export or execution. The continuation child uses only the regenerated plan and one persistent wrapper-owned CSV, without a saved manifest or recovery scans.
+
+Preparation baseline: `c1e35230d16ef014305ba0c196e68768dd4eb7cd`; relevant runtime source remains the reviewed `74dc7b2b89cf5061019285e90be942d2f065712c`. This scope update changes documentation only. Runtime implementation and exact-candidate acceptance remain pending. The PyTUFLOW issue body is prepared in scope 05; the earlier posting attempt was rejected and no issue was created by this task.
+
+Next action: assign scopes 01–03, agree their shared plan/validation interfaces, implement and validate them on this integration workstream. Keep PR #159 draft. Do not merge or release. Earlier sections below retain historical progress and evidence rather than active conflicting requirements.
 
 ## 31 October 2026 - single release integration
 
