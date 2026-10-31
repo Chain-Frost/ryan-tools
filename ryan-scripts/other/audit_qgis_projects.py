@@ -57,7 +57,12 @@ from zipfile import BadZipFile, LargeZipFile
 from loguru import logger
 
 from ryan_library.functions.qgis_auxiliary import inspect_auxiliary_storage
-from ryan_library.functions.qgis_project import QgisAuditMode, local_source_path, probe_local_file, project_layer_sources
+from ryan_library.functions.qgis_project import (
+    QgisAuditMode,
+    local_source_path,
+    probe_local_file,
+    project_layer_sources,
+)
 from ryan_library.functions.wrapper_utils import (
     add_execution_cli_arguments,
     change_working_directory,
