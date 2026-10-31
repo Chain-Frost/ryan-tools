@@ -263,7 +263,7 @@ def check_simulation_inputs(  # noqa: C901 - fail-closed public result validatio
         io_workers=io_workers,
         maximum_directory_entries=maximum_directory_entries,
     )
-    result = cast(_BatchResult, api.validate_batch_inputs(model, structured, options=options))
+    result = cast(_BatchResult | None, api.validate_batch_inputs(model, structured, options=options))
 
     # A missing/malformed public result is a failure, never an empty success.
     if (
@@ -275,8 +275,8 @@ def check_simulation_inputs(  # noqa: C901 - fail-closed public result validatio
         message = "PyTUFLOW returned no complete batch validation result"
         raise ValueError(message)
     deps, physical = result.dependencies, result.validation
-    run_results = getattr(deps, "runs", None)
-    findings = getattr(physical, "findings", None)
+    run_results: Sequence[_DependencyRun] | None = getattr(deps, "runs", None)
+    findings: Sequence[_Finding] | None = getattr(physical, "findings", None)
     if not isinstance(run_results, (list, tuple)) or not isinstance(findings, (list, tuple)):
         message = "PyTUFLOW omitted batch run results or physical findings"
         raise ValueError(message)
@@ -284,8 +284,8 @@ def check_simulation_inputs(  # noqa: C901 - fail-closed public result validatio
     if _nonnegative_count(getattr(physical, "run_count", None), "run_count") != count:
         message = "PyTUFLOW returned an incomplete physical-validation run count"
         raise ValueError(message)
-    indices = [getattr(item, "index", None) for item in run_results]
-    if len(indices) != count or sorted(indices, key=str) != sorted(range(count), key=str):
+    indices: list[object] = [getattr(item, "index", None) for item in run_results]
+    if len(indices) != count or any(type(index) is not int for index in indices) or set(indices) != set(range(count)):
         message = "PyTUFLOW returned missing, duplicate or invalid batch run indices"
         raise ValueError(message)
     by_position = dict(enumerate(runs))
@@ -320,7 +320,7 @@ def check_simulation_inputs(  # noqa: C901 - fail-closed public result validatio
     if result.passed and report.issues:
         message = "PyTUFLOW reported a passing batch containing failed input findings"
         raise ValueError(message)
-    if not isinstance(getattr(deps, "passed", None), bool) or not isinstance(physical.passed, bool):
+    if not isinstance(getattr(deps, "passed", None), bool) or not isinstance(getattr(physical, "passed", None), bool):
         message = "PyTUFLOW omitted completeness status for dependencies or physical validation"
         raise ValueError(message)
     if result.passed != (deps.passed and physical.passed):
