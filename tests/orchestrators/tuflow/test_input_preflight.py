@@ -168,7 +168,7 @@ def test_incomplete_public_results_cannot_pass(
         input_preflight, "require_validation_api",
         lambda: SimpleNamespace(validate_batch_inputs=validate, options_factory=lambda **_kwargs: object()),
     )
-    with pytest.raises(ValueError, match="incomplete|missing|duplicate|invalid"):
+    with pytest.raises(ValueError, match=r"incomplete|missing|duplicate|invalid"):
         check_simulation_inputs(tmp_path / "model.tcf", [RunRequest(1, {}), RunRequest(2, {})])
 
 
