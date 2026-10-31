@@ -413,6 +413,41 @@ complete strict native archive and affected consumer checks, then obtain final-h
 hosted evidence. Do not waive findings or edit example data to make it pass.
 Next review is 2026-11-07 or upstream delivery, whichever comes first.
 
+#### Delivery and hosted receipt
+
+The regression was committed and pushed to #159 as
+`8c22ee7f779e5ca38039d0a34946c0fe8e3eb29f`. Publication retained all seven
+concurrent commits between the original baseline and `5c4d073a`, including the
+new deduplication/Python-owned launch implementation, not just the final docs.
+After that reconciliation, **109 inventory/planner tests pass**, with one inherited
+invalid-escape warning in `test_command_plan.py`; the new test's Ruff and strict
+Pyright checks remain clean. The full archive replay repeats the same eight
+findings in 25.56 seconds; evidence is at
+`E:\Github\pr159-rebased-example-reports-20261031`.
+
+[Hosted Windows run 41208998343](https://github.com/Chain-Frost/ryan-tools/actions/runs/41208998343)
+is terminal on PR head `8c22ee7f`. Both existing public-validation and incompatible-
+same-version jobs **pass**. The new archive job **fails as expected**, completes
+all 161 TCFs / 174 contexts, and uploads its issue CSVs, JSON and JUnit artifact.
+The downloaded JSON reproduces precisely the same eight findings and **153 TCFs /
+166 contexts passing**, with native Python 3.14.10 and installed parser 1.2.7 from
+the exact accepted `05e35476` archive. Its actual PR merge checkout is
+`be9efa8ed8d93ae02b986ae9433f796d09cc1364`; distinguish that from the PR head.
+The artifact is `tuflow-example-public-validation`; local receipt copy is
+`E:\Github\pr159-hosted-example-artifact-8c22`.
+
+Other checks on that head expose unrelated incoming runner changes: Fast PR checks
+report three exception-message lint errors in `simulation_runner.py` and two
+invalid Windows-path escapes in `test_command_plan.py`; the command-plan job
+reports an old duplicate-preserving wrapper assertion/formatting; CSV strict typing
+reports a ModuleType attribute assignment in `test_run_tuflow_simulations.py`.
+These do not originate in the regression patch and are not fixed or suppressed
+by this task. Subsequent concurrent commit `c301275b` changes pending-Resume solver
+checks and is preserved; earlier checks are not relabelled as its acceptance.
+Final-head overall #159 CI remains a separate review requirement. PyTUFLOW #60 has
+no hosted checks configured at the checked fix SHA; its evidence is local and
+installed-wheel validation only. Neither PR is merged and the parser pin is unchanged.
+
 ## Retired history
 
 The previous investigation material and detailed interim status are available
