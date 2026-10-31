@@ -98,11 +98,19 @@ def test_editable_settings_and_cli_precedence(
     monkeypatch.setattr(module, "USE_LIVE_DASHBOARD", True)
     monkeypatch.setattr(module, "LIVE_REFRESH_PER_SECOND", 1.0)
     monkeypatch.setattr(module, "WAIT_TIME_AFTER_RUN", 2.0)
-    args = module._arguments([
-        "--no-preflight", "--no-live-dashboard",
-        "--live-refresh-per-second", "0.5", "--launch-delay", "0",
-        "--working-directory", str(tmp_path), "--no-pause",
-    ])
+    args = module._arguments(
+        [
+            "--no-preflight",
+            "--no-live-dashboard",
+            "--live-refresh-per-second",
+            "0.5",
+            "--launch-delay",
+            "0",
+            "--working-directory",
+            str(tmp_path),
+            "--no-pause",
+        ]
+    )
     settings = module._settings(args)
     assert settings.use_live_dashboard is False
     assert settings.live_refresh_per_second == 0.5

@@ -169,18 +169,15 @@ def _settings(arguments: argparse.Namespace) -> RunnerSettings:
         gpu_devices=GPU_DEVICES,
         computational_priority=COMPUTATIONAL_PRIORITY,
         minimize_on_launch=MINIMIZE_ON_LAUNCH,
-        wait_time_after_run=(
-            arguments.launch_delay if arguments.launch_delay is not None else WAIT_TIME_AFTER_RUN
-        ),
-        use_live_dashboard=(
-            arguments.live_dashboard if arguments.live_dashboard is not None else USE_LIVE_DASHBOARD
-        ),
+        wait_time_after_run=(arguments.launch_delay if arguments.launch_delay is not None else WAIT_TIME_AFTER_RUN),
+        use_live_dashboard=(arguments.live_dashboard if arguments.live_dashboard is not None else USE_LIVE_DASHBOARD),
         live_refresh_per_second=(
             arguments.live_refresh_per_second
             if arguments.live_refresh_per_second is not None
             else LIVE_REFRESH_PER_SECOND
         ),
     )
+
 
 @contextmanager
 def _interruption_flag() -> Generator[Event]:
@@ -360,19 +357,27 @@ def _arguments(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--solver-exe", type=Path, help="Override TUFLOW_EXE.")
     parser.add_argument("--run-mode", choices=("resume", "all"), help="Resume successful runs or start a new baseline.")
     parser.add_argument(
-        "--preflight", action=argparse.BooleanOptionalAction, default=None,
+        "--preflight",
+        action=argparse.BooleanOptionalAction,
+        default=None,
         help="Enable/disable advisory background input checking during launches.",
     )
     operation = parser.add_mutually_exclusive_group()
-    operation.add_argument("--run-simulations", action="store_true", help="Launch solver processes (licence/output risk).")
+    operation.add_argument(
+        "--run-simulations", action="store_true", help="Launch solver processes (licence/output risk)."
+    )
     operation.add_argument("--preflight-only", action="store_true", help="Check inputs strictly; never launch.")
     operation.add_argument("--export-only", action="store_true", help="Write TXT commands without launching.")
     parser.add_argument(
-        "--export", action=argparse.BooleanOptionalAction, default=None,
+        "--export",
+        action=argparse.BooleanOptionalAction,
+        default=None,
         help="Enable/disable command TXT export during run/preflight.",
     )
     parser.add_argument(
-        "--live-dashboard", action=argparse.BooleanOptionalAction, default=None,
+        "--live-dashboard",
+        action=argparse.BooleanOptionalAction,
+        default=None,
         help="Enable/disable the live progress display.",
     )
     parser.add_argument("--live-refresh-per-second", type=float, help="Override dashboard refresh rate (>0).")
