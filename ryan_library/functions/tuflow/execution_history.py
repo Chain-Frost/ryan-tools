@@ -101,11 +101,12 @@ def _effective_executable(run: PlannedRun, fallback: Path, base: Path) -> str:
 
 
 def _canonical_arguments(run: PlannedRun) -> tuple[tuple[tuple[str, str], ...], tuple[str, ...]]:
-    """Sort known event/scenario switches without discarding their values."""
-    if not run.arguments or not run.arguments[-1].casefold().endswith(".tcf"):
-        msg = f"Run {run.index} lacks its final TCF argument"
-        raise ExecutionLogError(msg)
-    arguments = run.arguments[:-1]
+    """Canonicalize model arguments against the plan's effective TCF.
+
+    Bare rows can omit the TCF token; full commands may place it before
+    other switches. A scenario/event value ending in .tcf remains a value.
+    """
+    arguments = run.arguments
     flags: list[tuple[str, str]] = []
     remaining: list[str] = []
     position = 0
@@ -119,7 +120,7 @@ def _canonical_arguments(run: PlannedRun) -> tuple[tuple[tuple[str, str], ...], 
             flags.append((low[1:], arguments[position + 1]))
             position += 2
             continue
-        if not _GPU.fullmatch(token):
+        if not _GPU.fullmatch(token) and not (not token.startswith("-") and low.endswith(".tcf")):
             remaining.append(low if low in _ENGINE or _OTHER_SWITCH.fullmatch(token) else token)
         position += 1
     if dict(flags) != run.flags:
