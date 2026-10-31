@@ -33,6 +33,11 @@ class FakeReport:
     parse_seconds: float = 1.0
     context_seconds: float = 2.0
     inventory_seconds: float = 3.0
+    csv_headers_checked: int = 0
+    csv_column_selections_checked: int = 0
+    dependency_fragment_evaluations: int = 0
+    dependency_fragment_reuses: int = 0
+    dependency_fallback_runs: int = 0
 
 
 def outcome(runs: tuple[PlannedRun, ...], issues: Sequence[FakeIssue] = ()) -> FakeReport:
@@ -138,3 +143,32 @@ def test_interrupt_not_converted_to_passing_report(tmp_path: Path, monkeypatch: 
     monkeypatch.setattr(subject, "_check_group", interrupt)
     with pytest.raises(KeyboardInterrupt):
         subject.check_command_plan(plan(tmp_path))
+
+
+def test_file_only_checks_each_model_and_preserves_source_attribution(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[tuple[tuple[PlannedRun, ...], dict[str, object]]] = []
+
+    def checker(runs: tuple[PlannedRun, ...], **options: object) -> FakeReport:
+        calls.append((runs, options))
+        report = outcome(runs, [FakeIssue(runs[-1].index)])
+        report.csv_headers_checked = 1
+        report.csv_column_selections_checked = len(runs)
+        return report
+
+    monkeypatch.setattr(subject, "_check_group", checker)
+    report = subject.check_command_plan(plan(tmp_path), files_only=True, io_workers=2)
+    assert [[run.index for run in runs] for runs, _ in calls] == [[1, 3], [2]]
+    assert all(options["files_only"] is True and options["io_workers"] == 2 for _, options in calls)
+    assert report.completed_runs == 3
+    assert report.csv_headers_checked == 2
+    assert report.csv_column_selections_checked == 3
+    assert [issue.run.index for issue in report.issues] == [2, 3]
+    assert not report.passed
+
+
+@pytest.mark.parametrize("workers", [0, 33])
+def test_invalid_file_workers_fail_before_group_checks(tmp_path: Path, workers: int) -> None:
+    with pytest.raises(ValueError, match="io_workers"):
+        subject.check_command_plan(plan(tmp_path), files_only=True, io_workers=workers)

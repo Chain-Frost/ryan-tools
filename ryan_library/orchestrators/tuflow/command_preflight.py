@@ -39,6 +39,9 @@ class CommandPreflightReport:
     inventory_seconds: float = 0.0
     csv_headers_checked: int = 0
     csv_column_selections_checked: int = 0
+    dependency_fragment_evaluations: int = 0
+    dependency_fragment_reuses: int = 0
+    dependency_fallback_runs: int = 0
 
     @property
     def run_count(self) -> int:
@@ -111,7 +114,7 @@ def _check_group(
     # Keep planning/--plan-only independent of the PyTUFLOW/GIS import stack.
     from .input_preflight import RunRequest, check_batch_files, check_simulation_inputs
 
-    requests = [RunRequest(run.index, run.flags) for run in runs]
+    requests: list[RunRequest] = [RunRequest(run.index, run.flags) for run in runs]
     if files_only:
         return check_batch_files(
             _native_path(runs[0].tcf), requests, check_gpkg_layers=check_gpkg_layers, io_workers=io_workers
@@ -119,6 +122,15 @@ def _check_group(
     return check_simulation_inputs(
         _native_path(runs[0].tcf), requests, check_gpkg_layers=check_gpkg_layers, context_mode=context_mode
     )
+
+
+def _validate_options(*, context_mode: Literal["individual", "batch"], io_workers: int) -> None:
+    if not 1 <= io_workers <= 32:
+        message = "io_workers must be between 1 and 32"
+        raise ValueError(message)
+    if context_mode not in {"individual", "batch"}:
+        message = f"Unsupported input preflight context mode: {context_mode}"
+        raise ValueError(message)
 
 
 def check_command_plan(
@@ -137,11 +149,7 @@ def check_command_plan(
     Directory changes are modelled assuming success; an absent destination
     therefore fails closed instead of silently changing shell semantics.
     """
-    if not 1 <= io_workers <= 32:
-        raise ValueError("io_workers must be between 1 and 32")
-    if context_mode not in {"individual", "batch"}:
-        message = f"Unsupported input preflight context mode: {context_mode}"
-        raise ValueError(message)
+    _validate_options(context_mode=context_mode, io_workers=io_workers)
     if not plan.runs or [run.index for run in plan.runs] != list(range(1, len(plan.runs) + 1)):
         message = "Run plan must contain a complete sequential set of global indices"
         raise CommandPlanError(message)
@@ -163,8 +171,11 @@ def check_command_plan(
         try:
             if files_only:
                 report = _check_group(
-                    runs, check_gpkg_layers=check_gpkg_layers, context_mode=context_mode,
-                    files_only=True, io_workers=io_workers,
+                    runs,
+                    check_gpkg_layers=check_gpkg_layers,
+                    context_mode=context_mode,
+                    files_only=True,
+                    io_workers=io_workers,
                 )
             else:
                 report = _check_group(runs, check_gpkg_layers=check_gpkg_layers, context_mode=context_mode)
@@ -182,8 +193,12 @@ def check_command_plan(
             combined.parse_seconds += report.parse_seconds
             combined.context_seconds += report.context_seconds
             combined.inventory_seconds += report.inventory_seconds
-            combined.csv_headers_checked += report.csv_headers_checked
-            combined.csv_column_selections_checked += report.csv_column_selections_checked
+            if files_only:
+                combined.csv_headers_checked += report.csv_headers_checked
+                combined.csv_column_selections_checked += report.csv_column_selections_checked
+                combined.dependency_fragment_evaluations += report.dependency_fragment_evaluations
+                combined.dependency_fragment_reuses += report.dependency_fragment_reuses
+                combined.dependency_fallback_runs += report.dependency_fallback_runs
             combined.completed_runs += len(runs)
             combined.groups_checked += 1
         except Exception as exc:  # noqa: BLE001 - every group failure invalidates all its runs; other groups still checked

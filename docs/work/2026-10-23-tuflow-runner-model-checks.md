@@ -1,19 +1,48 @@
-# TUFLOW runner: background model checks and GPU warnings
+# TUFLOW input checking and runner integration
 
 | Field | Value |
 | --- | --- |
-| Status | Active; advisory implementation passes local focused validation, new-head CI pending |
+| Status | Active; consolidated draft PR #159, further runner/activity work planned |
 | Owner | ChatGPT |
-| Created / Updated | 2026-10-23 / 2026-10-25 |
-| Next review | 2026-11-01 or immediately after #158 lands |
+| Created / Updated | 2026-10-23 / 2026-10-31 |
+| Next review | 2026-11-07 or after integration CI completes |
 | Pull request | [ryan-tools #159](https://github.com/Chain-Frost/ryan-tools/pull/159) |
 | Branch | `feat/tuflow-runner-model-checks` |
-| PR base | `test/tuflow-streaming-io-overlap`, the branch for [ryan-tools #161](https://github.com/Chain-Frost/ryan-tools/pull/161) |
+| PR base | `main`; one eventual squash merge for one release |
 | Initial parent | `f4a214a4cd6260098c939ae6beb59a9ec6ef0945` |
 | Parent integration | `9cd839247c430dbd9a2ec4a7e2187f1e80cea91d` from #158, refreshed after its diagnostic implementation landed on that draft |
 | Merged consumer baseline | `bcc8e5c2fee78c706e2b89feb051cded5cf8d2c2` (PR #143, including #156) |
 | Merged parser baseline | `e162c04330d24c37bee3ade94479cc4602651060` (PyTUFLOW #12, including #13) |
-| Next action | Review exact-head hosted CI, perform native Windows validation, and merge #161 before restacking this runner on main. |
+| Next action | Review consolidated-head CI, then implement the selected activity integration and runner improvements on this branch. |
+
+## 31 October 2026 - single release integration
+
+The owner authorised consolidating related PRs, closing superseded PRs, and transferring the local input-wrapper annotation edit. This section supersedes earlier stack orders and separate-PR delivery instructions below. PR #159 is the authoritative integration PR against `main`; do not merge any component separately to main. Keep draft until the interrelated runner/activity work and final validation are complete. No merge or release is authorised now.
+
+Integrated source heads (retained in merge ancestry):
+
+- #161 batch/file/header consumer: `67bc0f17dff1d37636d1b35c5cda12c5736ee2a0`.
+- #160 stateful multi-TCF command planning: `3de0de8b5a8ec18be3b3700f7623818f690552c8`.
+- #159 advisory runner: `4dc4ba44c15f668c5dbb13c50374d3452afb5a32`.
+- #158 historical native benchmark: `3f51bb4d`; preserve [its evidence record](2026-10-23-tuflow-native-graph-benchmark.md) and original Git history. Retired graph runtime controls and tests remain removed. Historical evidence is not current-head acceptance.
+
+The standalone checker now uses the stateful command plan for both its default individual checks and explicit `--files-only` checks. File-only checks group by effective TCF/launch directory, preserve global run/source provenance, and retain bounded I/O settings and CSV-header/reuse counters. Report destinations remain exclusive-create. Header inspection counts sum group inspections, not globally deduplicated cross-TCF files.
+
+The owner's annotations are adapted to the combined implementation: typed wrapper options, exit code, report/output and grouped RunRequest list. The original single-TCF `combinations` list is replaced by the typed command plan. Preserve the original patch privately until transfer is verified; remove it from the main checkout only after the integrated branch is pushed.
+
+Reuse existing `tuflow_user_activity` and `codemeter` APIs for the requested future runner integration; retain `gpu_occupancy` for confirmed local live-process conflicts. No new activity/dashboard behaviour is implemented by this consolidation. The current published dependency remains `pytuflow>=1.2,<2`; unpublished PR C features stay explicit opt-ins and isolated CI pins are retained.
+
+Validation on Windows / normal Python 3.14.6, installed PyTUFLOW 1.2.6:
+
+- Focused planner/grouping/wrapper/advisory tests: **111 passed**.
+- Broader relevant preflight/adapter/header/planner/runner tests: **182 passed, 12 skipped, one warning**. Native h5py import printed DLL exception `0xc0000139` and a NumPy binary-compatibility warning. The skipped parser-dependent cases are not accepted native evidence; isolated pinned-parser CI and real Windows/GPU acceptance remain required.
+- Ruff check/format and strict Pyright pass for all 21 Python files changed against main.
+- Documentation default/index check and six explicit links-only checks pass.
+- Package build: `python repo-scripts/build_library.py --skip-pip` passes after initialising only the required QGIS resources. Built/verified ignored local wheel `26.10.31.1`, SHA-256 `87aaeca5dd3befdc12d573c17746be6fea2c68afa8214f641bc7a0c9f946556a`; version updated in pyproject.toml. No package installed or published. Initial missing-resource attempt failed transactionally without changing the declared version.
+- Hosted checks must run on the pushed consolidated head; historical checks do not cover the integration.
+- Original owner annotation patch privately backed up in the Windows temporary directory before transfer. No unrelated main-checkout edits may be removed.
+
+Delivery uses an isolated worktree, preserving other existing review worktrees and all unrelated state. PRs #158/#160/#161 may close only after their integrated source/evidence is pushed to #159 and its base is main. Their branches remain available. Final single squash merge/release requires a separate owner instruction.
 
 ## 29 October 2026 — PR C interface and stack correction
 

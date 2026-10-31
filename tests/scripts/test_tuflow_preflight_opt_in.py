@@ -50,12 +50,11 @@ def test_standalone_uses_established_checker_by_default(tmp_path: Path, monkeypa
         calls.append("fragment")
         return _Report()
 
-    def read_run_commands(_path: Path) -> list[dict[str, str]]:
-        return [{"s1": "DEV"}]
+    from ryan_library.orchestrators.tuflow import input_preflight
 
-    monkeypatch.setattr(module, "read_run_commands", read_run_commands)
-    monkeypatch.setattr(module, "check_simulation_inputs", established)
-    monkeypatch.setattr(module, "check_batch_files", fragment)
+    monkeypatch.setattr(input_preflight, "check_simulation_inputs", established)
+    monkeypatch.setattr(input_preflight, "check_batch_files", fragment)
+    (tmp_path / "runs.txt").write_text("-s1 DEV", encoding="utf-8")
 
     assert module.DEFAULT_FILES_ONLY is False
     options: dict[str, Any] = {
@@ -67,5 +66,6 @@ def test_standalone_uses_established_checker_by_default(tmp_path: Path, monkeypa
     assert module.main(**options) == 0
     assert calls == ["individual"]
 
+    options["report"] = tmp_path / "fragment-report.csv"
     assert module.main(**options, files_only=True) == 0
     assert calls == ["individual", "fragment"]

@@ -1,5 +1,8 @@
 # Native TUFLOW benchmark: explicit graph comparison
 
+**2026-10-31 delivery update:** Consolidated into [PR #159](https://github.com/Chain-Frost/ryan-tools/pull/159) for one eventual merge and release. The [integration record](2026-10-23-tuflow-runner-model-checks.md) owns current status, validation and next actions. This record retains detailed scope and historical evidence; earlier separate merge/stack instructions are superseded. No merge or release is authorised.
+
+
 | Field | Value |
 | --- | --- |
 | Status | Complete; frozen diagnostic and 480-run native four-mode baseline accepted; PR delivery remains open |

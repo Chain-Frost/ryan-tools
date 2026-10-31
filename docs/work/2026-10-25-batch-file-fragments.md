@@ -1,5 +1,8 @@
 # Batch file existence with immutable dependency fragments
 
+**2026-10-31 delivery update:** Consolidated into [PR #159](https://github.com/Chain-Frost/ryan-tools/pull/159) for one eventual merge and release. The [integration record](2026-10-23-tuflow-runner-model-checks.md) owns current status, validation and next actions. This record retains detailed scope and historical evidence; earlier separate merge/stack instructions are superseded. No merge or release is authorised.
+
+
 **29 October 2026 integration note:** The consumer's ordinary batch mode now calls `TCF.collect_file_dependencies()` from [curated PyTUFLOW PR C #50](https://github.com/Chain-Frost/PyTuflow/pull/50). The prior `collect_batch_dependencies()` and optional graph switches are not part of PR C. Existing benchmark results and their exact parser SHAs below are historical evidence, not results for the new PR C head. The separate per-run callback I/O pilot is not supported by PR C; the implementation, tests and workflow were removed from the consumer branch. Its old work record remains historical evidence, not PR C acceptance.
 
 

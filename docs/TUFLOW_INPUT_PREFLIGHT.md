@@ -433,3 +433,7 @@ The lower-level `check_simulation_inputs` API retains its default behaviour;
 `check_bc_headers=True` explicitly enables these checks there. Rapid mode always
 enables them. Reports expose `csv_headers_checked` and
 `csv_column_selections_checked`; the wrapper prints both counts.
+
+## Consolidated checker and runner development
+
+PR #159 owns the integrated work previously reviewed in #158, #160 and #161. The standalone checker retains stateful multi-TCF planning in default individual mode. Explicit `--files-only` uses the matching unpublished PR C batch capability per TCF/launch-directory group, with `--io-workers` controlling bounded unique-file I/O. `--plan-only` performs no dependency checks. CSV-header inspection and fragment-reuse counts sum group work; no cross-TCF cache is implied. See the [current integration record](work/2026-10-23-tuflow-runner-model-checks.md) for release gates and upcoming activity integration.

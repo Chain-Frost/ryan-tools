@@ -67,7 +67,11 @@ def main(
         print("Plan only: no model inputs, executables or preflight have been run.")
         return 0
     result: CommandPreflightReport = check_command_plan(
-        plan, check_gpkg_layers=check_gpkg_layers, context_mode=context_mode, files_only=files_only, io_workers=io_workers
+        plan,
+        check_gpkg_layers=check_gpkg_layers,
+        context_mode=context_mode,
+        files_only=files_only,
+        io_workers=io_workers,
     )
     output: Path = result.write_csv(report)
     print(
@@ -81,8 +85,13 @@ def main(
     )
     if files_only:
         print(
-            f"CSV headers: {result.csv_headers_checked} unique source file(s), "
+            f"CSV headers: {result.csv_headers_checked} source header inspection(s) across TCF groups, "
             f"{result.csv_column_selections_checked} run-specific column selection(s) checked"
+        )
+        print(
+            f"Dependency reuse: {result.dependency_fragment_evaluations} section evaluations, "
+            f"{result.dependency_fragment_reuses} reused sections, "
+            f"{result.dependency_fallback_runs} runs using the established evaluator"
         )
     print(f"Issues CSV: {output}")
     for issue in result.issues:
@@ -113,7 +122,9 @@ def _parse_arguments() -> argparse.Namespace:
     )
     parser.add_argument("--check-gpkg-layers", action=argparse.BooleanOptionalAction, default=None)
     parser.add_argument(
-        "--files-only", action=argparse.BooleanOptionalAction, default=DEFAULT_FILES_ONLY,
+        "--files-only",
+        action=argparse.BooleanOptionalAction,
+        default=DEFAULT_FILES_ONLY,
         help="Opt in to PR C batch file and BC CSV-header checks; requires the matching unpublished parser.",
     )
     parser.add_argument("--io-workers", type=int, default=DEFAULT_IO_WORKERS, help="Unique-file workers, 1-32.")

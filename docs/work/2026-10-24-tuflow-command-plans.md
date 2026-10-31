@@ -1,5 +1,8 @@
 # Stateful TUFLOW command plans and multi-TCF preflight
 
+**2026-10-31 delivery update:** Consolidated into [PR #159](https://github.com/Chain-Frost/ryan-tools/pull/159) for one eventual merge and release. The [integration record](2026-10-23-tuflow-runner-model-checks.md) owns current status, validation and next actions. This record retains detailed scope and historical evidence; earlier separate merge/stack instructions are superseded. No merge or release is authorised.
+
+
 **29 October 2026 — curated PR C integration:** Explicit `context_mode="batch"` now uses `TCF.collect_file_dependencies()` from [PyTuflow PR C #50](https://github.com/Chain-Frost/PyTuflow/pull/50). The parser's removed `collect_batch_dependencies()`/graph switches are not used for ordinary batch preflight. Each group retains its exact TCF, launch directory, flags and original command source-line provenance. This is not a cross-TCF cache or a released dependency; native acceptance and exact-head CI remain required.
 
 

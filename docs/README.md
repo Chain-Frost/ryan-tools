@@ -159,3 +159,5 @@ main README links and paths and verifies that every tracked Markdown document is
 - [Native SMB/SSD inactive-scope investigation](work/2026-10-26-native-inactive-scope-benchmark.md) - frozen provenance parity, 32 native trials, CPU/memory evidence and measured optimisation targets.
 - [Native SMB/SSD evidence bundle](work/evidence/2026-10-26-native-smb-ssd-inactive-scope/README.md) - all timings, counters, profile aggregates, protocol and runner audit copies.
 - [One-versus-three-process evidence](work/evidence/2026-10-26-native-process-scaling/README.md) - complete partitioned provenance, startup calibration and matched CPU-process scaling measurements.
+
+- [Historical native graph benchmark evidence](work/2026-10-23-tuflow-native-graph-benchmark.md), retained by consolidated PR #159.
