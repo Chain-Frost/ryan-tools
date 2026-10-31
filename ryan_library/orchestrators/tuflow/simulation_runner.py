@@ -22,7 +22,10 @@ from datetime import datetime
 from pathlib import Path, PurePath
 from queue import Empty, SimpleQueue
 from threading import Event, Lock, Thread
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    from rich.live import Live
 
 from ryan_library.functions.tuflow.command_plan import (
     CommandPlan,
@@ -279,7 +282,6 @@ def render_batch_commands(plan: CommandPlan, settings: RunnerSettings, *, destin
     minimized = "/MIN " if settings.minimize_on_launch else ""
     result = ["@echo off", "REM Edited values below apply to every matching START row."]
     for value, name in exe_names.items():
-        result.append(f'set "{name}={_bat_quote(value)}"'.replace('=""', '="')) if False else None
         result.append(f'set "{name}={value}"')
     result.append(f'set "BCMD={" ".join(common) if common else " "}"')
     for value, name in tcf_names.items():
@@ -518,7 +520,32 @@ def launch_plan(
         logger.warning("Imported -pu switches are retained for export but replaced by runner GPU settings at launch.")
     if has_source_priority:
         logger.info("Imported START priority/minimise/wait hints are replaced by runner scheduling settings.")
+    if stop.is_set():
+        return BatchOutcome(tuple(plan.runs), (), True)
     _gpu_startup_message(groups)
+
+    dashboard: Live | None = None
+
+    def redraw() -> None:
+        if dashboard is None:
+            return
+        from rich.table import Table
+
+        table = Table(title=f"TUFLOW batch ({len(outcomes)}/{len(plan.runs)} observed)")
+        table.add_column("Run", justify="right")
+        table.add_column("Model")
+        table.add_column("Status")
+        visible = plan.runs if len(plan.runs) <= 20 else (*plan.runs[:15], *plan.runs[-5:])
+        for run in visible:
+            completed = next((item for item in outcomes if item.run.index == run.index), None)
+            state = (
+                "OK" if completed and completed.successful
+                else "FAIL" if completed
+                else "RUNNING" if any(item.run.index == run.index for item in active)
+                else "PENDING"
+            )
+            table.add_row(str(run.index), run.tcf.name, state)
+        dashboard.update(table, refresh=True)
 
     def observed(result: RunOutcome) -> None:
         nonlocal next_print
@@ -534,6 +561,7 @@ def launch_plan(
                 item.return_code, f": {item.error}" if item.error else "",
             )
             next_print += 1
+        redraw()
 
     def poll_children() -> bool:
         any_finished = False
@@ -548,6 +576,12 @@ def launch_plan(
             any_finished = True
         return any_finished
 
+    if settings.use_live_dashboard:
+        from rich.live import Live
+
+        dashboard = Live(refresh_per_second=settings.live_refresh_per_second, transient=False)
+        dashboard.start()
+        redraw()
     try:
         while queue or active:
             if advisory is not None:
@@ -581,9 +615,10 @@ def launch_plan(
                     owned_slots.add(slot)
                 try:
                     _apply_priority(process.pid, settings.computational_priority)
-                except (OSError, ValueError, ImportError) as exc:
+                except Exception as exc:  # noqa: BLE001 - do not lose ownership after Popen succeeds
                     logger.warning("PID %s launched but process priority could not be set: %s", process.pid, exc)
                 logger.info("Launched %d/%d PID %s: %s", run.index, len(plan.runs), process.pid, args)
+                redraw()
                 if queue and settings.wait_time_after_run:
                     time.sleep(settings.wait_time_after_run)
                 poll_children()
@@ -596,7 +631,11 @@ def launch_plan(
         if advisory is not None:
             advisory.drain()
     finally:
-        if active:
-            _stop_children(active)
-            poll_children()
+        try:
+            if active:
+                _stop_children(active)
+                poll_children()
+        finally:
+            if dashboard is not None:
+                dashboard.stop()
     return BatchOutcome(tuple(plan.runs), tuple(outcomes), stop.is_set())
