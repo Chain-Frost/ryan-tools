@@ -365,6 +365,22 @@ def test_qgs_repair_copies_companion_qgd(tmp_path: Path) -> None:
     assert summary.tables[0].layer_name == "Labelled"
 
 
+def test_qgs_repair_refuses_unrelated_existing_companion(tmp_path: Path) -> None:
+    project = tmp_path / "project.qgs"
+    project.write_bytes(_xml(("id", "Layer", "ogr", "./data.gpkg")))
+    assert not project.with_suffix(".qgd").exists()
+    output = tmp_path / "fixed.qgs"
+    protected_companion = output.with_suffix(".qgd")
+    protected_companion.write_bytes(b"unrelated auxiliary bytes")
+    changes = plan_source_path_changes(project, relative=False)
+    assert changes
+
+    with pytest.raises(FileExistsError, match="Auxiliary output already exists"):
+        write_project_path_changes(project, output, changes)
+    assert not output.exists()
+    assert protected_companion.read_bytes() == b"unrelated auxiliary bytes"
+
+
 def test_no_overwrite_of_any_output_or_companion(tmp_path: Path) -> None:
     project = tmp_path / "project.qgs"
     project.write_bytes(_xml(("id", "Layer", "ogr", "./data.gpkg")))
