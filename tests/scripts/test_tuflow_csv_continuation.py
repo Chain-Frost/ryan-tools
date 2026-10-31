@@ -125,7 +125,8 @@ def test_export_and_configuration_failures_do_not_change_csv(
     assert path.read_bytes() == history
 
     def refuse_export(*_args: object, **_kwargs: object) -> Path:
-        raise FileExistsError("Synthetic export failure")
+        msg = "Synthetic export failure"
+        raise FileExistsError(msg)
 
     monkeypatch.setattr(module, "EXPORT_COMMANDS", True)
     monkeypatch.setattr(module, "export_batch_commands", refuse_export)

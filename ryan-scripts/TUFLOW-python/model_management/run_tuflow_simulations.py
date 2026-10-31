@@ -207,7 +207,8 @@ def main(argv: list[str] | None = None) -> int:
         plan = prepare_plan(settings)
         requested_mode = arguments.run_mode if arguments.run_mode is not None else CONTINUATION_MODE
         if requested_mode not in {"resume", "all"}:
-            raise ValueError(f"Unsupported continuation mode: {requested_mode}")
+            msg = f"Unsupported continuation mode: {requested_mode}"
+            raise ValueError(msg)
         logger.info("Selected %d ordered simulations (%d source files).", len(plan.runs), len(plan.source_files))
         exporting = EXPORT_COMMANDS if arguments.export is None else arguments.export
         if arguments.export_only:

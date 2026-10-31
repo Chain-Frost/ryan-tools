@@ -96,7 +96,8 @@ def _effective_executable(run: PlannedRun, fallback: Path, base: Path) -> str:
 def _canonical_arguments(run: PlannedRun) -> tuple[tuple[tuple[str, str], ...], tuple[str, ...]]:
     """Sort known event/scenario switches without discarding their values."""
     if not run.arguments or not run.arguments[-1].casefold().endswith(".tcf"):
-        raise ExecutionLogError(f"Run {run.index} lacks its final TCF argument")
+        msg = f"Run {run.index} lacks its final TCF argument"
+        raise ExecutionLogError(msg)
     arguments = run.arguments[:-1]
     flags: list[tuple[str, str]] = []
     remaining: list[str] = []
@@ -106,7 +107,8 @@ def _canonical_arguments(run: PlannedRun) -> tuple[tuple[tuple[str, str], ...], 
         low = token.casefold()
         if _EVENT_FLAGS.fullmatch(token):
             if position + 1 >= len(arguments):
-                raise ExecutionLogError(f"Run {run.index} has an event/scenario switch without a value")
+                msg = f"Run {run.index} has an event/scenario switch without a value"
+                raise ExecutionLogError(msg)
             flags.append((low, arguments[position + 1]))
             position += 2
             continue
@@ -114,7 +116,8 @@ def _canonical_arguments(run: PlannedRun) -> tuple[tuple[tuple[str, str], ...], 
             remaining.append(low if low in _ENGINE or _OTHER_SWITCH.fullmatch(token) else token)
         position += 1
     if dict(flags) != run.flags:
-        raise ExecutionLogError(f"Run {run.index} has inconsistent event/scenario arguments")
+        msg = f"Run {run.index} has inconsistent event/scenario arguments"
+        raise ExecutionLogError(msg)
     return tuple(sorted(flags)), tuple(remaining)
 
 
@@ -128,7 +131,8 @@ def identify_runs(plan: CommandPlan, *, fallback_executable: Path, base_director
     identities: dict[int, RunIdentity] = {}
     for run in plan.runs:
         if run.index in identities:
-            raise ExecutionLogError(f"Duplicate plan index {run.index}")
+            msg = f"Duplicate plan index {run.index}"
+            raise ExecutionLogError(msg)
         executable = _effective_executable(run, fallback_executable, base_directory)
         flags, remaining = _canonical_arguments(run)
         payload = json.dumps(
@@ -174,9 +178,11 @@ def _parse_line(line: bytes, number: int) -> list[str]:
         decoded = line.decode("utf-8")
         values = list(csv.reader([decoded], strict=True))
     except (UnicodeError, csv.Error) as exc:
-        raise ExecutionLogError(f"Invalid UTF-8/CSV at line {number}: {exc}") from exc
+        msg = f"Invalid UTF-8/CSV at line {number}: {exc}"
+        raise ExecutionLogError(msg) from exc
     if len(values) != 1 or len(values[0]) != len(COLUMNS):
-        raise ExecutionLogError(f"Invalid CSV record shape at line {number}; expected {len(COLUMNS)} fields")
+        msg = f"Invalid CSV record shape at line {number}; expected {len(COLUMNS)} fields"
+        raise ExecutionLogError(msg)
     return values[0]
 
 
@@ -202,7 +208,8 @@ class CsvExecutionLog:
             self.__exit__(None, None, None)
             if isinstance(exc, ExecutionLogError):
                 raise
-            raise ExecutionLogError(f"Cannot open execution log {self.path}: {exc}") from exc
+            msg = f"Cannot open execution log {self.path}: {exc}"
+            raise ExecutionLogError(msg) from exc
         return self
 
     def __exit__(self, _type: object, _value: object, _traceback: object) -> None:
@@ -212,7 +219,8 @@ class CsvExecutionLog:
 
     def _stream(self) -> FileIO:
         if self._file is None:
-            raise ExecutionLogError("Execution log is not open")
+            msg = "Execution log is not open"
+            raise ExecutionLogError(msg)
         return self._file
 
     def _lock(self) -> None:
@@ -228,9 +236,8 @@ class CsvExecutionLog:
 
                 fcntl.flock(file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         except OSError as exc:
-            raise ExecutionLogError(
-                f"Execution log {self.path} already has a writer or cannot be locked: {exc}"
-            ) from exc
+            msg = f"Execution log {self.path} already has a writer or cannot be locked: {exc}"
+            raise ExecutionLogError(msg) from exc
 
     def _read_and_repair(self) -> None:
         file = self._stream()
@@ -243,21 +250,24 @@ class CsvExecutionLog:
         complete = data[:end]
         rows = complete.splitlines(keepends=True)
         if not rows and not csv_line(COLUMNS).startswith(data):
-            raise ExecutionLogError(
+            msg = (
                 f"Unsupported execution CSV schema or corrupt header in {self.path}; "
                 "cannot safely repair a file without a valid header."
             )
+            raise ExecutionLogError(msg)
         if rows:
             try:
                 header = next(csv.reader([rows[0].decode("utf-8")], strict=True))
             except (UnicodeError, csv.Error) as exc:
-                raise ExecutionLogError(f"Invalid CSV header in {self.path}: {exc}") from exc
+                msg = f"Invalid CSV header in {self.path}: {exc}"
+                raise ExecutionLogError(msg) from exc
             if tuple(header) != COLUMNS:
-                raise ExecutionLogError(
+                msg = (
                     f"Unsupported execution CSV schema in {self.path}. Expected version {SCHEMA_VERSION} "
                     "START/FINISH/RESET history; an old completion-only report cannot be resumed. "
                     "Keep the old file separately and use a new log."
                 )
+                raise ExecutionLogError(msg)
         for number, line in enumerate(rows[1:], 2):
             record = dict(zip(COLUMNS, _parse_line(line, number), strict=True))
             self._apply(record, number)
@@ -271,38 +281,48 @@ class CsvExecutionLog:
 
     def _apply(self, record: dict[str, str], number: int) -> None:
         if record["schema_version"] != SCHEMA_VERSION:
-            raise ExecutionLogError(f"Unknown CSV schema version at line {number}: {record['schema_version']!r}")
+            msg = f"Unknown CSV schema version at line {number}: {record['schema_version']!r}"
+            raise ExecutionLogError(msg)
         try:
             stamp = datetime.fromisoformat(record["recorded_at"])
         except ValueError as exc:
-            raise ExecutionLogError(f"Invalid timestamp at line {number}") from exc
+            msg = f"Invalid timestamp at line {number}"
+            raise ExecutionLogError(msg) from exc
         if stamp.utcoffset() is None:
-            raise ExecutionLogError(f"Timestamp has no timezone at line {number}")
+            msg = f"Timestamp has no timezone at line {number}"
+            raise ExecutionLogError(msg)
         event = record["event"]
         key = record["run_key"]
         attempt_id = record["attempt_id"]
         if event == "RESET":
             if any(record[column] for column in COLUMNS if column not in {"schema_version", "event", "recorded_at"}):
-                raise ExecutionLogError(f"Invalid RESET fields at line {number}")
+                msg = f"Invalid RESET fields at line {number}"
+                raise ExecutionLogError(msg)
             self._latest.clear()
             return
         if event not in {"START", "FINISH"}:
-            raise ExecutionLogError(f"Unknown CSV event at line {number}: {event!r}")
+            msg = f"Unknown CSV event at line {number}: {event!r}"
+            raise ExecutionLogError(msg)
         if not _HEX_SHA.fullmatch(key) or not _HEX_ATTEMPT.fullmatch(attempt_id):
-            raise ExecutionLogError(f"Invalid run key or attempt ID at line {number}")
+            msg = f"Invalid run key or attempt ID at line {number}"
+            raise ExecutionLogError(msg)
         if not all(record[field] for field in ("tcf", "working_directory", "executable", "arguments")):
-            raise ExecutionLogError(f"Missing run context at line {number}")
+            msg = f"Missing run context at line {number}"
+            raise ExecutionLogError(msg)
         if any("\r" in value or "\n" in value for value in record.values()):
-            raise ExecutionLogError(f"Multiline CSV fields are prohibited at line {number}")
+            msg = f"Multiline CSV fields are prohibited at line {number}"
+            raise ExecutionLogError(msg)
         if event == "START":
             if attempt_id in self._attempts or any(record[k] for k in ("outcome", "return_code", "pid", "error")):
-                raise ExecutionLogError(f"Duplicate attempt ID or invalid START fields at line {number}")
+                msg = f"Duplicate attempt ID or invalid START fields at line {number}"
+                raise ExecutionLogError(msg)
             self._attempts[attempt_id] = _Attempt(key)
             self._latest[key] = attempt_id
             return
         attempt = self._attempts.get(attempt_id)
         if attempt is None or attempt.run_key != key or attempt.outcome is not None:
-            raise ExecutionLogError(f"FINISH has no matching unfinished START at line {number}")
+            msg = f"FINISH has no matching unfinished START at line {number}"
+            raise ExecutionLogError(msg)
         outcome, code, error = record["outcome"], record["return_code"], record["error"]
         if outcome == "SUCCESS":
             valid = code == "0" and not error
@@ -316,7 +336,8 @@ class CsvExecutionLog:
         else:
             valid = False
         if not valid or (record["pid"] and not record["pid"].isdigit()):
-            raise ExecutionLogError(f"Invalid FINISH outcome at line {number}")
+            msg = f"Invalid FINISH outcome at line {number}"
+            raise ExecutionLogError(msg)
         attempt.outcome = outcome
 
     def _append_header(self) -> None:
@@ -327,16 +348,19 @@ class CsvExecutionLog:
             file = self._stream()
             file.seek(0, os.SEEK_END)
             if file.write(content) != len(content):
-                raise OSError("Short CSV write")
+                msg = "Short CSV write"
+                raise OSError(msg)
             file.flush()
             os.fsync(file.fileno())
         except OSError as exc:
-            raise ExecutionLogError(f"Cannot write execution log {self.path}: {exc}") from exc
+            msg = f"Cannot write execution log {self.path}: {exc}"
+            raise ExecutionLogError(msg) from exc
 
     def _append(self, record: dict[str, str]) -> None:
         row = [record.get(column, "") for column in COLUMNS]
         if any("\n" in cell or "\r" in cell for cell in row):
-            raise ExecutionLogError("CSV context may not contain newline characters")
+            msg = "CSV context may not contain newline characters"
+            raise ExecutionLogError(msg)
         self._write(csv_line(row))
 
     def successful_keys(self) -> set[str]:
@@ -372,12 +396,14 @@ class CsvExecutionLog:
         """Persist an observed return code or a definitive Popen failure."""
         if result.return_code is None:
             if not result.error:
-                raise ExecutionLogError("Cannot finish an attempt without an observed outcome")
+                msg = "Cannot finish an attempt without an observed outcome"
+                raise ExecutionLogError(msg)
             outcome = "LAUNCH_ERROR"
         else:
             outcome = "SUCCESS" if result.return_code == 0 and not result.error else "FAILED"
             if result.return_code == 0 and result.error:
-                raise ExecutionLogError("A return code of zero with an error cannot be recorded as success")
+                msg = "A return code of zero with an error cannot be recorded as success"
+                raise ExecutionLogError(msg)
         record = {
             "schema_version": SCHEMA_VERSION,
             "event": "FINISH",
@@ -419,7 +445,8 @@ class CompletionSession:
 
     def before_launch(self, run: PlannedRun) -> None:
         if run.index in self._active:
-            raise ExecutionLogError(f"Run {run.index} was started twice in one invocation")
+            msg = f"Run {run.index} was started twice in one invocation"
+            raise ExecutionLogError(msg)
         self._active[run.index] = self.history.start(self.identities[run.index])
 
     def observed_completion(self, result: ObservedOutcome) -> None:
