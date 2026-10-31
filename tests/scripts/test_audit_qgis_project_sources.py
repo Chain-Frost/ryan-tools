@@ -235,9 +235,7 @@ def test_cold_storage_ping_cannot_be_combined_with_path_repair(tmp_path: Path) -
     )
 
 
-def test_cli_repair_to_different_directory_rebases_sources(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_cli_repair_to_different_directory_rebases_sources(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     model_dir = tmp_path / "model"
     data_dir = tmp_path / "data"
     target_dir = tmp_path / "export"

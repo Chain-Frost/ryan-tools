@@ -191,7 +191,9 @@ def test_copy_without_root_remap_still_rebases_relative_sources(tmp_path: Path) 
     assert resolved.samefile(data)
 
 
-def test_relative_path_error_keeps_absolute_source_and_provider_options(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_relative_path_error_keeps_absolute_source_and_provider_options(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     source = tmp_path / "data" / "roads.gpkg"
     destination = tmp_path / "output" / "fixed.qgs"
 
