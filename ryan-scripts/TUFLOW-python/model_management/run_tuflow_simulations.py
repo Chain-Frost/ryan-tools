@@ -1,7 +1,8 @@
 r"""Run ordered TUFLOW simulations from editable parameters or BAT/text files.
 
 Inputs: parameter products, one or more static .bat/.cmd/.txt command lists.
-Outputs: optional editable BAT export, advisory input findings, process status.
+Outputs: optional editable BAT export, advisory input findings, process status,
+append-only CSV execution history beside this wrapper.
 Copy this wrapper into a model folder with the matching ryan-tools wheel
 installed; no repository checkout or PYTHONPATH adjustment is required.
 
@@ -15,7 +16,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-31.1"
+WRAPPER_VERSION = "2026-10-31.2"
 
 # ----------------------- EDITABLE RUNNER SETTINGS -------------------------
 # Relative paths below are based on WORKING_DIR (the supplying script's folder
@@ -50,6 +51,9 @@ COMPUTATIONAL_PRIORITY = "LOW"
 MINIMIZE_ON_LAUNCH = True
 WAIT_TIME_AFTER_RUN = 2.0
 RUN_SIMULATIONS = True  # False: render/export only; no solver/GPU dependency
+CONTINUATION_MODE = "resume"  # resume: skip latest observed successes; all: reset and run everything
+# CSV: <this_wrapper_stem>_runs.csv beside this file, even with model-specific working directories.
+# Stop the previous batch before Resume. Reexecuted runs use current model output locations.
 EXPORT_COMMANDS = True
 EXPORT_PATH: Path | None = None  # None: non-overwriting timestamped .bat beside wrapper
 CHECK_INPUTS = False  # Advisory background check; never blocks launches
@@ -71,8 +75,15 @@ from datetime import datetime
 from threading import Event
 
 from ryan_library.functions.wrapper_utils import pause_console, print_wrapper_banner
+from ryan_library.functions.tuflow.execution_history import (
+    CompletionSession,
+    CsvExecutionLog,
+    identify_runs,
+    select_pending,
+)
 from ryan_library.orchestrators.tuflow.simulation_runner import (
     AdvisoryInputCheck,
+    BatchOutcome,
     RunnerSettings,
     check_plan_only,
     export_batch_commands,
@@ -97,6 +108,10 @@ def _arguments(argv: list[str] | None = None) -> argparse.Namespace:
     model.add_argument("--tcf", type=Path, help="Constrain imported runs to this TCF.")
     model.add_argument("--no-tcf", action="store_true", help="Allow multiple TCFs in imported commands.")
     parser.add_argument("--solver-exe", type=Path, help="Override the fallback TUFLOW executable.")
+    parser.add_argument(
+        "--run-mode", choices=("resume", "all"),
+        help="Resume (default) skips latest observed successes; all resets the CSV completion baseline.",
+    )
     parser.add_argument(
         "--preflight",
         action=argparse.BooleanOptionalAction,
@@ -189,6 +204,9 @@ def main(argv: list[str] | None = None) -> int:
         # All input sources and TCF conflicts must be checked before export,
         # validation, runtime GPU inspection, process launch or scope-04 writes.
         plan = prepare_plan(settings)
+        requested_mode = arguments.run_mode if arguments.run_mode is not None else CONTINUATION_MODE
+        if requested_mode not in {"resume", "all"}:
+            raise ValueError(f"Unsupported continuation mode: {requested_mode}")
         logger.info("Selected %d ordered simulations (%d source files).", len(plan.runs), len(plan.source_files))
         exporting = EXPORT_COMMANDS if arguments.export is None else arguments.export
         if arguments.export_only:
@@ -203,28 +221,58 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if arguments.preflight_only:
             return 0 if check_plan_only(plan, check_gpkg_layers=settings.check_gpkg_layers) else 1
-        advisory = None
-        checks = CHECK_INPUTS if arguments.preflight is None else arguments.preflight
-        if checks:
-            advisory = AdvisoryInputCheck(plan, check_gpkg_layers=settings.check_gpkg_layers)
-            try:
-                advisory.start()
-            except RuntimeError as exc:
-                logger.warning("Advisory input checking could not start: %s", exc)
+        # The supplying wrapper, not the installed orchestrator or model cwd,
+        # owns the single persistent history location.
+        wrapper_path = Path(__file__).absolute()
+        log_path = wrapper_path.with_name(f"{wrapper_path.stem}_runs.csv")
+        identities = identify_runs(
+            plan, fallback_executable=settings.executable, base_directory=settings.working_directory
+        )
+        with CsvExecutionLog(log_path) as history:
+            if requested_mode == "all":
+                history.reset()
+                logger.info("Run all: new CSV completion baseline recorded in %s.", log_path)
+            pending = select_pending(plan, identities, history.successful_keys())
+            skipped = len(plan.runs) - len(pending.runs)
+            if not pending.runs:
+                logger.info("Resume complete: all %d runs have observed successful finishes; no GPU scan or launch.", skipped)
+                result = BatchOutcome((), ())
+            else:
+                logger.info(
+                    "%s: %d pending, %d confirmed successful runs skipped. History: %s",
+                    requested_mode.capitalize(), len(pending.runs), skipped, log_path,
+                )
+                session = CompletionSession(history, identities)
                 advisory = None
-        try:
-            with _interruption_flag() as stopped:
-                result = launch_plan(plan, settings, interrupted=stopped, advisory=advisory)
-        finally:
-            if advisory is not None:
-                advisory.close()
+                checks = CHECK_INPUTS if arguments.preflight is None else arguments.preflight
+                if checks:
+                    advisory = AdvisoryInputCheck(pending, check_gpkg_layers=settings.check_gpkg_layers)
+                    try:
+                        advisory.start()
+                    except RuntimeError as exc:
+                        logger.warning("Advisory input checking could not start: %s", exc)
+                        advisory = None
+                try:
+                    with _interruption_flag() as stopped:
+                        result = launch_plan(
+                            pending,
+                            settings,
+                            interrupted=stopped,
+                            advisory=advisory,
+                            on_before_launch=session.before_launch,
+                            on_observed_completion=session.observed_completion,
+                        )
+                finally:
+                    if advisory is not None:
+                        advisory.close()
         if result.interrupted:
             logger.error("Interrupted batch; configured follow-up is not started.")
             return 1
         logger.info(
-            "Batch observed %d/%d completions; %d failures.",
+            "Batch observed %d/%d pending completions; %d previously successful skipped; %d failures.",
             len(result.outcomes),
-            len(plan.runs),
+            len(result.selected),
+            skipped,
             sum(not item.successful for item in result.outcomes),
         )
         outcome_code = result.exit_code
