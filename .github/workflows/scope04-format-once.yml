@@ -32,6 +32,7 @@ jobs:
             tests/scripts/test_run_tuflow_simulations.py
             tests/scripts/test_tuflow_csv_continuation.py
           )
+          python -m ruff check --fix --unsafe-fixes --select EM101,EM102 "${files[@]}" || true
           python -m ruff check --fix "${files[@]}" || true
           python -m ruff format "${files[@]}"
           git add -- "${files[@]}"
