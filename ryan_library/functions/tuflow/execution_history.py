@@ -54,12 +54,19 @@ class ExecutionLogError(ValueError):
 
 
 class ObservedOutcome(Protocol):
-    """Structural contract of the parent runner's observed process outcome."""
+    """Read-only structural contract of the parent's frozen RunOutcome."""
 
-    run: PlannedRun
-    return_code: int | None
-    pid: int | None
-    error: str | None
+    @property
+    def run(self) -> PlannedRun: ...
+
+    @property
+    def return_code(self) -> int | None: ...
+
+    @property
+    def pid(self) -> int | None: ...
+
+    @property
+    def error(self) -> str | None: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -269,7 +276,7 @@ class CsvExecutionLog:
                 )
                 raise ExecutionLogError(msg)
         for number, line in enumerate(rows[1:], 2):
-            record = dict(zip(COLUMNS, _parse_line(line, number), strict=True))
+            record: dict[str, str] = dict(zip(COLUMNS, _parse_line(line, number), strict=True))
             self._apply(record, number)
         if end != len(data):
             logger.warning("Repairing incomplete trailing CSV fragment (%d bytes) in %s", len(data) - end, self.path)
