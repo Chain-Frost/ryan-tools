@@ -316,7 +316,7 @@ def test_python_tcf_fallback_uses_configuration_base_not_changed_directory() -> 
     source = PureWindowsPath(r"T:\\project\\launcher\\runs.bat")
     base = PureWindowsPath(r"T:\\python")
     plan = parse_command_plan(
-        "cd /d T:\\python\n-e1 A\nSTART /D T:\\python \"\" TUFLOW.exe model.tcf",
+        "cd /d T:\\\\python\n-e1 A\nSTART /D T:\\\\python \"\" TUFLOW.exe model.tcf",
         source=source,
         initial_directory=CWD,
         configuration_directory=base,
@@ -375,7 +375,7 @@ def test_separate_files_must_not_leak_tcf_or_cd(tmp_path: Path) -> None:
     [
         ("-e1 B different.tcf", "Python TCF"),
         ("IF broken", "Unsupported shell control flow"),
-        ("-e1 B", "No effective TCF"),
+        ("TUFLOW.exe -e1 B", "No effective TCF"),
     ],
 )
 def test_late_input_error_raises_without_a_partial_plan(
