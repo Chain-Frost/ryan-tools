@@ -10,35 +10,89 @@ utilities retained for reference. Read the module docstring at the top of a Pyth
 docstring identifies whether the script uses command-line arguments, editable settings, the current working directory,
 or the folder containing the script.
 
+## Shared principles for maintained scripts and wrappers
+
+**Maintained** describes a support and safety expectation, not a required code layout.
+Choose the simplest appropriate entry point:
+
+- **Maintained standalone script:** self-contained code in one file. No compulsory `ryan_library`,
+  wrapper layer, orchestrator, Loguru dependency or installation-time registration.
+- **Library-backed wrapper:** a human-editable script calling reusable `ryan_library`
+  functions/processors directly. Add an orchestrator only if coordination is
+  substantial, reusable or independently testable.
+- **Complex workflow:** a wrapper calling an orchestrator where multi-stage
+  coordination genuinely belongs in a separate library module.
+
+The following principles apply to **all actively maintained Python entry points**,
+including standalone scripts, unless their documented execution context makes
+one irrelevant. They do **not** retroactively apply to frozen/archived,
+experimental, vendored or versioned legacy files solely because they exist.
+
+1. **Purpose and identity:** a module docstring states purpose, input/output
+   effects, dependencies, environment and at least one usable invocation.
+   Keep a visible date-based `SCRIPT_VERSION` or `WRAPPER_VERSION`
+   (`YYYY-MM-DD.N`) near the top; identify the actual script/version when run,
+   without relying on file modification times. An argparse `--version` is useful.
+   Library-backed wrappers report both script and installed `ryan-tools` versions.
+2. **Discoverable editable settings:** keep frequently changed `DEFAULT_*`
+   values, such as paths, modes and filenames, immediately after minimal imports
+   near the top. Ordinarily place the module docstring, future annotations,
+   minimal imports, version and defaults before operational imports.
+   CLI values override editable defaults. Use `None` as the CLI parser's
+   unspecified value when an explicit `False`, `0` or empty value must be
+   distinguishable from no override.
+3. **Clear process boundary:** use a guarded `if __name__ == "__main__"` and
+   callable `main()` rather than performing filesystem work on import.
+   For command-line scripts provide `--help` and meaningful exit codes:
+   `0` success, `1` failed processing/validation, `2` malformed arguments.
+   Scripts that may pause must provide a headless/no-pause path; never make
+   noninteractive automation wait for user input.
+4. **Safe and explicit operations:** preview/dry-run where appropriate.
+   Existing source files are protected by default; replacement, deletion,
+   external launches and potentially costly storage reads require an explicit
+   opt-in, not just an editable default accidentally set to an unsafe value.
+   Report partial failures without pretending successful completion.
+5. **File paths and data integrity:** resolve relative inputs against the
+   intended base before changing the working directory; use `Path.absolute()`
+   for normal display and mapped-drive/UNC preservation. Use `Path.resolve()`
+   only when physical identity or containment actually matters. Respect
+   locks, symlinks/junctions, output collisions and original data bytes.
+6. **Logging and resources:** give concise user-facing progress, meaningful
+   failure diagnostics, and clear output locations. Use parameterised Loguru
+   messages when Loguru is already part of the workflow; a lightweight
+   standalone script may instead use standard logging or `print`.
+   Use context managers and close datasets, files and processes explicitly.
+7. **Proportionate checks:** format and lint changed Python using the repository
+   Ruff configuration, use Python 3.14 typing and strict Pyright on modified
+   maintained code, compile and check `--help`, and run focused disposable
+   success/failure tests for changed behaviour. Confirm missing-input and
+   no-pause/error-code behaviour. When code depends on an installed
+   `ryan_library` wheel, also test a copied wrapper outside the checkout.
+   Native GDAL/QGIS/TUFLOW or Windows acceptance is required only when the
+   functionality depends on that runtime; document remaining boundaries.
+
+See [the maintained-wrapper standard](WRAPPER_STANDARD.md) for its additional
+shared-library, two-banner, package and optional pause requirements.
+Only split implementation into the library when reuse or testing warrants it;
+do not introduce forwarding modules merely to satisfy a diagram.
+
 ## Minimal standard for maintained standalone scripts
 
-This is the **lighter alternative** to [the full wrapper standard](WRAPPER_STANDARD.md) for active, self-contained
-scripts (including narrow GIS utilities). It does not apply retroactively to archived/versioned snapshots,
-experimental examples or third-party code. Do not split working standalone logic into `ryan_library` merely to
-satisfy a wrapper layout.
+A maintained self-contained script follows the **shared principles above**
+without adopting the full library-backed wrapper structure. Its processing
+can remain inside a well-documented `main()` with small local helpers.
+Keep `SCRIPT_VERSION`, editable settings and the guarded execution path.
+Display its version and relevant tool/Python versions as appropriate, and
+preserve a useful noninteractive invocation. A second closing banner,
+`print_wrapper_banner()`, `pause_console()`, `WRAPPER_VERSION`,
+`ryan_library` imports, an orchestrator, and MCP registration are **not**
+required solely because the script is maintained.
 
-When creating or materially updating an actively maintained standalone script:
-
-1. **Identify it:** begin with a concise docstring covering purpose, inputs, outputs, dependencies and an example.
-   Keep a visible `SCRIPT_VERSION = "YYYY-MM-DD.N"` near the top, updated when script behaviour changes. This
-   embedded revision identifies the *contents*, not the filesystem modification timestamp (which changes on copy).
-2. **Report versions:** show the script filename/revision on execution; report Python and relevant tool versions
-   (e.g. GDAL for an OGR converter). If helpful, show the installed `ryan-tools` version using
-   `importlib.metadata.version("ryan-tools")`, with `PackageNotFoundError` handled as
-   `not installed (standalone)`. **Never make ryan-tools a compulsory dependency solely for the banner.**
-   For `argparse` scripts, a simple `--version` option is useful.
-3. **Make execution clear:** use `--help` for CLI tools, explicit inputs or obvious editable defaults, and
-   consistent exit codes (`0` success, `1` processing/validation error; `argparse` uses `2` for invalid
-   arguments). Do not add an interactive pause when the script already runs headlessly.
-4. **Protect data:** preserve `--dry-run` where provided; require an explicit option for replacement or other
-   destructive operations. Keep paths user-visible with `Path.absolute()` unless canonical resolution is needed.
-5. **Validate proportionately:** compile and format modified files, check `--help`/`--version` and a focused
-   smoke test in the appropriate runtime (QGIS/OSGeo4W for scripts that require GDAL). Do not demand
-   a library package build or broad test-suite run for an isolated standalone change.
-
-A standalone script does **not** need `WRAPPER_VERSION`, `print_wrapper_banner()`, Loguru configuration,
-`ryan_library` imports, a second closing banner, `--no-pause`, or a library/orchestrator split unless its
-actual workflow warrants those features. For reusable maintained entry points, use the full wrapper standard instead.
+For genuinely interactive or long-running standalone scripts, a completion
+banner and explicit `--no-pause` may still be useful. For a narrow read-only
+utility, an ordinary argparse CLI plus a clear exit code is sufficient.
+Do not demote a maintained script to "legacy" merely because it remains
+self-contained. Validation is proportional to what the script actually does.
 
 ## QGIS project file audit and repair
 
