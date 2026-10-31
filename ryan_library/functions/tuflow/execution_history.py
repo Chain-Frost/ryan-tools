@@ -89,7 +89,7 @@ class _Attempt:
 def _normal_path(value: str | PurePath) -> str:
     """Normalize spelling lexically, retaining distinct drive/UNC identities."""
     text = str(value)
-    if isinstance(value, PureWindowsPath) or PureWindowsPath(text).drive or "\\" in text:
+    if os.name == "nt" or isinstance(value, PureWindowsPath) or PureWindowsPath(text).drive or "\\" in text:
         return ntpath.normcase(ntpath.normpath(text))
     return posixpath.normpath(text)
 
