@@ -150,9 +150,7 @@ def test_interrupt_not_converted_to_passing_report(tmp_path: Path, monkeypatch: 
         subject.check_command_plan(plan(tmp_path))
 
 
-def test_groups_preserve_source_attribution_and_forward_bounds(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_groups_preserve_source_attribution_and_forward_bounds(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     calls: list[tuple[tuple[PlannedRun, ...], dict[str, object]]] = []
 
     def checker(runs: tuple[PlannedRun, ...], **options: object) -> FakeReport:
@@ -174,7 +172,7 @@ def test_groups_preserve_source_attribution_and_forward_bounds(
 @pytest.mark.parametrize("workers", [0, 33])
 def test_invalid_file_workers_fail_before_group_checks(tmp_path: Path, workers: int) -> None:
     with pytest.raises(ValueError, match="io_workers"):
-        subject.check_command_plan(plan(tmp_path), files_only=True, io_workers=workers)
+        subject.check_command_plan(plan(tmp_path), io_workers=workers)
 
 
 def test_scope_01_global_findings_map_to_interleaved_occurrences_exactly_once(
@@ -183,9 +181,7 @@ def test_scope_01_global_findings_map_to_interleaved_occurrences_exactly_once(
     def checker(runs: tuple[PlannedRun, ...], **_options: object) -> FakeReport:
         # Scope 01 has already translated upstream local positions into the
         # global IDs it received from this layer's RunRequest list.
-        return outcome(
-            runs, [FakeIssue(runs[0].index, reference="first"), FakeIssue(runs[-1].index, reference="last")]
-        )
+        return outcome(runs, [FakeIssue(runs[0].index, reference="first"), FakeIssue(runs[-1].index, reference="last")])
 
     monkeypatch.setattr(subject, "_check_group", checker)
     report = subject.check_command_plan(plan(tmp_path))
@@ -193,9 +189,7 @@ def test_scope_01_global_findings_map_to_interleaved_occurrences_exactly_once(
     assert [issue.run.source for issue in report.issues] == [tmp_path / "runs.bat"] * 4
 
 
-def test_incomplete_group_with_no_findings_never_passes(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_incomplete_group_with_no_findings_never_passes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     def checker(runs: tuple[PlannedRun, ...], **_options: object) -> FakeReport:
         result = outcome(runs)
         result.passed_override = False
@@ -209,9 +203,7 @@ def test_incomplete_group_with_no_findings_never_passes(
     assert all(issue.status == "unresolved" for issue in report.issues)
 
 
-def test_directory_failure_identifies_actual_second_source(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_directory_failure_identifies_actual_second_source(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from ryan_library.functions.tuflow.command_plan import read_command_plans
 
     first, second = tmp_path / "first.bat", tmp_path / "second.bat"
@@ -223,5 +215,5 @@ def test_directory_failure_identifies_actual_second_source(
         pytest.fail("A missing required directory must prevent all validation")
 
     monkeypatch.setattr(subject, "_check_group", forbidden)
-    with pytest.raises(CommandPlanError, match="second.bat:1"):
+    with pytest.raises(CommandPlanError, match=r"second\.bat:1"):
         subject.check_command_plan(both)
