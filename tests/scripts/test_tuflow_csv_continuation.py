@@ -35,7 +35,8 @@ def copied_wrapper(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Wrapper:
     target = folder / "my_batch.py"
     target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
     spec = importlib.util.spec_from_file_location("csv_runner_wrapper", target)
-    assert spec is not None and spec.loader is not None
+    assert spec is not None
+    assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
@@ -87,7 +88,8 @@ def test_copied_wrapper_resume_no_work_all_reset_and_follow_up(
 
     assert copied_wrapper.main(_args(tmp_path)) == 0
     log = Path(copied_wrapper.__file__).with_name("my_batch_runs.csv")
-    assert log.is_file() and log.parent.name == "wrapper"
+    assert log.is_file()
+    assert log.parent.name == "wrapper"
     assert not (tmp_path / "different-model-directory" / log.name).exists()
     first_history = log.read_bytes()
     assert calls == [[1, 2]]
