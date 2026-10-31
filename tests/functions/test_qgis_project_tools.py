@@ -88,6 +88,21 @@ def test_existence_mode_never_opens_source_file(tmp_path: Path) -> None:
     assert source.read_bytes() == before
 
 
+def test_directory_backed_dataset_existence_is_metadata_only(tmp_path: Path) -> None:
+    directory = tmp_path / "survey.gdb"
+    directory.mkdir()
+    sentinel = directory / "a.gdbtable"
+    sentinel.write_bytes(b"unchanged")
+    with patch.object(Path, "open", side_effect=AssertionError("Directory audit must not open file data")) as opened:
+        assert probe_local_file(directory, mode="existence") == (True, "directory exists (no content read)")
+        assert probe_local_file(directory, mode="cold-storage-ping") == (
+            False,
+            "directory-backed dataset cannot be pinged as a regular file",
+        )
+        opened.assert_not_called()
+    assert sentinel.read_bytes() == b"unchanged"
+
+
 def test_cold_storage_ping_reads_exactly_one_byte_only_when_requested(tmp_path: Path) -> None:
     source = tmp_path / "cold data.tif"
     source.write_bytes(b"0123456789")
@@ -219,6 +234,52 @@ def test_windows_cross_drive_repair_keeps_absolute_drive_path() -> None:
     source = Path("D:/survey/roads.gpkg")
     uri = _render_source_uri(output, "./old/roads.gpkg|layername=roads", source, relative=True)
     assert uri == "D:/survey/roads.gpkg|layername=roads"
+
+
+@pytest.mark.parametrize("suffix", [".qgs", ".qgz"])
+def test_relocated_output_preserves_unmatched_relative_sources_during_root_replacement(
+    tmp_path: Path, suffix: str
+) -> None:
+    original_folder = tmp_path / "original"
+    output_folder = tmp_path / "output"
+    new_data_folder = tmp_path / "new_data"
+    (original_folder / "old").mkdir(parents=True)
+    output_folder.mkdir()
+    new_data_folder.mkdir()
+    mapped_data = new_data_folder / "mapped.gpkg"
+    unmatched_data = original_folder / "unchanged.gpkg"
+    absolute_data = original_folder / "absolute.gpkg"
+    for source in (mapped_data, unmatched_data, absolute_data):
+        source.write_bytes(b"unchanged dataset")
+
+    xml = _xml(
+        ("mapped", "Mapped", "ogr", "./old/mapped.gpkg|layername=mapped"),
+        ("unmatched", "Unchanged", "ogr", "./unchanged.gpkg|layername=unchanged"),
+        ("absolute", "Absolute", "ogr", f"{absolute_data.as_posix()}|layername=absolute"),
+    )
+    project = original_folder / f"model{suffix}"
+    if suffix == ".qgz":
+        _qgz(project, xml)
+    else:
+        project.write_bytes(xml)
+    original_project_bytes = project.read_bytes()
+    output = output_folder / f"fixed{suffix}"
+
+    changes = plan_source_path_changes(
+        project,
+        replace_root=(original_folder / "old", new_data_folder),
+        output_project_path=output,
+    )
+    assert {change.layer_id for change in changes} == {"mapped", "unmatched"}
+    write_project_path_changes(project, output, changes)
+    assert project.read_bytes() == original_project_bytes
+
+    expected_paths = {"mapped": mapped_data, "unmatched": unmatched_data, "absolute": absolute_data}
+    for layer in project_layer_sources(output):
+        resolved = local_source_path(output, layer.uri, provider=layer.provider)
+        assert resolved is not None
+        assert resolved.samefile(expected_paths[layer.layer_id])
+    assert all(source.read_bytes() == b"unchanged dataset" for source in expected_paths.values())
 
 
 def test_root_mapping_respects_component_boundaries(tmp_path: Path) -> None:
