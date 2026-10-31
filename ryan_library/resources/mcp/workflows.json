@@ -6,13 +6,12 @@
       "id": "audit_qgis_projects",
       "title": "Audit QGIS project sources",
       "domain": "qgis",
-      "purpose": "Read-only QGS/QGZ source audit without QGIS; CLI defaults to a one-byte open for cold-storage retrieval, while automated discovery recommends --exists-only.",
+      "purpose": "Existence-only QGS/QGZ source audit by default (no file-content reads). Explicit --mode cold-storage-ping requests one byte per local source and may trigger tiered-storage retrieval.",
       "script": "ryan-scripts/other/audit_qgis_projects.py",
       "profile": "analysis",
       "mutation": "read_only",
       "lifecycle": "experimental",
       "headless_arguments": [
-        "--exists-only",
         "--no-pause"
       ]
     },
