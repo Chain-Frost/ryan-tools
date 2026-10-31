@@ -1,14 +1,17 @@
-"""Audit QGS/QGZ sources, request one byte per local file, inspect QGD and repair paths.
+"""Audit QGS/QGZ sources in explicit existence or cold-storage-ping modes.
 
-Defaults: recursively inspect projects under the working directory and open/read
-exactly one byte from each distinct local source file. This can rehydrate files
-on tiered network storage; use --exists-only for a metadata-only audit.
-Use --project for one project; --auxiliary-report inspects its QGD read-only.
-Path repair is preview-only unless --write and --output are both supplied.
+The default --mode existence checks filesystem metadata without reading the
+referenced files. --mode cold-storage-ping explicitly opens each distinct local
+file and requests ONE unbuffered byte to prompt tiered network storage to
+retrieve it. Ping may be slow or incur storage retrieval charges.
+No QGIS installation or geospatial file loading is required.
+
+--project selects one QGS/QGZ; --auxiliary-report inspects QGD SQLite data.
+Path repair previews changes unless --write and --output are both supplied.
 
 Examples:
-  python audit_qgis_projects.py --no-pause
-  python audit_qgis_projects.py --exists-only --no-pause
+  python audit_qgis_projects.py --mode existence --no-pause
+  python audit_qgis_projects.py --mode cold-storage-ping --no-pause
   python audit_qgis_projects.py --project Model.qgz --auxiliary-report --no-pause
   python audit_qgis_projects.py --project Moved.qgz --old-project-directory Q:\Old\GIS --no-pause
   python audit_qgis_projects.py --project Moved.qgz --old-project-directory Q:\Old\GIS --output Fixed.qgz --write --no-pause
@@ -28,6 +31,7 @@ from loguru import logger
 
 from ryan_library.functions.qgis_auxiliary import inspect_auxiliary_storage
 from ryan_library.functions.qgis_project import (
+    QgisAuditMode,
     local_source_path,
     plan_source_path_changes,
     probe_local_file,
@@ -41,8 +45,9 @@ from ryan_library.functions.wrapper_utils import (
     print_wrapper_banner,
 )
 
-WRAPPER_VERSION = "2026-10-31.1"
+WRAPPER_VERSION = "2026-10-31.2"
 DEFAULT_WORKING_DIR = Path()
+DEFAULT_AUDIT_MODE: QgisAuditMode = "existence"
 
 
 def _parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
@@ -52,8 +57,10 @@ def _parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     add_execution_cli_arguments(parser)
     parser.add_argument("--project", type=Path, help="One QGS/QGZ project (required for path repair).")
     parser.add_argument(
-        "--exists-only", action="store_true",
-        help="Check file existence without opening one byte. Default opens one byte to request cold-storage retrieval.",
+        "--mode",
+        choices=("existence", "cold-storage-ping"),
+        default=DEFAULT_AUDIT_MODE,
+        help="existence (default): metadata check only; cold-storage-ping: read one byte per file, which may trigger retrieval charges.",
     )
     parser.add_argument(
         "--auxiliary-report", action="store_true",
@@ -151,10 +158,13 @@ def _repair_project(
     return 0
 
 
-def _audit_projects(projects: list[Path], *, exists_only: bool, auxiliary_report: bool, sample_rows: int) -> int:
+def _audit_projects(projects: list[Path], *, mode: QgisAuditMode, auxiliary_report: bool, sample_rows: int) -> int:
     checked: set[Path] = set()
     failed: set[Path] = set()
     project_errors = 0
+    logger.info("QGIS source audit mode: {}", mode)
+    if mode == "cold-storage-ping":
+        logger.warning("Cold-storage ping may trigger retrieval delays or charges; reading one byte per local file")
     for project in projects:
         try:
             for layer in project_layer_sources(project):
@@ -162,7 +172,7 @@ def _audit_projects(projects: list[Path], *, exists_only: bool, auxiliary_report
                 if source is None or source in checked:
                     continue
                 checked.add(source)
-                success, detail = probe_local_file(source, read_one_byte=not exists_only)
+                success, detail = probe_local_file(source, mode=mode)
                 if success:
                     logger.debug("Checked {}: {}", source, detail)
                 else:
@@ -184,7 +194,7 @@ def main(
     *,
     working_directory: Path | None = None,
     project_path: Path | None = None,
-    exists_only: bool = False,
+    mode: QgisAuditMode = DEFAULT_AUDIT_MODE,
     auxiliary_report: bool = False,
     sample_rows: int = 0,
     old_project_directory: Path | None = None,
@@ -200,6 +210,9 @@ def main(
     old_directory = old_project_directory.absolute() if old_project_directory is not None else None
     roots = (replace_root[0].absolute(), replace_root[1].absolute()) if replace_root is not None else None
 
+    if mode not in ("existence", "cold-storage-ping"):
+        logger.error("Unsupported audit mode: {}", mode)
+        return 1
     if not 0 <= sample_rows <= 5 or (sample_rows and not auxiliary_report):
         logger.error("Valid --sample-rows (1-5) requires --auxiliary-report")
         return 1
@@ -207,6 +220,9 @@ def main(
     repair = old_directory is not None or roots is not None or absolute_paths or output is not None or write
     if repair and (selected is None or (write and output is None)):
         logger.error("Path repair requires --project; --write also requires --output")
+        return 1
+    if repair and mode == "cold-storage-ping":
+        logger.error("Cold-storage ping is an audit mode; run path repair separately")
         return 1
     if not change_working_directory(target_dir=directory):
         return 1
@@ -222,7 +238,7 @@ def main(
             absolute_paths=absolute_paths, output=output, write=write,
             auxiliary_report=auxiliary_report, sample_rows=sample_rows,
         )
-    return _audit_projects(projects, exists_only=exists_only, auxiliary_report=auxiliary_report, sample_rows=sample_rows)
+    return _audit_projects(projects, mode=mode, auxiliary_report=auxiliary_report, sample_rows=sample_rows)
 
 
 if __name__ == "__main__":
@@ -234,7 +250,7 @@ if __name__ == "__main__":
     result = main(
         working_directory=args.working_directory,
         project_path=args.project,
-        exists_only=args.exists_only,
+        mode=args.mode,
         auxiliary_report=args.auxiliary_report,
         sample_rows=args.sample_rows,
         old_project_directory=args.old_project_directory,
