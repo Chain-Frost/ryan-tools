@@ -6,8 +6,8 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from typing import ClassVar
 from types import SimpleNamespace
+from typing import ClassVar
 
 import pytest
 
