@@ -196,7 +196,8 @@ def test_relative_path_error_keeps_absolute_source_and_provider_options(tmp_path
     destination = tmp_path / "output" / "fixed.qgs"
 
     def different_drives(*_args: object, **_kwargs: object) -> str:
-        raise ValueError("Different Windows drives")
+        message = "Different Windows drives"
+        raise ValueError(message)
 
     monkeypatch.setattr(os.path, "relpath", different_drives)
     uri = _render_source_uri(destination, "./old/roads.gpkg|layername=roads", source, relative=True)
