@@ -327,18 +327,20 @@ def deduplicate_plan(plan: CommandPlan) -> CommandPlan:
     switches and GPUs are not model selections. TCFs, event/scenario values
     and retained -etN switches are relevant. Preserve first source provenance.
     """
-    seen: set[tuple[PurePath, tuple[tuple[str, str], ...], tuple[str, ...]]] = set()
+    # Compare model selections without collapsing distinct TCFs sharing a
+    # filename. Verified mapped-drive/UNC aliases are the same actual TCF.
+    seen: dict[tuple[tuple[tuple[str, str], ...], tuple[str, ...]], list[PurePath]] = {}
     selected: list[PlannedRun] = []
     for run in plan.runs:
         _, engine = partition_model_arguments(run)
         signature = (
-            run.tcf,
             tuple(sorted(run.flags.items())),
             tuple(sorted(option.casefold() for option in engine if option.casefold().startswith("-et"))),
         )
-        if signature in seen:
+        matching_flags = seen.setdefault(signature, [])
+        if any(same_tcf_path(run.tcf, original) for original in matching_flags):
             continue
-        seen.add(signature)
+        matching_flags.append(run.tcf)
         selected.append(replace(run, index=len(selected) + 1))
     return replace(
         plan,

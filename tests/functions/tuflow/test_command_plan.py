@@ -360,6 +360,16 @@ def test_verified_mapped_drive_alias_matches_configured_python_tcf(monkeypatch: 
     assert plan.runs[0].tcf == PureWindowsPath(unc)
     assert "P:" in calls
 
+    # Two spellings of the same mapped file are one model selection.
+    duplicate = parse_command_plan(
+        f'TUFLOW.exe "{cwd / "model.tcf"}"\nTUFLOW.exe "{unc}"',
+        source=source,
+        initial_directory=cwd,
+        fallback_tcf=expected,
+    )
+    assert len(duplicate.runs) == 1
+    assert duplicate.duplicates_dropped == 1
+
     with pytest.raises(CommandPlanError, match="conflicts with effective imported TCF"):
         parse_command_plan(
             r'TUFLOW.exe "\\server\share\nested\other\model.tcf"',
