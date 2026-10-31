@@ -151,6 +151,15 @@ def test_cli_audit_modes_are_explicit_and_existence_is_default() -> None:
     assert invalid.value.code == 2
 
 
+def test_cli_version_prints_embedded_wrapper_revision(capsys: pytest.CaptureFixture[str]) -> None:
+    namespace = runpy.run_path(str(SCRIPT))
+    parse_args = cast(Callable[[list[str] | None], argparse.Namespace], namespace["_parse_cli_arguments"])
+    with pytest.raises(SystemExit) as result:
+        parse_args(["--version"])
+    assert result.value.code == 0
+    assert namespace["WRAPPER_VERSION"] in capsys.readouterr().out
+
+
 def test_cli_overrides_are_distinct_from_editable_defaults() -> None:
     namespace = runpy.run_path(str(SCRIPT))
     parse_args = cast(Callable[[list[str] | None], argparse.Namespace], namespace["_parse_cli_arguments"])
