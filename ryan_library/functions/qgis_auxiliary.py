@@ -11,7 +11,7 @@ from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from zipfile import ZipFile
+from zipfile import ZipFile, ZipInfo
 
 from .qgis_project import project_layer_sources
 
@@ -74,8 +74,8 @@ def _inspect_database(
             "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
         ).fetchall()
         for (name,) in names:
-            identifier = _quoted_identifier(str(name))
-            columns = tuple(str(row[1]) for row in db.execute(f"PRAGMA table_info({identifier})"))
+            identifier: str = _quoted_identifier(str(name))
+            columns: tuple[str, ...] = tuple(str(row[1]) for row in db.execute(f"PRAGMA table_info({identifier})"))
             result = db.execute(f"SELECT count(*) FROM {identifier}").fetchone()  # noqa: S608 - quoted SQLite name
             if result is None:
                 message = f"Could not count rows in SQLite table {name}"
@@ -99,18 +99,18 @@ def _inspect_database(
 
 def _inspect_embedded_qgd(project_path: Path, layer_names: dict[str, str], sample_rows: int) -> AuxiliarySummary | None:
     with ZipFile(project_path) as archive:
-        members = [info for info in archive.infolist() if info.filename.lower().endswith(".qgd")]
+        members: list[ZipInfo] = [info for info in archive.infolist() if info.filename.lower().endswith(".qgd")]
         if not members:
             return None
         if len(members) != 1:
-            message = f"Expected at most one QGD in {project_path}, found {len(members)}"
+            message: str = f"Expected at most one QGD in {project_path}, found {len(members)}"
             raise ValueError(message)
-        member = members[0]
+        member: ZipInfo = members[0]
         if member.file_size > _MAX_EMBEDDED_QGD_BYTES:
             message = f"Embedded QGD is over the inspection limit: {member.file_size} bytes"
             raise ValueError(message)
         with TemporaryDirectory(prefix="qgis_qgd_inspect_") as temporary:
-            copy = Path(temporary) / "auxiliary.qgd"
+            copy: Path = Path(temporary) / "auxiliary.qgd"
             with archive.open(member) as src, copy.open("xb") as dest:
                 copied = 0
                 while chunk := src.read(min(1024 * 1024, _MAX_EMBEDDED_QGD_BYTES - copied + 1)):
@@ -120,7 +120,7 @@ def _inspect_embedded_qgd(project_path: Path, layer_names: dict[str, str], sampl
                         raise ValueError(message)
                     dest.write(chunk)
             return _inspect_database(
-                copy,
+                file_path=copy,
                 location=f"{project_path}!{member.filename}",
                 layer_names=layer_names,
                 sample_rows=sample_rows,

@@ -12,7 +12,7 @@ from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
-from urllib.parse import unquote, urlsplit
+from urllib.parse import SplitResult, unquote, urlsplit
 from xml.etree import ElementTree as ET
 from zipfile import ZipFile
 
@@ -78,7 +78,7 @@ class QgisSourceChange:
 
 
 def _qgs_member(archive: ZipFile) -> str:
-    members = [info.filename for info in archive.infolist() if info.filename.lower().endswith(".qgs")]
+    members: list[str] = [info.filename for info in archive.infolist() if info.filename.lower().endswith(".qgs")]
     if len(members) != 1:
         message = f"Expected exactly one QGS document in archive, found {len(members)}"
         raise ValueError(message)
@@ -107,13 +107,13 @@ def read_project_xml(project_path: Path) -> bytes:
 
 def _xml_root(project_path: Path) -> ET.Element:
     # Retain processing instructions and comments when reserialising a repaired project.
-    parser = ET.XMLParser(target=ET.TreeBuilder(insert_comments=True, insert_pis=True))  # noqa: S314
+    parser: ET.XMLParser = ET.XMLParser(target=ET.TreeBuilder(insert_comments=True, insert_pis=True))  # noqa: S314
     return ET.fromstring(read_project_xml(project_path), parser=parser)  # noqa: S314
 
 
 def project_layer_sources(project_path: Path) -> list[QgisLayerSource]:
     """List layers without deduplicating sources or losing layer ID and provider."""
-    root = _xml_root(project_path)
+    root: ET.Element = _xml_root(project_path)
     return [
         QgisLayerSource(
             index=index,
@@ -144,7 +144,7 @@ def local_source_path(
     Provider-specific database strings are intentionally not guessed.
     """
     raw, _ = _path_parts(uri)
-    lowered = raw.lower()
+    lowered: str = raw.lower()
     if (
         not raw
         or provider.lower() in _REMOTE_PROVIDERS
@@ -154,10 +154,10 @@ def local_source_path(
         return None
 
     if lowered.startswith("file:"):
-        parsed = urlsplit(raw)
+        parsed: SplitResult = urlsplit(raw)
         if parsed.scheme.lower() != "file":
             return None
-        decoded = unquote(parsed.path)
+        decoded: str = unquote(parsed.path)
         if parsed.netloc and parsed.netloc.lower() != "localhost":
             candidate = Path(f"//{parsed.netloc}{decoded}")
         else:
@@ -173,8 +173,8 @@ def local_source_path(
     if os.name != "nt" and len(str(candidate)) >= 2 and str(candidate)[1] == ":":
         return None
     if not candidate.is_absolute():
-        base = original_project_directory if original_project_directory is not None else project_path.parent
-        candidate = base / candidate
+        base: Path = original_project_directory if original_project_directory is not None else project_path.parent
+        candidate: Path = base / candidate
     return candidate.absolute()
 
 
@@ -208,7 +208,7 @@ def _map_root(path: Path, replace_root: tuple[Path, Path] | None) -> Path | None
         return path
     old_root, new_root = replace_root
     try:
-        relative = path.relative_to(old_root.absolute())
+        relative: Path = path.relative_to(old_root.absolute())
     except ValueError:
         return None
     return new_root.absolute() / relative
@@ -219,8 +219,8 @@ def _render_source_uri(destination_project_path: Path, original_uri: str, path: 
     original, options = _path_parts(original_uri)
     if original.lower().startswith("file:"):
         # QGIS file URLs may include delimited-text query parameters.
-        parsed = urlsplit(original)
-        url = path.as_uri()
+        parsed: SplitResult = urlsplit(original)
+        url: str = path.as_uri()
         if parsed.query:
             url += f"?{parsed.query}"
         if parsed.fragment:
@@ -254,21 +254,23 @@ def plan_source_path_changes(
     directory), but encode relative URIs against the intended output project.
     Pass output_project_path for previews as well as writes.
     """
-    destination = output_project_path.absolute() if output_project_path is not None else project_path
+    destination: Path = output_project_path.absolute() if output_project_path is not None else project_path
     changes: list[QgisSourceChange] = []
     for layer in project_layer_sources(project_path):
-        source_path = local_source_path(
+        source_path: Path | None = local_source_path(
             project_path,
-            layer.uri,
+            uri=layer.uri,
             provider=layer.provider,
             original_project_directory=original_project_directory,
         )
         if source_path is None:
             continue
-        target = _map_root(source_path, replace_root)
+        target: Path | None = _map_root(source_path, replace_root)
         if target is None:
             continue
-        rewritten = _render_source_uri(destination, layer.uri, target, relative=relative)
+        rewritten: str = _render_source_uri(
+            destination_project_path=destination, original_uri=layer.uri, path=target, relative=relative
+        )
         if rewritten != layer.uri:
             changes.append(
                 QgisSourceChange(
@@ -283,13 +285,13 @@ def plan_source_path_changes(
 
 
 def _edited_project_xml(project_path: Path, changes: list[QgisSourceChange]) -> bytes:
-    root = _xml_root(project_path)
-    layers = root.findall("./projectlayers/maplayer")
+    root: ET.Element = _xml_root(project_path)
+    layers: list[ET.Element] = root.findall("./projectlayers/maplayer")
     for change in changes:
         if not 0 <= change.index < len(layers):
             message = f"Layer position no longer present: {change.index}"
             raise ValueError(message)
-        elem = layers[change.index].find("datasource")
+        elem: ET.Element | None = layers[change.index].find("datasource")
         if elem is None or (elem.text or "") != change.old_uri:
             message = f"Layer source changed since preview: {change.name}"
             raise ValueError(message)
@@ -299,7 +301,7 @@ def _edited_project_xml(project_path: Path, changes: list[QgisSourceChange]) -> 
 
 def _copy_qgz_with_xml(project_path: Path, output: ZipFile, edited_xml: bytes) -> None:
     with ZipFile(project_path) as original:
-        xml_member = _qgs_member(original)
+        xml_member: str = _qgs_member(original)
         for info in original.infolist():
             if info.filename == xml_member:
                 output.writestr(info, edited_xml)
@@ -314,7 +316,7 @@ def _remove_if_our_file(path: Path, created_identity: tuple[int, int] | None) ->
     if created_identity is None:
         return
     with suppress(FileNotFoundError):
-        st = path.lstat()
+        st: os.stat_result = path.lstat()
         if (st.st_dev, st.st_ino) == created_identity and not path.is_symlink():
             path.unlink()
 
@@ -339,10 +341,10 @@ def write_project_path_changes(
         message = f"Output already exists or would replace the input: {output_path}"
         raise FileExistsError(message)
 
-    old_qgd = project_path.with_suffix(".qgd") if project_path.suffix.lower() == ".qgs" else None
-    new_qgd = output_path.with_suffix(".qgd")
+    old_qgd: Path | None = project_path.with_suffix(".qgd") if project_path.suffix.lower() == ".qgs" else None
+    new_qgd: Path = output_path.with_suffix(".qgd")
     if old_qgd is not None and old_qgd.exists() and (new_qgd.exists() or new_qgd.is_symlink()):
-        message = f"Auxiliary output already exists: {new_qgd}"
+        message: str = f"Auxiliary output already exists: {new_qgd}"
         raise FileExistsError(message)
 
     if old_qgd is not None and old_qgd.exists():
@@ -353,13 +355,13 @@ def write_project_path_changes(
             message = f"Cannot safely copy auxiliary SQLite storage while a WAL exists: {wal}"
             raise ValueError(message)
 
-    edited_xml = _edited_project_xml(project_path, changes)
+    edited_xml: bytes = _edited_project_xml(project_path, changes)
     created_project: tuple[int, int] | None = None
     created_aux: tuple[int, int] | None = None
     completed = False
     try:
         with output_path.open("xb") as stream:
-            stat = os.fstat(stream.fileno())
+            stat: os.stat_result = os.fstat(stream.fileno())
             created_project = (stat.st_dev, stat.st_ino)
             if project_path.suffix.lower() == ".qgz":
                 with ZipFile(stream, "w") as output:
@@ -374,5 +376,5 @@ def write_project_path_changes(
         completed = True
     finally:
         if not completed:
-            _remove_if_our_file(output_path, created_project)
-            _remove_if_our_file(new_qgd, created_aux)
+            _remove_if_our_file(path=output_path, created_identity=created_project)
+            _remove_if_our_file(path=new_qgd, created_identity=created_aux)
