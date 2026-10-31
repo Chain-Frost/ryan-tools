@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from subprocess import Popen
-from typing import cast
 from dataclasses import replace
 from pathlib import Path
+from subprocess import Popen
 from threading import Event
+from typing import cast
 
 import pytest
 
