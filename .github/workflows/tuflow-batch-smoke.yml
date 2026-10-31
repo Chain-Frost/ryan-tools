@@ -54,9 +54,10 @@ jobs:
           tests/orchestrators/tuflow/test_input_preflight.py
           tests/repo_scripts/test_install_latest_wheel.py
 
-  # Strict, separately visible regression: the accepted parser currently has eight
-  # known findings (issue #181). Keep this red until the upstream fix is adopted;
-  # do not xfail cases or weaken the existing public API smoke job.
+  # All 161 example TCFs / 174 run contexts are always inspected. Until #181
+  # adopts the upstream fix, accept only eight exact pinned-validator findings.
+  # Additional/changed findings or unexpectedly passing known cases fail CI.
+  # Full reports are uploaded; the public API smoke remains independent.
   windows-example-regression:
     runs-on: windows-latest
     timeout-minutes: 30

@@ -2,14 +2,14 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Needs review: strict example regression delivered; upstream fix and adoption follow-up opened |
+| Status | Review candidate: complete example regression passes with eight exact pinned-PyTUFLOW allowances; upstream fix tracked in #181 |
 | Owner | ChatGPT |
 | Created / Updated | 2026-10-23 / 2026-10-31 |
 | Next review | Windows acceptance / 2026-11-07 |
 | Pull request | [ryan-tools #159](https://github.com/Chain-Frost/ryan-tools/pull/159), open and non-draft when checked |
 | Branch / delivery base | `feat/tuflow-runner-model-checks`; regression delivery based on `f780d1d243867f2a867bd2511164ba37ed809f09`; prior cleanup baseline retained below |
 | Delivery | Regression and CI publication on #159, upstream fix in PyTUFLOW #60; no main merge, parser repin or release |
-| Next action | Follow ryan-tools #181 after upstream fix review/delivery; adopt an exact reviewed parser revision and require a clean native 161-TCF/174-run replay without waivers. |
+| Next action | Review final-head CI, merge PR #159 independently of upstream when approved; issue #181 removes the allowance and requires 161/161 clean after adopting the reviewed fix. |
 
 ## Current scope and decisions
 
@@ -405,13 +405,15 @@ The fixed wheel SHA-256 is
 Public-data diagnostic receipts remain external to the repositories, including
 `E:\Github\pr159-upstream-example-pr159-upstream-installed.json`.
 
-The ryan-tools test stays strict against its **unchanged accepted parser pin**.
-Its new separate `windows-example-regression` CI job remains visibly failing on
-the eight known cases, retains all JSON/CSV evidence, and does not weaken or
-replace the existing public-API smoke job. The test verifies its installed source
-against `repo-scripts/pytuflow-requirement.txt`, so a later reviewed pin update
-does not require another hardcoded hash in the test. Reports include the complete
-checked-path inventory for future missing/extra-source investigations.
+At its initial publication, the separate `windows-example-regression` CI job
+remained visibly red on the eight pinned-PyTUFLOW findings. The owner's later
+decision allows only those exact source/model/diagnostic signatures until the
+upstream fix is reviewed and adopted (issue #181). All 161 models are still
+inspected with full run accounting and JSON/CSV evidence; extra/changed
+findings or unexpectedly recovered models fail the test. The public-API smoke
+remains independent. The test verifies its installed source against
+`repo-scripts/pytuflow-requirement.txt`, so adoption does not require another
+hardcoded hash in the test.
 
 Final publication-source local checks: **106 inventory/planner tests pass**;
 Ruff lint/format, modified-file strict Pyright, documentation/index/link checks,
@@ -426,7 +428,8 @@ adoption checklist: wait for reviewed upstream delivery, verify exact revision,
 version and installed origin, reconcile installer/capability guidance, preserve
 the consumer's agreed raster/CRS scope despite #59's changed defaults, rerun the
 complete strict native archive and affected consumer checks, then obtain final-head
-hosted evidence. Do not waive findings or edit example data to make it pass.
+hosted evidence. Remove the temporary exact-signature allowance when adopting
+the upstream fix; do not modify example inputs to make them pass.
 Next review is 2026-11-07 or upstream delivery, whichever comes first.
 
 #### Delivery and hosted receipt
@@ -463,6 +466,30 @@ checks and is preserved; earlier checks are not relabelled as its acceptance.
 Final-head overall #159 CI remains a separate review requirement. PyTUFLOW #60 has
 no hosted checks configured at the checked fix SHA; its evidence is local and
 installed-wheel validation only. Neither PR is merged and the parser pin is unchanged.
+
+### Process-interface typing and pre-upstream Windows acceptance — 2026-10-31
+
+- The runner now uses a structural process-handle `Protocol` covering only
+  actual lifecycle operations. Deterministic process doubles implement it
+  directly, without pretending they are `subprocess.Popen` instances.
+- Windows acceptance launches three harmless real **Python** children: one
+  successful, one nonzero exit and one terminated after interruption. The
+  tests inspect TUFLOW argv without executing it, and verify real PID,
+  working-directory effects, observed returns and callback behaviour.
+  No BAT/CMD file, imported command or TUFLOW solver is executed.
+- The complete native example archive is checked against the **unchanged**
+  PyTUFLOW `05e35476` pin. A temporary eight-finding allowlist matches exact
+  model, origin, layer, status, kind, source filename and diagnostic detail.
+  No model is skipped. New findings and unexpected recovery fail CI.
+- [Windows example-regression run 41215311419](https://github.com/Chain-Frost/ryan-tools/actions/runs/41215311419)
+  reports **2 pytest tests passing**, covering **161 TCFs / 174 model
+  contexts**, with JSON/CSV issue artifacts. The same candidate passed
+  [Windows runner acceptance](https://github.com/Chain-Frost/ryan-tools/actions/runs/41215311500),
+  Ruff, strict policy, packaged wheel, public API smoke and command-plan checks.
+- [Issue #181](https://github.com/Chain-Frost/ryan-tools/issues/181)
+  explicitly requires removing the temporary allowance and achieving 161/161
+  clean validation when the reviewed upstream fix is adopted. No repin,
+  production solver execution, PR merge or release has occurred.
 
 ## Retired history
 
