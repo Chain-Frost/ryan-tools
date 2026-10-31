@@ -98,7 +98,6 @@ def _report_auxiliary(project_path: Path, sample_rows: int) -> None:
             logger.info("    Sample: {}", values)
 
 
-
 def _repair_project(
     project: Path,
     *,
@@ -238,7 +237,6 @@ def main(
     )
 
 
-
 def _parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     """Parse explicit CLI overrides; None means use the editable DEFAULT_* setting."""
     parser = argparse.ArgumentParser(
@@ -303,19 +301,13 @@ if __name__ == "__main__":
         working_directory=args.working_directory,
         project_path=args.project if args.project is not None else DEFAULT_PROJECT,
         mode=args.mode if args.mode is not None else DEFAULT_AUDIT_MODE,
-        auxiliary_report=(
-            args.auxiliary_report if args.auxiliary_report is not None else DEFAULT_AUXILIARY_REPORT
-        ),
+        auxiliary_report=(args.auxiliary_report if args.auxiliary_report is not None else DEFAULT_AUXILIARY_REPORT),
         sample_rows=args.sample_rows if args.sample_rows is not None else DEFAULT_SAMPLE_ROWS,
         old_project_directory=(
-            args.old_project_directory
-            if args.old_project_directory is not None
-            else DEFAULT_OLD_PROJECT_DIRECTORY
+            args.old_project_directory if args.old_project_directory is not None else DEFAULT_OLD_PROJECT_DIRECTORY
         ),
         replace_root=(
-            (args.replace_root[0], args.replace_root[1])
-            if args.replace_root is not None
-            else DEFAULT_REPLACE_ROOT
+            (args.replace_root[0], args.replace_root[1]) if args.replace_root is not None else DEFAULT_REPLACE_ROOT
         ),
         absolute_paths=args.absolute_paths if args.absolute_paths is not None else DEFAULT_ABSOLUTE_PATHS,
         output_path=args.output if args.output is not None else DEFAULT_OUTPUT,

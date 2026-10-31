@@ -75,9 +75,7 @@ def _inspect_database(
         ).fetchall()
         for (name,) in names:
             identifier = _quoted_identifier(str(name))
-            columns = tuple(
-                str(row[1]) for row in db.execute(f"PRAGMA table_info({identifier})")
-            )
+            columns = tuple(str(row[1]) for row in db.execute(f"PRAGMA table_info({identifier})"))
             result = db.execute(f"SELECT count(*) FROM {identifier}").fetchone()  # noqa: S608 - quoted SQLite name
             if result is None:
                 message = f"Could not count rows in SQLite table {name}"
@@ -99,10 +97,7 @@ def _inspect_database(
     return AuxiliarySummary(location=location, size_bytes=file_path.stat().st_size, tables=tuple(tables))
 
 
-
-def _inspect_embedded_qgd(
-    project_path: Path, layer_names: dict[str, str], sample_rows: int
-) -> AuxiliarySummary | None:
+def _inspect_embedded_qgd(project_path: Path, layer_names: dict[str, str], sample_rows: int) -> AuxiliarySummary | None:
     with ZipFile(project_path) as archive:
         members = [info for info in archive.infolist() if info.filename.lower().endswith(".qgd")]
         if not members:
@@ -146,11 +141,7 @@ def inspect_auxiliary_storage(project_path: Path, *, sample_rows: int = 0) -> Au
     suffix = project_path.suffix.lower()
     layer_names: dict[str, str] = {}
     if suffix in {".qgs", ".qgz"}:
-        layer_names = {
-            layer.layer_id: layer.name
-            for layer in project_layer_sources(project_path)
-            if layer.layer_id
-        }
+        layer_names = {layer.layer_id: layer.name for layer in project_layer_sources(project_path) if layer.layer_id}
 
     if suffix == ".qgd":
         if not project_path.is_file():
@@ -163,9 +154,7 @@ def inspect_auxiliary_storage(project_path: Path, *, sample_rows: int = 0) -> Au
         companion = project_path.with_suffix(".qgd")
         if not companion.is_file():
             return None
-        return _inspect_database(
-            companion, location=str(companion), layer_names=layer_names, sample_rows=sample_rows
-        )
+        return _inspect_database(companion, location=str(companion), layer_names=layer_names, sample_rows=sample_rows)
 
     if suffix == ".qgz":
         return _inspect_embedded_qgd(project_path, layer_names, sample_rows)

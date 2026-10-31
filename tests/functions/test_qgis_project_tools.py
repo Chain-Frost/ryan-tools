@@ -60,7 +60,9 @@ def test_layer_sources_are_not_deduplicated_and_do_not_read_linked_files(tmp_pat
     before = project.read_bytes()
     layers = project_layer_sources(project)
     assert [(layer.layer_id, layer.name) for layer in layers] == [
-        ("id-one", "One"), ("id-two", "Two"), ("id-three", "XYZ")
+        ("id-one", "One"),
+        ("id-two", "Two"),
+        ("id-three", "XYZ"),
     ]
     assert local_source_path(project, layers[0].uri, provider=layers[0].provider) == tmp_path / "missing.gpkg"
     assert local_source_path(project, layers[2].uri, provider=layers[2].provider) is None
@@ -250,7 +252,6 @@ def test_invalid_or_missing_qgd_does_not_claim_data(tmp_path: Path) -> None:
         inspect_auxiliary_storage(broken)
 
 
-
 def test_qgs_repair_refuses_to_copy_auxiliary_with_uncheckpointed_wal(tmp_path: Path) -> None:
     project = tmp_path / "model.qgs"
     project.write_bytes(_xml(("id", "Labeled", "ogr", "./old.gpkg")))
@@ -265,7 +266,6 @@ def test_qgs_repair_refuses_to_copy_auxiliary_with_uncheckpointed_wal(tmp_path: 
     assert not output.exists()
     assert auxiliary.exists()
     assert wal.exists()
-
 
 
 def test_auxiliary_inspection_is_immutable_and_rejects_wal_state(tmp_path: Path) -> None:

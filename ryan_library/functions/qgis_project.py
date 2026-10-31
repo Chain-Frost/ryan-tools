@@ -40,8 +40,18 @@ _REMOTE_PREFIXES = (
     "pg:",
 )
 _REMOTE_PROVIDERS = frozenset(
-    {"wms", "wfs", "postgres", "postgresraster", "memory", "virtual", "vectortile", "xyz",
-     "arcgismapserver", "arcgisfeatureserver"}
+    {
+        "wms",
+        "wfs",
+        "postgres",
+        "postgresraster",
+        "memory",
+        "virtual",
+        "vectortile",
+        "xyz",
+        "arcgismapserver",
+        "arcgisfeatureserver",
+    }
 )
 
 
@@ -239,7 +249,9 @@ def plan_source_path_changes(
     changes: list[QgisSourceChange] = []
     for layer in project_layer_sources(project_path):
         source_path = local_source_path(
-            project_path, layer.uri, provider=layer.provider,
+            project_path,
+            layer.uri,
+            provider=layer.provider,
             original_project_directory=original_project_directory,
         )
         if source_path is None:
@@ -251,12 +263,14 @@ def plan_source_path_changes(
         if rewritten != layer.uri:
             changes.append(
                 QgisSourceChange(
-                    index=layer.index, layer_id=layer.layer_id, name=layer.name,
-                    old_uri=layer.uri, new_uri=rewritten,
+                    index=layer.index,
+                    layer_id=layer.layer_id,
+                    name=layer.name,
+                    old_uri=layer.uri,
+                    new_uri=rewritten,
                 )
             )
     return changes
-
 
 
 def _edited_project_xml(project_path: Path, changes: list[QgisSourceChange]) -> bytes:

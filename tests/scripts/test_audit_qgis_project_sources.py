@@ -20,8 +20,12 @@ SCRIPT = Path(__file__).absolute().parents[2] / "ryan-scripts" / "other" / "audi
 
 class AuditMain(Protocol):
     def __call__(
-        self, *, working_directory: Path | None = None, mode: QgisAuditMode = "existence",
-        project_path: Path | None = None, old_project_directory: Path | None = None,
+        self,
+        *,
+        working_directory: Path | None = None,
+        mode: QgisAuditMode = "existence",
+        project_path: Path | None = None,
+        old_project_directory: Path | None = None,
     ) -> int: ...
 
 
@@ -138,7 +142,6 @@ def test_qgz_source_list_is_deterministically_deduplicated(tmp_path: Path) -> No
     assert get_sources(project) == ["./a.gpkg|layername=1", "./b.gpkg|layername=2"]
 
 
-
 def test_cli_audit_modes_are_explicit_and_existence_is_default() -> None:
     namespace = runpy.run_path(str(SCRIPT))
     parse_args = cast(Callable[[list[str] | None], argparse.Namespace], namespace["_parse_cli_arguments"])
@@ -173,9 +176,7 @@ def test_cli_overrides_are_distinct_from_editable_defaults() -> None:
     assert defaults.output is None
     assert defaults.write is False
 
-    selected = parse_args(
-        ["--project", "model.qgz", "--auxiliary-report", "--sample-rows", "0", "--absolute-paths"]
-    )
+    selected = parse_args(["--project", "model.qgz", "--auxiliary-report", "--sample-rows", "0", "--absolute-paths"])
     assert selected.project == Path("model.qgz")
     assert selected.auxiliary_report is True
     assert selected.sample_rows == 0
@@ -191,9 +192,7 @@ def test_missing_working_directory_returns_failure_without_audit(tmp_path: Path)
     assert not (tmp_path / "missing_dir").exists()
 
 
-def test_main_uses_selected_mode_and_deduplicates_sources(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_main_uses_selected_mode_and_deduplicates_sources(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     data = tmp_path / "shared.tif"
     data.write_bytes(b"source")
     _write_qgs(
@@ -224,8 +223,10 @@ def test_cold_storage_ping_cannot_be_combined_with_path_repair(tmp_path: Path) -
     main, _, _ = _functions()
     assert (
         main(
-            working_directory=tmp_path, project_path=tmp_path / "project.qgs",
-            old_project_directory=tmp_path, mode="cold-storage-ping",
+            working_directory=tmp_path,
+            project_path=tmp_path / "project.qgs",
+            old_project_directory=tmp_path,
+            mode="cold-storage-ping",
         )
         == 1
     )
