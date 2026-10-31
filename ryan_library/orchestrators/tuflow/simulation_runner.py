@@ -19,7 +19,7 @@ from collections import deque
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import datetime
-from pathlib import Path, PurePath
+from pathlib import Path
 from queue import Empty, SimpleQueue
 from threading import Event, Lock, Thread
 from typing import TYPE_CHECKING, Literal
