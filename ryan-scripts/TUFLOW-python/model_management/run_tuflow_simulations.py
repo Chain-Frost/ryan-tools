@@ -264,6 +264,11 @@ def main(argv: list[str] | None = None) -> int:
         # owns the single persistent history location.
         wrapper_path = Path(__file__).absolute()
         log_path = wrapper_path.with_name(f"{wrapper_path.stem}_runs.csv")
+        # With no history, every run is pending. Check the solver before
+        # creating a new CSV. An existing all-complete Resume still needs
+        # no solver installation, and may inspect its history first.
+        if requested_mode == "resume" and not log_path.exists():
+            validate_launch_executable(plan, settings)
         identities = identify_runs(
             plan, fallback_executable=settings.executable, base_directory=settings.working_directory
         )
