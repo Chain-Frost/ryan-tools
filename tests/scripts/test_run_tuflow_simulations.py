@@ -49,7 +49,7 @@ def wrapper(tmp_path: Path) -> _RunnerWrapper:
     # fake-process callbacks still prevent any solver execution.
     solver = tmp_path / "Synthetic_TUFLOW.exe"
     solver.write_bytes(b"synthetic solver placeholder")
-    setattr(module, "TUFLOW_EXE", solver)
+    module.__dict__["TUFLOW_EXE"] = solver
     return cast(_RunnerWrapper, module)
 
 
