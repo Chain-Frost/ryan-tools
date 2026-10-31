@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import logging
 import os
+import subprocess
 import sys
 from collections.abc import Callable, Generator
 from dataclasses import replace
 from io import StringIO
 from pathlib import Path
-from subprocess import Popen
 from threading import Event
 from typing import cast
 
@@ -78,11 +78,6 @@ class FakeProcess:
 
     def kill(self) -> None:
         self.terminated = True
-
-
-def _popen_stub(factory: Callable[..., FakeProcess]) -> Callable[..., Popen[bytes]]:
-    """Adapt a deliberately minimal fake process to the launch injection type."""
-    return cast(Callable[..., Popen[bytes]], factory)
 
 
 def _no_op(*_args: object) -> None:
@@ -213,7 +208,7 @@ def test_abbreviated_input_launches_and_roundtrips(
         commands_seen.append(args)
         return FakeProcess(4455)
 
-    result = runner.launch_plan(plan, config, popen=_popen_stub(fake_popen))
+    result = runner.launch_plan(plan, config, popen=fake_popen)
     assert result.successful
     assert commands_seen == [[str(config.executable), "-b", "-e1", "A", str(tmp_path / "model.tcf")]]
 
@@ -345,7 +340,7 @@ def test_per_child_directory_argument_list_and_runtime_gpu_policy(
         launched.append((args, cwd))
         return FakeProcess(len(launched), polls_before_exit=5 if len(launched) == 1 else 0)
 
-    outcome = runner.launch_plan(plan, config, popen=_popen_stub(popen))
+    outcome = runner.launch_plan(plan, config, popen=popen)
     assert outcome.successful
     assert len(launched) == 2
     assert [cwd for _, cwd in launched] == [str(config.working_directory)] * 2
@@ -375,7 +370,7 @@ def test_launch_failure_and_priority_failure_cannot_lose_scheduler_slot(
         raise PermissionError(message)
 
     monkeypatch.setattr(runner, "_apply_priority", failed_priority)
-    outcome = runner.launch_plan(plan, config, popen=_popen_stub(popen))
+    outcome = runner.launch_plan(plan, config, popen=popen)
     assert attempts == [0, 1]
     assert len(outcome.outcomes) == 2
     assert not outcome.successful
@@ -408,7 +403,7 @@ def test_out_of_order_completion_callback_precedes_ordered_output(
     outcome = runner.launch_plan(
         plan,
         config,
-        popen=_popen_stub(popen),
+        popen=popen,
         on_before_launch=on_before_launch,
         on_observed_completion=on_observed_completion,
     )
@@ -435,7 +430,7 @@ def test_interruption_terminates_owned_child_without_imaginary_success(
         stop.set()
         return process
 
-    outcome = runner.launch_plan(plan, config, interrupted=stop, popen=_popen_stub(start))
+    outcome = runner.launch_plan(plan, config, interrupted=stop, popen=start)
     assert outcome.interrupted
     assert not outcome.successful
     assert len(owned) == 1
@@ -664,7 +659,7 @@ def test_shared_dashboard_shows_middle_active_run_and_original_resume_index(
     monkeypatch.setattr(live_dashboard, "LiveWorkflowDashboard", display)
     monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
     monkeypatch.setattr(runner, "_apply_priority", _no_op)
-    outcome = runner.launch_plan(plan, config, popen=_popen_stub(popen), on_observed_completion=finished)
+    outcome = runner.launch_plan(plan, config, popen=popen, on_observed_completion=finished)
     assert outcome.successful
     assert observed == list(range(101, 401))
     assert len(displays) == 1
@@ -698,3 +693,108 @@ def test_configured_solver_must_exist_for_actual_execution(tmp_path: Path) -> No
         runner.validate_launch_executable(plan, config)
     config.executable.write_bytes(b"synthetic solver placeholder")
     runner.validate_launch_executable(plan, config)
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Native Windows subprocess lifecycle smoke")
+@pytest.mark.parametrize("child_exit_code", [0, 7])
+def test_windows_real_python_child_exit_and_callbacks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, child_exit_code: int
+) -> None:
+    """Exercise the real OS/Popen path with harmless Python, never TUFLOW or BAT."""
+    base = tmp_path / "Model With Spaces"
+    base.mkdir()
+    config = settings(base, run_variables={"e1": ("A",)}, minimize_on_launch=False)
+    plan = runner.prepare_plan(config)
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+
+    expected = [str(config.executable), "-b", "-e1", "A", str(plan.runs[0].tcf)]
+    calls: list[tuple[list[str], str]] = []
+    started: list[int] = []
+    completed: list[runner.RunOutcome] = []
+    marker = base / "harmless-python-child.txt"
+    script = (
+        "from pathlib import Path; import sys; "
+        f"Path('harmless-python-child.txt').write_text('child ran', encoding='utf-8'); sys.exit({child_exit_code})"
+    )
+
+    def spawn(
+        *,
+        args: list[str],
+        cwd: str,
+        creationflags: int,
+        startupinfo: subprocess.STARTUPINFO | None,
+    ) -> subprocess.Popen[bytes]:
+        # Verify the runner's TUFLOW argv without executing it.
+        calls.append((args, cwd))
+        return subprocess.Popen(
+            [sys.executable, "-c", script],
+            cwd=cwd,
+            creationflags=creationflags,
+            startupinfo=startupinfo,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+    result = runner.launch_plan(
+        plan,
+        config,
+        popen=spawn,
+        on_before_launch=lambda run: started.append(run.index),
+        on_observed_completion=completed.append,
+    )
+    assert calls == [(expected, str(base))]
+    assert marker.read_text(encoding="utf-8") == "child ran"
+    assert started == [1]
+    assert len(completed) == len(result.outcomes) == 1
+    assert completed[0] is result.outcomes[0]
+    assert completed[0].pid is not None
+    assert completed[0].return_code == child_exit_code
+    assert result.successful is (child_exit_code == 0)
+    assert result.exit_code == (0 if child_exit_code == 0 else 1)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Native Windows subprocess lifecycle smoke")
+def test_windows_real_python_child_is_terminated_on_interrupt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Reap a real sleeping Python child; record no unobserved success."""
+    config = settings(tmp_path, run_variables={"e1": ("A",)}, minimize_on_launch=False)
+    plan = runner.prepare_plan(config)
+    stop = Event()
+    processes: list[subprocess.Popen[bytes]] = []
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+
+    def spawn(
+        *,
+        args: list[str],
+        cwd: str,
+        creationflags: int,
+        startupinfo: subprocess.STARTUPINFO | None,
+    ) -> subprocess.Popen[bytes]:
+        assert args[0] == str(config.executable)
+        process = subprocess.Popen(
+            [sys.executable, "-c", "import time; time.sleep(30)"],
+            cwd=cwd,
+            creationflags=creationflags,
+            startupinfo=startupinfo,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        processes.append(process)
+        stop.set()
+        return process
+
+    try:
+        result = runner.launch_plan(plan, config, interrupted=stop, popen=spawn)
+        assert result.interrupted
+        assert result.exit_code == 1
+        assert len(processes) == len(result.outcomes) == 1
+        assert result.outcomes[0].pid == processes[0].pid
+        assert result.outcomes[0].return_code not in {None, 0}
+        assert processes[0].poll() is not None
+    finally:
+        for process in processes:
+            if process.poll() is None:
+                process.kill()
+            process.wait(timeout=5)

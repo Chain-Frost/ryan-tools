@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Generator
+from collections.abc import Generator
 from dataclasses import replace
 from pathlib import Path
-from subprocess import Popen
 from threading import Event
-from typing import cast
 
 import pytest
 from loguru import logger
@@ -53,12 +51,17 @@ class FakeProcess:
         self.returncode = 0
 
     def poll(self) -> int:
-        return 0
+        return self.returncode
 
+    def terminate(self) -> None:
+        self.returncode = -15
 
-def _popen_stub(factory: Callable[..., FakeProcess]) -> Callable[..., Popen[bytes]]:
-    """Type the deliberate fake-process substitution at the test boundary."""
-    return cast(Callable[..., Popen[bytes]], factory)
+    def wait(self, timeout: float | None = None) -> int:
+        del timeout
+        return self.returncode
+
+    def kill(self) -> None:
+        self.returncode = -9
 
 
 def _no_op(*_args: object) -> None:
@@ -108,7 +111,7 @@ def test_launches_during_held_advisory_and_delivers_all_findings(
             launched.append(1)
             return FakeProcess(len(launched))
 
-        outcome = runner.launch_plan(plan, config, advisory=advisory, popen=_popen_stub(popen))
+        outcome = runner.launch_plan(plan, config, advisory=advisory, popen=popen)
         assert outcome.successful
         assert len(launched) == 2
         release.set()
@@ -200,7 +203,7 @@ def test_gpu_inspected_only_once_and_inspection_uncertainty_is_not_all_clear(
         count.append(1)
         return FakeProcess(len(count))
 
-    outcome = runner.launch_plan(plan, config, popen=_popen_stub(popen))
+    outcome = runner.launch_plan(plan, config, popen=popen)
     assert outcome.successful
     assert calls == [1]
     assert len(count) == 2
@@ -223,6 +226,6 @@ def test_no_external_models_message_never_claims_overcapacity(
     def popen(**_kwargs: object) -> FakeProcess:
         return FakeProcess(123)
 
-    runner.launch_plan(runner.prepare_plan(config), config, popen=_popen_stub(popen))
+    runner.launch_plan(runner.prepare_plan(config), config, popen=popen)
     assert "No other running local TUFLOW models detected" in caplog.text
     assert "All configured GPU groups appear occupied" not in caplog.text

@@ -23,7 +23,7 @@ from pathlib import Path
 from queue import Empty, SimpleQueue
 from tempfile import NamedTemporaryFile
 from threading import Event, Lock, Thread
-from typing import TYPE_CHECKING, Literal, cast
+from typing import TYPE_CHECKING, Literal, Protocol, cast
 
 from loguru import logger
 
@@ -126,10 +126,31 @@ type BeforeLaunch = Callable[[PlannedRun], None]
 type ObservedCompletion = Callable[[RunOutcome], None]
 
 
+class _ProcessHandle(Protocol):
+    """Process operations the scheduler actually uses, including during cleanup.
+
+    Both real subprocess.Popen objects and deterministic test doubles satisfy
+    this interface; tests no longer pretend a fake is a Popen instance.
+    """
+
+    pid: int
+
+    def poll(self) -> int | None: ...
+
+    def terminate(self) -> None: ...
+
+    def wait(self, timeout: float | None = None) -> int: ...
+
+    def kill(self) -> None: ...
+
+
+type _ProcessFactory = Callable[..., _ProcessHandle]
+
+
 @dataclass(slots=True)
 class _OwnedChild:
     run: PlannedRun
-    process: subprocess.Popen[bytes]
+    process: _ProcessHandle
     started_at: datetime
     slot: int | None
 
@@ -632,7 +653,7 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
     on_before_launch: BeforeLaunch | None = None,
     on_observed_completion: ObservedCompletion | None = None,
     interrupted: Event | None = None,
-    popen: Callable[..., subprocess.Popen[bytes]] | None = None,
+    popen: _ProcessFactory | None = None,
     advisory: AdvisoryInputCheck | None = None,
 ) -> BatchOutcome:
     """Launch each immutable occurrence once, with its own cwd and argv.
@@ -652,9 +673,8 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
         message = "No runner slots configured"
         raise CommandPlanError(message)
     stop = interrupted if interrupted is not None else Event()
-    factory: Callable[..., subprocess.Popen[bytes]] = (
-        popen if popen is not None else cast(Callable[..., subprocess.Popen[bytes]], subprocess.Popen)
-    )
+    # This cast applies to the genuine stdlib constructor, never to a fake.
+    factory: _ProcessFactory = popen if popen is not None else cast(_ProcessFactory, subprocess.Popen)
     queue = deque(plan.runs)
     active: list[_OwnedChild] = []
     owned_slots: set[int] = set()
