@@ -97,7 +97,7 @@ def read_project_xml(project_path: Path) -> bytes:
 
 def _xml_root(project_path: Path) -> ET.Element:
     # Retain processing instructions and comments when reserialising a repaired project.
-    parser = ET.XMLParser(target=ET.TreeBuilder(insert_comments=True, insert_pis=True))
+    parser = ET.XMLParser(target=ET.TreeBuilder(insert_comments=True, insert_pis=True))  # noqa: S314
     return ET.fromstring(read_project_xml(project_path), parser=parser)  # noqa: S314
 
 

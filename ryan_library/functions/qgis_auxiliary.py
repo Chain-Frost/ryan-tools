@@ -76,7 +76,7 @@ def _inspect_database(
         for (name,) in names:
             identifier = _quoted_identifier(str(name))
             columns = tuple(
-                str(row[1]) for row in db.execute(f"PRAGMA table_info({identifier})")  # noqa: S608
+                str(row[1]) for row in db.execute(f"PRAGMA table_info({identifier})")
             )
             result = db.execute(f"SELECT count(*) FROM {identifier}").fetchone()  # noqa: S608 - quoted SQLite name
             if result is None:

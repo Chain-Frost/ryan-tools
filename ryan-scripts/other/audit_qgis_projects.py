@@ -1,4 +1,4 @@
-"""Audit QGS/QGZ sources in explicit existence or cold-storage-ping modes.
+r"""Audit QGS/QGZ sources in explicit existence or cold-storage-ping modes.
 
 The default --mode existence checks filesystem metadata without reading the
 referenced files. --mode cold-storage-ping explicitly opens each distinct local
@@ -24,7 +24,7 @@ from typing import Literal
 
 # Editable defaults: CLI arguments override these settings.
 WRAPPER_VERSION = "2026-10-31.3"
-DEFAULT_WORKING_DIR = Path(".")
+DEFAULT_WORKING_DIR = Path()
 DEFAULT_PROJECT: Path | None = None  # None scans all QGS/QGZ under the working directory
 DEFAULT_AUDIT_MODE: Literal["existence"] = "existence"  # Ping requires explicit --mode on each CLI run
 DEFAULT_AUXILIARY_REPORT = False

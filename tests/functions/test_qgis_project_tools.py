@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import sqlite3
-from unittest.mock import mock_open, patch
 from pathlib import Path
+from unittest.mock import mock_open, patch
 from xml.etree import ElementTree as ET
 from zipfile import ZipFile
 
@@ -42,7 +42,7 @@ def _qgz(path: Path, xml: bytes, *, qgd: bytes | None = None) -> None:
 
 def _qgd(path: Path, layer_id: str) -> bytes:
     with sqlite3.connect(path) as db:
-        db.execute(f'CREATE TABLE "{layer_id}" (ASPK TEXT, labeling_positionx REAL, labeling_positiony REAL)')  # noqa: S608
+        db.execute(f'CREATE TABLE "{layer_id}" (ASPK TEXT, labeling_positionx REAL, labeling_positiony REAL)')
         db.execute(f'INSERT INTO "{layer_id}" VALUES (?, ?, ?)', ("feature-a", 123.4, 567.8))  # noqa: S608
         db.commit()
     return path.read_bytes()
@@ -194,7 +194,8 @@ def test_auxiliary_samples_are_opt_in_and_limited(tmp_path: Path) -> None:
     before = database.read_bytes()
     basic = inspect_auxiliary_storage(database)
     samples = inspect_auxiliary_storage(database, sample_rows=1)
-    assert basic is not None and samples is not None
+    assert basic is not None
+    assert samples is not None
     assert basic.tables[0].sample_rows == ()
     assert samples.tables[0].sample_rows == (("feature-a", "123.4", "567.8"),)
     assert database.read_bytes() == before
@@ -213,7 +214,8 @@ def test_qgs_repair_copies_companion_qgd(tmp_path: Path) -> None:
     assert output.with_suffix(".qgd").read_bytes() == database_bytes
     assert companion.read_bytes() == database_bytes
     summary = inspect_auxiliary_storage(output, sample_rows=1)
-    assert summary is not None and summary.tables[0].layer_name == "Labelled"
+    assert summary is not None
+    assert summary.tables[0].layer_name == "Labelled"
 
 
 def test_no_overwrite_of_any_output_or_companion(tmp_path: Path) -> None:
@@ -270,7 +272,8 @@ def test_auxiliary_inspection_is_immutable_and_rejects_wal_state(tmp_path: Path)
     auxiliary = tmp_path / "labels.qgd"
     before = _qgd(auxiliary, "label-id")
     summary = inspect_auxiliary_storage(auxiliary)
-    assert summary is not None and summary.tables[0].row_count == 1
+    assert summary is not None
+    assert summary.tables[0].row_count == 1
     assert auxiliary.read_bytes() == before
     assert not Path(f"{auxiliary}-shm").exists()
     assert not Path(f"{auxiliary}-wal").exists()
