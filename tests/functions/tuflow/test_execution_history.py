@@ -11,7 +11,7 @@ from pathlib import Path, PureWindowsPath
 
 import pytest
 
-from ryan_library.functions.tuflow.command_plan import CommandPlan, PlannedRun
+from ryan_library.functions.tuflow.command_plan import CommandPlan, PlannedRun, read_command_plan
 from ryan_library.functions.tuflow.execution_history import (
     COLUMNS,
     CompletionSession,
@@ -260,3 +260,47 @@ def test_windows_unc_and_switch_order_have_stable_identity() -> None:
         return identify_runs(plan, fallback_executable=Path("unused.exe"), base_directory=Path.cwd())[1].key
 
     assert signature(first) == signature(second)
+
+
+def test_imported_bare_and_nonterminal_tcf_rows_have_stable_csv_identity(tmp_path: Path) -> None:
+    """The valid parser surface must also work with CSV continuation."""
+    source = tmp_path / "input.bat"
+    fallback = Path("tuflow.exe")
+
+    source.write_text('SET "TCF=model.tcf"\n-e1 A\n', encoding="utf-8")
+    bare = read_command_plan(source, initial_directory=tmp_path)
+    assert bare.runs[0].arguments == ("-e1", "A")
+    bare_key = identify_runs(bare, fallback_executable=fallback, base_directory=tmp_path)[1].key
+    assert bare_key
+
+    source.write_text("-e1 A\n", encoding="utf-8")
+    python_fallback = read_command_plan(source, initial_directory=tmp_path, fallback_tcf="model.tcf")
+    assert identify_runs(python_fallback, fallback_executable=fallback, base_directory=tmp_path)[1].key == bare_key
+
+    source.write_text("tuflow.exe model.tcf -e1 A\n", encoding="utf-8")
+    nonterminal = read_command_plan(source, initial_directory=tmp_path)
+    nonterminal_key = identify_runs(
+        nonterminal, fallback_executable=fallback, base_directory=tmp_path
+    )[1].key
+
+    source.write_text("tuflow.exe -e1 A model.tcf\n", encoding="utf-8")
+    terminal = read_command_plan(source, initial_directory=tmp_path)
+    assert identify_runs(terminal, fallback_executable=fallback, base_directory=tmp_path)[1].key == nonterminal_key
+
+    # The .tcf suffix in a flag value is not the model's control-file token.
+    source.write_text("tuflow.exe -e1 A.tcf model.tcf\n", encoding="utf-8")
+    value_tcf = read_command_plan(source, initial_directory=tmp_path)
+    assert identify_runs(value_tcf, fallback_executable=fallback, base_directory=tmp_path)[1].key != nonterminal_key
+
+    # A successful bare-row run is persisted and subsequently skipped on Resume.
+    with CsvExecutionLog(tmp_path / "batch_runs.csv") as history:
+        attempt = history.start(identify_runs(bare, fallback_executable=fallback, base_directory=tmp_path)[1])
+        history.finish(
+            identify_runs(bare, fallback_executable=fallback, base_directory=tmp_path)[1],
+            attempt,
+            Observed(bare.runs[0], 0),
+        )
+    with CsvExecutionLog(tmp_path / "batch_runs.csv") as history:
+        assert select_pending(
+            bare, identify_runs(bare, fallback_executable=fallback, base_directory=tmp_path), history.successful_keys()
+        ).runs == ()
