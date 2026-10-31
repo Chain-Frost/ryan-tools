@@ -258,13 +258,9 @@ def test_root_replacement_collapses_dot_dot_without_opening_source(tmp_path: Pat
 def test_windows_network_mapping_collapses_equivalent_drive_and_unc_spellings() -> None:
     mappings = (("Q:", r"\\server\share\Waterways"),)
     drive_path = _normalize_windows_network_path(r"Q:\Project\GIS\..\Data\roads.gpkg", mappings)
-    unc_path = _normalize_windows_network_path(
-        r"\\SERVER\SHARE\Waterways\Project\Data\roads.gpkg", mappings
-    )
+    unc_path = _normalize_windows_network_path(r"\\SERVER\SHARE\Waterways\Project\Data\roads.gpkg", mappings)
     assert drive_path.casefold() == unc_path.casefold()
-    assert drive_path.casefold() == ntpath.normpath(
-        r"\\server\share\Waterways\Project\Data\roads.gpkg"
-    ).casefold()
+    assert drive_path.casefold() == ntpath.normpath(r"\\server\share\Waterways\Project\Data\roads.gpkg").casefold()
     assert _normalize_windows_network_path(r"Q:data.gpkg", mappings) == r"Q:data.gpkg"
 
 

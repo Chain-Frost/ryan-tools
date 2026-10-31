@@ -91,9 +91,7 @@ def get_data_sources(project_path: Path) -> list[str]:
     return sorted({layer.uri for layer in project_layer_sources(project_path) if layer.uri})
 
 
-def resolve_file_source(
-    project_path: Path, source: str, *, drive_mappings: QgisDriveMappings = ()
-) -> Path | None:
+def resolve_file_source(project_path: Path, source: str, *, drive_mappings: QgisDriveMappings = ()) -> Path | None:
     """Compatibility helper for local datasource paths (None means non-file or unsupported)."""
     return local_source_path(project_path, source, drive_mappings=drive_mappings)
 

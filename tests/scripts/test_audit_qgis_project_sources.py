@@ -275,9 +275,7 @@ def test_main_uses_selected_mode_and_deduplicates_sources(tmp_path: Path, monkey
     assert checked == [(data, "cold-storage-ping")]
 
 
-def test_audit_deduplicates_lexically_equivalent_parent_paths(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_audit_deduplicates_lexically_equivalent_parent_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     (tmp_path / "GIS").mkdir()
     (tmp_path / "Data").mkdir()
     _write_qgs(
@@ -302,9 +300,7 @@ def test_audit_deduplicates_lexically_equivalent_parent_paths(
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Requires Windows mapped-drive semantics")
-def test_audit_deduplicates_drive_and_unc_aliases(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_audit_deduplicates_drive_and_unc_aliases(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _write_qgs(
         tmp_path / "model.qgs",
         "Q:/Project/Data/roads.gpkg",
@@ -322,11 +318,14 @@ def test_audit_deduplicates_drive_and_unc_aliases(
 
     monkeypatch.setitem(audit.__globals__, "probe_local_file", record_probe)
     monkeypatch.chdir(tmp_path)
-    assert main(
-        working_directory=tmp_path,
-        mode="cold-storage-ping",
-        drive_mappings=(("Q:", r"\\server\share"),),
-    ) == 0
+    assert (
+        main(
+            working_directory=tmp_path,
+            mode="cold-storage-ping",
+            drive_mappings=(("Q:", r"\\server\share"),),
+        )
+        == 0
+    )
     assert checked == [Path(r"\\server\share\Project\Data\roads.gpkg")]
 
 

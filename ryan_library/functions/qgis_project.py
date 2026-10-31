@@ -256,9 +256,7 @@ def probe_local_file(path: Path, *, mode: QgisAuditMode = "existence") -> tuple[
     raise ValueError(message)
 
 
-def _map_root(
-    path: Path, replace_root: tuple[Path, Path] | None, drive_mappings: QgisDriveMappings
-) -> Path | None:
+def _map_root(path: Path, replace_root: tuple[Path, Path] | None, drive_mappings: QgisDriveMappings) -> Path | None:
     if replace_root is None:
         return path
     old_root, new_root = replace_root
