@@ -1,298 +1,215 @@
+"""Maintained wrapper contract and process-boundary acceptance for scope 03."""
+
+from __future__ import annotations
+
 import importlib.util
+import os
+import signal
+import subprocess
 import sys
+from collections.abc import Callable
+from contextlib import AbstractContextManager
+from datetime import datetime
 from pathlib import Path
+from threading import Event
+from typing import Protocol, cast
 
 import pytest
 
+from ryan_library.functions.tuflow.command_plan import CommandPlan
+from ryan_library.orchestrators.tuflow.simulation_runner import BatchOutcome, RunOutcome
 
-# --- Module Loading Helper ---
-@pytest.fixture(scope="module")
-def rtb():
-    """Load the run_tuflow_simulations module dynamically."""
-    repo_root = Path(__file__).parents[2]
-    script_path = repo_root / "ryan-scripts" / "TUFLOW-python" / "model_management" / "run_tuflow_simulations.py"
 
-    if not script_path.exists():
-        pytest.fail(f"Could not find script at {script_path}")
+class _RunnerWrapper(Protocol):
+    EXPORT_COMMANDS: bool
+    NEXT_RUN_FILE: Path | None
 
-    spec = importlib.util.spec_from_file_location("run_tuflow_simulations", script_path)
+    def main(self, argv: list[str] | None = None) -> int: ...
+
+
+@pytest.fixture
+def wrapper(tmp_path: Path) -> _RunnerWrapper:
+    source = (
+        Path(__file__).absolute().parents[2] / "ryan-scripts/TUFLOW-python/model_management/run_tuflow_simulations.py"
+    )
+    # The real wrapper owns an adjacent CSV. A disposable copy prevents tests
+    # from writing history into the tracked repository wrapper directory.
+    copied = tmp_path / "run_tuflow_simulations.py"
+    copied.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+    spec = importlib.util.spec_from_file_location("tested_runner_wrapper", copied)
+    assert spec is not None
+    assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
-    sys.modules["run_tuflow_simulations"] = module
+    sys.modules[spec.name] = module
     spec.loader.exec_module(module)
-    return module
+    return cast(_RunnerWrapper, module)
 
 
-# --- Fixtures ---
-@pytest.fixture
-def mock_paths(tmp_path):
-    """Create dummy TCF and EXE files."""
-    tcf = tmp_path / "test_model_~s1~_~e1~.tcf"
-    tcf.touch()
-    exe = tmp_path / "TUFLOW_iSP_w64.exe"
-    exe.touch()
-    return tcf, exe
-
-
-@pytest.fixture
-def core_params(rtb, mock_paths):
-    """Return a valid CoreParameters instance."""
-    tcf, exe = mock_paths
-    return rtb.CoreParameters(tcf=tcf, tuflowexe=exe, gpu_devices=None, smart_mode="parameter_product")
-
-
-# --- Tests ---
-
-
-def test_core_params_defaults(rtb, mock_paths):
-    """Test CoreParameters default values."""
-    tcf, exe = mock_paths
-    cp = rtb.CoreParameters(tcf=tcf, tuflowexe=exe)
-    assert cp.batch_commands == "-x"
-    assert cp.computational_priority == "NORMAL"
-    assert cp.run_simulations is True
-    assert cp.gpu_devices is None
-
-
-def test_check_and_set_defaults_valid(rtb, core_params):
-    """Test validation with valid parameters."""
-    params = rtb.Parameters(core_params=core_params, run_variables={})
-    # Should not raise
-    rtb.check_and_set_defaults(params)
-
-
-def test_check_and_set_defaults_missing_files(rtb, tmp_path):
-    """Test validation fails if files don't exist."""
-    tcf = tmp_path / "non_existent.tcf"
-    exe = tmp_path / "non_existent.exe"
-    cp = rtb.CoreParameters(tcf=tcf, tuflowexe=exe)
-    params = rtb.Parameters(core_params=cp, run_variables={})
-
-    with pytest.raises(FileNotFoundError, match="TCF file not found"):
-        rtb.check_and_set_defaults(params)
-
-
-def test_check_and_set_defaults_invalid_priority(rtb, core_params):
-    """Test validation fails with invalid priority."""
-    core_params.computational_priority = "SUPER_HIGH"
-    params = rtb.Parameters(core_params=core_params, run_variables={})
-    with pytest.raises(ValueError, match=r"Invalid priority: SUPER_HIGH\. Must be one of:"):
-        rtb.check_and_set_defaults(params)
-
-
-def test_check_and_set_defaults_invalid_gpu(rtb, core_params):
-    """Test validation fails with invalid GPU flags."""
-    core_params.gpu_devices = ["-puA"]  # Invalid format
-    params = rtb.Parameters(core_params=core_params, run_variables={})
-    with pytest.raises(ValueError, match="Invalid GPU flag"):
-        rtb.check_and_set_defaults(params)
-
-
-def test_check_and_set_defaults_invalid_run_var_key(rtb, core_params):
-    """Test validation fails with invalid run variable keys."""
-    params = rtb.Parameters(core_params=core_params, run_variables={"x1": ["val"]})
-    with pytest.raises(ValueError, match="Invalid run variable key"):
-        rtb.check_and_set_defaults(params)
-
-
-def test_compute_simulations_product(rtb, core_params):
-    """Test simulation generation using parameter product."""
-    run_vars = {"s1": ["A", "B"], "e1": ["10", "20"]}
-    params = rtb.Parameters(core_params=core_params, run_variables=run_vars)
-
-    sims = rtb.compute_simulations(params)
-
-    # Should have 2 * 2 = 4 simulations
-    assert len(sims) == 4
-
-    # Check args of first sim
-    # Order depends on priority_order or insertion order.
-    # Default is insertion order: s1 then e1.
-    # Sim 1: s1=A, e1=10
-    args0 = sims[0].args_for_python
-    assert "-s1" in args0
-    assert "A" in args0
-    assert "-e1" in args0
-    assert "10" in args0
-
-
-def test_compute_simulations_filtering(rtb, core_params, tmp_path):
-    """Test that variables not in TCF filename are ignored/warned (depending on implementation).
-    Actually the implementation says: "We can return flags that are not present in the tcf filename."
-    But `filter_parameters` warns. `_enforce_placeholders` is used in textfiles mode?
-    Wait, `compute_simulations` calls `filter_parameters`.
-    """
-    # TCF name is "test_model_~s1~_~e1~.tcf" (from mock_paths)
-    # Add an extra variable "s2"
-    run_vars = {"s1": ["A"], "e1": ["10"], "s2": ["Extra"]}
-    params = rtb.Parameters(core_params=core_params, run_variables=run_vars)
-
-    # filter_parameters will warn but return non_empty.
-    # compute_simulations uses filtered_vars.
-
-    sims = rtb.compute_simulations(params)
-    assert len(sims) == 1
-    args = sims[0].args_for_python
-    # s2 should be present because filter_parameters only filters empty values,
-    # it just warns about extras.
-    assert "-s2" in args
-
-
-def test_parse_input_files(rtb, tmp_path):
-    """Test parsing of text files."""
-    f = tmp_path / "runs.txt"
-    content = """
-    -s1 A -e1 10
-    -s1 B -e1 20  ! Comment
-    # Comment line
-    -s1 A -e1 10  ! Duplicate
-    """
-    f.write_text(content, encoding="utf-8")
-
-    combos, _first_seen = rtb.parse_input_files([f])
-
-    assert len(combos) == 2  # A-10 and B-20. Duplicate A-10 ignored.
-    assert combos[0] == {"s1": "A", "e1": "10"}
-    assert combos[1] == {"s1": "B", "e1": "20"}
-
-
-def test_get_batch_flags_conflict(rtb, core_params):
-    """Test conflict detection between batch_commands and gpu_devices."""
-    core_params.batch_commands = "-b -pu0"
-    core_params.gpu_devices = ["-pu1"]
-
-    with pytest.raises(ValueError, match="GPU flags were specified in BOTH places"):
-        rtb.get_batch_flags(core=core_params)
-
-
-def test_generate_arg_for_batch(rtb, core_params):
-    """Test batch command generation."""
-    cmd = rtb.generate_arg_for_batch(
-        priority="NORMAL",
-        tuflowexe=core_params.tuflowexe,
-        batch=["-b"],
-        tcf=core_params.tcf,
-        keys=["s1"],
-        combo=("val1",),
-        max_lengths={"s1": 4},
+def _source(path: Path) -> Path:
+    batch = path / "models.bat"
+    batch.write_text(
+        f'START /WAIT "" "TUFLOW.exe" -b -e1 A "{path / "model.tcf"}"\n',
+        encoding="utf-8",
     )
-
-    assert "START /NORMAL /WAIT" in cmd
-    assert str(core_params.tuflowexe) in cmd
-    assert "-b" in cmd
-    assert "-s1" in cmd
-    assert "val1" in cmd
-    assert str(core_params.tcf) in cmd
+    return batch
 
 
-# --- Additional Tests ---
+def test_export_only_copied_workflow_needs_neither_solver_nor_gpu(
+    tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from ryan_library.orchestrators.tuflow import simulation_runner
 
+    source = _source(tmp_path)
+    output = tmp_path / "commands.bat"
 
-def test_format_duration(rtb):
-    """Test duration formatting utility."""
-    assert rtb.format_duration(0) == "00:00:00"
-    assert rtb.format_duration(59) == "00:00:59"
-    assert rtb.format_duration(60) == "00:01:00"
-    assert rtb.format_duration(3600) == "01:00:00"
-    assert rtb.format_duration(3661) == "01:01:01"
-    assert rtb.format_duration(86400) == "24:00:00"
+    def forbidden_gpu(*_args: object) -> None:
+        pytest.fail("Export-only inspected GPUs")
 
-
-def test_split_input_strings(rtb):
-    """Test input string splitting."""
-    # String input
-    assert rtb.split_input_strings("a b c") == ["a", "b", "c"]
-    assert rtb.split_input_strings("  a   b  ") == ["a", "b"]
-    assert rtb.split_input_strings("") == []
-
-    # List input
-    assert rtb.split_input_strings(["a", "b"]) == ["a", "b"]
-    assert rtb.split_input_strings(["  a  ", "b"]) == ["a", "b"]
-
-
-def test_parse_input_files_gpu_stripped(rtb, tmp_path):
-    """Test that -puN flags are stripped from parsed input files."""
-    f = tmp_path / "runs.txt"
-    f.write_text("-s1 A -pu0 -e1 10 -pu1\n-s1 B -e1 20", encoding="utf-8")
-
-    combos, _first_seen = rtb.parse_input_files([f])
-
-    # GPU flags should be stripped, only s1 and e1 remain
-    assert len(combos) == 2
-    assert combos[0] == {"s1": "A", "e1": "10"}
-    assert combos[1] == {"s1": "B", "e1": "20"}
-
-
-def test_parse_input_files_various_comments(rtb, tmp_path):
-    """Test parsing handles various comment styles."""
-    f = tmp_path / "runs.txt"
-    content = """
-    REM This is a comment
-    :: Another comment
-    # Python style
-    ; Semicolon
-    // C++ style
-    -s1 A -e1 10
-    """
-    f.write_text(content, encoding="utf-8")
-
-    combos, _ = rtb.parse_input_files([f])
-    assert len(combos) == 1
-    assert combos[0] == {"s1": "A", "e1": "10"}
-
-
-def test_priority_order_custom(rtb, core_params):
-    """Test custom priority_order affects key ordering in command."""
-    core_params.priority_order = "e1 s1"
-    run_vars = {"s1": ["A"], "e1": ["10"]}
-    params = rtb.Parameters(core_params=core_params, run_variables=run_vars)
-
-    sims = rtb.compute_simulations(params)
-    args = sims[0].args_for_python
-
-    # Find positions of flags
-    e1_idx = args.index("-e1")
-    s1_idx = args.index("-s1")
-
-    # e1 should come before s1 due to priority_order
-    assert e1_idx < s1_idx
-
-
-def test_empty_run_variables_rejected_for_placeholder_tcf(rtb, core_params):
-    """A placeholder-bearing TCF must receive matching run variables."""
-    params = rtb.Parameters(core_params=core_params, run_variables={})
-    with pytest.raises(ValueError, match="run_variables is missing"):
-        rtb.compute_simulations(params)
-
-
-def test_simulation_equality_and_hash(rtb):
-    """Test Simulation equality ignores GPU assignment."""
-    # Create two identical simulations
-    sim1 = rtb.Simulation(
-        args_for_python=["exe", "-b", "-s1", "A", "tcf.tcf"], command_for_batch="START /NORMAL ...", index=1
+    monkeypatch.setattr(simulation_runner, "_gpu_startup_message", forbidden_gpu)
+    assert (
+        wrapper.main(
+            [
+                "--working-directory",
+                str(tmp_path),
+                "--mode",
+                "textfiles",
+                "--input-file",
+                str(source),
+                "--no-tcf",
+                "--export-only",
+                "--solver-exe",
+                str(tmp_path / "MISSING.EXE"),
+                "--export-path",
+                str(output),
+                "--no-pause",
+            ]
+        )
+        == 0
     )
-    sim2 = rtb.Simulation(
-        args_for_python=["exe", "-b", "-s1", "A", "tcf.tcf"], command_for_batch="START /NORMAL ...", index=2
+    assert output.is_file()
+    assert source.read_text(encoding="utf-8").startswith("START /WAIT")
+
+
+def test_wrapper_preflight_only_waits_and_returns_failure(
+    tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = _source(tmp_path)
+    calls: list[str] = []
+    module = sys.modules["tested_runner_wrapper"]
+
+    def check(*_args: object, **_kwargs: object) -> bool:
+        calls.append("preflight")
+        return False
+
+    monkeypatch.setattr(module, "check_plan_only", check)
+
+    def forbidden_launch(*_args: object, **_kwargs: object) -> None:
+        pytest.fail("Launched during check-only")
+
+    monkeypatch.setattr(module, "launch_plan", forbidden_launch)
+    assert (
+        wrapper.main(
+            [
+                "--working-directory",
+                str(tmp_path),
+                "--mode",
+                "textfiles",
+                "--input-file",
+                str(source),
+                "--no-tcf",
+                "--preflight-only",
+                "--no-export",
+                "--no-pause",
+            ]
+        )
+        == 1
     )
-
-    # Should be equal despite different index
-    assert sim1 == sim2
-    assert hash(sim1) == hash(sim2)
+    assert calls == ["preflight"]
 
 
-def test_enforce_placeholders(rtb, core_params):
-    """Test placeholder enforcement in textfiles mode."""
-    # TCF expects ~s1~ and ~e1~
-    combos = [
-        {"s1": "A", "e1": "10"},  # Valid
-        {"s1": "B"},  # Missing e1 - should be filtered
-        {"e1": "20"},  # Missing s1 - should be filtered
-        {"s1": "C", "e1": "30", "s2": "X"},  # Has extra s2, but has required
-    ]
+def test_failed_child_still_chains_but_keeps_failure_exit_code(
+    tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = sys.modules["tested_runner_wrapper"]
+    calls: list[str] = []
+    monkeypatch.setattr(module, "EXPORT_COMMANDS", False)
+    monkeypatch.setattr(module, "NEXT_RUN_FILE", Path("post.py"))
 
-    filtered = rtb._enforce_placeholders(core=core_params, combos=combos)
+    def fake_launch(plan: CommandPlan, *_args: object, **_kwargs: object) -> BatchOutcome:
+        calls.append("launch")
+        selected = plan.runs
+        return BatchOutcome(
+            selected,
+            tuple(RunOutcome(run, 1, datetime.now(), datetime.now(), 123) for run in selected),
+        )
 
-    # Should only keep combos with both s1 and e1
-    assert len(filtered) == 2
-    # Extra run variables are preserved when all required placeholders exist.
-    assert filtered[0] == {"s1": "A", "e1": "10"}
-    assert filtered[1] == {"s1": "C", "e1": "30", "s2": "X"}
+    def post(*_args: object, **_kwargs: object) -> bool:
+        calls.append("post")
+        return True
+
+    monkeypatch.setattr(module, "launch_plan", fake_launch)
+    monkeypatch.setattr(module, "_run_follow_up", post)
+    assert wrapper.main(["--working-directory", str(tmp_path), "--no-pause"]) == 1
+    assert calls == ["launch", "post"]
+
+
+def test_planning_failure_does_not_export_check_or_chain(
+    tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = sys.modules["tested_runner_wrapper"]
+    monkeypatch.setattr(module, "NEXT_RUN_FILE", Path("post.py"))
+
+    def forbidden_follow_up(*_args: object) -> None:
+        pytest.fail("Chained after preparation failure")
+
+    def forbidden_launch(*_args: object, **_kwargs: object) -> None:
+        pytest.fail("Launched bad input")
+
+    monkeypatch.setattr(module, "_run_follow_up", forbidden_follow_up)
+    monkeypatch.setattr(module, "launch_plan", forbidden_launch)
+    assert (
+        wrapper.main(
+            [
+                "--working-directory",
+                str(tmp_path),
+                "--mode",
+                "textfiles",
+                "--input-file",
+                str(tmp_path / "missing.bat"),
+                "--no-tcf",
+                "--no-pause",
+            ]
+        )
+        == 1
+    )
+    assert not list(tmp_path.glob("*commands*.bat"))
+
+
+def test_process_signal_handler_is_restored(wrapper: _RunnerWrapper) -> None:
+    previous = signal.getsignal(signal.SIGINT)
+    interrupt_context = cast(
+        Callable[[], AbstractContextManager[Event]],
+        getattr(wrapper, "_interruption_flag"),  # noqa: B009 - copied module private hook
+    )
+    with interrupt_context():
+        assert signal.getsignal(signal.SIGINT) is not previous
+    assert signal.getsignal(signal.SIGINT) is previous
+
+
+def test_optional_help_is_available_without_loading_pytuflow() -> None:
+    source = (
+        Path(__file__).absolute().parents[2] / "ryan-scripts/TUFLOW-python/model_management/run_tuflow_simulations.py"
+    )
+    content = source.read_text(encoding="utf-8")
+    assert "sys.path.insert" not in content
+    # Source-checkout subprocesses do not inherit pytest's sys.path; the copied
+    # wrapper / installed-wheel acceptance runs separately with no PYTHONPATH.
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(source.parents[3])
+    result = subprocess.run(
+        [sys.executable, str(source), "--help"], capture_output=True, text=True, check=False, env=env
+    )
+    assert result.returncode == 0
+    assert "--export-only" in result.stdout
+    assert "--preflight-only" in result.stdout
+    assert "--no-pause" in result.stdout

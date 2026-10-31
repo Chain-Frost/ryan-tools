@@ -63,10 +63,13 @@ def test_invalid_dotted_definition_rejected(tmp_path: Path) -> None:
 
 
 def test_wheel_installer_includes_qgis_mcp(tmp_path: Path) -> None:
-    commands = pip_commands(tmp_path / "ryan_tools-test.whl", False)
-    assert len(commands) == 3
+    wheel = tmp_path / "ryan_tools-test.whl"
+    commands = pip_commands(wheel, False)
+    assert len(commands) == 4
     assert "nkarasiak/qgis-mcp" in commands[1][-1]
-    assert commands[2][-1].endswith(".whl[mcp]")
+    parser = cast(str, installer["ACCEPTED_PYTUFLOW_SOURCE"])
+    assert commands[2][-1] == parser
+    assert commands[3][-2:] == [f"{wheel}[mcp]", parser]
 
 
 def test_wheel_installer_allows_local_qgis_source(tmp_path: Path) -> None:
@@ -80,7 +83,7 @@ def test_wheel_installer_allows_local_qgis_source(tmp_path: Path) -> None:
 
 def test_wheel_installer_supports_offline_and_recovery_paths(tmp_path: Path) -> None:
     wheel = tmp_path / "ryan_tools-test.whl"
-    assert len(pip_commands(wheel, False, skip_qgis_mcp=True)) == 2
+    assert len(pip_commands(wheel, False, skip_qgis_mcp=True)) == 3
     recovery = pip_commands(wheel, True)
     assert len(recovery) == 1
     assert "--no-deps" in recovery[0]

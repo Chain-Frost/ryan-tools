@@ -12,6 +12,40 @@ It scopes background checks that report INFO on success and all findings as warn
 without delaying or stopping the batch, plus verification of existing GPU-sharing warnings.
 Pause/restart improvements belong to later PRs. Background advisory checking is implemented in draft PR #159, stacked on PR #161's curated PR C consumer. Exact-head CI and native validation are still required. See the work record for shutdown policy and evidence.
 
+## Runner CSV continuation (draft scope 04)
+
+The maintained [simulation runner](model_management/run_tuflow_simulations.py)
+has an optional command-line override of its editable `CONTINUATION_MODE`:
+
+- **Resume (default):** regenerate the current Python/BAT/text plan, then skip
+  only the occurrences whose latest attempts since the last reset recorded
+  an observed zero solver exit code. Failed, unfinished and new runs are queued
+  in the original logical order.
+- **Run all:** set `CONTINUATION_MODE = "all"` or pass `--run-mode all`.
+  Append a `RESET` row to the existing CSV, then run every occurrence.
+  Previously successful runs are not eligible to be skipped in the new cycle.
+
+The single history CSV uses the supplying Python wrapper's filename stem
+followed by `_runs.csv`, **beside the copied wrapper**, not in any model
+working directory. It is an
+append-only schema-v1 `START` / `FINISH` / `RESET` record of observed
+process outcomes; it does not contain a reusable command plan. Normal startup
+retains the history, and only an incomplete trailing CSV fragment is repaired.
+An incompatible old report or earlier corruption produces an error, not
+implicit migration.
+
+Stop previous batch processes before restarting. Missing FINISH rows are
+deliberately treated as pending; the runner does not inspect TLF/TSF/activity
+logs or recover orphan processes. New attempts use the current model inputs and
+configured TUFLOW output paths and **may overwrite existing solver outputs**.
+Changing model contents at unchanged paths is not detected; use Run all when
+the previous successes should be disregarded. This is batch reexecution, not
+TUFLOW solver checkpoint restart. An already-complete Resume performs no GPU
+scan or solver launch but retains the explicitly configured follow-up policy.
+
+This feature is currently in [draft scope 04 PR #174](https://github.com/Chain-Frost/ryan-tools/pull/174),
+stacked on the scope 03 runner; it is not yet included in a release.
+
 ## Maintained wrappers
 
 The maintained wrappers delegate processing to `ryan_library` orchestrators and
