@@ -24,6 +24,9 @@ from ryan_library.orchestrators.tuflow import simulation_runner as runner
 
 @pytest.fixture(autouse=True)
 def capture_loguru(caplog: pytest.LogCaptureFixture) -> Generator[None]:
+    # Other workflow tests can leave this namespace disabled. A new sink alone
+    # does not restore emission, so establish the capture configuration here.
+    logger.enable("ryan_library")
     sink = logger.add(caplog.handler, format="{message}")
     try:
         yield

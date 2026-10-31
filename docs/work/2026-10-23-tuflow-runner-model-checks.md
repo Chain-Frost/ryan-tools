@@ -2,14 +2,14 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Needs review: cleanup delivered to #159; new-head CI and native Windows acceptance pending |
+| Status | Needs review: cleanup delivered to #159; local and Windows CSV acceptance recorded |
 | Owner | ChatGPT |
 | Created / Updated | 2026-10-23 / 2026-10-31 |
 | Next review | Windows acceptance / 2026-11-07 |
 | Pull request | [ryan-tools #159](https://github.com/Chain-Frost/ryan-tools/pull/159), open and non-draft when checked |
 | Branch / delivery base | `feat/tuflow-runner-model-checks`, parent `5810fba8def32aa3570c0684cfa7d99c18caae25`; tested implementation baseline `5edc2f5371da3a55faec4cbab2115e43574f1c43` |
 | Delivery | This commit publishes the owner-requested cleanup to the existing #159 branch; no main merge or release |
-| Next action | Check GitHub CI on this delivered candidate, resolve failures, then complete any remaining native Windows installer/runner acceptance. |
+| Next action | Review current GitHub checks on the delivered candidate and the recorded installation/solver limits before merge. |
 
 ## Current scope and decisions
 
@@ -87,7 +87,8 @@ dependencies. No TUFLOW solver or production model was launched.
 
 | Check | Result |
 | --- | --- |
-| Combined focused pytest | 298 passed, 6 native-Windows cases skipped |
+| Combined focused pytest on Linux | 298 passed, 6 native-Windows cases skipped |
+| Windows 3.14 CSV and runner acceptance on 8a65a53 | 69 passed, no skips; installed copied-wrapper help and generated-path export passed |
 | Strict Pyright 1.1.414, Python 3.14 / Windows target | 21 changed/new Python files; 0 errors, 0 warnings |
 | Ruff check / format check | Passed; all 21 files already formatted |
 | Repository Loguru formatting policy / Python compilation | Passed for the same 21 files |
@@ -151,11 +152,17 @@ BAT export, timestamped output or leftover temporary output was created.
 Temporary evidence is at
 `/tmp/ryan-tools-final-wheel-smoke-i39xzrim/smoke-results.json`.
 
-The six skipped cases concern Windows command-path export and associated CSV
-failure handling; they remain enabled on Windows. The Linux smoke uses a
-portable bare executable token. Native Windows process/priority behavior and
-the full Windows GIS bootstrap still require acceptance on the delivered
-candidate. Prior Windows CI is not evidence for these local modifications.
+The six Linux-skipped cases concern Windows command-path export and associated
+CSV failure handling. They ran successfully in the 69-test
+[Windows CSV acceptance job](https://github.com/Chain-Frost/ryan-tools/actions/runs/41203093209)
+on delivered implementation commit `8a65a53842a74eb527fd07c6e95a719498cecfb3`.
+That job also passed strict typing, built and installed the wheel, and copied the
+runner outside the checkout. Help and generated-path export succeeded with an
+absent solver, producing the fixed TXT and no history CSV. The Linux smoke used
+a portable bare executable token. No real solver or licensed production model
+was launched. The complete normal Windows installer was not run end to end;
+installer sequencing/failure tests, offline pip resolution and the real installed
+PyTUFLOW acceptance cover its changed components.
 
 Documentation checks use the normal seven-document checks and explicit
 `--links-only` checks for touched guides/status files. During the original unstaged validation, the stock central-index check still
@@ -172,6 +179,42 @@ initial local-only handoff, the owner explicitly clarified that the work must
 be delivered to GitHub. The complete tested cleanup is published together on
 #159, using the latest remote commit as its parent and a checked fast-forward
 branch update. No PR merge or release is included.
+
+## Published CI and typing follow-up
+
+The first cleanup commit is
+[`8a65a53`](https://github.com/Chain-Frost/ryan-tools/commit/8a65a53842a74eb527fd07c6e95a719498cecfb3).
+Its GitHub tree exactly matched the verified local publication tree. The Windows
+CSV checks passed as recorded above. The
+[public PyTUFLOW workflow](https://github.com/Chain-Frost/ryan-tools/actions/runs/41203093223)
+also passed 25 public-validation tests against the installed accepted archive,
+plus its separate same-version incompatible-package rejection job.
+
+The separate command-plan job failed collection because its minimal environment
+did not install Loguru, now imported by shared execution history. The follow-up
+adds only that required dependency to its install command. The runner-focused
+workflow already installs Loguru and Colorama.
+
+The initial Hosted suite also reported seven empty-log-capture assertions
+(1,563 passed; seven deselected). An earlier ASC workflow leaves the
+`ryan_library` Loguru namespace disabled across tests. Reproducing that state
+with the preceding logger tests produced the same seven failures. The two
+runner capture fixtures now explicitly enable the namespace before attaching
+their sink; all behavioral assertions remain. The identical reproduction then
+passed all 16 selected cases. This correction is limited to test capture setup.
+Check the latest PR checks for the follow-up result; do not substitute
+earlier-head results for a new head.
+
+The owner queried deletion of the old PyTUFLOW stub. The
+[retired stub](https://github.com/Chain-Frost/ryan-tools/blob/820358bb399296879c736887e0893249025a1de2/typings/pytuflow/__init__.pyi)
+only describes the former TCF context and deferred-reference consumer interface.
+It does not describe public batch validation and was removed before this cleanup.
+Pinned `05e35476` and current PR17 head `76486e82` expose the same annotated
+validation modules, but neither ships a `py.typed` marker or stub files. The
+consumer retains narrow Protocols and casts; strict checks validate that local
+contract, not complete upstream typing conformance. Keep the obsolete stub
+deleted. Upstream packaging/type-surface verification is a separate improvement,
+with no consumer pin change in this task.
 
 ## Concurrent integration checkpoint
 
