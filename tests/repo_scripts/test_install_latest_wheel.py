@@ -76,3 +76,15 @@ def test_force_reinstall_dry_run_skips_false_verification(
     printed = capsys.readouterr().out
     assert "--no-deps" in printed
     assert "require_validation_api" not in printed
+
+def test_rejects_nonaccepted_same_version_source(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    installer = _installer()
+    candidate = tmp_path / "pytuflow-requirement.txt"
+    candidate.write_text(
+        "pytuflow @ https://github.com/Chain-Frost/PyTuflow/archive/"
+        "8012b8a530616a8e10dfe96a53189f8585ec2805.zip\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(installer, "PYTUFLOW_REQUIREMENT_FILE", candidate)
+    with pytest.raises(ValueError, match="Invalid PyTUFLOW source"):
+        installer._pytuflow_requirement()
