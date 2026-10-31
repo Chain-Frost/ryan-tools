@@ -236,8 +236,8 @@ def _simulation_arguments(tokens: list[_Token]) -> tuple[tuple[tuple[str, str], 
                 message = f"Missing value for {token}"
                 raise ValueError(message)
             value = tokens[index].text
-            if not value or value.startswith("-") or any(char.isspace() for char in value):
-                message = f"Invalid/unsupported value for {token}; spaced context values are not supported"
+            if not value or value.startswith("-"):
+                message = f"Invalid/unsupported value for {token}"
                 raise ValueError(message)
             if lower[1:] in flags and flags[lower[1:]] != value:
                 message = f"Conflicting duplicate switch {token}"
