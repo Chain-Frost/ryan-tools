@@ -237,3 +237,20 @@ def test_qgs_repair_refuses_to_copy_auxiliary_with_uncheckpointed_wal(tmp_path: 
     assert not output.exists()
     assert auxiliary.exists()
     assert wal.exists()
+
+
+
+def test_auxiliary_inspection_is_immutable_and_rejects_wal_state(tmp_path: Path) -> None:
+    auxiliary = tmp_path / "labels.qgd"
+    before = _qgd(auxiliary, "label-id")
+    summary = inspect_auxiliary_storage(auxiliary)
+    assert summary is not None and summary.tables[0].row_count == 1
+    assert auxiliary.read_bytes() == before
+    assert not Path(f"{auxiliary}-shm").exists()
+    assert not Path(f"{auxiliary}-wal").exists()
+
+    wal = Path(f"{auxiliary}-wal")
+    wal.write_bytes(b"simulated uncheckpointed edits")
+    with pytest.raises(ValueError, match="WAL"):
+        inspect_auxiliary_storage(auxiliary)
+    assert wal.read_bytes() == b"simulated uncheckpointed edits"
