@@ -40,6 +40,35 @@ A standalone script does **not** need `WRAPPER_VERSION`, `print_wrapper_banner()
 `ryan_library` imports, a second closing banner, `--no-pause`, or a library/orchestrator split unless its
 actual workflow warrants those features. For reusable maintained entry points, use the full wrapper standard instead.
 
+## QGIS project file audit and repair
+
+\`other/audit_qgis_projects.py\` inspects QGS/QGZ XML without starting QGIS or
+loading referenced geospatial datasets. Its default audit **opens each distinct
+local source file and reads one byte** to request retrieval from tiered network
+storage. Opening network files can take time or incur retrieval charges; use
+\`--exists-only\` when only a metadata/existence check is wanted.
+
+\`\`\`powershell
+python .\ryan-scripts\other\audit_qgis_projects.py --working-directory "Q:\Project\GIS" --no-pause
+python .\ryan-scripts\other\audit_qgis_projects.py --project "Q:\Project\GIS\Model.qgz" --auxiliary-report --no-pause
+python .\ryan-scripts\other\audit_qgis_projects.py --project "Q:\New\GIS\Model.qgz" --old-project-directory "Q:\Old\GIS" --no-pause
+python .\ryan-scripts\other\audit_qgis_projects.py --project "Q:\New\GIS\Model.qgz" --old-project-directory "Q:\Old\GIS" --output "Q:\New\GIS\Model_fixed.qgz" --write --no-pause
+\`\`\`
+
+Path repair is preview-only unless \`--write\` and a **new** \`--output\` file
+are both provided. Original project files are never overwritten. The repair
+tool preserves embedded QGZ archive members (including auxiliary SQLite
+\`.qgd\` files), or copies the companion \`.qgd\` beside a repaired \`.qgs\`.
+\`--auxiliary-report\` lists auxiliary tables, QGIS layer associations,
+column names and row counts; \`--sample-rows 1\` through \`5\` explicitly
+includes sample stored values. No PyQGIS installation is required. Complex
+provider URIs are skipped rather than guessed, and actual QGIS compatibility
+still requires representative project validation.
+
+Further project-management ideas are deferred in
+[issue #169](https://github.com/Chain-Frost/ryan-tools/issues/169) until
+PR #137 merges; TUFLOW TLF log discovery is independent of QGIS projects.
+
 ## Installed copies
 
 The wheel currently installs **selected scripts**, not the entire repository script tree, beside `ryan_library`
