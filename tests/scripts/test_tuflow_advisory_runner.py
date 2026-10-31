@@ -82,7 +82,8 @@ def test_launches_during_held_advisory_and_delivers_all_findings(
             return FakeProcess(len(launched))
 
         outcome = runner.launch_plan(plan, config, advisory=advisory, popen=popen)
-        assert outcome.successful and len(launched) == 2
+        assert outcome.successful
+        assert len(launched) == 2
         release.set()
         assert advisory.finished.wait(3)
         advisory.drain()
