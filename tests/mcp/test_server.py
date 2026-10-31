@@ -56,7 +56,6 @@ def test_catalogue_resource_is_valid_json() -> None:
     assert catalogue["schema_version"] == "1.0"
 
 
-
 def test_raster_metadata_inspection_does_not_modify_input(tmp_path: Path) -> None:
     raster_path = tmp_path / "source metadata.tif"
     raster_path.write_bytes(b"preserved input")
@@ -96,6 +95,7 @@ def test_raster_metadata_inspection_does_not_modify_input(tmp_path: Path) -> Non
 def test_missing_raster_metadata_returns_error(tmp_path: Path) -> None:
     missing = tmp_path / "missing.tif"
     assert inspect_raster_metadata(str(missing)) == {"error": f"File not found: {missing}"}
+
 
 def test_inspect_tuflow_result_uses_processor_factory_and_bounds_sample() -> None:
     result_path = MODULE_11_RESULTS / "plot/csv/M11_5m_001_1d_Q.csv"
