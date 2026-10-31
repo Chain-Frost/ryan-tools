@@ -48,7 +48,7 @@ def test_editable_constants_do_not_require_default_prefix() -> None:
     source = (
         "from pathlib import Path\n"
         "WORKING_DIR = Path()\n"
-        "GPU_DEVICES = ((\"-pu0\",),)\n"
+        'GPU_DEVICES = (("-pu0",),)\n'
         "CHECK_INPUTS = True\n"
         "DEFAULT_OUTPUT = None\n"
     )
