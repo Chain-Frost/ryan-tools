@@ -6,8 +6,8 @@ Inspection is read-only; row values are omitted unless explicitly requested.
 
 from __future__ import annotations
 
-import shutil
 import sqlite3
+from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -61,7 +61,7 @@ def _inspect_database(
 
     tables: list[AuxiliaryTable] = []
     # SQLite URI read-only mode prevents accidental creation/alteration of the QGD.
-    with sqlite3.connect(f"{file_path.absolute().as_uri()}?mode=ro", uri=True) as db:
+    with closing(sqlite3.connect(f"{file_path.absolute().as_uri()}?mode=ro", uri=True)) as db:
         db.execute("PRAGMA query_only = ON")
         db.execute("PRAGMA trusted_schema = OFF")
         names = db.execute(
@@ -134,10 +134,12 @@ def inspect_auxiliary_storage(project_path: Path, *, sample_rows: int = 0) -> Au
             with TemporaryDirectory(prefix="qgis_qgd_inspect_") as temporary:
                 copy = Path(temporary) / "auxiliary.qgd"
                 with archive.open(member) as src, copy.open("xb") as dest:
-                    # Bound decompression even if the ZIP member size is incorrect.
-                    shutil.copyfileobj(src, dest, length=1024 * 1024)
-                if copy.stat().st_size > _MAX_EMBEDDED_QGD_BYTES:
-                    raise ValueError("Embedded QGD exceeds the inspection limit")
+                    copied = 0
+                    while chunk := src.read(min(1024 * 1024, _MAX_EMBEDDED_QGD_BYTES - copied + 1)):
+                        copied += len(chunk)
+                        if copied > _MAX_EMBEDDED_QGD_BYTES:
+                            raise ValueError("Embedded QGD exceeds the inspection limit")
+                        dest.write(chunk)
                 return _inspect_database(
                     copy,
                     location=f"{project_path}!{member.filename}",
