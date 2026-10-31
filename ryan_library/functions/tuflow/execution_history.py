@@ -141,7 +141,9 @@ def identify_runs(plan: CommandPlan, *, fallback_executable: Path, base_director
             msg = f"Duplicate plan index {run.index}"
             raise ExecutionLogError(msg)
         executable = _effective_executable(run, fallback_executable, base_directory)
-        executable_path = PureWindowsPath(executable) if isinstance(run.working_directory, PureWindowsPath) else executable
+        executable_path = (
+            PureWindowsPath(executable) if isinstance(run.working_directory, PureWindowsPath) else executable
+        )
         flags, remaining = _canonical_arguments(run)
         payload = json.dumps(
             [
