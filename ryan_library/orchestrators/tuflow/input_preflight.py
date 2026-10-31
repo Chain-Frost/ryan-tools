@@ -1,171 +1,92 @@
-"""Read-only preflight of TUFLOW input files for exact proposed run combinations.
+"""Read-only TUFLOW input preflight through PyTUFLOW's public batch validator.
 
-Uses PyTUFLOW's scenario-aware run state, and validates all resolved input
-references plus source files in the active BC database. Never runs TUFLOW.
+The command planner owns run order, source provenance, effective TCF and cwd.
+This consumer maps upstream zero-based validation positions to supplied outer
+run indices exactly once. It does not inspect files independently or run TUFLOW.
 """
 
 from __future__ import annotations
 
 import csv
-import inspect
-import time
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal, Protocol, cast
 
-import pandas as pd
-from loguru import logger
+from ...functions.tuflow.pytuflow_compatibility import require_validation_api
 
-from ...functions.tuflow.dependency_index import check_unique_dependencies, expand_file_patterns
-from ...functions.tuflow.gis_attribute_dependencies import (
-    inspect_gis_attribute_sources,
-    read_bc_inline_constant_names,
-    read_pit_inlet_database,
-)
-from ...functions.tuflow.raster_metadata_dependencies import inspect_raster_metadata
-from .batch_preflight_adapter import BatchModelView
-
-IssueStatus = Literal["missing", "unresolved"]
+IssueStatus = Literal["missing", "unresolved", "unsupported"]
 
 
-class _DeferredReference(Protocol):
-    """Syntax-only file dependency returned by the PyTUFLOW deferred API."""
-
-    @property
-    def path_pattern(self) -> Path: ...
-
-    @property
-    def base_directory(self) -> Path: ...
-
-    @property
-    def layer_pattern(self) -> str | None: ...
-
-    @property
-    def origin(self) -> str: ...
-
-    @property
-    def unresolved_variables(self) -> tuple[str, ...]: ...
-
-    @property
-    def requires_attribute_scan(self) -> bool: ...
-
-    @property
-    def requires_database_scan(self) -> bool: ...
-
-    @property
-    def database_kind(self) -> str | None: ...
-
-    @property
-    def requires_table_link_scan(self) -> bool: ...
-
-    @property
-    def requires_raster_metadata_scan(self) -> bool: ...
+class _Finding(Protocol):
+    run_index: int
+    flags: str
+    status: str
+    kind: str
+    path: Path | None
+    detail: str
+    layer: str | None
+    origin: str
+    input_uuid: str
+    command_index: int
+    owner_control_file: Path | None
+    database_kind: str | None
+    source_pattern: Path | None
+    csv_columns: tuple[str, ...] | None
 
 
-class _DeferredDatabaseSource(Protocol):
-    """A secondary source resolved by PyTUFLOW's cached database parser."""
-
-    @property
-    def database_path(self) -> Path: ...
-
-    @property
-    def database_kind(self) -> str: ...
-
-    @property
-    def entry_name(self) -> str: ...
-
-    @property
-    def path_pattern(self) -> Path: ...
-
-    @property
-    def owning_command(self) -> str: ...
-
-    @property
-    def owner_control_file(self) -> Path | None: ...
-
-    @property
-    def layer_pattern(self) -> str | None: ...
-
-    @property
-    def requires_raster_metadata_scan(self) -> bool: ...
+class _DependencyRun(Protocol):
+    index: int
+    error: str | None
 
 
-class _Input(Protocol):
-    """Minimal read-only input surface used from PyTUFLOW."""
-
-    @property
-    def uuid(self) -> object: ...
-
-    @property
-    def files(self) -> list[Path]: ...
-
-    @property
-    def has_missing_files(self) -> bool: ...
-
-    @property
-    def file_references(self) -> tuple[_DeferredReference, ...]: ...
+class _Dependencies(Protocol):
+    runs: tuple[_DependencyRun, ...]
+    passed: bool
 
 
-class _Database(Protocol):
-    """Resolved PyTUFLOW BC database exposed through its pandas representation."""
-
-    @property
-    def fpath(self) -> Path: ...
-
-    @property
-    def df(self) -> pd.DataFrame: ...
-
-
-class _Context(Protocol):
-    """Scenario/event-resolved PyTUFLOW control-file context."""
-
-    def find_input(self, lhs: str | None = None) -> list[_Input]: ...
-
-    def bc_dbase(self) -> _Database | None: ...
-
-    def deferred_database_sources(self) -> tuple[_DeferredDatabaseSource, ...]: ...
-
-    def database_sources(self) -> tuple[_DeferredDatabaseSource, ...]: ...
-
-    def deferred_database_activations(self) -> tuple[_BCActivation, ...]: ...
-
-    def deferred_database_sources_for_activation(self, input_uuid: str) -> tuple[_DeferredDatabaseSource, ...]: ...
+class _PhysicalReport(Protocol):
+    run_count: int
+    findings: tuple[_Finding, ...]
+    passed: bool
+    files_examined: int
+    geopackages_examined: int
+    csv_headers_examined: int
+    directories_scanned: int
 
 
-class _Model(Protocol):
-    """TUFLOW project control file with a context resolution method."""
-
-    def context(self, flags: str, *, file_resolution: str | None = None) -> _Context: ...
-
-
-class _ModelFactory(Protocol):
-    """Constructor returned dynamically by the PyTUFLOW package."""
-
-    def __call__(self, path: str) -> _Model: ...
+class _BatchResult(Protocol):
+    dependencies: _Dependencies
+    validation: _PhysicalReport
+    passed: bool
+    parse_seconds: float
+    collection_seconds: float
+    inspection_seconds: float
+    gis_sources_added: int
+    gis_files_scanned: int
 
 
 @dataclass(frozen=True, slots=True)
 class RunRequest:
-    """One proposed TUFLOW run, matching the launcher's event/scenario flags."""
+    """One actual planned occurrence, with lossless structured model switches."""
 
     index: int
     flags: Mapping[str, str]
 
     @property
     def arguments(self) -> str:
-        """Return PyTUFLOW's documented command-line context syntax."""
+        """Return a human-readable representation, never used for validation."""
         return " ".join(f"-{key} {value}" for key, value in self.flags.items())
 
     @property
     def description(self) -> str:
-        """Display all switch values in a compact, stable order."""
+        """Show switches in a predictable order for reports."""
         return " ".join(f"-{key} {value}" for key, value in sorted(self.flags.items()))
 
 
 @dataclass(frozen=True, slots=True)
 class PreflightIssue:
-    """Missing or unresolved dependency affecting one simulation."""
+    """Failed requirement with upstream source and original planned-run identity."""
 
     run_index: int
     flags: str
@@ -173,986 +94,261 @@ class PreflightIssue:
     origin: str
     reference: str
     detail: str
+    kind: str = ""
+    path: Path | None = None
+    layer: str | None = None
+    owner_control_file: Path | None = None
+    database_kind: str | None = None
+    input_uuid: str = ""
+    command_index: int = -1
+    csv_columns: tuple[str, ...] | None = None
+    source_pattern: Path | None = None
 
 
 @dataclass(slots=True)
 class PreflightReport:
-    """Collected input issues and unique path checks for a set of simulations."""
+    """Only a complete upstream run set with no findings can pass."""
 
     run_count: int
+    completed_runs: int = 0
+    upstream_passed: bool = False
     issues: list[PreflightIssue] = field(default_factory=list[PreflightIssue])
     checked_paths: set[str] = field(default_factory=set[str])
-    directories_scanned: int = 0
-    individually_checked: int = 0
+    files_examined: int = 0
+    geopackages_examined: int = 0
     csv_headers_checked: int = 0
-    csv_column_selections_checked: int = 0
-    attribute_databases_scanned: int = 0
-    attribute_seconds: float = 0.0
-    raster_files_scanned: int = 0
-    raster_seconds: float = 0.0
-    # Run/activation-scoped BC Source rows, populated from PyTUFLOW's cached tables.
-    bc_activation_sources: dict[tuple[int, str], dict[str, Path]] = field(
-        default_factory=dict[tuple[int, str], dict[str, Path]]
-    )
-    bc_activation_paths: dict[tuple[int, str], Path] = field(default_factory=dict[tuple[int, str], Path])
-    bc_activation_columns: dict[tuple[int, str, str], tuple[str, ...] | None] = field(
-        default_factory=dict[tuple[int, str, str], tuple[str, ...] | None]
-    )
-    dependency_fragment_evaluations: int = 0
-    dependency_fragment_reuses: int = 0
-    dependency_fallback_runs: int = 0
+    directories_scanned: int = 0
+    gis_sources_added: int = 0
+    gis_files_scanned: int = 0
     parse_seconds: float = 0.0
     context_seconds: float = 0.0
     inventory_seconds: float = 0.0
 
     @property
     def passed(self) -> bool:
-        """Only succeed when there are no missing or unresolved inputs."""
-        return bool(self.run_count) and not self.issues
+        """Fail closed for unavailable, omitted or partially mapped validations."""
+        return (
+            bool(self.run_count) and self.completed_runs == self.run_count and self.upstream_passed and not self.issues
+        )
 
     @property
     def affected_runs(self) -> int:
-        """Count distinct proposed simulations with at least one issue."""
+        """Number of distinct planned occurrences with unsuccessful requirements."""
         return len({issue.run_index for issue in self.issues})
 
     def write_csv(self, destination: Path) -> Path:
-        """Export a repeatable, non-destructive issue register."""
+        """Create an issue report without overwriting an existing file."""
         destination = destination.absolute()
         destination.parent.mkdir(parents=True, exist_ok=True)
-        with destination.open("w", newline="", encoding="utf-8-sig") as output:
+        with destination.open("x", newline="", encoding="utf-8-sig") as output:
             writer = csv.writer(output)
-            writer.writerow(("run_index", "flags", "status", "origin", "reference", "detail"))
+            writer.writerow(
+                (
+                    "run_index",
+                    "flags",
+                    "status",
+                    "origin",
+                    "reference",
+                    "detail",
+                    "kind",
+                    "path",
+                    "layer",
+                    "owner_control_file",
+                    "database_kind",
+                    "input_uuid",
+                    "command_index",
+                    "csv_columns",
+                    "source_pattern",
+                )
+            )
             for issue in self.issues:
                 writer.writerow(
-                    (issue.run_index, issue.flags, issue.status, issue.origin, issue.reference, issue.detail)
+                    (
+                        issue.run_index,
+                        issue.flags,
+                        issue.status,
+                        issue.origin,
+                        issue.reference,
+                        issue.detail,
+                        issue.kind,
+                        str(issue.path) if issue.path is not None else "",
+                        issue.layer or "",
+                        str(issue.owner_control_file) if issue.owner_control_file is not None else "",
+                        issue.database_kind or "",
+                        issue.input_uuid,
+                        issue.command_index,
+                        ",".join(issue.csv_columns) if issue.csv_columns is not None else "",
+                        str(issue.source_pattern) if issue.source_pattern is not None else "",
+                    )
                 )
         return destination
 
 
-@dataclass(frozen=True, slots=True)
-class _FileReference:
-    """A required path and the particular simulation/command that needs it."""
-
-    run: RunRequest
-    origin: str
-    path: Path
-    layer: str = ""
-    scan_attributes: bool = False
-    database_kind: str = ""
-    scan_raster_metadata: bool = False
-    scan_table_links: bool = False
-    bc_activation_uuid: str = ""
-    csv_columns: tuple[str, ...] | None = None
+def _nonnegative_count(value: object, label: str) -> int:
+    """Reject missing, invalid or negative public inspection counters."""
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        message = f"PyTUFLOW returned invalid {label}: {value!r}"
+        raise ValueError(message)
+    return value
 
 
-# Commands whose resolved values are not source-file dependencies.
-_NON_INPUT_FILE_COMMANDS = frozenset(
-    {
-        # Event-source commands assign event values to variables. PyTUFLOW
-        # currently exposes pipe-delimited assignments through ``files`` as a
-        # single pseudo-path, but neither side is an input file.
-        "bc event source",
-        "output folder",
-        "log folder",
-        "write check files",
-        "check files output folder",
-        "1d output folder",
-        "2d output folder",
-        "output folder 1d",
-        "output folder 2d",
-    }
-)
-
-
-def _command_name(input_command: object) -> str:
-    """Prefer PyTUFLOW's LHS, with a conservative fallback for test doubles."""
-    lhs = getattr(input_command, "lhs", None)
-    if lhs is None:
-        lhs = str(input_command).split("==", maxsplit=1)[0]
-    return " ".join(str(lhs).casefold().split())
-
-
-def _is_non_input_command(input_command: object) -> bool:
-    """Assignment RHS strings are not inputs even when they resemble files."""
-    name = _command_name(input_command)
-    return name in _NON_INPUT_FILE_COMMANDS or name.startswith("set variable ")
-
-
-class _BCActivation(Protocol):
-    sequence: int
-    input_uuid: str
-    database_kind: str
-    database_path: Path
-
-
-def _bc_source_command(name: str) -> bool:
-    """Recognised boundary GIS commands whose Name selects an active BC row."""
-    return name in {"read gis bc", "read gis sa", "read gis rf"} or name.startswith(
-        ("read gis bc ", "read gis sa ", "read gis rf ")
+def _issue(finding: _Finding, request: RunRequest) -> PreflightIssue:
+    """Translate the complete public finding without synthesising input context."""
+    if finding.status not in {"missing", "unresolved", "unsupported"}:
+        message = f"Unknown PyTUFLOW validation status: {finding.status!r}"
+        raise ValueError(message)
+    reference = (
+        str(finding.path)
+        if finding.path is not None
+        else (str(finding.source_pattern) if finding.source_pattern is not None else "<run>")
+    )
+    if finding.layer is not None:
+        reference = f"{reference} >> {finding.layer}"
+    return PreflightIssue(
+        run_index=request.index,
+        flags=request.description,
+        status=cast(IssueStatus, finding.status),
+        origin=finding.origin,
+        reference=reference,
+        detail=finding.detail,
+        kind=finding.kind,
+        path=finding.path,
+        layer=finding.layer,
+        owner_control_file=finding.owner_control_file,
+        database_kind=finding.database_kind,
+        input_uuid=finding.input_uuid,
+        command_index=finding.command_index,
+        csv_columns=finding.csv_columns,
+        source_pattern=finding.source_pattern,
     )
 
 
-def _selected_bc_uuid(position: int, activations: Sequence[_BCActivation]) -> str:
-    """Find the last applicable, scope-filtered declaration in command order."""
-    eligible = [a for a in activations if a.database_kind == "bc" and a.sequence < position]
-    if eligible:
-        return max(eligible, key=lambda a: a.sequence).input_uuid
-    message = "Read GIS BC/SA/RF has no unambiguous active BC Database declaration"
-    raise ValueError(message)
-
-
-def _collect_references(  # noqa: C901 - event-aware collection and BC source traversal
-    tcf: Path,
-    runs: Sequence[RunRequest],
-    model: _Model,
-    report: PreflightReport,
-) -> tuple[list[_FileReference], dict[Path, set[str]]]:
-    """Phase 1: resolve all run-specific inputs without existence checking."""
-    references: list[_FileReference] = []
-    unique: dict[Path, set[str]] = {}
-    seen: set[tuple[object, ...]] = set()
-
-    def add_issue(run: RunRequest, origin: str, reference: str, detail: str) -> None:
-        report.issues.append(PreflightIssue(run.index, run.description, "unresolved", origin, reference, detail))
-
-    def add_file(
-        run: RunRequest,
-        source: object,
-        origin: str,
-        base: Path,
-        *,
-        require_layer: bool = True,
-        layer_override: str | None = None,
-        allow_pattern: bool = False,
-        scan_attributes: bool = False,
-        database_kind: str = "",
-        scan_raster_metadata: bool = False,
-        scan_table_links: bool = False,
-        bc_activation_uuid: str = "",
-        csv_columns: tuple[str, ...] | None = None,
-    ) -> None:
-        raw = str(getattr(source, "dbpath", source)).strip()
-        if (
-            not raw
-            or raw == "."
-            or "<<" in raw
-            or ">>" in raw
-            or (not allow_pattern and any(char in Path(raw).name for char in "*?["))
-        ):
-            add_issue(run, origin, raw, "Unexpanded variable, wildcard or unsupported reference")
-            return
-        path = Path(raw)
-        if not path.is_absolute():
-            path = base / path
-        path = path.absolute()
-        layer = str(getattr(source, "lyrname", "") or "") if require_layer and path.suffix.casefold() == ".gpkg" else ""
-        if layer_override is not None and path.suffix.casefold() == ".gpkg":
-            layer = layer_override
-        key = (
-            run.index,
-            origin,
-            path,
-            layer,
-            scan_attributes,
-            database_kind,
-            scan_raster_metadata,
-            scan_table_links,
-            bc_activation_uuid,
-            csv_columns,
-        )
-        if key not in seen:
-            seen.add(key)
-            references.append(
-                _FileReference(
-                    run,
-                    origin,
-                    path,
-                    layer,
-                    scan_attributes,
-                    database_kind,
-                    scan_raster_metadata,
-                    scan_table_links,
-                    bc_activation_uuid,
-                    csv_columns,
-                )
-            )
-        if not any(char in path.name for char in "*?["):
-            unique.setdefault(path, set())
-            if layer:
-                unique[path].add(layer)
-
-    # Older PyPI builds have no deferred API. Keep the existing eager collector
-    # until the validated upstream feature is released; never probe support by
-    # calling context() and catching a parser TypeError.
-    try:
-        deferred_supported = "file_resolution" in inspect.signature(model.context).parameters
-    except (TypeError, ValueError):
-        deferred_supported = False
-    if not deferred_supported:
-        logger.warning("Installed PyTUFLOW has no deferred API; falling back to eager reference discovery")
-
-    for run in runs:
-        try:
-            context = (
-                model.context(run.arguments, file_resolution="deferred")
-                if deferred_supported
-                else model.context(run.arguments)
-            )
-        except Exception as exc:  # noqa: BLE001 - parser errors must fail closed
-            add_issue(run, "TCF context", str(tcf), f"Could not resolve run: {exc}")
-            continue
-
-        eager_sources_available = not deferred_supported and callable(getattr(context, "database_sources", None))
-        multi_bc = False
-        bc_activations: tuple[_BCActivation, ...] = ()
-        try:
-            inputs = context.find_input()
-            # Only multi-declaration hydraulic BC models need feature-specific
-            # binding. Existing single-database eager/deferred inventories
-            # remain unchanged, preserving the established 174-run baseline.
-            declarations = [(i, inp) for i, inp in enumerate(inputs) if _command_name(inp) == "bc database"]
-            multi_bc = deferred_supported and len(declarations) > 1
-            if multi_bc:
-                activation_reader = context.deferred_database_activations
-                source_reader_for_activation = context.deferred_database_sources_for_activation
-                if not callable(activation_reader) or not callable(source_reader_for_activation):
-                    message = "BC declaration selection requires PyTUFLOW activation APIs"
-                    raise ValueError(message)
-                bc_activations = tuple(activation_reader())
-                declared = {(position, str(inp.uuid)) for position, inp in declarations}
-                actual = {
-                    (a.sequence, a.input_uuid) for a in bc_activations if getattr(a, "database_kind", None) == "bc"
-                }
-                if actual != declared:
-                    message = "BC database declaration sequence/UUID mismatch"
-                    raise ValueError(message)
-                for _, declaration in declarations:
-                    uuid = str(declaration.uuid)
-                    by_name: dict[str, Path] = {}
-                    for source in source_reader_for_activation(uuid):
-                        if source.database_kind != "bc" or not source.entry_name.strip():
-                            message = "Unclassified BC database Source row"
-                            raise ValueError(message)
-                        key = source.entry_name.strip().casefold()
-                        if key in by_name:
-                            message = f"Duplicate BC identifier {source.entry_name!r}"
-                            raise ValueError(message)
-                        # Resolve relative Source entries against their owning control
-                        # file (or the database location), never the caller's CWD.
-                        # This must match the ordinary deferred source collection below.
-                        source_path = Path(source.path_pattern)
-                        if not source_path.is_absolute():
-                            owner_file = source.owner_control_file
-                            base_directory = (
-                                owner_file.parent if owner_file is not None else source.database_path.parent
-                            )
-                            source_path = base_directory / source_path
-                        by_name[key] = source_path.absolute()
-                        report.bc_activation_columns[(run.index, uuid, key)] = getattr(source, "csv_columns", None)
-                    report.bc_activation_sources[(run.index, uuid)] = by_name
-                    active = next(a for a in bc_activations if a.database_kind == "bc" and a.input_uuid == uuid)
-                    report.bc_activation_paths[(run.index, uuid)] = active.database_path
-            for position, inp in enumerate(inputs):
-                if _is_non_input_command(inp):
-                    continue
-                origin = str(inp)
-                name = _command_name(inp)
-                bc_uuid = ""
-                if multi_bc and _bc_source_command(name):
-                    try:
-                        bc_uuid = _selected_bc_uuid(position, bc_activations)
-                    except ValueError as exc:
-                        add_issue(run, origin, str(tcf), str(exc))
-                if deferred_supported:
-                    # The provisional PyTUFLOW database API owns BC and
-                    # material row classification and event substitutions.
-                    # Older fork builds remain unresolved rather than being
-                    # guessed by this consumer.
-                    database_sources_available = callable(getattr(context, "deferred_database_sources", None))
-                    try:
-                        for ref in inp.file_references:
-                            if ref.unresolved_variables:
-                                add_issue(
-                                    run,
-                                    ref.origin,
-                                    str(ref.path_pattern),
-                                    f"Unresolved PyTUFLOW variables: {', '.join(ref.unresolved_variables)}",
-                                )
-                                continue
-                            kind = getattr(ref, "database_kind", None)
-                            if kind is None:
-                                # Compatibility with earlier fork builds whose
-                                # BC/material references predate the typed field.
-                                kind = {
-                                    "bc database": "bc",
-                                    "read materials file": "materials",
-                                }.get(_command_name(inp))
-                            supported_kinds = {
-                                "bc",
-                                "materials",
-                                "soils",
-                                "ad_bc",
-                                "ad_global",
-                                "pit_inlet",
-                                "depth_discharge",
-                                "cross_section",
-                                "rainfall",
-                            }
-                            if ref.requires_database_scan and not (
-                                database_sources_available and kind in supported_kinds
-                            ):
-                                add_issue(
-                                    run,
-                                    ref.origin,
-                                    str(ref.path_pattern),
-                                    f"Unsupported deferred database materialisation: {kind or 'unknown'}",
-                                )
-                            if getattr(ref, "requires_table_link_scan", False) and not ref.requires_attribute_scan:
-                                add_issue(
-                                    run,
-                                    ref.origin,
-                                    str(ref.path_pattern),
-                                    "GIS table-link attributes cannot be inspected using this reference",
-                                )
-                            add_file(
-                                run,
-                                ref.path_pattern,
-                                ref.origin or origin,
-                                ref.base_directory,
-                                layer_override=ref.layer_pattern or "",
-                                allow_pattern=True,
-                                scan_attributes=ref.requires_attribute_scan or bool(bc_uuid),
-                                database_kind=kind or "",
-                                scan_raster_metadata=getattr(ref, "requires_raster_metadata_scan", False),
-                                scan_table_links=getattr(ref, "requires_table_link_scan", False),
-                                bc_activation_uuid=bc_uuid,
-                            )
-                    except Exception as exc:  # noqa: BLE001 - incomplete references must fail closed
-                        add_issue(run, origin, "", f"Could not collect deferred file references: {exc}")
-                    continue
-                if eager_sources_available:
-                    # Eager .files does not include database-key curve sources.
-                    # Use upstream syntax metadata to request the same shared
-                    # active-feature join used by deferred collection.
-                    try:
-                        for ref in inp.file_references:
-                            if not ref.requires_attribute_scan and ref.database_kind not in {
-                                "pit_inlet",
-                                "depth_discharge",
-                            }:
-                                continue
-                            if ref.unresolved_variables:
-                                add_issue(run, ref.origin, str(ref.path_pattern), "Unresolved eager input metadata")
-                                continue
-                            add_file(
-                                run,
-                                ref.path_pattern,
-                                ref.origin or origin,
-                                ref.base_directory,
-                                layer_override=ref.layer_pattern or "",
-                                allow_pattern=True,
-                                scan_attributes=ref.requires_attribute_scan,
-                                database_kind=ref.database_kind or "",
-                                scan_table_links=ref.requires_table_link_scan,
-                            )
-                    except Exception as exc:  # noqa: BLE001 - never certify partial metadata
-                        add_issue(run, origin, "", f"Could not collect eager secondary metadata: {exc}")
-                elif _command_name(inp) in {
-                    "ad bc database",
-                    "ad global database",
-                    "pit inlet database",
-                    "depth discharge database",
-                }:
-                    add_issue(run, origin, "", "PyTUFLOW typed secondary-source API is unavailable in eager mode")
-                try:
-                    files = list(inp.files)
-                except Exception as exc:  # noqa: BLE001 - unknown PyTUFLOW errors fail closed
-                    add_issue(run, origin, "", f"Could not enumerate input files: {exc}")
-                    continue
-                parent = getattr(inp, "parent", None)
-                owning_file = getattr(parent, "fpath", None)
-                base = Path(owning_file).parent if owning_file else tcf.parent
-                for file in files:
-                    add_file(run, file, origin, base)
-                # Avoid triggering PyTUFLOW's file checks for every run and
-                # every file. Only query its missing-file property for inputs
-                # where no path was exposed.
-                if not files:
-                    try:
-                        if inp.has_missing_files:
-                            add_issue(run, origin, "", "Input has missing dependencies with no resolved file path")
-                    except Exception as exc:  # noqa: BLE001 - cannot certify missing references
-                        add_issue(run, origin, "", f"Could not inspect unresolved input: {exc}")
-        except Exception as exc:  # noqa: BLE001 - parser traversal errors fail closed
-            add_issue(run, "Control-file traversal", str(tcf), f"Could not read model inputs: {exc}")
-
-        if deferred_supported or eager_sources_available:
-            # Only invoke this deliberate database materialisation stage after
-            # collecting the syntactic references for this specific run.
-            source_reader = getattr(
-                context, "deferred_database_sources" if deferred_supported else "database_sources", None
-            )
-            if callable(source_reader):
-                try:
-                    if multi_bc:
-                        selected_reader = context.deferred_database_sources_for_activation
-                        # No aggregate view: it deliberately rejects multiple
-                        # active BC declarations. Candidate BC rows were staged
-                        # above and are selected from the scanned GIS Names.
-                        sources = tuple(
-                            source
-                            for activation in bc_activations
-                            if activation.database_kind != "bc"
-                            for source in selected_reader(activation.input_uuid)
-                        )
-                    else:
-                        sources = (
-                            context.deferred_database_sources() if deferred_supported else context.database_sources()
-                        )
-                    for source in sources:
-                        kind = source.database_kind
-                        if kind not in {
-                            "bc",
-                            "materials",
-                            "soils",
-                            "ad_bc",
-                            "ad_global",
-                            "pit_inlet",
-                            "depth_discharge",
-                            "cross_section",
-                            "rainfall",
-                        }:
-                            message = f"Unsupported deferred database kind: {kind}"
-                            raise ValueError(message)
-                        if kind == "soils":
-                            message = "Unexpected file source from inline soils database"
-                            raise ValueError(message)
-                        if kind in {"pit_inlet", "depth_discharge"}:
-                            # These cached database rows describe *possible*
-                            # curves, not files required by every simulation.
-                            # Only the identifiers found in active GIS features
-                            # are materialised by _materialise_attribute_references.
-                            # Adding all rows here generates false dependencies
-                            # for unused inlet and depth/discharge curves.
-                            continue
-                        owner_file: Path | None = getattr(source, "owner_control_file", None)
-                        # Eager rainfall grid entries belong to the owning
-                        # Read Grid RF command, not to an invented command
-                        # named after each time-index row. Keep the row name
-                        # for the database kinds whose eager API exposes it.
-                        origin = (
-                            getattr(source, "owning_command", "") or "Read Grid RF"
-                            if kind == "rainfall"
-                            else f"{kind} source: {source.entry_name}"
-                        )
-                        add_file(
-                            run,
-                            source.path_pattern,
-                            origin,
-                            owner_file.parent if owner_file is not None else source.database_path.parent,
-                            require_layer=False,
-                            layer_override=getattr(source, "layer_pattern", None) or "",
-                            allow_pattern=True,
-                            database_kind=f"source:{kind}",
-                            csv_columns=getattr(source, "csv_columns", None),
-                            scan_raster_metadata=getattr(source, "requires_raster_metadata_scan", False),
-                        )
-                except Exception as exc:  # noqa: BLE001 - incomplete databases cannot pass preflight
-                    add_issue(run, "Database sources", str(tcf), f"Could not inspect deferred databases: {exc}")
-            else:
-                # Early versions of the fork defer BC parsing but expose no
-                # supported way to enumerate its event-dependent source rows.
-                try:
-                    if context.find_input(lhs="BC Database"):
-                        add_issue(run, "BC Database", str(tcf), "Deferred BC source API is unavailable")
-                except Exception as exc:  # noqa: BLE001 - fail closed if presence cannot be established
-                    add_issue(run, "BC Database", str(tcf), f"Cannot identify deferred BC database: {exc}")
-            continue
-
-        # PyTUFLOW resolves the BC database's event-dependent Source column.
-        # Collect the Source values now, but do not stat() the files yet.
-        try:
-            database = context.bc_dbase()
-        except (LookupError, ValueError):
-            try:
-                has_database = bool(context.find_input(lhs="BC Database"))
-            except Exception as exc:  # noqa: BLE001 - cannot establish whether the database is optional
-                add_issue(run, "BC Database", str(tcf), f"Cannot determine active BC database: {exc}")
-            else:
-                if has_database:
-                    add_issue(run, "BC Database", str(tcf), "Could not resolve active BC database")
-            continue
-        except Exception as exc:  # noqa: BLE001 - parser errors must fail closed
-            add_issue(run, "BC Database", str(tcf), f"Could not load BC database: {exc}")
-            continue
-
-        if database is None:
-            continue
-        database_path = Path(database.fpath).absolute()
-        add_file(run, database_path, "BC Database", tcf.parent, require_layer=False)
-        try:
-            frame: pd.DataFrame = database.df
-            source_column = next((col for col in frame.columns if str(col).strip().casefold() == "source"), None)
-            if source_column is None:
-                add_issue(run, "BC Database", str(database_path), "No Source column found")
-                continue
-            for name, row in frame.iterrows():
-                raw = str(row[source_column]).strip()
-                if raw.casefold() in {"", "nan", "none"}:
-                    continue
-                try:
-                    float(raw)  # Numeric constant, not a file path.
-                except ValueError:
-                    add_file(
-                        run,
-                        raw,
-                        f"BC source: {name}",
-                        database_path.parent,
-                        require_layer=False,
-                        database_kind="source:bc",
-                    )
-        except Exception as exc:  # noqa: BLE001 - source list must be complete
-            add_issue(run, "BC Database", str(database_path), f"Could not enumerate BC sources: {exc}")
-    return references, unique
-
-
-def _materialise_attribute_references(  # noqa: C901 - database joins and explicit fail-closed diagnostics
-    references: list[_FileReference],
-    report: PreflightReport,
-    *,
-    maximum_directory_entries: int = 50000,
-) -> list[_FileReference]:
-    """Bulk-inspect GIS attribute sources with full per-run provenance.
-
-    This shared stage is used by normal preflight and temporary differential
-    diagnostics. It must never suppress partial inspection failures.
-    """
-    # Inspect each distinct GIS attribute-bearing layer only once.
-    # Read-only bulk phase; invoke only after resolving all run contexts.
-    attribute_started = time.perf_counter()
-    scan_references = [ref for ref in references if ref.scan_attributes]
-    curve_databases: dict[tuple[int, str], set[Path]] = {}
-    for ref in references:
-        if ref.database_kind in {"pit_inlet", "depth_discharge"}:
-            curve_databases.setdefault((ref.run.index, ref.database_kind), set()).add(ref.path)
-    pit_database_cache: dict[Path, dict[str, Path] | str] = {}
-    bc_constant_cache: dict[Path, frozenset[str] | str] = {}
-    if scan_references:
-        requests = {(ref.path, ref.layer) for ref in scan_references}
-        inspected, scan_count = inspect_gis_attribute_sources(requests)
-        report.attribute_databases_scanned = scan_count
-        extra_references: list[_FileReference] = []
-        for ref in scan_references:
-            result = inspected[(ref.path, ref.layer)]
-            if result.status != "present":
-                report.issues.append(
-                    PreflightIssue(
-                        ref.run.index,
-                        ref.run.description,
-                        "unresolved",
-                        ref.origin,
-                        f"{ref.path} >> {ref.layer}",
-                        result.detail,
-                    )
-                )
-                continue
-            for path in result.sources:
-                extra_references.append(_FileReference(ref.run, f"GIS attribute: {ref.origin}", path))
-            if ref.bc_activation_uuid:
-                sources = report.bc_activation_sources.get((ref.run.index, ref.bc_activation_uuid))
-                if sources is None:
-                    report.issues.append(
-                        PreflightIssue(
-                            ref.run.index,
-                            ref.run.description,
-                            "unresolved",
-                            ref.origin,
-                            str(ref.path),
-                            "Active BC database source map was not collected",
-                        )
-                    )
-                else:
-                    for identifier in result.bc_identifiers:
-                        linked = sources.get(identifier.casefold())
-                        if linked is None:
-                            database_path = report.bc_activation_paths[(ref.run.index, ref.bc_activation_uuid)]
-                            if database_path not in bc_constant_cache:
-                                try:
-                                    bc_constant_cache[database_path] = read_bc_inline_constant_names(database_path)
-                                except (OSError, UnicodeError, ValueError) as exc:
-                                    bc_constant_cache[database_path] = str(exc)
-                            inline_names = bc_constant_cache[database_path]
-                            if isinstance(inline_names, frozenset) and identifier.casefold() in inline_names:
-                                continue  # Numeric constant: no secondary file to validate.
-                            detail = (
-                                f"Cannot classify BC constant row: {inline_names}"
-                                if isinstance(inline_names, str)
-                                else f"Active BC Database has no Source row for {identifier!r}"
-                            )
-                            report.issues.append(
-                                PreflightIssue(
-                                    ref.run.index,
-                                    ref.run.description,
-                                    "unresolved",
-                                    ref.origin,
-                                    str(ref.path),
-                                    detail,
-                                )
-                            )
-                        else:
-                            extra_references.append(
-                                _FileReference(
-                                    ref.run,
-                                    f"bc source: {identifier}",
-                                    linked,
-                                    database_kind="source:bc",
-                                    csv_columns=report.bc_activation_columns.get(
-                                        (ref.run.index, ref.bc_activation_uuid, identifier.casefold())
-                                    ),
-                                )
-                            )
-            # Resolve source identifiers using the database type that owns
-            # this GIS element, never interpreting a curve ID as a filename.
-            for identifiers, database_kind in (
-                (result.network_identifiers, "depth_discharge"),
-                (result.pit_identifiers, "pit_inlet"),
-            ):
-                if not identifiers:
-                    continue
-                available = curve_databases.get((ref.run.index, database_kind), set())
-                if len(available) != 1:
-                    report.issues.append(
-                        PreflightIssue(
-                            ref.run.index,
-                            ref.run.description,
-                            "unresolved",
-                            ref.origin,
-                            str(ref.path),
-                            f"{database_kind} database is absent or ambiguous for GIS curve identifiers",
-                        )
-                    )
-                    continue
-                database_path = next(iter(available))
-                if database_path not in pit_database_cache:
-                    try:
-                        pit_database_cache[database_path] = read_pit_inlet_database(database_path)
-                    except (OSError, UnicodeError, ValueError) as exc:
-                        pit_database_cache[database_path] = str(exc)
-                mapping = pit_database_cache[database_path]
-                if isinstance(mapping, str):
-                    report.issues.append(
-                        PreflightIssue(
-                            ref.run.index,
-                            ref.run.description,
-                            "unresolved",
-                            ref.origin,
-                            str(database_path),
-                            f"Cannot resolve {database_kind} database: {mapping}",
-                        )
-                    )
-                    continue
-                for identifier in identifiers:
-                    linked = mapping.get(identifier.casefold())
-                    if linked is None:
-                        report.issues.append(
-                            PreflightIssue(
-                                ref.run.index,
-                                ref.run.description,
-                                "unresolved",
-                                ref.origin,
-                                str(database_path),
-                                f"{database_kind} database has no entry for {identifier!r}",
-                            )
-                        )
-                        continue
-                    extra_references.append(_FileReference(ref.run, f"{database_kind} curve: {identifier}", linked))
-
-        # File-valued GIS attributes may themselves contain wildcard paths.
-        # Expand those patterns once across all simulations, not once per run.
-        extra_patterns = {ref.path for ref in extra_references if any(char in ref.path.name for char in "*?[")}
-        if extra_patterns:
-            expanded, failures, extra_scans = expand_file_patterns(
-                extra_patterns, maximum_directory_entries=maximum_directory_entries
-            )
-            report.directories_scanned += extra_scans
-            extra_materialised: list[_FileReference] = []
-            for ref in extra_references:
-                if ref.path not in extra_patterns:
-                    extra_materialised.append(ref)
-                    continue
-                if ref.path in failures:
-                    problem = failures[ref.path]
-                    report.issues.append(
-                        PreflightIssue(
-                            ref.run.index,
-                            ref.run.description,
-                            "missing" if problem.status == "missing" else "unresolved",
-                            ref.origin,
-                            str(ref.path),
-                            problem.detail,
-                        )
-                    )
-                    continue
-                extra_materialised.extend(replace(ref, path=path) for path in expanded[ref.path])
-            extra_references = extra_materialised
-
-        distinct_extra = {
-            (ref.run.index, ref.origin, ref.path, ref.layer, ref.csv_columns): ref for ref in extra_references
-        }
-        references.extend(distinct_extra.values())
-    report.attribute_seconds = time.perf_counter() - attribute_started
-    return references
-
-
-def check_simulation_inputs(  # noqa: C901 - wildcard materialisation and run-level result routing
-    tcf: Path,
-    runs: Sequence[RunRequest],
-    *,
-    check_gpkg_layers: bool = True,
-    directory_scan_threshold: int = 8,
-    maximum_directory_entries: int = 50000,
-    context_mode: Literal["individual", "batch"] = "individual",
-    inspection_mode: Literal["full", "files"] = "full",
-    io_workers: int = 1,
-    check_bc_headers: bool = False,
-) -> PreflightReport:
-    """Resolve all dependencies first, then check each unique file only once.
-
-    Dense input directories are listed once (bounded to avoid huge network
-    scans); sparse directories use direct metadata checks. Filesystem results
-    are then mapped back onto every run that needs each file. Output locations
-    are not treated as required inputs. The checker does not launch TUFLOW.
-    """
-    if not 1 <= io_workers <= 32:
-        message = "io_workers must be between 1 and 32"
-        raise ValueError(message)
-    if inspection_mode not in ("full", "files"):
-        message = f"Unsupported inspection mode: {inspection_mode}"
-        raise ValueError(message)
-    if context_mode not in ("individual", "batch"):
-        message = f"Unsupported input preflight context mode: {context_mode}"
-        raise ValueError(message)
-    if not tcf.is_file():
-        message = f"TUFLOW control file not found: {tcf}"
-        raise FileNotFoundError(message)
-    if not runs:
-        message = "No simulations were supplied for input preflight"
-        raise ValueError(message)
-    # Import only on demand; PyTUFLOW is a required ryan-tools dependency.
-    from pytuflow import TCF
-
-    factory = cast(_ModelFactory, TCF)
-    report = PreflightReport(run_count=len(runs))
-    start = time.perf_counter()
-    model: _Model = factory(str(tcf.absolute()))
-    report.parse_seconds = time.perf_counter() - start
-
-    # Context timing includes the upstream batch call and projection setup,
-    # not just re-reading the batch result through the common collector.
-    # Otherwise a batch timing would misleadingly omit its main CPU work.
-    start = time.perf_counter()
-
-    # PR C immutable dependency collection is deliberately explicit. Never
-    # silently fall back to individual mode if it lacks the batch API:
-    # a caller requesting comparative validation must see that incompatibility.
-    batch_view: BatchModelView | None = None
-    if context_mode == "batch":
-        batch_view = BatchModelView(
-            model,
-            tuple(run.arguments for run in runs),
-            structured_flags=tuple(run.flags for run in runs),
-        )
-        model = cast(_Model, batch_view)
-        report.dependency_fragment_evaluations = batch_view.fragment_evaluations
-        report.dependency_fragment_reuses = batch_view.fragment_reuses
-        report.dependency_fallback_runs = batch_view.fallback_runs
-        if batch_view.fallback_runs:
-            logger.warning(
-                "{} runs require the established batch evaluator; subtree reuse is unavailable for this model",
-                batch_view.fallback_runs,
-            )
-
-    # Phase 1: PyTUFLOW run-state resolution or batch projection, plus
-    # collection of all references before the shared physical inventory.
-    references, unique_paths = _collect_references(tcf.absolute(), runs, model, report)
-    if batch_view is not None:
-        batch_view.assert_consumed()
-    report.context_seconds = time.perf_counter() - start
-
-    # Expand each distinct wildcard pattern once. A missing, oversized or
-    # unsupported directory fails only the runs that reference that pattern.
-    patterns = {ref.path for ref in references if any(char in ref.path.name for char in "*?[")}
-    if patterns:
-        expanded, failures, wildcard_scans = expand_file_patterns(
-            patterns, maximum_directory_entries=maximum_directory_entries
-        )
-        report.directories_scanned += wildcard_scans
-        materialised: list[_FileReference] = []
-        for ref in references:
-            if ref.path not in patterns:
-                materialised.append(ref)
-                continue
-            if ref.path in failures:
-                failure = failures[ref.path]
-                status: IssueStatus = "missing" if failure.status == "missing" else "unresolved"
-                report.issues.append(
-                    PreflightIssue(
-                        ref.run.index, ref.run.description, status, ref.origin, str(ref.path), failure.detail
-                    )
-                )
-                continue
-            for path in expanded[ref.path]:
-                materialised.append(replace(ref, path=path))
-                unique_paths.setdefault(path, set())
-                if ref.layer:
-                    unique_paths[path].add(ref.layer)
-        references = materialised
-
-    references = _materialise_attribute_references(
-        references, report, maximum_directory_entries=maximum_directory_entries
-    )
-    for ref in references:
-        unique_paths.setdefault(ref.path, set())
-        if ref.layer:
-            unique_paths[ref.path].add(ref.layer)
-
-    # Validate unique raster source metadata only after primary filesystem checks
-    # establish the file exists. Never read raster data in a run context.
-    raster_started = time.perf_counter()
-    raster_references = [ref for ref in references if ref.scan_raster_metadata] if inspection_mode == "full" else []
-    if raster_references:
-        raster_paths = {ref.path for ref in raster_references}
-        metadata, raster_opens = inspect_raster_metadata(raster_paths)
-        report.raster_files_scanned = raster_opens
-        for ref in raster_references:
-            result = metadata[ref.path]
-            if result.status != "present":
-                report.issues.append(
-                    PreflightIssue(
-                        ref.run.index,
-                        ref.run.description,
-                        "unresolved",
-                        ref.origin,
-                        str(ref.path),
-                        result.detail,
-                    )
-                )
-    report.raster_seconds = time.perf_counter() - raster_started
-
-    # Phase 2: stat or list only distinct required paths, with one GeoPackage
-    # query per database for all of its requested layers.
-    if not check_gpkg_layers:
-        unique_paths = {path: set[str]() for path in unique_paths}
-    start = time.perf_counter()
-    csv_references = [
-        ref
-        for ref in references
-        if check_bc_headers and ref.database_kind == "source:bc" and ref.path.suffix.casefold() == ".csv"
-    ]
-    csv_column_names: dict[Path, set[str]] = {}
-    for reference in csv_references:
-        csv_column_names.setdefault(reference.path, set()).update(reference.csv_columns or ())
-    inventory = check_unique_dependencies(
-        unique_paths,
-        csv_header_paths={ref.path for ref in csv_references},
-        csv_column_names=csv_column_names,
-        io_workers=io_workers,
-        scan_threshold=directory_scan_threshold,
-        maximum_directory_entries=maximum_directory_entries,
-    )
-    report.inventory_seconds = time.perf_counter() - start
-    report.checked_paths.update(str(path) for path in unique_paths)
-    report.directories_scanned += inventory.directories_scanned
-    report.individually_checked = inventory.individually_checked
-
-    report.csv_headers_checked = len(inventory.csv_headers)
-    for reference in csv_references:
-        header = inventory.csv_headers.get(reference.path)
-        if header is None:  # Missing/unreadable paths are reported by the inventory below.
-            continue
-        report.csv_column_selections_checked += 1
-        problem = header.problem(reference.csv_columns)
-        if problem:
-            report.issues.append(
-                PreflightIssue(
-                    reference.run.index,
-                    reference.run.description,
-                    "unresolved",
-                    reference.origin,
-                    str(reference.path),
-                    problem,
-                )
-            )
-
-    # Phase 3: map results back to affected simulations and source commands.
-    for reference in references:
-        result = inventory.files[reference.path]
-        if result.status == "present" and reference.layer and check_gpkg_layers:
-            result = inventory.layers.get(
-                (reference.path, reference.layer),
-                result,
-            )
-        if result.status != "present":
-            name = str(reference.path)
-            if reference.layer:
-                name = f"{name} >> {reference.layer}"
-            report.issues.append(
-                PreflightIssue(
-                    reference.run.index,
-                    reference.run.description,
-                    result.status,
-                    reference.origin,
-                    name,
-                    result.detail,
-                )
-            )
-
-    logger.info(
-        "Preflight: {} runs, {} unique files, {} directory scans, {} attribute GIS-source opens, "
-        "{} raster metadata opens, {} direct checks, {} issues across {} runs; "
-        "PyTUFLOW parse {:.2f}s, contexts {:.2f}s, GIS attributes {:.2f}s, "
-        "raster metadata {:.2f}s, inventory {:.2f}s",
-        report.run_count,
-        len(report.checked_paths),
-        report.directories_scanned,
-        report.attribute_databases_scanned,
-        report.raster_files_scanned,
-        report.individually_checked,
-        len(report.issues),
-        report.affected_runs,
-        report.parse_seconds,
-        report.context_seconds,
-        report.attribute_seconds,
-        report.raster_seconds,
-        report.inventory_seconds,
-    )
-    return report
-
-
-def check_batch_files(
-    tcf: Path,
+def check_simulation_inputs(  # noqa: C901 - fail-closed public result validation
+    tcf: Path | str | object,
     runs: Sequence[RunRequest],
     *,
     check_gpkg_layers: bool = True,
     io_workers: int = 4,
-    directory_scan_threshold: int = 8,
-    maximum_directory_entries: int = 50000,
+    maximum_directory_entries: int = 50_000,
 ) -> PreflightReport:
-    """Check batch input existence using shared parser dependency fragments.
+    """Validate exact ordered runs with PyTUFLOW PR17's public API.
 
-    Read control/TEF/database source listings and essential GIS link fields to
-    discover files. Do not validate raster metadata, GIS geometry, time-series
-    values. BC CSV time/value column names and GeoPackage layers are checked once per file. Linked-file discovery keeps
-    the existing conservative coverage and invocation-local deduplication.
+    Every run retains its supplied global identity. Validation is only invoked
+    explicitly; no import of PyTUFLOW occurs during help, planning or export.
+    Existing raster files are checked as input paths, not decoded for headers
+    or pixel contents. The caller owns grouping, model cwd and error policy.
     """
-    return check_simulation_inputs(
-        tcf,
-        runs,
-        context_mode="batch",
-        inspection_mode="files",
-        check_bc_headers=True,
+    if not runs:
+        message = "No simulations were supplied for input preflight"
+        raise ValueError(message)
+    if len({run.index for run in runs}) != len(runs) or any(run.index < 1 for run in runs):
+        message = "Input preflight requires distinct positive planned-run indices"
+        raise ValueError(message)
+    if not 1 <= io_workers <= 32:
+        message = "io_workers must be between 1 and 32"
+        raise ValueError(message)
+    if maximum_directory_entries < 1:
+        message = "maximum_directory_entries must be positive"
+        raise ValueError(message)
+
+    api = require_validation_api()
+    # Do not use a display string: flag values may contain whitespace. PyTUFLOW
+    # accepts these dictionaries as the authoritative model run arguments.
+    structured = [dict(run.flags) for run in runs]
+    model: object = Path(tcf).absolute() if isinstance(tcf, (str, Path)) else tcf
+    options = api.options_factory(
+        check_files=True,
         check_gpkg_layers=check_gpkg_layers,
+        check_bc_csv_headers=True,
         io_workers=io_workers,
-        directory_scan_threshold=directory_scan_threshold,
         maximum_directory_entries=maximum_directory_entries,
     )
+    result = cast(_BatchResult | None, api.validate_batch_inputs(model, structured, options=options))
+
+    # A missing/malformed public result is a failure, never an empty success.
+    if (
+        result is None
+        or not isinstance(getattr(result, "passed", None), bool)
+        or not hasattr(result, "dependencies")
+        or not hasattr(result, "validation")
+    ):
+        message = "PyTUFLOW returned no complete batch validation result"
+        raise ValueError(message)
+    deps, physical = result.dependencies, result.validation
+    run_results: Sequence[_DependencyRun] | None = getattr(deps, "runs", None)
+    findings: Sequence[_Finding] | None = getattr(physical, "findings", None)
+    if not isinstance(run_results, (list, tuple)) or not isinstance(findings, (list, tuple)):
+        message = "PyTUFLOW omitted batch run results or physical findings"
+        raise ValueError(message)
+    count = len(runs)
+    if _nonnegative_count(getattr(physical, "run_count", None), "run_count") != count:
+        message = "PyTUFLOW returned an incomplete physical-validation run count"
+        raise ValueError(message)
+    indices: list[object] = [getattr(item, "index", None) for item in run_results]
+    if len(indices) != count or any(type(index) is not int for index in indices) or set(indices) != set(range(count)):
+        message = "PyTUFLOW returned missing, duplicate or invalid batch run indices"
+        raise ValueError(message)
+    by_position = dict(enumerate(runs))
+    report = PreflightReport(run_count=count)
+    for finding in findings:
+        position = getattr(finding, "run_index", None)
+        if type(position) is not int or position not in by_position:
+            message = f"PyTUFLOW finding refers to unknown batch position: {position!r}"
+            raise ValueError(message)
+        if getattr(finding, "status", None) == "present":
+            if finding.path is not None:
+                report.checked_paths.add(str(finding.path))
+            continue
+        report.issues.append(_issue(finding, by_position[position]))
+        if finding.path is not None:
+            report.checked_paths.add(str(finding.path))
+
+    for run_result in run_results:
+        error = getattr(run_result, "error", None)
+        position = run_result.index
+        if error:
+            request = by_position[position]
+            report.issues.append(
+                PreflightIssue(
+                    request.index, request.description, "unresolved", "TCF run context", str(model), str(error)
+                )
+            )
+
+    if not result.passed and not report.issues:
+        message = "PyTUFLOW reported an unsuccessful batch without findings"
+        raise ValueError(message)
+    if result.passed and report.issues:
+        message = "PyTUFLOW reported a passing batch containing failed input findings"
+        raise ValueError(message)
+    if not isinstance(getattr(deps, "passed", None), bool) or not isinstance(getattr(physical, "passed", None), bool):
+        message = "PyTUFLOW omitted completeness status for dependencies or physical validation"
+        raise ValueError(message)
+    if result.passed != (deps.passed and physical.passed):
+        message = "PyTUFLOW returned inconsistent dependency/validation status"
+        raise ValueError(message)
+
+    report.completed_runs = count
+    report.upstream_passed = result.passed
+    report.files_examined = _nonnegative_count(getattr(physical, "files_examined", None), "files_examined")
+    report.geopackages_examined = _nonnegative_count(
+        getattr(physical, "geopackages_examined", None), "geopackages_examined"
+    )
+    report.csv_headers_checked = _nonnegative_count(
+        getattr(physical, "csv_headers_examined", None), "csv_headers_examined"
+    )
+    report.directories_scanned = _nonnegative_count(
+        getattr(physical, "directories_scanned", None), "directories_scanned"
+    )
+    report.gis_sources_added = _nonnegative_count(getattr(result, "gis_sources_added", None), "gis_sources_added")
+    report.gis_files_scanned = _nonnegative_count(getattr(result, "gis_files_scanned", None), "gis_files_scanned")
+    for label, attribute in (
+        ("parse_seconds", "parse_seconds"),
+        ("context_seconds", "collection_seconds"),
+        ("inventory_seconds", "inspection_seconds"),
+    ):
+        value = getattr(result, attribute, None)
+        if not isinstance(value, (int, float)) or value < 0:
+            message = f"PyTUFLOW returned invalid {attribute}"
+            raise ValueError(message)
+        setattr(report, label, float(value))
+    return report

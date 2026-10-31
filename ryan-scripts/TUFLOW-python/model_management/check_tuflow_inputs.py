@@ -129,6 +129,12 @@ def _parse_arguments() -> argparse.Namespace:
         type=Path,
         help="Base for relative --tcf (default: --working-directory if set, else wrapper folder).",
     )
+    parser.add_argument(
+        "--check-gpkg-layers",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Enable/disable GeoPackage selected-layer checks (default: DEFAULT_CHECK_GPKG_LAYERS).",
+    )
     parser.add_argument("--report", type=Path, help="NEW issue CSV path; existing files are not overwritten.")
     parser.add_argument("--plan-only", action="store_true", help="Extract runs without reading model inputs.")
     parser.add_argument("--plan-report", type=Path, help="Write a NEW private JSON run manifest.")

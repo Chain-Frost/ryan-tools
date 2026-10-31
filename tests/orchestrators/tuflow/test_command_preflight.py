@@ -225,6 +225,7 @@ def test_validator_seam_preserves_global_ids_and_spaced_context(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Scope 01 owns the only conversion of PyTUFLOW's local positions."""
+
     @dataclass(frozen=True)
     class PublicRunRequest:
         index: int
@@ -245,11 +246,9 @@ def test_validator_seam_preserves_global_ids_and_spaced_context(
 
     selected = plan(
         tmp_path,
-        'TUFLOW.exe -e1 "Wet Season" a.tcf\n'
-        'TUFLOW.exe -e1 Other b.tcf\n'
-        'TUFLOW.exe -e1 "Wet Season" a.tcf',
+        'TUFLOW.exe -e1 "Wet Season" a.tcf\nTUFLOW.exe -e1 Other b.tcf\nTUFLOW.exe -e1 "Wet Season" a.tcf',
     )
-    result = subject._check_group(
+    result = subject._check_group(  # pyright: ignore[reportPrivateUsage] - test the sole scope-01 seam
         (selected.runs[0], selected.runs[2]),
         check_gpkg_layers=False,
         io_workers=2,
