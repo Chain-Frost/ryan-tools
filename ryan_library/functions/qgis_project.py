@@ -412,7 +412,7 @@ def write_project_path_changes(
 
     old_qgd: Path | None = project_path.with_suffix(".qgd") if project_path.suffix.lower() == ".qgs" else None
     new_qgd: Path = output_path.with_suffix(".qgd")
-    if old_qgd is not None and old_qgd.exists() and (new_qgd.exists() or new_qgd.is_symlink()):
+    if old_qgd is not None and (new_qgd.exists() or new_qgd.is_symlink()):
         message: str = f"Auxiliary output already exists: {new_qgd}"
         raise FileExistsError(message)
 
