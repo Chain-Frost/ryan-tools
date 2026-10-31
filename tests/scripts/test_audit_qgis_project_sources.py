@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import argparse
 import runpy
-from types import FunctionType
 from collections.abc import Callable
 from pathlib import Path
+from types import FunctionType
 from typing import Protocol, cast
 from xml.etree import ElementTree as ET
 from zipfile import ZipFile
@@ -142,12 +142,44 @@ def test_qgz_source_list_is_deterministically_deduplicated(tmp_path: Path) -> No
 def test_cli_audit_modes_are_explicit_and_existence_is_default() -> None:
     namespace = runpy.run_path(str(SCRIPT))
     parse_args = cast(Callable[[list[str] | None], argparse.Namespace], namespace["_parse_cli_arguments"])
-    assert parse_args([]).mode == "existence"
+    assert namespace["DEFAULT_AUDIT_MODE"] == "existence"
+    assert parse_args([]).mode is None  # The safe default is applied at the CLI process boundary.
     assert parse_args(["--mode", "existence", "--no-pause"]).mode == "existence"
     assert parse_args(["--mode", "cold-storage-ping", "--no-pause"]).mode == "cold-storage-ping"
     with pytest.raises(SystemExit) as invalid:
         parse_args(["--mode", "unknown"])
     assert invalid.value.code == 2
+
+
+def test_cli_overrides_are_distinct_from_editable_defaults() -> None:
+    namespace = runpy.run_path(str(SCRIPT))
+    parse_args = cast(Callable[[list[str] | None], argparse.Namespace], namespace["_parse_cli_arguments"])
+    defaults = parse_args([])
+    assert defaults.project is None
+    assert defaults.auxiliary_report is None
+    assert defaults.sample_rows is None
+    assert defaults.absolute_paths is None
+    assert defaults.old_project_directory is None
+    assert defaults.replace_root is None
+    assert defaults.output is None
+    assert defaults.write is False
+
+    selected = parse_args(
+        ["--project", "model.qgz", "--auxiliary-report", "--sample-rows", "0", "--absolute-paths"]
+    )
+    assert selected.project == Path("model.qgz")
+    assert selected.auxiliary_report is True
+    assert selected.sample_rows == 0
+    assert selected.absolute_paths is True
+    disabled = parse_args(["--no-auxiliary-report", "--no-absolute-paths"])
+    assert disabled.auxiliary_report is False
+    assert disabled.absolute_paths is False
+
+
+def test_missing_working_directory_returns_failure_without_audit(tmp_path: Path) -> None:
+    main, _, _ = _functions()
+    assert main(working_directory=tmp_path / "missing_dir") == 1
+    assert not (tmp_path / "missing_dir").exists()
 
 
 def test_main_uses_selected_mode_and_deduplicates_sources(
