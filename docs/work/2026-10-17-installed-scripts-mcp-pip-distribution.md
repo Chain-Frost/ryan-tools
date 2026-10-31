@@ -5,7 +5,7 @@
 | Status | **Technical CI and consolidated review complete at `837184b`; maintainer acceptance/squash-merge decision outstanding** |
 | Owner | ChatGPT (corrective PR author); maintainer retains acceptance |
 | Created | 2026-10-17 |
-| Updated | 2026-10-31 |
+| Updated | 2026-11-01 |
 | Next review | Maintainer decision on outstanding A/F gates and later squash merge to main |
 | Original requirements | [Complete 17 October baseline, preserved verbatim](../audits/2026-10-17-installed-scripts-original-requirements.md) |
 | Previous implementation | [Prematurely merged PR #130](https://github.com/Chain-Frost/ryan-tools/pull/130), squash commit `1ac42c6` |
@@ -103,7 +103,7 @@ Those PRs remain independent work; their own technical correctness and data vali
   intermediate merge of all historical branch commits.
 - **Exact code acceptance at `837184b`: all six checks passed** — [Python CI](https://github.com/Chain-Frost/ryan-tools/actions/runs/41215916979) and [Fast PR](https://github.com/Chain-Frost/ryan-tools/actions/runs/41215916999). Hosted Windows: **1,674 passed / 25 skipped / 7 deselected**, with 127 nonfatal warnings; strict Pyright: **0 errors, 0 warnings**; wheel, MCP/Python 3.14, POSIX security and Ruff all green. Historical job label referencing Python 3.13 is not its runtime.
 - The consolidated Codex review of `350d41b` identified two new P2 QGIS issues: unmatched relative sources when output is relocated, and FileGDB directory sources wrongly failing metadata existence checks. Both were corrected with functional/unit tests (`e8fb5a4`, `07299e1`, `bc17b79`; formatting at `837184b`). Additional QGS/QGD companion collision fixed at `d181b15` with regression. All **22 PR #137 review threads resolved**, plus the four resolved on integrated #154.
-- **Current next action:** maintainer must decide the explicitly retained lifecycle/engineering acceptance gates and authorize later **squash merge** of #137 to `main`. The PR remains draft/unmerged, with no PyPI publication. Original A/F unverified application, network, interruption and numerical parity gates are **not** declared complete.
+- **Current next action:** maintainer must decide the explicitly retained lifecycle/engineering acceptance gates and authorize later **squash merge** of #137 to `main`. The PR remains open/unmerged, with no PyPI publication. Original A/F unverified application, network, interruption and numerical parity gates are **not** declared complete.
 
 ## 1 November 2026 — explicit maintainer acceptance disposition
 
