@@ -86,7 +86,7 @@ def test_export_only_copied_workflow_needs_neither_solver_nor_gpu(
                 "--no-tcf",
                 "--export-only",
                 "--solver-exe",
-                str(tmp_path / "MISSING.EXE"),
+                str(tmp_path / "TUFLOW_MISSING.EXE"),
                 "--export-path",
                 str(output),
                 "--no-pause",
