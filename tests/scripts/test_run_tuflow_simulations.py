@@ -185,7 +185,7 @@ def test_planning_failure_does_not_export_check_or_chain(
 def test_process_signal_handler_is_restored(wrapper: _RunnerWrapper) -> None:
     previous = signal.getsignal(signal.SIGINT)
     interrupt_context = cast(
-        Callable[[], AbstractContextManager[Event]], getattr(wrapper, "_interruption_flag")
+        Callable[[], AbstractContextManager[Event]], getattr(wrapper, "_interruption_flag")  # noqa: B009 - copied module private hook
     )
     with interrupt_context():
         assert signal.getsignal(signal.SIGINT) is not previous
