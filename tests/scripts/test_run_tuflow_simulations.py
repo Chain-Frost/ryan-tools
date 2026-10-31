@@ -27,11 +27,15 @@ class _RunnerWrapper(Protocol):
 
 
 @pytest.fixture
-def wrapper() -> _RunnerWrapper:
+def wrapper(tmp_path: Path) -> _RunnerWrapper:
     source = (
         Path(__file__).absolute().parents[2] / "ryan-scripts/TUFLOW-python/model_management/run_tuflow_simulations.py"
     )
-    spec = importlib.util.spec_from_file_location("tested_runner_wrapper", source)
+    # The real wrapper owns an adjacent CSV. A disposable copy prevents tests
+    # from writing history into the tracked repository wrapper directory.
+    copied = tmp_path / "run_tuflow_simulations.py"
+    copied.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+    spec = importlib.util.spec_from_file_location("tested_runner_wrapper", copied)
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
