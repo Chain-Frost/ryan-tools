@@ -6,6 +6,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from typing import ClassVar
 from types import SimpleNamespace
 
 import pytest
@@ -90,7 +91,7 @@ def test_correct_build_without_direct_url_metadata_is_accepted(
 ) -> None:
     monkeypatch.setattr(compatibility.metadata, "distribution", lambda _name: _installed(tmp_path))
     class Options:
-        __dataclass_fields__ = {
+        __dataclass_fields__: ClassVar[dict[str, object]] = {
         "check_files": None, "check_gpkg_layers": None, "check_bc_csv_headers": None,
         "io_workers": None, "maximum_directory_entries": None,
         }
