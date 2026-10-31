@@ -39,13 +39,14 @@ def parse(
     )
 
 
-def test_reassignment_applies_only_to_later_runs_and_preserves_duplicates() -> None:
+def test_reassignment_applies_only_to_later_unique_runs() -> None:
     text = HEADER + 'set "TCF=runs\\first_~e1~.tcf"\n' + FULL + "\n" + FULL + "\n"
     text += "ReM " + FULL + '\nset "tCf=runs\\second_~e1~.tcf"\n' + FULL + "\n"
     plan = parse(text)
-    assert [run.index for run in plan.runs] == [1, 2, 3]
-    assert [run.tcf.name for run in plan.runs] == ["first_~e1~.tcf", "first_~e1~.tcf", "second_~e1~.tcf"]
-    assert [run.line_start for run in plan.runs] == [3, 4, 7]
+    assert [run.index for run in plan.runs] == [1, 2]
+    assert plan.duplicates_dropped == 1
+    assert [run.tcf.name for run in plan.runs] == ["first_~e1~.tcf", "second_~e1~.tcf"]
+    assert [run.line_start for run in plan.runs] == [3, 7]
     assert plan.runs[0].tcf == CWD / "runs/first_~e1~.tcf"
     assert plan.runs[0].arguments[-1] == r"runs\first_~e1~.tcf"
     assert plan.runs[0].flags == {"e1": "A", "s9": "StdMat"}
@@ -349,17 +350,17 @@ def test_overwritten_assignments_and_disabled_rows_do_not_conflict() -> None:
     assert plan.runs[0].tcf == CWD / "good.tcf"
 
 
-def test_multi_file_reader_reindexes_preserves_duplicates_and_isolated_state(tmp_path: Path) -> None:
+def test_multi_file_reader_deduplicates_and_preserves_isolated_state(tmp_path: Path) -> None:
     first = tmp_path / "first.bat"
     second = tmp_path / "second.txt"
     first.write_text("set TCF=a.tcf\n-e1 A\n-e1 A\ncd other\n-e1 B", encoding="utf-8")
     second.write_text("# list comment\nset TCF=b.tcf\n-e1 A", encoding="utf-8")
     plan = read_command_plans((first, second), initial_directory=tmp_path)
-    assert [r.index for r in plan.runs] == [1, 2, 3, 4]
-    assert [r.tcf.name for r in plan.runs] == ["a.tcf", "a.tcf", "a.tcf", "b.tcf"]
-    assert plan.runs[0].tcf == plan.runs[1].tcf
-    assert [r.source for r in plan.runs] == [first, first, first, second]
-    assert [r.working_directory for r in plan.runs] == [tmp_path, tmp_path, tmp_path / "other", tmp_path]
+    assert [r.index for r in plan.runs] == [1, 2, 3]
+    assert plan.duplicates_dropped == 1
+    assert [r.tcf.name for r in plan.runs] == ["a.tcf", "a.tcf", "b.tcf"]
+    assert [r.source for r in plan.runs] == [first, first, second]
+    assert [r.working_directory for r in plan.runs] == [tmp_path, tmp_path / "other", tmp_path]
     assert plan.source_files == (first, second)
     assert plan.syntax == "mixed"
     assert plan.directories[-1].source == second
@@ -411,8 +412,9 @@ def test_named_tcf_variables_and_batch_roundtrip_keep_distinct_runs() -> None:
         'START /LOW /MIN /WAIT "" TUFLOW.exe -b -pu0 -e1 A "%TCF_05%"'
     )
     plan = parse(batch)
-    assert [run.tcf.name for run in plan.runs] == ["Model_05.tcf", "Model_06.tcf", "Model_05.tcf"]
-    assert len(plan.runs) == 3
+    assert [run.tcf.name for run in plan.runs] == ["Model_05.tcf", "Model_06.tcf"]
+    assert plan.duplicates_dropped == 1
+    assert len(plan.runs) == 2
     assert all(run.arguments[:4] == ("-b", "-pu0", "-e1", "A") for run in plan.runs)
     assert all(run.start_options == ("/low", "/min", "/wait") for run in plan.runs)
 
@@ -485,3 +487,36 @@ def test_effective_executable_uses_source_or_explicit_fallback_base(tmp_path: Pa
     fallback = Path("engines/TUFLOW.exe")
     assert effective_executable(explicit, fallback_executable=fallback, base_directory=tmp_path) == explicit.executable
     assert effective_executable(bare, fallback_executable=fallback, base_directory=tmp_path) == str(tmp_path / fallback)
+
+
+def test_deduplication_ignores_imported_executable_priority_engine_and_gpu() -> None:
+    source = (
+        'TUFLOW.exe -b -pu0 -e1 A -s1 Main model.tcf\n'
+        'START /LOW /WAIT "" "C:\Tools\TUFLOW_iSP_w64.exe" -t -pu7 -s1 Main -e1 A model.tcf\n'
+        'TUFLOW.exe -b -e1 A -s1 Main -et1 model.tcf\n'
+        'TUFLOW.exe -b -e1 B -s1 Main model.tcf'
+    )
+    plan = parse(source)
+    assert len(plan.runs) == 3
+    assert plan.duplicates_dropped == 1
+    assert [run.line_start for run in plan.runs] == [1, 3, 4]
+
+
+def test_deduplication_across_command_files(tmp_path: Path) -> None:
+    first, second = tmp_path / "first.txt", tmp_path / "second.txt"
+    first.write_text("-e1 A model.tcf\n", encoding="utf-8")
+    second.write_text("-e1 A model.tcf\n-e1 B model.tcf\n", encoding="utf-8")
+    plan = read_command_plans((first, second), initial_directory=tmp_path)
+    assert len(plan.runs) == 2
+    assert plan.duplicates_dropped == 1
+    assert [run.source for run in plan.runs] == [first, second]
+
+
+def test_posix_start_accepts_absolute_executable_after_empty_title() -> None:
+    plan = parse_command_plan(
+        'START /WAIT "" "/opt/tuflow/TUFLOW_iSP_w64.exe" -e1 A model.tcf',
+        source=PurePosixPath("/models/commands.bat"),
+        initial_directory=PurePosixPath("/models"),
+    )
+    assert plan.runs[0].executable == "/opt/tuflow/TUFLOW_iSP_w64.exe"
+    assert plan.runs[0].tcf == PurePosixPath("/models/model.tcf")
