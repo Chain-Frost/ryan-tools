@@ -21,18 +21,11 @@ from pathlib import Path
 WRAPPER_VERSION = "2026-10-31.4"
 
 # ----------------------- EDITABLE RUNNER SETTINGS -------------------------
-# Relative paths below are based on WORKING_DIR (the supplying script's folder
-# by default), not on the current terminal directory or imported BAT locations.
-# None uses this copied wrapper's folder; e.g. Path(r"P:\Project\Model").
-WORKING_DIR: Path | None = None
+
 # A Python TCF constrains every imported run and supplies missing bare-row TCFs.
 # Set None for imported lists containing distinct TCFs; generated runs need a TCF.
 TCF: Path | None = Path(r".\runs\PROJECT_01_~s2~_~s1~_~e1~_~e2~_~e4~_~e3~_~s4~.tcf")
-# Sole executable for all launches; imported BAT/TXT executables are ignored.
 TUFLOW_EXE = Path(r"C:\TUFLOW\tuflow-2026.3\TUFLOW_iSP_w64.exe")
-# Engine switches for EVERY run: -b suppresses completion prompts; -t tests inputs.
-# For example, "-b -t -nlc" tests inputs without a licence check. Imported engine
-# and GPU switches are replaced by this setting before export and Resume identity.
 BATCH_COMMANDS = "-b"
 # Optional generated-flag order. Unlisted flags retain RUN_VARIABLES_RAW order.
 PRIORITY_ORDER: str | None = "e3 e2 e1"
@@ -83,7 +76,7 @@ EXPORT_COMMANDS = True
 # only after validation; imported sources, the wrapper and history are protected.
 EXPORT_PATH: Path | None = None
 # Background input checks are advisory and never block launches. --preflight-only waits.
-CHECK_INPUTS = False
+CHECK_INPUTS = True
 # Include GeoPackage layer checks when input checking is selected.
 CHECK_GPKG_LAYERS = True
 # Show the shared live task display; False keeps ordinary console messages.
@@ -91,13 +84,16 @@ USE_LIVE_DASHBOARD = True
 # Maximum routine dashboard refreshes per second; must be greater than zero.
 LIVE_REFRESH_PER_SECOND = 1.0
 # INFO shows ordinary progress; SUCCESS keeps completions, warnings and errors.
-# No extra log file is created; the execution CSV remains the persistent history.
 CONSOLE_LOG_LEVEL = "INFO"
 # Optional Python script after normal completion, including failed children and
 # all-complete Resume. None disables chaining; e.g. Path("next_batch.py").
 NEXT_RUN_FILE: Path | None = None
 # Pause at the process boundary for interactive use; --no-pause overrides this.
 PAUSE_ON_FINISH = True
+# Relative paths below are based on WORKING_DIR (the supplying script's folder
+# by default), not on the current terminal directory or imported BAT locations.
+# None uses this copied wrapper's folder; e.g. Path(r"P:\Project\Model").
+WORKING_DIR: Path | None = None
 # ------------------------------------------------------------------------
 
 import argparse
