@@ -123,9 +123,11 @@ def _check_group(
 
 def _validate_options(*, io_workers: int, maximum_directory_entries: int) -> None:
     if not 1 <= io_workers <= 32:
-        raise ValueError("io_workers must be between 1 and 32")
+        message = "io_workers must be between 1 and 32"
+        raise ValueError(message)
     if maximum_directory_entries < 1:
-        raise ValueError("maximum_directory_entries must be positive")
+        message = "maximum_directory_entries must be positive"
+        raise ValueError(message)
 
 
 def check_command_plan(
