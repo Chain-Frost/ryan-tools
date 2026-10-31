@@ -6,7 +6,7 @@ No TUFLOW executable or model parser is required for these synthetic tests.
 from __future__ import annotations
 
 import importlib.util
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import ModuleType
@@ -46,7 +46,8 @@ class _SuccessfulGroup:
 def _load_wrapper() -> tuple[ModuleType, _WrapperMain]:
     script = Path(__file__).absolute().parents[2] / "ryan-scripts/TUFLOW-python/model_management/check_tuflow_inputs.py"
     spec = importlib.util.spec_from_file_location("_test_tuflow_input_wrapper", script)
-    assert spec is not None and spec.loader is not None
+    assert spec is not None
+    assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module, cast(_WrapperMain, module.main)
