@@ -1,7 +1,8 @@
 # Script remediation and acceptance backlog — PR #137
 
-**Status: open; not a merge gate completion certificate.** This is the durable
-work queue for the A/B audit of `ryan-scripts/`, maintained alongside the
+**Status (1 November 2026): 47 retained IDs; 46 open/deferred/partially verified and
+AB-023 explicitly closed by maintainer decision. Not a merge gate completion certificate.**
+This is the durable work queue for the A/B audit of `ryan-scripts/`, maintained alongside the
 [151-file lifecycle inventory](2026-10-19-installed-scripts-inventory.md)
 and [original requirements](2026-10-17-installed-scripts-original-requirements.md).
 New findings about individual scripts must be added or updated here, not lost
@@ -25,7 +26,43 @@ inside CI logs or an informal PR comment.
   external-environment/F acceptance. Coordinate overlapping integration
   evidence without modifying each other's files.
 - Close an item only with a commit/test or documented maintainer decision
-  linked here. Keep items visible if only a synthetic test passed.
+  linked here. Keep the ID, historical evidence and decision in place rather
+  than deleting the row. Synthetic tests alone do not imply native acceptance.
+- The **151 inventory entries include documentation and other non-executables**;
+  **85 wheel-selected files include resources, not only runnable wrappers**.
+  A repository-only/versioned script need not pass a modern maintained-wrapper
+  engineering acceptance matrix unless the maintainer actually adopts it.
+  Only actively maintained/exposed and safety-sensitive workflows need
+  proportionate execution, output and lifecycle acceptance.
+
+## Primary work categories (triage, not a merge checklist)
+
+The **47 IDs are retained in the table below**, including closed items. Assign
+each ID a primary category for future maintenance; a task may also involve
+secondary safety, lifecycle or engineering concerns. Do not repeat tests already
+accepted merely because an older checklist named them.
+
+| Primary category | AB IDs | Required disposition |
+| --- | --- | --- |
+| Active installed/workflow safety | AB-002, AB-003, AB-004, AB-005, AB-006, AB-007, AB-008, AB-009, AB-012, AB-013, AB-017, AB-021, AB-027, AB-030, AB-045 | Review destructive writes, overwrites, external launches, recovery and safe defaults for workflows actively offered to users. AB-008 remains deliberately deferred. |
+| External/engineering acceptance | AB-001, AB-010, AB-011, AB-018, AB-019, AB-020, AB-022, AB-024, AB-025, AB-026, AB-028, AB-029, AB-046, AB-047 | Test only the relevant native application, real data, installed-wheel behaviour or engineering result parity not previously verified. TUFLOW launcher/initialisation are tracked in the safety group (AB-012/013), and native ASC_to_ASC in AB-029. |
+| Historical/repository-only lifecycle | AB-014, AB-015, AB-016, AB-033, AB-034, AB-035, AB-036, AB-037, AB-038, AB-039, AB-040, AB-041, AB-042, AB-043, AB-044 | Keep out of the wheel/MCP unless explicitly adopted; decide retain-as-reference, maintain, promote or retire. **No blanket functional sign-off for historical/experimental files.** |
+| Cross-cutting inventory/contract | AB-031, AB-032 | AB-031: classify source/resource lifecycle proportionately. AB-032: validate selected executable-wrapper contracts by risk, not every packaged non-executable. |
+| Accepted/closed | **AB-023** | HY-8 comparison and acceptance: **closed by maintainer decision, 1 November 2026**. See the existing accepted evidence in [ryan-culverts PR #29](https://github.com/Chain-Frost/ryan-culverts/pull/29). No new HY-8 numerical or wrapper-acceptance campaign for #137. |
+
+**Native TUFLOW remains open** where script-specific: AB-012 (simulation runner),
+AB-013 (project initialisation), AB-029 (ASC_to_ASC raster tools), and the
+read-only model/report checks under AB-046/047 as applicable. For those,
+verify licensed executables, controlled fixtures, completion/failure/interrupt
+semantics and model/output behaviour as appropriate, not indiscriminate live
+project execution.
+
+**Windows/UNC remains scoped by workflow**, not an unfulfilled universal
+network gate. Earlier authorised Windows tests already covered mapped/UNC
+wrapper-copy, long paths and bounded GDAL/QGIS checks. Only the specific
+remaining network, lock and interruption cases recorded in the relevant AB
+rows and the [Windows evidence](../mcp-handoff/2026-10-21-cf-windows-acceptance.md)
+need further acceptance; no blanket rerun of proven tests.
 
 ## Priority script work
 
@@ -53,7 +90,7 @@ inside CI logs or an informal PR comment.
 | AB-020 | Medium / Verify | `gdal-python/build_VRT.py`, `gdal-python/gdal_merge.py`, `gdal-python/gdal_merge_by_extent.py` | Use synthetic rasters to validate filename grouping, CRS preconditions, extent filtering, actual VRT/GeoTIFF content, nodata/resampling, sidecars and original-default compatibility. | Open |
 | AB-021 | Medium / Verify | `gdal-python/gdalwarp_clip_to_polygon.py`, `gdal-python/batch_vector_clip.py`, `gdal-python/split_vector_by_attribute.py` | Test clipped outputs with generated vector/raster data; check output collision, SQL quoting, attribute NULL/Unicode, CRS, failure rollback and overwrite boundaries, including native GDAL. See dedicated AB-045 for known pre-promotion deletion in vector clipping. | Blocked: GDAL integration |
 | AB-022 | Medium / Verify | `gdal-python/gdal_stage_storage.py`, `gdal-python/gdal_flood_extent.py`, `gdal-python/gdal_raster_footprint.py` | Verify elevation-volume units, nodata, mask polygons, cell areas and input/output formats with reference datasets and known answers; keep staged outputs/overwrites safe. | Open |
-| AB-023 | Medium / Verify | `tuflow/tuflow_culvert_from_1d_nwk.py`, `tuflow/tuflow_culvert_from_maximums.py`, `tuflow/tuflow_to_hy8.py`, `culvert.py`, `floodway.py` | Verify real HY-8/ryan-culverts numerical parity, shape/attribute limits and SI units; coordinate numerical findings with their independent repos rather than duplicating hydraulic solver development here. | Blocked: external HY-8 / owner acceptance |
+| AB-023 | Medium / Accepted decision | `tuflow/tuflow_culvert_from_1d_nwk.py`, `tuflow/tuflow_culvert_from_maximums.py`, `tuflow/tuflow_to_hy8.py`, `culvert.py`, `floodway.py` | **Closed 1 November 2026 by maintainer decision.** The existing HY-8/`ryan-culverts` numerical comparison evidence is accepted via merged [ryan-culverts PR #29](https://github.com/Chain-Frost/ryan-culverts/pull/29) and the independent `run-hy8` work. Do **not** repeat the solver comparisons or require an additional HY-8 wrapper/baseline acceptance run as a PR #137 gate. The 22 October Windows host only located the HY-8 executable; this closure is a scope/acceptance decision based on existing independent evidence, **not a claim that host performed HY-8 simulations**. Future changes to wrappers still need ordinary targeted regressions proportional to the modification; they do not reopen this item automatically. | **Closed — maintainer accepted existing HY-8 evidence; no additional #137 HY-8 acceptance required** |
 | AB-024 | Medium / Verify | `TUFLOW-python/po_and_timeseries/generate_2d_po_label_list.py` | Disposable SQLite/GPKG-like label and missing-input tests plus isolated-wheel smoke passed in the previous #137 CI. A real GDAL-valid GeoPackage, layer/label semantics, output overwrite behaviour and current integrated CI still need checking. | Bounded prior hosted/wheel checks passed; real GPKG acceptance pending |
 | AB-025 | Medium / Verify | `TUFLOW-python/culvert_results/`, `TUFLOW-python/po_and_timeseries/` | Complete original CLI/default/no-pause/output and results tests for 1D/2D culvert/PO/POMM wrappers; verify per-event/duration/TP aggregation, version banners, Excel/Parquet and no hidden project paths. | Open; source read, selected CLI tests bounded |
 | AB-026 | Medium / Verify | `gdal-python/convert_gdb_to_gpkg.py`, `gdal-python/laz_to_las.py`, `gdal-python/gdal_retile_wrapper.py`, `gdal-python/gdal_translate_TIF_ovr.py` | Verify feature/point/raster counts, CRS/metadata and layer identity, tiling/overviews and driver availability from installed wheel in GDAL/OSGeo4W on Windows. | Blocked: GDAL/point-cloud fixtures |
@@ -84,7 +121,7 @@ inside CI logs or an informal PR comment.
 
 ## Recently verified bounded results
 
-- The previous #137 branch head `8d784cf` passed all six jobs, including 1,485 hosted tests. The 31 October integration with current main requires fresh CI and must not inherit this prior pass.
+- The integrated PR #137 head `060fc17` passed all six checks: 1,674 hosted tests passed, 25 skipped, 7 deselected; strict Pyright reported zero errors/warnings. These are exact tested-revision results, not native TUFLOW/HY-8 or production-file validation. Later documentation-only revisions must retain their own CI evidence.
 - `tests/scripts/test_installed_wrapper_behaviour.py` exercises disposable
   input/report scenarios. The PO-label test uses a minimal SQLite representation
   of a GPKG table, **not** a full driver-valid GeoPackage and not production GIS.
@@ -95,8 +132,9 @@ inside CI logs or an informal PR comment.
 ## Tracking and ownership
 
 Record the fixing PR/commit, tested platform and acceptance evidence beside the
-corresponding item when implemented. Retain blocked items until the maintainer
-provides a real Windows/QGIS/TUFLOW/HY-8/7-Zip result or explicitly changes scope.
+corresponding item when implemented. Retain blocked items until the maintainer provides a relevant native Windows,
+QGIS, TUFLOW or 7-Zip result or explicitly changes scope. **HY-8 AB-023 was
+closed by an explicit decision** and must not be treated as still blocked.
 The [original A–F requirements](2026-10-17-installed-scripts-original-requirements.md)
 remain authoritative. PR #137 stays open until the required A/B work is
 implemented or deliberately deferred through a visible maintainer decision.
