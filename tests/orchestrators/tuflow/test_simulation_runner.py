@@ -187,7 +187,7 @@ def test_per_child_directory_argument_list_and_runtime_gpu_policy(
 
     def popen(*, args: list[str], cwd: str, **_kwargs: object) -> FakeProcess:
         launched.append((args, cwd))
-        return FakeProcess(len(launched))
+        return FakeProcess(len(launched), polls_before_exit=5 if len(launched) == 1 else 0)
 
     outcome = runner.launch_plan(plan, config, popen=popen)
     assert outcome.successful
