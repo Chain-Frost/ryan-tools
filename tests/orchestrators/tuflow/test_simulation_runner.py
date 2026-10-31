@@ -190,7 +190,8 @@ def test_nonterminal_tcf_argument_roundtrips_without_losing_flags(tmp_path: Path
     ]
     bat = runner.render_batch_commands(plan, config, destination=tmp_path / "out.bat")
     reparsed = parse_command_plan(bat, source=tmp_path / "out.bat", initial_directory=tmp_path)
-    assert runner._logical_signature(plan.runs[0], config) == runner._logical_signature(reparsed.runs[0], config)
+    signature = runner._logical_signature  # pyright: ignore[reportPrivateUsage]
+    assert signature(plan.runs[0], config) == signature(reparsed.runs[0], config)
 
 
 def test_scenario_value_ending_in_tcf_is_not_control_file(tmp_path: Path) -> None:
