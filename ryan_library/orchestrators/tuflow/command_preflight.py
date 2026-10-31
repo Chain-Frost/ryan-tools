@@ -6,7 +6,7 @@ import csv
 import os
 from dataclasses import dataclass, field
 from pathlib import Path, PurePath, PureWindowsPath
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 
 from ...functions.tuflow.command_plan import CommandPlan, CommandPlanError, PlannedRun
 
@@ -37,11 +37,6 @@ class CommandPreflightReport:
     parse_seconds: float = 0.0
     context_seconds: float = 0.0
     inventory_seconds: float = 0.0
-    csv_headers_checked: int = 0
-    csv_column_selections_checked: int = 0
-    dependency_fragment_evaluations: int = 0
-    dependency_fragment_reuses: int = 0
-    dependency_fallback_runs: int = 0
 
     @property
     def run_count(self) -> int:
@@ -107,51 +102,48 @@ def _check_group(
     runs: tuple[PlannedRun, ...],
     *,
     check_gpkg_layers: bool,
-    context_mode: Literal["individual", "batch"],
-    files_only: bool = False,
     io_workers: int = 4,
+    maximum_directory_entries: int = 50_000,
 ) -> PreflightReport:
-    # Keep planning/--plan-only independent of the PyTUFLOW/GIS import stack.
-    from .input_preflight import RunRequest, check_batch_files, check_simulation_inputs
+    """Call the one scope-01 validator with unchanged global run identities."""
+    # Imported lazily: planning/--plan-only must not require the GIS stack.
+    # Scope 01 translates PyTUFLOW's zero-based positions to these global
+    # request IDs. There must be no second local/global translation here.
+    from .input_preflight import RunRequest, check_simulation_inputs
 
-    # Local zero-based positions are the PyTUFLOW batch contract. Never send
-    # global positions upstream; results are mapped back by the caller.
-    requests: list[RunRequest] = [RunRequest(position, run.flags) for position, run in enumerate(runs)]
-    if files_only:
-        return check_batch_files(
-            _native_path(runs[0].tcf), requests, check_gpkg_layers=check_gpkg_layers, io_workers=io_workers
-        )
+    requests = [RunRequest(run.index, run.flags) for run in runs]
     return check_simulation_inputs(
-        _native_path(runs[0].tcf), requests, check_gpkg_layers=check_gpkg_layers, context_mode=context_mode
+        _native_path(runs[0].tcf),
+        requests,
+        check_gpkg_layers=check_gpkg_layers,
+        io_workers=io_workers,
+        maximum_directory_entries=maximum_directory_entries,
     )
 
 
-def _validate_options(*, context_mode: Literal["individual", "batch"], io_workers: int) -> None:
+def _validate_options(*, io_workers: int, maximum_directory_entries: int) -> None:
     if not 1 <= io_workers <= 32:
-        message = "io_workers must be between 1 and 32"
-        raise ValueError(message)
-    if context_mode not in {"individual", "batch"}:
-        message = f"Unsupported input preflight context mode: {context_mode}"
-        raise ValueError(message)
+        raise ValueError("io_workers must be between 1 and 32")
+    if maximum_directory_entries < 1:
+        raise ValueError("maximum_directory_entries must be positive")
 
 
 def check_command_plan(
     plan: CommandPlan,
     *,
     check_gpkg_layers: bool = True,
-    context_mode: Literal["individual", "batch"] = "individual",
-    files_only: bool = False,
     io_workers: int = 4,
+    maximum_directory_entries: int = 50_000,
 ) -> CommandPreflightReport:
     """Check every planned run, grouped by effective TCF and launch directory.
 
     Preserve the global source order/indices even for interleaved TCF groups.
-    Existing PyTUFLOW collection/materialisation owns model syntax. No shell,
-    solver, chdir, new graph cache or cross-TCF inventory cache is introduced.
+    Scope 01's public PyTUFLOW consumer owns input interpretation. No shell,
+    solver, chdir, revalidation backend or cross-TCF cache is introduced.
     Directory changes are modelled assuming success; an absent destination
     therefore fails closed instead of silently changing shell semantics.
     """
-    _validate_options(context_mode=context_mode, io_workers=io_workers)
+    _validate_options(io_workers=io_workers, maximum_directory_entries=maximum_directory_entries)
     if not plan.runs or [run.index for run in plan.runs] != list(range(1, len(plan.runs) + 1)):
         message = "Run plan must contain a complete sequential set of global indices"
         raise CommandPlanError(message)
@@ -169,18 +161,14 @@ def check_command_plan(
     combined = CommandPreflightReport(plan)
     for grouped_runs in groups.values():
         runs = tuple(grouped_runs)
-        by_index = dict(enumerate(runs))
+        by_index = {run.index: run for run in runs}
         try:
-            if files_only:
-                report = _check_group(
-                    runs,
-                    check_gpkg_layers=check_gpkg_layers,
-                    context_mode=context_mode,
-                    files_only=True,
-                    io_workers=io_workers,
-                )
-            else:
-                report = _check_group(runs, check_gpkg_layers=check_gpkg_layers, context_mode=context_mode)
+            report = _check_group(
+                runs,
+                check_gpkg_layers=check_gpkg_layers,
+                io_workers=io_workers,
+                maximum_directory_entries=maximum_directory_entries,
+            )
             if report.run_count != len(runs) or any(issue.run_index not in by_index for issue in report.issues):
                 message = "Incomplete or incorrectly indexed preflight group report"
                 raise ValueError(message)
@@ -198,12 +186,6 @@ def check_command_plan(
             combined.parse_seconds += report.parse_seconds
             combined.context_seconds += report.context_seconds
             combined.inventory_seconds += report.inventory_seconds
-            if files_only:
-                combined.csv_headers_checked += report.csv_headers_checked
-                combined.csv_column_selections_checked += report.csv_column_selections_checked
-                combined.dependency_fragment_evaluations += report.dependency_fragment_evaluations
-                combined.dependency_fragment_reuses += report.dependency_fragment_reuses
-                combined.dependency_fallback_runs += report.dependency_fallback_runs
             combined.completed_runs += len(runs)
             combined.groups_checked += 1
         except Exception as exc:  # noqa: BLE001 - every group failure invalidates all its runs; other groups still checked
