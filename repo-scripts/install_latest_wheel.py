@@ -12,6 +12,15 @@ GIS_WHEEL_INDEX: str = "https://gisidx.github.io/gwi"
 WHEEL_PATTERN: str = "ryan_tools-*.whl"
 # Install the current upstream bridge when the wheel-based developer path is used.
 QGIS_MCP_ARCHIVE: str = "https://github.com/nkarasiak/qgis-mcp/archive/refs/heads/main.zip"
+PYTUFLOW_REQUIREMENT_FILE = Path(__file__).absolute().with_name("pytuflow-requirement.txt")
+
+
+def _pytuflow_requirement() -> str:
+    """Read the single immutable PyTUFLOW PR17 source used for normal installs."""
+    requirement = PYTUFLOW_REQUIREMENT_FILE.read_text(encoding="utf-8").strip()
+    if not requirement.startswith("pytuflow @ https://github.com/Chain-Frost/PyTuflow/archive/"):
+        raise ValueError(f"Invalid PyTUFLOW source requirement in {PYTUFLOW_REQUIREMENT_FILE}")
+    return requirement
 
 
 def _latest_wheel(dist_dir: Path) -> Path:
@@ -42,36 +51,28 @@ def _gis_dependency_command() -> list[str]:
 def _pip_commands(
     wheel: Path, force_reinstall: bool, *, qgis_mcp_source: str | None = None, skip_qgis_mcp: bool = False
 ) -> list[list[str]]:
-    """Build the pip commands for a normal or no-dependency recovery install."""
+    """Build GIS-first install commands with one exact accepted parser source."""
     pip: list[str] = [sys.executable, "-m", "pip"]
     if force_reinstall:
-        return [
-            [
-                *pip,
-                "install",
-                "--upgrade",
-                "--force-reinstall",
-                "--no-deps",
-                str(wheel),
-            ]
-        ]
+        # Recovery mode deliberately never changes dependencies or certifies the parser.
+        return [[*pip, "install", "--upgrade", "--force-reinstall", "--no-deps", str(wheel)]]
 
+    pinned_parser = _pytuflow_requirement()
     commands: list[list[str]] = [_gis_dependency_command()]
     if not skip_qgis_mcp:
         source: str = qgis_mcp_source or QGIS_MCP_ARCHIVE
         commands.append([*pip, "install", "--upgrade", source])
+    # An existing official wheel may have the same version but no validation API.
+    # Force the exact selected archive even when the installed version matches.
+    commands.append([*pip, "install", "--upgrade", "--force-reinstall", "--no-deps", pinned_parser])
+    # Resolve the matching wheel AND this explicit parser requirement together,
+    # so PyPI's same-version build cannot be selected as a transitive dependency.
     commands.append(
         [
-            *pip,
-            "install",
-            "--upgrade",
-            "--prefer-binary",
-            "--extra-index-url",
-            GIS_WHEEL_INDEX,
-            "--only-binary=fiona",
-            "--only-binary=rasterio",
-            "--only-binary=gdal",
-            f"{wheel}[mcp]",
+            *pip, "install", "--upgrade", "--prefer-binary",
+            "--extra-index-url", GIS_WHEEL_INDEX,
+            "--only-binary=fiona", "--only-binary=rasterio", "--only-binary=gdal",
+            f"{wheel}[mcp]", pinned_parser,
         ]
     )
     return commands
@@ -149,8 +150,19 @@ def main(argv: list[str] | None = None) -> int:
             skip_qgis_mcp=args.skip_qgis_mcp,
         )
         commands = _migration_commands(wheel, commands)
-        if args.force_reinstall and not args.skip_qgis_mcp:
-            print("NOTE: --force-reinstall uses --no-deps and does not install QGIS MCP.")
+        if args.force_reinstall:
+            print("NOTE: --force-reinstall uses --no-deps and does not update or validate PyTUFLOW or QGIS MCP.")
+        else:
+            commands.extend(
+                [
+                    [sys.executable, "-m", "pip", "check"],
+                    [
+                        sys.executable, "-c",
+                        "from ryan_library.functions.tuflow.pytuflow_compatibility "
+                        "import require_validation_api; print(require_validation_api().diagnostic.message)",
+                    ],
+                ]
+            )
 
     for command in commands:
         print(f"Command:      {subprocess.list2cmdline(command)}")
@@ -161,7 +173,12 @@ def main(argv: list[str] | None = None) -> int:
             print(f"ERROR: pip exited with status {result.returncode}", file=sys.stderr)
             return result.returncode
 
-    print("Installation completed successfully." if not args.dry_run else "Dry run completed successfully.")
+    if args.dry_run:
+        print("Dry run completed: no packages or validation capabilities were checked.")
+    elif args.dependencies_only or args.force_reinstall:
+        print("Requested recovery installation completed; full PyTUFLOW compatibility was not verified.")
+    else:
+        print("Installation completed; pip check and public PyTUFLOW capabilities verified.")
     return 0
 
 
