@@ -1,6 +1,8 @@
 """Group routing and source provenance without executing the model or shell."""
 
 import csv
+import sys
+from types import ModuleType
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -217,3 +219,50 @@ def test_directory_failure_identifies_actual_second_source(tmp_path: Path, monke
     monkeypatch.setattr(subject, "_check_group", forbidden)
     with pytest.raises(CommandPlanError, match=r"second\.bat:1"):
         subject.check_command_plan(both)
+
+
+def test_validator_seam_preserves_global_ids_and_spaced_context(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Scope 01 owns the only conversion of PyTUFLOW's local positions."""
+    from collections.abc import Mapping
+
+    @dataclass(frozen=True)
+    class PublicRunRequest:
+        index: int
+        flags: Mapping[str, str]
+
+    captured: list[object] = []
+
+    def fake_validator(tcf: Path, requests: list[PublicRunRequest], **options: object) -> FakeReport:
+        captured.append(tcf)
+        captured.append(tuple((item.index, dict(item.flags)) for item in requests))
+        captured.append(options)
+        return FakeReport(run_count=len(requests), issues=[FakeIssue(requests[-1].index)])
+
+    fake_module = ModuleType("ryan_library.orchestrators.tuflow.input_preflight")
+    setattr(fake_module, "RunRequest", PublicRunRequest)
+    setattr(fake_module, "check_simulation_inputs", fake_validator)
+    monkeypatch.setitem(sys.modules, fake_module.__name__, fake_module)
+
+    selected = plan(
+        tmp_path,
+        'TUFLOW.exe -e1 "Wet Season" a.tcf\n'
+        'TUFLOW.exe -e1 Other b.tcf\n'
+        'TUFLOW.exe -e1 "Wet Season" a.tcf',
+    )
+    result = subject._check_group(
+        (selected.runs[0], selected.runs[2]),
+        check_gpkg_layers=False,
+        io_workers=2,
+        maximum_directory_entries=200,
+    )
+    assert result.run_count == 2
+    assert result.issues[0].run_index == 3
+    assert captured[0] == tmp_path / "a.tcf"
+    assert captured[1] == ((1, {"e1": "Wet Season"}), (3, {"e1": "Wet Season"}))
+    assert captured[2] == {
+        "check_gpkg_layers": False,
+        "io_workers": 2,
+        "maximum_directory_entries": 200,
+    }
