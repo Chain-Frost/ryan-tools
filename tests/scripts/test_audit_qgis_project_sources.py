@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import argparse
-import os
 import json
+import os
 import runpy
 from collections.abc import Callable
 from pathlib import Path
@@ -291,6 +291,7 @@ def test_audit_deduplicates_lexically_equivalent_parent_paths(
     checked: list[Path] = []
 
     def record_probe(path: Path, *, mode: QgisAuditMode = "cold-storage-ping") -> tuple[bool, str]:
+        assert mode == "cold-storage-ping"
         checked.append(path)
         return True, "checked"
 
@@ -315,6 +316,7 @@ def test_audit_deduplicates_drive_and_unc_aliases(
     checked: list[Path] = []
 
     def record_probe(path: Path, *, mode: QgisAuditMode = "cold-storage-ping") -> tuple[bool, str]:
+        assert mode == "cold-storage-ping"
         checked.append(path)
         return True, "checked"
 
