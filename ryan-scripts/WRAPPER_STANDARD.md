@@ -1,10 +1,12 @@
 # Python wrapper standard
 
-This document defines the preferred structure for maintained, library-backed
-scripts under `ryan-scripts`. It does not apply retroactively to archived or
-versioned standalone utilities. For actively maintained *self-contained* scripts,
-use the [minimal standalone standard](README.md#minimal-standard-for-maintained-standalone-scripts)
-instead; do not force a library-backed wrapper architecture merely for consistency.
+This document applies to **maintained library-backed wrappers**, not every
+maintained script. All maintained entry points share the
+[common script principles](README.md#shared-principles-for-maintained-scripts-and-wrappers).
+A self-contained tool may instead follow the
+[maintained standalone standard](README.md#minimal-standard-for-maintained-standalone-scripts)
+without importing `ryan_library`. Neither choice requires an orchestrator.
+Do not retrofit archived or project-specific scripts solely for architectural uniformity.
 
 ## Purpose
 
@@ -12,12 +14,16 @@ A wrapper is a small, human-editable entry point around reusable behaviour in
 `ryan_library`. Wrappers may be copied into project folders, so each file must
 remain understandable and identifiable without access to its Git history.
 
-Reusable processing, discovery and validation belong in
-`ryan_library/functions` or `ryan_library/orchestrators`. A wrapper should
-contain only documentation, editable defaults, argument parsing, configuration
-resolution, logging setup and process-boundary behaviour.
+Put independently useful algorithms, parsing and focused I/O in
+`ryan_library/functions` (or format-specific processors). A wrapper may
+**call those functions directly**. Introduce `ryan_library/orchestrators`
+only when workflow coordination is itself substantial, shared or independently
+testable; a sequence of two function calls is not sufficient reason.
+A wrapper normally owns documentation, editable defaults, argument parsing,
+configuration resolution, logging, modest workflow dispatch, and the process
+boundary. Do not introduce layers that only forward arguments.
 
-## Required file order
+## Recommended file order
 
 1. Raw module docstring with purpose, inputs, outputs and examples.
 2. `from __future__ import annotations` when annotations require it.
@@ -29,9 +35,13 @@ resolution, logging setup and process-boundary behaviour.
 7. Third-party imports.
 8. Absolute `ryan_library` imports.
 9. Small wrapper-only types such as CLI option dataclasses.
-10. `main(...) -> int`.
+10. `main(...) -> int` and focused wrapper-level dispatch helpers.
 11. CLI parser helper.
 12. `if __name__ == "__main__"` process boundary.
+
+Minor adjustments are acceptable when Python dependencies require them, but
+keep versions and frequently edited settings prominent. Avoid importing the
+`ryan_library` package merely to type a default setting near the top.
 
 Operational imports deliberately follow the editable-default block. This keeps
 the settings a user is expected to review immediately below the docstring and
@@ -101,6 +111,12 @@ reasonable editable wrapper settings. A required CLI argument is appropriate
 only when there is no safe or meaningful hard-coded default, such as a secret,
 a one-off destructive confirmation or input that must be chosen for every run.
 
+**Safety exception:** an editable `DEFAULT_WRITE = True` or similar must
+not silently enable replacement, deletion, external execution or chargeable
+network retrieval. Keep such operations behind explicit actions or opt-in
+modes. Read-only or preview defaults must be safe even when no CLI arguments
+are supplied.
+
 Keep cosmetic or highly specific terminal preferences (such as dashboard alternate-screen rendering options) as editable wrapper constants rather than shared CLI arguments. This prevents cluttering the ``--help`` menu across multiple unrelated scripts with rendering flags that users rarely change per execution.
 
 Do not add repository-root `sys.path` changes. Copied wrappers require the
@@ -128,7 +144,7 @@ def main(*, working_directory: Path | None = None) -> int:
     return 0
 ```
 
-Use these process codes consistently:
+Use these process codes consistently for maintained entry points:
 
 | Code | Meaning |
 | --- | --- |
@@ -136,7 +152,9 @@ Use these process codes consistently:
 | `1` | Working-directory, validation or processing failure. |
 | `2` | Invalid CLI arguments, normally emitted by `argparse`. |
 
-Library helpers must not call `SystemExit` or pause the console.
+Library helpers must not call `SystemExit` or pause the console. A small
+standalone script may keep its implementation inside its guarded `main()`
+and does not need a wrapper or orchestrator.
 
 ## CLI and process boundary
 
@@ -183,6 +201,9 @@ that native GDAL, NumPy or Python allocator caches will immediately return
 their reserved memory to Windows.
 
 ## Validation checklist
+
+The common [maintained-script checks](README.md#shared-principles-for-maintained-scripts-and-wrappers)
+also apply. For a library-backed wrapper:
 
 - Format modified Python files with `ruff format`.
 - Run strict Pyright on modified files.
