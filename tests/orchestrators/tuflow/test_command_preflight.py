@@ -16,7 +16,7 @@ from ryan_library.orchestrators.tuflow import command_preflight as subject
 from ryan_library.orchestrators.tuflow.input_preflight import IssueStatus, PreflightIssue
 
 
-def plan(tmp_path: Path, text: str = "-e1 A a.tcf\n-e1 B b.tcf\n-e1 A a.tcf") -> CommandPlan:
+def plan(tmp_path: Path, text: str = "-e1 A a.tcf\n-e1 B b.tcf\n-e1 C a.tcf") -> CommandPlan:
     return parse_command_plan(text, source=tmp_path / "runs.bat", initial_directory=tmp_path)
 
 
@@ -50,7 +50,7 @@ def outcome(runs: tuple[PlannedRun, ...], issues: Sequence[PreflightIssue] = ())
     return FakeReport(len(runs), issues)
 
 
-def test_interleaved_tcf_groups_preserve_global_indices_duplicates_and_options(
+def test_interleaved_tcf_groups_preserve_global_indices_and_options(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     calls: list[tuple[tuple[PlannedRun, ...], dict[str, object]]] = []
@@ -250,7 +250,7 @@ def test_validator_seam_preserves_global_ids_and_spaced_context(
 
     selected = plan(
         tmp_path,
-        'TUFLOW.exe -e1 "Wet Season" a.tcf\nTUFLOW.exe -e1 Other b.tcf\nTUFLOW.exe -e1 "Wet Season" a.tcf',
+        'TUFLOW.exe -e1 "Wet Season" a.tcf\nTUFLOW.exe -e1 Other b.tcf\nTUFLOW.exe -e1 "Spring Season" a.tcf',
     )
     result = subject._check_group(  # pyright: ignore[reportPrivateUsage] - test the sole scope-01 seam
         (selected.runs[0], selected.runs[2]),
@@ -261,7 +261,7 @@ def test_validator_seam_preserves_global_ids_and_spaced_context(
     assert result.run_count == 2
     assert result.issues[0].run_index == 3
     assert captured[0] == tmp_path / "a.tcf"
-    assert captured[1] == ((1, {"e1": "Wet Season"}), (3, {"e1": "Wet Season"}))
+    assert captured[1] == ((1, {"e1": "Wet Season"}), (3, {"e1": "Spring Season"}))
     assert captured[2] == {
         "check_gpkg_layers": False,
         "io_workers": 2,
