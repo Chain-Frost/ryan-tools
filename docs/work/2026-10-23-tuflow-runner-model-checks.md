@@ -2,16 +2,59 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Review candidate: complete example regression passes with eight exact pinned-PyTUFLOW allowances; upstream fix tracked in #181 |
+| Status | Review candidate: current wrapper cleanup retained; UNC/path export and same-version installer defects corrected; upstream allowance removal tracked in #181 |
 | Owner | ChatGPT |
 | Created / Updated | 2026-10-23 / 2026-11-01 |
 | Next review | Windows acceptance / 2026-11-07 |
 | Pull request | [ryan-tools #159](https://github.com/Chain-Frost/ryan-tools/pull/159), open and non-draft when checked |
-| Branch / delivery base | `feat/tuflow-runner-model-checks`; regression delivery based on `f780d1d243867f2a867bd2511164ba37ed809f09`; prior cleanup baseline retained below |
+| Branch / delivery base | `feat/tuflow-runner-model-checks`; current review fixes retain concurrent commits through `313cf33de8257e63533ff6ebc4de8056dfd236eb`, containing `main` at `6e2d0f1d64be46d3c704e895fd0138583ac1dc31`; prior delivery evidence retained below |
 | Delivery | Regression and CI publication on #159, upstream fix in PyTUFLOW #60; no main merge, parser repin or release |
 | Next action | Review final-head CI, merge PR #159 independently of upstream when approved; issue #181 removes the allowance and requires 161/161 clean after adopting the reviewed fix. |
 
 ## Current scope and decisions
+
+## Independent review and concurrent-development reconciliation — 1 November 2026
+
+The review began at `b9d4474`, then retained the concurrent development commits
+through `4813473`, plus the MCP help-safety correction in `313cf33`, rather
+than replacing their wrapper or main-merge work.
+The current wrapper has one all-or-nothing `CHECK_INPUTS`, fixed adjacent TXT
+export, GPU-group-derived concurrency and three commented GPU examples.
+Descriptive constant names do not require `DEFAULT_`. Its current
+`OPERATION = "export_only"` is preserved; `"run"` or `--run-simulations`
+selects execution and `"preflight_only"` selects complete input checking.
+
+Three reproduced defects were corrected in the additional review patch:
+
+- Generated TXT and Python-runner BAT/CMD/TXT inputs now accept UNC working
+  directories as inert command lists. Standalone raw BAT parsing retains its
+  CMD directory restrictions. No source command or shell is executed.
+- Deduplication and export verification compare paths with the same lexical
+  normalization. Parent-relative TCF, executable and working-directory paths
+  no longer cause false export failures or duplicate imported/generated runs.
+  Original launch spellings are retained; no link or network-alias resolution
+  is introduced.
+- Normal installation explicitly replaces only the accepted PyTUFLOW parser
+  before full dependency resolution. A remote source URL with `--upgrade`
+  alone can leave an incompatible same-version official build installed.
+  An offline real-pip regression proves that failure, successful bounded
+  replacement, and subsequent installation of a missing transitive dependency.
+
+Local verification on the reconciled candidate uses Python 3.14.8:
+**284 focused tests pass; 11 native-Windows cases are skipped on the Linux
+review host.** All eight changed Python files pass Ruff lint/format,
+compilation and strict Windows-target Pyright with **0 errors and 0 warnings**.
+The package builds and passes the repository wheel-content verifier without a
+version bump. A copied wrapper imports the installed wheel from a neutral
+directory and passes help, default export-only, parent-relative path, TXT
+reimport and missing-working-directory checks without creating execution
+history or launching a solver. Documentation links and whitespace checks pass.
+
+Use the resulting PR-head GitHub checks for native Windows and full-suite
+acceptance; historical receipts below describe their named revisions only.
+The accepted PyTUFLOW pin, eight exact example allowances and #181 remain
+unchanged. No release, merge to `main` or licensed solver run is part of this
+review.
 
 ## Post-review correction — 1 November 2026
 

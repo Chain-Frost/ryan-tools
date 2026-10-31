@@ -88,7 +88,9 @@ Do not call `build_activity_report()` from the launch loop or add CodeMeter, TLF
 
 ## Command export
 
-The runner and exports target Windows. Refresh a fixed `<wrapper-stem>.txt` beside the Python wrapper, retaining export by default even for an all-complete Resume. TXT is required for explicit destinations too, to avoid accidental double-click execution. No timestamped files, backups or session folders. Render/reparse the full plan before atomically replacing an existing export. Protect imported source, model, wrapper and history files, including aliases; a conflict requires another export path or disabled export.
+The runner and exports target Windows. Refresh a fixed `<wrapper-stem>.txt` beside the Python wrapper, retaining export by default even for an all-complete Resume. There is no wrapper export-path setting or CLI override. TXT prevents accidental double-click execution. No timestamped files, backups or session folders. Render/reparse the full plan before atomically replacing an existing export. Protect imported source, model, wrapper and history files, including aliases; copy an edited export to a different input filename or disable export if it would overwrite an imported source.
+
+Use a single all-or-nothing `CHECK_INPUTS` switch, including GeoPackage checks, and derive concurrency directly from `GPU_DEVICES` groups. Retain three simple GPU configuration examples. Descriptive uppercase constant names are permitted without a mandatory `DEFAULT_` prefix. UNC working directories and equivalent parent-relative paths must round-trip through the inert TXT export without blocking Python launches or duplicating model selections.
 
 Export the validated shared plan using editable common variables `TUFLOW_EXE` and `BCMD`. Use one `TCF` variable when shared; use clearly mapped `TCF_1`, `TCF_2`, and so forth when several effective TCFs occur. Preserve each run's directory and argument values with correct Windows quoting. Emit the agreed `START /LOW /MIN /WAIT "" "%TUFLOW_EXE%" %BCMD% ... "%TCF%"` form when those settings apply; retain the equivalent per-run TCF reference for multiple models.
 

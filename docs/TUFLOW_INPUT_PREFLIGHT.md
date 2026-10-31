@@ -31,18 +31,25 @@ py -3.14 repo-scripts\install_latest_wheel.py
 ```
 
 The normal installer preserves the GIS binary-wheel index and Fiona/Rasterio/GDAL
-bootstrap. Both normal routes resolve the exact accepted parser with the
-requested package, run `pip check` and verify public capabilities. The explicit
-immutable source replaces an incompatible parser even when its version matches.
+bootstrap. Both normal routes explicitly reinstall only the accepted parser,
+then resolve it with the requested package and all dependencies, run `pip check`
+and verify public capabilities. The parser-specific reinstall replaces an
+incompatible build even when its version matches; the GIS dependencies are not
+subject to forced reinstall.
 Any installation or verification failure stops before reporting success.
 
 Development installation can use:
 
 ```powershell
+py -3.14 -m pip install --force-reinstall --no-deps -r repo-scripts\pytuflow-requirement.txt
 py -3.14 -m pip install -r requirements.txt
+py -3.14 -m pip check
 ```
 
-The requirements file includes the same pinned PyTUFLOW source. An existing PyPI
+The requirements file includes the same pinned PyTUFLOW source and resolves its
+dependencies. The preceding parser-only replacement is necessary because pip
+can retain an existing incompatible build when its version number matches.
+Run the capability diagnostic below after installation. An existing PyPI
 installation without the public API is not supported for input checking.
 `--dependencies-only` installs GIS dependencies without a local wheel or
 validation verification; `--force-reinstall` reinstalls only the wheel with
@@ -104,8 +111,11 @@ uses the TCF filename and effective flags rather than the complete path.
 | Text | Quoted values and paths, UTF-8/BOM by default, explicit encoding override, and supported terminal-caret continuation. |
 | Boundaries | No shell execution, IF/FOR/CALL, general GOTO, pipelines, redirection or delayed expansion. Unsupported active syntax fails the complete plan. |
 
-`.bat` and `.cmd` select batch syntax automatically; `.txt` selects command-list
-syntax. The reader does not execute commands. It preserves each run's source
+The standalone reader and checker select batch syntax for `.bat` and `.cmd`,
+and command-list syntax for `.txt`. The Python runner reads all three extensions
+as inert command lists, allowing UNC working directories and UNC directory
+declarations without requiring CMD drive mapping. The reader does not execute
+commands. It preserves each run's source
 file/line, effective TCF, executable, working directory and model flags.
 
 The Python runner treats every BAT/TXT file as **inert data**. It never runs
@@ -115,6 +125,10 @@ TCF references. The Python wrapper exclusively supplies the solver executable,
 child working directory, `BATCH_COMMANDS`, GPU groups, concurrency and
 priority. Source executable, batch engine and GPU settings are ignored. The
 checker preserves source path interpretation for reporting.
+Generated and imported paths use the same lexical normalization for plan
+comparison, so parent-relative spellings such as `..\runs\model.tcf` do not
+create duplicate runs or fail TXT export. This does not query drive mappings
+or dereference links.
 The [wrapper guide](../ryan-scripts/TUFLOW-python/README.md) describes the fixed
 TXT export and single-CSV Resume workflow.
 
@@ -138,6 +152,11 @@ CSV column selectors. The application explicitly enables
 `ValidationOptions(check_bc_csv_headers=True)` when supplying resource limits.
 The checks are bounded by upstream directory and I/O controls and operate
 without a QGIS application or TUFLOW engine process.
+
+The runner's `CHECK_INPUTS` setting enables or disables the complete advisory
+check, including selected GeoPackage layers. There is no separate layer toggle
+in the runner. Explicit preflight-only operation waits for those same checks
+and launches no solver processes.
 
 **This release does not inspect raster headers, projections, pixel data or raster
 validity.** Required raster files still undergo the ordinary file availability

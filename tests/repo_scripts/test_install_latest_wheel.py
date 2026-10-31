@@ -26,12 +26,35 @@ def test_normal_commands_pin_accepted_parser_and_preserve_gis_wheels() -> None:
     pin = "pytuflow @ https://github.com/Chain-Frost/PyTuflow/archive/05e35476c02d6d8ed17c83caf1cb0d185ce51d1b.zip"
     assert commands[0] == installer._gis_dependency_command()
     assert installer.GIS_WHEEL_INDEX == "https://gisidx.github.io/gwi"
-    assert len(commands) == 2
-    assert all("--no-deps" not in command for command in commands)
+    assert len(commands) == 3
+    assert commands[-2][-3:] == ["--force-reinstall", "--no-deps", pin]
+    assert all(
+        "--no-deps" not in command and "--force-reinstall" not in command for command in (commands[0], commands[-1])
+    )
     assert commands[-1][-2:] == [f"{wheel}[mcp]", pin]
     assert "--only-binary=fiona" in commands[-1]
     assert "--only-binary=rasterio" in commands[-1]
     assert "--only-binary=gdal" in commands[-1]
+
+
+def test_legacy_migration_still_reinstalls_the_package_after_parser_replacement(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    installer = _installer()
+
+    def installed_legacy(_name: str) -> object:
+        return object()
+
+    monkeypatch.setattr(installer, "distribution", installed_legacy)
+    commands = installer.normal_install_commands("ryan-tools[mcp]", skip_qgis_mcp=True)
+    verification = ["verify-replacement"]
+    migrated = installer.migration_commands(commands, verification_command=verification)
+    assert migrated[0] == verification
+    assert migrated[2] == commands[-2]
+    assert migrated[-2][-3:] == ["uninstall", "--yes", "ryan_functions"]
+    assert "ryan-tools[mcp]" in migrated[-1]
+    assert "--force-reinstall" in migrated[-1]
+    assert "--no-deps" not in migrated[-1]
 
 
 def test_no_dependency_recovery_does_not_claim_parser_installation() -> None:

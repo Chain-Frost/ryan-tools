@@ -65,10 +65,10 @@ def test_invalid_dotted_definition_rejected(tmp_path: Path) -> None:
 def test_wheel_installer_includes_qgis_mcp(tmp_path: Path) -> None:
     wheel = tmp_path / "ryan_tools-test.whl"
     commands = pip_commands(wheel, False)
-    assert len(commands) == 3
+    assert len(commands) == 4
     assert "nkarasiak/qgis-mcp" in commands[1][-1]
     parser = cast(str, installer["ACCEPTED_PYTUFLOW_SOURCE"])
-    assert commands[2][-2:] == [f"{wheel}[mcp]", parser]
+    assert commands[-1][-2:] == [f"{wheel}[mcp]", parser]
 
 
 def test_wheel_installer_allows_local_qgis_source(tmp_path: Path) -> None:
@@ -82,7 +82,7 @@ def test_wheel_installer_allows_local_qgis_source(tmp_path: Path) -> None:
 
 def test_wheel_installer_supports_offline_and_recovery_paths(tmp_path: Path) -> None:
     wheel = tmp_path / "ryan_tools-test.whl"
-    assert len(pip_commands(wheel, False, skip_qgis_mcp=True)) == 2
+    assert len(pip_commands(wheel, False, skip_qgis_mcp=True)) == 3
     recovery = pip_commands(wheel, True)
     assert len(recovery) == 1
     assert "--no-deps" in recovery[0]
@@ -129,7 +129,7 @@ def test_pypi_installer_commands_use_distribution_not_local_wheel(
     assert commands[-1][-2] == "ryan-tools[mcp]"
     assert commands[-1][-1] == installer["ACCEPTED_PYTUFLOW_SOURCE"]
     assert all(not any(".whl" in argument for argument in command) for command in commands)
-    assert len(commands_fn(skip_qgis_mcp=True)) == 2
+    assert len(commands_fn(skip_qgis_mcp=True)) == 3
 
 
 def test_pypi_installer_detects_existing_codex_configuration(

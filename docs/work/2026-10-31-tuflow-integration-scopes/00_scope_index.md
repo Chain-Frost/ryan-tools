@@ -65,7 +65,9 @@ Exports use editable shared executable/common-command variables and explicit TCF
 
 Follow the maintained wrapper standard: commented editable defaults, optional CLI overrides, version banners, meaningful exit codes, shared pause handling, explicit path bases and no repository `sys.path` injection. Use the maintained serial Loguru configuration and live-dashboard renderer. Keep process-boundary behaviour in wrappers and workflow coordination in orchestrators; do not add a configuration framework.
 
-The Windows command export is `<wrapper-stem>.txt` beside the Python wrapper. Refresh this fixed file with the complete regenerated plan, including all-complete Resume; require `.txt` for explicit destinations too. The extension prevents accidental double-click execution. No timestamped outputs or session folders. Validate/reparse before replacement and protect imported sources, model controls, wrapper and history, including aliases. The checker issues CSV remains opt-in and exclusively created.
+The Windows command export is `<wrapper-stem>.txt` beside the Python wrapper. Refresh this fixed file with the complete regenerated plan, including all-complete Resume. The wrapper has no export-path override. The extension prevents accidental double-click execution. No timestamped outputs or session folders. Validate/reparse before replacement and protect imported sources, model controls, wrapper and history, including aliases. The checker issues CSV remains opt-in and exclusively created.
+
+Use one `CHECK_INPUTS` setting for all runner input checks, including GeoPackage layers. Derive concurrency solely from `GPU_DEVICES` groups, with one automatic-placement slot when no groups are specified. Document three simple GPU examples in the wrapper. Editable constant names may use any descriptive uppercase spelling; `DEFAULT_` is optional.
 
 ### Continuation contract
 

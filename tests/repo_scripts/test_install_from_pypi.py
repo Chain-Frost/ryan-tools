@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import base64
 import importlib.util
 import io
 import os
@@ -42,6 +41,8 @@ def _stage(command: list[str]) -> str:
         return "dependencies"
     if "ryan-tools[mcp]" in command:
         return "package"
+    if "--force-reinstall" in command and "--no-deps" in command:
+        return "parser"
     return "bootstrap"
 
 
@@ -66,16 +67,17 @@ def test_pypi_route_verifies_before_codex_setup(
     monkeypatch.setattr(subprocess, "run", successful_command)
     monkeypatch.setattr(installer, "_configure_codex", configure_codex)
     assert installer.main(["--skip-qgis-mcp"]) == 0
-    assert stages == ["bootstrap", "package", "dependencies", "capabilities", "codex"]
+    assert stages == ["bootstrap", "parser", "package", "dependencies", "capabilities", "codex"]
     assert all(command[0] == sys.executable for command in calls)
-    assert all("--no-deps" not in command for command in calls)
+    assert [_stage(command) for command in calls if "--no-deps" in command] == ["parser"]
     assert installer.__file__ is not None
     requirement = Path(installer.__file__).with_name("pytuflow-requirement.txt").read_text(encoding="utf-8").strip()
-    assert calls[1][-2:] == ["ryan-tools[mcp]", requirement]
+    assert calls[1][-3:] == ["--force-reinstall", "--no-deps", requirement]
+    assert calls[2][-2:] == ["ryan-tools[mcp]", requirement]
     assert "public PyTUFLOW capabilities verified" in capsys.readouterr().out
 
 
-@pytest.mark.parametrize("failed_stage", ["bootstrap", "package", "dependencies", "capabilities"])
+@pytest.mark.parametrize("failed_stage", ["bootstrap", "parser", "package", "dependencies", "capabilities"])
 def test_pypi_route_stops_on_install_or_verification_failure(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], failed_stage: str
 ) -> None:
@@ -136,7 +138,7 @@ def _wheel_bytes(name: str, version: str, source: str, *, dependency: str = "") 
     return buffer.getvalue()
 
 
-def test_explicit_archive_replaces_same_version_with_dependency_resolution(
+def test_pinned_parser_replaces_same_version_before_full_dependency_resolution(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Exercise pip offline using only disposable packages under a temporary prefix."""
@@ -154,41 +156,51 @@ def test_explicit_archive_replaces_same_version_with_dependency_resolution(
         encoding="utf-8",
     )
 
-    archive = tmp_path / "accepted.zip"
-    encoded_wheel = base64.b64encode(_wheel_bytes(name, version, "ACCEPTED = True\n")).decode("ascii")
-    backend = (
-        "import base64\nfrom pathlib import Path\n"
-        "def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):\n"
-        f"    filename = {f'{name}-{version}-py3-none-any.whl'!r}\n"
-        f"    Path(wheel_directory, filename).write_bytes(base64.b64decode({encoded_wheel!r}))\n"
-        "    return filename\n"
-    )
-    with zipfile.ZipFile(archive, "w") as source:
-        source.writestr(
-            "accepted/pyproject.toml",
-            '[build-system]\nrequires = []\nbuild-backend = "fixture_backend"\nbackend-path = ["."]\n',
-        )
-        source.writestr("accepted/fixture_backend.py", backend)
+    dependency_name = "ryan_installer_dependency_probe"
+    dependency = tmp_path / f"{dependency_name}-1.0-py3-none-any.whl"
+    dependency.write_bytes(_wheel_bytes(dependency_name, "1.0", ""))
+    accepted = tmp_path / f"{name}-{version}-py3-none-any.whl"
+    accepted.write_bytes(_wheel_bytes(name, version, "ACCEPTED = True\n", dependency=f"{dependency_name}>=1,<2"))
     consumer_name = "ryan_installer_consumer_probe"
     consumer = tmp_path / f"{consumer_name}-1.0-py3-none-any.whl"
     consumer.write_bytes(_wheel_bytes(consumer_name, "1.0", "", dependency=f"{name}>=1,<2"))
 
-    # Keep the real installer options; replace only its two package inputs with
-    # local fixtures. The consumer deliberately permits the incompatible version.
-    command = installer.pip_commands(skip_qgis_mcp=True)[-1]
-    command[-2:] = [str(consumer), f"{name} @ {archive.as_uri()}"]
-    assert "--no-deps" not in command
-    assert "--force-reinstall" not in command
-    command.extend(
-        ["--prefix", str(prefix), "--no-index", "--no-build-isolation", "--no-cache-dir", "--root-user-action=ignore"]
-    )
+    # Unlike a local sdist, a same-version local wheel is retained without an
+    # explicit reinstall, matching the remote source archive's pip behaviour.
+    # Keep the real installer options, replacing only its package inputs.
+    commands = installer.pip_commands(skip_qgis_mcp=True)
+    parser_command, package_command = commands[-2:]
+    parser_command[-1] = str(accepted)
+    package_command[-2:] = [str(consumer), str(accepted)]
+    options = [
+        "--prefix",
+        str(prefix),
+        "--no-index",
+        "--find-links",
+        str(tmp_path),
+        "--no-cache-dir",
+        "--root-user-action=ignore",
+    ]
     environment = {
         **os.environ,
         "PYTHONPATH": os.pathsep.join([str(site), os.environ.get("PYTHONPATH", "")]),
         "PIP_CONFIG_FILE": os.devnull,
         "PIP_DISABLE_PIP_VERSION_CHECK": "1",
     }
-    result = subprocess.run(command, env=environment, capture_output=True, text=True, check=False, timeout=60)
-    assert result.returncode == 0, result.stdout + result.stderr
+    without_replacement = [argument for argument in parser_command if argument != "--force-reinstall"]
+    retained = subprocess.run(
+        [*without_replacement, *options], env=environment, capture_output=True, text=True, check=False, timeout=60
+    )
+    assert retained.returncode == 0, retained.stdout + retained.stderr
+    assert (site / f"{name}.py").read_text(encoding="utf-8") == "ACCEPTED = False\n"
+    for position, command in enumerate((parser_command, package_command)):
+        result = subprocess.run(
+            [*command, *options], env=environment, capture_output=True, text=True, check=False, timeout=60
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        if position == 0:
+            assert (site / f"{name}.py").read_text(encoding="utf-8") == "ACCEPTED = True\n"
+            assert not (site / f"{dependency_name}.py").exists()
     assert (site / f"{name}.py").read_text(encoding="utf-8") == "ACCEPTED = True\n"
     assert (site / f"{consumer_name}.py").is_file()
+    assert (site / f"{dependency_name}.py").is_file()

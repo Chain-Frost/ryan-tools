@@ -182,6 +182,18 @@ def _statements(text: str, syntax: Syntax) -> Iterator[tuple[int, int, str]]:
         continuing = False
 
 
+def normalize_plan_path(path: PurePath) -> PurePath:
+    """Compare effective paths lexically without resolving links or network aliases.
+
+    Keep the original path on each run for launching and diagnostics. Generated
+    paths can retain ``..`` after ``Path.absolute()``; imported paths are already
+    normalized, so comparisons must apply the same lexical rules to both.
+    """
+    if isinstance(path, PureWindowsPath):
+        return PureWindowsPath(ntpath.normpath(str(path)))
+    return PurePosixPath(posixpath.normpath(str(path)))
+
+
 def _path(value: str, cwd: PurePath) -> PurePath:
     """Apply lexical directory ownership; never dereference network aliases."""
     if not value or any(char in value for char in '%!*?"'):
@@ -196,11 +208,11 @@ def _path(value: str, cwd: PurePath) -> PurePath:
         if not joined.is_absolute():
             message = "Path is not absolute in the effective working directory"
             raise ValueError(message)
-        return PureWindowsPath(ntpath.normpath(str(joined)))
+        return normalize_plan_path(joined)
     if PureWindowsPath(value).drive:
         message = "Windows drive/UNC paths require a Windows working-directory context"
         raise ValueError(message)
-    return PurePosixPath(posixpath.normpath(str(cwd / value.replace("\\", "/"))))
+    return normalize_plan_path(cwd / value.replace("\\", "/"))
 
 
 def _expand(text: str, environment: Mapping[str, str], source: PurePath, cwd: PurePath) -> str:
@@ -332,7 +344,7 @@ def deduplicate_plan(plan: CommandPlan) -> CommandPlan:
     for run in plan.runs:
         _, engine = partition_model_arguments(run)
         signature = (
-            run.tcf,
+            normalize_plan_path(run.tcf),
             tuple(sorted(run.flags.items())),
             tuple(sorted(option.casefold() for option in engine if option.casefold().startswith("-et"))),
         )
@@ -405,7 +417,7 @@ class _Reader:
             raise ValueError(message)
         target = _path(tokens[0].text, self.cwd)
         if isinstance(target, PureWindowsPath):
-            if target.drive.startswith("\\\\"):
+            if self.syntax == "batch" and target.drive.startswith("\\\\"):
                 message = "UNC directory changes require CMD temporary drive mapping; use a mapped drive"
                 raise ValueError(message)
             if not switch_drive and target.drive.casefold() != self.cwd.drive.casefold():
@@ -437,7 +449,9 @@ class _Reader:
                     raise ValueError(message)
                 directory_seen = True
                 cwd = _path(tokens[1].text, self.cwd)
-                if isinstance(cwd, PureWindowsPath) and cwd.drive.startswith("\\\\"):
+                # A TXT command list describes Python launch paths, including
+                # UNC cwd. Raw BAT parsing retains its CMD mapping restriction.
+                if self.syntax == "batch" and isinstance(cwd, PureWindowsPath) and cwd.drive.startswith("\\\\"):
                     message = "START /D with a UNC working directory requires unsupported CMD mapping"
                     raise ValueError(message)
                 self.directories.append(DirectoryRequirement(cwd, line, self.source))
@@ -619,6 +633,8 @@ def parse_command_plan(
     folder. Bare flag rows are an intentional command-list extension, including
     in batch mode; they are not executable CMD statements. Environment values
     are supplied explicitly. Unresolved variables do not silently become blank.
+    Command lists permit UNC Python launch directories; batch syntax retains
+    CMD's directory-mapping restrictions. Neither mode executes source text.
     """
     if syntax not in {"batch", "commands"}:
         message = "Unknown command-plan syntax"

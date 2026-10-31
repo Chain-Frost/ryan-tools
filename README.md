@@ -82,6 +82,7 @@ assume that users know how to create or activate a virtual environment:
 ```powershell
 py -3.14 -m pip install --upgrade pip
 py -3.14 repo-scripts\install_latest_wheel.py --dependencies-only
+py -3.14 -m pip install --force-reinstall --no-deps -r repo-scripts\pytuflow-requirement.txt
 py -3.14 -m pip install -r requirements.txt
 ```
 
@@ -89,6 +90,10 @@ py -3.14 -m pip install -r requirements.txt
 important when running wrappers copied outside the repository because they import the shared implementation from the
 installed `ryan-tools` distribution. The dependency bootstrap installs binary Fiona, Rasterio and GDAL packages
 from the configured geospatial wheel index, avoiding a local source build on Windows.
+The parser-only replacement handles incompatible PyTUFLOW builds with the same
+version number; the following requirements install resolves dependencies normally.
+See [installation verification](docs/ENVIRONMENTS.md#install-for-repository-development)
+for the dependency and public-API checks.
 
 ## Build and install
 

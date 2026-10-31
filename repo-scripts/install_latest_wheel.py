@@ -75,9 +75,13 @@ def normal_install_commands(
     if not skip_qgis_mcp:
         source: str = qgis_mcp_source or QGIS_MCP_ARCHIVE
         commands.append([*pip, source])
-    # An explicit source archive replaces an installed same-version official
-    # build. Resolve it together with ryan-tools so all dependencies are checked
-    # and PyPI cannot substitute its incompatible same-version parser build.
+    # --upgrade can retain an incompatible official build with the same version
+    # even when an explicit remote archive is supplied. Replace only the parser;
+    # do not force-reinstall its GIS dependencies. The final joint installation
+    # still resolves every dependency before capability verification.
+    commands.append([*pip, "--force-reinstall", "--no-deps", pinned_parser])
+    # Keep the package installation last: the retired-distribution migration
+    # validates and reinstalls this command after removing its old file owner.
     commands.append(
         [
             *pip,

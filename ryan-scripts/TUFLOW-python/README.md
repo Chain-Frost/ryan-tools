@@ -71,6 +71,10 @@ state. Set Python `TCF = None` when imported commands intentionally select
 multiple TCFs. If Python supplies a TCF, every active imported TCF must match it;
 conflicts stop planning before output or execution.
 
+The Python runner and its generated TXT support UNC working directories.
+Generated and imported paths compare consistently when they contain `..`;
+comparison is lexical and does not resolve drive mappings or filesystem links.
+
 ## Fixed TXT command export
 
 Command export remains enabled by default. A copied `<runner-name>.py` refreshes

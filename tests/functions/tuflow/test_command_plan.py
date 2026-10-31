@@ -281,6 +281,21 @@ def test_unc_launch_directory_is_not_assumed_to_be_a_cmd_directory() -> None:
         )
 
 
+@pytest.mark.parametrize("directory_command", ["", "CD /D", "PUSHD"])
+def test_txt_start_uses_unc_directory_without_cmd_drive_mapping(directory_command: str) -> None:
+    directory = PureWindowsPath(r"\\server\share\project")
+    declaration = f'{directory_command} "{directory}"\n' if directory_command else ""
+    plan = parse_command_plan(
+        declaration + f'START /D "{directory}" /LOW /WAIT "" "C:\\TUFLOW\\TUFLOW.exe" -e1 A model.tcf',
+        source=directory / "commands.txt",
+        initial_directory=directory,
+        syntax="commands",
+    )
+    assert plan.runs[0].working_directory == directory
+    assert plan.runs[0].tcf == directory / "model.tcf"
+    assert plan.runs[0].flags == {"e1": "A"}
+
+
 def test_empty_leading_continuation_preserves_original_line_range() -> None:
     run = parse("^\n-e1 A model.tcf").runs[0]
     assert (run.line_start, run.line_end) == (1, 2)

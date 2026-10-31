@@ -16,7 +16,12 @@ from typing import cast
 import pytest
 from loguru import logger
 
-from ryan_library.functions.tuflow.command_plan import CommandPlanError, PlannedRun, parse_command_plan
+from ryan_library.functions.tuflow.command_plan import (
+    CommandPlanError,
+    PlannedRun,
+    parse_command_plan,
+    read_command_plan,
+)
 from ryan_library.functions.tuflow.execution_history import identify_runs
 from ryan_library.functions.tuflow.gpu_occupancy import GpuOccupancySnapshot
 from ryan_library.orchestrators.tuflow import simulation_runner as runner
@@ -127,6 +132,79 @@ def test_generated_quoted_model_value_roundtrip(tmp_path: Path) -> None:
     assert '-e1 "A with spaces"' in text
     parsed = parse_command_plan(text, source=exported, initial_directory=tmp_path)
     assert [run.flags for run in parsed.runs] == [run.flags for run in plan.runs]
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="UNC rendering uses native Windows path objects")
+def test_generated_unc_plan_roundtrips_as_inert_txt() -> None:
+    # Rendering and reparsing are lexical; this share need not exist and no
+    # network access, command execution or solver inspection is performed.
+    directory = Path(r"\\server\share\Model")
+    config = settings(directory, executable=Path(r"C:\TUFLOW\TUFLOW.exe"))
+    plan = runner.prepare_plan(config)
+    output = directory / "commands.txt"
+    text = runner.render_batch_commands(plan, config, destination=output)
+    replay = parse_command_plan(text, source=output, initial_directory=directory, syntax="commands")
+    assert [run.tcf for run in replay.runs] == [run.tcf for run in plan.runs]
+    assert all(run.working_directory == directory for run in replay.runs)
+    assert [_logical_signature(run, config) for run in replay.runs] == [
+        _logical_signature(run, config) for run in plan.runs
+    ]
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="UNC imports use native Windows path objects")
+def test_runner_imports_bat_from_unc_cwd_as_inert_selections(tmp_path: Path) -> None:
+    directory = Path(r"\\server\share\Model")
+    selected_directory = directory / "alternate"
+    source = tmp_path / "input.bat"
+    source.write_text(f'CD /D "{selected_directory}"\nTUFLOW.exe -e1 A model.tcf\n', encoding="utf-8")
+    config = settings(directory, mode="textfiles", input_files=(source,), tcf=None)
+    plan = runner.prepare_plan(config)
+    assert plan.runs[0].tcf == selected_directory / "model.tcf"
+    assert plan.runs[0].working_directory == directory
+    output = tmp_path / "commands.txt"
+    output.write_text(runner.render_batch_commands(plan, config, destination=output), encoding="utf-8")
+    replay = runner.prepare_plan(replace(config, input_files=(output,)))
+    assert [_logical_signature(run, config) for run in replay.runs] == [
+        _logical_signature(run, config) for run in plan.runs
+    ]
+
+
+def test_parent_components_roundtrip_without_changing_launch_spelling(tmp_path: Path) -> None:
+    directory = tmp_path / "unused" / ".." / "project" / "scripts"
+    config = settings(
+        directory,
+        tcf=Path("../runs/model_~e1~.tcf"),
+        executable=Path("../engine/TUFLOW.exe"),
+    )
+    plan = runner.prepare_plan(config)
+    output = runner.export_batch_commands(plan, config, tmp_path / "commands.txt")
+    replay = read_command_plan(output, initial_directory=directory)
+    assert all(run.tcf == tmp_path / "project" / "runs" / "model_~e1~.tcf" for run in replay.runs)
+    assert all(run.working_directory == tmp_path / "project" / "scripts" for run in replay.runs)
+    assert [run.flags for run in replay.runs] == [run.flags for run in plan.runs]
+    assert all(run.working_directory == directory for run in plan.runs)
+    command = _command(plan.runs[0], config, ())
+    assert command[0] == str(directory / ".." / "engine" / "TUFLOW.exe")
+    assert command[-1] == str(directory / ".." / "runs" / "model_~e1~.tcf")
+
+
+def test_parent_relative_import_and_generated_selection_are_deduplicated(tmp_path: Path) -> None:
+    directory = tmp_path / "scripts"
+    directory.mkdir()
+    source = directory / "input.txt"
+    source.write_text('TUFLOW.exe -e1 A "../runs/model.tcf"\n', encoding="utf-8")
+    config = settings(
+        directory,
+        mode="both",
+        input_files=(source,),
+        tcf=Path("../runs/model.tcf"),
+        run_variables={"e1": ["A"]},
+    )
+    plan = runner.prepare_plan(config)
+    assert len(plan.runs) == 1
+    assert plan.duplicates_dropped == 1
+    assert plan.runs[0].source == source
+    assert plan.runs[0].tcf == tmp_path / "runs" / "model.tcf"
 
 
 @pytest.mark.parametrize("value", ["Wet & Dry", "Storm(2)", "Rain|Wind", "Event>Base"])
@@ -367,6 +445,37 @@ def test_per_child_directory_argument_list_and_runtime_gpu_policy(
     assert all(sum(arg.startswith("-pu") for arg in args) == 1 for args, _ in launched)
     assert {arg for args, _ in launched for arg in args if arg.startswith("-pu")} == {"-pu2", "-pu3"}
     assert len(snapshots) == 1
+
+
+@pytest.mark.parametrize(
+    ("gpu_devices", "expected_capacity"),
+    [((), 1), ((("-pu0",),), 1), ((("-pu0",), ("-pu1",)), 2), ((("-pu0", "-pu1"),), 1)],
+)
+def test_concurrency_is_one_process_per_gpu_group_or_one_automatic_slot(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    gpu_devices: tuple[tuple[str, ...], ...],
+    expected_capacity: int,
+) -> None:
+    config = settings(tmp_path, run_variables={"e1": ["A", "B", "C", "D"]}, gpu_devices=gpu_devices)
+    plan = runner.prepare_plan(config)
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    monkeypatch.setattr(runner.time, "sleep", _no_op)
+    processes: list[FakeProcess] = []
+    peak_active = 0
+
+    def popen(**_options: object) -> FakeProcess:
+        nonlocal peak_active
+        process = FakeProcess(len(processes) + 1, polls_before_exit=10)
+        processes.append(process)
+        peak_active = max(peak_active, sum(child.returncode is None for child in processes))
+        return process
+
+    outcome = runner.launch_plan(plan, config, popen=popen)
+    assert outcome.successful
+    assert len(processes) == 4
+    assert peak_active == expected_capacity
 
 
 def test_launch_failure_and_priority_failure_cannot_lose_scheduler_slot(

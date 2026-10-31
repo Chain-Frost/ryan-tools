@@ -38,6 +38,7 @@ from ...functions.tuflow.command_plan import (
     deduplicate_plan,
     is_gpu_switch,
     model_arguments,
+    normalize_plan_path,
     parse_command_plan,
     read_command_plans,
     validate_run_arguments,
@@ -246,6 +247,9 @@ def prepare_plan(settings: RunnerSettings) -> CommandPlan:
             configuration_directory=settings.working_directory,
             fallback_tcf=str(settings.tcf) if settings.tcf is not None else None,
             environment=dict(os.environ),
+            # Every source extension is inert model-selection data for Python.
+            # Its configured UNC cwd does not need CMD temporary drive mapping.
+            syntax="commands",
         )
         runs: list[PlannedRun] = []
         for run in imported.runs:
@@ -331,12 +335,13 @@ def _bat_quote(value: str, *, always: bool = False) -> str:
 
 
 def _logical_signature(run: PlannedRun, settings: RunnerSettings) -> tuple[object, ...]:
-    # Source text can omit or reposition the TCF; compare effective model inputs.
+    # Source text can omit/reposition the TCF and normalize parent components.
+    # Compare effective inputs without changing user-supplied launch spellings.
     return (
-        str(run.tcf),
-        str(run.working_directory),
-        _executable(run, settings),
-        (*model_arguments(run), str(run.tcf)),
+        normalize_plan_path(run.tcf),
+        normalize_plan_path(run.working_directory),
+        normalize_plan_path(_at_base(settings.executable, settings.working_directory)),
+        model_arguments(run),
     )
 
 
@@ -389,7 +394,9 @@ def render_batch_commands(plan: CommandPlan, settings: RunnerSettings, *, destin
         text,
         source=destination.absolute(),
         initial_directory=settings.working_directory,
-        syntax="batch",
+        # Match normal .txt import semantics: these are inert Python launch
+        # selections, so a UNC cwd does not require a CMD drive mapping.
+        syntax="commands",
     )
     original = tuple(_logical_signature(run, settings) for run in plan.runs)
     roundtrip = tuple(_logical_signature(run, settings) for run in exported.runs)
