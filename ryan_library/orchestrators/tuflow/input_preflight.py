@@ -127,7 +127,9 @@ class PreflightReport:
     @property
     def passed(self) -> bool:
         """Fail closed for unavailable, omitted or partially mapped validations."""
-        return bool(self.run_count) and self.completed_runs == self.run_count and self.upstream_passed and not self.issues
+        return (
+            bool(self.run_count) and self.completed_runs == self.run_count and self.upstream_passed and not self.issues
+        )
 
     @property
     def affected_runs(self) -> int:
@@ -142,18 +144,39 @@ class PreflightReport:
             writer = csv.writer(output)
             writer.writerow(
                 (
-                    "run_index", "flags", "status", "origin", "reference", "detail",
-                    "kind", "path", "layer", "owner_control_file", "database_kind",
-                    "input_uuid", "command_index", "csv_columns", "source_pattern",
+                    "run_index",
+                    "flags",
+                    "status",
+                    "origin",
+                    "reference",
+                    "detail",
+                    "kind",
+                    "path",
+                    "layer",
+                    "owner_control_file",
+                    "database_kind",
+                    "input_uuid",
+                    "command_index",
+                    "csv_columns",
+                    "source_pattern",
                 )
             )
             for issue in self.issues:
                 writer.writerow(
                     (
-                        issue.run_index, issue.flags, issue.status, issue.origin, issue.reference, issue.detail,
-                        issue.kind, str(issue.path) if issue.path is not None else "", issue.layer or "",
+                        issue.run_index,
+                        issue.flags,
+                        issue.status,
+                        issue.origin,
+                        issue.reference,
+                        issue.detail,
+                        issue.kind,
+                        str(issue.path) if issue.path is not None else "",
+                        issue.layer or "",
                         str(issue.owner_control_file) if issue.owner_control_file is not None else "",
-                        issue.database_kind or "", issue.input_uuid, issue.command_index,
+                        issue.database_kind or "",
+                        issue.input_uuid,
+                        issue.command_index,
                         ",".join(issue.csv_columns) if issue.csv_columns is not None else "",
                         str(issue.source_pattern) if issue.source_pattern is not None else "",
                     )
@@ -174,8 +197,10 @@ def _issue(finding: _Finding, request: RunRequest) -> PreflightIssue:
     if finding.status not in {"missing", "unresolved", "unsupported"}:
         message = f"Unknown PyTUFLOW validation status: {finding.status!r}"
         raise ValueError(message)
-    reference = str(finding.path) if finding.path is not None else (
-        str(finding.source_pattern) if finding.source_pattern is not None else "<run>"
+    reference = (
+        str(finding.path)
+        if finding.path is not None
+        else (str(finding.source_pattern) if finding.source_pattern is not None else "<run>")
     )
     if finding.layer is not None:
         reference = f"{reference} >> {finding.layer}"
@@ -284,7 +309,9 @@ def check_simulation_inputs(  # noqa: C901 - fail-closed public result validatio
         if error and not any(issue.run_index == by_position[position].index for issue in report.issues):
             request = by_position[position]
             report.issues.append(
-                PreflightIssue(request.index, request.description, "unresolved", "TCF run context", str(model), str(error))
+                PreflightIssue(
+                    request.index, request.description, "unresolved", "TCF run context", str(model), str(error)
+                )
             )
 
     if not result.passed and not report.issues:

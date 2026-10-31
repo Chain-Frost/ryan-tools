@@ -63,9 +63,7 @@ def test_real_public_gpkg_selected_layer_and_provenance(tmp_path: Path) -> None:
 
 def test_real_public_bc_csv_header_option_is_explicitly_enabled(tmp_path: Path) -> None:
     _public_api()
-    (tmp_path / "bc.csv").write_text(
-        "Name,Source,Column 1,Column 2\nflow,inflow.csv,Time,Flow\n", encoding="utf-8"
-    )
+    (tmp_path / "bc.csv").write_text("Name,Source,Column 1,Column 2\nflow,inflow.csv,Time,Flow\n", encoding="utf-8")
     (tmp_path / "inflow.csv").write_text("Time,WrongColumn\n0,10\n", encoding="utf-8")
     tcf = tmp_path / "model.tcf"
     tcf.write_text("BC Database == bc.csv\n", encoding="utf-8")
@@ -109,20 +107,38 @@ def _fake_result(
         ),
         validation=SimpleNamespace(
             run_count=len(positions) if physical_count is None else physical_count,
-            findings=tuple(findings), passed=passed, files_examined=1,
-            geopackages_examined=0, csv_headers_examined=0, directories_scanned=0,
+            findings=tuple(findings),
+            passed=passed,
+            files_examined=1,
+            geopackages_examined=0,
+            csv_headers_examined=0,
+            directories_scanned=0,
         ),
-        passed=passed, parse_seconds=0.1, collection_seconds=0.2, inspection_seconds=0.3,
-        gis_sources_added=0, gis_files_scanned=0,
+        passed=passed,
+        parse_seconds=0.1,
+        collection_seconds=0.2,
+        inspection_seconds=0.3,
+        gis_sources_added=0,
+        gis_files_scanned=0,
     )
 
 
 def _finding(position: int, path: Path) -> SimpleNamespace:
     return SimpleNamespace(
-        run_index=position, flags="-s1 Future Works", status="missing", kind="layer",
-        path=path, detail="Missing selected layer", layer="design", origin="Read GIS Code == file.gpkg >> design",
-        input_uuid="uuid-1", command_index=4, owner_control_file=path.with_suffix(".tgc"),
-        database_kind="bc", source_pattern=path, csv_columns=("Time", "Flow"),
+        run_index=position,
+        flags="-s1 Future Works",
+        status="missing",
+        kind="layer",
+        path=path,
+        detail="Missing selected layer",
+        layer="design",
+        origin="Read GIS Code == file.gpkg >> design",
+        input_uuid="uuid-1",
+        command_index=4,
+        owner_control_file=path.with_suffix(".tgc"),
+        database_kind="bc",
+        source_pattern=path,
+        csv_columns=("Time", "Flow"),
     )
 
 
@@ -140,7 +156,8 @@ def test_structured_flags_spaces_and_reordered_public_results_are_mapped_once(
         return SimpleNamespace(**kwargs)
 
     monkeypatch.setattr(
-        input_preflight, "require_validation_api",
+        input_preflight,
+        "require_validation_api",
         lambda: SimpleNamespace(validate_batch_inputs=validate, options_factory=options),
     )
     requests = [RunRequest(19, {"s1": "Future Works"}), RunRequest(5, {"s1": "Existing Model"})]
@@ -165,7 +182,8 @@ def test_incomplete_public_results_cannot_pass(
         return _fake_result(positions, physical_count=physical_count)
 
     monkeypatch.setattr(
-        input_preflight, "require_validation_api",
+        input_preflight,
+        "require_validation_api",
         lambda: SimpleNamespace(validate_batch_inputs=validate, options_factory=lambda **_kwargs: object()),
     )
     with pytest.raises(ValueError, match=r"incomplete|missing|duplicate|invalid"):
@@ -174,7 +192,8 @@ def test_incomplete_public_results_cannot_pass(
 
 def test_failed_group_without_findings_cannot_pass(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(
-        input_preflight, "require_validation_api",
+        input_preflight,
+        "require_validation_api",
         lambda: SimpleNamespace(
             validate_batch_inputs=lambda *_args, **_kwargs: _fake_result([0], passed=False),
             options_factory=lambda **_kwargs: object(),
@@ -187,10 +206,15 @@ def test_failed_group_without_findings_cannot_pass(monkeypatch: pytest.MonkeyPat
 def test_importing_preflight_does_not_import_pytuflow() -> None:
     result = subprocess.run(
         [
-            sys.executable, "-c",
-            ("import sys; from ryan_library.orchestrators.tuflow.input_preflight import RunRequest; "
-            "assert not any(k == 'pytuflow' or k.startswith('pytuflow.') for k in sys.modules)"),
+            sys.executable,
+            "-c",
+            (
+                "import sys; from ryan_library.orchestrators.tuflow.input_preflight import RunRequest; "
+                "assert not any(k == 'pytuflow' or k.startswith('pytuflow.') for k in sys.modules)"
+            ),
         ],
-        capture_output=True, text=True, check=False,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert result.returncode == 0, result.stderr

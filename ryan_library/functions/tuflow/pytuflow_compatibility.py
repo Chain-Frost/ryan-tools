@@ -32,9 +32,7 @@ class ValidationOptionsFactory(Protocol):
 class BatchValidator(Protocol):
     """The public batch validator; runtime results are checked by the consumer."""
 
-    def __call__(
-        self, model: object, run_flags: list[dict[str, str]], *, options: object
-    ) -> object: ...
+    def __call__(self, model: object, run_flags: list[dict[str, str]], *, options: object) -> object: ...
 
 
 class PyTuflowCompatibilityError(RuntimeError):
@@ -66,7 +64,7 @@ class CompatibilityStatus:
             "Install the accepted pinned PyTUFLOW source using "
             "'python repo-scripts/install_latest_wheel.py' (normal mode), or "
             "'python -m pip install --upgrade --force-reinstall "
-            "\"pytuflow @ https://github.com/Chain-Frost/PyTuflow/archive/"
+            '"pytuflow @ https://github.com/Chain-Frost/PyTuflow/archive/'
             "05e35476c02d6d8ed17c83caf1cb0d185ce51d1b.zip\"'."
         )
 
@@ -116,7 +114,11 @@ def _probe() -> tuple[CompatibilityStatus, object | None, object | None]:  # noq
         return status(f"package or transitive import failed ({type(exc).__name__}: {exc})"), None, None
 
     if dist is None:
-        return status("an importable pytuflow module exists without an installed distribution (possible shadowing)"), None, None
+        return (
+            status("an importable pytuflow module exists without an installed distribution (possible shadowing)"),
+            None,
+            None,
+        )
 
     # Compare real package locations, not textual spellings: this specifically
     # detects a project checkout shadowing the installed distribution.
@@ -148,9 +150,17 @@ def _probe() -> tuple[CompatibilityStatus, object | None, object | None]:  # noq
         return status("missing callable pytuflow.batch_validation.validate_batch_inputs"), None, None
     if not callable(options) or not isinstance(fields, dict) or not required.issubset(fields):
         return status("missing supported pytuflow.validation.ValidationOptions inspection fields"), None, None
-    if not callable(getattr(result_type, "issues", None).fget if isinstance(getattr(result_type, "issues", None), property) else None):
+    if not callable(
+        getattr(result_type, "issues", None).fget
+        if isinstance(getattr(result_type, "issues", None), property)
+        else None
+    ):
         return status("missing public BatchValidationResult.issues property"), None, None
-    if not callable(getattr(result_type, "passed", None).fget if isinstance(getattr(result_type, "passed", None), property) else None):
+    if not callable(
+        getattr(result_type, "passed", None).fget
+        if isinstance(getattr(result_type, "passed", None), property)
+        else None
+    ):
         return status("missing public BatchValidationResult.passed property"), None, None
     if not callable(getattr(validation, "ValidationFinding", None)):
         return status("missing public ValidationFinding type"), None, None

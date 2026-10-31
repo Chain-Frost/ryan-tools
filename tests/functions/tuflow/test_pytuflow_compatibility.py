@@ -23,9 +23,7 @@ def _installed(tmp_path: Path, *, url: str | None = None) -> SimpleNamespace:
     )
 
 
-def test_official_same_version_without_batch_api_fails(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_official_same_version_without_batch_api_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     root = tmp_path / "site-packages" / "pytuflow" / "__init__.py"
     monkeypatch.setattr(compatibility.metadata, "distribution", lambda _name: _installed(tmp_path))
 
@@ -47,7 +45,8 @@ def test_official_same_version_without_batch_api_fails(
 def test_shadowing_checkout_is_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(compatibility.metadata, "distribution", lambda _name: _installed(tmp_path))
     monkeypatch.setattr(
-        compatibility.importlib, "import_module",
+        compatibility.importlib,
+        "import_module",
         lambda _name: SimpleNamespace(__file__=str(tmp_path / "checkout" / "pytuflow" / "__init__.py")),
     )
     status = compatibility.check_validation_capabilities()
@@ -86,14 +85,16 @@ def test_broken_transitive_import_is_diagnosed(tmp_path: Path, monkeypatch: pyte
     assert result.module_path == "not importable"
 
 
-def test_correct_build_without_direct_url_metadata_is_accepted(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_correct_build_without_direct_url_metadata_is_accepted(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(compatibility.metadata, "distribution", lambda _name: _installed(tmp_path))
+
     class Options:
         __dataclass_fields__: ClassVar[dict[str, object]] = {
-        "check_files": None, "check_gpkg_layers": None, "check_bc_csv_headers": None,
-        "io_workers": None, "maximum_directory_entries": None,
+            "check_files": None,
+            "check_gpkg_layers": None,
+            "check_bc_csv_headers": None,
+            "io_workers": None,
+            "maximum_directory_entries": None,
         }
 
     options = Options
@@ -130,10 +131,15 @@ def test_real_build_capability_smoke() -> None:
 def test_validation_helper_import_is_lightweight() -> None:
     result = subprocess.run(
         [
-            sys.executable, "-c",
-            ("import sys; from ryan_library.functions.tuflow.pytuflow_compatibility "
-            "import check_validation_capabilities; assert 'pytuflow' not in sys.modules"),
+            sys.executable,
+            "-c",
+            (
+                "import sys; from ryan_library.functions.tuflow.pytuflow_compatibility "
+                "import check_validation_capabilities; assert 'pytuflow' not in sys.modules"
+            ),
         ],
-        check=False, capture_output=True, text=True,
+        check=False,
+        capture_output=True,
+        text=True,
     )
     assert result.returncode == 0, result.stderr

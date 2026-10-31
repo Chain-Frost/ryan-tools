@@ -70,10 +70,17 @@ def _pip_commands(
     # so PyPI's same-version build cannot be selected as a transitive dependency.
     commands.append(
         [
-            *pip, "install", "--upgrade", "--prefer-binary",
-            "--extra-index-url", GIS_WHEEL_INDEX,
-            "--only-binary=fiona", "--only-binary=rasterio", "--only-binary=gdal",
-            f"{wheel}[mcp]", pinned_parser,
+            *pip,
+            "install",
+            "--upgrade",
+            "--prefer-binary",
+            "--extra-index-url",
+            GIS_WHEEL_INDEX,
+            "--only-binary=fiona",
+            "--only-binary=rasterio",
+            "--only-binary=gdal",
+            f"{wheel}[mcp]",
+            pinned_parser,
         ]
     )
     return commands
@@ -158,9 +165,12 @@ def main(argv: list[str] | None = None) -> int:
                 [
                     [sys.executable, "-m", "pip", "check"],
                     [
-                        sys.executable, "-c",
-                        ("from ryan_library.functions.tuflow.pytuflow_compatibility "
-                        "import require_validation_api; print(require_validation_api().diagnostic.message)"),
+                        sys.executable,
+                        "-c",
+                        (
+                            "from ryan_library.functions.tuflow.pytuflow_compatibility "
+                            "import require_validation_api; print(require_validation_api().diagnostic.message)"
+                        ),
                     ],
                 ]
             )
