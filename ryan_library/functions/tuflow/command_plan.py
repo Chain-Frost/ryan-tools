@@ -1,4 +1,4 @@
-"""Read a bounded, sequential TUFLOW command plan without executing shell code.
+"""Read TUFLOW selections from BAT/TXT as inert text, never executing shell code.
 
 This is NOT a general cmd.exe interpreter. Unsupported flow control, shell
 operators, delayed expansion and CALL fail before a partial plan is returned.
@@ -89,6 +89,7 @@ class CommandPlan:
     # 'source' remains the first source for single-file callers; every run and
     # directory requirement carries its own source for multi-file aggregation.
     source_files: tuple[PurePath, ...] = ()
+    duplicates_dropped: int = 0
 
     def manifest(self) -> list[dict[str, object]]:
         """Return private, JSON-serialisable provenance, not benchmark acceptance."""
@@ -317,6 +318,33 @@ def partition_model_arguments(run: PlannedRun) -> tuple[tuple[tuple[str, str], .
     return flags, engine
 
 
+def deduplicate_plan(plan: CommandPlan) -> CommandPlan:
+    """Retain only the first occurrence of each effective model selection.
+
+    Source executables, CMD directory changes, START modifiers, engine
+    switches and GPUs are not model selections. TCFs, event/scenario values
+    and retained -etN switches are relevant. Preserve first source provenance.
+    """
+    seen: set[tuple[PurePath, tuple[tuple[str, str], ...], tuple[str, ...]]] = set()
+    selected: list[PlannedRun] = []
+    for run in plan.runs:
+        _, engine = partition_model_arguments(run)
+        signature = (
+            run.tcf,
+            tuple(sorted(run.flags.items())),
+            tuple(sorted(option.casefold() for option in engine if option.casefold().startswith("-et"))),
+        )
+        if signature in seen:
+            continue
+        seen.add(signature)
+        selected.append(replace(run, index=len(selected) + 1))
+    return replace(
+        plan,
+        runs=tuple(selected),
+        duplicates_dropped=plan.duplicates_dropped + len(plan.runs) - len(selected),
+    )
+
+
 def effective_executable(run: PlannedRun, *, fallback_executable: Path, base_directory: Path) -> str:
     """Select the source executable or explicitly based fallback without I/O."""
     if run.executable is not None:
@@ -417,7 +445,7 @@ class _Reader:
                 raise ValueError(message)
             else:
                 break
-        if not tokens or tokens[0].text.startswith(("-", "/")):
+        if not tokens or tokens[0].text.startswith("-"):
             message = 'START requires a TUFLOW executable; put an empty "" title before a quoted executable'
             raise ValueError(message)
         return tokens, cwd, tuple(hints)
@@ -629,7 +657,7 @@ def parse_command_plan(
         message = f"{source}: No active simulation commands"
         raise CommandPlanError(message)
     _require_matching_tcf(reader.runs, python_tcf)
-    return CommandPlan(source, tuple(reader.runs), tuple(reader.directories), reader.ignored, syntax, (source,))
+    return deduplicate_plan(CommandPlan(source, tuple(reader.runs), tuple(reader.directories), reader.ignored, syntax, (source,)))
 
 
 def read_command_plan(
@@ -710,11 +738,14 @@ def read_command_plans(
     )
     syntaxes = {plan.syntax for plan in plans}
     merged_syntax: Syntax | Literal["mixed"] = plans[0].syntax if len(syntaxes) == 1 else "mixed"
-    return CommandPlan(
-        source=plans[0].source,
-        runs=runs,
-        directories=tuple(requirement for plan in plans for requirement in plan.directories),
-        ignored_statements=sum(plan.ignored_statements for plan in plans),
-        syntax=merged_syntax,
-        source_files=tuple(plan.source for plan in plans),
+    return deduplicate_plan(
+        CommandPlan(
+            source=plans[0].source,
+            runs=runs,
+            directories=tuple(requirement for plan in plans for requirement in plan.directories),
+            ignored_statements=sum(plan.ignored_statements for plan in plans),
+            syntax=merged_syntax,
+            source_files=tuple(plan.source for plan in plans),
+            duplicates_dropped=sum(plan.duplicates_dropped for plan in plans),
+        )
     )
