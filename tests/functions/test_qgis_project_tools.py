@@ -33,6 +33,7 @@ def _xml(*layers: tuple[str, str, str, str]) -> bytes:
 def _qgz(path: Path, xml: bytes, *, qgd: bytes | None = None) -> None:
     with ZipFile(path, "w") as zipfile:
         zipfile.writestr(f"{path.stem}.qgs", xml)
+        zipfile.writestr("custom/", b"")
         zipfile.writestr("custom/keep.txt", b"keep this unknown project member")
         if qgd is not None:
             zipfile.writestr(f"{path.stem}.qgd", qgd)
@@ -149,6 +150,7 @@ def test_qgz_repair_preserves_qgd_and_unknown_members(tmp_path: Path) -> None:
     with ZipFile(project) as old_zip, ZipFile(output) as new_zip:
         assert old_zip.read("model.qgd") == new_zip.read("model.qgd") == auxiliary_bytes
         assert old_zip.read("custom/keep.txt") == new_zip.read("custom/keep.txt")
+        assert "custom/" in new_zip.namelist()
 
     summary = inspect_auxiliary_storage(output)
     assert summary is not None
@@ -218,3 +220,20 @@ def test_invalid_or_missing_qgd_does_not_claim_data(tmp_path: Path) -> None:
     broken.write_bytes(b"not SQLite")
     with pytest.raises(sqlite3.DatabaseError):
         inspect_auxiliary_storage(broken)
+
+
+
+def test_qgs_repair_refuses_to_copy_auxiliary_with_uncheckpointed_wal(tmp_path: Path) -> None:
+    project = tmp_path / "model.qgs"
+    project.write_bytes(_xml(("id", "Labeled", "ogr", "./old.gpkg")))
+    auxiliary = project.with_suffix(".qgd")
+    _qgd(auxiliary, "id")
+    wal = Path(f"{auxiliary}-wal")
+    wal.write_bytes(b"simulated active SQLite WAL")
+    output = tmp_path / "fixed.qgs"
+    changes = plan_source_path_changes(project, relative=False)
+    with pytest.raises(ValueError, match="WAL exists"):
+        write_project_path_changes(project, output, changes)
+    assert not output.exists()
+    assert auxiliary.exists()
+    assert wal.exists()
