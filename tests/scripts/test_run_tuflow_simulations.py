@@ -7,8 +7,11 @@ import os
 import signal
 import subprocess
 import sys
+from collections.abc import Callable
+from contextlib import AbstractContextManager
 from datetime import datetime
 from pathlib import Path
+from threading import Event
 from typing import Protocol, cast
 
 import pytest
@@ -22,8 +25,6 @@ class _RunnerWrapper(Protocol):
     NEXT_RUN_FILE: Path | None
 
     def main(self, argv: list[str] | None = None) -> int: ...
-
-    def _interruption_flag(self) -> object: ...
 
 
 @pytest.fixture
@@ -60,11 +61,10 @@ def test_export_only_copied_workflow_needs_neither_solver_nor_gpu(
 
     source = _source(tmp_path)
     output = tmp_path / "commands.bat"
-    monkeypatch.setattr(
-        simulation_runner,
-        "_gpu_startup_message",
-        lambda *_args: pytest.fail("Export-only inspected GPUs"),
-    )
+    def forbidden_gpu(*_args: object) -> None:
+        pytest.fail("Export-only inspected GPUs")
+
+    monkeypatch.setattr(simulation_runner, "_gpu_startup_message", forbidden_gpu)
     assert (
         wrapper.main(
             [
@@ -101,7 +101,10 @@ def test_wrapper_preflight_only_waits_and_returns_failure(
         return False
 
     monkeypatch.setattr(module, "check_plan_only", check)
-    monkeypatch.setattr(module, "launch_plan", lambda *_args, **_kwargs: pytest.fail("Launched during check-only"))
+    def forbidden_launch(*_args: object, **_kwargs: object) -> None:
+        pytest.fail("Launched during check-only")
+
+    monkeypatch.setattr(module, "launch_plan", forbidden_launch)
     assert (
         wrapper.main(
             [
@@ -153,8 +156,14 @@ def test_planning_failure_does_not_export_check_or_chain(
 ) -> None:
     module = sys.modules["tested_runner_wrapper"]
     monkeypatch.setattr(module, "NEXT_RUN_FILE", Path("post.py"))
-    monkeypatch.setattr(module, "_run_follow_up", lambda *_args: pytest.fail("Chained after preparation failure"))
-    monkeypatch.setattr(module, "launch_plan", lambda *_args, **_kwargs: pytest.fail("Launched bad input"))
+    def forbidden_follow_up(*_args: object) -> None:
+        pytest.fail("Chained after preparation failure")
+
+    def forbidden_launch(*_args: object, **_kwargs: object) -> None:
+        pytest.fail("Launched bad input")
+
+    monkeypatch.setattr(module, "_run_follow_up", forbidden_follow_up)
+    monkeypatch.setattr(module, "launch_plan", forbidden_launch)
     assert (
         wrapper.main(
             [
@@ -175,7 +184,10 @@ def test_planning_failure_does_not_export_check_or_chain(
 
 def test_process_signal_handler_is_restored(wrapper: _RunnerWrapper) -> None:
     previous = signal.getsignal(signal.SIGINT)
-    with wrapper._interruption_flag():
+    interrupt_context = cast(
+        Callable[[], AbstractContextManager[Event]], getattr(wrapper, "_interruption_flag")
+    )
+    with interrupt_context():
         assert signal.getsignal(signal.SIGINT) is not previous
     assert signal.getsignal(signal.SIGINT) is previous
 
