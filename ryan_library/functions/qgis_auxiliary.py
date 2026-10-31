@@ -56,10 +56,9 @@ def _inspect_database(
     layer_names: dict[str, str],
     sample_rows: int,
 ) -> AuxiliarySummary:
+    ensure_qgd_without_journals(file_path)
     if file_path.stat().st_size == 0:
         return AuxiliarySummary(location=location, size_bytes=0, tables=())
-
-    ensure_qgd_without_journals(file_path)
 
     tables: list[AuxiliaryTable] = []
     # Immutable read-only mode avoids creating SQLite journal and shared-memory
@@ -91,6 +90,7 @@ def _inspect_database(
                     sample_rows=rows,
                 )
             )
+    ensure_qgd_without_journals(file_path)
     return AuxiliarySummary(location=location, size_bytes=file_path.stat().st_size, tables=tuple(tables))
 
 

@@ -413,6 +413,15 @@ def test_qgs_repair_refuses_to_copy_auxiliary_with_uncheckpointed_wal(tmp_path: 
     assert wal.exists()
 
 
+def test_empty_auxiliary_with_rollback_journal_is_refused(tmp_path: Path) -> None:
+    auxiliary = tmp_path / "empty.qgd"
+    auxiliary.touch()
+    journal = Path(f"{auxiliary}-journal")
+    journal.write_bytes(b"transaction marker")
+    with pytest.raises(ValueError, match="rollback journal"):
+        inspect_auxiliary_storage(auxiliary)
+
+
 def test_auxiliary_inspection_rejects_live_rollback_journal(tmp_path: Path) -> None:
     auxiliary = tmp_path / "labels.qgd"
     _qgd(auxiliary, "label-id")

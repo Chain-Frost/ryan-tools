@@ -191,7 +191,7 @@ Both scripts provide user-editable `DEFAULT_*` settings and copy-ready
 examples for Windows drive/UNC paths. Relative configurable paths are based on
 the configured working directory. Path repair preserves QGZ archive members
 (including embedded QGD), or copies a QGS companion `.qgd` if safe, and refuses
-existing output collisions or potentially uncheckpointed auxiliary SQLite WAL.
+existing output collisions or active auxiliary SQLite WAL/rollback journals.
 Unknown/complex provider references are skipped instead of guessed. Real QGIS
 reopening and representative Windows UNC/mapped-drive acceptance remain
 separate operational checks.
