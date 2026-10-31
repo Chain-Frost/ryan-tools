@@ -147,7 +147,8 @@ def test_preflight_only_reports_every_finding_and_fails_closed(
     assert runner.check_plan_only(plan) is False
     assert sum("Input check run" in record.message for record in caplog.records) == 13
     def unavailable(*_args: object, **_kwargs: object) -> CommandPreflightReport:
-        raise ImportError("public API unavailable")
+        message = "public API unavailable"
+        raise ImportError(message)
 
     monkeypatch.setattr(command_preflight, "check_command_plan", unavailable)
     assert runner.check_plan_only(plan) is False
