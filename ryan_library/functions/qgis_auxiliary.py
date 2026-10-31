@@ -59,9 +59,15 @@ def _inspect_database(
     if file_path.stat().st_size == 0:
         return AuxiliarySummary(location=location, size_bytes=0, tables=())
 
+    wal = Path(f"{file_path}-wal")
+    if wal.exists():
+        message = f"Cannot safely inspect a potentially uncheckpointed SQLite auxiliary WAL: {wal}"
+        raise ValueError(message)
+
     tables: list[AuxiliaryTable] = []
-    # SQLite URI read-only mode prevents accidental creation/alteration of the QGD.
-    with closing(sqlite3.connect(f"{file_path.absolute().as_uri()}?mode=ro", uri=True)) as db:
+    # Immutable read-only mode avoids creating SQLite journal and shared-memory
+    # files when auditing source auxiliary databases outside QGIS.
+    with closing(sqlite3.connect(f"{file_path.absolute().as_uri()}?mode=ro&immutable=1", uri=True)) as db:
         db.execute("PRAGMA query_only = ON")
         db.execute("PRAGMA trusted_schema = OFF")
         names = db.execute(
