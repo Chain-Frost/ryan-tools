@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
+from subprocess import Popen
+from typing import cast
 from dataclasses import replace
 from pathlib import Path
 from threading import Event
 
 import pytest
 
-from ryan_library.functions.tuflow.command_plan import CommandPlanError, parse_command_plan
+from ryan_library.functions.tuflow.command_plan import CommandPlanError, PlannedRun, parse_command_plan
 from ryan_library.functions.tuflow.gpu_occupancy import GpuOccupancySnapshot
 from ryan_library.orchestrators.tuflow import simulation_runner as runner
 
@@ -58,6 +61,36 @@ class FakeProcess:
 
     def kill(self) -> None:
         self.terminated = True
+
+
+def _popen_stub(factory: Callable[..., FakeProcess]) -> Callable[..., Popen[bytes]]:
+    """Adapt a deliberately minimal fake process to the launch injection type."""
+    return cast(Callable[..., Popen[bytes]], factory)
+
+
+def _no_op(*_args: object) -> None:
+    """Suppress unrelated GPU/priority behaviour in focused scheduler tests."""
+
+
+def _unexpected_gpu_scan(*_args: object) -> None:
+    pytest.fail("GPU scanned during export")
+
+
+def _logical_signature(run: PlannedRun, config: runner.RunnerSettings) -> tuple[object, ...]:
+    """Exercise the internal roundtrip contract with explicit, typed test access."""
+    signature = cast(
+        Callable[[PlannedRun, runner.RunnerSettings], tuple[object, ...]],
+        getattr(runner, "_logical_signature"),
+    )
+    return signature(run, config)
+
+
+def _command(run: PlannedRun, config: runner.RunnerSettings, gpu: tuple[str, ...]) -> list[str]:
+    build = cast(
+        Callable[[PlannedRun, runner.RunnerSettings, tuple[str, ...]], list[str]],
+        getattr(runner, "_command"),
+    )
+    return build(run, config, gpu)
 
 
 def test_parameter_product_keeps_deliberate_duplicates_and_order(tmp_path: Path) -> None:
@@ -150,17 +183,17 @@ def test_abbreviated_input_launches_and_roundtrips(
 
     exported = runner.render_batch_commands(plan, config, destination=tmp_path / "out.bat")
     reparsed = parse_command_plan(exported, source=tmp_path / "out.bat", initial_directory=tmp_path)
-    assert runner._logical_signature(plan.runs[0], config) == runner._logical_signature(reparsed.runs[0], config)
+    assert _logical_signature(plan.runs[0], config) == _logical_signature(reparsed.runs[0], config)
 
-    monkeypatch.setattr(runner, "_gpu_startup_message", lambda *_args: None)
-    monkeypatch.setattr(runner, "_apply_priority", lambda *_args: None)
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
     commands_seen: list[list[str]] = []
 
     def fake_popen(*, args: list[str], **_options: object) -> FakeProcess:
         commands_seen.append(args)
         return FakeProcess(4455)
 
-    result = runner.launch_plan(plan, config, popen=fake_popen)
+    result = runner.launch_plan(plan, config, popen=_popen_stub(fake_popen))
     assert result.successful
     assert commands_seen == [[str(config.executable), "-e1", "A", str(tmp_path / "model.tcf")]]
 
@@ -171,7 +204,7 @@ def test_nonterminal_tcf_argument_roundtrips_without_losing_flags(tmp_path: Path
     config = settings(tmp_path, mode="textfiles", tcf=None, input_files=(commands,))
     plan = runner.prepare_plan(config)
     assert plan.runs[0].arguments[:2] == ("model.tcf", "-e1")
-    assert runner._command(plan.runs[0], config, ()) == [
+    assert _command(plan.runs[0], config, ()) == [
         "TUFLOW.exe",
         "-e1",
         "A",
@@ -181,7 +214,7 @@ def test_nonterminal_tcf_argument_roundtrips_without_losing_flags(tmp_path: Path
     ]
     bat = runner.render_batch_commands(plan, config, destination=tmp_path / "out.bat")
     reparsed = parse_command_plan(bat, source=tmp_path / "out.bat", initial_directory=tmp_path)
-    assert runner._logical_signature(plan.runs[0], config) == runner._logical_signature(reparsed.runs[0], config)
+    assert _logical_signature(plan.runs[0], config) == _logical_signature(reparsed.runs[0], config)
 
 
 def test_scenario_value_ending_in_tcf_is_not_control_file(tmp_path: Path) -> None:
@@ -189,7 +222,7 @@ def test_scenario_value_ending_in_tcf_is_not_control_file(tmp_path: Path) -> Non
     commands.write_text("-e1 event.tcf\\n".replace("\\n", "\n"), encoding="utf-8")
     config = settings(tmp_path, mode="textfiles", input_files=(commands,), tcf=Path("model.tcf"))
     run = runner.prepare_plan(config).runs[0]
-    assert runner._command(run, config, ()) == [
+    assert _command(run, config, ()) == [
         str(config.executable),
         "-e1",
         "event.tcf",
@@ -210,8 +243,8 @@ def test_import_roundtrip_preserves_model_executable_cwd_order_and_duplicates(tm
     assert text.count("START /D") == 3
     new = runner.export_batch_commands(plan, config, output)
     reparsed = runner.prepare_plan(replace(config, input_files=(new,)))
-    assert [runner._logical_signature(run, config) for run in plan.runs] == [
-        runner._logical_signature(run, config) for run in reparsed.runs
+    assert [_logical_signature(run, config) for run in plan.runs] == [
+        _logical_signature(run, config) for run in reparsed.runs
     ]
     with pytest.raises(FileExistsError):
         runner.export_batch_commands(plan, config, output)
@@ -221,7 +254,7 @@ def test_import_roundtrip_preserves_model_executable_cwd_order_and_duplicates(tm
 
 def test_export_without_solver_or_gpu_inspection(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     config = settings(tmp_path, executable=tmp_path / "TUFLOW_missing.exe")
-    monkeypatch.setattr(runner, "_gpu_startup_message", lambda *_args: pytest.fail("GPU scanned during export"))
+    monkeypatch.setattr(runner, "_gpu_startup_message", _unexpected_gpu_scan)
     output = tmp_path / "runs.bat"
     runner.export_batch_commands(runner.prepare_plan(config), config, output)
     assert output.exists()
@@ -250,13 +283,13 @@ def test_per_child_directory_argument_list_and_runtime_gpu_policy(
     from ryan_library.functions.tuflow import gpu_occupancy
 
     monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
-    monkeypatch.setattr(runner, "_apply_priority", lambda *_args: None)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
 
     def popen(*, args: list[str], cwd: str, **_kwargs: object) -> FakeProcess:
         launched.append((args, cwd))
         return FakeProcess(len(launched), polls_before_exit=5 if len(launched) == 1 else 0)
 
-    outcome = runner.launch_plan(plan, config, popen=popen)
+    outcome = runner.launch_plan(plan, config, popen=_popen_stub(popen))
     assert outcome.successful
     assert len(launched) == 3
     assert [cwd for _, cwd in launched] == [str(run.working_directory) for run in plan.runs]
@@ -272,7 +305,7 @@ def test_launch_failure_and_priority_failure_cannot_lose_scheduler_slot(
     config = settings(tmp_path, gpu_devices=(("-pu0",),))
     plan = runner.prepare_plan(config)
     attempts: list[int] = []
-    monkeypatch.setattr(runner, "_gpu_startup_message", lambda *_args: None)
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
 
     def popen(**_options: object) -> FakeProcess:
         attempts.append(len(attempts))
@@ -286,7 +319,7 @@ def test_launch_failure_and_priority_failure_cannot_lose_scheduler_slot(
         raise PermissionError(message)
 
     monkeypatch.setattr(runner, "_apply_priority", failed_priority)
-    outcome = runner.launch_plan(plan, config, popen=popen)
+    outcome = runner.launch_plan(plan, config, popen=_popen_stub(popen))
     assert attempts == [0, 1]
     assert len(outcome.outcomes) == 2
     assert not outcome.successful
@@ -300,18 +333,27 @@ def test_out_of_order_completion_callback_precedes_ordered_output(
 ) -> None:
     config = settings(tmp_path, gpu_devices=(("-pu0",), ("-pu1",)), maximum_concurrent=2)
     plan = runner.prepare_plan(config)
-    monkeypatch.setattr(runner, "_gpu_startup_message", lambda *_args: None)
-    monkeypatch.setattr(runner, "_apply_priority", lambda *_args: None)
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
     processes = iter((FakeProcess(1, polls_before_exit=5), FakeProcess(2)))
     observed: list[int] = []
     began: list[int] = []
     caplog.set_level(logging.INFO)
+    def popen(**_options: object) -> FakeProcess:
+        return next(processes)
+
+    def on_before_launch(run: PlannedRun) -> None:
+        began.append(run.index)
+
+    def on_observed_completion(record: runner.RunOutcome) -> None:
+        observed.append(record.run.index)
+
     outcome = runner.launch_plan(
         plan,
         config,
-        popen=lambda **_options: next(processes),
-        on_before_launch=lambda run: began.append(run.index),
-        on_observed_completion=lambda record: observed.append(record.run.index),
+        popen=_popen_stub(popen),
+        on_before_launch=on_before_launch,
+        on_observed_completion=on_observed_completion,
     )
     assert outcome.successful
     assert began == [1, 2]
@@ -326,8 +368,8 @@ def test_interruption_terminates_owned_child_without_imaginary_success(
     config = settings(tmp_path)
     plan = runner.prepare_plan(config)
     stop = Event()
-    monkeypatch.setattr(runner, "_gpu_startup_message", lambda *_args: None)
-    monkeypatch.setattr(runner, "_apply_priority", lambda *_args: None)
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
     owned: list[FakeProcess] = []
 
     def start(**_options: object) -> FakeProcess:
@@ -336,7 +378,7 @@ def test_interruption_terminates_owned_child_without_imaginary_success(
         stop.set()
         return process
 
-    outcome = runner.launch_plan(plan, config, interrupted=stop, popen=start)
+    outcome = runner.launch_plan(plan, config, interrupted=stop, popen=_popen_stub(start))
     assert outcome.interrupted
     assert not outcome.successful
     assert len(owned) == 1
