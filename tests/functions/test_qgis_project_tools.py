@@ -1,6 +1,7 @@
 """Synthetic, read-only QGS/QGZ cold-storage, repair and auxiliary SQLite checks."""
 
-# pyright: reportPrivateUsage=false - explicitly test the internal Windows URI fallback.
+# The internal Windows URI fallback is intentionally tested directly.
+# pyright: reportPrivateUsage=false
 
 from __future__ import annotations
 
