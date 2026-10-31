@@ -1,6 +1,6 @@
 # Workstream F — Windows engineering acceptance (21 October 2026)
 
-**Status:** bounded Windows acceptance executed on 22 October 2026; see evidence below. Complete engineering acceptance remains open. These steps require a Windows host, an installed Python 3.13 or 3.14, a disposable local SSD location and optionally a writable test share. No model simulations should be started by these probes. Do **not** point destructive commands at live project inputs.
+**Status:** bounded Windows acceptance executed on 22 October 2026; see evidence below. Complete engineering acceptance remains open. These steps require a Windows host, Python 3.14 or newer, a disposable local SSD location and optionally a writable test share. No model simulations should be started by these probes. Do **not** point destructive commands at live project inputs.
 
 ## Windows execution evidence — 22 October 2026
 
@@ -76,7 +76,7 @@ python -m ruff --version
 python -m pyright --version
 ```
 
-Expected: the supporting branch is checked out; Python is 3.13+; repository checks are tied to a specific commit SHA. The Pyright config targets 3.14 syntax but the distribution has `requires-python >=3.13`. Preserve Python 3.13 support; additionally run the focused tests under that interpreter. Use the user's standard Python installation; an isolated *wheel directory*, not a replacement interpreter environment, is used below.
+Expected for the current PR: Python 3.14+ with `requires-python >=3.14`; all checks are tied to an exact commit. Python 3.13 support was explicitly dropped on 22 October. The older recorded Windows run below is historical evidence, not a rerun of the integrated branch. Use the user's standard Python installation; an isolated *wheel directory*, not a replacement interpreter environment, is used below.
 
 ## 2. Fast automated checks (safe, no external executables)
 
@@ -119,7 +119,7 @@ assert str(registry.scripts_directory).startswith(str(Path(sys.argv[1]).absolute
 assert len(scripts) == 35
 assert len({w["execution_target"] for w in scripts}) == 33
 assert all(w["available"] for w in scripts)
-assert len(installed_files()) == 83
+assert len(installed_files()) == 84
 for item in scripts:
     detail = registry.get_workflow(item["id"])
     assert detail["availability_scope"] == "entry_point_only"
@@ -139,7 +139,7 @@ try {
 # Inspect $Root as evidence, then delete only that scratch directory when satisfied.
 ```
 
-Expected: **35** script workflow records, **33** unique script paths, **83** wheel-selected files, no source checkout. No dependency imports or external applications are executed. The `--no-deps` install proves packaging/discovery, not end-to-end runnable wrappers; repeat with normal dependencies for functional acceptance if required.
+Expected after 31 October integration: **36** script workflow records, **34** unique script paths, **84** wheel-selected files, no source checkout. The 22 October evidence at the top is the earlier **35/33/83** baseline and does not certify the new head. No dependency imports or external applications are executed. The `--no-deps` install proves packaging/discovery, not end-to-end runnable wrappers; repeat with normal dependencies for functional acceptance if required.
 
 ## 4. Disposable local SSD, spaces, Unicode and long paths
 
@@ -263,17 +263,21 @@ Validate the QGIS MCP `ping` and `diagnose` in the running desktop session.
 
 For each external tool also deliberately test missing executable, invalid input, read-only destination and interrupted/failed run using a scratch project. Required result: an informative diagnostic, non-zero exit status for genuine failure, and unchanged original inputs. If a wrapper currently lacks that contract, record the exact wrapper and fixture for Agent 1 rather than editing their files in parallel.
 
-## Sign-off record
+## Sign-off record — reconciled 31 October 2026
 
-| Requirement | Result | Evidence |
+The following marks the **22 October supporting-revision results**, not new
+verification of PR #137's merged head. Check the full evidence above before
+retesting; preserve the explicit distinction between bounded and full acceptance.
+
+| Requirement | Current evidence | Still needed |
 | --- | --- | --- |
-| Isolated installed wheel / no source checkout | Pending Windows run | SHA, wheel file, output of Section 3 |
-| Python 3.13 and 3.14 focused checks | Pending respective interpreters | Versions and pytest/Ruff/Pyright output |
-| SSD spaces, Unicode, long paths | Pending Windows run | Path names, hashes, return codes |
-| Mapped and UNC share | Pending authorised share | Root paths (redact sensitive information), timings, hashes |
-| QGIS 4 and GDAL/OGR | Pending opt-in real-tool test | Versioned binaries and two synthetic tests from Section 7 |
-| TUFLOW and HY-8 | Pending licensed real app | Baselines, complete logs, numerical comparisons |
-| Data preservation under failure | Synthetic tests only | Real tool failure hashes still pending |
+| Isolated installed wheel / no source checkout | Passed on #146: 83 selected files, 35 workflow records, 33 targets | Repeat for the reconciled 84/36/34 selection on exact PR head |
+| Python 3.14 focused checks | 98 passed / 10 skipped on Windows, 22 October | Recheck current changed code; 3.13 is unsupported |
+| SSD spaces, Unicode, long paths | Bounded synthetic Windows paths passed | Current wheel/full script output contracts as applicable |
+| Mapped and UNC share | Wrapper-copy tests passed on authorised mapped and UNC scratch | Real application workflow network-path and interruption behaviour |
+| Real QGIS 4 / GDAL/OGR | Two tests each passed in the specified Windows environment | Production/locked-file, real-provider and full data-parity cases |
+| TUFLOW and HY-8 | Executables located only | Authorised licensed model/crossing runs and numerical evidence |
+| Failure/input preservation | Bounded synthetic and selected GDAL negative cases passed | Full destructive-script and interruption/recovery acceptance |
 
 **No merge or PyPI publishing** is authorised by this checklist. Keep source inputs and engineering runs separate from the metadata-only MCP discovery service.
 

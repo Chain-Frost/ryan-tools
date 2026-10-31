@@ -101,6 +101,9 @@ intended; the catalogue's `mutation` field identifies tools that create, replace
 # Recursively convert FLT/ASC/RST beside each source.
 python gdal_translate_TIF_ovr.py "D:\Terrain" --extensions flt asc rst
 
+# Convert one explicitly selected raster.
+python gdal_translate_TIF_ovr.py --input-file "D:\Terrain\surface.asc"
+
 # Produce *_compress.tif, including from existing TIFF inputs.
 python gdal_translate_TIF_ovr.py "D:\Terrain" --extensions flt asc rst tif tiff --output-suffix _compress
 
@@ -111,6 +114,10 @@ python gdal_translate_TIF_ovr.py "D:\XYZ" --extensions xyz --output-directory "D
 When `--output-directory` is used, source subdirectories are preserved below
 the output root. This avoids filename collisions when identically named XYZ
 files exist in different source subdirectories.
+
+`--input-file` and the editable `INPUT_FILE` must name an existing file;
+directories and missing paths fail before processing. Positional paths accept
+either a file or a directory, and `--working-directory` retains directory discovery.
 
 ### Existing TIFF overviews
 

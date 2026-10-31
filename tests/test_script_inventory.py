@@ -258,7 +258,7 @@ def test_aliased_mutating_import_is_detected_without_execution() -> None:
 
 
 def test_postponed_annotations_are_not_misclassified_as_import_effects() -> None:
-    """Future-annotations avoid eager annotation calls on Python 3.13."""
+    """Python 3.14 defers annotations with or without the future import."""
     source = (
         "from __future__ import annotations\n"
         "import shutil\n"
@@ -268,8 +268,13 @@ def test_postponed_annotations_are_not_misclassified_as_import_effects() -> None
     deferred = inventory.analyse_python(source)
     assert deferred["import_time_mutation_risk"] is False
 
-    eager = inventory.analyse_python(source.replace("from __future__ import annotations\n", ""))
-    assert eager["import_time_mutation_calls"] == ["copy2"]
+    default_lazy = inventory.analyse_python(source.replace("from __future__ import annotations\n", ""))
+    assert default_lazy["import_time_mutation_risk"] is False
+
+    annotated_assignment = inventory.analyse_python(
+        "import shutil\nx: shutil.copy2('a', 'b') = None\nclass Container:\n    y: shutil.copy2('a', 'b') = None\n"
+    )
+    assert annotated_assignment["import_time_mutation_risk"] is False
 
     defaults = inventory.analyse_python(source + "def g(value=shutil.copy2('a', 'b')):\n    pass\n")
     assert defaults["import_time_mutation_calls"] == ["copy2"]

@@ -95,17 +95,11 @@ def _is_main_guard(test: ast.expr) -> bool:
 class _ImportTimeMutationVisitor(ast.NodeVisitor):
     """Walk only expressions and statements that can execute during import."""
 
-    def __init__(self, module: ast.Module) -> None:
+    def __init__(self) -> None:
         self.names: set[str] = set()
         # A name can refer to a mutator on one conditional path and a safe
         # callable on another. Union the possible dangerous bindings.
         self.aliases: dict[str, frozenset[str]] = {}
-        self.deferred_annotations = any(
-            isinstance(statement, ast.ImportFrom)
-            and statement.module == "__future__"
-            and any(alias.name == "annotations" for alias in statement.names)
-            for statement in module.body
-        )
 
     def _remember_binding(self, target: ast.expr, value: ast.expr | None) -> None:
         if not isinstance(target, ast.Name):
@@ -143,8 +137,7 @@ class _ImportTimeMutationVisitor(ast.NodeVisitor):
         if node.value is not None:
             self.visit(node.value)
             self._remember_binding(node.target, node.value)
-        if not self.deferred_annotations:
-            self.visit(node.annotation)
+        # Python >=3.14 evaluates annotations lazily, not during import.
 
     def visit_AugAssign(self, node: ast.AugAssign) -> None:
         self.visit(node.value)
@@ -154,26 +147,17 @@ class _ImportTimeMutationVisitor(ast.NodeVisitor):
         for expression in (*node.args.defaults, *node.args.kw_defaults):
             if expression is not None:
                 self.visit(expression)
-        if not self.deferred_annotations:
-            for arg in (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs):
-                if arg.annotation is not None:
-                    self.visit(arg.annotation)
-            if node.args.vararg is not None and node.args.vararg.annotation is not None:
-                self.visit(node.args.vararg.annotation)
-            if node.args.kwarg is not None and node.args.kwarg.annotation is not None:
-                self.visit(node.args.kwarg.annotation)
-            if node.returns is not None:
-                self.visit(node.returns)
+        # Annotations (including return types) are deferred on Python >=3.14.
         for expression in node.decorator_list:
             self.visit(expression)
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
-        """Function signatures evaluate at definition time; bodies do not."""
+        """Visit eager decorators/defaults, but not deferred annotations or bodies."""
         self._visit_function_signature(node)
         self.aliases.pop(node.name, None)
 
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
-        """Async functions have the same definition-time evaluation rule."""
+        """Async definitions have the same eager decorator/default rules."""
         self._visit_function_signature(node)
         self.aliases.pop(node.name, None)
 
@@ -225,7 +209,7 @@ class _ImportTimeMutationVisitor(ast.NodeVisitor):
 
 def _import_time_call_names(module: ast.Module) -> list[str]:
     """Conservatively find import-time calls, without importing any script."""
-    visitor = _ImportTimeMutationVisitor(module)
+    visitor = _ImportTimeMutationVisitor()
     visitor.visit(module)
     return sorted(visitor.names)
 

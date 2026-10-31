@@ -27,9 +27,9 @@ def test_all_curated_script_targets_are_in_the_wheel_selection() -> None:
     targets = _all_catalogue_scripts()
     selected = {f"ryan-scripts/{path}" for path in installed_files()}
 
-    # 35 workflow records share 33 script files: two HY-8/native pairs.
-    assert len(targets) == 35
-    assert len(set(targets.values())) == 33
+    # 36 workflow records share 34 script files: two HY-8/native pairs.
+    assert len(targets) == 36
+    assert len(set(targets.values())) == 34
     assert set(targets.values()) <= selected
     assert all(value.startswith("ryan-scripts/") for value in targets.values())
 
@@ -75,7 +75,7 @@ def test_synthetic_installed_wheel_layout_discovers_all_targets_without_checkout
     listing = registry.list_workflows(include_unavailable=True)
 
     assert registry.repository_root is None
-    assert listing["workflow_count"] == 35
+    assert listing["workflow_count"] == 36
     assert all(item["available"] for item in listing["workflows"])
     for workflow in listing["workflows"]:
         details = registry.get_workflow(workflow["id"])

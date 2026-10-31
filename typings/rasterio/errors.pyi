@@ -1,0 +1,3 @@
+"""Minimal errors exported by rasterio for read-only checks."""
+
+class RasterioError(Exception): ...
