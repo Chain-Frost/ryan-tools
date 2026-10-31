@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import argparse
 import runpy
+from types import FunctionType
 from collections.abc import Callable
 from pathlib import Path
 from typing import Protocol, cast
@@ -11,11 +13,16 @@ from zipfile import ZipFile
 
 import pytest
 
+from ryan_library.functions.qgis_project import QgisAuditMode
+
 SCRIPT = Path(__file__).absolute().parents[2] / "ryan-scripts" / "other" / "audit_qgis_projects.py"
 
 
 class AuditMain(Protocol):
-    def __call__(self, *, working_directory: Path | None = None) -> int: ...
+    def __call__(
+        self, *, working_directory: Path | None = None, mode: QgisAuditMode = "existence",
+        project_path: Path | None = None, old_project_directory: Path | None = None,
+    ) -> int: ...
 
 
 def _functions() -> tuple[AuditMain, Callable[[Path], list[str]], Callable[[Path, str], Path | None]]:
@@ -129,3 +136,55 @@ def test_qgz_source_list_is_deterministically_deduplicated(tmp_path: Path) -> No
     _write_qgz(project, "./b.gpkg|layername=2", "./a.gpkg|layername=1", "./b.gpkg|layername=2")
     _, get_sources, _ = _functions()
     assert get_sources(project) == ["./a.gpkg|layername=1", "./b.gpkg|layername=2"]
+
+
+
+def test_cli_audit_modes_are_explicit_and_existence_is_default() -> None:
+    namespace = runpy.run_path(str(SCRIPT))
+    parse_args = cast(Callable[[list[str] | None], argparse.Namespace], namespace["_parse_cli_arguments"])
+    assert parse_args([]).mode == "existence"
+    assert parse_args(["--mode", "existence", "--no-pause"]).mode == "existence"
+    assert parse_args(["--mode", "cold-storage-ping", "--no-pause"]).mode == "cold-storage-ping"
+    with pytest.raises(SystemExit) as invalid:
+        parse_args(["--mode", "unknown"])
+    assert invalid.value.code == 2
+
+
+def test_main_uses_selected_mode_and_deduplicates_sources(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    data = tmp_path / "shared.tif"
+    data.write_bytes(b"source")
+    _write_qgs(
+        tmp_path / "project.qgs",
+        "./shared.tif|layername=one",
+        "./shared.tif|layername=two",
+        "https://example.com/remote",
+    )
+    namespace = runpy.run_path(str(SCRIPT))
+    main = cast(AuditMain, namespace["main"])
+    audit = cast(FunctionType, namespace["_audit_projects"])
+    checked: list[tuple[Path, QgisAuditMode]] = []
+
+    def checked_probe(path: Path, *, mode: QgisAuditMode = "existence") -> tuple[bool, str]:
+        checked.append((path, mode))
+        return True, "checked"
+
+    monkeypatch.setitem(audit.__globals__, "probe_local_file", checked_probe)
+    monkeypatch.chdir(tmp_path)
+    assert main(working_directory=tmp_path) == 0
+    assert checked == [(data, "existence")]
+    checked.clear()
+    assert main(working_directory=tmp_path, mode="cold-storage-ping") == 0
+    assert checked == [(data, "cold-storage-ping")]
+
+
+def test_cold_storage_ping_cannot_be_combined_with_path_repair(tmp_path: Path) -> None:
+    main, _, _ = _functions()
+    assert (
+        main(
+            working_directory=tmp_path, project_path=tmp_path / "project.qgs",
+            old_project_directory=tmp_path, mode="cold-storage-ping",
+        )
+        == 1
+    )
