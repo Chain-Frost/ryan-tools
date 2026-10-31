@@ -149,14 +149,18 @@ def test_nested_check_folders_scan_each_file_once(utility: ModuleType, tmp_path:
     assert groups == []
 
 
-def test_self_delete_action_is_rejected(utility: ModuleType, tmp_path: Path) -> None:
-    """Never unlink a path if it also names the retained copy."""
+@pytest.mark.parametrize("use_alias", [False, True])
+def test_self_delete_action_is_rejected(utility: ModuleType, tmp_path: Path, use_alias: bool) -> None:
+    """Never unlink a path if it also names the retained copy, even through '..'."""
     folder = check_folder(tmp_path, "same-file")
     source = folder / "kept.qml"
     source.write_bytes(b"important")
+    if use_alias:
+        (folder / "nested").mkdir()
+    deletion_path = folder / "nested" / ".." / "kept.qml" if use_alias else source
     metadata = source.stat()
     action = utility.DeleteAction(
-        delete_file=source,
+        delete_file=deletion_path,
         keep_file=source,
         delete_mtime_ns=metadata.st_mtime_ns,
         keep_mtime_ns=metadata.st_mtime_ns,
@@ -248,6 +252,95 @@ def test_proposal_mode_reuses_previous_scan_without_rehash(
     assert (folder / "unique.tif").exists()
     assert len(read_rows(tmp_path / "deletions.csv")) == 1
     assert (tmp_path / "deletions_001.txt").is_file()
+
+
+
+def test_apply_rejects_path_that_escapes_check_folder(
+    utility: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A lexical check/.. prefix must not make an out-of-scope path deletable."""
+    folder = check_folder(tmp_path, "escape")
+    inside_files = write_duplicates(folder, "a.qml", "b.qml", content=b"same")
+    outside = folder.parent / "outside.qml"
+    outside.write_bytes(b"same")
+    monkeypatch.setattr(utility, "DRY_RUN", True)
+    utility.main()
+
+    proposal = tmp_path / "proposal.csv"
+    rows = read_rows(proposal)
+    assert len(rows) == 1
+    rows[0]["original_path"] = str(folder / ".." / outside.name)
+    rows[0]["delete_mtime_ns"] = str(outside.stat().st_mtime_ns)
+    with proposal.open("w", newline="", encoding="utf-8") as output:
+        writer = csv.DictWriter(output, fieldnames=utility.PROPOSAL_FIELDS)
+        writer.writeheader()
+        writer.writerows(rows)
+
+    with pytest.raises(ValueError, match="not inside a check/checks folder"):
+        utility.actions_from_proposal(proposal)
+    monkeypatch.setattr(utility, "APPLY_PROPOSAL_MANIFEST", True)
+    monkeypatch.setattr(utility, "DRY_RUN", False)
+    utility.main()
+    assert outside.read_bytes() == b"same"
+    assert all(file.exists() for file in inside_files)
+    assert not (tmp_path / "deletions.csv").exists()
+
+
+def test_apply_rejects_deletion_alias_of_retained_file(
+    utility: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Two spellings of the same file must never count as distinct copies."""
+    folder = check_folder(tmp_path, "self-alias")
+    files = write_duplicates(folder, "a.qml", "b.qml", content=b"same")
+    (folder / "nested").mkdir()
+    monkeypatch.setattr(utility, "DRY_RUN", True)
+    utility.main()
+
+    proposal = tmp_path / "proposal.csv"
+    rows = read_rows(proposal)
+    rows[0]["original_path"] = str(folder / "nested" / ".." / files[0].name)
+    rows[0]["delete_mtime_ns"] = str(files[0].stat().st_mtime_ns)
+    with proposal.open("w", newline="", encoding="utf-8") as output:
+        writer = csv.DictWriter(output, fieldnames=utility.PROPOSAL_FIELDS)
+        writer.writeheader()
+        writer.writerows(rows)
+
+    with pytest.raises(ValueError, match="self-reference"):
+        utility.actions_from_proposal(proposal)
+    monkeypatch.setattr(utility, "APPLY_PROPOSAL_MANIFEST", True)
+    monkeypatch.setattr(utility, "DRY_RUN", False)
+    utility.main()
+    assert all(file.read_bytes() == b"same" for file in files)
+    assert not (tmp_path / "deletions.csv").exists()
+
+
+def test_apply_rejects_retained_alias_of_another_deletion_target(
+    utility: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A retained copy cannot also be a proposed deletion via a path alias."""
+    folder = check_folder(tmp_path, "retained-alias")
+    files = write_duplicates(folder, "a.qml", "b.qml", "c.qml", content=b"same")
+    (folder / "nested").mkdir()
+    monkeypatch.setattr(utility, "DRY_RUN", True)
+    utility.main()
+
+    proposal = tmp_path / "proposal.csv"
+    rows = read_rows(proposal)
+    assert len(rows) == 2
+    rows[0]["kept_path"] = str(folder / "nested" / ".." / files[2].name)
+    rows[0]["keep_mtime_ns"] = str(files[2].stat().st_mtime_ns)
+    with proposal.open("w", newline="", encoding="utf-8") as output:
+        writer = csv.DictWriter(output, fieldnames=utility.PROPOSAL_FIELDS)
+        writer.writeheader()
+        writer.writerows(rows)
+
+    with pytest.raises(ValueError, match="file used as a retained copy"):
+        utility.actions_from_proposal(proposal)
+    monkeypatch.setattr(utility, "APPLY_PROPOSAL_MANIFEST", True)
+    monkeypatch.setattr(utility, "DRY_RUN", False)
+    utility.main()
+    assert all(file.read_bytes() == b"same" for file in files)
+    assert not (tmp_path / "deletions.csv").exists()
 
 
 def test_apply_rejects_changed_mtime_even_if_file_size_matches(

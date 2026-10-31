@@ -789,14 +789,19 @@ def check_folder_for_proposal_path(path: Path) -> Path:
     embedded '..' components, links and junctions cannot escape ROOT_DIR.
     The original path spelling is retained for reporting and actual operations.
     """
-    root = absolute_path(ROOT_DIR)
+    root = absolute_path(ROOT_DIR).resolve(strict=True)
     actual_path = path.resolve(strict=True)
-    if not actual_path.is_relative_to(root.resolve(strict=True)):
+    if not actual_path.is_relative_to(root):
         message = f"Proposal file is outside ROOT_DIR: {path}"
         raise ValueError(message)
     names = {name.casefold() for name in CHECK_FOLDER_NAMES}
     for parent in path.parents:
-        if parent.name.casefold() in names and parent.resolve(strict=True).is_relative_to(root.resolve(strict=True)):
+        if parent.name.casefold() not in names:
+            continue
+        actual_parent = parent.resolve(strict=True)
+        # A lexical 'check/..' parent is not evidence that the target is
+        # physically inside that check folder.
+        if actual_parent.is_relative_to(root) and actual_path.is_relative_to(actual_parent):
             return parent
     message = f"Proposal file is not inside a check/checks folder: {path}"
     raise ValueError(message)
@@ -814,6 +819,7 @@ def actions_from_proposal(path: Path) -> tuple[list[DeleteAction], list[FileReco
     actions: list[DeleteAction] = []
     records_by_path: dict[Path, FileRecord] = {}
     seen_originals: set[Path] = set()
+    seen_retained: set[Path] = set()
     # A retained file may appear on multiple rows; every row must agree about
     # its identity, contents and original metadata before anything is deleted.
     retained_evidence: dict[Path, tuple[int, int, str, str]] = {}
@@ -840,10 +846,15 @@ def actions_from_proposal(path: Path) -> tuple[list[DeleteAction], list[FileReco
 
         original = absolute_path(Path(row["original_path"]))
         kept = absolute_path(Path(row["kept_path"]))
-        if original == kept or original in seen_originals:
+        # Compare physical identities, not spellings: paths with '..' can
+        # otherwise name a retained file as its own deletion target.
+        canonical_original = original.resolve(strict=True)
+        canonical_kept = kept.resolve(strict=True)
+        if canonical_original == canonical_kept or canonical_original in seen_originals:
             message = f"Proposal has a self-reference or duplicate deletion path: {original}"
             raise ValueError(message)
-        seen_originals.add(original)
+        seen_originals.add(canonical_original)
+        seen_retained.add(canonical_kept)
 
         size_bytes = int(row["size_bytes"])
         delete_mtime_ns = int(row["delete_mtime_ns"])
@@ -873,12 +884,12 @@ def actions_from_proposal(path: Path) -> tuple[list[DeleteAction], list[FileReco
             raise ValueError(message)
 
         retained_fingerprint = (size_bytes, keep_mtime_ns, suffix, content_hash)
-        previous_fingerprint = retained_evidence.setdefault(kept, retained_fingerprint)
+        previous_fingerprint = retained_evidence.setdefault(canonical_kept, retained_fingerprint)
         if previous_fingerprint != retained_fingerprint:
             message = f"Proposal has contradictory retained-file evidence: {kept}"
             raise ValueError(message)
 
-        records_by_path[original] = FileRecord(
+        records_by_path[canonical_original] = FileRecord(
             check_folder=original_check,
             path=original,
             suffix=suffix,
@@ -887,7 +898,7 @@ def actions_from_proposal(path: Path) -> tuple[list[DeleteAction], list[FileReco
             content_hash=content_hash,
         )
         records_by_path.setdefault(
-            kept,
+            canonical_kept,
             FileRecord(
                 check_folder=kept_check,
                 path=kept,
@@ -909,7 +920,7 @@ def actions_from_proposal(path: Path) -> tuple[list[DeleteAction], list[FileReco
             )
         )
 
-    if any(action.keep_file in seen_originals for action in actions):
+    if seen_originals & seen_retained:
         message = "Proposal would delete a file used as a retained copy."
         raise ValueError(message)
     if totals is None:
@@ -1153,7 +1164,12 @@ def delete_duplicate_file(action: DeleteAction) -> bool:
     Returns True only if the file was actually deleted.
     """
     path = action.delete_file
-    if path == action.keep_file:
+    # This inexpensive guard also catches aliases containing '..' (and
+    # case-only differences on Windows). Proposal mode checks resolved
+    # identities separately before any deletion is planned.
+    if os.path.normcase(os.path.normpath(str(path))) == os.path.normcase(
+        os.path.normpath(str(action.keep_file))
+    ):
         print(f"Refusing self-deletion: {path}")
         return False
 
