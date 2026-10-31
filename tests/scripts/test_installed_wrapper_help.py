@@ -12,7 +12,7 @@ ROOT = Path(__file__).absolute().parents[2]
 
 
 # Explicitly safe to execute with --help (protected argparse entry points).
-# Do not execute unguarded legacy scripts or assume all 83 wheel resources
+# Do not execute unguarded legacy scripts or assume all 84 wheel resources
 # implement a CLI: README and __init__ files are resources, not executables.
 SAFE_HELP_WRAPPERS: tuple[str, ...] = (
     "culvert.py",
