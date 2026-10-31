@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+# conftest.py supplies standalone script directories to pytest at runtime.
+# Pyright cannot infer those import roots; keep the exception scoped here.
+# pyright: reportMissingImports=false, reportUnknownVariableType=false
 import subprocess
 from pathlib import Path
 
 import pytest
-from batch_vector_clip import build_output_jobs, clip_vector
+from batch_vector_clip import _promote_dataset, build_output_jobs, clip_vector
 from split_vector_by_attribute import process_single_value
 
 
@@ -59,3 +62,205 @@ def test_split_vector_quotes_attribute_values(monkeypatch: pytest.MonkeyPatch, t
         "assets",
     )
     assert captured_where == "\"Owner\"\"Name\" = 'O''Brien'"
+
+
+def test_geopackage_overwrite_replaces_complete_staged_output(tmp_path: Path) -> None:
+    """Single-file replacements should never require removing the old output first."""
+    original = tmp_path / "output café.gpkg"
+    original.write_bytes(b"old geopackage")
+    staged = tmp_path / ".output cafe.stage.gpkg"
+    staged.write_bytes(b"new geopackage")
+
+    _promote_dataset(staged, original, overwrite=True)
+
+    assert original.read_bytes() == b"new geopackage"
+    assert not staged.exists()
+
+
+def test_failed_geopackage_promotion_keeps_old_data(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A Windows lock or filesystem failure must not delete an existing GeoPackage."""
+    original = tmp_path / "output.gpkg"
+    original.write_bytes(b"old geopackage")
+    staged = tmp_path / ".output.stage.gpkg"
+    staged.write_bytes(b"new geopackage")
+
+    def fail_replace(self: Path, destination: str | Path) -> Path:
+        assert self == staged
+        assert destination == original
+        message = "injected promotion error"
+        raise PermissionError(message)
+
+    monkeypatch.setattr(Path, "replace", fail_replace)
+    with pytest.raises(PermissionError, match="injected promotion error"):
+        _promote_dataset(staged, original, overwrite=True)
+
+    assert original.read_bytes() == b"old geopackage"
+    assert staged.read_bytes() == b"new geopackage"
+
+
+def test_shapefile_success_replaces_sidecars_without_stale_originals(tmp_path: Path) -> None:
+    """Sidecars absent from the new dataset must not survive from the old one."""
+    original = tmp_path / "existing.shp"
+    old_data = {".shp": b"old shapes", ".dbf": b"old table", ".shx": b"old index", ".prj": b"old projection"}
+    for suffix, data in old_data.items():
+        original.with_suffix(suffix).write_bytes(data)
+    unrelated = tmp_path / "existing.audit.txt"
+    unrelated.write_bytes(b"leave unrelated file untouched")
+    metadata = tmp_path / "existing.shp.xml"
+    metadata.write_bytes(b"stale metadata")
+    staged = tmp_path / ".existing.staged.shp"
+    staged.with_suffix(".shp").write_bytes(b"new shapes")
+    staged.with_suffix(".dbf").write_bytes(b"new table")
+    staged.with_suffix(".shx").write_bytes(b"new index")
+
+    _promote_dataset(staged, original, overwrite=True)
+
+    assert original.read_bytes() == b"new shapes"
+    assert original.with_suffix(".dbf").read_bytes() == b"new table"
+    assert original.with_suffix(".shx").read_bytes() == b"new index"
+    assert not original.with_suffix(".prj").exists()
+    assert not metadata.exists()
+    assert unrelated.read_bytes() == b"leave unrelated file untouched"
+    assert not list(tmp_path.glob(".existing.backup.*"))
+
+
+def test_shapefile_mid_promotion_error_restores_every_original(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A failure after one new sidecar was installed must roll back the full set."""
+    original = tmp_path / "existing.shp"
+    old_data = {".shp": b"old shapes", ".dbf": b"old table", ".shx": b"old index", ".prj": b"old projection"}
+    for suffix, data in old_data.items():
+        original.with_suffix(suffix).write_bytes(data)
+    staged = tmp_path / ".existing.staged.shp"
+    staged.with_suffix(".shp").write_bytes(b"new shapes")
+    staged.with_suffix(".dbf").write_bytes(b"new table")
+    staged.with_suffix(".shx").write_bytes(b"new index")
+
+    original_replace = Path.replace
+
+    def fail_after_partial_promotion(self: Path, destination: str | Path) -> Path:
+        if self == staged.with_suffix(".shx") and destination == original.with_suffix(".shx"):
+            message = "injected third-sidecar failure"
+            raise PermissionError(message)
+        return original_replace(self, destination)
+
+    monkeypatch.setattr(Path, "replace", fail_after_partial_promotion)
+    with pytest.raises(PermissionError, match="third-sidecar"):
+        _promote_dataset(staged, original, overwrite=True)
+
+    for suffix, data in old_data.items():
+        assert original.with_suffix(suffix).read_bytes() == data
+    assert not list(tmp_path.glob(".existing.backup.*"))
+
+
+def test_shapefile_backup_failure_restores_previously_moved_members(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Failure during the backup phase must restore every member moved so far."""
+    original = tmp_path / "existing.shp"
+    original.with_suffix(".dbf").write_bytes(b"original table")
+    original.write_bytes(b"original shape")
+    staged = tmp_path / ".existing.staged.shp"
+    staged.write_bytes(b"new shape")
+    real_replace = Path.replace
+
+    def fail_backup(self: Path, destination: str | Path) -> Path:
+        if self == original and Path(destination).parent != tmp_path:
+            message = "injected failure backing up shape"
+            raise PermissionError(message)
+        return real_replace(self, destination)
+
+    monkeypatch.setattr(Path, "replace", fail_backup)
+    with pytest.raises(PermissionError, match="failure backing up"):
+        _promote_dataset(staged, original, overwrite=True)
+
+    assert original.read_bytes() == b"original shape"
+    assert original.with_suffix(".dbf").read_bytes() == b"original table"
+    assert staged.read_bytes() == b"new shape"
+    assert not list(tmp_path.glob(".existing.backup.*"))
+
+
+def test_shapefile_rollback_failure_retains_recovery_backups(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """If restoration itself is blocked, never discard the last copy of old data."""
+    original = tmp_path / "existing.shp"
+    original.write_bytes(b"old shapes")
+    staged = tmp_path / ".existing.staged.shp"
+    staged.write_bytes(b"new shapes")
+    real_replace = Path.replace
+
+    def fail_promotion_and_recovery(self: Path, destination: str | Path) -> Path:
+        if self == staged or (self.parent != tmp_path and destination == original):
+            message = "injected locked output"
+            raise PermissionError(message)
+        return real_replace(self, destination)
+
+    monkeypatch.setattr(Path, "replace", fail_promotion_and_recovery)
+    with pytest.raises(RuntimeError, match="rollback was incomplete"):
+        _promote_dataset(staged, original, overwrite=True)
+
+    backups = list(tmp_path.glob(".existing.backup.*"))
+    assert len(backups) == 1
+    assert (backups[0] / original.name).read_bytes() == b"old shapes"
+    assert staged.read_bytes() == b"new shapes"
+
+
+def test_shapefile_no_overwrite_preserves_destination_and_stage(tmp_path: Path) -> None:
+    output = tmp_path / "existing.shp"
+    output.write_bytes(b"old shapes")
+    staged = tmp_path / ".existing.staged.shp"
+    staged.write_bytes(b"new shapes")
+
+    with pytest.raises(FileExistsError, match="already exists"):
+        _promote_dataset(staged, output, overwrite=False)
+
+    assert output.read_bytes() == b"old shapes"
+    assert staged.read_bytes() == b"new shapes"
+
+
+def test_clip_vector_failed_overwrite_preserves_output_and_cleans_stage(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The public wrapper must report a failed promotion without data loss."""
+    input_path = tmp_path / "source.gpkg"
+    extent_path = tmp_path / "extent.gpkg"
+    output_path = tmp_path / "output.gpkg"
+    output_path.write_bytes(b"important existing dataset")
+
+    def fake_run(command: list[str], **_: object) -> subprocess.CompletedProcess[str]:
+        Path(command[1]).write_bytes(b"staged dataset")
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    real_replace = Path.replace
+
+    def fail_replace(self: Path, destination: str | Path) -> Path:
+        if destination == output_path:
+            message = "injected locked destination"
+            raise PermissionError(message)
+        return real_replace(self, destination)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(Path, "replace", fail_replace)
+    assert not clip_vector(input_path, extent_path, output_path, executable="ogr2ogr", overwrite=True, dry_run=False)
+    assert output_path.read_bytes() == b"important existing dataset"
+    assert not list(tmp_path.glob(".output.*.tmp.gpkg"))
+
+
+def test_clip_vector_dry_run_never_executes_or_touches_output(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Even --overwrite does not remove or replace files during a dry-run."""
+    output = tmp_path / "output.gpkg"
+    output.write_bytes(b"protected")
+
+    def no_subprocess(*_args: object, **_kwargs: object) -> None:
+        message = "subprocess must not run during dry-run"
+        raise AssertionError(message)
+
+    monkeypatch.setattr(subprocess, "run", no_subprocess)
+    assert clip_vector(
+        tmp_path / "source.gpkg",
+        tmp_path / "extent.gpkg",
+        output,
+        executable="ogr2ogr",
+        overwrite=True,
+        dry_run=True,
+    )
+    assert output.read_bytes() == b"protected"
+    assert not list(tmp_path.glob(".output.*.tmp.gpkg"))

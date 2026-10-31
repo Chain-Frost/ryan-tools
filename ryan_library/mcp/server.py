@@ -6,9 +6,10 @@ from __future__ import annotations
 import json
 import sys
 from collections import Counter
+from collections.abc import Iterable
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Protocol, cast
 
 from pandas import DataFrame, to_numeric
 
@@ -28,6 +29,28 @@ MAX_COLLECTION_FILES = 50
 DEFAULT_WORKFLOW_LIMIT = 10
 MAX_WORKFLOW_LIMIT = 25
 TUFLOW_PROCESSOR_GUIDANCE_URI = "ryan-tools://guidance/tuflow-processors"
+
+
+# Rasterio's Cython dataset metadata is incompletely visible to strict Pyright.
+class _RasterBounds(Protocol):
+    left: float
+    bottom: float
+    right: float
+    top: float
+
+
+class _RasterMetadata(Protocol):
+    driver: str
+    width: int
+    height: int
+    count: int
+    dtypes: tuple[str, ...]
+    crs: object
+    res: tuple[float, float]
+    transform: Iterable[float]
+    bounds: _RasterBounds
+    nodata: float | int | None
+
 
 if MCPServer is not None:
     mcp = MCPServer(
@@ -294,7 +317,8 @@ def inspect_raster_metadata(raster_path: str) -> dict[str, Any]:
     try:
         import rasterio
 
-        with rasterio.open(path) as source:
+        with rasterio.open(path) as dataset:
+            source = cast("_RasterMetadata", dataset)
             return {
                 "file_name": path.name,
                 "driver": source.driver,
@@ -380,6 +404,15 @@ def check_repo_health() -> dict[str, Any]:
         "workflow_count_total": REGISTRY.total_workflow_count,
         "workflow_count_visible": visible["workflow_count"],
         "workflow_count_available": available["workflow_count"],
+        "workflow_availability_scope": "entry_point_only",
+        "external_prerequisite_validation": "not_performed",
+        "active_script_source": (
+            "repository_checkout"
+            if REGISTRY.repository_root is not None
+            else "installed_distribution"
+            if REGISTRY.scripts_directory is not None
+            else "unavailable"
+        ),
         "warnings": list(REGISTRY.warnings),
     }
 

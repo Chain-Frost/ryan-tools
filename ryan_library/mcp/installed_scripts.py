@@ -4,7 +4,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import secrets
 import shutil
+import stat
+import tempfile
+from collections.abc import Callable
 from importlib.resources import files
 from pathlib import Path
 from typing import cast
@@ -38,6 +43,97 @@ def available_wrappers() -> tuple[str, ...]:
     )
 
 
+def _copy_new_wrapper(source: Path, target: Path) -> None:
+    """Create a new wrapper exclusively, preserving mode without path-based chmod."""
+    # Exclusive opening prevents a concurrent writer from inserting a symlink.
+    with source.open("rb") as original, target.open("xb") as copied:
+        shutil.copyfileobj(original, copied)
+        if os.name == "posix":
+            # Set permissions on the opened file, not a possibly replaced path.
+            os.fchmod(copied.fileno(), stat.S_IMODE(source.stat().st_mode))
+        else:
+            # Windows chmod/copy-mode is path-based; preserve its read-only bit
+            # while the exclusively created file is still open.
+            shutil.copymode(source, target)
+
+
+def _replace_wrapper_posix(source: Path, target: Path) -> None:
+    """Publish and clean up staged files through verified directory descriptors.
+
+    Never recurse through a staging pathname during cleanup: another user can
+    rename a child directory in an unsafe writable parent. POSIX staging and
+    publication are relative to the already-open destination and stage dirs.
+    """
+    directory_flags: int = os.O_RDONLY | cast("int", vars(os)["O_DIRECTORY"]) | cast("int", vars(os)["O_NOFOLLOW"])
+    destination_fd = os.open(target.parent, directory_flags)
+    try:
+        destination_stat = os.fstat(destination_fd)
+        current_uid = cast("Callable[[], int]", vars(os)["geteuid"])()
+        # The directory owner can rename entries or change its permissions
+        # regardless of the current group/other write bits (even at 0755).
+        # Only the caller and root are trusted owners. A peer-writable parent
+        # additionally needs the sticky bit to protect our staging entry.
+        trusted_owner = destination_stat.st_uid in {0, current_uid}
+        peer_writable = bool(destination_stat.st_mode & (stat.S_IWGRP | stat.S_IWOTH))
+        sticky = bool(destination_stat.st_mode & stat.S_ISVTX)
+        if not trusted_owner or (peer_writable and not sticky):
+            msg = f"Refusing atomic overwrite in an unsafe peer-writable or untrusted-owner directory: {target.parent}"
+            raise PermissionError(msg)
+
+        # mkdir via dirfd prevents redirecting the parent pathname while
+        # staging; a random name also avoids collisions with existing entries.
+        staging_name = f".{target.name}.stage-{secrets.token_hex(16)}"
+        os.mkdir(staging_name, mode=0o700, dir_fd=destination_fd)
+        staging_fd: int | None = None
+        staging_identity: tuple[int, int] | None = None
+        try:
+            staging_fd = os.open(staging_name, directory_flags, dir_fd=destination_fd)
+            staging_stat = os.fstat(staging_fd)
+            staging_identity = (staging_stat.st_dev, staging_stat.st_ino)
+            if staging_stat.st_uid != current_uid or stat.S_IMODE(staging_stat.st_mode) != 0o700:
+                msg = f"Staging directory must be private and owned by this user: {staging_name}"
+                raise PermissionError(msg)
+
+            staged_fd = os.open(
+                target.name,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL | cast("int", vars(os)["O_NOFOLLOW"]),
+                0o600,
+                dir_fd=staging_fd,
+            )
+            with os.fdopen(staged_fd, "wb") as temporary, source.open("rb") as original:
+                shutil.copyfileobj(original, temporary)
+                os.fchmod(temporary.fileno(), stat.S_IMODE(os.fstat(original.fileno()).st_mode))
+            os.replace(target.name, target.name, src_dir_fd=staging_fd, dst_dir_fd=destination_fd)
+        finally:
+            if staging_fd is not None:
+                try:
+                    # If publication failed, unlink only our staged file from
+                    # the originally opened directory, not a swapped pathname.
+                    try:
+                        os.unlink(target.name, dir_fd=staging_fd)
+                    except FileNotFoundError:
+                        pass
+
+                    # If the name now refers to something else, leave it
+                    # untouched. os.rmdir is nonrecursive even if a rename
+                    # occurs later; the parent mode guard prevents peer swaps.
+                    try:
+                        current = os.stat(staging_name, dir_fd=destination_fd, follow_symlinks=False)
+                    except FileNotFoundError:
+                        pass
+                    else:
+                        if staging_identity is not None and (current.st_dev, current.st_ino) == staging_identity:
+                            os.rmdir(staging_name, dir_fd=destination_fd)
+                finally:
+                    os.close(staging_fd)
+            else:
+                # Opening the new stage failed. A nonrecursive rmdir cannot
+                # descend into a substituted directory or follow a symlink.
+                os.rmdir(staging_name, dir_fd=destination_fd)
+    finally:
+        os.close(destination_fd)
+
+
 def copy_wrapper(
     script: str,
     destination: Path,
@@ -67,8 +163,23 @@ def copy_wrapper(
         if not target.is_file() or target.is_symlink():
             msg = f"Refusing to replace a non-file or symlink: {target}"
             raise ValueError(msg)
-    if not dry_run:
-        shutil.copy2(source, target)
+    if dry_run:
+        return target
+    if not overwrite:
+        _copy_new_wrapper(source, target)
+        return target
+
+    if os.name == "posix":
+        _replace_wrapper_posix(source, target)
+    else:
+        # Windows does not support fd-relative os.replace. Retain the normal
+        # TemporaryDirectory lifecycle and source read-only attribute there.
+        with tempfile.TemporaryDirectory(dir=target_directory, prefix=f".{target.name}.stage-") as staging_directory:
+            staged = Path(staging_directory) / target.name
+            with source.open("rb") as original, staged.open("xb") as temporary:
+                shutil.copyfileobj(original, temporary)
+            shutil.copymode(source, staged)
+            staged.replace(target)
     return target
 
 

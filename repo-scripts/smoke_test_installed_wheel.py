@@ -3,9 +3,15 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import importlib.metadata
 import importlib.resources
+import importlib.util
+import os
+import sqlite3
+import subprocess
 import sys
+from contextlib import closing
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -54,6 +60,147 @@ def _check_installed_wrapper_copy() -> None:
             raise RuntimeError(msg)
 
 
+def _run_installed_wrapper(
+    relative: str, work: Path, expected_root: Path, *arguments: str
+) -> subprocess.CompletedProcess[str]:
+    """Copy from the wheel and execute outside the checkout, importing only its installed library."""
+    script = copy_wrapper(relative, work, overwrite=True)
+    environment = os.environ.copy()
+    environment["PYTHONPATH"] = str(expected_root)
+    environment["PYTHONNOUSERSITE"] = "1"
+    environment.pop("RYAN_TOOLS_REPOSITORY_ROOT", None)
+    return subprocess.run(
+        [sys.executable, str(script), *arguments],
+        cwd=work,
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=60,
+        stdin=subprocess.DEVNULL,
+    )
+
+
+def _check_installed_po_labels(expected_root: Path, work: Path) -> None:
+    """Exercise a copied wheel's PO label CLI with disposable SQLite records."""
+    # Exercise a pure-stdlib GIS-labelled wrapper from the installed wheel,
+    # without relying on a source checkout or proprietary project data.
+    # This is deliberately a SQLite/GPKG-like fixture, not GDAL acceptance.
+    po_source = work / "2d_po_wheel_café.gpkg"
+    with closing(sqlite3.connect(po_source)) as connection:
+        connection.execute("CREATE TABLE gpkg_contents (table_name TEXT, data_type TEXT)")
+        connection.execute("INSERT INTO gpkg_contents VALUES ('2d_po_wheel', 'features')")
+        connection.execute('CREATE TABLE "2d_po_wheel" (fid INTEGER PRIMARY KEY, Label TEXT, Comment TEXT)')
+        connection.execute(
+            'INSERT INTO "2d_po_wheel" VALUES (?, ?, ?)',
+            (1, "PO_Installed", "wheel fixture"),
+        )
+        connection.commit()
+    unchanged = po_source.read_bytes()
+    po_result = _run_installed_wrapper(
+        "TUFLOW-python/po_and_timeseries/generate_2d_po_label_list.py",
+        work,
+        expected_root,
+        str(po_source),
+        "--layer",
+        "2d_po_wheel",
+    )
+    po_output = po_source.with_suffix(".txt")
+    if po_result.returncode != 0 or not po_output.is_file():
+        msg = f"Wheel-installed 2d_po label export failed: {(po_result.stdout + po_result.stderr)[-1000:]}"
+        raise RuntimeError(msg)
+    text_output = po_output.read_text(encoding="utf-8")
+    if "'PO_Installed'," not in text_output or "# wheel fixture" not in text_output:
+        msg = "Wheel-installed 2d_po label export had unexpected records."
+        raise RuntimeError(msg)
+    if po_source.read_bytes() != unchanged:
+        msg = "Wheel-installed 2d_po label export modified its input."
+        raise RuntimeError(msg)
+
+
+def _check_installed_wrapper_behaviour(expected_root: Path) -> None:
+    """Run nondestructive CLI/output/exit checks on wrappers copied from the *installed wheel*."""
+    with TemporaryDirectory(prefix="ryan-tools-wheel-behaviour-") as temporary:
+        work = Path(temporary)
+        input_dir = work / "input"
+        input_dir.mkdir()
+        (input_dir / "ABC-001_Rev2.txt").write_text("one", encoding="utf-8")
+        (input_dir / "XYZ-002_Rev1.txt").write_text("two", encoding="utf-8")
+        output_dir = work / "output"
+
+        for wrapper in (
+            "file-management-python/file_inventory.py",
+            "file-management-python/list_files_recursive.py",
+        ):
+            help_result = _run_installed_wrapper(wrapper, work, expected_root, "--help")
+            if help_result.returncode != 0 or "usage:" not in help_result.stdout.lower():
+                msg = f"Wheel-installed {wrapper} failed --help: {(help_result.stdout + help_result.stderr)[-700:]}"
+                raise RuntimeError(msg)
+
+        inventory = _run_installed_wrapper(
+            "file-management-python/file_inventory.py",
+            work,
+            expected_root,
+            str(input_dir),
+            "--output-directory",
+            str(output_dir),
+            "--basename",
+            "wheel-inventory",
+            "--no-excel",
+            "--no-pause",
+        )
+        if inventory.returncode != 0:
+            msg = (
+                f"Wheel-installed file_inventory.py CSV export failed: {(inventory.stdout + inventory.stderr)[-1000:]}"
+            )
+            raise RuntimeError(msg)
+        exported = output_dir / "wheel-inventory.csv"
+        if not exported.is_file() or (output_dir / "wheel-inventory.xlsx").exists():
+            msg = "Wheel-installed file_inventory.py did not honour output/default overrides."
+            raise RuntimeError(msg)
+        with exported.open(encoding="utf-8-sig", newline="") as stream:
+            rows = list(csv.DictReader(stream))
+        if len(rows) != 2 or {row["filename"] for row in rows} != {"ABC-001_Rev2.txt", "XYZ-002_Rev1.txt"}:
+            msg = "Wheel-installed file_inventory.py returned unexpected CSV records."
+            raise RuntimeError(msg)
+
+        invalid = _run_installed_wrapper(
+            "file-management-python/file_inventory.py",
+            work,
+            expected_root,
+            "--basename",
+            "invalid/subdirectory",
+            "--no-excel",
+            "--no-pause",
+        )
+        if invalid.returncode != 2 or (work / "invalid").exists():
+            msg = f"Wheel-installed file inventory validation/exit contract failed: {invalid.returncode}"
+            raise RuntimeError(msg)
+
+        listing = _run_installed_wrapper(
+            "file-management-python/list_files_recursive.py",
+            work,
+            expected_root,
+            "--input_directories",
+            str(input_dir),
+            "--no-pause",
+        )
+        listing_path = input_dir / "filenames.txt"
+        if listing.returncode != 0 or not listing_path.is_file():
+            msg = f"Wheel-installed recursive listing failed: {(listing.stdout + listing.stderr)[-1000:]}"
+            raise RuntimeError(msg)
+        lines = listing_path.read_text(encoding="utf-8").splitlines()
+        if str(input_dir / "ABC-001_Rev2.txt") not in lines or str(input_dir / "XYZ-002_Rev1.txt") not in lines:
+            msg = "Wheel-installed recursive listing has missing source paths."
+            raise RuntimeError(msg)
+
+        _check_installed_po_labels(expected_root, work)
+
+        print("Wheel-only wrapper behaviour passed: help, CSV, invalid input exit, file listing, 2d_po labels.")
+
+
 def _check_vendored_similarity() -> None:
     """Verify the installed simil algorithm without loading PyHMA."""
     if "vendor.PyHMA" in sys.modules:
@@ -69,6 +216,30 @@ def _check_vendored_similarity() -> None:
         raise RuntimeError(msg)
 
 
+def _check_installed_script_help() -> None:
+    """Run only help for representative installed CLI wrappers, without a checkout."""
+    if importlib.util.find_spec("geopandas") is None:
+        # The isolated wheel smoke intentionally uses --no-deps. Do not claim
+        # full CLI readiness when runtime GIS dependencies are absent.
+        print("CLI --help not exercised: isolated --no-deps environment lacks geopandas.")
+        return
+    scripts_directory = Path(ryan_library.__file__).absolute().parent.parent / "ryan-scripts"
+    for relative in ("culvert.py", "floodway.py"):
+        script = scripts_directory / relative
+        result = subprocess.run(
+            [sys.executable, str(script), "--help"],
+            check=False,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
+        )
+        if result.returncode != 0 or not result.stdout.strip():
+            msg = f"Installed {relative} --help failed (exit {result.returncode}): {result.stderr[-500:]}"
+            raise RuntimeError(msg)
+
+
 def main(argv: list[str] | None = None) -> int:
     """Verify metadata, import locations, resources and small public operations."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -81,7 +252,7 @@ def main(argv: list[str] | None = None) -> int:
 
     installed_version = importlib.metadata.version("ryan-tools")
     metadata = importlib.metadata.metadata("ryan-tools")
-    if metadata["Requires-Python"] != ">=3.13":
+    if metadata["Requires-Python"] != ">=3.14":
         msg = "Installed wheel does not declare the supported Python baseline."
         raise RuntimeError(msg)
 
@@ -119,6 +290,9 @@ def main(argv: list[str] | None = None) -> int:
 
     _check_installed_scripts()
     _check_installed_wrapper_copy()
+    if args.expected_root is not None:
+        _check_installed_wrapper_behaviour(args.expected_root.resolve())
+    _check_installed_script_help()
     _check_vendored_similarity()
 
     print(f"Installed-wheel smoke test passed for ryan-tools {installed_version}.")

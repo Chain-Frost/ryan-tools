@@ -1,0 +1,140 @@
+# Script remediation and acceptance backlog — PR #137
+
+**Status (1 November 2026): 47 retained IDs; 46 open/deferred/partially verified and
+AB-023 explicitly closed by maintainer decision. Not a merge gate completion certificate.**
+This is the durable work queue for the A/B audit of `ryan-scripts/`, maintained alongside the
+[151-file lifecycle inventory](2026-10-19-installed-scripts-inventory.md)
+and [original requirements](2026-10-17-installed-scripts-original-requirements.md).
+New findings about individual scripts must be added or updated here, not lost
+inside CI logs or an informal PR comment.
+
+## How to use this record
+
+- Each path below is relative to `ryan-scripts/`. **Fix** means code may need
+  changing; **Decision** requires the maintainer to approve lifecycle/CLI
+  semantics; **Verify** needs tests and evidence; **External** needs a configured
+  Windows engineering application or representative engineering data.
+- **Open** means identified through source inspection, **not** yet fixed or
+  acceptance-tested. **Partially verified** means only the named bounded
+  regression exists. **Blocked** indicates a decision, fixture, or application
+  still required. A source-inspected ledger row is not a completed task.
+- Do not silently change existing defaults, retire scripts, alter package or
+  MCP allowlists, or execute destructive workflows on production data.
+  Any proposed change to a selected script first needs existing-user
+  compatibility assessment and focused regression coverage.
+- Agent 1 owns A/B implementation and this record; Agent 2 owns MCP/C and
+  external-environment/F acceptance. Coordinate overlapping integration
+  evidence without modifying each other's files.
+- Close an item only with a commit/test or documented maintainer decision
+  linked here. Keep the ID, historical evidence and decision in place rather
+  than deleting the row. Synthetic tests alone do not imply native acceptance.
+- The **151 inventory entries include documentation and other non-executables**;
+  **85 wheel-selected files include resources, not only runnable wrappers**.
+  A repository-only/versioned script need not pass a modern maintained-wrapper
+  engineering acceptance matrix unless the maintainer actually adopts it.
+  Only actively maintained/exposed and safety-sensitive workflows need
+  proportionate execution, output and lifecycle acceptance.
+
+## Primary work categories (triage, not a merge checklist)
+
+The **47 IDs are retained in the table below**, including closed items. Assign
+each ID a primary category for future maintenance; a task may also involve
+secondary safety, lifecycle or engineering concerns. Do not repeat tests already
+accepted merely because an older checklist named them.
+
+| Primary category | AB IDs | Required disposition |
+| --- | --- | --- |
+| Active installed/workflow safety | AB-002, AB-003, AB-004, AB-005, AB-006, AB-007, AB-008, AB-009, AB-012, AB-013, AB-017, AB-021, AB-027, AB-030, AB-045 | Review destructive writes, overwrites, external launches, recovery and safe defaults for workflows actively offered to users. AB-008 remains deliberately deferred. |
+| External/engineering acceptance | AB-001, AB-010, AB-011, AB-018, AB-019, AB-020, AB-022, AB-024, AB-025, AB-026, AB-028, AB-029, AB-046, AB-047 | Test only the relevant native application, real data, installed-wheel behaviour or engineering result parity not previously verified. TUFLOW launcher/initialisation are tracked in the safety group (AB-012/013), and native ASC_to_ASC in AB-029. |
+| Historical/repository-only lifecycle | AB-014, AB-015, AB-016, AB-033, AB-034, AB-035, AB-036, AB-037, AB-038, AB-039, AB-040, AB-041, AB-042, AB-043, AB-044 | Keep out of the wheel/MCP unless explicitly adopted; decide retain-as-reference, maintain, promote or retire. **No blanket functional sign-off for historical/experimental files.** |
+| Cross-cutting inventory/contract | AB-031, AB-032 | AB-031: classify source/resource lifecycle proportionately. AB-032: validate selected executable-wrapper contracts by risk, not every packaged non-executable. |
+| Accepted/closed | **AB-023** | HY-8 comparison and acceptance: **closed by maintainer decision, 1 November 2026**. See the existing accepted evidence in [ryan-culverts PR #29](https://github.com/Chain-Frost/ryan-culverts/pull/29). No new HY-8 numerical or wrapper-acceptance campaign for #137. |
+
+**Native TUFLOW remains open** where script-specific: AB-012 (simulation runner),
+AB-013 (project initialisation), AB-029 (ASC_to_ASC raster tools), and the
+read-only model/report checks under AB-046/047 as applicable. For those,
+verify licensed executables, controlled fixtures, completion/failure/interrupt
+semantics and model/output behaviour as appropriate, not indiscriminate live
+project execution.
+
+**Windows/UNC remains scoped by workflow**, not an unfulfilled universal
+network gate. Earlier authorised Windows tests already covered mapped/UNC
+wrapper-copy, long paths and bounded GDAL/QGIS checks. Only the specific
+remaining network, lock and interruption cases recorded in the relevant AB
+rows and the [Windows evidence](../mcp-handoff/2026-10-21-cf-windows-acceptance.md)
+need further acceptance; no blanket rerun of proven tests.
+
+## Priority script work
+
+| ID | Priority / kind | Script | Work still required and acceptance condition | State |
+| --- | --- | --- | --- | --- |
+| AB-001 | High / Fix + Verify | `RORB-python/rorb-peaks_v2.py` | Import-time `os.chdir`, recursive `.out` discovery, CSV writing and missing-file exceptions have been moved behind guarded `main()` (`72ecdbd`); the default scan and report folder remains script-adjacent. Original higher-median TP selection, fixed column parsing, filename fields and skip counters are retained. Added disposable tests for import/cwd/output safety, absent input, valid RORB-format CSV extraction, upper median and input preservation (`1c68ebe`). **Still required:** real RORB `.out` parity, output overwrite/CSV schema acceptance and maintainer decision on repository-only lifecycle. | Implementation and synthetic tests committed; CI and real-data acceptance pending; excluded |
+| AB-002 | High / Decision + Verify | `TUFLOW-python/gis_processing/rename_geopackage_layer_to_filename.py` | PR #143 has merged into main, but this script still relies on editable script-adjacent settings, console keypress and a single-layer rebuild/replacement. The separate #143 preflight work does not constitute this wrapper's atomicity, no-pause or GeoPackage metadata acceptance. Validate on disposable single/multi-layer GPKGs before promoting its lifecycle. | Open; source retained; no duplicate #143 implementation |
+| AB-003 | High / Verify | `TUFLOW-python/model_management/delete_duplicate_check_files.py` | Main PR #168 has merged dated reports, proposal reuse, retained-file validation, path/alias protections, storage accounting and partial/interrupted deletion recovery with focused tests. Re-assess the current destructive workflow and approval semantics against those tests; remaining requirements include authorised Windows/UNC and locked-file acceptance and explicit lifecycle approval. Do not run against production check outputs in CI. | Code improvements in merged #168; exact integrated CI and external destructive acceptance open |
+| AB-004 | High / Decision + Fix | `TUFLOW-python/raster_processing/mask_velocity_by_depth.py` | Project-default Q: path; moves the original velocity TIFF to a backup and produces a replacement. Require explicit input/confirmation, idempotence and CRS/nodata/resampling tests before calling the selected workflow safe. | Open |
+| AB-005 | High / Decision + Fix | `file-management-python/archive_extract.py` | Unique staging retains existing workspaces. Added ZIP/TAR preflight for parent/absolute/drive paths, ZIP symlinks and TAR links/devices; archive groups with colliding output stems now fail before launching workers. Synthetic regression coverage includes malicious members, valid ZIP and name collisions. **Still open:** 7z/RAR-specific members, decompression bombs, input substitutions after preflight, POSIX directory publication races, interruptions and Windows/UNC/7-Zip integration. | Bounded synthetic/hosted acceptance verified at `d478d29` (all six CI green; 1,482 passed, 14 skipped, 7 deselected). External/security acceptance still open |
+| AB-006 | High / Fix + Verify | `gdal-python/gdal_raster_to_xyz.py` | Staged promotion no longer unlinks an existing output before `Path.replace` (`91a4ec6`). Synthetic success and failed-promotion cases were included in the six passing PR jobs at `8d784cf`. Real GDAL/Windows locked-file, symlink and CSV parity remain open. | Synthetic CI verified on prior PR head; current integration and external validation pending |
+| AB-007 | High / Decision + Fix | `gdal-python/gdal_set_nodata.py`, `gdal-python/gdal_unset_nodata.py` | Both modify TIFF metadata in place. Decide whether explicit mutation approval/dry-run is needed. Validate band selection, pixel preservation, nodata and transparency in QGIS/GDAL, errors and no-overwrite assumptions. | Open |
+| AB-008 | High / Deferred decision | `gdal-python/vacuum_geopackages.py` | In-place SQLite VACUUM and backup/preview policy need explicit maintainer decision. Draft PR #153 was deliberately closed without merge; no VACUUM policy code change should be restored as part of this PR. | Deferred at maintainer direction; repository implementation unchanged |
+| AB-009 | High / Decision + Fix | `TUFLOW-python/log_processing/append_log_summary_to_master_workbook.py` | Defaults to a project Q: workbook and appends rows. Confirm explicit workbook selection, duplicate recognition, workbook/Excel-table preservation, lock handling, backup/atomicity and appropriate nonzero errors. | Open |
+| AB-010 | High / Decision + Verify | `docx-python/word_style_audit.py` | An explicit DOCX CLI input overrides the editable default; synthetic OOXML error, precedence and report tests passed in the prior #137 CI. Real Word style/format fidelity and lifecycle owner approval remain outstanding. | Code and synthetic tests previously verified; current integration CI and real document acceptance open |
+| AB-011 | High / Fix + Verify | `RORB-python/hydrograph_extract_rorb_csv.py`, `python-not-polished/hydrograph_extract_rorb_csv-opt2_132.py` | The wheel-selected RORB script now accepts optional `--input-directory`, `--no-pause` and standard `--help` while retaining the original script-adjacent defaults and Enter pause for interactive execution (`f2f69b1`). Added copied-script synthetic CSV→Excel/PNG, input-preservation, missing-directory and CLI-help tests; the selected wrapper is added to the representative `--help` matrix. **Verified:** CI green on `b8f7cc9`, 1,470 hosted passes, 14 skipped and 7 deselected. **Still open:** full installed-wheel result parity, filename/selected-column generalisation, real RORB data, the historic no-matching-data exit-zero contract, and headless support for the separate repository-only Opt2 variant. | Selected wrapper implemented and CI verified; real RORB output and excluded Opt2 acceptance open |
+| AB-012 | High / Decision + Verify | `TUFLOW-python/model_management/run_tuflow_simulations.py` | Windows/TUFLOW launcher uses configurable binary/project paths and can execute many models. Validate correct script defaults, no unintended launches, `--demo-dashboard` behaviour, command quoting, event/scenario expansion, progress and Ctrl-C, licensing, exit status and network paths on a controlled workstation. | Blocked: local TUFLOW |
+| AB-013 | High / Decision + Verify | `tuflow/init_tuflow_project.py` | Creates templates and asks a real TUFLOW executable for canonical empty GIS files. Verify `--overwrite` refusal/preservation, copied resources, path independence of installed wheel and correct project scenarios; C: executable is only an editable default, not guaranteed user environment. | Blocked: local TUFLOW |
+| AB-014 | Medium / Fix + Verify | `point-cloud-python/clean_xyz.py` | Repository-only XYZ cleaner atomically replaces input files with no dry-run or backup. Decide backup/preview requirements before any use or promotion, validate sentinel matching and malformed rows on copied samples. | Open; excluded |
+| AB-015 | Medium / Fix + Verify | `raster-python/tif_to_xyz_drop_na_v1.py`, `raster-python/tif_to_xyz_drop_na_v2.py` | Repository-only converters have unconditional Windows/console pause, project-default folders and distinct memory/chunking behaviour. Retain exclusion; compare cell-centre/nodata/row order and add headless handling only if maintainers adopt them. | Open; excluded |
+| AB-016 | Medium / Decision + Verify | `hydrology-python/RFFE_Only_v6.py`, `hydrology-python/RFFE_Only_v6_standalone.py` | Two RFFE clients target an HTTP service. Decide supported implementation and service endpoint/transport policy; validate request/response schema, unsafe filenames, rate limits, failures and CSV outputs against controlled fixtures before promotion. | Open; excluded |
+| AB-017 | Medium / Fix + Verify | `TUFLOW-python/po_and_timeseries/plot_po_scenario_timeseries.py` | Wheel-selected but project-specific Q: results/cache and interactive plots without a normal CLI/no-pause path. Decide whether repository-only is more appropriate; verify scenario filtering and a headless plot/export path if retained. | Open |
+| AB-018 | Medium / Decision + Verify | `gdal-python/audit_CRS.py` | Selected script has placeholder Q: roots, hard-coded CSV report, uses `Path.resolve()` for routine output and has no argparse/no-pause. Determine if a reusable CLI is intended and verify GPKG/FLT/GeoTIFF CRS reporting in GDAL-enabled Windows. | Open |
+| AB-019 | Medium / Verify | `file-management-python/archive_compress_folder.py`, `file-management-python/archive_compress_individual.py` | Prove 7-Zip discovery, existing archive skip semantics, input preservation, excluded folders/extensions, exit codes, no-pause and concurrent worker behaviour on disposable folders/UNC. | Blocked: local 7-Zip acceptance |
+| AB-020 | Medium / Verify | `gdal-python/build_VRT.py`, `gdal-python/gdal_merge.py`, `gdal-python/gdal_merge_by_extent.py` | Use synthetic rasters to validate filename grouping, CRS preconditions, extent filtering, actual VRT/GeoTIFF content, nodata/resampling, sidecars and original-default compatibility. | Open |
+| AB-021 | Medium / Verify | `gdal-python/gdalwarp_clip_to_polygon.py`, `gdal-python/batch_vector_clip.py`, `gdal-python/split_vector_by_attribute.py` | Test clipped outputs with generated vector/raster data; check output collision, SQL quoting, attribute NULL/Unicode, CRS, failure rollback and overwrite boundaries, including native GDAL. See dedicated AB-045 for known pre-promotion deletion in vector clipping. | Blocked: GDAL integration |
+| AB-022 | Medium / Verify | `gdal-python/gdal_stage_storage.py`, `gdal-python/gdal_flood_extent.py`, `gdal-python/gdal_raster_footprint.py` | Verify elevation-volume units, nodata, mask polygons, cell areas and input/output formats with reference datasets and known answers; keep staged outputs/overwrites safe. | Open |
+| AB-023 | Medium / Accepted decision | `tuflow/tuflow_culvert_from_1d_nwk.py`, `tuflow/tuflow_culvert_from_maximums.py`, `tuflow/tuflow_to_hy8.py`, `culvert.py`, `floodway.py` | **Closed 1 November 2026 by maintainer decision.** The existing HY-8/`ryan-culverts` numerical comparison evidence is accepted via merged [ryan-culverts PR #29](https://github.com/Chain-Frost/ryan-culverts/pull/29) and the independent `run-hy8` work. Do **not** repeat the solver comparisons or require an additional HY-8 wrapper/baseline acceptance run as a PR #137 gate. The 22 October Windows host only located the HY-8 executable; this closure is a scope/acceptance decision based on existing independent evidence, **not a claim that host performed HY-8 simulations**. Future changes to wrappers still need ordinary targeted regressions proportional to the modification; they do not reopen this item automatically. | **Closed — maintainer accepted existing HY-8 evidence; no additional #137 HY-8 acceptance required** |
+| AB-024 | Medium / Verify | `TUFLOW-python/po_and_timeseries/generate_2d_po_label_list.py` | Disposable SQLite/GPKG-like label and missing-input tests plus isolated-wheel smoke passed in the previous #137 CI. A real GDAL-valid GeoPackage, layer/label semantics, output overwrite behaviour and current integrated CI still need checking. | Bounded prior hosted/wheel checks passed; real GPKG acceptance pending |
+| AB-025 | Medium / Verify | `TUFLOW-python/culvert_results/`, `TUFLOW-python/po_and_timeseries/` | Complete original CLI/default/no-pause/output and results tests for 1D/2D culvert/PO/POMM wrappers; verify per-event/duration/TP aggregation, version banners, Excel/Parquet and no hidden project paths. | Open; source read, selected CLI tests bounded |
+| AB-026 | Medium / Verify | `gdal-python/convert_gdb_to_gpkg.py`, `gdal-python/laz_to_las.py`, `gdal-python/gdal_retile_wrapper.py`, `gdal-python/gdal_translate_TIF_ovr.py` | Verify feature/point/raster counts, CRS/metadata and layer identity, tiling/overviews and driver availability from installed wheel in GDAL/OSGeo4W on Windows. | Blocked: GDAL/point-cloud fixtures |
+| AB-027 | Medium / Verify | `misc-python/remove_excel_protection.py`, `docx-python/word_style_audit.py` | Use synthetic macro/nonmacro and style-rich Office files; prove only intended ZIP/XML changes and metadata/relationships preservation; validate output and error codes. | Open |
+| AB-028 | Medium / Verify | `other/audit_qgis_projects.py`, `other/repair_qgis_project_paths.py`; `ryan_library/functions/qgis_project.py`, `qgis_auxiliary.py` | **QGS/QGZ only; separate entry points.** Source auditor is read-only by design, defaults to metadata-only existence checks, and separately allows one-byte cold-storage ping (may incur retrieval charges) and bounded QGD inspection. Path remapping, project relocation and copy-only output are owned by the dedicated repair wrapper. It creates `<input>_repaired.qgs/.qgz` beside the input by default when changes exist; `--no-write` previews and `--output` selects a custom new destination. Originals are untouched and all existing output/QGD destinations are protected. **Outstanding:** real Windows UNC/mapped-drive and native QGIS/provider/path acceptance, auxiliary SQLite concurrency and large QGD datasets. Broader QGIS management remains in [issue #169](https://github.com/Chain-Frost/ryan-tools/issues/169). | Focused synthetic/unit/CLI tests in PR #154; packaging newly includes the repair script but it is not MCP-catalogued; exact-head CI and external acceptance pending |
+| AB-029 | Medium / Verify | `TUFLOW-python/raster_processing/run_asc_to_asc_*.py`, `TUFLOW-python/raster_processing/run_grouped_asc_to_asc_statistics.py`, `TUFLOW-python/raster_processing/run_python_raster_calculations.py` | Verify dry-run is truly non-mutating, executable selection and batching, per-duration means/medians/maxima, output naming/collision, source rasters and exact parity against native ASC_to_ASC for comparable inputs. | Blocked: native TUFLOW raster tools |
+| AB-030 | Medium / Verify | `file-management-python/file_inventory.py`, `file-management-python/list_files_recursive.py`, `RORB-python/plot_ensemble_results.py`, `gdal-python/recompress_geotiffs.py` | Existing copied-wrapper and isolated-wheel smoke tests prove only named CSV/list/error paths. Finish original defaults, Excel export, plotting, real raster replacement, network paths, resources and representative output parity. | Partially verified |
+| AB-031 | Medium / Lifecycle | All **151** source/resource entries | All 151 now have specific bounded source, companion or previously recorded safety/CLI evidence; obtain named owner/reviewer and explicit keep/promote/retire decisions and acceptance for each, including the binary PDF-XChange configuration that was not decoded. A populated ledger is not a completed lifecycle review. | Initial source/resource evidence populated; owner sign-off outstanding |
+| AB-032 | Medium / Completion | The **85 wheel-selected files** / maintained wrappers | Complete A/B installed-wrapper execution matrix: source defaults versus copied/wheel execution, `--help`, `--no-pause`, version, exit code, file resources, successful and failing runs. Distinguish 85 packaged resources from executable wrappers and 34 MCP targets; maintainer signs off decisions only after evidence. | Open |
+
+| AB-033 | High / Decision + Fix | `cad-python/polyface_parquet_to_gpkg.py` | Deletes an existing output GPKG before rebuilding it, without an `--overwrite` consent flag or staged rollback. Keep excluded; require safe replacement, collision checks and synthetic Parquet/3D GPKG parity if adopted. | Open; excluded |
+| AB-034 | High / Decision + Fix | `unsorted-bat/del_xf.bat` | Recursively removes every `xf` directory via `rd /s /q` with no dry-run/approval. Leave repository-only; obtain explicit maintainer decision, restricted targets and an opt-in preview if ever supported. Never run automatically. | Open; excluded |
+| AB-035 | High / Decision + Fix | `powershell/self-signing.ps1` | Generates/trusts code-signing certificates in the current-user root/publisher stores and signs a configured script. Security-sensitive operation; keep excluded and require explicit confirmation, target checks and certificate trust review. | Open; excluded |
+| AB-036 | High / Decision + Fix | `other/shapefile-explorer-types.ps1` | Writes HKCU file associations and forcibly restarts Windows Explorer. Preserve intent but propose opt-in restart/registry backup, verify UserChoice protection and use Windows-only tests if maintained. | Open; excluded |
+| AB-037 | High / Decision + Fix | `fix-chatgpt-type-hints.py` | Recursively rewrites Python files in place using `open(..., "w")`, without dry-run/atomicity/rollback. Keep excluded; prefer Ruff-assisted codemods and verify diffs before running. | Open; excluded |
+| AB-038 | High / Decision + Fix | `powershell/date_to_front_of_msg_v3.ps1`, `file-management-python/rename-msg-files-argparse-folder.py` | Rename original MSG files immediately with no preview/rollback; PowerShell variant also auto-installs a module. Document collision/idempotence and require opt-in dry-run plus preserved original files in synthetic fixtures. | Open; excluded |
+| AB-039 | Medium / Lifecycle + Verify | `unsorted-bat/shutdown-a.bat`, `unsorted-bat/VACUUM.BAT`, `gdal-bat/gdal_edit_Set_nodata.bat` | Legacy scripts respectively cancel shutdowns in an unbounded loop, vacuum live databases or edit NoData metadata in place; keep excluded and decide whether to retire or maintain independently after privilege/side-effect review. | Open; excluded |
+| AB-040 | Medium / Verify | `cad-python/dtm_str_converter_to_gpkg.py`, `cad-python/extract_dxf_polyface.py`, `cad-python/process_arch_d.py`, `AutoCAD-python/dwg-to-points.py` | Keep specialist CAD utilities repository-only pending synthetic/real DXF/Surpac/ARCH_D fixtures, 3D geometry and units/CRS checks, output overwrite handling and input-size performance tests. | Open |
+| AB-041 | Medium / Verify | `pdf-python/break_pdf_signatures.py`, `pdf-python/ocg_clean_file.py`, `pdf-python/ocg_clean_file_alternative.py`, `pdf-python/pypdf_decrypt.py`, `pdf-python/remove_pdf_restrictions.py` | Only process documents the user is authorised to modify; verify output is distinct, page content, forms/annotations, signatures and PDF structure are preserved or deliberately altered as documented. No blanket promotion. | Open |
+| AB-042 | Medium / Verify | `TUFLOW-bat/`, `gdal-bat/`, `unsorted-bat/dir*.bat`, `unsorted-python/*water_level_profile*.py` | Project-specific batch/profile examples use fixed drives, pauses and/or native binaries; compare with maintained Python wrappers, record replacement candidates and validate any portable equivalent before retiring. | Open |
+
+| AB-043 | Medium / Verify + Decision | `unsorted-python/convert_shapefiles_to_gpkg.py` | Repository-only standalone converter already has explicit CLI, version and dry-run. Verify actual GDAL/OGR schema-matching empty templates, every TUFLOW geometry type, layer metadata, no unintended overwrite and correct error report/exit code before any packaging recommendation. Coordinate any changes with its existing standalone-wrapper maintenance. | Open; excluded |
+| AB-044 | Low / Resource decision | `other/PDFXChangeEditorSettings_250206.xces` | Proprietary binary application-settings asset could not be parsed as UTF-8 source. Keep excluded, identify owning application/maintainer and verify contents in PDF-XChange Editor before declaring its lifecycle accepted. | Open; non-executable |
+
+| AB-045 | High / Fix + Verify | `gdal-python/batch_vector_clip.py` | Fixed pre-promotion deletion: same-volume GeoPackages use `Path.replace` directly; Shapefile sidecars are backed up in a private sibling directory with best-effort rollback and nonrecursive recovery preservation. Restricted deletion to recognised Shapefile members so unrelated same-stem files survive. Synthetic tests cover success, failure during staging/promotion, incomplete rollback recovery, stale metadata, no-overwrite and unrelated-file preservation. **Not guaranteed atomic for multi-file Shapefiles or abrupt termination**; test real GDAL outputs, Windows file locks, symlink/junction races, permissions and recovery procedure before production acceptance. | Fix and synthetic regressions verified: CI all six jobs green at `0f174d1` (1,458 hosted passes); Windows/real GDAL/interruption acceptance open |
+| AB-046 | Medium / Verify | `TUFLOW-python/model_management/check_tuflow_inputs.py` | Integrated from current main (#143). This guarded, selected/MCP-catalogued preflight reads proposed-run TCF/commands and emits a CSV without launching TUFLOW. Preserve main's PyTUFLOW dependency and test suite. Verify isolated-wheel invocation, CLI/error/exit/output behaviour, relevant Windows/UNC and real TUFLOW input references; do not infer that a model simulation was run. | Included from main; current PR wheel and workflow acceptance pending |
+| AB-047 | Medium / Verify | `tuflow/find_missing_tlf_runs.py` | **Independent TUFLOW work, not QGIS.** Test TLF log/run discovery, missing simulation permutations, scan roots, error statuses and read-only reporting on synthetic and representative TUFLOW filenames. Do not import or couple to QGS/QGZ handling. | Open; separate implementation and acceptance required |
+
+## Recently verified bounded results
+
+- The integrated PR #137 head `060fc17` passed all six checks: 1,674 hosted tests passed, 25 skipped, 7 deselected; strict Pyright reported zero errors/warnings. These are exact tested-revision results, not native TUFLOW/HY-8 or production-file validation. Later documentation-only revisions must retain their own CI evidence.
+- `tests/scripts/test_installed_wrapper_behaviour.py` exercises disposable
+  input/report scenarios. The PO-label test uses a minimal SQLite representation
+  of a GPKG table, **not** a full driver-valid GeoPackage and not production GIS.
+- `tests/scripts/test_repository_only_hydrology.py` verifies AEP/ARI
+  mathematical round trips and invalid input handling of a pure helper; it does
+  not demonstrate ARR-engineering method validation or package eligibility.
+
+## Tracking and ownership
+
+Record the fixing PR/commit, tested platform and acceptance evidence beside the
+corresponding item when implemented. Retain blocked items until the maintainer provides a relevant native Windows,
+QGIS, TUFLOW or 7-Zip result or explicitly changes scope. **HY-8 AB-023 was
+closed by an explicit decision** and must not be treated as still blocked.
+The [original A–F requirements](2026-10-17-installed-scripts-original-requirements.md)
+remain authoritative. PR #137 stays open until the required A/B work is
+implemented or deliberately deferred through a visible maintainer decision.
