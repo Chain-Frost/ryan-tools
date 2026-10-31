@@ -179,13 +179,11 @@ def test_nested_import_side_effect_is_not_protected_by_inner_equality() -> None:
 
 
 def test_function_definition_time_mutations_are_flagged_without_execution() -> None:
-    """Defaults, decorators and annotations evaluate before the function runs."""
+    """Decorators and defaults execute eagerly; Python 3.14 annotations are deferred."""
     expressions = (
         "@shutil.copy2('source', 'destination')\ndef method():\n    pass\n",
         "def method(x=shutil.copy2('source', 'destination')):\n    pass\n",
         "async def method(*, x=shutil.copy2('source', 'destination')):\n    pass\n",
-        "def method(x: shutil.copy2('source', 'destination')):\n    pass\n",
-        "def method() -> shutil.copy2('source', 'destination'):\n    pass\n",
         "value = lambda x=shutil.copy2('source', 'destination'): 3\n",
     )
     for expression in expressions:

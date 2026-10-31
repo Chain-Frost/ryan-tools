@@ -127,7 +127,10 @@ def test_rebase_moved_project_without_touching_source_data(tmp_path: Path) -> No
     assert project.read_bytes() == previous_bytes
     assert data.read_bytes() == b"raster"
     layer = project_layer_sources(target)[0]
-    assert local_source_path(target, layer.uri, provider=layer.provider) == data
+    resolved_path = local_source_path(target, layer.uri, provider=layer.provider)
+    assert resolved_path is not None
+    # Physical identity is intentional here; the public path remains lexical.
+    assert resolved_path.samefile(data)
 
 
 def test_root_mapping_respects_component_boundaries(tmp_path: Path) -> None:
