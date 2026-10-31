@@ -131,7 +131,7 @@ def test_interrupted_all_resets_old_success_baseline(tmp_path: Path) -> None:
         _success(log, plan, keys)
         assert not select_pending(plan, keys, log.successful_keys()).runs
         log.reset()
-        first, second = plan.runs[:2]
+        first = plan.runs[0]
         log.finish(keys[1], log.start(keys[1]), Observed(first, 0))
         log.start(keys[2])
     with CsvExecutionLog(path) as log:
@@ -140,7 +140,7 @@ def test_interrupted_all_resets_old_success_baseline(tmp_path: Path) -> None:
         assert sum(row["event"] == "RESET" for row in csv.DictReader(path.open(encoding="utf-8"))) == 1
 
 
-@pytest.mark.parametrize("tail", (b"1,START,broken", b"1,FINISH,broken", b"1,RESET,broken"))
+@pytest.mark.parametrize("tail", [b"1,START,broken", b"1,FINISH,broken", b"1,RESET,broken"])
 def test_torn_last_record_is_removed_without_losing_valid_history(tmp_path: Path, tail: bytes) -> None:
     plan = _plan(tmp_path, 1)
     identity = identify_runs(plan, fallback_executable=Path("unused.exe"), base_directory=tmp_path)[1]
@@ -171,7 +171,7 @@ def test_torn_finish_leaves_unclosed_attempt_pending(tmp_path: Path) -> None:
         assert [r.index for r in select_pending(plan, keys, log.successful_keys()).runs] == [1]
 
 
-@pytest.mark.parametrize("replacement", ("BOGUS", "START\ncorrupt".replace("\\n", "\n")))
+@pytest.mark.parametrize("replacement", ["BOGUS", "START\\ncorrupt".replace("\\n", "\n")])
 def test_corrupt_complete_records_fail_without_history_mutation(tmp_path: Path, replacement: str) -> None:
     plan = _plan(tmp_path, 1)
     identity = identify_runs(plan, fallback_executable=Path("unused.exe"), base_directory=tmp_path)[1]
@@ -187,7 +187,7 @@ def test_corrupt_complete_records_fail_without_history_mutation(tmp_path: Path, 
     assert path.read_bytes() == before
 
 
-@pytest.mark.parametrize("content", ("run,completed,return_code\n", "schema_version,event\n", "x,y,z\n"))
+@pytest.mark.parametrize("content", ["run,completed,return_code\n", "schema_version,event\n", "x,y,z\n"])
 def test_unknown_and_old_report_schemas_are_rejected(tmp_path: Path, content: str) -> None:
     path = tmp_path / "batch_runs.csv"
     path.write_text(content, encoding="utf-8")
@@ -237,17 +237,14 @@ def test_changed_model_inputs_change_identity_but_runtime_gpu_does_not(tmp_path:
 def test_windows_unc_and_switch_order_have_stable_identity() -> None:
     base = PureWindowsPath(r"Q:\Models")
     tcf = PureWindowsPath(r"\\server\share\models\flow.tcf")
-    common = dict(
+    first = PlannedRun(
         index=1,
         source=base / "list.bat",
         line_start=1,
         line_end=1,
         tcf=tcf,
         working_directory=base,
-        executable=r"C:\TUFLOW\TUFLOW.exe",
-    )
-    first = PlannedRun(
-        **common,
+        executable=r"C:\\TUFLOW\\TUFLOW.exe",
         flag_pairs=(("e1", "01p"), ("s1", "With Space")),
         arguments=("-b", "-e1", "01p", "-s1", "With Space", str(tcf)),
     )
