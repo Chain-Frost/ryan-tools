@@ -74,7 +74,8 @@ def _inspect_database(
             )
             result = db.execute(f"SELECT count(*) FROM {identifier}").fetchone()  # noqa: S608 - quoted SQLite name
             if result is None:
-                raise ValueError(f"Could not count rows in SQLite table {name}")
+                message = f"Could not count rows in SQLite table {name}"
+                raise ValueError(message)
             count = int(result[0])
             rows: tuple[tuple[str, ...], ...] = ()
             if sample_rows:
@@ -101,10 +102,12 @@ def _inspect_embedded_qgd(
         if not members:
             return None
         if len(members) != 1:
-            raise ValueError(f"Expected at most one QGD in {project_path}, found {len(members)}")
+            message = f"Expected at most one QGD in {project_path}, found {len(members)}"
+            raise ValueError(message)
         member = members[0]
         if member.file_size > _MAX_EMBEDDED_QGD_BYTES:
-            raise ValueError(f"Embedded QGD is over the inspection limit: {member.file_size} bytes")
+            message = f"Embedded QGD is over the inspection limit: {member.file_size} bytes"
+            raise ValueError(message)
         with TemporaryDirectory(prefix="qgis_qgd_inspect_") as temporary:
             copy = Path(temporary) / "auxiliary.qgd"
             with archive.open(member) as src, copy.open("xb") as dest:
@@ -112,7 +115,8 @@ def _inspect_embedded_qgd(
                 while chunk := src.read(min(1024 * 1024, _MAX_EMBEDDED_QGD_BYTES - copied + 1)):
                     copied += len(chunk)
                     if copied > _MAX_EMBEDDED_QGD_BYTES:
-                        raise ValueError("Embedded QGD exceeds the inspection limit")
+                        message = "Embedded QGD exceeds the inspection limit"
+                        raise ValueError(message)
                     dest.write(chunk)
             return _inspect_database(
                 copy,
@@ -130,7 +134,8 @@ def inspect_auxiliary_storage(project_path: Path, *, sample_rows: int = 0) -> Au
     explicitly opt-in and bounded to five records per table.
     """
     if not 0 <= sample_rows <= 5:
-        raise ValueError("sample_rows must be between 0 and 5")
+        message = "sample_rows must be between 0 and 5"
+        raise ValueError(message)
 
     suffix = project_path.suffix.lower()
     layer_names: dict[str, str] = {}
@@ -158,4 +163,5 @@ def inspect_auxiliary_storage(project_path: Path, *, sample_rows: int = 0) -> Au
 
     if suffix == ".qgz":
         return _inspect_embedded_qgd(project_path, layer_names, sample_rows)
-    raise ValueError(f"Not a QGS, QGZ or QGD file: {project_path}")
+    message = f"Not a QGS, QGZ or QGD file: {project_path}"
+    raise ValueError(message)
