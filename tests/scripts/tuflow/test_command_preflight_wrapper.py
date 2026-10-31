@@ -112,24 +112,25 @@ def test_multiple_command_files_plan_only_preserves_provenance_and_order(tmp_pat
     first.write_text("set TCF=a.tcf\n-e1 A\n-e1 A", encoding="utf-8")
     second.write_text("# comment\nset TCF=b.tcf\n-e1 A", encoding="utf-8")
     output = tmp_path / "combined.json"
-    assert entry()(
-        tcf=None,
-        commands=(first, second),
-        report=tmp_path / "issues.csv",
-        check_gpkg_layers=True,
-        working_directory=tmp_path,
-        plan_only=True,
-        plan_report=output,
-    ) == 0
+    assert (
+        entry()(
+            tcf=None,
+            commands=(first, second),
+            report=tmp_path / "issues.csv",
+            check_gpkg_layers=True,
+            working_directory=tmp_path,
+            plan_only=True,
+            plan_report=output,
+        )
+        == 0
+    )
     runs = json.loads(output.read_text(encoding="utf-8"))["runs"]
     assert [run["run_index"] for run in runs] == [1, 2, 3]
     assert [run["source_file"] for run in runs] == [str(first), str(first), str(second)]
     assert [Path(run["tcf"]).name for run in runs] == ["a.tcf", "a.tcf", "b.tcf"]
 
 
-def test_late_tcf_conflict_fails_before_checker_or_output(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_late_tcf_conflict_fails_before_checker_or_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     first = tmp_path / "first.bat"
     second = tmp_path / "second.bat"
     first.write_text("TUFLOW.exe good.tcf", encoding="utf-8")
@@ -158,12 +159,15 @@ def test_configuration_base_explicitly_controls_python_tcf(tmp_path: Path) -> No
     model.parent.mkdir()
     source = tmp_path / "inputs.bat"
     source.write_text('START /D "config" "" TUFLOW.exe model.tcf', encoding="utf-8")
-    assert entry()(
-        tcf=Path("model.tcf"),
-        commands=source,
-        report=tmp_path / "issues.csv",
-        check_gpkg_layers=True,
-        working_directory=tmp_path,
-        configuration_directory=tmp_path / "config",
-        plan_only=True,
-    ) == 0
+    assert (
+        entry()(
+            tcf=Path("model.tcf"),
+            commands=source,
+            report=tmp_path / "issues.csv",
+            check_gpkg_layers=True,
+            working_directory=tmp_path,
+            configuration_directory=tmp_path / "config",
+            plan_only=True,
+        )
+        == 0
+    )
