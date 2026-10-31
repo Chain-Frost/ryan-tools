@@ -306,7 +306,7 @@ def check_simulation_inputs(  # noqa: C901 - fail-closed public result validatio
     for run_result in run_results:
         error = getattr(run_result, "error", None)
         position = run_result.index
-        if error and not any(issue.run_index == by_position[position].index for issue in report.issues):
+        if error:
             request = by_position[position]
             report.issues.append(
                 PreflightIssue(
