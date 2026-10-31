@@ -190,7 +190,10 @@ def test_scenario_value_ending_in_tcf_is_not_control_file(tmp_path: Path) -> Non
     config = settings(tmp_path, mode="textfiles", input_files=(commands,), tcf=Path("model.tcf"))
     run = runner.prepare_plan(config).runs[0]
     assert runner._command(run, config, ()) == [
-        str(config.executable), "-e1", "event.tcf", str(tmp_path / "model.tcf")
+        str(config.executable),
+        "-e1",
+        "event.tcf",
+        str(tmp_path / "model.tcf"),
     ]
 
 
