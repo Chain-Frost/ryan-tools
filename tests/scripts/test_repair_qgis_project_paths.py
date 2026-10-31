@@ -208,6 +208,7 @@ def test_copied_repair_wrapper_defaults_and_no_write_override(tmp_path: Path, mo
     assert output.exists()
     assert project.read_bytes() == original
 
+
 @pytest.mark.parametrize("suffix", [".qgs", ".qgz"])
 def test_default_repair_writes_new_named_copy_and_refuses_repeat(
     tmp_path: Path, suffix: str, monkeypatch: pytest.MonkeyPatch
