@@ -13,6 +13,7 @@ from ryan_library.functions.tuflow.command_plan import (
     Syntax,
     parse_command_plan,
     read_command_plan,
+    read_command_plans,
 )
 
 SOURCE = PureWindowsPath(r"T:\project\launchers\runs.bat")
@@ -36,7 +37,7 @@ def parse(
 def test_reassignment_applies_only_to_later_runs_and_preserves_duplicates() -> None:
     text = HEADER + 'set "TCF=runs\\first_~e1~.tcf"\n' + FULL + "\n" + FULL + "\n"
     text += "ReM " + FULL + '\nset "tCf=runs\\second_~e1~.tcf"\n' + FULL + "\n"
-    plan = parse(text, fallback_tcf="ignored.tcf")
+    plan = parse(text)
     assert [run.index for run in plan.runs] == [1, 2, 3]
     assert [run.tcf.name for run in plan.runs] == ["first_~e1~.tcf", "first_~e1~.tcf", "second_~e1~.tcf"]
     assert [run.line_start for run in plan.runs] == [3, 4, 7]
@@ -66,7 +67,7 @@ def test_full_direct_and_bare_rows(row: str) -> None:
 
 
 def test_bare_rows_use_current_assignment_and_explicit_tcf_takes_precedence() -> None:
-    plan = parse("-e1 A\nset TCF=one.tcf\n-e1 B\n-e1 C two.tcf\nset TCF=three.tcf\n-e1 D", fallback_tcf="fallback.tcf")
+    plan = parse("set TCF=fallback.tcf\n-e1 A\nset TCF=one.tcf\n-e1 B\n-e1 C two.tcf\nset TCF=three.tcf\n-e1 D")
     assert [run.tcf.name for run in plan.runs] == ["fallback.tcf", "one.tcf", "two.tcf", "three.tcf"]
 
 
@@ -157,7 +158,7 @@ def test_termination_ignores_unreachable_tail(ending: str) -> None:
         "-e1 A -e1 B",
         "-e1",
         "-e1 -s1 EXG",
-        '-e1 "A B"',
+        "-e1 A B",
         "-e1 A one.tcf two.tcf",
         "cd D:\\other\n-e1 A",
         "popd\n-e1 A",
@@ -194,7 +195,7 @@ def test_explicit_encoding_and_read_preserve_source_bytes(tmp_path: Path) -> Non
     source = tmp_path / "runs.bat"
     original = b"REM caf\xe9\r\nset TCF=m.tcf\r\n-e1 A\r\n"
     source.write_bytes(original)
-    with pytest.raises(UnicodeError):
+    with pytest.raises(CommandPlanError, match="Cannot read or decode"):
         read_command_plan(source, initial_directory=tmp_path)
     plan = read_command_plan(source, initial_directory=tmp_path, encoding="cp1252")
     assert len(plan.runs) == 1
@@ -298,3 +299,137 @@ def test_command_list_comment_caret_does_not_hide_unsupported_statement(prefix: 
             f"-e1 First model.tcf\n{prefix} disabled ^\nIF unknown -e1 Second model.tcf\n-e1 Third model.tcf",
             syntax="commands",
         )
+
+
+def test_python_tcf_is_consistency_constraint_even_for_full_commands() -> None:
+    with pytest.raises(CommandPlanError, match=r"runs\.bat:2-2: Python TCF .*first\.tcf.*second\.tcf"):
+        parse("TUFLOW.exe first.tcf\nTUFLOW.exe second.tcf", fallback_tcf="first.tcf")
+    with pytest.raises(CommandPlanError, match=r"runs\.bat:2-2: Python TCF"):
+        parse("set TCF=first.tcf\n-e1 A other.tcf", fallback_tcf="first.tcf")
+    assert [run.tcf.name for run in parse("TUFLOW.exe first.tcf\n-e1 A", fallback_tcf="first.tcf").runs] == [
+        "first.tcf",
+        "first.tcf",
+    ]
+
+
+def test_python_tcf_fallback_uses_configuration_base_not_changed_directory() -> None:
+    source = PureWindowsPath(r"T:\\project\\launcher\\runs.bat")
+    base = PureWindowsPath(r"T:\\python")
+    plan = parse_command_plan(
+        'cd /d T:\\\\python\n-e1 A\nSTART /D T:\\\\python "" TUFLOW.exe model.tcf',
+        source=source,
+        initial_directory=CWD,
+        configuration_directory=base,
+        fallback_tcf="model.tcf",
+    )
+    assert len(plan.runs) == 2
+    assert all(run.tcf == base / "model.tcf" for run in plan.runs)
+    with pytest.raises(CommandPlanError, match="conflicts with effective imported TCF"):
+        parse_command_plan(
+            "-e1 A",
+            source=source,
+            initial_directory=CWD,
+            configuration_directory=base,
+            fallback_tcf="../other/model.tcf",
+            environment={"TCF": "model.tcf"},
+        )
+
+
+def test_overwritten_assignments_and_disabled_rows_do_not_conflict() -> None:
+    plan = parse(
+        "set TCF=unused.tcf\nset TCF=good.tcf\nrem TUFLOW.exe bad.tcf\nset TCF_05=other.tcf\n-e1 A\n@rem -e1 B bad.tcf",
+        fallback_tcf="good.tcf",
+    )
+    assert len(plan.runs) == 1
+    assert plan.runs[0].tcf == CWD / "good.tcf"
+
+
+def test_multi_file_reader_reindexes_preserves_duplicates_and_isolated_state(tmp_path: Path) -> None:
+    first = tmp_path / "first.bat"
+    second = tmp_path / "second.txt"
+    first.write_text("set TCF=a.tcf\n-e1 A\n-e1 A\ncd other\n-e1 B", encoding="utf-8")
+    second.write_text("# list comment\nset TCF=b.tcf\n-e1 A", encoding="utf-8")
+    plan = read_command_plans((first, second), initial_directory=tmp_path)
+    assert [r.index for r in plan.runs] == [1, 2, 3, 4]
+    assert [r.tcf.name for r in plan.runs] == ["a.tcf", "a.tcf", "a.tcf", "b.tcf"]
+    assert plan.runs[0].tcf == plan.runs[1].tcf
+    assert [r.source for r in plan.runs] == [first, first, first, second]
+    assert [r.working_directory for r in plan.runs] == [tmp_path, tmp_path, tmp_path / "other", tmp_path]
+    assert plan.source_files == (first, second)
+    assert plan.syntax == "mixed"
+    assert plan.directories[-1].source == second
+
+
+def test_separate_files_must_not_leak_tcf_or_cd(tmp_path: Path) -> None:
+    first = tmp_path / "first.bat"
+    second = tmp_path / "second.bat"
+    first.write_text("set TCF=a.tcf\ncd sub\n-e1 A", encoding="utf-8")
+    second.write_text("-e1 B", encoding="utf-8")
+    with pytest.raises(CommandPlanError, match="No effective TCF"):
+        read_command_plans((first, second), initial_directory=tmp_path)
+
+
+@pytest.mark.parametrize(
+    ("late_text", "match"),
+    [
+        ("-e1 B different.tcf", "Python TCF"),
+        ("IF broken", "Unsupported shell control flow"),
+        ("TUFLOW.exe -e1 B", "No effective TCF"),
+    ],
+)
+def test_late_input_error_raises_without_a_partial_plan(tmp_path: Path, late_text: str, match: str) -> None:
+    first = tmp_path / "first.bat"
+    second = tmp_path / "second.bat"
+    first.write_text("TUFLOW.exe good.tcf", encoding="utf-8")
+    second.write_text(late_text, encoding="utf-8")
+    with pytest.raises(CommandPlanError, match=match):
+        read_command_plans((first, second), initial_directory=tmp_path, fallback_tcf="good.tcf")
+
+
+def test_missing_or_undecodable_late_file_fails_with_source(tmp_path: Path) -> None:
+    first = tmp_path / "a.bat"
+    other = tmp_path / "b.bat"
+    first.write_text("TUFLOW.exe a.tcf", encoding="utf-8")
+    other.write_bytes(b"\xff")
+    with pytest.raises(CommandPlanError, match="Cannot read or decode"):
+        read_command_plans((first, other), initial_directory=tmp_path)
+    other.unlink()
+    with pytest.raises(CommandPlanError, match=r"b\.bat.*Cannot read or decode"):
+        read_command_plans((first, other), initial_directory=tmp_path)
+
+
+def test_named_tcf_variables_and_batch_roundtrip_keep_distinct_runs() -> None:
+    batch = (
+        "set TCF_05=Model_05.tcf\nset TCF_06=Model_06.tcf\n"
+        'START /LOW /MIN /WAIT "" TUFLOW.exe -b -pu0 -e1 A "%TCF_05%"\n'
+        'START /LOW /MIN /WAIT "" TUFLOW.exe -b -pu0 -e1 A "%TCF_06%"\n'
+        'START /LOW /MIN /WAIT "" TUFLOW.exe -b -pu0 -e1 A "%TCF_05%"'
+    )
+    plan = parse(batch)
+    assert [run.tcf.name for run in plan.runs] == ["Model_05.tcf", "Model_06.tcf", "Model_05.tcf"]
+    assert len(plan.runs) == 3
+    assert all(run.arguments[:4] == ("-b", "-pu0", "-e1", "A") for run in plan.runs)
+    assert all(run.start_options == ("/low", "/min", "/wait") for run in plan.runs)
+
+
+@pytest.mark.parametrize("modifier", ["/NODE 0", "/AFFINITY FF", "/SEPARATE", "/SHARED"])
+def test_start_modifiers_that_runner_cannot_honor_are_rejected(modifier: str) -> None:
+    with pytest.raises(CommandPlanError, match="Unsupported START execution modifier"):
+        parse(f'START {modifier} "" TUFLOW.exe model.tcf')
+
+
+def test_frozen_plan_and_fallback_executable_contract() -> None:
+    from dataclasses import FrozenInstanceError
+
+    run = parse("-e1 A", fallback_tcf="model.tcf").runs[0]
+    assert run.requires_executable_fallback
+    assert run.executable is None
+    assert run.arguments == ("-e1", "A")
+    with pytest.raises(FrozenInstanceError):
+        run.index = 2  # pyright: ignore[reportAttributeAccessIssue] - frozen contract test
+
+
+def test_quoted_event_value_remains_structured_for_upstream_validation() -> None:
+    run = parse('TUFLOW.exe -e1 "Wet Season" -s1 "Case A" model.tcf').runs[0]
+    assert run.flag_pairs == (("e1", "Wet Season"), ("s1", "Case A"))
+    assert run.arguments == ("-e1", "Wet Season", "-s1", "Case A", "model.tcf")

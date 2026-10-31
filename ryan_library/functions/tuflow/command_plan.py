@@ -8,8 +8,8 @@ Windows path calculations are lexical and can be tested on other platforms.
 import ntpath
 import posixpath
 import re
-from collections.abc import Iterator, Mapping
-from dataclasses import dataclass, field
+from collections.abc import Iterator, Mapping, Sequence
+from dataclasses import dataclass, field, replace
 from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
 from typing import Literal
 
@@ -29,8 +29,6 @@ _START_OPTIONS = frozenset(
         "/max",
         "/wait",
         "/b",
-        "/separate",
-        "/shared",
     }
 )
 # Retain these engine/launch switches, but do not reinterpret them as contexts.
@@ -238,8 +236,8 @@ def _simulation_arguments(tokens: list[_Token]) -> tuple[tuple[tuple[str, str], 
                 message = f"Missing value for {token}"
                 raise ValueError(message)
             value = tokens[index].text
-            if not value or value.startswith("-") or any(char.isspace() for char in value):
-                message = f"Invalid/unsupported value for {token}; spaced context values are not supported"
+            if not value or value.startswith("-"):
+                message = f"Invalid/unsupported value for {token}"
                 raise ValueError(message)
             if lower[1:] in flags and flags[lower[1:]] != value:
                 message = f"Conflicting duplicate switch {token}"
@@ -263,7 +261,7 @@ def _simulation_arguments(tokens: list[_Token]) -> tuple[tuple[tuple[str, str], 
 class _Reader:
     source: PurePath
     cwd: PurePath
-    fallback_tcf: str | None
+    fallback_tcf: PurePath | None
     syntax: Syntax
     environment: dict[str, str]
     runs: list[PlannedRun] = field(default_factory=list[PlannedRun])
@@ -319,9 +317,12 @@ class _Reader:
         self.cwd = target
         self.directories.append(DirectoryRequirement(target, line, self.source))
 
-    def _start(self, tokens: list[_Token], line: int) -> tuple[list[_Token], PurePath]:
+    def _start(self, tokens: list[_Token], line: int) -> tuple[list[_Token], PurePath, tuple[str, ...]]:
+        """Parse accepted START decorations; never replay shell scheduling."""
         cwd = self.cwd
         title_seen = False
+        directory_seen = False
+        hints: list[str] = []
         while tokens:
             token = tokens[0]
             option = token.text.casefold()
@@ -329,33 +330,35 @@ class _Reader:
                 title_seen = True
                 tokens = tokens[1:]
             elif not token.quoted and option in _START_OPTIONS:
+                hints.append(option)
                 tokens = tokens[1:]
-            elif not token.quoted and option in {"/d", "/node", "/affinity"}:
-                if len(tokens) < 2 or not tokens[1].text:
-                    message = f"Missing START {option} value"
+            elif not token.quoted and option == "/d":
+                if directory_seen or len(tokens) < 2 or not tokens[1].text:
+                    message = "START /D requires one explicit directory"
                     raise ValueError(message)
-                if option == "/node" and not tokens[1].text.isdecimal():
-                    message = "START /NODE requires an integer"
+                directory_seen = True
+                cwd = _path(tokens[1].text, self.cwd)
+                if isinstance(cwd, PureWindowsPath) and cwd.drive.startswith("\\\\"):
+                    message = "START /D with a UNC working directory requires unsupported CMD mapping"
                     raise ValueError(message)
-                if option == "/affinity" and not re.fullmatch(r"[0-9a-fA-F]+", tokens[1].text):
-                    message = "START /AFFINITY requires a hexadecimal mask"
-                    raise ValueError(message)
-                if option == "/d":
-                    cwd = _path(tokens[1].text, self.cwd)
-                    self.directories.append(DirectoryRequirement(cwd, line, self.source))
+                self.directories.append(DirectoryRequirement(cwd, line, self.source))
                 tokens = tokens[2:]
+            elif not token.quoted and option in {"/node", "/affinity", "/separate", "/shared"}:
+                message = f"Unsupported START execution modifier {token.text}; runner cannot honor it"
+                raise ValueError(message)
             else:
                 break
         if not tokens or tokens[0].text.startswith(("-", "/")):
             message = 'START requires a TUFLOW executable; put an empty "" title before a quoted executable'
             raise ValueError(message)
-        return tokens, cwd
+        return tokens, cwd, tuple(hints)
 
     def _run(self, tokens: list[_Token], start: int, end: int) -> None:
         cwd = self.cwd
         is_start = tokens[0].text.casefold() == "start"
+        start_options: tuple[str, ...] = ()
         if is_start:
-            tokens, cwd = self._start(tokens[1:], start)
+            tokens, cwd, start_options = self._start(tokens[1:], start)
         bare = tokens[0].text.startswith("-")
         executable: str | None = None
         if not bare:
@@ -373,7 +376,9 @@ class _Reader:
             raise ValueError(message)
         selected = explicit
         if selected is None and bare:
-            selected = self.environment.get("tcf", self.fallback_tcf)
+            selected = self.environment.get("tcf")
+            if selected is None and self.fallback_tcf is not None:
+                selected = str(self.fallback_tcf)
         if not selected:
             message = "No effective TCF; supply a TCF argument, SET TCF, or a fallback for bare rows"
             raise ValueError(message)
@@ -392,6 +397,7 @@ class _Reader:
                 flags,
                 tuple(token.text for token in tokens),
                 executable,
+                start_options,
             )
         )
 
@@ -459,12 +465,51 @@ class _Reader:
             self._run(tokens, start, end)
 
 
+def _configured_tcf(
+    value: str | None,
+    *,
+    source: PurePath,
+    configuration_directory: PurePath,
+) -> PurePath | None:
+    """Resolve Python's optional model setting without inspecting the filesystem."""
+    if not configuration_directory.is_absolute() or isinstance(configuration_directory, PureWindowsPath) != isinstance(
+        source, PureWindowsPath
+    ):
+        message = "Configuration directory must be absolute and match the source path flavour"
+        raise CommandPlanError(message)
+    if value is None:
+        return None
+    try:
+        tcf = _path(value, configuration_directory)
+    except ValueError as exc:
+        message = f"Invalid Python TCF configuration {value!r}: {exc}"
+        raise CommandPlanError(message) from exc
+    if tcf.suffix.casefold() != ".tcf":
+        message = f"Python TCF must have a .tcf suffix: {tcf}"
+        raise CommandPlanError(message)
+    return tcf
+
+
+def _require_matching_tcf(runs: list[PlannedRun], expected: PurePath | None) -> None:
+    """A configured Python TCF constrains every active imported occurrence."""
+    if expected is None:
+        return
+    for run in runs:
+        if run.tcf != expected:
+            message = (
+                f"{run.source}:{run.line_start}-{run.line_end}: "
+                f"Python TCF {expected} conflicts with effective imported TCF {run.tcf}"
+            )
+            raise CommandPlanError(message)
+
+
 def parse_command_plan(
     text: str,
     *,
     source: PurePath,
     initial_directory: PurePath,
     fallback_tcf: str | None = None,
+    configuration_directory: PurePath | None = None,
     environment: Mapping[str, str] | None = None,
     syntax: Syntax = "batch",
 ) -> CommandPlan:
@@ -491,10 +536,12 @@ def parse_command_plan(
     ):
         message = "Use a mapped-drive launch directory for CMD batch semantics; a UNC TCF argument is supported"
         raise CommandPlanError(message)
+    config_base = configuration_directory if configuration_directory is not None else initial_directory
+    python_tcf = _configured_tcf(fallback_tcf, source=source, configuration_directory=config_base)
     reader = _Reader(
         source,
         initial_directory,
-        fallback_tcf,
+        python_tcf,
         syntax,
         {key.casefold(): value for key, value in (environment or {}).items()},
     )
@@ -511,6 +558,7 @@ def parse_command_plan(
     if not reader.runs:
         message = f"{source}: No active simulation commands"
         raise CommandPlanError(message)
+    _require_matching_tcf(reader.runs, python_tcf)
     return CommandPlan(source, tuple(reader.runs), tuple(reader.directories), reader.ignored, syntax, (source,))
 
 
@@ -519,21 +567,84 @@ def read_command_plan(
     *,
     initial_directory: Path | None = None,
     fallback_tcf: str | None = None,
+    configuration_directory: Path | None = None,
     environment: Mapping[str, str] | None = None,
     syntax: Literal["auto", "batch", "commands"] = "auto",
     encoding: str = "utf-8-sig",
 ) -> CommandPlan:
-    """Read a BAT/CMD or command-list file using an explicit text encoding."""
+    """Read one file atomically; the Python TCF is both fallback and constraint.
+
+    Relative imported paths use each run's effective launch directory. Relative
+    Python TCF configuration uses ``configuration_directory`` or the explicitly
+    supplied initial directory, never an imported CD/START directory.
+    """
     source = path.absolute()
     directory = (initial_directory if initial_directory is not None else Path.cwd()).absolute()
+    config_base = (configuration_directory if configuration_directory is not None else directory).absolute()
     selected: Syntax = (
         ("batch" if source.suffix.casefold() in {".bat", ".cmd"} else "commands") if syntax == "auto" else syntax
     )
+    try:
+        content = source.read_text(encoding=encoding)
+    except (OSError, UnicodeError, LookupError) as exc:
+        message = f"{source}: Cannot read or decode command input: {type(exc).__name__}: {exc}"
+        raise CommandPlanError(message) from exc
     return parse_command_plan(
-        source.read_text(encoding=encoding),
+        content,
         source=source,
         initial_directory=directory,
         fallback_tcf=fallback_tcf,
+        configuration_directory=config_base,
         environment=environment,
         syntax=selected,
+    )
+
+
+def read_command_plans(
+    paths: Sequence[Path],
+    *,
+    initial_directory: Path | None = None,
+    fallback_tcf: str | None = None,
+    configuration_directory: Path | None = None,
+    environment: Mapping[str, str] | None = None,
+    syntax: Literal["auto", "batch", "commands"] = "auto",
+    encoding: str = "utf-8-sig",
+) -> CommandPlan:
+    """Return one complete, ordered plan from independent BAT/text inputs.
+
+    Each file gets fresh environment and directory stacks. All files are read
+    and checked before a plan is returned; no caller should export, validate or
+    launch commands while building this plan.
+    """
+    if not paths:
+        message = "At least one BAT/text input file is required"
+        raise CommandPlanError(message)
+    directory = (initial_directory if initial_directory is not None else Path.cwd()).absolute()
+    config_base = (configuration_directory if configuration_directory is not None else directory).absolute()
+    plans = tuple(
+        read_command_plan(
+            path,
+            initial_directory=directory,
+            fallback_tcf=fallback_tcf,
+            configuration_directory=config_base,
+            environment=environment,
+            syntax=syntax,
+            encoding=encoding,
+        )
+        for path in paths
+    )
+    if len(plans) == 1:
+        return plans[0]
+    runs = tuple(
+        replace(run, index=position) for position, run in enumerate((run for plan in plans for run in plan.runs), 1)
+    )
+    syntaxes = {plan.syntax for plan in plans}
+    merged_syntax: Syntax | Literal["mixed"] = plans[0].syntax if len(syntaxes) == 1 else "mixed"
+    return CommandPlan(
+        source=plans[0].source,
+        runs=runs,
+        directories=tuple(requirement for plan in plans for requirement in plan.directories),
+        ignored_statements=sum(plan.ignored_statements for plan in plans),
+        syntax=merged_syntax,
+        source_files=tuple(plan.source for plan in plans),
     )
