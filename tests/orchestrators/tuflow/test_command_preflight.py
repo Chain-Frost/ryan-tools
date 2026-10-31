@@ -33,11 +33,6 @@ class FakeReport:
     parse_seconds: float = 1.0
     context_seconds: float = 2.0
     inventory_seconds: float = 3.0
-    csv_headers_checked: int = 0
-    csv_column_selections_checked: int = 0
-    dependency_fragment_evaluations: int = 0
-    dependency_fragment_reuses: int = 0
-    dependency_fallback_runs: int = 0
     passed_override: bool | None = None
 
     @property
@@ -59,11 +54,14 @@ def test_interleaved_tcf_groups_preserve_global_indices_duplicates_and_options(
         return outcome(runs)
 
     monkeypatch.setattr(subject, "_check_group", checker)
-    report = subject.check_command_plan(plan(tmp_path), context_mode="batch", check_gpkg_layers=False)
+    report = subject.check_command_plan(plan(tmp_path), io_workers=3, check_gpkg_layers=False)
     assert report.passed
     assert report.run_count == report.completed_runs == 3
     assert [[run.index for run in runs] for runs, _ in calls] == [[1, 3], [2]]
-    assert all(options == {"context_mode": "batch", "check_gpkg_layers": False} for _, options in calls)
+    assert all(
+        options == {"check_gpkg_layers": False, "io_workers": 3, "maximum_directory_entries": 50_000}
+        for _, options in calls
+    )
     assert report.groups_checked == 2
     assert report.parse_seconds == 2.0
     assert report.context_seconds == 4.0
@@ -90,7 +88,7 @@ def test_one_failed_model_invalidates_its_runs_and_does_not_drop_other_models(
 
 def test_issues_csv_contains_original_line_model_and_index(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     def checker(runs: tuple[PlannedRun, ...], **_options: object) -> FakeReport:
-        issues = [FakeIssue(index) for index in reversed(range(len(runs)))]
+        issues = [FakeIssue(run.index) for run in reversed(runs)]
         return outcome(runs, issues)
 
     monkeypatch.setattr(subject, "_check_group", checker)
@@ -136,9 +134,11 @@ def test_missing_cd_destination_rejects_plan_before_checking(tmp_path: Path, mon
         subject.check_command_plan(plan(tmp_path, "cd absent\n-e1 A model.tcf"))
 
 
-def test_invalid_context_mode_fails_before_checking(tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match="context mode"):
-        subject.check_command_plan(plan(tmp_path), context_mode="invalid")  # pyright: ignore[reportArgumentType] - deliberate invalid mode
+def test_invalid_limits_fail_before_checking(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="io_workers"):
+        subject.check_command_plan(plan(tmp_path), io_workers=0)
+    with pytest.raises(ValueError, match="maximum_directory_entries"):
+        subject.check_command_plan(plan(tmp_path), maximum_directory_entries=0)
 
 
 def test_interrupt_not_converted_to_passing_report(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -150,25 +150,23 @@ def test_interrupt_not_converted_to_passing_report(tmp_path: Path, monkeypatch: 
         subject.check_command_plan(plan(tmp_path))
 
 
-def test_file_only_checks_each_model_and_preserves_source_attribution(
+def test_groups_preserve_source_attribution_and_forward_bounds(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     calls: list[tuple[tuple[PlannedRun, ...], dict[str, object]]] = []
 
     def checker(runs: tuple[PlannedRun, ...], **options: object) -> FakeReport:
         calls.append((runs, options))
-        report = outcome(runs, [FakeIssue(len(runs) - 1)])
-        report.csv_headers_checked = 1
-        report.csv_column_selections_checked = len(runs)
-        return report
+        return outcome(runs, [FakeIssue(runs[-1].index)])
 
     monkeypatch.setattr(subject, "_check_group", checker)
-    report = subject.check_command_plan(plan(tmp_path), files_only=True, io_workers=2)
+    report = subject.check_command_plan(plan(tmp_path), io_workers=2, maximum_directory_entries=200)
     assert [[run.index for run in runs] for runs, _ in calls] == [[1, 3], [2]]
-    assert all(options["files_only"] is True and options["io_workers"] == 2 for _, options in calls)
+    assert all(
+        options == {"check_gpkg_layers": True, "io_workers": 2, "maximum_directory_entries": 200}
+        for _, options in calls
+    )
     assert report.completed_runs == 3
-    assert report.csv_headers_checked == 2
-    assert report.csv_column_selections_checked == 3
     assert [issue.run.index for issue in report.issues] == [2, 3]
     assert not report.passed
 
@@ -179,13 +177,15 @@ def test_invalid_file_workers_fail_before_group_checks(tmp_path: Path, workers: 
         subject.check_command_plan(plan(tmp_path), files_only=True, io_workers=workers)
 
 
-def test_group_local_findings_map_interleaved_duplicates_exactly_once(
+def test_scope_01_global_findings_map_to_interleaved_occurrences_exactly_once(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     def checker(runs: tuple[PlannedRun, ...], **_options: object) -> FakeReport:
-        # The first local result from A corresponds to global run 1, while
-        # the second local result corresponds to the duplicate at global 3.
-        return outcome(runs, [FakeIssue(0, reference="first"), FakeIssue(len(runs) - 1, reference="last")])
+        # Scope 01 has already translated upstream local positions into the
+        # global IDs it received from this layer's RunRequest list.
+        return outcome(
+            runs, [FakeIssue(runs[0].index, reference="first"), FakeIssue(runs[-1].index, reference="last")]
+        )
 
     monkeypatch.setattr(subject, "_check_group", checker)
     report = subject.check_command_plan(plan(tmp_path))
