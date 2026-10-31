@@ -279,5 +279,3 @@ def test_audit_cli_rejects_repair_arguments() -> None:
         with pytest.raises(SystemExit) as invalid:
             parse_args([argument])
         assert invalid.value.code == 2
-
-
