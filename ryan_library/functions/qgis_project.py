@@ -242,8 +242,12 @@ def probe_local_file(path: Path, *, mode: QgisAuditMode = "existence") -> tuple[
         if mode == "existence":
             if path.is_file():
                 return True, "file exists (no content read)"
+            if path.is_dir():
+                return True, "directory exists (no content read)"
             return False, "not a regular file or does not exist"
         if mode == "cold-storage-ping":
+            if path.is_dir():
+                return False, "directory-backed dataset cannot be pinged as a regular file"
             with path.open("rb", buffering=0) as stream:
                 data = stream.read(1)
             if data:
@@ -319,6 +323,10 @@ def plan_source_path_changes(
     """
     validate_drive_mappings(drive_mappings)
     destination: Path = output_project_path.absolute() if output_project_path is not None else project_path
+    original_base = original_project_directory if original_project_directory is not None else project_path.parent
+    rebase_unmatched_relative = _normalize_local_path(original_base.absolute(), drive_mappings) != _normalize_local_path(
+        destination.parent.absolute(), drive_mappings
+    )
     changes: list[QgisSourceChange] = []
     for layer in project_layer_sources(project_path):
         source_path: Path | None = local_source_path(
@@ -332,7 +340,17 @@ def plan_source_path_changes(
             continue
         target: Path | None = _map_root(source_path, replace_root, drive_mappings)
         if target is None:
-            continue
+            # An unmatched relative source must still point to its original
+            # dataset when the repaired project is saved in another directory.
+            # Absolute and file: sources retain their original URI spelling.
+            original_path, _ = _path_parts(layer.uri)
+            if (
+                not rebase_unmatched_relative
+                or original_path.lower().startswith("file:")
+                or Path(original_path.replace("\\", "/")).is_absolute()
+            ):
+                continue
+            target = source_path
         rewritten: str = _render_source_uri(
             destination_project_path=destination,
             original_uri=layer.uri,
