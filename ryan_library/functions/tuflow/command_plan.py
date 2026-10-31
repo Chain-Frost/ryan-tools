@@ -327,20 +327,20 @@ def deduplicate_plan(plan: CommandPlan) -> CommandPlan:
     switches and GPUs are not model selections. TCFs, event/scenario values
     and retained -etN switches are relevant. Preserve first source provenance.
     """
-    # Compare model selections without collapsing distinct TCFs sharing a
-    # filename. Verified mapped-drive/UNC aliases are the same actual TCF.
-    seen: dict[tuple[tuple[tuple[str, str], ...], tuple[str, ...]], list[PurePath]] = {}
+    # Deduplicate true TCF selections, not just filenames. Canonicalize
+    # verified drive/UNC aliases without opening model files or quadratic scans.
+    seen: set[tuple[PurePath, tuple[tuple[str, str], ...], tuple[str, ...]]] = set()
     selected: list[PlannedRun] = []
     for run in plan.runs:
         _, engine = partition_model_arguments(run)
         signature = (
+            _mapped_tcf_path(run.tcf),
             tuple(sorted(run.flags.items())),
             tuple(sorted(option.casefold() for option in engine if option.casefold().startswith("-et"))),
         )
-        matching_flags = seen.setdefault(signature, [])
-        if any(same_tcf_path(run.tcf, original) for original in matching_flags):
+        if signature in seen:
             continue
-        matching_flags.append(run.tcf)
+        seen.add(signature)
         selected.append(replace(run, index=len(selected) + 1))
     return replace(
         plan,
@@ -621,22 +621,19 @@ def _network_drive_target(drive: str) -> str | None:
     return None
 
 
+def _mapped_tcf_path(path: PurePath) -> PurePath:
+    """Canonicalize an actual mapped-drive alias, otherwise keep its path."""
+    if not isinstance(path, PureWindowsPath) or not re.fullmatch(r"[A-Za-z]:", path.drive):
+        return path
+    unc_root = _network_drive_target(path.drive)
+    if unc_root is None:
+        return path
+    return PureWindowsPath(ntpath.normpath(str(PureWindowsPath(unc_root, *path.parts[1:]))))
+
+
 def same_tcf_path(left: PurePath, right: PurePath) -> bool:
     """Match lexical paths or verified Windows mapped-drive/UNC equivalents."""
-    if left == right:
-        return True
-    if not isinstance(left, PureWindowsPath) or not isinstance(right, PureWindowsPath):
-        return False
-
-    def mapped(path: PureWindowsPath) -> PureWindowsPath:
-        if not re.fullmatch(r"[A-Za-z]:", path.drive):
-            return path
-        unc_root = _network_drive_target(path.drive)
-        if unc_root is None:
-            return path
-        return PureWindowsPath(ntpath.normpath(str(PureWindowsPath(unc_root, *path.parts[1:]))))
-
-    return mapped(left) == mapped(right)
+    return left == right or _mapped_tcf_path(left) == _mapped_tcf_path(right)
 
 
 def _require_matching_tcf(runs: list[PlannedRun], expected: PurePath | None) -> None:
