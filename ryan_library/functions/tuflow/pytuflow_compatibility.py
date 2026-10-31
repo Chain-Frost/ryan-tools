@@ -9,7 +9,6 @@ from __future__ import annotations
 import importlib
 import json
 import sys
-from collections.abc import Callable
 from dataclasses import dataclass
 from importlib import metadata
 from pathlib import Path
@@ -96,7 +95,7 @@ def _source_description(dist: metadata.Distribution) -> str:
         return "unreadable direct_url.json"
 
 
-def _probe() -> tuple[CompatibilityStatus, object | None, object | None]:
+def _probe() -> tuple[CompatibilityStatus, object | None, object | None]:  # noqa: C901 - capability diagnostics
     interpreter = f"{sys.executable} ({sys.version.split()[0]})"
     version, module_path, source = "not installed", "not importable", "not recorded"
     dist: metadata.Distribution | None = None
