@@ -30,6 +30,7 @@ DEFAULT_WORKFLOW_LIMIT = 10
 MAX_WORKFLOW_LIMIT = 25
 TUFLOW_PROCESSOR_GUIDANCE_URI = "ryan-tools://guidance/tuflow-processors"
 
+
 # Rasterio's Cython dataset metadata is incompletely visible to strict Pyright.
 class _RasterBounds(Protocol):
     left: float
@@ -49,6 +50,7 @@ class _RasterMetadata(Protocol):
     transform: Iterable[float]
     bounds: _RasterBounds
     nodata: float | int | None
+
 
 if MCPServer is not None:
     mcp = MCPServer(
