@@ -50,6 +50,46 @@ Preparation baseline: `c1e35230d16ef014305ba0c196e68768dd4eb7cd`; relevant runti
 
 Next action: assign scopes 01–03, agree their shared plan/validation interfaces, implement and validate them on this integration workstream. Keep PR #159 draft. Do not merge or release. Earlier sections below retain historical progress and evidence rather than active conflicting requirements.
 
+### 2026-10-31 — scope 01 implementation checkpoint (isolated draft #172)
+
+[Draft scope 01 PR #172](https://github.com/Chain-Frost/ryan-tools/pull/172)
+targets the existing `feat/tuflow-runner-model-checks` integration branch, with
+exact starting head `4ddadca7546439a1c91d223d5f8a6f4d8e2205b7`.
+The accepted public-API PyTUFLOW source is immutable
+`05e35476c02d6d8ed17c83caf1cb0d185ce51d1b`. No merge or release is
+authorised.
+
+Implementation in the separate task branch
+`feat/tuflow-pytuflow-scope01-20261031` replaces local parsing/physical inspection
+with the supported PyTUFLOW `validate_batch_inputs` and explicit BC CSV headers;
+adds a lazy capability guard, source-pinned development/normal installation and
+fail-closed run mapping; and removes local raster-header validation and superseded
+adapter/inspection/parity harness files. The package's publishable PyTUFLOW version
+range and the necessary Rasterio dependency remain unchanged.
+
+[Scope 02 draft #170](https://github.com/Chain-Frost/ryan-tools/pull/170)
+owns grouped command planning and source provenance. Public findings already use
+the original global `RunRequest.index`; the scope 02 bridge must not perform a
+second group-index mapping. Scope 03 separately owns runner mode policy,
+command export and launcher migration. Both call-site integrations must complete
+before #159 is accepted. The [interface handoff](https://github.com/Chain-Frost/ryan-tools/pull/159#issuecomment-6541103265)
+and [scope 02 coordination](https://github.com/Chain-Frost/ryan-tools/pull/170#issuecomment-6541214519)
+are public discussion records.
+
+**Validation:** On hosted Windows Python 3.14, the accepted source was installed
+and the capability guard confirmed its distribution version, API and exact
+source URL. The first fixture-complete public smoke returned 22/23 passing
+focused checks; the sole failure was the installer's test mock not accepting
+a keyword argument, now corrected. CI checks on the final scoped task commit,
+an actual incompatible same-version official PyTUFLOW build, and Windows
+copied-wrapper/normal installation acceptance must still be evaluated. Prior
+historical results elsewhere in this work record do not certify this new head.
+
+**Next:** finish current-head Ruff/strict Pyright, real public-API and installer
+checks, integrate #170 and scope 03, then perform scope 06 Windows acceptance.
+Do not push to the shared integration branch or merge, release, run TUFLOW or
+modify private network models.
+
 ## 31 October 2026 - single release integration
 
 The owner authorised consolidating related PRs, closing superseded PRs, and transferring the local input-wrapper annotation edit. This section supersedes earlier stack orders and separate-PR delivery instructions below. PR #159 is the authoritative integration PR against `main`; do not merge any component separately to main. Keep draft until the interrelated runner/activity work and final validation are complete. No merge or release is authorised now.

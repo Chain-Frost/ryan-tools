@@ -171,3 +171,35 @@ def test_configuration_base_explicitly_controls_python_tcf(tmp_path: Path) -> No
         )
         == 0
     )
+
+
+def test_cli_plan_only_accepts_repeated_runs_and_boolean_gpkg_override(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    first, second = tmp_path / "a.bat", tmp_path / "b.txt"
+    first.write_text("TUFLOW.exe first.tcf", encoding="utf-8")
+    second.write_text("TUFLOW.exe second.tcf", encoding="utf-8")
+    output = tmp_path / "from-cli.json"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            str(WRAPPER),
+            "--runs",
+            str(first),
+            "--runs",
+            str(second),
+            "--working-directory",
+            str(tmp_path),
+            "--plan-only",
+            "--plan-report",
+            str(output),
+            "--no-check-gpkg-layers",
+            "--no-pause",
+        ],
+    )
+    with pytest.raises(SystemExit) as exc:
+        runpy.run_path(str(WRAPPER), run_name="__main__")
+    assert exc.value.code == 0
+    manifest = json.loads(output.read_text(encoding="utf-8"))
+    assert [Path(run["tcf"]).name for run in manifest["runs"]] == ["first.tcf", "second.tcf"]

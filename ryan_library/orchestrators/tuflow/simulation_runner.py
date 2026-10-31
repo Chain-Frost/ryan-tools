@@ -250,17 +250,35 @@ def _executable(run: PlannedRun, settings: RunnerSettings) -> str:
     )
 
 
+def _model_switches(run: PlannedRun) -> tuple[str, ...]:
+    """Remove an explicit TCF argument; the plan already owns the effective TCF.
+
+    Bare flag rows legitimately have no TCF token. Do not confuse a scenario
+    value ending in '.tcf' with a control-file argument.
+    """
+    result: list[str] = []
+    expecting_flag_value = False
+    for token in run.arguments:
+        if expecting_flag_value:
+            result.append(token)
+            expecting_flag_value = False
+        elif re.fullmatch(r"-[es][1-9]", token, re.IGNORECASE):
+            result.append(token)
+            expecting_flag_value = True
+        elif not token.startswith("-") and token.casefold().endswith(".tcf"):
+            continue
+        else:
+            result.append(token)
+    return tuple(result)
+
+
 def _model_arguments(run: PlannedRun) -> tuple[str, ...]:
-    """Use the source model switches; strip only GPU placement for execution."""
-    return tuple(token for token in run.arguments if not _GPU.fullmatch(token))
+    """Retain all accepted model switches except source GPU placement."""
+    return tuple(token for token in _model_switches(run) if not _GPU.fullmatch(token))
 
 
 def _command(run: PlannedRun, settings: RunnerSettings, group: tuple[str, ...]) -> list[str]:
-    args = list(_model_arguments(run))
-    if not args or not args[-1].casefold().endswith(".tcf"):
-        message = f"{run.source}:{run.line_start}: missing terminal TCF argument"
-        raise CommandPlanError(message)
-    return [_executable(run, settings), *args[:-1], *group, str(run.tcf)]
+    return [_executable(run, settings), *_model_arguments(run), *group, str(run.tcf)]
 
 
 def _bat_quote(value: str, *, always: bool = False) -> str:
@@ -273,11 +291,13 @@ def _bat_quote(value: str, *, always: bool = False) -> str:
 
 
 def _logical_signature(run: PlannedRun, settings: RunnerSettings) -> tuple[object, ...]:
-    # Compare effective inputs, never the export's synthetic source or START hints.
-    if not run.arguments or not run.arguments[-1].casefold().endswith(".tcf"):
-        message = f"Run {run.index} lacks a terminal TCF argument"
-        raise CommandPlanError(message)
-    return (str(run.tcf), str(run.working_directory), _executable(run, settings), (*run.arguments[:-1], str(run.tcf)))
+    # Source text can omit or reposition the TCF; compare effective model inputs.
+    return (
+        str(run.tcf),
+        str(run.working_directory),
+        _executable(run, settings),
+        (*_model_switches(run), str(run.tcf)),
+    )
 
 
 def render_batch_commands(plan: CommandPlan, settings: RunnerSettings, *, destination: Path) -> str:
@@ -294,7 +314,7 @@ def render_batch_commands(plan: CommandPlan, settings: RunnerSettings, *, destin
     exes = tuple(dict.fromkeys(_executable(run, settings) for run in plan.runs))
     tcf_names = {value: ("TCF" if len(tcfs) == 1 else f"TCF_{i}") for i, value in enumerate(tcfs, 1)}
     exe_names = {value: ("TUFLOW_EXE" if i == 1 else f"TUFLOW_EXE_{i}") for i, value in enumerate(exes, 1)}
-    arguments = [run.arguments[:-1] for run in plan.runs]
+    arguments = [_model_switches(run) for run in plan.runs]
     # Only factor common *leading engine switches*. Event/scenario values remain
     # visible on each START line even if they happen to match.
     common: list[str] = []
