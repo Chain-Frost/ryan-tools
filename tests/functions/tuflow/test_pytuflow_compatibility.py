@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import importlib
 import json
 import subprocess
 import sys
@@ -32,7 +31,8 @@ def test_official_same_version_without_batch_api_fails(
     def importer(name: str) -> object:
         if name == "pytuflow":
             return SimpleNamespace(__file__=str(root), __version__="1.2.7")
-        raise ModuleNotFoundError("No module named 'pytuflow.batch_validation'")
+        message = "No module named 'pytuflow.batch_validation'"
+        raise ModuleNotFoundError(message)
 
     monkeypatch.setattr(compatibility.importlib, "import_module", importer)
     status = compatibility.check_validation_capabilities()
@@ -57,10 +57,12 @@ def test_shadowing_checkout_is_rejected(tmp_path: Path, monkeypatch: pytest.Monk
 
 def test_missing_distribution_does_not_validate(monkeypatch: pytest.MonkeyPatch) -> None:
     def missing(_name: str) -> object:
-        raise compatibility.metadata.PackageNotFoundError("pytuflow")
+        message = "pytuflow"
+        raise compatibility.metadata.PackageNotFoundError(message)
 
     def import_failed(_name: str) -> object:
-        raise ModuleNotFoundError("No module named pytuflow")
+        message = "No module named pytuflow"
+        raise ModuleNotFoundError(message)
 
     monkeypatch.setattr(compatibility.metadata, "distribution", missing)
     monkeypatch.setattr(compatibility.importlib, "import_module", import_failed)
@@ -74,7 +76,8 @@ def test_broken_transitive_import_is_diagnosed(tmp_path: Path, monkeypatch: pyte
     monkeypatch.setattr(compatibility.metadata, "distribution", lambda _name: _installed(tmp_path))
 
     def importer(_name: str) -> object:
-        raise ImportError("h5py DLL is missing")
+        message = "h5py DLL is missing"
+        raise ImportError(message)
 
     monkeypatch.setattr(compatibility.importlib, "import_module", importer)
     result = compatibility.check_validation_capabilities()
@@ -86,10 +89,13 @@ def test_correct_build_without_direct_url_metadata_is_accepted(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(compatibility.metadata, "distribution", lambda _name: _installed(tmp_path))
-    options = SimpleNamespace(__dataclass_fields__={
+    class Options:
+        __dataclass_fields__ = {
         "check_files": None, "check_gpkg_layers": None, "check_bc_csv_headers": None,
         "io_workers": None, "maximum_directory_entries": None,
-    })
+        }
+
+    options = Options
 
     class BatchResult:
         @property
@@ -124,8 +130,8 @@ def test_validation_helper_import_is_lightweight() -> None:
     result = subprocess.run(
         [
             sys.executable, "-c",
-            "import sys; from ryan_library.functions.tuflow.pytuflow_compatibility "
-            "import check_validation_capabilities; assert 'pytuflow' not in sys.modules",
+            ("import sys; from ryan_library.functions.tuflow.pytuflow_compatibility "
+            "import check_validation_capabilities; assert 'pytuflow' not in sys.modules"),
         ],
         check=False, capture_output=True, text=True,
     )
