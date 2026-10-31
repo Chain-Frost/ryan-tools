@@ -47,6 +47,7 @@ def test_dry_run_has_public_guard_and_pip_check(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     installer = _installer()
+
     def latest(*, dist_dir: Path) -> Path:
         assert dist_dir.name == "dist"
         return tmp_path / "ryan_tools.whl"
@@ -75,6 +76,7 @@ def test_force_reinstall_dry_run_skips_false_verification(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     installer = _installer()
+
     def latest(*, dist_dir: Path) -> Path:
         assert dist_dir.name == "dist"
         return tmp_path / "ryan_tools.whl"
