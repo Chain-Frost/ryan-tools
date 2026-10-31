@@ -125,6 +125,7 @@ def test_copied_wrapper_resume_no_work_all_reset_and_follow_up(
     assert log.read_bytes() == after_all
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows command export requires native Windows paths")
 def test_export_and_configuration_failures_do_not_change_csv(
     tmp_path: Path, copied_wrapper: _Wrapper, monkeypatch: pytest.MonkeyPatch
 ) -> None:

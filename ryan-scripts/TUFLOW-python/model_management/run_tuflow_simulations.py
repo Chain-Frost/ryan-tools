@@ -1,8 +1,10 @@
 r"""Run ordered TUFLOW simulations from editable parameters or BAT/text files.
 
 Inputs: parameter products, one or more static .bat/.cmd/.txt command lists.
-Outputs: optional editable BAT export, advisory input findings, process status,
+Outputs: optional editable command TXT, advisory input findings, process status,
 append-only CSV execution history beside this wrapper.
+The TXT contains Windows batch syntax and is refreshed on each export. Its
+extension prevents accidental double-click execution; it is never run here.
 Copy this wrapper into a model folder with the matching ryan-tools wheel
 installed; no repository checkout or PYTHONPATH adjustment is required.
 
@@ -16,15 +18,23 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-31.2"
+WRAPPER_VERSION = "2026-10-31.3"
 
 # ----------------------- EDITABLE RUNNER SETTINGS -------------------------
 # Relative paths below are based on WORKING_DIR (the supplying script's folder
 # by default), not on the current terminal directory or imported BAT locations.
+# None uses this copied wrapper's folder; e.g. Path(r"P:\Project\Model").
 WORKING_DIR: Path | None = None
+# A Python TCF constrains every imported run and supplies missing bare-row TCFs.
+# Set None for imported lists containing distinct TCFs; generated runs need a TCF.
 TCF: Path | None = Path(r".\runs\PROJECT_01_~s2~_~s1~_~e1~_~e2~_~e4~_~e3~_~s4~.tcf")
+# Fallback executable for generated runs and abbreviated imported rows.
 TUFLOW_EXE = Path(r"C:\TUFLOW\tuflow-2026.3\TUFLOW_iSP_w64.exe")
+# Engine switches for EVERY run: -b suppresses completion prompts; -t tests inputs.
+# For example, "-b -t -nlc" tests inputs without a licence check. Imported engine
+# and GPU switches are replaced by this setting before export and Resume identity.
 BATCH_COMMANDS = "-b"
+# Optional generated-flag order. Unlisted flags retain RUN_VARIABLES_RAW order.
 PRIORITY_ORDER: str | None = "e3 e2 e1"
 
 # Generated parameter product; whitespace-delimited values. An explicit list
@@ -39,48 +49,73 @@ RUN_VARIABLES_RAW: dict[str, str | list[str]] = {
     "s4": "32M",
 }
 
-MODE = "parameter_product"  # parameter_product, textfiles, both
-INPUT_FILES: tuple[Path, ...] = ()  # e.g. (Path("runs.bat"), Path("additional.txt"))
-# Python TCF is a hard constraint on every imported run. Set TCF=None to allow
-# distinct TCFs in the same imported command list. Unused SET/REM are ignored.
-# Imported model arguments and cwd survive; source START priority and -pu
-# switches do NOT control scheduling. Runner GPU groups take precedence.
+# parameter_product generates combinations; textfiles imports ordered commands;
+# both places imported runs first. Intentional duplicate rows remain distinct.
+MODE = "parameter_product"
+# Sources are read in this order; e.g. (Path("runs.bat"), Path("additional.txt")).
+# Do not use this wrapper's default export TXT as input while exporting to it.
+INPUT_FILES: tuple[Path, ...] = ()
+# One tuple per concurrent GPU slot. For two slots: (("-pu0",), ("-pu1",)).
+# One multi-GPU slot: (("-pu0", "-pu1"),). Empty tuple uses automatic placement.
+# These groups control launches. Imported GPU switches are ignored. A -puN in
+# BATCH_COMMANDS is exported as written but these runtime groups take precedence.
 GPU_DEVICES: tuple[tuple[str, ...], ...] = (("-pu0",),)
-MAXIMUM_CONCURRENT: int | None = None  # defaults to one child per GPU group
+# None allows one child per GPU group, or one child with automatic placement.
+MAXIMUM_CONCURRENT: int | None = None
+# Windows process priority: LOW, BELOWNORMAL, NORMAL, ABOVENORMAL, HIGH, REALTIME.
 COMPUTATIONAL_PRIORITY = "LOW"
+# Open each solver console minimized; False opens it normally.
 MINIMIZE_ON_LAUNCH = True
+# Seconds between launch attempts. Zero starts available slots without a delay.
 WAIT_TIME_AFTER_RUN = 2.0
-RUN_SIMULATIONS = True  # False: render/export only; no solver/GPU dependency
-CONTINUATION_MODE = "resume"  # resume: skip latest observed successes; all: reset and run everything
+# False selects export-only behavior; explicit --preflight-only still checks inputs.
+RUN_SIMULATIONS = True
+# resume skips latest observed successes; all resets the baseline and runs everything.
+CONTINUATION_MODE = "resume"
 # CSV: <this_wrapper_stem>_runs.csv beside this file, even with model-specific working directories.
 # Stop the previous batch before Resume. Reexecuted runs use current model output locations.
+# Refresh the complete current command plan even when Resume has no pending runs.
 EXPORT_COMMANDS = True
-EXPORT_PATH: Path | None = None  # None: non-overwriting timestamped .bat beside wrapper
-CHECK_INPUTS = False  # Advisory background check; never blocks launches
+# None uses this wrapper's basename with .txt beside it, e.g. my_batch.py -> my_batch.txt.
+# An explicit .txt path is based on WORKING_DIR. Existing export content is replaced
+# only after validation; imported sources, the wrapper and history are protected.
+EXPORT_PATH: Path | None = None
+# Background input checks are advisory and never block launches. --preflight-only waits.
+CHECK_INPUTS = False
+# Include GeoPackage layer checks when input checking is selected.
 CHECK_GPKG_LAYERS = True
+# Show the shared live task display; False keeps ordinary console messages.
 USE_LIVE_DASHBOARD = True
+# Maximum routine dashboard refreshes per second; must be greater than zero.
 LIVE_REFRESH_PER_SECOND = 1.0
-NEXT_RUN_FILE: Path | None = None  # Python script after normal batch termination, even failed children
+# INFO shows ordinary progress; SUCCESS keeps completions, warnings and errors.
+# No extra log file is created; the execution CSV remains the persistent history.
+CONSOLE_LOG_LEVEL = "INFO"
+# Optional Python script after normal completion, including failed children and
+# all-complete Resume. None disables chaining; e.g. Path("next_batch.py").
+NEXT_RUN_FILE: Path | None = None
+# Pause at the process boundary for interactive use; --no-pause overrides this.
 PAUSE_ON_FINISH = True
 # ------------------------------------------------------------------------
 
 import argparse
-import logging
 import signal
 import subprocess
 import sys
 from collections.abc import Generator
 from contextlib import contextmanager
-from datetime import datetime
 from threading import Event
 
+from loguru import logger
+
+from ryan_library.functions.loguru_helpers import configure_serial_logging
 from ryan_library.functions.tuflow.execution_history import (
     CompletionSession,
     CsvExecutionLog,
     identify_runs,
     select_pending,
 )
-from ryan_library.functions.wrapper_utils import pause_console, print_wrapper_banner
+from ryan_library.functions.wrapper_utils import add_execution_cli_arguments, pause_console, print_wrapper_banner
 from ryan_library.orchestrators.tuflow.simulation_runner import (
     AdvisoryInputCheck,
     BatchOutcome,
@@ -91,15 +126,13 @@ from ryan_library.orchestrators.tuflow.simulation_runner import (
     prepare_plan,
 )
 
-logger = logging.getLogger(__name__)
-
 
 def _arguments(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Run an immutable, ordered TUFLOW plan. CLI options override editable Python defaults.",
         epilog=r"Example: python run_tuflow_simulations.py --mode textfiles --no-tcf --input-file runs.bat --no-pause",
     )
-    parser.add_argument("--working-directory", type=Path, help="Override WORKING_DIR (defaults to script folder).")
+    add_execution_cli_arguments(parser)
     parser.add_argument("--mode", choices=("parameter_product", "textfiles", "both"), help="Override MODE.")
     parser.add_argument(
         "--input-file", type=Path, action="append", help="Supply BAT/text input; repeat to preserve order."
@@ -126,11 +159,12 @@ def _arguments(argv: list[str] | None = None) -> argparse.Namespace:
         "--export",
         action=argparse.BooleanOptionalAction,
         default=None,
-        help="Enable/disable BAT export; defaults to editable EXPORT_COMMANDS.",
+        help="Enable/disable command TXT export; defaults to editable EXPORT_COMMANDS.",
     )
-    parser.add_argument("--export-path", type=Path, help="Non-overwriting output BAT path.")
+    parser.add_argument(
+        "--export-path", type=Path, help="Replaceable .txt command output; defaults to this wrapper's basename."
+    )
     parser.add_argument("--live-dashboard", action=argparse.BooleanOptionalAction, default=None)
-    parser.add_argument("--no-pause", action="store_true", help="Suppress interactive console pause.")
     return parser.parse_args(argv)
 
 
@@ -178,29 +212,27 @@ def _interruption_flag() -> Generator[Event]:
 def _run_follow_up(path: Path, working_directory: Path) -> bool:
     target = path if path.is_absolute() else (working_directory / path).absolute()
     if not target.is_file():
-        logger.error("Configured follow-up not found: %s", target)
+        logger.error("Configured follow-up not found: {}", target)
         return False
     try:
         result = subprocess.run([sys.executable, str(target)], cwd=str(working_directory), check=False)
     except OSError:
-        logger.exception("Could not launch configured Python follow-up %s", target)
+        logger.exception("Could not launch configured Python follow-up {}", target)
         return False
     if result.returncode != 0:
-        logger.error("Follow-up %s returned %d", target, result.returncode)
+        logger.error("Follow-up {} returned {}", target, result.returncode)
     return result.returncode == 0
 
 
 def main(argv: list[str] | None = None) -> int:
     """Return 0 on success, 1 on planning/validation/processing failure."""
     arguments = _arguments(argv)
-    logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
-    )
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     try:
+        configure_serial_logging(console_log_level=arguments.console_log_level or CONSOLE_LOG_LEVEL)
         settings = _settings(arguments)
         if not settings.working_directory.is_dir():
-            logger.error("Working directory does not exist: %s", settings.working_directory)
+            logger.error("Working directory does not exist: {}", settings.working_directory)
             return 1
         # All input sources and TCF conflicts must be checked before export,
         # validation, runtime GPU inspection, process launch or scope-04 writes.
@@ -209,17 +241,16 @@ def main(argv: list[str] | None = None) -> int:
         if requested_mode not in {"resume", "all"}:
             msg = f"Unsupported continuation mode: {requested_mode}"
             raise ValueError(msg)
-        logger.info("Selected %d ordered simulations (%d source files).", len(plan.runs), len(plan.source_files))
+        logger.info("Selected {} ordered simulations ({} source files).", len(plan.runs), len(plan.source_files))
         exporting = EXPORT_COMMANDS if arguments.export is None else arguments.export
         if arguments.export_only:
             exporting = True
         if exporting:
-            name = f"{Path(__file__).stem}_commands_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.bat"
-            path = arguments.export_path or EXPORT_PATH or Path(__file__).absolute().parent / name
+            path = arguments.export_path or EXPORT_PATH or Path(__file__).absolute().with_suffix(".txt")
             destination = export_batch_commands(plan, settings, path)
-            logger.info("Editable commands exported to %s", destination)
+            logger.success("Editable commands exported to {}", destination)
         if arguments.export_only or (not RUN_SIMULATIONS and not arguments.preflight_only):
-            logger.info("Export-only: no solver processes, GPU scan or input checking.")
+            logger.success("Export-only: no solver processes, GPU scan or input checking.")
             return 0
         if arguments.preflight_only:
             return 0 if check_plan_only(plan, check_gpkg_layers=settings.check_gpkg_layers) else 1
@@ -233,17 +264,17 @@ def main(argv: list[str] | None = None) -> int:
         with CsvExecutionLog(log_path) as history:
             if requested_mode == "all":
                 history.reset()
-                logger.info("Run all: new CSV completion baseline recorded in %s.", log_path)
+                logger.info("Run all: new CSV completion baseline recorded in {}.", log_path)
             pending = select_pending(plan, identities, history.successful_keys())
             skipped = len(plan.runs) - len(pending.runs)
             if not pending.runs:
-                logger.info(
-                    "Resume complete: all %d runs have observed successful finishes; no GPU scan or launch.", skipped
+                logger.success(
+                    "Resume complete: all {} runs have observed successful finishes; no GPU scan or launch.", skipped
                 )
                 result = BatchOutcome((), ())
             else:
                 logger.info(
-                    "%s: %d pending, %d confirmed successful runs skipped. History: %s",
+                    "{}: {} pending, {} confirmed successful runs skipped. History: {}",
                     requested_mode.capitalize(),
                     len(pending.runs),
                     skipped,
@@ -257,7 +288,7 @@ def main(argv: list[str] | None = None) -> int:
                     try:
                         advisory.start()
                     except RuntimeError as exc:
-                        logger.warning("Advisory input checking could not start: %s", exc)
+                        logger.warning("Advisory input checking could not start: {}", exc)
                         advisory = None
                 try:
                     with _interruption_flag() as stopped:
@@ -275,8 +306,9 @@ def main(argv: list[str] | None = None) -> int:
         if result.interrupted:
             logger.error("Interrupted batch; configured follow-up is not started.")
             return 1
-        logger.info(
-            "Batch observed %d/%d pending completions; %d previously successful skipped; %d failures.",
+        logger.log(
+            "SUCCESS" if result.successful else "ERROR",
+            "Batch observed {}/{} pending completions; {} previously successful skipped; {} failures.",
             len(result.outcomes),
             len(result.selected),
             skipped,
@@ -294,17 +326,14 @@ def main(argv: list[str] | None = None) -> int:
     except KeyboardInterrupt:
         logger.exception("Runner interrupted before batch completion.")
         return 1
-    except Exception:
+    except Exception:  # noqa: BLE001 - wrapper owns the process failure exit code
         logger.exception("Unexpected runner failure.")
         return 1
+    finally:
+        print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+        if not arguments.no_pause and PAUSE_ON_FINISH:
+            pause_console()
 
 
 if __name__ == "__main__":
-    parsed = _arguments()
-    try:
-        code = main(sys.argv[1:])
-    finally:
-        print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
-        if not parsed.no_pause and PAUSE_ON_FINISH:
-            pause_console()
-    raise SystemExit(code)
+    raise SystemExit(main())

@@ -9,7 +9,6 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
-import logging
 import ntpath
 import os
 import posixpath
@@ -22,9 +21,10 @@ from pathlib import Path, PurePath, PureWindowsPath
 from typing import Protocol
 from uuid import uuid4
 
-from .command_plan import CommandPlan, PlannedRun
+from loguru import logger
 
-logger = logging.getLogger(__name__)
+from .command_plan import CommandPlan, CommandPlanError, PlannedRun, effective_executable, partition_model_arguments
+
 SCHEMA_VERSION = "1"
 COLUMNS = (
     "schema_version",
@@ -41,10 +41,6 @@ COLUMNS = (
     "pid",
     "error",
 )
-_EVENT_FLAGS = re.compile(r"-[es][1-9]", re.IGNORECASE)
-_GPU = re.compile(r"-pu\d+(?:,\d+)*", re.IGNORECASE)
-_ENGINE = frozenset({"-b", "-x", "-t", "-nlc"})
-_OTHER_SWITCH = re.compile(r"-et\d+", re.IGNORECASE)
 _HEX_SHA = re.compile(r"[0-9a-f]{64}")
 _HEX_ATTEMPT = re.compile(r"[0-9a-f]{32}")
 
@@ -94,39 +90,13 @@ def _normal_path(value: str | PurePath) -> str:
     return posixpath.normpath(text)
 
 
-def _effective_executable(run: PlannedRun, fallback: Path, base: Path) -> str:
-    if run.executable is not None:
-        return run.executable
-    return str(fallback if fallback.is_absolute() else (base / fallback).absolute())
-
-
 def _canonical_arguments(run: PlannedRun) -> tuple[tuple[tuple[str, str], ...], tuple[str, ...]]:
-    """Canonicalize model arguments against the plan's effective TCF.
-
-    Bare rows can omit the TCF token; full commands may place it before
-    other switches. A scenario/event value ending in .tcf remains a value.
-    """
-    arguments = run.arguments
-    flags: list[tuple[str, str]] = []
-    remaining: list[str] = []
-    position = 0
-    while position < len(arguments):
-        token = arguments[position]
-        low = token.casefold()
-        if _EVENT_FLAGS.fullmatch(token):
-            if position + 1 >= len(arguments):
-                msg = f"Run {run.index} has an event/scenario switch without a value"
-                raise ExecutionLogError(msg)
-            flags.append((low[1:], arguments[position + 1]))
-            position += 2
-            continue
-        if not _GPU.fullmatch(token) and not (not token.startswith("-") and low.endswith(".tcf")):
-            remaining.append(low if low in _ENGINE or _OTHER_SWITCH.fullmatch(token) else token)
-        position += 1
-    if dict(flags) != run.flags:
-        msg = f"Run {run.index} has inconsistent event/scenario arguments"
-        raise ExecutionLogError(msg)
-    return tuple(sorted(flags)), tuple(remaining)
+    """Keep the existing run-key policy over the shared argument projection."""
+    try:
+        flags, engine = partition_model_arguments(run)
+    except CommandPlanError as exc:
+        raise ExecutionLogError(str(exc)) from exc
+    return tuple(sorted(flags)), tuple(token.casefold() for token in engine)
 
 
 def identify_runs(plan: CommandPlan, *, fallback_executable: Path, base_directory: Path) -> dict[int, RunIdentity]:
@@ -141,7 +111,7 @@ def identify_runs(plan: CommandPlan, *, fallback_executable: Path, base_director
         if run.index in identities:
             msg = f"Duplicate plan index {run.index}"
             raise ExecutionLogError(msg)
-        executable = _effective_executable(run, fallback_executable, base_directory)
+        executable = effective_executable(run, fallback_executable=fallback_executable, base_directory=base_directory)
         executable_path = (
             PureWindowsPath(executable) if isinstance(run.working_directory, PureWindowsPath) else executable
         )
@@ -286,7 +256,7 @@ class CsvExecutionLog:
             record: dict[str, str] = dict(zip(COLUMNS, _parse_line(line, number), strict=True))
             self._apply(record, number)
         if end != len(data):
-            logger.warning("Repairing incomplete trailing CSV fragment (%d bytes) in %s", len(data) - end, self.path)
+            logger.warning("Repairing incomplete trailing CSV fragment ({} bytes) in {}", len(data) - end, self.path)
             file.truncate(end)
             file.flush()
             os.fsync(file.fileno())

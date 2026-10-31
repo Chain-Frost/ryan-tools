@@ -241,7 +241,9 @@ def check_simulation_inputs(  # noqa: C901 - fail-closed public result validatio
     if not runs:
         message = "No simulations were supplied for input preflight"
         raise ValueError(message)
-    if len({run.index for run in runs}) != len(runs) or any(run.index < 1 for run in runs):
+    if len({run.index for run in runs}) != len(runs) or any(
+        type(run.index) is not int or run.index < 1 for run in runs
+    ):
         message = "Input preflight requires distinct positive planned-run indices"
         raise ValueError(message)
     if not 1 <= io_workers <= 32:

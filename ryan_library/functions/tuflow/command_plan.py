@@ -15,6 +15,7 @@ from typing import Literal
 
 type Syntax = Literal["batch", "commands"]
 _FLAG = re.compile(r"-[es][1-9]", re.IGNORECASE)
+_GPU_OPTION = re.compile(r"-pu\d+", re.IGNORECASE)
 _VARIABLE = re.compile(r"%~dp0|%([^%\r\n]+)%", re.IGNORECASE)
 _EXE = re.compile(r"tuflow[a-z0-9_-]*(?:\.exe)?", re.IGNORECASE)
 _START_OPTIONS = frozenset(
@@ -223,38 +224,106 @@ def _expand(text: str, environment: Mapping[str, str], source: PurePath, cwd: Pu
     return result
 
 
-def _simulation_arguments(tokens: list[_Token]) -> tuple[tuple[tuple[str, str], ...], str | None]:
-    flags: dict[str, str] = {}
+def is_gpu_switch(token: str) -> bool:
+    """Recognize one supported GPU selector; multiple devices use repeated -puN."""
+    return _GPU_OPTION.fullmatch(token) is not None
+
+
+def _argument_parts(
+    arguments: Sequence[str], *, include_gpu: bool = True, include_batch: bool = True
+) -> tuple[tuple[tuple[str, str], ...], str | None, tuple[str, ...], tuple[str, ...]]:
+    """Validate once and retain flag occurrences, TCF, ordered arguments and engine switches."""
+    flags: list[tuple[str, str]] = []
+    selected_flags: dict[str, str] = {}
+    model: list[str] = []
+    engine: list[str] = []
     tcf: str | None = None
     index = 0
-    while index < len(tokens):
-        token = tokens[index].text
+    while index < len(arguments):
+        token = arguments[index]
         lower = token.casefold()
         if _FLAG.fullmatch(token):
             index += 1
-            if index == len(tokens):
+            if index == len(arguments):
                 message = f"Missing value for {token}"
-                raise ValueError(message)
-            value = tokens[index].text
+                raise CommandPlanError(message)
+            value = arguments[index]
             if not value or value.startswith("-"):
                 message = f"Invalid/unsupported value for {token}"
-                raise ValueError(message)
-            if lower[1:] in flags and flags[lower[1:]] != value:
+                raise CommandPlanError(message)
+            key = lower[1:]
+            if key in selected_flags and selected_flags[key] != value:
                 message = f"Conflicting duplicate switch {token}"
-                raise ValueError(message)
-            flags[lower[1:]] = value
-        elif lower in _ENGINE_OPTIONS or re.fullmatch(r"-(?:pu\d+(?:,\d+)*|et\d+)", lower):
-            pass
+                raise CommandPlanError(message)
+            selected_flags[key] = value
+            flags.append((key, value))
+            model.extend((token, value))
+        elif is_gpu_switch(token) or lower in _ENGINE_OPTIONS or re.fullmatch(r"-et\d+", lower):
+            if (include_gpu or not is_gpu_switch(token)) and (include_batch or lower not in _ENGINE_OPTIONS):
+                model.append(token)
+                engine.append(token)
         elif lower.endswith(".tcf") and not token.startswith("-"):
             if tcf is not None:
                 message = "More than one TCF argument"
-                raise ValueError(message)
+                raise CommandPlanError(message)
             tcf = token
         else:
             message = f"Unsupported simulation argument {token!r}"
-            raise ValueError(message)
+            raise CommandPlanError(message)
         index += 1
-    return tuple(flags.items()), tcf
+    return tuple(flags), tcf, tuple(model), tuple(engine)
+
+
+def validate_run_arguments(arguments: Sequence[str]) -> tuple[tuple[tuple[str, str], ...], str | None]:
+    """Validate arguments without an executable, retaining repeated flag occurrences.
+
+    Imported and generated runs use the same accepted switch/value grammar.
+    The returned flag pairs preserve duplicates; a plan's flag mapping may
+    collapse identical repeated switches without changing ordered arguments.
+    """
+    flags, tcf, _, _ = _argument_parts(arguments)
+    return flags, tcf
+
+
+def _planned_argument_parts(
+    run: PlannedRun, *, include_gpu: bool, include_batch: bool = True
+) -> tuple[tuple[tuple[str, str], ...], tuple[str, ...], tuple[str, ...]]:
+    flags, _, ordered, engine = _argument_parts(run.arguments, include_gpu=include_gpu, include_batch=include_batch)
+    if dict(flags) != run.flags:
+        message = f"Run {run.index} has inconsistent event/scenario arguments"
+        raise CommandPlanError(message)
+    return flags, ordered, engine
+
+
+def model_arguments(run: PlannedRun, *, include_gpu: bool = True, include_batch: bool = True) -> tuple[str, ...]:
+    """Return ordered model arguments without the explicit TCF token.
+
+    Event/scenario values remain values even when they end in .tcf. Only GPU
+    switches in option positions are omitted when runtime allocation is used.
+    Disabling include_batch removes source -b/-x/-t/-nlc so a runner can apply
+    its own configured policy; model switches such as -etN remain intact.
+    """
+    _, ordered, _ = _planned_argument_parts(run, include_gpu=include_gpu, include_batch=include_batch)
+    return ordered
+
+
+def partition_model_arguments(run: PlannedRun) -> tuple[tuple[tuple[str, str], ...], tuple[str, ...]]:
+    """Return flag occurrences and other switches, excluding TCF/GPU placement.
+
+    Both parts retain their order and case-sensitive values. The history
+    consumer owns canonical sorting and case normalization for its run keys.
+    """
+    flags, _, engine = _planned_argument_parts(run, include_gpu=False)
+    return flags, engine
+
+
+def effective_executable(run: PlannedRun, *, fallback_executable: Path, base_directory: Path) -> str:
+    """Select the source executable or explicitly based fallback without I/O."""
+    if run.executable is not None:
+        return run.executable
+    return str(
+        fallback_executable if fallback_executable.is_absolute() else (base_directory / fallback_executable).absolute()
+    )
 
 
 @dataclass(slots=True)
@@ -370,7 +439,8 @@ class _Reader:
         if is_start and bare:
             message = "START cannot launch a bare flag row"
             raise ValueError(message)
-        flags, explicit = _simulation_arguments(tokens)
+        occurrences, explicit = validate_run_arguments(tuple(token.text for token in tokens))
+        flags = tuple(dict(occurrences).items())
         if bare and not flags:
             message = "A bare command row must include event/scenario flags"
             raise ValueError(message)

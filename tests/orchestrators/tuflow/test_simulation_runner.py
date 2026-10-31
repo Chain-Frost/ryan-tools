@@ -3,18 +3,32 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+import os
+import sys
+from collections.abc import Callable, Generator
 from dataclasses import replace
+from io import StringIO
 from pathlib import Path
 from subprocess import Popen
 from threading import Event
 from typing import cast
 
 import pytest
+from loguru import logger
 
 from ryan_library.functions.tuflow.command_plan import CommandPlanError, PlannedRun, parse_command_plan
+from ryan_library.functions.tuflow.execution_history import identify_runs
 from ryan_library.functions.tuflow.gpu_occupancy import GpuOccupancySnapshot
 from ryan_library.orchestrators.tuflow import simulation_runner as runner
+
+
+@pytest.fixture(autouse=True)
+def capture_loguru(caplog: pytest.LogCaptureFixture) -> Generator[None]:
+    sink = logger.add(caplog.handler, format="{message}")
+    try:
+        yield
+    finally:
+        logger.remove(sink)
 
 
 def settings(base: Path, **changes: object) -> runner.RunnerSettings:
@@ -103,6 +117,7 @@ def test_parameter_product_keeps_deliberate_duplicates_and_order(tmp_path: Path)
     assert all(run.source == config.wrapper_file for run in plan.runs)
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows command export requires native Windows paths")
 def test_generated_quoted_model_value_roundtrip(tmp_path: Path) -> None:
     config = settings(tmp_path, run_variables={"e1": ["A with spaces", "B"]})
     plan = runner.prepare_plan(config)
@@ -164,6 +179,7 @@ def test_import_and_generated_use_one_ordered_plan(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("source", ["-e1 A", 'SET "TCF=model.tcf"\\n-e1 A'])
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows command export requires native Windows paths")
 def test_abbreviated_input_launches_and_roundtrips(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, source: str
 ) -> None:
@@ -178,7 +194,7 @@ def test_abbreviated_input_launches_and_roundtrips(
     )
     plan = runner.prepare_plan(config)
     assert len(plan.runs) == 1
-    assert plan.runs[0].arguments == ("-e1", "A")
+    assert plan.runs[0].arguments == ("-b", "-e1", "A", str(tmp_path / "model.tcf"))
     assert plan.runs[0].tcf == tmp_path / "model.tcf"
 
     exported = runner.render_batch_commands(plan, config, destination=tmp_path / "out.bat")
@@ -195,13 +211,12 @@ def test_abbreviated_input_launches_and_roundtrips(
 
     result = runner.launch_plan(plan, config, popen=_popen_stub(fake_popen))
     assert result.successful
-    assert commands_seen == [[str(config.executable), "-e1", "A", str(tmp_path / "model.tcf")]]
+    assert commands_seen == [[str(config.executable), "-b", "-e1", "A", str(tmp_path / "model.tcf")]]
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows command export requires native Windows paths")
 def test_text_flag_list_uses_configured_tcf_and_survives_csv_identity_export(tmp_path: Path) -> None:
     """A text file can list runs without repeating the Python-configured TCF."""
-    from ryan_library.functions.tuflow.execution_history import identify_runs
-
     commands = tmp_path / "run_list.txt"
     commands.write_text("-e1 100 -e2 creek -s4 dam\\n".replace("\\n", "\n"), encoding="utf-8")
     config = settings(
@@ -215,7 +230,7 @@ def test_text_flag_list_uses_configured_tcf_and_survives_csv_identity_export(tmp
     run = plan.runs[0]
     assert run.tcf == tmp_path / "model.tcf"
     assert run.flags == {"e1": "100", "e2": "creek", "s4": "dam"}
-    assert run.arguments == ("-e1", "100", "-e2", "creek", "-s4", "dam")
+    assert run.arguments == ("-b", "-e1", "100", "-e2", "creek", "-s4", "dam", str(tmp_path / "model.tcf"))
     assert run.executable is None
     identities = identify_runs(plan, fallback_executable=config.executable, base_directory=tmp_path)
     assert identities[run.index].key
@@ -236,9 +251,10 @@ def test_nonterminal_tcf_argument_roundtrips_without_losing_flags(tmp_path: Path
     commands.write_text('TUFLOW.exe "model.tcf" -e1 A -s1 B\\n'.replace("\\n", "\n"), encoding="utf-8")
     config = settings(tmp_path, mode="textfiles", tcf=None, input_files=(commands,))
     plan = runner.prepare_plan(config)
-    assert plan.runs[0].arguments[:2] == ("model.tcf", "-e1")
+    assert plan.runs[0].arguments[:2] == ("-b", "-e1")
     assert _command(plan.runs[0], config, ()) == [
         "TUFLOW.exe",
+        "-b",
         "-e1",
         "A",
         "-s1",
@@ -257,6 +273,7 @@ def test_scenario_value_ending_in_tcf_is_not_control_file(tmp_path: Path) -> Non
     run = runner.prepare_plan(config).runs[0]
     assert _command(run, config, ()) == [
         str(config.executable),
+        "-b",
         "-e1",
         "event.tcf",
         str(tmp_path / "model.tcf"),
@@ -267,7 +284,7 @@ def test_import_roundtrip_preserves_model_executable_cwd_order_and_duplicates(tm
     bat = _make_import(tmp_path)
     config = settings(tmp_path, mode="textfiles", tcf=None, input_files=(bat,))
     plan = runner.prepare_plan(config)
-    output = tmp_path / "copied_commands.bat"
+    output = tmp_path / "copied_commands.txt"
     text = runner.render_batch_commands(plan, config, destination=output)
     assert "TCF_1" in text
     assert "TCF_2" in text
@@ -279,16 +296,18 @@ def test_import_roundtrip_preserves_model_executable_cwd_order_and_duplicates(tm
     assert [_logical_signature(run, config) for run in plan.runs] == [
         _logical_signature(run, config) for run in reparsed.runs
     ]
-    with pytest.raises(FileExistsError):
-        runner.export_batch_commands(plan, config, output)
-    with pytest.raises(CommandPlanError, match="Refusing to overwrite"):
+    first = output.read_bytes()
+    runner.export_batch_commands(plan, config, output)
+    assert output.read_bytes() == first
+    with pytest.raises(CommandPlanError, match=r"\.txt"):
         runner.export_batch_commands(plan, config, bat)
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows command export requires native Windows paths")
 def test_export_without_solver_or_gpu_inspection(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     config = settings(tmp_path, executable=tmp_path / "TUFLOW_missing.exe")
     monkeypatch.setattr(runner, "_gpu_startup_message", _unexpected_gpu_scan)
-    output = tmp_path / "runs.bat"
+    output = tmp_path / "runs.txt"
     runner.export_batch_commands(runner.prepare_plan(config), config, output)
     assert output.exists()
 
@@ -426,5 +445,225 @@ def test_empty_plan_and_invalid_settings_rejected(tmp_path: Path) -> None:
         runner.prepare_plan(config)
     with pytest.raises(CommandPlanError, match="GPU group"):
         runner.prepare_plan(settings(tmp_path, gpu_devices=(("-puA",),)))
+    with pytest.raises(CommandPlanError, match="GPU group"):
+        runner.prepare_plan(settings(tmp_path, gpu_devices=(("-pu0,1",),)))
     with pytest.raises(CommandPlanError, match="priority"):
         runner.prepare_plan(settings(tmp_path, computational_priority="INVALID"))
+
+
+@pytest.mark.parametrize("batch", ["-b", "-b -t -nlc"])
+@pytest.mark.parametrize("complete_command", [False, True])
+def test_python_engine_switches_replace_imported_modes_before_identity(
+    tmp_path: Path, batch: str, complete_command: bool
+) -> None:
+    source = tmp_path / "input.txt"
+    prefix, suffix = ("TUFLOW.exe ", " model.tcf") if complete_command else ("", "")
+    source.write_text(f"{prefix}-t -x -nlc -pu7 -e1 A -et1{suffix}\n", encoding="utf-8")
+    config = settings(tmp_path, mode="textfiles", input_files=(source,), tcf=Path("model.tcf"), batch_commands=batch)
+    plan = runner.prepare_plan(config)
+    expected = (*batch.split(), "-e1", "A", "-et1", str(tmp_path / "model.tcf"))
+    assert plan.runs[0].arguments == expected
+    assert _command(plan.runs[0], config, ("-pu2",))[1:] == [*expected[:-1], "-pu2", expected[-1]]
+    identities = identify_runs(plan, fallback_executable=config.executable, base_directory=tmp_path)
+
+    # Source execution switches have no effect on a runner's logical identity.
+    source.write_text(f"{prefix}-b -pu9 -e1 A -et1{suffix}\n", encoding="utf-8")
+    replanned = runner.prepare_plan(config)
+    assert identify_runs(replanned, fallback_executable=config.executable, base_directory=tmp_path) == identities
+    changed = runner.prepare_plan(replace(config, batch_commands="-x"))
+    assert (
+        identify_runs(changed, fallback_executable=config.executable, base_directory=tmp_path)[1].key
+        != identities[1].key
+    )
+
+
+def test_export_uses_python_engine_switches_and_preserves_model_options(tmp_path: Path) -> None:
+    source = tmp_path / "source.txt"
+    source.write_text("TUFLOW.exe -t -pu7 -e1 A -et1 model.tcf\n", encoding="utf-8")
+    config = settings(tmp_path, mode="textfiles", input_files=(source,), tcf=None, batch_commands="-b -t -nlc -pu2")
+    plan = runner.prepare_plan(config)
+    output = runner.export_batch_commands(plan, config, tmp_path / "commands.TXT")
+    text = output.read_text(encoding="utf-8")
+    assert 'set "BCMD=-b -t -nlc -pu2"' in text
+    assert "-pu7" not in text
+    assert "-et1" in text
+    assert _command(plan.runs[0], config, ("-pu3",)) == [
+        "TUFLOW.exe",
+        "-b",
+        "-t",
+        "-nlc",
+        "-e1",
+        "A",
+        "-et1",
+        "-pu3",
+        str(tmp_path / "model.tcf"),
+    ]
+
+
+def test_imported_environment_variables_are_available(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    source = tmp_path / "environment.bat"
+    source.write_text('TUFLOW.exe -e1 "%RUN_EVENT%" "%MODEL_TCF%"\n', encoding="utf-8")
+    monkeypatch.setenv("RUN_EVENT", "A with spaces")
+    monkeypatch.setenv("MODEL_TCF", "model.tcf")
+    plan = runner.prepare_plan(settings(tmp_path, mode="textfiles", input_files=(source,), tcf=None))
+    assert plan.runs[0].flags == {"e1": "A with spaces"}
+    assert plan.runs[0].tcf == tmp_path / "model.tcf"
+
+
+@pytest.mark.parametrize("suffix", [".bat", ".CMD", ".csv"])
+def test_export_refuses_executable_or_unrelated_extensions(tmp_path: Path, suffix: str) -> None:
+    source = _make_import(tmp_path)
+    config = settings(tmp_path, mode="textfiles", input_files=(source,), tcf=None)
+    target = tmp_path / f"commands{suffix}"
+    with pytest.raises(CommandPlanError, match=r"\.txt"):
+        runner.export_batch_commands(runner.prepare_plan(config), config, target)
+    assert not target.exists()
+
+
+@pytest.mark.parametrize("kind", ["source", "wrapper", "history", "model", "executable"])
+def test_export_refuses_hardlink_aliases_of_protected_files(tmp_path: Path, kind: str) -> None:
+    source = _make_import(tmp_path)
+    config = settings(tmp_path, mode="textfiles", input_files=(source,), tcf=None)
+    plan = runner.prepare_plan(config)
+    protected = {
+        "source": source,
+        "wrapper": config.wrapper_file,
+        "history": config.wrapper_file.with_name(f"{config.wrapper_file.stem}_runs.csv"),
+        "model": Path(str(plan.runs[0].tcf)),
+        "executable": Path(str(plan.runs[0].working_directory)) / "TUFLOW.exe",
+    }[kind]
+    if not protected.exists():
+        protected.write_bytes(b"protected content\n")
+    previous = protected.read_bytes()
+    target = tmp_path / "commands.txt"
+    target.hardlink_to(protected)
+    with pytest.raises(CommandPlanError, match="Refusing to overwrite"):
+        runner.export_batch_commands(plan, config, target)
+    assert protected.read_bytes() == previous
+    assert target.samefile(protected)
+
+
+@pytest.mark.parametrize("parent_alias", [False, True])
+def test_export_refuses_symbolic_link_source_aliases(tmp_path: Path, parent_alias: bool) -> None:
+    original = _make_import(tmp_path)
+    source = tmp_path / "source.txt"
+    source.write_bytes(original.read_bytes())
+    config = settings(tmp_path, mode="textfiles", input_files=(source,), tcf=None)
+    plan = runner.prepare_plan(config)
+    link = tmp_path / ("directory_alias" if parent_alias else "commands.txt")
+    try:
+        link.symlink_to(tmp_path if parent_alias else source, target_is_directory=parent_alias)
+    except OSError as exc:
+        if os.name == "nt" and exc.winerror in {5, 1314}:
+            pytest.skip("Windows symlink creation requires an enabled privilege")
+        raise
+    target = link / source.name if parent_alias else link
+    previous = source.read_bytes()
+    with pytest.raises(CommandPlanError, match="Refusing to overwrite"):
+        runner.export_batch_commands(plan, config, target)
+    assert source.read_bytes() == previous
+
+
+@pytest.mark.parametrize("failure", ["fsync", "replace", "render"])
+def test_failed_export_preserves_previous_output_and_cleans_temporary_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str
+) -> None:
+    source = _make_import(tmp_path)
+    config = settings(tmp_path, mode="textfiles", input_files=(source,), tcf=None)
+    plan = runner.prepare_plan(config)
+    target = runner.export_batch_commands(plan, config, tmp_path / "commands.txt")
+    previous, files = target.read_bytes(), set(tmp_path.iterdir())
+
+    def fail(*_args: object, **_kwargs: object) -> None:
+        message = "Synthetic export failure"
+        raise OSError(message)
+
+    if failure == "fsync":
+        monkeypatch.setattr(runner.os, "fsync", fail)
+    elif failure == "replace":
+        monkeypatch.setattr(Path, "replace", fail)
+    else:
+        monkeypatch.setattr(runner, "parse_command_plan", fail)
+    with pytest.raises(OSError, match="Synthetic export failure"):
+        runner.export_batch_commands(plan, config, target)
+    assert target.read_bytes() == previous
+    assert set(tmp_path.iterdir()) == files
+
+
+def test_export_rechecks_destination_alias_before_atomic_replacement(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = _make_import(tmp_path)
+    config = settings(tmp_path, mode="textfiles", input_files=(source,), tcf=None)
+    plan = runner.prepare_plan(config)
+    target = tmp_path / "commands.txt"
+    original = source.read_bytes()
+    real_fsync = os.fsync
+
+    def redirect(_descriptor: int) -> None:
+        real_fsync(_descriptor)
+        target.hardlink_to(source)
+
+    monkeypatch.setattr(runner.os, "fsync", redirect)
+    with pytest.raises(CommandPlanError, match="Refusing to overwrite"):
+        runner.export_batch_commands(plan, config, target)
+    assert target.samefile(source)
+    assert source.read_bytes() == original
+    assert not tuple(tmp_path.glob(".*.tmp"))
+
+
+def test_shared_dashboard_shows_middle_active_run_and_original_resume_index(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from collections.abc import Sequence
+
+    from rich.console import Console, RenderableType
+
+    from ryan_library.functions import live_dashboard
+
+    config = settings(tmp_path, run_variables={"e1": [str(i) for i in range(1, 401)]}, use_live_dashboard=True)
+    full = runner.prepare_plan(config)
+    plan = replace(full, runs=full.runs[100:])
+    rendered: list[str] = []
+    displays: list[live_dashboard.LiveWorkflowDashboard] = []
+    observed: list[int] = []
+    actual_type = live_dashboard.LiveWorkflowDashboard
+
+    def display(
+        *, title: str, refresh_per_second: float, transient: bool, columns: Sequence[live_dashboard.WorkflowColumn]
+    ) -> live_dashboard.LiveWorkflowDashboard:
+        assert transient is False
+        result = actual_type(
+            title=title, refresh_per_second=refresh_per_second, transient=transient, columns=columns, enabled=False
+        )
+        result.console = Console(file=StringIO(), record=True, width=100, height=25, color_system=None)
+        displays.append(result)
+        return result
+
+    class CapturedProcess(FakeProcess):
+        def poll(self) -> int | None:
+            if self.pid == 250:
+                dashboard = displays[0]
+                render = cast(Callable[[], RenderableType], getattr(dashboard, "_render"))  # noqa: B009
+                dashboard.console.print(render())
+                rendered.append(dashboard.console.export_text())
+            return super().poll()
+
+    runs = iter(plan.runs)
+
+    def popen(**_options: object) -> FakeProcess:
+        return CapturedProcess(next(runs).index)
+
+    def finished(result: runner.RunOutcome) -> None:
+        observed.append(result.run.index)
+
+    monkeypatch.setattr(live_dashboard, "LiveWorkflowDashboard", display)
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    outcome = runner.launch_plan(plan, config, popen=_popen_stub(popen), on_observed_completion=finished)
+    assert outcome.successful
+    assert observed == list(range(101, 401))
+    assert len(displays) == 1
+    assert rendered
+    assert "250" in rendered[0]
+    assert "RUNNING" in rendered[0]

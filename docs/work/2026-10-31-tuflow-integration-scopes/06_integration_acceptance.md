@@ -4,7 +4,7 @@ Status: prepared for delegation on 2026-10-31. This is a verification scope, not
 
 ## Objective and boundary
 
-Verify the combined behaviour of scopes 01–03 on PR #159, then verify scope 04 separately on its stacked PR. Keep scope 05 independent; raster-header validation is excluded from the main release.
+Verify the combined behaviour of scopes 01-04 on PR #159, including the independently reviewable CSV lifecycle cases. Keep scope 05 independent; raster-header validation is excluded from the main release.
 
 The reviewer/integrator owns cross-package checks, current documentation and delivery records. Individual implementation owners retain their focused tests and files. Do not add unrelated tests, benchmarks, packaging redesign or broad formatting changes. Do not treat old native benchmark results or green checks on an earlier revision as acceptance of a new candidate.
 
@@ -24,7 +24,10 @@ The reviewer/integrator owns cross-package checks, current documentation and del
 | Unsupported or unreadable later input | No earlier valid commands have launched. No partial export is presented as a complete plan. |
 | Explicit defaults and duplicates | A full TUFLOW command without scenario/event flags remains a run; intentionally repeated commands remain separate occurrences. |
 | Launch fidelity | Fake processes capture the exact per-run argument list and cwd, including spaces, mapped-drive and UNC paths. Parent cwd is not changed between concurrent children. |
-| Editable export | Export and reparse produce equivalent effective runs and duplicate counts. Shared EXE/BCMD/TCF variables remain convenient to edit; no predicted GPU allocation is embedded. |
+| Editable TXT export | Export and reparse produce equivalent effective runs and duplicate counts. Python engine settings control BCMD; imported batch/GPU switches do not. Refresh the fixed wrapper-stem TXT, including all-complete Resume; no timestamps, backups or BAT/CMD outputs. Shared EXE/BCMD/TCF variables remain editable; no predicted GPU allocation is embedded. |
+| Export replacement | Rendering failure preserves prior output; imported/model/wrapper/history paths and aliases are protected. A temporary replacement file is cleaned after success or failure. |
+| Sparse Resume preflight | Filter only the launch queue, retain full plan/history and original positive IDs, and validate all pending runs even when their IDs have gaps. |
+| Inherited BAT environment | Checker and runner capture equivalent environment state; SET/directory changes in one file do not leak into another. |
 | Advisory input validation | One frozen final selected run set is checked. The scheduler does not wait for the result. Missing/unresolved/unsupported/error/incomplete states cannot become a false all-present message. Every finding retains provenance. |
 | Startup GPU check | Exactly one external occupancy snapshot per actual invocation; none on export; none on dashboard refresh or between runs. It does not alter the configured scheduling policy. |
 | Process lifecycle | Register a child immediately after successful spawn, retain ownership if priority-setting fails, reap observed completions, restore signal handlers and return accurate aggregate status. |

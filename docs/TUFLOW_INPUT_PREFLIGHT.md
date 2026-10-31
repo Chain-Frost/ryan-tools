@@ -14,8 +14,16 @@ provides the required public API. Public package metadata retains the publishabl
 version range `pytuflow>=1.2,<2`; a matching version number alone does **not**
 prove compatibility. Another PyTUFLOW 1.2.7 build lacks the batch validation API.
 
-For Windows, with the user's normal Python 3.14 installation and a built local
-`ryan-tools` wheel in `dist/`:
+For normal Windows installation, run `install-ryan-tools.bat`. It uses the
+selected normal Python installation, installs the published package together
+with the accepted PyTUFLOW source, and checks the result. No separate parser
+installation or virtual environment is required. To preview the same PyPI route:
+
+```powershell
+py -3.14 repo-scripts\install_from_pypi.py --dry-run
+```
+
+For a built local `ryan-tools` wheel in `dist/`:
 
 ```powershell
 py -3.14 repo-scripts\install_latest_wheel.py --dry-run
@@ -23,9 +31,10 @@ py -3.14 repo-scripts\install_latest_wheel.py
 ```
 
 The normal installer preserves the GIS binary-wheel index and Fiona/Rasterio/GDAL
-bootstrap, installs the exact accepted parser with the local wheel, runs
-`pip check` and verifies public capabilities. The same-version wrong parser is
-reinstalled from the immutable source rather than assumed compatible.
+bootstrap. Both normal routes resolve the exact accepted parser with the
+requested package, run `pip check` and verify public capabilities. The explicit
+immutable source replaces an incompatible parser even when its version matches.
+Any installation or verification failure stops before reporting success.
 
 Development installation can use:
 
@@ -57,6 +66,61 @@ module location, available direct-url source provenance and missing capability o
 transitive dependency. A local checkout shadowing the installed package is
 diagnosed. The source metadata is advisory when not recorded; the public API and
 actual validation result shape still need to pass.
+
+## BAT/text input and multiple TCFs
+
+The checker and Windows runner use the same static command reader. Both capture
+the inherited environment; every input file then has its own SET, SETLOCAL and
+directory state. Repeated `--runs` on the checker, or `INPUT_FILES` in the runner,
+combine independent sources in their supplied order and retain duplicate runs.
+
+For example, a text file may contain:
+
+```bat
+REM This row is a comment, not a simulation.
+set "TCF_05=runs\model_05_~e1~.tcf"
+TUFLOW.exe -e1 A "%TCF_05%"
+TUFLOW.exe -e1 B "%TCF_05%"
+set "TCF_06=runs\model_06_~e1~.tcf"
+TUFLOW.exe -e1 A "%TCF_06%"
+```
+
+The first two runs use `TCF_05`; the third uses `TCF_06`. A bare row such as
+`-e1 A` requires a current `SET TCF` value or an explicit Python TCF fallback.
+Set the Python TCF to `None` for multiple imported models. When Python supplies
+a TCF, every active imported TCF must match it; a mismatch reports the paths and
+source location before validation, export, CSV history changes or execution.
+
+| Input feature | Supported behavior |
+| --- | --- |
+| Comments | REM/@REM and full-line `::`; text command lists also allow full-line `#`, `;` and `//`. |
+| Variables | Quoted or plain SET, reassignment/unset, case-insensitive `%NAME%`, `%CD%` and `%~dp0`; undefined variables fail. |
+| Directories | CD/CHDIR with optional `/D`, local/mapped PUSHD/POPD, and per-run START `/D`; paths retain their intended base. |
+| Run rows | Direct TUFLOW invocations, supported START forms and bare numbered event/scenario rows. |
+| Arguments | Numbered event/scenario pairs, supported engine switches, individual `-puN` tokens and numeric `-etN` switches. |
+| Text | Quoted values and paths, UTF-8/BOM by default, explicit encoding override, and supported terminal-caret continuation. |
+| Boundaries | No shell execution, IF/FOR/CALL, general GOTO, pipelines, redirection or delayed expansion. Unsupported active syntax fails the complete plan. |
+
+`.bat` and `.cmd` select batch syntax automatically; `.txt` selects command-list
+syntax. The reader does not execute commands. It preserves each run's source
+file/line, effective TCF, executable, working directory and model flags.
+
+The Python runner applies its own `BATCH_COMMANDS`, GPU groups, concurrency and
+priority when preparing imported runs; source batch engine/GPU switches do not
+control execution. The checker preserves source interpretation for reporting.
+The [wrapper guide](../ryan-scripts/TUFLOW-python/README.md) describes the fixed
+TXT export and single-CSV Resume workflow.
+
+The checker prints findings in the terminal by default:
+
+```powershell
+py -3.14 check_tuflow_inputs.py --runs runs.txt --working-directory "T:\project" --no-pause
+```
+
+Add `--report issues.csv` for a new CSV; existing reports are not overwritten.
+`--plan-only` checks the static plan without inspecting model inputs. An explicit
+`--plan-report new_plan.json` creates a new diagnostic manifest; Resume does not
+require or use that manifest.
 
 ## Supported checks
 
@@ -112,6 +176,10 @@ if not report.passed:
 ```
 
 The group/plan orchestrator owns source-line attachment and per-group exceptions.
+Its findings compose the original `PreflightIssue` with the `PlannedRun`, so the
+full upstream detail is retained alongside command provenance. Original run
+indices may be sparse after Resume selects pending work; they remain unique
+positive identifiers and are never renumbered to satisfy the checker.
 If a group fails to return complete findings, the affected runs must be reported
 as failed/unresolved, never counted as passing. Bad command syntax, conflicting
 configured Python TCF and other plan/configuration errors are **fatal** before

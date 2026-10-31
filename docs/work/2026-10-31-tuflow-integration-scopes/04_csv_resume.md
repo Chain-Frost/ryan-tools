@@ -1,12 +1,12 @@
 # Agent 04 — persistent CSV log and simple batch continuation
 
-**Status:** Agreed stacked implementation scope, prepared for delegation. Implement when assigned after the parent interfaces settle. Preparing this document has not changed runtime code. Keep the child PR separate; no merge or release is included.
+**Status:** Implemented as a distinct component and integrated with the runner in #159. See the existing integration work record for corrections and current acceptance; no merge or release is included.
 
 [Scope index and shared decisions](00_scope_index.md) · [Parent runner scope](03_runner_wrappers_export.md)
 
 ## Objective
 
-Add a fast continuation workflow in a separate PR stacked on #159. Regenerate the current run plan from the supplying Python runner and its BAT/text inputs, read one persistent CSV, skip confirmed completed runs, and run failed, unfinished and remaining simulations in the current plan's order.
+Provide a fast continuation workflow in the integrated #159 product. Regenerate the current run plan from the supplying Python runner and its BAT/text inputs, read one persistent CSV, skip confirmed completed runs, and run failed, unfinished and remaining simulations in the current plan's order.
 
 For a 400-model plan, restarting after interruption should skip observed successes and queue the three failures, any unfinished attempts and the remaining models. This starts new processes for those models; it does not use TUFLOW `Read Restart File` or resume a solver checkpoint.
 

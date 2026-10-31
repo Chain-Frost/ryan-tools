@@ -26,9 +26,8 @@ def test_normal_commands_pin_accepted_parser_and_preserve_gis_wheels() -> None:
     pin = "pytuflow @ https://github.com/Chain-Frost/PyTuflow/archive/05e35476c02d6d8ed17c83caf1cb0d185ce51d1b.zip"
     assert commands[0] == installer._gis_dependency_command()
     assert installer.GIS_WHEEL_INDEX == "https://gisidx.github.io/gwi"
-    assert commands[1][-1] == pin
-    assert "--force-reinstall" in commands[1]
-    assert "--no-deps" in commands[1]
+    assert len(commands) == 2
+    assert all("--no-deps" not in command for command in commands)
     assert commands[-1][-2:] == [f"{wheel}[mcp]", pin]
     assert "--only-binary=fiona" in commands[-1]
     assert "--only-binary=rasterio" in commands[-1]

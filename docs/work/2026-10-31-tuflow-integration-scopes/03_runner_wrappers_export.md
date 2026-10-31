@@ -18,7 +18,7 @@ Own `ryan-scripts/TUFLOW-python/model_management/run_tuflow_simulations.py`, its
 
 The orchestrator owns planning coordination, scheduling, subprocess ownership, advisory-worker lifecycle and structured outcomes. The wrapper owns editable settings, CLI overrides, working-directory selection, logging configuration, banners, pausing and process exit. Neither library helpers nor the orchestrator may pause or call `SystemExit`.
 
-Do not expand this into a general scheduler framework. CSV continuation is the stacked task: provide the agreed run identity and lifecycle integration points, but leave CSV state selection and persistence policy to that task.
+Do not expand this into a general scheduler framework. CSV continuation is integrated under scope 04: provide the agreed run identity and lifecycle integration points, but leave CSV state selection and persistence policy to that task.
 
 ## Wrapper-standard changes
 
@@ -32,7 +32,7 @@ Apply the useful existing standard, preserving the current user workflow:
 - Require the matching installed package for copied wrappers. Do not add repository-root `sys.path` changes.
 - Load optional preflight/GIS dependencies only when their operation is selected. Help, planning and ordinary execution must not fail because an unused parser capability is unavailable.
 
-Do not expose every cosmetic setting as a CLI switch, add a configuration-file system, or overhaul unrelated logging to satisfy a template mechanically. Target the repository's Python 3.14 annotation conventions and retain declared compatibility requirements.
+Use the maintained serial Loguru setup and shared dashboard renderer. Do not expose every cosmetic setting as a CLI switch or add a configuration-file system. Target the repository's Python 3.14 annotation conventions and retain declared compatibility requirements.
 
 ## One plan and the TCF consistency rule
 
@@ -52,7 +52,7 @@ Each child launches with its planned `cwd`. A process-global directory change ca
 
 ## Execution policy for imported commands
 
-The recommended policy is that runner settings own GPU slots, concurrency and process priority. Imported model arguments, effective TCFs and working directories remain model inputs. Treat this policy as an explicit import contract, not an incidental result of discarded tokens.
+Runner settings own common engine switches through BATCH_COMMANDS, GPU slots, concurrency and process priority. Drop source batch engine/GPU switches when preparing imported runs; apply the Python settings before identity, export and launch. Preserve event/scenario values, other supported model switches such as -etN, effective TCFs and working directories. Treat this policy as an explicit import contract, not an incidental result of discarded tokens.
 
 The bounded BAT reader is not `cmd.exe`. Do not promise arbitrary `START` semantics. Inventory the supported modifiers and diagnose execution modifiers that cannot be represented. Explain any source scheduling/GPU/priority settings superseded by the runner policy; do not silently claim faithful replay of those settings. Preserve accepted model switches and reject unsupported material before producing a partial executable plan.
 
@@ -81,6 +81,8 @@ Keep the normal message short. If no running models are detected, say so. If oth
 Do not call `build_activity_report()` from the launch loop or add CodeMeter, TLF, TSF or global-activity polling in this workstream. The standalone activity tool remains independent. No licence-based scheduling, adaptive GPU reassignment, pause/resume or automatic retries are included.
 
 ## Command export
+
+The runner and exports target Windows. Refresh a fixed `<wrapper-stem>.txt` beside the Python wrapper, retaining export by default even for an all-complete Resume. TXT is required for explicit destinations too, to avoid accidental double-click execution. No timestamped files, backups or session folders. Render/reparse the full plan before atomically replacing an existing export. Protect imported source, model, wrapper and history files, including aliases; a conflict requires another export path or disabled export.
 
 Export the validated shared plan using editable common variables `TUFLOW_EXE` and `BCMD`. Use one `TCF` variable when shared; use clearly mapped `TCF_1`, `TCF_2`, and so forth when several effective TCFs occur. Preserve each run's directory and argument values with correct Windows quoting. Emit the agreed `START /LOW /MIN /WAIT "" "%TUFLOW_EXE%" %BCMD% ... "%TCF%"` form when those settings apply; retain the equivalent per-run TCF reference for multiple models.
 

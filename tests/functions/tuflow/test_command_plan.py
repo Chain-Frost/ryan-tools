@@ -11,9 +11,14 @@ from ryan_library.functions.tuflow.command_plan import (
     CommandPlan,
     CommandPlanError,
     Syntax,
+    effective_executable,
+    is_gpu_switch,
+    model_arguments,
     parse_command_plan,
+    partition_model_arguments,
     read_command_plan,
     read_command_plans,
+    validate_run_arguments,
 )
 
 SOURCE = PureWindowsPath(r"T:\project\launchers\runs.bat")
@@ -433,3 +438,50 @@ def test_quoted_event_value_remains_structured_for_upstream_validation() -> None
     run = parse('TUFLOW.exe -e1 "Wet Season" -s1 "Case A" model.tcf').runs[0]
     assert run.flag_pairs == (("e1", "Wet Season"), ("s1", "Case A"))
     assert run.arguments == ("-e1", "Wet Season", "-s1", "Case A", "model.tcf")
+
+
+def test_shared_argument_projection_preserves_values_order_and_duplicate_flags() -> None:
+    run = parse('TUFLOW.exe model.tcf -PU2 -E1 storm.tcf -e1 storm.tcf -s1 "Wet Season" -ET5 -b').runs[0]
+    model = ("-E1", "storm.tcf", "-e1", "storm.tcf", "-s1", "Wet Season", "-ET5", "-b")
+    assert model_arguments(run) == ("-PU2", *model)
+    assert model_arguments(run, include_gpu=False) == model
+    assert model_arguments(run, include_gpu=False, include_batch=False) == model[:-1]
+    assert partition_model_arguments(run) == (
+        (("e1", "storm.tcf"), ("e1", "storm.tcf"), ("s1", "Wet Season")),
+        ("-ET5", "-b"),
+    )
+
+
+@pytest.mark.parametrize(
+    ("arguments", "message"),
+    [
+        (("model.tcf", "-e1"), "Missing value"),
+        (("model.tcf", "-e1", ""), "Invalid/unsupported value"),
+        (("model.tcf", "-e1", "-pu0"), "Invalid/unsupported value"),
+        (("model.tcf", "-e1", "A", "-e1", "B"), "Conflicting duplicate"),
+        (("-pu0,1", "model.tcf"), "Unsupported simulation argument"),
+    ],
+)
+def test_generated_and_imported_arguments_share_rejections(arguments: tuple[str, ...], message: str) -> None:
+    with pytest.raises(CommandPlanError, match=message):
+        validate_run_arguments(arguments)
+    with pytest.raises(CommandPlanError, match=message):
+        parse("TUFLOW.exe " + subprocess.list2cmdline(arguments))
+
+
+def test_supported_gpu_selectors_are_individual_pu_flags() -> None:
+    for token in ("-pu0", "-PU2", "-pu15"):
+        assert is_gpu_switch(token)
+    for token in ("-pu0,1", "-pu", "-pu-1", "-gpu0"):
+        assert not is_gpu_switch(token)
+    run = parse("TUFLOW.exe -pu0 -PU2 model.tcf").runs[0]
+    assert model_arguments(run) == ("-pu0", "-PU2")
+    assert model_arguments(run, include_gpu=False) == ()
+
+
+def test_effective_executable_uses_source_or_explicit_fallback_base(tmp_path: Path) -> None:
+    explicit = parse(r'"C:\Engines\TUFLOW.exe" model.tcf').runs[0]
+    bare = parse("-e1 A", fallback_tcf="model.tcf").runs[0]
+    fallback = Path("engines/TUFLOW.exe")
+    assert effective_executable(explicit, fallback_executable=fallback, base_directory=tmp_path) == explicit.executable
+    assert effective_executable(bare, fallback_executable=fallback, base_directory=tmp_path) == str(tmp_path / fallback)

@@ -1,50 +1,124 @@
 # TUFLOW Python wrappers
 
 This folder contains maintained, library-backed wrappers as well as older
-standalone utilities. New and updated thin wrappers follow the repository-wide
-[`WRAPPER_STANDARD.md`](../WRAPPER_STANDARD.md); versioned standalone scripts
-retain their own self-contained behaviour until they are deliberately migrated.
+standalone utilities. Maintained wrappers follow
+[`WRAPPER_STANDARD.md`](../WRAPPER_STANDARD.md); project settings remain editable
+near the top of each Python file. The TUFLOW simulation runner and its command
+exports target Windows.
 
-Advisory model-check integration for
+## Input checker reports
+
+[`model_management/check_tuflow_inputs.py`](model_management/check_tuflow_inputs.py)
+prints its summary and findings in the terminal by default. Its default input is
+`run_tuflow_simulations.txt`, matching the unrenamed simulation runner's export.
+Set `DEFAULT_COMMANDS` or supply `--runs` for a differently named input.
+
+CSV export is optional: pass `--report issues.csv` or set
+`DEFAULT_REPORT = Path("tuflow_input_preflight.csv")` in the copied wrapper.
+The selected CSV must be a new file; existing files are not overwritten.
+See the [input-preflight guide](../../docs/TUFLOW_INPUT_PREFLIGHT.md) for supported
+BAT/text syntax, multiple TCFs, installation and validation boundaries.
+
+## Simulation runner inputs and launch settings
+
 [`model_management/run_tuflow_simulations.py`](model_management/run_tuflow_simulations.py)
-is tracked in the [runner work record](../../docs/work/2026-10-23-tuflow-runner-model-checks.md).
-It scopes background checks that report INFO on success and all findings as warnings
-without delaying or stopping the batch, plus verification of existing GPU-sharing warnings.
-Pause/restart improvements belong to later PRs. Background advisory checking is implemented in draft PR #159, stacked on PR #161's curated PR C consumer. Exact-head CI and native validation are still required. See the work record for shutdown policy and evidence.
+accepts generated parameter combinations, BAT/text command lists, or both.
+Configure `MODE`, `RUN_VARIABLES_RAW` and `INPUT_FILES` in the Python wrapper;
+CLI arguments are optional overrides.
 
-## Runner CSV continuation (draft scope 04)
+The Python runner controls common engine switches through `BATCH_COMMANDS`,
+and controls GPU groups, concurrency and process priority through its other
+editable settings. Imported common engine switches and GPU assignments are
+ignored when preparing the effective execution plan. Imported TCFs, event and
+scenario values, other supported model switches, executables and per-run working
+directories are retained. For example, `BATCH_COMMANDS = "-b -t -nlc"` applies to
+both generated and imported runs; an imported `-x` does not override it.
 
-The maintained [simulation runner](model_management/run_tuflow_simulations.py)
-has an optional command-line override of its editable `CONTINUATION_MODE`:
+Use separate GPU tokens such as `("-pu0", "-pu1")` for a group using two devices.
+A single token such as `-pu0,1` is rejected. GPU occupancy is checked once at the
+start of an executing batch. The runner subsequently tracks its own children;
+it does not perform scheduled activity, CodeMeter, TLF or TSF scans.
 
-- **Resume (default):** regenerate the current Python/BAT/text plan, then skip
-  only the occurrences whose latest attempts since the last reset recorded
-  an observed zero solver exit code. Failed, unfinished and new runs are queued
-  in the original logical order.
-- **Run all:** set `CONTINUATION_MODE = "all"` or pass `--run-mode all`.
-  Append a `RESET` row to the existing CSV, then run every occurrence.
-  Previously successful runs are not eligible to be skipped in the new cycle.
+Both the checker and runner capture inherited environment variables before
+reading BAT/text files. Each source file then has independent SET and directory
+state. Set Python `TCF = None` when imported commands intentionally select
+multiple TCFs. If Python supplies a TCF, every active imported TCF must match it;
+conflicts stop planning before output or execution.
 
-The single history CSV uses the supplying Python wrapper's filename stem
-followed by `_runs.csv`, **beside the copied wrapper**, not in any model
-working directory. It is an
-append-only schema-v1 `START` / `FINISH` / `RESET` record of observed
-process outcomes; it does not contain a reusable command plan. Normal startup
-retains the history, and only an incomplete trailing CSV fragment is repaired.
-An incompatible old report or earlier corruption produces an error, not
-implicit migration.
+## Fixed TXT command export
 
-Stop previous batch processes before restarting. Missing FINISH rows are
-deliberately treated as pending; the runner does not inspect TLF/TSF/activity
-logs or recover orphan processes. New attempts use the current model inputs and
-configured TUFLOW output paths and **may overwrite existing solver outputs**.
-Changing model contents at unchanged paths is not detected; use Run all when
-the previous successes should be disregarded. This is batch reexecution, not
-TUFLOW solver checkpoint restart. An already-complete Resume performs no GPU
-scan or solver launch but retains the explicitly configured follow-up policy.
+Command export remains enabled by default. A copied `<runner-name>.py` refreshes
+**`<runner-name>.txt` beside that Python file**. The file contains editable Windows
+batch syntax, including shared `TUFLOW_EXE`, `BCMD` and TCF variables, but its
+`.txt` extension prevents accidental batch execution by double-clicking it.
+An explicitly selected export destination must also end in `.txt`.
 
-This feature is currently in [draft scope 04 PR #174](https://github.com/Chain-Frost/ryan-tools/pull/174),
-stacked on the scope 03 runner; it is not yet included in a release.
+The export contains the full regenerated plan, including completed runs, and is
+refreshed even when Resume has no remaining work. There are no timestamped
+exports, automatic backup files or per-invocation directories. If manually
+editing an export, copy it to a separately named input before another invocation
+refreshes the generated file.
+
+The complete export is rendered and reparsed before the destination is replaced.
+A failed render leaves the existing export intact. Imported command sources,
+model control files, the Python wrapper and execution history are protected,
+including filesystem aliases. If an imported source is also the export target,
+choose a different `EXPORT_PATH` or disable export with `EXPORT_COMMANDS = False`
+(or `--no-export`).
+
+`--export-only` prepares the text without launching TUFLOW, inspecting GPUs,
+creating execution history or requiring the unused PyTUFLOW validation stack.
+An explicit Python `BATCH_COMMANDS` GPU switch is retained in the exported
+`BCMD`; actual runner launches use `GPU_DEVICES`. Export does not predict or
+assign runtime GPU slots.
+
+## Runner CSV continuation
+
+The single execution-history CSV uses the supplying Python wrapper's filename
+stem followed by `_runs.csv`, **beside the copied wrapper**. It is an append-only
+START / FINISH / RESET log of observed process outcomes. No saved run manifest
+or additional session directory is required.
+
+**Resume is the default.** The runner regenerates the full current plan and
+selects its launch queue using the CSV:
+
+| Latest recorded state for the current configuration | Resume action |
+| --- | --- |
+| Observed successful finish | Skip this occurrence for this invocation. |
+| Failed finish | Queue another attempt. |
+| Start without an observed finish | Queue another attempt. |
+| No previous attempt | Queue the run. |
+
+The full plan and previous CSV rows remain intact. For a 400-run batch with the
+first 100 successful, the next 3 failed and the rest unstarted, Resume queues
+runs 101 through 400 in their original order. If later runs also succeeded,
+those are skipped too; original run numbers can therefore have gaps. Input
+preflight and dashboard presentation preserve those original identities.
+
+Set `CONTINUATION_MODE = "all"` or pass `--run-mode all` to append a RESET row and
+run every occurrence again. Previous history is retained. Changing model files
+at the same paths is not detected; use Run all when those prior successes should
+be disregarded. Changing effective engine switches changes the run configuration
+used for continuation.
+
+The new Python-controlled import policy can change how an older imported run
+matches its CSV entry, including when normalization moves an engine switch.
+Those old rows remain in the log; an affected run is queued again. Once a run
+uses the normalized plan, changing only ignored source engine/GPU switches does
+not change its continuation identity.
+
+Stop the previous batch before resuming. A missing FINISH row does not establish
+whether an old process is still alive or failed; Resume does not scan to recover
+it. Only an incomplete trailing CSV fragment is repaired. Incompatible formats
+or earlier corruption produce an error rather than an implicit migration.
+
+Reexecuted models use their current configured output locations and may overwrite
+existing solver outputs. This feature resumes the set of simulations; it does
+not use TUFLOW's solver checkpoint restart. An already-complete Resume performs
+no GPU scan or launch and retains any explicitly configured follow-up policy.
+
+The [integration work record](../../docs/work/2026-10-23-tuflow-runner-model-checks.md)
+records delivery and current validation.
 
 ## Maintained wrappers
 

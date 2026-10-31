@@ -8,17 +8,21 @@ DEFAULT_TCF / --tcf, when configured, must match every active imported TCF;
 it also supplies the bare-row fallback. Set DEFAULT_TCF to None for multiple
 imported models. Relative input paths are based on the invoking cwd; relative
 Python TCF configuration has its own explicit base.
+Findings are printed in the terminal. CSV export is opt-in with --report or
+a path assigned to DEFAULT_REPORT.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-31.2"
+WRAPPER_VERSION = "2026-10-31.3"
 # None permits multiple imported TCFs; a Path also constrains all active runs.
 DEFAULT_TCF: Path | None = None
-DEFAULT_COMMANDS = Path("run_tuflow_simulations_commands.txt")
-DEFAULT_REPORT = Path("tuflow_input_preflight.csv")
+# BAT/CMD or TXT input; the default matches the simulation runner's export.
+DEFAULT_COMMANDS = Path("run_tuflow_simulations.txt")
+# None: terminal only. Set Path("issues.csv") to also export a new CSV.
+DEFAULT_REPORT: Path | None = None
 DEFAULT_CHECK_GPKG_LAYERS = True
 DEFAULT_IO_WORKERS = 4
 DEFAULT_MAXIMUM_DIRECTORY_ENTRIES = 50_000
@@ -31,6 +35,7 @@ from collections.abc import Sequence
 from typing import Literal
 
 from ryan_library.functions.tuflow.command_plan import read_command_plans
+from ryan_library.functions.wrapper_utils import add_no_pause_cli_argument
 from ryan_library.orchestrators.tuflow.command_preflight import CommandPreflightReport, check_command_plan
 
 
@@ -38,7 +43,7 @@ def main(
     *,
     tcf: Path | None,
     commands: Path | Sequence[Path],
-    report: Path,
+    report: Path | None,
     check_gpkg_layers: bool,
     working_directory: Path | None = None,
     configuration_directory: Path | None = None,
@@ -49,7 +54,7 @@ def main(
     io_workers: int = DEFAULT_IO_WORKERS,
     maximum_directory_entries: int = DEFAULT_MAXIMUM_DIRECTORY_ENTRIES,
 ) -> int:
-    """Plan every row first, then check grouped TCFs and write a new issue CSV."""
+    """Plan and check grouped TCFs, printing findings and optionally writing a new CSV."""
     # Establish both bases before parsing; BAT CD never changes Python config.
     initial = (working_directory if working_directory is not None else Path.cwd()).absolute()
     configured_base = (
@@ -89,7 +94,6 @@ def main(
         io_workers=io_workers,
         maximum_directory_entries=maximum_directory_entries,
     )
-    output: Path = result.write_csv(report)
     print(
         f"Preflight: {result.completed_runs}/{result.run_count} run(s) checked, "
         f"{len(result.checked_paths)} unique input path(s), {len(result.issues)} issue(s), "
@@ -99,11 +103,13 @@ def main(
         f"Timing: parse {result.parse_seconds:.2f}s; contexts {result.context_seconds:.2f}s; "
         f"inventory {result.inventory_seconds:.2f}s"
     )
-    print(f"Issues CSV: {output}")
+    if report is not None:
+        output = result.write_csv(report)
+        print(f"Issues CSV: {output}")
     for issue in result.issues:
         print(
-            f"[{issue.status.upper()}] {issue.run.source}:{issue.run.line_start}-{issue.run.line_end} "
-            f"run {issue.run.index}: {issue.reference} {issue.detail}"
+            f"[{issue.finding.status.upper()}] {issue.run.source}:{issue.run.line_start}-{issue.run.line_end} "
+            f"run {issue.run.index}: {issue.finding.reference} {issue.finding.detail}"
         )
     return 0 if result.passed else 1
 
@@ -135,7 +141,11 @@ def _parse_arguments() -> argparse.Namespace:
         default=None,
         help="Enable/disable GeoPackage selected-layer checks (default: DEFAULT_CHECK_GPKG_LAYERS).",
     )
-    parser.add_argument("--report", type=Path, help="NEW issue CSV path; existing files are not overwritten.")
+    parser.add_argument(
+        "--report",
+        type=Path,
+        help="Opt in to a NEW issue CSV (default: terminal only); existing files are not overwritten.",
+    )
     parser.add_argument("--plan-only", action="store_true", help="Extract runs without reading model inputs.")
     parser.add_argument("--plan-report", type=Path, help="Write a NEW private JSON run manifest.")
     parser.add_argument("--syntax", choices=("auto", "batch", "commands"), default="auto")
@@ -147,7 +157,7 @@ def _parse_arguments() -> argparse.Namespace:
         default=DEFAULT_MAXIMUM_DIRECTORY_ENTRIES,
         help="Bounded file discovery entry limit.",
     )
-    parser.add_argument("--no-pause", action="store_true")
+    add_no_pause_cli_argument(parser=parser)
     return parser.parse_args()
 
 

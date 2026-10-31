@@ -1,12 +1,12 @@
 {
   "schema_version": "1.0",
-  "catalogue_updated": "2026-10-07",
+  "catalogue_updated": "2026-10-31",
   "workflows": [
     {
       "id": "check_tuflow_inputs",
       "title": "Check proposed TUFLOW simulation inputs",
       "domain": "tuflow",
-      "purpose": "Check scenario-resolved control files and BC Source CSVs for exact proposed runs without launching TUFLOW; write issues CSV.",
+      "purpose": "Check exact proposed multi-TCF runs without launching TUFLOW; print findings, with optional issues CSV export.",
       "script": "ryan-scripts/TUFLOW-python/model_management/check_tuflow_inputs.py",
       "profile": "analysis",
       "mutation": "creates_outputs",
@@ -464,12 +464,15 @@
       "id": "run_tuflow_batch",
       "title": "Run TUFLOW batch",
       "domain": "tuflow",
-      "purpose": "Launch configured TUFLOW simulations.",
+      "purpose": "Run or resume configured Windows TUFLOW simulations; refresh a fixed TXT command export and append execution history.",
       "script": "ryan-scripts/TUFLOW-python/model_management/run_tuflow_simulations.py",
       "profile": "privileged",
       "mutation": "executes_external",
       "requires_explicit_approval": true,
-      "help_safe": false
+      "headless_arguments": [
+        "--no-pause"
+      ],
+      "help_safe": true
     },
     {
       "id": "delete_duplicate_tuflow_files",

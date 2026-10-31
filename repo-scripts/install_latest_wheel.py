@@ -35,13 +35,23 @@ def _latest_wheel(dist_dir: Path) -> Path:
     return max(wheels, key=lambda path: (path.stat().st_mtime_ns, path.name))
 
 
-def _gis_dependency_command() -> list[str]:
-    """Build the binary-only GIS dependency installation command."""
-    pip: list[str] = [sys.executable, "-m", "pip"]
+def _pip_install_command(*, disable_bytecode: bool = False) -> list[str]:
+    """Use the selected interpreter and preserve the installer's bytecode policy."""
     return [
-        *pip,
+        sys.executable,
+        *(["-B"] if disable_bytecode else []),
+        "-m",
+        "pip",
         "install",
         "--upgrade",
+        *(["--no-compile"] if disable_bytecode else []),
+    ]
+
+
+def _gis_dependency_command(*, disable_bytecode: bool = False) -> list[str]:
+    """Build the binary-only GIS dependency installation command."""
+    return [
+        *_pip_install_command(disable_bytecode=disable_bytecode),
         "--extra-index-url",
         GIS_WHEEL_INDEX,
         "--only-binary=:all:",
@@ -51,41 +61,63 @@ def _gis_dependency_command() -> list[str]:
     ]
 
 
-def _pip_commands(
-    wheel: Path, force_reinstall: bool, *, qgis_mcp_source: str | None = None, skip_qgis_mcp: bool = False
+def normal_install_commands(
+    package: str,
+    *,
+    qgis_mcp_source: str | None = None,
+    skip_qgis_mcp: bool = False,
+    disable_bytecode: bool = False,
 ) -> list[list[str]]:
-    """Build GIS-first install commands with one exact accepted parser source."""
-    pip: list[str] = [sys.executable, "-m", "pip"]
-    if force_reinstall:
-        # Recovery mode deliberately never changes dependencies or certifies the parser.
-        return [[*pip, "install", "--upgrade", "--force-reinstall", "--no-deps", str(wheel)]]
-
+    """Build the shared PyPI/local-wheel install with full dependency resolution."""
+    pip = _pip_install_command(disable_bytecode=disable_bytecode)
     pinned_parser = _pytuflow_requirement()
-    commands: list[list[str]] = [_gis_dependency_command()]
+    commands: list[list[str]] = [_gis_dependency_command(disable_bytecode=disable_bytecode)]
     if not skip_qgis_mcp:
         source: str = qgis_mcp_source or QGIS_MCP_ARCHIVE
-        commands.append([*pip, "install", "--upgrade", source])
-    # An existing official wheel may have the same version but no validation API.
-    # Force the exact selected archive even when the installed version matches.
-    commands.append([*pip, "install", "--upgrade", "--force-reinstall", "--no-deps", pinned_parser])
-    # Resolve the matching wheel AND this explicit parser requirement together,
-    # so PyPI's same-version build cannot be selected as a transitive dependency.
+        commands.append([*pip, source])
+    # An explicit source archive replaces an installed same-version official
+    # build. Resolve it together with ryan-tools so all dependencies are checked
+    # and PyPI cannot substitute its incompatible same-version parser build.
     commands.append(
         [
             *pip,
-            "install",
-            "--upgrade",
             "--prefer-binary",
             "--extra-index-url",
             GIS_WHEEL_INDEX,
             "--only-binary=fiona",
             "--only-binary=rasterio",
             "--only-binary=gdal",
-            f"{wheel}[mcp]",
+            package,
             pinned_parser,
         ]
     )
     return commands
+
+
+def installation_verification_commands(*, disable_bytecode: bool = False) -> list[list[str]]:
+    """Check installed dependency consistency and the public PyTUFLOW API."""
+    python = [sys.executable, *(["-B"] if disable_bytecode else [])]
+    return [
+        [*python, "-m", "pip", "check"],
+        [
+            *python,
+            "-c",
+            (
+                "from ryan_library.functions.tuflow.pytuflow_compatibility "
+                "import require_validation_api; print(require_validation_api().diagnostic.message)"
+            ),
+        ],
+    ]
+
+
+def _pip_commands(
+    wheel: Path, force_reinstall: bool, *, qgis_mcp_source: str | None = None, skip_qgis_mcp: bool = False
+) -> list[list[str]]:
+    """Keep wheel-only recovery separate from the shared normal installation."""
+    if force_reinstall:
+        # Recovery mode deliberately never changes dependencies or certifies the parser.
+        return [[*_pip_install_command(), "--force-reinstall", "--no-deps", str(wheel)]]
+    return normal_install_commands(f"{wheel}[mcp]", qgis_mcp_source=qgis_mcp_source, skip_qgis_mcp=skip_qgis_mcp)
 
 
 def migration_commands(commands: list[list[str]], *, verification_command: list[str]) -> list[list[str]]:
@@ -148,34 +180,21 @@ def main(argv: list[str] | None = None) -> int:
         project_root: Path = Path(__file__).absolute().parents[1]
         try:
             wheel: Path = _latest_wheel(dist_dir=project_root / "dist")
-        except FileNotFoundError as error:
+            commands = _pip_commands(
+                wheel=wheel,
+                force_reinstall=args.force_reinstall,
+                qgis_mcp_source=args.qgis_mcp_source,
+                skip_qgis_mcp=args.skip_qgis_mcp,
+            )
+        except (OSError, ValueError) as error:
             print(f"ERROR: {error}", file=sys.stderr)
             return 1
-
         print(f"Installing:   {wheel}")
-        commands = _pip_commands(
-            wheel=wheel,
-            force_reinstall=args.force_reinstall,
-            qgis_mcp_source=args.qgis_mcp_source,
-            skip_qgis_mcp=args.skip_qgis_mcp,
-        )
         commands = _migration_commands(wheel, commands)
         if args.force_reinstall:
             print("NOTE: --force-reinstall uses --no-deps and does not update or validate PyTUFLOW or QGIS MCP.")
         else:
-            commands.extend(
-                [
-                    [sys.executable, "-m", "pip", "check"],
-                    [
-                        sys.executable,
-                        "-c",
-                        (
-                            "from ryan_library.functions.tuflow.pytuflow_compatibility "
-                            "import require_validation_api; print(require_validation_api().diagnostic.message)"
-                        ),
-                    ],
-                ]
-            )
+            commands.extend(installation_verification_commands())
 
     for command in commands:
         print(f"Command:      {subprocess.list2cmdline(command)}")
@@ -183,7 +202,7 @@ def main(argv: list[str] | None = None) -> int:
             continue
         result: subprocess.CompletedProcess[bytes] = subprocess.run(command, check=False)
         if result.returncode != 0:
-            print(f"ERROR: pip exited with status {result.returncode}", file=sys.stderr)
+            print(f"ERROR: Installer command exited with status {result.returncode}", file=sys.stderr)
             return result.returncode
 
     if args.dry_run:

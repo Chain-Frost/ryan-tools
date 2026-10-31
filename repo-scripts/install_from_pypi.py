@@ -12,7 +12,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from install_latest_wheel import GIS_WHEEL_INDEX, QGIS_MCP_ARCHIVE, migration_commands
+from install_latest_wheel import installation_verification_commands, migration_commands, normal_install_commands
 from setup_codex_mcp import disable_bytecode_for_environment
 from setup_codex_mcp import main as configure_codex_mcp
 
@@ -64,35 +64,13 @@ def supported_python(major: int, minor: int) -> bool:
 def pip_commands(
     *, qgis_mcp_source: str | None = None, skip_qgis_mcp: bool = False, disable_bytecode: bool = False
 ) -> list[list[str]]:
-    """Prepare Windows-friendly binary GIS bootstrap and latest PyPI install."""
-    pip = [sys.executable, *(["-B"] if disable_bytecode else []), "-m", "pip", "install", "--upgrade"]
-    pip.extend(["--no-compile"] if disable_bytecode else [])
-    commands = [
-        [
-            *pip,
-            "--extra-index-url",
-            GIS_WHEEL_INDEX,
-            "--only-binary=:all:",
-            "fiona",
-            "rasterio",
-            "gdal",
-        ],
-    ]
-    if not skip_qgis_mcp:
-        commands.append([*pip, qgis_mcp_source or QGIS_MCP_ARCHIVE])
-    commands.append(
-        [
-            *pip,
-            "--prefer-binary",
-            "--extra-index-url",
-            GIS_WHEEL_INDEX,
-            "--only-binary=fiona",
-            "--only-binary=rasterio",
-            "--only-binary=gdal",
-            "ryan-tools[mcp]",
-        ]
+    """Prepare the shared GIS bootstrap, PyPI package and accepted parser install."""
+    return normal_install_commands(
+        "ryan-tools[mcp]",
+        qgis_mcp_source=qgis_mcp_source,
+        skip_qgis_mcp=skip_qgis_mcp,
+        disable_bytecode=disable_bytecode,
     )
-    return commands
 
 
 def _configure_codex(args: argparse.Namespace, *, disable_bytecode: bool) -> int:
@@ -127,7 +105,7 @@ def _configure_codex(args: argparse.Namespace, *, disable_bytecode: bool) -> int
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Install from PyPI, then register MCP servers only when Codex exists."""
+    """Install and verify PyTUFLOW support before optional Codex registration."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dry-run", action="store_true", help="Print commands without installing or editing files")
     parser.add_argument("--skip-codex", action="store_true", help="Do not change Codex configuration")
@@ -150,26 +128,34 @@ def main(argv: list[str] | None = None) -> int:
     disable_bytecode = args.disable_bytecode or disable_bytecode_for_environment()
     sys.dont_write_bytecode = sys.dont_write_bytecode or disable_bytecode
     print(f"Python interpreter: {sys.executable}")
-    commands: list[list[str]] = pip_commands(
-        qgis_mcp_source=args.qgis_mcp_source,
-        skip_qgis_mcp=args.skip_qgis_mcp,
-        disable_bytecode=disable_bytecode,
-    )
+    try:
+        commands = pip_commands(
+            qgis_mcp_source=args.qgis_mcp_source,
+            skip_qgis_mcp=args.skip_qgis_mcp,
+            disable_bytecode=disable_bytecode,
+        )
+    except (OSError, ValueError) as error:
+        print(f"ERROR: {error}", file=sys.stderr)
+        return 1
     commands = migration_commands(commands, verification_command=[*commands[-1], "--force-reinstall", "--dry-run"])
+    commands.extend(installation_verification_commands(disable_bytecode=disable_bytecode))
     for command in commands:
         print(f"Command: {subprocess.list2cmdline(command)}", flush=True)
         if args.dry_run:
             continue
         completed: subprocess.CompletedProcess[bytes] = subprocess.run(command, check=False)
         if completed.returncode:
-            print(f"ERROR: pip exited with status {completed.returncode}", file=sys.stderr)
+            print(f"ERROR: Installer command exited with status {completed.returncode}", file=sys.stderr)
             return completed.returncode
 
     result: int = _configure_codex(args, disable_bytecode=disable_bytecode)
     if result:
         return result
 
-    print("PyPI installation dry run complete." if args.dry_run else "PyPI installation complete.")
+    if args.dry_run:
+        print("PyPI installation dry run complete: no packages or validation capabilities were checked.")
+    else:
+        print("PyPI installation complete; pip check and public PyTUFLOW capabilities verified.")
     return 0
 
 

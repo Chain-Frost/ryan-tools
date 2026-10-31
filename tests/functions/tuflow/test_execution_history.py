@@ -262,6 +262,39 @@ def test_windows_unc_and_switch_order_have_stable_identity() -> None:
     assert signature(first) == signature(second)
 
 
+def test_existing_logical_v1_keys_survive_shared_argument_projection() -> None:
+    """Keep keys already emitted for valid flags, repeated occurrences and UNC models."""
+    base = PureWindowsPath(r"Q:\Models")
+    tcf = PureWindowsPath(r"\\server\share\models\flow.tcf")
+    first = PlannedRun(
+        1,
+        base / "list.txt",
+        1,
+        1,
+        tcf,
+        base,
+        (("e1", "A.tcf"), ("s1", "With Space")),
+        ("-PU2", "-E1", "A.tcf", "-S1", "With Space", "-e1", "A.tcf", str(tcf), "-ET5", "-B"),
+        r"C:\TUFLOW\TUFLOW.exe",
+    )
+    plan = CommandPlan(base / "list.txt", (first, replace(first, index=2)), (), 0, "commands")
+    identities = identify_runs(plan, fallback_executable=Path("unused.exe"), base_directory=Path.cwd())
+    assert [identity.key for identity in identities.values()] == [
+        "875ca45fe4913751b0244c7dabd7a886b9a2e5f802d6e97e062628a062dacb89",
+        "1a691e356fd67e2ed10b32c3cbe0c71269d91936df68c0a204d7d8647baa9624",
+    ]
+
+
+def test_history_rejects_unsupported_gpu_syntax(tmp_path: Path) -> None:
+    plan = _plan(tmp_path, 1)
+    run = plan.runs[0]
+    unsupported = replace(run, arguments=("-pu0,1", *run.arguments))
+    with pytest.raises(ExecutionLogError, match="Unsupported simulation argument"):
+        identify_runs(
+            replace(plan, runs=(unsupported,)), fallback_executable=Path("unused.exe"), base_directory=tmp_path
+        )
+
+
 def test_imported_bare_and_nonterminal_tcf_rows_have_stable_csv_identity(tmp_path: Path) -> None:
     """The valid parser surface must also work with CSV continuation."""
     source = tmp_path / "input.bat"

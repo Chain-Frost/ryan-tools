@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 from ...functions.tuflow.command_plan import CommandPlan, CommandPlanError, PlannedRun
 
 if TYPE_CHECKING:
-    from .input_preflight import PreflightReport
+    from .input_preflight import PreflightIssue, PreflightReport
 
 
 @dataclass(frozen=True, slots=True)
@@ -19,10 +19,7 @@ class CommandPreflightIssue:
     """A dependency finding with its original command-file provenance."""
 
     run: PlannedRun
-    status: str
-    origin: str
-    reference: str
-    detail: str
+    finding: PreflightIssue
 
 
 @dataclass(slots=True)
@@ -82,10 +79,10 @@ class CommandPreflightReport:
                         str(run.tcf),
                         str(run.working_directory),
                         " ".join(f"-{k} {v}" for k, v in run.flag_pairs),
-                        issue.status,
-                        issue.origin,
-                        issue.reference,
-                        issue.detail,
+                        issue.finding.status,
+                        issue.finding.origin,
+                        issue.finding.reference,
+                        issue.finding.detail,
                     )
                 )
         return destination
@@ -146,9 +143,15 @@ def check_command_plan(
     therefore fails closed instead of silently changing shell semantics.
     """
     _validate_options(io_workers=io_workers, maximum_directory_entries=maximum_directory_entries)
-    if not plan.runs or [run.index for run in plan.runs] != list(range(1, len(plan.runs) + 1)):
-        message = "Run plan must contain a complete sequential set of global indices"
+    indices = [run.index for run in plan.runs]
+    if (
+        not indices
+        or any(type(index) is not int or index < 1 for index in indices)
+        or len(set(indices)) != len(indices)
+    ):
+        message = "Run plan must contain distinct positive original run indices"
         raise CommandPlanError(message)
+    positions = {index: position for position, index in enumerate(indices)}
     for requirement in plan.directories:
         if not _native_path(requirement.path).is_dir():
             message = (
@@ -177,12 +180,7 @@ def check_command_plan(
             if not report.passed and not report.issues:
                 message = "Validation group reports failure but supplies no attributable findings"
                 raise ValueError(message)
-            findings = [
-                CommandPreflightIssue(
-                    by_index[issue.run_index], issue.status, issue.origin, issue.reference, issue.detail
-                )
-                for issue in report.issues
-            ]
+            findings = [CommandPreflightIssue(by_index[issue.run_index], issue) for issue in report.issues]
             combined.issues.extend(findings)
             combined.checked_paths.update(report.checked_paths)
             combined.parse_seconds += report.parse_seconds
@@ -191,9 +189,21 @@ def check_command_plan(
             combined.completed_runs += len(runs)
             combined.groups_checked += 1
         except Exception as exc:  # noqa: BLE001 - every group failure invalidates all its runs; other groups still checked
+            from .input_preflight import PreflightIssue
+
             combined.issues.extend(
-                CommandPreflightIssue(run, "unresolved", "TCF preflight", str(run.tcf), f"{type(exc).__name__}: {exc}")
+                CommandPreflightIssue(
+                    run,
+                    PreflightIssue(
+                        run.index,
+                        " ".join(f"-{key} {value}" for key, value in run.flag_pairs),
+                        "unresolved",
+                        "TCF preflight",
+                        str(run.tcf),
+                        f"{type(exc).__name__}: {exc}",
+                    ),
+                )
                 for run in runs
             )
-    combined.issues.sort(key=lambda issue: issue.run.index)
+    combined.issues.sort(key=lambda issue: positions[issue.run.index])
     return combined

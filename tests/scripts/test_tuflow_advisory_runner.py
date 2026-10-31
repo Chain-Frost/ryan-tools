@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from dataclasses import replace
 from pathlib import Path
 from subprocess import Popen
@@ -11,12 +11,23 @@ from threading import Event
 from typing import cast
 
 import pytest
+from loguru import logger
 
 from ryan_library.functions.tuflow.command_plan import CommandPlan
 from ryan_library.functions.tuflow.gpu_occupancy import GpuOccupancySnapshot, TuflowGpuProcess
 from ryan_library.orchestrators.tuflow import command_preflight
 from ryan_library.orchestrators.tuflow import simulation_runner as runner
 from ryan_library.orchestrators.tuflow.command_preflight import CommandPreflightIssue, CommandPreflightReport
+from ryan_library.orchestrators.tuflow.input_preflight import PreflightIssue
+
+
+@pytest.fixture(autouse=True)
+def capture_loguru(caplog: pytest.LogCaptureFixture) -> Generator[None]:
+    sink = logger.add(caplog.handler, format="{message}")
+    try:
+        yield
+    finally:
+        logger.remove(sink)
 
 
 def settings(base: Path, **changes: object) -> runner.RunnerSettings:
@@ -70,11 +81,13 @@ def test_launches_during_held_advisory_and_delivers_all_findings(
     launched: list[int] = []
 
     def check(_plan: object, **_kwargs: object) -> CommandPreflightReport:
+        assert _kwargs.get("io_workers") == 1
         started.set()
         assert release.wait(5)
         result = _complete_report(plan)
         result.issues = [
-            CommandPreflightIssue(plan.runs[0], "missing", "test", f"missing-{i}", "absent") for i in range(25)
+            CommandPreflightIssue(plan.runs[0], PreflightIssue(1, "", "missing", "test", f"missing-{i}", "absent"))
+            for i in range(25)
         ]
         return result
 
@@ -137,7 +150,8 @@ def test_preflight_only_reports_every_finding_and_fails_closed(
     plan = runner.prepare_plan(settings(tmp_path))
     result = _complete_report(plan)
     result.issues = [
-        CommandPreflightIssue(plan.runs[0], "missing", "test", f"file-{i}", "unavailable") for i in range(13)
+        CommandPreflightIssue(plan.runs[0], PreflightIssue(1, "", "missing", "test", f"file-{i}", "unavailable"))
+        for i in range(13)
     ]
 
     def return_findings(*_args: object, **_kwargs: object) -> CommandPreflightReport:

@@ -3,7 +3,7 @@
 import csv
 import sys
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from types import ModuleType
 from typing import NoReturn
@@ -11,26 +11,30 @@ from typing import NoReturn
 import pytest
 
 from ryan_library.functions.tuflow.command_plan import CommandPlan, CommandPlanError, PlannedRun, parse_command_plan
+from ryan_library.functions.tuflow.execution_history import identify_runs, select_pending
 from ryan_library.orchestrators.tuflow import command_preflight as subject
+from ryan_library.orchestrators.tuflow.input_preflight import IssueStatus, PreflightIssue
 
 
 def plan(tmp_path: Path, text: str = "-e1 A a.tcf\n-e1 B b.tcf\n-e1 A a.tcf") -> CommandPlan:
     return parse_command_plan(text, source=tmp_path / "runs.bat", initial_directory=tmp_path)
 
 
-@dataclass
-class FakeIssue:
-    run_index: int
-    status: str = "missing"
-    origin: str = "test"
-    reference: str = "file"
-    detail: str = "missing"
+def _issue(
+    run_index: int,
+    *,
+    status: IssueStatus = "missing",
+    origin: str = "test",
+    reference: str = "file",
+    detail: str = "missing",
+) -> PreflightIssue:
+    return PreflightIssue(run_index, "", status, origin, reference, detail)
 
 
 @dataclass
 class FakeReport:
     run_count: int
-    issues: Sequence[FakeIssue] = ()
+    issues: Sequence[PreflightIssue] = ()
     checked_paths: set[str] = field(default_factory=lambda: {"shared"})
     parse_seconds: float = 1.0
     context_seconds: float = 2.0
@@ -42,7 +46,7 @@ class FakeReport:
         return self.passed_override if self.passed_override is not None else not self.issues
 
 
-def outcome(runs: tuple[PlannedRun, ...], issues: Sequence[FakeIssue] = ()) -> FakeReport:
+def outcome(runs: tuple[PlannedRun, ...], issues: Sequence[PreflightIssue] = ()) -> FakeReport:
     return FakeReport(len(runs), issues)
 
 
@@ -85,12 +89,12 @@ def test_one_failed_model_invalidates_its_runs_and_does_not_drop_other_models(
     assert not report.passed
     assert report.completed_runs == 1
     assert [issue.run.index for issue in report.issues] == [1, 3]
-    assert all(issue.status == "unresolved" for issue in report.issues)
+    assert all(issue.finding.status == "unresolved" for issue in report.issues)
 
 
 def test_issues_csv_contains_original_line_model_and_index(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     def checker(runs: tuple[PlannedRun, ...], **_options: object) -> FakeReport:
-        issues = [FakeIssue(run.index) for run in reversed(runs)]
+        issues = [_issue(run.index) for run in reversed(runs)]
         return outcome(runs, issues)
 
     monkeypatch.setattr(subject, "_check_group", checker)
@@ -117,7 +121,7 @@ def test_malformed_group_reports_fail_closed(
         result = outcome(runs)
         result.run_count = bad_count
         if bad_index is not None:
-            result.issues = [FakeIssue(bad_index)]
+            result.issues = [_issue(bad_index)]
         return result
 
     monkeypatch.setattr(subject, "_check_group", checker)
@@ -157,7 +161,7 @@ def test_groups_preserve_source_attribution_and_forward_bounds(tmp_path: Path, m
 
     def checker(runs: tuple[PlannedRun, ...], **options: object) -> FakeReport:
         calls.append((runs, options))
-        return outcome(runs, [FakeIssue(runs[-1].index)])
+        return outcome(runs, [_issue(runs[-1].index)])
 
     monkeypatch.setattr(subject, "_check_group", checker)
     report = subject.check_command_plan(plan(tmp_path), io_workers=2, maximum_directory_entries=200)
@@ -183,7 +187,7 @@ def test_scope_01_global_findings_map_to_interleaved_occurrences_exactly_once(
     def checker(runs: tuple[PlannedRun, ...], **_options: object) -> FakeReport:
         # Scope 01 has already translated upstream local positions into the
         # global IDs it received from this layer's RunRequest list.
-        return outcome(runs, [FakeIssue(runs[0].index, reference="first"), FakeIssue(runs[-1].index, reference="last")])
+        return outcome(runs, [_issue(runs[0].index, reference="first"), _issue(runs[-1].index, reference="last")])
 
     monkeypatch.setattr(subject, "_check_group", checker)
     report = subject.check_command_plan(plan(tmp_path))
@@ -202,7 +206,7 @@ def test_incomplete_group_with_no_findings_never_passes(tmp_path: Path, monkeypa
     assert not report.passed
     assert report.completed_runs == 0
     assert report.affected_runs == 3
-    assert all(issue.status == "unresolved" for issue in report.issues)
+    assert all(issue.finding.status == "unresolved" for issue in report.issues)
 
 
 def test_directory_failure_identifies_actual_second_source(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -237,7 +241,7 @@ def test_validator_seam_preserves_global_ids_and_spaced_context(
         captured.append(tcf)
         captured.append(tuple((item.index, dict(item.flags)) for item in requests))
         captured.append(options)
-        return FakeReport(run_count=len(requests), issues=[FakeIssue(requests[-1].index)])
+        return FakeReport(run_count=len(requests), issues=[_issue(requests[-1].index)])
 
     fake_module = ModuleType("ryan_library.orchestrators.tuflow.input_preflight")
     fake_module.__dict__["RunRequest"] = PublicRunRequest
@@ -263,3 +267,68 @@ def test_validator_seam_preserves_global_ids_and_spaced_context(
         "io_workers": 2,
         "maximum_directory_entries": 200,
     }
+
+
+def test_resume_checks_sparse_original_indices_without_changing_full_plan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    full = plan(tmp_path, "-e1 A a.tcf\n-e1 B b.tcf\n-e1 C a.tcf\n-e1 D b.tcf")
+    identities = identify_runs(full, fallback_executable=tmp_path / "TUFLOW.exe", base_directory=tmp_path)
+    pending = select_pending(full, identities, {identities[1].key})
+    calls: list[tuple[int, ...]] = []
+
+    def checker(runs: tuple[PlannedRun, ...], **_options: object) -> FakeReport:
+        calls.append(tuple(run.index for run in runs))
+        return outcome(runs, [_issue(run.index) for run in reversed(runs)])
+
+    monkeypatch.setattr(subject, "_check_group", checker)
+    report = subject.check_command_plan(pending)
+    assert [run.index for run in full.runs] == [1, 2, 3, 4]
+    assert [run.index for run in pending.runs] == [2, 3, 4]
+    assert calls == [(2, 4), (3,)]
+    assert report.plan is pending
+    assert report.completed_runs == 3
+    assert [issue.run.index for issue in report.issues] == [2, 3, 4]
+    assert all(issue.run is full.runs[issue.run.index - 1] for issue in report.issues)
+
+
+@pytest.mark.parametrize("indices", [(0, 2), (-1, 2), (1, 1), (True, 2)])
+def test_duplicate_or_nonpositive_original_indices_are_rejected(tmp_path: Path, indices: tuple[int, int]) -> None:
+    selected = plan(tmp_path, "-e1 A a.tcf\n-e1 B b.tcf")
+    selected = replace(
+        selected,
+        runs=tuple(replace(run, index=index) for run, index in zip(selected.runs, indices, strict=True)),
+    )
+    with pytest.raises(CommandPlanError, match="distinct positive original"):
+        subject.check_command_plan(selected)
+
+
+def test_grouped_finding_retains_complete_upstream_details(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    original = PreflightIssue(
+        1,
+        "-e1 A",
+        "missing",
+        "Read GIS BC",
+        "bc.csv",
+        "Selected columns are unavailable",
+        kind="csv_columns",
+        path=tmp_path / "bc.csv",
+        layer="boundaries",
+        owner_control_file=tmp_path / "nested.tbc",
+        database_kind="bc",
+        input_uuid="selected-input",
+        command_index=17,
+        csv_columns=("Time", "Flow"),
+        source_pattern=tmp_path / "bc_*.csv",
+    )
+
+    def checker(runs: tuple[PlannedRun, ...], **_options: object) -> FakeReport:
+        return outcome(runs, [original])
+
+    monkeypatch.setattr(subject, "_check_group", checker)
+    selected = plan(tmp_path, "-e1 A a.tcf")
+    report = subject.check_command_plan(selected)
+    assert report.issues[0].run is selected.runs[0]
+    assert report.issues[0].finding is original
+    assert report.issues[0].finding.owner_control_file == tmp_path / "nested.tbc"
+    assert report.issues[0].finding.csv_columns == ("Time", "Flow")
