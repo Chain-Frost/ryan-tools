@@ -1,6 +1,6 @@
 """Plan, export and execute TUFLOW batches without interpreting a shell.
 
-The immutable :class:\`PlannedRun\` from command_plan is the only logical run
+The immutable PlannedRun from command_plan is the only logical run
 description. GPU placement, process handles and observations are transient.
 This module neither changes the process working directory nor exits/pauses.
 """
@@ -126,35 +126,45 @@ def _at_base(path: Path, base: Path) -> Path:
     return path if path.is_absolute() else (base / path).absolute()
 
 
-def _validate_settings(settings: RunnerSettings) -> None:
+def _validate_settings(settings: RunnerSettings) -> None:  # noqa: C901 - validate user policy in one place
     if settings.mode not in {"parameter_product", "textfiles", "both"}:
-        raise CommandPlanError(f"Invalid runner mode: {settings.mode}")
+        message = f"Invalid runner mode: {settings.mode}"
+        raise CommandPlanError(message)
     if settings.computational_priority.upper() not in _PRIORITY:
-        raise CommandPlanError(f"Unsupported process priority: {settings.computational_priority}")
+        message = f"Unsupported process priority: {settings.computational_priority}"
+        raise CommandPlanError(message)
     if settings.maximum_concurrent is not None and settings.maximum_concurrent < 1:
-        raise CommandPlanError("maximum_concurrent must be positive")
+        message = "maximum_concurrent must be positive"
+        raise CommandPlanError(message)
     if settings.wait_time_after_run < 0 or settings.live_refresh_per_second <= 0:
-        raise CommandPlanError("Launch delay must be nonnegative and dashboard refresh must be positive")
+        message = "Launch delay must be nonnegative and dashboard refresh must be positive"
+        raise CommandPlanError(message)
     if not settings.working_directory.is_absolute():
-        raise CommandPlanError("The configured working directory must be absolute")
+        message = "The configured working directory must be absolute"
+        raise CommandPlanError(message)
     for group in settings.gpu_devices:
         if not group or any(_GPU.fullmatch(flag) is None for flag in group):
-            raise CommandPlanError(f"Invalid runner GPU group: {group!r}")
+            message = f"Invalid runner GPU group: {group!r}"
+            raise CommandPlanError(message)
     try:
         switches = shlex.split(settings.batch_commands, posix=True)
     except ValueError as exc:
-        raise CommandPlanError(f"Invalid batch_commands quoting: {exc}") from exc
+        message = f"Invalid batch_commands quoting: {exc}"
+        raise CommandPlanError(message) from exc
     if any(token not in _ENGINE and not _GPU.fullmatch(token) for token in switches):
-        raise CommandPlanError("batch_commands supports only TUFLOW engine switches (-b, -x, -t, -nlc, -puN)")
+        message = "batch_commands supports only TUFLOW engine switches (-b, -x, -t, -nlc, -puN)"
+        raise CommandPlanError(message)
     if settings.mode in {"textfiles", "both"} and not settings.input_files:
-        raise CommandPlanError("Input BAT/text files are required for textfiles/both mode")
+        message = "Input BAT/text files are required for textfiles/both mode"
+        raise CommandPlanError(message)
 
 
 def _flags(settings: RunnerSettings) -> tuple[tuple[str, tuple[str, ...]], ...]:
     result: list[tuple[str, tuple[str, ...]]] = []
     for key, raw in settings.run_variables.items():
         if _FLAG.fullmatch(key) is None:
-            raise CommandPlanError(f"Invalid generated event/scenario key: {key!r}")
+            message = f"Invalid generated event/scenario key: {key!r}"
+            raise CommandPlanError(message)
         values = tuple(raw.split() if isinstance(raw, str) else (str(value).strip() for value in raw))
         values = tuple(value for value in values if value)
         if values:
@@ -167,7 +177,8 @@ def _flags(settings: RunnerSettings) -> tuple[tuple[str, tuple[str, ...]], ...]:
 
 def _generated_plan(settings: RunnerSettings) -> CommandPlan:
     if settings.tcf is None:
-        raise CommandPlanError("Generated parameter-product runs require a configured Python TCF")
+        message = "Generated parameter-product runs require a configured Python TCF"
+        raise CommandPlanError(message)
     base = settings.working_directory
     tcf = _at_base(settings.tcf, base)
     exe = str(_at_base(settings.executable, base))
@@ -175,13 +186,16 @@ def _generated_plan(settings: RunnerSettings) -> CommandPlan:
     required = {match.casefold() for match in _PLACEHOLDER.findall(tcf.name)}
     present = {key for key, _ in variables}
     if missing := required - present:
-        raise CommandPlanError(f"TCF placeholders require generated flags: {sorted(missing)}")
+        message = f"TCF placeholders require generated flags: {sorted(missing)}"
+        raise CommandPlanError(message)
     if any(key in required and not values for key, values in variables):
-        raise CommandPlanError("TCF placeholder has no generated values")
+        message = "TCF placeholder has no generated values"
+        raise CommandPlanError(message)
     try:
         batch = tuple(shlex.split(settings.batch_commands))
     except ValueError as exc:
-        raise CommandPlanError(f"Invalid common engine switches: {exc}") from exc
+        message = f"Invalid common engine switches: {exc}"
+        raise CommandPlanError(message) from exc
     source = settings.wrapper_file.absolute()
     runs: list[PlannedRun] = []
     for number, values in enumerate(itertools.product(*(v for _, v in variables)), 1):
@@ -212,7 +226,8 @@ def prepare_plan(settings: RunnerSettings) -> CommandPlan:
         plans.append(_generated_plan(settings))
     combined = tuple(replace(run, index=i) for i, run in enumerate((run for plan in plans for run in plan.runs), 1))
     if not combined:
-        raise CommandPlanError("No simulations were selected")
+        message = "No simulations were selected"
+        raise CommandPlanError(message)
     return CommandPlan(
         source=plans[0].source,
         runs=combined,
@@ -235,13 +250,15 @@ def _model_arguments(run: PlannedRun) -> tuple[str, ...]:
 def _command(run: PlannedRun, settings: RunnerSettings, group: tuple[str, ...]) -> list[str]:
     args = list(_model_arguments(run))
     if not args or not args[-1].casefold().endswith(".tcf"):
-        raise CommandPlanError(f"{run.source}:{run.line_start}: missing terminal TCF argument")
+        message = f"{run.source}:{run.line_start}: missing terminal TCF argument"
+        raise CommandPlanError(message)
     return [_executable(run, settings), *args[:-1], *group, str(run.tcf)]
 
 
 def _bat_quote(value: str, *, always: bool = False) -> str:
     if not value or any(char in value for char in '\r\n"%!^&|<>'):
-        raise CommandPlanError(f"Cannot safely represent BAT argument {value!r}")
+        message = f"Cannot safely represent BAT argument {value!r}"
+        raise CommandPlanError(message)
     if always or any(char.isspace() for char in value):
         return f'"{value}"'
     return value
@@ -250,7 +267,8 @@ def _bat_quote(value: str, *, always: bool = False) -> str:
 def _logical_signature(run: PlannedRun, settings: RunnerSettings) -> tuple[object, ...]:
     # Compare effective inputs, never the export's synthetic source or START hints.
     if not run.arguments or not run.arguments[-1].casefold().endswith(".tcf"):
-        raise CommandPlanError(f"Run {run.index} lacks a terminal TCF argument")
+        message = f"Run {run.index} lacks a terminal TCF argument"
+        raise CommandPlanError(message)
     return (str(run.tcf), str(run.working_directory), _executable(run, settings), (*run.arguments[:-1], str(run.tcf)))
 
 
@@ -262,7 +280,8 @@ def render_batch_commands(plan: CommandPlan, settings: RunnerSettings, *, destin
     START hints are deliberately regenerated from the runner's priority policy.
     """
     if not plan.runs:
-        raise CommandPlanError("Cannot export an empty batch")
+        message = "Cannot export an empty batch"
+        raise CommandPlanError(message)
     tcfs = tuple(dict.fromkeys(str(run.tcf) for run in plan.runs))
     exes = tuple(dict.fromkeys(_executable(run, settings) for run in plan.runs))
     tcf_names = {value: ("TCF" if len(tcfs) == 1 else f"TCF_{i}") for i, value in enumerate(tcfs, 1)}
@@ -272,7 +291,7 @@ def render_batch_commands(plan: CommandPlan, settings: RunnerSettings, *, destin
     # visible on each START line even if they happen to match.
     common: list[str] = []
     if arguments:
-        for column in zip(*arguments):
+        for column in zip(*arguments, strict=False):
             if len(set(column)) == 1 and (column[0].casefold() in _ENGINE or _GPU.fullmatch(column[0])):
                 common.append(column[0])
             else:
@@ -308,7 +327,8 @@ def render_batch_commands(plan: CommandPlan, settings: RunnerSettings, *, destin
     original = tuple(_logical_signature(run, settings) for run in plan.runs)
     roundtrip = tuple(_logical_signature(run, settings) for run in exported.runs)
     if original != roundtrip:
-        raise CommandPlanError("BAT export/reparse changed executable, TCF, cwd, model switches or occurrence order")
+        message = "BAT export/reparse changed executable, TCF, cwd, model switches or occurrence order"
+        raise CommandPlanError(message)
     return text
 
 
@@ -318,9 +338,11 @@ def export_batch_commands(plan: CommandPlan, settings: RunnerSettings, destinati
     for source in plan.source_files:
         existing = Path(str(source))
         if os.path.normcase(str(target)) == os.path.normcase(str(existing)):
-            raise CommandPlanError(f"Refusing to overwrite imported command source: {source}")
+            message = f"Refusing to overwrite imported command source: {source}"
+            raise CommandPlanError(message)
         if target.exists() and existing.exists() and target.samefile(existing):
-            raise CommandPlanError(f"Refusing to overwrite imported command source alias: {source}")
+            message = f"Refusing to overwrite imported command source alias: {source}"
+            raise CommandPlanError(message)
     content = render_batch_commands(plan, settings, destination=target)
     target.parent.mkdir(parents=True, exist_ok=True)
     with target.open("x", encoding="utf-8", newline="") as output:
@@ -377,14 +399,23 @@ class AdvisoryInputCheck:
 
             report = check_command_plan(self.plan, check_gpkg_layers=self._layers)
             messages = [
-                (logging.WARNING, f"Input check run {issue.run.index} {issue.run.source}:{issue.run.line_start}: "
-                 f"[{issue.status}] {issue.origin}: {issue.reference} ({issue.detail})")
+                (
+                    logging.WARNING,
+                    (
+                        f"Input check run {issue.run.index} {issue.run.source}:{issue.run.line_start}: "
+                        f"[{issue.status}] {issue.origin}: {issue.reference} ({issue.detail})"
+                    ),
+                )
                 for issue in report.issues
             ]
             messages.append(
-                (logging.INFO if report.passed else logging.WARNING,
-                 f"Input check {'passed' if report.passed else 'failed or incomplete'} for "
-                 f"{report.completed_runs}/{report.run_count} runs.")
+                (
+                    logging.INFO if report.passed else logging.WARNING,
+                    (
+                        f"Input check {'passed' if report.passed else 'failed or incomplete'} for "
+                        f"{report.completed_runs}/{report.run_count} runs."
+                    ),
+                )
             )
         except Exception as exc:  # noqa: BLE001 - advisory checks are never a launch prerequisite
             messages = [(logging.WARNING, f"Input checking unavailable or incomplete: {type(exc).__name__}: {exc}")]
@@ -421,7 +452,7 @@ def check_plan_only(plan: CommandPlan, *, check_gpkg_layers: bool = True) -> boo
     try:
         report = check_command_plan(plan, check_gpkg_layers=check_gpkg_layers)
     except Exception as exc:  # noqa: BLE001 - strict check-only mode reports unavailable validation as failure
-        logger.error("Input checking failed or is unavailable: %s", exc)
+        logger.exception("Input checking failed or is unavailable: %s", exc)
         return False
     for issue in report.issues:
         logger.warning(
@@ -482,7 +513,7 @@ def _stop_children(active: list[_OwnedChild]) -> None:
             logger.warning("Could not confirm termination of PID %s: %s", child.process.pid, exc)
 
 
-def launch_plan(
+def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation boundary
     plan: CommandPlan,
     settings: RunnerSettings,
     *,
@@ -499,13 +530,15 @@ def launch_plan(
     The hooks provide scope 04's append-only START/FINISH integration point.
     """
     if not plan.runs:
-        raise CommandPlanError("No selected simulations to launch")
+        message = "No selected simulations to launch"
+        raise CommandPlanError(message)
     groups = settings.gpu_devices
     capacity = len(groups) if groups else 1
     if settings.maximum_concurrent is not None:
         capacity = min(capacity, settings.maximum_concurrent)
     if capacity < 1:
-        raise CommandPlanError("No runner slots configured")
+        message = "No runner slots configured"
+        raise CommandPlanError(message)
     stop = interrupted if interrupted is not None else Event()
     factory = popen or subprocess.Popen
     queue = deque(plan.runs)
