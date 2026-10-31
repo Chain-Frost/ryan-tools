@@ -12,7 +12,7 @@ import sys
 from dataclasses import dataclass
 from importlib import metadata
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, cast
 
 
 class ValidationOptionsFactory(Protocol):
@@ -78,16 +78,27 @@ class ValidationAPI:
     diagnostic: CompatibilityStatus
 
 
+def _json_object(raw: str) -> dict[str, object]:
+    """Decode JSON metadata into a concrete typed object without trusting contents."""
+    decoded: object = json.loads(raw)
+    if not isinstance(decoded, dict):
+        message = "Expected JSON object in distribution metadata"
+        raise TypeError(message)
+    return cast(dict[str, object], decoded)
+
+
 def _source_description(dist: metadata.Distribution) -> str:
     """Record direct-url provenance if pip supplied it, without requiring VCS data."""
     try:
         raw = dist.read_text("direct_url.json")
         if not raw:
             return "not recorded"
-        record = json.loads(raw)
+        record = _json_object(raw)
         url = record.get("url", "unknown")
-        vcs = record.get("vcs_info") or {}
-        commit = vcs.get("commit_id")
+        vcs = record.get("vcs_info")
+        commit: object = None
+        if isinstance(vcs, dict):
+            commit = cast(dict[str, object], vcs).get("commit_id")
         return f"{url} (commit {commit})" if commit else str(url)
     except (ValueError, OSError, TypeError):
         return "unreadable direct_url.json"
@@ -128,8 +139,10 @@ def _probe() -> tuple[CompatibilityStatus, object | None, object | None]:  # noq
         editable = False
         try:
             raw = dist.read_text("direct_url.json")
-            record = json.loads(raw) if raw else {}
-            editable = bool((record.get("dir_info") or {}).get("editable", False))
+            record: dict[str, object] = _json_object(raw) if raw else {}
+            dir_info = record.get("dir_info")
+            if isinstance(dir_info, dict):
+                editable = bool(cast(dict[str, object], dir_info).get("editable", False))
         except (TypeError, ValueError, OSError):
             pass
         if not actual.is_relative_to(expected) and not editable:
@@ -145,22 +158,16 @@ def _probe() -> tuple[CompatibilityStatus, object | None, object | None]:  # noq
     options = getattr(validation, "ValidationOptions", None)
     result_type = getattr(batch, "BatchValidationResult", None)
     required = {"check_files", "check_gpkg_layers", "check_bc_csv_headers", "io_workers", "maximum_directory_entries"}
-    fields = getattr(options, "__dataclass_fields__", {})
+    fields: object = getattr(options, "__dataclass_fields__", None)
     if not callable(validator):
         return status("missing callable pytuflow.batch_validation.validate_batch_inputs"), None, None
-    if not callable(options) or not isinstance(fields, dict) or not required.issubset(fields):
+    if not callable(options) or not isinstance(fields, dict) or not required.issubset(cast(dict[str, object], fields)):
         return status("missing supported pytuflow.validation.ValidationOptions inspection fields"), None, None
-    if not callable(
-        getattr(result_type, "issues", None).fget
-        if isinstance(getattr(result_type, "issues", None), property)
-        else None
-    ):
+    issues_property: object = getattr(result_type, "issues", None)
+    if not isinstance(issues_property, property) or not callable(issues_property.fget):
         return status("missing public BatchValidationResult.issues property"), None, None
-    if not callable(
-        getattr(result_type, "passed", None).fget
-        if isinstance(getattr(result_type, "passed", None), property)
-        else None
-    ):
+    passed_property: object = getattr(result_type, "passed", None)
+    if not isinstance(passed_property, property) or not callable(passed_property.fget):
         return status("missing public BatchValidationResult.passed property"), None, None
     if not callable(getattr(validation, "ValidationFinding", None)):
         return status("missing public ValidationFinding type"), None, None
@@ -178,6 +185,4 @@ def require_validation_api() -> ValidationAPI:
     status, validator, options = _probe()
     if not status.available or validator is None or options is None:
         raise PyTuflowCompatibilityError(status.message)
-    from typing import cast
-
     return ValidationAPI(cast(BatchValidator, validator), cast(ValidationOptionsFactory, options), status)
