@@ -27,6 +27,14 @@ The initial component implementations are integrated. Use the existing [work rec
 
 ## Shared decisions
 
+**Superseding owner decision (31 October 2026):** BAT/TXT inputs are parsed as
+inert TUFLOW model-selection data, never executed or replayed. The Python wrapper
+exclusively configures executable, launch cwd, batch switches, GPU and scheduling.
+The first occurrence of each effective TCF/flags/model-option combination is
+kept; duplicates are discarded. Older scope records requesting preservation of
+source executables, launch directories or duplicate rows are historical and
+do not override this decision. This applies to scopes 02, 03, 04 and 06.
+
 ### Validation ownership
 
 Use public `pytuflow.batch_validation.validate_batch_inputs()` for supported physical checks. Retain application workflow, run grouping and reporting in ryan-tools. Remove all previous parser backends, artificial context adapters, duplicate validation paths and unused interim investigation scaffolding. Update affected callers and tests in the same change; there is no shim or old-parser compatibility requirement.

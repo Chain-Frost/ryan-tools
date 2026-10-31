@@ -72,7 +72,7 @@ actual validation result shape still need to pass.
 The checker and Windows runner use the same static command reader. Both capture
 the inherited environment; every input file then has its own SET, SETLOCAL and
 directory state. Repeated `--runs` on the checker, or `INPUT_FILES` in the runner,
-combine independent sources in their supplied order and retain duplicate runs.
+combine independent sources in their supplied order, discarding repeated equivalent TCF/flag selections and retaining their first source location.
 
 For example, a text file may contain:
 
@@ -105,9 +105,13 @@ source location before validation, export, CSV history changes or execution.
 syntax. The reader does not execute commands. It preserves each run's source
 file/line, effective TCF, executable, working directory and model flags.
 
-The Python runner applies its own `BATCH_COMMANDS`, GPU groups, concurrency and
-priority when preparing imported runs; source batch engine/GPU switches do not
-control execution. The checker preserves source interpretation for reporting.
+The Python runner treats every BAT/TXT file as **inert data**. It never runs
+the source file or any source START, CD or executable command. Source SET and
+directory declarations are interpreted only to resolve model selections and
+TCF references. The Python wrapper exclusively supplies the solver executable,
+child working directory, `BATCH_COMMANDS`, GPU groups, concurrency and
+priority. Source executable, batch engine and GPU settings are ignored. The
+checker preserves source path interpretation for reporting.
 The [wrapper guide](../ryan-scripts/TUFLOW-python/README.md) describes the fixed
 TXT export and single-CSV Resume workflow.
 
@@ -152,13 +156,15 @@ model correctness or compatibility with a particular solver.
 
 ## Application boundary
 
-The BAT/text planner and generated parameter plan own every immutable run's
-original order, effective TCF, executable, launch directory, model arguments and
-source file/line. In a multi-TCF input, the orchestrator groups runs by effective
-TCF and working directory. The validator receives structured argument mappings
+The BAT/text planner and generated parameter plan retain the first occurrence
+of each effective TCF/event/scenario/retained-model-option selection, with source
+file/line provenance. The checker can group the parsed source context by TCF and
+working directory. In the Python runner, executable and child working directory
+are supplied exclusively by Python settings. The validator receives structured argument mappings
 rather than flattened display strings (which can lose values containing spaces).
 PyTUFLOW's zero-based finding indices are restored **once** to the supplied
-global planned-run indices; repeated and interleaved planned runs are retained.
+global planned-run indices; interleaved distinct selections and sparse Resume
+indices are retained, while duplicates are discarded.
 
 ```python
 from pathlib import Path

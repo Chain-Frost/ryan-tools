@@ -13,6 +13,15 @@
 
 ## Current scope and decisions
 
+**31 October 2026 follow-up:** The owner clarified that imported BAT/TXT is
+never executable control and that duplicate model selections must be discarded.
+This supersedes older scope-pack statements preserving source launch directories,
+source executables or duplicate occurrences. Windows is the primary target;
+the POSIX absolute-executable START parsing correction is compatibility-only.
+The normal installers still pin PyTUFLOW at `05e35476`. Generic PyPI
+dependency resolution cannot guarantee the required API until upstream releases
+it; no package release is authorised by this PR.
+
 Scopes 01-04 are integrated together in #159. The earlier component PRs and
 interim benchmark records do not define the current implementation. The
 [scope index](2026-10-31-tuflow-integration-scopes/00_scope_index.md) records the
@@ -23,10 +32,12 @@ shared contracts; the owner's later decisions below take precedence.
   the same source requirement, GIS bootstrap and post-install verification.
 - Input checker findings are terminal-only by default. An explicit report path
   enables an exclusively created issue CSV.
-- The Python runner controls `BATCH_COMMANDS`, GPU allocation and launch policy.
-  Source batch engine switches and GPU assignments are ignored when preparing
-  imported runs. Model selections, effective TCF/cwd/executable and provenance
-  remain available. The earlier abbreviated-input P1 classification is withdrawn;
+- The Python runner is the sole launcher. BAT/TXT files are inert input data
+  supplying model selections and resolved TCFs; their executable, CD/START
+  directory, engine, GPU and scheduling commands cannot control process launch.
+  Only Python settings determine the solver, working directory and runtime policy.
+  Before writing a CSV RESET/START, actual execution checks the configured solver.
+  Identical model selections are discarded, keeping first source provenance. The earlier abbreviated-input P1 classification is withdrawn;
   the owner clarified the authoritative Python setting instead.
 - Both command readers use a captured inherited environment and independent
   state per input file. TCF conflicts fail before writes or execution.

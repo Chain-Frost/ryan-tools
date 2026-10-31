@@ -26,12 +26,15 @@ accepts generated parameter combinations, BAT/text command lists, or both.
 Configure `MODE`, `RUN_VARIABLES_RAW` and `INPUT_FILES` in the Python wrapper;
 CLI arguments are optional overrides.
 
-The Python runner controls common engine switches through `BATCH_COMMANDS`,
-and controls GPU groups, concurrency and process priority through its other
-editable settings. Imported common engine switches and GPU assignments are
-ignored when preparing the effective execution plan. Imported TCFs, event and
-scenario values, other supported model switches, executables and per-run working
-directories are retained. For example, `BATCH_COMMANDS = "-b -t -nlc"` applies to
+The Python runner alone launches the configured `TUFLOW_EXE` via Python
+subprocess argument lists. Imported BAT/CMD/TXT files are **never executed**,
+nor are any START or other source commands replayed. Their supported syntax
+is parsed only to obtain model TCF references and event/scenario selections.
+Python exclusively controls the executable, child working directory,
+`BATCH_COMMANDS`, GPU groups, concurrency and process priority. Imported
+executables, shell directory changes, engine/GPU switches and START scheduling
+cannot direct launches. First occurrences are kept; duplicate model selections
+are discarded. For example, `BATCH_COMMANDS = "-b -t -nlc"` applies to
 both generated and imported runs; an imported `-x` does not override it.
 
 Use separate GPU tokens such as `("-pu0", "-pu1")` for a group using two devices.
@@ -53,8 +56,8 @@ batch syntax, including shared `TUFLOW_EXE`, `BCMD` and TCF variables, but its
 `.txt` extension prevents accidental batch execution by double-clicking it.
 An explicitly selected export destination must also end in `.txt`.
 
-The export contains the full regenerated plan, including completed runs, and is
-refreshed even when Resume has no remaining work. There are no timestamped
+The export contains the complete deduplicated plan, including completed runs, and
+is refreshed even when Resume has no remaining work. There are no timestamped
 exports, automatic backup files or per-invocation directories. If manually
 editing an export, copy it to a separately named input before another invocation
 refreshes the generated file.
@@ -89,7 +92,7 @@ selects its launch queue using the CSV:
 | Start without an observed finish | Queue another attempt. |
 | No previous attempt | Queue the run. |
 
-The full plan and previous CSV rows remain intact. For a 400-run batch with the
+The unique selected plan and previous CSV rows remain intact. For a 400-run batch with the
 first 100 successful, the next 3 failed and the rest unstarted, Resume queues
 runs 101 through 400 in their original order. If later runs also succeeded,
 those are skipped too; original run numbers can therefore have gaps. Input
@@ -111,6 +114,12 @@ Stop the previous batch before resuming. A missing FINISH row does not establish
 whether an old process is still alive or failed; Resume does not scan to recover
 it. Only an incomplete trailing CSV fragment is repaired. Incompatible formats
 or earlier corruption produce an error rather than an implicit migration.
+
+Actual execution first checks that the Python-configured solver exists. A
+missing executable fails before changing the CSV completion baseline. Export-only
+and preflight-only do not require a solver installation. Since the solver path and
+working directory now come exclusively from Python, previously recorded CSV
+identities based on imported executables/directories may be pending again.
 
 Reexecuted models use their current configured output locations and may overwrite
 existing solver outputs. This feature resumes the set of simulations; it does
