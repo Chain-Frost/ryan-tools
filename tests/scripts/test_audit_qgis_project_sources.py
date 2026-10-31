@@ -74,6 +74,25 @@ def test_qgz_relative_gpkg_and_qgs_absolute_sources_are_read_only(
     assert {path: path.read_bytes() for path in before} == before
 
 
+def test_directory_backed_ogr_source_passes_existence_but_not_cold_ping(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    database = tmp_path / "survey.gdb"
+    database.mkdir()
+    sentinel = database / "a.gdbtable"
+    sentinel.write_bytes(b"unchanged")
+    project = tmp_path / "model.qgs"
+    _write_qgs(project, "./survey.gdb|layername=roads")
+    original_bytes = project.read_bytes()
+
+    main, _, _ = _functions()
+    monkeypatch.chdir(tmp_path)
+    assert main(working_directory=tmp_path, mode="existence") == 0
+    assert main(working_directory=tmp_path, mode="cold-storage-ping") == 1
+    assert project.read_bytes() == original_bytes
+    assert sentinel.read_bytes() == b"unchanged"
+
+
 def test_missing_local_layer_returns_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _write_qgz(tmp_path / "model.qgz", "./missing.gpkg|layername=roads")
     main, _, _ = _functions()
