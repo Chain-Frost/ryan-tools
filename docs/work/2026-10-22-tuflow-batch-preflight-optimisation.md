@@ -1,5 +1,17 @@
 # Batch-aware TUFLOW preflight optimisation — stacked PR scope
 
+## Verified current disposition - 2026-10-25
+
+Complete for bounded #156/#143 integration. Consumer #143 is merged into main as
+`bcc8e5c2fee78c706e2b89feb051cded5cf8d2c2`; frozen parser baseline is
+`e162c04330d24c37bee3ade94479cc4602651060`. Next review: None for this completed
+scope. The remaining earlier active/pending text is historical. #158 separately
+owns completed graph controls and accepted native evidence with PR delivery still
+open. No accepted benchmark rerun is needed. #160 has no runtime dependency on
+#158; #159 and experimental #161 keep their own contracts and validation gates.
+
+## Historical record
+
 **Status:** Active final paired validation with the consumer release scope fixed. Child #156 is merged into
 parent #143 (`feat/tuflow-run-preflight`) at `298fb13`, after all five workflows passed and final independent
 review returned no findings. The parent retains the diagnostic identity/layer memoisation and the ordered

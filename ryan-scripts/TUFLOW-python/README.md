@@ -1,9 +1,142 @@
 # TUFLOW Python wrappers
 
 This folder contains maintained, library-backed wrappers as well as older
-standalone utilities. New and updated thin wrappers follow the repository-wide
-[`WRAPPER_STANDARD.md`](../WRAPPER_STANDARD.md); versioned standalone scripts
-retain their own self-contained behaviour until they are deliberately migrated.
+standalone utilities. Maintained wrappers follow
+[`WRAPPER_STANDARD.md`](../WRAPPER_STANDARD.md); project settings remain editable
+near the top of each Python file. The TUFLOW simulation runner and its command
+exports target Windows.
+
+## Input checker reports
+
+[`model_management/check_tuflow_inputs.py`](model_management/check_tuflow_inputs.py)
+prints its summary and findings in the terminal by default. Its default input is
+`run_tuflow_simulations.txt`, matching the unrenamed simulation runner's export.
+Set `DEFAULT_COMMANDS` or supply `--runs` for a differently named input.
+
+CSV export is optional: pass `--report issues.csv` or set
+`DEFAULT_REPORT = Path("tuflow_input_preflight.csv")` in the copied wrapper.
+The selected CSV must be a new file; existing files are not overwritten.
+See the [input-preflight guide](../../docs/TUFLOW_INPUT_PREFLIGHT.md) for supported
+BAT/text syntax, multiple TCFs, installation and validation boundaries.
+
+## Simulation runner inputs and launch settings
+
+[`model_management/run_tuflow_simulations.py`](model_management/run_tuflow_simulations.py)
+accepts generated parameter combinations, BAT/text command lists, or both.
+Configure `MODE`, `RUN_VARIABLES_RAW` and `INPUT_FILES` in the Python wrapper;
+CLI arguments are optional overrides.
+
+The Python runner alone launches the configured `TUFLOW_EXE` via Python
+subprocess argument lists. Imported BAT/CMD/TXT files are **never executed**,
+nor are any START or other source commands replayed. Their supported syntax
+is parsed only to obtain model TCF references and event/scenario selections.
+Python exclusively controls the executable, child working directory,
+`BATCH_COMMANDS`, GPU groups, concurrency and process priority. Imported
+executables, shell directory changes, engine/GPU switches and START scheduling
+cannot direct launches. First occurrences are kept; duplicate model selections
+are discarded. For example, `BATCH_COMMANDS = "-b -t -nlc"` applies to
+both generated and imported runs; an imported `-x` does not override it.
+
+Use separate GPU tokens such as `("-pu0", "-pu1")` for a group using two devices.
+A single token such as `-pu0,1` is rejected. GPU occupancy is checked once at the
+start of an executing batch. The runner subsequently tracks its own children;
+it does not perform scheduled activity, CodeMeter, TLF or TSF scans.
+
+Both the checker and runner capture inherited environment variables before
+reading BAT/text files. Each source file then has independent SET and directory
+state. Set Python `TCF = None` when imported commands intentionally select
+multiple TCFs. If Python supplies a TCF, every active imported TCF must match it;
+conflicts stop planning before output or execution.
+
+## Fixed TXT command export
+
+Command export remains enabled by default. A copied `<runner-name>.py` refreshes
+**`<runner-name>.txt` beside that Python file**. The file contains editable Windows
+batch syntax, including shared `TUFLOW_EXE`, `BCMD` and TCF variables, but its
+`.txt` extension prevents accidental batch execution by double-clicking it.
+An explicitly selected export destination must also end in `.txt`.
+
+The export contains the complete deduplicated plan, including completed runs, and
+is refreshed even when Resume has no remaining work. There are no timestamped
+exports, automatic backup files or per-invocation directories. If manually
+editing an export, copy it to a separately named input before another invocation
+refreshes the generated file.
+
+The complete export is rendered and reparsed before the destination is replaced.
+A failed render leaves the existing export intact. Imported command sources,
+model control files, the Python wrapper and execution history are protected,
+including filesystem aliases. If an imported source is also the export target,
+choose a different `EXPORT_PATH` or disable export with `EXPORT_COMMANDS = False`
+(or `--no-export`).
+
+`--export-only` prepares the text without launching TUFLOW, inspecting GPUs,
+creating execution history or requiring the unused PyTUFLOW validation stack.
+An explicit Python `BATCH_COMMANDS` GPU switch is retained in the exported
+`BCMD`; actual runner launches use `GPU_DEVICES`. Export does not predict or
+assign runtime GPU slots.
+
+## Runner CSV continuation
+
+The single execution-history CSV uses the supplying Python wrapper's filename
+stem followed by `_runs.csv`, **beside the copied wrapper**. It is an append-only
+START / FINISH / RESET log of observed process outcomes. No saved run manifest
+or additional session directory is required.
+
+**Resume is the default.** The runner regenerates the full current plan and
+selects its launch queue using the CSV:
+
+| Latest recorded state for the current configuration | Resume action |
+| --- | --- |
+| Observed successful finish | Skip this occurrence for this invocation. |
+| Failed finish | Queue another attempt. |
+| Start without an observed finish | Queue another attempt. |
+| No previous attempt | Queue the run. |
+
+The unique selected plan and previous CSV rows remain intact. For a 400-run batch with the
+first 100 successful, the next 3 failed and the rest unstarted, Resume queues
+runs 101 through 400 in their original order. If later runs also succeeded,
+those are skipped too; original run numbers can therefore have gaps. Input
+preflight and dashboard presentation preserve those original identities.
+
+Set `CONTINUATION_MODE = "all"` or pass `--run-mode all` to append a RESET row and
+run every occurrence again. Previous history is retained. Changing model-file contents
+is not detected; use Run all when prior successes should be disregarded.
+The identity uses the **TCF filename** (case-insensitive on Windows) and effective
+event/scenario, engine and model-option switches, excluding runtime GPU placement.
+The TCF directory, Python working directory, executable location and source
+command file are diagnostic CSV fields, **not** part of the completion key. Thus
+moving the model, changing the solver location or switching between a mapped drive
+and its UNC alias does not automatically rerun the same TCF/flags.
+Different TCFs with the same filename **and** flags in one batch would be
+ambiguous and are rejected; give them distinct filenames or use separate wrappers.
+A test-only `-t` run remains distinct from a full simulation.
+
+The Resume key now uses the path-independent `tuflow-logical-v2` identity.
+Previous pre-release `v1` CSV successes retain their historical rows but **do not**
+match new keys: the first Resume after this change may queue previously completed
+runs again. Review the CSV and the refreshed TXT, and use Run all when a deliberate
+new baseline is appropriate. Once on v2, changing ignored source engine/GPU
+switches does not change the key; changing effective Python `BATCH_COMMANDS`
+switches still can.
+
+Stop the previous batch before resuming. A missing FINISH row does not establish
+whether an old process is still alive or failed; Resume does not scan to recover
+it. Only an incomplete trailing CSV fragment is repaired. Incompatible formats
+or earlier corruption produce an error rather than an implicit migration.
+
+Actual execution first checks that the Python-configured solver exists. A
+missing executable fails before changing the CSV completion baseline. Export-only
+and preflight-only do not require a solver installation. The solver path and
+working directory come exclusively from Python for execution, but they are not
+part of the new v2 Resume identity.
+
+Reexecuted models use their current configured output locations and may overwrite
+existing solver outputs. This feature resumes the set of simulations; it does
+not use TUFLOW's solver checkpoint restart. An already-complete Resume performs
+no GPU scan or launch and retains any explicitly configured follow-up policy.
+
+The [integration work record](../../docs/work/2026-10-23-tuflow-runner-model-checks.md)
+records delivery and current validation.
 
 ## Maintained wrappers
 

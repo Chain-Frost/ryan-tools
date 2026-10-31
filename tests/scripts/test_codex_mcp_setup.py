@@ -63,10 +63,12 @@ def test_invalid_dotted_definition_rejected(tmp_path: Path) -> None:
 
 
 def test_wheel_installer_includes_qgis_mcp(tmp_path: Path) -> None:
-    commands = pip_commands(tmp_path / "ryan_tools-test.whl", False)
+    wheel = tmp_path / "ryan_tools-test.whl"
+    commands = pip_commands(wheel, False)
     assert len(commands) == 3
     assert "nkarasiak/qgis-mcp" in commands[1][-1]
-    assert commands[2][-1].endswith(".whl[mcp]")
+    parser = cast(str, installer["ACCEPTED_PYTUFLOW_SOURCE"])
+    assert commands[2][-2:] == [f"{wheel}[mcp]", parser]
 
 
 def test_wheel_installer_allows_local_qgis_source(tmp_path: Path) -> None:
@@ -124,7 +126,8 @@ def test_pypi_installer_commands_use_distribution_not_local_wheel(
     commands = commands_fn()
     assert "fiona" in commands[0]
     assert "nkarasiak/qgis-mcp" in commands[1][-1]
-    assert commands[-1][-1] == "ryan-tools[mcp]"
+    assert commands[-1][-2] == "ryan-tools[mcp]"
+    assert commands[-1][-1] == installer["ACCEPTED_PYTUFLOW_SOURCE"]
     assert all(not any(".whl" in argument for argument in command) for command in commands)
     assert len(commands_fn(skip_qgis_mcp=True)) == 2
 
@@ -398,6 +401,8 @@ def test_pypi_installer_migrates_automatically_after_resolution(monkeypatch: pyt
     assert main_fn(["--skip-codex", "--skip-qgis-mcp"]) == 0
     assert "--dry-run" in calls[0]
     assert "--force-reinstall" in calls[0]
-    assert calls[-2][-3:] == ["uninstall", "--yes", "ryan_functions"]
-    assert "ryan-tools[mcp]" in calls[-1]
-    assert "--force-reinstall" in calls[-1]
+    assert calls[-4][-3:] == ["uninstall", "--yes", "ryan_functions"]
+    assert "ryan-tools[mcp]" in calls[-3]
+    assert "--force-reinstall" in calls[-3]
+    assert calls[-2][-2:] == ["pip", "check"]
+    assert "require_validation_api" in calls[-1][-1]

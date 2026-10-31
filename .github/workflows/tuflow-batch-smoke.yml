@@ -1,85 +1,119 @@
-name: PyTUFLOW batch optimisation smoke
+name: PyTUFLOW public batch-validation smoke
 
 on:
   pull_request:
     paths:
       - ".github/workflows/tuflow-batch-smoke.yml"
-      - "ryan_library/orchestrators/tuflow/batch_preflight_adapter.py"
+      - "repo-scripts/pytuflow-requirement.txt"
+      - "requirements.txt"
+      - "repo-scripts/install_latest_wheel.py"
+      - "ryan_library/functions/tuflow/pytuflow_compatibility.py"
       - "ryan_library/orchestrators/tuflow/input_preflight.py"
-      - "tests/orchestrators/tuflow/test_batch_preflight_adapter.py"
-      - "tests/orchestrators/tuflow/test_ordered_batch_adapter.py"
-      - "tests/fixtures/tuflow_example_repro/run_checks.py"
-      - "tests/fixtures/tuflow_example_repro/run_local_checks.py"
-      - "tests/fixtures/tuflow_example_repro/test_run_checks.py"
+      - "ryan_library/functions/tuflow/command_plan.py"
+      - "ryan_library/orchestrators/tuflow/command_preflight.py"
+      - "tests/orchestrators/tuflow/test_example_models_real.py"
+      - "tests/test_data"
+      - "tests/functions/tuflow/test_pytuflow_compatibility.py"
+      - "tests/orchestrators/tuflow/test_input_preflight.py"
+      - "tests/repo_scripts/test_install_latest_wheel.py"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  windows-batch-smoke:
-    name: Windows batch / ${{ matrix.parser }}
+  windows-public-validation:
     runs-on: windows-latest
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - parser: established-api
-            pytuflow_sha: a9f654c1ec0812fc70035e227fb2f9f12290f449
-          - parser: graph-pr-12
-            pytuflow_sha: 126ec64e221908f5327ee9dc9d372c8084afaf12
-    env:
-      RYAN_TEST_BATCH_PYTUFLOW: "1"
-      PYTUFLOW_TEST_SHA: ${{ matrix.pytuflow_sha }}
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           submodules: false
-      - name: Initialise required test-data submodule
-        run: git submodule update --init tests/test_data
       - uses: actions/setup-python@v6
         with:
           python-version: "3.14"
-      - name: Install isolated PyTUFLOW batch fork
-        # Never replace the published wheel dependency on main. This PR
-        # checks both the established API and the exact graph development source.
-        run: python -m pip install "git+https://github.com/phantom-branch/PyTuflow.git@${{ matrix.pytuflow_sha }}"
-      - name: Install no-release consumer and focused dependencies
+      - name: Initialise maintained test fixtures (not unrelated submodules)
+        run: git submodule update --init tests/test_data
+      - name: Install immutable accepted PyTUFLOW PR17 source
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r repo-scripts/pytuflow-requirement.txt
+      - name: Install consumer without optional full GIS project extras
+        # Normal GIS-wheel bootstrap is exercised separately by install_latest_wheel.
         run: |
           python -m pip install -e . --no-deps
-          python -m pip install pytest pyshp loguru pandas psutil
-      - name: Verify parser revision and record the source pair
-        shell: pwsh
-        run: |
-          git rev-parse HEAD
-          git -C tests/test_data rev-parse HEAD
-          python -c 'import importlib.metadata,json,os; source=json.loads(importlib.metadata.distribution("pytuflow").read_text("direct_url.json") or "{}"); actual=source.get("vcs_info",{}).get("commit_id"); expected=os.environ["PYTUFLOW_TEST_SHA"]; print(f"PyTUFLOW source: {actual}"); assert actual==expected, (actual,expected)'
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Verify real batch and fake failure contracts
+          python -m pip install pytest
+      - name: Require public API capabilities without model I/O
+        run: >
+          python -c "from ryan_library.functions.tuflow.pytuflow_compatibility import
+          require_validation_api; print(require_validation_api().diagnostic.message)"
+      - name: Check real public API, fail-closed mapping and installer dry-runs
         run: >
           python -m pytest -q
-          tests/orchestrators/tuflow/test_batch_preflight_adapter.py
-          tests/orchestrators/tuflow/test_ordered_batch_adapter.py
-          tests/fixtures/tuflow_example_repro/test_run_checks.py
-      - name: Verify native evaluation command
-        run: python -m tests.fixtures.tuflow_example_repro.run_local_checks --help
-      - name: Verify two archived TCFs with eager, deferred and batch inventories
-        shell: pwsh
-        run: |
-          $report = Join-Path $env:RUNNER_TEMP "batch-sample-replay"
-          python -m tests.fixtures.tuflow_example_repro.run_checks --batch --tcf EG02_014.tcf --tcf EG04_004.tcf --output $report
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Verify all 161 archived TCFs and 174 simulations in batch
-        shell: pwsh
-        run: |
-          $report = Join-Path $env:RUNNER_TEMP "batch-full-replay"
-          python -m tests.fixtures.tuflow_example_repro.run_checks --batch --output $report
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -c 'import json,sys; from pathlib import Path; rows=json.loads(Path(sys.argv[1]).read_text(encoding="utf-8")); assert len(rows)==161 and sum(row["runs"] for row in rows)==174; assert all(row.get("accepted_parity") and row.get("batch_missing")==0 and row.get("batch_extra")==0 and row.get("batch_preflight_passed") for row in rows)' (Join-Path $report "results.json")
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-      - name: Upload read-only archive differential reports
-        if: always()
-        uses: actions/upload-artifact@v7
+          tests/functions/tuflow/test_pytuflow_compatibility.py
+          tests/orchestrators/tuflow/test_input_preflight.py
+          tests/repo_scripts/test_install_latest_wheel.py
+
+  # All 161 example TCFs / 174 run contexts are always inspected. Until #181
+  # adopts the upstream fix, accept only eight exact pinned-validator findings.
+  # Additional/changed findings or unexpectedly passing known cases fail CI.
+  # Full reports are uploaded; the public API smoke remains independent.
+  windows-example-regression:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
         with:
-          name: batch-preflight-example-parity-${{ matrix.parser }}
-          path: ${{ runner.temp }}/batch-*-replay
+          submodules: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Initialise maintained test fixtures
+        run: git submodule update --init tests/test_data
+      - name: Install native GIS readers and immutable accepted parser
+        run: |
+          python repo-scripts/install_latest_wheel.py --dependencies-only
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pip install -r repo-scripts/pytuflow-requirement.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pip install -e . --no-deps
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pip install pytest
+      - name: Replay all BAT-derived example model contexts without launching TUFLOW
+        env:
+          TUFLOW_EXAMPLE_REPORT_DIR: ${{ runner.temp }}/tuflow-example-regression
+        run: >
+          python -m pytest -q --tb=short
+          tests/orchestrators/tuflow/test_example_models_real.py
+          --junitxml=test-results/tuflow-example-regression.xml
+      - name: Retain every model finding even when the regression fails
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: tuflow-example-public-validation
+          path: |
+            ${{ runner.temp }}/tuflow-example-regression
+            test-results/tuflow-example-regression.xml
           if-no-files-found: warn
+
+  windows-incompatible-same-version:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Install immutable official 1.2.7 build lacking batch validation
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "pytuflow @ https://github.com/TUFLOW-Support/PyTuflow/archive/8012b8a530616a8e10dfe96a53189f8585ec2805.zip"
+          python -m pip install -e . --no-deps
+      - name: Require capability failure even when the version matches accepted source
+        run: >
+          python -c "from ryan_library.functions.tuflow.pytuflow_compatibility import
+          check_validation_capabilities; status=check_validation_capabilities();
+          print(status.message); assert status.version == '1.2.7';
+          assert not status.available; assert 'batch_validation' in status.problem"

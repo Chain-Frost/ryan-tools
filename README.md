@@ -120,7 +120,12 @@ Windows convenience entry points are:
 ```
 
 `install-ryan-tools.bat` installs the latest published `ryan-tools[mcp]` release
-directly from PyPI, along with upstream QGIS MCP. If Codex is detected, it
+directly from PyPI, along with upstream QGIS MCP and the accepted PyTUFLOW PR17
+source pinned in [`repo-scripts/pytuflow-requirement.txt`](repo-scripts/pytuflow-requirement.txt).
+It keeps the binary GIS bootstrap, replaces incompatible same-version PyTUFLOW
+builds, and checks installed dependencies and the public validation API before
+reporting success. The local-wheel installer uses the same dependency setup and
+verification. If Codex is detected, the PyPI installer
 configures the QGIS and ryan-tools MCP servers only as needed, preserving other
 settings and backing up any changed Codex configuration. The legacy
 `install-latest-wheel.bat` name now launches that same PyPI installer.

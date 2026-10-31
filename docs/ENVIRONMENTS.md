@@ -46,8 +46,17 @@ For an end user, double-click [install-ryan-tools.bat](../install-ryan-tools.bat
 .\install-ryan-tools.bat
 ```
 
-This installs the current published `ryan-tools[mcp]` package from PyPI
-and the upstream QGIS MCP Python bridge, using Python 3.13 or later (automatic highest-installed 3.x selection, overrideable with `RYAN_TOOLS_PYTHON`). If Codex or its VS Code extension is installed,
+This installs the current published `ryan-tools[mcp]` package from PyPI,
+the upstream QGIS MCP Python bridge and the accepted PyTUFLOW PR17 archive in
+[`repo-scripts/pytuflow-requirement.txt`](../repo-scripts/pytuflow-requirement.txt),
+using Python 3.13 or later (automatic highest-installed 3.x selection, overrideable with `RYAN_TOOLS_PYTHON`).
+Both normal installers bootstrap binary Fiona, Rasterio and GDAL first, then
+resolve `ryan-tools` and the pinned PyTUFLOW source together. The explicit archive
+replaces an incompatible official build even when its package version is the
+same. Installation succeeds only after `pip check` and the public PyTUFLOW
+capability guard pass; a failure stops before Codex registration. Dry runs print
+these checks without claiming that they passed.
+If Codex or its VS Code extension is installed,
 the script safely configures its QGIS and ryan-tools MCP entries in the shared user-level Codex config. Without Codex,
 it leaves Codex configuration untouched. Pass `--skip-codex` to disable automatic
 registration, `--skip-qgis-mcp` for headless/offline installation, or

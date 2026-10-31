@@ -8,7 +8,6 @@ licences, not a reliable map of GPUs on this local computer.
 
 from __future__ import annotations
 
-import re
 from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 from pathlib import PureWindowsPath
@@ -16,7 +15,7 @@ from typing import cast
 
 import psutil
 
-_GPU_PATTERN = re.compile(r"^-pu(?P<device>\d+)$", re.IGNORECASE)
+from .command_plan import is_gpu_switch
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,7 +37,7 @@ class GpuOccupancySnapshot:
 
 def gpu_ids_from_flags(flags: Sequence[str]) -> frozenset[int]:
     """Return distinct GPU IDs from TUFLOW -puN command-line arguments."""
-    return frozenset(int(match.group("device")) for flag in flags if (match := _GPU_PATTERN.fullmatch(flag.strip())))
+    return frozenset(int(flag.strip()[3:]) for flag in flags if is_gpu_switch(flag.strip()))
 
 
 def _is_tuflow_executable(name: str, command: Sequence[str]) -> bool:
@@ -54,8 +53,8 @@ def local_gpu_occupancy(*, exclude_pids: Collection[int] = ()) -> GpuOccupancySn
 
     TUFLOW runs without explicit -puN switches are returned as unknown,
     because their GPU assignment cannot safely be inferred from a command line.
-    A snapshot is taken at each launch, so separate launchers started after
-    the initial batch begins are included. No TUFLOW or CodeMeter is launched.
+    The caller owns snapshot timing; the simulation runner requests one startup
+    snapshot. No TUFLOW or CodeMeter is launched.
     """
     excluded = set(exclude_pids)
     assigned: list[TuflowGpuProcess] = []
