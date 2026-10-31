@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import ntpath
 import os
 import sqlite3
 from pathlib import Path
@@ -16,12 +17,14 @@ import pytest
 
 from ryan_library.functions.qgis_auxiliary import inspect_auxiliary_storage
 from ryan_library.functions.qgis_project import (
+    _normalize_windows_network_path,
     _render_source_uri,
     local_source_path,
     plan_source_path_changes,
     probe_local_file,
     project_layer_sources,
     read_project_xml,
+    validate_drive_mappings,
     write_project_path_changes,
 )
 
@@ -235,6 +238,64 @@ def test_root_mapping_respects_component_boundaries(tmp_path: Path) -> None:
     assert not (new / "roads.gpkg").exists()
 
 
+def test_root_replacement_collapses_dot_dot_without_opening_source(tmp_path: Path) -> None:
+    gis = tmp_path / "Project" / "GIS"
+    gis.mkdir(parents=True)
+    project = gis / "model.qgs"
+    project.write_bytes(_xml(("road-id", "Roads", "ogr", "../Data/roads.gpkg|layername=roads")))
+    old_root = tmp_path / "Project" / "Data"
+    new_root = tmp_path / "New" / "Data"
+    original = project.read_bytes()
+
+    changes = plan_source_path_changes(project, replace_root=(old_root, new_root))
+    assert len(changes) == 1
+    assert changes[0].new_uri == "../../New/Data/roads.gpkg|layername=roads"
+    assert project.read_bytes() == original
+    assert not old_root.exists()
+    assert not new_root.exists()
+
+
+def test_windows_network_mapping_collapses_equivalent_drive_and_unc_spellings() -> None:
+    mappings = (("Q:", r"\\server\share\Waterways"),)
+    drive_path = _normalize_windows_network_path(r"Q:\Project\GIS\..\Data\roads.gpkg", mappings)
+    unc_path = _normalize_windows_network_path(
+        r"\\SERVER\SHARE\Waterways\Project\Data\roads.gpkg", mappings
+    )
+    assert drive_path.casefold() == unc_path.casefold()
+    assert drive_path.casefold() == ntpath.normpath(
+        r"\\server\share\Waterways\Project\Data\roads.gpkg"
+    ).casefold()
+    assert _normalize_windows_network_path(r"Q:data.gpkg", mappings) == r"Q:data.gpkg"
+
+
+def test_windows_network_mapping_rejects_invalid_roots() -> None:
+    for mappings in (
+        (("Q:data", r"\\server\share"),),
+        (("Q:", r"server\share"),),
+        (("Q:", r"\\server"),),
+        (("Q:", r"\\server\share"), ("Q:", r"\\other\share")),
+    ):
+        with pytest.raises(ValueError):
+            validate_drive_mappings(mappings)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows drive and UNC paths are native only on Windows")
+def test_windows_root_remapping_accepts_equivalent_drive_and_unc_paths(tmp_path: Path) -> None:
+    project = tmp_path / "network.qgs"
+    project.write_bytes(_xml(("road-id", "Roads", "ogr", r"Q:\Project\GIS\..\Data\roads.gpkg")))
+    changes = plan_source_path_changes(
+        project,
+        replace_root=(
+            Path(r"\\server\share\Project\Data"),
+            Path(r"\\server\share\NewData"),
+        ),
+        drive_mappings=(("Q:", r"\\server\share"),),
+        relative=False,
+    )
+    assert len(changes) == 1
+    assert changes[0].new_uri.lower() == "//server/share/newdata/roads.gpkg"
+
+
 def test_file_url_and_provider_options_preserved_on_rewrite(tmp_path: Path) -> None:
     old = tmp_path / "Old files"
     new = tmp_path / "New files"
@@ -354,6 +415,40 @@ def test_qgs_repair_refuses_to_copy_auxiliary_with_uncheckpointed_wal(tmp_path: 
     assert not output.exists()
     assert auxiliary.exists()
     assert wal.exists()
+
+
+def test_auxiliary_inspection_rejects_live_rollback_journal(tmp_path: Path) -> None:
+    auxiliary = tmp_path / "labels.qgd"
+    _qgd(auxiliary, "label-id")
+    with sqlite3.connect(auxiliary) as db:
+        db.execute("PRAGMA journal_mode=DELETE")
+        db.execute("BEGIN IMMEDIATE")
+        db.execute('UPDATE "label-id" SET ASPK = ? WHERE ASPK = ?', ("uncommitted", "feature-a"))
+        journal = Path(f"{auxiliary}-journal")
+        assert journal.exists()
+        with pytest.raises(ValueError, match="rollback journal"):
+            inspect_auxiliary_storage(auxiliary)
+        db.rollback()
+    assert not journal.exists()
+    assert inspect_auxiliary_storage(auxiliary) is not None
+
+
+def test_qgs_repair_refuses_live_rollback_journal(tmp_path: Path) -> None:
+    project = tmp_path / "model.qgs"
+    project.write_bytes(_xml(("id", "Roads", "ogr", "./old.gpkg")))
+    auxiliary = project.with_suffix(".qgd")
+    _qgd(auxiliary, "id")
+    changes = plan_source_path_changes(project, relative=False)
+    output = tmp_path / "fixed.qgs"
+    with sqlite3.connect(auxiliary) as db:
+        db.execute("PRAGMA journal_mode=DELETE")
+        db.execute("BEGIN IMMEDIATE")
+        db.execute('UPDATE "id" SET ASPK = ? WHERE ASPK = ?', ("uncommitted", "feature-a"))
+        assert Path(f"{auxiliary}-journal").exists()
+        with pytest.raises(ValueError, match="rollback journal"):
+            write_project_path_changes(project, output, changes)
+        assert not output.exists()
+        db.rollback()
 
 
 def test_auxiliary_inspection_is_immutable_and_rejects_wal_state(tmp_path: Path) -> None:

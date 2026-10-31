@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import json
 import runpy
 from collections.abc import Callable
@@ -168,6 +169,7 @@ def test_cli_overrides_are_distinct_from_editable_defaults() -> None:
     parse_args = cast(Callable[[list[str] | None], argparse.Namespace], namespace["_parse_cli_arguments"])
     defaults = parse_args([])
     assert defaults.project is None
+    assert defaults.drive_map is None
     assert defaults.mode is None
     assert defaults.auxiliary_report is None
     assert defaults.sample_rows is None
@@ -176,6 +178,7 @@ def test_cli_overrides_are_distinct_from_editable_defaults() -> None:
 
     selected = parse_args(["--project", "model.qgz", "--auxiliary-report", "--sample-rows", "0"])
     assert selected.project == Path("model.qgz")
+    assert parse_args(["--drive-map", "Q:", r"\\server\share"]).drive_map == [["Q:", r"\\server\share"]]
     assert selected.auxiliary_report is True
     assert selected.sample_rows == 0
     assert parse_args(["--no-auxiliary-report"]).auxiliary_report is False
@@ -270,6 +273,59 @@ def test_main_uses_selected_mode_and_deduplicates_sources(tmp_path: Path, monkey
     checked.clear()
     assert main(working_directory=tmp_path, mode="cold-storage-ping") == 0
     assert checked == [(data, "cold-storage-ping")]
+
+
+def test_audit_deduplicates_lexically_equivalent_parent_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "GIS").mkdir()
+    (tmp_path / "Data").mkdir()
+    _write_qgs(
+        tmp_path / "GIS" / "project.qgs",
+        "../Data/roads.gpkg|layername=roads",
+        "./../Data/roads.gpkg|layername=roads",
+    )
+    namespace = runpy.run_path(str(SCRIPT))
+    main = cast(AuditMain, namespace["main"])
+    audit = cast(FunctionType, namespace["_audit_projects"])
+    checked: list[Path] = []
+
+    def record_probe(path: Path, *, mode: QgisAuditMode = "cold-storage-ping") -> tuple[bool, str]:
+        checked.append(path)
+        return True, "checked"
+
+    monkeypatch.setitem(audit.__globals__, "probe_local_file", record_probe)
+    monkeypatch.chdir(tmp_path)
+    assert main(working_directory=tmp_path, mode="cold-storage-ping") == 0
+    assert checked == [tmp_path / "Data" / "roads.gpkg"]
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Requires Windows mapped-drive semantics")
+def test_audit_deduplicates_drive_and_unc_aliases(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _write_qgs(
+        tmp_path / "model.qgs",
+        "Q:/Project/Data/roads.gpkg",
+        r"\\server\share\Project\Data\roads.gpkg",
+    )
+    namespace = runpy.run_path(str(SCRIPT))
+    main = cast(Callable[..., int], namespace["main"])
+    audit = cast(FunctionType, namespace["_audit_projects"])
+    checked: list[Path] = []
+
+    def record_probe(path: Path, *, mode: QgisAuditMode = "cold-storage-ping") -> tuple[bool, str]:
+        checked.append(path)
+        return True, "checked"
+
+    monkeypatch.setitem(audit.__globals__, "probe_local_file", record_probe)
+    monkeypatch.chdir(tmp_path)
+    assert main(
+        working_directory=tmp_path,
+        mode="cold-storage-ping",
+        drive_mappings=(("Q:", r"\\server\share"),),
+    ) == 0
+    assert checked == [Path(r"\\server\share\Project\Data\roads.gpkg")]
 
 
 def test_audit_cli_rejects_repair_arguments() -> None:

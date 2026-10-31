@@ -70,6 +70,7 @@ def test_repair_cli_exposes_only_repair_options() -> None:
     _, parse_args = _functions()
     args = parse_args([])
     assert args.project is None
+    assert args.drive_map is None
     assert args.old_project_directory is None
     assert args.replace_root is None
     assert args.absolute_paths is None
@@ -81,6 +82,7 @@ def test_repair_cli_exposes_only_repair_options() -> None:
         ["--project", "model.qgs", "--replace-root", "old", "new", "--output", "fixed.qgs", "--write"]
     )
     assert explicit.project == Path("model.qgs")
+    assert parse_args(["--drive-map", "Q:", r"\\server\share"]).drive_map == [["Q:", r"\\server\share"]]
     assert explicit.replace_root == [Path("old"), Path("new")]
     assert explicit.output == Path("fixed.qgs")
     assert explicit.write is True

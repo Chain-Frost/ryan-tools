@@ -123,6 +123,15 @@ It supports two editable/CLI audit modes:
   distinct local source to request cold-network-storage retrieval. This can
   be slow or chargeable; empty files cannot provide a byte.
 
+Both scripts support explicit mapped-drive aliases. Set
+`DEFAULT_DRIVE_MAPPINGS = (("Q:", r"\\server\share"),)` or supply
+`--drive-map Q: '\\server\share'` (repeat the option for other drives).
+This treats Q:\Data\roads.gpkg and \\server\share\Data\roads.gpkg
+as equivalent for root substitution and duplicate-file detection. Each
+unique network file is pinged only once. Mapping is lexical and Windows-only;
+nothing is read to discover drive mappings or to normalize paths. No second
+script run is necessary. Provide the actual mapped drive and UNC share root.
+
 Optional `--auxiliary-report` / `DEFAULT_AUXILIARY_REPORT = True` inspects
 QGD auxiliary SQLite tables, columns and row counts without modifying them.
 `--sample-rows 1` through `5` deliberately includes stored values
@@ -130,6 +139,7 @@ QGD auxiliary SQLite tables, columns and row counts without modifying them.
 
 ```powershell
 python .\ryan-scripts\other\audit_qgis_projects.py --working-directory "Q:\Project\GIS" --no-pause
+python .\ryan-scripts\other\audit_qgis_projects.py --working-directory "Q:\Project\GIS" --drive-map Q: '\\server\share' --no-pause
 python .\ryan-scripts\other\audit_qgis_projects.py --project "Q:\Project\GIS\Model.qgz" --mode cold-storage-ping --no-pause
 python .\ryan-scripts\other\audit_qgis_projects.py --project "Q:\Project\GIS\Model.qgz" --auxiliary-report --no-pause
 ```
@@ -169,6 +179,9 @@ python .\ryan-scripts\other\repair_qgis_project_paths.py --project "Q:\New\GIS\M
 
 # Write a NEW project automatically at "Q:\New\GIS\Model_repaired.qgz".
 python .\ryan-scripts\other\repair_qgis_project_paths.py --project "Q:\New\GIS\Model.qgz" --replace-root "Q:\OldData" "Q:\NewData" --no-pause
+
+# Preview UNC-based replacement when a project layer refers to mapped Q:.
+python .\ryan-scripts\other\repair_qgis_project_paths.py --project "Q:\New\GIS\Model.qgz" --replace-root '\\server\share\OldData' '\\server\share\NewData' --drive-map Q: '\\server\share' --no-write --no-pause
 
 # Optionally choose another NEW output file; --write is unnecessary.
 python .\ryan-scripts\other\repair_qgis_project_paths.py --project "Q:\New\GIS\Model.qgz" --replace-root "Q:\OldData" "Q:\NewData" --output "Q:\New\GIS\Model_fixed.qgz" --no-pause
