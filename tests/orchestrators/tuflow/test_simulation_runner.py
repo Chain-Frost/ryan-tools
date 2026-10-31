@@ -60,7 +60,6 @@ class FakeProcess:
         self.terminated = True
 
 
-
 def _noop(*_args: object) -> None:
     """Suppress unrelated process-management effects in fake-child tests."""
 
@@ -219,9 +218,8 @@ def test_import_roundtrip_preserves_model_executable_cwd_order_and_duplicates(tm
     assert text.count("START /D") == 3
     new = runner.export_batch_commands(plan, config, output)
     reparsed = runner.prepare_plan(replace(config, input_files=(new,)))
-    assert [runner._logical_signature(run, config) for run in plan.runs] == [  # pyright: ignore[reportPrivateUsage]
-        runner._logical_signature(run, config) for run in reparsed.runs  # pyright: ignore[reportPrivateUsage]
-    ]
+    signature = runner._logical_signature  # pyright: ignore[reportPrivateUsage]
+    assert [signature(run, config) for run in plan.runs] == [signature(run, config) for run in reparsed.runs]
     with pytest.raises(FileExistsError):
         runner.export_batch_commands(plan, config, output)
     with pytest.raises(CommandPlanError, match="Refusing to overwrite"):
@@ -315,6 +313,7 @@ def test_out_of_order_completion_callback_precedes_ordered_output(
     observed: list[int] = []
     began: list[int] = []
     caplog.set_level(logging.INFO)
+
     def next_process(**_options: object) -> FakeProcess:
         return next(processes)
 
