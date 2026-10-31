@@ -272,9 +272,7 @@ def test_postponed_annotations_are_not_misclassified_as_import_effects() -> None
     assert default_lazy["import_time_mutation_risk"] is False
 
     annotated_assignment = inventory.analyse_python(
-        "import shutil\nx: shutil.copy2('a', 'b') = None\n"
-        "class Container:\n"
-        "    y: shutil.copy2('a', 'b') = None\n"
+        "import shutil\nx: shutil.copy2('a', 'b') = None\nclass Container:\n    y: shutil.copy2('a', 'b') = None\n"
     )
     assert annotated_assignment["import_time_mutation_risk"] is False
 
