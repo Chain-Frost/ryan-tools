@@ -465,6 +465,44 @@ class _Reader:
             self._run(tokens, start, end)
 
 
+def _configured_tcf(
+    value: str | None,
+    *,
+    source: PurePath,
+    configuration_directory: PurePath,
+) -> PurePath | None:
+    """Resolve Python's optional model setting without inspecting the filesystem."""
+    if not configuration_directory.is_absolute() or isinstance(configuration_directory, PureWindowsPath) != isinstance(
+        source, PureWindowsPath
+    ):
+        message = "Configuration directory must be absolute and match the source path flavour"
+        raise CommandPlanError(message)
+    if value is None:
+        return None
+    try:
+        tcf = _path(value, configuration_directory)
+    except ValueError as exc:
+        message = f"Invalid Python TCF configuration {value!r}: {exc}"
+        raise CommandPlanError(message) from exc
+    if tcf.suffix.casefold() != ".tcf":
+        message = f"Python TCF must have a .tcf suffix: {tcf}"
+        raise CommandPlanError(message)
+    return tcf
+
+
+def _require_matching_tcf(runs: list[PlannedRun], expected: PurePath | None) -> None:
+    """A configured Python TCF constrains every active imported occurrence."""
+    if expected is None:
+        return
+    for run in runs:
+        if run.tcf != expected:
+            message = (
+                f"{run.source}:{run.line_start}-{run.line_end}: "
+                f"Python TCF {expected} conflicts with effective imported TCF {run.tcf}"
+            )
+            raise CommandPlanError(message)
+
+
 def parse_command_plan(
     text: str,
     *,
@@ -499,17 +537,7 @@ def parse_command_plan(
         message = "Use a mapped-drive launch directory for CMD batch semantics; a UNC TCF argument is supported"
         raise CommandPlanError(message)
     config_base = configuration_directory if configuration_directory is not None else initial_directory
-    if not config_base.is_absolute() or isinstance(config_base, PureWindowsPath) != isinstance(source, PureWindowsPath):
-        message = "Configuration directory must be absolute and match the source path flavour"
-        raise CommandPlanError(message)
-    try:
-        python_tcf = _path(fallback_tcf, config_base) if fallback_tcf is not None else None
-    except ValueError as exc:
-        message = f"Invalid Python TCF configuration {fallback_tcf!r}: {exc}"
-        raise CommandPlanError(message) from exc
-    if python_tcf is not None and python_tcf.suffix.casefold() != ".tcf":
-        message = f"Python TCF must have a .tcf suffix: {python_tcf}"
-        raise CommandPlanError(message)
+    python_tcf = _configured_tcf(fallback_tcf, source=source, configuration_directory=config_base)
     reader = _Reader(
         source,
         initial_directory,
@@ -530,14 +558,7 @@ def parse_command_plan(
     if not reader.runs:
         message = f"{source}: No active simulation commands"
         raise CommandPlanError(message)
-    if python_tcf is not None:
-        for run in reader.runs:
-            if run.tcf != python_tcf:
-                message = (
-                    f"{run.source}:{run.line_start}-{run.line_end}: "
-                    f"Python TCF {python_tcf} conflicts with effective imported TCF {run.tcf}"
-                )
-                raise CommandPlanError(message)
+    _require_matching_tcf(reader.runs, python_tcf)
     return CommandPlan(source, tuple(reader.runs), tuple(reader.directories), reader.ignored, syntax, (source,))
 
 
