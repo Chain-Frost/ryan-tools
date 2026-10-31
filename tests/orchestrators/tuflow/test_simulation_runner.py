@@ -198,6 +198,39 @@ def test_abbreviated_input_launches_and_roundtrips(
     assert commands_seen == [[str(config.executable), "-e1", "A", str(tmp_path / "model.tcf")]]
 
 
+def test_text_flag_list_uses_configured_tcf_and_survives_csv_identity_export(tmp_path: Path) -> None:
+    """A text file can list runs without repeating the Python-configured TCF."""
+    from ryan_library.functions.tuflow.execution_history import identify_runs
+
+    commands = tmp_path / "run_list.txt"
+    commands.write_text("-e1 100 -e2 creek -s4 dam\\n".replace("\\n", "\n"), encoding="utf-8")
+    config = settings(
+        tmp_path,
+        mode="textfiles",
+        tcf=Path("model.tcf"),
+        input_files=(commands,),
+    )
+    plan = runner.prepare_plan(config)
+    assert len(plan.runs) == 1
+    run = plan.runs[0]
+    assert run.tcf == tmp_path / "model.tcf"
+    assert run.flags == {"e1": "100", "e2": "creek", "s4": "dam"}
+    assert run.arguments == ("-e1", "100", "-e2", "creek", "-s4", "dam")
+    assert run.executable is None
+    identities = identify_runs(plan, fallback_executable=config.executable, base_directory=tmp_path)
+    assert identities[run.index].key
+
+    exported = runner.render_batch_commands(plan, config, destination=tmp_path / "export.bat")
+    reparsed = parse_command_plan(exported, source=tmp_path / "export.bat", initial_directory=tmp_path)
+    assert _logical_signature(run, config) == _logical_signature(reparsed.runs[0], config)
+    assert (
+        identify_runs(reparsed, fallback_executable=config.executable, base_directory=tmp_path)[1].key
+        == identities[run.index].key
+    )
+    with pytest.raises(CommandPlanError, match="No effective TCF"):
+        runner.prepare_plan(replace(config, tcf=None))
+
+
 def test_nonterminal_tcf_argument_roundtrips_without_losing_flags(tmp_path: Path) -> None:
     commands = tmp_path / "input.txt"
     commands.write_text('TUFLOW.exe "model.tcf" -e1 A -s1 B\\n'.replace("\\n", "\n"), encoding="utf-8")
