@@ -182,7 +182,7 @@ def test_process_signal_handler_is_restored(wrapper: _RunnerWrapper) -> None:
     previous = signal.getsignal(signal.SIGINT)
     interruption = cast(
         Callable[[], AbstractContextManager[object]],
-        getattr(wrapper, "_interruption_flag"),
+        getattr(wrapper, "_interruption_flag"),  # noqa: B009 - dynamically imported wrapper module
     )
     with interruption():
         assert signal.getsignal(signal.SIGINT) is not previous
