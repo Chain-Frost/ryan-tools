@@ -2,14 +2,14 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Needs review: cleanup delivered to #159; local and Windows CSV acceptance recorded |
+| Status | Needs review: strict example regression delivered; upstream fix and adoption follow-up opened |
 | Owner | ChatGPT |
 | Created / Updated | 2026-10-23 / 2026-10-31 |
 | Next review | Windows acceptance / 2026-11-07 |
 | Pull request | [ryan-tools #159](https://github.com/Chain-Frost/ryan-tools/pull/159), open and non-draft when checked |
-| Branch / delivery base | `feat/tuflow-runner-model-checks`, parent `5810fba8def32aa3570c0684cfa7d99c18caae25`; tested implementation baseline `5edc2f5371da3a55faec4cbab2115e43574f1c43` |
-| Delivery | This commit publishes the owner-requested cleanup to the existing #159 branch; no main merge or release |
-| Next action | Review current GitHub checks on the delivered candidate and the recorded installation/solver limits before merge. |
+| Branch / delivery base | `feat/tuflow-runner-model-checks`; regression delivery based on `f780d1d243867f2a867bd2511164ba37ed809f09`; prior cleanup baseline retained below |
+| Delivery | Regression and CI publication on #159, upstream fix in PyTUFLOW #60; no main merge, parser repin or release |
+| Next action | Follow ryan-tools #181 after upstream fix review/delivery; adopt an exact reviewed parser revision and require a clean native 161-TCF/174-run replay without waivers. |
 
 ## Current scope and decisions
 
@@ -244,6 +244,174 @@ Those earlier checks do not validate this cleanup. Both concurrent documentation
 edits have been reconciled into this current record and its register row. New
 checks must be assessed on the delivered commit; no main merge or release is
 included.
+
+### Complete example-model regression — 2026-10-31
+
+Added locally on `test/pr159-example-model-regression` in
+`E:\Github\ryan-tools-pr159-example-regression`, based on #159 head
+`f780d1d243867f2a867bd2511164ba37ed809f09`. Changes are unstaged and uncommitted;
+the existing main checkout and test-data pin `d2dae3ec` are unchanged.
+
+The new Windows regression verifies the archive and every one of its 1,464 members,
+extracts once outside the submodule, and derives contexts from all 21 simulation BAT
+files through the production planner. The creation utility is excluded; duplicate
+aggregate contexts are deduplicated and unlisted TCFs get no-flag coverage.
+The per-TCF counts exactly match the 161-TCF / 174-run historical inventory.
+The fixture-only reader removes the two aggregate batches' fixed executable guard;
+it does not extend production shell support.
+
+Normal Windows Python 3.14.6 used the real immutable parser `05e35476` installed
+with `--no-deps` into the external target `E:\Github\pr159-example-validation-deps`.
+Its direct-url provenance and physical import origin were confirmed. Native GDAL
+3.13.3 was available. No solver or project BAT was launched.
+
+Full replay: **all 174 runs completed; 153/161 TCFs and 166/174 runs passed**.
+Eight one-run cases fail, intentionally retained as ordinary test failures:
+
+- EG02_013, EG04_004/005/006 and EG14_001/002/003: seven unresolved attribute
+  findings, `Unsupported GIS BC/SA/RF layer schema`. The pinned parser's
+  `validation_links.py` recognises `2d_bc/sa/rf` layer names in this path and rejects
+  these `1d_bc` sources. OGR confirms their fields are Type, Flags, Name and Description
+  (the Shapefile truncates the latter to Descriptio). These are coverage findings,
+  not demonstrated missing source files or proven obsolete TUFLOW syntax.
+- EG03_009: rainfall GIS source `2d_rf_EG03_009_R.shp` contains a blank Name;
+  the public API reports `Missing or unexpanded BC Name`. OGR confirms the blank
+  first-row Name; no input was repaired or waived.
+
+The local process also emitted h5py native DLL exception diagnostics (`0xc0000139`)
+and projection-reader warnings but continued and completed the replay. This is a
+local environment limitation, not a clean native-environment acceptance claim.
+
+Evidence: `E:\Github\pr159-example-reports-20261031\results.json` and 161 issue CSVs.
+The exact replay command used the external parser target via process-local
+`PYTHONPATH` and `TUFLOW_EXAMPLE_REPORT_DIR`, then
+`python -m pytest tests/orchestrators/tuflow/test_example_models_real.py -q --tb=short`:
+**1 passed, 1 failed**, 29.50 seconds. No xfail, finding suppression or baseline change.
+The dedicated public-validation workflow now installs native GIS readers, runs this
+test explicitly and uploads reports even on failure. Hosted execution has not run
+for these uncommitted changes. See the [regression instructions](../TUFLOW_INPUT_PREFLIGHT.md#regression-coverage).
+
+The BAT inventory plus existing command-plan suite passes **106 tests**.
+Ruff lint/format and modified-file strict Pyright pass (0 errors, 0 warnings).
+Default documentation/index checks, explicit links for all three touched guides/records,
+workflow YAML loading/replay-artifact assertions and `git diff --check` pass.
+Final-source replay repeats the same eight failures: **1 passed, 1 failed** in
+27.80 seconds; all 174 runs completed, 153 TCFs / 166 runs passed. Final JSON and
+161 issue CSVs are at `E:\Github\pr159-example-reports-20261031-final`;
+the captured output is `E:\Github\pr159-example-replay-final.log`.
+Actionlint is unavailable locally, so full Actions expression validation remains
+for CI. No library or package metadata changed; no wheel rebuild is required.
+
+Next action: review the eight findings against the pinned upstream parser and
+obtain a clean Windows CI replay. Parser changes or a pin update require separate
+implementation and fresh validation; this task adds regression coverage only.
+
+### Investigation of the eight findings — 2026-10-31
+
+Read-only reruns through the same pinned `05e35476` consumer reproduce all eight
+findings. Inspection of the original control commands, DBF rows and selected
+database records identifies two validator coverage defects, rather than evidence
+of obsolete syntax or missing project data. No parser or model data was changed.
+
+**Seven 1D boundary cases:** `validation_links.py` only recognises layer names
+matching `^2d_(bc|sa|rf)_` for BC commands; `validation_gis.py` also lacks 1d_bc
+positional schema support. The affected ECFs use ordinary `Read GIS BC` with
+Type/Flags/Name/Description fields, matching the current
+[TUFLOW 1D boundary specification, Table 8.4](https://docs.tuflow.com/classic-hpc/manual/2026.3/07-Boundaries-and-Initial-Conditions.html).
+The file and DBF exist, but the validator rejects the schema before discovering
+these selected BC source files. Direct consumer calls show each source below is
+absent from `checked_paths`; manual selection of its active database rows and the
+same pinned parser's bounded CSV header inspectors confirms all selectors pass:
+
+| TCF | Selected 1D BC keys | Expected source CSV absent from actual checked paths |
+| --- | --- | --- |
+| EG02_013, EG14_001 | DS_BC, FC01 | bc_dbase/EG14_001.csv |
+| EG04_004 | FC01, FC02 | bc_dbase/EG04_004.csv |
+| EG04_005 | DS_BC, FC01 | bc_dbase/EG04_005.csv |
+| EG04_006 | DS_BC, FC01, FC02 | bc_dbase/EG04_006.csv |
+| EG14_002 | SB1, SB3 | bc_dbase/EG03_003.csv |
+| EG14_003 | Loc_001, Loc_002, Loc_003, Loc_004 | bc_dbase/EG14_003.csv |
+
+EG04_004 additionally uses HQ `Name=slope=0.01`, a documented internally generated
+rating curve; this is not a missing BC database key. A fix must recognise this
+1D-specific rule rather than simply adding `1d_` to a regex or applying the 2D
+eight-field schema. EG03_003.csv has its header on row three and EG14_003.csv uses
+`Time` for selector `time`; the existing bounded, case-insensitive header reader
+already accepts both. A first-line-only/exact-case diagnostic would misclassify
+these valid sources, so it is not used as validation evidence.
+
+**EG03_009:** its rainfall control file uses `RF Interpolation Method == TIN`
+and `Read GIS RF Triangle == ..\model\gis\2d_rf_EG03_009_R.shp` on line 7.
+All 12 triangle rows have empty Name values. That is valid: TUFLOW explicitly
+ignores triangle attributes, as specified in the
+[official 2016-03 release notes, rainfall interpolation](https://downloads.tuflow.com/_archive/TUFLOW/Releases/2016-03/TUFLOW%20Release%20Notes.2016-03.pdf)
+and illustrated by the
+[official rainfall control examples](https://wiki.tuflow.com/TUFLOW_Rainfall_Control_File_Examples).
+The validator's `_gis_read_role` broadly classifies every `Read GIS RF ...`
+command as a BC lookup, then wrongly demands a Name on the triangle geometry.
+Its separate rainfall point layer supplies the actual rainfall identifiers.
+The targeted fix is command-aware geometry-only handling of RF Triangle, retaining
+file/companion validation and ordinary rainfall-point database selection.
+
+The smallest repair belongs upstream in the pinned public PyTUFLOW validation API:
+support 1D BC field/Type/Name semantics and distinguish rainfall triangulation
+geometry from BC-name-bearing layers. Do not edit example inputs, suppress these
+findings, add a second consumer inspector, or accept an unreviewed pin change.
+These findings do not establish solver/hydraulic validity, and the unmodified
+full regression remains **153/161 TCFs, 166/174 runs passed** pending repairs.
+
+Detailed actual checked-path lists, expected selected sources, original GIS rows,
+BC keys and header results are retained outside the repository in
+`E:\Github\pr159-example-failure-investigation.json`; its read-only reproduction
+is `E:\Github\pr159-example-failure-investigation.py` and log of reruns is the
+matching `.log` file. The parser target and source fixture remain unchanged.
+
+### Published regression and upstream repair — 2026-10-31
+
+The owner authorised publishing this regression now and creating a fix PR based
+on Chain-Frost/PyTUFLOW #59. The repair is
+[PyTUFLOW #60](https://github.com/Chain-Frost/PyTuflow/pull/60), targeting
+`feat/optional-raster-header-validation` at `cd18e35f58ac05e0355bf198c63fa42b0102c685`.
+Fix head `388f42f7833e60fca322b1172e202c273b6fecf1` is committed and pushed;
+neither #59 nor official upstream PR17 was changed or merged.
+
+The unchanged #59 base reproduces **153/161 TCFs, 166/174 contexts passing**.
+The fixed source and its non-editable installed wheel both pass **161/161 TCFs,
+174/174 contexts**, with BC CSV header checks enabled and both raster metadata
+and CRS options explicitly disabled for this dependency-focused comparison.
+Both modified installed modules match the committed source byte-for-byte.
+Affected installed-wheel boundary/batch/GIS/input-safety/raster/CRS tests pass
+**177 tests, 9 existing platform/privilege skips**; no new boundary-test skips.
+Normal Windows Python 3.14.6 retains the inherited native DLL/projection logs;
+this is not full clean-QGIS acceptance or native Python 3.11 runtime evidence.
+The fixed wheel SHA-256 is
+`6186ddf3a97958aa00fee01e7d39badba1159d237cf3d2db6530b44f2fad7b5f`.
+Public-data diagnostic receipts remain external to the repositories, including
+`E:\Github\pr159-upstream-example-pr159-upstream-installed.json`.
+
+The ryan-tools test stays strict against its **unchanged accepted parser pin**.
+Its new separate `windows-example-regression` CI job remains visibly failing on
+the eight known cases, retains all JSON/CSV evidence, and does not weaken or
+replace the existing public-API smoke job. The test verifies its installed source
+against `repo-scripts/pytuflow-requirement.txt`, so a later reviewed pin update
+does not require another hardcoded hash in the test. Reports include the complete
+checked-path inventory for future missing/extra-source investigations.
+
+Final publication-source local checks: **106 inventory/planner tests pass**;
+Ruff lint/format, modified-file strict Pyright, documentation/index/link checks,
+whitespace and checksum-verified Actionlint **1.7.12** pass. The final full archive
+test deliberately returns **1 passed, 1 failed** in 30.04 seconds, with exactly
+the eight known cases and all 174 contexts completed. Reports are at
+`E:\Github\pr159-published-example-reports-20261031`; no fixture or pin changed.
+The concurrent documentation-only update `5c4d073a` is retained on publication.
+
+[Action #181](https://github.com/Chain-Frost/ryan-tools/issues/181) is the durable
+adoption checklist: wait for reviewed upstream delivery, verify exact revision,
+version and installed origin, reconcile installer/capability guidance, preserve
+the consumer's agreed raster/CRS scope despite #59's changed defaults, rerun the
+complete strict native archive and affected consumer checks, then obtain final-head
+hosted evidence. Do not waive findings or edit example data to make it pass.
+Next review is 2026-11-07 or upstream delivery, whichever comes first.
 
 ## Retired history
 

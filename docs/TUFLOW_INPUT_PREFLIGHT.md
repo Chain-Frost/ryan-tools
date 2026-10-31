@@ -206,6 +206,47 @@ file, selected-layer, BC CSV, GIS-linked-source and mapping checks, plus
 same-version incompatibility, broken transitive imports, shadowed packages,
 incomplete group results, lazy imports and installer dry-run commands.
 
+The same workflow also runs
+[`test_example_models_real.py`](../tests/orchestrators/tuflow/test_example_models_real.py)
+against the checksum-verified permanent example archive in `tests/test_data`.
+It reads all 21 simulation BAT files as text, retaining SET values and event/scenario
+flags through the production command planner. Repeated aggregate selections are
+deduplicated for this coverage sweep, retaining their first source location.
+TCFs absent from the batches receive a no-flag context. Coverage must match the
+fixture's per-TCF baseline: **161 TCFs / 174 unique run combinations**.
+The separate empty-GIS creation BAT is excluded. The two aggregate BATs' fixed
+executable-existence guards are stripped only by the fixture reader, preserving
+source line numbers; this does not add general IF/EXIT support to the planner.
+
+Run locally on Windows Python 3.14 with the accepted parser and native GIS dependencies:
+
+```powershell
+git submodule update --init tests/test_data
+$env:TUFLOW_EXAMPLE_REPORT_DIR = Join-Path $env:TEMP ("tuflow-examples-" + [guid]::NewGuid())
+python -m pytest -q --tb=short tests/orchestrators/tuflow/test_example_models_real.py
+```
+
+Use a new report directory for each invocation; issue CSVs never overwrite existing
+files. Without the environment setting, reports use pytest's temporary directory.
+The native replay is marked `gdal` and runs explicitly in the dedicated workflow;
+the ordinary hosted suite excludes it while retaining the BAT inventory check.
+The separate `windows-example-regression` job currently fails on eight known
+upstream findings; it does not change the existing public-API smoke job. The fix is
+[PyTUFLOW #60](https://github.com/Chain-Frost/PyTuflow/pull/60), based on #59.
+[Follow-up #181](https://github.com/Chain-Frost/ryan-tools/issues/181) tracks adopting
+a reviewed fixed parser revision and obtaining a complete passing replay. The
+accepted parser pin remains unchanged until that follow-up; any future pin change
+must also preserve the intended raster/CRS option scope rather than silently
+inheriting #59's new metadata defaults.
+Missing parser/GIS capabilities fail the dedicated replay rather than producing a
+passing skip. All models are checked before asserting success. JSON results and
+per-model issue CSVs retain run flags, source file/line and complete findings, and
+CI uploads them even on failure. Existing unresolved findings remain failures;
+the historical baseline is used only for coverage counts, never to waive findings.
+No BAT or TUFLOW executable is launched, and source inputs remain in the submodule;
+only a verified temporary extraction is inspected. This covers dependency validation,
+not solver execution, hydraulic correctness or raster-header checks.
+
 This is not a replacement for final installed-wheel and copied-wrapper acceptance
 on the maintained Windows workstation. The
 [ongoing integration record](work/2026-10-23-tuflow-runner-model-checks.md)
