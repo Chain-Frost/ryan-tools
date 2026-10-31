@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 
@@ -11,6 +13,7 @@ from ryan_library.mcp.server import (
     MAX_COLLECTION_FILES,
     check_repo_health,
     get_workflow,
+    inspect_raster_metadata,
     inspect_tuflow_collection,
     inspect_tuflow_result,
     list_workflows,
@@ -52,6 +55,47 @@ def test_catalogue_resource_is_valid_json() -> None:
     assert catalogue["configured_profile"] == "create"
     assert catalogue["schema_version"] == "1.0"
 
+
+
+def test_raster_metadata_inspection_does_not_modify_input(tmp_path: Path) -> None:
+    raster_path = tmp_path / "source metadata.tif"
+    raster_path.write_bytes(b"preserved input")
+    dataset = SimpleNamespace(
+        driver="GTiff",
+        width=2,
+        height=3,
+        count=1,
+        dtypes=("float32",),
+        crs="EPSG:28350",
+        res=(10.0, 10.0),
+        transform=(10.0, 0.0, 500000.0, 0.0, -10.0, 7500000.0, 0.0, 0.0, 1.0),
+        bounds=SimpleNamespace(left=500000.0, bottom=7499970.0, right=500020.0, top=7500000.0),
+        nodata=-9999.0,
+    )
+    with patch("rasterio.open") as raster_open:
+        raster_open.return_value.__enter__.return_value = dataset
+        result = inspect_raster_metadata(str(raster_path))
+
+    assert result == {
+        "file_name": "source metadata.tif",
+        "driver": "GTiff",
+        "width": 2,
+        "height": 3,
+        "count": 1,
+        "dtypes": ["float32"],
+        "crs": "EPSG:28350",
+        "resolution": {"x": 10.0, "y": 10.0},
+        "transform": [10.0, 0.0, 500000.0, 0.0, -10.0, 7500000.0, 0.0, 0.0, 1.0],
+        "bounds": {"left": 500000.0, "bottom": 7499970.0, "right": 500020.0, "top": 7500000.0},
+        "nodata": -9999.0,
+    }
+    raster_open.assert_called_once_with(raster_path)
+    assert raster_path.read_bytes() == b"preserved input"
+
+
+def test_missing_raster_metadata_returns_error(tmp_path: Path) -> None:
+    missing = tmp_path / "missing.tif"
+    assert inspect_raster_metadata(str(missing)) == {"error": f"File not found: {missing}"}
 
 def test_inspect_tuflow_result_uses_processor_factory_and_bounds_sample() -> None:
     result_path = MODULE_11_RESULTS / "plot/csv/M11_5m_001_1d_Q.csv"
