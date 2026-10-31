@@ -279,7 +279,7 @@ class CsvExecutionLog:
         if not rows:
             self._append_header()
 
-    def _apply(self, record: dict[str, str], number: int) -> None:
+    def _apply(self, record: dict[str, str], number: int) -> None:  # noqa: C901 - validate each transition together
         if record["schema_version"] != SCHEMA_VERSION:
             msg = f"Unknown CSV schema version at line {number}: {record['schema_version']!r}"
             raise ExecutionLogError(msg)
