@@ -220,8 +220,9 @@ def test_editing_default_audit_mode_enables_cold_ping_without_cli(
     _write_qgs(tmp_path / "model.qgs", "./roads.gpkg|layername=roads")
     namespace = _load_copied_wrapper(
         tmp_path,
-        {'DEFAULT_AUDIT_MODE: Literal["existence", "cold-storage-ping"] = "existence"':
-         'DEFAULT_AUDIT_MODE: Literal["existence", "cold-storage-ping"] = "cold-storage-ping"'},
+        {
+            'DEFAULT_AUDIT_MODE: Literal["existence", "cold-storage-ping"] = "existence"': 'DEFAULT_AUDIT_MODE: Literal["existence", "cold-storage-ping"] = "cold-storage-ping"'
+        },
     )
     main = cast(FunctionType, namespace["main"])
     checked: list[tuple[Path, str]] = []
@@ -240,9 +241,7 @@ def test_editing_default_audit_mode_enables_cold_ping_without_cli(
     assert checked == [(source, "existence")]
 
 
-def test_editing_default_write_enables_new_copy_without_cli(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_editing_default_write_enables_new_copy_without_cli(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     project = tmp_path / "model.qgs"
     _write_qgs(project, "roads.gpkg|layername=roads")
     original = project.read_bytes()

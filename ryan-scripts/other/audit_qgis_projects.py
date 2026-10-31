@@ -312,9 +312,7 @@ def _parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
 
 if __name__ == "__main__":
     args = _parse_cli_arguments()
-    console_log_level = (
-        args.console_log_level if args.console_log_level is not None else DEFAULT_CONSOLE_LOG_LEVEL
-    )
+    console_log_level = args.console_log_level if args.console_log_level is not None else DEFAULT_CONSOLE_LOG_LEVEL
     if console_log_level is not None:
         logger.remove()
         logger.add(sys.stderr, level=console_log_level.upper())
