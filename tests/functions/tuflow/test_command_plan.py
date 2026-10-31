@@ -158,7 +158,7 @@ def test_termination_ignores_unreachable_tail(ending: str) -> None:
         "-e1 A -e1 B",
         "-e1",
         "-e1 -s1 EXG",
-        '-e1 "A B"',
+        '-e1 A B',
         "-e1 A one.tcf two.tcf",
         "cd D:\\other\n-e1 A",
         "popd\n-e1 A",
@@ -430,3 +430,9 @@ def test_frozen_plan_and_fallback_executable_contract() -> None:
     assert run.arguments == ("-e1", "A")
     with pytest.raises(FrozenInstanceError):
         run.index = 2  # pyright: ignore[reportAttributeAccessIssue] - frozen contract test
+
+
+def test_quoted_event_value_remains_structured_for_upstream_validation() -> None:
+    run = parse('TUFLOW.exe -e1 "Wet Season" -s1 "Case A" model.tcf').runs[0]
+    assert run.flag_pairs == (("e1", "Wet Season"), ("s1", "Case A"))
+    assert run.arguments == ("-e1", "Wet Season", "-s1", "Case A", "model.tcf")
