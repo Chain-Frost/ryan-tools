@@ -91,11 +91,12 @@ Those PRs remain independent work; their own technical correctness and data vali
   (`ad6122c`, `b338da9`), followed by Ruff spacing corrections. **Do not
   report this fix as CI accepted until the exact final head passes.**
 - Current package selection is **151 tracked = 85 wheel + 66 repository-only**;
-  **34** unique MCP script targets. The 47-item remediation ledger includes
-  external validation, design decisions and deferred maintenance, not 47
-  newly introduced merge-blocking code defects.
-- Original A/F engineering approval, real application/UNC tests, individual
-  lifecycle decisions and numerical/output parity remain open where recorded.
+  **34** unique MCP script targets. The 47-entry backlog now contains
+  **46 open/deferred/partially verified items and 1 accepted-closed item (AB-023)**;
+  these are not 46 newly introduced merge-blocking defects.
+- Original A/F engineering approval, **real TUFLOW and scoped Windows/UNC tests**,
+  proportionate lifecycle decisions and output parity remain open where recorded,
+  **excluding the accepted/closed HY-8 comparison gate**.
   This corrective code PR **does not declare those gates complete or approve
   a release**. Merge/release disposition requires an explicit maintainer
   decision. Later delivery to `main` will be a **squash merge**, not an
@@ -103,6 +104,40 @@ Those PRs remain independent work; their own technical correctness and data vali
 - **Exact code acceptance at `837184b`: all six checks passed** — [Python CI](https://github.com/Chain-Frost/ryan-tools/actions/runs/41215916979) and [Fast PR](https://github.com/Chain-Frost/ryan-tools/actions/runs/41215916999). Hosted Windows: **1,674 passed / 25 skipped / 7 deselected**, with 127 nonfatal warnings; strict Pyright: **0 errors, 0 warnings**; wheel, MCP/Python 3.14, POSIX security and Ruff all green. Historical job label referencing Python 3.13 is not its runtime.
 - The consolidated Codex review of `350d41b` identified two new P2 QGIS issues: unmatched relative sources when output is relocated, and FileGDB directory sources wrongly failing metadata existence checks. Both were corrected with functional/unit tests (`e8fb5a4`, `07299e1`, `bc17b79`; formatting at `837184b`). Additional QGS/QGD companion collision fixed at `d181b15` with regression. All **22 PR #137 review threads resolved**, plus the four resolved on integrated #154.
 - **Current next action:** maintainer must decide the explicitly retained lifecycle/engineering acceptance gates and authorize later **squash merge** of #137 to `main`. The PR remains draft/unmerged, with no PyPI publication. Original A/F unverified application, network, interruption and numerical parity gates are **not** declared complete.
+
+## 1 November 2026 — explicit maintainer acceptance disposition
+
+**HY-8 (AB-023 / H6): closed by maintainer decision.** The user accepted
+existing HY-8 / `ryan-culverts` comparison evidence from merged
+[ryan-culverts PR #29](https://github.com/Chain-Frost/ryan-culverts/pull/29).
+No further numerical-comparison campaign or HY-8-wrapper acceptance test
+is required as a gate for #137. This is a scope/evidence acceptance decision,
+**not** an assertion that the 22 October Windows #146 host ran HY-8.
+Independent future hydraulic issues and code changes keep their own review
+requirements; they do not reopen AB-023 automatically.
+
+**TUFLOW remains open** for controlled real-executable/model-run acceptance:
+simulation runner (AB-012), initialisation (AB-013) and native ASC_to_ASC
+(AB-029); read-only model preflight and TLF run coverage are tracked
+separately under AB-046/047. Test failures, exits, cancellation, output
+preservation and expected results in authorised disposable models as relevant.
+
+**Windows/UNC remains only per workflow.** Existing authorised mapped/UNC
+copy, long-path and bounded native GDAL/QGIS results remain accepted. Do not
+rerun them merely to satisfy older generic checklist wording; validate
+additional network, lock and interrupted-operation scenarios only where a
+specific AB row identifies an untested script/operation.
+
+The [Markdown backlog](../audits/2026-10-22-script-remediation-backlog.md)
+keeps all **47 historical IDs**, now **46 open/deferred/partially verified
+and 1 accepted-closed**. It groups future work into active installed safety,
+external engineering checks, historical repository-only lifecycle decisions,
+and cross-cutting inventory/contracts. A non-executable, experimental or
+historical source file does not need automatic full engineering sign-off
+unless intentionally adopted as a supported tool.
+
+The later delivery plan for #137 remains an authorised **squash merge to
+`main`**; this documentation decision does not merge or publish anything.
 
 ## Original non-negotiable decisions (D1–D9)
 
@@ -113,9 +148,9 @@ Those PRs remain independent work; their own technical correctness and data vali
 | D3 | Plan to stop Python 3.13 support in November | **Superseded 22 October:** maintainer directed immediate Python >=3.14. Package metadata, installer checks, CI execution and wheel validation adopt the new floor. |
 | D4 | Install maintained scripts, preserve editable defaults and original CLI contracts | Partially implemented: sibling wheel layout exists; per-script behavioral and lifecycle audit incomplete |
 | D5 | Curated MCP exposure and capability/mutation approval metadata | Implemented, verification incomplete: JSON catalogue and profile tests exist, check individual command flags and real mutation boundaries |
-| D6 | Migrate hydraulic submodules only after tested pip parity | Partially verified: `run-hy8` and `ryan-culverts` pip dependencies exist and source gitlinks were removed; full numerical/executable parity and reproducible constraints remain unverified |
+| D6 | Migrate hydraulic submodules only after tested pip parity | Dependencies and gitlink removal implemented. **HY-8 numerical comparison accepted under merged [ryan-culverts PR #29](https://github.com/Chain-Frost/ryan-culverts/pull/29); AB-023 closed by maintainer decision.** General dependency reproducibility remains tracked in H1/H4, not as another HY-8 numerical gate. |
 | D7 | Treat PyPI rename as separate deliberate transition | Later implementation in #120: distribution now `ryan-tools`; maintain upgrade/release verification, trusted publication evidence and retired-name instructions |
-| D8 | Windows/QGIS/TUFLOW/HY-8, UNC/mapped paths, `Path.absolute()` | Partially implemented; external and network/manual tests outstanding |
+| D8 | Windows/QGIS/TUFLOW/HY-8, UNC/mapped paths, `Path.absolute()` | Bounded Windows mapped/UNC copy and GDAL/QGIS checks passed; **native TUFLOW and workflow-specific network/locked-file checks remain open**. HY-8 comparison accepted separately (AB-023); the October Windows host did not run it. |
 | D9 | Original PR was planning-only, not authorized to change runtime then | Historical phase restriction; later implementation was requested but original functional/validation scope **was not cancelled** |
 
 ## Workstream A — inventory, lifecycle and packaging policy
@@ -162,10 +197,10 @@ Those PRs remain independent work; their own technical correctness and data vali
 | --- | --- | --- |
 | H1 | Check independent PyPI releases, ownership, trust and tested versions | Partially verified; publication/ownership provenance and cross-platform compatibility evidence incomplete |
 | H2 | Replace embedded solver contents with package dependencies | Verified (bounded): dependency metadata and wheel exclusion tests |
-| H3 | Remove obsolete solver gitlinks, package paths and utilities after parity | Removal implemented; original parity-before-removal gate not fully substantiated |
+| H3 | Remove obsolete solver gitlinks, package paths and utilities after parity | Removal implemented; accepted HY-8 numerical comparison is owned by the independent `ryan-culverts` evidence, with AB-023 closed by maintainer decision. No duplicate HY-8 run required for #137. |
 | H4 | Reproducible tested dependency versions/bounds/constraints | Not fully verified; existing lower bounds alone do not guarantee future numerical reproducibility |
 | H5 | Verify external solver dependency declarations and imports | Verified (bounded) by package and smoke jobs |
-| H6 | Preserve engineering parity, numerical validation, Windows HY-8 acceptance | **Outstanding**; do not equate import smoke with hydraulic validation |
+| H6 | Preserve engineering parity, numerical validation, Windows HY-8 acceptance | **Closed for #137 by maintainer decision (1 November 2026)**: accept existing numerical comparisons in merged [ryan-culverts PR #29](https://github.com/Chain-Frost/ryan-culverts/pull/29); see closed AB-023. This is acceptance of independent evidence, **not** a claim that the October #146 host ran HY-8. Changes to wrappers in the future still need proportionate tests. |
 
 ## Workstream E — package identity and Python support
 
@@ -183,12 +218,12 @@ Those PRs remain independent work; their own technical correctness and data vali
 | ID | Requirement | Status and remaining acceptance |
 | --- | --- | --- |
 | F1 | Exact included/excluded maintained-script inventory tests | Wheel member equality tests pass, but maintained/legacy designation **has not been proven individually** |
-| F2 | Verified wheel in neutral no-checkout Windows Python, MCP and representative help | Bounded wheel/copy smoke passed in #137 and Windows #146 on the old 83-file selection; retest the expanded 85-file wheel on the exact integrated head |
+| F2 | Verified wheel in neutral no-checkout Windows Python, MCP and representative help | Verified (bounded) on #137 integrated head `060fc17`: 85-file wheel inventory, isolated-wheel package checks and representative wrapper smoke. Native engineering/output validation remains script-specific, not a new global wheel check. |
 | F3 | Synthetic read-only/creating workflow and failure behavior tests | **Partial**; systematically cover declared catalog targets and missing inputs/tools |
-| F4 | Application-specific GDAL/QGIS/TUFLOW/HY-8 acceptance | Bounded real GDAL/OGR and QGIS tests passed on Windows on 22 October (see acceptance record); licensed TUFLOW/HY-8 and full engineering data parity remain open |
-| F5 | Copy wrappers on UNC/mapped/long/whitespace paths; version/log/progress/exit parity | Bounded Windows copy tests passed 22 October on SSD, long paths and mapped/UNC scratch; real workflow parity and new integrated wheel still require verification |
+| F4 | Application-specific GDAL/QGIS/TUFLOW/HY-8 acceptance | Bounded real GDAL/OGR and QGIS checks passed in October. **Native TUFLOW** model runner/project setup/ASC_to_ASC remain tracked (AB-012, AB-013, AB-029); network/locked-file checks are scoped to affected scripts. **HY-8 comparison is accepted and closed (AB-023)**, not an outstanding #137 gate. |
+| F5 | Copy wrappers on UNC/mapped/long/whitespace paths; version/log/progress/exit parity | **Accepted bounded tests** passed on SSD, long paths and authorised mapped/UNC scratch; no global rerun. Only named workflow-specific network/lock/interruption/output contracts remain in the AB rows. |
 | F6 | Profile approval filtering; no implicit MCP execution | Existing regression tests, but destructive-flag audit remains |
-| F7 | Ruff/Pyright/pytest/docs/wheel/hosted validation on exact final head | #130 hosted CI passed; corrective PR must re-run and report exact head, not claim prior CI covers new code |
+| F7 | Ruff/Pyright/pytest/docs/wheel/hosted validation on exact final head | Verified on #137 integrated code head `060fc17`: all six checks green, 1,674 hosted passed/25 skipped/7 deselected, strict Pyright 0 errors/0 warnings. Later acceptance-document-only changes need their own documentation/CI verification. |
 | F8 | Migration order, constraints, publication cutover and old-name timelines | **Partially documented**, release evidence/acceptance still required |
 
 ## PR #130 review finding and correction
@@ -223,7 +258,7 @@ Ruff, scoped strict Pyright, isolated current-version wheel discovery and scoped
 documentation link checks passed. All six exact-head hosted checks passed.
 Local Python 3.13 was excluded at the user's request. QGIS MCP retry and
 copied-GeoPackage desktop probe passed after the user enabled MCP; diagnostics are degraded by server 0.15.2 / plugin 0.15.1 mismatch.
-Licensed TUFLOW/HY-8 functional acceptance remains outstanding.
+Licensed **TUFLOW** execution acceptance remains outstanding. Separately accepted HY-8 numerical comparisons were closed by maintainer decision on 1 November 2026 (AB-023); no repeated comparison is required for #137.
 See the [Windows evidence](../mcp-handoff/2026-10-21-cf-windows-acceptance.md#windows-execution-evidence--22-october-2026)
 for versions, commands, wheel hash, environment corrections and limitations.
 Evidence documentation is committed on the supporting branch at the user's request;
