@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 import signal
 import subprocess
 import sys
@@ -181,7 +182,13 @@ def test_optional_help_is_available_without_loading_pytuflow() -> None:
     )
     content = source.read_text(encoding="utf-8")
     assert "sys.path.insert" not in content
-    result = subprocess.run([sys.executable, str(source), "--help"], capture_output=True, text=True, check=False)
+    # Source-checkout subprocesses do not inherit pytest's sys.path; the copied
+    # wrapper / installed-wheel acceptance runs separately with no PYTHONPATH.
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(source.parents[3])
+    result = subprocess.run(
+        [sys.executable, str(source), "--help"], capture_output=True, text=True, check=False, env=env
+    )
     assert result.returncode == 0
     assert "--export-only" in result.stdout
     assert "--preflight-only" in result.stdout
