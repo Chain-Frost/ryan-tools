@@ -74,6 +74,8 @@ These documents stay near the code they describe so that browsing a target direc
 | [Automatic PyPI releases](AUTO_PYPI_RELEASES.md) | Publishing only new verified main PR merges after a defined cutover |
 | [Automatic release cutover marker](../.github/release-cutover.md) | Recording the first commit after which new merged changes become eligible for releases |
 | [MCP workflow-target implementation](mcp-handoff/README.md) | Current execution-target design, wrapper-path reconciliation, validation contract and remaining staged migration |
+| [MCP target safety audit](mcp-handoff/2026-10-21-cf-target-assessment.md) | Per-target safety classification, dependencies and readiness |
+| [Windows acceptance evidence](mcp-handoff/2026-10-21-cf-windows-acceptance.md) | Recorded Windows/GDAL/QGIS checks and outstanding licensed-tool acceptance |
 
 ## File-format references
 
@@ -99,7 +101,10 @@ but they are not current architectural policy when they conflict with the canoni
 | [TUFLOW batch preflight optimisation](work/2026-10-22-tuflow-batch-preflight-optimisation.md) | Stacked draft against PR #143: consume PyTUFLOW batch API, share GIS/filesystem inspection, preserve parity and benchmark 500-run workloads |
 | [Vendor simil and PyHMA integration](work/2026-10-19-vendor-integration.md) | PR #139 packaging, licence notices, independent imports, similarity API and validation |
 | [Installed scripts and distribution rename](work/2026-10-18-installed-scripts.md) | PR #120 wheel scripts, automatic MCP resolution, removed import shim and PyPI name migration |
-| [Curated installed scripts and MCP packaging](work/2026-10-17-installed-scripts-mcp-pip-distribution.md) | PR #130 requirements reconciliation, reviewed 83-file allowlist, script-copy helper, verification and remaining acceptance |
+| [Installed scripts and MCP requirements](work/2026-10-17-installed-scripts-mcp-pip-distribution.md) | PR #130/#137: corrected wrapper copying, provisional packaging and outstanding engineering acceptance |
+| [Original script distribution requirements](audits/2026-10-17-installed-scripts-original-requirements.md) | Preserved original A–F requirements |
+| [Installed script inventory](audits/2026-10-19-installed-scripts-inventory.md) | All 151 source paths; 85 selected and 66 excluded; lifecycle sign-off outstanding |
+| [Script remediation backlog](audits/2026-10-22-script-remediation-backlog.md) | 47 AB items: open/deferred work plus accepted-closed HY-8 evidence (AB-023); triaged safety, engineering and lifecycle tasks |
 | [Fast PR checks and hosted timing](work/2026-10-17-fast-pr-checks-129.md) | PR #129 implementation, exact-head hosted validation, timing evidence and remaining Python-change exercise |
 | [Mapped-drive-safe filesystem paths and raster progress](work/2026-10-16-absolute-path-policy.md) | PR #128 path policy, multiline raster progress, retained-wheel rebuild blocker and validation handoff |
 | [GitHub CI implementation handoff](work/2026-10-07-github-ci.md) | Implemented hosted checks, external-software boundaries and validation record |

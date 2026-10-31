@@ -9,7 +9,11 @@ from __future__ import annotations
 import argparse
 import multiprocessing
 import shutil
-from pathlib import Path
+import stat
+import tarfile
+import tempfile
+import zipfile
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 # ==============================================================================
 # WRAPPER IDENTITY
@@ -29,29 +33,75 @@ from ryan_library.functions.wrapper_utils import change_working_directory, pause
 SEVEN_ZIP_EXE = find_7zip()
 
 
+def _validate_member_path(member_name: str) -> None:
+    """Reject archive member paths that can escape staging on POSIX or Windows."""
+    normalised = member_name.replace("\\", "/")
+    path = PurePosixPath(normalised)
+    windows = PureWindowsPath(member_name)
+    if (
+        not member_name
+        or "\x00" in member_name
+        or normalised.startswith("/")
+        or windows.drive
+        or any(part == ".." or ":" in part for part in path.parts)
+    ):
+        msg = f"Unsafe archive member path: {member_name!r}"
+        raise ValueError(msg)
+
+
+def _validate_archive_members(archive_path: Path) -> None:
+    """Preflight ZIP/TAR members, including when extraction uses external 7-Zip.
+
+    Other formats (RAR/7z/non-TAR streams) need separate backend acceptance.
+    """
+    if archive_path.suffix.lower() == ".zip":
+        with zipfile.ZipFile(archive_path) as archive:
+            for member in archive.infolist():
+                _validate_member_path(member.filename)
+                if stat.S_ISLNK(member.external_attr >> 16):
+                    msg = f"Archive contains a symbolic link: {member.filename!r}"
+                    raise ValueError(msg)
+    elif tarfile.is_tarfile(archive_path):
+        with tarfile.open(archive_path, mode="r:*") as archive:
+            for member in archive:
+                _validate_member_path(member.name)
+                if not (member.isfile() or member.isdir()):
+                    msg = f"Archive contains an unsupported link or special member: {member.name!r}"
+                    raise ValueError(msg)
+
+
 def _extract_archive(archive_path: Path) -> tuple[Path, bool, str]:
-    """Worker function to extract a single archive."""
-    extract_dir: Path = archive_path.parent / archive_path.stem
-    temporary_extract_dir = archive_path.parent / f".{archive_path.stem}.extracting"
+    """Extract into a private, unique staging directory without deleting old work."""
+    extract_dir = archive_path.parent / archive_path.stem
+    temporary_extract_dir: Path | None = None
     try:
-        if extract_dir.exists():
+        if archive_path.is_symlink():
+            return archive_path, False, "Symlinked archive input is not supported"
+        if extract_dir.exists() or extract_dir.is_symlink():
             return archive_path, True, f"Output {extract_dir.name} already exists"
 
-        if temporary_extract_dir.exists():
-            shutil.rmtree(temporary_extract_dir)
-        temporary_extract_dir.mkdir(parents=True)
+        _validate_archive_members(archive_path)
 
+        # Never delete a fixed-name stale staging directory: it may contain user data.
+        temporary_extract_dir = Path(
+            tempfile.mkdtemp(prefix=f".{archive_path.stem}.extracting-", dir=archive_path.parent)
+        )
         extract_archive(
             archive_path=archive_path,
             output_directory=temporary_extract_dir,
             executable=SEVEN_ZIP_EXE,
         )
-
-        temporary_extract_dir.replace(extract_dir)
+        # Another worker or user may have created the destination meanwhile.
+        if extract_dir.exists() or extract_dir.is_symlink():
+            return archive_path, True, f"Output {extract_dir.name} already exists"
+        temporary_extract_dir.rename(extract_dir)
+        temporary_extract_dir = None
         return archive_path, True, ""
-    except Exception as e:
-        shutil.rmtree(temporary_extract_dir, ignore_errors=True)
-        return archive_path, False, str(e)
+    except Exception as exc:
+        return archive_path, False, str(exc)
+    finally:
+        if temporary_extract_dir is not None:
+            shutil.rmtree(temporary_extract_dir, ignore_errors=True)
 
 
 def main(*, input_paths: PathOrList | None = None) -> int:
@@ -85,6 +135,15 @@ def main(*, input_paths: PathOrList | None = None) -> int:
             logger.warning("Target {} does not exist", target)
 
     all_archives = list(dict.fromkeys(all_archives))
+
+    # Two archives with the same output stem must not race to publish.
+    destinations: dict[Path, Path] = {}
+    for archive in all_archives:
+        output = archive.parent / archive.stem
+        if prior := destinations.get(output):
+            logger.error("Conflicting archives target {}: {} and {}", output, prior, archive)
+            return 1
+        destinations[output] = archive
 
     if not all_archives:
         logger.warning("No supported archives found across targets.")

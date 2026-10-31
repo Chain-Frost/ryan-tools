@@ -1,17 +1,22 @@
 # TUFLOW Python wrappers
 
-This folder contains maintained, library-backed wrappers as well as older
-standalone utilities. New and updated thin wrappers follow the repository-wide
-[`WRAPPER_STANDARD.md`](../WRAPPER_STANDARD.md); versioned standalone scripts
-retain their own self-contained behaviour until they are deliberately migrated.
+This folder contains maintained, library-backed wrappers, maintained
+standalone utilities, and older historical scripts. All maintained entry
+points follow the [shared script principles](../README.md#shared-principles-for-maintained-scripts-and-wrappers).
+Library-backed wrappers additionally follow
+[`WRAPPER_STANDARD.md`](../WRAPPER_STANDARD.md). A useful self-contained
+script need not be migrated into a wrapper or an orchestrator merely to remain
+maintained; historical/versioned snapshots retain their intentional behaviour.
 
 ## Maintained wrappers
 
-The maintained wrappers delegate processing to `ryan_library` orchestrators and
-keep editable project paths, globs, filters, output modes and thresholds near
-the top of each file. This includes the log-summary, POMM/PO combination,
-culvert reporting, time-series checking, result styling and ASC_to_ASC search
-wrappers.
+Library-backed wrappers delegate reusable processing to `ryan_library`
+functions/processors **directly**, or use orchestrators where multi-stage
+coordination actually warrants one. They keep editable project paths, globs,
+filters, output modes and thresholds near the top of each file. This covers
+log-summary, POMM/PO combination, culvert reporting, time-series checking,
+result styling and ASC_to_ASC search wrappers without requiring identical
+internal architecture.
 
 `raster_processing/run_grouped_asc_to_asc_statistics.py` and
 `raster_processing/run_python_raster_calculations.py` were promoted from `unsorted-python` on 20 August 2026. They retain an explicit
