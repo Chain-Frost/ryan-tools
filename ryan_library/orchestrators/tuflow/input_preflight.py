@@ -163,15 +163,17 @@ class PreflightReport:
 
 def _nonnegative_count(value: object, label: str) -> int:
     """Reject missing, invalid or negative public inspection counters."""
-    if type(value) is not int or value < 0:
-        raise ValueError(f"PyTUFLOW returned invalid {label}: {value!r}")
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        message = f"PyTUFLOW returned invalid {label}: {value!r}"
+        raise ValueError(message)
     return value
 
 
 def _issue(finding: _Finding, request: RunRequest) -> PreflightIssue:
     """Translate the complete public finding without synthesising input context."""
     if finding.status not in {"missing", "unresolved", "unsupported"}:
-        raise ValueError(f"Unknown PyTUFLOW validation status: {finding.status!r}")
+        message = f"Unknown PyTUFLOW validation status: {finding.status!r}"
+        raise ValueError(message)
     reference = str(finding.path) if finding.path is not None else (
         str(finding.source_pattern) if finding.source_pattern is not None else "<run>"
     )
@@ -196,7 +198,7 @@ def _issue(finding: _Finding, request: RunRequest) -> PreflightIssue:
     )
 
 
-def check_simulation_inputs(
+def check_simulation_inputs(  # noqa: C901 - fail-closed public result validation
     tcf: Path | str | object,
     runs: Sequence[RunRequest],
     *,
@@ -212,13 +214,17 @@ def check_simulation_inputs(
     or pixel contents. The caller owns grouping, model cwd and error policy.
     """
     if not runs:
-        raise ValueError("No simulations were supplied for input preflight")
+        message = "No simulations were supplied for input preflight"
+        raise ValueError(message)
     if len({run.index for run in runs}) != len(runs) or any(run.index < 1 for run in runs):
-        raise ValueError("Input preflight requires distinct positive planned-run indices")
+        message = "Input preflight requires distinct positive planned-run indices"
+        raise ValueError(message)
     if not 1 <= io_workers <= 32:
-        raise ValueError("io_workers must be between 1 and 32")
+        message = "io_workers must be between 1 and 32"
+        raise ValueError(message)
     if maximum_directory_entries < 1:
-        raise ValueError("maximum_directory_entries must be positive")
+        message = "maximum_directory_entries must be positive"
+        raise ValueError(message)
 
     api = require_validation_api()
     # Do not use a display string: flag values may contain whitespace. PyTUFLOW
@@ -241,24 +247,29 @@ def check_simulation_inputs(
         or not hasattr(result, "dependencies")
         or not hasattr(result, "validation")
     ):
-        raise ValueError("PyTUFLOW returned no complete batch validation result")
+        message = "PyTUFLOW returned no complete batch validation result"
+        raise ValueError(message)
     deps, physical = result.dependencies, result.validation
     run_results = getattr(deps, "runs", None)
     findings = getattr(physical, "findings", None)
     if not isinstance(run_results, (list, tuple)) or not isinstance(findings, (list, tuple)):
-        raise ValueError("PyTUFLOW omitted batch run results or physical findings")
+        message = "PyTUFLOW omitted batch run results or physical findings"
+        raise ValueError(message)
     count = len(runs)
     if _nonnegative_count(getattr(physical, "run_count", None), "run_count") != count:
-        raise ValueError("PyTUFLOW returned an incomplete physical-validation run count")
+        message = "PyTUFLOW returned an incomplete physical-validation run count"
+        raise ValueError(message)
     indices = [getattr(item, "index", None) for item in run_results]
     if len(indices) != count or sorted(indices, key=str) != sorted(range(count), key=str):
-        raise ValueError("PyTUFLOW returned missing, duplicate or invalid batch run indices")
+        message = "PyTUFLOW returned missing, duplicate or invalid batch run indices"
+        raise ValueError(message)
     by_position = dict(enumerate(runs))
     report = PreflightReport(run_count=count)
     for finding in findings:
         position = getattr(finding, "run_index", None)
         if type(position) is not int or position not in by_position:
-            raise ValueError(f"PyTUFLOW finding refers to unknown batch position: {position!r}")
+            message = f"PyTUFLOW finding refers to unknown batch position: {position!r}"
+            raise ValueError(message)
         if getattr(finding, "status", None) == "present":
             if finding.path is not None:
                 report.checked_paths.add(str(finding.path))
@@ -277,13 +288,17 @@ def check_simulation_inputs(
             )
 
     if not result.passed and not report.issues:
-        raise ValueError("PyTUFLOW reported an unsuccessful batch without findings")
+        message = "PyTUFLOW reported an unsuccessful batch without findings"
+        raise ValueError(message)
     if result.passed and report.issues:
-        raise ValueError("PyTUFLOW reported a passing batch containing failed input findings")
+        message = "PyTUFLOW reported a passing batch containing failed input findings"
+        raise ValueError(message)
     if not isinstance(getattr(deps, "passed", None), bool) or not isinstance(physical.passed, bool):
-        raise ValueError("PyTUFLOW omitted completeness status for dependencies or physical validation")
+        message = "PyTUFLOW omitted completeness status for dependencies or physical validation"
+        raise ValueError(message)
     if result.passed != (deps.passed and physical.passed):
-        raise ValueError("PyTUFLOW returned inconsistent dependency/validation status")
+        message = "PyTUFLOW returned inconsistent dependency/validation status"
+        raise ValueError(message)
 
     report.completed_runs = count
     report.upstream_passed = result.passed
@@ -306,6 +321,7 @@ def check_simulation_inputs(
     ):
         value = getattr(result, attribute, None)
         if not isinstance(value, (int, float)) or value < 0:
-            raise ValueError(f"PyTUFLOW returned invalid {attribute}")
+            message = f"PyTUFLOW returned invalid {attribute}"
+            raise ValueError(message)
         setattr(report, label, float(value))
     return report
