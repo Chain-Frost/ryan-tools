@@ -229,9 +229,9 @@ def test_changed_model_inputs_change_identity_but_runtime_gpu_does_not(tmp_path:
         replace(run, working_directory=tmp_path / "elsewhere"),
     ):
         assert (
-            identify_runs(replace(plan, runs=(changed,)), fallback_executable=Path("other.exe"), base_directory=tmp_path)[
-                1
-            ].key
+            identify_runs(
+                replace(plan, runs=(changed,)), fallback_executable=Path("other.exe"), base_directory=tmp_path
+            )[1].key
             == key
         )
     # Model identity and execution mode still matter. Test-only (-t) must not
@@ -243,9 +243,9 @@ def test_changed_model_inputs_change_identity_but_runtime_gpu_does_not(tmp_path:
         replace(run, flag_pairs=(("e1", "other"),), arguments=("-b", "-e1", "other", str(run.tcf))),
     ):
         assert (
-            identify_runs(replace(plan, runs=(changed,)), fallback_executable=Path("fallback.exe"), base_directory=tmp_path)[
-                1
-            ].key
+            identify_runs(
+                replace(plan, runs=(changed,)), fallback_executable=Path("fallback.exe"), base_directory=tmp_path
+            )[1].key
             != key
         )
 
@@ -332,7 +332,9 @@ def test_same_filename_and_flags_from_different_models_are_ambiguous(tmp_path: P
     first = plan.runs[0]
     other = replace(first, index=2, tcf=tmp_path / "other_project" / first.tcf.name)
     with pytest.raises(ExecutionLogError, match="Ambiguous Resume identity"):
-        identify_runs(replace(plan, runs=(first, other)), fallback_executable=Path("solver.exe"), base_directory=tmp_path)
+        identify_runs(
+            replace(plan, runs=(first, other)), fallback_executable=Path("solver.exe"), base_directory=tmp_path
+        )
 
 
 def test_history_rejects_unsupported_gpu_syntax(tmp_path: Path) -> None:
