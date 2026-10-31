@@ -3,20 +3,45 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from pathlib import Path
 from threading import Event
 
 import pytest
 
+from ryan_library.functions.tuflow.command_plan import CommandPlan
 from ryan_library.functions.tuflow.gpu_occupancy import GpuOccupancySnapshot, TuflowGpuProcess
 from ryan_library.orchestrators.tuflow import command_preflight
 from ryan_library.orchestrators.tuflow import simulation_runner as runner
 from ryan_library.orchestrators.tuflow.command_preflight import CommandPreflightIssue, CommandPreflightReport
 
-from tests.orchestrators.tuflow.test_simulation_runner import FakeProcess, settings
+def settings(base: Path, **changes: object) -> runner.RunnerSettings:
+    initial = runner.RunnerSettings(
+        wrapper_file=base / "runner.py",
+        working_directory=base,
+        executable=base / "TUFLOW.exe",
+        tcf=Path("runs/model_~e1~.tcf"),
+        run_variables={"e1": ("A", "B")},
+        batch_commands="-b",
+        wait_time_after_run=0,
+        use_live_dashboard=False,
+    )
+    return replace(initial, **changes)
 
 
-def _complete_report(plan: object) -> CommandPreflightReport:
+class FakeProcess:
+    def __init__(self, pid: int) -> None:
+        self.pid = pid
+        self.returncode = 0
+
+    def poll(self) -> int:
+        return 0
+
+
+
+
+
+def _complete_report(plan: CommandPlan) -> CommandPreflightReport:
     result = CommandPreflightReport(plan)
     result.completed_runs = len(result.plan.runs)
     return result
