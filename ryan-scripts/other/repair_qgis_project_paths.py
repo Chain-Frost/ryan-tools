@@ -41,6 +41,11 @@ DEFAULT_OLD_PROJECT_DIRECTORY: Path | None = None
 # This only rewrites references; it never moves or opens the source datasets.
 DEFAULT_REPLACE_ROOT: tuple[Path, Path] | None = None
 
+# Optional mapped-drive aliases for equivalent UNC network shares (Windows only).
+# Example: (("Q:", r"\\server\share"),) or (("Q:", r"\\server\share"), ("R:", r"\\other\gis")).
+# This compares network paths lexically, without accessing their contents.
+DEFAULT_DRIVE_MAPPINGS: tuple[tuple[str, str], ...] = ()
+
 # False writes relative source paths from the output project's folder; True uses
 # absolute source paths (less portable). Example: True for fixed drive locations.
 DEFAULT_ABSOLUTE_PATHS = False
@@ -70,7 +75,12 @@ from zipfile import BadZipFile, LargeZipFile
 
 from loguru import logger
 
-from ryan_library.functions.qgis_project import plan_source_path_changes, write_project_path_changes
+from ryan_library.functions.qgis_project import (
+    QgisDriveMappings,
+    plan_source_path_changes,
+    validate_drive_mappings,
+    write_project_path_changes,
+)
 from ryan_library.functions.wrapper_utils import (
     add_execution_cli_arguments,
     change_working_directory,
@@ -88,6 +98,7 @@ def main(
     absolute_paths: bool = DEFAULT_ABSOLUTE_PATHS,
     output_path: Path | None = DEFAULT_OUTPUT,
     write: bool = DEFAULT_WRITE,
+    drive_mappings: QgisDriveMappings = DEFAULT_DRIVE_MAPPINGS,
 ) -> int:
     """Create a separate repaired project by default, or preview with write=False."""
     directory = (working_directory if working_directory is not None else DEFAULT_WORKING_DIR).absolute()
@@ -106,6 +117,11 @@ def main(
         if replace_root is not None
         else None
     )
+    try:
+        validate_drive_mappings(drive_mappings)
+    except ValueError as error:
+        logger.error("Invalid drive-to-UNC mapping: {}", error)
+        return 1
     if not change_working_directory(target_dir=directory):
         return 1
 
@@ -117,6 +133,7 @@ def main(
             replace_root=roots,
             relative=not absolute_paths,
             output_project_path=output,
+            drive_mappings=drive_mappings,
         )
         for change in changes:
             logger.info("Layer {}: {} -> {}", change.name or change.layer_id, change.old_uri, change.new_uri)
@@ -148,6 +165,13 @@ def _parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         help="Allow interactive completion, overriding DEFAULT_NO_PAUSE=True.",
     )
     parser.add_argument("--project", type=Path, help="One QGS/QGZ project to repair (or edit DEFAULT_PROJECT).")
+    parser.add_argument(
+        "--drive-map",
+        nargs=2,
+        action="append",
+        metavar=("DRIVE", "UNC_ROOT"),
+        help=r"Declare mapped-drive alias, e.g. --drive-map Q: \\server\share (repeatable).",
+    )
     parser.add_argument(
         "--old-project-directory",
         type=Path,
@@ -199,6 +223,11 @@ if __name__ == "__main__":
         absolute_paths=args.absolute_paths if args.absolute_paths is not None else DEFAULT_ABSOLUTE_PATHS,
         output_path=args.output if args.output is not None else DEFAULT_OUTPUT,
         write=args.write if args.write is not None else DEFAULT_WRITE,
+        drive_mappings=(
+            tuple((drive, unc) for drive, unc in args.drive_map)
+            if args.drive_map is not None
+            else DEFAULT_DRIVE_MAPPINGS
+        ),
     )
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
     no_pause = args.no_pause if args.no_pause is not None else DEFAULT_NO_PAUSE

@@ -6,6 +6,7 @@ sources are rewritten; unknown providers and complex URI formats are left alone.
 
 from __future__ import annotations
 
+import ntpath
 import os
 import shutil
 from contextlib import suppress
@@ -17,6 +18,7 @@ from xml.etree import ElementTree as ET
 from zipfile import ZipFile
 
 type QgisAuditMode = Literal["existence", "cold-storage-ping"]
+type QgisDriveMappings = tuple[tuple[str, str], ...]
 
 _MAX_PROJECT_XML_BYTES = 64 * 1024 * 1024
 _REMOTE_PREFIXES = (
@@ -131,12 +133,63 @@ def _path_parts(uri: str) -> tuple[str, str]:
     return path.strip(), f"|{options}" if separator else ""
 
 
+def validate_drive_mappings(drive_mappings: QgisDriveMappings) -> None:
+    """Validate explicit mapped-drive to UNC roots without filesystem access."""
+    seen: dict[str, str] = {}
+    for drive, unc in drive_mappings:
+        key = drive.strip().rstrip("\\/").upper()
+        if len(key) != 2 or not ("A" <= key[0] <= "Z") or key[1] != ":":
+            message = f"Drive mapping must use a drive root such as Q:, got {drive!r}"
+            raise ValueError(message)
+        root = ntpath.normpath(unc)
+        share = ntpath.splitdrive(root)[0]
+        if not share.startswith("\\\\") or len(share[2:].split("\\")) != 2 or not ntpath.isabs(root):
+            message = f"Drive mapping must use an absolute UNC share such as \\\\server\\share, got {unc!r}"
+            raise ValueError(message)
+        previous = seen.get(key)
+        if previous is not None and previous.casefold() != root.casefold():
+            message = f"Conflicting UNC mappings for drive {key}: {previous!r} and {root!r}"
+            raise ValueError(message)
+        seen[key] = root
+
+
+def _normalize_windows_network_path(path: str, drive_mappings: QgisDriveMappings) -> str:
+    """Normalize Windows components and map absolute drive paths to UNC."""
+    validate_drive_mappings(drive_mappings)
+    normalized = ntpath.normpath(path)
+    drive, tail = ntpath.splitdrive(normalized)
+    if not tail.startswith(("\\", "/")):
+        return normalized
+    for mapped_drive, unc_root in drive_mappings:
+        if drive.upper() == mapped_drive.strip().rstrip("\\/").upper():
+            return ntpath.normpath(ntpath.join(unc_root, tail.lstrip("\\/")))
+    return normalized
+
+
+def _normalize_local_path(path: Path, drive_mappings: QgisDriveMappings = ()) -> Path:
+    """Collapse parent components lexically without dereferencing junctions."""
+    normalized = Path(os.path.normpath(path))
+    if os.name == "nt" and drive_mappings:
+        return Path(_normalize_windows_network_path(str(normalized), drive_mappings))
+    return normalized
+
+
+def ensure_qgd_without_journals(file_path: Path) -> None:
+    """Refuse SQLite inspection/copying when a transaction journal is present."""
+    for suffix, label in (("-wal", "WAL"), ("-journal", "rollback journal")):
+        sidecar = Path(f"{file_path}{suffix}")
+        if sidecar.exists():
+            message = f"Cannot safely inspect or copy SQLite auxiliary storage while {label} exists: {sidecar}"
+            raise ValueError(message)
+
+
 def local_source_path(
     project_path: Path,
     uri: str,
     *,
     provider: str = "",
     original_project_directory: Path | None = None,
+    drive_mappings: QgisDriveMappings = (),
 ) -> Path | None:
     """Resolve only recognised filesystem sources, without touching the filesystem.
 
@@ -175,7 +228,7 @@ def local_source_path(
     if not candidate.is_absolute():
         base: Path = original_project_directory if original_project_directory is not None else project_path.parent
         candidate: Path = base / candidate
-    return candidate.absolute()
+    return _normalize_local_path(candidate.absolute(), drive_mappings)
 
 
 def probe_local_file(path: Path, *, mode: QgisAuditMode = "existence") -> tuple[bool, str]:
@@ -203,18 +256,28 @@ def probe_local_file(path: Path, *, mode: QgisAuditMode = "existence") -> tuple[
     raise ValueError(message)
 
 
-def _map_root(path: Path, replace_root: tuple[Path, Path] | None) -> Path | None:
+def _map_root(
+    path: Path, replace_root: tuple[Path, Path] | None, drive_mappings: QgisDriveMappings
+) -> Path | None:
     if replace_root is None:
         return path
     old_root, new_root = replace_root
+    old_base = _normalize_local_path(old_root.absolute(), drive_mappings)
     try:
-        relative: Path = path.relative_to(old_root.absolute())
+        relative: Path = path.relative_to(old_base)
     except ValueError:
         return None
-    return new_root.absolute() / relative
+    return _normalize_local_path(new_root.absolute(), drive_mappings) / relative
 
 
-def _render_source_uri(destination_project_path: Path, original_uri: str, path: Path, *, relative: bool) -> str:
+def _render_source_uri(
+    destination_project_path: Path,
+    original_uri: str,
+    path: Path,
+    *,
+    relative: bool,
+    drive_mappings: QgisDriveMappings = (),
+) -> str:
     """Render a local source relative to the project that will contain it."""
     original, options = _path_parts(original_uri)
     if original.lower().startswith("file:"):
@@ -230,7 +293,8 @@ def _render_source_uri(destination_project_path: Path, original_uri: str, path: 
     if not relative:
         return path.as_posix() + options
     try:
-        text = os.path.relpath(path, destination_project_path.parent).replace("\\", "/")
+        destination_folder = _normalize_local_path(destination_project_path.parent.absolute(), drive_mappings)
+        text = os.path.relpath(path, destination_folder).replace("\\", "/")
     except ValueError:
         # Different Windows drives cannot use relative paths; retain an
         # absolute source rather than corrupting it with a "./" prefix.
@@ -247,6 +311,7 @@ def plan_source_path_changes(
     replace_root: tuple[Path, Path] | None = None,
     relative: bool = True,
     output_project_path: Path | None = None,
+    drive_mappings: QgisDriveMappings = (),
 ) -> list[QgisSourceChange]:
     """Plan source rewrites without opening any layer files.
 
@@ -254,6 +319,7 @@ def plan_source_path_changes(
     directory), but encode relative URIs against the intended output project.
     Pass output_project_path for previews as well as writes.
     """
+    validate_drive_mappings(drive_mappings)
     destination: Path = output_project_path.absolute() if output_project_path is not None else project_path
     changes: list[QgisSourceChange] = []
     for layer in project_layer_sources(project_path):
@@ -262,14 +328,19 @@ def plan_source_path_changes(
             uri=layer.uri,
             provider=layer.provider,
             original_project_directory=original_project_directory,
+            drive_mappings=drive_mappings,
         )
         if source_path is None:
             continue
-        target: Path | None = _map_root(source_path, replace_root)
+        target: Path | None = _map_root(source_path, replace_root, drive_mappings)
         if target is None:
             continue
         rewritten: str = _render_source_uri(
-            destination_project_path=destination, original_uri=layer.uri, path=target, relative=relative
+            destination_project_path=destination,
+            original_uri=layer.uri,
+            path=target,
+            relative=relative,
+            drive_mappings=drive_mappings,
         )
         if rewritten != layer.uri:
             changes.append(
@@ -348,12 +419,8 @@ def write_project_path_changes(
         raise FileExistsError(message)
 
     if old_qgd is not None and old_qgd.exists():
-        # A live QGIS/SQLite connection may keep changes in a WAL file. Copying
-        # only the main database could silently omit those auxiliary edits.
-        wal = Path(f"{old_qgd}-wal")
-        if wal.exists():
-            message = f"Cannot safely copy auxiliary SQLite storage while a WAL exists: {wal}"
-            raise ValueError(message)
+        # Both WAL and rollback-journal modes can contain uncommitted edits.
+        ensure_qgd_without_journals(old_qgd)
 
     edited_xml: bytes = _edited_project_xml(project_path, changes)
     created_project: tuple[int, int] | None = None
@@ -373,6 +440,8 @@ def write_project_path_changes(
                 stat = os.fstat(dest.fileno())
                 created_aux = (stat.st_dev, stat.st_ino)
                 shutil.copyfileobj(source, dest)
+            # Refuse a transaction that became visible while copying.
+            ensure_qgd_without_journals(old_qgd)
         completed = True
     finally:
         if not completed:

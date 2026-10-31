@@ -34,6 +34,11 @@ DEFAULT_PROJECT: Path | None = None
 # Cold-storage retrieval can be slow or chargeable; never enabled implicitly.
 DEFAULT_AUDIT_MODE: Literal["existence", "cold-storage-ping"] = "existence"
 
+# Explicit drive-to-UNC aliases for equivalent network shares (empty means none).
+# Example: (("Q:", r"\\server\share"),) or add ("R:", r"\\other\gis").
+# This does not probe mapped drives or modify the original QGIS project.
+DEFAULT_DRIVE_MAPPINGS: tuple[tuple[str, str], ...] = ()
+
 # True: read QGD table/column/record metadata; False: skip QGD inspection.
 DEFAULT_AUXILIARY_REPORT = False
 
@@ -59,9 +64,11 @@ from loguru import logger
 from ryan_library.functions.qgis_auxiliary import inspect_auxiliary_storage
 from ryan_library.functions.qgis_project import (
     QgisAuditMode,
+    QgisDriveMappings,
     local_source_path,
     probe_local_file,
     project_layer_sources,
+    validate_drive_mappings,
 )
 from ryan_library.functions.wrapper_utils import (
     add_execution_cli_arguments,
@@ -84,9 +91,11 @@ def get_data_sources(project_path: Path) -> list[str]:
     return sorted({layer.uri for layer in project_layer_sources(project_path) if layer.uri})
 
 
-def resolve_file_source(project_path: Path, source: str) -> Path | None:
+def resolve_file_source(
+    project_path: Path, source: str, *, drive_mappings: QgisDriveMappings = ()
+) -> Path | None:
     """Compatibility helper for local datasource paths (None means non-file or unsupported)."""
-    return local_source_path(project_path, source)
+    return local_source_path(project_path, source, drive_mappings=drive_mappings)
 
 
 def _report_auxiliary(project_path: Path, sample_rows: int) -> None:
@@ -107,7 +116,14 @@ def _report_auxiliary(project_path: Path, sample_rows: int) -> None:
             logger.info("    Sample: {}", values)
 
 
-def _audit_projects(projects: list[Path], *, mode: QgisAuditMode, auxiliary_report: bool, sample_rows: int) -> int:
+def _audit_projects(
+    projects: list[Path],
+    *,
+    mode: QgisAuditMode,
+    auxiliary_report: bool,
+    sample_rows: int,
+    drive_mappings: QgisDriveMappings = (),
+) -> int:
     checked: set[Path] = set()
     failed: set[Path] = set()
     project_errors = 0
@@ -117,7 +133,7 @@ def _audit_projects(projects: list[Path], *, mode: QgisAuditMode, auxiliary_repo
     for project in projects:
         try:
             for layer in project_layer_sources(project):
-                source = local_source_path(project, layer.uri, provider=layer.provider)
+                source = local_source_path(project, layer.uri, provider=layer.provider, drive_mappings=drive_mappings)
                 if source is None or source in checked:
                     continue
                 checked.add(source)
@@ -151,6 +167,7 @@ def main(
     mode: QgisAuditMode = DEFAULT_AUDIT_MODE,
     auxiliary_report: bool = DEFAULT_AUXILIARY_REPORT,
     sample_rows: int = DEFAULT_SAMPLE_ROWS,
+    drive_mappings: QgisDriveMappings = DEFAULT_DRIVE_MAPPINGS,
 ) -> int:
     """Read-only source audit; return 0 on success and 1 on processing errors."""
     directory = (working_directory if working_directory is not None else DEFAULT_WORKING_DIR).absolute()
@@ -161,6 +178,11 @@ def main(
         return 1
     if not 0 <= sample_rows <= 5 or (sample_rows and not auxiliary_report):
         logger.error("Valid --sample-rows (1-5) requires --auxiliary-report")
+        return 1
+    try:
+        validate_drive_mappings(drive_mappings)
+    except ValueError as error:
+        logger.error("Invalid drive-to-UNC mapping: {}", error)
         return 1
     if not change_working_directory(target_dir=directory):
         return 1
@@ -175,6 +197,7 @@ def main(
         mode=mode,
         auxiliary_report=auxiliary_report,
         sample_rows=sample_rows,
+        drive_mappings=drive_mappings,
     )
 
 
@@ -194,6 +217,13 @@ def _parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         help="Permit interactive completion even when DEFAULT_NO_PAUSE=True.",
     )
     parser.add_argument("--project", type=Path, help="One QGS/QGZ project; otherwise scan the working directory.")
+    parser.add_argument(
+        "--drive-map",
+        nargs=2,
+        action="append",
+        metavar=("DRIVE", "UNC_ROOT"),
+        help=r"Declare mapped-drive alias, e.g. --drive-map Q: \\server\share (repeatable).",
+    )
     parser.add_argument(
         "--mode",
         choices=("existence", "cold-storage-ping"),
@@ -229,6 +259,11 @@ if __name__ == "__main__":
         mode=args.mode if args.mode is not None else DEFAULT_AUDIT_MODE,
         auxiliary_report=(args.auxiliary_report if args.auxiliary_report is not None else DEFAULT_AUXILIARY_REPORT),
         sample_rows=args.sample_rows if args.sample_rows is not None else DEFAULT_SAMPLE_ROWS,
+        drive_mappings=(
+            tuple((drive, unc) for drive, unc in args.drive_map)
+            if args.drive_map is not None
+            else DEFAULT_DRIVE_MAPPINGS
+        ),
     )
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
     no_pause = args.no_pause if args.no_pause is not None else DEFAULT_NO_PAUSE

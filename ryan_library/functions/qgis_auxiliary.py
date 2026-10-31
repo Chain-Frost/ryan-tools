@@ -13,7 +13,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from zipfile import ZipFile, ZipInfo
 
-from .qgis_project import project_layer_sources
+from .qgis_project import ensure_qgd_without_journals, project_layer_sources
 
 _MAX_EMBEDDED_QGD_BYTES = 256 * 1024 * 1024
 
@@ -59,10 +59,7 @@ def _inspect_database(
     if file_path.stat().st_size == 0:
         return AuxiliarySummary(location=location, size_bytes=0, tables=())
 
-    wal = Path(f"{file_path}-wal")
-    if wal.exists():
-        message = f"Cannot safely inspect a potentially uncheckpointed SQLite auxiliary WAL: {wal}"
-        raise ValueError(message)
+    ensure_qgd_without_journals(file_path)
 
     tables: list[AuxiliaryTable] = []
     # Immutable read-only mode avoids creating SQLite journal and shared-memory
