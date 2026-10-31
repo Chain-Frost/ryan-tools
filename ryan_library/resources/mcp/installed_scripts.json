@@ -80,6 +80,7 @@
     "gdal-python/vacuum_geopackages.py",
     "misc-python/remove_excel_protection.py",
     "other/audit_qgis_projects.py",
+    "other/repair_qgis_project_paths.py",
     "tuflow/PROJECT_SETUP.md",
     "tuflow/find_missing_tlf_runs.py",
     "tuflow/init_tuflow_project.py",

@@ -106,67 +106,79 @@ applies to **both** standalone scripts and wrappers.
 Do not demote a maintained script to "legacy" merely because it remains
 self-contained. Validation is proportional to what the script actually does.
 
-## QGIS project file audit and repair
+## QGIS project source audit (read-only)
 
-`other/audit_qgis_projects.py` inspects QGS/QGZ XML without starting QGIS or
-loading referenced geospatial datasets. It has **two explicit audit modes**:
+[`other/audit_qgis_projects.py`](other/audit_qgis_projects.py) checks QGS/QGZ
+data-source references without loading QGIS or opening raster/vector datasets
+in its default mode. **This script cannot repair, remap or write projects.**
+It supports two editable/CLI audit modes:
 
-- `--mode existence` (default): check local source-file existence using
-  filesystem metadata; **do not open or read their contents**. Network
+- `DEFAULT_AUDIT_MODE = "existence"` (default): use filesystem metadata to
+  check whether local file sources exist; no file-content reads. Network
   metadata requests may still occur.
-- `--mode cold-storage-ping` or `DEFAULT_AUDIT_MODE = "cold-storage-ping"`
-  (opt-in): open each distinct local source file and request one byte using
-  an unbuffered read, to prompt tiered network storage to rehydrate data.
-  This can be slow or incur retrieval charges. Empty files cannot provide
-  a byte; results depend on storage-server behaviour.
+- `DEFAULT_AUDIT_MODE = "cold-storage-ping"` or
+  `--mode cold-storage-ping` (opt-in): issue a one-byte unbuffered read per
+  distinct local source to request cold-network-storage retrieval. This can
+  be slow or chargeable; empty files cannot provide a byte.
+
+Optional `--auxiliary-report` / `DEFAULT_AUXILIARY_REPORT = True` inspects
+QGD auxiliary SQLite tables, columns and row counts without modifying them.
+`--sample-rows 1` through `5` deliberately includes stored values
+(`0` hides them).
 
 ```powershell
-python .\ryan-scripts\other\audit_qgis_projects.py --working-directory "Q:\Project\GIS" --mode existence --no-pause
-python .\ryan-scripts\other\audit_qgis_projects.py --working-directory "Q:\Project\GIS" --mode cold-storage-ping --no-pause
+python .\ryan-scripts\other\audit_qgis_projects.py --working-directory "Q:\Project\GIS" --no-pause
+python .\ryan-scripts\other\audit_qgis_projects.py --project "Q:\Project\GIS\Model.qgz" --mode cold-storage-ping --no-pause
 python .\ryan-scripts\other\audit_qgis_projects.py --project "Q:\Project\GIS\Model.qgz" --auxiliary-report --no-pause
-python .\ryan-scripts\other\audit_qgis_projects.py --project "Q:\New\GIS\Model.qgz" --old-project-directory "Q:\Old\GIS" --no-pause
-python .\ryan-scripts\other\audit_qgis_projects.py --project "Q:\New\GIS\Model.qgz" --old-project-directory "Q:\Old\GIS" --output "Q:\New\GIS\Model_fixed.qgz" --write --no-pause
 ```
 
-For example, a copied script can preview a relocated project's source-path
-repairs **without any CLI arguments** using these editable values:
+The curated MCP QGIS audit is **read-only** and pins
+`--mode existence --no-auxiliary-report --sample-rows 0 --no-pause`,
+irrespective of any edited defaults in a copied wrapper.
 
-```python
-DEFAULT_WORKING_DIR = Path(r"Q:\Project\GIS")
-DEFAULT_PROJECT = Path("Moved.qgz")
-DEFAULT_OLD_PROJECT_DIRECTORY = Path(r"Q:\Previous_Project\GIS")
-DEFAULT_OUTPUT = Path("Moved_fixed.qgz")
-DEFAULT_WRITE = False  # Preview only; change to True after reviewing the proposed paths
+## QGIS project path repair (separate script)
+
+[`other/repair_qgis_project_paths.py`](other/repair_qgis_project_paths.py)
+previews or writes a **new copy** of one QGS/QGZ project, changing only
+supported local source-file references. It is separately packaged and
+copyable, but is **not** automatically exposed as an MCP workflow.
+The common processing functions remain in `ryan_library.functions.qgis_project`.
+
+- `--project` / `DEFAULT_PROJECT` selects the single source project.
+- `--old-project-directory` / `DEFAULT_OLD_PROJECT_DIRECTORY` interprets
+  old relative references after the project file has been moved.
+- `--replace-root OLD NEW` / `DEFAULT_REPLACE_ROOT` maps a data-root prefix;
+  no referenced data files are moved or modified.
+- `--absolute-paths` / `DEFAULT_ABSOLUTE_PATHS` controls whether the new
+  references are absolute or relative to the **output** project's directory.
+- `--output` / `DEFAULT_OUTPUT` selects the destination project. Preview is
+  the default; `--write` or `DEFAULT_WRITE = True` creates a copy only if
+  an output is selected. `--no-write` overrides an edited write default.
+  Existing files cannot be overwritten.
+
+```powershell
+# Preview relative-path repair after moving a project.
+python .\ryan-scripts\other\repair_qgis_project_paths.py --project "Q:\New\GIS\Model.qgz" --old-project-directory "Q:\Old\GIS" --no-pause
+
+# Preview old/new data-root remapping and the intended output directory.
+python .\ryan-scripts\other\repair_qgis_project_paths.py --project "Q:\New\GIS\Model.qgz" --replace-root "Q:\OldData" "Q:\NewData" --output "Q:\New\GIS\Model_fixed.qgz" --no-pause
+
+# Write the reviewed changes to a NEW project, not the original.
+python .\ryan-scripts\other\repair_qgis_project_paths.py --project "Q:\New\GIS\Model.qgz" --replace-root "Q:\OldData" "Q:\NewData" --output "Q:\New\GIS\Model_fixed.qgz" --write --no-pause
 ```
 
-If the data itself moved to another root, use a mapping such as
-`DEFAULT_REPLACE_ROOT = (Path(r"Q:\Old_Data"), Path(r"Q:\New_Data"))`
-instead of, or in addition to, `DEFAULT_OLD_PROJECT_DIRECTORY`.
-Path repair changes project references only; it does not relocate data files.
+Both scripts provide user-editable `DEFAULT_*` settings and copy-ready
+examples for Windows drive/UNC paths. Relative configurable paths are based on
+the configured working directory. Path repair preserves QGZ archive members
+(including embedded QGD), or copies a QGS companion `.qgd` if safe, and refuses
+existing output collisions or potentially uncheckpointed auxiliary SQLite WAL.
+Unknown/complex provider references are skipped instead of guessed. Real QGIS
+reopening and representative Windows UNC/mapped-drive acceptance remain
+separate operational checks.
 
-Path repair is separate from cold-storage ping and is preview-only unless
-writing is enabled by `DEFAULT_WRITE = True` or `--write`, **and** a new output
-project is selected via `DEFAULT_OUTPUT` or `--output`. CLI `--no-write`
-can override the editable write setting. If the output
-project is in a different directory, relative data-source paths are calculated
-against the **output** project's directory, in both previews and writes.
-The top-of-file settings include copy-ready `Path(r"Q:\Project\GIS")` examples,
-the `(OLD_ROOT, NEW_ROOT)` tuple syntax, valid audit modes, the 0-5
-sample-row range and each operation's prerequisites.
-Where Windows source and destination drives differ, an absolute source path
-is retained rather than constructing an invalid relative path. Original
-project files are never overwritten. The repair tool preserves embedded
-QGZ archive members (including auxiliary SQLite `.qgd` files), or copies
-the companion `.qgd` beside a repaired `.qgs`.
-`--auxiliary-report` lists auxiliary tables, QGIS layer associations,
-column names and row counts; `--sample-rows 1` through `5` explicitly
-includes sample stored values. No PyQGIS installation is required. Complex
-provider URIs are skipped rather than guessed, and actual QGIS compatibility
-still requires representative project validation.
-
-Further project-management ideas are deferred in
-[issue #169](https://github.com/Chain-Frost/ryan-tools/issues/169) until
-PR #137 merges; TUFLOW TLF log discovery is independent of QGIS projects.
+Broader project packaging, diff, QA, templates and cartography are tracked in
+[issue #169](https://github.com/Chain-Frost/ryan-tools/issues/169),
+deferred until PR #137 merges; TUFLOW TLF-run discovery is independent.
 
 ## Installed copies
 

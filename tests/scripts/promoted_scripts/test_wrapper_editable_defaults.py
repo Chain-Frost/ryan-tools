@@ -8,6 +8,7 @@ from pathlib import Path
 
 from audit_qgis_projects import _parse_cli_arguments as parse_qgis_audit
 from audit_qgis_projects import find_qgis_projects
+from repair_qgis_project_paths import _parse_cli_arguments as parse_qgis_repair
 from batch_vector_clip import _parse_cli_arguments as parse_vector_clip
 from gdal_raster_to_xyz import _parse_cli_arguments as parse_raster_xyz
 from gdal_retile_wrapper import _parse_cli_arguments as parse_retile
@@ -24,6 +25,7 @@ def test_all_candidate_wrappers_accept_editable_defaults_without_required_cli_va
         parse_asc_groups,
         parse_asc_native,
         parse_qgis_audit,
+        parse_qgis_repair,
         parse_vector_clip,
         parse_raster_xyz,
         parse_retile,
@@ -44,6 +46,7 @@ def test_cli_values_remain_available_as_explicit_overrides() -> None:
     translated = parse_vector_translate(["input.dxf", "output.gpkg", "--target-crs", "EPSG:28351"])
     assert translated.target_crs == "EPSG:28351"
     assert parse_vector_split(["input.gpkg", "output", "--attribute", "LayerName"]).attribute == "LayerName"
+    assert parse_qgis_repair(["--project", "model.qgs", "--no-write"]).write is False
 
 
 def test_qgis_discovery_does_not_exclude_filenames_containing_ss(tmp_path: Path) -> None:

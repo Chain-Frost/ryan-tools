@@ -21,7 +21,7 @@ not permanent restrictions on future authorized work.
 **Merged PR #130 did not prove that the original scope was complete.** It implemented a manifest and a copy helper,
 and several other requirements were already implemented in PR #120, but it prematurely converted incomplete
 validation into optional follow-ups and declared 83 files "reviewed" without per-file assessments.
-The reconciled manifest selects 84 files and excludes 66 source-tree files; inclusion/exclusion is **provisional**.
+The reconciled manifest selects 85 files, including the separately packaged QGIS path-repair wrapper, and excludes 66 source-tree files; inclusion/exclusion is **provisional**.
 Neither "not included in the wheel" nor "included in the wheel" proves a file's lifecycle or operational safety.
 
 The requirement to finish/merge PRs #118 and #119 before PR #130 **was specifically removed by the maintainer**.
@@ -39,7 +39,7 @@ Those PRs remain independent work; their own technical correctness and data vali
 
 ## Current A/B inventory and integration — open PR #137
 
-- Count reconciliation: **150 tracked source files**, **84 currently selected wheel files**,
+- Count reconciliation: **151 tracked source files**, **85 currently selected wheel files**,
   **66 repository-only files** and **34 distinct MCP script paths**. The last
   number is catalogue exposure, not all installed scripts.
 - Discovered two mistakenly packaged scripts with **import-time Windows
@@ -48,7 +48,7 @@ Those PRs remain independent work; their own technical correctness and data vali
   `file-management-python/copy_folder.py`. Their original editable versions
   remain in the repository, but both are removed from the wheel manifest and
   remain out of the MCP catalogue.
-- The non-executing 150-file AST inventory now detects import-time mutation
+- The non-executing 151-file AST inventory now detects import-time mutation
   calls; its `--check` gate fails on any selected Python wrapper missing a
   protected entry point, failing parse, or containing detected dangerous
   import-time calls. The current selected-script audit runs in Linux CI as
@@ -72,7 +72,7 @@ Those PRs remain independent work; their own technical correctness and data vali
 ## October 2026 resumed validation (PR #137 latest main integration)
 
 - Corrected the malformed wheel manifest after merging main: removed 34 duplicate entries, preserved both deliberately excluded unguarded network-copy scripts as repository-only, and retained the newly introduced protected file-inventory wrapper.
-- Merged current main including the read-only TUFLOW user-activity wrapper and standalone shapefile converter. The selection is **84 unique wheel files**, **66 repository-only files**, with **150 tracked files**. The 34 distinct MCP script paths remain a separate curated set.
+- Merged current main including the read-only TUFLOW user-activity wrapper and standalone shapefile converter. The 31 October post-main integration selected 84 wheel files and 150 tracked files; the dedicated QGIS path-repair script in stacked PR #154 increases the proposed selection to **85 unique wheel files**, **66 repository-only files**, and **151 tracked files**. The 34 distinct MCP script paths remain a separate curated set.
 - Added **copied-wrapper end-to-end tests** covering disposable file-inventory CSV output, read-only GeoTIFF audit, recursive file listing and missing RORB input handling; expanded --help coverage to 17 safe wrappers. The audit report remains static evidence, not blanket runtime certification.
 - No hydraulic parity retesting is requested here: `ryan-culverts` owns HY-8 validation. PyPI naming/distribution rollout is previously implemented and does not need reimplementation.
 - Project-specific Windows network drive, QGIS/TUFLOW execution and maintainer per-file lifecycle decisions remain explicit acceptance gates for A/B, not silently waived.
@@ -107,7 +107,7 @@ Those PRs remain independent work; their own technical correctness and data vali
 | ID | Requirement | Status and remaining acceptance |
 | --- | --- | --- |
 | B1 | Stable original-script wheel strategy and resource handling | Implemented, verification incomplete: sibling `ryan-scripts` staging exists; validate layout, package resource metadata and supported install platforms |
-| B2 | **Only individually allowlisted maintained wrappers**, with companion resources | Partially implemented: 84-file allowlist and exact member checks pass; individual lifecycle/resource review incomplete |
+| B2 | **Only individually allowlisted maintained wrappers**, with companion resources | Partially implemented: 85-file allowlist and exact member checks are included in the current PR; exact-head verification is required; individual lifecycle/resource review incomplete |
 | B3 | Location resolver independent of cwd, checkout and PYTHONPATH | Implemented, bounded no-checkout wheel smoke passes; cross-install/source selection cases need additional evidence |
 | B4 | Checkout development precedence and explicit diagnostics without stale wheel execution | Partially implemented in MCP registry; test selected checkout, wheel version/source differences and diagnostics |
 | B5 | CLI help/no-pause/defaults/error codes/no implicit destructive behavior | Not verified for every packaged script |
@@ -156,7 +156,7 @@ Those PRs remain independent work; their own technical correctness and data vali
 | ID | Requirement | Status and remaining acceptance |
 | --- | --- | --- |
 | F1 | Exact included/excluded maintained-script inventory tests | Wheel member equality tests pass, but maintained/legacy designation **has not been proven individually** |
-| F2 | Verified wheel in neutral no-checkout Windows Python, MCP and representative help | Bounded wheel/copy smoke passed in #137 and Windows #146 on the old 83-file selection; retest the reconciled 84-file wheel on the exact integrated head |
+| F2 | Verified wheel in neutral no-checkout Windows Python, MCP and representative help | Bounded wheel/copy smoke passed in #137 and Windows #146 on the old 83-file selection; retest the expanded 85-file wheel on the exact integrated head |
 | F3 | Synthetic read-only/creating workflow and failure behavior tests | **Partial**; systematically cover declared catalog targets and missing inputs/tools |
 | F4 | Application-specific GDAL/QGIS/TUFLOW/HY-8 acceptance | Bounded real GDAL/OGR and QGIS tests passed on Windows on 22 October (see acceptance record); licensed TUFLOW/HY-8 and full engineering data parity remain open |
 | F5 | Copy wrappers on UNC/mapped/long/whitespace paths; version/log/progress/exit parity | Bounded Windows copy tests passed 22 October on SSD, long paths and mapped/UNC scratch; real workflow parity and new integrated wheel still require verification |
@@ -202,7 +202,7 @@ for versions, commands, wheel hash, environment corrections and limitations.
 Evidence documentation is committed on the supporting branch at the user's request;
 no push, merge, publication or simulation. Next action: align QGIS MCP plugin/server versions
 and select disposable licensed baselines for remaining application checks.
-31 October integration carries forward that bounded evidence. The 150-row ledger and AB-046 record the preflight script added on main, with 84 wheel-selected files. External licensed-tool acceptance and owner sign-off are separate follow-ups.
+31 October integration carries forward that bounded evidence. The 151-row ledger now includes the separate, non-MCP QGIS path-repair script in #154 as well as the input-preflight script added on main, with 85 wheel-selected files. External licensed-tool acceptance and owner sign-off are separate follow-ups.
 
 - **2026-10-17:** Original requirements drafted in PR #130.
 - **2026-10-18:** Existing implementation in #100/#120 reviewed; partial script packaging added in #130.

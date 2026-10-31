@@ -19,7 +19,7 @@
       "id": "audit_qgis_projects",
       "title": "Audit QGIS project sources",
       "domain": "qgis",
-      "purpose": "Existence-only QGS/QGZ audit without QGIS; automation explicitly pins metadata-only, non-writing options even if a copied script has edited defaults. Chargeable --mode cold-storage-ping remains a manual opt-in.",
+      "purpose": "Read-only QGS/QGZ file-source audit and optional QGD report. Automation pins existence-only metadata checks; cold-storage pings are manually opt-in. Path repair is a separate script not exposed as an MCP workflow.",
       "script": "ryan-scripts/other/audit_qgis_projects.py",
       "profile": "analysis",
       "mutation": "read_only",
@@ -27,7 +27,6 @@
       "headless_arguments": [
         "--mode",
         "existence",
-        "--no-write",
         "--no-auxiliary-report",
         "--sample-rows",
         "0",

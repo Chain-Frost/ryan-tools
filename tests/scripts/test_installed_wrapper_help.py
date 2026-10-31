@@ -12,7 +12,7 @@ ROOT = Path(__file__).absolute().parents[2]
 
 
 # Explicitly safe to execute with --help (protected argparse entry points).
-# Do not execute unguarded legacy scripts or assume all 84 wheel resources
+# Do not execute unguarded legacy scripts or assume all 85 wheel resources
 # implement a CLI: README and __init__ files are resources, not executables.
 SAFE_HELP_WRAPPERS: tuple[str, ...] = (
     "culvert.py",
@@ -41,6 +41,7 @@ SAFE_HELP_WRAPPERS: tuple[str, ...] = (
     "gdal-python/gdal_set_nodata.py",
     "gdal-python/recompress_geotiffs.py",
     "misc-python/remove_excel_protection.py",
+    "other/repair_qgis_project_paths.py",
     "tuflow/init_tuflow_project.py",
     "tuflow/tuflow_to_hy8.py",
 )

@@ -1,7 +1,7 @@
 # Per-file installed-script inventory — evidence ledger (2026-10-19)
 
-**Status: incomplete review.** This ledger originated with 146 files at `1ac42c6` and now covers all **150** Git-tracked source files under `ryan-scripts/` on PR #137 after incorporating main. It excludes submodules. It does not enter or inspect the `unsorted` submodule.
-There are **84 selected wheel files**, **66 excluded source files** and
+**Status: incomplete review.** This ledger originated with 146 files at `1ac42c6` and now covers all **151** Git-tracked source files under `ryan-scripts/` on PR #154 (stacked on #137). The extra file is the dedicated QGIS path-repair wrapper. It excludes submodules. It does not enter or inspect the `unsorted` submodule.
+There are **85 selected wheel files**, **66 excluded source files** and
 **34 distinct existing MCP script paths**. These counts are inventory evidence,
 **not proof** that every source file is maintained, safe to import, or correctly excluded.
 
@@ -137,7 +137,8 @@ available in the repository but excluded from the wheel. MCP “Yes” denotes a
 | `misc-python/heic_to_jpeg.py` | No | No | Source inspected; provisional repository-only photo utility; owner pending | Guarded argparse CLI; optional dependency import can raise `SystemExit`; help not portable without `pillow-heif` | Pillow and pillow-heif, multiprocessing and filesystem copies/conversions; default placeholder P: paths; EXIF/GPS integrity and overwrite policy unverified |
 | `misc-python/remove_excel_protection.py` | Yes | Yes | Selected standalone Excel ZIP/XML editor; source inspected; owner pending | Argparse/no-pause with separate unprotected output dir; input/output contract untested | Rewrites .xlsx/.xlsm ZIP XML protection flags; test macro/relationships/style preservation and no source overwrite |
 | `other/PDFXChangeEditorSettings_250206.xces` | No | No | Binary application settings resource identified; repository-only | N/A executable; non-UTF-8 application settings; not interpreted by Python source scanner | PDF-XChange Editor configuration not UTF-8 readable via source fetch; do not parse/execute; retain out of wheel and require application review |
-| `other/audit_qgis_projects.py` | Yes | Yes | Selected QGS/QGZ source auditor and cold-storage one-byte file probe, with opt-in copy-only path repair and QGD inspection; owner pending | Guarded CLI; default `--mode existence` checks metadata only; explicit `--mode cold-storage-ping` reads one unbuffered byte per distinct local reference (tiered storage rehydration/charges possible); repair previews by default and requires both `--write` and `--output` | Synthetic XML/ZIP/SQLite checks cover UNC/file URI classification, missing/unreadable sources, source-byte preservation, relocation, output refusal and `.qgd` preservation. External Windows UNC/mapped and native QGIS/provider acceptance remain open |
+| `other/audit_qgis_projects.py` | Yes | Yes | Selected read-only QGS/QGZ source auditor and one-byte cold-storage probe with optional QGD auxiliary inspection; owner pending | Guarded CLI with all editable defaults; `existence` checks metadata without opening source data, while opt-in `cold-storage-ping` reads one byte and may trigger retrieval costs. **No path-repair or write options.** | Synthetic provider/UNC/missing-source, one-byte, read-only QGD/SQLite and unchanged-byte tests; real Windows UNC/mapped and native QGIS acceptance outstanding |
+| `other/repair_qgis_project_paths.py` | Yes | No | Dedicated QGS/QGZ source-path relocation/root-remapping wrapper; selected for packaging and project copying, not MCP exposure; owner pending | Guarded CLI with top-level editable defaults, copy-ready Windows examples, preview by default, explicit `--write`/new `--output`; rejects existing destinations. No cold-storage or QGD-report option | Uses shared `qgis_project` functions; disposable QGS/QGZ output-directory, remapping, no-overwrite, new-copy and unchanged-data regressions. Real QGIS reopen and Windows UNC/mapped-drive acceptance still pending |
 | `other/shapefile-explorer-types.ps1` | No | No | Source inspected; repository-only Windows Explorer registry helper; owner pending | Immediate HKCU registry writes and unconditional Explorer Stop-Process/Start-Process; no dry-run | Sets SHP/SHX/PRJ/DBF ProgIDs/descriptions; preserve existing file associations and require explicit approval before restart |
 | `pdf-python/break_pdf_signatures.py` | No | No | Source inspected; repository-only PDF signature remover; sensitive output semantics | Guarded path/default CLI; no dry-run or tested exit code | Rebuilds PDF and invalidates digital signatures by design; require permitted-document input, copy-only output and structure checks |
 | `pdf-python/ocg_clean_file.py` | No | No | Source inspected; repository-only specialist PDF OCG/annotation cleaner | Configured default PDF path and guarded main; no general headless CLI standard | Uses pypdf to remove selected OCG blocks, widgets and JavaScript; preservation of legitimate page content unverified |
@@ -181,7 +182,7 @@ it remains excluded and requires inspection in the owning application.
 repository-only, standalone OGR utility; it must not be confused with the
 separate forbidden `unsorted` submodule.
 
-The remainder of the 150-row ledger already had specific safety or bounded
+The remainder of the 151-row ledger already had specific safety or bounded
 behaviour evidence added earlier (for example `copy_file.py`,
 `file_inventory.py` and `recompress_geotiffs.py`). All rows now provide a
 specific source/resource observation, but **none are automatically accepted**:
@@ -213,13 +214,13 @@ At the October 22 source-inspection checkpoint, 127 entries had newly recorded
 bounded evidence and 22 had earlier evidence or were companion resources. The
 integrated preflight entry has since been added; these historical counts are
 not current completion measures or evidence of lifecycle approval.
-All 150 ledger rows exist, including the main-branch preflight addition; owner and full behavioural acceptance remain open.
+All 151 ledger rows exist, including the main-branch preflight addition; owner and full behavioural acceptance remain open.
 
 ## Historical source-inspection tranches (22 October)
 
 The earlier tranches covered 37 additional selected wrappers, following 30
 selected and 28 repository-only inspections. Those checkpoint counts reflected
-partial progress, not final lifecycle approval. Since then, all 150 tracked
+partial progress, not final lifecycle approval. Since then, all 151 tracked
 source/resource entries have individual bounded observations in the table above,
 including the newly integrated input-preflight wrapper. Source inspection
 alone is not installed-wheel behaviour parity or owner sign-off.
@@ -332,7 +333,7 @@ moves a script into/out of the wheel or MCP catalogue.
   network copy operations during import. The original editable scripts are
   retained in the repository, but they are **not installed nor MCP exposed**.
 - `repo-scripts/audit_installed_scripts.py --check` now inspects the tracked
-  150-file inventory and rejects selected Python scripts with missing main
+  151-file inventory and rejects selected Python scripts with missing main
   guards, syntax problems or detected import-time mutators. The test suite
   verifies every selected Python row, plus both excluded network copy scripts.
 - The `file_inventory.py` wrapper is selected after a protected-entry-point review and disposable CSV test. The TUFLOW activity wrapper and the newly integrated proposed-run input-preflight wrapper are also selected; Windows/CodeMeter and real-model input checks remain bounded or pending.
@@ -357,7 +358,7 @@ external-tool test evidence. Verify companions and resource dependencies in the 
 
 Priority: currently MCP catalogued scripts, destructive/privileged scripts, excluded
 source files that were shipped before PR #130, and frequently copied TUFLOW/GDAL/RORB
-utilities. Do not change the current 84-file allowlist from this inventory alone:
+utilities. Do not change the current 85-file allowlist from this inventory alone:
 make deliberate, tested additions/removals once reviewed.
 
 ## Completion definition

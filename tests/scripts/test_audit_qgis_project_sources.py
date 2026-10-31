@@ -26,10 +26,6 @@ class AuditMain(Protocol):
         working_directory: Path | None = None,
         mode: QgisAuditMode = "existence",
         project_path: Path | None = None,
-        old_project_directory: Path | None = None,
-        replace_root: tuple[Path, Path] | None = None,
-        output_path: Path | None = None,
-        write: bool = False,
     ) -> int: ...
 
 
@@ -172,33 +168,19 @@ def test_cli_overrides_are_distinct_from_editable_defaults() -> None:
     parse_args = cast(Callable[[list[str] | None], argparse.Namespace], namespace["_parse_cli_arguments"])
     defaults = parse_args([])
     assert defaults.project is None
+    assert defaults.mode is None
     assert defaults.auxiliary_report is None
     assert defaults.sample_rows is None
-    assert defaults.absolute_paths is None
-    assert defaults.old_project_directory is None
-    assert defaults.replace_root is None
-    assert defaults.output is None
-    assert defaults.write is None
     assert defaults.no_pause is None
     assert defaults.console_log_level is None
-    assert namespace["DEFAULT_WRITE"] is False
-    assert namespace["DEFAULT_NO_PAUSE"] is False
-    assert namespace["DEFAULT_CONSOLE_LOG_LEVEL"] is None
 
-    selected = parse_args(["--project", "model.qgz", "--auxiliary-report", "--sample-rows", "0", "--absolute-paths"])
+    selected = parse_args(["--project", "model.qgz", "--auxiliary-report", "--sample-rows", "0"])
     assert selected.project == Path("model.qgz")
     assert selected.auxiliary_report is True
     assert selected.sample_rows == 0
-    assert selected.absolute_paths is True
-    enabled = parse_args(["--write", "--no-pause", "--console-log-level", "DEBUG"])
-    assert enabled.write is True
-    assert enabled.no_pause is True
-    assert enabled.console_log_level == "DEBUG"
-    disabled = parse_args(["--no-write", "--pause", "--no-auxiliary-report", "--no-absolute-paths"])
-    assert disabled.write is False
-    assert disabled.no_pause is False
-    assert disabled.auxiliary_report is False
-    assert disabled.absolute_paths is False
+    assert parse_args(["--no-auxiliary-report"]).auxiliary_report is False
+    assert parse_args(["--no-pause"]).no_pause is True
+    assert parse_args(["--pause"]).no_pause is False
 
 
 def _load_copied_wrapper(tmp_path: Path, replacements: dict[str, str]) -> dict[str, object]:
@@ -241,33 +223,6 @@ def test_editing_default_audit_mode_enables_cold_ping_without_cli(
     assert checked == [(source, "existence")]
 
 
-def test_editing_default_write_enables_new_copy_without_cli(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    project = tmp_path / "model.qgs"
-    _write_qgs(project, "roads.gpkg|layername=roads")
-    original = project.read_bytes()
-    namespace = _load_copied_wrapper(
-        tmp_path,
-        {
-            "DEFAULT_PROJECT: Path | None = None": 'DEFAULT_PROJECT: Path | None = Path("model.qgs")',
-            "DEFAULT_OUTPUT: Path | None = None": 'DEFAULT_OUTPUT: Path | None = Path("fixed.qgs")',
-            "DEFAULT_WRITE = False": "DEFAULT_WRITE = True",
-        },
-    )
-    main = cast(FunctionType, namespace["main"])
-    parse_args = cast(Callable[[list[str] | None], argparse.Namespace], namespace["_parse_cli_arguments"])
-    monkeypatch.chdir(tmp_path)
-
-    # An explicitly supplied --no-write must override an edited True default.
-    args = parse_args(["--no-write"])
-    assert args.write is False
-    assert main(working_directory=tmp_path, write=args.write) == 0
-    assert not (tmp_path / "fixed.qgs").exists()
-
-    assert main(working_directory=tmp_path) == 0
-    assert (tmp_path / "fixed.qgs").is_file()
-    assert project.read_bytes() == original
-
-
 def test_automated_qgis_catalogue_forces_safe_audit_options() -> None:
     registry = SCRIPT.parents[2] / "ryan_library" / "resources" / "mcp" / "workflows.json"
     data = json.loads(registry.read_text(encoding="utf-8"))
@@ -278,7 +233,7 @@ def test_automated_qgis_catalogue_forces_safe_audit_options() -> None:
     )
     selected = parse_args(args)
     assert selected.mode == "existence"
-    assert selected.write is False
+    assert not hasattr(selected, "write")
     assert selected.auxiliary_report is False
     assert selected.sample_rows == 0
     assert selected.no_pause is True
@@ -317,59 +272,12 @@ def test_main_uses_selected_mode_and_deduplicates_sources(tmp_path: Path, monkey
     assert checked == [(data, "cold-storage-ping")]
 
 
-def test_cold_storage_ping_cannot_be_combined_with_path_repair(tmp_path: Path) -> None:
-    main, _, _ = _functions()
-    assert (
-        main(
-            working_directory=tmp_path,
-            project_path=tmp_path / "project.qgs",
-            old_project_directory=tmp_path,
-            mode="cold-storage-ping",
-        )
-        == 1
-    )
+def test_audit_cli_rejects_repair_arguments() -> None:
+    namespace = runpy.run_path(str(SCRIPT))
+    parse_args = cast(Callable[[list[str] | None], argparse.Namespace], namespace["_parse_cli_arguments"])
+    for argument in ("--write", "--replace-root", "--old-project-directory", "--absolute-paths", "--output"):
+        with pytest.raises(SystemExit) as invalid:
+            parse_args([argument])
+        assert invalid.value.code == 2
 
 
-def test_cli_repair_to_different_directory_rebases_sources(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    model_dir = tmp_path / "model"
-    data_dir = tmp_path / "data"
-    target_dir = tmp_path / "export"
-    for folder in (model_dir, data_dir, target_dir):
-        folder.mkdir()
-
-    target_data = data_dir / "roads.gpkg"
-    target_data.write_bytes(b"roads")
-    model = model_dir / "original.qgs"
-    _write_qgs(model, "./old/roads.gpkg|layername=roads")
-    original_bytes = model.read_bytes()
-    output = target_dir / "repaired.qgs"
-
-    main, get_sources, resolve = _functions()
-    monkeypatch.chdir(tmp_path)
-    assert (
-        main(
-            working_directory=tmp_path,
-            project_path=model,
-            replace_root=(model_dir / "old", data_dir),
-            output_path=output,
-            write=False,
-        )
-        == 0
-    )
-    assert not output.exists()
-
-    assert (
-        main(
-            working_directory=tmp_path,
-            project_path=model,
-            replace_root=(model_dir / "old", data_dir),
-            output_path=output,
-            write=True,
-        )
-        == 0
-    )
-    assert model.read_bytes() == original_bytes
-    assert get_sources(output) == ["../data/roads.gpkg|layername=roads"]
-    result = resolve(output, get_sources(output)[0])
-    assert result is not None
-    assert result.samefile(target_data)
