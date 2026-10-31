@@ -48,23 +48,15 @@ and can keep processing in one file.
 
 ## Architecture and dependency direction
 
-The preferred dependency direction is **conditional**, not a requirement to
-create every layer:
+Three valid execution paths are shown below. Do **not** insert unnecessary
+layers just to produce the middle or bottom form:
 
 ```text
-user, shell or project configuration
-                  |
-                  v
-    maintained script or wrapper
-          |                  |
-          |                  v
-          |        ryan_library functions / processors
-          |                  ^
-          |                  |
-          +-- optional reusable orchestrator
-                  |
-                  v
-      external libraries / project files
+user / shell --> maintained standalone script --> external libraries / files
+
+user / shell --> library-backed wrapper --> shared functions / processors --> external libraries / files
+
+user / shell --> wrapper --> optional orchestrator --> shared functions / processors --> external libraries / files
 ```
 
 A standalone script may handle its own focused processing and call external
