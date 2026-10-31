@@ -11,7 +11,7 @@ from typing import cast
 
 import pytest
 
-from ryan_library.functions.tuflow.pytuflow_compatibility import ValidationAPI, require_validation_api
+from ryan_library.functions.tuflow.pytuflow_compatibility import require_validation_api
 from ryan_library.orchestrators.tuflow import input_preflight
 from ryan_library.orchestrators.tuflow.input_preflight import RunRequest, check_simulation_inputs
 
@@ -141,7 +141,7 @@ def test_structured_flags_spaces_and_reordered_public_results_are_mapped_once(
 
     monkeypatch.setattr(
         input_preflight, "require_validation_api",
-        lambda: ValidationAPI(cast("object", validate), cast("object", options), cast("object", None)),
+        lambda: SimpleNamespace(validate_batch_inputs=validate, options_factory=options),
     )
     requests = [RunRequest(19, {"s1": "Future Works"}), RunRequest(5, {"s1": "Existing Model"})]
     report = check_simulation_inputs(tmp_path / "model.tcf", requests)
@@ -161,6 +161,7 @@ def test_incomplete_public_results_cannot_pass(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, positions: list[int], physical_count: int | None
 ) -> None:
     def validate(_model: object, _flags: object, *, options: object) -> object:
+        del options
         return _fake_result(positions, physical_count=physical_count)
 
     monkeypatch.setattr(
@@ -187,8 +188,8 @@ def test_importing_preflight_does_not_import_pytuflow() -> None:
     result = subprocess.run(
         [
             sys.executable, "-c",
-            "import sys; from ryan_library.orchestrators.tuflow.input_preflight import RunRequest; "
-            "assert not any(k == 'pytuflow' or k.startswith('pytuflow.') for k in sys.modules)",
+            ("import sys; from ryan_library.orchestrators.tuflow.input_preflight import RunRequest; "
+            "assert not any(k == 'pytuflow' or k.startswith('pytuflow.') for k in sys.modules)"),
         ],
         capture_output=True, text=True, check=False,
     )
