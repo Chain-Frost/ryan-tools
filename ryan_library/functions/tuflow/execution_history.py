@@ -89,7 +89,7 @@ class _Attempt:
 def _normal_path(value: str | PurePath) -> str:
     """Normalize spelling lexically, retaining distinct drive/UNC identities."""
     text = str(value)
-    if os.name == "nt" or isinstance(value, PureWindowsPath) or PureWindowsPath(text).drive or "\\" in text:
+    if isinstance(value, PureWindowsPath) or PureWindowsPath(text).drive or "\\" in text:
         return ntpath.normcase(ntpath.normpath(text))
     return posixpath.normpath(text)
 
@@ -147,7 +147,7 @@ def identify_runs(plan: CommandPlan, *, fallback_executable: Path, base_director
                 "tuflow-logical-v1",
                 _normal_path(run.tcf),
                 _normal_path(run.working_directory),
-                _normal_path(executable),
+                _normal_path(PureWindowsPath(executable) if isinstance(run.working_directory, PureWindowsPath) else executable),
                 flags,
                 remaining,
             ],
