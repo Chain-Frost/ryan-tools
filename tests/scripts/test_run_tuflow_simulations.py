@@ -12,6 +12,7 @@ from typing import Protocol, cast
 
 import pytest
 
+from ryan_library.functions.tuflow.command_plan import CommandPlan
 from ryan_library.orchestrators.tuflow.simulation_runner import BatchOutcome, RunOutcome
 
 
@@ -96,9 +97,8 @@ def test_failed_child_still_chains_but_keeps_failure_exit_code(
     calls: list[str] = []
     monkeypatch.setattr(module, "EXPORT_COMMANDS", False)
     monkeypatch.setattr(module, "NEXT_RUN_FILE", Path("post.py"))
-    original = module.prepare_plan
 
-    def fake_launch(plan: object, *_args: object, **_kwargs: object) -> BatchOutcome:
+    def fake_launch(plan: CommandPlan, *_args: object, **_kwargs: object) -> BatchOutcome:
         calls.append("launch")
         selected = plan.runs
         return BatchOutcome(
@@ -114,7 +114,6 @@ def test_failed_child_still_chains_but_keeps_failure_exit_code(
     monkeypatch.setattr(module, "_run_follow_up", post)
     assert wrapper.main(["--working-directory", str(tmp_path), "--no-pause"]) == 1
     assert calls == ["launch", "post"]
-    assert original is not None
 
 
 def test_planning_failure_does_not_export_check_or_chain(
