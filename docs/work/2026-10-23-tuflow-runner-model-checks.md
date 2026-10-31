@@ -736,14 +736,15 @@ follow-up changes only this status record and its work-register row; all code,
 package artifacts and gitlink pointers remain unchanged. The exact tree match
 above describes the implementation checkpoint, before these documentation edits.
 
-Validation for this documentation-only delivery checks the two files' links,
-recorded SHAs, PR states, repository settings and whitespace. No Python suite,
+Validation for this documentation-only delivery passed the links-only checker
+for both files and `git diff --check`; recorded SHAs, PR states and repository
+settings were checked against live GitHub state. No Python suite,
 package rebuild, native benchmark or solver execution is needed or claimed.
 Implementation-head CI results are not relabeled as checks of the following
 commit; verify any checks triggered by the documentation push separately.
 
-Delivery: preserve this record and register update together in a documentation
-commit on the existing #159 branch, with an ordinary fast-forward push. No merge,
+Delivery: this record and register update are committed together on the existing
+#159 branch and published with an ordinary fast-forward push. No merge,
 release or repository-setting change is included. Scope 06 acceptance remains
 pending: reconcile its local/native, pinned-package, copied-wrapper and combined
 head evidence before declaring the integration accepted. Next review:
