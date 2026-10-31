@@ -141,13 +141,14 @@ def identify_runs(plan: CommandPlan, *, fallback_executable: Path, base_director
             msg = f"Duplicate plan index {run.index}"
             raise ExecutionLogError(msg)
         executable = _effective_executable(run, fallback_executable, base_directory)
+        executable_path = PureWindowsPath(executable) if isinstance(run.working_directory, PureWindowsPath) else executable
         flags, remaining = _canonical_arguments(run)
         payload = json.dumps(
             [
                 "tuflow-logical-v1",
                 _normal_path(run.tcf),
                 _normal_path(run.working_directory),
-                _normal_path(PureWindowsPath(executable) if isinstance(run.working_directory, PureWindowsPath) else executable),
+                _normal_path(executable_path),
                 flags,
                 remaining,
             ],
