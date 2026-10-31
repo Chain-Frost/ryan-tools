@@ -47,7 +47,7 @@ def wrapper(tmp_path: Path) -> _RunnerWrapper:
     spec.loader.exec_module(module)
     # A harmless file satisfies the wrapper's pre-launch existence check;
     # fake-process callbacks still prevent any solver execution.
-    solver = tmp_path / "Synthetic_TUFLOW.exe"
+    solver = tmp_path / "TUFLOW_Synthetic.exe"
     solver.write_bytes(b"synthetic solver placeholder")
     module.__dict__["TUFLOW_EXE"] = solver
     return cast(_RunnerWrapper, module)

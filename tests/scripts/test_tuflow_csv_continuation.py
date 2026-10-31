@@ -45,7 +45,7 @@ def copied_wrapper(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> _Wrapper:
     monkeypatch.setattr(module, "TCF", Path("model.tcf"))
     monkeypatch.setattr(module, "USE_LIVE_DASHBOARD", False)
     monkeypatch.setattr(module, "WAIT_TIME_AFTER_RUN", 0)
-    solver = tmp_path / "Synthetic_TUFLOW.exe"
+    solver = tmp_path / "TUFLOW_Synthetic.exe"
     solver.write_bytes(b"synthetic solver placeholder")
     monkeypatch.setattr(module, "TUFLOW_EXE", solver)
     return cast(_Wrapper, module)
