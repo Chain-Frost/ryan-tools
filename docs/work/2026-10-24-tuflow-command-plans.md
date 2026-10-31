@@ -1,5 +1,12 @@
 # Stateful TUFLOW command plans and multi-TCF preflight
 
+**31 October 2026 — scope 02 draft:** [PR #170](https://github.com/Chain-Frost/ryan-tools/pull/170)
+is a task branch stacked on #159. It adds strict Python TCF consistency, complete
+multi-file planning, immutable source-aware directory requirements and
+source-provenance mapping. Scope 01 owns upstream zero-based index translation. This is a draft until the #159 integrator combines scope 01's
+public PyTUFLOW validation and scope 03's runner/export work; do not treat its
+test results as acceptance for the eventual integrated runner.
+
 **2026-10-31 delivery update:** Consolidated into [PR #159](https://github.com/Chain-Frost/ryan-tools/pull/159) for one eventual merge and release. The [integration record](2026-10-23-tuflow-runner-model-checks.md) owns current status, validation and next actions. This record retains detailed scope and historical evidence; earlier separate merge/stack instructions are superseded. No merge or release is authorised.
 
 
@@ -51,17 +58,38 @@ First inspect the proposed run set, without reading any model inputs:
 python check_tuflow_inputs.py --runs "run_commands.bat" --working-directory "T:\project" --plan-only --plan-report "new_plan.json" --no-pause
 ```
 
+To combine independent sources in order, repeat `--runs`:
+
+```powershell
+python check_tuflow_inputs.py --runs "first.bat" --runs "second.txt" --working-directory "T:\\project" --plan-only --no-pause
+```
+
+Batch mode is auto-selected for `.bat`/`.cmd`; other input extensions select
+command-list syntax. Each file gets fresh SET, SETLOCAL and directory state.
+Original occurrences, exact duplicates and physical source ranges are retained.
+All files, including a late second file, must parse and satisfy the Python TCF
+constraint before any manifest, CSV, preflight or solver launch is permitted.
+
 Then check the effective models and write a new issue register:
 
 ```powershell
 python check_tuflow_inputs.py --runs "run_commands.bat" --working-directory "T:\project" --report "new_issues.csv" --no-pause
 ```
 
-A bare flag list can use `--tcf "runs\model_~e1~.tcf"`. That option and the
-editable `DEFAULT_TCF` are fallbacks for bare rows only: an explicit TCF argument
-wins, then a current `SET TCF` for bare rows, then the fallback. Full executable
-commands must contain their own effective TCF argument. Filename placeholders
-such as `~e1~` stay literal for PyTUFLOW.
+The optional Python `--tcf` (or editable `DEFAULT_TCF`) is **both** a
+consistency constraint for every active imported run **and** the fallback for
+bare rows without a current `SET TCF`. An explicit command TCF always wins as
+the imported model; a mismatch with Python TCF is fatal and reports both
+effective paths and the source line. Full executable commands still require an
+explicit TCF; the Python fallback cannot fill a missing command argument.
+Set Python TCF to `None` for independent imported models; commented commands,
+unused and overwritten assignments do not create conflicts.
+
+The Python TCF is resolved lexically relative to `--configuration-directory`,
+or `--working-directory` if supplied, otherwise the supplying wrapper's folder.
+Imported TCF arguments resolve relative to each run's effective launch
+directory. `%~dp0` refers to the particular source command file; no filesystem
+alias resolution is used. Filename placeholders such as `~e1~` stay literal.
 
 **Initial directory is the directory from which the batch would be launched,
 not automatically its parent.** With no `--working-directory`, the current
@@ -85,7 +113,7 @@ limits, not a promise to reproduce every possible shell failure.
 | Variables | Explicitly supplied environment, `%NAME%`, `%CD%`, `%~dp0`; wrapper supplies a snapshot of its own environment. Undefined expressions are errors. |
 | Scope | SETLOCAL with enabled extensions/disabled delayed expansion and ENDLOCAL restore environment, not current directory. |
 | Directories | Quoted CD/CHDIR with optional `/D`, local/mapped PUSHD and POPD; lexical paths, no canonicalisation. |
-| Commands | Standard TUFLOW executable names, START title/priority/window/wait options, child `/D`, numeric `/NODE`, hexadecimal `/AFFINITY`; bare numbered event/scenario rows. |
+| Commands | Standard TUFLOW executable names, START title/priority/window/wait hints, child `/D`, bare numbered event/scenario rows. The Python runner owns scheduling; `/NODE`, `/AFFINITY`, `/SEPARATE` and `/SHARED` are rejected. |
 | Engine switches | `-e1..-e9`, `-s1..-s9`, `-b`, `-x`, `-t`, `-nlc`, numeric `-pu` assignments and `-et` values. Other arguments fail explicitly. |
 | Source text | UTF-8/BOM by default, explicit `--encoding` for legacy text, quoted paths with spaces, unquoted terminal-caret continuation and source-line ranges. |
 | Comments | REM/@REM and full-line `::`; ordinary ECHO/PAUSE/TITLE/CLS do not create runs. In command-list mode only, `#`, `;`, `//` are also comments. |
@@ -107,9 +135,10 @@ list instead; unsupported constructs are never silently skipped.
 Drive-relative paths and cross-drive CD without `/D` are refused. A UNC TCF
 argument is preserved, but UNC initial batch directories and UNC PUSHD/CD need
 CMD-specific mapping state and are not inferred. Use an existing mapped drive.
-Spaced event/scenario values are refused because the existing public RunRequest
-argument serialisation cannot preserve them unambiguously. This increment does
-not change that public API.
+Quoted event/scenario values are preserved in structured `flag_pairs` and
+`arguments` even when they contain spaces. Scope 01's public PyTUFLOW
+integration consumes the structured flags without lossy serialisation. Unknown
+model arguments and unsupported shell execution modifiers are rejected.
 
 Reference semantics: [CMD](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/cmd),
 [SET](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/set_1),

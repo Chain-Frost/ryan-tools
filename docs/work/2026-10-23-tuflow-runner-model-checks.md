@@ -15,6 +15,29 @@
 | Historical merged parser baseline | `e162c04330d24c37bee3ade94479cc4602651060` (PyTUFLOW #12, including #13) |
 | Next action | Assign scopes 01–03 and agree shared contracts; implement and validate #159, then review the CSV child separately. |
 
+## 2026-10-31 — scope 02 isolated task branch
+
+Scope 02 is being implemented in draft [PR #170](https://github.com/Chain-Frost/ryan-tools/pull/170),
+based exactly on integration head `4ddadca7546439a1c91d223d5f8a6f4d8e2205b7`,
+on `feat/tuflow-command-plan-scope02-20261031`. Its first commit
+`a342ccf38e83cd0b1c7f88cbd62dbf9ee4016af9` publishes the frozen
+`PlannedRun` fields and directory-source provenance.
+
+The parser/checker work includes multi-file isolated input state, effective
+TCF consistency and fallback, structured flags and supported engine switches,
+global ordered identities, grouped findings and the standalone wrapper's
+planning path. Scope 01 supplies the sole supported
+`check_simulation_inputs(tcf, Sequence[RunRequest(global_id, flags)], ...)`
+implementation, which alone translates upstream zero-based result positions;
+scope 02 groups by TCF/working directory and restores source occurrence
+provenance. Scope 03 independently adopts this contract in the runner and
+implements command export. Neither scope is considered integrated or accepted
+on PR #159 until the integrator applies and verifies the three packages.
+
+Delivery and validation evidence belongs in [scope 02's draft PR](https://github.com/Chain-Frost/ryan-tools/pull/170).
+This note does not change the status, owner or evidence for concurrent scopes
+01/03 or authorise a merge, release or production run.
+
 ## 2026-10-31 — agreed implementation scopes
 
 The owner completed the scope review. The [scope index](2026-10-31-tuflow-integration-scopes/00_scope_index.md) and its linked handoffs are the current implementation requirements. Scopes 01–03 belong in this PR; scope 04 is a separately reviewable CSV/resume PR stacked on the stable runner work; scope 05 is an independent PyTUFLOW raster-header contribution. Scope 06 defines integration acceptance.
