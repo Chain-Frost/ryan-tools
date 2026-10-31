@@ -233,11 +233,14 @@ class CsvExecutionLog:
 
     def _lock(self) -> None:
         file = self._stream()
-        file.seek(0)
         try:
             if os.name == "nt":
                 import msvcrt
 
+                # Windows byte-range locks are mandatory for readers too.
+                # Reserve a far-beyond-EOF byte so operators can inspect the CSV
+                # while the writer owns it, without locking actual CSV content.
+                file.seek(1 << 60)
                 msvcrt.locking(file.fileno(), msvcrt.LK_NBLCK, 1)
             else:
                 import fcntl
