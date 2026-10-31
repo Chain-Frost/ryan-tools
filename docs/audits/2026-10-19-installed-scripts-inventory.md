@@ -1,8 +1,8 @@
 # Per-file installed-script inventory — evidence ledger (2026-10-19)
 
-**Status: incomplete review.** This ledger originated with 146 files at `1ac42c6` and now covers all **149** Git-tracked source files under `ryan-scripts/` on PR #137 after incorporating main. It excludes submodules. It does not enter or inspect the `unsorted` submodule.
-There are **83 selected wheel files**, **66 excluded source files** and
-**33 distinct existing MCP script paths**. These counts are inventory evidence,
+**Status: incomplete review.** This ledger originated with 146 files at `1ac42c6` and now covers all **150** Git-tracked source files under `ryan-scripts/` on PR #137 after incorporating main. It excludes submodules. It does not enter or inspect the `unsorted` submodule.
+There are **84 selected wheel files**, **66 excluded source files** and
+**34 distinct existing MCP script paths**. These counts are inventory evidence,
 **not proof** that every source file is maintained, safe to import, or correctly excluded.
 
 The original [requirements baseline](2026-10-17-installed-scripts-original-requirements.md) requires each executable
@@ -56,6 +56,7 @@ available in the repository but excluded from the wheel. MCP “Yes” denotes a
 | `TUFLOW-python/log_processing/check_tuflow_user_activity.py` | Yes | No | Provisional: protected main and embedded version; inspect local configuration | argparse help/no-pause; external environment still unverified | Read-only ProgramData TUFLOW logs, local CodeMeter optional; verify on Windows |
 | `TUFLOW-python/log_processing/create_log_summary_report.py` | Yes | Yes | Source inspected; selected library-backed summary wrapper; acceptance pending | Argparse common flags, guarded no-pause; help and invalid working-directory tests added, CI pending | Parses TUFLOW log files recursively through orchestrator; generated summary schema, missing log cases, and live dashboard unverified |
 | `TUFLOW-python/model_management/__init__.py` | Yes | No | Resource inspected; packaged model-management namespace marker | N/A, docstring-only module | No imports or effects; retain package marker |
+| `TUFLOW-python/model_management/check_tuflow_inputs.py` | Yes | Yes | Added on current main through TUFLOW input preflight; selected and MCP-catalogued, lifecycle owner approval pending | Guarded argparse CLI (`--tcf`, `--runs`, `--report`, `--no-pause`); returns 0 for passing check, 1 for issues/errors; copied-wheel contract requires acceptance | Reads proposed TUFLOW controls via installed PyTUFLOW and ryan_library and creates issues CSV without launching TUFLOW; CLI, network path, GIS-layer and real-model parity remain separate checks |
 | `TUFLOW-python/model_management/collect_result_and_check_files.py` | Yes | No | Source inspected; selected bespoke file collector; acceptance pending | Guarded main, editable RUNS patterns but no argparse/no-pause, return code contract untested | Copies result/check matches into TFfiles_ext_tmp and refuses existing target; basename collision/volume/network QA outstanding |
 | `TUFLOW-python/model_management/delete_duplicate_check_files.py` | Yes | Yes | Source inspected; selected high-risk cleanup utility; acceptance pending | Guarded main, DRY_RUN and typed DELETE controls, no standard argparse/no-pause | Hashes/deletes duplicates, leaves audit placeholders/manifests; retention/rollback/permission and full destructive acceptance not established |
 | `TUFLOW-python/model_management/run_tuflow_simulations.py` | Yes | Yes | Source inspected; selected Windows TUFLOW runner; acceptance pending | Guarded CLI with demo dashboard; editable get_parameters, no standard help/no-pause parity established | Windows TUFLOW executable and subprocess scheduling, model flags/priority/GPU settings; real TUFLOW and licence acceptance necessary |
@@ -180,7 +181,7 @@ it remains excluded and requires inspection in the owning application.
 repository-only, standalone OGR utility; it must not be confused with the
 separate forbidden `unsorted` submodule.
 
-The remainder of the 149-row ledger already had specific safety or bounded
+The remainder of the 150-row ledger already had specific safety or bounded
 behaviour evidence added earlier (for example `copy_file.py`,
 `file_inventory.py` and `recompress_geotiffs.py`). All rows now provide a
 specific source/resource observation, but **none are automatically accepted**:
@@ -208,27 +209,20 @@ Action items are recorded in the
 [script remediation backlog](2026-10-22-script-remediation-backlog.md);
 none of those effects was executed.
 
-**127 source paths** now have new bounded inspection findings (67 selected,
-60 excluded). The remaining **22 entries** had pre-existing bounded evidence
-or are package companion resources; those are not automatically approved.
-All 149 ledger rows exist; owner and full behavioural acceptance remain open.
+At the October 22 source-inspection checkpoint, 127 entries had newly recorded
+bounded evidence and 22 had earlier evidence or were companion resources. The
+integrated preflight entry has since been added; these historical counts are
+not current completion measures or evidence of lifecycle approval.
+All 150 ledger rows exist, including the main-branch preflight addition; owner and full behavioural acceptance remain open.
 
-## Bounded selected-source inspections — remaining installed scripts (22 October)
+## Historical source-inspection tranches (22 October)
 
-The last **37 wheel-selected** entries with no source-inspection evidence have
-now been read individually. This includes GDAL/raster conversion, 7-Zip
-compression/extraction, DOCX reporting, culvert/floodway, TUFLOW project
-initialisation and assorted file/format maintenance tools. Together with the
-preceding 30 installed and 28 repository-only inspections, **95 of 149 source
-paths** now have bounded individual source evidence. The other **54 paths**
-remain unassessed, mostly repository-only resources and legacy utilities.
-
-This source inspection establishes no full CLI/output/engineering acceptance.
-Potential fixes and missing test evidence are tracked in the
-[script remediation backlog](2026-10-22-script-remediation-backlog.md). Work
-requiring external 7-Zip, GDAL/OSGeo4W, HY-8 or TUFLOW binaries is explicitly
-left for controlled acceptance; wrapper defaults/installed-wheel parity remain
-separate validation tasks. Do not alter the 83-file wheel selection automatically.
+The earlier tranches covered 37 additional selected wrappers, following 30
+selected and 28 repository-only inspections. Those checkpoint counts reflected
+partial progress, not final lifecycle approval. Since then, all 150 tracked
+source/resource entries have individual bounded observations in the table above,
+including the newly integrated input-preflight wrapper. Source inspection
+alone is not installed-wheel behaviour parity or owner sign-off.
 
 ## Bounded selected-source inspections — PO/POMM and raster workflows
 
@@ -331,22 +325,22 @@ Static indicators are only an input to the manual file-by-file assessment.
 Unparsed/legacy scripts remain marked pending; no heuristic automatically
 moves a script into/out of the wheel or MCP catalogue.
 
-## Review evidence added in PR #137
+## Review evidence on the reconciled PR #137 branch
 
 - The wheel manifest now excludes `file-management-python/copy_file.py` and
   `file-management-python/copy_folder.py`. Both execute authentication and
   network copy operations during import. The original editable scripts are
   retained in the repository, but they are **not installed nor MCP exposed**.
 - `repo-scripts/audit_installed_scripts.py --check` now inspects the tracked
-  149-file inventory and rejects selected Python scripts with missing main
+  150-file inventory and rejects selected Python scripts with missing main
   guards, syntax problems or detected import-time mutators. The test suite
   verifies every selected Python row, plus both excluded network copy scripts.
-- The new `file_inventory.py` wrapper is selected after a protected-entry-point review and disposable CSV test. The new read-only TUFLOW activity wrapper from merged main is also selected, with Windows/CodeMeter acceptance pending.
+- The `file_inventory.py` wrapper is selected after a protected-entry-point review and disposable CSV test. The TUFLOW activity wrapper and the newly integrated proposed-run input-preflight wrapper are also selected; Windows/CodeMeter and real-model input checks remain bounded or pending.
 - The existing `ryan-scripts list` and `ryan-scripts copy` operations expose
   a narrower *original-file* wrapper selection than the wheel file count:
   `README.md`, package `__init__.py` and other companion documentation are
   distributed resources, not human-facing executable wrappers.
-- The separate MCP catalogues currently reference 33 distinct script paths.
+- The separate MCP catalogues currently reference 34 distinct script paths.
   An installed script is **not automatically MCP-catalogued**.
 - Static checks do not validate original defaults, CLI output/exit codes,
   external binaries, GDAL/QGIS/TUFLOW/HY-8 calculations or network paths.
@@ -363,7 +357,7 @@ external-tool test evidence. Verify companions and resource dependencies in the 
 
 Priority: currently MCP catalogued scripts, destructive/privileged scripts, excluded
 source files that were shipped before PR #130, and frequently copied TUFLOW/GDAL/RORB
-utilities. Do not change the current 83-file allowlist from this inventory alone:
+utilities. Do not change the current 84-file allowlist from this inventory alone:
 make deliberate, tested additions/removals once reviewed.
 
 ## Completion definition
