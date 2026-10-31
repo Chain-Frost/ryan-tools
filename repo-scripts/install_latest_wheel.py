@@ -14,10 +14,7 @@ WHEEL_PATTERN: str = "ryan_tools-*.whl"
 QGIS_MCP_ARCHIVE: str = "https://github.com/nkarasiak/qgis-mcp/archive/refs/heads/main.zip"
 PYTUFLOW_REQUIREMENT_FILE = Path(__file__).absolute().with_name("pytuflow-requirement.txt")
 ACCEPTED_PYTUFLOW_SHA = "05e35476c02d6d8ed17c83caf1cb0d185ce51d1b"
-ACCEPTED_PYTUFLOW_SOURCE = (
-    "pytuflow @ https://github.com/Chain-Frost/PyTuflow/archive/"
-    f"{ACCEPTED_PYTUFLOW_SHA}.zip"
-)
+ACCEPTED_PYTUFLOW_SOURCE = f"pytuflow @ https://github.com/Chain-Frost/PyTuflow/archive/{ACCEPTED_PYTUFLOW_SHA}.zip"
 
 
 def _pytuflow_requirement() -> str:
