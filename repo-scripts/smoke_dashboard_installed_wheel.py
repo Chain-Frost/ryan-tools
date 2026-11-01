@@ -88,7 +88,7 @@ def _check_one_mode(work: Path, root: Path, *, dashboard_enabled: bool) -> tuple
     incomplete.write_text(INCOMPLETE_LOG, encoding="utf-8")
     original = (complete.read_bytes(), incomplete.read_bytes())
     script = copy_wrapper(WRAPPER, work)
-    if not script.is_file() or not script.absolute().is_relative_to(base):
+    if not script.is_file() or not script.absolute().is_relative_to(work):
         msg = f"Wrapper was not copied outside the checkout: {script}"
         raise RuntimeError(msg)
     report = _run(
