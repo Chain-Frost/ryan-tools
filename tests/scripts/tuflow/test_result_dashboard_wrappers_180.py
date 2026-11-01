@@ -108,18 +108,31 @@ def test_result_wrapper_passes_effective_options_and_paths_without_chdir_leak(
 
 
 @pytest.mark.parametrize(("path", "entry", "kind"), WRAPPERS)
-@pytest.mark.parametrize(("flag", "expected"), [("--pause", True), ("--no-pause", False)])
-def test_result_wrapper_pause_is_bidirectional(
+def test_result_wrapper_defaults_to_pause_with_only_no_pause_override(
     path: str,
     entry: str,
     kind: str,
-    flag: str,
-    expected: bool,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     del entry, kind
     module = _load_wrapper(path)
-    monkeypatch.setattr(sys, "argv", ["wrapper.py", flag])
-    parse = cast("Callable[[], object]", module._parse_cli_arguments)
-    options = parse_common_cli_arguments(cast("argparse.Namespace", parse()))
-    assert options.pause_on_finish is expected
+    parse = cast("Callable[[], argparse.Namespace]", module._parse_cli_arguments)
+    assert getattr(module, "PAUSE_ON_FINISH") is True
+
+    # The CLI does not override the editable pause default when omitted.
+    monkeypatch.setattr(sys, "argv", ["wrapper.py"])
+    default_options = parse_common_cli_arguments(parse())
+    assert default_options.pause_on_finish is None
+    assert default_options.no_pause is False
+
+    # The only pause-related CLI option disables the ordinary interactive wait.
+    monkeypatch.setattr(sys, "argv", ["wrapper.py", "--no-pause"])
+    no_pause_options = parse_common_cli_arguments(parse())
+    assert no_pause_options.pause_on_finish is False
+    assert no_pause_options.no_pause is True
+
+    # A redundant positive --pause flag is not part of this wrapper contract.
+    monkeypatch.setattr(sys, "argv", ["wrapper.py", "--pause"])
+    with pytest.raises(SystemExit) as error:
+        parse()
+    assert error.value.code == 2

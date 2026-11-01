@@ -289,8 +289,10 @@ The six maintained result wrappers under `culvert_results` and `po_and_timeserie
 
 Each has editable `USE_LIVE_DASHBOARD`, `LIVE_REFRESH_PER_SECOND`,
 `LIVE_MAX_ROWS`, `CONSOLE_LOG_LEVEL`, `PAUSE_ON_FINISH` and optional
-`LOG_FILE`/`FILE_LOG_LEVEL`. CLI switches override these values including
-`--live-dashboard`, `--no-live-dashboard`, `--pause` and `--no-pause`.
+`LOG_FILE`/`FILE_LOG_LEVEL`. CLI switches override relevant values including
+`--live-dashboard`, `--no-live-dashboard` and `--no-pause`. Interactive pausing
+is enabled by the editable `PAUSE_ON_FINISH = True` default; `--no-pause` disables
+it, and redirected/headless runs do not wait. A separate `--pause` flag is not needed.
 A `CONSOLE_LOG_LEVEL` of `None` chooses SUCCESS for dashboard runs and INFO
 for ordinary logging; an explicit level is respected. DEBUG file logging is
 independent of the concise console level.
