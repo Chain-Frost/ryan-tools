@@ -19,6 +19,12 @@ Canonical repository policy remains in [`AGENTS.md`](../../AGENTS.md) and
 [`docs/DEVELOPMENT_GUIDE.md`](../DEVELOPMENT_GUIDE.md). MCP setup and user configuration are documented in
 [`docs/MCP_SETUP.md`](../MCP_SETUP.md).
 
+## Planned discovery enhancement
+
+Issue #136 is tracked in the [workflow keywords and domain overview handoff](../work/2026-11-01-mcp-workflow-discovery-136.md).
+It defines the draft PR scope, implementation/review prompts and acceptance contract; the feature is not implemented
+by that setup record.
+
 ## User intent
 
 The MCP server is a discovery layer. It helps an agent select an existing workflow and returns the command needed to
