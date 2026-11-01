@@ -14,6 +14,7 @@ import sys
 from contextlib import closing
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any
 
 import culvert_solver
 import numpy as np
@@ -26,6 +27,8 @@ from ryan_library.functions.geometry import find_similarity_transform
 from ryan_library.functions.path_stuff import sanitize_windows_filename
 from ryan_library.mcp.installed_scripts import available_wrappers, copy_wrapper
 from ryan_library.mcp.registry import WorkflowRegistry
+from ryan_library.mcp.server import REGISTRY as SERVER_REGISTRY
+from ryan_library.mcp.server import list_workflows
 
 
 def _require_installed_below(module_file: str | None, expected_root: Path, package: str) -> None:
@@ -45,6 +48,62 @@ def _check_installed_scripts() -> None:
         if workflow["execution_kind"] == "script" and not workflow["available"]:
             msg = f"Installed wheel is missing catalogued script {workflow['id']}."
             raise RuntimeError(msg)
+
+
+def _check_installed_curated_keywords(registry: WorkflowRegistry) -> None:
+    """Check curated keywords using only the wheel catalogue and canonical IDs."""
+    for domain, query, workflow_id in (
+        ("gdal", "CrOp", "clip_rasters_to_polygon"),
+        ("gdal", "cropping", "clip_rasters_to_polygon"),
+        ("gdal", "pyramids", "build_external_overviews"),
+        ("tuflow", "logs", "tuflow_log_summary"),
+    ):
+        result = registry.list_workflows(domain=domain, query=query, include_unavailable=True)
+        ids = [item["id"] for item in result["workflows"]]
+        if workflow_id not in ids or len(ids) != len(set(ids)):
+            msg = f"Installed workflow discovery failed for {domain}/{query}: {ids}"
+            raise RuntimeError(msg)
+        detail = registry.get_workflow(workflow_id)
+        if query.casefold() not in {keyword.casefold() for keyword in detail["keywords"]}:
+            msg = f"Installed keywords missing for {workflow_id}: {detail['keywords']}"
+            raise RuntimeError(msg)
+
+
+def _check_installed_keyword_discovery() -> None:
+    """Prove discovery using only packaged catalogues and the actual installed wheel."""
+    registry = WorkflowRegistry(discover_repository=False, configured_profile="privileged")
+    _check_installed_curated_keywords(registry)
+    if SERVER_REGISTRY.repository_root is not None:
+        msg = "Installed MCP server unexpectedly discovered the source checkout."
+        raise RuntimeError(msg)
+    full = list_workflows(include_unavailable=True, limit=25)
+    overview = list_workflows(overview=True, include_unavailable=True, limit=1)
+    if (
+        overview["workflow_count"] <= len(full["workflows"])
+        or overview["domain_count"] != len(overview["domains"])
+        or overview["returned_count"] != 1
+        or "workflows" in overview
+    ):
+        msg = "Installed MCP overview omitted full totals or leaked workflow payloads."
+        raise RuntimeError(msg)
+    domains: list[dict[str, Any]] = []
+    for offset in range(overview["domain_count"]):
+        page = list_workflows(overview=True, include_unavailable=True, limit=1, offset=offset)
+        domains.extend(page["domain_overview"])
+    if sum(row["workflow_count"] for row in domains) != overview["workflow_count"]:
+        msg = "Installed MCP overview domain counts do not sum to the visible catalogue."
+        raise RuntimeError(msg)
+    if any(len(row["examples"]) > 3 for row in domains):
+        msg = "Installed MCP overview returned more than three examples per domain."
+        raise RuntimeError(msg)
+    crop = list_workflows(domain="gdal", query="crop", include_unavailable=True)
+    if "clip_rasters_to_polygon" not in {item["id"] for item in crop["workflows"]}:
+        msg = "Installed MCP tool failed keyword discovery for raster crop."
+        raise RuntimeError(msg)
+    if list_workflows(overview=True, query="never-matches-xyz", include_unavailable=True)["domain_count"] != 0:
+        msg = "Installed MCP overview did not return an empty page for unknown terms."
+        raise RuntimeError(msg)
+    print("Wheel-only MCP keyword search and domain overview passed.")
 
 
 def _check_installed_wrapper_copy() -> None:
@@ -334,6 +393,7 @@ def main(argv: list[str] | None = None) -> int:
         raise RuntimeError(msg)
 
     _check_installed_scripts()
+    _check_installed_keyword_discovery()
     _check_installed_wrapper_copy()
     if args.expected_root is not None:
         _check_installed_wrapper_behaviour(args.expected_root.resolve())

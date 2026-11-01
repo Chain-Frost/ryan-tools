@@ -138,6 +138,8 @@ jobs:
         run: |
           python repo-scripts/check_documentation.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python repo-scripts/check_documentation.py --links-only docs/MCP_SETUP.md docs/mcp-handoff/README.md docs/work/README.md docs/work/2026-11-01-mcp-workflow-discovery-136.md
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python repo-scripts/check_loguru_formatting.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           git diff --check
@@ -183,6 +185,14 @@ jobs:
           python repo-scripts/install_latest_wheel.py --dependencies-only
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m pip install ".[mcp]" pytest
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Test MCP workflow discovery and safety contracts
+        shell: pwsh
+        env:
+          MPLBACKEND: Agg
+        run: |
+          python -m pytest -q tests/mcp/test_registry.py tests/mcp/test_server.py tests/mcp/test_catalogue_contracts.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Run Python 3.14 focused utility regression tests

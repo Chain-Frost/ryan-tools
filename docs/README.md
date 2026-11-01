@@ -74,6 +74,7 @@ These documents stay near the code they describe so that browsing a target direc
 | [Automatic PyPI releases](AUTO_PYPI_RELEASES.md) | Publishing only new verified main PR merges after a defined cutover |
 | [Automatic release cutover marker](../.github/release-cutover.md) | Recording the first commit after which new merged changes become eligible for releases |
 | [MCP workflow-target implementation](mcp-handoff/README.md) | Current execution-target design, wrapper-path reconciliation, validation contract and remaining staged migration |
+| [MCP workflow keywords and domain overview](work/2026-11-01-mcp-workflow-discovery-136.md) | Issue #136 contract, implementation and independent review handoff |
 | [MCP target safety audit](mcp-handoff/2026-10-21-cf-target-assessment.md) | Per-target safety classification, dependencies and readiness |
 | [Windows acceptance evidence](mcp-handoff/2026-10-21-cf-windows-acceptance.md) | Recorded Windows/GDAL/QGIS checks and outstanding licensed-tool acceptance |
 

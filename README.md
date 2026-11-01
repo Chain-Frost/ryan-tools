@@ -120,7 +120,7 @@ Windows convenience entry points are:
 
 ```powershell
 .\install-ryan-tools.bat
-.\package_and_install.bat
+.\build-and-install-local-wheel.bat
 .\install-local-wheel.bat
 ```
 
@@ -132,15 +132,18 @@ builds, and checks installed dependencies and the public validation API before
 reporting success. The local-wheel installer uses the same dependency setup and
 verification. If Codex is detected, the PyPI installer
 configures the QGIS and ryan-tools MCP servers only as needed, preserving other
-settings and backing up any changed Codex configuration. The legacy
-`install-latest-wheel.bat` name now launches that same PyPI installer.
+settings and backing up any changed Codex configuration. `install-from-pypi.bat` is the explicit PyPI entry point;
+`install-ryan-tools.bat` forwards to it.
 The installer selects the highest installed Python 3 release through the Windows launcher (minimum 3.14); override with `RYAN_TOOLS_PYTHON` to select a particular interpreter. The installer also recognises the `openai.chatgpt` Codex extension in VS Code, even without the Codex CLI.
-For developers, `package_and_install.bat` builds and installs a local wheel, including
+For developers, `build-and-install-local-wheel.bat` builds and installs a local wheel, including
 installing or updating its dependencies and the QGIS MCP bridge.
-`package_and_force-install.bat` builds locally and forcibly reinstalls only that wheel
+`build-and-force-reinstall-local-wheel.bat` builds locally and forcibly reinstalls only that wheel
 with `--no-deps`, leaving dependency installation to the normal installer.
 Both use the local `dist/` wheel for `ryan-tools`; dependencies may still be downloaded.
 `install-local-wheel.bat` installs an existing local wheel without rebuilding.
+`force-reinstall-local-wheel.bat` reinstalls that wheel with `--no-deps`.
+`build-local-wheel.bat` builds and verifies a local wheel without installing it.
+The ambiguous installer and packager filenames have been renamed; update saved shortcuts accordingly.
 QGIS itself and its QGIS MCP desktop plugin must be installed separately.
 
 ## License

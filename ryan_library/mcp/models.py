@@ -95,6 +95,29 @@ class ExecutionTarget:
         return cls(kind=kind, value=value)
 
 
+def normalize_workflow_keywords(raw: object, *, workflow_id: str, allow_tuple: bool = False) -> tuple[str, ...]:
+    """Validate and normalize curated search terms from either catalogue."""
+    if not isinstance(raw, list) and not (allow_tuple and isinstance(raw, tuple)):
+        msg = (
+            f"Workflow {workflow_id!r} field 'keywords' must be an array of non-empty strings; "
+            "omit the field or use [] when no keywords are needed."
+        )
+        raise ValueError(msg)
+    values = cast("list[object] | tuple[object, ...]", raw)
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for index, value in enumerate(values):
+        if not isinstance(value, str) or not value.strip():
+            msg = f"Workflow {workflow_id!r} field 'keywords' item {index} must be a non-empty string."
+            raise ValueError(msg)
+        term = value.strip()
+        folded = term.casefold()
+        if folded not in seen:
+            normalized.append(term)
+            seen.add(folded)
+    return tuple(normalized)
+
+
 @dataclass(frozen=True, slots=True)
 class WorkflowSpec:
     """A discoverable CLI workflow with an explicit execution target."""
@@ -110,6 +133,15 @@ class WorkflowSpec:
     requires_explicit_approval: bool = False
     headless_arguments: tuple[str, ...] = ()
     metadata: dict[str, Any] = field(default_factory=_empty_metadata)
+    keywords: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        """Normalize direct model construction as well as JSON catalogue loading."""
+        object.__setattr__(
+            self,
+            "keywords",
+            normalize_workflow_keywords(self.keywords, workflow_id=self.workflow_id, allow_tuple=True),
+        )
 
     @classmethod
     def from_mapping(cls, raw: Mapping[str, object]) -> WorkflowSpec:
@@ -143,6 +175,7 @@ class WorkflowSpec:
             "lifecycle",
             "requires_explicit_approval",
             "headless_arguments",
+            "keywords",
         }
         metadata: dict[str, Any] = {}
         for key, value in raw.items():
@@ -160,6 +193,7 @@ class WorkflowSpec:
             lifecycle=str(raw.get("lifecycle", "maintained")),
             requires_explicit_approval=bool(raw.get("requires_explicit_approval", False)),
             headless_arguments=headless_arguments,
+            keywords=normalize_workflow_keywords(raw.get("keywords", []), workflow_id=required_string("id")),
             metadata=metadata,
         )
 
