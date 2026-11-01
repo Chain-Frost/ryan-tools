@@ -2,27 +2,62 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Review candidate: current wrapper cleanup retained; UNC/path export and same-version installer defects corrected; upstream allowance removal tracked in #181 |
+| Status | Review candidate: documentation aligned with the owner-confirmed RUN default and intentional generated-value trimming; upstream allowance removal tracked in #181 |
 | Owner | ChatGPT |
 | Created / Updated | 2026-10-23 / 2026-11-01 |
-| Next review | Windows acceptance / 2026-11-07 |
+| Next review | Current-head CI and merge review / 2026-11-07 |
 | Pull request | [ryan-tools #159](https://github.com/Chain-Frost/ryan-tools/pull/159), open and non-draft when checked |
-| Branch / delivery base | `feat/tuflow-runner-model-checks`; current review fixes retain concurrent commits through `313cf33de8257e63533ff6ebc4de8056dfd236eb`, containing `main` at `6e2d0f1d64be46d3c704e895fd0138583ac1dc31`; prior delivery evidence retained below |
+| Branch / delivery base | `feat/tuflow-runner-model-checks`; documentation alignment based on `f37d817a100bf6172214c7c7b94dc3502afe2066`, containing `main` at `6e2d0f1d64be46d3c704e895fd0138583ac1dc31`; prior delivery evidence retained below |
 | Delivery | Regression and CI publication on #159, upstream fix in PyTUFLOW #60; no main merge, parser repin or release |
 | Next action | Review final-head CI, merge PR #159 independently of upstream when approved; issue #181 removes the allowance and requires 161/161 clean after adopting the reviewed fix. |
 
 ## Current scope and decisions
 
-## Independent review and concurrent-development reconciliation — 1 November 2026
+### Wrapper-default documentation alignment — 1 November 2026
+
+The owner confirmed that the committed runner is authoritative:
+
+- `OPERATION = settings.OP.RUN` runs pending simulations by default, with
+  `settings.CONT.RESUME` skipping recorded successful runs. Execution uses
+  the licensed solver and may overwrite existing model outputs.
+- `settings.OP.EXPORT_ONLY` or `--export-only` exports TXT without launching;
+  `settings.OP.PREFLIGHT_ONLY` or `--preflight-only` checks inputs without
+  launching. CLI operation flags override the editable setting.
+- Generated list values intentionally lose leading/trailing whitespace before
+  warnings and deduplication. `[" Wet ", "Wet"]` selects `"Wet"` once
+  without a space warning. Embedded spaces remain and produce a warning;
+  raw strings still split into whitespace-separated values. The earlier
+  trimming review finding is withdrawn.
+- Documentation and copy-ready enum examples now match the wrapper's
+  `settings` import. The existing export-only/CLI-precedence test is renamed
+  and its comments corrected; its assertions and behavior are unchanged.
+  The runner file and normalization implementation are unchanged.
+
+The reviewed baseline `f37d817` passed all **9/9 GitHub checks**:
+[Windows hosted tests, policy, MCP and package verification](https://github.com/Chain-Frost/ryan-tools/actions/runs/41269613133)
+reported **1,916 passed, 14 skipped, 8 deselected**, strict Pyright reported
+**0 errors, 0 warnings**, and the installed-wheel smoke explicitly selected
+`--export-only`.
+[PyTUFLOW validation](https://github.com/Chain-Frost/ryan-tools/actions/runs/41269613119)
+passed 26 API tests and the complete 161-TCF / 174-context regression under
+the unchanged eight exact upstream allowances. All three review threads
+were resolved. These receipts describe that baseline; review the new
+documentation commit's checks before merge.
+
+The `main only` ruleset already requires `Policy`, `Hosted tests`,
+`Package`, `MCP smoke` and `Ruff and whitespace`. No ruleset action
+remains. PR #159 stays open and unmerged.
+
+## Earlier independent review and concurrent-development reconciliation — 1 November 2026
 
 The review began at `b9d4474`, then retained the concurrent development commits
 through `4813473`, plus the MCP help-safety correction in `313cf33`, rather
 than replacing their wrapper or main-merge work.
-The current wrapper has one all-or-nothing `CHECK_INPUTS`, fixed adjacent TXT
-export, GPU-group-derived concurrency and three commented GPU examples.
-Descriptive constant names do not require `DEFAULT_`. Its current
-`OPERATION = "export_only"` is preserved; `"run"` or `--run-simulations`
-selects execution and `"preflight_only"` selects complete input checking.
+At that reviewed revision, the wrapper had one all-or-nothing `CHECK_INPUTS`,
+fixed adjacent TXT export, GPU-group-derived concurrency and three commented
+GPU examples. Descriptive constant names did not require `DEFAULT_`.
+Its then-default `OPERATION = "export_only"` was preserved. The later
+owner-confirmed RUN default and explicit non-launching modes are recorded above.
 
 Three reproduced defects were corrected in the additional review patch:
 
@@ -40,7 +75,7 @@ Three reproduced defects were corrected in the additional review patch:
   An offline real-pip regression proves that failure, successful bounded
   replacement, and subsequent installation of a missing transitive dependency.
 
-Local verification on the reconciled candidate uses Python 3.14.8:
+Historical local verification on that reconciled candidate used Python 3.14.8:
 **284 focused tests pass; 11 native-Windows cases are skipped on the Linux
 review host.** All eight changed Python files pass Ruff lint/format,
 compilation and strict Windows-target Pyright with **0 errors and 0 warnings**.
@@ -95,9 +130,9 @@ review.
   checks within the normal Package wheel smoke. Renamed the remaining specialised
   workflow to `tuflow-input-validation.yml`, keeping the immutable parser,
   incompatible-version and 161-TCF regression coverage. The separate Python
-  3.14 MCP job is named `MCP smoke`; the GitHub `main only` ruleset must
-  replace the obsolete `Python 3.13 compatibility and MCP` status requirement
-  with `MCP smoke` before the PR can merge.
+  3.14 MCP job is named `MCP smoke`. The GitHub `main only` ruleset has
+  replaced the obsolete `Python 3.13 compatibility and MCP` requirement
+  with `MCP smoke`; its other required checks are unchanged.
 - PR #159 remains unmerged. Final acceptance requires successful CI at the
   current commit, not historical green checks from an earlier SHA.
 

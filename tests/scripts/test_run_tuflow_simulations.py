@@ -53,7 +53,7 @@ def wrapper(tmp_path: Path) -> _RunnerWrapper:
     solver = tmp_path / "TUFLOW_Synthetic.exe"
     solver.write_bytes(b"synthetic solver placeholder")
     module.__dict__["TUFLOW_EXE"] = solver
-    module.__dict__["OPERATION"] = "run"  # Other tests cover the safe shipped default.
+    module.__dict__["OPERATION"] = "run"  # Explicit execution mode for these run-focused fixtures.
     return cast(_RunnerWrapper, module)
 
 
@@ -66,7 +66,7 @@ def _source(path: Path) -> Path:
     return batch
 
 
-def test_default_operation_is_export_only_and_cli_can_override(
+def test_configured_export_only_operation_and_cli_override(
     tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     module = sys.modules["tested_runner_wrapper"]
@@ -83,7 +83,7 @@ def test_default_operation_is_export_only_and_cli_can_override(
     assert Path(wrapper.__file__).with_suffix(".txt").is_file()
     assert not Path(wrapper.__file__).with_name("run_tuflow_simulations_runs.csv").exists()
 
-    # CLI launch intent overrides the safe file default, and the missing
+    # CLI launch intent overrides the configured export-only operation; the missing
     # solver then fails before writing a continuation CSV.
     assert wrapper.main([*args, "--run-simulations"]) == 1
     assert not Path(wrapper.__file__).with_name("run_tuflow_simulations_runs.csv").exists()

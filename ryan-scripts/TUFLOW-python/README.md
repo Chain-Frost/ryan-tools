@@ -45,21 +45,33 @@ Python wrapper. Its operational constants can use concise names; the wrapper
 standard does not require a `DEFAULT_` prefix. CLI arguments override editable
 values when supplied.
 
-The shipped `OPERATION = OP.EXPORT_ONLY` only refreshes editable command TXT.
-Set `OPERATION = OP.RUN` (or raw `"run"`) or explicitly pass `--run-simulations` to launch
-the licensed solver, which may overwrite existing model outputs. To check
-inputs without launching, use `OPERATION = OP.PREFLIGHT_ONLY` or
-`--preflight-only`. The preferred choices are short `StrEnum` members:
-`OP.RUN`, `SRC.TEXTFILES`, `CONT.RESUME`, `PRIO.LOW`.
-Equivalent raw strings are accepted and validated.
+The shipped `OPERATION = settings.OP.RUN` runs pending simulations using
+the licensed solver and may overwrite existing model outputs. The default
+`CONTINUATION_MODE = settings.CONT.RESUME` skips recorded successful runs.
+To export editable command TXT without launching, set
+`OPERATION = settings.OP.EXPORT_ONLY` (or raw `"export_only"`) or pass
+`--export-only`. To check inputs without launching, use
+`OPERATION = settings.OP.PREFLIGHT_ONLY` or `--preflight-only`.
+`--run-simulations` explicitly selects execution regardless of the editable
+operation setting. CLI arguments override editable values.
 
-Individual `-eN` and `-sN` values containing a space (`" "`) or underscore
-(`"_"`) trigger a **non-blocking warning** identifying the flag and value,
-regardless of whether generated or imported from BAT/TXT. Valid selections
-are not modified. A whitespace-delimited string such as
-`"01.0p 02.0p"` represents **two** values and does not warn merely
-because of its separator. To supply one value containing a space, use a list
-such as `["Wet Season"]`; the warning then identifies that single value.
+The wrapper imports its `StrEnum` choices through `settings`:
+`settings.OP.RUN`, `settings.SRC.TEXTFILES`, `settings.CONT.RESUME` and
+`settings.PRIO.LOW`. Equivalent raw strings are accepted and validated.
+
+Generated list entries intentionally have leading and trailing whitespace
+stripped before warnings and deduplication. For example, `[" Wet ", "Wet"]`
+selects `"Wet"` once and does not produce a space warning. Embedded spaces
+remain part of the value. A whitespace-delimited raw string such as
+`"01.0p 02.0p"` represents **two** values and does not warn merely because
+of its separator. To supply one value containing an embedded space, use a
+list such as `["Wet Season"]`.
+
+After this normalization, individual `-eN` and `-sN` values containing a
+space (`" "`) or underscore (`"_"`) trigger a **non-blocking warning**
+identifying the flag and value. Imported quoted BAT/CMD/TXT values are
+checked as parsed. The warnings do not further change values or block
+export or execution.
 
 The Python runner alone launches the configured `TUFLOW_EXE` via Python
 subprocess argument lists. Imported BAT/CMD/TXT files are **never executed**,
@@ -185,7 +197,7 @@ runs 101 through 400 in their original order. If later runs also succeeded,
 those are skipped too; original run numbers can therefore have gaps. Input
 preflight and dashboard presentation preserve those original identities.
 
-Set `CONTINUATION_MODE = CONT.ALL` (or raw `"all"`) or pass `--run-mode all` to append a RESET row and
+Set `CONTINUATION_MODE = settings.CONT.ALL` (or raw `"all"`) or pass `--run-mode all` to append a RESET row and
 run every occurrence again. Previous history is retained. Changing model-file contents
 is not detected; use Run all when prior successes should be disregarded.
 The identity uses the **TCF filename** (case-insensitive on Windows) and effective
