@@ -262,8 +262,7 @@ def _generated_plan(settings: RunnerSettings, batch: tuple[str, ...]) -> Command
     if missing := required - present:
         example = ", ".join(f"{key!r}: 'VALUE'" for key in sorted(missing))
         message = (
-            f"TCF {tcf.name!r} requires missing generated flags {sorted(missing)}. "
-            f"Add {example} to RUN_VARIABLES_RAW."
+            f"TCF {tcf.name!r} requires missing generated flags {sorted(missing)}. Add {example} to RUN_VARIABLES_RAW."
         )
         raise CommandPlanError(message)
     source = settings.wrapper_file.absolute()

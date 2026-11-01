@@ -566,7 +566,6 @@ def test_interruption_terminates_owned_child_without_imaginary_success(
     assert [record.return_code for record in outcome.outcomes] == [-15]
 
 
-
 def test_generated_tcf_requires_all_named_event_scenario_inputs(tmp_path: Path) -> None:
     config = settings(
         tmp_path,
@@ -575,9 +574,7 @@ def test_generated_tcf_requires_all_named_event_scenario_inputs(tmp_path: Path) 
     )
     with pytest.raises(CommandPlanError, match="s1"):
         runner.prepare_plan(config)
-    plan = runner.prepare_plan(
-        replace(config, run_variables={"e1": ["A"], "s1": ["EXG"], "e2": ["Extra"]})
-    )
+    plan = runner.prepare_plan(replace(config, run_variables={"e1": ["A"], "s1": ["EXG"], "e2": ["Extra"]}))
     assert len(plan.runs) == 1
     assert plan.runs[0].flags == {"e1": "A", "s1": "EXG", "e2": "Extra"}
     # A missing physical TCF does not block command planning or export.

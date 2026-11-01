@@ -211,7 +211,11 @@ from ryan_library.orchestrators.tuflow.simulation_runner import (
 def _settings(arguments: argparse.Namespace) -> RunnerSettings:
     """Normalize validated editable inputs to the library's strict types."""
     base = arguments.working_directory if arguments.working_directory is not None else WORKING_DIR
-    directory = runner_user_inputs.path("WORKING_DIR", base).absolute() if base is not None else Path(__file__).absolute().parent
+    directory = (
+        runner_user_inputs.path("WORKING_DIR", base).absolute()
+        if base is not None
+        else Path(__file__).absolute().parent
+    )
     configured_tcf = None if arguments.no_tcf else (arguments.tcf if arguments.tcf is not None else TCF)
     selected_inputs = tuple(arguments.input_file) if arguments.input_file is not None else INPUT_FILES
     selected_mode = runner_user_inputs.choice("MODE", arguments.mode if arguments.mode is not None else MODE, SRC)
@@ -256,12 +260,12 @@ def _settings(arguments: argparse.Namespace) -> RunnerSettings:
             arguments.launch_delay if arguments.launch_delay is not None else WAIT_TIME_AFTER_RUN,
             positive=False,
         ),
-        use_live_dashboard=(
-            arguments.live_dashboard if arguments.live_dashboard is not None else USE_LIVE_DASHBOARD
-        ),
+        use_live_dashboard=(arguments.live_dashboard if arguments.live_dashboard is not None else USE_LIVE_DASHBOARD),
         live_refresh_per_second=runner_user_inputs.finite_number(
             "LIVE_REFRESH_PER_SECOND",
-            arguments.live_refresh_per_second if arguments.live_refresh_per_second is not None else LIVE_REFRESH_PER_SECOND,
+            arguments.live_refresh_per_second
+            if arguments.live_refresh_per_second is not None
+            else LIVE_REFRESH_PER_SECOND,
             positive=True,
         ),
     )
@@ -291,6 +295,7 @@ def _warn_optional_file_paths(plan: CommandPlan, settings: RunnerSettings) -> No
     needs a solver. A configured follow-up script may be optional until the
     batch completes. Never change or dereference user-supplied path aliases.
     """
+
     def exists_as_file(candidate: Path) -> bool:
         try:
             return candidate.is_file()
@@ -317,7 +322,8 @@ def _warn_optional_file_paths(plan: CommandPlan, settings: RunnerSettings) -> No
                 )
 
     executable = (
-        settings.executable if settings.executable.is_absolute()
+        settings.executable
+        if settings.executable.is_absolute()
         else (settings.working_directory / settings.executable).absolute()
     )
     if not exists_as_file(executable):
@@ -360,9 +366,17 @@ def main(argv: list[str] | None = None) -> int:
     try:
         log_level = arguments.console_log_level if arguments.console_log_level is not None else CONSOLE_LOG_LEVEL
         if not isinstance(log_level, str) or log_level.upper() not in {
-            "TRACE", "DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL"
+            "TRACE",
+            "DEBUG",
+            "INFO",
+            "SUCCESS",
+            "WARNING",
+            "ERROR",
+            "CRITICAL",
         }:
-            message = f"CONSOLE_LOG_LEVEL={log_level!r} is invalid; use DEBUG, INFO, SUCCESS, WARNING, ERROR or CRITICAL."
+            message = (
+                f"CONSOLE_LOG_LEVEL={log_level!r} is invalid; use DEBUG, INFO, SUCCESS, WARNING, ERROR or CRITICAL."
+            )
             raise ValueError(message)
         configure_serial_logging(console_log_level=log_level.upper())
         settings = _settings(arguments)
@@ -395,7 +409,9 @@ def main(argv: list[str] | None = None) -> int:
             len(plan.source_files),
         )
         operation = selected_operation.value
-        exporting = runner_user_inputs.boolean("EXPORT_COMMANDS", EXPORT_COMMANDS if arguments.export is None else arguments.export)
+        exporting = runner_user_inputs.boolean(
+            "EXPORT_COMMANDS", EXPORT_COMMANDS if arguments.export is None else arguments.export
+        )
         if operation == "export_only":
             exporting = True
         if exporting:
@@ -446,7 +462,9 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 session = CompletionSession(history, identities)
                 advisory = None
-                checks = runner_user_inputs.boolean("CHECK_INPUTS", CHECK_INPUTS if arguments.preflight is None else arguments.preflight)
+                checks = runner_user_inputs.boolean(
+                    "CHECK_INPUTS", CHECK_INPUTS if arguments.preflight is None else arguments.preflight
+                )
                 if checks:
                     advisory = AdvisoryInputCheck(pending)
                     try:
@@ -481,7 +499,9 @@ def main(argv: list[str] | None = None) -> int:
         outcome_code = result.exit_code
         # Preserve established chaining on normal batch termination, even when
         # one or more children failed; never hide their nonzero exit status.
-        if NEXT_RUN_FILE is not None and not _run_follow_up(runner_user_inputs.path("NEXT_RUN_FILE", NEXT_RUN_FILE), settings.working_directory):
+        if NEXT_RUN_FILE is not None and not _run_follow_up(
+            runner_user_inputs.path("NEXT_RUN_FILE", NEXT_RUN_FILE), settings.working_directory
+        ):
             outcome_code = 1
         return outcome_code
     except (OSError, ValueError):

@@ -127,7 +127,6 @@ def test_editable_settings_and_cli_precedence(
     assert invalid.value.code == 2
 
 
-
 def _settings_from_wrapper(wrapper: _RunnerWrapper) -> RunnerSettings:
     """Exercise the copied file's editable-default normalization."""
     module = sys.modules["tested_runner_wrapper"]
@@ -210,12 +209,15 @@ def test_editable_string_paths_and_single_input_source_normalize(
     )
 
 
-@pytest.mark.parametrize(("setting", "invalid"), [
-    ("WORKING_DIR", "   "),
-    ("TCF", ""),
-    ("TUFLOW_EXE", ""),
-    ("INPUT_FILES", [""]),
-])
+@pytest.mark.parametrize(
+    ("setting", "invalid"),
+    [
+        ("WORKING_DIR", "   "),
+        ("TCF", ""),
+        ("TUFLOW_EXE", ""),
+        ("INPUT_FILES", [""]),
+    ],
+)
 def test_blank_editable_paths_are_rejected(
     wrapper: _RunnerWrapper,
     monkeypatch: pytest.MonkeyPatch,
@@ -226,7 +228,6 @@ def test_blank_editable_paths_are_rejected(
     monkeypatch.setattr(module, setting, invalid)
     with pytest.raises(ValueError, match="path must not be empty"):
         _settings_from_wrapper(wrapper)
-
 
 
 @pytest.mark.parametrize(
