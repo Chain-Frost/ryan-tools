@@ -33,6 +33,23 @@ def test_parse_hydrographs(tmp_path: Path) -> None:
     assert data["Hyd002"] == [11, 14]
 
 
+@pytest.mark.parametrize(
+    ("rows", "error"),
+    [
+        ("1 0 1 1\n2 1 ******** 5\n3 2 3 4\n", "Malformed hydrograph row"),
+        ("1 0 1 1\n2 1 3\n3 2 3 4\n", "Malformed hydrograph row"),
+        ("1 0 1 1\n2 1 3 4 extra\n3 2 3 4\n", "Malformed hydrograph row"),
+        ("1 0 1 1\n2 1 3 nan\n3 2 3 4\n", "Non-finite hydrograph"),
+        ("1 0 invalid 2\n2 1 3 4\n", "Malformed hydrograph row"),
+    ],
+)
+def test_reject_malformed_numeric_hydrograph_rows(tmp_path: Path, rows: str, error: str) -> None:
+    output = tmp_path / "bad.out"
+    output.write_text("Inc Time Hyd001 Hyd002\n" + rows + "End of hydrograph\n")
+    with pytest.raises(ValueError, match=error):
+        calibration.parse_hydrographs(output)
+
+
 def test_reject_ambiguous_hydrograph_tables(tmp_path: Path) -> None:
     output = tmp_path / "two.out"
     output.write_text("Inc Time Hyd001\n1 0 1\nEnd\nInc Time Hyd001\n1 0 1\n")
@@ -213,3 +230,62 @@ def test_archived_score_dry_run_has_no_filesystem_side_effects(tmp_path: Path) -
         == 0
     )
     assert not target.exists()
+
+
+
+def test_malformed_archived_output_does_not_create_results(tmp_path: Path) -> None:
+    archived = tmp_path / "bad.out"
+    archived.write_text("Inc Time Hyd001 Hyd002\n1 0 10 10\n2 1 ******** 100\n3 2 12 20\nEnd\n")
+    target = tmp_path / "analysis"
+    assert (
+        calibration.main(
+            [
+                "--score-output",
+                str(archived),
+                "--sim-column",
+                "Hyd001",
+                "--obs-column",
+                "Hyd002",
+                "--output",
+                str(target),
+            ]
+        )
+        == 1
+    )
+    assert not target.exists()
+
+
+def test_malformed_live_output_marks_run_failed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    catg, stm = tmp_path / "a.catg", tmp_path / "b.stm"
+    catg.write_text("a")
+    stm.write_text("b")
+
+    def fake_run(*_args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+        work_dir = kwargs["cwd"]
+        assert isinstance(work_dir, Path)
+        (work_dir / "fake.out").write_text("Inc Time Hyd001 Hyd002\n1 0 10 10\n2 1 ******** 100\n3 2 12 20\n")
+        return subprocess.CompletedProcess(args=["RORB_CMD"], returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(calibration.subprocess, "run", fake_run)
+    root = tmp_path / "calibration"
+    assert (
+        calibration.main(
+            [
+                "--catg", str(catg),
+                "--stm", str(stm),
+                "--rorb", sys.executable,
+                "--output", str(root),
+                "--kc", "15",
+                "--il", "10",
+                "--continuing", "5",
+                "--sim-column", "Hyd001",
+                "--obs-column", "Hyd002",
+            ]
+        )
+        == 1
+    )
+    with next(root.glob("*/results.csv")).open(newline="") as stream:
+        record = next(csv.DictReader(stream))
+    assert record["status"] == "failed"
+    assert "Malformed hydrograph row" in record["error"]
+    assert not record["rmse"]
