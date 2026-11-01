@@ -48,6 +48,7 @@ These documents stay near the code they describe so that browsing a target direc
 | Culvert analysis/design | [Culvert analysis and design workflow](CULVERT_WORKFLOW.md) | Project/scenario models, solver boundary, design search, rating curves, CLI and output contracts |
 | TUFLOW culvert engines | [Selectable TUFLOW culvert engines](TUFLOW_CULVERT_ENGINES.md) | TUFLOW Maximums/1d_nwk ingestion, HY-8 vs ryan-culverts dispatch, output and ownership boundaries |
 | TUFLOW processors | [Processor development notes](../ryan_library/processors/tuflow/README.md) | Processor lifecycle, collections, combinations, filtering, caching and extension |
+| RORB calibration | [RORB Python scripts](../ryan-scripts/RORB-python/README.md) | Standalone RORB_CMD calibration, output inspection and local validation |
 | TUFLOW wrappers | [TUFLOW Python wrappers](../ryan-scripts/TUFLOW-python/README.md) | Maintained entry points, shared CLI behavior and wrapper selection |
 | TUFLOW run preflight | [Proposed-run input preflight](TUFLOW_INPUT_PREFLIGHT.md) | Check event/scenario-dependent input references, boundary source CSVs and GPKG layers before launching simulations |
 | TUFLOW project setup | [Project setup guide](../ryan-scripts/tuflow/PROJECT_SETUP.md) | Compact project initialization, canonical empty-file generation and validation evidence |
@@ -108,11 +109,12 @@ but they are not current architectural policy when they conflict with the canoni
 | [TUFLOW scope 04: CSV continuation](work/2026-10-31-tuflow-integration-scopes/04_csv_resume.md) | Integrated one-CSV Resume/Run all component without recovery scans |
 | [TUFLOW scope 05: upstream raster headers](work/2026-10-31-tuflow-integration-scopes/05_pytuflow_raster_headers.md) | Prepared independent PyTUFLOW issue/implementation handoff; public opt-in metadata validation |
 | [TUFLOW scope 06: acceptance](work/2026-10-31-tuflow-integration-scopes/06_integration_acceptance.md) | Cross-package contracts, installed-wrapper validation and separate parent/child acceptance |
+| [Generalised RORB calibration](work/2026-10-21-rorb-calibration.md) | PR #145 review fixes submitted; RORB_CMD execution validation outstanding |
 | [Vendor simil and PyHMA integration](work/2026-10-19-vendor-integration.md) | PR #139 packaging, licence notices, independent imports, similarity API and validation |
 | [Installed scripts and distribution rename](work/2026-10-18-installed-scripts.md) | PR #120 wheel scripts, automatic MCP resolution, removed import shim and PyPI name migration |
 | [Installed scripts and MCP requirements](work/2026-10-17-installed-scripts-mcp-pip-distribution.md) | PR #130/#137: corrected wrapper copying, provisional packaging and outstanding engineering acceptance |
 | [Original script distribution requirements](audits/2026-10-17-installed-scripts-original-requirements.md) | Preserved original A–F requirements |
-| [Installed script inventory](audits/2026-10-19-installed-scripts-inventory.md) | All 156 source paths; 85 selected and 71 excluded; lifecycle sign-off outstanding |
+| [Installed script inventory](audits/2026-10-19-installed-scripts-inventory.md) | All 158 source paths; 85 selected and 73 excluded; lifecycle sign-off outstanding |
 | [Script remediation backlog](audits/2026-10-22-script-remediation-backlog.md) | 47 AB items: open/deferred work plus accepted-closed HY-8 evidence (AB-023); triaged safety, engineering and lifecycle tasks |
 | [Fast PR checks and hosted timing](work/2026-10-17-fast-pr-checks-129.md) | PR #129 implementation, exact-head hosted validation, timing evidence and remaining Python-change exercise |
 | [Mapped-drive-safe filesystem paths and raster progress](work/2026-10-16-absolute-path-policy.md) | PR #128 path policy, multiline raster progress, retained-wheel rebuild blocker and validation handoff |
