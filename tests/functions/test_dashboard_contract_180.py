@@ -10,6 +10,7 @@ from collections.abc import Callable
 from multiprocessing import pool as multiprocessing_pool
 from multiprocessing.pool import ApplyResult
 from typing import cast
+from unittest.mock import patch
 
 import pytest
 
@@ -87,8 +88,6 @@ def test_invalid_metric_and_other_configuration() -> None:
 
 def test_phase_transitions_force_refresh_while_metrics_remain_throttled() -> None:
     """Long blocking exports must display their phase before the next tick."""
-    from unittest.mock import patch
-
     dashboard = LiveWorkflowDashboard(title="Phases", enabled=False)
     with patch.object(dashboard, "refresh") as refresh:
         dashboard.set_phase("Exporting")
