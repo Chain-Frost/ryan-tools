@@ -171,6 +171,83 @@ def test_late_tcf_conflict_fails_before_checker_or_output(tmp_path: Path, monkey
     assert not (tmp_path / "issues.csv").exists()
 
 
+
+
+def test_relative_command_source_uses_working_directory_not_invoking_cwd(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    model = tmp_path / "model"
+    invocation = tmp_path / "invocation"
+    model.mkdir()
+    invocation.mkdir()
+    source = model / "runs.txt"
+    source.write_text("TUFLOW.exe correct_model.tcf", encoding="utf-8")
+    (invocation / "runs.txt").write_text("TUFLOW.exe WRONG_model.tcf", encoding="utf-8")
+    manifest_path = tmp_path / "plan.json"
+
+    monkeypatch.chdir(invocation)
+    assert (
+        entry()(
+            tcf=None,
+            commands=Path("runs.txt"),
+            report=tmp_path / "issues.csv",
+            working_directory=model,
+            plan_only=True,
+            plan_report=manifest_path,
+        )
+        == 0
+    )
+    planned = json.loads(manifest_path.read_text(encoding="utf-8"))["runs"]
+    assert len(planned) == 1
+    assert planned[0]["source_file"] == str(source)
+    assert planned[0]["tcf"] == str(model / "correct_model.tcf")
+    assert not (tmp_path / "issues.csv").exists()
+
+
+def test_cli_mixed_relative_and_absolute_sources_preserve_order_and_provenance(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    model = tmp_path / "model"
+    invocation = tmp_path / "invocation"
+    elsewhere = tmp_path / "elsewhere"
+    for directory in (model, invocation, elsewhere):
+        directory.mkdir()
+    relative = model / "first.bat"
+    absolute = elsewhere / "second.txt"
+    relative.write_text("TUFLOW.exe first_model.tcf", encoding="utf-8")
+    absolute.write_text("TUFLOW.exe other_model.tcf", encoding="utf-8")
+    (invocation / "first.bat").write_text("TUFLOW.exe wrong_model.tcf", encoding="utf-8")
+    output = tmp_path / "mixed.json"
+
+    monkeypatch.chdir(invocation)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            str(WRAPPER),
+            "--working-directory",
+            str(model),
+            "--runs",
+            "first.bat",
+            "--runs",
+            str(absolute),
+            "--plan-only",
+            "--plan-report",
+            str(output),
+            "--no-pause",
+        ],
+    )
+    with pytest.raises(SystemExit) as finished:
+        runpy.run_path(str(WRAPPER), run_name="__main__")
+    assert finished.value.code == 0
+    planned = json.loads(output.read_text(encoding="utf-8"))["runs"]
+    assert [run["source_file"] for run in planned] == [str(relative), str(absolute)]
+    assert [run["tcf"] for run in planned] == [
+        str(model / "first_model.tcf"),
+        str(model / "other_model.tcf"),
+    ]
+
+
 def test_configuration_base_explicitly_controls_python_tcf(tmp_path: Path) -> None:
     model = tmp_path / "config" / "model.tcf"
     model.parent.mkdir()

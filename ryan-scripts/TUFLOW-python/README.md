@@ -28,8 +28,10 @@ To create a **new** issues CSV, set `REPORT_CSV = Path("issues.csv")` or pass
 `--report issues.csv`; `None` means terminal output only. Existing reports
 are never overwritten. Use `--plan-only` for plan inspection without model
 file reads, and `--plan-report plan.json` for optional new manifest output.
-Command paths are relative to `WORKING_DIR` (terminal cwd when `None`);
-a relative configured TCF uses `CONFIGURATION_DIR` (wrapper folder when both
+Command sources selected by `RUN_FILES` or `--runs` are relative to
+`WORKING_DIR` (terminal cwd when `None`), even if the invoking terminal
+is in another directory. Absolute command-file paths are used unchanged.
+A relative configured TCF uses `CONFIGURATION_DIR` (wrapper folder when both
 directory settings are `None`).
 See the [input-preflight guide](../../docs/TUFLOW_INPUT_PREFLIGHT.md) for supported
 BAT/text syntax, multiple TCFs, installation and validation boundaries.

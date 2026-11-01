@@ -134,7 +134,9 @@ TXT export and single-CSV Resume workflow.
 
 The standalone checker has a visible, editable settings section. `RUN_FILES`
 selects its BAT/TXT inputs, `TCF = None` permits multiple models, and
-`WORKING_DIR` controls the base for imported commands. The shipped input is
+`WORKING_DIR` controls the base for imported commands **and relative
+`RUN_FILES`/`--runs` filenames** (regardless of the invoking terminal's
+cwd); absolute command-file paths remain unchanged. The shipped input is
 `run_tuflow_simulations.txt` beside the checker; point `RUN_FILES` at a
 version-specific TXT when applicable. No `DEFAULT_` prefix is required.
 

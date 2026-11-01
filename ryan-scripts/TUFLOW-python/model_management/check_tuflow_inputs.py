@@ -15,7 +15,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
-WRAPPER_VERSION = "2026-11-01.1"
+WRAPPER_VERSION = "2026-11-01.2"
 
 # ------------------------ USER-EDITABLE SETTINGS -------------------------
 # CLI arguments override these settings. No naming prefix is required.
@@ -106,7 +106,10 @@ def main(
         if configuration_directory is not None
         else (working_directory if working_directory is not None else Path(__file__).absolute().parent)
     ).absolute()
-    sources = (commands,) if isinstance(commands, Path) else tuple(commands)
+    supplied_sources = (commands,) if isinstance(commands, Path) else tuple(commands)
+    # The reader makes paths absolute against process cwd, so anchor them to
+    # WORKING_DIR here before parsing. Keep absolute source paths unchanged.
+    sources = tuple(source if source.is_absolute() else (initial / source).absolute() for source in supplied_sources)
     plan = read_command_plans(
         sources,
         initial_directory=initial,
@@ -166,7 +169,9 @@ def _parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     model = parser.add_mutually_exclusive_group()
     model.add_argument("--tcf", type=Path, help="Set the Python TCF constraint and fallback.")
     model.add_argument("--no-tcf", action="store_true", help="Accept multiple TCFs, overriding TCF.")
-    parser.add_argument("--runs", type=Path, action="append", help="BAT/CMD/TXT files; repeat in read order.")
+    parser.add_argument(
+        "--runs", type=Path, action="append", help="BAT/CMD/TXT files relative to WORKING_DIR; repeat in read order."
+    )
     parser.add_argument("--working-directory", type=Path, help="Initial directory for imported command paths.")
     parser.add_argument("--configuration-directory", type=Path, help="Base for a relative Python TCF path.")
     report = parser.add_mutually_exclusive_group()
