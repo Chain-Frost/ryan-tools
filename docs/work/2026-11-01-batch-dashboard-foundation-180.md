@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Planned; implementation has not started |
-| Owner | Unassigned; foundation agent when started |
+| Status | Active — READY_FOR_ADOPTION; parent PR remains draft and unmerged |
+| Owner | ChatGPT (foundation recovery) |
 | Created | 2026-11-01 |
 | Updated | 2026-11-01 |
 | Next review | 2026-11-08 |
@@ -11,7 +11,7 @@
 | Branch / base | `feat/batch-dashboard-foundation-180` -> `main` |
 | Issue | [#180](https://github.com/Chain-Frost/ryan-tools/issues/180), bounded dashboard work |
 | Dependent work | [TUFLOW result dashboard adoption](2026-11-01-tuflow-result-dashboards-180.md) |
-| Delivery | Documentation-only seed for a draft PR; runtime implementation and acceptance remain outstanding |
+| Delivery | Implemented and pushed at `023253ed612bb0bbd9a61826f27f553c7b2e9447` (normal merge of current main); six CI checks passed on this SHA; readiness published in this subsequent documentation commit |
 
 ## Outcome and scope
 
@@ -160,24 +160,29 @@ prevents both agents editing generic installed-wrapper tests for unrelated reaso
 
 ## Consumer interface readiness
 
-**State: NOT_READY**
+**State: READY_FOR_ADOPTION**
 
-The documentation seed does not satisfy this gate. PR creation, a proposed signature, a stub implementation or elapsed
-time does not make the interface ready. Change this section to **READY_FOR_ADOPTION** only with all of:
+**Pushed, immutable implementation SHA:** `023253ed612bb0bbd9a61826f27f553c7b2e9447` on `feat/batch-dashboard-foundation-180`. This commit has both the preceding foundation head `b42edfc8f38a8ec6861aa45d21165ced0241f253` and current `main` `82c1a1b6e30573971ac5e1ac5fb64b41b20e9495` as parents (a normal merge). The implementation SHA was pushed and validated **before this readiness publication**. The child must verify that this exact SHA remains an ancestor of the remote parent head before merging it normally into PR #184. Do not cherry-pick or infer a future API.
 
-- Immutable, pushed implementation commit SHA and branch.
-- Actual public imports/signatures and configuration, worker/update, optional-metric and diagnostic contracts.
-- Return/outcome, ordering, partial-failure, infrastructure-error, interruption and cleanup semantics.
-- Working log-summary reference code at that SHA.
-- Exact focused commands, environment and results demonstrating the implemented interface, warning/error preservation,
-  optional/unknown metrics, enabled/disabled parity and a real spawned-worker smoke. Clearly list acceptance still
-  pending; unavailable native Windows evidence is not a pass.
-- Relevant compatibility limits and an explicit promise to keep the interface stable during child adoption.
+### Actual callable/configuration contract
 
-The child verifies that the implementation commit is an ancestor of the remote parent head, merges that parent
-normally, checks the actual merged API and records the adopted SHA in its own record. A required breaking correction
-must explicitly withdraw or supersede readiness and name a new pushed implementation SHA. Compatible fixes still
-need an updated record when they affect the child's assumptions.
+- From `ryan_library.functions.live_dashboard`: `LiveWorkflowDashboard(title, subtitle="", enabled=True, refresh_per_second=2.0, max_rows=25, columns=None, transient=True, screen=False)`; `WorkflowColumn`; `WorkflowMetric(label, value=None, unit="", total=None, metadata="")`; `validate_dashboard_settings(refresh_per_second=..., max_rows=...)`. Display settings reject non-finite/nonpositive refresh rates and nonpositive/noninteger rows; workflow-selected metrics can be absent, alternative, unknown (`None`), zero, or assigned later with an optional total. Do not label file-size metadata as measured bytes read; do not reread file contents to populate metrics.
+- Renderer methods: `set_tasks(labels, metadata=None)`, `mark_running(index=..., ...)`, `mark_finished(index=..., status=..., ...)`, `set_phase(phase)`, `set_metrics(sequence)`, `finish(outcome=..., detail="")`. Per-item statuses are `QUEUED`, `RUNNING`, `OK`, `SKIP`, `FAIL`; final outcomes are `SUCCESS`, `SKIPPED`, `FAILED`, `INTERRUPTED`. The renderer is stateful, nested-context safe and bounds live refresh and visible/history rows. It does **not** own discovery, aggregation, export or workflow success policy. Preserve the same outer lifecycle through export and issue SUCCESS only after a completed export.
+- From `ryan_library.functions.dashboard_workflow`: `run_dashboard_workflow_report(items, process_item, dashboard, pool_size, status_for_result, detail_for_result, log_queue=None, worker_log_level=None, max_start_events=None, poll_interval=0.1, on_outcome=None)` (keyword arguments) returns `WorkflowRunReport[TResult]` with `outcomes: tuple[WorkflowItemOutcome[TResult], ...]`. The existing `run_dashboard_workflow(...)` accepts the same parameters and retains its legacy `list[TResult]` return.
+- `WorkflowItemOutcome`: one-based `index`, terminal `status`, `result`, `has_result`, `error`. `has_result=True` includes a legitimate `None` result, and domain SKIP/FAIL returns remain distinguishable from errors. `WorkflowRunReport.results` includes all returned values in input order; `.failures` selects FAIL outcomes. Outcomes are ordered by input index, even if parallel completion and parent-only `on_outcome` callback order differ.
+- Workers must receive importable/picklable callables and return domain results, not dashboard instances or giant UI objects. One parent process owns rendering. Serial mode is `pool_size=1`, pool mode is `pool_size>1`; spawned workers send bounded, nonblocking cosmetic start events. Missing start events do not change result accounting. `on_outcome` executes once per completed item in the parent, may update cheap metrics, and is not a retry hook.
+- `run_dashboard_workflow_report` represents normal worker item exceptions as FAIL outcomes; the legacy list API re-raises unexpected item exceptions rather than hiding them. Crucially, pool `MaybeEncodingError` and transport `OSError` obtained from `ApplyResult.get()` propagate even from the **report API**, preserving consumer-owned serial fallback. Invalid status/detail adapters, callback faults, pool infrastructure faults and interruptions propagate; the helper never silently chooses a retry policy. The caller decides full-list fallback and keeps per-input unique progress accounting. Pool/queue/dashboard cleanup runs on normal and exceptional exits. A report with failures must not be described as an overall success or used as evidence that an export completed.
+- Use `setup_logger(console_log_level=..., log_file=..., file_log_level=...)`. In dashboard mode choose a concise default console sink (normally SUCCESS), while configured DEBUG file sinks still receive worker DEBUG/INFO/WARNING/ERROR and exception tracebacks through the existing Loguru queue. The `worker_log_level=None` default captures the least restrictive required sink; a stricter override that would discard sink-required records is rejected. Console and file sinks filter independently; do not force workers to ERROR to quiet the display. With `enabled=False` use ordinary logging; redirected output has one plain final summary, not repeated ANSI frames.
+
+### Working reference, evidence and compatibility limits
+
+- The working reference is `ryan_library.orchestrators.tuflow.tuflow_logsummary` and `ryan-scripts/TUFLOW-python/log_processing/create_log_summary_report.py` **at the SHA above**. The same dashboard remains active through discovery, file processing, aggregation and export. Partial result failure and export failure are not overall SUCCESS; the wrapper propagates controlled failure exits, and ordinary per-file INFO completions are not replayed as dashboard clutter.
+- **Hosted Windows Python 3.14.10, 2026-11-01:** [Python CI run #1658](https://github.com/Chain-Frost/ryan-tools/actions/runs/41295863941), exact implementation SHA above: **1,988 passed, 14 skipped, 8 deselected, 128 warnings, 0 failed** from the hosted test boundary `python -m pytest tests` with the workflow's explicit GDAL/promoted-utilities exclusions and pytest flags in `.github/workflows/ci.yml`. This includes `tests/functions/test_dashboard_contract_180.py`, `tests/orchestrators/tuflow/test_logsummary_dashboard_contract_180.py` and the **actual Windows-spawned worker harness**, including 10,000 small tasks, worker DEBUG/WARNING/ERROR, interrupted callback, real exported result parity and transport fault signalling.
+- The same run's **Policy** job passed Ruff check/format and strict Pyright **0 errors, 0 warnings, 0 informations** on changed Python files, `python repo-scripts/check_documentation.py` (seven documents and central index), explicit MCP link checks, and `python repo-scripts/check_loguru_formatting.py`. **Package** passed a fresh wheel build at existing version `26.11.1.1`, wheel verification and `python repo-scripts/smoke_dashboard_installed_wheel.py --expected-root <installed-wheel-root>`. Its log verifies a **copied wrapper outside checkout**, installed source origin, dashboard on/off, workbook output, DEBUG, warnings and controlled failure. MCP smoke and POSIX security also passed. [Fast PR check run #1292](https://github.com/Chain-Frost/ryan-tools/actions/runs/41295864184) passed.
+- Previous hosted failure was **three test-only mistakes**: two mocks used a parameter named `path` instead of the production keyword `logfile`, and the 10,000-task test expected a SUCCESS record on a WARNING-level console. Fixed at `b42edfc8f38a8ec6861aa45d21165ced0241f253`; all three pass on the merged implementation SHA. The earlier adapter exception findings were corrected, and the P1 large-batch queue hang was addressed with a bounded, nonblocking progress queue plus detachable worker feeder. The Codex P1 thread was answered and resolved after green CI.
+- Limits: these are real **hosted/native Windows** Python 3.14 tests with synthetic data, not licensed TUFLOW numerical/engineering acceptance, not mapped-drive/UNC/locked-network-file acceptance and not a production workload. No release, PyPI publication, licensed solver execution, destructive data operation or broader audit closure is claimed. The independent six-wrapper adaptation and its domain regression/installed-copy checks remain wholly child-owned.
+
+**Interface stability commitment:** Keep these callable, outcome, diagnostic and optional-metric contracts stable while PR #184 adopts the foundation. A breaking correction must withdraw/supersede this readiness with a new pushed SHA and explicit coordination. Child verification of ancestor and smoke of the actual merged API is still mandatory.
 
 ## Completion criteria and validation
 
@@ -212,14 +217,11 @@ deferred audit items. The existing inventory counts are source/resource counts, 
 
 ## Next action
 
-Start the foundation implementation on the named parent branch, inspect the existing renderer/adapter/logging
-contracts, and record the minimal concrete interface decision. The child may perform documentation-only scoping now.
+Child PR #184: fetch the actual remote parent, verify `023253ed612bb0bbd9a61826f27f553c7b2e9447` is its ancestor, merge the entire parent normally, inspect/smoke the merged contract, record both the implementation SHA and merged parent head, then begin the six result-wrapper integrations. Parent PR #183 remains draft and unmerged pending final stack review; leave issue #180 open.
 
 ## Validation and delivery
 
-The setup contains no runtime changes. Documentation validation and the pushed seed/PR references are recorded in the
-draft PR body. Implementation, runtime tests, Windows smoke and installed-wheel acceptance have not been performed
-for this work front. Keep these distinct from historical evidence in other records.
+The complete evidence and remaining environment-specific limits are in the READY_FOR_ADOPTION record above. At implementation head `023253ed612bb0bbd9a61826f27f553c7b2e9447`, the repository's six required CI checks are green, including Windows Python 3.14.10 spawned-worker regression and copied installed-wheel smoke. All source changes, the normal main merge and the test corrections were pushed to the existing parent branch, with no force push. This readiness/documentation commit follows the already validated implementation SHA; any new checks on documentation-only commits should be reported separately rather than silently assumed green. Parent PR #183 remains draft and unmerged, and no release/auto-merge is enabled.
 
 ## Progress
 
@@ -228,3 +230,7 @@ for this work front. Keep these distinct from historical evidence in other recor
 Agreed a dashboard-first standard for substantial batches, preserved diagnostic capture, workflow-selected optional
 metrics and a concrete implementation gate for concurrent child adoption. Seeded the two handoffs in the parent so
 their relative links exist from the start; after branching, each agent owns only its own status record.
+
+### 2026-11-01 — foundation recovery, merge and readiness
+
+Recovered the existing foundation after the prior agent stopped. Verified adapter transport/callback fixes and the P1 bounded-queue correction; fixed three Windows test assertions in `b42edfc`. Merged main normally with two-parent commit `023253ed` preserving both the dashboard and independent MCP changes. Six CI checks passed at the implementation SHA, including 1,988 hosted tests, strict changed-file Pyright, real spawned-worker coverage and a copied installed-wheel log-summary smoke. Replied to and resolved the outstanding Codex thread. Published READY_FOR_ADOPTION with the exact code SHA and stable interface contract for child #184; neither PR was merged to main.
