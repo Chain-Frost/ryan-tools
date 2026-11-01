@@ -117,7 +117,7 @@ def test_result_wrapper_defaults_to_pause_with_only_no_pause_override(
     del entry, kind
     module = _load_wrapper(path)
     parse = cast("Callable[[], argparse.Namespace]", module._parse_cli_arguments)
-    assert getattr(module, "PAUSE_ON_FINISH") is True
+    assert module.PAUSE_ON_FINISH is True
 
     # The CLI does not override the editable pause default when omitted.
     monkeypatch.setattr(sys, "argv", ["wrapper.py"])
