@@ -103,8 +103,7 @@ def parse_hydrographs(path: Path) -> dict[str, list[float]]:  # noqa: C901 -- st
                 continue
             if len(parts) != len(columns):
                 message = (
-                    f"Malformed hydrograph row {row_number} in {path}: "
-                    f"expected {len(columns)} values, got {len(parts)}"
+                    f"Malformed hydrograph row {row_number} in {path}: expected {len(columns)} values, got {len(parts)}"
                 )
                 raise ValueError(message)
             try:
