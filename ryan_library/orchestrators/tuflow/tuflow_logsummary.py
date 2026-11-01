@@ -287,12 +287,13 @@ def main_processing(
                         dashboard.finish(outcome="FAILED", detail="report export failed")
                         return False
                     outcome = "FAILED" if failed_runs else "SUCCESS"
-                    if outcome == "SUCCESS":
+                    if outcome == "SUCCESS" and not use_live_dashboard:
                         logger.success("Log summary report exported successfully.")
                     else:
                         logger.error("{} log(s) failed; exported report contains only completed runs.", failed_runs)
 
-                logger.success("Number of successful runs: {}", successful_runs)
+                if not use_live_dashboard:
+                    logger.success("Number of successful runs: {}", successful_runs)
                 dashboard.set_phase("Complete")
                 dashboard.finish(outcome=outcome, detail=f"{successful_runs} completed run(s)")
                 return outcome != "FAILED"
@@ -357,7 +358,7 @@ def process_log_files(
         worker_log_level=None,  # Preserve the least restrictive configured sink, including DEBUG files.
         max_start_events=max(pool_size * 2, live_max_rows),
     )
-    _log_processing_results(processing_results=processing_results, include_completions=not use_live_dashboard)
+    _log_processing_results(processing_results=processing_results)
     return processing_results
 
 
@@ -399,14 +400,11 @@ def _format_dashboard_label(*, logfile: Path) -> str:
         return str(logfile)
 
 
-def _log_processing_results(
-    *, processing_results: list[LogFileProcessingResult], include_completions: bool = True
-) -> None:
+def _log_processing_results(*, processing_results: list[LogFileProcessingResult]) -> None:
     for result in processing_results:
         relative_logfile_path: str = _format_dashboard_label(logfile=result.logfile)
         if result.status == "OK":
-            if include_completions:
-                logger.info("Completed {}", relative_logfile_path)
+            logger.info("Completed {}", relative_logfile_path)
         elif result.status == "SKIP":
             logger.warning("Skipped {}: {}", relative_logfile_path, result.detail)
         else:
