@@ -19,14 +19,16 @@ def worker(value: int) -> int:
     logger.warning("DASH_WORKER_WARNING {}", value)
     if value == 2:
         try:
-            raise OSError("synthetic worker failure")
+            msg = "synthetic worker failure"
+            raise OSError(msg)
         except OSError:
             logger.exception("DASH_WORKER_ERROR {}", value)
-        raise OSError("synthetic worker failure")
+        msg = "synthetic worker failure"
+        raise OSError(msg)
     return value * 3
 
 
-def status(result: int) -> WorkflowStatus:
+def status(_result: int) -> WorkflowStatus:
     return "OK"
 
 
