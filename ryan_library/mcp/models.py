@@ -95,9 +95,7 @@ class ExecutionTarget:
         return cls(kind=kind, value=value)
 
 
-def normalize_workflow_keywords(
-    raw: object, *, workflow_id: str, allow_tuple: bool = False
-) -> tuple[str, ...]:
+def normalize_workflow_keywords(raw: object, *, workflow_id: str, allow_tuple: bool = False) -> tuple[str, ...]:
     """Validate and normalize curated search terms from either catalogue."""
     if not isinstance(raw, list) and not (allow_tuple and isinstance(raw, tuple)):
         msg = (

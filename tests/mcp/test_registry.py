@@ -372,9 +372,7 @@ def test_generic_keyword_catalogue_validation_rejects_bad_values(bad_keywords: o
 def test_gdal_keyword_catalogue_validation_rejects_bad_values(
     bad_keywords: object, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    (tmp_path / "workflows.json").write_text(
-        json.dumps({"schema_version": "1.0", "workflows": []}), encoding="utf-8"
-    )
+    (tmp_path / "workflows.json").write_text(json.dumps({"schema_version": "1.0", "workflows": []}), encoding="utf-8")
     (tmp_path / "gdal_cli_tools.json").write_text(
         json.dumps(
             {
@@ -415,7 +413,9 @@ def test_gdal_and_generic_keyword_discovery_preserves_canonical_ids() -> None:
     result = registry.list_workflows(domain="gdal", query="  CrOp   RASTER ", include_unavailable=True)
     assert [item["id"] for item in result["workflows"]] == ["clip_rasters_to_polygon"]
     assert registry.list_workflows(domain="gd", query="crop", include_unavailable=True)["workflow_count"] == 0
-    assert registry.list_workflows(domain="gdal", query="crop translate", include_unavailable=True)["workflow_count"] == 0
+    assert (
+        registry.list_workflows(domain="gdal", query="crop translate", include_unavailable=True)["workflow_count"] == 0
+    )
     assert registry.list_workflows(query="cropp", include_unavailable=True)["workflow_count"] >= 1
     assert registry.list_workflows(query="nonexistent-phrase-xyz", include_unavailable=True)["workflow_count"] == 0
     assert "error" in registry.get_workflow("crop")
@@ -453,17 +453,16 @@ def test_registry_overview_aggregates_filtered_full_set_and_bounded_examples() -
             matching = [item for item in full["workflows"] if item["domain"] == row["domain"]]
             assert row["workflow_count"] == len(matching)
             assert row["examples"] == [
-                {"id": item["id"], "title": item["title"], "available": item["available"]}
-                for item in matching[:3]
+                {"id": item["id"], "title": item["title"], "available": item["available"]} for item in matching[:3]
             ]
             assert all(set(example) == {"id", "title", "available"} for example in row["examples"])
 
     create = registry.list_workflows(maximum_profile="create", include_unavailable=True, overview=True)
     assert "gdal" in create["domains"]
-    assert "run_tuflow_batch" not in {
-        example["id"] for row in create["domain_overview"] for example in row["examples"]
-    }
-    assert registry.list_workflows(maximum_profile="core", overview=True, include_unavailable=True)["workflow_count"] == 0
+    assert "run_tuflow_batch" not in {example["id"] for row in create["domain_overview"] for example in row["examples"]}
+    assert (
+        registry.list_workflows(maximum_profile="core", overview=True, include_unavailable=True)["workflow_count"] == 0
+    )
     with pytest.raises(WorkflowRegistryError, match="overview must be a boolean"):
         registry.list_workflows(overview=1)  # type: ignore[arg-type]
 
