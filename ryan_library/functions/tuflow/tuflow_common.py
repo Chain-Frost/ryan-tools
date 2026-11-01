@@ -97,7 +97,11 @@ def _record_file_outcome(
         progress.observe(status)
         if dashboard is not None:
             dashboard.set_metrics(
-                [WorkflowMetric(label="Files finished", value=progress.completed, total=progress.scheduled, unit="files")]
+                [
+                    WorkflowMetric(
+                        label="Files finished", value=progress.completed, total=progress.scheduled, unit="files"
+                    )
+                ]
             )
 
 
@@ -269,11 +273,15 @@ def process_files_in_parallel(
     largest_desc: str = f"{largest_file.name} ({_format_bytes(largest_bytes)})" if largest_file else "n/a"
     logger.info(
         "Preparing to process {} files (~{} on disk; largest {}).",
-        file_count, _format_bytes(total_bytes), largest_desc,
+        file_count,
+        _format_bytes(total_bytes),
+        largest_desc,
     )
     dataset_summary: str = f"{file_count} files (~{_format_bytes(total_bytes)} on disk; largest {largest_desc})"
 
-    progress = batch_progress if batch_progress is not None else (FileBatchProgress() if dashboard is not None else None)
+    progress = (
+        batch_progress if batch_progress is not None else (FileBatchProgress() if dashboard is not None else None)
+    )
     if progress is not None:
         progress.reset(scheduled=len(file_list))
     if dashboard is not None:
@@ -330,7 +338,8 @@ def process_files_in_parallel(
     except (MaybeEncodingError, OSError) as exc:
         logger.warning(
             "Multiprocessing could not return results ({}). Falling back to sequential execution. Dataset footprint: {}",
-            exc, dataset_summary,
+            exc,
+            dataset_summary,
         )
 
     # The complete original input list is retried, just as before. Reset

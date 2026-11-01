@@ -64,8 +64,7 @@ def main(
     script_directory = (working_directory if working_directory is not None else WORKING_DIR).expanduser().absolute()
     selected_roots = paths_to_process or PATHS_TO_PROCESS or (script_directory,)
     effective_paths = [
-        (item if item.is_absolute() else script_directory / item).expanduser().absolute()
-        for item in selected_roots
+        (item if item.is_absolute() else script_directory / item).expanduser().absolute() for item in selected_roots
     ]
     selected_locations = locations_to_include if locations_to_include is not None else LOCATIONS_TO_INCLUDE
     effective_locations = selected_locations or None
@@ -76,14 +75,24 @@ def main(
     effective_console_level = CONSOLE_LOG_LEVEL if console_log_level is None else console_log_level
     effective_file_level = FILE_LOG_LEVEL if file_log_level is None else file_log_level
     configured_log_file = LOG_FILE if log_file is None else log_file
-    effective_log_file = None if configured_log_file is None else (
-        (configured_log_file if configured_log_file.is_absolute() else script_directory / configured_log_file)
-        .expanduser().absolute()
+    effective_log_file = (
+        None
+        if configured_log_file is None
+        else (
+            (configured_log_file if configured_log_file.is_absolute() else script_directory / configured_log_file)
+            .expanduser()
+            .absolute()
+        )
     )
     configured_output = OUTPUT_DIR if output_directory is None else output_directory
-    effective_output = None if configured_output is None else (
-        (configured_output if configured_output.is_absolute() else script_directory / configured_output)
-        .expanduser().absolute()
+    effective_output = (
+        None
+        if configured_output is None
+        else (
+            (configured_output if configured_output.is_absolute() else script_directory / configured_output)
+            .expanduser()
+            .absolute()
+        )
     )
     validate_dashboard_settings(refresh_per_second=effective_refresh, max_rows=effective_rows)
     if not change_working_directory(target_dir=script_directory):
@@ -119,8 +128,13 @@ def _parse_cli_arguments() -> argparse.Namespace:
     add_common_cli_arguments(parser=parser)
     add_export_mode_cli_argument(parser=parser)
     parser.add_argument("--output-directory", type=Path, help="Export folder, relative to working directory.")
-    parser.add_argument("--paths-to-process", nargs="+", type=Path, metavar="PATH",
-                        help="Input directory roots relative to working directory.")
+    parser.add_argument(
+        "--paths-to-process",
+        nargs="+",
+        type=Path,
+        metavar="PATH",
+        help="Input directory roots relative to working directory.",
+    )
     parser.add_argument("--log-file", type=Path, help="Optional detailed log file.")
     parser.add_argument("--file-log-level", help="File sink severity, e.g. DEBUG.")
     return parser.parse_args()
@@ -144,7 +158,9 @@ if __name__ == "__main__":
         output_directory=args.output_directory,
     )
     print_wrapper_banner(
-        wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True,
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        leading_blank_line=True,
     )
     should_pause = PAUSE_ON_FINISH if options.pause_on_finish is None else options.pause_on_finish
     if should_pause:

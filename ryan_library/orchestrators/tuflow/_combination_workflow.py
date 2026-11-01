@@ -75,11 +75,13 @@ def execute_combination_workflow(
         max_rows=live_max_rows,
     )
     progress = FileBatchProgress()
-    console_level = console_log_level if console_log_level is not None else (
-        "SUCCESS" if use_live_dashboard else "INFO"
+    console_level = (
+        console_log_level if console_log_level is not None else ("SUCCESS" if use_live_dashboard else "INFO")
     )
     with setup_logger(
-        console_log_level=console_level, log_file=log_file, file_log_level=file_log_level,
+        console_log_level=console_level,
+        log_file=log_file,
+        file_log_level=file_log_level,
     ) as log_queue:
         with dashboard:
             try:
