@@ -55,7 +55,7 @@ def test_dashboard_transport_fallback_retries_original_files_once() -> None:
     progress = common.FileBatchProgress()
 
     def broken_report(**kwargs: object) -> None:
-        outcome = common.WorkflowItemOutcome(
+        outcome = common.WorkflowItemOutcome[BaseProcessor | None](
             index=1,
             status="OK",
             result=_processed("first.csv"),
