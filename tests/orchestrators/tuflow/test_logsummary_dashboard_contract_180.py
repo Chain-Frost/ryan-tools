@@ -186,3 +186,18 @@ def test_real_spawn_pool_oserror_propagates_for_consumer_fallback(tmp_path: Path
         check=True,
     )
     assert "POOL_OSERROR_PROPAGATED" in run.stdout
+
+
+def test_console_default_depends_on_dashboard_and_explicit_level_is_preserved() -> None:
+    with (
+        patch.object(ls, "setup_logger") as setup,
+        patch.object(ls, "discover_log_files", return_value=[]),
+    ):
+        ls.main_processing(use_live_dashboard=True)
+        assert setup.call_args.kwargs["console_log_level"] == "SUCCESS"
+        ls.main_processing(use_live_dashboard=False)
+        assert setup.call_args.kwargs["console_log_level"] == "INFO"
+        ls.main_processing(use_live_dashboard=True, console_log_level="INFO")
+        assert setup.call_args.kwargs["console_log_level"] == "INFO"
+        ls.main_processing(use_live_dashboard=True, console_log_level="DEBUG")
+        assert setup.call_args.kwargs["console_log_level"] == "DEBUG"
