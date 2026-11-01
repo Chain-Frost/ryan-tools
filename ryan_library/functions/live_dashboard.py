@@ -11,6 +11,7 @@ serial/multiprocessing execution wired into this dashboard.
 from __future__ import annotations
 
 import datetime
+import math
 import time
 from collections import deque
 from collections.abc import Mapping, Sequence
@@ -29,6 +30,8 @@ from rich.table import Table
 WorkflowStatus = Literal["QUEUED", "RUNNING", "OK", "SKIP", "FAIL"]
 WorkflowColumnSource = Literal["index", "status", "duration", "label", "detail", "metadata"]
 WorkflowOverflow = Literal["fold", "crop", "ellipsis", "ignore"]
+WorkflowPhase = str
+WorkflowOutcome = Literal["SUCCESS", "SKIPPED", "FAILED", "INTERRUPTED"]
 
 _LIVE_PANEL_FIXED_ROW_ALLOWANCE = 12
 
@@ -73,6 +76,52 @@ class WorkflowTask:
     finished_time: datetime.datetime | None = None
 
 
+
+@dataclass(slots=True, frozen=True)
+class WorkflowMetric:
+    """One optional, caller-owned aggregate measure; None means unknown.
+
+    A total can be discovered later. Units are displayed verbatim: callers
+    must distinguish decimal MB, binary MiB and file-size metadata from
+    instrumented bytes read. The renderer never measures work itself.
+    """
+
+    label: str
+    value: int | float | str | None = None
+    unit: str = ""
+    total: int | float | None = None
+    metadata: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.label.strip():
+            raise ValueError("WorkflowMetric.label must be non-empty.")
+        for name, value in (("value", self.value), ("total", self.total)):
+            if isinstance(value, bool) or (isinstance(value, (int, float)) and not math.isfinite(value)):
+                raise ValueError(f"WorkflowMetric.{name} must be a finite number, string or None.")
+        if self.total is not None and self.total < 0:
+            raise ValueError("WorkflowMetric.total must be non-negative.")
+
+    def display(self) -> str:
+        value = "?" if self.value is None else str(self.value)
+        total = "" if self.total is None else f"/{self.total}"
+        unit = f" {self.unit}" if self.unit else ""
+        metadata = f" ({self.metadata})" if self.metadata else ""
+        return f"{self.label} {value}{total}{unit}{metadata}"
+
+
+def validate_dashboard_settings(*, refresh_per_second: float, max_rows: int) -> None:
+    """Reject invalid effective display settings before starting processing."""
+    if (
+        isinstance(refresh_per_second, bool)
+        or not isinstance(refresh_per_second, (int, float))
+        or not math.isfinite(refresh_per_second)
+        or refresh_per_second <= 0
+    ):
+        raise ValueError("live_refresh_per_second must be a finite number greater than 0 (e.g. 2.0).")
+    if isinstance(max_rows, bool) or not isinstance(max_rows, int) or max_rows < 1:
+        raise ValueError("live_max_rows must be a positive integer (e.g. 25).")
+
+
 DEFAULT_WORKFLOW_COLUMNS: tuple[WorkflowColumn, ...] = (
     WorkflowColumn(header="#", source="index", justify="right", no_wrap=True),
     WorkflowColumn(header="State", source="status", no_wrap=True),
@@ -103,6 +152,7 @@ class LiveWorkflowDashboard:
         transient: bool = True,
         screen: bool = False,
     ) -> None:
+        validate_dashboard_settings(refresh_per_second=refresh_per_second, max_rows=max_rows)
         if enabled:
             # Rich inspects console capabilities when Console is constructed.
             # Enable native ANSI handling first so Windows terminals can update
@@ -111,8 +161,8 @@ class LiveWorkflowDashboard:
         self.title: str = title
         self.subtitle: str = subtitle
         self.enabled: bool = enabled
-        self.refresh_per_second: float = max(refresh_per_second, 0.1)
-        self.max_rows: int = max(max_rows, 1)
+        self.refresh_per_second: float = refresh_per_second
+        self.max_rows: int = max_rows
         self.columns: tuple[WorkflowColumn, ...] = tuple(columns or DEFAULT_WORKFLOW_COLUMNS)
         self.transient: bool = transient
         self.screen: bool = screen
@@ -120,23 +170,33 @@ class LiveWorkflowDashboard:
         self._live: Live | None = None
         self._last_refresh: float = 0.0
         self._tasks: dict[int, WorkflowTask] = {}
-        self._completed_order: deque[int] = deque()
+        self._completed_order: deque[int] = deque(maxlen=max_rows)
         self._active_count: int = 0
         self._extra_metrics: dict[str, str] = {}
+        self._metrics: tuple[WorkflowMetric, ...] = ()
+        self._phase: WorkflowPhase = "Queued"
+        self._context_depth: int = 0
+        self._final_summary_sent: bool = False
 
     def __enter__(self) -> LiveWorkflowDashboard:
-        if self.enabled:
-            self._live = Live(
-                self._render(),
-                console=self.console,
-                screen=self.screen,
-                refresh_per_second=self.refresh_per_second,
-                transient=self.transient,
-                redirect_stdout=True,
-                redirect_stderr=True,
-                vertical_overflow="crop",
-            )
-            self._live.__enter__()
+        self._context_depth += 1
+        if self._context_depth == 1 and self.enabled and self.console.is_terminal:
+            try:
+                self._live = Live(
+                    self._render(),
+                    console=self.console,
+                    screen=self.screen,
+                    refresh_per_second=self.refresh_per_second,
+                    transient=self.transient,
+                    redirect_stdout=True,
+                    redirect_stderr=True,
+                    vertical_overflow="crop",
+                )
+                self._live.__enter__()
+            except BaseException:
+                self._live = None
+                self._context_depth -= 1
+                raise
         return self
 
     def __exit__(
@@ -145,9 +205,14 @@ class LiveWorkflowDashboard:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
-        if self._live is not None:
-            self._live.__exit__(exc_type, exc_val, exc_tb)
-            self._live = None
+        if self._context_depth == 0:
+            return
+        self._context_depth -= 1
+        if self._context_depth == 0 and self._live is not None:
+            try:
+                self._live.__exit__(exc_type, exc_val, exc_tb)
+            finally:
+                self._live = None
 
     def set_tasks(
         self,
@@ -165,15 +230,18 @@ class LiveWorkflowDashboard:
             self._tasks[index] = WorkflowTask(
                 index=index,
                 label=label,
-                metadata={key: str(value) for key, value in raw_metadata.items()},
+                metadata={key: str(value) for key, value in raw_metadata.items() if value is not None},
             )
         self._completed_order.clear()
         self._active_count = 0
-        self.refresh(force=True)
+        self._final_summary_sent = False
+        self.refresh()
 
     def set_active_count(self, count: int, *, refresh: bool = True) -> None:
         """Set active worker count for workflows that cannot name running tasks."""
-        self._active_count = max(count, 0)
+        if isinstance(count, bool) or not isinstance(count, int) or count < 0:
+            raise ValueError("active worker count must be a non-negative integer.")
+        self._active_count = count
         if refresh:
             self.refresh()
 
@@ -181,6 +249,35 @@ class LiveWorkflowDashboard:
         """Set short summary metrics displayed above the task table."""
         self._extra_metrics = {key: str(value) for key, value in metrics.items()}
         self.refresh()
+
+    def set_metrics(self, metrics: Sequence[WorkflowMetric]) -> None:
+        """Replace optional workflow-defined aggregate measures.
+
+        Do not include measures which have no meaning for this workflow.
+        Use value=None (rather than zero) for a genuinely unknown value.
+        """
+        self._metrics = tuple(metrics)
+        self.refresh()
+
+    def set_phase(self, phase: str) -> None:
+        """Name the current workflow phase, including aggregation/export."""
+        if not phase.strip():
+            raise ValueError("Workflow phase must be non-empty.")
+        self._phase = phase
+        self.refresh()
+
+    def finish(self, *, outcome: WorkflowOutcome, detail: str = "") -> None:
+        """Print one final outcome; plain/redirected mode never draws Live frames."""
+        if self._final_summary_sent:
+            return
+        self._final_summary_sent = True
+        if self.enabled:
+            counts = {status: sum(task.status == status for task in self._tasks.values())
+                      for status in ("OK", "SKIP", "FAIL")}
+            suffix = f" - {detail}" if detail else ""
+            self.print(
+                f"{self.title}: {outcome} (OK {counts['OK']}, SKIP {counts['SKIP']}, FAIL {counts['FAIL']}){suffix}"
+            )
 
     def mark_running(
         self,
@@ -201,7 +298,7 @@ class LiveWorkflowDashboard:
         task.started_time = datetime.datetime.now()
         task.finished_time = None
         if refresh:
-            self.refresh(force=True)
+            self.refresh()
 
     def mark_finished(
         self,
@@ -223,9 +320,11 @@ class LiveWorkflowDashboard:
         task.finished_time = datetime.datetime.now()
         if task.started_time is None:
             task.started_time = task.finished_time
+        if index in self._completed_order:
+            self._completed_order.remove(index)
         self._completed_order.append(index)
         if refresh:
-            self.refresh(force=True)
+            self.refresh()
 
     def print(self, message: str) -> None:
         """Print through the dashboard console so output coexists with Live."""
@@ -276,7 +375,7 @@ class LiveWorkflowDashboard:
             f"finished {finished}/{total}",
             f"active {active}",
             f"queued {counts['QUEUED']}",
-            self._format_row_limit(effective_max_rows=effective_max_rows),
+            f"{self._phase} | {self._format_row_limit(effective_max_rows=effective_max_rows)}",
         )
         summary.add_row(
             f"OK {counts['OK']}",
@@ -287,9 +386,9 @@ class LiveWorkflowDashboard:
         return summary
 
     def _format_extra_metrics(self) -> str:
-        if not self._extra_metrics:
-            return ""
-        return " | ".join(f"{key} {value}" for key, value in self._extra_metrics.items())
+        values = [f"{key} {value}" for key, value in self._extra_metrics.items()]
+        values.extend(metric.display() for metric in self._metrics)
+        return " | ".join(values)
 
     def _build_task_table(self) -> Table:
         table = Table(box=box.SIMPLE_HEAVY, expand=True)
