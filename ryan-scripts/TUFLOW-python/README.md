@@ -283,9 +283,9 @@ correct or multiple layers), and red a failed inspection or rename.
 
 The six maintained result wrappers under `culvert_results` and `po_and_timeseries` use the
 [shared dashboard standard](../../docs/DASHBOARDS.md) for substantial interactive batches:
-`combine_culvert_maximums.py`, `combine_culvert_timeseries.py`,
-`create_mean_culvert_peak_report.py`, `create_median_culvert_peak_report.py`,
-`combine_po_results.py` and `combine_pomm_results.py`.
+[combine_culvert_maximums.py](culvert_results/combine_culvert_maximums.py), [combine_culvert_timeseries.py](culvert_results/combine_culvert_timeseries.py),
+[create_mean_culvert_peak_report.py](culvert_results/create_mean_culvert_peak_report.py), [create_median_culvert_peak_report.py](culvert_results/create_median_culvert_peak_report.py),
+[combine_po_results.py](po_and_timeseries/combine_po_results.py) and [combine_pomm_results.py](po_and_timeseries/combine_pomm_results.py).
 
 Each has editable `USE_LIVE_DASHBOARD`, `LIVE_REFRESH_PER_SECOND`,
 `LIVE_MAX_ROWS`, `CONSOLE_LOG_LEVEL`, `PAUSE_ON_FINISH` and optional
