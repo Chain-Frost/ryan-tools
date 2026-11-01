@@ -12,9 +12,8 @@ from collections.abc import Collection
 from pathlib import Path
 from typing import Literal
 
-from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
-
 from ryan_library.functions.live_dashboard import LiveWorkflowDashboard
+from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 
 from ._combination_workflow import (
     combine_and_export_results as _combine_and_export_results,
