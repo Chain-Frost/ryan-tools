@@ -94,12 +94,12 @@ def main_processing(
                     return progress.failed == 0
 
                 dashboard.set_phase("Aggregating")
-            timeseries_df: pd.DataFrame = collection.combine_1d_timeseries()
-            dashboard.set_metrics([
-                WorkflowMetric("Files finished", progress.completed, unit="files", total=progress.scheduled),
-                WorkflowMetric("Timeseries rows", len(timeseries_df), unit="rows"),
-            ])
-            if timeseries_df.empty:
+                timeseries_df: pd.DataFrame = collection.combine_1d_timeseries()
+                dashboard.set_metrics([
+                    WorkflowMetric("Files finished", progress.completed, unit="files", total=progress.scheduled),
+                    WorkflowMetric("Timeseries rows", len(timeseries_df), unit="rows"),
+                ])
+                if timeseries_df.empty:
                 warn_on_invalid_types(
                     invalid_types=invalid_types, accepted_types=ACCEPTED_DATA_TYPES,
                     context="Culvert timeseries completed",
