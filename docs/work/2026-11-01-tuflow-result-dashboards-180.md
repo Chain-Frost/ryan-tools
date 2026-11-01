@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Blocked — WAITING_FOR_FOUNDATION; Phase A source scoping complete |
+| Status | Active — Phase B; foundation adopted and verified by source inspection |
 | Owner | PR #184 adoption agent |
 | Created | 2026-11-01 |
 | Updated | 2026-11-01 |
@@ -11,8 +11,8 @@
 | Branch / base | `feat/tuflow-result-dashboards-180` -> `feat/batch-dashboard-foundation-180` |
 | Issue | [#180](https://github.com/Chain-Frost/ryan-tools/issues/180), selected AB-025 / AB-032 work |
 | Dependency | [Foundation PR #183](https://github.com/Chain-Frost/ryan-tools/pull/183) and its [consumer readiness record](2026-11-01-batch-dashboard-foundation-180.md#consumer-interface-readiness) |
-| Adopted foundation SHA | None; remote parent NOT_READY at `4505e1cd7d2e157e8d800181e582aa7cabb572d9` when scoped |
-| Delivery | Phase A documentation checkpoint committed to child branch; no runtime edits or acceptance |
+| Adopted foundation SHA | `023253ed612bb0bbd9a61826f27f553c7b2e9447` (published implementation); parent head `f390b3773c970ea6ac141c3fd4466a53b3add552` merged as `89124cc239a3b730007657ad454df9f570bf4089` |
+| Delivery | Phase A committed; foundation adopted in normal two-parent merge `89124cc`; Phase B in progress, runtime validation outstanding |
 
 ## Outcome and scope
 
@@ -38,8 +38,7 @@ Read [AGENTS.md](../../AGENTS.md), the [development guide](../DEVELOPMENT_GUIDE.
 ## Current state
 
 The child is seeded from [foundation PR #183](https://github.com/Chain-Frost/ryan-tools/pull/183) and targets its
-branch. It is ready for the adoption agent to begin Phase A. The foundation is **NOT_READY** and no foundation
-implementation SHA has been adopted. No runtime edits or Phase A completion are claimed by this launch checkpoint.
+branch. It is ready for the adoption agent to begin Phase A. The foundation published **READY_FOR_ADOPTION** with verified SHA, and Phase A is complete. The full parent head was merged into PR #184 before runtime edits. The implementation/API smoke is source-based here; executable consumer checks remain a Phase B requirement.
 
 The source observations below identify the intended scope; they do not replace Phase A's call-chain and test inventory.
 
@@ -50,7 +49,7 @@ The source observations below identify the intended scope; they do not replace P
 - [x] Record workflow-selected optional metrics and their cheap sources/unknown semantics.
 - [x] Commit a documentation-only scoping checkpoint with planned files, tests and required parent capabilities.
 - [x] Record WAITING_FOR_FOUNDATION and its exact resume condition after inspecting the remote parent.
-- [ ] Verify and merge the concrete parent implementation, then record the adopted SHA before runtime integration.
+- [x] Verified published implementation SHA ancestor of parent head; normally merged full parent as `89124cc` and inspected actual renderer/adapter API. Runtime tests still required.
 
 ### Scoping worksheet
 
@@ -300,7 +299,7 @@ inventory-wide compliance or accepted/deferred audit decisions.
 
 ## Next action
 
-**WAITING_FOR_FOUNDATION**: read the remote parent's Consumer interface readiness section for READY_FOR_ADOPTION with its pushed implementation SHA, complete contracts, reference and evidence. Then verify ancestry, merge the parent normally, smoke the real API, record SHA/head and implement Phase B without further permission.
+**Phase B:** integrate the six selected result wrappers with the adopted dashboard, preserve collection and export data contracts, add focused regression tests, validate on Windows Python 3.14 and copied installed wheel. Report any additional parent contract defect rather than duplicating its adapter.
 
 ## Validation and delivery
 
@@ -321,3 +320,7 @@ Phase A can start immediately; runtime integration remains gated on the parent's
 ### 2026-11-01 — Phase A scoping checkpoint
 
 Mapped all six selected call chains, current effective wrapper flags, processing/ordering/cleanup/fallback semantics, output names and owned test coverage. Proposed workflow-selected optional metrics without a mandatory schema. Parent remains NOT_READY: save WAITING_FOR_FOUNDATION, no runtime edits. GitHub-connector documentation update to the child only; shell checkout and Python 3.14 validation unavailable in this environment.
+
+### 2026-11-01 — foundation adopted, Phase B authorised
+
+Verified `023253ed612bb0bbd9a61826f27f553c7b2e9447` is an ancestor of remote foundation `f390b3773c970ea6ac141c3fd4466a53b3add552`. Merged the complete parent normally into the child as `89124cc239a3b730007657ad454df9f570bf4089` (two parents, no force push), preserving the child scoping record, register row and MCP entries. Source-checked the merged `WorkflowRunReport`, `WorkflowItemOutcome`, transport fallback propagation, `WorkflowMetric`, phases and final outcomes. Parent Windows Python 3.14.10 and copied-wheel evidence is inherited, not child integration acceptance. PR #185 was not found in this repository and no speculative MCP changes were added.
