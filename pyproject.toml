@@ -119,7 +119,7 @@ namespaces = true
 where = [".", "ryan-scripts/TUFLOW-python"]
 
 [tool.pyright]
-extraPaths = ["vendor"]
+extraPaths = ["vendor", "ryan-scripts/RORB-python"]
 include = ["ryan_library", "ryan-scripts"]
 pythonVersion = "3.14"
 typeCheckingMode = "strict"
