@@ -368,7 +368,7 @@ def test_generic_keyword_catalogue_validation_rejects_bad_values(bad_keywords: o
         WorkflowSpec.from_mapping(raw)
 
 
-@pytest.mark.parametrize("bad_keywords", [None, "crop", 123, ["  "], ["crop", None], ["crop", 2], ("crop",)])
+@pytest.mark.parametrize("bad_keywords", [None, "crop", 123, ["  "], ["crop", None], ["crop", 2]])
 def test_gdal_keyword_catalogue_validation_rejects_bad_values(
     bad_keywords: object, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -395,6 +395,37 @@ def test_gdal_keyword_catalogue_validation_rejects_bad_values(
     monkeypatch.setattr(registry_module, "files", catalogue_files)
     with pytest.raises(ValueError, match=r"gdal_test_example.*keywords"):
         WorkflowRegistry(discover_repository=False)
+
+
+def test_gdal_catalogue_normalizes_nonempty_json_arrays(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Both catalogue loaders use the same normalization after JSON decoding."""
+    (tmp_path / "workflows.json").write_text(json.dumps({"schema_version": "1.0", "workflows": []}), encoding="utf-8")
+    (tmp_path / "gdal_cli_tools.json").write_text(
+        json.dumps(
+            {
+                "tools": [
+                    {
+                        "id": "gdal_test_example",
+                        "script": "example.py",
+                        "purpose": "Exercise GDAL normalization.",
+                        "keywords": [" Crop ", "CROP", "cropping", " two words ", "Two Words"],
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def catalogue_files(_package: str) -> Path:
+        return tmp_path
+
+    monkeypatch.setattr(registry_module, "files", catalogue_files)
+    registry = WorkflowRegistry(discover_repository=False)
+    assert registry.get_workflow("gdal_test_example")["keywords"] == ["Crop", "cropping", "two words"]
+    matches = registry.list_workflows(query="cropping", include_unavailable=True)
+    assert [item["id"] for item in matches["workflows"]] == ["gdal_test_example"]
 
 
 def test_gdal_and_generic_keyword_discovery_preserves_canonical_ids() -> None:
