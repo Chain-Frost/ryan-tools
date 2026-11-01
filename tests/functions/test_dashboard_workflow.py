@@ -51,9 +51,6 @@ class DummyProgressQueue:
     def get_nowait(self):
         return self.q.get_nowait()
 
-    def cancel_join_thread(self):
-        pass
-
 
 def test_worker_initializer_and_processor() -> None:
     q = DummyProgressQueue()
