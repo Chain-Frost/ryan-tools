@@ -1,4 +1,5 @@
-# pyright: reportPrivateUsage=false - regression coverage intentionally inspects dashboard internals.
+# pyright: reportPrivateUsage=false
+# regression coverage intentionally inspects dashboard internals.
 """Focused dashboard lifecycle, logging and export tests for TUFLOW log summaries."""
 
 from __future__ import annotations
