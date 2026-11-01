@@ -56,7 +56,10 @@ def test_dashboard_transport_fallback_retries_original_files_once() -> None:
 
     def broken_report(**kwargs: object) -> None:
         outcome = common.WorkflowItemOutcome(
-            index=1, status="OK", result=_processed("first.csv"), has_result=True,
+            index=1,
+            status="OK",
+            result=_processed("first.csv"),
+            has_result=True,
         )
         callback = cast("Callable[[common.WorkflowItemOutcome[BaseProcessor | None]], None]", kwargs["on_outcome"])
         callback(outcome)
@@ -93,7 +96,9 @@ def test_legacy_pool_oserror_fallback_and_raw_frame_disposal() -> None:
     ):
         pool_class.return_value.__enter__.return_value.starmap.side_effect = OSError("transport")
         coll = common.process_files_in_parallel(
-            file_list=paths, log_queue=cast("LogQueue", Mock()), batch_progress=progress,
+            file_list=paths,
+            log_queue=cast("LogQueue", Mock()),
+            batch_progress=progress,
         )
     assert [item.file_name for item in coll.processors] == ["a.csv"]
     assert process.call_count == len(paths)

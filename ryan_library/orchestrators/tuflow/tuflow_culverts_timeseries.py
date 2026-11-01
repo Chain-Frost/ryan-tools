@@ -60,11 +60,13 @@ def main_processing(
         max_rows=live_max_rows,
     )
     progress = FileBatchProgress()
-    console_level = console_log_level if console_log_level is not None else (
-        "SUCCESS" if use_live_dashboard else "INFO"
+    console_level = (
+        console_log_level if console_log_level is not None else ("SUCCESS" if use_live_dashboard else "INFO")
     )
     with setup_logger(
-        console_log_level=console_level, log_file=log_file, file_log_level=file_log_level,
+        console_log_level=console_level,
+        log_file=log_file,
+        file_log_level=file_log_level,
     ) as log_queue:
         with dashboard:
             try:
@@ -86,7 +88,8 @@ def main_processing(
                     collection.filter_locations(locations=normalized_locations)
                 if not collection.processors:
                     warn_on_invalid_types(
-                        invalid_types=invalid_types, accepted_types=ACCEPTED_DATA_TYPES,
+                        invalid_types=invalid_types,
+                        accepted_types=ACCEPTED_DATA_TYPES,
                         context="Culvert timeseries completed",
                     )
                     logger.warning("No result files were processed. Skipping export.")
@@ -95,13 +98,16 @@ def main_processing(
 
                 dashboard.set_phase("Aggregating")
                 timeseries_df: pd.DataFrame = collection.combine_1d_timeseries()
-                dashboard.set_metrics([
-                    WorkflowMetric("Files finished", progress.completed, unit="files", total=progress.scheduled),
-                    WorkflowMetric("Timeseries rows", len(timeseries_df), unit="rows"),
-                ])
+                dashboard.set_metrics(
+                    [
+                        WorkflowMetric("Files finished", progress.completed, unit="files", total=progress.scheduled),
+                        WorkflowMetric("Timeseries rows", len(timeseries_df), unit="rows"),
+                    ]
+                )
                 if timeseries_df.empty:
                     warn_on_invalid_types(
-                        invalid_types=invalid_types, accepted_types=ACCEPTED_DATA_TYPES,
+                        invalid_types=invalid_types,
+                        accepted_types=ACCEPTED_DATA_TYPES,
                         context="Culvert timeseries completed",
                     )
                     logger.warning("Combined culvert timeseries DataFrame is empty. Skipping export.")
@@ -126,7 +132,8 @@ def main_processing(
                 logger.info("Culvert timeseries export complete.")
 
                 warn_on_invalid_types(
-                    invalid_types=invalid_types, accepted_types=ACCEPTED_DATA_TYPES,
+                    invalid_types=invalid_types,
+                    accepted_types=ACCEPTED_DATA_TYPES,
                     context="Culvert timeseries completed",
                 )
                 dashboard.set_phase("Complete")

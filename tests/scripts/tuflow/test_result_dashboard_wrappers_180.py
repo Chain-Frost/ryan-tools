@@ -39,7 +39,11 @@ def _load_wrapper(path: str) -> ModuleType:
 
 @pytest.mark.parametrize(("path", "entry", "kind"), WRAPPERS)
 def test_result_wrapper_passes_effective_options_and_paths_without_chdir_leak(
-    path: str, entry: str, kind: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+    path: str,
+    entry: str,
+    kind: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     module = _load_wrapper(path)
     job = tmp_path / "model"
@@ -61,19 +65,22 @@ def test_result_wrapper_passes_effective_options_and_paths_without_chdir_leak(
         extras["export_raw"] = True
     else:
         extras["export_mode"] = "parquet"
-    assert main(
-        working_directory=job,
-        paths_to_process=(Path("inputs"),),
-        locations_to_include=("Loc1",),
-        include_data_types=("PO",),
-        use_live_dashboard=False,
-        live_refresh_per_second=0.5,
-        live_max_rows=2,
-        console_log_level="DEBUG",
-        log_file=Path("logging/detail.log"),
-        file_log_level="TRACE",
-        **extras,
-    ) == 0
+    assert (
+        main(
+            working_directory=job,
+            paths_to_process=(Path("inputs"),),
+            locations_to_include=("Loc1",),
+            include_data_types=("PO",),
+            use_live_dashboard=False,
+            live_refresh_per_second=0.5,
+            live_max_rows=2,
+            console_log_level="DEBUG",
+            log_file=Path("logging/detail.log"),
+            file_log_level="TRACE",
+            **extras,
+        )
+        == 0
+    )
     kwargs = worker.call_args.kwargs
     assert kwargs["paths_to_process"] == [job / "inputs"]
     assert kwargs["locations_to_include"] == ("Loc1",)
@@ -100,7 +107,12 @@ def test_result_wrapper_passes_effective_options_and_paths_without_chdir_leak(
 @pytest.mark.parametrize(("path", "entry", "kind"), WRAPPERS)
 @pytest.mark.parametrize(("flag", "expected"), [("--pause", True), ("--no-pause", False)])
 def test_result_wrapper_pause_is_bidirectional(
-    path: str, entry: str, kind: str, flag: str, expected: bool, monkeypatch: pytest.MonkeyPatch,
+    path: str,
+    entry: str,
+    kind: str,
+    flag: str,
+    expected: bool,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     del entry, kind
     module = _load_wrapper(path)

@@ -133,7 +133,9 @@ def _run_culvert_statistic_report(
     console_level = log_level if log_level is not None else ("SUCCESS" if use_live_dashboard else "INFO")
 
     with setup_logger(
-        console_log_level=console_level, log_file=log_file, file_log_level=file_log_level,
+        console_log_level=console_level,
+        log_file=log_file,
+        file_log_level=file_log_level,
     ) as log_queue:
         with dashboard:
             try:
@@ -156,11 +158,14 @@ def _run_culvert_statistic_report(
                 if locations_to_include:
                     normalized_locations: frozenset[str] = collection.filter_locations(locations=locations_to_include)
                     if not normalized_locations:
-                        logger.warning("Location filter provided but no valid values found. Continuing without filtering.")
+                        logger.warning(
+                            "Location filter provided but no valid values found. Continuing without filtering."
+                        )
 
                 if not collection.processors:
                     warn_on_invalid_types(
-                        invalid_types=invalid_types, accepted_types=ACCEPTED_DATA_TYPES,
+                        invalid_types=invalid_types,
+                        accepted_types=ACCEPTED_DATA_TYPES,
                         context=f"{context} completed",
                     )
                     logger.warning("No culvert result files were processed. Skipping export.")
@@ -171,7 +176,8 @@ def _run_culvert_statistic_report(
                 aggregated_df: pd.DataFrame = collection.combine_1d_maximums()
                 if aggregated_df.empty:
                     warn_on_invalid_types(
-                        invalid_types=invalid_types, accepted_types=ACCEPTED_DATA_TYPES,
+                        invalid_types=invalid_types,
+                        accepted_types=ACCEPTED_DATA_TYPES,
                         context=f"{context} completed",
                     )
                     logger.warning("Combined culvert maximums DataFrame is empty. Skipping export.")
@@ -179,15 +185,19 @@ def _run_culvert_statistic_report(
                     return progress.failed == 0
 
                 aep_dur_stat: pd.DataFrame = _find_culvert_aep_dur_statistic(
-                    aggregated_df=aggregated_df, statistic=statistic,
+                    aggregated_df=aggregated_df,
+                    statistic=statistic,
                 )
-                dashboard.set_metrics([
-                    WorkflowMetric("AEP-duration groups", len(aep_dur_stat), unit="groups"),
-                    WorkflowMetric("Files finished", progress.completed, total=progress.scheduled, unit="files"),
-                ])
+                dashboard.set_metrics(
+                    [
+                        WorkflowMetric("AEP-duration groups", len(aep_dur_stat), unit="groups"),
+                        WorkflowMetric("Files finished", progress.completed, total=progress.scheduled, unit="files"),
+                    ]
+                )
                 if aep_dur_stat.empty:
                     warn_on_invalid_types(
-                        invalid_types=invalid_types, accepted_types=ACCEPTED_DATA_TYPES,
+                        invalid_types=invalid_types,
+                        accepted_types=ACCEPTED_DATA_TYPES,
                         context=f"{context} completed",
                     )
                     logger.warning("Unable to calculate AEP/Duration {} statistics. Skipping export.", statistic)
@@ -195,12 +205,15 @@ def _run_culvert_statistic_report(
                     return progress.failed == 0
 
                 aep_stat_max: pd.DataFrame = _find_culvert_aep_statistic_max(
-                    aep_dur_stat=aep_dur_stat, statistic=statistic,
+                    aep_dur_stat=aep_dur_stat,
+                    statistic=statistic,
                 )
-                dashboard.set_metrics([
-                    WorkflowMetric("AEP-duration groups", len(aep_dur_stat), unit="groups"),
-                    WorkflowMetric("Critical groups", len(aep_stat_max), unit="groups"),
-                ])
+                dashboard.set_metrics(
+                    [
+                        WorkflowMetric("AEP-duration groups", len(aep_dur_stat), unit="groups"),
+                        WorkflowMetric("Critical groups", len(aep_stat_max), unit="groups"),
+                    ]
+                )
 
                 timestamp: str = datetime.now().strftime(format="%Y%m%d-%H%M")
                 output_name: str = f"{timestamp}_culvert_{output_suffix}_peaks.xlsx"
