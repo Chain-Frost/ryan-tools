@@ -14,6 +14,7 @@ import sys
 from contextlib import closing
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any
 
 import culvert_solver
 import numpy as np
@@ -85,7 +86,7 @@ def _check_installed_keyword_discovery() -> None:
     ):
         msg = "Installed MCP overview omitted full totals or leaked workflow payloads."
         raise RuntimeError(msg)
-    domains = []
+    domains: list[dict[str, Any]] = []
     for offset in range(overview["domain_count"]):
         page = list_workflows(overview=True, include_unavailable=True, limit=1, offset=offset)
         domains.extend(page["domain_overview"])

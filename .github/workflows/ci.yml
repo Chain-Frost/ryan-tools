@@ -187,6 +187,14 @@ jobs:
           python -m pip install ".[mcp]" pytest
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Test MCP workflow discovery and safety contracts
+        shell: pwsh
+        env:
+          MPLBACKEND: Agg
+        run: |
+          python -m pytest -q tests/mcp/test_registry.py tests/mcp/test_server.py tests/mcp/test_catalogue_contracts.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Run Python 3.14 focused utility regression tests
         shell: pwsh
         env:
