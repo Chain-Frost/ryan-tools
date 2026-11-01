@@ -184,3 +184,46 @@ def test_compress_individual_with_optional_five_gib_volume(mock_project: Path):
         check=False,
     )
     assert tested.returncode == 0, tested.stdout + tested.stderr
+
+
+def test_compress_individual_dry_run_and_missing_input(tmp_path: Path):
+    """Dry-run is non-writing, while a missing input is a process failure."""
+    source = tmp_path / "source.bin"
+    source.write_bytes(b"content")
+    missing_7zip = tmp_path / "missing-7z.exe"
+
+    dry_run = subprocess.run(
+        [
+            sys.executable,
+            str(COMPRESS_INDIVIDUAL_SCRIPT),
+            "-i",
+            str(source),
+            "--seven-zip-exe",
+            str(missing_7zip),
+            "--dry-run",
+            "--no-log-file",
+            "--no-pause",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=tmp_path,
+        check=False,
+    )
+    assert dry_run.returncode == 0, dry_run.stdout + dry_run.stderr
+    assert not source.with_suffix(f"{source.suffix}.7z").exists()
+
+    missing_input = subprocess.run(
+        [
+            sys.executable,
+            str(COMPRESS_INDIVIDUAL_SCRIPT),
+            "-i",
+            str(tmp_path / "missing.bin"),
+            "--no-log-file",
+            "--no-pause",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=tmp_path,
+        check=False,
+    )
+    assert missing_input.returncode == 1

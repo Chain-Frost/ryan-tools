@@ -1,7 +1,5 @@
 """Shared discovery and checked execution helpers for 7-Zip workflows."""
 
-# moved from unsorted, not tested in production yet - 2026-08-20
-
 from __future__ import annotations
 
 import os
@@ -16,12 +14,12 @@ from typing import Literal
 def find_7zip() -> Path | None:
     """Return the available 7-Zip executable, including standard Windows installs."""
     if discovered := shutil.which("7z"):
-        return Path(discovered)
+        return Path(discovered).absolute()
     candidates = (
         Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "7-Zip" / "7z.exe",
         Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")) / "7-Zip" / "7z.exe",
     )
-    return next((candidate for candidate in candidates if candidate.is_file()), None)
+    return next((candidate.absolute() for candidate in candidates if candidate.is_file()), None)
 
 
 def create_7zip_archive(

@@ -17,6 +17,31 @@ below, then run the script without command-line arguments.
 
 from __future__ import annotations
 
+from pathlib import Path
+
+SCRIPT_VERSION = "2026-11-01.2"
+
+# ---------------------------------------------------------------------------
+# Editable settings (command-line arguments override these values)
+# ---------------------------------------------------------------------------
+MAX_ARCHIVE_PART_SIZE_GIB = 5
+MAX_ARCHIVE_PART_SIZE_BYTES = MAX_ARCHIVE_PART_SIZE_GIB * 1024**3
+DEFAULT_INPUT_PATHS: tuple[Path, ...] = (
+    Path(r"Q:\BGER\PER\RP20181.498 GD AND FORTESCUE RIVER GAP RAIL HYDROLOGY MDL - RTIO\TUFLOW_MLGD\results\v06"),
+    Path(r"Q:\BGER\PER\RP20181.498 GD AND FORTESCUE RIVER GAP RAIL HYDROLOGY MDL - RTIO\TUFLOW_MLGD\results\v07"),
+    Path(r"Q:\BGER\PER\RP20181.498 GD AND FORTESCUE RIVER GAP RAIL HYDROLOGY MDL - RTIO\TUFLOW_MLGD\results\v12"),
+)
+DEFAULT_OUTPUT_PATH = Path(
+    r"P:\BGER\PER\RP20181.498 GD AND FORTESCUE RIVER GAP RAIL HYDROLOGY MDL - RTIO"
+    r"\7 DOCUMENT CONTROL\Documents_History\Results.zip"
+)
+DEFAULT_7ZIP_EXE: Path | None = None  # None = auto-discover 7z.exe
+DEFAULT_EXCLUDED_FOLDERS: tuple[str, ...] = ()
+DEFAULT_EXCLUDED_EXTENSIONS: tuple[str, ...] = ()
+DEFAULT_DRY_RUN = False
+DEFAULT_SHOW_PROGRESS = True
+# ---------------------------------------------------------------------------
+
 import argparse
 import os
 import shutil
@@ -25,21 +50,6 @@ import sys
 import time
 import uuid
 from collections.abc import Sequence
-from pathlib import Path
-
-SCRIPT_VERSION = "2026-11-01.1"
-MAX_ARCHIVE_PART_SIZE_BYTES = 5 * 1024**3
-
-# ---------------------------------------------------------------------------
-# Editable settings (command-line arguments override these values)
-# ---------------------------------------------------------------------------
-DEFAULT_INPUT_PATHS: tuple[Path, ...] = (
-    Path(r"Q:\BGER\PER\RP20181.498 GD AND FORTESCUE RIVER GAP RAIL HYDROLOGY MDL - RTIO\TUFLOW_MLGD\results\v06"),
-    Path(r"Q:\BGER\PER\RP20181.498 GD AND FORTESCUE RIVER GAP RAIL HYDROLOGY MDL - RTIO\TUFLOW_MLGD\results\v07"),
-    Path(r"Q:\BGER\PER\RP20181.498 GD AND FORTESCUE RIVER GAP RAIL HYDROLOGY MDL - RTIO\TUFLOW_MLGD\results\v12")
-)
-DEFAULT_OUTPUT_PATH = Path(r"P:\BGER\PER\RP20181.498 GD AND FORTESCUE RIVER GAP RAIL HYDROLOGY MDL - RTIO\7 DOCUMENT CONTROL\Documents_History\Results.zip")
-# ---------------------------------------------------------------------------
 
 
 def find_7zip() -> Path | None:
@@ -74,7 +84,7 @@ def _seven_zip_version(executable: Path) -> str:
     return "unknown"
 
 
-def _publish_archive(temporary_archive: Path, output_archive: Path) -> None:
+def _publish_archive(temporary_archive: Path, output_archive: Path, *, show_progress: bool) -> None:
     """Publish a completed archive without overwriting an output created concurrently."""
     try:
         os.link(temporary_archive, output_archive)
@@ -92,10 +102,11 @@ def _publish_archive(temporary_archive: Path, output_archive: Path) -> None:
                     destination.write(chunk)
                     copied_bytes += len(chunk)
                     percent = int(copied_bytes * 100 / total_bytes) if total_bytes else 100
-                    if percent >= last_reported_percent + 5 or copied_bytes == total_bytes:
+                    if show_progress and (percent >= last_reported_percent + 5 or copied_bytes == total_bytes):
                         print(f"\rPublishing {output_archive.name}: {percent:3d}%", end="", flush=True)
                         last_reported_percent = percent
-                print()
+                if show_progress:
+                    print()
         except FileExistsError:
             raise FileExistsError(f"Output archive already exists: {output_archive}") from None
         except Exception:
@@ -126,7 +137,12 @@ def _output_archive_parts(output_archive: Path, part_count: int) -> list[Path]:
     ]
 
 
-def _publish_archive_parts(temporary_parts: Sequence[Path], output_archive: Path) -> list[Path]:
+def _publish_archive_parts(
+    temporary_parts: Sequence[Path],
+    output_archive: Path,
+    *,
+    show_progress: bool,
+) -> list[Path]:
     """Publish a complete set of archive volumes without overwriting existing files."""
     output_parts = _output_archive_parts(output_archive, len(temporary_parts))
     collision = next((path for path in output_parts if path.exists() or path.is_symlink()), None)
@@ -137,7 +153,7 @@ def _publish_archive_parts(temporary_parts: Sequence[Path], output_archive: Path
     try:
         for temporary_part, output_part in zip(temporary_parts, output_parts, strict=True):
             print(f"Publishing {output_part.name} ({_format_file_size(temporary_part.stat().st_size)})", flush=True)
-            _publish_archive(temporary_part, output_part)
+            _publish_archive(temporary_part, output_part, show_progress=show_progress)
             published.append(output_part)
     except BaseException:
         for output_part in published:
@@ -164,6 +180,7 @@ def create_zip_from_folders(
     executable: Path,
     excluded_folders: Sequence[str] = (),
     excluded_extensions: Sequence[str] = (),
+    show_progress: bool = True,
 ) -> list[Path]:
     """Create a ZIP volume set containing each supplied folder at the archive root."""
     temporary_archive = output_archive.with_name(f".{output_archive.stem}.{uuid.uuid4().hex}.partial.zip")
@@ -177,7 +194,7 @@ def create_zip_from_folders(
             "-tzip",
             "-mx=5",
             "-mmt=on",
-            "-bsp1",
+            *(["-bsp1"] if show_progress else []),
             f"-v{MAX_ARCHIVE_PART_SIZE_BYTES}b",
             str(temporary_archive),
             *(str(folder) for folder in folders),
@@ -203,7 +220,7 @@ def create_zip_from_folders(
             flush=True,
         )
         print("Stage 2/2: Publishing completed archive file(s)...", flush=True)
-        return _publish_archive_parts(temporary_parts, output_archive)
+        return _publish_archive_parts(temporary_parts, output_archive, show_progress=show_progress)
     except BaseException:
         temporary_archive.unlink(missing_ok=True)
         for temporary_part in _temporary_archive_parts(temporary_archive):
@@ -267,41 +284,61 @@ def main(
     input_paths: Sequence[Path],
     output_path: Path,
     seven_zip_exe: Path | None = None,
-    excluded_folders: Sequence[str] = (),
-    excluded_extensions: Sequence[str] = (),
-    dry_run: bool = False,
+    force_auto_discovery: bool = False,
+    excluded_folders: Sequence[str] | None = None,
+    excluded_extensions: Sequence[str] | None = None,
+    dry_run: bool | None = None,
+    show_progress: bool | None = None,
 ) -> int:
     """Validate the request and combine the selected folders into one ZIP."""
     try:
         folders, output_archive = _validated_paths(input_paths, output_path)
-        executable = seven_zip_exe.absolute() if seven_zip_exe is not None else find_7zip()
-        if executable is None or not executable.is_file():
+        configured_exe = (
+            None if force_auto_discovery else seven_zip_exe if seven_zip_exe is not None else DEFAULT_7ZIP_EXE
+        )
+        executable = configured_exe.absolute() if configured_exe is not None else find_7zip()
+        configured_excluded_folders = (
+            tuple(excluded_folders) if excluded_folders is not None else DEFAULT_EXCLUDED_FOLDERS
+        )
+        configured_excluded_extensions = (
+            tuple(excluded_extensions) if excluded_extensions is not None else DEFAULT_EXCLUDED_EXTENSIONS
+        )
+        configured_dry_run = dry_run if dry_run is not None else DEFAULT_DRY_RUN
+        configured_show_progress = show_progress if show_progress is not None else DEFAULT_SHOW_PROGRESS
+        if (executable is None or not executable.is_file()) and not configured_dry_run:
             location = executable if executable is not None else "auto-discovery"
             raise ValueError(f"7-Zip executable not found ({location}). Use --seven-zip-exe.")
 
         print(f"Script: {Path(__file__).name} {SCRIPT_VERSION}")
         print(f"Python: {sys.version.split()[0]}")
-        print(f"7-Zip: {_seven_zip_version(executable)} ({executable})")
+        if executable is not None and executable.is_file():
+            print(f"7-Zip: {_seven_zip_version(executable)} ({executable})")
+        else:
+            print("7-Zip: not currently available (required for a real run)")
         print(f"Output: {output_archive}")
-        print("Maximum file size: 5 GiB")
+        print(f"Maximum file size: {MAX_ARCHIVE_PART_SIZE_GIB} GiB")
         print("Folders:")
         for folder in folders:
             print(f"  - {folder}")
-        if excluded_folders:
-            print(f"Excluded folder names: {', '.join(excluded_folders)}")
-        if excluded_extensions:
-            print(f"Excluded extensions: {', '.join(map(_normalise_extension, excluded_extensions))}")
-        if dry_run:
+        if configured_excluded_folders:
+            print(f"Excluded folder names: {', '.join(configured_excluded_folders)}")
+        if configured_excluded_extensions:
+            print(f"Excluded extensions: {', '.join(map(_normalise_extension, configured_excluded_extensions))}")
+        if configured_dry_run:
             print("Dry run complete; no archive was created.")
             return 0
+
+        if executable is None:
+            raise ValueError("7-Zip executable is required for a real run.")
 
         started_at = time.monotonic()
         created_archives = create_zip_from_folders(
             folders=folders,
             output_archive=output_archive,
             executable=executable,
-            excluded_folders=excluded_folders,
-            excluded_extensions=excluded_extensions,
+            excluded_folders=configured_excluded_folders,
+            excluded_extensions=configured_excluded_extensions,
+            show_progress=configured_show_progress,
         )
         elapsed_seconds = time.monotonic() - started_at
     except (FileExistsError, OSError, RuntimeError, ValueError) as exc:
@@ -336,25 +373,46 @@ def _parse_cli_arguments(argv: Sequence[str] | None = None) -> argparse.Namespac
         default=None,
         help="Output ZIP path; overrides DEFAULT_OUTPUT_PATH. The .zip extension is added when omitted.",
     )
-    parser.add_argument(
+    executable_group = parser.add_mutually_exclusive_group()
+    executable_group.add_argument(
         "--seven-zip-exe",
         type=Path,
         default=None,
         help="Explicit 7z executable path; otherwise automatically discovered.",
     )
+    executable_group.add_argument(
+        "--auto-seven-zip",
+        action="store_true",
+        help="Force automatic 7-Zip discovery, overriding an edited DEFAULT_7ZIP_EXE.",
+    )
     parser.add_argument(
+        "--exclude-folders",
         "--exclude-folder",
-        action="append",
-        default=[],
-        help="Folder name to exclude recursively; repeat for multiple names.",
+        action="extend",
+        nargs="*",
+        default=None,
+        help="Folder names to exclude recursively; repeat the option or supply no names to clear edited defaults.",
     )
     parser.add_argument(
+        "--exclude-extensions",
         "--exclude-extension",
-        action="append",
-        default=[],
-        help="File extension to exclude recursively; repeat for multiple extensions.",
+        action="extend",
+        nargs="*",
+        default=None,
+        help="Extensions to exclude recursively; repeat the option or supply no values to clear edited defaults.",
     )
-    parser.add_argument("--dry-run", action="store_true", help="Validate and show the plan without creating a ZIP.")
+    parser.add_argument(
+        "--dry-run",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Validate and show the plan without creating a ZIP.",
+    )
+    parser.add_argument(
+        "--progress",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Show or hide live 7-Zip and publication progress.",
+    )
     parser.add_argument("--version", action="version", version=f"%(prog)s {SCRIPT_VERSION}")
     return parser.parse_args(argv)
 
@@ -366,8 +424,10 @@ if __name__ == "__main__":
             input_paths=arguments.input_paths if arguments.input_paths is not None else DEFAULT_INPUT_PATHS,
             output_path=arguments.output if arguments.output is not None else DEFAULT_OUTPUT_PATH,
             seven_zip_exe=arguments.seven_zip_exe,
-            excluded_folders=arguments.exclude_folder,
-            excluded_extensions=arguments.exclude_extension,
+            force_auto_discovery=arguments.auto_seven_zip,
+            excluded_folders=arguments.exclude_folders,
+            excluded_extensions=arguments.exclude_extensions,
             dry_run=arguments.dry_run,
+            show_progress=arguments.progress,
         )
     )

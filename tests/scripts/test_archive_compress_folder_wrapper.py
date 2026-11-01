@@ -139,8 +139,32 @@ def test_wrapper_defaults_and_invalid_worker_count(
     monkeypatch.chdir(tmp_path)
     assert wrapper.DEFAULT_MAX_WORKERS is None
     assert wrapper.DEFAULT_MAX_PART_SIZE_GIB is None
+    assert wrapper.DEFAULT_DRY_RUN is False
+    assert wrapper.DEFAULT_PAUSE_ON_FINISH is True
     assert wrapper.DEFAULT_SHOW_PROGRESS is True
     assert wrapper.DEFAULT_CONSOLE_LOG_LEVEL == "INFO"
     assert wrapper._parse_cli_arguments(["--no-progress", "--workers", "3"]).progress is False
     assert wrapper._parse_cli_arguments(["--max-part-size-gib", "5"]).max_part_size_gib == 5
-    assert wrapper.main(input_paths=[tmp_path], working_directory=tmp_path, max_workers=0) == 2
+    assert wrapper._parse_cli_arguments(["--no-pause"]).pause is False
+    assert wrapper.main(input_paths=[tmp_path], working_directory=tmp_path, max_workers=0) == 1
+
+
+def test_dry_run_does_not_require_7zip_or_create_an_archive(
+    wrapper: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(wrapper, "find_7zip", lambda: None)
+
+    code = wrapper.main(
+        input_paths=[source],
+        working_directory=tmp_path,
+        force_auto_discovery=True,
+        dry_run=True,
+        show_progress=False,
+    )
+
+    assert code == 0
+    assert not source.with_suffix(".7z").exists()
+    assert "Would create:" in capsys.readouterr().out
