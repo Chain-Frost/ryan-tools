@@ -86,9 +86,7 @@ def _check_copied_wrapper_help(script: Path, work: Path, root: Path) -> None:
         raise RuntimeError(msg)
 
 
-def _check_console_diagnostics(
-    report: subprocess.CompletedProcess[str], *, dashboard_enabled: bool
-) -> None:
+def _check_console_diagnostics(report: subprocess.CompletedProcess[str], *, dashboard_enabled: bool) -> None:
     """Keep ordinary progress visible only with the dashboard disabled."""
     if report.returncode != 0:
         msg = f"Copied wrapper failed (dashboard={dashboard_enabled}): {report.stdout[-1800:]} {report.stderr[-1800:]}"
