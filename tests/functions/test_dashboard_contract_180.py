@@ -221,7 +221,7 @@ class _SyntheticAsyncResult:
         return self.result
 
 
-_MaybeEncodingError = cast("type[Exception]", getattr(multiprocessing_pool, "MaybeEncodingError"))
+_MaybeEncodingError = cast("type[Exception]", getattr(multiprocessing_pool, "MaybeEncodingError"))  # noqa: B009 - Python 3.14 typing stubs omit this runtime class
 
 
 @pytest.mark.parametrize(
