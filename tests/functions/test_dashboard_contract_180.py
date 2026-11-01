@@ -258,7 +258,7 @@ def test_invalid_result_adapter_propagates_in_both_execution_paths(mode: str, ad
             raise RuntimeError(msg)
         return "good"
 
-    with pytest.raises((ValueError, RuntimeError)):
+    def invoke_adapter() -> None:
         if mode == "serial":
             dw._run_serial_dashboard_workflow(
                 items=[1],
@@ -279,6 +279,9 @@ def test_invalid_result_adapter_propagates_in_both_execution_paths(mode: str, ad
                 detail_for_result=bad_detail,
                 indexed_outcomes=outcomes,
             )
+
+    with pytest.raises((ValueError, RuntimeError)):
+        invoke_adapter()
     assert not outcomes
     assert dashboard._tasks[1].status != "FAIL"
 
