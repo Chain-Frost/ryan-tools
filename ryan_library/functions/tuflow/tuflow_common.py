@@ -59,7 +59,11 @@ class FileBatchProgress:
 
 def _result_status(processor: BaseProcessor | None) -> WorkflowStatus:
     """Classify only; adding processors retains the existing collection rules."""
-    if processor is None or not processor.processed:
+    if processor is None:
+        return "FAIL"
+    if processor.df.empty and getattr(processor, "filtered_empty", False):
+        return "SKIP"
+    if not processor.processed:
         return "FAIL"
     if processor.df.empty:
         return "SKIP"
@@ -84,6 +88,8 @@ def _dashboard_status(processor: BaseProcessor | None) -> WorkflowStatus:
 
 def _dashboard_detail(processor: BaseProcessor | None) -> str:
     status = _result_status(processor)
+    if status == "SKIP" and processor is not None and getattr(processor, "filtered_empty", False):
+        return "no matching locations"
     return {"OK": "processed", "SKIP": "empty result", "FAIL": "processing failed"}[status]
 
 
@@ -239,7 +245,9 @@ def process_file(
             include_path_columns=include_path_columns,
         )
         proc.process()
-        if proc.validate_data():
+        if getattr(proc, "filtered_empty", False):
+            logger.debug("{}: Valid input excluded by location filter.", proc.log_path)
+        elif proc.validate_data():
             logger.debug("Processed {}", proc.log_path)
         else:
             logger.warning(f"Validation failed {proc.log_path}")

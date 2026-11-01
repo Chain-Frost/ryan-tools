@@ -14,6 +14,7 @@ from ryan_library.functions.live_dashboard import LiveWorkflowDashboard
 from ryan_library.functions.loguru_helpers import LogQueue
 from ryan_library.functions.tuflow import tuflow_common as common
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
+from ryan_library.processors.tuflow.other_processors.POProcessor import POProcessor
 
 
 def _processed(name: str, *, processed: bool = True, empty: bool = False) -> BaseProcessor:
@@ -110,3 +111,65 @@ def test_legacy_pool_oserror_fallback_and_raw_frame_disposal() -> None:
     with patch.object(common.BaseProcessor, "from_file", return_value=processor):
         assert common.process_file(Path("synthetic.csv")) is processor
     processor.discard_raw_dataframe.assert_called_once_with()
+
+
+
+def test_valid_po_filtered_to_zero_is_skip_not_failure() -> None:
+    """A location miss is expected, but a malformed source must still fail."""
+    raw = pd.DataFrame(
+        [
+            ["run", "Time", "Q"],
+            ["run", "Time", "OtherLocation"],
+            ["run", "0.0", "12.5"],
+        ]
+    )
+    processor = POProcessor(Path("synthetic_PO.csv"), entity_filter=frozenset({"SelectedLocation"}))
+    with (
+        patch.object(common.BaseProcessor, "from_file", return_value=processor),
+        patch("ryan_library.processors.tuflow.other_processors.POProcessor.pd.read_csv", return_value=raw),
+        patch.object(processor, "validate_data", wraps=processor.validate_data) as validate,
+    ):
+        actual = common.process_file(Path("synthetic_PO.csv"), entity_filters=("SelectedLocation",))
+
+    assert actual is processor
+    assert not processor.processed
+    assert processor.filtered_empty
+    assert processor.df.empty
+    assert processor.raw_df.empty
+    validate.assert_not_called()
+    assert common._result_status(processor) == "SKIP"
+    assert common._dashboard_detail(processor) == "no matching locations"
+
+    dashboard = LiveWorkflowDashboard(title="Filtered PO", enabled=False)
+    progress = common.FileBatchProgress()
+    with (
+        patch.object(common, "calculate_pool_size", return_value=1),
+        patch.object(common, "_summarize_file_batch", return_value=(2, 0, None, 0)),
+        patch.object(common, "process_file", side_effect=[processor, _processed("matched_PO.csv")]),
+    ):
+        collection = common.process_files_in_parallel(
+            file_list=[Path("synthetic_PO.csv"), Path("matched_PO.csv")],
+            log_queue=cast("LogQueue", Mock()),
+            dashboard=dashboard,
+            batch_progress=progress,
+        )
+    assert [item.file_name for item in collection.processors] == ["matched_PO.csv"]
+    assert (progress.succeeded, progress.skipped, progress.failed) == (1, 1, 0)
+    assert [dashboard._tasks[index].status for index in (1, 2)] == ["SKIP", "OK"]
+
+
+def test_malformed_po_with_filter_remains_a_failure() -> None:
+    """A missing/invalid PO header cannot masquerade as a filtered-empty file."""
+    processor = POProcessor(Path("malformed_PO.csv"), entity_filter=frozenset({"SelectedLocation"}))
+    invalid = pd.DataFrame([["bad"]])
+    with (
+        patch.object(common.BaseProcessor, "from_file", return_value=processor),
+        patch("ryan_library.processors.tuflow.other_processors.POProcessor.pd.read_csv", return_value=invalid),
+    ):
+        actual = common.process_file(Path("malformed_PO.csv"), entity_filters=("SelectedLocation",))
+
+    assert actual is processor
+    assert not processor.processed
+    assert not processor.filtered_empty
+    assert common._result_status(processor) == "FAIL"
+    assert processor.raw_df.empty

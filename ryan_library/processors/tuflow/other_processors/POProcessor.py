@@ -17,11 +17,16 @@ from ..base_processor import BaseProcessor
 class POProcessor(BaseProcessor):
     """Load PO timeseries CSV files into a tidy DataFrame."""
 
+    # A valid parsed file can be excluded entirely by a location filter.
+    # Keep this separate from processing failures and from exported processors.
+    filtered_empty: bool = False
+
     VALUE_COLUMNS: ClassVar[list[str]] = ["Time", "Location", "Type", "Value"]
 
     def process(self) -> None:
         """Parse the CSV, reshape it to long format, and add common columns."""
         logger.info(f"Starting processing of PO file: {self.log_path}")
+        self.filtered_empty = False
 
         try:
             raw_df: DataFrame = pd.read_csv(self.file_path, header=None, dtype=str)
@@ -41,6 +46,12 @@ class POProcessor(BaseProcessor):
         self.df["AbsValue"] = self.df["Value"].abs()
 
         self.apply_entity_filter()
+        if self.applied_entity_filter and self.df.empty:
+            # The source contained valid numeric PO data; only the selection
+            # removed it. This is a normal SKIP, not malformed input.
+            self.filtered_empty = True
+            logger.info("{}: No requested PO locations found; skipping file.", self.file_name)
+            return
         self.add_common_columns()
         self.apply_output_transformations()
 
