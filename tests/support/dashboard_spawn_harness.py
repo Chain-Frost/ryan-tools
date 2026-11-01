@@ -20,12 +20,22 @@ def worker(value: int) -> int:
     if value == 2:
         try:
             msg = "synthetic worker failure"
-            raise OSError(msg)
-        except OSError:
+            raise ValueError(msg)
+        except ValueError:
             logger.exception("DASH_WORKER_ERROR {}", value)
         msg = "synthetic worker failure"
-        raise OSError(msg)
+        raise ValueError(msg)
     return value * 3
+
+
+def fast_worker(value: int) -> int:
+    """Tiny work item: exercise queues and pool shutdown under high throughput."""
+    return value
+
+
+def transport_worker(_value: int) -> int:
+    msg = "synthetic pool OSError"
+    raise OSError(msg)
 
 
 def status(_result: int) -> WorkflowStatus:
@@ -45,11 +55,46 @@ def main() -> int:
     parser.add_argument("--log-file", type=Path, required=True)
     parser.add_argument("--dashboard", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--interrupt-on-outcome", action="store_true")
+    parser.add_argument("--fast-count", type=int, default=0)
+    parser.add_argument("--pool-oserror", action="store_true")
     args = parser.parse_args()
     multiprocessing.set_start_method("spawn", force=True)
     dashboard = LiveWorkflowDashboard(title="Spawn smoke", enabled=args.dashboard, max_rows=3)
-    dashboard.set_tasks(["a", "b", "c"])
+    dashboard.set_tasks([f"item {index}" for index in range(args.fast_count)] if args.fast_count else ["a", "b", "c"])
     with setup_logger(console_log_level="WARNING", log_file=str(args.log_file), file_log_level="DEBUG") as log_queue:
+        if args.fast_count:
+            with dashboard:
+                report = run_dashboard_workflow_report(
+                    items=list(range(args.fast_count)),
+                    process_item=fast_worker,
+                    dashboard=dashboard,
+                    pool_size=2,
+                    status_for_result=status,
+                    detail_for_result=detail,
+                    log_queue=log_queue,
+                    max_start_events=4,
+                    poll_interval=0.01,
+                )
+                assert len(report.outcomes) == args.fast_count
+                assert all(outcome.status == "OK" for outcome in report.outcomes)
+                dashboard.finish(outcome="SUCCESS", detail=f"{args.fast_count} items")
+            logger.success("FAST_BATCH_COMPLETE {}", args.fast_count)
+            return 0
+        if args.pool_oserror:
+            try:
+                run_dashboard_workflow_report(
+                    items=[1],
+                    process_item=transport_worker,
+                    dashboard=dashboard,
+                    pool_size=2,
+                    status_for_result=status,
+                    detail_for_result=detail,
+                    log_queue=log_queue,
+                )
+            except OSError:
+                logger.warning("POOL_OSERROR_PROPAGATED")
+                return 0
+            return 1
         try:
             with dashboard:
                 dashboard.set_phase("Processing")
@@ -71,7 +116,7 @@ def main() -> int:
             return 130
         assert [o.status for o in report.outcomes] == ["OK", "FAIL", "OK"]
         assert report.results == [3, 9]
-        assert isinstance(report.outcomes[1].error, OSError)
+        assert isinstance(report.outcomes[1].error, ValueError)
         logger.success("SPAWN_RESULT_OK")
     return 0
 
