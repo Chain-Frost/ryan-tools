@@ -45,7 +45,6 @@ _workflow_start_queue: ProgressQueue | None = None
 _workflow_processor: Callable[[object], object] | None = None
 
 
-
 @dataclass(slots=True, frozen=True)
 class WorkflowItemOutcome[TResult]:
     """One-based input index and terminal outcome, including failed requests.
