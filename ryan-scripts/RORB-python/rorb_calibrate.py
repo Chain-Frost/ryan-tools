@@ -27,7 +27,7 @@ from pathlib import Path
 from statistics import mean
 from typing import Any, cast
 
-SCRIPT_VERSION = "2026-10-21.2"
+SCRIPT_VERSION = "2026-11-02.1"
 HEADER = re.compile(r"\bInc\s+Time\b", re.IGNORECASE)
 
 
@@ -86,20 +86,34 @@ def parse_hydrographs(path: Path) -> dict[str, list[float]]:  # noqa: C901 -- st
             continue
         data: dict[str, list[float]] = {column: [] for column in columns}
         started = False
-        for row in lines[i + 1 :]:
+        for row_number, row in enumerate(lines[i + 1 :], start=i + 2):
             parts = row.split()
-            if len(parts) < len(columns):
+            if not parts:
                 if started:
                     break
                 continue
+            # RORB report footers start with text; a numeric Inc denotes a data
+            # row that must be complete. Never score only the valid prefix of a
+            # damaged table (including an invalid first or middle row).
             try:
-                numbers = [float(value) for value in parts[: len(columns)]]
+                float(parts[0])
             except ValueError:
                 if started:
                     break
                 continue
+            if len(parts) != len(columns):
+                message = (
+                    f"Malformed hydrograph row {row_number} in {path}: "
+                    f"expected {len(columns)} values, got {len(parts)}"
+                )
+                raise ValueError(message)
+            try:
+                numbers = [float(value) for value in parts]
+            except ValueError as exc:
+                message = f"Malformed hydrograph row {row_number} in {path}: nonnumeric value"
+                raise ValueError(message) from exc
             if not all(math.isfinite(value) for value in numbers):
-                message = f"Non-finite hydrograph values in {path}"
+                message = f"Non-finite hydrograph values in {path} at row {row_number}"
                 raise ValueError(message)
             started = True
             for column, value in zip(columns, numbers, strict=True):
