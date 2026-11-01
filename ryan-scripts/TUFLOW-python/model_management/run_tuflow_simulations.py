@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from enum import StrEnum
 from pathlib import Path
-from typing import Literal, cast
+from typing import Literal
 
 
 class OP(StrEnum):
