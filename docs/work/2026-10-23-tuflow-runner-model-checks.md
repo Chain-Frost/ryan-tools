@@ -94,9 +94,10 @@ review.
   Retained unique installed-wheel/copied-runner TXT export and checker help
   checks within the normal Package wheel smoke. Renamed the remaining specialised
   workflow to `tuflow-input-validation.yml`, keeping the immutable parser,
-  incompatible-version and 161-TCF regression coverage. The ruleset-required
-  `Python 3.13 compatibility and MCP` check label remains until the main
-  ruleset can be updated; its actual interpreter is 3.14.
+  incompatible-version and 161-TCF regression coverage. The separate Python
+  3.14 MCP job is named `MCP smoke`; the GitHub `main only` ruleset must
+  replace the obsolete `Python 3.13 compatibility and MCP` status requirement
+  with `MCP smoke` before the PR can merge.
 - PR #159 remains unmerged. Final acceptance requires successful CI at the
   current commit, not historical green checks from an earlier SHA.
 

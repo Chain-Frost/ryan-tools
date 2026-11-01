@@ -156,7 +156,7 @@ py -3.14 repo-scripts\verify_wheel.py
 ## GitHub Actions CI
 
 The enabled `.github/workflows/ci.yml` workflow runs on pull requests and pushes to `main` using Windows and Python
-3.14, with a separate Python 3.14 MCP job (retaining the old required-check label until the GitHub ruleset is updated). Its independent jobs mean a policy failure does not hide
+3.14, with a separate Python 3.14 `MCP smoke` job. The `main only` ruleset must replace its obsolete `Python 3.13 compatibility and MCP` requirement with `MCP smoke` before merging. Its independent jobs mean a policy failure does not hide
 runtime or packaging results.
 
 The hosted test job initialises only `qgis-resources` and
@@ -217,7 +217,7 @@ Baseline from five recent GitHub Actions runs on 16 October 2026:
 | --- | --- | --- |
 | Hosted tests | 2:40–3:37 | Install dependencies 60–67 s; pytest 60–104 s |
 | Policy | 1:30–2:06 | GIS package installation and static analysis |
-| MCP smoke (legacy Python 3.13 check label) | 1:18–2:00 | Historical Python 3.13 run timings; Python 3.14 timings not yet measured |
+| MCP smoke | 1:18–2:00 | Historical timing range only; current Python 3.14 timing not yet measured |
 | Package | 1:01–1:25 | Checkout, submodules, setup, and wheel prerequisites |
 
 The existing `setup-python` pip cache reuses downloaded packages, not installed
