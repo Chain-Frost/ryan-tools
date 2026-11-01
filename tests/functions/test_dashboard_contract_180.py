@@ -1,3 +1,4 @@
+# pyright: reportPrivateUsage=false - focused tests inspect internal state and pool collection.
 """Regression coverage for the shared dashboard contract in issue #180."""
 
 from __future__ import annotations
@@ -5,7 +6,8 @@ from __future__ import annotations
 import math
 import time
 from collections.abc import Callable
-from multiprocessing.pool import ApplyResult, MaybeEncodingError
+from multiprocessing import pool as multiprocessing_pool
+from multiprocessing.pool import ApplyResult
 from typing import cast
 
 import pytest
@@ -218,10 +220,13 @@ class _SyntheticAsyncResult:
         return self.result
 
 
+_MaybeEncodingError = cast("type[Exception]", getattr(multiprocessing_pool, "MaybeEncodingError"))
+
+
 @pytest.mark.parametrize(
     "error",
     [
-        MaybeEncodingError(ValueError("pickling failed"), "synthetic failed-result encoding"),
+        _MaybeEncodingError(ValueError("pickling failed"), "synthetic failed-result encoding"),
         OSError("synthetic pool transport error"),
     ],
 )
