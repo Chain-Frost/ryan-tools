@@ -22,6 +22,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 import uuid
 from collections.abc import Sequence
 from pathlib import Path
@@ -84,7 +85,17 @@ def _publish_archive(temporary_archive: Path, output_archive: Path) -> None:
         # retains the no-overwrite guarantee, at the cost of one final file copy.
         try:
             with temporary_archive.open("rb") as source, output_archive.open("xb") as destination:
-                shutil.copyfileobj(source, destination, length=8 * 1024 * 1024)
+                total_bytes = temporary_archive.stat().st_size
+                copied_bytes = 0
+                last_reported_percent = -1
+                while chunk := source.read(8 * 1024 * 1024):
+                    destination.write(chunk)
+                    copied_bytes += len(chunk)
+                    percent = int(copied_bytes * 100 / total_bytes) if total_bytes else 100
+                    if percent >= last_reported_percent + 5 or copied_bytes == total_bytes:
+                        print(f"\rPublishing {output_archive.name}: {percent:3d}%", end="", flush=True)
+                        last_reported_percent = percent
+                print()
         except FileExistsError:
             raise FileExistsError(f"Output archive already exists: {output_archive}") from None
         except Exception:
@@ -125,6 +136,7 @@ def _publish_archive_parts(temporary_parts: Sequence[Path], output_archive: Path
     published: list[Path] = []
     try:
         for temporary_part, output_part in zip(temporary_parts, output_parts, strict=True):
+            print(f"Publishing {output_part.name} ({_format_file_size(temporary_part.stat().st_size)})", flush=True)
             _publish_archive(temporary_part, output_part)
             published.append(output_part)
     except BaseException:
@@ -132,6 +144,17 @@ def _publish_archive_parts(temporary_parts: Sequence[Path], output_archive: Path
             output_part.unlink(missing_ok=True)
         raise
     return output_parts
+
+
+def _format_file_size(size_bytes: int) -> str:
+    """Return a concise binary file size for console reporting."""
+    if size_bytes >= 1024**3:
+        return f"{size_bytes / 1024**3:.2f} GiB"
+    if size_bytes >= 1024**2:
+        return f"{size_bytes / 1024**2:.1f} MiB"
+    if size_bytes >= 1024:
+        return f"{size_bytes / 1024:.1f} KiB"
+    return f"{size_bytes} bytes"
 
 
 def create_zip_from_folders(
@@ -154,15 +177,16 @@ def create_zip_from_folders(
             "-tzip",
             "-mx=5",
             "-mmt=on",
+            "-bsp1",
             f"-v{MAX_ARCHIVE_PART_SIZE_BYTES}b",
             str(temporary_archive),
             *(str(folder) for folder in folders),
             *exclusions,
         ]
-        result = subprocess.run(command, capture_output=True, text=True, check=False)
+        print("Stage 1/2: Scanning and compressing with 7-Zip...", flush=True)
+        result = subprocess.run(command, check=False)
         if result.returncode != 0:
-            diagnostic = result.stderr.strip() or result.stdout.strip()
-            raise RuntimeError(f"7-Zip exit code {result.returncode}: {diagnostic}")
+            raise RuntimeError(f"7-Zip exit code {result.returncode}; see the console output above")
 
         temporary_parts = _temporary_archive_parts(temporary_archive)
         if not temporary_parts or any(part.stat().st_size == 0 for part in temporary_parts):
@@ -173,6 +197,12 @@ def create_zip_from_folders(
         )
         if oversized_part is not None:
             raise RuntimeError(f"Archive volume exceeds the 5 GiB limit: {oversized_part}")
+        total_size = sum(part.stat().st_size for part in temporary_parts)
+        print(
+            f"Compression complete: {len(temporary_parts)} temporary part(s), {_format_file_size(total_size)} total.",
+            flush=True,
+        )
+        print("Stage 2/2: Publishing completed archive file(s)...", flush=True)
         return _publish_archive_parts(temporary_parts, output_archive)
     except BaseException:
         temporary_archive.unlink(missing_ok=True)
@@ -265,6 +295,7 @@ def main(
             print("Dry run complete; no archive was created.")
             return 0
 
+        started_at = time.monotonic()
         created_archives = create_zip_from_folders(
             folders=folders,
             output_archive=output_archive,
@@ -272,16 +303,19 @@ def main(
             excluded_folders=excluded_folders,
             excluded_extensions=excluded_extensions,
         )
+        elapsed_seconds = time.monotonic() - started_at
     except (FileExistsError, OSError, RuntimeError, ValueError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 
     if len(created_archives) == 1:
-        print(f"Created ZIP archive: {created_archives[0]}")
+        archive_size = _format_file_size(created_archives[0].stat().st_size)
+        print(f"Created ZIP archive: {created_archives[0]} ({archive_size})")
     else:
         print(f"Created {len(created_archives)} ZIP archive parts:")
         for created_archive in created_archives:
-            print(f"  - {created_archive}")
+            print(f"  - {created_archive} ({_format_file_size(created_archive.stat().st_size)})")
+    print(f"Elapsed time: {elapsed_seconds / 60:.1f} minutes")
     return 0
 
 

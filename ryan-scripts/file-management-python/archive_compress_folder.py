@@ -24,7 +24,7 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 # Wrapper identity and editable project settings (CLI options override these)
 # ---------------------------------------------------------------------------
-WRAPPER_VERSION = "2026-10-16.2"
+WRAPPER_VERSION = "2026-11-01.1"
 
 DEFAULT_INPUT_PATHS: tuple[Path, ...] = (Path.cwd(),)
 DEFAULT_WORKING_DIRECTORY: Path | None = None  # None = first input directory
@@ -33,6 +33,7 @@ DEFAULT_EXCLUDE_EXTENSIONS: tuple[str, ...] = (".xf4", ".xmdf", ".2dm", ".dat", 
 
 DEFAULT_7ZIP_EXE: Path | None = None  # None = auto-discover 7z.exe
 DEFAULT_MAX_WORKERS: int | None = None  # None = CPU count, limited to folder count
+DEFAULT_MAX_PART_SIZE_GIB: int | None = None  # None = one unsplit .7z; use 5 for upload-sized parts
 DEFAULT_SHOW_PROGRESS = True  # Rich progress in interactive terminals; plain text otherwise
 DEFAULT_CONSOLE_LOG_LEVEL = "INFO"
 DEFAULT_LOG_FILE: Path | None = Path("archive_compress_folder.log")
@@ -62,6 +63,7 @@ def main(
     working_directory: Path | None = None,
     seven_zip_exe: Path | None = None,
     max_workers: int | None = None,
+    max_part_size_gib: int | None = None,
     show_progress: bool | None = None,
 ) -> int:
     """Compress the selected folders and report per-folder and batch outcomes."""
@@ -84,6 +86,12 @@ def main(
     requested_workers = max_workers if max_workers is not None else DEFAULT_MAX_WORKERS
     if requested_workers is not None and requested_workers < 1:
         logger.error("Worker count must be at least 1, got {}.", requested_workers)
+        return 2
+    configured_part_size = max_part_size_gib if max_part_size_gib is not None else DEFAULT_MAX_PART_SIZE_GIB
+    if max_part_size_gib == 0:
+        configured_part_size = None
+    if configured_part_size is not None and configured_part_size < 1:
+        logger.error("Maximum archive part size must be at least 1 GiB, got {}.", configured_part_size)
         return 2
     configured_exe = seven_zip_exe if seven_zip_exe is not None else DEFAULT_7ZIP_EXE
     explicit_exe = configured_exe.absolute() if configured_exe is not None else None
@@ -116,6 +124,7 @@ def main(
             executable=exe,
             excluded_folders=exclusions_folders,
             excluded_extensions=exclusions_extensions,
+            max_part_size_gib=configured_part_size,
         )
         for folder in folders
     ]
@@ -125,6 +134,8 @@ def main(
     console.print(
         f"Excluded folders: {exclusions_folders} | excluded extensions: {exclusions_extensions}", markup=False
     )
+    split_description = "off" if configured_part_size is None else f"{configured_part_size} GiB maximum per part"
+    console.print(f"Archive splitting: {split_description}", markup=False)
     if len(jobs) == 1:
         console.print(f"Processing: {jobs[0].folder}", markup=False)
         console.print(f"Output: {jobs[0].folder.with_suffix('.7z')}", markup=False)
@@ -205,6 +216,12 @@ def _parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         "--workers", type=int, default=None, help="Maximum concurrent folder compressions; defaults to CPU count."
     )
     parser.add_argument(
+        "--max-part-size-gib",
+        type=int,
+        default=None,
+        help="Split each .7z into parts no larger than this many GiB; disabled by default. Use 0 to force no split.",
+    )
+    parser.add_argument(
         "--progress",
         action=argparse.BooleanOptionalAction,
         default=None,
@@ -234,6 +251,7 @@ if __name__ == "__main__":
                 working_directory=cli.working_directory,
                 seven_zip_exe=cli.seven_zip_exe,
                 max_workers=cli.workers,
+                max_part_size_gib=cli.max_part_size_gib,
                 show_progress=cli.progress,
             )
         except Exception:

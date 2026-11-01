@@ -30,13 +30,31 @@ def create_7zip_archive(
     output_archive: Path,
     inputs: Sequence[str | Path],
     exclusions: Sequence[str] = (),
-) -> None:
-    """Create one archive and remove a partial output when 7-Zip fails."""
+    max_part_size_gib: int | None = None,
+) -> tuple[Path, ...]:
+    """Create an archive, optionally split into size-limited volumes."""
+    if max_part_size_gib is not None and max_part_size_gib < 1:
+        msg = f"Maximum archive part size must be at least 1 GiB, got {max_part_size_gib}."
+        raise ValueError(msg)
+
+    volume_prefix = f"{output_archive.name}."
+    existing_volumes = sorted(
+        candidate
+        for candidate in output_archive.parent.glob(f"{output_archive.name}.*")
+        if candidate.name.removeprefix(volume_prefix).isdigit()
+    )
+    if output_archive.exists() or output_archive.is_symlink() or existing_volumes:
+        existing = output_archive if output_archive.exists() or output_archive.is_symlink() else existing_volumes[0]
+        msg = f"Output archive already exists: {existing}"
+        raise FileExistsError(msg)
+
+    volume_switch = [] if max_part_size_gib is None else [f"-v{max_part_size_gib * 1024**3}b"]
     command = [
         str(executable),
         "a",
         "-mx=5",
         "-mmt=1",
+        *volume_switch,
         str(output_archive),
         *(str(value) for value in inputs),
         *exclusions,
@@ -47,8 +65,29 @@ def create_7zip_archive(
             diagnostic = result.stderr.strip() or result.stdout.strip()
             msg = f"7z exit code {result.returncode}: {diagnostic}"
             raise RuntimeError(msg)
-    except Exception:
+        outputs = (
+            tuple(
+                sorted(
+                    (
+                        candidate
+                        for candidate in output_archive.parent.glob(f"{output_archive.name}.*")
+                        if candidate.name.removeprefix(volume_prefix).isdigit()
+                    ),
+                    key=lambda path: int(path.name.removeprefix(volume_prefix)),
+                )
+            )
+            if max_part_size_gib is not None
+            else (output_archive,)
+        )
+        if not outputs or any(not output.is_file() or output.stat().st_size == 0 for output in outputs):
+            msg = f"7-Zip did not create a non-empty archive: {output_archive}"
+            raise RuntimeError(msg)
+        return outputs
+    except BaseException:
         output_archive.unlink(missing_ok=True)
+        for volume in output_archive.parent.glob(f"{output_archive.name}.*"):
+            if volume.name.removeprefix(volume_prefix).isdigit():
+                volume.unlink(missing_ok=True)
         raise
 
 
@@ -77,6 +116,7 @@ class FolderCompressionJob:
     executable: Path
     excluded_folders: tuple[str, ...] = ()
     excluded_extensions: tuple[str, ...] = ()
+    max_part_size_gib: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,8 +136,20 @@ def compress_folder_7zip(job: FolderCompressionJob) -> FolderCompressionResult:
     archive_compress_folder wrapper. Existing .7z files are never overwritten.
     """
     archive = job.folder.with_suffix(".7z")
-    if archive.exists():
-        return FolderCompressionResult(job.folder, archive, "SKIPPED", "Output archive already exists")
+    volume_prefix = f"{archive.name}."
+    existing_volume = next(
+        (
+            candidate
+            for candidate in archive.parent.glob(f"{archive.name}.*")
+            if candidate.name.removeprefix(volume_prefix).isdigit()
+        ),
+        None,
+    )
+    if archive.exists() or archive.is_symlink() or existing_volume is not None:
+        existing = archive
+        if not archive.exists() and not archive.is_symlink() and existing_volume is not None:
+            existing = existing_volume
+        return FolderCompressionResult(job.folder, existing, "SKIPPED", "Output archive already exists")
 
     exclusions = [f"-xr!{folder}" for folder in job.excluded_folders]
     for extension in job.excluded_extensions:
@@ -105,12 +157,14 @@ def compress_folder_7zip(job: FolderCompressionJob) -> FolderCompressionResult:
         exclusions.append(f"-xr!*{normalized}")
 
     try:
-        create_7zip_archive(
+        outputs = create_7zip_archive(
             executable=job.executable,
             output_archive=archive,
             inputs=[f"{job.folder}\\*"],
             exclusions=exclusions,
+            max_part_size_gib=job.max_part_size_gib,
         )
     except (OSError, RuntimeError, ValueError) as exc:
         return FolderCompressionResult(job.folder, archive, "ERROR", str(exc))
-    return FolderCompressionResult(job.folder, archive, "SUCCESS")
+    message = "" if len(outputs) == 1 else f"Created {len(outputs)} parts"
+    return FolderCompressionResult(job.folder, outputs[0], "SUCCESS", message)

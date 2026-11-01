@@ -148,3 +148,39 @@ def test_compress_individual_with_exclusions(mock_project: Path):
     assert not (mock_project / "excluded_model.xmdf.7z").exists()
     assert not (mock_project / "xf" / "hidden.csv.7z").exists()
     assert not (mock_project / "xf" / "valid_image.tif.7z").exists()
+
+
+@pytest.mark.skipif(not SEVEN_ZIP_EXE, reason="7z.exe not found on system")
+def test_compress_individual_with_optional_five_gib_volume(mock_project: Path):
+    """The opt-in upload limit creates a valid numbered 7-Zip volume."""
+    source = mock_project / "valid_data.csv"
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(repo_root)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(COMPRESS_INDIVIDUAL_SCRIPT),
+            "-i",
+            str(source),
+            "--max-part-size-gib",
+            "5",
+            "--no-pause",
+        ],
+        capture_output=True,
+        text=True,
+        env=env,
+        cwd=mock_project,
+        check=False,
+    )
+
+    assert result.returncode == 0, f"Script failed with output:\n{result.stderr}\n{result.stdout}"
+    first_volume = source.with_suffix(f"{source.suffix}.7z.001")
+    assert first_volume.exists()
+    tested = subprocess.run(
+        [str(SEVEN_ZIP_EXE), "t", str(first_volume)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert tested.returncode == 0, tested.stdout + tested.stderr
