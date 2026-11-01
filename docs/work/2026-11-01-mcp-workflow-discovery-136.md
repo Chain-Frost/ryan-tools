@@ -387,3 +387,14 @@ Independently audited the delivery against the agreed contract at `4215cc2`, cor
 `WorkflowSpec.metadata` positional-argument regression with a targeted test at `5f9aa7e`, and examined hosted
 source CI and isolated installed-wheel discovery. The next step is maintainer final review of draft #182 after
 exact-head CI is verified and recorded in its description.
+
+## Installer launcher names - 2026-11-01
+
+At the maintainer's request, this PR also carries five batch-file renames that distinguish PyPI installation,
+local-wheel installation and local build operations. Calls, setup documentation and the existing launcher test
+use the new names. The generic install-ryan-tools launcher remains a PyPI alias. Installer behavior is preserved.
+
+Local Python 3.14 validation: installer/setup tests 35 passed, 1 symlink-permission skip; scoped Ruff lint/format
+and strict Pyright passed. README/environment documentation checks and MCP links passed. All batch call targets
+exist. No installation or package rebuild was needed. This follow-up is committed/pushed on the existing PR;
+CI receipts above apply to their named earlier commits until the new head finishes. No merge or release.

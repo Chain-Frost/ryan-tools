@@ -166,8 +166,8 @@ or that its CLI works; verify those in the real application environment before r
 
 ## Install both MCP servers
 
-The recommended end-user launcher (`install-ryan-tools.bat`, also available through
-the existing `install-latest-wheel.bat`) installs the newest published
+The recommended end-user launcher (`install-from-pypi.bat`, also available through
+the `install-ryan-tools.bat` alias) installs the newest published
 `ryan-tools[mcp]` release **from PyPI**, without requiring a local wheel.
 It also installs the external QGIS MCP Python bridge from upstream `main`.
 If Codex is detected (CLI, existing user configuration, or the OpenAI `openai.chatgpt` VS Code extension), it automatically
@@ -175,7 +175,7 @@ adds/refreshes the QGIS and ryan-tools MCP registrations, preserving unrelated
 settings and backing up changed configuration. If Codex is absent, no Codex
 configuration is created.
 
-`package_and_install.bat` and `install-local-wheel.bat` retain the
+`build-and-install-local-wheel.bat` and `install-local-wheel.bat` retain the
 local verified-wheel workflow for developers. The QGIS bridge remains a
 separate pip installation, not an embedded dependency of `ryan-tools`.
 Development `requirements.txt` installs the checkout and upstream QGIS MCP.
@@ -192,7 +192,7 @@ For machines without QGIS or access to the upstream source:
 .\install-ryan-tools.bat --skip-qgis-mcp
 ```
 
-The developer `force-reinstall.bat` still uses a local wheel with
+The developer `force-reinstall-local-wheel.bat` still uses a local wheel with
 `--no-deps`; `install_latest_wheel.py --dependencies-only` remains a
 binary GIS dependency bootstrap. Use `install-ryan-tools.bat --skip-codex`
 to leave Codex untouched. Skipping QGIS MCP also skips automatic Codex
