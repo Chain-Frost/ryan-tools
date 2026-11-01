@@ -226,7 +226,9 @@ def test_blank_editable_paths_are_rejected(
 ) -> None:
     module = sys.modules["tested_runner_wrapper"]
     monkeypatch.setattr(module, setting, invalid)
-    with pytest.raises(ValueError, match="path must not be empty"):
+    # A malformed user setting must identify the actual field, including
+    # the index of an invalid BAT/TXT source.
+    with pytest.raises(ValueError, match=rf"^{setting}(?:\[0\])? is blank"):
         _settings_from_wrapper(wrapper)
 
 
