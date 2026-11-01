@@ -117,9 +117,9 @@ def test_discover_log_files(tmp_path: Path) -> None:
 
 def test_format_bytes() -> None:
     assert _format_bytes(500) == "500 B"
-    assert _format_bytes(1500) == "1.5 KiB"
-    assert _format_bytes(1500 * 1024) == "1.5 MiB"
-    assert _format_bytes(1500 * 1024 * 1024) == "1.5 GiB"
+    assert _format_bytes(1500) == "1.5 KB"
+    assert _format_bytes(1500 * 1024) == "1.5 MB"
+    assert _format_bytes(1500 * 1024 * 1024) == "1.5 GB"
 
 
 def test_process_log_file() -> None:
