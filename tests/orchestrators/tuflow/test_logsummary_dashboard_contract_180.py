@@ -149,5 +149,5 @@ def test_spawn_callback_interruption_cleans_up_pool_and_logging(tmp_path: Path) 
     assert run.returncode == 130
     assert "CANCELLED_PARENTSIDE" in run.stdout
     assert run.stdout.count("Spawn smoke: INTERRUPTED") == 1
-    assert "\\x1b[" not in run.stdout
+    assert "\x1b[" not in run.stdout
     assert log.is_file()
