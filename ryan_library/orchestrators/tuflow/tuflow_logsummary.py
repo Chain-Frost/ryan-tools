@@ -420,10 +420,10 @@ def _dashboard_detail(result: LogFileProcessingResult) -> str:
     return result.detail
 
 
-def _format_bytes(size_bytes: int) -> str:
+def _format_bytes(size_bytes: int) -> str:  # pyright: ignore[reportUnusedFunction] - retained for legacy tests
     value: float = float(size_bytes)
-    for unit in ("B", "KiB", "MiB", "GiB"):
-        if value < 1024 or unit == "GiB":
+    for unit in ("B", "KB", "MB", "GB"):
+        if value < 1024 or unit == "GB":
             return f"{value:.1f} {unit}" if unit != "B" else f"{size_bytes} B"
         value /= 1024
     return f"{size_bytes} B"
