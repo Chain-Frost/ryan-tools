@@ -177,9 +177,7 @@ def test_malformed_po_with_filter_remains_a_failure() -> None:
 
 def test_valid_rll_qmx_without_selected_locations_is_skip() -> None:
     """Valid RLL_Qmx data excluded by the filter must not fail a POMM export."""
-    processor = RLLQmxProcessor(
-        Path("synthetic_RLL_Qmx.csv"), entity_filter=frozenset({"SelectedLocation"})
-    )
+    processor = RLLQmxProcessor(Path("synthetic_RLL_Qmx.csv"), entity_filter=frozenset({"SelectedLocation"}))
     processor.df = pd.DataFrame(
         {
             "ID": ["OtherLocation"],
@@ -195,9 +193,7 @@ def test_valid_rll_qmx_without_selected_locations_is_skip() -> None:
         patch.object(processor, "read_maximums_csv", return_value=ProcessorStatus.SUCCESS),
         patch.object(processor, "validate_data", wraps=processor.validate_data) as validate,
     ):
-        actual = common.process_file(
-            Path("synthetic_RLL_Qmx.csv"), entity_filters=("SelectedLocation",)
-        )
+        actual = common.process_file(Path("synthetic_RLL_Qmx.csv"), entity_filters=("SelectedLocation",))
     assert actual is processor
     assert processor.filtered_empty
     assert not processor.processed
@@ -225,17 +221,13 @@ def test_valid_rll_qmx_without_selected_locations_is_skip() -> None:
 
 def test_malformed_rll_qmx_with_filter_remains_failure() -> None:
     """Missing source columns are not mistaken for a filter exclusion."""
-    processor = RLLQmxProcessor(
-        Path("malformed_RLL_Qmx.csv"), entity_filter=frozenset({"SelectedLocation"})
-    )
+    processor = RLLQmxProcessor(Path("malformed_RLL_Qmx.csv"), entity_filter=frozenset({"SelectedLocation"}))
     processor.df = pd.DataFrame({"ID": ["OtherLocation"], "Qmax": [10.0]})
     with (
         patch.object(common.BaseProcessor, "from_file", return_value=processor),
         patch.object(processor, "read_maximums_csv", return_value=ProcessorStatus.SUCCESS),
     ):
-        actual = common.process_file(
-            Path("malformed_RLL_Qmx.csv"), entity_filters=("SelectedLocation",)
-        )
+        actual = common.process_file(Path("malformed_RLL_Qmx.csv"), entity_filters=("SelectedLocation",))
     assert actual is processor
     assert not processor.filtered_empty
     assert not processor.processed
