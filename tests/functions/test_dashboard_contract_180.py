@@ -218,10 +218,13 @@ class _SyntheticAsyncResult:
         return self.result
 
 
-@pytest.mark.parametrize("error", [
-    MaybeEncodingError(ValueError("pickling failed"), "synthetic failed-result encoding"),
-    OSError("synthetic pool transport error"),
-])
+@pytest.mark.parametrize(
+    "error",
+    [
+        MaybeEncodingError(ValueError("pickling failed"), "synthetic failed-result encoding"),
+        OSError("synthetic pool transport error"),
+    ],
+)
 def test_pool_transport_errors_propagate_without_becoming_item_failures(error: Exception) -> None:
     dashboard = LiveWorkflowDashboard(title="Pool", enabled=False)
     dashboard.set_tasks(["one"])
