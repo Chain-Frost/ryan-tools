@@ -126,19 +126,6 @@ jobs:
 
           # Retain the established CI lint gate for branch protection and release automation.
           # Fast PR checks run the same lightweight validations sooner, independently.
-          # TEMPORARY: emit exact Ruff-formatted sources for this PR's remote-only recovery.
-          # This block is removed before final validation.
-          python -m ruff format $pythonFiles
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          foreach ($source in $pythonFiles) {
-            $data = [Convert]::ToBase64String([System.IO.File]::ReadAllBytes((Resolve-Path $source)))
-            $pieces = [int][Math]::Ceiling($data.Length / 3000)
-            for ($index = 0; $index -lt $pieces; $index++) {
-              $start = $index * 3000
-              $take = [Math]::Min(3000, $data.Length - $start)
-              Write-Host "RYAN_FMT|$source|$index|$pieces|$($data.Substring($start, $take))"
-            }
-          }
           python -m ruff check $pythonFiles
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m ruff format --check $pythonFiles
