@@ -363,7 +363,6 @@ def main(argv: list[str] | None = None) -> int:
             "TRACE", "DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL"
         }:
             message = f"CONSOLE_LOG_LEVEL={log_level!r} is invalid; use DEBUG, INFO, SUCCESS, WARNING, ERROR or CRITICAL."
-            message = message
             raise ValueError(message)
         configure_serial_logging(console_log_level=log_level.upper())
         settings = _settings(arguments)
