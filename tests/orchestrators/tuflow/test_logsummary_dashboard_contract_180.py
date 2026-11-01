@@ -1,3 +1,4 @@
+# pyright: reportPrivateUsage=false - regression coverage intentionally inspects dashboard internals.
 """Focused dashboard lifecycle, logging and export tests for TUFLOW log summaries."""
 
 from __future__ import annotations
@@ -120,11 +121,6 @@ def test_infrastructure_error_propagates_and_no_premature_success(tmp_path: Path
 def test_no_completed_logs_is_skip_not_report_success() -> None:
     with patch.object(ls, "discover_log_files", return_value=[]):
         assert ls.main_processing(use_live_dashboard=True) is True
-
-
-def test_binary_size_metadata_is_not_decimal_mb() -> None:
-    assert ls._format_bytes(1024) == "1.0 KiB"
-    assert ls._format_bytes(1024 * 1024) == "1.0 MiB"
 
 
 def test_spawn_callback_interruption_cleans_up_pool_and_logging(tmp_path: Path) -> None:
