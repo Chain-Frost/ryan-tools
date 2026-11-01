@@ -112,7 +112,7 @@ def main_processing(
                 logger.warning("Combined culvert DataFrames are empty. Skipping export.")
                 dashboard.finish(outcome="FAILED" if progress.failed else "SKIPPED", detail="no combined data")
                 return progress.failed == 0
-    
+
             dashboard.set_phase("Exporting")
             export_dict: dict[str, ExportContent] = {
                 "1d_maximums_data": {
