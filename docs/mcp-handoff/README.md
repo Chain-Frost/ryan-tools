@@ -2,8 +2,8 @@
 
 ## Current C/F validation
 
-The [per-target safety review](2026-10-21-cf-target-assessment.md) covers the 33
-curated script paths (35 workflow records including native/HY-8 pairs), and the
+The [per-target safety review](2026-10-21-cf-target-assessment.md) covers the 34
+curated script paths (36 workflow records including native/HY-8 pairs), and the
 [Windows engineering checklist](2026-10-21-cf-windows-acceptance.md) records
 reproducible wheel, filesystem, GDAL/QGIS/TUFLOW/HY-8 acceptance gates.
 Mocked discovery and hosted tests are not equivalent to licensed engineering acceptance.

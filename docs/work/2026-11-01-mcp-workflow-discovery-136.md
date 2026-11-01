@@ -2,15 +2,15 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Implemented; hosted validation and independent review pending |
-| Owner | Unassigned |
+| Status | Implemented and validated at `dcdf3d0`; independent review pending |
+| Owner | ChatGPT (implementation); independent reviewer pending |
 | Created | 2026-11-01 |
 | Updated | 2026-11-01 |
 | Next review | 2026-11-08 |
 | Issue | [#136](https://github.com/Chain-Frost/ryan-tools/issues/136) |
 | Baseline | [main at 99cd3cc](https://github.com/Chain-Frost/ryan-tools/commit/99cd3ccaaabd83b682392f7e285d90b570d353cb), merge commit ddcf6e7 |
 | Delivery branch | `feat/mcp-workflow-discovery-136`, targeting `main` |
-| Delivery state | Feature and regression tests pushed to draft PR #182; Python 3.14 hosted verification, installed-wheel smoke and independent review pending |
+| Delivery state | PR #182 draft; Python 3.14 hosted checks, verified wheel and isolated installed-wheel discovery all passed at `dcdf3d0`; independent review pending |
 
 ## Outcome and scope
 
@@ -36,7 +36,7 @@ Read [AGENTS.md](../../AGENTS.md), the [development guide](../DEVELOPMENT_GUIDE.
 - [PR #159](https://github.com/Chain-Frost/ryan-tools/pull/159) has since merged to main at `99cd3cc`.
   Its generic catalogue and installed-wheel smoke changes are retained by merging main into this feature branch
   before implementing #136; the PR remains based on main, not stacked on #159.
-- The unchanged registry returns no matches for crop or pyramids. Raster clip finds
+- Before this change, the registry returned no matches for crop or pyramids. Raster clip finds
   `clip_rasters_to_polygon`; overviews finds the existing overview and raster-translation workflows.
   These observations used `include_unavailable=True` and the create profile, so installation did not affect matching.
 - The baseline contains 36 workflow definitions and 27 create-profile-visible entries before availability filtering.
@@ -176,8 +176,8 @@ Target the repository's Windows/Python 3.14 environment and current annotation s
 - [x] Overview has deterministic domain pagination, bounded examples, correct empty/past-end results and no hidden entries.
 - [x] Core/analysis/create/privileged and narrower requested profiles retain their existing visibility contracts.
 - [x] Full catalogue and health totals remain complete; no catalogue preload or execution is introduced.
-- [ ] Actual installed-wheel discovery proves packaged keywords and overview work outside the checkout.
-- [ ] Focused tests, relevant formatting/typing, documentation checks and package verification pass at the reported head.
+- [x] Actual installed-wheel discovery proves packaged keywords and overview work outside the checkout.
+- [x] Focused tests, relevant formatting/typing, documentation checks and package verification pass at tested source `dcdf3d0`.
 - [ ] Independent review findings are resolved or explicitly reported; the PR and work record match delivered behavior.
 
 ## Validation and delivery
@@ -204,9 +204,9 @@ Implementation commits:
 - `94b562c` extends focused model/registry/server regression coverage and the actual installed-wheel smoke.
 - Documentation records and the final exact-head validation receipt follow in subsequent commits.
 
-The checkbox items above describe implemented, test-covered behavior; validation-only and independent-review
-criteria remain pending until corresponding evidence is available. Existing CI must prove actual Python 3.14
-formatting, strict typing, focused tests and the Package job's neutral-directory installed-wheel smoke.
+The code, focused tests and actual installed-wheel acceptance criteria passed on Python 3.14 at tested source
+`dcdf3d04169b9b1028d28d6f23fc2312229ba443`. Independent review is the sole remaining acceptance stage.
+The next documentation-only commit records this receipt; recheck its final head before sign-off.
 
 Run focused MCP tests sufficient to cover this contract and existing safety boundaries. Use current repository
 formatting/lint guidance and strict Pyright on modified Python files. Record exact commands, environment and results.
@@ -221,6 +221,33 @@ Review required GitHub checks at the latest pushed SHA. Do not add a CI workflow
 No new licensed TUFLOW/GDAL run or broad engineering acceptance programme is required for these metadata changes.
 Do not run an unrelated full suite locally by default. If a required check cannot run, state the exact blocker and
 leave the corresponding criterion pending.
+
+### Hosted acceptance receipt — 2026-11-01
+
+**Tested source SHA:** `dcdf3d04169b9b1028d28d6f23fc2312229ba443`, Windows/Python 3.14.
+[Fast PR checks run #41279007038](https://github.com/Chain-Frost/ryan-tools/actions/runs/41279007038): **success**.
+[Python CI run #41279007020](https://github.com/Chain-Frost/ryan-tools/actions/runs/41279007020): **success**;
+all five jobs green (Policy, MCP smoke, Hosted tests, Package, POSIX wrapper security).
+
+| Verification | Exact command / execution | Observed result at source SHA |
+| --- | --- | --- |
+| Changed-file whitespace | `git diff --check "$base...$env:GITHUB_SHA"` in Fast PR checks and `git diff --check` in Policy | Both pass |
+| Pinned Ruff lint and format | `python -m ruff check $pythonFiles`; `python -m ruff format --check $pythonFiles` | Pass; six changed Python files already formatted; Ruff 0.16.6 |
+| Strict Python 3.14 Pyright | `python -m pyright $pythonFiles` | **0 errors, 0 warnings** on six changed Python files |
+| Focused MCP discovery and safety | `python -m pytest -q tests/mcp/test_registry.py tests/mcp/test_server.py tests/mcp/test_catalogue_contracts.py` | **94 passed, 1 warning** |
+| Focused utility regressions | Existing MCP smoke step `python -m pytest tests/functions/RORB/test_read_rorb_files.py tests/functions/gdal/test_profiling.py tests/functions/test_process_12D_culverts.py tests/functions/tuflow/test_logsummary_excel_append.py tests/functions/tuflow/test_notebook_helpers.py tests/functions/tuflow/test_po_timeseries_checks.py -m "not gui and not external"` | **73 passed, 22 warnings** |
+| Hosted test boundary | `python -m pytest tests --ignore=tests/functions/gdal --ignore=tests/orchestrators/gdal --ignore=tests/scripts/gdal/test_gdal_flood_extent.py --ignore=tests/scripts/test_promoted_utilities.py --ignore=tests/scripts/test_archive_compress.py -m "not gdal and not gui and not external" --deselect=tests/floodway/test_sweep.py::test_discharge_sweep_detects_overtopping_and_retains_non_aep_interior_states --deselect=tests/floodway/test_sweep.py::test_discharge_sweep_honors_explicit_minimum_bound` | **1,949 passed, 14 skipped, 8 deselected, 127 warnings**; hosted command additionally uses `-rs --durations=15 --junitxml=test-results/hosted-tests.xml`. See CI for exact second deselect spelling. |
+| Documentation and links | `python repo-scripts/check_documentation.py`; `python repo-scripts/check_documentation.py --links-only docs/MCP_SETUP.md docs/mcp-handoff/README.md docs/work/README.md docs/work/2026-11-01-mcp-workflow-discovery-136.md` | Both pass: seven default documents plus index, four touched documents |
+| Logging policy | `python repo-scripts/check_loguru_formatting.py` | Pass |
+| Verified package | `python repo-scripts/build_library.py --no-bump --skip-pip`; `python repo-scripts/verify_wheel.py` | Pass; verified wheel `ryan_tools-26.11.1.1-py3-none-any.whl`, no version bump |
+| Real neutral-directory wheel smoke | `python -m pip install --no-deps --target $target $wheel[0].FullName`; install separate `run-hy8` / `ryan-culverts`; set `PYTHONPATH=$target`; run outside checkout: `python "$env:GITHUB_WORKSPACE/repo-scripts/smoke_test_installed_wheel.py" --expected-root $target` | Pass; logs explicitly confirm **Wheel-only MCP keyword search and domain overview passed** and installed-wheel smoke passed |
+| POSIX wrapper security (unchanged existing CI) | `python -m pytest -q tests/mcp/test_installed_scripts.py --confcutdir=tests/mcp` | **25 passed, 2 skipped** |
+
+The focused warning is the pre-existing pandas deprecation in the TUFLOW `HProcessor`; it is not a discovery test
+failure. Skips in the Hosted suite include deliberate opt-in real GDAL/QGIS, UNC/mapped-drive and long-path acceptance.
+No licensed TUFLOW or HY-8 execution, external binary readiness, real GIS acceptance, release or publication occurred.
+Script execution/approval policies were unchanged. The final documentation-only receipt commit needs its own exact-head
+CI confirmation; this record captures the implementation SHA and reproducible commands, not a fabricated receipt.
 
 ## Agent 1 prompt — implementation
 
@@ -296,9 +323,10 @@ state whether it is ready for the user's final review.
 
 ## Next action
 
-Check hosted Python 3.14 Policy, Hosted tests, MCP smoke and Package outcomes at the latest pushed SHA. Resolve
-regressions, record exact commands/results and the final tested SHA, then hand PR #182 to Agent 2 for independent
-acceptance. Do not merge, release or auto-merge.
+Agent 2 should fetch the latest draft PR #182 head and `main`, independently review the exact implementation and
+all five Python 3.14 gates, inspect the isolated wheel evidence and confirm that no safety rule changed. Apply only
+substantiated fixes on this branch, or report findings. The user retains merge authority; no release, auto-merge or
+force-push. Record the final documentation receipt commit's exact-head CI outcome before declaring full acceptance.
 
 ## Progress
 
@@ -314,3 +342,9 @@ The keyword model, both catalogue loaders, registry search, domain aggregation a
 Original user-facing pagination and profile filtering remain available. Generic and GDAL curation use authoritative
 JSON; neither creates a new script nor changes CLI behavior. Added focused tests including failure paths and actual
 installed-wheel smoke assertions; validation outcomes are recorded separately once CI finishes.
+
+### 2026-11-01 — delivered verification
+
+The implementation and all five Python 3.14 CI jobs passed at `dcdf3d0` with the exact commands/results above.
+Actual installed-wheel discovery of all curated terms and the complete paginated domain overview passed outside
+checkout. PR #182 stays draft and unmerged, pending independent review.
