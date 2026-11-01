@@ -397,9 +397,7 @@ def test_gdal_keyword_catalogue_validation_rejects_bad_values(
         WorkflowRegistry(discover_repository=False)
 
 
-def test_gdal_catalogue_normalizes_nonempty_json_arrays(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_gdal_catalogue_normalizes_nonempty_json_arrays(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Both catalogue loaders use the same normalization after JSON decoding."""
     (tmp_path / "workflows.json").write_text(json.dumps({"schema_version": "1.0", "workflows": []}), encoding="utf-8")
     (tmp_path / "gdal_cli_tools.json").write_text(
