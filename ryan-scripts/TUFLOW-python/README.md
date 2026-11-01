@@ -279,6 +279,56 @@ relative subfolder names; full paths are still used for file operations.
 Green denotes a successful layer rename, yellow a skipped file (already
 correct or multiple layers), and red a failed inspection or rename.
 
+## Culvert, PO and POMM result dashboards
+
+The six maintained result wrappers under `culvert_results` and `po_and_timeseries` use the
+[shared dashboard standard](../../docs/DASHBOARDS.md) for substantial interactive batches:
+[combine_culvert_maximums.py](culvert_results/combine_culvert_maximums.py), [combine_culvert_timeseries.py](culvert_results/combine_culvert_timeseries.py),
+[create_mean_culvert_peak_report.py](culvert_results/create_mean_culvert_peak_report.py), [create_median_culvert_peak_report.py](culvert_results/create_median_culvert_peak_report.py),
+[combine_po_results.py](po_and_timeseries/combine_po_results.py) and [combine_pomm_results.py](po_and_timeseries/combine_pomm_results.py).
+
+Each has editable `USE_LIVE_DASHBOARD`, `LIVE_REFRESH_PER_SECOND`,
+`LIVE_MAX_ROWS`, `CONSOLE_LOG_LEVEL`, `PAUSE_ON_FINISH` and optional
+`LOG_FILE`/`FILE_LOG_LEVEL`. CLI switches override relevant values including
+`--live-dashboard`, `--no-live-dashboard` and `--no-pause`. Interactive pausing
+is enabled by the editable `PAUSE_ON_FINISH = True` default; `--no-pause` disables
+it, and redirected/headless runs do not wait. A separate `--pause` flag is not needed.
+A `CONSOLE_LOG_LEVEL` of `None` chooses SUCCESS for dashboard runs and INFO
+for ordinary logging; an explicit level is respected. DEBUG file logging is
+independent of the concise console level.
+
+The dashboard follows discovery, processing, aggregation and export. Successful
+input parsing does not mean a workbook has been written; a processing failure
+or export exception cannot produce a successful final report state. Normal
+no-result cases are reported as skipped. The wrapper exits nonzero on processing
+failures; export errors retain an actionable exception and nonzero exit. The
+display uses optional file completion counts, timeseries/maximums rows, or
+AEP-duration and critical groups as appropriate. It does **not** show an
+estimated byte-read rate or label stat metadata as measured bytes read.
+The established full-list serial fallback for recoverable pool failures and
+the processor raw-DataFrame cleanup are unchanged.
+
+Relative `PATHS_TO_PROCESS`, `--paths-to-process`, output and log paths use
+`WORKING_DIR` (or the effective `--working-directory`) as their base,
+**before** the process changes directory. Mapped drive, UNC and symlink
+spellings are preserved by `Path.absolute()`; no `resolve()` is used merely
+for display. The four culvert wrappers expose editable
+`LOCATIONS_TO_INCLUDE`; PO/POMM continue to expose the same filter.
+The mean and median report output directory is the absolute effective
+working directory. Maximums and timeseries optionally expose
+`OUTPUT_DIR`/`--output-directory` while preserving the default output
+location. PO/POMM continue to export into the working directory.
+
+Output names, Excel sheets, gzip Parquet, mean/upper-median mathematics,
+EOF alignment, PO sorting and POMM raw-combine semantics are unchanged.
+Use a copied wrapper with a matching installed `ryan-tools` wheel; a
+repository-root `PYTHONPATH` workaround is not supported. For a headless run:
+
+```powershell
+py -3.14 .\culvert_results\combine_culvert_maximums.py --working-directory "Q:\Model\results" --no-live-dashboard --no-pause
+py -3.14 .\po_and_timeseries\combine_pomm_results.py --working-directory "Q:\Model\results" --export-mode both --no-pause
+```
+
 ## Wrapper folders
 
 | Folder | Purpose |

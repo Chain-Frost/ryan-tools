@@ -37,6 +37,24 @@ with setup_logger(
 Maintained wrappers that use the common CLI accept `--console-log-level SUCCESS`. This is preferable to truncating
 captured output after execution because warnings and final status remain visible.
 
+## Dashboard sink policy
+
+For substantial batches use the shared [dashboard contract](DASHBOARDS.md). The
+rendered dashboard is a **console presentation** decision, not a reason to
+discard worker records. Use `SUCCESS` for a concise dashboard console while
+retaining independently configured `DEBUG` file logs. Call
+`run_dashboard_workflow(..., worker_log_level=None)` (the default) so the
+existing Loguru queue captures the least restrictive level required by any sink.
+An explicit worker override that would discard records destined for a
+configured sink is invalid. Worker warnings/errors and serialized tracebacks
+remain visible through the logging listener. Keep routine per-item INFO
+out of the dashboard console; do not replay it after the live region closes.
+
+Disabling the dashboard restores the caller's chosen ordinary console logging
+level. A redirected terminal must not receive repeated Rich frames or ANSI
+cursor controls. Report the whole workflow through aggregation/export and
+emit one truthful final outcome, including failed/partial reports.
+
 ## Jupyter notebooks
 
 Notebook cells can be rerun many times. Use the notebook helper, which replaces existing sinks on every call instead
