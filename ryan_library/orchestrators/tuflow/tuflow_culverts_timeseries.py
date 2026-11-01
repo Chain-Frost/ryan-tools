@@ -100,30 +100,30 @@ def main_processing(
                     WorkflowMetric("Timeseries rows", len(timeseries_df), unit="rows"),
                 ])
                 if timeseries_df.empty:
-                warn_on_invalid_types(
-                    invalid_types=invalid_types, accepted_types=ACCEPTED_DATA_TYPES,
-                    context="Culvert timeseries completed",
-                )
-                logger.warning("Combined culvert timeseries DataFrame is empty. Skipping export.")
-                dashboard.finish(outcome="FAILED" if progress.failed else "SKIPPED", detail="no combined data")
-                return progress.failed == 0
+                    warn_on_invalid_types(
+                        invalid_types=invalid_types, accepted_types=ACCEPTED_DATA_TYPES,
+                        context="Culvert timeseries completed",
+                    )
+                    logger.warning("Combined culvert timeseries DataFrame is empty. Skipping export.")
+                    dashboard.finish(outcome="FAILED" if progress.failed else "SKIPPED", detail="no combined data")
+                    return progress.failed == 0
 
-            dashboard.set_phase("Exporting")
-            export_dict: dict[str, ExportContent] = {
-                "1d_timeseries_data": {
-                    "dataframes": [timeseries_df],
-                    "sheets": ["1d_timeseries_data"],
+                dashboard.set_phase("Exporting")
+                export_dict: dict[str, ExportContent] = {
+                    "1d_timeseries_data": {
+                        "dataframes": [timeseries_df],
+                        "sheets": ["1d_timeseries_data"],
+                    }
                 }
-            }
-            ExcelExporter().export_dataframes(
-                export_dict=export_dict,
-                output_directory=output_dir,
-                export_mode=export_mode,
-                parquet_compression="gzip",
-                include_data_dictionary=True,
-                data_dictionary_metadata={"Workflow": "Culvert timeseries"},
-            )
-            logger.info("Culvert timeseries export complete.")
+                ExcelExporter().export_dataframes(
+                    export_dict=export_dict,
+                    output_directory=output_dir,
+                    export_mode=export_mode,
+                    parquet_compression="gzip",
+                    include_data_dictionary=True,
+                    data_dictionary_metadata={"Workflow": "Culvert timeseries"},
+                )
+                logger.info("Culvert timeseries export complete.")
 
                 warn_on_invalid_types(
                     invalid_types=invalid_types, accepted_types=ACCEPTED_DATA_TYPES,
