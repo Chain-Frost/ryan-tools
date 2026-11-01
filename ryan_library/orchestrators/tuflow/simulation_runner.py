@@ -236,6 +236,24 @@ def _check_tcf_flags(tcf: PurePath, pairs: tuple[tuple[str, str], ...]) -> None:
         raise CommandPlanError(message)
 
 
+def _warn_unusual_flag_values(plan: CommandPlan) -> None:
+    """Warn about individual event/scenario values containing spaces or underscores."""
+    reported: set[tuple[str, str, str]] = set()
+    for run in plan.runs:
+        for flag, value in run.flag_pairs:
+            for character, description in ((" ", "a space (' ')"), ("_", "an underscore ('_')")):
+                signature = (flag.casefold(), value, character)
+                if character not in value or signature in reported:
+                    continue
+                logger.warning(
+                    "Are you sure you want to include {} character in your variable names: -{}? Value: {!r}",
+                    description,
+                    flag,
+                    value,
+                )
+                reported.add(signature)
+
+
 def _flags(settings: RunnerSettings) -> tuple[tuple[str, tuple[str, ...]], ...]:
     result: list[tuple[str, tuple[str, ...]]] = []
     for key, raw in settings.run_variables.items():
@@ -342,6 +360,7 @@ def prepare_plan(settings: RunnerSettings) -> CommandPlan:
     )
     if result.duplicates_dropped:
         logger.warning("Discarded {} duplicate TUFLOW selections, keeping the first.", result.duplicates_dropped)
+    _warn_unusual_flag_values(result)
     return result
 
 

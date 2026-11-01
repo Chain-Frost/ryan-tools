@@ -120,6 +120,59 @@ def test_parameter_product_discards_repeated_selections_in_order(tmp_path: Path)
     assert all(run.source == config.wrapper_file for run in plan.runs)
 
 
+def test_generated_values_warn_for_embedded_space_and_underscore_once_per_value(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A suspicious value is advisory, not a reason to alter the run plan."""
+    caplog.set_level(logging.WARNING)
+    config = settings(
+        tmp_path,
+        tcf=Path("runs/model_~e1~_~s1~.tcf"),
+        run_variables={"e1": ["Wet_Season Group"], "s1": ["Existing", "Proposed"]},
+    )
+    plan = runner.prepare_plan(config)
+    assert len(plan.runs) == 2
+    assert all(run.flags["e1"] == "Wet_Season Group" for run in plan.runs)
+    suspicious = [record.getMessage() for record in caplog.records if "Are you sure you want" in record.getMessage()]
+    assert len(suspicious) == 2
+    assert any("a space (' ') character" in warning and "-e1?" in warning for warning in suspicious)
+    assert any("an underscore ('_') character" in warning and "-e1?" in warning for warning in suspicious)
+    assert all("Wet_Season Group" in warning for warning in suspicious)
+
+
+def test_imported_values_warn_with_flag_and_preserve_selected_text(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.WARNING)
+    source = tmp_path / "input.txt"
+    source.write_text(
+        'TUFLOW.exe -e1 "Wet Season" -s1 Existing_Case model_~e1~_~s1~.tcf\n',
+        encoding="utf-8",
+    )
+    config = settings(tmp_path, mode="textfiles", tcf=None, input_files=(source,))
+    plan = runner.prepare_plan(config)
+    assert len(plan.runs) == 1
+    assert plan.runs[0].flags == {"e1": "Wet Season", "s1": "Existing_Case"}
+    suspicious = [record.getMessage() for record in caplog.records if "Are you sure you want" in record.getMessage()]
+    assert len(suspicious) == 2
+    assert any("a space (' ') character" in warning and "-e1?" in warning for warning in suspicious)
+    assert any("an underscore ('_') character" in warning and "-s1?" in warning for warning in suspicious)
+
+
+def test_delimited_raw_values_and_tcf_filename_underscores_do_not_warn(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.WARNING)
+    config = settings(
+        tmp_path,
+        tcf=Path("runs/model_~e1~_~s1~.tcf"),
+        run_variables={"e1": "01.0p 02.0p", "s1": "Existing"},
+    )
+    plan = runner.prepare_plan(config)
+    assert len(plan.runs) == 2
+    assert "Are you sure you want" not in caplog.text
+
+
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows command export requires native Windows paths")
 def test_generated_quoted_model_value_roundtrip(tmp_path: Path) -> None:
     config = settings(tmp_path, run_variables={"e1": ["A with spaces", "B"]})

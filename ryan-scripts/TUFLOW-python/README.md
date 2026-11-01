@@ -51,6 +51,14 @@ inputs without launching, use `OPERATION = OP.PREFLIGHT_ONLY` or
 `OP.RUN`, `SRC.TEXTFILES`, `CONT.RESUME`, `PRIO.LOW`.
 Equivalent raw strings are accepted and validated.
 
+Individual `-eN` and `-sN` values containing a space (`" "`) or underscore
+(`"_"`) trigger a **non-blocking warning** identifying the flag and value,
+regardless of whether generated or imported from BAT/TXT. Valid selections
+are not modified. A whitespace-delimited string such as
+`"01.0p 02.0p"` represents **two** values and does not warn merely
+because of its separator. To supply one value containing a space, use a list
+such as `["Wet Season"]`; the warning then identifies that single value.
+
 The Python runner alone launches the configured `TUFLOW_EXE` via Python
 subprocess argument lists. Imported BAT/CMD/TXT files are **never executed**,
 nor are any START or other source commands replayed. Their supported syntax

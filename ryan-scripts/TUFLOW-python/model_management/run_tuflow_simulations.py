@@ -93,6 +93,8 @@ BATCH_COMMANDS = "-b"
 
 # Generated event/scenario values: whitespace-delimited text or explicit
 # lists for values with spaces. Example: {"e1": ["Dry", "Wet Season"]}.
+# A single value containing " " or "_" produces a warning, not an error.
+# Spaces separating values in a raw string are not part of those values.
 RUN_VARIABLES_RAW: dict[str, str | list[str]] = {
     "e1": "01.0p 20.0p 05.0p 02.0p 10.0p 50.0p",
     "e2": "00720m 01080m 01440m 01800m 02160m 02880m 04320m",
