@@ -566,6 +566,55 @@ def test_interruption_terminates_owned_child_without_imaginary_success(
     assert [record.return_code for record in outcome.outcomes] == [-15]
 
 
+
+def test_generated_tcf_requires_all_named_event_scenario_inputs(tmp_path: Path) -> None:
+    config = settings(
+        tmp_path,
+        tcf=Path("runs/model_~e1~_~s1~.tcf"),
+        run_variables={"e1": ["A"]},
+    )
+    with pytest.raises(CommandPlanError, match="s1"):
+        runner.prepare_plan(config)
+    plan = runner.prepare_plan(
+        replace(config, run_variables={"e1": ["A"], "s1": ["EXG"], "e2": ["Extra"]})
+    )
+    assert len(plan.runs) == 1
+    assert plan.runs[0].flags == {"e1": "A", "s1": "EXG", "e2": "Extra"}
+    # A missing physical TCF does not block command planning or export.
+    assert not (tmp_path / "runs/model_~e1~_~s1~.tcf").exists()
+
+
+def test_imported_tcf_requires_all_named_event_scenario_inputs(tmp_path: Path) -> None:
+    source = tmp_path / "runs.txt"
+    source.write_text("TUFLOW.exe -e1 A model_~e1~_~s1~.tcf\n", encoding="utf-8")
+    config = settings(tmp_path, mode="textfiles", tcf=None, input_files=(source,))
+    with pytest.raises(CommandPlanError, match="s1"):
+        runner.prepare_plan(config)
+    source.write_text("TUFLOW.exe -e1 A -s1 EXG model_~e1~_~s1~.tcf\n", encoding="utf-8")
+    plan = runner.prepare_plan(config)
+    assert len(plan.runs) == 1
+    assert plan.runs[0].flags == {"e1": "A", "s1": "EXG"}
+
+
+@pytest.mark.parametrize(
+    "tcf",
+    [
+        Path("runs/model_~e0~.tcf"),
+        Path("runs/model_~event~.tcf"),
+        Path("runs/model_~s1.tcf"),
+        Path("runs/model_~e1~.txt"),
+    ],
+)
+def test_bad_tcf_filename_placeholders_fail_with_actionable_errors(tmp_path: Path, tcf: Path) -> None:
+    with pytest.raises(CommandPlanError, match="TCF"):
+        runner.prepare_plan(settings(tmp_path, tcf=tcf))
+
+
+def test_blank_generated_flag_values_fail_instead_of_being_silently_skipped(tmp_path: Path) -> None:
+    with pytest.raises(CommandPlanError, match="RUN_VARIABLES_RAW"):
+        runner.prepare_plan(settings(tmp_path, run_variables={"e1": ""}))
+
+
 def test_empty_plan_and_invalid_settings_rejected(tmp_path: Path) -> None:
     config = settings(tmp_path, mode="textfiles", input_files=())
     with pytest.raises(CommandPlanError, match="Input BAT/text"):
@@ -574,6 +623,10 @@ def test_empty_plan_and_invalid_settings_rejected(tmp_path: Path) -> None:
         runner.prepare_plan(settings(tmp_path, gpu_devices=(("-puA",),)))
     with pytest.raises(CommandPlanError, match="GPU group"):
         runner.prepare_plan(settings(tmp_path, gpu_devices=(("-pu0,1",),)))
+    with pytest.raises(CommandPlanError, match="Duplicate GPU"):
+        runner.prepare_plan(settings(tmp_path, gpu_devices=(("-pu0",), ("-pu00",))))
+    with pytest.raises(CommandPlanError, match="Duplicate GPU"):
+        runner.prepare_plan(settings(tmp_path, gpu_devices=(("-pu0", "-pu0"),)))
     with pytest.raises(CommandPlanError, match="priority"):
         runner.prepare_plan(settings(tmp_path, computational_priority="INVALID"))
 

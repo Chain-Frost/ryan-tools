@@ -174,6 +174,32 @@ Avoid repetitive commentary on self-evident values, but do not leave ambiguous
 units, `None` semantics, required settings, or complex expressions unexplained.
 An editable-default section is user documentation, not just implementation data.
 
+### Validate effective user configuration
+
+Accept convenient, obvious editable forms where useful (for example, a path
+string or `Path`, a single filename or a list of filenames, and a documented
+enum member or its string value). Convert them **once at the wrapper boundary**
+into the strict internal types expected by the library. Never interpret a path
+string as a sequence of characters, or flatten a grouped concurrency setting
+in a way that changes its meaning.
+
+Validate all effective user settings **before** changing files, appending
+history, launching processes or performing other side effects. Distinguish a
+deliberately omitted setting (`None` or an empty collection where documented)
+from an invalid value. Do not silently accept misspelled mode values, blank
+paths, unsupported filename extensions, duplicate device IDs, malformed
+event/scenario keys, `"False"` in place of `False`, or non-finite numbers.
+Raise an actionable error naming the setting, offending value and one
+copy-ready valid example.
+
+**File availability is operation-dependent.** Missing inputs required by the
+selected operation are errors. When a configured or referenced file is not
+required for the chosen operation (such as a model or solver during
+command-only export), emit a warning identifying its path instead of
+failing the export. Optional checks must never relax safety-critical launch
+or overwrite requirements. A hard validation failure must leave existing
+export files and execution history unchanged.
+
 Keep cosmetic or highly specific terminal preferences (such as dashboard alternate-screen rendering options) as editable wrapper constants rather than shared CLI arguments. This prevents cluttering the ``--help`` menu across multiple unrelated scripts with rendering flags that users rarely change per execution.
 
 Do not add repository-root `sys.path` changes. Copied wrappers require the

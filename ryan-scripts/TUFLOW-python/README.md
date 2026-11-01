@@ -43,11 +43,13 @@ Python wrapper. Its operational constants can use concise names; the wrapper
 standard does not require a `DEFAULT_` prefix. CLI arguments override editable
 values when supplied.
 
-The shipped `OPERATION = "export_only"` only refreshes editable command TXT.
-Set `OPERATION = "run"` or explicitly pass `--run-simulations` to launch
+The shipped `OPERATION = OP.EXPORT_ONLY` only refreshes editable command TXT.
+Set `OPERATION = OP.RUN` (or raw `"run"`) or explicitly pass `--run-simulations` to launch
 the licensed solver, which may overwrite existing model outputs. To check
-inputs without launching, use `OPERATION = "preflight_only"` or
-`--preflight-only`.
+inputs without launching, use `OPERATION = OP.PREFLIGHT_ONLY` or
+`--preflight-only`. The preferred choices are short `StrEnum` members:
+`OP.RUN`, `SRC.TEXTFILES`, `CONT.RESUME`, `PRIO.LOW`.
+Equivalent raw strings are accepted and validated.
 
 The Python runner alone launches the configured `TUFLOW_EXE` via Python
 subprocess argument lists. Imported BAT/CMD/TXT files are **never executed**,
@@ -60,15 +62,45 @@ cannot direct launches. First occurrences are kept; duplicate model selections
 are discarded. For example, `BATCH_COMMANDS = "-b -t -nlc"` applies to
 both generated and imported runs; an imported `-x` does not override it.
 
-`GPU_DEVICES` **alone controls concurrency**: each inner tuple represents
-one simultaneous TUFLOW process. Three copy-ready examples are provided next
-to the editable setting: `(("-pu0", "-pu1"), ("-pu2",))` runs two processes
-(one with GPUs 0+1 and one with GPU 2), `(("-pu0",), ("-pu1",))` runs two
-single-GPU processes, and `(("-pu0",),)` runs one process. An empty tuple
-`()` uses one automatic-placement slot. There is no `MAXIMUM_CONCURRENT`.
-The invalid combined token `-pu0,1` is rejected. GPU occupancy is checked
-once at execution startup; the scheduler tracks its own children and does not
-rescan CodeMeter, TLF or TSF activity.
+`GPU_DEVICES` **alone controls concurrency**: `"-pu1"` assigns one GPU
+to one slot; `["-pu0", "-pu1"]` makes two simultaneous single-GPU slots;
+`[["-pu0", "-pu1"], "-pu2"]` makes two slots, one using GPUs 0+1 and one
+using GPU 2. Legacy nested tuples such as `(("-pu0",), ("-pu1",))`
+still work. Each top-level entry is a concurrent slot; each nested list
+or tuple is a group of GPUs assigned to that one slot. An empty `[]`, `()` or `None` uses one automatic-placement slot. There is no
+`MAXIMUM_CONCURRENT`. GPU tokens must match `-puN` (N is a
+nonnegative integer); malformed tokens such as `-pu0,1`, empty
+groups and repeated GPU IDs are rejected before export or launch.
+GPU occupancy is checked once at execution startup; the scheduler
+tracks its own children and does not rescan CodeMeter, TLF or TSF
+activity.
+
+The wrapper rejects malformed settings with explicit names and examples:
+unsupported enum choices, invalid path types/extensions, blank or
+malformed event/scenario values, duplicate GPU IDs, invalid booleans,
+non-finite/out-of-range numeric settings and invalid process priorities.
+It also checks every `~eN~` or `~sN~` TCF filename placeholder against
+selected event/scenario flags, including **imported BAT/TXT runs**.
+Valid extra flags not present in the TCF name are allowed.
+
+A TCF must be provided through `TCF` or the imported BAT/TXT selection.
+Missing physical TCF files do **not** stop planning or export, but produce
+warnings. The configured `TUFLOW_EXE` and optional `NEXT_RUN_FILE` also
+produce warnings if absent. The solver is a hard requirement only for
+execution that needs it; preflight-only and export-only do not require
+the solver. Missing input files selected for BAT/TXT parsing remain hard
+errors. Strict preflight checks referenced model inputs and fails on
+unresolved files; normal-run background checking remains advisory.
+
+Path settings `WORKING_DIR`, `TCF`, `TUFLOW_EXE` and
+`NEXT_RUN_FILE` accept ordinary raw strings (for example,
+`r"Q:\Project\TUFLOW"`) or `Path` values, and
+`INPUT_FILES` accepts a single path or a list/tuple of paths
+(for example, `["runs1.bat", "runs2.txt"]`). They are converted to
+`Path` objects at the wrapper boundary. Input TCF, executable,
+BAT/TXT and follow-up paths retain their existing relative-to-
+`WORKING_DIR` semantics; nothing resolves mapped drives or UNC
+aliases.
 
 The sole runner input-check switch is `CHECK_INPUTS` (`True`/`False`),
 overridden by `--preflight` or `--no-preflight`. `True` performs all
@@ -143,7 +175,7 @@ runs 101 through 400 in their original order. If later runs also succeeded,
 those are skipped too; original run numbers can therefore have gaps. Input
 preflight and dashboard presentation preserve those original identities.
 
-Set `CONTINUATION_MODE = "all"` or pass `--run-mode all` to append a RESET row and
+Set `CONTINUATION_MODE = CONT.ALL` (or raw `"all"`) or pass `--run-mode all` to append a RESET row and
 run every occurrence again. Previous history is retained. Changing model-file contents
 is not detected; use Run all when prior successes should be disregarded.
 The identity uses the **TCF filename** (case-insensitive on Windows) and effective

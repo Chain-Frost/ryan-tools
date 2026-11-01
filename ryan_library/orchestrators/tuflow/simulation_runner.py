@@ -19,7 +19,7 @@ from collections.abc import Callable, Mapping, Sequence
 from contextlib import nullcontext
 from dataclasses import dataclass, field, replace
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePath
 from queue import Empty, SimpleQueue
 from tempfile import NamedTemporaryFile
 from threading import Event, Lock, Thread
@@ -45,7 +45,6 @@ from ...functions.tuflow.command_plan import (
 )
 
 _FLAG = re.compile(r"[es][1-9]", re.IGNORECASE)
-_PLACEHOLDER = re.compile(r"~([es][1-9])~", re.IGNORECASE)
 _PRIORITY = frozenset({"LOW", "BELOWNORMAL", "NORMAL", "ABOVENORMAL", "HIGH", "REALTIME"})
 _ENGINE = frozenset({"-b", "-x", "-t", "-nlc"})
 type RunMode = Literal["parameter_product", "textfiles", "both"]
@@ -171,10 +170,19 @@ def _validate_settings(settings: RunnerSettings) -> tuple[str, ...]:
     if not settings.working_directory.is_absolute():
         message = "The configured working directory must be absolute"
         raise CommandPlanError(message)
+    assigned_gpu_ids: set[int] = set()
     for group in settings.gpu_devices:
-        if not group or any(not is_gpu_switch(flag) for flag in group):
-            message = f"Invalid runner GPU group: {group!r}"
+        if not group or any(not isinstance(flag, str) or not is_gpu_switch(flag) for flag in group):
+            message = (
+                f"Invalid GPU group in GPU_DEVICES: {group!r}. Use '-pu0' or "
+                "['-pu0', '-pu1'] for separate slots; [['-pu0', '-pu1']] for one multi-GPU slot."
+            )
             raise CommandPlanError(message)
+        group_ids = [int(flag[3:]) for flag in group]
+        if len(set(group_ids)) != len(group_ids) or assigned_gpu_ids.intersection(group_ids):
+            message = f"Duplicate GPU identifiers in GPU_DEVICES GPU groups: {group!r}"
+            raise CommandPlanError(message)
+        assigned_gpu_ids.update(group_ids)
     try:
         switches = shlex.split(settings.batch_commands, posix=True)
     except ValueError as exc:
@@ -189,6 +197,35 @@ def _validate_settings(settings: RunnerSettings) -> tuple[str, ...]:
     return tuple(switches)
 
 
+def _required_tcf_flags(tcf: PurePath) -> set[str]:
+    """Validate TCF filename syntax, not physical file existence."""
+    if tcf.suffix.casefold() != ".tcf":
+        message = f"TCF must end in .tcf, got {tcf!s}"
+        raise CommandPlanError(message)
+    name = tcf.name
+    if name.count("~") % 2:
+        message = f"TCF filename has an unpaired ~ in {name!r}; use ~e1~ or ~s1~."
+        raise CommandPlanError(message)
+    placeholders = re.findall(r"~([^~]*)~", name)
+    for flag in placeholders:
+        if _FLAG.fullmatch(flag) is None:
+            message = f"Invalid TCF filename placeholder ~{flag}~ in {name!r}; use ~e1~..~e9~ or ~s1~..~s9~."
+            raise CommandPlanError(message)
+    return {flag.casefold() for flag in placeholders}
+
+
+def _check_tcf_flags(tcf: PurePath, pairs: tuple[tuple[str, str], ...]) -> None:
+    """Ensure each TCF filename placeholder has a supplied -eN/-sN value."""
+    missing = _required_tcf_flags(tcf) - {key.casefold() for key, _ in pairs}
+    if missing:
+        example = " ".join(f"-{key} VALUE" for key in sorted(missing))
+        message = (
+            f"TCF {tcf.name!r} requires missing event/scenario flags {sorted(missing)}. "
+            f"Add {example} to RUN_VARIABLES_RAW or the imported BAT/TXT command."
+        )
+        raise CommandPlanError(message)
+
+
 def _flags(settings: RunnerSettings) -> tuple[tuple[str, tuple[str, ...]], ...]:
     result: list[tuple[str, tuple[str, ...]]] = []
     for key, raw in settings.run_variables.items():
@@ -197,8 +234,10 @@ def _flags(settings: RunnerSettings) -> tuple[tuple[str, tuple[str, ...]], ...]:
             raise CommandPlanError(message)
         values = tuple(raw.split() if isinstance(raw, str) else (str(value).strip() for value in raw))
         values = tuple(value for value in values if value)
-        if values:
-            result.append((key.casefold(), values))
+        if not values:
+            message = f"RUN_VARIABLES_RAW[{key!r}] is empty. Remove this key instead of leaving a blank value."
+            raise CommandPlanError(message)
+        result.append((key.casefold(), values))
     if settings.priority_order:
         order = settings.priority_order.split()
         result.sort(key=lambda pair: order.index(pair[0]) if pair[0] in order else len(order))
@@ -213,13 +252,14 @@ def _generated_plan(settings: RunnerSettings, batch: tuple[str, ...]) -> Command
     tcf = _at_base(settings.tcf, base)
     exe = str(_at_base(settings.executable, base))
     variables = _flags(settings)
-    required = {match.casefold() for match in _PLACEHOLDER.findall(tcf.name)}
+    required = _required_tcf_flags(tcf)
     present = {key for key, _ in variables}
     if missing := required - present:
-        message = f"TCF placeholders require generated flags: {sorted(missing)}"
-        raise CommandPlanError(message)
-    if any(key in required and not values for key, values in variables):
-        message = "TCF placeholder has no generated values"
+        example = ", ".join(f"{key!r}: 'VALUE'" for key in sorted(missing))
+        message = (
+            f"TCF {tcf.name!r} requires missing generated flags {sorted(missing)}. "
+            f"Add {example} to RUN_VARIABLES_RAW."
+        )
         raise CommandPlanError(message)
     source = settings.wrapper_file.absolute()
     runs: list[PlannedRun] = []
@@ -255,6 +295,7 @@ def prepare_plan(settings: RunnerSettings) -> CommandPlan:
         for run in imported.runs:
             arguments = (*batch, *model_arguments(run, include_gpu=False, include_batch=False), str(run.tcf))
             validate_run_arguments(arguments)
+            _check_tcf_flags(run.tcf, run.flag_pairs)
             # Source START, executable, and CD declarations are parsed as data,
             # never run or replayed. The Python settings own actual launches.
             runs.append(
