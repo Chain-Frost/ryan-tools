@@ -268,7 +268,7 @@ def _run_parallel_dashboard_workflow[TItem, TResult](
     event_limit: int = max_start_events if max_start_events is not None else max(pool_size * 2, dashboard.max_rows)
     # Start events are cosmetic; a bounded queue prevents a fast batch from
     # generating unlimited messages while the parent is harvesting results.
-    raw_queue: MPQueue[int] = cast("MPQueue[int]", Queue(maxsize=event_limit))
+    raw_queue: MPQueue[object] = cast("MPQueue[object]", Queue(maxsize=event_limit))
     start_queue: ProgressQueue = raw_queue
 
     try:
