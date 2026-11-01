@@ -67,7 +67,11 @@ def main(
     effective_dashboard = USE_LIVE_DASHBOARD if use_live_dashboard is None else use_live_dashboard
     configured_log_file = log_file if log_file is not None else LOG_FILE
     configured_file_level = file_log_level if file_log_level is not None else FILE_LOG_LEVEL
-    validate_dashboard_settings(refresh_per_second=effective_live_refresh, max_rows=effective_live_max_rows)
+    try:
+        validate_dashboard_settings(refresh_per_second=effective_live_refresh, max_rows=effective_live_max_rows)
+    except ValueError as exc:
+        print(f"Invalid dashboard configuration: {exc}", file=sys.stderr)
+        return 1
 
     # Capture relative bases before changing directory; do not dereference
     # mapped-drive or UNC paths merely to display them.
