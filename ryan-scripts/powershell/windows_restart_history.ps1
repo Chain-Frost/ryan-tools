@@ -121,7 +121,7 @@ $reportedStartups = @(
     $allStartups |
         Where-Object { $_.TimeCreated -ge $Since } |
         Select-Object -Last $MaxStartups |
-        Sort-Object TimeCreated -Descending
+        Sort-Object TimeCreated
 )
 
 if ($reportedStartups.Count -eq 0) {
