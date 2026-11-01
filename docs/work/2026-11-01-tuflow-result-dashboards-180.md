@@ -7,10 +7,10 @@
 | Created | 2026-11-01 |
 | Updated | 2026-11-01 |
 | Next review | 2026-11-08 |
-| Baseline | main at `99cd3ccaaabd83b682392f7e285d90b570d353cb`, plus the parent documentation seed |
+| Baseline | Parent documentation seed `4505e1cd7d2e157e8d800181e582aa7cabb572d9`, based on main `99cd3ccaaabd83b682392f7e285d90b570d353cb` |
 | Branch / base | `feat/tuflow-result-dashboards-180` -> `feat/batch-dashboard-foundation-180` |
 | Issue | [#180](https://github.com/Chain-Frost/ryan-tools/issues/180), selected AB-025 / AB-032 work |
-| Dependency | [Batch dashboard foundation](2026-11-01-batch-dashboard-foundation-180.md), consumer readiness section |
+| Dependency | [Foundation PR #183](https://github.com/Chain-Frost/ryan-tools/pull/183) and its [consumer readiness record](2026-11-01-batch-dashboard-foundation-180.md#consumer-interface-readiness) |
 | Adopted foundation SHA | None; foundation is NOT_READY |
 | Delivery | Documentation-only handoff; no runtime integration or acceptance yet |
 
@@ -37,11 +37,33 @@ Read [AGENTS.md](../../AGENTS.md), the [development guide](../DEVELOPMENT_GUIDE.
 
 ## Current state
 
-The stack is being prepared. The parent seed supplies this handoff so the dependency links resolve; the child branch
-will add its launch checkpoint before the implementation agents start. The foundation is NOT_READY and no foundation
-implementation SHA has been adopted.
+The child is seeded from [foundation PR #183](https://github.com/Chain-Frost/ryan-tools/pull/183) and targets its
+branch. It is ready for the adoption agent to begin Phase A. The foundation is **NOT_READY** and no foundation
+implementation SHA has been adopted. No runtime edits or Phase A completion are claimed by this launch checkpoint.
 
 The source observations below identify the intended scope; they do not replace Phase A's call-chain and test inventory.
+
+### Launch checklist
+
+- [ ] Confirm the actual child/parent branches and preserve unrelated worktree changes.
+- [ ] Complete the six-workflow call-chain, effective-setting and existing-test inventory.
+- [ ] Record workflow-selected optional metrics and their cheap sources/unknown semantics.
+- [ ] Push a documentation-only scoping checkpoint with planned files, tests and required parent capabilities.
+- [ ] If the foundation is not ready, record WAITING_FOR_FOUNDATION and its exact resume condition.
+- [ ] Verify and merge the concrete parent implementation, then record the adopted SHA before runtime integration.
+
+### Scoping worksheet
+
+The adoption agent should replace pending entries with source evidence and the proposed smallest change.
+
+| Area | Evidence to capture | Initial state |
+| --- | --- | --- |
+| Option propagation | Per-wrapper editable defaults, CLI overrides and currently ignored settings | Pending Phase A |
+| Processing contracts | Ordering, skips/errors, pool fallback, raw-frame disposal and export lifecycle | Pending Phase A |
+| Optional measures | Relevant subset per workflow, labels/units, available metadata, unknown/partial values | Pending Phase A |
+| Paths and filters | Effective path bases before chdir, mean output directory, location and empty-filter semantics | Pending Phase A |
+| Test ownership | Existing coverage, focused gaps, serial/spawn and copied-wrapper cases | Pending Phase A |
+| Parent dependency | Required behaviour compared with the published callable/outcome contract | NOT_READY; no API assumed |
 
 ## Ownership
 
@@ -223,3 +245,8 @@ The foundation SHA remains None until verified adoption.
 
 Defined the six-wrapper boundary, child-owned pipeline/tests, optional workflow measures and two-phase concurrent
 start. The setup explicitly prevents speculative integration while the parent interface is still being implemented.
+
+### 2026-11-01 — child launch checkpoint
+
+Created the child draft from the parent seed with an explicit scoping checklist and pending evidence worksheet.
+Phase A can start immediately; runtime integration remains gated on the parent's pushed implementation and evidence.
