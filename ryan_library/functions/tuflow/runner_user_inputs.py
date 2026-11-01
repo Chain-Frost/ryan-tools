@@ -49,7 +49,7 @@ def input_paths(value: object) -> tuple[Path, ...]:
     if isinstance(value, (str, Path)):
         sources = (value,)
     elif isinstance(value, (list, tuple)):
-        sources = value
+        sources = cast(list[object] | tuple[object, ...], value)
     else:
         message = "INPUT_FILES must be one path or a list/tuple, e.g. ['runs1.bat', 'runs2.txt']."
         raise ValueError(message)
@@ -68,7 +68,7 @@ def gpu_groups(value: object) -> tuple[tuple[str, ...], ...]:
     if isinstance(value, str):
         candidates: tuple[object, ...] = (value,)
     elif isinstance(value, (list, tuple)):
-        candidates = tuple(value)
+        candidates = tuple(cast(list[object] | tuple[object, ...], value))
     else:
         message = "GPU_DEVICES requires '-pu1', ['-pu0', '-pu1'], or [['-pu0', '-pu1']]."
         raise ValueError(message)
@@ -77,7 +77,7 @@ def gpu_groups(value: object) -> tuple[tuple[str, ...], ...]:
         if isinstance(group, str):
             tokens: tuple[object, ...] = (group,)
         elif isinstance(group, (list, tuple)):
-            tokens = tuple(group)
+            tokens = tuple(cast(list[object] | tuple[object, ...], group))
         else:
             message = f"GPU_DEVICES[{index}] must be a '-puN' string or list/tuple of '-puN' strings."
             raise ValueError(message)
