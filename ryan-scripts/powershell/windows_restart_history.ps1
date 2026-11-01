@@ -58,6 +58,10 @@ $kernelPowerProvider = "Microsoft-Windows-Kernel-Power"
 $windowsUpdateProvider = "Microsoft-Windows-WindowsUpdateClient"
 $unexpectedEvidenceWindowMinutes = 5
 $updateEvidenceWindowMinutes = 15
+$unexpectedReasonColor = "Red"
+$updateReasonColor = "Cyan"
+$userReasonColor = "Green"
+$defaultTextColor = "White"
 
 function Get-EventPropertyValue {
     param(
@@ -287,7 +291,28 @@ foreach ($startup in $reportedStartups) {
     })
 }
 
-$results | Format-List Startup, Classification, Initiator, Reason, Downtime, Evidence
+foreach ($result in $results) {
+    $reasonColor = $defaultTextColor
+    if ($result.Classification -eq "Unexpected shutdown") {
+        $reasonColor = $unexpectedReasonColor
+    }
+    elseif ($result.Classification -eq "Planned system restart") {
+        $reasonColor = $updateReasonColor
+    }
+    elseif ($result.Initiator -and $result.Initiator -notmatch "^NT AUTHORITY\\SYSTEM") {
+        $reasonColor = $userReasonColor
+    }
+
+    Write-Host ""
+    Write-Host ("Startup        : {0}" -f $result.Startup) -ForegroundColor $defaultTextColor
+    Write-Host ("Classification : {0}" -f $result.Classification) -ForegroundColor $defaultTextColor
+    Write-Host ("Initiator      : {0}" -f $result.Initiator) -ForegroundColor $defaultTextColor
+    Write-Host "Reason         : " -NoNewline -ForegroundColor $defaultTextColor
+    Write-Host $result.Reason -ForegroundColor $reasonColor
+    Write-Host ("Downtime       : {0}" -f $result.Downtime) -ForegroundColor $defaultTextColor
+    Write-Host ("Evidence       : {0}" -f $result.Evidence) -ForegroundColor $defaultTextColor
+}
+Write-Host ""
 
 if ($CsvPath) {
     if ((Test-Path -LiteralPath $CsvPath) -and -not $Force) {
