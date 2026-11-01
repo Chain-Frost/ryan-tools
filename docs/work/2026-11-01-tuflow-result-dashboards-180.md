@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active — Phase B; foundation adopted and verified by source inspection |
+| Status | Needs review — Phase B source implementation and hosted validation complete |
 | Owner | PR #184 adoption agent |
 | Created | 2026-11-01 |
 | Updated | 2026-11-01 |
@@ -12,7 +12,7 @@
 | Issue | [#180](https://github.com/Chain-Frost/ryan-tools/issues/180), selected AB-025 / AB-032 work |
 | Dependency | [Foundation PR #183](https://github.com/Chain-Frost/ryan-tools/pull/183) and its [consumer readiness record](2026-11-01-batch-dashboard-foundation-180.md#consumer-interface-readiness) |
 | Adopted foundation SHA | `023253ed612bb0bbd9a61826f27f553c7b2e9447` (published implementation); parent head `f390b3773c970ea6ac141c3fd4466a53b3add552` merged as `89124cc239a3b730007657ad454df9f570bf4089` |
-| Delivery | Phase A committed; foundation adopted in normal two-parent merge `89124cc`; Phase B in progress, runtime validation outstanding |
+| Delivery | Six wrappers implemented; code `abac412` passed all six Windows CI checks (2,003 hosted tests and copied six-wrapper wheel smoke); PR draft/unmerged, independent review pending |
 
 ## Outcome and scope
 
@@ -37,8 +37,12 @@ Read [AGENTS.md](../../AGENTS.md), the [development guide](../DEVELOPMENT_GUIDE.
 
 ## Current state
 
-The child is seeded from [foundation PR #183](https://github.com/Chain-Frost/ryan-tools/pull/183) and targets its
-branch. It is ready for the adoption agent to begin Phase A. The foundation published **READY_FOR_ADOPTION** with verified SHA, and Phase A is complete. The full parent head was merged into PR #184 before runtime edits. The implementation/API smoke is source-based here; executable consumer checks remain a Phase B requirement.
+The child targets [foundation PR #183](https://github.com/Chain-Frost/ryan-tools/pull/183).
+Phases A and B are implemented. The foundation's validated `023253ed` interface was adopted via
+normal merge `89124cc`, and its updated one-way pause policy at `56acd26` was merged
+without a force push. The six result wrappers were tested on Windows Python 3.14 and as
+copied wrappers against the installed wheel at code head `abac412`; independent review
+and separately scoped production/native engineering acceptance remain outstanding.
 
 The source observations below identify the intended scope; they do not replace Phase A's call-chain and test inventory.
 
@@ -49,7 +53,7 @@ The source observations below identify the intended scope; they do not replace P
 - [x] Record workflow-selected optional metrics and their cheap sources/unknown semantics.
 - [x] Commit a documentation-only scoping checkpoint with planned files, tests and required parent capabilities.
 - [x] Record WAITING_FOR_FOUNDATION and its exact resume condition after inspecting the remote parent.
-- [x] Verified published implementation SHA ancestor of parent head; normally merged full parent as `89124cc` and inspected actual renderer/adapter API. Runtime tests still required.
+- [x] Verified published implementation SHA ancestor of parent head; normally merged full parent as `89124cc` and inspected actual renderer/adapter API. Completed source validation is recorded below.
 
 ### Scoping worksheet
 
@@ -299,11 +303,35 @@ inventory-wide compliance or accepted/deferred audit decisions.
 
 ## Next action
 
-**Phase B:** integrate the six selected result wrappers with the adopted dashboard, preserve collection and export data contracts, add focused regression tests, validate on Windows Python 3.14 and copied installed wheel. Report any additional parent contract defect rather than duplicating its adapter.
+Obtain independent review of PR #184 and address any review findings on the existing branch.
+Preserve the draft, unmerged stack. Native/licensed TUFLOW engineering and production
+mapped-drive/UNC acceptance remain separately scoped.
 
 ## Validation and delivery
 
-Phase A source inventory and its explicit environment/check limits are recorded above. The setup-only historical checks in the draft PR are **not** fresh scoping-checkpoint validation. Runtime, full documentation checker, 3.14, spawn, Windows, package and copied-wrapper checks remain unrun. Foundation SHA remains None until verified adoption.
+**Validated source head:** `abac412c808368862f7ade87a1e40b846977d1c3`, 2026-11-01.
+All six GitHub CI checks passed on that exact code commit: Ruff/whitespace, Policy,
+Hosted tests, Package, MCP smoke and POSIX wrapper security.
+
+- [Hosted Windows Python 3.14 CI](https://github.com/Chain-Frost/ryan-tools/actions/runs/41324556660):
+  **2,003 passed, 14 skipped, 8 deselected, 128 warnings, zero failed**.
+- Policy passed Ruff and strict changed-file Pyright, documentation and Loguru checks.
+  Package built and verified the unchanged-version wheel and ran the copied six result
+  wrappers outside the checkout against the installed wheel, in addition to the
+  log-summary reference smoke.
+- Earlier Windows CI at `2894b9a` had five green checks but six Hosted test failures,
+  exclusively from the mistaken test expectation that `--pause` was supported.
+  Replaced that test at `e3ec4e6` with default-`PAUSE_ON_FINISH` and sole
+  `--no-pause` assertions; fixed the subsequent Ruff B009 at `abac412`.
+  The shared pause parser was not modified.
+- Parent wrapper guidance was clarified in PR #183 at `56acd26`, then inherited by
+  normal merge; that parent head separately passed six CI checks.
+- This work-record/register update is **documentation-only after the validated code
+  SHA**. CI on its own later commit is separate and must not be claimed until run.
+
+Unverified and out of scope here: licensed TUFLOW solver runs, full production
+engineering/model-result acceptance, and native mapped-drive/UNC/locked-file tests.
+Neither PR was merged or released, and no production storage was used.
 
 ## Progress
 
@@ -324,3 +352,11 @@ Mapped all six selected call chains, current effective wrapper flags, processing
 ### 2026-11-01 — foundation adopted, Phase B authorised
 
 Verified `023253ed612bb0bbd9a61826f27f553c7b2e9447` is an ancestor of remote foundation `f390b3773c970ea6ac141c3fd4466a53b3add552`. Merged the complete parent normally into the child as `89124cc239a3b730007657ad454df9f570bf4089` (two parents, no force push), preserving the child scoping record, register row and MCP entries. Source-checked the merged `WorkflowRunReport`, `WorkflowItemOutcome`, transport fallback propagation, `WorkflowMetric`, phases and final outcomes. Parent Windows Python 3.14.10 and copied-wheel evidence is inherited, not child integration acceptance. PR #185 was not found in this repository and no speculative MCP changes were added.
+
+### 2026-11-01 — one-way pause correction and verified source
+
+The user confirmed that interactive pause is the default and `--no-pause` is the only
+necessary invocation override. Removed the obsolete positive-`--pause` test,
+updated wrapper and canonical guidance and reconciled the parent normally.
+All six CI gates passed at source `abac412`, including 2,003 Windows hosted tests and
+installed-wheel smoke for six copied result wrappers. Independent review is next.
