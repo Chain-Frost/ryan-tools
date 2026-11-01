@@ -34,10 +34,12 @@ def test_optional_metrics_unknown_zero_late_totals_and_alternatives() -> None:
     d.set_tasks(["tile A"], metadata=[{"tile": "A", "unavailable": None}])
     assert d._tasks[1].metadata == {"tile": "A"}
     assert d._format_extra_metrics() == ""
-    d.set_metrics([
-        WorkflowMetric("Tiles", value=0, unit="tiles", total=None),
-        WorkflowMetric("Cells", value=None, unit="cells"),
-    ])
+    d.set_metrics(
+        [
+            WorkflowMetric("Tiles", value=0, unit="tiles", total=None),
+            WorkflowMetric("Cells", value=None, unit="cells"),
+        ]
+    )
     assert "Tiles 0 tiles" in d._format_extra_metrics()
     assert "Cells ? cells" in d._format_extra_metrics()
     assert "0/" not in d._format_extra_metrics()
