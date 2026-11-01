@@ -76,11 +76,11 @@ def test_synthetic_rorb_execution(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     catg.write_text("a")
     stm.write_text("b")
 
-    def fake_run(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
+    def fake_run(*_args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
         work_dir = kwargs["cwd"]
         assert isinstance(work_dir, Path)
         (work_dir / "fake.out").write_text("Inc Time Hyd001 Hyd002\n1 0 1 2\n2 1 4 3\n")
-        return subprocess.CompletedProcess(args=args, returncode=0, stdout="", stderr="")
+        return subprocess.CompletedProcess(args=["RORB_CMD"], returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(calibration.subprocess, "run", fake_run)
     out = tmp_path / "results"
@@ -271,15 +271,24 @@ def test_malformed_live_output_marks_run_failed(tmp_path: Path, monkeypatch: pyt
     assert (
         calibration.main(
             [
-                "--catg", str(catg),
-                "--stm", str(stm),
-                "--rorb", sys.executable,
-                "--output", str(root),
-                "--kc", "15",
-                "--il", "10",
-                "--continuing", "5",
-                "--sim-column", "Hyd001",
-                "--obs-column", "Hyd002",
+                "--catg",
+                str(catg),
+                "--stm",
+                str(stm),
+                "--rorb",
+                sys.executable,
+                "--output",
+                str(root),
+                "--kc",
+                "15",
+                "--il",
+                "10",
+                "--continuing",
+                "5",
+                "--sim-column",
+                "Hyd001",
+                "--obs-column",
+                "Hyd002",
             ]
         )
         == 1
