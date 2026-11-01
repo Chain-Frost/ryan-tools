@@ -398,6 +398,8 @@ def bulk_read_and_merge_tuflow_csv(
         logger.error("No files found")
         return ProcessorCollection()
 
+    if dashboard is not None:
+        dashboard.set_phase("Processing")
     results: ProcessorCollection = process_files_in_parallel(
         file_list=files,
         log_queue=log_queue,
