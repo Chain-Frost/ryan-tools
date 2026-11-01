@@ -151,7 +151,9 @@ def main() -> None:
                 raise RuntimeError(msg)
             expected = result
 
-    print(f"Copied log-summary installed-wheel smoke passed at {actual_library}: on/off, workbook, DEBUG, warning and failure.")
+    print(
+        f"Copied log-summary installed-wheel smoke passed at {actual_library}: on/off, workbook, DEBUG, warning and failure."
+    )
 
 
 if __name__ == "__main__":
