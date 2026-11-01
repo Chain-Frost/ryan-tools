@@ -171,8 +171,6 @@ def test_late_tcf_conflict_fails_before_checker_or_output(tmp_path: Path, monkey
     assert not (tmp_path / "issues.csv").exists()
 
 
-
-
 def test_relative_command_source_uses_working_directory_not_invoking_cwd(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

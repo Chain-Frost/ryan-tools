@@ -148,6 +148,7 @@ def _check_installed_tuflow_wrappers(expected_root: Path, work: Path) -> None:
         "--no-tcf",
         "--solver-exe",
         r"C:\not-installed\TUFLOW_iSP_w64.exe",
+        "--export-only",
         "--no-pause",
     )
     if result.returncode != 0:
