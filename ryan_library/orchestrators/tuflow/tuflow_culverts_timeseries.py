@@ -107,7 +107,7 @@ def main_processing(
                 logger.warning("Combined culvert timeseries DataFrame is empty. Skipping export.")
                 dashboard.finish(outcome="FAILED" if progress.failed else "SKIPPED", detail="no combined data")
                 return progress.failed == 0
-    
+
             dashboard.set_phase("Exporting")
             export_dict: dict[str, ExportContent] = {
                 "1d_timeseries_data": {
