@@ -142,22 +142,26 @@ def run_dashboard_workflow_report[TItem, TResult](
     in the parent, once per completed item, and may update cheap metrics.
     """
     if isinstance(pool_size, bool) or not isinstance(pool_size, int) or pool_size < 1:
-        raise ValueError("pool_size must be a positive integer.")
+        msg = "pool_size must be a positive integer."
+        raise ValueError(msg)
     if (
         isinstance(poll_interval, bool)
         or not isinstance(poll_interval, (int, float))
         or not math.isfinite(poll_interval)
         or poll_interval <= 0
     ):
-        raise ValueError("poll_interval must be a finite number greater than zero.")
+        msg = "poll_interval must be a finite number greater than zero."
+        raise ValueError(msg)
     if max_start_events is not None and (
         isinstance(max_start_events, bool) or not isinstance(max_start_events, int) or max_start_events < 1
     ):
-        raise ValueError("max_start_events must be a positive integer or None.")
+        msg = "max_start_events must be a positive integer or None."
+        raise ValueError(msg)
     if worker_log_level is not None:
         effective_level = normalize_log_level(worker_log_level)
         if log_queue is not None and logger.level(effective_level).no > logger.level(log_queue.capture_log_level).no:
-            raise ValueError("worker_log_level would discard records required by the configured logging sinks.")
+            msg = "worker_log_level would discard records required by the configured logging sinks."
+            raise ValueError(msg)
 
     indexed_results: dict[int, TResult] = {}
     indexed_outcomes: dict[int, WorkflowItemOutcome[TResult]] = {}
@@ -271,7 +275,7 @@ def _run_parallel_dashboard_workflow[TItem, TResult](
                 )
 
             while pending_results:
-                finished_count: int = _collect_finished_dashboard_results(
+                _collect_finished_dashboard_results(
                     dashboard=dashboard,
                     pending_results=pending_results,
                     indexed_results=indexed_results,
@@ -281,7 +285,7 @@ def _run_parallel_dashboard_workflow[TItem, TResult](
                     indexed_outcomes=indexed_outcomes,
                     on_outcome=on_outcome,
                 )
-                started_count: int = _mark_started_dashboard_rows(
+                _mark_started_dashboard_rows(
                     dashboard=dashboard,
                     start_queue=start_queue,
                     completed_indexes=completed_indexes,
@@ -388,5 +392,6 @@ def _collect_finished_dashboard_results[TResult](
 
 def _terminal_status(status: WorkflowStatus) -> WorkflowStatus:
     if status not in ("OK", "SKIP", "FAIL"):
-        raise ValueError(f"status_for_result must return OK, SKIP or FAIL, received {status!r}.")
+        msg = f"status_for_result must return OK, SKIP or FAIL, received {status!r}."
+        raise ValueError(msg)
     return status
