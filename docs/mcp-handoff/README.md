@@ -2,8 +2,8 @@
 
 ## Current C/F validation
 
-The [per-target safety review](2026-10-21-cf-target-assessment.md) covers the 33
-curated script paths (35 workflow records including native/HY-8 pairs), and the
+The [per-target safety review](2026-10-21-cf-target-assessment.md) covers the 34
+curated script paths (36 workflow records including native/HY-8 pairs), and the
 [Windows engineering checklist](2026-10-21-cf-windows-acceptance.md) records
 reproducible wheel, filesystem, GDAL/QGIS/TUFLOW/HY-8 acceptance gates.
 Mocked discovery and hosted tests are not equivalent to licensed engineering acceptance.
@@ -18,6 +18,15 @@ functions directly without a repository workflow command.
 Canonical repository policy remains in [`AGENTS.md`](../../AGENTS.md) and
 [`docs/DEVELOPMENT_GUIDE.md`](../DEVELOPMENT_GUIDE.md). MCP setup and user configuration are documented in
 [`docs/MCP_SETUP.md`](../MCP_SETUP.md).
+
+## Workflow keyword discovery
+
+Issue #136 is tracked in the [workflow keywords and overview handoff](../work/2026-11-01-mcp-workflow-discovery-136.md).
+Its review and validation status are maintained in that record. Agents can begin with
+`list_workflows(overview=True)` if the domain is unknown, search with
+`list_workflows(domain="gdal", query="crop")`, and inspect details using
+`get_workflow("clip_rasters_to_polygon")`. Search remains literal and uses curated workflow-local keywords;
+normal pages count workflows, while overview pages count domains (at most three compact examples per domain).
 
 ## User intent
 

@@ -21,6 +21,7 @@ from ryan_library.mcp.models import (
     ExecutionTarget,
     MutationKind,
     WorkflowSpec,
+    normalize_workflow_keywords,
     profile_allows,
 )
 
@@ -192,6 +193,7 @@ def _load_gdal_workflows() -> list[WorkflowSpec]:
                 mutation=mutation,
                 requires_explicit_approval=requires_approval,
                 headless_arguments=("--no-pause",),
+                keywords=normalize_workflow_keywords(raw_tool.get("keywords", []), workflow_id=tool_id),
                 metadata=metadata,
             )
         )
@@ -305,35 +307,60 @@ class WorkflowRegistry:
         query: str | None = None,
         maximum_profile: CapabilityProfile | str | None = None,
         include_unavailable: bool = False,
+        overview: bool = False,
     ) -> dict[str, Any]:
-        """Return matching summaries for internal use; the MCP tool paginates its response."""
+        """Filter workflows once; return summaries or compact domain aggregation."""
+        if type(overview) is not bool:
+            msg = "overview must be a boolean."
+            raise WorkflowRegistryError(msg)
         visible_profile: CapabilityProfile = self._maximum_profile(maximum_profile)
         terms = (query or "").casefold().split()
-        summaries: list[dict[str, Any]] = []
+        matches: list[tuple[WorkflowSpec, bool]] = []
         for workflow in sorted(self._workflows.values(), key=lambda item: (item.domain, item.title, item.workflow_id)):
             if domain is not None and workflow.domain.casefold() != domain.casefold():
                 continue
             if not profile_allows(configured=visible_profile, required=workflow.profile):
                 continue
-            searchable = f"{workflow.workflow_id} {workflow.title} {workflow.domain} {workflow.purpose}".casefold()
+            searchable = " ".join(
+                (workflow.workflow_id, workflow.title, workflow.domain, workflow.purpose, *workflow.keywords)
+            ).casefold()
             if not all(term in searchable for term in terms):
                 continue
             available: bool = self._available(workflow)
             if not available and not include_unavailable:
                 continue
-            summaries.append(workflow.summary(available=available))
+            matches.append((workflow, available))
 
-        return {
+        domains = sorted({workflow.domain for workflow, _ in matches})
+        result: dict[str, Any] = {
             "configured_profile": self.configured_profile.value,
             "maximum_profile": visible_profile.value,
             "repository_root": str(self.repository_root) if self.repository_root else None,
             "scripts_directory": str(self.scripts_directory) if self.scripts_directory else None,
-            "workflow_count": len(summaries),
-            "domains": sorted({item["domain"] for item in summaries}),
-            "workflows": summaries,
+            "workflow_count": len(matches),
+            "domains": domains,
             "warnings": list(self.warnings),
             "next_step": "Call get_workflow with an id, then run its help_command through the client shell.",
         }
+        if not overview:
+            result["workflows"] = [workflow.summary(available=available) for workflow, available in matches]
+            return result
+
+        rows: dict[str, dict[str, Any]] = {}
+        for workflow, available in matches:
+            row = rows.setdefault(
+                workflow.domain,
+                {"domain": workflow.domain, "workflow_count": 0, "examples": []},
+            )
+            row["workflow_count"] += 1
+            if len(row["examples"]) < 3:
+                row["examples"].append({"id": workflow.workflow_id, "title": workflow.title, "available": available})
+        result.update(
+            overview=True,
+            domain_count=len(domains),
+            domain_overview=[rows[domain_name] for domain_name in domains],
+        )
+        return result
 
     def _script_source(self, workflow: WorkflowSpec) -> str:
         """Identify the selected CLI source without claiming executable readiness."""
@@ -390,6 +417,7 @@ class WorkflowRegistry:
         details: dict[str, Any] = workflow.summary(available=available)
         details.update(
             {
+                "keywords": list(workflow.keywords),
                 "module_name": workflow.execution.value if workflow.execution.kind is ExecutionKind.MODULE else None,
                 "script_relative_path": (
                     workflow.execution.value if workflow.execution.kind is ExecutionKind.SCRIPT else None
@@ -475,6 +503,8 @@ class WorkflowRegistry:
     def catalogue(self) -> dict[str, Any]:
         """Return the complete catalogue visible under the configured profile."""
         listing: dict[str, Any] = self.list_workflows(include_unavailable=True)
+        for summary in listing["workflows"]:
+            summary["keywords"] = list(self._workflows[summary["id"]].keywords)
         listing.update(
             {
                 "schema_version": self.schema_version,
