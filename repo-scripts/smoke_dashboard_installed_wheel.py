@@ -119,7 +119,15 @@ def _check_one_mode(work: Path, root: Path, *, dashboard_enabled: bool) -> tuple
     if "search_for_completion" not in file_text or "Processing Complete_Run" not in file_text:
         msg = f"Worker DEBUG/INFO records not retained in file: {file_text[-1700:]}"
         raise RuntimeError(msg)
-    result = _workbook_record(work)
+    try:
+        result = _workbook_record(work)
+    except RuntimeError as exc:
+        msg = (
+            f"{exc}; copied-wrapper stdout={report.stdout[-2800:]!r}, "
+            f"stderr={report.stderr[-1500:]!r}, "
+            f"debug tail={file_text[-3200:]!r}"
+        )
+        raise RuntimeError(msg) from exc
     failed = _run(script, work, root, "--live-max-rows", "0")
     if failed.returncode != 1 or "live_max_rows" not in (failed.stdout + failed.stderr):
         msg = f"Invalid setting did not return actionable failure: {failed.returncode} {failed.stderr[-1000:]}"
