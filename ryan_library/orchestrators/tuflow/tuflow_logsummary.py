@@ -287,8 +287,9 @@ def main_processing(
                         dashboard.finish(outcome="FAILED", detail="report export failed")
                         return False
                     outcome = "FAILED" if failed_runs else "SUCCESS"
-                    if outcome == "SUCCESS" and not use_live_dashboard:
-                        logger.success("Log summary report exported successfully.")
+                    if outcome == "SUCCESS":
+                        if not use_live_dashboard:
+                            logger.success("Log summary report exported successfully.")
                     else:
                         logger.error("{} log(s) failed; exported report contains only completed runs.", failed_runs)
 
