@@ -23,6 +23,9 @@ lifecycle. The workflow owns discovery, processing policy, resource handling, ag
 what constitutes success. `run_dashboard_workflow_report` can run a generic serial or process-pool
 batch; do not create a second renderer, global event bus or compulsory orchestrator. All rendering
 and `on_outcome` callbacks run in the parent; worker requests and small start events are picklable.
+Start notifications are best-effort, nonblocking and bounded: a busy parent can drop a
+transient RUNNING event without losing a terminal result. Worker queue feeders do
+not block on stale start notifications at pool shutdown.
 
 ## Configuration, phases and metrics
 
@@ -79,9 +82,13 @@ outcome with an error; a returned domain FAIL is still a result.
 `on_outcome` executes in the parent once per completed item and is suitable for
 updating inexpensive workflow-selected metrics. The callback must not assume
 completion order matches input order. Aggregation and export remain the caller's
-responsibility. Unexpected pool, transport, callback and interruption exceptions
+responsibility. Unexpected pool, transport, result-adapter callback and interruption exceptions
 propagate after worker/queue/dashboard cleanup, rather than being logged and
-turned into a successful partial list. A report with FAIL outcomes must not
+turned into a successful partial list. In particular, `MaybeEncodingError` and
+`OSError` raised by a pool's `ApplyResult.get()` reach the caller (including
+the report API), preserving whole-list serial fallback decisions. Errors from
+`status_for_result` or `detail_for_result` are caller faults, never converted
+to failed item outcomes. A report with FAIL outcomes must not
 be described as overall SUCCESS. An unfinished batch must not fabricate SKIP
 or OK outcomes for pending items.
 
@@ -101,6 +108,9 @@ Use `setup_logger(console_log_level=..., log_file=..., file_log_level=...)`
 as the existing single process-owner logging context. The listener independently
 filters console and file sinks. Set a concise console level, normally
 `SUCCESS` in dashboard mode, instead of forcing `worker_log_level="ERROR"`.
+The log-summary reference chooses SUCCESS when enabled and INFO when disabled
+unless the user explicitly selects a console level; explicit INFO/DEBUG is
+never silently rewritten.
 The default `worker_log_level=None` captures the lowest sink level (including
 DEBUG when a DEBUG file sink is configured). An explicit worker override which
 would drop a configured sink's records is rejected. Workers keep severity,
