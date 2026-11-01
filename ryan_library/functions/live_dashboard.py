@@ -94,12 +94,15 @@ class WorkflowMetric:
 
     def __post_init__(self) -> None:
         if not self.label.strip():
-            raise ValueError("WorkflowMetric.label must be non-empty.")
+            msg = "WorkflowMetric.label must be non-empty."
+            raise ValueError(msg)
         for name, value in (("value", self.value), ("total", self.total)):
             if isinstance(value, bool) or (isinstance(value, (int, float)) and not math.isfinite(value)):
-                raise ValueError(f"WorkflowMetric.{name} must be a finite number, string or None.")
+                msg = f"WorkflowMetric.{name} must be a finite number, string or None."
+                raise ValueError(msg)
         if self.total is not None and self.total < 0:
-            raise ValueError("WorkflowMetric.total must be non-negative.")
+            msg = "WorkflowMetric.total must be non-negative."
+            raise ValueError(msg)
 
     def display(self) -> str:
         value = "?" if self.value is None else str(self.value)
@@ -117,9 +120,11 @@ def validate_dashboard_settings(*, refresh_per_second: float, max_rows: int) -> 
         or not math.isfinite(refresh_per_second)
         or refresh_per_second <= 0
     ):
-        raise ValueError("live_refresh_per_second must be a finite number greater than 0 (e.g. 2.0).")
+        msg = "live_refresh_per_second must be a finite number greater than 0 (e.g. 2.0)."
+        raise ValueError(msg)
     if isinstance(max_rows, bool) or not isinstance(max_rows, int) or max_rows < 1:
-        raise ValueError("live_max_rows must be a positive integer (e.g. 25).")
+        msg = "live_max_rows must be a positive integer (e.g. 25)."
+        raise ValueError(msg)
 
 
 DEFAULT_WORKFLOW_COLUMNS: tuple[WorkflowColumn, ...] = (
@@ -240,7 +245,8 @@ class LiveWorkflowDashboard:
     def set_active_count(self, count: int, *, refresh: bool = True) -> None:
         """Set active worker count for workflows that cannot name running tasks."""
         if isinstance(count, bool) or not isinstance(count, int) or count < 0:
-            raise ValueError("active worker count must be a non-negative integer.")
+            msg = "active worker count must be a non-negative integer."
+            raise ValueError(msg)
         self._active_count = count
         if refresh:
             self.refresh()
@@ -262,7 +268,8 @@ class LiveWorkflowDashboard:
     def set_phase(self, phase: str) -> None:
         """Name the current workflow phase, including aggregation/export."""
         if not phase.strip():
-            raise ValueError("Workflow phase must be non-empty.")
+            msg = "Workflow phase must be non-empty."
+            raise ValueError(msg)
         self._phase = phase
         self.refresh()
 
