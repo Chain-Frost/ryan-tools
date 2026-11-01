@@ -301,7 +301,7 @@ class LiveWorkflowDashboard:
         task.status = "RUNNING"
         task.detail = detail
         if metadata:
-            task.metadata.update({key: str(value) for key, value in metadata.items()})
+            task.metadata.update({key: str(value) for key, value in metadata.items() if value is not None})
         task.started_time = datetime.datetime.now()
         task.finished_time = None
         if refresh:
@@ -323,7 +323,7 @@ class LiveWorkflowDashboard:
         task.status = status
         task.detail = detail
         if metadata:
-            task.metadata.update({key: str(value) for key, value in metadata.items()})
+            task.metadata.update({key: str(value) for key, value in metadata.items() if value is not None})
         task.finished_time = datetime.datetime.now()
         if task.started_time is None:
             task.started_time = task.finished_time
