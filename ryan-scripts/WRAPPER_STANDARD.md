@@ -136,43 +136,60 @@ preview override. Deletion, in-place replacement, and chargeable retrieval
 still require deliberate opt-in. Keep safe exclusive-create, collision checks
 and any independent confirmations for destructive operations intact.
 
-### Explain every editable option
+### Explain settings where needed
 
-A user must be able to understand and change each editable value **without
-reading the implementation**. Keep a concise comment next to every setting
-explaining its purpose and any non-obvious behaviour. Where relevant, include:
+A user should be able to understand and safely edit the visible settings without
+reading the implementation. **Do not require an adjacent comment or docstring
+for every setting.** If a descriptive name, value and nearby context make both
+its purpose and how to change it reliably obvious, leave it uncommented.
+Avoid comments that merely restate the variable name.
 
-- **Accepted values:** Python type, enumerated choices, valid number range,
-  units, and what `None` or an empty value means.
-- **Paths:** expected file or directory, whether a relative path uses the
-  working directory, and a realistic Windows example using `Path(r"...")`
-  for drive/UNC paths.
-- **Dependencies:** other settings that must be enabled or supplied together,
-  and mutually exclusive modes.
-- **Effects and safeguards:** what is read or written, whether data may be
-  overwritten, and performance, cost or privacy implications.
-- **Examples:** one copy-ready Python value or expression next to each
-  non-obvious setting (especially tuples, choices, paths and thresholds).
-  Commented examples must not change behaviour until the user edits a value.
+For example, these settings need no individual explanation:
+
+```python
+PAUSE_ON_FINISH = True
+MINIMIZE_ON_LAUNCH = False
+CONSOLE_LOG_LEVEL = "INFO"
+```
+
+Use a concise adjacent comment, a shared comment for related settings, or a
+copy-ready example **only where it adds information the user needs**, such as:
+
+- Accepted choices, numeric ranges or units that cannot be inferred from the
+  name and value.
+- Non-obvious `None`, empty-value or path-base semantics, including relative
+  paths, mapped drives and UNC shares.
+- Dependencies between settings or effects that are not apparent from the
+  names alone.
+- Unusual tuple, list or mapping shapes; show a copy-ready Python example
+  rather than making the user inspect parsing code.
+- Destructive changes, output replacement, external execution, licence/cost
+  implications or other meaningful risks. Explain safeguards and required
+  opt-in even when the setting's name looks straightforward.
+
+A single shared note is sufficient when several settings follow the same
+convention. Comments may be one line or more detailed according to the
+complexity and risk. Do not invent commentary solely to meet a documentation
+quota.
 
 For example:
 
 ```python
-# Input directory; Path() means the current working directory.
-# Example: Path(r"Q:\Project\GIS") or Path(r"\\server\share\GIS")
-INPUT = Path()
-
-# Include subdirectories? True or False (default excludes them).
 RECURSIVE = False
 
-# Number of rows to sample: 0-5; 0 reads no example rows.
-# Example: 2 (requires the separate sample-report option to be enabled).
-SAMPLE_ROWS = 0
+# None allows different imported TCFs; a relative TCF uses WORKING_DIR.
+TCF: Path | None = None
+
+# Each inner tuple is one concurrent run; two GPU flags in a group
+# assign both GPUs to that run.
+# Example: (("-pu0", "-pu1"), ("-pu2",)) for two concurrent runs.
+GPU_DEVICES = (("-pu0",), ("-pu1",))
 ```
 
-Avoid repetitive commentary on self-evident values, but do not leave ambiguous
-units, `None` semantics, required settings, or complex expressions unexplained.
-An editable-default section is user documentation, not just implementation data.
+This is a usability rule, not a requirement for a prescribed number of
+comments. The **effective settings must still be validated**, and missing or
+unclear guidance must not weaken file protection, execution consent or other
+safety requirements.
 
 ### Validate effective user configuration
 

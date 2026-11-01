@@ -78,10 +78,12 @@ are removed alongside their `.gitmodules` entries; do not reintroduce them or lo
   `False`/`0`).
   Ship safe defaults; an intentional edit may opt into chargeable operations
   but may not bypass file-overwrite protections or independent confirmations.
-  Add concise adjacent comments explaining each default's meaning, permitted
-  values/units, `None` semantics, path base and dependent settings. Non-obvious
-  inputs require copy-ready examples (Windows raw-string `Path`, tuples,
-  valid choice strings) and any cost or mutation warning.
+  Clear setting names and values can be sufficient documentation: do not
+  require an adjacent comment or docstring when purpose and valid edits are
+  reliably obvious. Use brief comments or shared notes for non-obvious choices,
+  units, `None`/path semantics, dependencies and structured values, with
+  copy-ready examples where useful. Keep cost, mutation and safety warnings
+  explicit even when an identifier seems self-explanatory.
 - A self-contained script may keep its processing in guarded `main()` with local
   helpers; **a library-backed wrapper does not require an orchestrator**.
 - Put genuinely reusable processing and validation in `ryan_library/functions`
