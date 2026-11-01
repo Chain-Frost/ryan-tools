@@ -72,7 +72,7 @@ def test_processing_selection_order_and_results_do_not_depend_on_display(
     assert [result.logfile.name for result in outcomes] == ["b.tlf", "a.tlf"]
     assert [result.status for result in outcomes] == ["OK", "OK"]
     assert [result.data_frame.iloc[0]["Runcode"] for result in outcomes] == ["b", "a"]
-    assert logged.call_args.kwargs["include_completions"] is not enabled
+    assert logged.call_args.kwargs == {"processing_results": outcomes}
 
 
 def test_success_and_partial_failure_keep_export_outcome_truthful(tmp_path: Path) -> None:
