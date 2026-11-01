@@ -388,6 +388,10 @@ jobs:
         shell: pwsh
         run: |
           $target = Join-Path $env:RUNNER_TEMP "ryan-tools-wheel-install"
+          # Maximums processor package imports pyshp even for CSV-only Cmx.
+          # Install into the isolated wheel root; never add checkout imports.
+          python -m pip install --no-deps --target $target pyshp
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $env:PYTHONPATH = $target
           Push-Location $env:RUNNER_TEMP
           try {
