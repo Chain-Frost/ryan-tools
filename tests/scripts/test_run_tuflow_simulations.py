@@ -17,9 +17,11 @@ from threading import Event
 from typing import Protocol, cast
 
 import pytest
+from loguru import logger
 
 from ryan_library.functions.tuflow.command_plan import CommandPlan, PlannedRun
-from ryan_library.orchestrators.tuflow.simulation_runner import BatchOutcome, RunnerSettings, RunOutcome
+from ryan_library.functions.tuflow.runner_user_inputs import choice
+from ryan_library.orchestrators.tuflow.simulation_runner import BatchOutcome, RunnerSettings, RunOutcome, prepare_plan
 
 
 class _RunnerWrapper(Protocol):
@@ -129,8 +131,8 @@ def test_editable_settings_and_cli_precedence(
 def _settings_from_wrapper(wrapper: _RunnerWrapper) -> RunnerSettings:
     """Exercise the copied file's editable-default normalization."""
     module = sys.modules["tested_runner_wrapper"]
-    parser = cast(Callable[[list[str]], argparse.Namespace], getattr(module, "_arguments"))
-    settings_factory = cast(Callable[[argparse.Namespace], RunnerSettings], getattr(module, "_settings"))
+    parser = cast(Callable[[list[str]], argparse.Namespace], module.__dict__["_arguments"])
+    settings_factory = cast(Callable[[argparse.Namespace], RunnerSettings], module.__dict__["_settings"])
     return settings_factory(parser(["--no-pause"]))
 
 
@@ -275,11 +277,11 @@ def test_enum_defaults_and_raw_string_values_both_work(
     wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     module = sys.modules["tested_runner_wrapper"]
-    op = getattr(module, "OP")
-    src = getattr(module, "SRC")
-    cont = getattr(module, "CONT")
-    prio = getattr(module, "PRIO")
-    normal = getattr(module, "_choice")
+    op = module.__dict__["OP"]
+    src = module.__dict__["SRC"]
+    cont = module.__dict__["CONT"]
+    prio = module.__dict__["PRIO"]
+    normal = choice
     assert normal("OPERATION", op.RUN, op) is op.RUN
     assert normal("OPERATION", "run", op) is op.RUN
     assert normal("OPERATION", "RUN", op) is op.RUN
@@ -297,9 +299,6 @@ def test_enum_defaults_and_raw_string_values_both_work(
 def test_missing_optional_paths_warn_once_each_not_fail_planning(
     tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from loguru import logger
-    from ryan_library.orchestrators.tuflow.simulation_runner import prepare_plan
-
     module = sys.modules["tested_runner_wrapper"]
     monkeypatch.setattr(module, "TCF", "runs/model_~e1~.tcf")
     monkeypatch.setattr(module, "TUFLOW_EXE", "TUFLOW_missing.exe")
@@ -309,7 +308,7 @@ def test_missing_optional_paths_warn_once_each_not_fail_planning(
     plan = prepare_plan(settings)
     warnings: list[str] = []
     sink = logger.add(warnings.append, level="WARNING", format="{message}")
-    check = cast(Callable[[CommandPlan, RunnerSettings], None], getattr(module, "_warn_optional_file_paths"))
+    check = cast(Callable[[CommandPlan, RunnerSettings], None], module.__dict__["_warn_optional_file_paths"])
     try:
         check(plan, settings)
         assert sum("TCF not found" in warning for warning in warnings) == 1
@@ -329,8 +328,6 @@ def test_missing_optional_paths_warn_once_each_not_fail_planning(
 def test_one_string_input_file_can_be_imported_without_a_python_tcf(
     tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from ryan_library.orchestrators.tuflow.simulation_runner import prepare_plan
-
     module = sys.modules["tested_runner_wrapper"]
     path = _source(tmp_path)
     monkeypatch.setattr(module, "MODE", "textfiles")

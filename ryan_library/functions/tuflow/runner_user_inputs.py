@@ -23,18 +23,22 @@ def choice[T: StrEnum](name: str, value: T | str, options: type[T]) -> T:
             if item.value.casefold() == value.casefold():
                 return item
     examples = ", ".join(f"{options.__name__}.{item.name} ({item.value!r})" for item in options)
-    raise ValueError(f"{name}={value!r} is invalid. Valid choices: {examples}.")
+    message = f"{name}={value!r} is invalid. Valid choices: {examples}."
+    raise ValueError(message)
 
 
 def path(name: str, value: str | Path) -> Path:
     """Preserve mapped-drive and UNC spelling; never resolve filesystem aliases."""
     if isinstance(value, str):
         if not value.strip():
-            raise ValueError(f"{name} is blank. Enter a path string or Path object.")
+            message = f"{name} is blank. Enter a path string or Path object."
+            raise ValueError(message)
         if value != value.strip():
-            raise ValueError(f"{name} has leading/trailing whitespace in {value!r}; remove it.")
+            message = f"{name} has leading/trailing whitespace in {value!r}; remove it."
+            raise ValueError(message)
     elif not isinstance(value, Path):
-        raise ValueError(f"{name} requires a path string or Path, not {type(value).__name__}.")
+        message = f"{name} requires a path string or Path, not {type(value).__name__}."
+        raise ValueError(message)
     return Path(value)
 
 
@@ -47,11 +51,13 @@ def input_paths(value: str | Path | list[str | Path] | tuple[str | Path, ...] | 
     elif isinstance(value, (list, tuple)):
         sources = value
     else:
-        raise ValueError("INPUT_FILES must be one path or a list/tuple, e.g. ['runs1.bat', 'runs2.txt'].")
+        message = "INPUT_FILES must be one path or a list/tuple, e.g. ['runs1.bat', 'runs2.txt']."
+        raise ValueError(message)
     result = tuple(path(f"INPUT_FILES[{index}]", source) for index, source in enumerate(sources))
     for source in result:
         if source.suffix.casefold() not in {".bat", ".cmd", ".txt"}:
-            raise ValueError(f"INPUT_FILES expects .bat, .cmd or .txt sources; got {source!s}.")
+            message = f"INPUT_FILES expects .bat, .cmd or .txt sources; got {source!s}."
+            raise ValueError(message)
     return result
 
 
@@ -66,7 +72,8 @@ def gpu_groups(
     elif isinstance(value, (list, tuple)):
         candidates = value
     else:
-        raise ValueError("GPU_DEVICES requires '-pu1', ['-pu0', '-pu1'], or [['-pu0', '-pu1']].")
+        message = "GPU_DEVICES requires '-pu1', ['-pu0', '-pu1'], or [['-pu0', '-pu1']]."
+        raise ValueError(message)
     groups: list[tuple[str, ...]] = []
     for index, group in enumerate(candidates):
         if isinstance(group, str):
@@ -74,9 +81,11 @@ def gpu_groups(
         elif isinstance(group, (list, tuple)):
             tokens = tuple(group)
         else:
-            raise ValueError(f"GPU_DEVICES[{index}] must be a '-puN' string or list/tuple of '-puN' strings.")
+            message = f"GPU_DEVICES[{index}] must be a '-puN' string or list/tuple of '-puN' strings."
+            raise ValueError(message)
         if not tokens or any(not isinstance(token, str) for token in tokens):
-            raise ValueError(f"GPU_DEVICES[{index}] needs one or more '-puN' strings; use [] for automatic placement.")
+            message = f"GPU_DEVICES[{index}] needs one or more '-puN' strings; use [] for automatic placement."
+            raise ValueError(message)
         groups.append(tokens)
     return tuple(groups)
 
@@ -84,41 +93,50 @@ def gpu_groups(
 def boolean(name: str, value: object) -> bool:
     """Do not silently treat 'False', 0 or other truthy/falsy objects as booleans."""
     if not isinstance(value, bool):
-        raise ValueError(f"{name} requires True or False, not {value!r}.")
+        message = f"{name} requires True or False, not {value!r}."
+        raise ValueError(message)
     return value
 
 
 def finite_number(name: str, value: object, *, positive: bool) -> float:
     """Avoid infinite/NaN dashboard rates, negative launch delays and bool-as-int."""
     if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
-        raise ValueError(f"{name} must be a finite number ({'> 0' if positive else '>= 0'}), not {value!r}.")
+        message = f"{name} must be a finite number ({'> 0' if positive else '>= 0'}), not {value!r}."
+        raise ValueError(message)
     if (positive and value <= 0) or (not positive and value < 0):
-        raise ValueError(f"{name} must be {'greater than zero' if positive else 'nonnegative'}, not {value!r}.")
+        message = f"{name} must be {'greater than zero' if positive else 'nonnegative'}, not {value!r}."
+        raise ValueError(message)
     return float(value)
 
 
 def run_variables(value: object) -> dict[str, str | list[str]]:
     """Reject invalid or empty eN/sN inputs rather than silently dropping them."""
     if not isinstance(value, dict):
-        raise ValueError("RUN_VARIABLES_RAW must be a dictionary, e.g. {'e1': '01.0p 05.0p'}.")
+        message = "RUN_VARIABLES_RAW must be a dictionary, e.g. {'e1': '01.0p 05.0p'}."
+        raise ValueError(message)
     validated: dict[str, str | list[str]] = {}
     seen: set[str] = set()
     for key, raw in value.items():
         if not isinstance(key, str) or re.fullmatch(r"[es][1-9]", key, flags=re.IGNORECASE) is None:
-            raise ValueError(f"RUN_VARIABLES_RAW key {key!r} must be e1-e9 or s1-s9.")
+            message = f"RUN_VARIABLES_RAW key {key!r} must be e1-e9 or s1-s9."
+            raise ValueError(message)
         if key.casefold() in seen:
-            raise ValueError(f"RUN_VARIABLES_RAW repeats variable {key!r} with different capitalization.")
+            message = f"RUN_VARIABLES_RAW repeats variable {key!r} with different capitalization."
+            raise ValueError(message)
         seen.add(key.casefold())
         if isinstance(raw, str):
             if not raw.split():
-                raise ValueError(f"RUN_VARIABLES_RAW[{key!r}] is blank. Remove this key to disable it.")
+                message = f"RUN_VARIABLES_RAW[{key!r}] is blank. Remove this key to disable it."
+                raise ValueError(message)
             validated[key] = raw
         elif isinstance(raw, list):
             if not raw or any(not isinstance(item, str) or not item.strip() for item in raw):
-                raise ValueError(f"RUN_VARIABLES_RAW[{key!r}] needs nonempty strings, e.g. ['Dry', 'Wet Season'].")
+                message = f"RUN_VARIABLES_RAW[{key!r}] needs nonempty strings, e.g. ['Dry', 'Wet Season']."
+                raise ValueError(message)
             validated[key] = cast(list[str], raw)
         else:
-            raise ValueError(f"RUN_VARIABLES_RAW[{key!r}] requires a string or list of strings.")
+            message = f"RUN_VARIABLES_RAW[{key!r}] requires a string or list of strings."
+            raise ValueError(message)
     return validated
 
 
@@ -127,10 +145,13 @@ def priority_order(value: object) -> str | None:
     if value is None:
         return None
     if not isinstance(value, str) or not value.strip():
-        raise ValueError("PRIORITY_ORDER requires flag keys such as 'e3 e2 e1', or None.")
+        message = "PRIORITY_ORDER requires flag keys such as 'e3 e2 e1', or None."
+        raise ValueError(message)
     keys = value.split()
     if any(re.fullmatch(r"[es][1-9]", key, flags=re.IGNORECASE) is None for key in keys):
-        raise ValueError(f"PRIORITY_ORDER={value!r} has invalid keys; use e1-e9 and s1-s9.")
+        message = f"PRIORITY_ORDER={value!r} has invalid keys; use e1-e9 and s1-s9."
+        raise ValueError(message)
     if len({key.casefold() for key in keys}) != len(keys):
-        raise ValueError("PRIORITY_ORDER repeats a flag; list each eN/sN key at most once.")
+        message = "PRIORITY_ORDER repeats a flag; list each eN/sN key at most once."
+        raise ValueError(message)
     return " ".join(key.casefold() for key in keys)

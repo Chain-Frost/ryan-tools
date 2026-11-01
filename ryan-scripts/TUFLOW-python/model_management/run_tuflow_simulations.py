@@ -186,6 +186,7 @@ from threading import Event
 from loguru import logger
 
 from ryan_library.functions.loguru_helpers import configure_serial_logging
+from ryan_library.functions.tuflow import runner_user_inputs
 from ryan_library.functions.tuflow.command_plan import CommandPlan
 from ryan_library.functions.tuflow.execution_history import (
     CompletionSession,
@@ -193,22 +194,12 @@ from ryan_library.functions.tuflow.execution_history import (
     identify_runs,
     select_pending,
 )
-from ryan_library.functions.tuflow.runner_user_inputs import (
-    boolean as _bool,
-    choice as _choice,
-    finite_number as _number,
-    gpu_groups as _gpu_groups,
-    input_paths as _input_paths,
-    path as _path,
-    priority_order as _priority_order,
-    run_variables as _variables,
-)
 from ryan_library.functions.wrapper_utils import add_execution_cli_arguments, pause_console, print_wrapper_banner
 from ryan_library.orchestrators.tuflow.simulation_runner import (
     AdvisoryInputCheck,
     BatchOutcome,
-    RunnerSettings,
     RunMode,
+    RunnerSettings,
     check_plan_only,
     export_batch_commands,
     launch_plan,
@@ -220,43 +211,47 @@ from ryan_library.orchestrators.tuflow.simulation_runner import (
 def _settings(arguments: argparse.Namespace) -> RunnerSettings:
     """Normalize validated editable inputs to the library's strict types."""
     base = arguments.working_directory if arguments.working_directory is not None else WORKING_DIR
-    directory = _path("WORKING_DIR", base).absolute() if base is not None else Path(__file__).absolute().parent
+    directory = runner_user_inputs.path("WORKING_DIR", base).absolute() if base is not None else Path(__file__).absolute().parent
     configured_tcf = None if arguments.no_tcf else (arguments.tcf if arguments.tcf is not None else TCF)
     selected_inputs = tuple(arguments.input_file) if arguments.input_file is not None else INPUT_FILES
-    selected_mode = _choice("MODE", arguments.mode if arguments.mode is not None else MODE, SRC)
-    selected_priority = _choice("COMPUTATIONAL_PRIORITY", COMPUTATIONAL_PRIORITY, PRIO)
+    selected_mode = runner_user_inputs.choice("MODE", arguments.mode if arguments.mode is not None else MODE, SRC)
+    selected_priority = runner_user_inputs.choice("COMPUTATIONAL_PRIORITY", COMPUTATIONAL_PRIORITY, PRIO)
     if not isinstance(BATCH_COMMANDS, str):
-        raise ValueError("BATCH_COMMANDS must be a string, e.g. '-b -t -nlc'.")
-    selected_executable = _path(
+        message = "BATCH_COMMANDS must be a string, e.g. '-b -t -nlc'."
+        raise ValueError(message)
+    selected_executable = runner_user_inputs.path(
         "TUFLOW_EXE", arguments.solver_exe if arguments.solver_exe is not None else TUFLOW_EXE
     )
     if selected_executable.suffix.casefold() != ".exe":
-        raise ValueError(f"TUFLOW_EXE must end in .exe, got {selected_executable!s}.")
-    selected_tcf = _path("TCF", configured_tcf) if configured_tcf is not None else None
+        message = f"TUFLOW_EXE must end in .exe, got {selected_executable!s}."
+        raise ValueError(message)
+    selected_tcf = runner_user_inputs.path("TCF", configured_tcf) if configured_tcf is not None else None
     if selected_tcf is not None and selected_tcf.suffix.casefold() != ".tcf":
-        raise ValueError(f"TCF must end in .tcf, got {selected_tcf!s}.")
-    follow_up = _path("NEXT_RUN_FILE", NEXT_RUN_FILE) if NEXT_RUN_FILE is not None else None
+        message = f"TCF must end in .tcf, got {selected_tcf!s}."
+        raise ValueError(message)
+    follow_up = runner_user_inputs.path("NEXT_RUN_FILE", NEXT_RUN_FILE) if NEXT_RUN_FILE is not None else None
     if follow_up is not None and follow_up.suffix.casefold() != ".py":
-        raise ValueError(f"NEXT_RUN_FILE must name a .py script, got {follow_up!s}.")
-    _bool("EXPORT_COMMANDS", EXPORT_COMMANDS)
-    _bool("CHECK_INPUTS", CHECK_INPUTS)
-    _bool("PAUSE_ON_FINISH", PAUSE_ON_FINISH)
-    _bool("MINIMIZE_ON_LAUNCH", MINIMIZE_ON_LAUNCH)
-    _bool("USE_LIVE_DASHBOARD", USE_LIVE_DASHBOARD)
+        message = f"NEXT_RUN_FILE must name a .py script, got {follow_up!s}."
+        raise ValueError(message)
+    runner_user_inputs.boolean("EXPORT_COMMANDS", EXPORT_COMMANDS)
+    runner_user_inputs.boolean("CHECK_INPUTS", CHECK_INPUTS)
+    runner_user_inputs.boolean("PAUSE_ON_FINISH", PAUSE_ON_FINISH)
+    runner_user_inputs.boolean("MINIMIZE_ON_LAUNCH", MINIMIZE_ON_LAUNCH)
+    runner_user_inputs.boolean("USE_LIVE_DASHBOARD", USE_LIVE_DASHBOARD)
     return RunnerSettings(
         wrapper_file=Path(__file__).absolute(),
         working_directory=directory,
         tcf=selected_tcf,
         executable=selected_executable,
-        run_variables=_variables(RUN_VARIABLES_RAW),
-        input_files=_input_paths(selected_inputs),
+        run_variables=runner_user_inputs.run_variables(RUN_VARIABLES_RAW),
+        input_files=runner_user_inputs.input_paths(selected_inputs),
         mode=cast(RunMode, selected_mode.value),
         batch_commands=BATCH_COMMANDS,
-        priority_order=_priority_order(PRIORITY_ORDER),
-        gpu_devices=_gpu_groups(GPU_DEVICES),
+        priority_order=runner_user_inputs.priority_order(PRIORITY_ORDER),
+        gpu_devices=runner_user_inputs.gpu_groups(GPU_DEVICES),
         computational_priority=selected_priority.value,
         minimize_on_launch=MINIMIZE_ON_LAUNCH,
-        wait_time_after_run=_number(
+        wait_time_after_run=runner_user_inputs.finite_number(
             "WAIT_TIME_AFTER_RUN",
             arguments.launch_delay if arguments.launch_delay is not None else WAIT_TIME_AFTER_RUN,
             positive=False,
@@ -264,7 +259,7 @@ def _settings(arguments: argparse.Namespace) -> RunnerSettings:
         use_live_dashboard=(
             arguments.live_dashboard if arguments.live_dashboard is not None else USE_LIVE_DASHBOARD
         ),
-        live_refresh_per_second=_number(
+        live_refresh_per_second=runner_user_inputs.finite_number(
             "LIVE_REFRESH_PER_SECOND",
             arguments.live_refresh_per_second if arguments.live_refresh_per_second is not None else LIVE_REFRESH_PER_SECOND,
             positive=True,
@@ -333,7 +328,7 @@ def _warn_optional_file_paths(plan: CommandPlan, settings: RunnerSettings) -> No
         )
 
     if NEXT_RUN_FILE is not None:
-        follow_up = _path("NEXT_RUN_FILE", NEXT_RUN_FILE)
+        follow_up = runner_user_inputs.path("NEXT_RUN_FILE", NEXT_RUN_FILE)
         target = follow_up if follow_up.is_absolute() else (settings.working_directory / follow_up).absolute()
         if not exists_as_file(target):
             logger.warning(
@@ -367,9 +362,9 @@ def main(argv: list[str] | None = None) -> int:
         if not isinstance(log_level, str) or log_level.upper() not in {
             "TRACE", "DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL"
         }:
-            raise ValueError(
-                f"CONSOLE_LOG_LEVEL={log_level!r} is invalid; use DEBUG, INFO, SUCCESS, WARNING, ERROR or CRITICAL."
-            )
+            message = f"CONSOLE_LOG_LEVEL={log_level!r} is invalid; use DEBUG, INFO, SUCCESS, WARNING, ERROR or CRITICAL."
+            message = message
+            raise ValueError(message)
         configure_serial_logging(console_log_level=log_level.upper())
         settings = _settings(arguments)
         # Validate finite-choice inputs before export, history or simulation launch.
@@ -380,8 +375,8 @@ def main(argv: list[str] | None = None) -> int:
         elif arguments.export_only:
             selected_operation = OP.EXPORT_ONLY
         else:
-            selected_operation = _choice("OPERATION", OPERATION, OP)
-        selected_continuation = _choice(
+            selected_operation = runner_user_inputs.choice("OPERATION", OPERATION, OP)
+        selected_continuation = runner_user_inputs.choice(
             "CONTINUATION_MODE",
             arguments.run_mode if arguments.run_mode is not None else CONTINUATION_MODE,
             CONT,
@@ -401,7 +396,7 @@ def main(argv: list[str] | None = None) -> int:
             len(plan.source_files),
         )
         operation = selected_operation.value
-        exporting = _bool("EXPORT_COMMANDS", EXPORT_COMMANDS if arguments.export is None else arguments.export)
+        exporting = runner_user_inputs.boolean("EXPORT_COMMANDS", EXPORT_COMMANDS if arguments.export is None else arguments.export)
         if operation == "export_only":
             exporting = True
         if exporting:
@@ -452,7 +447,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 session = CompletionSession(history, identities)
                 advisory = None
-                checks = _bool("CHECK_INPUTS", CHECK_INPUTS if arguments.preflight is None else arguments.preflight)
+                checks = runner_user_inputs.boolean("CHECK_INPUTS", CHECK_INPUTS if arguments.preflight is None else arguments.preflight)
                 if checks:
                     advisory = AdvisoryInputCheck(pending)
                     try:
@@ -487,7 +482,7 @@ def main(argv: list[str] | None = None) -> int:
         outcome_code = result.exit_code
         # Preserve established chaining on normal batch termination, even when
         # one or more children failed; never hide their nonzero exit status.
-        if NEXT_RUN_FILE is not None and not _run_follow_up(_path("NEXT_RUN_FILE", NEXT_RUN_FILE), settings.working_directory):
+        if NEXT_RUN_FILE is not None and not _run_follow_up(runner_user_inputs.path("NEXT_RUN_FILE", NEXT_RUN_FILE), settings.working_directory):
             outcome_code = 1
         return outcome_code
     except (OSError, ValueError):

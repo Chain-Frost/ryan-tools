@@ -157,6 +157,23 @@ def _at_base(path: Path, base: Path) -> Path:
     return path if path.is_absolute() else (base / path).absolute()
 
 
+def _validate_gpu_groups(groups: tuple[tuple[str, ...], ...]) -> None:
+    """Reject malformed or shared GPU assignments before any export/launch."""
+    assigned_gpu_ids: set[int] = set()
+    for group in groups:
+        if not group or any(not isinstance(flag, str) or not is_gpu_switch(flag) for flag in group):
+            message = (
+                f"Invalid GPU group in GPU_DEVICES: {group!r}. Use '-pu0' or "
+                "['-pu0', '-pu1'] for separate slots; [['-pu0', '-pu1']] for one multi-GPU slot."
+            )
+            raise CommandPlanError(message)
+        group_ids = [int(flag[3:]) for flag in group]
+        if len(set(group_ids)) != len(group_ids) or assigned_gpu_ids.intersection(group_ids):
+            message = f"Duplicate GPU identifiers in GPU_DEVICES GPU groups: {group!r}"
+            raise CommandPlanError(message)
+        assigned_gpu_ids.update(group_ids)
+
+
 def _validate_settings(settings: RunnerSettings) -> tuple[str, ...]:
     if settings.mode not in {"parameter_product", "textfiles", "both"}:
         message = f"Invalid runner mode: {settings.mode}"
@@ -170,19 +187,7 @@ def _validate_settings(settings: RunnerSettings) -> tuple[str, ...]:
     if not settings.working_directory.is_absolute():
         message = "The configured working directory must be absolute"
         raise CommandPlanError(message)
-    assigned_gpu_ids: set[int] = set()
-    for group in settings.gpu_devices:
-        if not group or any(not isinstance(flag, str) or not is_gpu_switch(flag) for flag in group):
-            message = (
-                f"Invalid GPU group in GPU_DEVICES: {group!r}. Use '-pu0' or "
-                "['-pu0', '-pu1'] for separate slots; [['-pu0', '-pu1']] for one multi-GPU slot."
-            )
-            raise CommandPlanError(message)
-        group_ids = [int(flag[3:]) for flag in group]
-        if len(set(group_ids)) != len(group_ids) or assigned_gpu_ids.intersection(group_ids):
-            message = f"Duplicate GPU identifiers in GPU_DEVICES GPU groups: {group!r}"
-            raise CommandPlanError(message)
-        assigned_gpu_ids.update(group_ids)
+    _validate_gpu_groups(settings.gpu_devices)
     try:
         switches = shlex.split(settings.batch_commands, posix=True)
     except ValueError as exc:
