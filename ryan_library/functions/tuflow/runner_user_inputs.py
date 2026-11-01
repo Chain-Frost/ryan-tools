@@ -123,6 +123,19 @@ def finite_number(name: str, value: object, *, positive: bool) -> float:
     return float(value)
 
 
+def _nonempty_variable_list(key: str, entries: Sequence[object]) -> list[str]:
+    """Accept an explicit list only when all entries are useful strings."""
+    message = f"RUN_VARIABLES_RAW[{key!r}] needs nonempty strings, e.g. ['Dry', 'Wet Season']."
+    if not entries:
+        raise ValueError(message)
+    strings: list[str] = []
+    for item in entries:
+        if not isinstance(item, str) or not item.strip():
+            raise ValueError(message)
+        strings.append(item)
+    return strings
+
+
 def run_variables(value: object) -> dict[str, str | list[str]]:
     """Reject invalid or empty eN/sN inputs rather than silently dropping them."""
     if not isinstance(value, dict):
@@ -146,15 +159,7 @@ def run_variables(value: object) -> dict[str, str | list[str]]:
             validated[key] = raw
         elif isinstance(raw, list):
             items: Sequence[object] = raw
-            message = f"RUN_VARIABLES_RAW[{key!r}] needs nonempty strings, e.g. ['Dry', 'Wet Season']."
-            if not items:
-                raise ValueError(message)
-            strings: list[str] = []
-            for item in items:
-                if not isinstance(item, str) or not item.strip():
-                    raise ValueError(message)
-                strings.append(item)
-            validated[key] = strings
+            validated[key] = _nonempty_variable_list(key, items)
         else:
             message = f"RUN_VARIABLES_RAW[{key!r}] requires a string or list of strings."
             raise ValueError(message)
