@@ -201,3 +201,18 @@ def test_console_default_depends_on_dashboard_and_explicit_level_is_preserved() 
         assert setup.call_args.kwargs["console_log_level"] == "INFO"
         ls.main_processing(use_live_dashboard=True, console_log_level="DEBUG")
         assert setup.call_args.kwargs["console_log_level"] == "DEBUG"
+
+
+def test_successful_dashboard_export_never_emits_failure_diagnostic(tmp_path: Path) -> None:
+    file = tmp_path / "complete.tlf"
+    frame = pd.DataFrame({"StartDate": [1], "Runcode": ["complete"]})
+    success = LogFileProcessingResult(file, frame, "OK", "one")
+    with (
+        patch.object(ls, "discover_log_files", return_value=[file]),
+        patch.object(ls, "process_log_files", return_value=[success]),
+        patch.object(ls, "build_log_summary_dataframe", return_value=frame),
+        patch.object(ls, "ExcelExporter"),
+        patch.object(ls.logger, "error") as log_error,
+    ):
+        assert ls.main_processing(use_live_dashboard=True) is True
+        log_error.assert_not_called()
