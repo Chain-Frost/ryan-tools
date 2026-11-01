@@ -113,7 +113,6 @@ def test_legacy_pool_oserror_fallback_and_raw_frame_disposal() -> None:
     processor.discard_raw_dataframe.assert_called_once_with()
 
 
-
 def test_valid_po_filtered_to_zero_is_skip_not_failure() -> None:
     """A location miss is expected, but a malformed source must still fail."""
     raw = pd.DataFrame(
