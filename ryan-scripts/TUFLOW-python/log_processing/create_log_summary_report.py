@@ -8,9 +8,12 @@ Users can edit certain constants (like CONSOLE_LOG_LEVEL) to control the default
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-08-02.1"
+WRAPPER_VERSION = "2026-11-01.1"
 
 CONSOLE_LOG_LEVEL = "INFO"
+LOG_FILE: Path | None = None  # Optional detailed log; relative paths use WORKING_DIR.
+FILE_LOG_LEVEL = "DEBUG"
+PAUSE_ON_FINISH = True
 WORKING_DIR: Path = Path(__file__).absolute().parent
 # WORKING_DIR: Path = Path(r"E:\path\to\custom\directory")
 USE_LIVE_DASHBOARD = True
@@ -18,6 +21,7 @@ LIVE_REFRESH_PER_SECOND = 2.0
 LIVE_MAX_ROWS = 25
 
 import argparse
+import sys
 
 from ryan_library.functions.wrapper_utils import (
     CommonWrapperOptions,
@@ -27,6 +31,7 @@ from ryan_library.functions.wrapper_utils import (
     pause_console,
     print_wrapper_banner,
 )
+from ryan_library.functions.live_dashboard import validate_dashboard_settings
 from ryan_library.orchestrators.tuflow.tuflow_logsummary import main_processing
 
 
@@ -37,6 +42,8 @@ def main(
     live_max_rows: int | None = None,
     live_refresh_per_second: float | None = None,
     use_live_dashboard: bool | None = None,
+    log_file: Path | None = None,
+    file_log_level: str | None = None,
 ) -> int:
     """Main entry point for log summary analysis.
 
@@ -49,26 +56,46 @@ def main(
         live_max_rows: Overrides the LIVE_MAX_ROWS constant.
         live_refresh_per_second: Overrides the LIVE_REFRESH_PER_SECOND constant.
         use_live_dashboard: Overrides the USE_LIVE_DASHBOARD constant.
+        log_file: Optional detailed log path; None uses LOG_FILE.
+        file_log_level: DEBUG file sink level override.
     """
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
-    script_directory: Path = working_directory or WORKING_DIR
+    script_directory: Path = (working_directory if working_directory is not None else WORKING_DIR).absolute()
+    effective_console_log_level = console_log_level if console_log_level is not None else CONSOLE_LOG_LEVEL
+    effective_live_max_rows = live_max_rows if live_max_rows is not None else LIVE_MAX_ROWS
+    effective_live_refresh = live_refresh_per_second if live_refresh_per_second is not None else LIVE_REFRESH_PER_SECOND
+    effective_dashboard = USE_LIVE_DASHBOARD if use_live_dashboard is None else use_live_dashboard
+    configured_log_file = log_file if log_file is not None else LOG_FILE
+    configured_file_level = file_log_level if file_log_level is not None else FILE_LOG_LEVEL
+    validate_dashboard_settings(refresh_per_second=effective_live_refresh, max_rows=effective_live_max_rows)
+
+    # Capture relative bases before changing directory; do not dereference
+    # mapped-drive or UNC paths merely to display them.
+    log_path: Path | None = None
+    if configured_log_file is not None:
+        log_path = (
+            configured_log_file if configured_log_file.is_absolute() else script_directory / configured_log_file
+        ).absolute()
 
     if not change_working_directory(target_dir=script_directory):
         return 1
 
-    effective_console_log_level: str = console_log_level or CONSOLE_LOG_LEVEL
-    effective_live_max_rows: int = live_max_rows or LIVE_MAX_ROWS
-    effective_live_refresh_per_second: float = live_refresh_per_second or LIVE_REFRESH_PER_SECOND
-    effective_use_live_dashboard: bool = USE_LIVE_DASHBOARD if use_live_dashboard is None else use_live_dashboard
-
-    # Execute the main processing
-    main_processing(
-        console_log_level=effective_console_log_level,
-        use_live_dashboard=effective_use_live_dashboard,
-        live_refresh_per_second=effective_live_refresh_per_second,
-        live_max_rows=effective_live_max_rows,
-    )
-    return 0
+    try:
+        succeeded = main_processing(
+            console_log_level=effective_console_log_level,
+            use_live_dashboard=effective_dashboard,
+            live_refresh_per_second=effective_live_refresh,
+            live_max_rows=effective_live_max_rows,
+            log_file=str(log_path) if log_path is not None else None,
+            file_log_level=configured_file_level,
+        )
+    except KeyboardInterrupt:
+        print("Log summary interrupted.", file=sys.stderr)
+        return 130
+    except Exception as exc:
+        print(f"Log summary failed: {exc}", file=sys.stderr)
+        return 1
+    return 1 if succeeded is False else 0
 
 
 def _parse_cli_arguments() -> CommonWrapperOptions:
@@ -81,6 +108,8 @@ def _parse_cli_arguments() -> CommonWrapperOptions:
         description="Summarise TUFLOW log files. Command-line options override the script defaults."
     )
     add_common_cli_arguments(parser=parser)
+    parser.add_argument("--log-file", type=Path, help="Optional detailed log file (relative to working directory).")
+    parser.add_argument("--file-log-level", help="Minimum file log level, e.g. DEBUG.")
     args: argparse.Namespace = parser.parse_args()
     return parse_common_cli_arguments(args=args)
 
@@ -93,12 +122,15 @@ if __name__ == "__main__":
         live_max_rows=common_options.live_max_rows,
         live_refresh_per_second=common_options.live_refresh_per_second,
         use_live_dashboard=common_options.use_live_dashboard,
+        log_file=common_options.log_file,
+        file_log_level=common_options.file_log_level,
     )
     print_wrapper_banner(
         wrapper_file=Path(__file__),
         wrapper_version=WRAPPER_VERSION,
         leading_blank_line=True,
     )
-    if not common_options.no_pause:
+    pause_at_end = PAUSE_ON_FINISH if common_options.pause_on_finish is None else common_options.pause_on_finish
+    if pause_at_end:
         pause_console()
     raise SystemExit(result)
