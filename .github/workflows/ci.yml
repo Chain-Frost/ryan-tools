@@ -16,6 +16,43 @@ concurrency:
   cancel-in-progress: ${{ github.event_name != 'push' || github.ref != 'refs/heads/main' }}
 
 jobs:
+  posix-wrapper-security:
+    name: POSIX wrapper security
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Install focused test dependency
+        run: python -m pip install pytest
+
+      - name: Check every installed-script static inventory entry
+        run: |
+          python repo-scripts/audit_installed_scripts.py --check --output "${{ runner.temp }}/installed-scripts-audit.json"
+          python repo-scripts/audit_installed_scripts.py --format markdown --output "${{ runner.temp }}/installed-scripts-audit.md"
+
+      - name: Publish file-by-file audit evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: installed-script-audit
+          path: |
+            ${{ runner.temp }}/installed-scripts-audit.json
+            ${{ runner.temp }}/installed-scripts-audit.md
+          if-no-files-found: warn
+
+      - name: Test descriptor-based staging and cleanup
+        # The regular hosted suite runs on Windows, where these POSIX-only
+        # regression tests would otherwise be skipped. These tests need no
+        # GIS dependencies or large test-data submodules.
+        run: python -m pytest -q tests/mcp/test_installed_scripts.py --confcutdir=tests/mcp
+
   policy:
     name: Policy
     runs-on: windows-latest
@@ -101,13 +138,17 @@ jobs:
         run: |
           python repo-scripts/check_documentation.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python repo-scripts/check_documentation.py --links-only docs/MCP_SETUP.md docs/mcp-handoff/README.md docs/work/README.md docs/work/2026-11-01-mcp-workflow-discovery-136.md
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python repo-scripts/check_loguru_formatting.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           git diff --check
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-  python313-mcp-smoke:
-    name: Python 3.13 compatibility and MCP
+  mcp-smoke:
+    # Python 3.14 is the minimum supported runtime. Preserve focused MCP
+    # coverage without claiming Python 3.13 compatibility.
+    name: MCP smoke
     runs-on: windows-latest
     timeout-minutes: 20
 
@@ -123,31 +164,43 @@ jobs:
           git submodule update --init qgis-resources tests/test_data
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Set up Python 3.13
+      - name: Set up Python 3.14 (MCP acceptance)
         uses: actions/setup-python@v6
         with:
-          python-version: "3.13"
+          python-version: "3.14"
           cache: pip
           cache-dependency-path: pyproject.toml
 
-      - name: Check Python 3.13 source compatibility
+      - name: Compile Python 3.14 sources
         shell: pwsh
         run: |
           python -m compileall -q ryan_library
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Install package and MCP dependencies
+      - name: Install binary GIS dependencies and MCP package
         shell: pwsh
         run: |
+          # Python 3.14 Windows cannot build Fiona from source without GDAL headers.
+          # Reuse the proven binary GIS bootstrap used by Policy and Hosted tests.
+          python repo-scripts/install_latest_wheel.py --dependencies-only
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m pip install ".[mcp]" pytest
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Run Python 3.13 focused utility regression tests
+      - name: Test MCP workflow discovery and safety contracts
         shell: pwsh
         env:
           MPLBACKEND: Agg
         run: |
-          # Python 3.14 tests exercise PyPI-installed HY-8 and hydraulics dependencies.
+          python -m pytest -q tests/mcp/test_registry.py tests/mcp/test_server.py tests/mcp/test_catalogue_contracts.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Run Python 3.14 focused utility regression tests
+        shell: pwsh
+        env:
+          MPLBACKEND: Agg
+        run: |
+          # Retain a separate focused MCP/utility job alongside the hosted suite.
           python -m pytest `
             tests/functions/RORB/test_read_rorb_files.py `
             tests/functions/gdal/test_profiling.py `
@@ -271,7 +324,7 @@ jobs:
         shell: pwsh
         run: |
           # Public run_hy8 imports pandas and Loguru; remaining smoke operations use stdlib.
-          python -m pip install build pandas loguru "run-hy8>=2026.10.16.1" "ryan-culverts>=26.10.16.1"
+          python -m pip install build pandas loguru openpyxl psutil rich colorama "run-hy8>=2026.10.16.1" "ryan-culverts>=26.10.16.1"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Build fresh current-version wheel and verify
@@ -291,6 +344,8 @@ jobs:
             throw "No-bump package verification changed the declared version: $before -> $after"
           }
 
+      # Includes copied TUFLOW input-checker help and solver-free runner TXT
+      # export, replacing the separate scope-04 wheel smoke workflow.
       - name: Smoke-test isolated installed wheel
         shell: pwsh
         run: |

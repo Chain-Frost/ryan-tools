@@ -123,7 +123,7 @@ def test_workflow_uses_scenario_in_title_and_filename_and_adds_minor_gridlines(
 ) -> None:
     lines_path = tmp_path / "profiles.gpkg"
     lines = gpd.GeoDataFrame(
-        {"Code": ["Bogada West"]},
+        {"Code": ["B West"]},
         geometry=[LineString(((0.5, 3.5), (3.5, 3.5)))],
         crs="EPSG:28351",
     )
@@ -170,8 +170,8 @@ def test_workflow_uses_scenario_in_title_and_filename_and_adds_minor_gridlines(
         )
     )
 
-    assert created == (output / "CIL - Bogada West_profile.png",)
-    assert titles == ["CIL - Bogada West"]
+    assert created == (output / "CIL - B West_profile.png",)
+    assert titles == ["CIL - B West"]
     assert minor_ticks_enabled
     assert "major" in grid_modes
     assert "minor" in grid_modes

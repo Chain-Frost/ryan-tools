@@ -6,9 +6,10 @@ from __future__ import annotations
 import json
 import sys
 from collections import Counter
+from collections.abc import Iterable
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Protocol, cast
 
 from pandas import DataFrame, to_numeric
 
@@ -29,13 +30,36 @@ DEFAULT_WORKFLOW_LIMIT = 10
 MAX_WORKFLOW_LIMIT = 25
 TUFLOW_PROCESSOR_GUIDANCE_URI = "ryan-tools://guidance/tuflow-processors"
 
+
+# Rasterio's Cython dataset metadata is incompletely visible to strict Pyright.
+class _RasterBounds(Protocol):
+    left: float
+    bottom: float
+    right: float
+    top: float
+
+
+class _RasterMetadata(Protocol):
+    driver: str
+    width: int
+    height: int
+    count: int
+    dtypes: tuple[str, ...]
+    crs: object
+    res: tuple[float, float]
+    transform: Iterable[float]
+    bounds: _RasterBounds
+    nodata: float | int | None
+
+
 if MCPServer is not None:
     mcp = MCPServer(
         "ryan-tools",
         instructions=(
-            "Use list_workflows with query or domain to discover a small page of CLI workflows; follow next_offset "
-            "for more matches, then call get_workflow for the selected "
-            "id. Review its help_command, mutation metadata, paths, and approval requirement before running the returned "
+            "When the domain is unclear, start with list_workflows(overview=True) for compact domain counts and up to "
+            "three examples each; otherwise search directly. Use list_workflows(domain='gdal', query='crop') to narrow "
+            "results and follow next_offset for more pages. Call get_workflow('clip_rasters_to_polygon') for selected "
+            "details. Review help_command, mutation metadata, paths, and approval requirement before running the "
             "CLI command through the client shell. Use inspect_tuflow_result or inspect_tuflow_collection for bounded, "
             "read-only result queries, and consult the TUFLOW processor guidance resource for advanced Python analysis. "
             "This MCP server discovers scripts; it does not execute them."
@@ -294,7 +318,8 @@ def inspect_raster_metadata(raster_path: str) -> dict[str, Any]:
     try:
         import rasterio
 
-        with rasterio.open(path) as source:
+        with rasterio.open(path) as dataset:
+            source = cast("_RasterMetadata", dataset)
             return {
                 "file_name": path.name,
                 "driver": source.driver,
@@ -324,33 +349,44 @@ def list_workflows(
     query: str | None = None,
     limit: int = DEFAULT_WORKFLOW_LIMIT,
     offset: int = 0,
+    overview: bool = False,
 ) -> dict[str, Any]:
-    """Search workflow summaries by keywords/domain. Returns 10 by default (max 25); use next_offset for more."""
+    """List workflows or domain overview (up to three examples/domain); paginate the selected rows."""
     if type(limit) is not int or not 1 <= limit <= MAX_WORKFLOW_LIMIT:
         return {"error": f"limit must be an integer between 1 and {MAX_WORKFLOW_LIMIT}."}
     if type(offset) is not int or offset < 0:
         return {"error": "offset must be a nonnegative integer."}
+    if type(overview) is not bool:
+        return {"error": "overview must be a boolean."}
     try:
         listing = REGISTRY.list_workflows(
             domain=domain,
             query=query,
             maximum_profile=profile,
             include_unavailable=include_unavailable,
+            overview=overview,
         )
     except WorkflowRegistryError as error:
         return {"error": str(error)}
-    matches: list[dict[str, Any]] = listing["workflows"]
+    page_field = "domain_overview" if overview else "workflows"
+    matches: list[dict[str, Any]] = listing[page_field]
     page = matches[offset : offset + limit]
     next_offset = offset + len(page)
     has_more = next_offset < len(matches)
     listing.update(
-        workflows=page,
-        returned_count=len(page),
-        limit=limit,
-        offset=offset,
-        has_more=has_more,
-        next_offset=next_offset if has_more else None,
-        next_step="Narrow query/domain, follow next_offset, or call get_workflow with a returned id.",
+        {
+            page_field: page,
+            "returned_count": len(page),
+            "limit": limit,
+            "offset": offset,
+            "has_more": has_more,
+            "next_offset": next_offset if has_more else None,
+            "next_step": (
+                "Narrow query/domain, follow next_offset, or call get_workflow with a returned id."
+                if not overview
+                else "Narrow to a domain or query, follow next_offset for more domains, then call get_workflow."
+            ),
+        }
     )
     return listing
 
@@ -380,6 +416,15 @@ def check_repo_health() -> dict[str, Any]:
         "workflow_count_total": REGISTRY.total_workflow_count,
         "workflow_count_visible": visible["workflow_count"],
         "workflow_count_available": available["workflow_count"],
+        "workflow_availability_scope": "entry_point_only",
+        "external_prerequisite_validation": "not_performed",
+        "active_script_source": (
+            "repository_checkout"
+            if REGISTRY.repository_root is not None
+            else "installed_distribution"
+            if REGISTRY.scripts_directory is not None
+            else "unavailable"
+        ),
         "warnings": list(REGISTRY.warnings),
     }
 

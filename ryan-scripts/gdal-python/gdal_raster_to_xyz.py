@@ -76,8 +76,8 @@ def convert_raster(
         if not temporary_path.is_file():
             logger.error("gdal2xyz reported success without creating {}", temporary_path)
             return False
-        if overwrite:
-            output_path.unlink(missing_ok=True)
+        # Path.replace uses os.replace: keep the existing destination intact
+        # until the staged file can be promoted in a single filesystem operation.
         temporary_path.replace(output_path)
         logger.success("Created {}", output_path)
         return True

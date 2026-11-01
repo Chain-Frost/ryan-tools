@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import csv
 import importlib.util
+import os
 import sys
 from collections.abc import Callable
+from datetime import date
 from pathlib import Path
 from types import ModuleType
 from typing import Protocol, cast
@@ -66,6 +68,22 @@ def utility(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     return module
 
 
+def test_default_output_names_include_local_run_date() -> None:
+    before = date.today().isoformat()
+    spec = importlib.util.spec_from_file_location("test_duplicate_default_paths", SCRIPT)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    after = date.today().isoformat()
+
+    assert module.RUN_DATE in {before, after}
+    assert Path(f"duplicate_files_to_delete_{module.RUN_DATE}.txt") == module.REPORT_FILE
+    assert Path(f"duplicate_files_manifest_{module.RUN_DATE}.csv") == module.MANIFEST_FILE
+    assert Path(f"duplicate_files_proposed_{module.RUN_DATE}.csv") == module.PROPOSAL_MANIFEST_FILE
+
+
 def check_folder(root: Path, name: str) -> Path:
     folder = root / name / "01.0p" / "check"
     folder.mkdir(parents=True)
@@ -110,6 +128,51 @@ def test_find_check_folders_walks_nested_directories_only(utility: ModuleType, t
     assert utility.find_check_folders(root) == sorted((first, second, third), key=lambda path: str(path).casefold())
 
 
+def test_nested_check_folders_scan_each_file_once(utility: ModuleType, tmp_path: Path) -> None:
+    """Nested check directories must not make a file its own duplicate."""
+    outer = tmp_path / "result" / "check"
+    inner = outer / "nested" / "checks"
+    inner.mkdir(parents=True)
+    (outer / "outer.qml").write_bytes(b"outer")
+    inner_file = inner / "inner.qml"
+    inner_file.write_bytes(b"inner")
+
+    folders = utility.find_check_folders(tmp_path)
+    assert set(folders) == {outer, inner}
+    records = utility.iter_files_in_check_folders(folders)
+
+    assert len(records) == 2
+    assert {record.path for record in records} == {outer / "outer.qml", inner_file}
+    assert next(record.check_folder for record in records if record.path == inner_file) == inner
+
+    groups = utility.find_duplicate_groups(utility.add_hashes_to_candidates(records))
+    assert groups == []
+
+
+@pytest.mark.parametrize("use_alias", [False, True])
+def test_self_delete_action_is_rejected(utility: ModuleType, tmp_path: Path, use_alias: bool) -> None:
+    """Never unlink a path if it also names the retained copy, even through '..'."""
+    folder = check_folder(tmp_path, "same-file")
+    source = folder / "kept.qml"
+    source.write_bytes(b"important")
+    if use_alias:
+        (folder / "nested").mkdir()
+    deletion_path = folder / "nested" / ".." / "kept.qml" if use_alias else source
+    metadata = source.stat()
+    action = utility.DeleteAction(
+        delete_file=deletion_path,
+        keep_file=source,
+        delete_mtime_ns=metadata.st_mtime_ns,
+        keep_mtime_ns=metadata.st_mtime_ns,
+        suffix=".qml",
+        size_bytes=metadata.st_size,
+        content_hash=utility.file_hash(source),
+    )
+
+    assert utility.delete_duplicate_file(action) is False
+    assert source.read_bytes() == b"important"
+
+
 def test_duplicates_compare_across_check_and_checks_folders(utility: ModuleType, tmp_path: Path) -> None:
     first = tmp_path / "GD2" / "check"
     second = tmp_path / "MLTP" / "checks"
@@ -131,6 +194,273 @@ def test_safe_defaults(utility: ModuleType) -> None:
     assert utility.COMPARE_ACROSS_CHECK_FOLDERS is True
     assert utility.INCLUDE_RASTER_FILES is True
     assert utility.RESTORE_FROM_MANIFEST is False
+    assert utility.APPLY_PROPOSAL_MANIFEST is False
+
+
+def test_storage_totals_include_delete_fraction_and_remaining_gb(utility: ModuleType) -> None:
+    action = utility.DeleteAction(
+        delete_file=Path("delete.tif"),
+        keep_file=Path("keep.tif"),
+        delete_mtime_ns=1,
+        keep_mtime_ns=1,
+        suffix=".tif",
+        size_bytes=1_000_000_000,
+        content_hash="0" * 64,
+    )
+    lines = utility.storage_summary_lines(utility.ScanTotals(file_count=4, total_bytes=4_000_000_000), [action])
+    assert "4.000 GB" in lines[0]
+    assert "1.000 GB" in lines[1]
+    assert "25.0%" in lines[1]
+    assert "3.000 GB" in lines[2]
+    assert "75.0%" in lines[2]
+    actual_lines = utility.storage_summary_lines(
+        utility.ScanTotals(file_count=4, total_bytes=4_000_000_000), [action], actual=True
+    )
+    assert "Actually deleted" in actual_lines[1]
+
+
+def test_proposal_mode_reuses_previous_scan_without_rehash(
+    utility: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = check_folder(tmp_path, "model")
+    duplicates = write_duplicates(folder, "a.tif", "b.tif", content=b"0123456789")
+    (folder / "unique.tif").write_bytes(b"unique")
+    monkeypatch.setattr(utility, "DRY_RUN", True)
+    utility.main()
+
+    rows = read_rows(tmp_path / "proposal.csv")
+    assert len(rows) == 1
+    assert rows[0]["scan_file_count"] == "3"
+    assert rows[0]["scan_total_bytes"] == "26"
+    assert rows[0]["delete_mtime_ns"]
+    assert rows[0]["keep_mtime_ns"]
+    assert "Estimated remaining" in (tmp_path / "deletions.txt").read_text(encoding="utf-8")
+
+    monkeypatch.setattr(utility, "APPLY_PROPOSAL_MANIFEST", True)
+    monkeypatch.setattr(utility, "DRY_RUN", False)
+    monkeypatch.setattr("builtins.input", respond_delete)
+
+    def forbid_hash(_path: Path, **_kwargs: object) -> str:
+        message = "Apply mode must not rehash saved proposals"
+        raise AssertionError(message)
+
+    monkeypatch.setattr(utility, "file_hash", forbid_hash)
+    utility.main()
+
+    assert duplicates[0].exists()
+    assert not duplicates[1].exists()
+    assert (folder / "unique.tif").exists()
+    assert len(read_rows(tmp_path / "deletions.csv")) == 1
+    assert (tmp_path / "deletions_001.txt").is_file()
+
+
+def test_apply_rejects_path_that_escapes_check_folder(
+    utility: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A lexical check/.. prefix must not make an out-of-scope path deletable."""
+    folder = check_folder(tmp_path, "escape")
+    inside_files = write_duplicates(folder, "a.qml", "b.qml", content=b"same")
+    outside = folder.parent / "outside.qml"
+    outside.write_bytes(b"same")
+    monkeypatch.setattr(utility, "DRY_RUN", True)
+    utility.main()
+
+    proposal = tmp_path / "proposal.csv"
+    rows = read_rows(proposal)
+    assert len(rows) == 1
+    rows[0]["original_path"] = str(folder / ".." / outside.name)
+    rows[0]["delete_mtime_ns"] = str(outside.stat().st_mtime_ns)
+    with proposal.open("w", newline="", encoding="utf-8") as output:
+        writer = csv.DictWriter(output, fieldnames=utility.PROPOSAL_FIELDS)
+        writer.writeheader()
+        writer.writerows(rows)
+
+    with pytest.raises(ValueError, match="not inside a check/checks folder"):
+        utility.actions_from_proposal(proposal)
+    monkeypatch.setattr(utility, "APPLY_PROPOSAL_MANIFEST", True)
+    monkeypatch.setattr(utility, "DRY_RUN", False)
+    utility.main()
+    assert outside.read_bytes() == b"same"
+    assert all(file.exists() for file in inside_files)
+    assert not (tmp_path / "deletions.csv").exists()
+
+
+def test_apply_rejects_deletion_alias_of_retained_file(
+    utility: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Two spellings of the same file must never count as distinct copies."""
+    folder = check_folder(tmp_path, "self-alias")
+    files = write_duplicates(folder, "a.qml", "b.qml", content=b"same")
+    (folder / "nested").mkdir()
+    monkeypatch.setattr(utility, "DRY_RUN", True)
+    utility.main()
+
+    proposal = tmp_path / "proposal.csv"
+    rows = read_rows(proposal)
+    rows[0]["original_path"] = str(folder / "nested" / ".." / files[0].name)
+    rows[0]["delete_mtime_ns"] = str(files[0].stat().st_mtime_ns)
+    with proposal.open("w", newline="", encoding="utf-8") as output:
+        writer = csv.DictWriter(output, fieldnames=utility.PROPOSAL_FIELDS)
+        writer.writeheader()
+        writer.writerows(rows)
+
+    with pytest.raises(ValueError, match="self-reference"):
+        utility.actions_from_proposal(proposal)
+    monkeypatch.setattr(utility, "APPLY_PROPOSAL_MANIFEST", True)
+    monkeypatch.setattr(utility, "DRY_RUN", False)
+    utility.main()
+    assert all(file.read_bytes() == b"same" for file in files)
+    assert not (tmp_path / "deletions.csv").exists()
+
+
+def test_apply_rejects_retained_alias_of_another_deletion_target(
+    utility: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A retained copy cannot also be a proposed deletion via a path alias."""
+    folder = check_folder(tmp_path, "retained-alias")
+    files = write_duplicates(folder, "a.qml", "b.qml", "c.qml", content=b"same")
+    (folder / "nested").mkdir()
+    monkeypatch.setattr(utility, "DRY_RUN", True)
+    utility.main()
+
+    proposal = tmp_path / "proposal.csv"
+    rows = read_rows(proposal)
+    assert len(rows) == 2
+    rows[0]["kept_path"] = str(folder / "nested" / ".." / files[2].name)
+    rows[0]["keep_mtime_ns"] = str(files[2].stat().st_mtime_ns)
+    with proposal.open("w", newline="", encoding="utf-8") as output:
+        writer = csv.DictWriter(output, fieldnames=utility.PROPOSAL_FIELDS)
+        writer.writeheader()
+        writer.writerows(rows)
+
+    with pytest.raises(ValueError, match="file used as a retained copy"):
+        utility.actions_from_proposal(proposal)
+    monkeypatch.setattr(utility, "APPLY_PROPOSAL_MANIFEST", True)
+    monkeypatch.setattr(utility, "DRY_RUN", False)
+    utility.main()
+    assert all(file.read_bytes() == b"same" for file in files)
+    assert not (tmp_path / "deletions.csv").exists()
+
+
+def test_apply_rejects_changed_mtime_even_if_file_size_matches(
+    utility: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = check_folder(tmp_path, "model")
+    duplicates = write_duplicates(folder, "a.qml", "b.qml")
+    monkeypatch.setattr(utility, "DRY_RUN", True)
+    utility.main()
+    stat = duplicates[1].stat()
+    os.utime(duplicates[1], ns=(stat.st_atime_ns, stat.st_mtime_ns + 2_000_000_000))
+    monkeypatch.setattr(utility, "APPLY_PROPOSAL_MANIFEST", True)
+    monkeypatch.setattr(utility, "DRY_RUN", False)
+
+    def unexpected_confirmation(_prompt: str) -> str:
+        message = "Stale proposals must be rejected before prompting"
+        raise AssertionError(message)
+
+    monkeypatch.setattr("builtins.input", unexpected_confirmation)
+    utility.main()
+    assert all(path.exists() for path in duplicates)
+    assert not (tmp_path / "deletions.csv").exists()
+
+
+@pytest.mark.parametrize("missing_index", [0, 1])
+def test_apply_rejects_missing_retained_or_duplicate_file(
+    utility: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, missing_index: int
+) -> None:
+    """A missing file invalidates the entire saved proposal before any unlink."""
+    folder = check_folder(tmp_path, "missing-file")
+    files = write_duplicates(folder, "a.qml", "b.qml", "c.qml")
+    monkeypatch.setattr(utility, "DRY_RUN", True)
+    utility.main()
+    files[missing_index].unlink()
+
+    monkeypatch.setattr(utility, "APPLY_PROPOSAL_MANIFEST", True)
+    monkeypatch.setattr(utility, "DRY_RUN", False)
+    utility.main()
+
+    assert all(file.exists() for i, file in enumerate(files) if i != missing_index)
+    assert not (tmp_path / "deletions.csv").exists()
+
+
+def test_apply_rejects_old_proposal_without_scan_timestamps(
+    utility: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = check_folder(tmp_path, "model")
+    duplicates = write_duplicates(folder, "a.qml", "b.qml")
+    actions, _ = planned_actions(utility, tmp_path)
+    utility.write_manifest(tmp_path / "proposal.csv", utility.manifest_rows(actions))
+    monkeypatch.setattr(utility, "APPLY_PROPOSAL_MANIFEST", True)
+    monkeypatch.setattr(utility, "DRY_RUN", False)
+    utility.main()
+    assert all(path.exists() for path in duplicates)
+    assert not (tmp_path / "deletions.csv").exists()
+
+
+def test_apply_rejects_proposal_that_deletes_its_retained_file(
+    utility: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = check_folder(tmp_path, "model")
+    duplicates = write_duplicates(folder, "a.qml", "b.qml", "c.qml")
+    monkeypatch.setattr(utility, "DRY_RUN", True)
+    utility.main()
+    proposal = tmp_path / "proposal.csv"
+    rows = read_rows(proposal)
+    # A would-be retained copy becomes another row's deletion target.
+    rows[1]["kept_path"] = str(duplicates[1])
+    rows[1]["keep_mtime_ns"] = str(duplicates[1].stat().st_mtime_ns)
+    with proposal.open("w", newline="", encoding="utf-8") as output:
+        writer = csv.DictWriter(output, fieldnames=utility.PROPOSAL_FIELDS)
+        writer.writeheader()
+        writer.writerows(rows)
+    monkeypatch.setattr(utility, "APPLY_PROPOSAL_MANIFEST", True)
+    monkeypatch.setattr(utility, "DRY_RUN", False)
+    utility.main()
+    assert all(path.exists() for path in duplicates)
+    assert not (tmp_path / "deletions.csv").exists()
+
+
+def test_apply_rejects_conflicting_hashes_for_one_retained_file(
+    utility: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A proposal must not assign different SHA-256 identities to one retained copy."""
+    folder = check_folder(tmp_path, "conflicting-hash")
+    files = write_duplicates(folder, "a.qml", "b.qml", "c.qml")
+    monkeypatch.setattr(utility, "DRY_RUN", True)
+    utility.main()
+
+    proposal = tmp_path / "proposal.csv"
+    rows = read_rows(proposal)
+    assert len(rows) == 2
+    assert rows[0]["kept_path"] == rows[1]["kept_path"]
+    rows[1]["sha256"] = "f" * 64 if rows[0]["sha256"] != "f" * 64 else "e" * 64
+    with proposal.open("w", newline="", encoding="utf-8") as output:
+        writer = csv.DictWriter(output, fieldnames=utility.PROPOSAL_FIELDS)
+        writer.writeheader()
+        writer.writerows(rows)
+
+    with pytest.raises(ValueError, match="contradictory retained-file evidence"):
+        utility.actions_from_proposal(proposal)
+
+    monkeypatch.setattr(utility, "APPLY_PROPOSAL_MANIFEST", True)
+    monkeypatch.setattr(utility, "DRY_RUN", False)
+    utility.main()
+    assert all(file.is_file() for file in files)
+    assert not (tmp_path / "deletions.csv").exists()
+
+
+def test_conflicting_run_modes_refuse_before_any_file_operation(
+    utility: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = check_folder(tmp_path, "mode-conflict")
+    files = write_duplicates(folder, "a.qml", "b.qml")
+    monkeypatch.setattr(utility, "RESTORE_FROM_MANIFEST", True)
+    monkeypatch.setattr(utility, "APPLY_PROPOSAL_MANIFEST", True)
+    utility.main()
+    assert all(file.exists() for file in files)
+    assert not (tmp_path / "proposal.csv").exists()
+    assert not (tmp_path / "deletions.csv").exists()
+    assert not (tmp_path / "deletions.txt").exists()
 
 
 def test_one_placeholder_per_hash_within_one_folder(utility: ModuleType, tmp_path: Path) -> None:
@@ -258,6 +588,84 @@ def test_restore_pending_manifest_after_interruption(
     monkeypatch.setattr("builtins.input", respond_restore)
     assert utility.restore_files_from_manifest(tmp_path / "deletions.csv") == (1, 0)
     assert files[1].read_bytes() == files[0].read_bytes()
+
+
+def test_partial_failure_updates_manifest_and_appends_actual_report(
+    utility: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A failed unlink is not counted as deleted; a successful one can be restored."""
+    folder = check_folder(tmp_path, "partial")
+    files = write_duplicates(folder, "a.qml", "b.qml", "c.qml", content=b"same")
+    original_delete = utility.delete_duplicate_file
+
+    def delete_except_last(action: DeleteRecord) -> bool:
+        if action.delete_file.name == "c.qml":
+            return False
+        return cast(bool, original_delete(action))
+
+    monkeypatch.setattr(utility, "delete_duplicate_file", delete_except_last)
+    monkeypatch.setattr("builtins.input", respond_delete)
+    utility.main()
+
+    assert files[0].exists()
+    assert not files[1].exists()
+    assert files[2].exists()
+    rows = read_rows(tmp_path / "deletions.csv")
+    assert {Path(row["original_path"]).name: row["status"] for row in rows} == {
+        "b.qml": "deleted",
+        "c.qml": "failed",
+    }
+    report = (tmp_path / "deletions.txt").read_text(encoding="utf-8")
+    assert "Actual deletion results" in report
+    assert "Requested files: 2" in report
+    assert "Successfully deleted: 1" in report
+    assert "Failed/skipped: 1" in report
+    assert "Actually deleted" in report
+
+    monkeypatch.setattr("builtins.input", respond_restore)
+    assert utility.restore_files_from_manifest(tmp_path / "deletions.csv") == (1, 0)
+    assert all(file.read_bytes() == b"same" for file in files)
+    assert {Path(row["original_path"]).name: row["status"] for row in read_rows(tmp_path / "deletions.csv")} == {
+        "b.qml": "restored",
+        "c.qml": "failed",
+    }
+
+
+def test_interrupted_deletion_keeps_pending_manifest_recoverable(
+    utility: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An interruption after one unlink leaves pending rows for selective recovery."""
+    folder = check_folder(tmp_path, "interrupted")
+    files = write_duplicates(folder, "a.qml", "b.qml", "c.qml", content=b"same")
+    original_delete = utility.delete_duplicate_file
+    completed = 0
+
+    def interrupted_delete(action: DeleteRecord) -> bool:
+        nonlocal completed
+        if completed:
+            raise KeyboardInterrupt
+        deleted: bool = original_delete(action)
+        if deleted:
+            completed += 1
+        return deleted
+
+    monkeypatch.setattr(utility, "delete_duplicate_file", interrupted_delete)
+    monkeypatch.setattr("builtins.input", respond_delete)
+    with pytest.raises(KeyboardInterrupt):
+        utility.main()
+
+    assert completed == 1
+    assert files[0].exists()
+    assert not files[1].exists()
+    assert files[2].exists()
+    manifest = tmp_path / "deletions.csv"
+    assert {row["status"] for row in read_rows(manifest)} == {"pending"}
+
+    monkeypatch.setattr("builtins.input", respond_restore)
+    assert utility.restore_files_from_manifest(manifest) == (1, 0)
+    assert all(file.read_bytes() == b"same" for file in files)
+    statuses = {Path(row["original_path"]).name: row["status"] for row in read_rows(manifest)}
+    assert statuses == {"b.qml": "restored", "c.qml": "pending"}
 
 
 def test_existing_recovery_manifest_blocks_new_delete(

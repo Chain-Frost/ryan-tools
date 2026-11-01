@@ -1,9 +1,238 @@
 # TUFLOW Python wrappers
 
-This folder contains maintained, library-backed wrappers as well as older
-standalone utilities. New and updated thin wrappers follow the repository-wide
-[`WRAPPER_STANDARD.md`](../WRAPPER_STANDARD.md); versioned standalone scripts
-retain their own self-contained behaviour until they are deliberately migrated.
+This folder contains maintained, library-backed wrappers, maintained
+standalone utilities, and older historical scripts. All maintained entry
+points follow the [shared script principles](../README.md#shared-principles-for-maintained-scripts-and-wrappers).
+Library-backed wrappers additionally follow
+[`WRAPPER_STANDARD.md`](../WRAPPER_STANDARD.md). A useful self-contained
+script need not be migrated into a wrapper or an orchestrator merely to remain
+maintained; historical/versioned snapshots retain their intentional behaviour.
+The TUFLOW runner and its command TXT exports target Windows.
+
+## Input checker reports
+
+[`model_management/check_tuflow_inputs.py`](model_management/check_tuflow_inputs.py)
+checks every supported model input (including selected GeoPackage layers and
+boundary CSV headers), without running TUFLOW. It prints findings in the
+terminal by default. Configure the straightforward editable settings near the
+top: `TCF`, `RUN_FILES`, `WORKING_DIR`, `CONFIGURATION_DIR`,
+`REPORT_CSV`, `PLAN_ONLY`, `PLAN_JSON`, `INPUT_SYNTAX`,
+`INPUT_ENCODING`, `IO_WORKERS`, `MAX_DIRECTORY_ENTRIES` and
+`PAUSE_ON_FINISH`. There is no mandatory `DEFAULT_` prefix or separate
+GeoPackage-layer switch.
+
+The initial `RUN_FILES` points to `run_tuflow_simulations.txt` beside the
+checker. For a versioned runner, change it to its generated TXT, for example
+`(Path("model_v2.txt"),)`, or use `--runs model_v2.txt`.
+To create a **new** issues CSV, set `REPORT_CSV = Path("issues.csv")` or pass
+`--report issues.csv`; `None` means terminal output only. Existing reports
+are never overwritten. Use `--plan-only` for plan inspection without model
+file reads, and `--plan-report plan.json` for optional new manifest output.
+Command sources selected by `RUN_FILES` or `--runs` are relative to
+`WORKING_DIR` (terminal cwd when `None`), even if the invoking terminal
+is in another directory. Absolute command-file paths are used unchanged.
+A relative configured TCF uses `CONFIGURATION_DIR` (wrapper folder when both
+directory settings are `None`).
+See the [input-preflight guide](../../docs/TUFLOW_INPUT_PREFLIGHT.md) for supported
+BAT/text syntax, multiple TCFs, installation and validation boundaries.
+
+## Simulation runner inputs and launch settings
+
+[`model_management/run_tuflow_simulations.py`](model_management/run_tuflow_simulations.py)
+accepts generated parameter combinations, BAT/text command lists, or both.
+Edit `MODE`, `RUN_VARIABLES_RAW` and `INPUT_FILES` near the top of a copied
+Python wrapper. Its operational constants can use concise names; the wrapper
+standard does not require a `DEFAULT_` prefix. CLI arguments override editable
+values when supplied.
+
+The shipped `OPERATION = settings.OP.RUN` runs pending simulations using
+the licensed solver and may overwrite existing model outputs. The default
+`CONTINUATION_MODE = settings.CONT.RESUME` skips recorded successful runs.
+To export editable command TXT without launching, set
+`OPERATION = settings.OP.EXPORT_ONLY` (or raw `"export_only"`) or pass
+`--export-only`. To check inputs without launching, use
+`OPERATION = settings.OP.PREFLIGHT_ONLY` or `--preflight-only`.
+`--run-simulations` explicitly selects execution regardless of the editable
+operation setting. CLI arguments override editable values.
+
+The wrapper imports its `StrEnum` choices through `settings`:
+`settings.OP.RUN`, `settings.SRC.TEXTFILES`, `settings.CONT.RESUME` and
+`settings.PRIO.LOW`. Equivalent raw strings are accepted and validated.
+
+Generated list entries intentionally have leading and trailing whitespace
+stripped before warnings and deduplication. For example, `[" Wet ", "Wet"]`
+selects `"Wet"` once and does not produce a space warning. Embedded spaces
+remain part of the value. A whitespace-delimited raw string such as
+`"01.0p 02.0p"` represents **two** values and does not warn merely because
+of its separator. To supply one value containing an embedded space, use a
+list such as `["Wet Season"]`.
+
+After this normalization, individual `-eN` and `-sN` values containing a
+space (`" "`) or underscore (`"_"`) trigger a **non-blocking warning**
+identifying the flag and value. Imported quoted BAT/CMD/TXT values are
+checked as parsed. The warnings do not further change values or block
+export or execution.
+
+The Python runner alone launches the configured `TUFLOW_EXE` via Python
+subprocess argument lists. Imported BAT/CMD/TXT files are **never executed**,
+nor are any START or other source commands replayed. Their supported syntax
+is parsed only to obtain model TCF references and event/scenario selections.
+Python exclusively controls the executable, child working directory,
+`BATCH_COMMANDS`, GPU groups, concurrency and process priority. Imported
+executables, shell directory changes, engine/GPU switches and START scheduling
+cannot direct launches. First occurrences are kept; duplicate model selections
+are discarded. For example, `BATCH_COMMANDS = "-b -t -nlc"` applies to
+both generated and imported runs; an imported `-x` does not override it.
+
+`GPU_DEVICES` **alone controls concurrency**: `"-pu1"` assigns one GPU
+to one slot; `["-pu0", "-pu1"]` makes two simultaneous single-GPU slots;
+`[["-pu0", "-pu1"], "-pu2"]` makes two slots, one using GPUs 0+1 and one
+using GPU 2. Legacy nested tuples such as `(("-pu0",), ("-pu1",))`
+still work. Each top-level entry is a concurrent slot; each nested list
+or tuple is a group of GPUs assigned to that one slot. An empty `[]`, `()` or `None` uses one automatic-placement slot. There is no
+`MAXIMUM_CONCURRENT`. GPU tokens must match `-puN` (N is a
+nonnegative integer); malformed tokens such as `-pu0,1`, empty
+groups and repeated GPU IDs are rejected before export or launch.
+GPU occupancy is checked once at execution startup; the scheduler
+tracks its own children and does not rescan CodeMeter, TLF or TSF
+activity.
+
+The wrapper rejects malformed settings with explicit names and examples:
+unsupported enum choices, invalid path types/extensions, blank or
+malformed event/scenario values, duplicate GPU IDs, invalid booleans,
+non-finite/out-of-range numeric settings and invalid process priorities.
+It also checks every `~eN~` or `~sN~` TCF filename placeholder against
+selected event/scenario flags, including **imported BAT/TXT runs**.
+Valid extra flags not present in the TCF name are allowed.
+
+A TCF must be provided through `TCF` or the imported BAT/TXT selection.
+Missing physical TCF files do **not** stop planning or export, but produce
+warnings. The configured `TUFLOW_EXE` and optional `NEXT_RUN_FILE` also
+produce warnings if absent. The solver is a hard requirement only for
+execution that needs it; preflight-only and export-only do not require
+the solver. Missing input files selected for BAT/TXT parsing remain hard
+errors. Strict preflight checks referenced model inputs and fails on
+unresolved files; normal-run background checking remains advisory.
+
+Path settings `WORKING_DIR`, `TCF`, `TUFLOW_EXE` and
+`NEXT_RUN_FILE` accept ordinary raw strings (for example,
+`r"Q:\Project\TUFLOW"`) or `Path` values, and
+`INPUT_FILES` accepts a single path or a list/tuple of paths
+(for example, `["runs1.bat", "runs2.txt"]`). They are converted to
+`Path` objects at the wrapper boundary. Input TCF, executable,
+BAT/TXT and follow-up paths retain their existing relative-to-
+`WORKING_DIR` semantics; nothing resolves mapped drives or UNC
+aliases.
+
+The sole runner input-check switch is `CHECK_INPUTS` (`True`/`False`),
+overridden by `--preflight` or `--no-preflight`. `True` performs all
+supported advisory checks, including selected GeoPackage layers and boundary
+CSV headers. Failures are reported while launching; they do not block the
+solver. Strict `--preflight-only` always checks those inputs and never launches.
+There is no separate GeoPackage-layer toggle in the runner.
+
+Both the checker and runner capture inherited environment variables before
+reading BAT/text files. Each source file then has independent SET and directory
+state. Set Python `TCF = None` when imported commands intentionally select
+multiple TCFs. If Python supplies a TCF, every active imported TCF must match it;
+conflicts stop planning before output or execution.
+
+The Python runner and its generated TXT support UNC working directories.
+Generated and imported paths compare consistently when they contain `..`;
+comparison is lexical and does not resolve drive mappings or filesystem links.
+
+## Fixed TXT command export
+
+Command export remains enabled by default. A copied `<runner-name>.py` refreshes
+**`<runner-name>.txt` beside that Python file**. The file contains editable Windows
+batch syntax, including shared `TUFLOW_EXE`, `BCMD` and TCF variables, but its
+`.txt` extension prevents accidental batch execution by double-clicking it.
+There is **no alternate export path**: `<runner-name>.txt` beside the copied
+Python wrapper is the sole destination. Existing TXT is refreshed after
+reparsing and protected-file checks; input files are never replaced.
+
+The export contains the complete deduplicated plan, including completed runs, and
+is refreshed even when Resume has no remaining work. There are no timestamped
+exports, automatic backup files or per-invocation directories. If manually
+editing an export, copy it to a separately named input before another invocation
+refreshes the generated file.
+
+The complete export is rendered and reparsed before the destination is replaced.
+A failed render leaves the existing export intact. Imported command sources,
+model control files, the Python wrapper and execution history are protected,
+including filesystem aliases. If an imported source is also the export target,
+disable export with `EXPORT_COMMANDS = False` (or `--no-export`)
+when running, or copy the input to a different filename. Export-only always
+writes the fixed adjacent TXT and refuses a conflict.
+
+`--export-only` prepares the text without launching TUFLOW, inspecting GPUs,
+creating execution history or requiring the unused PyTUFLOW validation stack.
+An explicit Python `BATCH_COMMANDS` GPU switch is retained in the exported
+`BCMD`; actual runner launches use `GPU_DEVICES`. Export does not predict or
+assign runtime GPU slots.
+
+## Runner CSV continuation
+
+The execution-history CSV uses the supplying Python wrapper's filename
+stem followed by `_runs.csv`, **beside that wrapper**. The intended workflow
+is one runner file per TUFLOW project/TCF version, with a unique runner filename
+for each version; therefore each wrapper has its **own** CSV, rather than sharing
+a project-wide or network-wide history. The CSV is an append-only START / FINISH
+/ RESET log of observed process outcomes. No saved run manifest or additional
+session directory is required.
+
+**Resume is the default.** The runner regenerates the full current plan and
+selects its launch queue using the CSV:
+
+| Latest recorded state for the current configuration | Resume action |
+| --- | --- |
+| Observed successful finish | Skip this occurrence for this invocation. |
+| Failed finish | Queue another attempt. |
+| Start without an observed finish | Queue another attempt. |
+| No previous attempt | Queue the run. |
+
+The unique selected plan and previous CSV rows remain intact. For a 400-run batch with the
+first 100 successful, the next 3 failed and the rest unstarted, Resume queues
+runs 101 through 400 in their original order. If later runs also succeeded,
+those are skipped too; original run numbers can therefore have gaps. Input
+preflight and dashboard presentation preserve those original identities.
+
+Set `CONTINUATION_MODE = settings.CONT.ALL` (or raw `"all"`) or pass `--run-mode all` to append a RESET row and
+run every occurrence again. Previous history is retained. Changing model-file contents
+is not detected; use Run all when prior successes should be disregarded.
+The identity uses the **TCF filename** (case-insensitive on Windows) and effective
+event/scenario, engine and model-option switches, excluding runtime GPU placement.
+The TCF directory, Python working directory, executable location and source
+command file are diagnostic CSV fields, **not** part of the completion key.
+No mapped-drive/UNC resolution or cross-project path matching is performed for
+Resume. TCF filenames are expected to be unique within the versioned runner's
+project. A test-only `-t` run remains distinct from a full simulation.
+
+The Resume key uses the path-independent `tuflow-logical-v2` identity.
+Old pre-release `v1` records, if the **same wrapper filename** is reused, remain
+in its CSV but do not match v2: previous successes may be queued again. New
+versioned wrapper filenames naturally have separate CSVs. Changing ignored
+source engine/GPU switches does not change the key; changing effective Python
+`BATCH_COMMANDS` switches still can.
+
+Stop the previous batch before resuming. A missing FINISH row does not establish
+whether an old process is still alive or failed; Resume does not scan to recover
+it. Only an incomplete trailing CSV fragment is repaired. Incompatible formats
+or earlier corruption produce an error rather than an implicit migration.
+
+Actual execution first checks that the Python-configured solver exists. A
+missing executable fails before changing the CSV completion baseline. Export-only
+and preflight-only do not require a solver installation. The solver path and
+working directory come exclusively from Python for execution, but they are not
+part of the new v2 Resume identity.
+
+Reexecuted models use their current configured output locations and may overwrite
+existing solver outputs. This feature resumes the set of simulations; it does
+not use TUFLOW's solver checkpoint restart. An already-complete Resume performs
+no GPU scan or launch and retains any explicitly configured follow-up policy.
+
+The [integration work record](../../docs/work/2026-10-23-tuflow-runner-model-checks.md)
+records delivery and current validation.
 
 ## Maintained wrappers
 
@@ -41,6 +270,14 @@ untagged, their source coordinates are assumed to already align.
 The default masked-bilinear sampler returns NoData only when the profile
 station's containing raster cell is NoData; adjacent NoData cells are excluded
 and the remaining interpolation weights are renormalised.
+
+Only the single-layer GeoPackage renamer,
+[`gis_processing/rename_geopackage_layer_to_filename.py`](gis_processing/rename_geopackage_layer_to_filename.py),
+prints GeoPackage paths relative to its scan root (the copied script's folder,
+or an explicitly configured target directory). Nested files retain their
+relative subfolder names; full paths are still used for file operations.
+Green denotes a successful layer rename, yellow a skipped file (already
+correct or multiple layers), and red a failed inspection or rename.
 
 ## Wrapper folders
 
@@ -272,19 +509,54 @@ converted files preserve every possible GDAL metadata tag.
 folders named `check` or `checks` (case-insensitive), retaining one copy per unique content group. Run from the intended result/model root
 or change `ROOT_DIR` in the script.
 
-- **Default `DRY_RUN = False`:** the script writes a proposal and report, then requires typing exactly
-  `DELETE` before removal. Set `DRY_RUN = True` for review-only operation (no prompt or deletion).
+- **Three run modes (set the constants at the top of the Python script):**
+  1. **Fresh scan, default:** `RESTORE_FROM_MANIFEST = False`, `APPLY_PROPOSAL_MANIFEST = False`.
+     Discover `check`/`checks` files, hash only duplicate-sized candidates, and create a proposal CSV
+     and TXT report. `DRY_RUN = True` creates evidence but deletes nothing. With the default
+     `DRY_RUN = False`, deletion still requires typing `DELETE`.
+  2. **Apply a saved proposal:** set `APPLY_PROPOSAL_MANIFEST = True` and change
+     `PROPOSAL_MANIFEST_FILE` to the **exact path of the existing proposal**, including any numbered
+     suffix (e.g. `duplicate_files_proposed_2026-10-28_001.csv`). This skips all folder scanning and
+     SHA-256 hashing, checks listed paths, filenames, sizes and *original scan modification times*,
+     then creates a new report and requests `DELETE` (unless `DRY_RUN = True`). The original content
+     hashes are **trusted, not reverified**; timestamp/size checks are not equivalent to rehashing.
+     Never apply a proposal that is untrusted or was prepared while files were being modified.
+     Multiple proposal rows referring to the same retained copy must agree on its content hash,
+     size, suffix and modification time; contradictory rows are rejected before any deletion.
+     The enhanced proposal format is required; old six-column proposal CSVs must be regenerated.
+  3. **Restore deleted files:** set `RESTORE_FROM_MANIFEST = True` and `MANIFEST_FILE` to the
+     corresponding dated recovery CSV. With `DRY_RUN = False`, type `RESTORE`; existing files
+     are never overwritten.
+
+  **Do not enable both apply and restore mode at once.** The script refuses to run when both
+  switches are `True`, before reading manifests or changing files. Reset both switches to
+  `False` before a fresh scan.
 - **Default `COMPARE_ACROSS_CHECK_FOLDERS = True`:** keep one copy of each content group across all scanned
   folders. With `False`, keep one representative in each check folder instead.
 - **Default `INCLUDE_RASTER_FILES = True`:** GeoTIFFs and auxiliary files are included. Set `False` to
   exclude them. Identical bytes do **not** mean the original file paths are safe to remove: linked QGIS
   projects or scripts may stop finding their inputs.
-- A new numbered proposal CSV and TXT report are written **without overwriting older runs**
-  (`duplicate_files_proposed.csv`, then `duplicate_files_proposed_001.csv`, and likewise for reports).
-  Review their listed keep/delete choices before confirming.
-- A confirmed run writes `duplicate_files_manifest.csv` before deletion and records all original
-  filenames, retained paths, hashes and outcomes. It refuses another deletion if a recovery manifest
-  already exists. Archive that manifest before starting another run.
+- Report, proposal and recovery-manifest filenames default to the **local run date** in `YYYY-MM-DD`
+  format, for example `duplicate_files_to_delete_2026-10-28.txt`,
+  `duplicate_files_proposed_2026-10-28.csv` and `duplicate_files_manifest_2026-10-28.csv`.
+  Existing proposal/report names are never overwritten: same-day reruns use numbered filenames
+  (for example `duplicate_files_proposed_2026-10-28_001.csv`). Review the keep/delete choices
+  before confirming. The three output path constants can still be edited to use custom filenames.
+- The console and TXT report show the **total size of all scanned check-folder files**,
+  **proposed deletion size in decimal GB and percent of that total**, and **estimated GB and percent
+  remaining**. The saved proposal also stores the original scan total, so apply mode reports the
+  same baseline without scanning everything again. After deletion, the console **and the
+  run's TXT report** record the actual deleted file count/bytes/GB, skipped or failed counts,
+  and corresponding remaining estimate. Failed/skipped deletions are not counted as removed.
+  Here, 1 GB means 1,000,000,000 bytes.
+- A confirmed run writes its dated recovery manifest **before deletion**, recording original
+  filenames, retained paths, hashes and outcomes. It refuses deletion if that manifest already
+  exists; archive it or choose another recovery filename before another same-day deletion run.
+  Restoring from an earlier day requires pointing `MANIFEST_FILE` at that run's saved CSV.
+  If the script is interrupted during deletion, the recovery manifest retains `pending`
+  records. Restore mode recovers missing originals from eligible `pending` or `deleted`
+  rows and never replaces an existing file. The completed manifest records `failed`
+  for skipped deletions; these are not restore candidates.
 - Each affected check folder gets one `.DUPLICATE_REMOVED.txt` placeholder per unique deleted
   content group, including groups whose kept copy is **in the same folder**. It lists every original
   deleted filename and the location of the retained file.
@@ -303,8 +575,8 @@ or change `ROOT_DIR` in the script.
 - SHA-256 reads candidate contents **once** during grouping. Deletion checks existence, size and
   modification time of both paths, rechecking the retained path before each unlink. It does **not**
   hash file content again. Run only on static/inactive results; metadata checks are not file locks.
-- Set `RESTORE_FROM_MANIFEST = True` to copy verified retained content back into missing original
-  paths. With the default `DRY_RUN = False`, restoration requires typing `RESTORE`. Existing
-  files are never overwritten; a recovery manifest (not the pre-deletion proposal) is required.
+- Restoration copies verified retained content back to missing original paths and requires
+  the recovery manifest (not the proposal). The restore workflow hashes the retained file to
+  verify content. The saved-proposal apply workflow skips hashing by design.
 
 Verify first on a disposable copy of model results, particularly on network drives.

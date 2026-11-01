@@ -4,6 +4,8 @@
 the source directory, excluding configured folder names and file extensions
 with native 7-Zip `-xr!` arguments. Existing archives are skipped (never
 overwritten). Input folders are not deleted.
+Use ``--max-part-size-gib 5`` for upload-sized volumes or ``--dry-run`` to
+preview the outputs without invoking 7-Zip.
 
 The default target is the current working directory. Edit the settings below
 or override them on the command line. Progress reports completed *folders*,
@@ -24,7 +26,7 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 # Wrapper identity and editable project settings (CLI options override these)
 # ---------------------------------------------------------------------------
-WRAPPER_VERSION = "2026-10-16.2"
+WRAPPER_VERSION = "2026-11-01.2"
 
 DEFAULT_INPUT_PATHS: tuple[Path, ...] = (Path.cwd(),)
 DEFAULT_WORKING_DIRECTORY: Path | None = None  # None = first input directory
@@ -33,10 +35,13 @@ DEFAULT_EXCLUDE_EXTENSIONS: tuple[str, ...] = (".xf4", ".xmdf", ".2dm", ".dat", 
 
 DEFAULT_7ZIP_EXE: Path | None = None  # None = auto-discover 7z.exe
 DEFAULT_MAX_WORKERS: int | None = None  # None = CPU count, limited to folder count
+DEFAULT_MAX_PART_SIZE_GIB: int | None = None  # None = one unsplit .7z; use 5 for upload-sized parts
+DEFAULT_DRY_RUN = False
 DEFAULT_SHOW_PROGRESS = True  # Rich progress in interactive terminals; plain text otherwise
 DEFAULT_CONSOLE_LOG_LEVEL = "INFO"
 DEFAULT_LOG_FILE: Path | None = Path("archive_compress_folder.log")
 DEFAULT_FILE_LOG_LEVEL = "DEBUG"
+DEFAULT_PAUSE_ON_FINISH = True
 # ---------------------------------------------------------------------------
 
 import argparse
@@ -61,7 +66,10 @@ def main(
     exclude_extensions: Sequence[str] | None = None,
     working_directory: Path | None = None,
     seven_zip_exe: Path | None = None,
+    force_auto_discovery: bool = False,
     max_workers: int | None = None,
+    max_part_size_gib: int | None = None,
+    dry_run: bool | None = None,
     show_progress: bool | None = None,
 ) -> int:
     """Compress the selected folders and report per-folder and batch outcomes."""
@@ -84,8 +92,15 @@ def main(
     requested_workers = max_workers if max_workers is not None else DEFAULT_MAX_WORKERS
     if requested_workers is not None and requested_workers < 1:
         logger.error("Worker count must be at least 1, got {}.", requested_workers)
-        return 2
-    configured_exe = seven_zip_exe if seven_zip_exe is not None else DEFAULT_7ZIP_EXE
+        return 1
+    configured_part_size = max_part_size_gib if max_part_size_gib is not None else DEFAULT_MAX_PART_SIZE_GIB
+    if max_part_size_gib == 0:
+        configured_part_size = None
+    if configured_part_size is not None and configured_part_size < 1:
+        logger.error("Maximum archive part size must be at least 1 GiB, got {}.", configured_part_size)
+        return 1
+    configured_dry_run = dry_run if dry_run is not None else DEFAULT_DRY_RUN
+    configured_exe = None if force_auto_discovery else seven_zip_exe if seven_zip_exe is not None else DEFAULT_7ZIP_EXE
     explicit_exe = configured_exe.absolute() if configured_exe is not None else None
     if not change_working_directory(target_dir=workdir):
         return 1
@@ -102,29 +117,40 @@ def main(
         logger.error("No valid input folders to compress.")
         return 1
 
+    worker_count = min(requested_workers or multiprocessing.cpu_count(), len(folders))
+    exclusions_folders = tuple(exclude_folders if exclude_folders is not None else DEFAULT_EXCLUDE_FOLDERS)
+    exclusions_extensions = tuple(exclude_extensions if exclude_extensions is not None else DEFAULT_EXCLUDE_EXTENSIONS)
     exe = explicit_exe if explicit_exe is not None else find_7zip()
+    console = Console()
+    split_description = "off" if configured_part_size is None else f"{configured_part_size} GiB maximum per part"
+    if configured_dry_run:
+        console.print(f"Dry run | folders: {len(folders)} | workers: {worker_count}", markup=False)
+        console.print(f"Archive splitting: {split_description}", markup=False)
+        for folder in folders:
+            console.print(f"Would create: {folder.with_suffix('.7z')} from {folder}", markup=False)
+        if exe is None or not exe.is_file():
+            logger.warning("7-Zip is not currently available; it is required for a real run.")
+        return 1 if invalid_count else 0
     if exe is None or not exe.is_file():
         logger.error("7-Zip executable not found: {}. Set DEFAULT_7ZIP_EXE or --seven-zip-exe.", exe)
         return 1
 
-    worker_count = min(requested_workers or multiprocessing.cpu_count(), len(folders))
-    exclusions_folders = tuple(exclude_folders if exclude_folders is not None else DEFAULT_EXCLUDE_FOLDERS)
-    exclusions_extensions = tuple(exclude_extensions if exclude_extensions is not None else DEFAULT_EXCLUDE_EXTENSIONS)
     jobs = [
         FolderCompressionJob(
             folder=folder,
             executable=exe,
             excluded_folders=exclusions_folders,
             excluded_extensions=exclusions_extensions,
+            max_part_size_gib=configured_part_size,
         )
         for folder in folders
     ]
-    console = Console()
     interactive = (show_progress if show_progress is not None else DEFAULT_SHOW_PROGRESS) and sys.stdout.isatty()
     console.print(f"Folders: {len(jobs)} | workers: {worker_count} | 7-Zip: {exe}", markup=False)
     console.print(
         f"Excluded folders: {exclusions_folders} | excluded extensions: {exclusions_extensions}", markup=False
     )
+    console.print(f"Archive splitting: {split_description}", markup=False)
     if len(jobs) == 1:
         console.print(f"Processing: {jobs[0].folder}", markup=False)
         console.print(f"Output: {jobs[0].folder.with_suffix('.7z')}", markup=False)
@@ -184,25 +210,43 @@ def _parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--exclude_folders",
         "--exclude-folders",
-        nargs="+",
+        nargs="*",
         default=None,
         help="Folder names to exclude; overrides DEFAULT_EXCLUDE_FOLDERS.",
     )
     parser.add_argument(
         "--exclude_extensions",
         "--exclude-extensions",
-        nargs="+",
+        nargs="*",
         default=None,
         help="Extensions to exclude; overrides DEFAULT_EXCLUDE_EXTENSIONS.",
     )
     parser.add_argument(
         "--working-directory", type=Path, default=None, help="Working directory; default is first source folder."
     )
-    parser.add_argument(
+    executable_group = parser.add_mutually_exclusive_group()
+    executable_group.add_argument(
         "--seven-zip-exe", type=Path, default=None, help="Explicit 7z.exe path; otherwise automatically discovered."
+    )
+    executable_group.add_argument(
+        "--auto-seven-zip",
+        action="store_true",
+        help="Force automatic 7-Zip discovery, overriding an edited DEFAULT_7ZIP_EXE.",
     )
     parser.add_argument(
         "--workers", type=int, default=None, help="Maximum concurrent folder compressions; defaults to CPU count."
+    )
+    parser.add_argument(
+        "--max-part-size-gib",
+        type=int,
+        default=None,
+        help="Split each .7z into parts no larger than this many GiB; disabled by default. Use 0 to force no split.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Show the archive plan without running 7-Zip.",
     )
     parser.add_argument(
         "--progress",
@@ -211,15 +255,27 @@ def _parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         help="Enable/disable the interactive folder progress bar.",
     )
     parser.add_argument("--console-log-level", default=None, help="Loguru console level, e.g. INFO or SUCCESS.")
-    parser.add_argument("--log-file", type=Path, default=None, help="Log file location; defaults to DEFAULT_LOG_FILE.")
-    parser.add_argument("--no-pause", action="store_true", help="Do not wait for a console keypress after execution.")
+    log_group = parser.add_mutually_exclusive_group()
+    log_group.add_argument(
+        "--log-file",
+        type=Path,
+        default=None,
+        help="Log file location; defaults to DEFAULT_LOG_FILE.",
+    )
+    log_group.add_argument("--no-log-file", action="store_true", help="Disable file logging.")
+    parser.add_argument(
+        "--pause",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Pause after execution; defaults to DEFAULT_PAUSE_ON_FINISH.",
+    )
     return parser.parse_args(argv)
 
 
 if __name__ == "__main__":
     cli = _parse_cli_arguments()
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
-    configured_log = cli.log_file if cli.log_file is not None else DEFAULT_LOG_FILE
+    configured_log = None if cli.no_log_file else cli.log_file if cli.log_file is not None else DEFAULT_LOG_FILE
     log_file = str(configured_log.absolute()) if configured_log is not None else None
     with setup_logger(
         console_log_level=cli.console_log_level or DEFAULT_CONSOLE_LOG_LEVEL,
@@ -233,13 +289,17 @@ if __name__ == "__main__":
                 exclude_extensions=cli.exclude_extensions,
                 working_directory=cli.working_directory,
                 seven_zip_exe=cli.seven_zip_exe,
+                force_auto_discovery=cli.auto_seven_zip,
                 max_workers=cli.workers,
+                max_part_size_gib=cli.max_part_size_gib,
+                dry_run=cli.dry_run,
                 show_progress=cli.progress,
             )
         except Exception:
             logger.exception("Archive compression wrapper failed.")
             exit_code = 1
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
-    if not cli.no_pause:
+    pause_on_finish = cli.pause if cli.pause is not None else DEFAULT_PAUSE_ON_FINISH
+    if pause_on_finish:
         pause_console()
     raise SystemExit(exit_code)

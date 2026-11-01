@@ -15,7 +15,7 @@ on 18 October 2026. Import maintained modules directly instead (breaking change)
 
 ## Project status
 
-The repository uses Python 3.14 for its current development and CI baseline; package metadata continues to allow Python 3.13 and newer. Maintained library code, orchestrators and unversioned wrappers follow the current
+The repository requires Python 3.14 or newer for development, installation and CI. Maintained library code, orchestrators and unversioned wrappers follow the current
 repository standards; older standalone, versioned and compatibility files remain where they still support migration or
 narrow workflows.
 
@@ -74,7 +74,7 @@ git -C excel-resources lfs pull
 ```
 
 The test suite requires `tests/test_data`; it does not download or substitute those fixtures automatically. Because
-`run_hy8` and `culvert_solver` are independent PyPI dependencies (`run-hy8` and `ryan-culverts`), not Git submodules or bundled code. Install `ryan-tools` with pip to resolve supported dependencies automatically. Python 3.13 and newer remain supported, including the `ryan-culverts` dependency. Users with installation or runtime compatibility problems should upgrade Python.
+`run_hy8` and `culvert_solver` are independent PyPI dependencies (`run-hy8` and `ryan-culverts`), not Git submodules or bundled code. Install `ryan-tools` with pip to resolve supported dependencies automatically. Python 3.14 or newer is required by `ryan-tools`, including when installing the independent `ryan-culverts` dependency.
 
 Install the repository requirements into the user's normal Python 3.14 installation. `ryan-tools` does not require or
 assume that users know how to create or activate a virtual environment:
@@ -82,6 +82,7 @@ assume that users know how to create or activate a virtual environment:
 ```powershell
 py -3.14 -m pip install --upgrade pip
 py -3.14 repo-scripts\install_latest_wheel.py --dependencies-only
+py -3.14 -m pip install --force-reinstall --no-deps -r repo-scripts\pytuflow-requirement.txt
 py -3.14 -m pip install -r requirements.txt
 ```
 
@@ -89,6 +90,10 @@ py -3.14 -m pip install -r requirements.txt
 important when running wrappers copied outside the repository because they import the shared implementation from the
 installed `ryan-tools` distribution. The dependency bootstrap installs binary Fiona, Rasterio and GDAL packages
 from the configured geospatial wheel index, avoiding a local source build on Windows.
+The parser-only replacement handles incompatible PyTUFLOW builds with the same
+version number; the following requirements install resolves dependencies normally.
+See [installation verification](docs/ENVIRONMENTS.md#install-for-repository-development)
+for the dependency and public-API checks.
 
 ## Build and install
 
@@ -115,18 +120,30 @@ Windows convenience entry points are:
 
 ```powershell
 .\install-ryan-tools.bat
-.\package_and_install.bat
+.\build-and-install-local-wheel.bat
 .\install-local-wheel.bat
 ```
 
 `install-ryan-tools.bat` installs the latest published `ryan-tools[mcp]` release
-directly from PyPI, along with upstream QGIS MCP. If Codex is detected, it
+directly from PyPI, along with upstream QGIS MCP and the accepted PyTUFLOW PR17
+source pinned in [`repo-scripts/pytuflow-requirement.txt`](repo-scripts/pytuflow-requirement.txt).
+It keeps the binary GIS bootstrap, replaces incompatible same-version PyTUFLOW
+builds, and checks installed dependencies and the public validation API before
+reporting success. The local-wheel installer uses the same dependency setup and
+verification. If Codex is detected, the PyPI installer
 configures the QGIS and ryan-tools MCP servers only as needed, preserving other
-settings and backing up any changed Codex configuration. The legacy
-`install-latest-wheel.bat` name now launches that same PyPI installer.
-The installer selects the highest installed Python 3 release through the Windows launcher (minimum 3.13); override with `RYAN_TOOLS_PYTHON` to select a particular interpreter. The installer also recognises the `openai.chatgpt` Codex extension in VS Code, even without the Codex CLI.
-For developers, `package_and_install.bat` builds and installs a local wheel,
-while `install-local-wheel.bat` installs an existing local wheel without rebuilding.
+settings and backing up any changed Codex configuration. `install-from-pypi.bat` is the explicit PyPI entry point;
+`install-ryan-tools.bat` forwards to it.
+The installer selects the highest installed Python 3 release through the Windows launcher (minimum 3.14); override with `RYAN_TOOLS_PYTHON` to select a particular interpreter. The installer also recognises the `openai.chatgpt` Codex extension in VS Code, even without the Codex CLI.
+For developers, `build-and-install-local-wheel.bat` builds and installs a local wheel, including
+installing or updating its dependencies and the QGIS MCP bridge.
+`build-and-force-reinstall-local-wheel.bat` builds locally and forcibly reinstalls only that wheel
+with `--no-deps`, leaving dependency installation to the normal installer.
+Both use the local `dist/` wheel for `ryan-tools`; dependencies may still be downloaded.
+`install-local-wheel.bat` installs an existing local wheel without rebuilding.
+`force-reinstall-local-wheel.bat` reinstalls that wheel with `--no-deps`.
+`build-local-wheel.bat` builds and verifies a local wheel without installing it.
+The ambiguous installer and packager filenames have been renamed; update saved shortcuts accordingly.
 QGIS itself and its QGIS MCP desktop plugin must be installed separately.
 
 ## License

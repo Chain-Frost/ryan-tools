@@ -1,0 +1,122 @@
+name: TUFLOW input validation
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/tuflow-input-validation.yml"
+      - "repo-scripts/pytuflow-requirement.txt"
+      - "requirements.txt"
+      - "repo-scripts/install_latest_wheel.py"
+      - "ryan_library/functions/tuflow/pytuflow_compatibility.py"
+      - "ryan_library/orchestrators/tuflow/input_preflight.py"
+      - "ryan_library/functions/tuflow/command_plan.py"
+      - "ryan_library/orchestrators/tuflow/command_preflight.py"
+      - "tests/orchestrators/tuflow/test_example_models_real.py"
+      - "tests/test_data"
+      - "tests/functions/tuflow/test_pytuflow_compatibility.py"
+      - "tests/orchestrators/tuflow/test_input_preflight.py"
+      - "tests/repo_scripts/test_install_latest_wheel.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-validator:
+    name: Pinned PyTUFLOW API
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Initialise maintained test fixtures (not unrelated submodules)
+        run: git submodule update --init tests/test_data
+      - name: Install immutable accepted PyTUFLOW PR17 source
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r repo-scripts/pytuflow-requirement.txt
+      - name: Install consumer without optional full GIS project extras
+        # Normal GIS-wheel bootstrap is exercised separately by install_latest_wheel.
+        run: |
+          python -m pip install -e . --no-deps
+          python -m pip install pytest
+      - name: Require public API capabilities without model I/O
+        run: >
+          python -c "from ryan_library.functions.tuflow.pytuflow_compatibility import
+          require_validation_api; print(require_validation_api().diagnostic.message)"
+      - name: Check real public API, fail-closed mapping and installer dry-runs
+        run: >
+          python -m pytest -q
+          tests/functions/tuflow/test_pytuflow_compatibility.py
+          tests/orchestrators/tuflow/test_input_preflight.py
+          tests/repo_scripts/test_install_latest_wheel.py
+
+  # All 161 example TCFs / 174 run contexts are always inspected. Until #181
+  # adopts the upstream fix, accept only eight exact pinned-validator findings.
+  # Additional/changed findings or unexpectedly passing known cases fail CI.
+  # Full reports are uploaded; the public API smoke remains independent.
+  example-input-regression:
+    name: 161-TCF input regression
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Initialise maintained test fixtures
+        run: git submodule update --init tests/test_data
+      - name: Install native GIS readers and immutable accepted parser
+        run: |
+          python repo-scripts/install_latest_wheel.py --dependencies-only
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pip install -r repo-scripts/pytuflow-requirement.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pip install -e . --no-deps
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pip install pytest
+      - name: Replay all BAT-derived example model contexts without launching TUFLOW
+        env:
+          TUFLOW_EXAMPLE_REPORT_DIR: ${{ runner.temp }}/tuflow-example-regression
+        run: >
+          python -m pytest -q --tb=short
+          tests/orchestrators/tuflow/test_example_models_real.py
+          --junitxml=test-results/tuflow-example-regression.xml
+      - name: Retain every model finding even when the regression fails
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: tuflow-example-public-validation
+          path: |
+            ${{ runner.temp }}/tuflow-example-regression
+            test-results/tuflow-example-regression.xml
+          if-no-files-found: warn
+
+  reject-incompatible-parser:
+    name: Reject incompatible PyTUFLOW
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Install immutable official 1.2.7 build lacking batch validation
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "pytuflow @ https://github.com/TUFLOW-Support/PyTuflow/archive/8012b8a530616a8e10dfe96a53189f8585ec2805.zip"
+          python -m pip install -e . --no-deps
+      - name: Require capability failure even when the version matches accepted source
+        run: >
+          python -c "from ryan_library.functions.tuflow.pytuflow_compatibility import
+          check_validation_capabilities; status=check_validation_capabilities();
+          print(status.message); assert status.version == '1.2.7';
+          assert not status.available; assert 'batch_validation' in status.problem"

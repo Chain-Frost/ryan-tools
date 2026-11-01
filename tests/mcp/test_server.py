@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
+from unittest.mock import patch
 
 import pytest
 
@@ -11,6 +14,7 @@ from ryan_library.mcp.server import (
     MAX_COLLECTION_FILES,
     check_repo_health,
     get_workflow,
+    inspect_raster_metadata,
     inspect_tuflow_collection,
     inspect_tuflow_result,
     list_workflows,
@@ -30,6 +34,9 @@ def test_health_reports_installed_distribution_and_profile() -> None:
     assert health["configured_profile"] == "create"
     assert health["catalogue_schema_version"] == "1.0"
     assert health["workflow_count_visible"] > 0
+    assert health["workflow_availability_scope"] == "entry_point_only"
+    assert health["external_prerequisite_validation"] == "not_performed"
+    assert health["active_script_source"] in {"repository_checkout", "installed_distribution", "unavailable"}
 
 
 def test_generic_discovery_returns_cli_metadata() -> None:
@@ -48,6 +55,47 @@ def test_catalogue_resource_is_valid_json() -> None:
 
     assert catalogue["configured_profile"] == "create"
     assert catalogue["schema_version"] == "1.0"
+
+
+def test_raster_metadata_inspection_does_not_modify_input(tmp_path: Path) -> None:
+    raster_path = tmp_path / "source metadata.tif"
+    raster_path.write_bytes(b"preserved input")
+    dataset = SimpleNamespace(
+        driver="GTiff",
+        width=2,
+        height=3,
+        count=1,
+        dtypes=("float32",),
+        crs="EPSG:28350",
+        res=(10.0, 10.0),
+        transform=(10.0, 0.0, 500000.0, 0.0, -10.0, 7500000.0, 0.0, 0.0, 1.0),
+        bounds=SimpleNamespace(left=500000.0, bottom=7499970.0, right=500020.0, top=7500000.0),
+        nodata=-9999.0,
+    )
+    with patch("rasterio.open") as raster_open:
+        raster_open.return_value.__enter__.return_value = dataset
+        result = inspect_raster_metadata(str(raster_path))
+
+    assert result == {
+        "file_name": "source metadata.tif",
+        "driver": "GTiff",
+        "width": 2,
+        "height": 3,
+        "count": 1,
+        "dtypes": ["float32"],
+        "crs": "EPSG:28350",
+        "resolution": {"x": 10.0, "y": 10.0},
+        "transform": [10.0, 0.0, 500000.0, 0.0, -10.0, 7500000.0, 0.0, 0.0, 1.0],
+        "bounds": {"left": 500000.0, "bottom": 7499970.0, "right": 500020.0, "top": 7500000.0},
+        "nodata": -9999.0,
+    }
+    raster_open.assert_called_once_with(raster_path)
+    assert raster_path.read_bytes() == b"preserved input"
+
+
+def test_missing_raster_metadata_returns_error(tmp_path: Path) -> None:
+    missing = tmp_path / "missing.tif"
+    assert inspect_raster_metadata(str(missing)) == {"error": f"File not found: {missing}"}
 
 
 def test_inspect_tuflow_result_uses_processor_factory_and_bounds_sample() -> None:
@@ -239,3 +287,83 @@ def test_health_and_explicit_catalogue_are_not_truncated() -> None:
     assert catalogue["workflow_count"] > 10
     health = check_repo_health()
     assert health["workflow_count_visible"] == catalogue["workflow_count"]
+
+
+def test_domain_overview_paginates_domains_not_workflows() -> None:
+    full = json.loads(workflow_catalogue_resource())
+    overview = list_workflows(overview=True, include_unavailable=True, limit=1)
+    assert overview["overview"] is True
+    assert overview["workflow_count"] == full["workflow_count"] > 10
+    assert overview["domain_count"] == len(overview["domains"]) > 1
+    assert overview["limit"] == 1
+    assert overview["returned_count"] == 1
+    assert overview["has_more"] is True
+    assert overview["next_offset"] == 1
+    assert "workflows" not in overview
+
+    rows: list[dict[str, Any]] = []
+    offset = 0
+    while True:
+        page = list_workflows(overview=True, include_unavailable=True, limit=1, offset=offset)
+        rows.extend(page["domain_overview"])
+        assert page["workflow_count"] == overview["workflow_count"]
+        assert page["domain_count"] == overview["domain_count"]
+        if not page["has_more"]:
+            assert page["next_offset"] is None
+            break
+        offset = page["next_offset"]
+
+    assert [row["domain"] for row in rows] == overview["domains"]
+    assert sum(row["workflow_count"] for row in rows) == full["workflow_count"]
+    for row in rows:
+        assert len(row["examples"]) <= 3
+        assert all(set(example) == {"id", "title", "available"} for example in row["examples"])
+
+    past_end = list_workflows(overview=True, include_unavailable=True, limit=1, offset=1000)
+    assert past_end["workflow_count"] == full["workflow_count"]
+    assert past_end["domain_count"] == len(rows)
+    assert past_end["domain_overview"] == []
+    assert past_end["returned_count"] == 0
+    assert past_end["next_offset"] is None
+    assert past_end["has_more"] is False
+
+
+def test_domain_overview_unknown_and_narrowed_queries() -> None:
+    crop = list_workflows(overview=True, domain="GDAL", query="crop", include_unavailable=True)
+    assert crop["workflow_count"] == 1
+    assert crop["domain_count"] == 1
+    assert crop["domain_overview"][0]["examples"] == [
+        {"id": "clip_rasters_to_polygon", "title": "Clip Rasters To Polygon", "available": True}
+    ]
+    missing = list_workflows(overview=True, query="nonexistent-keyword-xyz", include_unavailable=True)
+    assert missing["workflow_count"] == 0
+    assert missing["domain_count"] == 0
+    assert missing["domains"] == missing["domain_overview"] == []
+    assert missing["returned_count"] == 0
+    assert missing["next_offset"] is None
+
+
+@pytest.mark.parametrize("limit", [0, -1, 26, 1.5, True])
+def test_overview_invalid_page_size_is_rejected(limit: Any) -> None:
+    assert "error" in list_workflows(overview=True, limit=limit)
+
+
+@pytest.mark.parametrize("offset", [-1, 1.2, True])
+def test_overview_invalid_offset_is_rejected(offset: Any) -> None:
+    assert "error" in list_workflows(overview=True, offset=offset)
+
+
+@pytest.mark.parametrize("overview", [1, None, "true", 0])
+def test_overview_requires_boolean(overview: Any) -> None:
+    assert list_workflows(overview=overview) == {"error": "overview must be a boolean."}
+
+
+def test_overview_rejects_profile_escalation() -> None:
+    from ryan_library.mcp import server as server_module
+    from ryan_library.mcp.registry import WorkflowRegistry
+
+    with patch.object(server_module, "REGISTRY", WorkflowRegistry(configured_profile="analysis")):
+        error = server_module.list_workflows(overview=True, profile="privileged", include_unavailable=True)
+        assert "exceeds configured profile" in error["error"]
+        narrowed = server_module.list_workflows(overview=True, profile="core", include_unavailable=True)
+        assert narrowed["workflow_count"] == 0

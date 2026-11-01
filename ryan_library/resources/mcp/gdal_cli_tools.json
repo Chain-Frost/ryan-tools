@@ -121,6 +121,7 @@
     },
     {
       "id": "build_external_overviews",
+      "keywords": ["pyramids"],
       "script": "gdaladdo_tif_pyramids.py",
       "purpose": "Create or refresh external overview sidecars for existing GeoTIFFs.",
       "mutation": "creates_or_replaces_sidecars",
@@ -204,7 +205,9 @@
       "id": "batch_vector_clip",
       "script": "batch_vector_clip.py",
       "purpose": "Clip multiple vector datasets to one or more extent datasets with bounded ogr2ogr workers.",
-      "mutation": "creates_outputs",
+      "mutation": "executes_external",
+      "requires_explicit_approval": true,
+      "external_program": "ogr2ogr",
       "defaults": {"workers": 4, "overwrite": false, "dry_run": false},
       "help_arguments": ["batch_vector_clip.py", "--help"]
     },
@@ -218,6 +221,7 @@
     },
     {
       "id": "clip_rasters_to_polygon",
+      "keywords": ["crop", "cropping"],
       "script": "gdalwarp_clip_to_polygon.py",
       "purpose": "Clip TIFF rasters to an unambiguous vector cutline layer.",
       "mutation": "creates_outputs",
