@@ -1,9 +1,10 @@
 """Wrapper behaviour: plan before checking, no solver calls and no overwrite."""
 
+import argparse
 import json
 import runpy
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Protocol, cast
 
@@ -22,7 +23,6 @@ class WrapperMain(Protocol):
         tcf: Path | None,
         commands: Path | Sequence[Path],
         report: Path,
-        check_gpkg_layers: bool,
         working_directory: Path | None = None,
         configuration_directory: Path | None = None,
         plan_only: bool = False,
@@ -32,6 +32,28 @@ class WrapperMain(Protocol):
 
 def entry() -> WrapperMain:
     return cast(WrapperMain, runpy.run_path(str(WRAPPER))["main"])
+
+
+def test_checker_exposes_concise_editable_settings_and_cli_overrides() -> None:
+    namespace = runpy.run_path(str(WRAPPER))
+    assert namespace["TCF"] is None
+    assert namespace["RUN_FILES"] == (WRAPPER.with_name("run_tuflow_simulations.txt"),)
+    assert namespace["REPORT_CSV"] is None
+    assert namespace["PLAN_ONLY"] is False
+    assert namespace["INPUT_SYNTAX"] == "auto"
+    assert namespace["IO_WORKERS"] == 4
+    assert namespace["MAX_DIRECTORY_ENTRIES"] == 50_000
+    assert not any(name.startswith("DEFAULT_") for name in namespace)
+
+    parse = cast(Callable[[list[str]], argparse.Namespace], namespace["_parse_arguments"])
+    opts = parse(["--no-tcf", "--no-report", "--no-plan-only", "--io-workers", "0", "--no-pause"])
+    assert opts.no_tcf is True
+    assert opts.no_report is True
+    assert opts.plan_only is False
+    assert opts.io_workers == 0
+    with pytest.raises(SystemExit) as conflicting:
+        parse(["--pause", "--no-pause"])
+    assert conflicting.value.code == 2
 
 
 def test_plan_only_writes_manifest_without_preflight(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -48,7 +70,6 @@ def test_plan_only_writes_manifest_without_preflight(tmp_path: Path, monkeypatch
             tcf=None,
             commands=source,
             report=tmp_path / "issues.csv",
-            check_gpkg_layers=True,
             working_directory=tmp_path,
             plan_only=True,
             plan_report=output,
@@ -71,7 +92,6 @@ def test_failed_plan_does_not_emit_a_partial_manifest(tmp_path: Path) -> None:
             tcf=Path("fallback.tcf"),
             commands=source,
             report=tmp_path / "issues.csv",
-            check_gpkg_layers=True,
             working_directory=tmp_path,
             plan_only=True,
             plan_report=output,
@@ -88,7 +108,6 @@ def test_manifest_cannot_replace_source(tmp_path: Path) -> None:
             tcf=Path("fallback.tcf"),
             commands=source,
             report=tmp_path / "issues.csv",
-            check_gpkg_layers=True,
             working_directory=tmp_path,
             plan_only=True,
             plan_report=source,
@@ -117,7 +136,6 @@ def test_multiple_command_files_plan_only_preserves_provenance_and_order(tmp_pat
             tcf=None,
             commands=(first, second),
             report=tmp_path / "issues.csv",
-            check_gpkg_layers=True,
             working_directory=tmp_path,
             plan_only=True,
             plan_report=output,
@@ -146,7 +164,6 @@ def test_late_tcf_conflict_fails_before_checker_or_output(tmp_path: Path, monkey
             tcf=Path("good.tcf"),
             commands=(first, second),
             report=tmp_path / "issues.csv",
-            check_gpkg_layers=True,
             working_directory=tmp_path,
             plan_report=output,
         )
@@ -164,7 +181,6 @@ def test_configuration_base_explicitly_controls_python_tcf(tmp_path: Path) -> No
             tcf=Path("model.tcf"),
             commands=source,
             report=tmp_path / "issues.csv",
-            check_gpkg_layers=True,
             working_directory=tmp_path,
             configuration_directory=tmp_path / "config",
             plan_only=True,
@@ -173,7 +189,7 @@ def test_configuration_base_explicitly_controls_python_tcf(tmp_path: Path) -> No
     )
 
 
-def test_cli_plan_only_accepts_repeated_runs_and_boolean_gpkg_override(
+def test_cli_plan_only_accepts_repeated_runs_without_validation(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     first, second = tmp_path / "a.bat", tmp_path / "b.txt"
@@ -194,7 +210,6 @@ def test_cli_plan_only_accepts_repeated_runs_and_boolean_gpkg_override(
             "--plan-only",
             "--plan-report",
             str(output),
-            "--no-check-gpkg-layers",
             "--no-pause",
         ],
     )

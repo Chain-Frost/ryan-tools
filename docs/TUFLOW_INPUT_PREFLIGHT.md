@@ -132,13 +132,22 @@ or dereference links.
 The [wrapper guide](../ryan-scripts/TUFLOW-python/README.md) describes the fixed
 TXT export and single-CSV Resume workflow.
 
-The checker prints findings in the terminal by default:
+The standalone checker has a visible, editable settings section. `RUN_FILES`
+selects its BAT/TXT inputs, `TCF = None` permits multiple models, and
+`WORKING_DIR` controls the base for imported commands. The shipped input is
+`run_tuflow_simulations.txt` beside the checker; point `RUN_FILES` at a
+version-specific TXT when applicable. No `DEFAULT_` prefix is required.
+
+It prints findings in the terminal by default:
 
 ```powershell
 py -3.14 check_tuflow_inputs.py --runs runs.txt --working-directory "T:\project" --no-pause
 ```
 
-Add `--report issues.csv` for a new CSV; existing reports are not overwritten.
+All supported checks run together, including selected GeoPackage layers and
+boundary CSV headers. There is no separate layer toggle in the standalone
+wrapper. Set `REPORT_CSV = Path("issues.csv")` or supply `--report issues.csv`
+for a new CSV; existing reports are not overwritten.
 `--plan-only` checks the static plan without inspecting model inputs. An explicit
 `--plan-report new_plan.json` creates a new diagnostic manifest; Resume does not
 require or use that manifest.
@@ -222,8 +231,12 @@ modes do not import or use PyTUFLOW's validation stack.
 ## Regression coverage
 
 The dedicated Windows Python 3.14
-[`tuflow-batch-smoke.yml`](../.github/workflows/tuflow-batch-smoke.yml)
-installs the exact accepted PR17 archive and exercises real public
+[`TUFLOW input validation`](../.github/workflows/tuflow-input-validation.yml)
+workflow is retained because it checks the immutable accepted PyTUFLOW source,
+deliberately rejects an incompatible same-version build, and replays the entire
+public example archive. The standalone command-plan and CSV unit tests already
+run in the main Hosted tests; the separate scope-specific workflows are retired.
+This workflow installs the exact accepted PR17 archive and exercises real public
 file, selected-layer, BC CSV, GIS-linked-source and mapping checks, plus
 same-version incompatibility, broken transitive imports, shadowed packages,
 incomplete group results, lazy imports and installer dry-run commands.

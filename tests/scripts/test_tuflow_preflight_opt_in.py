@@ -24,7 +24,6 @@ class _WrapperMain(Protocol):
         tcf: Path | None,
         commands: Path,
         report: Path,
-        check_gpkg_layers: bool,
         working_directory: Path,
     ) -> int: ...
 
@@ -83,13 +82,12 @@ def test_standalone_uses_one_grouped_validator_with_original_run_ids(
     )
     output = tmp_path / "issues.csv"
 
-    assert module.DEFAULT_TCF is None
+    assert module.TCF is None
     assert (
         main(
             tcf=None,
             commands=source,
             report=output,
-            check_gpkg_layers=False,
             working_directory=tmp_path,
         )
         == 0
@@ -102,7 +100,7 @@ def test_standalone_uses_one_grouped_validator_with_original_run_ids(
     assert calls[0][2] == ({"e1": "Wet Season"}, {"e1": "Spring Season"})
     assert calls[1][2] == ({"e1": "Dry"},)
     assert all(
-        options == {"check_gpkg_layers": False, "io_workers": 4, "maximum_directory_entries": 50_000}
+        options == {"check_gpkg_layers": True, "io_workers": 4, "maximum_directory_entries": 50_000}
         for _, _, _, options in calls
     )
 
@@ -124,7 +122,6 @@ def test_standalone_reports_unavailable_validator_as_failure(tmp_path: Path, mon
             tcf=None,
             commands=source,
             report=report,
-            check_gpkg_layers=True,
             working_directory=tmp_path,
         )
         == 1

@@ -12,13 +12,25 @@ The TUFLOW runner and its command TXT exports target Windows.
 ## Input checker reports
 
 [`model_management/check_tuflow_inputs.py`](model_management/check_tuflow_inputs.py)
-prints its summary and findings in the terminal by default. Its default input is
-`run_tuflow_simulations.txt`, matching the unrenamed simulation runner's export.
-Set `DEFAULT_COMMANDS` or supply `--runs` for a differently named input.
+checks every supported model input (including selected GeoPackage layers and
+boundary CSV headers), without running TUFLOW. It prints findings in the
+terminal by default. Configure the straightforward editable settings near the
+top: `TCF`, `RUN_FILES`, `WORKING_DIR`, `CONFIGURATION_DIR`,
+`REPORT_CSV`, `PLAN_ONLY`, `PLAN_JSON`, `INPUT_SYNTAX`,
+`INPUT_ENCODING`, `IO_WORKERS`, `MAX_DIRECTORY_ENTRIES` and
+`PAUSE_ON_FINISH`. There is no mandatory `DEFAULT_` prefix or separate
+GeoPackage-layer switch.
 
-CSV export is optional: pass `--report issues.csv` or set
-`DEFAULT_REPORT = Path("tuflow_input_preflight.csv")` in the copied wrapper.
-The selected CSV must be a new file; existing files are not overwritten.
+The initial `RUN_FILES` points to `run_tuflow_simulations.txt` beside the
+checker. For a versioned runner, change it to its generated TXT, for example
+`(Path("model_v2.txt"),)`, or use `--runs model_v2.txt`.
+To create a **new** issues CSV, set `REPORT_CSV = Path("issues.csv")` or pass
+`--report issues.csv`; `None` means terminal output only. Existing reports
+are never overwritten. Use `--plan-only` for plan inspection without model
+file reads, and `--plan-report plan.json` for optional new manifest output.
+Command paths are relative to `WORKING_DIR` (terminal cwd when `None`);
+a relative configured TCF uses `CONFIGURATION_DIR` (wrapper folder when both
+directory settings are `None`).
 See the [input-preflight guide](../../docs/TUFLOW_INPUT_PREFLIGHT.md) for supported
 BAT/text syntax, multiple TCFs, installation and validation boundaries.
 

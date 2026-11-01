@@ -78,6 +78,28 @@ review.
 - The input-preflight guide now documents the exact eight-finding temporary
   CI allowance rather than incorrectly saying the Windows job is red.
 
+## Standalone checker and CI consolidation — 1 November 2026
+
+- Updated `check_tuflow_inputs.py` to the current maintained-wrapper standard,
+  with visible, concise project-editable settings (`TCF`, `RUN_FILES`,
+  `REPORT_CSV`, `WORKING_DIR`, `CONFIGURATION_DIR`, `PLAN_ONLY`,
+  `PLAN_JSON`, `INPUT_SYNTAX`, `INPUT_ENCODING`, `IO_WORKERS`,
+  `MAX_DIRECTORY_ENTRIES` and `PAUSE_ON_FINISH`). No `DEFAULT_` prefix is
+  required. CLI options override settings, including positive/negative options.
+  Input validation checks all supported file, GeoPackage-layer and BC CSV
+  requirements together; the wrapper exposes no separate layer toggle.
+- Consolidated CI: regular Hosted tests own command-plan/CSV regression tests;
+  Policy and Fast PR checks own Ruff and strict typing. Removed redundant
+  `tuflow-command-plan.yml` and `tuflow-csv-scope04-check.yml`.
+  Retained unique installed-wheel/copied-runner TXT export and checker help
+  checks within the normal Package wheel smoke. Renamed the remaining specialised
+  workflow to `tuflow-input-validation.yml`, keeping the immutable parser,
+  incompatible-version and 161-TCF regression coverage. The ruleset-required
+  `Python 3.13 compatibility and MCP` check label remains until the main
+  ruleset can be updated; its actual interpreter is 3.14.
+- PR #159 remains unmerged. Final acceptance requires successful CI at the
+  current commit, not historical green checks from an earlier SHA.
+
 ## Pre-upstream-merge known-failure policy (31 October 2026)
 
 PR #159 is intended to merge **before** PyTUFLOW PR #60 is adopted. The full
