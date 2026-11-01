@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Needs review — strict MCP boolean correction delivered in draft PR #186 |
+| Status | Delivered — PR #186 merged into #184, now contained in PR #183 |
 | Owner | ChatGPT (MCP correction); maintainer final review |
 | Created | 2026-11-01 |
 | Updated | 2026-11-01 |
@@ -10,7 +10,7 @@
 | Issue | [#136](https://github.com/Chain-Frost/ryan-tools/issues/136) |
 | Baseline | [main at 99cd3cc](https://github.com/Chain-Frost/ryan-tools/commit/99cd3ccaaabd83b682392f7e285d90b570d353cb), merge commit ddcf6e7 |
 | Delivery branch | `fix/mcp-overview-boolean-136-stack184`, targeting PR #184's `feat/tuflow-result-dashboards-180` |
-| Delivery state | [Draft PR #186](https://github.com/Chain-Frost/ryan-tools/pull/186) targets #184. Pushed parent-integration head `75cc9544796a239a237d57eb2990584355e47c5f` passed actual installed-wheel MCP acceptance. Its integration CI also includes newer parent `63686600` and is blocked by that parent's TUFLOW syntax/lint errors. The PR description records the final documentation head and current checks. PR #182 previously merged as `82c1a1b`; no new PR merge or release is authorized. |
+| Delivery state | PR #186 merged into #184 by non-forced fast-forward of validated integration `0a8f8ab0346507126dc84781c9bb8e0f89aed1fc` (six green CI checks and no review findings). PR #184 subsequently merged into #183 at `beb5a2c` after the PO fix and Windows acceptance. Neither PR #183 nor this integration was merged to main; no release was performed. |
 
 ## Outcome and scope
 
@@ -544,3 +544,26 @@ The independent reviewer should examine the bounded MCP diff and real-wheel evid
 stack integration after #184 fixes its source. The final documentation-only head and its checks are linked in the PR
 description. The latest known failures are explicit review gates, not waived checks or evidence of successful
 collection. Local submodules remain untouched, and no release or merge was performed.
+
+
+### 2026-11-01 — stack consolidated into foundation feature branch
+
+The user authorised merging child PRs #186 and #184 into #183, without touching main.
+PR #186 passed all six Windows CI checks and current Codex review with no findings
+at `0a8f8ab`; its branch was reconciled with the current #184 branch using a normal
+two-parent merge, then non-forced fast-forwarded into #184. GitHub closed #186 as merged.
+
+The #184 reviewer found one PO location-filter classification problem: valid input
+with zero selected locations was reported FAIL. A dedicated filtered-empty outcome
+now reports SKIP without admitting empty results to the collection or masking
+malformed data, and retains raw-DataFrame disposal. The fix was pushed at
+`8ac1f0f`, with Ruff spacing correction at `beb5a2c`; the follow-up Codex review
+found no new issues and the original review thread was resolved.
+The [Windows CI run](https://github.com/Chain-Frost/ryan-tools/actions/runs/41332053247)
+passed all six required checks at `beb5a2c`, including **2,013 passed,
+14 skipped, 8 deselected**, strict typing, and copied installed-wheel smoke.
+PR #184 was then non-forced fast-forwarded into #183; GitHub closed #184 as merged.
+
+No main merge, auto-merge, PyPI publication, licensed solver execution or production
+model/UNC acceptance occurred. This documentation-only record update follows
+the tested source SHA and requires its own fresh CI receipt.

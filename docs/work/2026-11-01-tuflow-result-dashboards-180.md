@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Needs review — Phase B source implementation and hosted validation complete |
+| Status | Integrated — PR #184 merged into #183 feature branch; not main |
 | Owner | PR #184 adoption agent |
 | Created | 2026-11-01 |
 | Updated | 2026-11-01 |
@@ -12,7 +12,7 @@
 | Issue | [#180](https://github.com/Chain-Frost/ryan-tools/issues/180), selected AB-025 / AB-032 work |
 | Dependency | [Foundation PR #183](https://github.com/Chain-Frost/ryan-tools/pull/183) and its [consumer readiness record](2026-11-01-batch-dashboard-foundation-180.md#consumer-interface-readiness) |
 | Adopted foundation SHA | `023253ed612bb0bbd9a61826f27f553c7b2e9447` (published implementation); parent head `f390b3773c970ea6ac141c3fd4466a53b3add552` merged as `89124cc239a3b730007657ad454df9f570bf4089` |
-| Delivery | Six wrappers implemented; code `abac412` passed all six Windows CI checks (2,003 hosted tests and copied six-wrapper wheel smoke); PR draft/unmerged, independent review pending |
+| Delivery | PR #184 is merged into #183 at validated `beb5a2c` (six green Windows checks; 2,013 tests, 14 skipped, 8 deselected). The PO location-filter skip defect was corrected at `8ac1f0f` and reviewed at `beb5a2c`; `main` remains unchanged. |
 
 ## Outcome and scope
 
@@ -303,9 +303,11 @@ inventory-wide compliance or accepted/deferred audit decisions.
 
 ## Next action
 
-Obtain independent review of PR #184 and address any review findings on the existing branch.
-Preserve the draft, unmerged stack. Native/licensed TUFLOW engineering and production
-mapped-drive/UNC acceptance remain separately scoped.
+
+
+The implementation has been integrated into the [parent PR #183](https://github.com/Chain-Frost/ryan-tools/pull/183).
+Review the consolidated parent before any main merge. Preserve the separately scoped
+licensed TUFLOW, production-data and mapped-drive/UNC acceptance limits.
 
 ## Validation and delivery
 
@@ -360,3 +362,26 @@ necessary invocation override. Removed the obsolete positive-`--pause` test,
 updated wrapper and canonical guidance and reconciled the parent normally.
 All six CI gates passed at source `abac412`, including 2,003 Windows hosted tests and
 installed-wheel smoke for six copied result wrappers. Independent review is next.
+
+
+### 2026-11-01 — stack consolidated into foundation feature branch
+
+The user authorised merging child PRs #186 and #184 into #183, without touching main.
+PR #186 passed all six Windows CI checks and current Codex review with no findings
+at `0a8f8ab`; its branch was reconciled with the current #184 branch using a normal
+two-parent merge, then non-forced fast-forwarded into #184. GitHub closed #186 as merged.
+
+The #184 reviewer found one PO location-filter classification problem: valid input
+with zero selected locations was reported FAIL. A dedicated filtered-empty outcome
+now reports SKIP without admitting empty results to the collection or masking
+malformed data, and retains raw-DataFrame disposal. The fix was pushed at
+`8ac1f0f`, with Ruff spacing correction at `beb5a2c`; the follow-up Codex review
+found no new issues and the original review thread was resolved.
+The [Windows CI run](https://github.com/Chain-Frost/ryan-tools/actions/runs/41332053247)
+passed all six required checks at `beb5a2c`, including **2,013 passed,
+14 skipped, 8 deselected**, strict typing, and copied installed-wheel smoke.
+PR #184 was then non-forced fast-forwarded into #183; GitHub closed #184 as merged.
+
+No main merge, auto-merge, PyPI publication, licensed solver execution or production
+model/UNC acceptance occurred. This documentation-only record update follows
+the tested source SHA and requires its own fresh CI receipt.

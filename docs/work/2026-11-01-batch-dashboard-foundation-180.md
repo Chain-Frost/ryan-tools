@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active — READY_FOR_ADOPTION; parent PR remains draft and unmerged |
+| Status | Needs final review — #184 and #186 consolidated into PR #183; main unchanged |
 | Owner | ChatGPT (foundation recovery) |
 | Created | 2026-11-01 |
 | Updated | 2026-11-01 |
@@ -11,7 +11,7 @@
 | Branch / base | `feat/batch-dashboard-foundation-180` -> `main` |
 | Issue | [#180](https://github.com/Chain-Frost/ryan-tools/issues/180), bounded dashboard work |
 | Dependent work | [TUFLOW result dashboard adoption](2026-11-01-tuflow-result-dashboards-180.md) |
-| Delivery | Implemented and pushed at `023253ed612bb0bbd9a61826f27f553c7b2e9447` (normal merge of current main); six CI checks passed on this SHA; readiness published in this subsequent documentation commit |
+| Delivery | Foundation implemented at `023253ed`; consolidated dashboard/PO/MCP code `beb5a2c5526aed3229daa4a4bcee3e7995a7a7c0` passed six Windows checks (2,013 hosted tests). PR #183 is open and unmerged into main. |
 
 ## Outcome and scope
 
@@ -217,7 +217,12 @@ deferred audit items. The existing inventory counts are source/resource counts, 
 
 ## Next action
 
-Child PR #184: fetch the actual remote parent, verify `023253ed612bb0bbd9a61826f27f553c7b2e9447` is its ancestor, merge the entire parent normally, inspect/smoke the merged contract, record both the implementation SHA and merged parent head, then begin the six result-wrapper integrations. Parent PR #183 remains draft and unmerged pending final stack review; leave issue #180 open.
+
+
+Review the consolidated [PR #183](https://github.com/Chain-Frost/ryan-tools/pull/183)
+against main before any independently authorised main merge. PR #184 and PR #186 have
+already been merged into this feature branch; there is no remaining child-branch
+integration step. Issue #180 remains open for the broader audit.
 
 ## Validation and delivery
 
@@ -234,3 +239,26 @@ their relative links exist from the start; after branching, each agent owns only
 ### 2026-11-01 — foundation recovery, merge and readiness
 
 Recovered the existing foundation after the prior agent stopped. Verified adapter transport/callback fixes and the P1 bounded-queue correction; fixed three Windows test assertions in `b42edfc`. Merged main normally with two-parent commit `023253ed` preserving both the dashboard and independent MCP changes. Six CI checks passed at the implementation SHA, including 1,988 hosted tests, strict changed-file Pyright, real spawned-worker coverage and a copied installed-wheel log-summary smoke. Replied to and resolved the outstanding Codex thread. Published READY_FOR_ADOPTION with the exact code SHA and stable interface contract for child #184; neither PR was merged to main.
+
+
+### 2026-11-01 — stack consolidated into foundation feature branch
+
+The user authorised merging child PRs #186 and #184 into #183, without touching main.
+PR #186 passed all six Windows CI checks and current Codex review with no findings
+at `0a8f8ab`; its branch was reconciled with the current #184 branch using a normal
+two-parent merge, then non-forced fast-forwarded into #184. GitHub closed #186 as merged.
+
+The #184 reviewer found one PO location-filter classification problem: valid input
+with zero selected locations was reported FAIL. A dedicated filtered-empty outcome
+now reports SKIP without admitting empty results to the collection or masking
+malformed data, and retains raw-DataFrame disposal. The fix was pushed at
+`8ac1f0f`, with Ruff spacing correction at `beb5a2c`; the follow-up Codex review
+found no new issues and the original review thread was resolved.
+The [Windows CI run](https://github.com/Chain-Frost/ryan-tools/actions/runs/41332053247)
+passed all six required checks at `beb5a2c`, including **2,013 passed,
+14 skipped, 8 deselected**, strict typing, and copied installed-wheel smoke.
+PR #184 was then non-forced fast-forwarded into #183; GitHub closed #184 as merged.
+
+No main merge, auto-merge, PyPI publication, licensed solver execution or production
+model/UNC acceptance occurred. This documentation-only record update follows
+the tested source SHA and requires its own fresh CI receipt.
