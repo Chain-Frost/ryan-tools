@@ -2,25 +2,27 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Independently reviewed; awaiting maintainer final review of draft PR #182 |
-| Owner | ChatGPT (implementation and independent review); maintainer final decision |
+| Status | Active — feature merged; strict MCP boolean follow-up in stacked validation |
+| Owner | ChatGPT (MCP correction); maintainer final review |
 | Created | 2026-11-01 |
 | Updated | 2026-11-01 |
 | Next review | 2026-11-08 |
 | Issue | [#136](https://github.com/Chain-Frost/ryan-tools/issues/136) |
 | Baseline | [main at 99cd3cc](https://github.com/Chain-Frost/ryan-tools/commit/99cd3ccaaabd83b682392f7e285d90b570d353cb), merge commit ddcf6e7 |
-| Delivery branch | `feat/mcp-workflow-discovery-136`, targeting `main` |
-| Delivery state | PR #182 remains draft/unmerged. Reviewer fix and regression test are committed at `5f9aa7e`; source and final-head CI receipts are linked from the PR. No release. |
+| Delivery branch | `fix/mcp-overview-boolean-136-stack184`, targeting PR #184's `feat/tuflow-result-dashboards-180` |
+| Delivery state | PR #182 merged externally as `82c1a1b6e30573971ac5e1ac5fb64b41b20e9495`; its branch was deleted. The user subsequently authorized a new draft PR stacked onto #184. The correction and verification additions are prepared locally; publication and hosted receipts follow below. |
 
 ## Outcome and scope
 
 Make existing MCP workflows discoverable through familiar terms such as crop and pyramids, and expose a compact
-domain overview before an agent narrows its search. Continue the existing draft PR on the delivery branch above.
-This file is the authoritative plan, acceptance contract and agent handoff for issue #136.
+domain overview before an agent narrows its search. PR #182 delivered the original feature. The current follow-up
+rejects non-boolean overview requests at the registered MCP boundary. This file remains the authoritative contract
+and status record for issue #136 and its correction.
 
 The initial setup commit did not implement the feature. Subsequent commits implement the agreed functionality on the same PR branch.
 The implementation and review prompts below authorize their agents to commit and push task-related changes to the
-existing PR branch. No merge, auto-merge, release or force-push is part of either handoff.
+existing PR branch. Those original delivery prompts are historical after #182 merged. The user's subsequent
+instruction authorizes a new PR stacked onto #184; no PR merge, auto-merge, release or force-push is authorized.
 
 Read [AGENTS.md](../../AGENTS.md), the [development guide](../DEVELOPMENT_GUIDE.md),
 [work tracking](../WORK_TRACKING.md), [MCP setup](../MCP_SETUP.md) and the
@@ -46,7 +48,7 @@ Read [AGENTS.md](../../AGENTS.md), the [development guide](../DEVELOPMENT_GUIDE.
 - No feature implementation is blocked. Several older work-register rows have past review dates; this task does not
   resume those work fronts or treat stale status text as a dependency.
 
-## Delivery and agent sequence
+## Original delivery and agent sequence
 
 Use one feature PR. The model, registry, server, catalogue and tests form one small connected change.
 
@@ -356,9 +358,9 @@ state whether it is ready for the user's final review.
 
 ## Next action
 
-The maintainer should review the existing [draft PR #182](https://github.com/Chain-Frost/ryan-tools/pull/182),
-including the independent compatibility fix and exact-head CI receipts in the PR description. The branch remains
-unmerged; any merge and later release require separate authorisation.
+Publish and validate the strict-boolean correction in the authorized draft child of
+[PR #184](https://github.com/Chain-Frost/ryan-tools/pull/184), then hand it to independent review. Keep the child and
+its parent draft and unmerged. Separate inherited dashboard failures from the MCP correction's acceptance.
 
 ## Progress
 
@@ -398,3 +400,76 @@ Local Python 3.14 validation: installer/setup tests 35 passed, 1 symlink-permiss
 and strict Pyright passed. README/environment documentation checks and MCP links passed. All batch call targets
 exist. No installation or package rebuild was needed. This follow-up is committed/pushed on the existing PR;
 CI receipts above apply to their named earlier commits until the new head finishes. No merge or release.
+
+## Strict MCP boolean follow-up — 2026-11-01
+
+PR #182 merged externally at 09:29 UTC on 2026-11-01. Its implementation was complete, but a later check exposed
+one remaining boundary defect: the MCP SDK coerced raw `0`, `1`, `"true"` and `"false"` into booleans before
+`list_workflows` could reject them. Direct Python calls already returned the required validation error.
+
+The correction adds strict boolean metadata to the existing argument while keeping its advertised JSON boolean
+schema and `false` default. The metadata uses the optional SDK's Pydantic dependency; direct helpers still work
+without either MCP or Pydantic. Eight registered-tool cases cover invalid values, omitted/false normal listing,
+true overview and the schema/default. The existing Package smoke now installs the declared SDK range and checks
+those same boundaries against the actual installed wheel outside the checkout. The existing MCP test step includes
+the new regression file. The release workflow's existing smoke caller receives the same SDK test dependency;
+its release triggers and approval conditions are unchanged. No new workflow or production dependency is introduced.
+
+### Stack and preservation
+
+- Parent #184 initially stood at `d16dce0fbc5495cbf54ca7cf2c1c91af4e63a17c`, before #182. Before publication it
+  advanced to `89124cc239a3b730007657ad454df9f570bf4089` and incorporated the foundation fixes and `main` at
+  `82c1a1b6e30573971ac5e1ac5fb64b41b20e9495` itself. The child was recreated from that newer parent with only
+  the MCP correction and verification changes. The earlier local main merge was never published.
+- Both dashboard register rows, existing wheel-smoke steps, MCP documentation checks and main's installer changes
+  are retained. Neither parent branch is modified or retargeted.
+- The prepared local correction originated at `10a41ad7bf76f996b36df169d2153a09f4124c75`. The new branch also adds
+  omitted-argument and installed registered-tool acceptance. Earlier broad local implementation work is excluded.
+- No submodule is initialized or modified. Unrelated overdue register items are preserved and not resumed.
+
+### Local correction verification
+
+Python 3.14.8, MCP 2.3.0, Pydantic 2.14.2, Ruff 0.16.6 and Pyright 1.1.414. In these commands, `python` is
+`/workspace/scratch/6184835f02e8/validation-env/bin/python`; the working directory is the isolated child checkout.
+
+```bash
+python -m pytest -q tests/mcp/test_registry.py tests/mcp/test_catalogue_contracts.py \
+  tests/mcp/test_server.py tests/mcp/test_overview_validation.py --confcutdir=tests/mcp \
+  --deselect=tests/mcp/test_server.py::test_inspect_tuflow_result_uses_processor_factory_and_bounds_sample \
+  --deselect=tests/mcp/test_server.py::test_inspect_tuflow_result_filters_location_and_processed_time \
+  --deselect=tests/mcp/test_server.py::test_inspect_tuflow_result_supports_tlf_processor \
+  --deselect=tests/mcp/test_server.py::test_inspect_tuflow_collection_summarizes_processors_and_combined_sample \
+  --deselect=tests/mcp/test_server.py::test_inspect_tuflow_collection_reports_per_file_errors \
+  --deselect=tests/mcp/test_server.py::test_inspect_tuflow_collection_filters_data_types_case_insensitively
+python -m ruff check ryan_library/mcp/server.py tests/mcp/test_overview_validation.py \
+  repo-scripts/smoke_test_installed_wheel.py
+python -m ruff format --check ryan_library/mcp/server.py tests/mcp/test_overview_validation.py \
+  repo-scripts/smoke_test_installed_wheel.py
+python -m pyright --pythonpath /workspace/scratch/6184835f02e8/validation-env/bin/python \
+  ryan_library/mcp/server.py tests/mcp/test_overview_validation.py repo-scripts/smoke_test_installed_wheel.py
+python repo-scripts/check_documentation.py
+python repo-scripts/check_documentation.py --links-only \
+  docs/work/2026-11-01-mcp-workflow-discovery-136.md docs/work/README.md
+git diff --check
+python repo-scripts/build_library.py --no-bump --skip-pip
+```
+
+Focused results and the final published code SHA are recorded in the delivery receipt below. Six existing Module 11
+tests require the unavailable `tests/test_data` submodule and are explicitly deselected locally. A fresh interpreter
+with both `mcp` and `pydantic` imports blocked successfully imports the server, returns an overview and rejects a
+direct integer flag. SDK async tests use an execution environment with functioning thread wakeups.
+
+The local package build cannot complete without the uninitialized QGIS style resources. Existing Windows Package
+CI supplies its own resources and remains the actual-wheel verification route; a synthetic installed layout is not
+substituted. Parent #184 had unrelated Hosted tests and Package wrapper failures at its earlier `d16dce0` head;
+the updated parent includes fixes. Those old failures are historical, and the child's current results determine
+its remaining gates.
+
+### Correction completion criteria
+
+- [x] Reproduce coercion against merged main and implement strict registered argument validation.
+- [x] Preserve direct helpers, boolean schema/default and both listing modes.
+- [x] Add focused registered-tool regressions and actual installed-wheel assertions to existing CI.
+- [x] Obtain authorization for a new draft child targeting #184 after #182 merged.
+- [ ] Publish the child, record its tested SHA and obtain actual installed-wheel results.
+- [ ] Complete independent review; inherited dashboard gates remain owned by their existing work front.

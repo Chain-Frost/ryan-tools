@@ -192,7 +192,7 @@ jobs:
         env:
           MPLBACKEND: Agg
         run: |
-          python -m pytest -q tests/mcp/test_registry.py tests/mcp/test_server.py tests/mcp/test_catalogue_contracts.py
+          python -m pytest -q tests/mcp/test_registry.py tests/mcp/test_server.py tests/mcp/test_catalogue_contracts.py tests/mcp/test_overview_validation.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Run Python 3.14 focused utility regression tests
@@ -323,8 +323,8 @@ jobs:
       - name: Install packaging and smoke-test dependencies
         shell: pwsh
         run: |
-          # Public run_hy8 imports pandas and Loguru; remaining smoke operations use stdlib.
-          python -m pip install build pandas loguru openpyxl psutil rich colorama "run-hy8>=2026.10.16.1" "ryan-culverts>=26.10.16.1"
+          # Include the declared MCP extra's SDK range for registered-tool wheel acceptance.
+          python -m pip install build pandas loguru openpyxl psutil rich colorama "mcp[cli]>=2.1,<3" "run-hy8>=2026.10.16.1" "ryan-culverts>=26.10.16.1"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Build fresh current-version wheel and verify
