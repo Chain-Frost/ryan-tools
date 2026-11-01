@@ -101,6 +101,7 @@ but they are not current architectural policy when they conflict with the canoni
 | [TUFLOW proposed-run input preflight](work/2026-10-21-tuflow-input-preflight.md) | PR #143 read-only PyTUFLOW checks, integrated simulation preflight and standalone wrapper; merged as bcc8e5c, with separate follow-up records |
 | [TUFLOW batch preflight optimisation](work/2026-10-22-tuflow-batch-preflight-optimisation.md) | Stacked draft against PR #143: consume PyTUFLOW batch API, share GIS/filesystem inspection, preserve parity and benchmark 500-run workloads |
 | [TUFLOW runner model checks](work/2026-10-23-tuflow-runner-model-checks.md) | PR #159 current decisions, implementation, validation and delivery state |
+| [TUFLOW HPC hourly dt/Nu/Nc/Nd hotspots](work/2026-10-28-hourly-hpc-dt-hotspots.md) | PR #167 native Windows validation, diagnostic-map evidence, interpretation limits and remaining acceptance work |
 | [TUFLOW scope index](work/2026-10-31-tuflow-integration-scopes/00_scope_index.md) | Agreed shared decisions, ownership, dependencies and delegation order for #159 and follow-ups |
 | [TUFLOW scope 01: PyTUFLOW integration](work/2026-10-31-tuflow-integration-scopes/01_pytuflow_integration.md) | Sole PR17 API, capability guard, existing installer, local raster removal and obsolete-path retirement |
 | [TUFLOW scope 02: shared command plans](work/2026-10-31-tuflow-integration-scopes/02_shared_command_plan.md) | BAT/text syntax, multiple TCFs, strict Python-TCF consistency, per-run directories and provenance |
