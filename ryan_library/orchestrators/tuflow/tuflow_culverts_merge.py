@@ -105,31 +105,31 @@ def main_processing(
                     WorkflowMetric("Maximums rows", len(maximums_df), unit="rows"),
                 ])
                 if maximums_df.empty and raw_df.empty:
-                warn_on_invalid_types(
-                    invalid_types=invalid_types, accepted_types=ACCEPTED_DATA_TYPES,
-                    context="Culvert maximums completed",
-                )
-                logger.warning("Combined culvert DataFrames are empty. Skipping export.")
-                dashboard.finish(outcome="FAILED" if progress.failed else "SKIPPED", detail="no combined data")
-                return progress.failed == 0
+                    warn_on_invalid_types(
+                        invalid_types=invalid_types, accepted_types=ACCEPTED_DATA_TYPES,
+                        context="Culvert maximums completed",
+                    )
+                    logger.warning("Combined culvert DataFrames are empty. Skipping export.")
+                    dashboard.finish(outcome="FAILED" if progress.failed else "SKIPPED", detail="no combined data")
+                    return progress.failed == 0
 
-            dashboard.set_phase("Exporting")
-            export_dict: dict[str, ExportContent] = {
-                "1d_maximums_data": {
-                    "dataframes": [maximums_df, raw_df],
-                    "sheets": ["Maximums", "raw_data"],
+                dashboard.set_phase("Exporting")
+                export_dict: dict[str, ExportContent] = {
+                    "1d_maximums_data": {
+                        "dataframes": [maximums_df, raw_df],
+                        "sheets": ["Maximums", "raw_data"],
+                    }
                 }
-            }
-            logger.info("Exporting culvert maximums to {}", output_dir or Path.cwd())
-            ExcelExporter().export_dataframes(
-                export_dict=export_dict,
-                output_directory=output_dir,
-                export_mode=export_mode,
-                parquet_compression="gzip",
-                include_data_dictionary=True,
-                data_dictionary_metadata={"Workflow": "Culvert maximums"},
-            )
-            logger.info("Culvert maximums export complete.")
+                logger.info("Exporting culvert maximums to {}", output_dir or Path.cwd())
+                ExcelExporter().export_dataframes(
+                    export_dict=export_dict,
+                    output_directory=output_dir,
+                    export_mode=export_mode,
+                    parquet_compression="gzip",
+                    include_data_dictionary=True,
+                    data_dictionary_metadata={"Workflow": "Culvert maximums"},
+                )
+                logger.info("Culvert maximums export complete.")
 
                 warn_on_invalid_types(
                     invalid_types=invalid_types, accepted_types=ACCEPTED_DATA_TYPES,
