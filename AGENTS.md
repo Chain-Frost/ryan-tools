@@ -71,15 +71,19 @@ are removed alongside their `.gitmodules` entries; do not reintroduce them or lo
   purpose/version, editable settings, CLI precedence, safe defaults, diagnostics,
   exit codes, path handling and proportionate verification.
 - Expose **every user-facing operational CLI option** as a top-level,
-  user-editable `DEFAULT_*` setting in maintained scripts and wrappers,
-  including paths, selection, modes, output/write, console logging and pause.
-  CLI flags override those defaults (including explicit `False`/`0`).
+  user-editable setting in maintained scripts and wrappers, including paths,
+  selection, modes, output/write, console logging and pause. Choose concise,
+  descriptive constant names that suit the script; `DEFAULT_*` is optional,
+  not required. CLI flags override the editable values (including explicit
+  `False`/`0`).
   Ship safe defaults; an intentional edit may opt into chargeable operations
   but may not bypass file-overwrite protections or independent confirmations.
-  Add concise adjacent comments explaining each default's meaning, permitted
-  values/units, `None` semantics, path base and dependent settings. Non-obvious
-  inputs require copy-ready examples (Windows raw-string `Path`, tuples,
-  valid choice strings) and any cost or mutation warning.
+  Clear setting names and values can be sufficient documentation: do not
+  require an adjacent comment or docstring when purpose and valid edits are
+  reliably obvious. Use brief comments or shared notes for non-obvious choices,
+  units, `None`/path semantics, dependencies and structured values, with
+  copy-ready examples where useful. Keep cost, mutation and safety warnings
+  explicit even when an identifier seems self-explanatory.
 - A self-contained script may keep its processing in guarded `main()` with local
   helpers; **a library-backed wrapper does not require an orchestrator**.
 - Put genuinely reusable processing and validation in `ryan_library/functions`

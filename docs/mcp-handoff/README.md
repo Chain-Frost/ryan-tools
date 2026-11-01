@@ -19,11 +19,10 @@ Canonical repository policy remains in [`AGENTS.md`](../../AGENTS.md) and
 [`docs/DEVELOPMENT_GUIDE.md`](../DEVELOPMENT_GUIDE.md). MCP setup and user configuration are documented in
 [`docs/MCP_SETUP.md`](../MCP_SETUP.md).
 
-## Planned discovery enhancement
+## Workflow keyword discovery
 
-Issue #136 is tracked in the [workflow keywords and domain overview handoff](../work/2026-11-01-mcp-workflow-discovery-136.md).
-It defines the draft PR scope, implementation/review prompts and acceptance contract; the feature is not implemented
-by that setup record.
+Issue #136 is tracked in the [workflow keywords and overview handoff](../work/2026-11-01-mcp-workflow-discovery-136.md).
+Its review and validation status are maintained in that record.
 
 ## User intent
 

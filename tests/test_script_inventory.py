@@ -44,6 +44,18 @@ def test_static_audit_records_syntax_signals_without_importing() -> None:
     assert record["top_level_call_expressions"] == 0
 
 
+def test_editable_constants_do_not_require_default_prefix() -> None:
+    source = (
+        "from pathlib import Path\n"
+        "WORKING_DIR = Path()\n"
+        'GPU_DEVICES = (("-pu0",),)\n'
+        "CHECK_INPUTS = True\n"
+        "DEFAULT_OUTPUT = None\n"
+    )
+    found = inventory.analyse_python(source)["editable_setting_names"]
+    assert set(found) == {"WORKING_DIR", "GPU_DEVICES", "CHECK_INPUTS", "DEFAULT_OUTPUT"}
+
+
 def test_static_audit_reports_syntax_errors_without_execution() -> None:
     record = inventory.analyse_python("def unfinished(\n")
     assert record["parse_status"] == "syntax_error"

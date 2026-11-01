@@ -225,10 +225,9 @@ def _editable_setting_names(module: ast.Module) -> list[str]:
         else:
             continue
         for target in targets:
-            if isinstance(target, ast.Name) and (
-                target.id.startswith("DEFAULT_")
-                or target.id in {"WORKING_DIR", "PATHS_TO_PROCESS", "INPUT_DIR", "OUTPUT_DIR"}
-            ):
+            # Any public uppercase setting is a potential user-editable
+            # constant; do not require DEFAULT_ or a fixed filename-specific list.
+            if isinstance(target, ast.Name) and target.id.isupper() and not target.id.startswith("_"):
                 names.add(target.id)
     return sorted(names)
 

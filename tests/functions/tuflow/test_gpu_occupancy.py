@@ -21,6 +21,10 @@ def test_extract_gpu_ids_and_find_conflicts() -> None:
     assert gpu_occupancy.gpu_conflicts({0}, active) == ()
 
 
+def test_comma_gpu_syntax_is_not_interpreted_as_device_selection() -> None:
+    assert gpu_occupancy.gpu_ids_from_flags(["-pu0,1", "-PU2", "-pu3,4", "-pu5"]) == frozenset({2, 5})
+
+
 def test_only_live_matching_engines_with_explicit_gpu_flags(monkeypatch: pytest.MonkeyPatch) -> None:
     class FakeProcess:
         def __init__(self, pid: int, name: str, cmd: list[str]) -> None:

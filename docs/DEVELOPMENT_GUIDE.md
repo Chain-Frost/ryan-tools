@@ -108,14 +108,18 @@ model runs into a reusable pipeline may justify an orchestrator.
 ### Editable configuration for maintained entry points
 
 The [common maintained-script standard](../ryan-scripts/README.md#shared-principles-for-maintained-scripts-and-wrappers)
-requires **every operational CLI option** to have a user-editable default at
-the top of a maintained script or wrapper, including low-frequency settings,
-write/dry-run, expensive modes, logging and pausing. These are user-owned
-entry-point settings, not orchestrator responsibilities. Each default needs
-adjacent, usable guidance: purpose, allowed types/values and units, `None`
-semantics, path base, dependencies, and relevant risks. Non-obvious settings
-must include a **copy-ready commented example** (e.g. a raw Windows `Path`,
-an old/new directory mapping tuple, or a valid mode string). CLI overrides
+requires **every operational CLI option** to have a user-editable
+constant near the top of a maintained script or wrapper, including low-frequency
+settings, write/dry-run, expensive modes, logging and pausing. No fixed naming
+prefix is required: `MODE`, `TCF`, `GPU_DEVICES`, `WORKING_DIR` and existing
+`DEFAULT_*` names are all valid. These are user-owned
+entry-point settings, not orchestrator responsibilities. A self-explanatory
+name and value need **no adjacent comment or docstring** when the user can
+reliably infer the purpose and valid edits. Add concise comments or one shared
+note for non-obvious choices, units, `None` semantics, path bases,
+interdependencies and risks. Complex settings benefit from copy-ready examples
+(e.g. a raw Windows `Path` or an old/new directory mapping tuple). Destructive
+or costly effects and safeguards must remain explicit. CLI overrides
 take precedence even when explicitly set to `False` or `0`. Shipped values
 remain safe; a deliberate edit may opt into costly behaviour without bypassing
 file protection or independent confirmation.

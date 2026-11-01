@@ -29,14 +29,19 @@ From the repository root, install the checkout and development requirements into
 ```powershell
 py -3.14 -m pip install --upgrade pip
 py -3.14 repo-scripts\install_latest_wheel.py --dependencies-only
+py -3.14 -m pip install --force-reinstall --no-deps -r repo-scripts\pytuflow-requirement.txt
 py -3.14 -m pip install -r requirements.txt
+py -3.14 -m pip check
+py -3.14 -c "from ryan_library.functions.tuflow.pytuflow_compatibility import require_validation_api; print(require_validation_api().diagnostic.message)"
 ```
 
 `requirements.txt` installs the repository in editable mode with its development and MCP dependencies, plus
 the current QGIS MCP Python bridge from upstream GitHub main. Python then imports the current checkout while developers and agents
 edit `ryan_library`. The dependency-only command installs binary Fiona, Rasterio and GDAL packages from the
 configured geospatial wheel index. It supersedes the former single-package batch installers and can be previewed with
-`--dry-run`. For managed or offline environments, use the local approved source with
+`--dry-run`. The parser-only reinstall replaces an incompatible official PyTUFLOW build even when its version matches
+the accepted source; the following requirements install resolves all dependencies normally. The final checks verify
+dependency consistency and the required public API. For managed or offline environments, use the local approved source with
 `repo-scripts/setup_codex_mcp.ps1 -Install -QgisSource <path>` instead of the GitHub-based requirements command.
 
 For an end user, double-click [install-ryan-tools.bat](../install-ryan-tools.bat) (the existing
@@ -46,8 +51,18 @@ For an end user, double-click [install-ryan-tools.bat](../install-ryan-tools.bat
 .\install-ryan-tools.bat
 ```
 
-This installs the current published `ryan-tools[mcp]` package from PyPI
-and the upstream QGIS MCP Python bridge, using Python 3.14 or later (automatic highest-installed 3.x selection, overrideable with `RYAN_TOOLS_PYTHON`). If Codex or its VS Code extension is installed,
+This installs the current published `ryan-tools[mcp]` package from PyPI,
+the upstream QGIS MCP Python bridge and the accepted PyTUFLOW PR17 archive in
+[`repo-scripts/pytuflow-requirement.txt`](../repo-scripts/pytuflow-requirement.txt),
+using Python 3.14 or later (automatic highest-installed 3.x selection, overrideable with `RYAN_TOOLS_PYTHON`).
+Both normal installers bootstrap binary Fiona, Rasterio and GDAL, explicitly
+reinstall only the accepted PyTUFLOW source, then resolve `ryan-tools` and the
+pinned parser together with their dependencies. This replaces an incompatible
+official parser even when its package version matches, without forcing a
+reinstall of the GIS dependencies. Installation succeeds only after `pip check` and the public PyTUFLOW
+capability guard pass; a failure stops before Codex registration. Dry runs print
+these checks without claiming that they passed.
+If Codex or its VS Code extension is installed,
 the script safely configures its QGIS and ryan-tools MCP entries in the shared user-level Codex config. Without Codex,
 it leaves Codex configuration untouched. Pass `--skip-codex` to disable automatic
 registration, `--skip-qgis-mcp` for headless/offline installation, or
@@ -141,7 +156,7 @@ py -3.14 repo-scripts\verify_wheel.py
 ## GitHub Actions CI
 
 The enabled `.github/workflows/ci.yml` workflow runs on pull requests and pushes to `main` using Windows and Python
-3.14, with a separate Python 3.14 MCP job (retaining the old required-check label until the GitHub ruleset is updated). Its independent jobs mean a policy failure does not hide
+3.14, with a separate Python 3.14 `MCP smoke` job. The `main only` ruleset must replace its obsolete `Python 3.13 compatibility and MCP` requirement with `MCP smoke` before merging. Its independent jobs mean a policy failure does not hide
 runtime or packaging results.
 
 The hosted test job initialises only `qgis-resources` and
@@ -202,7 +217,7 @@ Baseline from five recent GitHub Actions runs on 16 October 2026:
 | --- | --- | --- |
 | Hosted tests | 2:40–3:37 | Install dependencies 60–67 s; pytest 60–104 s |
 | Policy | 1:30–2:06 | GIS package installation and static analysis |
-| MCP smoke (legacy Python 3.13 check label) | 1:18–2:00 | Historical Python 3.13 run timings; Python 3.14 timings not yet measured |
+| MCP smoke | 1:18–2:00 | Historical timing range only; current Python 3.14 timing not yet measured |
 | Package | 1:01–1:25 | Checkout, submodules, setup, and wheel prerequisites |
 
 The existing `setup-python` pip cache reuses downloaded packages, not installed
