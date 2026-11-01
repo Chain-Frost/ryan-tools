@@ -23,6 +23,7 @@ LIVE_MAX_ROWS = 25
 import argparse
 import sys
 
+from ryan_library.functions.live_dashboard import validate_dashboard_settings
 from ryan_library.functions.wrapper_utils import (
     CommonWrapperOptions,
     add_common_cli_arguments,
@@ -31,7 +32,6 @@ from ryan_library.functions.wrapper_utils import (
     pause_console,
     print_wrapper_banner,
 )
-from ryan_library.functions.live_dashboard import validate_dashboard_settings
 from ryan_library.orchestrators.tuflow.tuflow_logsummary import main_processing
 
 
@@ -92,7 +92,7 @@ def main(
     except KeyboardInterrupt:
         print("Log summary interrupted.", file=sys.stderr)
         return 130
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - process boundary converts unexpected workflow failures to exit 1
         print(f"Log summary failed: {exc}", file=sys.stderr)
         return 1
     return 1 if succeeded is False else 0
