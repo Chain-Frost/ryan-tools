@@ -16,8 +16,9 @@ import pandas as pd
 from loguru import logger
 
 from ryan_library.functions.excel_export import ExcelExporter, ExportContent
+from ryan_library.functions.live_dashboard import LiveWorkflowDashboard, WorkflowMetric
 from ryan_library.functions.loguru_helpers import setup_logger
-from ryan_library.functions.tuflow.tuflow_common import bulk_read_and_merge_tuflow_csv
+from ryan_library.functions.tuflow.tuflow_common import FileBatchProgress, bulk_read_and_merge_tuflow_csv
 from ryan_library.functions.tuflow.wrapper_helpers import normalize_data_types, warn_on_invalid_types
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
@@ -29,25 +30,22 @@ ACCEPTED_DATA_TYPES: frozenset[str] = frozenset(DEFAULT_DATA_TYPES)
 def main_processing(
     paths_to_process: list[Path],
     include_data_types: Collection[str] | None = None,
-    console_log_level: str = "INFO",
+    console_log_level: str | None = None,
     locations_to_include: Collection[str] | None = None,
     output_dir: Path | None = None,
     export_mode: Literal["excel", "parquet", "both"] = "excel",
-) -> None:
-    """Driver for culvert-merge exports.
+    *,
+    use_live_dashboard: bool = False,
+    live_refresh_per_second: float = 2.0,
+    live_max_rows: int = 25,
+    log_file: str | None = None,
+    file_log_level: str = "DEBUG",
+) -> bool:
+    """Combine selected results and export them; report unsuccessful inputs explicitly.
 
-    Orchestrates the finding, reading, merging, and exporting of culvert maximums data.
-    Exports two sheets/tables:
-      1. Maximums: The processed maximums (Logic defined in `combine_1d_maximums`).
-      2. raw_data: The raw concatenation of all found files.
-
-    Args:
-        paths_to_process: Directories to scan.
-        include_data_types: List of file suffixes to include (e.g. "Nmx").
-        console_log_level: Logging verbosity.
-        locations_to_include: Specific location IDs to filter for.
-        output_dir: Destination directory for the export.
-        export_mode: "excel", "parquet", or "both".
+    False means an input-processing failure or export failure (which also
+    propagates its exception). A normal empty selection is SKIPPED, not SUCCESS.
+    Dashboard settings never affect selection, aggregation, or output contents.
     """
     requested_types, invalid_types = normalize_data_types(
         requested=include_data_types,
@@ -55,70 +53,98 @@ def main_processing(
         accepted=ACCEPTED_DATA_TYPES,
     )
     normalized_locations: frozenset[str] = BaseProcessor.normalize_locations(locations=locations_to_include)
+    dashboard = LiveWorkflowDashboard(
+        title="Culvert maximums",
+        enabled=use_live_dashboard,
+        refresh_per_second=live_refresh_per_second,
+        max_rows=live_max_rows,
+    )
+    progress = FileBatchProgress()
+    console_level = console_log_level if console_log_level is not None else (
+        "SUCCESS" if use_live_dashboard else "INFO"
+    )
+    with setup_logger(
+        console_log_level=console_level, log_file=log_file, file_log_level=file_log_level,
+    ) as log_queue:
+        with dashboard:
+            try:
+                dashboard.set_phase("Discovering")
+                warn_on_invalid_types(
+                    invalid_types=invalid_types,
+                    accepted_types=ACCEPTED_DATA_TYPES,
+                    context="Culvert maximums",
+                )
+                collection: ProcessorCollection = bulk_read_and_merge_tuflow_csv(
+                    paths_to_process=paths_to_process,
+                    include_data_types=requested_types,
+                    log_queue=log_queue,
+                    console_log_level=console_level,
+                    dashboard=dashboard if use_live_dashboard else None,
+                    batch_progress=progress,
+                )
+                if normalized_locations:
+                    collection.filter_locations(locations=normalized_locations)
+                if not collection.processors:
+                    warn_on_invalid_types(
+                        invalid_types=invalid_types, accepted_types=ACCEPTED_DATA_TYPES,
+                        context="Culvert maximums completed",
+                    )
+                    logger.warning("No result files were processed. Skipping export.")
+                    dashboard.finish(outcome="FAILED" if progress.failed else "SKIPPED", detail="no results to export")
+                    return progress.failed == 0
 
-    with setup_logger(console_log_level=console_log_level) as log_queue:
-        warn_on_invalid_types(
-            invalid_types=invalid_types,
-            accepted_types=ACCEPTED_DATA_TYPES,
-            context="Culvert maximums",
-        )
-
-        collection: ProcessorCollection = bulk_read_and_merge_tuflow_csv(
-            paths_to_process=paths_to_process,
-            include_data_types=requested_types,
-            log_queue=log_queue,
-            console_log_level=console_log_level,
-        )
-
-        if normalized_locations:
-            collection.filter_locations(locations=normalized_locations)
-
-        if not collection.processors:
-            warn_on_invalid_types(
-                invalid_types=invalid_types,
-                accepted_types=ACCEPTED_DATA_TYPES,
-                context="Culvert maximums completed",
-            )
-            logger.warning("No culvert result files were processed. Skipping export.")
-            return
-
-        collection.compact_basic_info_columns()
-        # EOF text reports can carry truncated printed channel labels. Align
-        # them to the full IDs from CSV/GPKG result files before creating both
-        # the grouped maximums and raw export sheets.
-        collection.align_eof_channel_ids()
-
-        maximums_df: pd.DataFrame = collection.combine_1d_maximums()
-        raw_df: pd.DataFrame = collection.combine_raw()
-        raw_df = collection.attach_basic_info(df=raw_df, drop_id=True)
-        if maximums_df.empty and raw_df.empty:
-            warn_on_invalid_types(
-                invalid_types=invalid_types,
-                accepted_types=ACCEPTED_DATA_TYPES,
-                context="Culvert maximums completed",
-            )
-            logger.warning("Combined culvert DataFrames are empty. Skipping export.")
-            return
-
-        export_dict: dict[str, ExportContent] = {
-            "1d_maximums_data": {
-                "dataframes": [maximums_df, raw_df],
-                "sheets": ["Maximums", "raw_data"],
+                dashboard.set_phase("Aggregating")
+            collection.compact_basic_info_columns()
+            # Preserve EOF full-ID alignment in both maximums and raw sheets.
+            collection.align_eof_channel_ids()
+            maximums_df: pd.DataFrame = collection.combine_1d_maximums()
+            raw_df: pd.DataFrame = collection.combine_raw()
+            raw_df = collection.attach_basic_info(df=raw_df, drop_id=True)
+            dashboard.set_metrics([
+                WorkflowMetric("Files finished", progress.completed, unit="files", total=progress.scheduled),
+                WorkflowMetric("Maximums rows", len(maximums_df), unit="rows"),
+            ])
+            if maximums_df.empty and raw_df.empty:
+                warn_on_invalid_types(
+                    invalid_types=invalid_types, accepted_types=ACCEPTED_DATA_TYPES,
+                    context="Culvert maximums completed",
+                )
+                logger.warning("Combined culvert DataFrames are empty. Skipping export.")
+                dashboard.finish(outcome="FAILED" if progress.failed else "SKIPPED", detail="no combined data")
+                return progress.failed == 0
+    
+            dashboard.set_phase("Exporting")
+            export_dict: dict[str, ExportContent] = {
+                "1d_maximums_data": {
+                    "dataframes": [maximums_df, raw_df],
+                    "sheets": ["Maximums", "raw_data"],
+                }
             }
-        }
-        logger.info(f"Exporting culvert maximums to {output_dir or Path.cwd()}")
-        ExcelExporter().export_dataframes(
-            export_dict=export_dict,
-            output_directory=output_dir,
-            export_mode=export_mode,
-            parquet_compression="gzip",
-            include_data_dictionary=True,
-            data_dictionary_metadata={"Workflow": "Culvert maximums"},
-        )
-        logger.info("Culvert maximums export complete.")
+            logger.info("Exporting culvert maximums to {}", output_dir or Path.cwd())
+            ExcelExporter().export_dataframes(
+                export_dict=export_dict,
+                output_directory=output_dir,
+                export_mode=export_mode,
+                parquet_compression="gzip",
+                include_data_dictionary=True,
+                data_dictionary_metadata={"Workflow": "Culvert maximums"},
+            )
+            logger.info("Culvert maximums export complete.")
 
-        warn_on_invalid_types(
-            invalid_types=invalid_types,
-            accepted_types=ACCEPTED_DATA_TYPES,
-            context="Culvert maximums completed",
-        )
+                warn_on_invalid_types(
+                    invalid_types=invalid_types, accepted_types=ACCEPTED_DATA_TYPES,
+                    context="Culvert maximums completed",
+                )
+                dashboard.set_phase("Complete")
+                dashboard.finish(
+                    outcome="FAILED" if progress.failed else "SUCCESS",
+                    detail="exported with input failures" if progress.failed else "report exported",
+                )
+                return progress.failed == 0
+            except KeyboardInterrupt:
+                dashboard.finish(outcome="INTERRUPTED", detail="processing interrupted")
+                raise
+            except Exception:
+                logger.exception("Culvert maximums workflow failed.")
+                dashboard.finish(outcome="FAILED", detail="processing or export failed")
+                raise
