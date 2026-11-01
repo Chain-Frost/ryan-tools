@@ -198,7 +198,6 @@ from ryan_library.functions.wrapper_utils import add_execution_cli_arguments, pa
 from ryan_library.orchestrators.tuflow.simulation_runner import (
     AdvisoryInputCheck,
     BatchOutcome,
-    RunMode,
     RunnerSettings,
     check_plan_only,
     export_batch_commands,
@@ -220,9 +219,7 @@ def _settings(arguments: argparse.Namespace) -> RunnerSettings:
     selected_inputs = tuple(arguments.input_file) if arguments.input_file is not None else INPUT_FILES
     selected_mode = runner_user_inputs.choice("MODE", arguments.mode if arguments.mode is not None else MODE, SRC)
     selected_priority = runner_user_inputs.choice("COMPUTATIONAL_PRIORITY", COMPUTATIONAL_PRIORITY, PRIO)
-    if not isinstance(BATCH_COMMANDS, str):
-        message = "BATCH_COMMANDS must be a string, e.g. '-b -t -nlc'."
-        raise ValueError(message)
+    selected_batch_commands = runner_user_inputs.batch_commands(BATCH_COMMANDS)
     selected_executable = runner_user_inputs.path(
         "TUFLOW_EXE", arguments.solver_exe if arguments.solver_exe is not None else TUFLOW_EXE
     )
@@ -249,8 +246,8 @@ def _settings(arguments: argparse.Namespace) -> RunnerSettings:
         executable=selected_executable,
         run_variables=runner_user_inputs.run_variables(RUN_VARIABLES_RAW),
         input_files=runner_user_inputs.input_paths(selected_inputs),
-        mode=cast(RunMode, selected_mode.value),
-        batch_commands=BATCH_COMMANDS,
+        mode=selected_mode.value,
+        batch_commands=selected_batch_commands,
         priority_order=runner_user_inputs.priority_order(PRIORITY_ORDER),
         gpu_devices=runner_user_inputs.gpu_groups(GPU_DEVICES),
         computational_priority=selected_priority.value,

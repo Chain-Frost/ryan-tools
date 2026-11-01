@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import cast
 
 
-def choice[T: StrEnum](name: str, value: T | str, options: type[T]) -> T:
+def choice[T: StrEnum](name: str, value: object, options: type[T]) -> T:
     """Accept short enum members or the equivalent raw string, case-insensitively."""
     if isinstance(value, options):
         return value
@@ -27,7 +27,7 @@ def choice[T: StrEnum](name: str, value: T | str, options: type[T]) -> T:
     raise ValueError(message)
 
 
-def path(name: str, value: str | Path) -> Path:
+def path(name: str, value: object) -> Path:
     """Preserve mapped-drive and UNC spelling; never resolve filesystem aliases."""
     if isinstance(value, str):
         if not value.strip():
@@ -42,7 +42,7 @@ def path(name: str, value: str | Path) -> Path:
     return Path(value)
 
 
-def input_paths(value: str | Path | list[str | Path] | tuple[str | Path, ...] | None) -> tuple[Path, ...]:
+def input_paths(value: object) -> tuple[Path, ...]:
     """A raw string names one source; a list or tuple supplies multiple sources."""
     if value is None:
         return ()
@@ -61,23 +61,21 @@ def input_paths(value: str | Path | list[str | Path] | tuple[str | Path, ...] | 
     return result
 
 
-def gpu_groups(
-    value: str | list[str | list[str] | tuple[str, ...]] | tuple[str | list[str] | tuple[str, ...], ...] | None,
-) -> tuple[tuple[str, ...], ...]:
+def gpu_groups(value: object) -> tuple[tuple[str, ...], ...]:
     """Top-level entries are concurrent slots; nested GPU strings share one slot."""
     if value is None:
         return ()
     if isinstance(value, str):
-        candidates = (value,)
+        candidates: tuple[object, ...] = (value,)
     elif isinstance(value, (list, tuple)):
-        candidates = value
+        candidates = tuple(value)
     else:
         message = "GPU_DEVICES requires '-pu1', ['-pu0', '-pu1'], or [['-pu0', '-pu1']]."
         raise ValueError(message)
     groups: list[tuple[str, ...]] = []
     for index, group in enumerate(candidates):
         if isinstance(group, str):
-            tokens = (group,)
+            tokens: tuple[object, ...] = (group,)
         elif isinstance(group, (list, tuple)):
             tokens = tuple(group)
         else:
@@ -86,8 +84,16 @@ def gpu_groups(
         if not tokens or any(not isinstance(token, str) for token in tokens):
             message = f"GPU_DEVICES[{index}] needs one or more '-puN' strings; use [] for automatic placement."
             raise ValueError(message)
-        groups.append(tokens)
+        groups.append(cast(tuple[str, ...], tokens))
     return tuple(groups)
+
+
+def batch_commands(value: object) -> str:
+    """Validate the user-edited engine command string before any output."""
+    if not isinstance(value, str):
+        message = "BATCH_COMMANDS must be a string, e.g. '-b -t -nlc'."
+        raise ValueError(message)
+    return value
 
 
 def boolean(name: str, value: object) -> bool:
@@ -116,7 +122,7 @@ def run_variables(value: object) -> dict[str, str | list[str]]:
         raise ValueError(message)
     validated: dict[str, str | list[str]] = {}
     seen: set[str] = set()
-    for key, raw in value.items():
+    for key, raw in cast(dict[object, object], value).items():
         if not isinstance(key, str) or re.fullmatch(r"[es][1-9]", key, flags=re.IGNORECASE) is None:
             message = f"RUN_VARIABLES_RAW key {key!r} must be e1-e9 or s1-s9."
             raise ValueError(message)
@@ -130,7 +136,7 @@ def run_variables(value: object) -> dict[str, str | list[str]]:
                 raise ValueError(message)
             validated[key] = raw
         elif isinstance(raw, list):
-            if not raw or any(not isinstance(item, str) or not item.strip() for item in raw):
+            if not raw or any(not isinstance(item, str) or not item.strip() for item in cast(list[object], raw)):
                 message = f"RUN_VARIABLES_RAW[{key!r}] needs nonempty strings, e.g. ['Dry', 'Wet Season']."
                 raise ValueError(message)
             validated[key] = cast(list[str], raw)

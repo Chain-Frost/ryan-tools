@@ -157,11 +157,16 @@ def _at_base(path: Path, base: Path) -> Path:
     return path if path.is_absolute() else (base / path).absolute()
 
 
+def _is_valid_gpu_flag(flag: object) -> bool:
+    """Check untrusted runtime GPU values even if the caller is type-annotated."""
+    return isinstance(flag, str) and is_gpu_switch(flag)
+
+
 def _validate_gpu_groups(groups: tuple[tuple[str, ...], ...]) -> None:
     """Reject malformed or shared GPU assignments before any export/launch."""
     assigned_gpu_ids: set[int] = set()
     for group in groups:
-        if not group or any(not isinstance(flag, str) or not is_gpu_switch(flag) for flag in group):
+        if not group or any(not _is_valid_gpu_flag(flag) for flag in group):
             message = (
                 f"Invalid GPU group in GPU_DEVICES: {group!r}. Use '-pu0' or "
                 "['-pu0', '-pu1'] for separate slots; [['-pu0', '-pu1']] for one multi-GPU slot."
