@@ -42,21 +42,9 @@ def _write_inputs(folder: Path) -> None:
     for tp, multiplier in ((1, 1.0), (2, 2.0)):
         run = f"Synthetic_01.00p_00120m_TP{tp:02d}"
         data = {
-            "_1d_Cmx.csv": (
-                "Chan ID,Time Qmax,Qmax,Vmax,Time Vmax\n"
-                f"C01,0.5,{5 * multiplier},1.5,0.5\n"
-            ),
-            "_1d_Q.csv": (
-                "Descriptor,Time,Q C01\n"
-                f"row,0,{2 * multiplier}\n"
-                f"row,1,{4 * multiplier}\n"
-            ),
-            "_PO.csv": (
-                "Descriptor,Time,Flow\n"
-                "Location,Time,C01\n"
-                f"row,0,{2 * multiplier}\n"
-                f"row,1,{4 * multiplier}\n"
-            ),
+            "_1d_Cmx.csv": (f"Chan ID,Time Qmax,Qmax,Vmax,Time Vmax\nC01,0.5,{5 * multiplier},1.5,0.5\n"),
+            "_1d_Q.csv": (f"Descriptor,Time,Q C01\nrow,0,{2 * multiplier}\nrow,1,{4 * multiplier}\n"),
+            "_PO.csv": (f"Descriptor,Time,Flow\nLocation,Time,C01\nrow,0,{2 * multiplier}\nrow,1,{4 * multiplier}\n"),
             "_POMM.csv": (
                 f"{run},Location,Flow\n"
                 "value,Time,C01\n"
@@ -124,7 +112,9 @@ def _snapshot(work: Path, sheet: str) -> tuple[tuple[str, ...], tuple[tuple[floa
         workbook.close()
 
 
-def _one_case(case: Case, root: Path, work: Path, *, dashboard: bool) -> tuple[tuple[str, ...], tuple[tuple[float, ...], ...]]:
+def _one_case(
+    case: Case, root: Path, work: Path, *, dashboard: bool
+) -> tuple[tuple[str, ...], tuple[tuple[float, ...], ...]]:
     work.mkdir(parents=True)
     _write_inputs(work / "inputs")
     script = copy_wrapper(case.wrapper, work)
@@ -136,9 +126,16 @@ def _one_case(case: Case, root: Path, work: Path, *, dashboard: bool) -> tuple[t
         msg = f"Missing copied wrapper dashboard help for {case.wrapper}: {help_result.stderr[-900:]}"
         raise RuntimeError(msg)
     result = _run(
-        script, work, root, "--data-types", case.data_type,
+        script,
+        work,
+        root,
+        "--data-types",
+        case.data_type,
         "--live-dashboard" if dashboard else "--no-live-dashboard",
-        "--log-file", "detail.log", "--file-log-level", "DEBUG",
+        "--log-file",
+        "detail.log",
+        "--file-log-level",
+        "DEBUG",
     )
     if result.returncode != 0:
         msg = (
