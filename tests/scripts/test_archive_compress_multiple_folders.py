@@ -101,7 +101,9 @@ def test_dry_run_does_not_require_7zip(
     assert not output.exists()
 
 
+@pytest.mark.parametrize("suffix", ["", "[1]"])
 def test_progress_switch_controls_7zip_progress_stream(
+    suffix: str,
     script: ArchiveModule,
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -122,18 +124,18 @@ def test_progress_switch_controls_7zip_progress_stream(
     monkeypatch.setattr(subprocess, "run", fake_7zip)
     without_progress = script.create_zip_from_folders(
         folders=[source],
-        output_archive=tmp_path / "quiet.zip",
+        output_archive=tmp_path / f"quiet{suffix}.zip",
         executable=executable,
         show_progress=False,
     )
     with_progress = script.create_zip_from_folders(
         folders=[source],
-        output_archive=tmp_path / "verbose.zip",
+        output_archive=tmp_path / f"verbose{suffix}.zip",
         executable=executable,
         show_progress=True,
     )
 
-    assert without_progress == [tmp_path / "quiet.zip"]
-    assert with_progress == [tmp_path / "verbose.zip"]
+    assert without_progress == [tmp_path / f"quiet{suffix}.zip"]
+    assert with_progress == [tmp_path / f"verbose{suffix}.zip"]
     assert "-bsp1" not in observed_commands[0]
     assert "-bsp1" in observed_commands[1]

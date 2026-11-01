@@ -38,8 +38,8 @@ def create_7zip_archive(
     volume_prefix = f"{output_archive.name}."
     existing_volumes = sorted(
         candidate
-        for candidate in output_archive.parent.glob(f"{output_archive.name}.*")
-        if candidate.name.removeprefix(volume_prefix).isdigit()
+        for candidate in output_archive.parent.iterdir()
+        if candidate.name.startswith(volume_prefix) and candidate.name.removeprefix(volume_prefix).isdigit()
     )
     if output_archive.exists() or output_archive.is_symlink() or existing_volumes:
         existing = output_archive if output_archive.exists() or output_archive.is_symlink() else existing_volumes[0]
@@ -68,8 +68,9 @@ def create_7zip_archive(
                 sorted(
                     (
                         candidate
-                        for candidate in output_archive.parent.glob(f"{output_archive.name}.*")
-                        if candidate.name.removeprefix(volume_prefix).isdigit()
+                        for candidate in output_archive.parent.iterdir()
+                        if candidate.name.startswith(volume_prefix)
+                        and candidate.name.removeprefix(volume_prefix).isdigit()
                     ),
                     key=lambda path: int(path.name.removeprefix(volume_prefix)),
                 )
@@ -83,8 +84,8 @@ def create_7zip_archive(
         return outputs
     except BaseException:
         output_archive.unlink(missing_ok=True)
-        for volume in output_archive.parent.glob(f"{output_archive.name}.*"):
-            if volume.name.removeprefix(volume_prefix).isdigit():
+        for volume in output_archive.parent.iterdir():
+            if volume.name.startswith(volume_prefix) and volume.name.removeprefix(volume_prefix).isdigit():
                 volume.unlink(missing_ok=True)
         raise
 
@@ -138,8 +139,8 @@ def compress_folder_7zip(job: FolderCompressionJob) -> FolderCompressionResult:
     existing_volume = next(
         (
             candidate
-            for candidate in archive.parent.glob(f"{archive.name}.*")
-            if candidate.name.removeprefix(volume_prefix).isdigit()
+            for candidate in archive.parent.iterdir()
+            if candidate.name.startswith(volume_prefix) and candidate.name.removeprefix(volume_prefix).isdigit()
         ),
         None,
     )

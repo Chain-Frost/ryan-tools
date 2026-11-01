@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-SCRIPT_VERSION = "2026-11-01.2"
+SCRIPT_VERSION = "2026-11-02.1"
 
 # ---------------------------------------------------------------------------
 # Editable settings (command-line arguments override these values)
@@ -122,8 +122,8 @@ def _temporary_archive_parts(temporary_archive: Path) -> list[Path]:
     prefix = f"{temporary_archive.name}."
     parts = [
         candidate
-        for candidate in temporary_archive.parent.glob(f"{temporary_archive.name}.*")
-        if candidate.name.removeprefix(prefix).isdigit()
+        for candidate in temporary_archive.parent.iterdir()
+        if candidate.name.startswith(prefix) and candidate.name.removeprefix(prefix).isdigit()
     ]
     return sorted(parts, key=lambda path: int(path.name.removeprefix(prefix)))
 
@@ -257,8 +257,9 @@ def _validated_output_path(output_path: Path) -> Path:
     existing_part = next(
         (
             candidate
-            for candidate in output_archive.parent.glob(f"{output_archive.name}.*")
-            if candidate.name.removeprefix(f"{output_archive.name}.").isdigit()
+            for candidate in output_archive.parent.iterdir()
+            if candidate.name.startswith(f"{output_archive.name}.")
+            and candidate.name.removeprefix(f"{output_archive.name}.").isdigit()
         ),
         None,
     )

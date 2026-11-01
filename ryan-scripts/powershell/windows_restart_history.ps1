@@ -133,13 +133,23 @@ catch {
 
 $queryStart = $Since.AddDays(-$CorrelationLookbackDays)
 $eventIds = 12, 13, 19, 41, 1001, 1074, 6005, 6006, 6008
-$events = @(
-    Get-WinEvent -FilterHashtable @{
-        LogName  = $systemLogName
-        StartTime = $queryStart
-        Id        = $eventIds
+try {
+    $events = @(
+        Get-WinEvent -FilterHashtable @{
+            LogName  = $systemLogName
+            StartTime = $queryStart
+            Id        = $eventIds
+        } -ErrorAction Stop
+    )
+}
+catch {
+    if ($_.FullyQualifiedErrorId -like 'NoMatchingEventsFound,*') {
+        $events = @()
     }
-)
+    else {
+        throw
+    }
+}
 
 $allStartups = @(
     $events |

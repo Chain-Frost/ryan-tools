@@ -227,3 +227,69 @@ def test_compress_individual_dry_run_and_missing_input(tmp_path: Path):
         check=False,
     )
     assert missing_input.returncode == 1
+
+
+@pytest.mark.parametrize("failed", [False, True])
+def test_literal_volume_names(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failed: bool) -> None:
+    from ryan_library.functions.archive_utils import create_7zip_archive
+
+    archive = tmp_path / "result[1].7z"
+    volume = tmp_path / "result[1].7z.001"
+    unrelated = tmp_path / "result1.7z.001"
+    unrelated.write_bytes(b"preserve")
+
+    def fake_run(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        volume.write_bytes(b"archive")
+        return subprocess.CompletedProcess(command, int(failed), stdout="", stderr="failure" if failed else "")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    if failed:
+        with pytest.raises(RuntimeError, match="7z exit code"):
+            create_7zip_archive(executable=Path("7z"), output_archive=archive, inputs=[], max_part_size_gib=1)
+        assert not volume.exists()
+    else:
+        assert create_7zip_archive(executable=Path("7z"), output_archive=archive, inputs=[], max_part_size_gib=1) == (
+            volume,
+        )
+        with pytest.raises(FileExistsError):
+            create_7zip_archive(executable=Path("7z"), output_archive=archive, inputs=[], max_part_size_gib=1)
+    assert unrelated.read_bytes() == b"preserve"
+
+
+@pytest.mark.skipif(not SEVEN_ZIP_EXE, reason="7z.exe not found on system")
+def test_individual_relative_executable_outside_input(tmp_path: Path) -> None:
+    import shutil
+
+    assert SEVEN_ZIP_EXE is not None
+    tools = tmp_path / "tools"
+    tools.mkdir()
+    # Copy the native executable and its companion DLL into the launch directory.
+    for dependency in SEVEN_ZIP_EXE.parent.iterdir():
+        if dependency.name in {"7z.exe", "7z.dll"}:
+            shutil.copy2(dependency, tools / dependency.name)
+    source = tmp_path / "input" / "data.txt"
+    source.parent.mkdir()
+    source.write_text("content")
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(repo_root)
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(COMPRESS_INDIVIDUAL_SCRIPT),
+            "-i",
+            str(source),
+            "--seven-zip-exe",
+            "tools/7z.exe",
+            "--workers",
+            "1",
+            "--no-log-file",
+            "--no-pause",
+        ],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert source.with_suffix(".txt.7z").is_file()

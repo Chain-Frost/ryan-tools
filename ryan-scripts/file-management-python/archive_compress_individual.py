@@ -17,7 +17,7 @@ from pathlib import Path
 
 # ==============================================================================
 # WRAPPER IDENTITY
-WRAPPER_VERSION = "2026-11-01.2"
+WRAPPER_VERSION = "2026-11-02.1"
 
 # EDITABLE DEFAULTS
 DEFAULT_INPUT = Path()
@@ -97,6 +97,9 @@ def main(
         logger.error("No valid input files or directories were supplied.")
         return 1
 
+    configured_exe = None if force_auto_discovery else seven_zip_exe if seven_zip_exe is not None else DEFAULT_7ZIP_EXE
+    executable = configured_exe.absolute() if configured_exe is not None else find_7zip()
+
     first_target = valid_targets[0]
     working_dir = first_target.parent if first_target.is_file() else first_target
     if not change_working_directory(target_dir=working_dir):
@@ -143,9 +146,6 @@ def main(
     if not all_files_to_compress:
         logger.warning("No files found matching '{}' across targets.", DEFAULT_EXTENSION)
         return 1 if invalid_count else 0
-
-    configured_exe = None if force_auto_discovery else seven_zip_exe if seven_zip_exe is not None else DEFAULT_7ZIP_EXE
-    executable = configured_exe.absolute() if configured_exe is not None else find_7zip()
 
     split_description = "off" if configured_part_size is None else f"{configured_part_size} GiB maximum per part"
     logger.info(
