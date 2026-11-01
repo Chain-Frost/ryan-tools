@@ -150,11 +150,15 @@ Existing scripts need not rename their current constants. This rule
 specifies observable behaviour and human-editable configuration, not a
 repository-wide migration to a particular spelling.
 
-For shared CLI helpers whose parser defaults cannot distinguish omission,
-adapt the local parser or add an opposite override (e.g. `--pause` when the
-shared helper defines `--no-pause`). Keep the shared helper's other callers
-unchanged. Avoid requiring CLI inputs that have reasonable editable defaults;
-one-time secrets and typed destructive confirmations are not normal defaults.
+One-way convenience switches do not require artificial opposites. In
+particular, `PAUSE_ON_FINISH = True` is the editable default, while `--no-pause`
+is the only pause CLI override needed: an omitted switch retains the editable
+setting, and non-interactive execution must never wait. When an operational
+toggle genuinely needs explicit CLI overrides in both directions, use a parser
+that distinguishes omission from an explicit choice; preserve other callers of
+shared helpers. Avoid requiring CLI inputs that have reasonable editable
+defaults; one-time secrets and typed destructive confirmations are not normal
+defaults.
 
 **Safe shipped values, deliberate user overrides:** ship non-destructive,
 non-chargeable defaults. An auditor normally starts read-only
