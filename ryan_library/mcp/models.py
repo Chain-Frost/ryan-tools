@@ -132,8 +132,8 @@ class WorkflowSpec:
     lifecycle: str = "maintained"
     requires_explicit_approval: bool = False
     headless_arguments: tuple[str, ...] = ()
-    keywords: tuple[str, ...] = ()
     metadata: dict[str, Any] = field(default_factory=_empty_metadata)
+    keywords: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         """Normalize direct model construction as well as JSON catalogue loading."""

@@ -360,6 +360,27 @@ def test_keyword_model_default_normalization_and_metadata() -> None:
     assert replace(workflow, keywords=("  Pyramids ", "PYRAMIDS")).keywords == ("Pyramids",)
 
 
+def test_workflow_spec_preserves_legacy_positional_metadata_argument() -> None:
+    """Adding curated keywords must not displace the existing metadata position."""
+    reference = WorkflowSpec.from_mapping(_keyword_workflow_mapping())
+    metadata = {"legacy_setting": True}
+    workflow = WorkflowSpec(
+        reference.workflow_id,
+        reference.title,
+        reference.domain,
+        reference.purpose,
+        reference.execution,
+        reference.profile,
+        reference.mutation,
+        reference.lifecycle,
+        reference.requires_explicit_approval,
+        reference.headless_arguments,
+        metadata,
+    )
+    assert workflow.metadata is metadata
+    assert workflow.keywords == ()
+
+
 @pytest.mark.parametrize("bad_keywords", [None, "crop", 123, ["  "], ["crop", None], ["crop", 2], ("crop",)])
 def test_generic_keyword_catalogue_validation_rejects_bad_values(bad_keywords: object) -> None:
     raw = _keyword_workflow_mapping()
