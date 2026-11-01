@@ -287,9 +287,14 @@ def _run_parallel_dashboard_workflow[TItem, TResult](
                     completed_indexes=completed_indexes,
                     max_events=event_limit,
                 )
-                dashboard.refresh(force=finished_count > 0 or started_count > 0)
+                # Coalesce routine refreshes; Rich has its own bounded cadence.
+                dashboard.refresh()
                 if pending_results:
                     time.sleep(poll_interval)
+            # Graceful normal completion allows workers to flush queued log records.
+            # Pool.__exit__ otherwise terminates workers even after results arrive.
+            pool.close()
+            pool.join()
     except Exception:
         logger.exception("Error during dashboard workflow multiprocessing")
         raise
