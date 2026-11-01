@@ -10,7 +10,8 @@ from pathlib import Path
 
 WRAPPER_VERSION = "2026-11-01.1"
 
-CONSOLE_LOG_LEVEL = "INFO"
+# None chooses SUCCESS with the dashboard and INFO without it; an explicit level always wins.
+CONSOLE_LOG_LEVEL: str | None = None
 LOG_FILE: Path | None = None  # Optional detailed log; relative paths use WORKING_DIR.
 FILE_LOG_LEVEL = "DEBUG"
 PAUSE_ON_FINISH = True
