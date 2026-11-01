@@ -89,7 +89,7 @@ Set `--loss-model 2` for IL/RoC and adjust continuing-loss values accordingly. O
   proof.
 - A labelled RORB column cannot on its own establish provenance. The Pilgangoora source was independently established;
   do not transfer its `Hyd001`/`Hyd002` mapping to another model without equivalent source evidence.
-- The parser rejects absent or multiple hydrograph tables. If the installed RORB version produces an alternative layout, the local agent should supply a de-identified sample and update the parser with tests.
+- The parser rejects absent or multiple hydrograph tables, incomplete or nonnumeric hydrograph records, non-finite values and non-increasing times. Only textual report footers terminate a table; malformed numeric rows fail rather than silently returning partial calibration scores. If the installed RORB version produces an alternative layout, the local agent should supply a de-identified sample and update the parser with tests.
 - A separate observed CSV is supported only when its series and numerical time steps exactly align with the model. No interpolation, lag correction or unit conversion occurs.
 - PyHMA scoring is optional and may need numerical and version validation for the local Python/RORB versions.
 - Success in synthetic tests does **not** establish hydraulic validity or agreement with the historic calibrated outputs.
