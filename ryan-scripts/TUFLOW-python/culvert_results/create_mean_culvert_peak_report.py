@@ -9,21 +9,27 @@ or use command-line arguments to override these settings.
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-08-02.1"
+WRAPPER_VERSION = "2026-11-01.1"
 
-CONSOLE_LOG_LEVEL = "INFO"  # or "DEBUG"
-# Toggle the specific culvert data types to collect. Leave empty to accept the library defaults.
+# None chooses SUCCESS with a dashboard, INFO without; an explicit level overrides it.
+CONSOLE_LOG_LEVEL: str | None = None
 INCLUDED_DATA_TYPES: tuple[str, ...] = ("Nmx", "Cmx", "Chan", "ccA", "RLL_Qmx", "EOF")
-# Toggle the export of the raw culvert-maximums sheet (may be extremely large).
-EXPORT_RAW_MAXIMUMS: bool = False
-# Change the working directory
+LOCATIONS_TO_INCLUDE: tuple[str, ...] = ()
 WORKING_DIR: Path = Path(__file__).absolute().parent
-# Optional explicit folder roots to scan. If left empty, the wrapper scans WORKING_DIR recursively.
+# Relative input/output paths are interpreted relative to WORKING_DIR.
 PATHS_TO_PROCESS: tuple[Path, ...] = ()
-# WORKING_DIR: Path = Path(r"E:\path\to\custom\directory")
+EXPORT_RAW_MAXIMUMS = False
+USE_LIVE_DASHBOARD = True
+LIVE_REFRESH_PER_SECOND = 2.0
+LIVE_MAX_ROWS = 25
+PAUSE_ON_FINISH = True
+LOG_FILE: Path | None = None  # Optional detailed logfile, relative to WORKING_DIR.
+FILE_LOG_LEVEL = "DEBUG"
 
 import argparse
+import sys
 
+from ryan_library.functions.live_dashboard import validate_dashboard_settings
 from ryan_library.functions.wrapper_utils import (
     CommonWrapperOptions,
     add_common_cli_arguments,
@@ -34,7 +40,6 @@ from ryan_library.functions.wrapper_utils import (
 )
 from ryan_library.orchestrators.tuflow.tuflow_culverts_mean import run_culvert_mean_report
 
-
 def main(
     *,
     console_log_level: str | None = None,
@@ -42,70 +47,94 @@ def main(
     locations_to_include: tuple[str, ...] | None = None,
     paths_to_process: tuple[Path, ...] | None = None,
     working_directory: Path | None = None,
+    live_max_rows: int | None = None,
+    live_refresh_per_second: float | None = None,
+    use_live_dashboard: bool | None = None,
+    log_file: Path | None = None,
+    file_log_level: str | None = None,
+    export_raw: bool | None = None,
 ) -> int:
-    """Main entry point for culvert mean peak reporting.
-
-    This function initializes the environment and calls `run_culvert_mean_report`.
-    It resolves configuration by prioritizing CLI arguments, then falling back to the
-    hard-coded constants in this script.
-
-    Args:
-        console_log_level: Overrides the CONSOLE_LOG_LEVEL constant.
-        include_data_types: Overrides the INCLUDED_DATA_TYPES constant.
-        locations_to_include: Overrides the LOCATIONS_TO_INCLUDE (implicit) settings.
-        paths_to_process: Explicit folder roots to scan for result files.
-        working_directory: Overrides the default WORKING_DIR.
-    """
+    """Run the installed library workflow with effective editable and CLI options."""
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
-    script_directory: Path = working_directory or WORKING_DIR
-
+    script_directory = (working_directory if working_directory is not None else WORKING_DIR).expanduser().absolute()
+    selected_roots = paths_to_process or PATHS_TO_PROCESS or (script_directory,)
+    effective_paths = [
+        (item if item.is_absolute() else script_directory / item).expanduser().absolute()
+        for item in selected_roots
+    ]
+    selected_locations = locations_to_include if locations_to_include is not None else LOCATIONS_TO_INCLUDE
+    effective_locations = selected_locations or None
+    effective_data_types = include_data_types or INCLUDED_DATA_TYPES
+    effective_dashboard = USE_LIVE_DASHBOARD if use_live_dashboard is None else use_live_dashboard
+    effective_refresh = LIVE_REFRESH_PER_SECOND if live_refresh_per_second is None else live_refresh_per_second
+    effective_rows = LIVE_MAX_ROWS if live_max_rows is None else live_max_rows
+    effective_console_level = CONSOLE_LOG_LEVEL if console_log_level is None else console_log_level
+    effective_file_level = FILE_LOG_LEVEL if file_log_level is None else file_log_level
+    configured_log_file = LOG_FILE if log_file is None else log_file
+    effective_log_file = None if configured_log_file is None else (
+        (configured_log_file if configured_log_file.is_absolute() else script_directory / configured_log_file)
+        .expanduser().absolute()
+    )
+    validate_dashboard_settings(refresh_per_second=effective_refresh, max_rows=effective_rows)
     if not change_working_directory(target_dir=script_directory):
         return 1
 
-    to_include_data_types: tuple[str, ...] | None = include_data_types or INCLUDED_DATA_TYPES or None
-    effective_console_log_level: str = console_log_level or CONSOLE_LOG_LEVEL
-    effective_locations: tuple[str, ...] | None = locations_to_include
-    effective_paths_to_process: tuple[Path, ...] | None = paths_to_process or PATHS_TO_PROCESS or None
+    try:
+        succeeded = run_culvert_mean_report(
+            script_directory=script_directory,
+            paths_to_process=effective_paths,
+            log_level=effective_console_level,
+            include_data_types=effective_data_types,
+            locations_to_include=effective_locations,
+            export_raw=EXPORT_RAW_MAXIMUMS if export_raw is None else export_raw,
+            use_live_dashboard=effective_dashboard,
+            live_refresh_per_second=effective_refresh,
+            live_max_rows=effective_rows,
+            log_file=str(effective_log_file) if effective_log_file is not None else None,
+            file_log_level=effective_file_level,
+        )
+    except KeyboardInterrupt:
+        print("Create mean culvert peak report interrupted.", file=sys.stderr)
+        return 130
+    except Exception as exc:  # noqa: BLE001 - wrapper converts workflow failures to an exit code
+        print(f"Create mean culvert peak report failed: {exc}", file=sys.stderr)
+        return 1
+    return 1 if succeeded is False else 0
 
-    run_culvert_mean_report(
-        script_directory=script_directory,
-        paths_to_process=effective_paths_to_process,
-        log_level=effective_console_log_level,
-        include_data_types=to_include_data_types,
-        locations_to_include=effective_locations,
-        export_raw=EXPORT_RAW_MAXIMUMS,
-    )
 
-    return 0
-
-
-def _parse_cli_arguments() -> CommonWrapperOptions:
-    """Parse command-line arguments to override script defaults.
-
-    Returns:
-        CommonWrapperOptions: Parsed and processed common arguments.
-    """
+def _parse_cli_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Create culvert mean peak reports. Command-line options override the script defaults."
+        description="Create mean culvert peak report. Command-line arguments override editable wrapper settings."
     )
     add_common_cli_arguments(parser=parser)
-    args: argparse.Namespace = parser.parse_args()
-    return parse_common_cli_arguments(args=args)
+    parser.add_argument("--export-raw", action=argparse.BooleanOptionalAction, default=None)
+    parser.add_argument("--paths-to-process", nargs="+", type=Path, metavar="PATH",
+                        help="Input directory roots relative to working directory.")
+    parser.add_argument("--log-file", type=Path, help="Optional detailed log file.")
+    parser.add_argument("--file-log-level", help="File sink severity, e.g. DEBUG.")
+    return parser.parse_args()
 
 
 if __name__ == "__main__":
-    common_options: CommonWrapperOptions = _parse_cli_arguments()
-    result: int = main(
-        console_log_level=common_options.console_log_level,
-        include_data_types=common_options.data_types,
-        locations_to_include=common_options.locations_to_include,
-        working_directory=common_options.working_directory,
+    args = _parse_cli_arguments()
+    options: CommonWrapperOptions = parse_common_cli_arguments(args=args)
+    result = main(
+        console_log_level=options.console_log_level,
+        include_data_types=options.data_types,
+        locations_to_include=options.locations_to_include,
+        paths_to_process=tuple(args.paths_to_process) if args.paths_to_process is not None else None,
+        working_directory=options.working_directory,
+        live_max_rows=options.live_max_rows,
+        live_refresh_per_second=options.live_refresh_per_second,
+        use_live_dashboard=options.use_live_dashboard,
+        log_file=options.log_file,
+        file_log_level=options.file_log_level,
+        export_raw=args.export_raw,
     )
     print_wrapper_banner(
-        wrapper_file=Path(__file__),
-        wrapper_version=WRAPPER_VERSION,
-        leading_blank_line=True,
+        wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True,
     )
-    if not common_options.no_pause:
+    should_pause = PAUSE_ON_FINISH if options.pause_on_finish is None else options.pause_on_finish
+    if should_pause:
         pause_console()
     raise SystemExit(result)
