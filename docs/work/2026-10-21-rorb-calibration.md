@@ -5,8 +5,8 @@
 | Status | In local validation |
 | Owner | ChatGPT / local maintainer agent |
 | Created | 2026-10-21 |
-| Updated | 2026-10-21 (local validation) |
-| Next review | 2026-10-28 |
+| Updated | 2026-11-02 (PR review follow-up) |
+| Next review | After exact-head CI and permitted local RORB_CMD execution |
 | Baseline | main; feature/rorb-parameter-calibration-20261021 |
 
 ## Outcome and scope
@@ -32,6 +32,12 @@ Use a maintained standalone script under ryan-scripts/RORB-python, without a pre
 - Five additional synthetic test cases were committed for archived-mode scoring, measured CSV inputs, no-write
   invalid input and dry-run. These newly committed changes **have not yet been rerun** under Python 3.14,
   Ruff or Pyright. Earlier local validation covered the prior head only.
+
+## 2026-11-02 review correction
+
+At PR review, an incomplete or nonnumeric hydrograph row could previously end table parsing and score only an apparently valid prefix. The parser now distinguishes textual report footers from numeric data rows and rejects incomplete, nonnumeric and non-finite flow data, with synthetic tests for archived scoring and isolated fresh-run failure reporting. The strict Pyright policy failure on standalone-script import and its test double was also addressed by a repository Pyright extra path and corrected mock typing.
+
+**Awaiting exact-head CI results and permitted Windows RORB_CMD acceptance.** The previous archive provenance applies only to the verified Pilgangoora 15/10/5 report. No fresh licensed executable validation or hydrograph-format compatibility is claimed from these changes.
 
 ## Next action
 
