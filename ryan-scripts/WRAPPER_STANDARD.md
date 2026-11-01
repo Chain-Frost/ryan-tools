@@ -59,6 +59,26 @@ minimal supporting imports. Do not defer imports into `main()` merely to alter
 startup time; use a local import only for an optional or unusually expensive
 dependency on a rarely used code path.
 
+## Substantial batch dashboards
+
+Use the shared [dashboard standard](../docs/DASHBOARDS.md) for workflows
+processing substantial numbers of files, rows or other items. It is a
+preference, not an architectural requirement for small standalone jobs.
+Expose the editable dashboard toggle and any supported CLI override, plus
+refresh/row settings where relevant. Validate effective settings before work,
+preserving explicit `False` and `0` rather than silently substituting
+defaults. Console presentation must not remove worker diagnostics required
+by an independently configured DEBUG file sink; see
+[logging](../docs/LOGGING.md).
+
+Optional progress measures are selected by the workflow. Do not force
+file counts, bytes, percentages or ETA on every wrapper; choose labels,
+units and metadata that match the domain. Unknown is not zero. File-size
+metadata is not a measured byte-read counter. Keep processing, aggregation
+and export phases explicit so a finished file batch does not prematurely
+report overall success. Headless use never draws animated frames or waits
+for a keypress; terminal detection and pause settings are independent.
+
 ## Embedded identity
 
 Every maintained wrapper must contain a date-based version that travels with a
