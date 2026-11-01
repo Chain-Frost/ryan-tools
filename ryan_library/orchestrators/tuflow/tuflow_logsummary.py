@@ -327,6 +327,7 @@ def process_log_files(
     dashboard: LiveWorkflowDashboard | None = None,
 ) -> list[LogFileProcessingResult]:
     pool_size = calculate_pool_size(num_files=len(files))
+    logger.debug("Log summary selected console level: {}", console_log_level)
     logger.info(f"Processing {len(files)} files using {pool_size} processes.")
 
     if dashboard is None:
