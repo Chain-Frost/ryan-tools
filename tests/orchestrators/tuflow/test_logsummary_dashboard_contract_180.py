@@ -45,7 +45,8 @@ def test_real_spawn_diagnostics_and_debug_file(tmp_path: Path, enabled: bool) ->
 
 @pytest.mark.parametrize("enabled", [False, True])
 def test_processing_selection_order_and_results_do_not_depend_on_display(
-    tmp_path: Path, enabled: bool,
+    tmp_path: Path,
+    enabled: bool,
 ) -> None:
     files = [tmp_path / "b.tlf", tmp_path / "a.tlf"]
     for path in files:
