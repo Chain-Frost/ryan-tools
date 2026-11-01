@@ -40,7 +40,7 @@ def test_real_spawn_diagnostics_and_debug_file(tmp_path: Path, enabled: bool) ->
     assert all(f"DASH_WORKER_DEBUG {n}" in detail for n in (1, 2, 3))
     assert all(f"DASH_WORKER_INFO {n}" in detail for n in (1, 2, 3))
     assert "DASH_WORKER_ERROR 2" in detail
-    assert "OSError: synthetic worker failure" in detail
+    assert "ValueError: synthetic worker failure" in detail
 
 
 @pytest.mark.parametrize("enabled", [False, True])
@@ -151,3 +151,38 @@ def test_spawn_callback_interruption_cleans_up_pool_and_logging(tmp_path: Path) 
     assert run.stdout.count("Spawn smoke: INTERRUPTED") == 1
     assert "\x1b[" not in run.stdout
     assert log.is_file()
+
+
+def test_many_fast_spawned_tasks_do_not_deadlock_at_pool_join(tmp_path: Path) -> None:
+    """A bounded start queue must not block worker-exit feeder threads."""
+    log = tmp_path / "fast.log"
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(ROOT)
+    run = subprocess.run(
+        [sys.executable, str(HARNESS), "--log-file", str(log), "--fast-count", "10000"],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        env=env,
+        timeout=90,
+        check=True,
+    )
+    assert "FAST_BATCH_COMPLETE 10000" in run.stdout
+    assert "Spawn smoke: SUCCESS" in run.stdout
+    assert "\x1b[" not in run.stdout
+
+
+def test_real_spawn_pool_oserror_propagates_for_consumer_fallback(tmp_path: Path) -> None:
+    log = tmp_path / "transport.log"
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(ROOT)
+    run = subprocess.run(
+        [sys.executable, str(HARNESS), "--log-file", str(log), "--pool-oserror"],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        env=env,
+        timeout=60,
+        check=True,
+    )
+    assert "POOL_OSERROR_PROPAGATED" in run.stdout
