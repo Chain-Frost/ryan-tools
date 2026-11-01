@@ -194,22 +194,10 @@ def add_live_dashboard_cli_arguments(parser: ArgumentParser) -> None:
 
 def add_no_pause_cli_argument(parser: ArgumentParser) -> None:
     """Add the standard automation-friendly switch for skipping console pauses."""
-    pause_group = parser.add_mutually_exclusive_group()
-    pause_group.add_argument(
+    parser.add_argument(
         "--no-pause",
-        action="store_const",
-        const=True,
-        default=None,
-        dest="no_pause",
+        action="store_true",
         help="Exit immediately after processing instead of waiting for interactive input.",
-    )
-    pause_group.add_argument(
-        "--pause",
-        action="store_const",
-        const=False,
-        default=None,
-        dest="no_pause",
-        help="Allow the wrapper's interactive pause, even when its editable default disables it.",
     )
 
 
