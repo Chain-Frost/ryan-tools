@@ -2,15 +2,15 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Implemented and validated at `dcdf3d0`; independent review pending |
-| Owner | ChatGPT (implementation); independent reviewer pending |
+| Status | Independently reviewed; awaiting maintainer final review of draft PR #182 |
+| Owner | ChatGPT (implementation and independent review); maintainer final decision |
 | Created | 2026-11-01 |
 | Updated | 2026-11-01 |
 | Next review | 2026-11-08 |
 | Issue | [#136](https://github.com/Chain-Frost/ryan-tools/issues/136) |
 | Baseline | [main at 99cd3cc](https://github.com/Chain-Frost/ryan-tools/commit/99cd3ccaaabd83b682392f7e285d90b570d353cb), merge commit ddcf6e7 |
 | Delivery branch | `feat/mcp-workflow-discovery-136`, targeting `main` |
-| Delivery state | PR #182 draft; Python 3.14 hosted checks, verified wheel and isolated installed-wheel discovery all passed at `dcdf3d0`; independent review pending |
+| Delivery state | PR #182 remains draft/unmerged. Reviewer fix and regression test are committed at `5f9aa7e`; source and final-head CI receipts are linked from the PR. No release. |
 
 ## Outcome and scope
 
@@ -178,7 +178,7 @@ Target the repository's Windows/Python 3.14 environment and current annotation s
 - [x] Full catalogue and health totals remain complete; no catalogue preload or execution is introduced.
 - [x] Actual installed-wheel discovery proves packaged keywords and overview work outside the checkout.
 - [x] Focused tests, relevant formatting/typing, documentation checks and package verification pass at tested source `dcdf3d0`.
-- [ ] Independent review findings are resolved or explicitly reported; the PR and work record match delivered behavior.
+- [x] Independent review findings are resolved or explicitly reported; the PR and work record match delivered behavior.
 
 ## Validation and delivery
 
@@ -204,9 +204,10 @@ Implementation commits:
 - `94b562c` extends focused model/registry/server regression coverage and the actual installed-wheel smoke.
 - Documentation records and the final exact-head validation receipt follow in subsequent commits.
 
-The code, focused tests and actual installed-wheel acceptance criteria passed on Python 3.14 at tested source
-`dcdf3d04169b9b1028d28d6f23fc2312229ba443`. Independent review is the sole remaining acceptance stage.
-The next documentation-only commit records this receipt; recheck its final head before sign-off.
+The implementation, focused tests and actual installed-wheel acceptance criteria passed on Python 3.14 at tested
+source `dcdf3d04169b9b1028d28d6f23fc2312229ba443`. Independent review subsequently found and fixed a
+positional-constructor compatibility regression at `5f9aa7ed93ca01c87de03e5bb541001708c46985`.
+The PR description records final-head CI evidence after the documentation acceptance receipt is pushed.
 
 Run focused MCP tests sufficient to cover this contract and existing safety boundaries. Use current repository
 formatting/lint guidance and strict Pyright on modified Python files. Record exact commands, environment and results.
@@ -248,6 +249,38 @@ failure. Skips in the Hosted suite include deliberate opt-in real GDAL/QGIS, UNC
 No licensed TUFLOW or HY-8 execution, external binary readiness, real GIS acceptance, release or publication occurred.
 Script execution/approval policies were unchanged. The final documentation-only receipt commit needs its own exact-head
 CI confirmation; this record captures the implementation SHA and reproducible commands, not a fabricated receipt.
+
+### Independent review and source verification — 2026-11-01
+
+- **Reviewed original PR head:** [`4215cc2`](https://github.com/Chain-Frost/ryan-tools/commit/4215cc29ca6bea5e94a853c74d33479c9455ef82)
+  against `main` at `99cd3cc` (zero commits behind). Independently inspected the diff, review threads (none),
+  model, both catalogue loaders, registry and server, tests, full health/catalogue, documentation and wheel smoke.
+- **Substantiated defect:** Inserting `WorkflowSpec.keywords` before `metadata` changed the public dataclass
+  positional signature; valid callers with an eleventh positional `metadata` argument could fail validation.
+  [`5f9aa7e`](https://github.com/Chain-Frost/ryan-tools/commit/5f9aa7ed93ca01c87de03e5bb541001708c46985)
+  restores the original argument position and adds a targeted positive regression test. It changes no catalogue
+  entry, workflow summary, approval rule, capability profile or external execution path.
+- **Hosted Python 3.14 source verification:** [Fast PR checks #41281038047](https://github.com/Chain-Frost/ryan-tools/actions/runs/41281038047)
+  passed Ruff/whitespace; [Python CI #41281037984](https://github.com/Chain-Frost/ryan-tools/actions/runs/41281037984)
+  runs Policy, MCP smoke, Hosted tests, Package and POSIX wrapper security. Strict Pyright reported **0 errors,
+  0 warnings**; focused MCP discovery and safety coverage reported **95 passed, 1 warning** and focused utility
+  regressions **73 passed, 22 warnings**. Package and security jobs passed; GitHub Actions is authoritative for
+  each remaining job outcome and the PR description records the final exact-head results.
+- **Actual distribution:** Package CI built and verified `ryan_tools-26.11.1.1-py3-none-any.whl` and logged
+  **Wheel-only MCP keyword search and domain overview passed** and **Installed-wheel smoke test passed**, from
+  a neutral installed location with no checkout discovery. This is not a synthetic layout substitute.
+- **Review conclusions:** Shared keyword validation/normalization and literal all-word matching remain deterministic;
+  canonical IDs, default listing shape, profile ceilings and availability filtering are preserved. Overview
+  counts and examples use the entire filtered set before deterministic domain pagination, exclude hidden records,
+  and include at most three entries containing only `id`, `title`, `available`. Health and catalogue totals remain
+  complete, the server is a thin adapter, and no review threads were open.
+- **Limitations:** No real licensed TUFLOW/HY-8/GDAL/QGIS execution, UNC/mapped-drive or long-path engineering
+  acceptance was performed; those are outside #136. This review environment could not clone the repository because
+  outbound GitHub DNS was unavailable, so the reported Windows/Python 3.14 acceptance and installed-wheel execution
+  rely on inspected GitHub Actions logs rather than a second local test run. No release, merge or auto-merge occurred.
+
+The documentation receipt is a separate forward commit; confirm that commit's exact-head required checks using
+the PR description. Source test results alone are not proof for a later head.
 
 ## Agent 1 prompt — implementation
 
@@ -323,10 +356,9 @@ state whether it is ready for the user's final review.
 
 ## Next action
 
-Agent 2 should fetch the latest draft PR #182 head and `main`, independently review the exact implementation and
-all five Python 3.14 gates, inspect the isolated wheel evidence and confirm that no safety rule changed. Apply only
-substantiated fixes on this branch, or report findings. The user retains merge authority; no release, auto-merge or
-force-push. Record the final documentation receipt commit's exact-head CI outcome before declaring full acceptance.
+The maintainer should review the existing [draft PR #182](https://github.com/Chain-Frost/ryan-tools/pull/182),
+including the independent compatibility fix and exact-head CI receipts in the PR description. The branch remains
+unmerged; any merge and later release require separate authorisation.
 
 ## Progress
 
@@ -348,3 +380,10 @@ installed-wheel smoke assertions; validation outcomes are recorded separately on
 The implementation and all five Python 3.14 CI jobs passed at `dcdf3d0` with the exact commands/results above.
 Actual installed-wheel discovery of all curated terms and the complete paginated domain overview passed outside
 checkout. PR #182 stays draft and unmerged, pending independent review.
+
+### 2026-11-01 — independent review and handoff
+
+Independently audited the delivery against the agreed contract at `4215cc2`, corrected the existing public
+`WorkflowSpec.metadata` positional-argument regression with a targeted test at `5f9aa7e`, and examined hosted
+source CI and isolated installed-wheel discovery. The next step is maintainer final review of draft #182 after
+exact-head CI is verified and recorded in its description.
