@@ -63,7 +63,7 @@ These documents stay near the code they describe so that browsing a target direc
 | Vendored algorithms | [Vendor inventory](../vendor/README.md) | Third-party PyHMA and simil source, licence, import and packaging policy |
 | Vendored `simil` | [`simil` upstream README](../vendor/simil/README.md) | Bundled similarity-transform implementation, usage and upstream attribution |
 | Vendored `PyHMA` | [`PyHMA` README](../vendor/PyHMA/README.md) | Hydrograph matching usage, requirements and upstream attribution |
-| TUFLOW preflight regression harness | [Repository regression tooling](../tests/fixtures/tuflow_example_repro/README.md) | Supported Windows archive/parity checks and optional private-model diagnostic; source data remains in the test-data submodule |
+| TUFLOW public input-preflight smoke | [TUFLOW input preflight](TUFLOW_INPUT_PREFLIGHT.md) | Windows Python 3.14 public PyTUFLOW PR17 smoke, incompatible same-version rejection and retained scoped test-data fixtures; superseded archive/parity harness retired |
 
 ## Integrations
 
@@ -97,8 +97,16 @@ but they are not current architectural policy when they conflict with the canoni
 
 | Document | Scope and status |
 | --- | --- |
-| [TUFLOW proposed-run input preflight](work/2026-10-21-tuflow-input-preflight.md) | PR #143 read-only PyTUFLOW checks, integrated simulation preflight and standalone wrapper; pending validation |
+| [TUFLOW proposed-run input preflight](work/2026-10-21-tuflow-input-preflight.md) | PR #143 read-only PyTUFLOW checks, integrated simulation preflight and standalone wrapper; merged as bcc8e5c, with separate follow-up records |
 | [TUFLOW batch preflight optimisation](work/2026-10-22-tuflow-batch-preflight-optimisation.md) | Stacked draft against PR #143: consume PyTUFLOW batch API, share GIS/filesystem inspection, preserve parity and benchmark 500-run workloads |
+| [TUFLOW runner model checks](work/2026-10-23-tuflow-runner-model-checks.md) | PR #159 current decisions, implementation, validation and delivery state |
+| [TUFLOW scope index](work/2026-10-31-tuflow-integration-scopes/00_scope_index.md) | Agreed shared decisions, ownership, dependencies and delegation order for #159 and follow-ups |
+| [TUFLOW scope 01: PyTUFLOW integration](work/2026-10-31-tuflow-integration-scopes/01_pytuflow_integration.md) | Sole PR17 API, capability guard, existing installer, local raster removal and obsolete-path retirement |
+| [TUFLOW scope 02: shared command plans](work/2026-10-31-tuflow-integration-scopes/02_shared_command_plan.md) | BAT/text syntax, multiple TCFs, strict Python-TCF consistency, per-run directories and provenance |
+| [TUFLOW scope 03: runner and exports](work/2026-10-31-tuflow-integration-scopes/03_runner_wrappers_export.md) | Thin wrappers, child ownership, advisory checks, startup GPU warning and editable command export |
+| [TUFLOW scope 04: CSV continuation](work/2026-10-31-tuflow-integration-scopes/04_csv_resume.md) | Integrated one-CSV Resume/Run all component without recovery scans |
+| [TUFLOW scope 05: upstream raster headers](work/2026-10-31-tuflow-integration-scopes/05_pytuflow_raster_headers.md) | Prepared independent PyTUFLOW issue/implementation handoff; public opt-in metadata validation |
+| [TUFLOW scope 06: acceptance](work/2026-10-31-tuflow-integration-scopes/06_integration_acceptance.md) | Cross-package contracts, installed-wrapper validation and separate parent/child acceptance |
 | [Vendor simil and PyHMA integration](work/2026-10-19-vendor-integration.md) | PR #139 packaging, licence notices, independent imports, similarity API and validation |
 | [Installed scripts and distribution rename](work/2026-10-18-installed-scripts.md) | PR #120 wheel scripts, automatic MCP resolution, removed import shim and PyPI name migration |
 | [Installed scripts and MCP requirements](work/2026-10-17-installed-scripts-mcp-pip-distribution.md) | PR #130/#137: corrected wrapper copying, provisional packaging and outstanding engineering acceptance |

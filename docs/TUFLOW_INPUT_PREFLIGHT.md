@@ -1,304 +1,291 @@
-# TUFLOW simulation input preflight
+# TUFLOW proposed-run input preflight
 
-The read-only preflight validates **proposed runs**, not just the literal contents of a TCF. It uses PyTUFLOW to
-resolve each proposed combination of events and scenarios, recursively finds active input commands, and checks their
-referenced files. It also reads the active BC database and checks its event-resolved Source CSV paths.
+The read-only input check uses the public PyTUFLOW batch validator from the
+[accepted PR #17 source](https://github.com/Chain-Frost/PyTuflow/commit/05e35476c02d6d8ed17c83caf1cb0d185ce51d1b).
+It validates the **actual planned runs**, not all possible combinations.
+Input validation is not TUFLOW execution and never modifies model inputs.
 
-**No TUFLOW simulation is executed.** This is not an equivalent of the engine's full initialisation or validation.
-It does not verify GIS geometry, hydrology, CSV time-series columns/content, the existence of all files referenced
-inside every possible GIS attribute, or TUFLOW engine-specific syntax unknown to PyTUFLOW. A passing check does not
-guarantee a successful hydraulic simulation.
+## Installation and compatibility
 
-## Install
+The supported temporary PyTUFLOW requirement is maintained in
+[`repo-scripts/pytuflow-requirement.txt`](../repo-scripts/pytuflow-requirement.txt).
+The source revision is immutable until a separately accepted official release
+provides the required public API. Public package metadata retains the publishable
+version range `pytuflow>=1.2,<2`; a matching version number alone does **not**
+prove compatibility. Another PyTUFLOW 1.2.7 build lacks the batch validation API.
 
-Use your normal Python 3.14 installation and the supported installer or repository
-setup in the [environment guide](ENVIRONMENTS.md). That setup installs the binary
-GIS prerequisites before the package. A plain PyPI-only install on an empty
-Windows environment is a different dependency-installation check from the
-isolated fork integration workflow.
+For normal Windows installation, run `install-ryan-tools.bat`. It uses the
+selected normal Python installation, installs the published package together
+with the accepted PyTUFLOW source, and checks the result. No separate parser
+installation or virtual environment is required. To preview the same PyPI route:
 
-PyTUFLOW is a standard `ryan-tools` dependency (`pytuflow>=1.2,<2`) and installs
-automatically; no separate extra is needed. Copied wrappers require the installed
-package. Do not insert checkout paths into sys.path.
+```powershell
+py -3.14 repo-scripts\install_from_pypi.py --dry-run
+```
 
-The standalone checker and launcher use `context_mode="individual"`. If the
-installed parser lacks the deferred API, the checker uses eager discovery with a
-warning. A compatible development fork enables individual deferred collection and
-its typed secondary-source APIs; installing the normal package does not install
-that fork. Explicit batch collection is described below. Parser capability limits
-remain relevant to the dependencies that can be checked.
+For a built local `ryan-tools` wheel in `dist/`:
 
-## GPU sharing warning
+```powershell
+py -3.14 repo-scripts\install_latest_wheel.py --dry-run
+py -3.14 repo-scripts\install_latest_wheel.py
+```
 
-The TUFLOW batch launcher checks the GPUs selected for each simulation immediately before starting its
-process. By default, `warn_gpu_sharing=True`. If another **live local TUFLOW process** has an overlapping
-explicit `-puN` assignment, the launcher prints a yellow warning identifying the GPU and process ID.
-This includes other runs started by the current launcher and simulations launched separately.
+The normal installer preserves the GIS binary-wheel index and Fiona/Rasterio/GDAL
+bootstrap. Both normal routes explicitly reinstall only the accepted parser,
+then resolve it with the requested package and all dependencies, run `pip check`
+and verify public capabilities. The parser-specific reinstall replaces an
+incompatible build even when its version matches; the GIS dependencies are not
+subject to forced reinstall.
+Any installation or verification failure stops before reporting success.
 
-No warning is issued for a GPU with no confirmed conflicting assignment. If an existing TUFLOW process has
-no explicit `-puN` switch, or the process table cannot be inspected completely, the launcher reports that
-GPU exclusivity cannot be established rather than incorrectly declaring the GPU free. No GPU allocation is
-changed, no running process is terminated and no launch is delayed by this feature.
+Development installation can use:
 
-GPU IDs come from live process command lines. This follows the activity tracker's distinction between active
-processes and historical TLF records, but deliberately does not infer GPU occupancy from a potentially stale TLF.
-CodeMeter licence allocations also do not prove which local GPU is occupied.
+```powershell
+py -3.14 -m pip install --force-reinstall --no-deps -r repo-scripts\pytuflow-requirement.txt
+py -3.14 -m pip install -r requirements.txt
+py -3.14 -m pip check
+```
 
-## Launcher integration
+The requirements file includes the same pinned PyTUFLOW source and resolves its
+dependencies. The preceding parser-only replacement is necessary because pip
+can retain an existing incompatible build when its version number matches.
+Run the capability diagnostic below after installation. An existing PyPI
+installation without the public API is not supported for input checking.
+`--dependencies-only` installs GIS dependencies without a local wheel or
+validation verification; `--force-reinstall` reinstalls only the wheel with
+`--no-deps` and does not verify or alter the parser. A `--dry-run` performs
+neither installation nor capability verification.
 
-Edit the settings at the top of the maintained
-ryan-scripts/TUFLOW-python/model_management/run_tuflow_simulations.py:
+Programmatic capability diagnosis (no model parse, installation or network I/O):
 
-    preflight_check=True,
-    preflight_check_gpkg_layers=True,
-    preflight_report_csv=Path("run_tuflow_simulations_preflight.csv"),
+```python
+from ryan_library.functions.tuflow.pytuflow_compatibility import (
+    check_validation_capabilities,
+    require_validation_api,
+)
 
-The preflight runs **after** the existing parameter-product/textfiles/both builders have created, deduplicated and
-exported the exact simulation list, but **before** any TUFLOW process starts. The launcher keeps
-preflight_check=False for this release; enabling it remains an explicit user choice. Use command-line overrides:
+print(check_validation_capabilities().message)
+api = require_validation_api()  # Raises with an installation remedy if unavailable
+```
 
-    python run_tuflow_simulations.py --preflight-only --no-pause
-    python run_tuflow_simulations.py --preflight --no-pause
+Diagnostics include the selected interpreter, installed distribution version,
+module location, available direct-url source provenance and missing capability or
+transitive dependency. A local checkout shadowing the installed package is
+diagnosed. The source metadata is advisory when not recorded; the public API and
+actual validation result shape still need to pass.
 
-The first command generates the run list and checks it without launching a simulation. The second checks it and
-launches the batch only if every input check passes. The preflight-only option takes precedence over run_simulations.
+## BAT/text input and multiple TCFs
 
-## Standalone checker
+The checker and Windows runner use the same static command reader. Both capture
+the inherited environment; every input file then has its own SET, SETLOCAL and
+directory state. Repeated `--runs` on the checker, or `INPUT_FILES` in the runner,
+combine independent sources in their supplied order, discarding repeated equivalent TCF/flag selections and retaining their first source location.
 
-Copy the maintained check_tuflow_inputs.py wrapper into the project and edit DEFAULT_TCF and DEFAULT_COMMANDS.
-It uses the exact run combinations in the exported commands file. Alternatively pass CLI paths:
+For example, a text file may contain:
 
-    python check_tuflow_inputs.py --tcf "runs\MODEL_01_~s1~_~e1~_~e2~.tcf" --runs run_tuflow_simulations_commands.txt --report input_preflight.csv --no-pause
+```bat
+REM This row is a comment, not a simulation.
+set "TCF_05=runs\model_05_~e1~.tcf"
+TUFLOW.exe -e1 A "%TCF_05%"
+TUFLOW.exe -e1 B "%TCF_05%"
+set "TCF_06=runs\model_06_~e1~.tcf"
+TUFLOW.exe -e1 A "%TCF_06%"
+```
 
-The CSV lists one missing/unresolved dependency per affected run. A single missing BC source may therefore appear
-for multiple runs. The console reports total proposed runs, unique file paths, issues and affected runs.
+The first two runs use `TCF_05`; the third uses `TCF_06`. A bare row such as
+`-e1 A` requires a current `SET TCF` value or an explicit Python TCF fallback.
+Set the Python TCF to `None` for multiple imported models. When Python supplies
+a TCF, every active imported TCF must match it; a mismatch reports the paths and
+source location before validation, export, CSV history changes or execution.
+TCF consistency checks compare the effective paths without querying network
+drive mappings. Each versioned runner has its own adjacent CSV, and Resume
+uses the TCF filename and effective flags rather than the complete path.
 
-For large batches, the checker first collects the parser's active dependencies for every requested run. It then deduplicates required
-paths and scans each parent directory with at least 8 unique required files **once**, capped at 50,000 directory entries.
-Sparse or exceptionally large directories use one targeted existence check per unique file. Referenced GeoPackage
-layers are queried together using one read-only connection per GeoPackage. Results are mapped back to every affected
-run and TUFLOW command, without repeat network file checks. These limits may be tuned through the library API;
-the default avoids recursive network-drive scans. Output Folder, Log Folder and Write Check Files locations are
-excluded because TUFLOW creates these destinations.
+| Input feature | Supported behavior |
+| --- | --- |
+| Comments | REM/@REM and full-line `::`; text command lists also allow full-line `#`, `;` and `//`. |
+| Variables | Quoted or plain SET, reassignment/unset, case-insensitive `%NAME%`, `%CD%` and `%~dp0`; undefined variables fail. |
+| Directories | CD/CHDIR with optional `/D`, local/mapped PUSHD/POPD, and per-run START `/D`; paths retain their intended base. |
+| Run rows | Direct TUFLOW invocations, supported START forms and bare numbered event/scenario rows. |
+| Arguments | Numbered event/scenario pairs, supported engine switches, individual `-puN` tokens and numeric `-etN` switches. |
+| Text | Quoted values and paths, UTF-8/BOM by default, explicit encoding override, and supported terminal-caret continuation. |
+| Boundaries | No shell execution, IF/FOR/CALL, general GOTO, pipelines, redirection or delayed expansion. Unsupported active syntax fails the complete plan. |
 
-Network performance depends on filesystem layout, latency and number of entries per directory; a complete recursive
-directory listing is deliberately avoided.
+The standalone reader and checker select batch syntax for `.bat` and `.cmd`,
+and command-list syntax for `.txt`. The Python runner reads all three extensions
+as inert command lists, allowing UNC working directories and UNC directory
+declarations without requiring CMD drive mapping. The reader does not execute
+commands. It preserves each run's source
+file/line, effective TCF, executable, working directory and model flags.
 
+The Python runner treats every BAT/TXT file as **inert data**. It never runs
+the source file or any source START, CD or executable command. Source SET and
+directory declarations are interpreted only to resolve model selections and
+TCF references. The Python wrapper exclusively supplies the solver executable,
+child working directory, `BATCH_COMMANDS`, GPU groups, concurrency and
+priority. Source executable, batch engine and GPU settings are ignored. The
+checker preserves source path interpretation for reporting.
+Generated and imported paths use the same lexical normalization for plan
+comparison, so parent-relative spellings such as `..\runs\model.tcf` do not
+create duplicate runs or fail TXT export. This does not query drive mappings
+or dereference links.
+The [wrapper guide](../ryan-scripts/TUFLOW-python/README.md) describes the fixed
+TXT export and single-CSV Resume workflow.
 
-### Experimental shared-TCF batch collection (PR #148)
+The standalone checker has a visible, editable settings section. `RUN_FILES`
+selects its BAT/TXT inputs, `TCF = None` permits multiple models, and
+`WORKING_DIR` controls the base for imported commands **and relative
+`RUN_FILES`/`--runs` filenames** (regardless of the invoking terminal's
+cwd); absolute command-file paths remain unchanged. The shipped input is
+`run_tuflow_simulations.txt` beside the checker; point `RUN_FILES` at a
+version-specific TXT when applicable. No `DEFAULT_` prefix is required.
 
-**Development-only Python API.** An opt-in `context_mode="batch"` uses
-[PyTUFLOW batch optimisation PR #5](https://github.com/phantom-branch/PyTuflow/pull/5)
-to collect immutable per-run source references for a whole proposed batch.
-The common preflight then performs the *same* wildcard, Shapefile/GeoPackage,
-secondary database source, raster metadata and file-existence checks.
-The default is still `context_mode="individual"`, and the maintained
-standalone checker and simulation launcher do not enable batch mode.
+It prints findings in the terminal by default:
 
-For a development fork installed in an isolated test environment:
+```powershell
+py -3.14 check_tuflow_inputs.py --runs runs.txt --working-directory "T:\project" --no-pause
+```
+
+All supported checks run together, including selected GeoPackage layers and
+boundary CSV headers. There is no separate layer toggle in the standalone
+wrapper. Set `REPORT_CSV = Path("issues.csv")` or supply `--report issues.csv`
+for a new CSV; existing reports are not overwritten.
+`--plan-only` checks the static plan without inspecting model inputs. An explicit
+`--plan-report new_plan.json` creates a new diagnostic manifest; Resume does not
+require or use that manifest.
+
+## Supported checks
+
+`check_simulation_inputs()` is the single physical-validation consumer.
+PyTUFLOW checks referenced input files, filename wildcards, selected GeoPackage
+layers, recognised GIS attribute-linked sources and named boundary-condition
+CSV column selectors. The application explicitly enables
+`ValidationOptions(check_bc_csv_headers=True)` when supplying resource limits.
+The checks are bounded by upstream directory and I/O controls and operate
+without a QGIS application or TUFLOW engine process.
+
+The runner's `CHECK_INPUTS` setting enables or disables the complete advisory
+check, including selected GeoPackage layers. There is no separate layer toggle
+in the runner. Explicit preflight-only operation waits for those same checks
+and launches no solver processes.
+
+**This release does not inspect raster headers, projections, pixel data or raster
+validity.** Required raster files still undergo the ordinary file availability
+checks. Rasterio remains installed because other maintained features use it.
+Header validation will return only after it is supported by a public PyTUFLOW
+option in a separately reviewed change.
+
+A finding retains the upstream source command, path, selected layer, owning
+control file, database context, type, detail and original planned run identity.
+Statuses are distinct:
+
+- **missing:** a required file, wildcard match, layer or CSV selector is absent.
+- **unresolved:** the parser or inspector cannot establish the requirement
+  conclusively, including unreadable sources and failed run contexts.
+- **unsupported:** the input feature/schema cannot safely be validated.
+
+A passing preflight is an input-existence/selection check, not a guarantee of
+model correctness or compatibility with a particular solver.
+
+## Application boundary
+
+The BAT/text planner and generated parameter plan retain the first occurrence
+of each effective TCF/event/scenario/retained-model-option selection, with source
+file/line provenance. The checker can group the parsed source context by TCF and
+working directory. In the Python runner, executable and child working directory
+are supplied exclusively by Python settings. The validator receives structured argument mappings
+rather than flattened display strings (which can lose values containing spaces).
+PyTUFLOW's zero-based finding indices are restored **once** to the supplied
+global planned-run indices; interleaved distinct selections and sparse Resume
+indices are retained, while duplicates are discarded.
 
 ```python
 from pathlib import Path
-from ryan_library.orchestrators.tuflow.input_preflight import (
-    RunRequest,
-    check_simulation_inputs,
-)
+from ryan_library.orchestrators.tuflow.input_preflight import RunRequest, check_simulation_inputs
 
-runs = (
-    RunRequest(1, {"s1": "EXG", "e1": "10.0p"}),
-    RunRequest(2, {"s1": "DEV", "e1": "10.0p"}),
-)
-report = check_simulation_inputs(
-    Path("runs/model.tcf"), runs, context_mode="batch"
-)
+runs = [
+    RunRequest(1, {"s1": "Existing", "e1": "Q100"}),
+    RunRequest(2, {"s1": "Future Works", "e1": "Q100"}),
+]
+report = check_simulation_inputs(Path("runs/model.tcf"), runs)
+
+if not report.passed:
+    for issue in report.issues:
+        print(issue.run_index, issue.status, issue.origin, issue.reference, issue.detail)
 ```
 
-The opt-in batch mode refuses an unavailable/incomplete fork API and
-ambiguous stateful database activations; it does **not** silently fall
-back or treat partial references as valid. No TUFLOW process launches.
-The supported repository regression replay is `python -m
-tests.fixtures.tuflow_example_repro.run_checks --batch`; see the
-[harness guide](../tests/fixtures/tuflow_example_repro/README.md). It is not a shipped wrapper. Windows CI pins the
-development fork separately; standard ryan-tools keeps its published
-PyTUFLOW dependency and normal launcher defaults.
+The group/plan orchestrator owns source-line attachment and per-group exceptions.
+Its findings compose the original `PreflightIssue` with the `PlannedRun`, so the
+full upstream detail is retained alongside command provenance. Original run
+indices may be sparse after Resume selects pending work; they remain unique
+positive identifiers and are never renumbered to satisfy the checker.
+If a group fails to return complete findings, the affected runs must be reported
+as failed/unresolved, never counted as passing. Bad command syntax, conflicting
+configured Python TCF and other plan/configuration errors are **fatal** before
+checks, exports or solver launch, rather than advisory input findings.
 
-[Windows CI 39716802481](https://github.com/Chain-Frost/ryan-tools/actions/runs/39716802481)
-verified eager, individual deferred and batch identities on all
-161 archived TCFs / 174 simulations, with matching per-run public
-preflight issues and checked paths. This does **not** validate
-production network-drive performance, native model parity or complete
-GIS BC feature-to-active-database selection. The user withdrew the
-separate 42-run model as a merge gate.
+The standalone checker and explicit preflight-only runner mode fail with a
+nonzero exit if validation is unavailable or incomplete. Normal runner preflight
+is advisory: a failed check must be visible but must not block ordinary
+simulation scheduling. Help, plan-only, command-export and checking-disabled
+modes do not import or use PyTUFLOW's validation stack.
 
-### Ordered-input batch projection (experimental)
+## Regression coverage
 
-The [PyTUFLOW PR #6](https://github.com/phantom-branch/PyTuflow/pull/6)
-batch API adds `ordered_inputs`, which describes **every** active command,
-including output settings, variable assignments and database selections with
-no file reference. The batch adapter now reproduces that exact command
-sequence using each command's UUID, ordinal, owning control file and line.
-It refuses duplicate/missing ordinals, orphaned file references and mismatched
-provenance instead of silently accepting an incomplete inventory.
-Each ordered command must also supply the independent `reference_count` contract;
-the adapter checks that its owned projection contains exactly that many references.
-Absent counts or coordinated omissions from both flattened reference tuples fail
-closed, while genuine zero-reference settings remain valid.
+The dedicated Windows Python 3.14
+[`TUFLOW input validation`](../.github/workflows/tuflow-input-validation.yml)
+workflow is retained because it checks the immutable accepted PyTUFLOW source,
+deliberately rejects an incompatible same-version build, and replays the entire
+public example archive. The standalone command-plan and CSV unit tests already
+run in the main Hosted tests; the separate scope-specific workflows are retired.
+This workflow installs the exact accepted PR17 archive and exercises real public
+file, selected-layer, BC CSV, GIS-linked-source and mapping checks, plus
+same-version incompatibility, broken transitive imports, shadowed packages,
+incomplete group results, lazy imports and installer dry-run commands.
 
-This enables the existing consumer's multiple-`BC Database` logic to bind
-each `Read GIS BC/SA/RF` command to the **latest preceding active**
-database declaration and select only its associated Name/Source entries.
-The adapter exposes source rows by declaration UUID; requesting their
-aggregate when multiple BC databases are active fails closed. Unsupported
-schemas and ambiguous declarations remain unresolved.
+The same workflow also runs
+[`test_example_models_real.py`](../tests/orchestrators/tuflow/test_example_models_real.py)
+against the checksum-verified permanent example archive in `tests/test_data`.
+It reads all 21 simulation BAT files as text, retaining SET values and event/scenario
+flags through the production command planner. Repeated aggregate selections are
+deduplicated for this coverage sweep, retaining their first source location.
+TCFs absent from the batches receive a no-flag context. Coverage must match the
+fixture's per-TCF baseline: **161 TCFs / 174 unique run combinations**.
+The separate empty-GIS creation BAT is excluded. The two aggregate BATs' fixed
+executable-existence guards are stripped only by the fixture reader, preserving
+source line numbers; this does not add general IF/EXIT support to the planner.
 
-For backwards compatibility, batches without `ordered_inputs` keep the
-previous reference-bearing command projection and **reject** multiple
-stateful BC activations. This is an opt-in development path; the default
-individual collector and normal published PyTUFLOW dependency are unchanged.
-The dedicated
-`.github/workflows/tuflow-ordered-batch-contracts.yml` workflow installs
-the pinned upstream PyTUFLOW PR #13 reference-count contract (`d4a47d1`, based on merged PRs #6–#10) for Windows-focused regressions and the public
-161-TCF/174-run eager/deferred/batch differential replay. Native benchmarking is
-separate follow-up work on the designated workstation. The owner has offered a
-new model on a different SMB server; record its exact parser/consumer source pair
-and workload rather than applying earlier model timings to it. No project inputs
-are uploaded and no solver runs. Passing synthetic contracts alone does not
-establish materialised completeness for a new model.
+Run locally on Windows Python 3.14 with the accepted parser and native GIS dependencies:
 
-### Deferred PyTUFLOW integration (development)
+```powershell
+git submodule update --init tests/test_data
+$env:TUFLOW_EXAMPLE_REPORT_DIR = Join-Path $env:TEMP ("tuflow-examples-" + [guid]::NewGuid())
+python -m pytest -q --tb=short tests/orchestrators/tuflow/test_example_models_real.py
+```
 
-When installed PyTUFLOW implements the provisional API in
-[phantom-branch/PyTuflow PR #1](https://github.com/phantom-branch/PyTuflow/pull/1),
-the preflight calls `model.context(flags, file_resolution="deferred")` and reads
-`input.file_references`, **never** `input.files`. Per-context path globbing and initial GIS
-inspection can therefore be avoided by the upstream implementation. Context parsing still
-has its original initial model-tree I/O; the checker still inspects the active BC database
-for event-specific Source files. These operations are separately timed, not claimed to be
-zero-I/O.
+Use a new report directory for each invocation; issue CSVs never overwrite existing
+files. Without the environment setting, reports use pytest's temporary directory.
+The native replay is marked `gdal` and runs explicitly in the dedicated workflow;
+the ordinary hosted suite excludes it while retaining the BAT inventory check.
+The separate `windows-example-regression` job now passes with a temporary,
+**exact-signature allowance for eight known upstream PyTUFLOW findings** (seven
+1D boundary-schema findings and one rainfall-triangle Name finding). Every one of
+the 161 TCFs / 174 contexts is still inspected. An additional or changed finding,
+incomplete validation, or unexpectedly passing known case fails the regression.
+The public validator itself continues to report the eight affected models as
+unsuccessful; green CI does **not** mean 161/161 models have clean preflight.
+[PyTUFLOW #60](https://github.com/Chain-Frost/PyTuflow/pull/60) is the proposed fix.
+[Follow-up #181](https://github.com/Chain-Frost/ryan-tools/issues/181) tracks
+adopting a reviewed parser and removing the allowance to obtain 161/161 clean.
+The accepted pin remains unchanged until then, and raster/CRS validation remains
+independently scoped. Missing parser/GIS capabilities or unexpected unresolved
+findings still fail CI; nothing is skipped. JSON results and per-model issue CSVs
+are uploaded even on failure.
+No BAT or TUFLOW executable is launched, and source inputs remain in the submodule;
+only a verified temporary extraction is inspected. This covers dependency validation,
+not solver execution, hydraulic correctness or raster-header checks.
 
-The checker aggregates file patterns across all runs, expands each wildcard filename
-pattern by a bounded, nonrecursive directory listing, and validates distinct resolved
-files using the existing shared inventory. A wildcard in a parent directory or a listing
-exceeding the scan cap fails closed as unresolved. GeoPackage layer patterns (including
-`>> all`) are checked through a read-only query per distinct GeoPackage. Wildcard scans
-may require a separate directory scan before the ordinary exact-file inventory;
-they are not yet guaranteed to share one scan.
-
-The upstream supporting fork exposes `deferred_database_sources()`: it uses
-cached, initially parsed hydraulic BC, AD BC, AD Global, materials, soils,
-rainfall, pit/depth-discharge and cross-section database rows with
-event/scenario translation. Their typed secondary path/layer references
-are added to the single bulk inventory. Unknown database kinds, missing
-cached source APIs, ambiguous declarations and unresolved rows still
-**fail closed**, without eager `context.bc_dbase()` or `input.files`
-calls in deferred mode. Numeric materials and supported inline soils
-do not create fictitious filenames. The supported multiple-BC declaration path
-uses the ordered activation binding described above; untested model-specific
-ordering and unsupported schemas are not claimed as generally supported.
-
-**Eager completeness:** on the updated fork, `context.database_sources()` exposes the same typed
-cached database sources in both eager and deferred contexts. The checker uses it when collecting
-an eager baseline, and uses `input.file_references` to request the same active GIS curve-ID join.
-`input.files` alone does not enumerate AD database sources or the files behind pit/depth-discharge
-identifiers. Separate database entries retain their provenance even when they share a physical CSV.
-Older eager parsers without this typed API remain unresolved for AD and curve database roles;
-the checker does not silently certify those dependencies from primary-file existence alone.
-Curve candidates are materialised only for identifiers referenced by active GIS features, while
-database Source rows follow the existing conservative active-table inspection policy. This does
-not claim hydraulic validation or select only time-series columns actually consumed by the engine.
-
-**GIS attribute-linked files (new in PR #143):** after aggregating all contexts,
-the checker scans each distinct file-valued **Shapefile or GeoPackage** source
-once. The reader accesses only relevant DBF/SQLite attribute fields, using
-**identical TUFLOW element-type rules for both formats**: `1d_nwk`, `1d_pit`,
-`1d_xs`, `1d_tab`, `1d_xz`, `1d_bg`, `1d_lc`, `1d_cs`, `1d_hw` and
-`1d_na`. Shapefiles use pyshp's attribute-only `iterRecords()` reader and
-their single stem-named logical layer; GeoPackages use read-only SQLite and
-support layer selectors. Neither format reads feature geometries.
-Secondary file paths, including filename wildcards, enter one shared
-file inventory and are checked for all affected simulations. The report
-separately times this stage and counts distinct GIS-source opens.
-
-**Channel and pit semantics:** In a `1d_nwk` layer, normal `Q` and
-`P` values (and `1d_pit` `Q`/`VPI` identifiers) identify curves in the
-`Depth Discharge Database` (network Q/P) or `Pit Inlet Database`
-(pit features), rather than filenames in the GIS folder. The checker resolves those identifiers through
-the documented `Name`/`Source` CSV fields and checks the referenced Source
-files, caching each database by path. `QO` checks only the matrix filename
-after its control ID; `M` checks matrix files. `1d_nwk` features with an
-`Ignore` attribute of `Y` or `T` (case-insensitive) contribute no file
-dependencies. Missing, duplicate or ambiguous curve identifiers, invalid
-database schemas and blank required active identifiers fail closed.
-
-**Limits:** MIF and other unsupported GIS formats, unknown TUFLOW
-element types, missing/unsupported attribute schemas, mixed/unknown network
-geometry and unexpanded GIS attribute variables remain **unresolved**, not
-passed. Shapefile and GeoPackage field rules intentionally match for the
-same element types, but the synthetic tests do not establish parity for all
-real-world geometries, specialised model files or TUFLOW engine behaviour.
-The strict public archive replay now covers all 161 TCFs / 174 runs with the
-workflow's pinned source pair. Earlier 440-run, M480 and N42 measurements remain
-evidence for their recorded revisions. The owner withdrew the separate 42-run
-model as a merge gate and deferred the native two-BC investigation. Broader model
-support and the new SMB workload belong in separate follow-ups; they do not
-silently extend this opt-in release's capability claims.
-
-The normal `ryan-tools` package still depends on published `pytuflow>=1.2,<2`.
-When that installation lacks `file_resolution`, the previous eager discovery remains
-available with a warning. For integration validation, the dedicated
-[deferred consumer workflow](../.github/workflows/deferred-pytuflow-consumer.yml)
-pins a development parser independently, uses Windows/Python 3.14 and
-`RYAN_TEST_DEFERRED_PYTUFLOW=1`, and checks typed sources, shared GIS/raster
-inspection and the full read-only archive replay. The
-[ordered batch workflow](../.github/workflows/tuflow-ordered-batch-contracts.yml)
-checks the independent reference-count contract separately. These workflow pins
-are test dependencies; they do not replace the published package requirement.
-
-The checker separately reports shared GIS attribute and unique raster-metadata
-opens/timings. The raster header phase uses read-only Rasterio/GDAL inspection
-after context construction, never pixel-array reads. Unreadable or invalid
-raster headers are unresolved rather than considered passing.
-
-The checker reports separate timings for initial parse, context/reference collection
-and the shared inventory. Use the existing private-model harness for the new SMB
-workload's eager/individual-deferred/batch comparison, after fixing both source
-revisions and passing representative correctness checks. It does not expose a
-same-revision graph-on/graph-off switch; that diagnostic extension and further
-parser optimisations are separate follow-ups. Measure complete, matching work
-before making a performance claim. Avoid monkeypatching upstream internals or
-caching whole GIS/raster datasets.
-
-The checker intentionally leaves model data untouched and writes only the report CSV. If an input is unresolved or
-a model context cannot be parsed, the run **fails preflight** rather than being silently considered valid.
-
-## Verification scope and limitations
-
-- The checker passes the supplied -e1..-e9 and -s1..-s9 switches to PyTUFLOW and traverses its active nested control files; interpretation depends on the installed parser's supported semantics.
-- Missing event-specific boundary source CSVs are checked from the resolved BC database Source column.
-- GIS databases are checked for existence; when enabled, a referenced GeoPackage layer name must be present.
-- Supported Shapefile and GeoPackage GIS attributes share one TUFLOW element classifier and are scanned once per distinct source/layer across simulations; unsupported cases fail closed.
-- Missing and unresolved dependencies have distinct issue statuses.
-- File wildcard/variable references that cannot be expanded are reported as unresolved.
-- Only files referenced by PyTUFLOW's recognised input commands and BC Source entries are covered. Input files
-  referenced by specialised commands or unsupported data formats may need additional handlers.
-- An empty or invalid run list is rejected. Output directories and files which the engine will create are not required.
-- The preflight reports cannot substitute for running TUFLOW with -x to check full input validity.
-- Validate project-specific variables and unsupported input types on the relevant Windows model before relying on their coverage. Preflight remains opt-in; a future default-on change needs a separate decision.
-
-## Implementation and validation
-
-- Shared parsing: ryan_library/functions/tuflow/run_flags.py
-- Read-only orchestration: ryan_library/orchestrators/tuflow/input_preflight.py
-- Standalone wrapper: ryan-scripts/TUFLOW-python/model_management/check_tuflow_inputs.py
-- Existing launcher: run_tuflow_simulations.py
-- Focused tests: tests/orchestrators/tuflow/test_input_preflight.py and tests/scripts/test_run_tuflow_simulations.py
-
-Checks to run on the latest head in Python 3.14:
-
-    python -m ruff check ryan_library/functions/tuflow/run_flags.py ryan_library/orchestrators/tuflow/input_preflight.py ryan-scripts/TUFLOW-python/model_management/check_tuflow_inputs.py ryan-scripts/TUFLOW-python/model_management/run_tuflow_simulations.py tests/orchestrators/tuflow/test_input_preflight.py
-    python -m ruff format --check ryan_library/functions/tuflow/run_flags.py ryan_library/orchestrators/tuflow/input_preflight.py ryan-scripts/TUFLOW-python/model_management/check_tuflow_inputs.py ryan-scripts/TUFLOW-python/model_management/run_tuflow_simulations.py tests/orchestrators/tuflow/test_input_preflight.py
-    python -m pytest -q tests/orchestrators/tuflow/test_input_preflight.py tests/scripts/test_run_tuflow_simulations.py
-    python ryan-scripts/TUFLOW-python/model_management/check_tuflow_inputs.py --help
-    python ryan-scripts/TUFLOW-python/model_management/run_tuflow_simulations.py --help
-
-Follow up with Windows Python 3.14 + PyTUFLOW real-BC regression tests against representative 2026.3 HPC models.
+This is not a replacement for final installed-wheel and copied-wrapper acceptance
+on the maintained Windows workstation. The
+[ongoing integration record](work/2026-10-23-tuflow-runner-model-checks.md)
+tracks that remaining validation and coordination with the runner/plan scopes.

@@ -37,17 +37,20 @@ experimental, vendored or versioned legacy files solely because they exist.
    without relying on file modification times. An argparse `--version` is useful.
    Library-backed wrappers report both script and installed `ryan-tools` versions.
 2. **Complete editable configuration:** expose **every operational CLI
-   option** as a visible `DEFAULT_*` constant near the top, including
-   modes, paths, output/write controls, logging and pause behaviour. This
-   is mandatory for maintained standalone scripts as well as wrappers.
+   option** as a visible, editable setting near the top, including modes,
+   paths, output/write controls, logging and pause behaviour. Names are chosen
+   by the script author: `DEFAULT_*` is allowed but not mandatory.
+   This applies to maintained standalone scripts and library-backed wrappers.
    CLI arguments override the editable defaults in either direction;
    parser omission must remain distinguishable from an explicit `False`,
    `0` or empty value. Built-in `--help` and `--version` are exempt.
-   Each setting must also explain its purpose, permitted values/units,
-   `None` meaning, path base and interdependencies where relevant. Include
-   a copy-ready commented Python example for non-obvious values such as
-   Windows/UNC paths, choice strings, and `tuple[Path, Path]` mappings.
-   Document costs and mutation risks beside the setting, not only in `--help`.
+   No per-setting comment or docstring is required when a clear name,
+   value and nearby context make its purpose and valid edits reliably obvious.
+   Use short comments or a shared note only for information the user cannot
+   readily infer, such as units, allowed choices, `None` or path semantics,
+   dependencies and non-obvious data shapes. Provide copy-ready examples
+   where needed. Still explain destructive, costly or other risky effects and
+   safeguards near the relevant settings, not only in `--help`.
    Put the module docstring, minimal imports, version and defaults before
    operational imports wherever practical.
 3. **Clear process boundary:** use a guarded `if __name__ == "__main__"` and
@@ -103,7 +106,7 @@ required solely because the script is maintained.
 For genuinely interactive or long-running standalone scripts, a completion
 banner and explicit `--no-pause` may still be useful. For a narrow read-only
 utility, an ordinary argparse CLI plus a clear exit code is sufficient.
-The [editable-option comment standard](WRAPPER_STANDARD.md#explain-every-editable-option)
+The [proportionate editable-setting guidance](WRAPPER_STANDARD.md#explain-settings-where-needed)
 applies to **both** standalone scripts and wrappers.
 Do not demote a maintained script to "legacy" merely because it remains
 self-contained. Validation is proportional to what the script actually does.

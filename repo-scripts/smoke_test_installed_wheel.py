@@ -120,6 +120,50 @@ def _check_installed_po_labels(expected_root: Path, work: Path) -> None:
         raise RuntimeError(msg)
 
 
+def _check_installed_tuflow_wrappers(expected_root: Path, work: Path) -> None:
+    """Exercise wheel-only TUFLOW wrappers without a licensed solver or model."""
+    for relative in (
+        "TUFLOW-python/model_management/check_tuflow_inputs.py",
+        "TUFLOW-python/model_management/run_tuflow_simulations.py",
+    ):
+        help_result = _run_installed_wrapper(relative, work, expected_root, "--help")
+        if help_result.returncode != 0 or "usage:" not in help_result.stdout.lower():
+            msg = f"Wheel-installed {relative} failed --help: {(help_result.stdout + help_result.stderr)[-900:]}"
+            raise RuntimeError(msg)
+
+    command_file = work / "tuflow_model_selections.txt"
+    command_file.write_text(
+        'TUFLOW.exe -e1 Synthetic "C:\\models\\Missing.tcf"\n',
+        encoding="utf-8",
+    )
+    original = command_file.read_bytes()
+    result = _run_installed_wrapper(
+        "TUFLOW-python/model_management/run_tuflow_simulations.py",
+        work,
+        expected_root,
+        "--mode",
+        "textfiles",
+        "--input-file",
+        str(command_file),
+        "--no-tcf",
+        "--solver-exe",
+        r"C:\not-installed\TUFLOW_iSP_w64.exe",
+        "--export-only",
+        "--no-pause",
+    )
+    if result.returncode != 0:
+        msg = f"Wheel-installed TUFLOW runner's safe export-only mode failed: {(result.stdout + result.stderr)[-1600:]}"
+        raise RuntimeError(msg)
+    export = work / "run_tuflow_simulations.txt"
+    history = work / "run_tuflow_simulations_runs.csv"
+    if not export.is_file() or history.exists() or command_file.read_bytes() != original:
+        msg = "Wheel-installed TUFLOW export-only changed input, failed to export TXT or created execution history."
+        raise RuntimeError(msg)
+    if not export.read_text(encoding="utf-8").strip():
+        msg = "Wheel-installed TUFLOW runner exported empty command text."
+        raise RuntimeError(msg)
+
+
 def _check_installed_wrapper_behaviour(expected_root: Path) -> None:
     """Run nondestructive CLI/output/exit checks on wrappers copied from the *installed wheel*."""
     with TemporaryDirectory(prefix="ryan-tools-wheel-behaviour-") as temporary:
@@ -197,8 +241,9 @@ def _check_installed_wrapper_behaviour(expected_root: Path) -> None:
             raise RuntimeError(msg)
 
         _check_installed_po_labels(expected_root, work)
+        _check_installed_tuflow_wrappers(expected_root, work)
 
-        print("Wheel-only wrapper behaviour passed: help, CSV, invalid input exit, file listing, 2d_po labels.")
+        print("Wheel-only wrapper behaviour passed: help, CSV, invalid input, file listing, PO labels, TUFLOW TXT.")
 
 
 def _check_vendored_similarity() -> None:

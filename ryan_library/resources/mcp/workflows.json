@@ -470,12 +470,16 @@
       "id": "run_tuflow_batch",
       "title": "Run TUFLOW batch",
       "domain": "tuflow",
-      "purpose": "Launch configured TUFLOW simulations.",
+      "purpose": "Run or resume TUFLOW simulations; refresh adjacent TXT commands and maintain CSV completion history.",
       "script": "ryan-scripts/TUFLOW-python/model_management/run_tuflow_simulations.py",
       "profile": "privileged",
       "mutation": "executes_external",
       "external_program": "TUFLOW executable configured by wrapper",
       "requires_explicit_approval": true,
+      "headless_arguments": [
+        "--run-simulations",
+        "--no-pause"
+      ],
       "help_safe": false
     },
     {

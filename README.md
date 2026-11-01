@@ -82,6 +82,7 @@ assume that users know how to create or activate a virtual environment:
 ```powershell
 py -3.14 -m pip install --upgrade pip
 py -3.14 repo-scripts\install_latest_wheel.py --dependencies-only
+py -3.14 -m pip install --force-reinstall --no-deps -r repo-scripts\pytuflow-requirement.txt
 py -3.14 -m pip install -r requirements.txt
 ```
 
@@ -89,6 +90,10 @@ py -3.14 -m pip install -r requirements.txt
 important when running wrappers copied outside the repository because they import the shared implementation from the
 installed `ryan-tools` distribution. The dependency bootstrap installs binary Fiona, Rasterio and GDAL packages
 from the configured geospatial wheel index, avoiding a local source build on Windows.
+The parser-only replacement handles incompatible PyTUFLOW builds with the same
+version number; the following requirements install resolves dependencies normally.
+See [installation verification](docs/ENVIRONMENTS.md#install-for-repository-development)
+for the dependency and public-API checks.
 
 ## Build and install
 
@@ -120,7 +125,12 @@ Windows convenience entry points are:
 ```
 
 `install-ryan-tools.bat` installs the latest published `ryan-tools[mcp]` release
-directly from PyPI, along with upstream QGIS MCP. If Codex is detected, it
+directly from PyPI, along with upstream QGIS MCP and the accepted PyTUFLOW PR17
+source pinned in [`repo-scripts/pytuflow-requirement.txt`](repo-scripts/pytuflow-requirement.txt).
+It keeps the binary GIS bootstrap, replaces incompatible same-version PyTUFLOW
+builds, and checks installed dependencies and the public validation API before
+reporting success. The local-wheel installer uses the same dependency setup and
+verification. If Codex is detected, the PyPI installer
 configures the QGIS and ryan-tools MCP servers only as needed, preserving other
 settings and backing up any changed Codex configuration. The legacy
 `install-latest-wheel.bat` name now launches that same PyPI installer.

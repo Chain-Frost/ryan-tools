@@ -43,6 +43,16 @@ Minor adjustments are acceptable when Python dependencies require them, but
 keep versions and frequently edited settings prominent. Avoid importing the
 `ryan_library` package merely to type a default setting near the top.
 
+An exception is a focused configuration import that supplies user-editable
+values, such as enums used in `MODE = SRC.TEXTFILES` or `OPERATION = OP.RUN`.
+These imports may precede the editable defaults to provide discoverable choices
+and editor completion without placing enum definitions above the settings.
+Associated setting type aliases may share that import. Keep the supporting
+module lightweight and free of operational side effects, and use the installed
+`ryan_library` package so copied wrappers still need only one script file.
+This exception does not move workflow, logging or other implementation imports
+above the settings; wrapper-only implementation types still belong below them.
+
 Operational imports deliberately follow the editable-default block. This keeps
 the settings a user is expected to review immediately below the docstring and
 minimal supporting imports. Do not defer imports into `main()` merely to alter
@@ -84,33 +94,41 @@ contents are unchanged; the embedded revision is stable and reviewable.
 ## Editable defaults
 
 **Every user-facing operational option** in a maintained wrapper must have
-a corresponding user-editable `DEFAULT_*` constant near the top of its file.
+a corresponding user-editable constant near the top of its file.
+**No naming prefix is required**: `TCF`, `GPU_DEVICES`, `MODE`, `WORKING_DIR`
+and existing `DEFAULT_*` names are all valid. Choose clear, concise names
+appropriate to the particular script; consistency and discoverability matter
+more than a fixed identifier pattern.
 This includes paths, input selection, modes, thresholds, output destinations,
 write/dry-run flags, logging levels, and pause/headless behaviour, not only
 frequently changed settings. A normal run must be configurable by editing
 these constants without requiring CLI arguments. Built-in `--help` and
 `--version` are not operational settings and do not need defaults.
 
-An explicitly supplied CLI argument always overrides the corresponding
-`DEFAULT_*` constant; otherwise use the editable value. Do not bury defaults
+An explicitly supplied CLI argument always overrides its corresponding
+editable constant; otherwise use that constant's value. Do not bury defaults
 inside `argparse` or behind unrelated configuration files. Use `None` as the
 parser's value when an option is omitted, especially for booleans and zero:
-`--write`/`--no-write` must be able to override a changed `DEFAULT_WRITE`
+`--write`/`--no-write` must be able to override a changed `WRITE`
 in either direction.
 
 ```python
-DEFAULT_INPUT = Path()
-DEFAULT_RECURSIVE = False
-DEFAULT_WRITE = False
+INPUT = Path()
+RECURSIVE = False
+WRITE = False
 
 parser.add_argument("--input", type=Path)
 parser.add_argument("--recursive", action=argparse.BooleanOptionalAction, default=None)
 parser.add_argument("--write", action=argparse.BooleanOptionalAction, default=None)
 
-input_path = (args.input if args.input is not None else DEFAULT_INPUT).absolute()
-recursive = args.recursive if args.recursive is not None else DEFAULT_RECURSIVE
-write = args.write if args.write is not None else DEFAULT_WRITE
+input_path = (args.input if args.input is not None else INPUT).absolute()
+recursive = args.recursive if args.recursive is not None else RECURSIVE
+write = args.write if args.write is not None else WRITE
 ```
+
+Existing scripts need not rename their current constants. This rule
+specifies observable behaviour and human-editable configuration, not a
+repository-wide migration to a particular spelling.
 
 For shared CLI helpers whose parser defaults cannot distinguish omission,
 adapt the local parser or add an opposite override (e.g. `--pause` when the
@@ -120,51 +138,94 @@ one-time secrets and typed destructive confirmations are not normal defaults.
 
 **Safe shipped values, deliberate user overrides:** ship non-destructive,
 non-chargeable defaults. An auditor normally starts read-only
-(`DEFAULT_AUDIT_MODE = "existence"`). A dedicated repair/export tool may use
-`DEFAULT_WRITE = True` to create a **new, automatically named output copy**
+(`AUDIT_MODE = "existence"`). A dedicated repair/export tool may use
+`WRITE = True` to create a **new, automatically named output copy**
 when an input is selected, provided it never changes the input or overwrites
 any existing destination. Include an explicit `--no-write` or equivalent
 preview override. Deletion, in-place replacement, and chargeable retrieval
 still require deliberate opt-in. Keep safe exclusive-create, collision checks
 and any independent confirmations for destructive operations intact.
 
-### Explain every editable option
+### Explain settings where needed
 
-A user must be able to understand and change each `DEFAULT_*` value **without
-reading the implementation**. Keep a concise comment next to every setting
-explaining its purpose and any non-obvious behaviour. Where relevant, include:
+A user should be able to understand and safely edit the visible settings without
+reading the implementation. **Do not require an adjacent comment or docstring
+for every setting.** If a descriptive name, value and nearby context make both
+its purpose and how to change it reliably obvious, leave it uncommented.
+Avoid comments that merely restate the variable name.
 
-- **Accepted values:** Python type, enumerated choices, valid number range,
-  units, and what `None` or an empty value means.
-- **Paths:** expected file or directory, whether a relative path uses the
-  working directory, and a realistic Windows example using `Path(r"...")`
-  for drive/UNC paths.
-- **Dependencies:** other settings that must be enabled or supplied together,
-  and mutually exclusive modes.
-- **Effects and safeguards:** what is read or written, whether data may be
-  overwritten, and performance, cost or privacy implications.
-- **Examples:** one copy-ready Python value or expression next to each
-  non-obvious setting (especially tuples, choices, paths and thresholds).
-  Commented examples must not change behaviour until the user edits a value.
+For example, these settings need no individual explanation:
+
+```python
+PAUSE_ON_FINISH = True
+MINIMIZE_ON_LAUNCH = False
+CONSOLE_LOG_LEVEL = "INFO"
+```
+
+Use a concise adjacent comment, a shared comment for related settings, or a
+copy-ready example **only where it adds information the user needs**, such as:
+
+- Accepted choices, numeric ranges or units that cannot be inferred from the
+  name and value.
+- Non-obvious `None`, empty-value or path-base semantics, including relative
+  paths, mapped drives and UNC shares.
+- Dependencies between settings or effects that are not apparent from the
+  names alone.
+- Unusual tuple, list or mapping shapes; show a copy-ready Python example
+  rather than making the user inspect parsing code.
+- Destructive changes, output replacement, external execution, licence/cost
+  implications or other meaningful risks. Explain safeguards and required
+  opt-in even when the setting's name looks straightforward.
+
+A single shared note is sufficient when several settings follow the same
+convention. Comments may be one line or more detailed according to the
+complexity and risk. Do not invent commentary solely to meet a documentation
+quota.
 
 For example:
 
 ```python
-# Input directory; Path() means the current working directory.
-# Example: Path(r"Q:\Project\GIS") or Path(r"\\server\share\GIS")
-DEFAULT_INPUT = Path()
+RECURSIVE = False
 
-# Include subdirectories? True or False (default excludes them).
-DEFAULT_RECURSIVE = False
+# None allows different imported TCFs; a relative TCF uses WORKING_DIR.
+TCF: Path | None = None
 
-# Number of rows to sample: 0-5; 0 reads no example rows.
-# Example: 2 (requires the separate sample-report option to be enabled).
-DEFAULT_SAMPLE_ROWS = 0
+# Each inner tuple is one concurrent run; two GPU flags in a group
+# assign both GPUs to that run.
+# Example: (("-pu0", "-pu1"), ("-pu2",)) for two concurrent runs.
+GPU_DEVICES = (("-pu0",), ("-pu1",))
 ```
 
-Avoid repetitive commentary on self-evident values, but do not leave ambiguous
-units, `None` semantics, required settings, or complex expressions unexplained.
-An editable-default section is user documentation, not just implementation data.
+This is a usability rule, not a requirement for a prescribed number of
+comments. The **effective settings must still be validated**, and missing or
+unclear guidance must not weaken file protection, execution consent or other
+safety requirements.
+
+### Validate effective user configuration
+
+Accept convenient, obvious editable forms where useful (for example, a path
+string or `Path`, a single filename or a list of filenames, and a documented
+enum member or its string value). Convert them **once at the wrapper boundary**
+into the strict internal types expected by the library. Never interpret a path
+string as a sequence of characters, or flatten a grouped concurrency setting
+in a way that changes its meaning.
+
+Validate all effective user settings **before** changing files, appending
+history, launching processes or performing other side effects. Distinguish a
+deliberately omitted setting (`None` or an empty collection where documented)
+from an invalid value. Do not silently accept misspelled mode values, blank
+paths, unsupported filename extensions, duplicate device IDs, malformed
+event/scenario keys, `"False"` in place of `False`, or non-finite numbers.
+Raise an actionable error naming the setting, offending value and one
+copy-ready valid example.
+
+**File availability is operation-dependent.** Missing inputs required by the
+selected operation are errors. When a configured or referenced file is not
+required for the chosen operation (such as a model or solver during
+command-only export), emit a warning identifying its path instead of
+failing the export. Optional checks must never relax safety-critical launch
+or overwrite requirements. A hard validation failure must leave existing
+export files and execution history unchanged.
 
 Keep cosmetic or highly specific terminal preferences (such as dashboard alternate-screen rendering options) as editable wrapper constants rather than shared CLI arguments. This prevents cluttering the ``--help`` menu across multiple unrelated scripts with rendering flags that users rarely change per execution.
 
