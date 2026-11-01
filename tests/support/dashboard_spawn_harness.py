@@ -54,12 +54,12 @@ def main() -> int:
             with dashboard:
                 dashboard.set_phase("Processing")
                 report = run_dashboard_workflow_report(
-                items=[1, 2, 3],
-                process_item=worker,
-                dashboard=dashboard,
-                pool_size=2,
-                status_for_result=status,
-                detail_for_result=detail,
+                    items=[1, 2, 3],
+                    process_item=worker,
+                    dashboard=dashboard,
+                    pool_size=2,
+                    status_for_result=status,
+                    detail_for_result=detail,
                     log_queue=log_queue,
                     on_outcome=_interrupt_after_one if args.interrupt_on_outcome else None,
                 )
