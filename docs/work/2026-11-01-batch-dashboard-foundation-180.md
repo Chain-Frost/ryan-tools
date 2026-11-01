@@ -274,3 +274,11 @@ RLL_Qmx inputs remain FAIL; exported collection contents remain unchanged.
 Focused tests cover mixed SKIP/OK accounting and malformed input. Updated
 Windows CI and review confirmation are required before this follow-up is
 called accepted. No main merge or publication is authorised by this update.
+
+### 2026-11-01 — phase-transition visibility review follow-up
+
+The consolidated review also identified that a short phase change could be
+lost to routine dashboard refresh throttling just before a blocking export.
+`set_phase` now forces a render, while ordinary item and metric updates retain
+the configured throttle. A focused regression asserts this separation.
+Fresh Windows CI and review evidence remain required before final acceptance.

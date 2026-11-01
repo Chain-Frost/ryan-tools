@@ -265,12 +265,12 @@ class LiveWorkflowDashboard:
         self.refresh()
 
     def set_phase(self, phase: str) -> None:
-        """Name the current workflow phase, including aggregation/export."""
+        """Show phase transitions immediately, even between ordinary throttled updates."""
         if not phase.strip():
             msg = "Workflow phase must be non-empty."
             raise ValueError(msg)
         self._phase = phase
-        self.refresh()
+        self.refresh(force=True)
 
     def finish(self, *, outcome: WorkflowOutcome, detail: str = "") -> None:
         """Print one final outcome; plain/redirected mode never draws Live frames."""

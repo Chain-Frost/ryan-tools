@@ -85,6 +85,19 @@ def test_invalid_metric_and_other_configuration() -> None:
         d.set_phase(" ")
 
 
+def test_phase_transitions_force_refresh_while_metrics_remain_throttled() -> None:
+    """Long blocking exports must display their phase before the next tick."""
+    from unittest.mock import patch
+
+    dashboard = LiveWorkflowDashboard(title="Phases", enabled=False)
+    with patch.object(dashboard, "refresh") as refresh:
+        dashboard.set_phase("Exporting")
+        refresh.assert_called_once_with(force=True)
+        refresh.reset_mock()
+        dashboard.set_metrics([WorkflowMetric("Rows", value=1)])
+        refresh.assert_called_once_with()
+
+
 def test_bounded_history_and_plain_output(capsys: pytest.CaptureFixture[str]) -> None:
     d = LiveWorkflowDashboard(title="Batch", enabled=True, max_rows=4)
     d.console = d.console.__class__(force_terminal=False)
