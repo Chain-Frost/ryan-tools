@@ -94,17 +94,17 @@ def main_processing(
                     return progress.failed == 0
 
                 dashboard.set_phase("Aggregating")
-            collection.compact_basic_info_columns()
-            # Preserve EOF full-ID alignment in both maximums and raw sheets.
-            collection.align_eof_channel_ids()
-            maximums_df: pd.DataFrame = collection.combine_1d_maximums()
-            raw_df: pd.DataFrame = collection.combine_raw()
-            raw_df = collection.attach_basic_info(df=raw_df, drop_id=True)
-            dashboard.set_metrics([
-                WorkflowMetric("Files finished", progress.completed, unit="files", total=progress.scheduled),
-                WorkflowMetric("Maximums rows", len(maximums_df), unit="rows"),
-            ])
-            if maximums_df.empty and raw_df.empty:
+                collection.compact_basic_info_columns()
+                # Preserve EOF full-ID alignment in both maximums and raw sheets.
+                collection.align_eof_channel_ids()
+                maximums_df: pd.DataFrame = collection.combine_1d_maximums()
+                raw_df: pd.DataFrame = collection.combine_raw()
+                raw_df = collection.attach_basic_info(df=raw_df, drop_id=True)
+                dashboard.set_metrics([
+                    WorkflowMetric("Files finished", progress.completed, unit="files", total=progress.scheduled),
+                    WorkflowMetric("Maximums rows", len(maximums_df), unit="rows"),
+                ])
+                if maximums_df.empty and raw_df.empty:
                 warn_on_invalid_types(
                     invalid_types=invalid_types, accepted_types=ACCEPTED_DATA_TYPES,
                     context="Culvert maximums completed",
