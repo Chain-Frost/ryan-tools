@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import time
+from collections.abc import Callable
 
 import pytest
 
@@ -180,7 +181,7 @@ def test_serial_interrupt_releases_dashboard_context() -> None:
 
 
 def test_many_small_updates_keep_history_bounded(
-    record_property: pytest.RecordProperty,
+    record_property: Callable[[str, object], None],
 ) -> None:
     """Measure lightweight updates without asserting host-dependent throughput."""
     count = 5000
