@@ -384,6 +384,19 @@ jobs:
             Pop-Location
           }
 
+      - name: Smoke-test six copied TUFLOW result wrappers against installed wheel
+        shell: pwsh
+        run: |
+          $target = Join-Path $env:RUNNER_TEMP "ryan-tools-wheel-install"
+          $env:PYTHONPATH = $target
+          Push-Location $env:RUNNER_TEMP
+          try {
+            python "$env:GITHUB_WORKSPACE/repo-scripts/smoke_result_dashboard_installed_wheel.py" --expected-root $target
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } finally {
+            Pop-Location
+          }
+
       - name: Upload verified wheel
         uses: actions/upload-artifact@v7
         with:
