@@ -59,7 +59,7 @@ def _run(script: Path, work: Path, root: Path, *args: str) -> subprocess.Complet
 
 
 def _workbook_record(work: Path) -> tuple[str, tuple[str, ...]]:
-    files = list(work.glob("ModellingLog*.xlsx"))
+    files = list(work.glob("*_ModellingLog.xlsx"))
     if len(files) != 1:
         msg = f"Expected exactly one log summary workbook in {work}, found {files!r}"
         raise RuntimeError(msg)
@@ -132,7 +132,7 @@ def _check_one_mode(work: Path, root: Path, *, dashboard_enabled: bool) -> tuple
     if failed.returncode != 1 or "live_max_rows" not in (failed.stdout + failed.stderr):
         msg = f"Invalid setting did not return actionable failure: {failed.returncode} {failed.stderr[-1000:]}"
         raise RuntimeError(msg)
-    if len(list(work.glob("ModellingLog*.xlsx"))) != 1:
+    if len(list(work.glob("*_ModellingLog.xlsx"))) != 1:
         msg = "Invalid display settings unexpectedly generated another workbook."
         raise RuntimeError(msg)
     return result
