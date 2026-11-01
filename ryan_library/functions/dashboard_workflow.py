@@ -14,15 +14,22 @@ import math
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from multiprocessing import Pool, Queue
-from multiprocessing.pool import ApplyResult, MaybeEncodingError
+from multiprocessing import Pool, Queue, pool as multiprocessing_pool
+from multiprocessing.pool import ApplyResult
 from queue import Empty, Full
-from typing import Protocol, cast
+from typing import TYPE_CHECKING, Protocol, cast, runtime_checkable
 
 from loguru import logger
 
 from .live_dashboard import LiveWorkflowDashboard, WorkflowStatus
 from .loguru_helpers import LogQueue, normalize_log_level, worker_initializer
+
+if TYPE_CHECKING:
+    from multiprocessing.queues import Queue as MPQueue
+
+# Python's multiprocessing pool exposes MaybeEncodingError at runtime but
+# some 3.14 type-stub sets omit the symbol. Narrow this one compatibility gap.
+MaybeEncodingError = cast("type[Exception]", getattr(multiprocessing_pool, "MaybeEncodingError"))
 
 
 class ProgressQueue(Protocol):
@@ -31,6 +38,11 @@ class ProgressQueue(Protocol):
     def put(self, item: object, block: bool = True, timeout: float | None = None) -> None: ...
 
     def get_nowait(self) -> object: ...
+
+
+@runtime_checkable
+class DetachableProgressQueue(Protocol):
+    """Multiprocessing producers may detach cosmetic progress queue feeders."""
 
     def cancel_join_thread(self) -> None: ...
 
@@ -142,19 +154,19 @@ def run_dashboard_workflow_report[TItem, TResult](
     errors propagate after resource cleanup. An on_outcome callback runs only
     in the parent, once per completed item, and may update cheap metrics.
     """
-    if isinstance(pool_size, bool) or not isinstance(pool_size, int) or pool_size < 1:
+    if isinstance(pool_size, bool) or not isinstance(pool_size, int) or pool_size < 1:  # pyright: ignore[reportUnnecessaryIsInstance]
         msg = "pool_size must be a positive integer."
         raise ValueError(msg)
     if (
         isinstance(poll_interval, bool)
-        or not isinstance(poll_interval, (int, float))
+        or not isinstance(poll_interval, (int, float))  # pyright: ignore[reportUnnecessaryIsInstance]
         or not math.isfinite(poll_interval)
         or poll_interval <= 0
     ):
         msg = "poll_interval must be a finite number greater than zero."
         raise ValueError(msg)
     if max_start_events is not None and (
-        isinstance(max_start_events, bool) or not isinstance(max_start_events, int) or max_start_events < 1
+        isinstance(max_start_events, bool) or not isinstance(max_start_events, int) or max_start_events < 1  # pyright: ignore[reportUnnecessaryIsInstance]
     ):
         msg = "max_start_events must be a positive integer or None."
         raise ValueError(msg)
@@ -256,8 +268,8 @@ def _run_parallel_dashboard_workflow[TItem, TResult](
     event_limit: int = max_start_events if max_start_events is not None else max(pool_size * 2, dashboard.max_rows)
     # Start events are cosmetic; a bounded queue prevents a fast batch from
     # generating unlimited messages while the parent is harvesting results.
-    raw_queue = Queue(maxsize=event_limit)
-    start_queue: ProgressQueue = cast("ProgressQueue", raw_queue)
+    raw_queue: MPQueue[int] = cast("MPQueue[int]", Queue(maxsize=event_limit))
+    start_queue: ProgressQueue = raw_queue
 
     try:
         with Pool(
@@ -325,7 +337,8 @@ def _dashboard_worker_initializer(
     # The parent can stop draining once every result is collected. A worker
     # must not wait on its Queue feeder during pool.join() merely to deliver
     # stale RUNNING indicators. Terminal outcomes come via ApplyResult.
-    start_queue.cancel_join_thread()
+    if isinstance(start_queue, DetachableProgressQueue):
+        start_queue.cancel_join_thread()
     if log_queue is not None:
         worker_initializer(queue=log_queue, level=worker_log_level)
 
