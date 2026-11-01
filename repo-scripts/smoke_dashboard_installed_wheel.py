@@ -79,6 +79,35 @@ def _workbook_record(work: Path) -> tuple[str, tuple[str, ...]]:
         workbook.close()
 
 
+def _check_copied_wrapper_help(script: Path, work: Path, root: Path) -> None:
+    result = _run(script, work, root, "--help")
+    if result.returncode != 0 or "--live-dashboard" not in result.stdout:
+        msg = f"Copied wrapper help/options failed: {result.stdout[-900:]} {result.stderr[-900:]}"
+        raise RuntimeError(msg)
+
+
+def _check_console_diagnostics(
+    report: subprocess.CompletedProcess[str], *, dashboard_enabled: bool
+) -> None:
+    """Keep ordinary progress visible only with the dashboard disabled."""
+    if report.returncode != 0:
+        msg = f"Copied wrapper failed (dashboard={dashboard_enabled}): {report.stdout[-1800:]} {report.stderr[-1800:]}"
+        raise RuntimeError(msg)
+    if "did not complete" not in report.stdout:
+        msg = f"Missing incomplete-run warning (dashboard={dashboard_enabled}): {report.stdout[-1400:]}"
+        raise RuntimeError(msg)
+    routine_info_visible = "Completed Complete_Run.tlf" in report.stdout
+    if routine_info_visible == dashboard_enabled:
+        msg = "Console did not honour concise dashboard / useful ordinary logging defaults."
+        raise RuntimeError(msg)
+    if "\x1b[" in report.stdout:
+        msg = "Redirected console contained ANSI escape sequences."
+        raise RuntimeError(msg)
+    if dashboard_enabled and "TUFLOW Log Summary: SUCCESS" not in report.stdout:
+        msg = f"Redirected dashboard success summary is absent: {report.stdout[-1400:]}"
+        raise RuntimeError(msg)
+
+
 def _check_one_mode(work: Path, root: Path, *, dashboard_enabled: bool) -> tuple[str, tuple[str, ...]]:
     """Exercise a whole copied-wrapper cycle in a disposable working directory."""
     work.mkdir()
@@ -88,10 +117,7 @@ def _check_one_mode(work: Path, root: Path, *, dashboard_enabled: bool) -> tuple
     incomplete.write_text(INCOMPLETE_LOG, encoding="utf-8")
     original = (complete.read_bytes(), incomplete.read_bytes())
     script = copy_wrapper(WRAPPER, work)
-    help_result = _run(script, work, root, "--help")
-    if help_result.returncode != 0 or "--live-dashboard" not in help_result.stdout:
-        msg = f"Copied wrapper help/options failed: {help_result.stdout[-900:]} {help_result.stderr[-900:]}"
-        raise RuntimeError(msg)
+    _check_copied_wrapper_help(script, work, root)
     if not script.is_file() or not script.absolute().is_relative_to(work):
         msg = f"Wrapper was not copied outside the checkout: {script}"
         raise RuntimeError(msg)
@@ -105,19 +131,7 @@ def _check_one_mode(work: Path, root: Path, *, dashboard_enabled: bool) -> tuple
         "--file-log-level",
         "DEBUG",
     )
-    if report.returncode != 0:
-        msg = f"Copied wrapper failed (dashboard={dashboard_enabled}): {report.stdout[-1800:]} {report.stderr[-1800:]}"
-        raise RuntimeError(msg)
-    if "did not complete" not in report.stdout:
-        msg = f"Missing incomplete-run warning (dashboard={dashboard_enabled}): {report.stdout[-1400:]}"
-        raise RuntimeError(msg)
-    routine_info_visible = "Completed Complete_Run.tlf" in report.stdout
-    if routine_info_visible == dashboard_enabled:
-        msg = "Console did not honour concise dashboard / useful ordinary logging defaults."
-        raise RuntimeError(msg)
-    if dashboard_enabled and ("TUFLOW Log Summary: SUCCESS" not in report.stdout or "\x1b[" in report.stdout):
-        msg = f"Redirected dashboard summary is absent or contains cursor escape sequences: {report.stdout[-1400:]}"
-        raise RuntimeError(msg)
+    _check_console_diagnostics(report, dashboard_enabled=dashboard_enabled)
     if (complete.read_bytes(), incomplete.read_bytes()) != original:
         msg = "Copied wrapper modified an input TLF."
         raise RuntimeError(msg)
