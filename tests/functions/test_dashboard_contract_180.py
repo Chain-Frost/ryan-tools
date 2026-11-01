@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import time
 
 import pytest
 
@@ -155,3 +156,43 @@ def test_status_validation_and_empty_batch() -> None:
             status_for_result=_status,  # type: ignore[arg-type]
             detail_for_result=_detail,
         )
+
+
+def _interrupt_worker(_item: int) -> int:
+    raise KeyboardInterrupt
+
+
+def test_serial_interrupt_releases_dashboard_context() -> None:
+    dashboard = LiveWorkflowDashboard(title="Interrupted", enabled=False)
+    dashboard.set_tasks(["running", "pending"])
+    with pytest.raises(KeyboardInterrupt):
+        run_dashboard_workflow_report(
+            items=[1, 2],
+            process_item=_interrupt_worker,
+            dashboard=dashboard,
+            pool_size=1,
+            status_for_result=lambda _result: "OK",
+            detail_for_result=str,
+        )
+    assert dashboard._context_depth == 0
+    assert dashboard._live is None
+    assert dashboard._tasks[2].status == "QUEUED"
+
+
+def test_many_small_updates_keep_history_bounded(
+    record_property: pytest.RecordProperty,
+) -> None:
+    """Measure lightweight updates without asserting host-dependent throughput."""
+    count = 5000
+    dashboard = LiveWorkflowDashboard(title="Large batch", enabled=False, max_rows=5)
+    dashboard.set_tasks([str(index) for index in range(count)])
+    started = time.perf_counter()
+    with dashboard:
+        for index in range(1, count + 1):
+            dashboard.mark_running(index=index)
+            dashboard.mark_finished(index=index, status="OK")
+    elapsed = time.perf_counter() - started
+    record_property("five_thousand_updates_seconds", round(elapsed, 4))
+    assert len(dashboard._completed_order) == 5
+    assert len(dashboard._visible_tasks()) == 5
+    assert dashboard._tasks[count].status == "OK"
