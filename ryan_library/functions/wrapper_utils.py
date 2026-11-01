@@ -224,7 +224,7 @@ def parse_common_cli_arguments(args: Namespace) -> CommonWrapperOptions:
         live_refresh_per_second=getattr(args, "live_refresh_per_second", None),
         locations_to_include=_coerce_locations_argument(raw_locations=locations_argument),
         no_pause=bool(raw_no_pause),
-        pause_on_finish=None if raw_no_pause is None else not raw_no_pause,
+        pause_on_finish=False if raw_no_pause else None,
         use_live_dashboard=getattr(args, "use_live_dashboard", None),
         working_directory=getattr(args, "working_directory", None),
     )
