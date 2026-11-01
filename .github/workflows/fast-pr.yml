@@ -83,16 +83,6 @@ jobs:
         shell: pwsh
         run: |
           $pythonFiles = @(Get-Content -LiteralPath "$env:RUNNER_TEMP/changed_python_files.txt")
-          # TEMPORARY: capture the exact pinned Ruff format of one newly added script.
-          python -m ruff format repo-scripts/smoke_result_dashboard_installed_wheel.py
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $encoded = [Convert]::ToBase64String([System.IO.File]::ReadAllBytes((Resolve-Path "repo-scripts/smoke_result_dashboard_installed_wheel.py")))
-          $parts = [int][Math]::Ceiling($encoded.Length / 3000)
-          for ($idx = 0; $idx -lt $parts; $idx++) {
-            $offset = $idx * 3000
-            $size = [Math]::Min(3000, $encoded.Length - $offset)
-            Write-Host "RYAN_SMOKE_FMT|$idx|$parts|$($encoded.Substring($offset, $size))"
-          }
           python -m ruff check $pythonFiles
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m ruff format --check $pythonFiles
