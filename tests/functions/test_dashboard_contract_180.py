@@ -5,9 +5,12 @@ from __future__ import annotations
 import math
 import time
 from collections.abc import Callable
+from multiprocessing.pool import ApplyResult, MaybeEncodingError
+from typing import cast
 
 import pytest
 
+from ryan_library.functions import dashboard_workflow as dw
 from ryan_library.functions.dashboard_workflow import run_dashboard_workflow, run_dashboard_workflow_report
 from ryan_library.functions.live_dashboard import (
     LiveWorkflowDashboard,
@@ -197,3 +200,130 @@ def test_many_small_updates_keep_history_bounded(
     assert len(dashboard._completed_order) == 5
     assert len(dashboard._visible_tasks()) == 5
     assert dashboard._tasks[count].status == "OK"
+
+
+class _SyntheticAsyncResult:
+    """Deterministic completed pool result, to inject infrastructure faults."""
+
+    def __init__(self, result: object | None = None, *, error: Exception | None = None) -> None:
+        self.result = result
+        self.error = error
+
+    def ready(self) -> bool:
+        return True
+
+    def get(self) -> object:
+        if self.error is not None:
+            raise self.error
+        return self.result
+
+
+@pytest.mark.parametrize("error", [
+    MaybeEncodingError(ValueError("pickling failed"), "synthetic failed-result encoding"),
+    OSError("synthetic pool transport error"),
+])
+def test_pool_transport_errors_propagate_without_becoming_item_failures(error: Exception) -> None:
+    dashboard = LiveWorkflowDashboard(title="Pool", enabled=False)
+    dashboard.set_tasks(["one"])
+    pending = {1: cast("ApplyResult[int]", _SyntheticAsyncResult(error=error))}
+    outcomes: dict[int, dw.WorkflowItemOutcome[int]] = {}
+    with pytest.raises(type(error)):
+        dw._collect_finished_dashboard_results(
+            dashboard=dashboard,
+            pending_results=pending,
+            indexed_results={},
+            completed_indexes=set(),
+            status_for_result=lambda _value: "OK",
+            detail_for_result=str,
+            indexed_outcomes=outcomes,
+        )
+    assert not outcomes
+    assert dashboard._tasks[1].status != "FAIL"
+    assert 1 in pending
+
+
+@pytest.mark.parametrize("mode", ["serial", "pool"])
+@pytest.mark.parametrize("adapter", ["status", "detail"])
+def test_invalid_result_adapter_propagates_in_both_execution_paths(mode: str, adapter: str) -> None:
+    dashboard = LiveWorkflowDashboard(title="Adapter", enabled=False)
+    dashboard.set_tasks(["one"])
+    outcomes: dict[int, dw.WorkflowItemOutcome[int]] = {}
+
+    def bad_status(_value: int) -> dw.WorkflowStatus:
+        return "RUNNING" if adapter == "status" else "OK"
+
+    def bad_detail(_value: int) -> str:
+        if adapter == "detail":
+            msg = "adapter programming error"
+            raise RuntimeError(msg)
+        return "good"
+
+    with pytest.raises((ValueError, RuntimeError)):
+        if mode == "serial":
+            dw._run_serial_dashboard_workflow(
+                items=[1],
+                process_item=lambda item: item,
+                dashboard=dashboard,
+                status_for_result=bad_status,
+                detail_for_result=bad_detail,
+                indexed_results={},
+                indexed_outcomes=outcomes,
+            )
+        else:
+            dw._collect_finished_dashboard_results(
+                dashboard=dashboard,
+                pending_results={1: cast("ApplyResult[int]", _SyntheticAsyncResult(1))},
+                indexed_results={},
+                completed_indexes=set(),
+                status_for_result=bad_status,
+                detail_for_result=bad_detail,
+                indexed_outcomes=outcomes,
+            )
+    assert not outcomes
+    assert dashboard._tasks[1].status != "FAIL"
+
+
+@pytest.mark.parametrize("mode", ["list", "report"])
+def test_user_on_outcome_callback_propagates(mode: str) -> None:
+    dashboard = LiveWorkflowDashboard(title="Callback", enabled=False)
+    dashboard.set_tasks(["one"])
+
+    def broken_callback(_outcome: dw.WorkflowItemOutcome[int]) -> None:
+        msg = "user callback is faulty"
+        raise RuntimeError(msg)
+
+    runner = run_dashboard_workflow if mode == "list" else run_dashboard_workflow_report
+    with pytest.raises(RuntimeError, match="user callback is faulty"):
+        runner(
+            items=[1],
+            process_item=lambda item: item,
+            dashboard=dashboard,
+            pool_size=1,
+            status_for_result=lambda _value: "OK",
+            detail_for_result=str,
+            on_outcome=broken_callback,
+        )
+    assert dashboard._context_depth == 0
+
+
+def test_legacy_list_and_report_preserve_order_and_distinct_domain_failures() -> None:
+    items = [3, 1, 2]
+    for mode in ("list", "report"):
+        dashboard = LiveWorkflowDashboard(title="Parity", enabled=False)
+        dashboard.set_tasks(["three", "one", "two"])
+        runner = run_dashboard_workflow if mode == "list" else run_dashboard_workflow_report
+        result = runner(
+            items=items,
+            process_item=lambda item: item * 10,
+            dashboard=dashboard,
+            pool_size=1,
+            status_for_result=lambda value: "FAIL" if value == 20 else "OK",
+            detail_for_result=str,
+        )
+        if mode == "list":
+            assert result == [30, 10, 20]
+        else:
+            assert isinstance(result, dw.WorkflowRunReport)
+            assert result.results == [30, 10, 20]
+            assert [outcome.status for outcome in result.outcomes] == ["OK", "OK", "FAIL"]
+        assert dashboard._tasks[3].status == "FAIL"
