@@ -43,6 +43,16 @@ Minor adjustments are acceptable when Python dependencies require them, but
 keep versions and frequently edited settings prominent. Avoid importing the
 `ryan_library` package merely to type a default setting near the top.
 
+An exception is a focused configuration import that supplies user-editable
+values, such as enums used in `MODE = SRC.TEXTFILES` or `OPERATION = OP.RUN`.
+These imports may precede the editable defaults to provide discoverable choices
+and editor completion without placing enum definitions above the settings.
+Associated setting type aliases may share that import. Keep the supporting
+module lightweight and free of operational side effects, and use the installed
+`ryan_library` package so copied wrappers still need only one script file.
+This exception does not move workflow, logging or other implementation imports
+above the settings; wrapper-only implementation types still belong below them.
+
 Operational imports deliberately follow the editable-default block. This keeps
 the settings a user is expected to review immediately below the docstring and
 minimal supporting imports. Do not defer imports into `main()` merely to alter
