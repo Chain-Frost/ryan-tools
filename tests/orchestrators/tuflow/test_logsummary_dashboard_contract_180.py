@@ -125,3 +125,29 @@ def test_no_completed_logs_is_skip_not_report_success() -> None:
 def test_binary_size_metadata_is_not_decimal_mb() -> None:
     assert ls._format_bytes(1024) == "1.0 KiB"
     assert ls._format_bytes(1024 * 1024) == "1.0 MiB"
+
+
+def test_spawn_callback_interruption_cleans_up_pool_and_logging(tmp_path: Path) -> None:
+    log = tmp_path / "interrupted.log"
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(ROOT)
+    run = subprocess.run(
+        [
+            sys.executable,
+            str(HARNESS),
+            "--log-file",
+            str(log),
+            "--interrupt-on-outcome",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        env=env,
+        timeout=60,
+        check=False,
+    )
+    assert run.returncode == 130
+    assert "CANCELLED_PARENTSIDE" in run.stdout
+    assert run.stdout.count("Spawn smoke: INTERRUPTED") == 1
+    assert "\\x1b[" not in run.stdout
+    assert log.is_file()
