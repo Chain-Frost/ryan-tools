@@ -1,9 +1,11 @@
-"""Combine multiple folders into one ZIP archive using 7-Zip.
+"""Combine multiple folders into a size-limited ZIP archive using 7-Zip.
 
 Each input folder is stored as a top-level folder in the archive, including
 when the source folders have different parent directories or drives. Existing
 archives are never overwritten, and input folders are not modified. 7-Zip is
 required; the script can discover standard Windows installations automatically.
+Outputs larger than 5 GiB are split into ``.zip.001``, ``.zip.002``, and so on
+so that every file is suitable for online upload.
 
 Example:
     python archive_compress_multiple_folders.py `
@@ -24,7 +26,8 @@ import uuid
 from collections.abc import Sequence
 from pathlib import Path
 
-SCRIPT_VERSION = "2026-10-28.2"
+SCRIPT_VERSION = "2026-11-01.1"
+MAX_ARCHIVE_PART_SIZE_BYTES = 5 * 1024**3
 
 # ---------------------------------------------------------------------------
 # Editable settings (command-line arguments override these values)
@@ -90,6 +93,47 @@ def _publish_archive(temporary_archive: Path, output_archive: Path) -> None:
     temporary_archive.unlink()
 
 
+def _temporary_archive_parts(temporary_archive: Path) -> list[Path]:
+    """Return the numbered volume files created for a temporary archive."""
+    prefix = f"{temporary_archive.name}."
+    parts = [
+        candidate
+        for candidate in temporary_archive.parent.glob(f"{temporary_archive.name}.*")
+        if candidate.name.removeprefix(prefix).isdigit()
+    ]
+    return sorted(parts, key=lambda path: int(path.name.removeprefix(prefix)))
+
+
+def _output_archive_parts(output_archive: Path, part_count: int) -> list[Path]:
+    """Return final names, retaining a normal .zip name for a single volume."""
+    if part_count == 1:
+        return [output_archive]
+    width = max(3, len(str(part_count)))
+    return [
+        output_archive.with_name(f"{output_archive.name}.{number:0{width}d}")
+        for number in range(1, part_count + 1)
+    ]
+
+
+def _publish_archive_parts(temporary_parts: Sequence[Path], output_archive: Path) -> list[Path]:
+    """Publish a complete set of archive volumes without overwriting existing files."""
+    output_parts = _output_archive_parts(output_archive, len(temporary_parts))
+    collision = next((path for path in output_parts if path.exists() or path.is_symlink()), None)
+    if collision is not None:
+        raise FileExistsError(f"Output archive already exists: {collision}")
+
+    published: list[Path] = []
+    try:
+        for temporary_part, output_part in zip(temporary_parts, output_parts, strict=True):
+            _publish_archive(temporary_part, output_part)
+            published.append(output_part)
+    except BaseException:
+        for output_part in published:
+            output_part.unlink(missing_ok=True)
+        raise
+    return output_parts
+
+
 def create_zip_from_folders(
     *,
     folders: Sequence[Path],
@@ -97,37 +141,43 @@ def create_zip_from_folders(
     executable: Path,
     excluded_folders: Sequence[str] = (),
     excluded_extensions: Sequence[str] = (),
-) -> None:
-    """Create one ZIP containing each supplied folder at the archive root."""
+) -> list[Path]:
+    """Create a ZIP volume set containing each supplied folder at the archive root."""
     temporary_archive = output_archive.with_name(f".{output_archive.stem}.{uuid.uuid4().hex}.partial.zip")
     exclusions = [f"-xr!{folder}" for folder in excluded_folders]
     exclusions.extend(f"-xr!*{_normalise_extension(extension)}" for extension in excluded_extensions)
 
     try:
-        for folder in folders:
-            command = [
-                str(executable),
-                "a",
-                "-tzip",
-                "-mx=5",
-                "-mmt=on",
-                str(temporary_archive),
-                folder.name,
-                *exclusions,
-            ]
-            result = subprocess.run(
-                command,
-                cwd=folder.parent,
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            if result.returncode != 0:
-                diagnostic = result.stderr.strip() or result.stdout.strip()
-                raise RuntimeError(f"7-Zip exit code {result.returncode} while adding {folder}: {diagnostic}")
-        _publish_archive(temporary_archive, output_archive)
-    except Exception:
+        command = [
+            str(executable),
+            "a",
+            "-tzip",
+            "-mx=5",
+            "-mmt=on",
+            f"-v{MAX_ARCHIVE_PART_SIZE_BYTES}b",
+            str(temporary_archive),
+            *(str(folder) for folder in folders),
+            *exclusions,
+        ]
+        result = subprocess.run(command, capture_output=True, text=True, check=False)
+        if result.returncode != 0:
+            diagnostic = result.stderr.strip() or result.stdout.strip()
+            raise RuntimeError(f"7-Zip exit code {result.returncode}: {diagnostic}")
+
+        temporary_parts = _temporary_archive_parts(temporary_archive)
+        if not temporary_parts or any(part.stat().st_size == 0 for part in temporary_parts):
+            raise RuntimeError(f"7-Zip did not create a non-empty archive volume set: {temporary_archive}")
+        oversized_part = next(
+            (part for part in temporary_parts if part.stat().st_size > MAX_ARCHIVE_PART_SIZE_BYTES),
+            None,
+        )
+        if oversized_part is not None:
+            raise RuntimeError(f"Archive volume exceeds the 5 GiB limit: {oversized_part}")
+        return _publish_archive_parts(temporary_parts, output_archive)
+    except BaseException:
         temporary_archive.unlink(missing_ok=True)
+        for temporary_part in _temporary_archive_parts(temporary_archive):
+            temporary_part.unlink(missing_ok=True)
         raise
 
 
@@ -160,8 +210,18 @@ def _validated_paths(input_paths: Sequence[Path], output_path: Path) -> tuple[li
         raise ValueError(f"Output archive must use the .zip extension: {output_archive}")
     if not output_archive.parent.is_dir():
         raise ValueError(f"Output directory does not exist: {output_archive.parent}")
-    if output_archive.exists():
+    existing_part = next(
+        (
+            candidate
+            for candidate in output_archive.parent.glob(f"{output_archive.name}.*")
+            if candidate.name.removeprefix(f"{output_archive.name}.").isdigit()
+        ),
+        None,
+    )
+    if output_archive.exists() or output_archive.is_symlink():
         raise FileExistsError(f"Output archive already exists: {output_archive}")
+    if existing_part is not None:
+        raise FileExistsError(f"Output archive part already exists: {existing_part}")
 
     # Physical containment is intentional here: following links prevents the
     # temporary archive from being created inside a source via a junction/symlink.
@@ -193,6 +253,7 @@ def main(
         print(f"Python: {sys.version.split()[0]}")
         print(f"7-Zip: {_seven_zip_version(executable)} ({executable})")
         print(f"Output: {output_archive}")
+        print("Maximum file size: 5 GiB")
         print("Folders:")
         for folder in folders:
             print(f"  - {folder}")
@@ -204,7 +265,7 @@ def main(
             print("Dry run complete; no archive was created.")
             return 0
 
-        create_zip_from_folders(
+        created_archives = create_zip_from_folders(
             folders=folders,
             output_archive=output_archive,
             executable=executable,
@@ -215,7 +276,12 @@ def main(
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 
-    print(f"Created ZIP archive: {output_archive}")
+    if len(created_archives) == 1:
+        print(f"Created ZIP archive: {created_archives[0]}")
+    else:
+        print(f"Created {len(created_archives)} ZIP archive parts:")
+        for created_archive in created_archives:
+            print(f"  - {created_archive}")
     return 0
 
 
