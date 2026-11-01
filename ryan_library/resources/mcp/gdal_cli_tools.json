@@ -31,36 +31,16 @@
       "script": "recompress_geotiffs.py",
       "purpose": "Audit GeoTIFF compression and optionally replace uncompressed files only after exact verification.",
       "mutation": "audit_only_unless_explicit_replace",
-      "defaults": {
-        "recursive": true,
-        "profile": "tuflow",
-        "strategy": "auto",
-        "overviews": false
-      },
-      "help_arguments": [
-        "recompress_geotiffs.py",
-        "--help"
-      ],
+      "defaults": {"recursive": true, "profile": "tuflow", "strategy": "auto", "overviews": false},
+      "help_arguments": ["recompress_geotiffs.py", "--help"],
       "scenarios": [
         {
           "name": "audit_only",
-          "arguments": [
-            "recompress_geotiffs.py",
-            "{input_directory}",
-            "--no-pause"
-          ]
+          "arguments": ["recompress_geotiffs.py", "{input_directory}", "--no-pause"]
         },
         {
           "name": "verified_replacement_with_local_staging",
-          "arguments": [
-            "recompress_geotiffs.py",
-            "{input_directory}",
-            "--replace",
-            "--yes",
-            "--staging-directory",
-            "{local_staging_directory}",
-            "--no-pause"
-          ],
+          "arguments": ["recompress_geotiffs.py", "{input_directory}", "--replace", "--yes", "--staging-directory", "{local_staging_directory}", "--no-pause"],
           "note": "Explicit replacement approval is required. Local staging is recommended for generic rasters on network storage."
         }
       ]
@@ -141,6 +121,7 @@
     },
     {
       "id": "build_external_overviews",
+      "keywords": ["pyramids"],
       "script": "gdaladdo_tif_pyramids.py",
       "purpose": "Create or refresh external overview sidecars for existing GeoTIFFs.",
       "mutation": "creates_or_replaces_sidecars",
@@ -178,9 +159,6 @@
             "--no-pause"
           ]
         }
-      ],
-      "keywords": [
-        "pyramids"
       ]
     },
     {
@@ -230,64 +208,33 @@
       "mutation": "executes_external",
       "requires_explicit_approval": true,
       "external_program": "ogr2ogr",
-      "defaults": {
-        "workers": 4,
-        "overwrite": false,
-        "dry_run": false
-      },
-      "help_arguments": [
-        "batch_vector_clip.py",
-        "--help"
-      ]
+      "defaults": {"workers": 4, "overwrite": false, "dry_run": false},
+      "help_arguments": ["batch_vector_clip.py", "--help"]
     },
     {
       "id": "calculate_stage_storage",
       "script": "gdal_stage_storage.py",
       "purpose": "Calculate stage-storage CSV files and optional plots from single-band DEMs with a projected metre-based CRS.",
       "mutation": "creates_outputs",
-      "defaults": {
-        "patterns": [
-          "*.tif"
-        ],
-        "step": 0.01,
-        "create_plot": true
-      },
-      "help_arguments": [
-        "gdal_stage_storage.py",
-        "--help"
-      ]
+      "defaults": {"patterns": ["*.tif"], "step": 0.01, "create_plot": true},
+      "help_arguments": ["gdal_stage_storage.py", "--help"]
     },
     {
       "id": "clip_rasters_to_polygon",
+      "keywords": ["crop", "cropping"],
       "script": "gdalwarp_clip_to_polygon.py",
       "purpose": "Clip TIFF rasters to an unambiguous vector cutline layer.",
       "mutation": "creates_outputs",
-      "defaults": {
-        "output_directory": "clipped"
-      },
-      "help_arguments": [
-        "gdalwarp_clip_to_polygon.py",
-        "--help"
-      ],
-      "keywords": [
-        "crop",
-        "cropping"
-      ]
+      "defaults": {"output_directory": "clipped"},
+      "help_arguments": ["gdalwarp_clip_to_polygon.py", "--help"]
     },
     {
       "id": "split_vector_by_attribute",
       "script": "split_vector_by_attribute.py",
       "purpose": "Write one vector dataset per distinct attribute value.",
       "mutation": "creates_outputs",
-      "defaults": {
-        "format": "shp",
-        "parallel": false,
-        "workers": 4
-      },
-      "help_arguments": [
-        "split_vector_by_attribute.py",
-        "--help"
-      ]
+      "defaults": {"format": "shp", "parallel": false, "workers": 4},
+      "help_arguments": ["split_vector_by_attribute.py", "--help"]
     }
   ]
 }

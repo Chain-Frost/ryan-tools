@@ -22,7 +22,11 @@ Canonical repository policy remains in [`AGENTS.md`](../../AGENTS.md) and
 ## Workflow keyword discovery
 
 Issue #136 is tracked in the [workflow keywords and overview handoff](../work/2026-11-01-mcp-workflow-discovery-136.md).
-Its review and validation status are maintained in that record.
+Its review and validation status are maintained in that record. Agents can begin with
+`list_workflows(overview=True)` if the domain is unknown, search with
+`list_workflows(domain="gdal", query="crop")`, and inspect details using
+`get_workflow("clip_rasters_to_polygon")`. Search remains literal and uses curated workflow-local keywords;
+normal pages count workflows, while overview pages count domains (at most three compact examples per domain).
 
 ## User intent
 

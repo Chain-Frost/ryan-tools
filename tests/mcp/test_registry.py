@@ -429,7 +429,8 @@ def test_gdal_and_generic_keyword_discovery_preserves_canonical_ids() -> None:
     assert "keywords" not in normal
     assert "command_prefix" not in normal
     full = registry.catalogue()
-    assert len(full["workflows"]) == full["workflow_count"] == registry.total_workflow_count
+    assert len(full["workflows"]) == full["workflow_count"]
+    assert full["workflow_count"] == registry.list_workflows(include_unavailable=True)["workflow_count"]
     assert next(item for item in full["workflows"] if item["id"] == "clip_rasters_to_polygon")["keywords"] == [
         "crop",
         "cropping",

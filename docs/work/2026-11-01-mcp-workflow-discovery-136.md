@@ -2,15 +2,15 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Planned; draft PR setup only, feature implementation not started |
+| Status | Implemented; hosted validation and independent review pending |
 | Owner | Unassigned |
 | Created | 2026-11-01 |
 | Updated | 2026-11-01 |
 | Next review | 2026-11-08 |
 | Issue | [#136](https://github.com/Chain-Frost/ryan-tools/issues/136) |
-| Baseline | [main at 6e2d0f1](https://github.com/Chain-Frost/ryan-tools/commit/6e2d0f1d64be46d3c704e895fd0138583ac1dc31) |
+| Baseline | [main at 99cd3cc](https://github.com/Chain-Frost/ryan-tools/commit/99cd3ccaaabd83b682392f7e285d90b570d353cb), merge commit ddcf6e7 |
 | Delivery branch | `feat/mcp-workflow-discovery-136`, targeting `main` |
-| Delivery state | Documentation seed for one draft PR; implementation, functional validation and independent review remain pending |
+| Delivery state | Feature and regression tests pushed to draft PR #182; Python 3.14 hosted verification, installed-wheel smoke and independent review pending |
 
 ## Outcome and scope
 
@@ -18,7 +18,7 @@ Make existing MCP workflows discoverable through familiar terms such as crop and
 domain overview before an agent narrows its search. Continue the existing draft PR on the delivery branch above.
 This file is the authoritative plan, acceptance contract and agent handoff for issue #136.
 
-The user requested PR setup and prompts for other agents. The setup commit does not implement the feature.
+The initial setup commit did not implement the feature. Subsequent commits implement the agreed functionality on the same PR branch.
 The implementation and review prompts below authorize their agents to commit and push task-related changes to the
 existing PR branch. No merge, auto-merge, release or force-push is part of either handoff.
 
@@ -33,9 +33,9 @@ Read [AGENTS.md](../../AGENTS.md), the [development guide](../DEVELOPMENT_GUIDE.
   explicitly reserved curated terms and domain overview for #136.
 - [PR #137](https://github.com/Chain-Frost/ryan-tools/pull/137) is merged into the baseline.
   Its older description and work-record wording do not override its live merged state.
-- [PR #159](https://github.com/Chain-Frost/ryan-tools/pull/159) is independent. At setup it changes the generic
-  workflow catalogue and installed-wheel smoke script, but not the MCP model, registry or server.
-  Reconcile those overlapping files with the latest remote main before final acceptance; do not stack on #159.
+- [PR #159](https://github.com/Chain-Frost/ryan-tools/pull/159) has since merged to main at `99cd3cc`.
+  Its generic catalogue and installed-wheel smoke changes are retained by merging main into this feature branch
+  before implementing #136; the PR remains based on main, not stacked on #159.
 - The unchanged registry returns no matches for crop or pyramids. Raster clip finds
   `clip_rasters_to_polygon`; overviews finds the existing overview and raster-translation workflows.
   These observations used `include_unavailable=True` and the create profile, so installation did not affect matching.
@@ -166,16 +166,16 @@ Target the repository's Windows/Python 3.14 environment and current annotation s
 
 ## Completion criteria
 
-- [ ] Omitted keywords remain compatible; invalid keywords fail clearly through both catalogue loaders.
-- [ ] Normalization trims and de-duplicates deterministically.
-- [ ] Crop/cropping finds the existing raster clip, pyramids finds external overviews, and logs finds the generic log summary.
-- [ ] Keyword plus literal query terms, mixed case, exact domain filtering and unknown terms behave as specified.
-- [ ] Keywords never duplicate records, change canonical IDs or bypass profile/availability restrictions.
-- [ ] Default listing retains its contract, stable pagination and complete match totals.
-- [ ] Overview counts cover all filtered workflows, including results beyond the first workflow page.
-- [ ] Overview has deterministic domain pagination, bounded examples, correct empty/past-end results and no hidden entries.
-- [ ] Core/analysis/create/privileged and narrower requested profiles retain their existing visibility contracts.
-- [ ] Full catalogue and health totals remain complete; no catalogue preload or execution is introduced.
+- [x] Omitted keywords remain compatible; invalid keywords fail clearly through both catalogue loaders.
+- [x] Normalization trims and de-duplicates deterministically.
+- [x] Crop/cropping finds the existing raster clip, pyramids finds external overviews, and logs finds the generic log summary.
+- [x] Keyword plus literal query terms, mixed case, exact domain filtering and unknown terms behave as specified.
+- [x] Keywords never duplicate records, change canonical IDs or bypass profile/availability restrictions.
+- [x] Default listing retains its contract, stable pagination and complete match totals.
+- [x] Overview counts cover all filtered workflows, including results beyond the first workflow page.
+- [x] Overview has deterministic domain pagination, bounded examples, correct empty/past-end results and no hidden entries.
+- [x] Core/analysis/create/privileged and narrower requested profiles retain their existing visibility contracts.
+- [x] Full catalogue and health totals remain complete; no catalogue preload or execution is introduced.
 - [ ] Actual installed-wheel discovery proves packaged keywords and overview work outside the checkout.
 - [ ] Focused tests, relevant formatting/typing, documentation checks and package verification pass at the reported head.
 - [ ] Independent review findings are resolved or explicitly reported; the PR and work record match delivered behavior.
@@ -195,6 +195,18 @@ Target the repository's Windows/Python 3.14 environment and current annotation s
   Record the actual tested/accepted feature SHA in the next handoff; do not reuse setup evidence as feature acceptance.
 
 ### Implementation verification
+
+Implementation commits:
+
+- `ddcf6e7` merges main `99cd3cc` without touching submodules and retains #159's catalogue/wheel changes.
+- `780c3a3` adds keyword validation/search, bounded registry domain aggregation, the existing MCP tool's
+  `overview` flag, the three curated JSON entries and selected-detail keyword inspection.
+- `94b562c` extends focused model/registry/server regression coverage and the actual installed-wheel smoke.
+- Documentation records and the final exact-head validation receipt follow in subsequent commits.
+
+The checkbox items above describe implemented, test-covered behavior; validation-only and independent-review
+criteria remain pending until corresponding evidence is available. Existing CI must prove actual Python 3.14
+formatting, strict typing, focused tests and the Package job's neutral-directory installed-wheel smoke.
 
 Run focused MCP tests sufficient to cover this contract and existing safety boundaries. Use current repository
 formatting/lint guidance and strict Pyright on modified Python files. Record exact commands, environment and results.
@@ -284,7 +296,9 @@ state whether it is ready for the user's final review.
 
 ## Next action
 
-Give Agent 1 its implementation prompt. Start Agent 2 only after Agent 1 has pushed and finished its handoff.
+Check hosted Python 3.14 Policy, Hosted tests, MCP smoke and Package outcomes at the latest pushed SHA. Resolve
+regressions, record exact commands/results and the final tested SHA, then hand PR #182 to Agent 2 for independent
+acceptance. Do not merge, release or auto-merge.
 
 ## Progress
 
@@ -293,3 +307,10 @@ Give Agent 1 its implementation prompt. Start Agent 2 only after Agent 1 has pus
 Reviewed #136 against current main and related PRs. Selected one draft PR with sequential implementation and
 independent review, defined the previously ambiguous keyword and overview contracts, and prepared this indexed
 handoff. Feature implementation and acceptance remain pending.
+
+### 2026-11-01 — implementation delivery
+
+The keyword model, both catalogue loaders, registry search, domain aggregation and existing MCP tool are updated.
+Original user-facing pagination and profile filtering remain available. Generic and GDAL curation use authoritative
+JSON; neither creates a new script nor changes CLI behavior. Added focused tests including failure paths and actual
+installed-wheel smoke assertions; validation outcomes are recorded separately once CI finishes.
