@@ -226,11 +226,11 @@ def main_processing(
         max_rows=live_max_rows,
         columns=LOG_SUMMARY_DASHBOARD_COLUMNS,
     )
-    console_level = console_log_level if console_log_level is not None else "INFO"
-    # Filter routine console records at the SINK, never in the worker.
-    # A DEBUG file sink continues receiving every worker DEBUG/INFO record.
-    if use_live_dashboard and console_level.upper() == "INFO":
-        console_level = "SUCCESS"
+    # Choose the concise default only when the caller has not selected a level.
+    # A user-supplied INFO/DEBUG override must not be silently reinterpreted.
+    console_level = (
+        console_log_level if console_log_level is not None else ("SUCCESS" if use_live_dashboard else "INFO")
+    )
 
     with setup_logger(
         console_log_level=console_level,
