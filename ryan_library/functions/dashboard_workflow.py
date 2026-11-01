@@ -14,7 +14,8 @@ import math
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from multiprocessing import Pool, Queue, pool as multiprocessing_pool
+from multiprocessing import Pool, Queue
+from multiprocessing import pool as multiprocessing_pool
 from multiprocessing.pool import ApplyResult
 from queue import Empty, Full
 from typing import TYPE_CHECKING, Protocol, cast, runtime_checkable
@@ -29,7 +30,7 @@ if TYPE_CHECKING:
 
 # Python's multiprocessing pool exposes MaybeEncodingError at runtime but
 # some 3.14 type-stub sets omit the symbol. Narrow this one compatibility gap.
-MaybeEncodingError = cast("type[Exception]", getattr(multiprocessing_pool, "MaybeEncodingError"))
+MaybeEncodingError = cast("type[Exception]", getattr(multiprocessing_pool, "MaybeEncodingError"))  # noqa: B009 - Python 3.14 typing stubs omit this runtime class
 
 
 class ProgressQueue(Protocol):
