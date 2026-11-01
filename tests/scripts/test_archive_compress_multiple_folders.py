@@ -70,7 +70,7 @@ def test_editable_defaults_and_bidirectional_cli(script: ArchiveModule) -> None:
     assert script.DEFAULT_DRY_RUN is False
     assert script.DEFAULT_SHOW_PROGRESS is True
 
-    arguments = script._parse_cli_arguments(
+    arguments = script._parse_cli_arguments(  # pyright: ignore[reportPrivateUsage] - exercise CLI default resolution
         ["--exclude-folders", "--exclude-extensions", "--no-progress", "--no-dry-run"]
     )
     assert arguments.exclude_folders == []

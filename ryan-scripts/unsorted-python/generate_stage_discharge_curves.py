@@ -21,13 +21,12 @@ import csv
 from dataclasses import dataclass
 from pathlib import Path
 
-import matplotlib
+import matplotlib as mpl
 
-matplotlib.use("Agg")
+mpl.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
 
 SCRIPT_VERSION = "2026-10-29.8"
 DEFAULT_CASES = ("Base", "Sensitivity")
@@ -45,6 +44,8 @@ DEFAULT_OUTPUT_DIR = Path(
     r"\4 ENGINEERING\11 HYDROLOGY\Stage Discharge Curve"
 )
 DEFAULT_REFERENCE = DEFAULT_OUTPUT_DIR / "Fortescue river reference.csv"
+
+
 @dataclass(frozen=True)
 class ReferenceRow:
     identifier: str
@@ -130,7 +131,8 @@ def read_reference(path: Path) -> list[ReferenceRow]:
 
     required = {"ID", "Flow Line", "Water Level Point"}
     if not rows or not required.issubset(rows[0]):
-        raise RuntimeError(f"{path} is empty or lacks these columns: {sorted(required)}")
+        msg = f"{path} is empty or lacks these columns: {sorted(required)}"
+        raise RuntimeError(msg)
 
     references = [
         ReferenceRow(
@@ -141,7 +143,8 @@ def read_reference(path: Path) -> list[ReferenceRow]:
         for row in rows
     ]
     if len({row.identifier for row in references}) != len(references):
-        raise RuntimeError("Reference IDs must be unique")
+        msg = "Reference IDs must be unique"
+        raise RuntimeError(msg)
     return references
 
 
@@ -151,7 +154,8 @@ def read_two_row_header(path: Path) -> tuple[list[str], list[str]]:
         result_types = next(reader)
         locations = next(reader)
     if len(result_types) != len(locations):
-        raise RuntimeError(f"Header width mismatch in {path}")
+        msg = f"Header width mismatch in {path}"
+        raise RuntimeError(msg)
     return result_types, locations
 
 
@@ -165,9 +169,8 @@ def build_column_lookup(result_types: list[str], locations: list[str]) -> dict[t
 def require_column(lookup: dict[tuple[str, str], list[int]], result_type: str, location: str, path: Path) -> int:
     matches = lookup.get((result_type, location), [])
     if len(matches) != 1:
-        raise RuntimeError(
-            f"{path.name}: expected one {result_type!r}/{location!r} column, found {len(matches)}"
-        )
+        msg = f"{path.name}: expected one {result_type!r}/{location!r} column, found {len(matches)}"
+        raise RuntimeError(msg)
     return matches[0]
 
 
@@ -185,7 +188,8 @@ def shift_flow_to_water_level_time(
 ) -> np.ndarray:
     """Interpolate shifted flow values onto the unchanged water-level timestamps."""
     if len(time) < 2 or np.any(np.diff(time) <= 0.0):
-        raise RuntimeError("Time values must be strictly increasing to align the flow series")
+        msg = "Time values must be strictly increasing to align the flow series"
+        raise RuntimeError(msg)
     shifted_flow_time = time + flow_time_offset_hours
     return np.interp(time, shifted_flow_time, flow, left=np.nan, right=np.nan)
 
@@ -196,7 +200,8 @@ def moving_average_sample_count(time: np.ndarray, window_minutes: float) -> int:
         return 1
     time_step_hours = float(np.median(np.diff(time)))
     if time_step_hours <= 0.0:
-        raise RuntimeError("Time values must be strictly increasing to smooth the time series")
+        msg = "Time values must be strictly increasing to smooth the time series"
+        raise RuntimeError(msg)
     radius = max(1, round((window_minutes / 60.0) / (2.0 * time_step_hours)))
     return 2 * radius + 1
 
@@ -205,12 +210,7 @@ def centered_moving_average(values: np.ndarray, window_samples: int) -> np.ndarr
     """Smooth values without shifting their timestamps."""
     if window_samples <= 1:
         return values.copy()
-    return (
-        pd.Series(values)
-        .rolling(window=window_samples, center=True, min_periods=1)
-        .mean()
-        .to_numpy(dtype=float)
-    )
+    return pd.Series(values).rolling(window=window_samples, center=True, min_periods=1).mean().to_numpy(dtype=float)
 
 
 def select_curve_files(
@@ -222,7 +222,8 @@ def select_curve_files(
     expected_suffix = f"_{case}_PO.csv".casefold()
     po_files = sorted(path for path in curve_folder.glob("*_PO.csv") if path.name.casefold().endswith(expected_suffix))
     if not po_files:
-        raise RuntimeError(f"No {case!r} *_PO.csv files found in {curve_folder}")
+        msg = f"No {case!r} *_PO.csv files found in {curve_folder}"
+        raise RuntimeError(msg)
 
     best: dict[str, CurveSelection] = {}
     for po_file in po_files:
@@ -245,7 +246,8 @@ def select_curve_files(
             water_level = pd.to_numeric(frame[wl_index], errors="coerce").to_numpy(dtype=float)
             valid = np.isfinite(time) & np.isfinite(flow) & np.isfinite(water_level)
             if not np.any(valid):
-                raise RuntimeError(f"{po_file.name}: no paired data for {reference.identifier}")
+                msg = f"{po_file.name}: no paired data for {reference.identifier}"
+                raise RuntimeError(msg)
 
             valid_time = time[valid]
             valid_flow = flow[valid]
@@ -288,16 +290,15 @@ def select_peak_flows(
 ) -> dict[str, list[PeakFlow]]:
     expected_suffix = f"_{case}_POMM.csv".casefold()
     files_by_folder = {
-        folder: sorted(
-            path for path in folder.glob("*_POMM.csv") if path.name.casefold().endswith(expected_suffix)
-        )
+        folder: sorted(path for path in folder.glob("*_POMM.csv") if path.name.casefold().endswith(expected_suffix))
         for folder in results_root.iterdir()
         if folder.is_dir()
     }
     files_by_folder = {folder: files for folder, files in files_by_folder.items() if files}
     aep_folders = sorted(files_by_folder, key=aep_sort_key)
     if not aep_folders:
-        raise RuntimeError(f"No AEP folders containing {case!r} *_POMM.csv files found in {results_root}")
+        msg = f"No AEP folders containing {case!r} *_POMM.csv files found in {results_root}"
+        raise RuntimeError(msg)
 
     selected: dict[str, list[PeakFlow]] = {reference.identifier: [] for reference in references}
     for folder in aep_folders:
@@ -313,7 +314,8 @@ def select_peak_flows(
                 locations = next(reader)
                 maximum_row = next(reader)
             if len(maximum_row) < 2 or "Maximum" not in maximum_row[1]:
-                raise RuntimeError(f"Maximum row not found in {pomm_file}")
+                msg = f"Maximum row not found in {pomm_file}"
+                raise RuntimeError(msg)
             lookup = build_column_lookup(result_types, locations)
 
             for reference in references:
@@ -372,7 +374,8 @@ def load_curve_data(
     valid = np.isfinite(time) & np.isfinite(flow) & np.isfinite(water_level) & np.isfinite(depth)
     time, flow, water_level, depth = time[valid], flow[valid], water_level[valid], depth[valid]
     if not len(flow):
-        raise RuntimeError(f"No valid flow/water-level/depth rows in {source}")
+        msg = f"No valid flow/water-level/depth rows in {source}"
+        raise RuntimeError(msg)
     has_zero_origin = bool(np.any(np.isclose(flow, 0.0) & np.isclose(depth, 0.0)))
 
     moving_average_samples = moving_average_sample_count(time, moving_average_minutes)
@@ -431,19 +434,20 @@ def plot_curve(
     track_level: float,
     formation_level: float,
 ) -> None:
+    # Matplotlib leaves plotting **kwargs untyped; ignore only that upstream member diagnostic.
     fig, ax = plt.subplots(figsize=(9.0, 6.0))
     fig.subplots_adjust(left=0.10, right=0.90, bottom=0.12, top=0.80)
-    depth_axis = ax.twinx()
-    ax.plot(
+    depth_axis = ax.twinx()  # pyright: ignore[reportUnknownMemberType]
+    ax.plot(  # pyright: ignore[reportUnknownMemberType]
         flow,
         water_level,
         color="#005A9C",
         linewidth=1.4,
         zorder=3,
     )
-    ax.axhline(track_level, color="#F57C00", linestyle="--", linewidth=1.4, zorder=2)
-    ax.axhline(formation_level, color="#6A1B9A", linestyle="-.", linewidth=1.4, zorder=2)
-    ax.text(
+    ax.axhline(track_level, color="#F57C00", linestyle="--", linewidth=1.4, zorder=2)  # pyright: ignore[reportUnknownMemberType]
+    ax.axhline(formation_level, color="#6A1B9A", linestyle="-.", linewidth=1.4, zorder=2)  # pyright: ignore[reportUnknownMemberType]
+    ax.text(  # pyright: ignore[reportUnknownMemberType]
         0.99,
         track_level,
         f"Track level: {track_level:.2f} mAHD",
@@ -453,7 +457,7 @@ def plot_curve(
         ha="right",
         va="bottom",
     )
-    ax.text(
+    ax.text(  # pyright: ignore[reportUnknownMemberType]
         0.99,
         formation_level,
         f"Formation level: {formation_level:.2f} mAHD",
@@ -465,8 +469,8 @@ def plot_curve(
     )
 
     for peak in sorted(peak_flows, key=lambda item: float(item.aep_label.removesuffix("%")), reverse=True):
-        ax.axvline(peak.value, color="#C62828", linestyle="--", linewidth=1.15, alpha=0.9, zorder=1)
-        ax.annotate(
+        ax.axvline(peak.value, color="#C62828", linestyle="--", linewidth=1.15, alpha=0.9, zorder=1)  # pyright: ignore[reportUnknownMemberType]
+        ax.annotate(  # pyright: ignore[reportUnknownMemberType]
             f"{peak.aep_label} AEP\n{peak.value:.1f} m$^3$/s",
             xy=(peak.value, 1.010),
             xycoords=("data", "axes fraction"),
@@ -485,14 +489,14 @@ def plot_curve(
             zorder=5,
         )
 
-    ax.set_title(reference.identifier, fontsize=14, fontweight="bold", y=1.08)
-    ax.set_xlabel("Flow rate (m$^3$/s)")
-    ax.set_ylabel("Water level (mAHD)")
-    depth_axis.set_ylabel("Depth (m)")
-    ax.grid(True, which="major", color="#D9D9D9", linewidth=0.8)
-    ax.grid(True, which="minor", color="#EEEEEE", linewidth=0.5)
+    ax.set_title(reference.identifier, fontsize=14, fontweight="bold", y=1.08)  # pyright: ignore[reportUnknownMemberType]
+    ax.set_xlabel("Flow rate (m$^3$/s)")  # pyright: ignore[reportUnknownMemberType]
+    ax.set_ylabel("Water level (mAHD)")  # pyright: ignore[reportUnknownMemberType]
+    depth_axis.set_ylabel("Depth (m)")  # pyright: ignore[reportUnknownMemberType]
+    ax.grid(True, which="major", color="#D9D9D9", linewidth=0.8)  # pyright: ignore[reportUnknownMemberType]
+    ax.grid(True, which="minor", color="#EEEEEE", linewidth=0.5)  # pyright: ignore[reportUnknownMemberType]
     ax.minorticks_on()
-    depth_axis.grid(False)
+    depth_axis.grid(False)  # pyright: ignore[reportUnknownMemberType]
     all_x = np.concatenate((flow, np.array([peak.value for peak in peak_flows])))
     x_max = float(np.max(all_x))
     ax.set_xlim(0.0, x_max * 1.05)
@@ -505,17 +509,36 @@ def plot_curve(
 
     depth_axis.set_ylim(0.0, primary_max - point_datum)
 
-    fig.savefig(output_path, dpi=200, facecolor="white")
+    fig.savefig(output_path, dpi=200, facecolor="white")  # pyright: ignore[reportUnknownMemberType]
     plt.close(fig)
 
 
 def write_csv(path: Path, rows: list[dict[str, object]]) -> None:
     if not rows:
-        raise RuntimeError(f"No rows available for {path.name}")
+        msg = f"No rows available for {path.name}"
+        raise RuntimeError(msg)
     with path.open("w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
         writer.writeheader()
         writer.writerows(rows)
+
+
+def validate_plot_settings(
+    cases: list[str], moving_average_minutes: float, track_level: float, formation_level: float
+) -> None:
+    """Validate case names, smoothing duration and plotted levels."""
+    if not all(cases):
+        msg = "Case names must not be empty"
+        raise RuntimeError(msg)
+    if len({case.casefold() for case in cases}) != len(cases):
+        msg = "Case names must be unique (case-insensitive)"
+        raise RuntimeError(msg)
+    if not np.isfinite(moving_average_minutes) or moving_average_minutes < 0.0:
+        msg = "Moving-average minutes must be a finite value greater than or equal to zero"
+        raise RuntimeError(msg)
+    if not np.isfinite(track_level) or not np.isfinite(formation_level):
+        msg = "Track and formation levels must be finite"
+        raise RuntimeError(msg)
 
 
 def main() -> None:
@@ -530,21 +553,17 @@ def main() -> None:
     track_level = args.track_level
     formation_level = args.formation_level
 
-    if not all(cases):
-        raise RuntimeError("Case names must not be empty")
-    if len({case.casefold() for case in cases}) != len(cases):
-        raise RuntimeError("Case names must be unique (case-insensitive)")
-    if not np.isfinite(moving_average_minutes) or moving_average_minutes < 0.0:
-        raise RuntimeError("Moving-average minutes must be a finite value greater than or equal to zero")
-    if not np.isfinite(track_level) or not np.isfinite(formation_level):
-        raise RuntimeError("Track and formation levels must be finite")
+    validate_plot_settings(cases, moving_average_minutes, track_level, formation_level)
 
     if not results_root.is_dir():
-        raise RuntimeError(f"Results root does not exist: {results_root}")
+        msg = f"Results root does not exist: {results_root}"
+        raise RuntimeError(msg)
     if not curve_folder.is_dir():
-        raise RuntimeError(f"Curve AEP folder does not exist: {curve_folder}")
+        msg = f"Curve AEP folder does not exist: {curve_folder}"
+        raise RuntimeError(msg)
     if not reference_path.is_file():
-        raise RuntimeError(f"Reference CSV does not exist: {reference_path}")
+        msg = f"Reference CSV does not exist: {reference_path}"
+        raise RuntimeError(msg)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     references = read_reference(reference_path)

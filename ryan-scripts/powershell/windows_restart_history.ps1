@@ -7,6 +7,15 @@ Correlates Windows System event-log records for operating-system startup, clean
 shutdown, user or service restart requests, unexpected shutdown, Kernel-Power,
 bugcheck and Windows Update events.
 
+Shows current Windows uptime and the last boot time, including when the
+selected history range contains no startup events. Uptime measures time since
+the operating system booted and can include sleep or hibernation.
+Each startup group also includes uptime for the session beginning at that
+startup (and an Uptime column in CSV exports). Completed-session uptime uses
+the recorded OS shutdown, or the clean event-log stop as an approximation.
+Missing shutdown evidence is reported as unknown rather than counting downtime
+until the next startup as uptime.
+
 An unexpected shutdown without a bugcheck cannot be attributed reliably to a
 specific cause. It may represent power loss, a forced reset, a held power
 button, or a system hang. The script reports that limitation instead of
@@ -106,8 +115,24 @@ function Get-ShortProcessName {
     return Split-Path -Leaf $executable
 }
 
+# Use the operating system's boot time independently of event-log retention
+# and the selected history range. Fast Startup can preserve this boot session.
+$lastBootTime = $null
+$reportTime = Get-Date
+try {
+    $operatingSystem = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction Stop
+    $lastBootTime = [datetime]$operatingSystem.LastBootUpTime
+    $currentUptime = Format-Duration -Duration ($reportTime - $lastBootTime)
+    Write-Host ("Current uptime : {0}" -f $currentUptime) -ForegroundColor $defaultTextColor
+    Write-Host ("Last boot      : {0}" -f $lastBootTime.ToString("dddd, yyyy-MM-dd HH:mm:ss zzz")) -ForegroundColor $defaultTextColor
+    Write-Host "Uptime is elapsed time since OS boot, including sleep/hibernation; Fast Startup can preserve the boot session."
+}
+catch {
+    Write-Warning ("Current uptime unavailable: {0}" -f $_.Exception.Message)
+}
+
 $queryStart = $Since.AddDays(-$CorrelationLookbackDays)
-$eventIds = 12, 19, 41, 1001, 1074, 6005, 6006, 6008
+$eventIds = 12, 13, 19, 41, 1001, 1074, 6005, 6006, 6008
 $events = @(
     Get-WinEvent -FilterHashtable @{
         LogName  = $systemLogName
@@ -136,6 +161,41 @@ if ($reportedStartups.Count -eq 0) {
 $results = @()
 foreach ($startup in $reportedStartups) {
     $startupTime = $startup.TimeCreated
+    $nextStartup = @(
+        $allStartups |
+            Where-Object { $_.TimeCreated -gt $startupTime } |
+            Select-Object -First 1
+    )
+    $sessionEnd = $reportTime
+    if ($nextStartup.Count -gt 0) {
+        $sessionEnd = $nextStartup[0].TimeCreated
+    }
+    # A newer CIM boot also bounds old sessions when startup events are missing.
+    if ($null -ne $lastBootTime -and $lastBootTime -gt $startupTime.AddMinutes(2) -and $lastBootTime -lt $sessionEnd) {
+        $sessionEnd = $lastBootTime
+    }
+    $sessionStops = @(
+        $events |
+            Where-Object {
+                $_.TimeCreated -gt $startupTime -and $_.TimeCreated -lt $sessionEnd -and
+                (($_.Id -eq 13 -and $_.ProviderName -eq $kernelGeneralProvider) -or
+                 ($_.Id -eq 6006 -and $_.ProviderName -eq "EventLog"))
+            } |
+            Sort-Object TimeCreated
+    )
+    $osStops = @($sessionStops | Where-Object { $_.Id -eq 13 })
+    $uptime = "Unknown (no shutdown time recorded)"
+    if ($osStops.Count -gt 0) {
+        $uptime = Format-Duration -Duration ($osStops[0].TimeCreated - $startupTime)
+    }
+    elseif ($sessionStops.Count -gt 0) {
+        $uptime = "{0} (approximate; clean event-log stop)" -f (Format-Duration -Duration ($sessionStops[0].TimeCreated - $startupTime))
+    }
+    elseif ($nextStartup.Count -eq 0 -and $null -ne $lastBootTime -and
+            [math]::Abs(($startupTime - $lastBootTime).TotalMinutes) -le 2) {
+        # Event 12 is logged shortly after OS boot; CIM identifies the live session.
+        $uptime = "{0} (current session)" -f (Format-Duration -Duration ($reportTime - $lastBootTime))
+    }
     $previousStartup = @(
         $allStartups |
             Where-Object { $_.TimeCreated -lt $startupTime } |
@@ -287,6 +347,7 @@ foreach ($startup in $reportedStartups) {
         Initiator     = $initiator
         Reason        = $reason
         Downtime      = $downtime
+        Uptime        = $uptime
         Evidence      = $evidenceParts -join ". "
     })
 }
@@ -310,6 +371,7 @@ foreach ($result in $results) {
     Write-Host "Reason         : " -NoNewline -ForegroundColor $defaultTextColor
     Write-Host $result.Reason -ForegroundColor $reasonColor
     Write-Host ("Downtime       : {0}" -f $result.Downtime) -ForegroundColor $defaultTextColor
+    Write-Host ("Uptime         : {0}" -f $result.Uptime) -ForegroundColor $defaultTextColor
     Write-Host ("Evidence       : {0}" -f $result.Evidence) -ForegroundColor $defaultTextColor
 }
 Write-Host ""

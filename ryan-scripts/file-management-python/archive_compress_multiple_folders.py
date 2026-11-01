@@ -89,7 +89,8 @@ def _publish_archive(temporary_archive: Path, output_archive: Path, *, show_prog
     try:
         os.link(temporary_archive, output_archive)
     except FileExistsError:
-        raise FileExistsError(f"Output archive already exists: {output_archive}") from None
+        msg = f"Output archive already exists: {output_archive}"
+        raise FileExistsError(msg) from None
     except OSError:
         # Some mapped/network drives do not support hard links. Exclusive creation
         # retains the no-overwrite guarantee, at the cost of one final file copy.
@@ -108,7 +109,8 @@ def _publish_archive(temporary_archive: Path, output_archive: Path, *, show_prog
                 if show_progress:
                     print()
         except FileExistsError:
-            raise FileExistsError(f"Output archive already exists: {output_archive}") from None
+            msg = f"Output archive already exists: {output_archive}"
+            raise FileExistsError(msg) from None
         except Exception:
             output_archive.unlink(missing_ok=True)
             raise
@@ -132,8 +134,7 @@ def _output_archive_parts(output_archive: Path, part_count: int) -> list[Path]:
         return [output_archive]
     width = max(3, len(str(part_count)))
     return [
-        output_archive.with_name(f"{output_archive.name}.{number:0{width}d}")
-        for number in range(1, part_count + 1)
+        output_archive.with_name(f"{output_archive.name}.{number:0{width}d}") for number in range(1, part_count + 1)
     ]
 
 
@@ -147,7 +148,8 @@ def _publish_archive_parts(
     output_parts = _output_archive_parts(output_archive, len(temporary_parts))
     collision = next((path for path in output_parts if path.exists() or path.is_symlink()), None)
     if collision is not None:
-        raise FileExistsError(f"Output archive already exists: {collision}")
+        msg = f"Output archive already exists: {collision}"
+        raise FileExistsError(msg)
 
     published: list[Path] = []
     try:
@@ -203,17 +205,20 @@ def create_zip_from_folders(
         print("Stage 1/2: Scanning and compressing with 7-Zip...", flush=True)
         result = subprocess.run(command, check=False)
         if result.returncode != 0:
-            raise RuntimeError(f"7-Zip exit code {result.returncode}; see the console output above")
+            msg = f"7-Zip exit code {result.returncode}; see the console output above"
+            raise RuntimeError(msg)
 
         temporary_parts = _temporary_archive_parts(temporary_archive)
         if not temporary_parts or any(part.stat().st_size == 0 for part in temporary_parts):
-            raise RuntimeError(f"7-Zip did not create a non-empty archive volume set: {temporary_archive}")
+            msg = f"7-Zip did not create a non-empty archive volume set: {temporary_archive}"
+            raise RuntimeError(msg)
         oversized_part = next(
             (part for part in temporary_parts if part.stat().st_size > MAX_ARCHIVE_PART_SIZE_BYTES),
             None,
         )
         if oversized_part is not None:
-            raise RuntimeError(f"Archive volume exceeds the 5 GiB limit: {oversized_part}")
+            msg = f"Archive volume exceeds the 5 GiB limit: {oversized_part}"
+            raise RuntimeError(msg)
         total_size = sum(part.stat().st_size for part in temporary_parts)
         print(
             f"Compression complete: {len(temporary_parts)} temporary part(s), {_format_file_size(total_size)} total.",
@@ -228,6 +233,45 @@ def create_zip_from_folders(
         raise
 
 
+def _validate_folder_names(folders: Sequence[Path]) -> None:
+    """Reject duplicate archive-root folder names before compression."""
+    folded_names = [folder.name.casefold() for folder in folders]
+    duplicate_names = sorted(name for name in set(folded_names) if folded_names.count(name) > 1)
+    if duplicate_names:
+        names = ", ".join(duplicate_names)
+        msg = f"Input folders must have unique top-level names; duplicate name(s): {names}"
+        raise ValueError(msg)
+
+
+def _validated_output_path(output_path: Path) -> Path:
+    """Validate archive naming and reject existing destinations or volumes."""
+    output_archive = output_path.absolute()
+    if not output_archive.suffix:
+        output_archive = output_archive.with_suffix(".zip")
+    elif output_archive.suffix.casefold() != ".zip":
+        msg = f"Output archive must use the .zip extension: {output_archive}"
+        raise ValueError(msg)
+    if not output_archive.parent.is_dir():
+        msg = f"Output directory does not exist: {output_archive.parent}"
+        raise ValueError(msg)
+    existing_part = next(
+        (
+            candidate
+            for candidate in output_archive.parent.glob(f"{output_archive.name}.*")
+            if candidate.name.removeprefix(f"{output_archive.name}.").isdigit()
+        ),
+        None,
+    )
+    if output_archive.exists() or output_archive.is_symlink():
+        msg = f"Output archive already exists: {output_archive}"
+        raise FileExistsError(msg)
+    if existing_part is not None:
+        msg = f"Output archive part already exists: {existing_part}"
+        raise FileExistsError(msg)
+
+    return output_archive
+
+
 def _validated_paths(input_paths: Sequence[Path], output_path: Path) -> tuple[list[Path], Path]:
     folders: list[Path] = []
     seen_paths: set[str] = set()
@@ -238,45 +282,51 @@ def _validated_paths(input_paths: Sequence[Path], output_path: Path) -> tuple[li
             continue
         seen_paths.add(spelling)
         if not folder.is_dir():
-            raise ValueError(f"Input folder does not exist or is not a directory: {folder}")
+            msg = f"Input folder does not exist or is not a directory: {folder}"
+            raise ValueError(msg)
         folders.append(folder)
 
     if not folders:
-        raise ValueError("At least one input folder is required.")
+        msg = "At least one input folder is required."
+        raise ValueError(msg)
 
-    folded_names = [folder.name.casefold() for folder in folders]
-    duplicate_names = sorted(name for name in set(folded_names) if folded_names.count(name) > 1)
-    if duplicate_names:
-        names = ", ".join(duplicate_names)
-        raise ValueError(f"Input folders must have unique top-level names; duplicate name(s): {names}")
+    _validate_folder_names(folders)
 
-    output_archive = output_path.absolute()
-    if not output_archive.suffix:
-        output_archive = output_archive.with_suffix(".zip")
-    elif output_archive.suffix.casefold() != ".zip":
-        raise ValueError(f"Output archive must use the .zip extension: {output_archive}")
-    if not output_archive.parent.is_dir():
-        raise ValueError(f"Output directory does not exist: {output_archive.parent}")
-    existing_part = next(
-        (
-            candidate
-            for candidate in output_archive.parent.glob(f"{output_archive.name}.*")
-            if candidate.name.removeprefix(f"{output_archive.name}.").isdigit()
-        ),
-        None,
-    )
-    if output_archive.exists() or output_archive.is_symlink():
-        raise FileExistsError(f"Output archive already exists: {output_archive}")
-    if existing_part is not None:
-        raise FileExistsError(f"Output archive part already exists: {existing_part}")
+    output_archive = _validated_output_path(output_path)
 
     # Physical containment is intentional here: following links prevents the
     # temporary archive from being created inside a source via a junction/symlink.
     physical_output = output_archive.resolve(strict=False)
     for folder in folders:
         if physical_output.is_relative_to(folder.resolve(strict=True)):
-            raise ValueError(f"Output archive must not be inside an input folder: {folder}")
+            msg = f"Output archive must not be inside an input folder: {folder}"
+            raise ValueError(msg)
     return folders, output_archive
+
+
+def _print_request(
+    folders: Sequence[Path],
+    output_archive: Path,
+    executable: Path | None,
+    configured_excluded_folders: Sequence[str],
+    configured_excluded_extensions: Sequence[str],
+) -> None:
+    """Show configured inputs and executable details before processing."""
+    print(f"Script: {Path(__file__).name} {SCRIPT_VERSION}")
+    print(f"Python: {sys.version.split()[0]}")
+    if executable is not None and executable.is_file():
+        print(f"7-Zip: {_seven_zip_version(executable)} ({executable})")
+    else:
+        print("7-Zip: not currently available (required for a real run)")
+    print(f"Output: {output_archive}")
+    print(f"Maximum file size: {MAX_ARCHIVE_PART_SIZE_GIB} GiB")
+    print("Folders:")
+    for folder in folders:
+        print(f"  - {folder}")
+    if configured_excluded_folders:
+        print(f"Excluded folder names: {', '.join(configured_excluded_folders)}")
+    if configured_excluded_extensions:
+        print(f"Excluded extensions: {', '.join(map(_normalise_extension, configured_excluded_extensions))}")
 
 
 def main(
@@ -307,29 +357,17 @@ def main(
         configured_show_progress = show_progress if show_progress is not None else DEFAULT_SHOW_PROGRESS
         if (executable is None or not executable.is_file()) and not configured_dry_run:
             location = executable if executable is not None else "auto-discovery"
-            raise ValueError(f"7-Zip executable not found ({location}). Use --seven-zip-exe.")
+            msg = f"7-Zip executable not found ({location}). Use --seven-zip-exe."
+            raise ValueError(msg)
 
-        print(f"Script: {Path(__file__).name} {SCRIPT_VERSION}")
-        print(f"Python: {sys.version.split()[0]}")
-        if executable is not None and executable.is_file():
-            print(f"7-Zip: {_seven_zip_version(executable)} ({executable})")
-        else:
-            print("7-Zip: not currently available (required for a real run)")
-        print(f"Output: {output_archive}")
-        print(f"Maximum file size: {MAX_ARCHIVE_PART_SIZE_GIB} GiB")
-        print("Folders:")
-        for folder in folders:
-            print(f"  - {folder}")
-        if configured_excluded_folders:
-            print(f"Excluded folder names: {', '.join(configured_excluded_folders)}")
-        if configured_excluded_extensions:
-            print(f"Excluded extensions: {', '.join(map(_normalise_extension, configured_excluded_extensions))}")
+        _print_request(folders, output_archive, executable, configured_excluded_folders, configured_excluded_extensions)
         if configured_dry_run:
             print("Dry run complete; no archive was created.")
             return 0
 
         if executable is None:
-            raise ValueError("7-Zip executable is required for a real run.")
+            msg = "7-Zip executable is required for a real run."
+            raise ValueError(msg)
 
         started_at = time.monotonic()
         created_archives = create_zip_from_folders(

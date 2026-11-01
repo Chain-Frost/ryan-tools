@@ -41,6 +41,7 @@ from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.path_stuff import PathOrList, to_path_list
 from ryan_library.functions.wrapper_utils import change_working_directory, pause_console, print_wrapper_banner
 
+
 def _compress_file(job: tuple[Path, Path, int | None]) -> tuple[Path, str, str]:
     """Worker function to compress a single file using 7z.exe. Returns (Path, status, msg)."""
     file_path, seven_zip_exe, max_part_size_gib = job
@@ -53,7 +54,7 @@ def _compress_file(job: tuple[Path, Path, int | None]) -> tuple[Path, str, str]:
             inputs=[file_path],
             max_part_size_gib=max_part_size_gib,
         )
-        detail = f"Created {len(outputs)} parts" if len(outputs) > 1 else f"Created {outputs[0].name}"
+        detail = f"Created {outputs[0].name}" if len(outputs) == 1 else f"Created {len(outputs)} parts"
         return file_path, "SUCCESS", detail
     except FileExistsError as exc:
         return file_path, "SKIPPED", str(exc)

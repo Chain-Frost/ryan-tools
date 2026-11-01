@@ -273,3 +273,37 @@ and select disposable licensed baselines for remaining application checks.
   file-by-file inventory ledger, and fixes the P2 target-swap issue; **CI/maintainer review and follow-up work remain**.
 
 No release publication or merge is authorized merely by updating this record.
+
+
+### 2026-11-01 PR #187 inventory and validation repair
+
+PR #187 adds five repository-only sources. The current ledger contains 156 rows:
+85 wheel-selected and 71 excluded, with 34 existing MCP script paths. Historical
+151-file acceptance above remains evidence for its recorded commit only. The new
+interactive Windows diagnostic and project-specific plotting scripts remain outside
+MCP; the archive CLI remains repository-only pending broader acceptance.
+
+Local validation on `feat/windows-restart-history`, based on `0c342e8` plus unstaged
+repairs: Ruff lint/format and strict Pyright pass for all nine PR Python files;
+33 focused archive/inventory tests pass. Documentation and Loguru policy checks,
+compilation, all five Python CLI help checks and two synthetic plotting smoke
+checks pass. Current uptime/no-events PowerShell smoke passes. The current-version
+26.11.1.6 wheel rebuild and verification pass; both copied archive wrappers pass
+help outside the checkout with the archive module imported from the wheel target.
+The package version and retained wheel have no Git changes. Real project plotting,
+mapped/UNC archive acceptance and restart-cause classification remain separate
+validation boundaries.
+
+Delivery: changes are unstaged, uncommitted and unpushed; no merge or release.
+Next action: review and commit the bounded PR #187 repairs, push, then verify new-head
+hosted CI. Prior hosted results (two inventory failures) describe the old head.
+Next review: 2026-11-08 for this PR follow-up; the broader maintainer gate is unchanged.
+
+
+PR #187 uptime follow-up: each startup group and exported CSV row now includes
+uptime for the session beginning at that startup. OS shutdown event 13 supplies
+the end time; event-log stop 6006 is explicitly approximate. Missing shutdowns
+remain unknown, and CIM identifies the active session. Synthetic PowerShell
+checks passed for all four cases, CSV export and MaxStartups selection. The live
+script invocation since 2026-10-01 also passed: the two latest groups displayed
+10d 6h 21m and 8d 20h 48m (current session). Changes remain unstaged.

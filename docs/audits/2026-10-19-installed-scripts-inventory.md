@@ -1,7 +1,7 @@
 # Per-file installed-script inventory — evidence ledger (2026-10-19)
 
-**Status: incomplete review.** This ledger originated with 146 files at `1ac42c6` and now covers all **151** Git-tracked source files under `ryan-scripts/` on PR #154 (stacked on #137). The extra file is the dedicated QGIS path-repair wrapper. It excludes submodules. It does not enter or inspect the `unsorted` submodule.
-There are **85 selected wheel files**, **66 excluded source files** and
+**Status: incomplete review.** This ledger originated with 146 files at `1ac42c6` and now covers all **156** Git-tracked source files under `ryan-scripts/`, including five repository-only additions in PR #187. It excludes submodules. It does not enter or inspect the `unsorted` submodule.
+There are **85 selected wheel files**, **71 excluded source files** and
 **34 distinct existing MCP script paths**. These counts are inventory evidence,
 **not proof** that every source file is maintained, safe to import, or correctly excluded.
 
@@ -18,6 +18,12 @@ available in the repository but excluded from the wheel. MCP “Yes” denotes a
 
 | Source path relative to `ryan-scripts/` | In wheel | MCP target | Owner/lifecycle & import audit | CLI/headless/exit audit | Dependencies/mutation/external evidence |
 | --- | --- | --- | --- | --- | --- |
+| `file-management-python/archive_compress_multiple_folders.py` | No | No | Maintained standalone archive utility; guarded import; repository-only pending broader acceptance | Argparse help, dry-run, editable options and noninteractive exit codes; focused synthetic checks | 7-Zip required; volume publication refuses collisions and checks physical containment; mapped/UNC acceptance remains open |
+| `powershell/windows_restart_history.bat` | No | No | Windows-only launcher; repository-only, interactive utility excluded from MCP | Forwards arguments and exit status; pauses after report; piped-input smoke passed | Invokes sibling PowerShell report; does not alter event logs |
+| `powershell/windows_restart_history.ps1` | No | No | Read-only Windows diagnostic; repository-only; executes when invoked | Bounded date/startup selection, help and optional CSV; live no-events and uptime smoke passed | Windows System logs and CIM; CSV requires explicit path and Force to replace; classification acceptance remains bounded by recorded evidence |
+| `unsorted-python/generate_culvert_stage_discharge_curve.py` | No | No | Project-specific standalone plotting script; guarded import; excluded from MCP | Argparse help and configurable input/output paths; native project parity unverified | NumPy, pandas and Matplotlib; reads paired CSVs and writes plots; real hydraulic acceptance remains open |
+| `unsorted-python/generate_stage_discharge_curves.py` | No | No | Project-specific standalone analysis; guarded import; excluded from MCP | Argparse help, case and plotting settings; representative project acceptance outstanding | NumPy, pandas and Matplotlib; reads PO/POMM/reference CSVs and writes plots/summaries; excluded from wheel |
+
 | `12D-python/generate_culvert_lines.py` | No | No | Source inspected; provisional repository-only; maintainer owner pending | Guarded `main()`; no argparse/help/no-pause or tested exit contract | Hard-coded Q: project CSV; `process_12D_culverts`, GeoPandas/Shapely; writes `culvert_geometries.gpkg` (28350); representative data and output acceptance needed |
 | `12D-python/generate_culvert_polygons.py` | No | No | Source inspected; provisional repository-only; experimental geometry; owner pending | Guarded `main()`; no argparse/help/no-pause or tested exit contract | Hard-coded Q: project CSV; GeoPandas/Shapely; writes two shapefiles into working directory; top-level logger setup; CAD/GIS geometry acceptance needed |
 | `12D-python/thin-raster-terrain-for-12D_v5.py` | No | No | Source inspected; provisional repository-only; owner pending | Guarded `main()`; no argparse/help/no-pause or tested exit contract | Looks for exact `main-section-clip.tif` beside script; writes `thinned-data4` there; Rasterio, NumPy, pandas, multiprocessing; high-volume output not accepted |

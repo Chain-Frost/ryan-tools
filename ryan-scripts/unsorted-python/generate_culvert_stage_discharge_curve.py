@@ -14,13 +14,12 @@ import csv
 from dataclasses import dataclass
 from pathlib import Path
 
-import matplotlib
+import matplotlib as mpl
 
-matplotlib.use("Agg")
+mpl.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
 
 # Edit this value to plot another culvert. The output filename uses this name.
 CULVERT_NAME = "MLWTP 180.238"
@@ -29,12 +28,8 @@ DEFAULT_CSV_DIR = Path(
     r"Q:\BGER\PER\RP20181.498 GD AND FORTESCUE RIVER GAP RAIL HYDROLOGY MDL - RTIO"
     r"\TUFLOW_MLGD\results\v12\FG02\01.0p\plot\csv"
 )
-DEFAULT_FLOW_CSV = (
-    DEFAULT_CSV_DIR / "RTIO_v12_FG02_EXG_CCNone_01.0p_02160m_TP03_04M_NDVI_Base_1d_Q.csv"
-)
-DEFAULT_WATER_LEVEL_CSV = (
-    DEFAULT_CSV_DIR / "RTIO_v12_FG02_EXG_CCNone_01.0p_02160m_TP03_04M_NDVI_Base_1d_H.csv"
-)
+DEFAULT_FLOW_CSV = DEFAULT_CSV_DIR / "RTIO_v12_FG02_EXG_CCNone_01.0p_02160m_TP03_04M_NDVI_Base_1d_Q.csv"
+DEFAULT_WATER_LEVEL_CSV = DEFAULT_CSV_DIR / "RTIO_v12_FG02_EXG_CCNone_01.0p_02160m_TP03_04M_NDVI_Base_1d_H.csv"
 DEFAULT_OUTPUT_DIR = Path(
     r"P:\BGER\PER\RP20181.498 GD AND FORTESCUE RIVER GAP RAIL HYDROLOGY MDL - RTIO"
     r"\4 ENGINEERING\11 HYDROLOGY\Stage Discharge Curve"
@@ -86,7 +81,8 @@ def read_header(path: Path) -> list[str]:
 def require_prefixed_column(path: Path, prefix: str) -> str:
     matches = [column for column in read_header(path) if column.startswith(prefix)]
     if len(matches) != 1:
-        raise RuntimeError(f"{path.name}: expected one column beginning {prefix!r}, found {len(matches)}")
+        msg = f"{path.name}: expected one column beginning {prefix!r}, found {len(matches)}"
+        raise RuntimeError(msg)
     return matches[0]
 
 
@@ -112,11 +108,13 @@ def read_curve_data(flow_csv: Path, water_level_csv: Path, culvert_name: str) ->
         atol=1e-9,
         equal_nan=True,
     ):
-        raise RuntimeError("Flow and water-level CSV times do not align")
+        msg = "Flow and water-level CSV times do not align"
+        raise RuntimeError(msg)
 
     valid = np.isfinite(flow_time) & np.isfinite(flow) & np.isfinite(water_level)
     if not np.any(valid):
-        raise RuntimeError("No finite, time-aligned flow and upstream water-level records were found")
+        msg = "No finite, time-aligned flow and upstream water-level records were found"
+        raise RuntimeError(msg)
 
     return CurveData(
         time=flow_time[valid],
@@ -132,15 +130,17 @@ def output_filename(culvert_name: str) -> str:
     safe_name = "".join("_" if character in invalid_characters else character for character in culvert_name)
     safe_name = safe_name.strip(" .")
     if not safe_name:
-        raise RuntimeError("Culvert name does not contain any filename-safe characters")
+        msg = "Culvert name does not contain any filename-safe characters"
+        raise RuntimeError(msg)
     return f"{safe_name}_Stage_Discharge_Curve.png"
 
 
 def plot_curve(output_path: Path, culvert_name: str, data: CurveData) -> None:
+    # Matplotlib leaves plotting **kwargs untyped; ignore only that upstream member diagnostic.
     fig, ax = plt.subplots(figsize=(9.0, 6.0))
     fig.subplots_adjust(left=0.11, right=0.88, bottom=0.12, top=0.88)
 
-    points = ax.scatter(
+    points = ax.scatter(  # pyright: ignore[reportUnknownMemberType]
         data.flow,
         data.upstream_water_level,
         c=data.time,
@@ -151,15 +151,15 @@ def plot_curve(output_path: Path, culvert_name: str, data: CurveData) -> None:
         zorder=1,
     )
     if float(np.min(data.flow)) < 0.0 < float(np.max(data.flow)):
-        ax.axvline(0.0, color="#666666", linestyle="--", linewidth=0.8, zorder=0)
+        ax.axvline(0.0, color="#666666", linestyle="--", linewidth=0.8, zorder=0)  # pyright: ignore[reportUnknownMemberType]
 
-    colour_bar = fig.colorbar(points, ax=ax, pad=0.025)
-    colour_bar.set_label("Elapsed time (hours)")
-    ax.set_title(f"{culvert_name} Upstream Stage–Discharge Curve", fontsize=14, fontweight="bold")
-    ax.set_xlabel("Culvert flow (m$^3$/s)")
-    ax.set_ylabel("Upstream water level (mAHD)")
-    ax.grid(True, which="major", color="#D9D9D9", linewidth=0.8)
-    ax.grid(True, which="minor", color="#EEEEEE", linewidth=0.5)
+    colour_bar = fig.colorbar(points, ax=ax, pad=0.025)  # pyright: ignore[reportUnknownMemberType]
+    colour_bar.set_label("Elapsed time (hours)")  # pyright: ignore[reportUnknownMemberType]
+    ax.set_title(f"{culvert_name} Upstream Stage-Discharge Curve", fontsize=14, fontweight="bold")  # pyright: ignore[reportUnknownMemberType]
+    ax.set_xlabel("Culvert flow (m$^3$/s)")  # pyright: ignore[reportUnknownMemberType]
+    ax.set_ylabel("Upstream water level (mAHD)")  # pyright: ignore[reportUnknownMemberType]
+    ax.grid(True, which="major", color="#D9D9D9", linewidth=0.8)  # pyright: ignore[reportUnknownMemberType]
+    ax.grid(True, which="minor", color="#EEEEEE", linewidth=0.5)  # pyright: ignore[reportUnknownMemberType]
     ax.minorticks_on()
 
     flow_min, flow_max = float(np.min(data.flow)), float(np.max(data.flow))
@@ -170,7 +170,7 @@ def plot_curve(output_path: Path, culvert_name: str, data: CurveData) -> None:
     level_span = max(level_max - level_min, 0.1)
     ax.set_ylim(level_min - 0.035 * level_span, level_max + 0.06 * level_span)
 
-    fig.savefig(output_path, dpi=200, facecolor="white")
+    fig.savefig(output_path, dpi=200, facecolor="white")  # pyright: ignore[reportUnknownMemberType]
     plt.close(fig)
 
 
@@ -181,9 +181,11 @@ def main() -> None:
     output_dir = args.output_dir.absolute()
 
     if not flow_csv.is_file():
-        raise RuntimeError(f"Flow CSV does not exist: {flow_csv}")
+        msg = f"Flow CSV does not exist: {flow_csv}"
+        raise RuntimeError(msg)
     if not water_level_csv.is_file():
-        raise RuntimeError(f"Water-level CSV does not exist: {water_level_csv}")
+        msg = f"Water-level CSV does not exist: {water_level_csv}"
+        raise RuntimeError(msg)
 
     output_dir.mkdir(parents=True, exist_ok=True)
     data = read_curve_data(flow_csv, water_level_csv, args.culvert)
