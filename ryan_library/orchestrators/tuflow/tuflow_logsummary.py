@@ -226,11 +226,11 @@ def main_processing(
         max_rows=live_max_rows,
         columns=LOG_SUMMARY_DASHBOARD_COLUMNS,
     )
-    console_level = console_log_level if console_log_level is not None else "INFO"
-    # Filter routine console records at the SINK, never in the worker.
-    # A DEBUG file sink continues receiving every worker DEBUG/INFO record.
-    if use_live_dashboard and console_level.upper() == "INFO":
-        console_level = "SUCCESS"
+    # Choose the concise default only when the caller has not selected a level.
+    # A user-supplied INFO/DEBUG override must not be silently reinterpreted.
+    console_level = (
+        console_log_level if console_log_level is not None else ("SUCCESS" if use_live_dashboard else "INFO")
+    )
 
     with setup_logger(
         console_log_level=console_level,
@@ -288,11 +288,13 @@ def main_processing(
                         return False
                     outcome = "FAILED" if failed_runs else "SUCCESS"
                     if outcome == "SUCCESS":
-                        logger.success("Log summary report exported successfully.")
+                        if not use_live_dashboard:
+                            logger.success("Log summary report exported successfully.")
                     else:
                         logger.error("{} log(s) failed; exported report contains only completed runs.", failed_runs)
 
-                logger.success("Number of successful runs: {}", successful_runs)
+                if not use_live_dashboard:
+                    logger.success("Number of successful runs: {}", successful_runs)
                 dashboard.set_phase("Complete")
                 dashboard.finish(outcome=outcome, detail=f"{successful_runs} completed run(s)")
                 return outcome != "FAILED"
@@ -357,7 +359,7 @@ def process_log_files(
         worker_log_level=None,  # Preserve the least restrictive configured sink, including DEBUG files.
         max_start_events=max(pool_size * 2, live_max_rows),
     )
-    _log_processing_results(processing_results=processing_results, include_completions=not use_live_dashboard)
+    _log_processing_results(processing_results=processing_results)
     return processing_results
 
 
@@ -399,14 +401,11 @@ def _format_dashboard_label(*, logfile: Path) -> str:
         return str(logfile)
 
 
-def _log_processing_results(
-    *, processing_results: list[LogFileProcessingResult], include_completions: bool = True
-) -> None:
+def _log_processing_results(*, processing_results: list[LogFileProcessingResult]) -> None:
     for result in processing_results:
         relative_logfile_path: str = _format_dashboard_label(logfile=result.logfile)
         if result.status == "OK":
-            if include_completions:
-                logger.info("Completed {}", relative_logfile_path)
+            logger.info("Completed {}", relative_logfile_path)
         elif result.status == "SKIP":
             logger.warning("Skipped {}: {}", relative_logfile_path, result.detail)
         else:
@@ -421,10 +420,10 @@ def _dashboard_detail(result: LogFileProcessingResult) -> str:
     return result.detail
 
 
-def _format_bytes(size_bytes: int) -> str:
+def _format_bytes(size_bytes: int) -> str:  # pyright: ignore[reportUnusedFunction] - retained for legacy tests
     value: float = float(size_bytes)
-    for unit in ("B", "KiB", "MiB", "GiB"):
-        if value < 1024 or unit == "GiB":
+    for unit in ("B", "KB", "MB", "GB"):
+        if value < 1024 or unit == "GB":
             return f"{value:.1f} {unit}" if unit != "B" else f"{size_bytes} B"
         value /= 1024
     return f"{size_bytes} B"

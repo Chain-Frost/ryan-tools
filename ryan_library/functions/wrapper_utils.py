@@ -194,22 +194,10 @@ def add_live_dashboard_cli_arguments(parser: ArgumentParser) -> None:
 
 def add_no_pause_cli_argument(parser: ArgumentParser) -> None:
     """Add the standard automation-friendly switch for skipping console pauses."""
-    pause_group = parser.add_mutually_exclusive_group()
-    pause_group.add_argument(
+    parser.add_argument(
         "--no-pause",
-        action="store_const",
-        const=True,
-        default=None,
-        dest="no_pause",
+        action="store_true",
         help="Exit immediately after processing instead of waiting for interactive input.",
-    )
-    pause_group.add_argument(
-        "--pause",
-        action="store_const",
-        const=False,
-        default=None,
-        dest="no_pause",
-        help="Allow the wrapper's interactive pause, even when its editable default disables it.",
     )
 
 
@@ -236,7 +224,7 @@ def parse_common_cli_arguments(args: Namespace) -> CommonWrapperOptions:
         live_refresh_per_second=getattr(args, "live_refresh_per_second", None),
         locations_to_include=_coerce_locations_argument(raw_locations=locations_argument),
         no_pause=bool(raw_no_pause),
-        pause_on_finish=None if raw_no_pause is None else not raw_no_pause,
+        pause_on_finish=False if raw_no_pause else None,
         use_live_dashboard=getattr(args, "use_live_dashboard", None),
         working_directory=getattr(args, "working_directory", None),
     )

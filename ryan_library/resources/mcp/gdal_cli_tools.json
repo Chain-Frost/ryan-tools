@@ -121,6 +121,7 @@
     },
     {
       "id": "build_external_overviews",
+      "keywords": ["pyramids"],
       "script": "gdaladdo_tif_pyramids.py",
       "purpose": "Create or refresh external overview sidecars for existing GeoTIFFs.",
       "mutation": "creates_or_replaces_sidecars",
@@ -220,6 +221,7 @@
     },
     {
       "id": "clip_rasters_to_polygon",
+      "keywords": ["crop", "cropping"],
       "script": "gdalwarp_clip_to_polygon.py",
       "purpose": "Clip TIFF rasters to an unambiguous vector cutline layer.",
       "mutation": "creates_outputs",

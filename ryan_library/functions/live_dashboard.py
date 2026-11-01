@@ -115,13 +115,13 @@ def validate_dashboard_settings(*, refresh_per_second: float, max_rows: int) -> 
     """Reject invalid effective display settings before starting processing."""
     if (
         isinstance(refresh_per_second, bool)
-        or not isinstance(refresh_per_second, (int, float))
+        or not isinstance(refresh_per_second, (int, float))  # pyright: ignore[reportUnnecessaryIsInstance]
         or not math.isfinite(refresh_per_second)
         or refresh_per_second <= 0
     ):
         msg = "live_refresh_per_second must be a finite number greater than 0 (e.g. 2.0)."
         raise ValueError(msg)
-    if isinstance(max_rows, bool) or not isinstance(max_rows, int) or max_rows < 1:
+    if isinstance(max_rows, bool) or not isinstance(max_rows, int) or max_rows < 1:  # pyright: ignore[reportUnnecessaryIsInstance]
         msg = "live_max_rows must be a positive integer (e.g. 25)."
         raise ValueError(msg)
 
@@ -243,7 +243,7 @@ class LiveWorkflowDashboard:
 
     def set_active_count(self, count: int, *, refresh: bool = True) -> None:
         """Set active worker count for workflows that cannot name running tasks."""
-        if isinstance(count, bool) or not isinstance(count, int) or count < 0:
+        if isinstance(count, bool) or not isinstance(count, int) or count < 0:  # pyright: ignore[reportUnnecessaryIsInstance]
             msg = "active worker count must be a non-negative integer."
             raise ValueError(msg)
         self._active_count = count
@@ -301,7 +301,7 @@ class LiveWorkflowDashboard:
         task.status = "RUNNING"
         task.detail = detail
         if metadata:
-            task.metadata.update({key: str(value) for key, value in metadata.items()})
+            task.metadata.update({key: str(value) for key, value in metadata.items() if value is not None})
         task.started_time = datetime.datetime.now()
         task.finished_time = None
         if refresh:
@@ -323,7 +323,7 @@ class LiveWorkflowDashboard:
         task.status = status
         task.detail = detail
         if metadata:
-            task.metadata.update({key: str(value) for key, value in metadata.items()})
+            task.metadata.update({key: str(value) for key, value in metadata.items() if value is not None})
         task.finished_time = datetime.datetime.now()
         if task.started_time is None:
             task.started_time = task.finished_time

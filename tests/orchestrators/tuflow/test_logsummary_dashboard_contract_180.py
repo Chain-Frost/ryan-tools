@@ -1,3 +1,5 @@
+# pyright: reportPrivateUsage=false
+# regression coverage intentionally inspects dashboard internals.
 """Focused dashboard lifecycle, logging and export tests for TUFLOW log summaries."""
 
 from __future__ import annotations
@@ -40,7 +42,7 @@ def test_real_spawn_diagnostics_and_debug_file(tmp_path: Path, enabled: bool) ->
     assert all(f"DASH_WORKER_DEBUG {n}" in detail for n in (1, 2, 3))
     assert all(f"DASH_WORKER_INFO {n}" in detail for n in (1, 2, 3))
     assert "DASH_WORKER_ERROR 2" in detail
-    assert "OSError: synthetic worker failure" in detail
+    assert "ValueError: synthetic worker failure" in detail
 
 
 @pytest.mark.parametrize("enabled", [False, True])
@@ -52,8 +54,8 @@ def test_processing_selection_order_and_results_do_not_depend_on_display(
     for path in files:
         path.write_text("dummy", encoding="utf-8")
 
-    def parse(path: Path) -> pd.DataFrame:
-        return pd.DataFrame({"Runcode": [path.stem], "StartDate": [1]})
+    def parse(logfile: Path) -> pd.DataFrame:
+        return pd.DataFrame({"Runcode": [logfile.stem], "StartDate": [1]})
 
     with (
         patch.object(ls, "calculate_pool_size", return_value=1),
@@ -72,7 +74,7 @@ def test_processing_selection_order_and_results_do_not_depend_on_display(
     assert [result.logfile.name for result in outcomes] == ["b.tlf", "a.tlf"]
     assert [result.status for result in outcomes] == ["OK", "OK"]
     assert [result.data_frame.iloc[0]["Runcode"] for result in outcomes] == ["b", "a"]
-    assert logged.call_args.kwargs["include_completions"] is not enabled
+    assert logged.call_args.kwargs == {"processing_results": outcomes}
 
 
 def test_success_and_partial_failure_keep_export_outcome_truthful(tmp_path: Path) -> None:
@@ -122,6 +124,93 @@ def test_no_completed_logs_is_skip_not_report_success() -> None:
         assert ls.main_processing(use_live_dashboard=True) is True
 
 
-def test_binary_size_metadata_is_not_decimal_mb() -> None:
-    assert ls._format_bytes(1024) == "1.0 KiB"
-    assert ls._format_bytes(1024 * 1024) == "1.0 MiB"
+def test_spawn_callback_interruption_cleans_up_pool_and_logging(tmp_path: Path) -> None:
+    log = tmp_path / "interrupted.log"
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(ROOT)
+    run = subprocess.run(
+        [
+            sys.executable,
+            str(HARNESS),
+            "--log-file",
+            str(log),
+            "--interrupt-on-outcome",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        env=env,
+        timeout=60,
+        check=False,
+    )
+    assert run.returncode == 130
+    assert "CANCELLED_PARENTSIDE" in run.stdout
+    assert run.stdout.count("Spawn smoke: INTERRUPTED") == 1
+    assert "\x1b[" not in run.stdout
+    assert log.is_file()
+
+
+def test_many_fast_spawned_tasks_do_not_deadlock_at_pool_join(tmp_path: Path) -> None:
+    """A bounded start queue must not block worker-exit feeder threads."""
+    log = tmp_path / "fast.log"
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(ROOT)
+    run = subprocess.run(
+        [sys.executable, str(HARNESS), "--log-file", str(log), "--fast-count", "10000"],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        env=env,
+        timeout=90,
+        check=True,
+    )
+    assert "Spawn smoke: SUCCESS" in run.stdout
+    # SUCCESS is retained in the DEBUG file sink but hidden at WARNING console level.
+    assert "FAST_BATCH_COMPLETE 10000" in log.read_text(encoding="utf-8")
+    assert "\x1b[" not in run.stdout
+
+
+def test_real_spawn_pool_oserror_propagates_for_consumer_fallback(tmp_path: Path) -> None:
+    log = tmp_path / "transport.log"
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(ROOT)
+    run = subprocess.run(
+        [sys.executable, str(HARNESS), "--log-file", str(log), "--pool-oserror"],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        env=env,
+        timeout=60,
+        check=True,
+    )
+    assert "POOL_OSERROR_PROPAGATED" in run.stdout
+
+
+def test_console_default_depends_on_dashboard_and_explicit_level_is_preserved() -> None:
+    with (
+        patch.object(ls, "setup_logger") as setup,
+        patch.object(ls, "discover_log_files", return_value=[]),
+    ):
+        ls.main_processing(use_live_dashboard=True)
+        assert setup.call_args.kwargs["console_log_level"] == "SUCCESS"
+        ls.main_processing(use_live_dashboard=False)
+        assert setup.call_args.kwargs["console_log_level"] == "INFO"
+        ls.main_processing(use_live_dashboard=True, console_log_level="INFO")
+        assert setup.call_args.kwargs["console_log_level"] == "INFO"
+        ls.main_processing(use_live_dashboard=True, console_log_level="DEBUG")
+        assert setup.call_args.kwargs["console_log_level"] == "DEBUG"
+
+
+def test_successful_dashboard_export_never_emits_failure_diagnostic(tmp_path: Path) -> None:
+    file = tmp_path / "complete.tlf"
+    frame = pd.DataFrame({"StartDate": [1], "Runcode": ["complete"]})
+    success = LogFileProcessingResult(file, frame, "OK", "one")
+    with (
+        patch.object(ls, "discover_log_files", return_value=[file]),
+        patch.object(ls, "process_log_files", return_value=[success]),
+        patch.object(ls, "build_log_summary_dataframe", return_value=frame),
+        patch.object(ls, "ExcelExporter"),
+        patch.object(ls.logger, "error") as log_error,
+    ):
+        assert ls.main_processing(use_live_dashboard=True) is True
+        log_error.assert_not_called()

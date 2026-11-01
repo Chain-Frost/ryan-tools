@@ -44,8 +44,8 @@ the accepted source; the following requirements install resolves all dependencie
 dependency consistency and the required public API. For managed or offline environments, use the local approved source with
 `repo-scripts/setup_codex_mcp.ps1 -Install -QgisSource <path>` instead of the GitHub-based requirements command.
 
-For an end user, double-click [install-ryan-tools.bat](../install-ryan-tools.bat) (the existing
-[install-latest-wheel.bat](../install-latest-wheel.bat) is an alias):
+For an end user, double-click [install-from-pypi.bat](../install-from-pypi.bat)
+([install-ryan-tools.bat](../install-ryan-tools.bat) is an alias):
 
 ```powershell
 .\install-ryan-tools.bat
@@ -73,7 +73,7 @@ must still be installed and started through QGIS Plugin Manager.
 For developers working from the checkout, keep the local verified-wheel workflow:
 
 ```powershell
-.\package_and_install.bat
+.\build-and-install-local-wheel.bat
 .\install-local-wheel.bat
 ```
 
@@ -132,7 +132,7 @@ an older copied wrapper from an older installed package.
 After changing `ryan_library` or package metadata, rebuild and install before validating a copied-wrapper workflow:
 
 ```powershell
-.\package_and_install.bat
+.\build-and-install-local-wheel.bat
 ```
 
 The underlying build command is:

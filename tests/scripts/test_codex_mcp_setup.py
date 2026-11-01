@@ -166,7 +166,7 @@ def test_pypi_installer_python_support_is_open_ended(monkeypatch: pytest.MonkeyP
 
 
 def test_pypi_batch_launcher_accepts_supported_versions() -> None:
-    script = (REPO / "install-latest-wheel.bat").read_text(encoding="utf-8")
+    script = (REPO / "install-from-pypi.bat").read_text(encoding="utf-8")
     assert 'set "PYTHON_CMD=py -3"' in script
     assert "RYAN_TOOLS_PYTHON" in script
     assert "sys.version_info >= (3, 14)" in script

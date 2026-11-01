@@ -106,7 +106,9 @@ def _add_console_sink(
         sink=sys.stdout if sink is None else sink,
         level=normalize_log_level(level),
         format=format_string or (FORWARDED_CONSOLE_FORMAT if forwarded else CONSOLE_FORMAT),
-        colorize=CONSOLE_COLORIZE,
+        # Never inject ANSI styling into redirected, piped or file-backed
+        # console sinks; Rich live mode is controlled independently.
+        colorize=CONSOLE_COLORIZE and bool(getattr(sys.stdout if sink is None else sink, "isatty", lambda: False)()),
         backtrace=True,
         diagnose=DIAGNOSE,
         enqueue=False,

@@ -15,22 +15,37 @@ import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from multiprocessing import Pool, Queue
+from multiprocessing import pool as multiprocessing_pool
 from multiprocessing.pool import ApplyResult
-from queue import Empty
-from typing import Protocol, cast
+from queue import Empty, Full
+from typing import TYPE_CHECKING, Protocol, cast, runtime_checkable
 
 from loguru import logger
 
 from .live_dashboard import LiveWorkflowDashboard, WorkflowStatus
 from .loguru_helpers import LogQueue, normalize_log_level, worker_initializer
 
+if TYPE_CHECKING:
+    from multiprocessing.queues import Queue as MPQueue
+
+# Python's multiprocessing pool exposes MaybeEncodingError at runtime but
+# some 3.14 type-stub sets omit the symbol. Narrow this one compatibility gap.
+MaybeEncodingError = cast("type[Exception]", getattr(multiprocessing_pool, "MaybeEncodingError"))  # noqa: B009 - Python 3.14 typing stubs omit this runtime class
+
 
 class ProgressQueue(Protocol):
     """Minimal queue shape needed for worker-start progress events."""
 
-    def put(self, item: object, block: bool = True, timeout: float | None = None) -> None: ...
+    def put(self, obj: object, block: bool = True, timeout: float | None = None) -> None: ...
 
     def get_nowait(self) -> object: ...
+
+
+@runtime_checkable
+class DetachableProgressQueue(Protocol):
+    """Multiprocessing producers may detach cosmetic progress queue feeders."""
+
+    def cancel_join_thread(self) -> None: ...
 
 
 @dataclass(slots=True, frozen=True)
@@ -140,19 +155,19 @@ def run_dashboard_workflow_report[TItem, TResult](
     errors propagate after resource cleanup. An on_outcome callback runs only
     in the parent, once per completed item, and may update cheap metrics.
     """
-    if isinstance(pool_size, bool) or not isinstance(pool_size, int) or pool_size < 1:
+    if isinstance(pool_size, bool) or not isinstance(pool_size, int) or pool_size < 1:  # pyright: ignore[reportUnnecessaryIsInstance]
         msg = "pool_size must be a positive integer."
         raise ValueError(msg)
     if (
         isinstance(poll_interval, bool)
-        or not isinstance(poll_interval, (int, float))
+        or not isinstance(poll_interval, (int, float))  # pyright: ignore[reportUnnecessaryIsInstance]
         or not math.isfinite(poll_interval)
         or poll_interval <= 0
     ):
         msg = "poll_interval must be a finite number greater than zero."
         raise ValueError(msg)
     if max_start_events is not None and (
-        isinstance(max_start_events, bool) or not isinstance(max_start_events, int) or max_start_events < 1
+        isinstance(max_start_events, bool) or not isinstance(max_start_events, int) or max_start_events < 1  # pyright: ignore[reportUnnecessaryIsInstance]
     ):
         msg = "max_start_events must be a positive integer or None."
         raise ValueError(msg)
@@ -215,13 +230,15 @@ def _run_serial_dashboard_workflow[TItem, TResult](
         dashboard.mark_running(index=index)
         try:
             result: TResult = process_item(item)
-            status = _terminal_status(status_for_result(result))
-            detail = detail_for_result(result)
         except Exception as exc:
             logger.exception("Error processing workflow item index {}", index)
             dashboard.mark_finished(index=index, status="FAIL", detail=str(exc))
             outcome = WorkflowItemOutcome[TResult](index=index, status="FAIL", error=exc)
         else:
+            # Result adapters are caller code. Errors here are configuration/
+            # programming faults, not failures of the work item itself.
+            status = _terminal_status(status_for_result(result))
+            detail = detail_for_result(result)
             indexed_results[index] = result
             dashboard.mark_finished(index=index, status=status, detail=detail)
             outcome = WorkflowItemOutcome(index=index, status=status, result=result, has_result=True)
@@ -249,9 +266,11 @@ def _run_parallel_dashboard_workflow[TItem, TResult](
 ) -> None:
     """Run work in a process pool and poll async results for dashboard updates."""
     completed_indexes: set[int] = set()
-    raw_queue = Queue()
-    start_queue: ProgressQueue = cast("ProgressQueue", raw_queue)
     event_limit: int = max_start_events if max_start_events is not None else max(pool_size * 2, dashboard.max_rows)
+    # Start events are cosmetic; a bounded queue prevents a fast batch from
+    # generating unlimited messages while the parent is harvesting results.
+    raw_queue: MPQueue[object] = cast("MPQueue[object]", Queue(maxsize=event_limit))
+    start_queue: ProgressQueue = raw_queue
 
     try:
         with Pool(
@@ -316,6 +335,11 @@ def _dashboard_worker_initializer(
     global _workflow_processor, _workflow_start_queue
     _workflow_start_queue = start_queue
     _workflow_processor = process_item
+    # The parent can stop draining once every result is collected. A worker
+    # must not wait on its Queue feeder during pool.join() merely to deliver
+    # stale RUNNING indicators. Terminal outcomes come via ApplyResult.
+    if isinstance(start_queue, DetachableProgressQueue):
+        start_queue.cancel_join_thread()
     if log_queue is not None:
         worker_initializer(queue=log_queue, level=worker_log_level)
 
@@ -326,7 +350,11 @@ def _process_indexed_workflow_item(request: IndexedWorkflowItem[object]) -> obje
         msg = "Dashboard workflow worker was not initialised"
         raise RuntimeError(msg)
     if _workflow_start_queue is not None:
-        _workflow_start_queue.put(request.index)
+        try:
+            _workflow_start_queue.put(request.index, block=False)
+        except Full:
+            # Dropping a transient start notification never drops the result.
+            pass
     return _workflow_processor(request.item)
 
 
@@ -368,13 +396,18 @@ def _collect_finished_dashboard_results[TResult](
             continue
         try:
             result: TResult = async_result.get()
-            status = _terminal_status(status_for_result(result))
-            detail = detail_for_result(result)
+        except (MaybeEncodingError, OSError):
+            # Pool transport/serialization faults must reach the caller's
+            # existing retry/fallback policy, including in the report API.
+            raise
         except Exception as exc:
             logger.exception("Error processing workflow item index {}", index)
             dashboard.mark_finished(index=index, status="FAIL", detail=str(exc), refresh=False)
             outcome = WorkflowItemOutcome[TResult](index=index, status="FAIL", error=exc)
         else:
+            # Never hide invalid result statuses or caller adapter failures.
+            status = _terminal_status(status_for_result(result))
+            detail = detail_for_result(result)
             indexed_results[index] = result
             dashboard.mark_finished(index=index, status=status, detail=detail, refresh=False)
             outcome = WorkflowItemOutcome(index=index, status=status, result=result, has_result=True)

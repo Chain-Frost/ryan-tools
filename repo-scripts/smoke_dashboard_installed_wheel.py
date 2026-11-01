@@ -59,7 +59,7 @@ def _run(script: Path, work: Path, root: Path, *args: str) -> subprocess.Complet
 
 
 def _workbook_record(work: Path) -> tuple[str, tuple[str, ...]]:
-    files = list(work.glob("ModellingLog*.xlsx"))
+    files = list(work.glob("*_ModellingLog.xlsx"))
     if len(files) != 1:
         msg = f"Expected exactly one log summary workbook in {work}, found {files!r}"
         raise RuntimeError(msg)
@@ -79,6 +79,33 @@ def _workbook_record(work: Path) -> tuple[str, tuple[str, ...]]:
         workbook.close()
 
 
+def _check_copied_wrapper_help(script: Path, work: Path, root: Path) -> None:
+    result = _run(script, work, root, "--help")
+    if result.returncode != 0 or "--live-dashboard" not in result.stdout:
+        msg = f"Copied wrapper help/options failed: {result.stdout[-900:]} {result.stderr[-900:]}"
+        raise RuntimeError(msg)
+
+
+def _check_console_diagnostics(report: subprocess.CompletedProcess[str], *, dashboard_enabled: bool) -> None:
+    """Keep ordinary progress visible only with the dashboard disabled."""
+    if report.returncode != 0:
+        msg = f"Copied wrapper failed (dashboard={dashboard_enabled}): {report.stdout[-1800:]} {report.stderr[-1800:]}"
+        raise RuntimeError(msg)
+    if "did not complete" not in report.stdout:
+        msg = f"Missing incomplete-run warning (dashboard={dashboard_enabled}): {report.stdout[-1400:]}"
+        raise RuntimeError(msg)
+    routine_info_visible = "Completed Complete_Run.tlf" in report.stdout
+    if routine_info_visible == dashboard_enabled:
+        msg = "Console did not honour concise dashboard / useful ordinary logging defaults."
+        raise RuntimeError(msg)
+    if "\x1b[" in report.stdout:
+        msg = "Redirected console contained ANSI escape sequences."
+        raise RuntimeError(msg)
+    if dashboard_enabled and "TUFLOW Log Summary: SUCCESS" not in report.stdout:
+        msg = f"Redirected dashboard success summary is absent: {report.stdout[-1400:]}"
+        raise RuntimeError(msg)
+
+
 def _check_one_mode(work: Path, root: Path, *, dashboard_enabled: bool) -> tuple[str, tuple[str, ...]]:
     """Exercise a whole copied-wrapper cycle in a disposable working directory."""
     work.mkdir()
@@ -88,6 +115,7 @@ def _check_one_mode(work: Path, root: Path, *, dashboard_enabled: bool) -> tuple
     incomplete.write_text(INCOMPLETE_LOG, encoding="utf-8")
     original = (complete.read_bytes(), incomplete.read_bytes())
     script = copy_wrapper(WRAPPER, work)
+    _check_copied_wrapper_help(script, work, root)
     if not script.is_file() or not script.absolute().is_relative_to(work):
         msg = f"Wrapper was not copied outside the checkout: {script}"
         raise RuntimeError(msg)
@@ -96,22 +124,12 @@ def _check_one_mode(work: Path, root: Path, *, dashboard_enabled: bool) -> tuple
         work,
         root,
         "--live-dashboard" if dashboard_enabled else "--no-live-dashboard",
-        "--console-log-level",
-        "INFO",
         "--log-file",
         "debug.log",
         "--file-log-level",
         "DEBUG",
     )
-    if report.returncode != 0:
-        msg = f"Copied wrapper failed (dashboard={dashboard_enabled}): {report.stdout[-1800:]} {report.stderr[-1800:]}"
-        raise RuntimeError(msg)
-    if "did not complete" not in report.stdout:
-        msg = f"Missing incomplete-run warning (dashboard={dashboard_enabled}): {report.stdout[-1400:]}"
-        raise RuntimeError(msg)
-    if dashboard_enabled and ("TUFLOW Log Summary: SUCCESS" not in report.stdout or "\x1b[" in report.stdout):
-        msg = f"Redirected dashboard summary is absent or contains cursor escape sequences: {report.stdout[-1400:]}"
-        raise RuntimeError(msg)
+    _check_console_diagnostics(report, dashboard_enabled=dashboard_enabled)
     if (complete.read_bytes(), incomplete.read_bytes()) != original:
         msg = "Copied wrapper modified an input TLF."
         raise RuntimeError(msg)
@@ -119,12 +137,20 @@ def _check_one_mode(work: Path, root: Path, *, dashboard_enabled: bool) -> tuple
     if "search_for_completion" not in file_text or "Processing Complete_Run" not in file_text:
         msg = f"Worker DEBUG/INFO records not retained in file: {file_text[-1700:]}"
         raise RuntimeError(msg)
-    result = _workbook_record(work)
+    try:
+        result = _workbook_record(work)
+    except RuntimeError as exc:
+        msg = (
+            f"{exc}; copied-wrapper stdout={report.stdout[-2800:]!r}, "
+            f"stderr={report.stderr[-1500:]!r}, "
+            f"debug tail={file_text[-3200:]!r}"
+        )
+        raise RuntimeError(msg) from exc
     failed = _run(script, work, root, "--live-max-rows", "0")
     if failed.returncode != 1 or "live_max_rows" not in (failed.stdout + failed.stderr):
         msg = f"Invalid setting did not return actionable failure: {failed.returncode} {failed.stderr[-1000:]}"
         raise RuntimeError(msg)
-    if len(list(work.glob("ModellingLog*.xlsx"))) != 1:
+    if len(list(work.glob("*_ModellingLog.xlsx"))) != 1:
         msg = "Invalid display settings unexpectedly generated another workbook."
         raise RuntimeError(msg)
     return result

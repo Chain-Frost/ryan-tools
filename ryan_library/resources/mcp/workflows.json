@@ -151,6 +151,9 @@
       "headless_arguments": [
         "--no-live-dashboard",
         "--no-pause"
+      ],
+      "keywords": [
+        "logs"
       ]
     },
     {
