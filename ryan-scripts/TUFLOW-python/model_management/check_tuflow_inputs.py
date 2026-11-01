@@ -205,8 +205,8 @@ def _run_cli(options: argparse.Namespace) -> int:
 
     tcf = None if options.no_tcf else (options.tcf if options.tcf is not None else TCF)
     report = None if options.no_report else (options.report if options.report is not None else REPORT_CSV)
-    plan_report = None if options.no_plan_report else (
-        options.plan_report if options.plan_report is not None else PLAN_JSON
+    plan_report = (
+        None if options.no_plan_report else (options.plan_report if options.plan_report is not None else PLAN_JSON)
     )
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     try:
@@ -216,9 +216,7 @@ def _run_cli(options: argparse.Namespace) -> int:
             report=output_path(report),
             working_directory=work,
             configuration_directory=(
-                options.configuration_directory
-                if options.configuration_directory is not None
-                else CONFIGURATION_DIR
+                options.configuration_directory if options.configuration_directory is not None else CONFIGURATION_DIR
             ),
             plan_only=options.plan_only if options.plan_only is not None else PLAN_ONLY,
             plan_report=output_path(plan_report),
