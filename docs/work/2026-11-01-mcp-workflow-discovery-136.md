@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active — feature merged; strict MCP boolean follow-up in stacked validation |
+| Status | Needs review — strict MCP boolean correction delivered in draft PR #186 |
 | Owner | ChatGPT (MCP correction); maintainer final review |
 | Created | 2026-11-01 |
 | Updated | 2026-11-01 |
@@ -10,7 +10,7 @@
 | Issue | [#136](https://github.com/Chain-Frost/ryan-tools/issues/136) |
 | Baseline | [main at 99cd3cc](https://github.com/Chain-Frost/ryan-tools/commit/99cd3ccaaabd83b682392f7e285d90b570d353cb), merge commit ddcf6e7 |
 | Delivery branch | `fix/mcp-overview-boolean-136-stack184`, targeting PR #184's `feat/tuflow-result-dashboards-180` |
-| Delivery state | PR #182 merged externally as `82c1a1b6e30573971ac5e1ac5fb64b41b20e9495`; its branch was deleted. The user subsequently authorized a new draft PR stacked onto #184. The correction and verification additions are prepared locally; publication and hosted receipts follow below. |
+| Delivery state | [Draft PR #186](https://github.com/Chain-Frost/ryan-tools/pull/186) targets #184. Code `984dbab84fb83233345fcc8ae18b6fc39f269f6c` is pushed and has actual installed-wheel acceptance. A normal merge incorporates parent `d8f9d782` and this receipt; the PR description records the resulting head and its final CI. PR #182 previously merged as `82c1a1b`; no new PR merge or release is authorized. |
 
 ## Outcome and scope
 
@@ -358,9 +358,9 @@ state whether it is ready for the user's final review.
 
 ## Next action
 
-Publish and validate the strict-boolean correction in the authorized draft child of
-[PR #184](https://github.com/Chain-Frost/ryan-tools/pull/184), then hand it to independent review. Keep the child and
-its parent draft and unmerged. Separate inherited dashboard failures from the MCP correction's acceptance.
+Independently review [draft PR #186](https://github.com/Chain-Frost/ryan-tools/pull/186), its final-head CI and the
+installed-wheel receipt below. Handle parent #184 before this child when the maintainer authorizes stack delivery.
+Keep both draft and unmerged; any later parent updates must preserve the correction and be revalidated.
 
 ## Progress
 
@@ -423,6 +423,9 @@ its release triggers and approval conditions are unchanged. No new workflow or p
   the MCP correction and verification changes. The earlier local main merge was never published.
 - Both dashboard register rows, existing wheel-smoke steps, MCP documentation checks and main's installer changes
   are retained. Neither parent branch is modified or retargeted.
+- After publication, #184 advanced through `d8f9d782b4bb20ed0635cd7c653f074294b773f7`. The child incorporates it
+  with an ordinary merge, retaining the parent's TUFLOW CSV processing code and Phase B status. The only textual
+  conflict was adjacent work-register rows; both work fronts' current states are retained.
 - The prepared local correction originated at `10a41ad7bf76f996b36df169d2153a09f4124c75`. The new branch also adds
   omitted-argument and installed registered-tool acceptance. Earlier broad local implementation work is excluded.
 - No submodule is initialized or modified. Unrelated overdue register items are preserved and not resumed.
@@ -454,8 +457,10 @@ git diff --check
 python repo-scripts/build_library.py --no-bump --skip-pip
 ```
 
-Focused results and the final published code SHA are recorded in the delivery receipt below. Six existing Module 11
-tests require the unavailable `tests/test_data` submodule and are explicitly deselected locally. A fresh interpreter
+Local results: **97 passed, 6 deselected**; Ruff lint/format passed; strict Pyright **0 errors, 0 warnings**;
+documentation defaults, explicit links and whitespace passed. These commands ran at local checkpoint `0a1c721`;
+the same three changed Python blobs are validated at published `984dbab` in the hosted receipt below.
+Six existing Module 11 tests require the unavailable `tests/test_data` submodule and are explicitly deselected locally. A fresh interpreter
 with both `mcp` and `pydantic` imports blocked successfully imports the server, returns an overview and rejects a
 direct integer flag. SDK async tests use an execution environment with functioning thread wakeups.
 
@@ -471,5 +476,37 @@ its remaining gates.
 - [x] Preserve direct helpers, boolean schema/default and both listing modes.
 - [x] Add focused registered-tool regressions and actual installed-wheel assertions to existing CI.
 - [x] Obtain authorization for a new draft child targeting #184 after #182 merged.
-- [ ] Publish the child, record its tested SHA and obtain actual installed-wheel results.
-- [ ] Complete independent review; inherited dashboard gates remain owned by their existing work front.
+- [x] Publish the child, record its tested SHA and obtain actual installed-wheel results.
+- [x] Complete independent read-only integration review and fix its shared-smoke dependency finding.
+- [ ] Maintainer independent review and stack acceptance; preserve final-head CI and parent-work boundaries.
+
+### Published correction receipt
+
+Published code: `984dbab84fb83233345fcc8ae18b6fc39f269f6c`. The
+[Python CI run](https://github.com/Chain-Frost/ryan-tools/actions/runs/41301798227) checked GitHub merge commit
+`53ff8b924b7049af4d9c16f1008a57ea43fa32fd`, whose tree `70595a3dea99ef8c0c91be5bb4c950ea8f902bc8` exactly matches
+the published code tree. These are genuine Windows/Python 3.14 results, distinct from the earlier local environment.
+
+| Gate / exact command | Result at `984dbab` |
+| --- | --- |
+| `python -m pytest -q tests/mcp/test_registry.py tests/mcp/test_server.py tests/mcp/test_catalogue_contracts.py tests/mcp/test_overview_validation.py` | **103 passed**, including all eight registered-tool cases and the six locally unavailable Module 11 cases; [MCP job](https://github.com/Chain-Frost/ryan-tools/actions/runs/41301798227/job/124834110749) |
+| Existing separate focused utility command in the same MCP job | **73 passed** |
+| Changed-file Ruff and `python -m pyright $pythonFiles`; documentation and workflow policy | Passed; strict Pyright **0 errors, 0 warnings**; [Policy job](https://github.com/Chain-Frost/ryan-tools/actions/runs/41301798227/job/124834110714) |
+| `python repo-scripts/build_library.py --no-bump --skip-pip`; `python repo-scripts/verify_wheel.py` | Passed with declared version unchanged; [Package job](https://github.com/Chain-Frost/ryan-tools/actions/runs/41301798227/job/124834110740) |
+| `python -m pip install --no-deps --target $target $wheel[0].FullName`; install the separate hydraulic packages; set `PYTHONPATH=$target`; change to `RUNNER_TEMP`; `python "$env:GITHUB_WORKSPACE/repo-scripts/smoke_test_installed_wheel.py" --expected-root $target` | Passed: real wheel keyword/overview discovery, registered strict-boolean validation and copied-wrapper behavior |
+| `python "$env:GITHUB_WORKSPACE/repo-scripts/smoke_dashboard_installed_wheel.py" --expected-root $target` from `RUNNER_TEMP` | Passed: parent's copied log-summary on/off, workbook, DEBUG, warning and failure checks |
+| [Fast PR checks](https://github.com/Chain-Frost/ryan-tools/actions/runs/41301798198) and POSIX wrapper security | Passed |
+
+The built wheel is `ryan_tools-26.11.1.1-py3-none-any.whl`, 890,895 bytes,
+SHA256 `551ac866f3bd8fa322ceb1e6ccbca4b734974925d137b8fe87e2d095b87a866a`.
+The verified-wheel artifact is `13081567832` on that run. Logs explicitly confirm both
+`Wheel-only MCP keyword search and domain overview passed.` and
+`Wheel-only registered MCP overview boolean validation passed.` before the full installed-wheel success receipt.
+
+Independent integration review found one shared-caller omission: the release verification job also invokes the smoke
+script and needed its SDK test dependency. That omission was fixed before publication; no correctness or safety
+findings remained in the bounded seven-file correction. Release execution itself is not authorized or attempted.
+
+The full Hosted tests job and any later parent-merge/head receipts are recorded in the PR description when complete.
+The prior red results at parent `d16dce0` are historical; acceptance depends on the actual head being reviewed.
+No proprietary application, licensed solver or external GDAL/QGIS execution is claimed by these metadata checks.
