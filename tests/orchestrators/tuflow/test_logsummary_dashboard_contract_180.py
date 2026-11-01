@@ -54,8 +54,8 @@ def test_processing_selection_order_and_results_do_not_depend_on_display(
     for path in files:
         path.write_text("dummy", encoding="utf-8")
 
-    def parse(path: Path) -> pd.DataFrame:
-        return pd.DataFrame({"Runcode": [path.stem], "StartDate": [1]})
+    def parse(logfile: Path) -> pd.DataFrame:
+        return pd.DataFrame({"Runcode": [logfile.stem], "StartDate": [1]})
 
     with (
         patch.object(ls, "calculate_pool_size", return_value=1),
@@ -164,8 +164,9 @@ def test_many_fast_spawned_tasks_do_not_deadlock_at_pool_join(tmp_path: Path) ->
         timeout=90,
         check=True,
     )
-    assert "FAST_BATCH_COMPLETE 10000" in run.stdout
     assert "Spawn smoke: SUCCESS" in run.stdout
+    # SUCCESS is retained in the DEBUG file sink but hidden at WARNING console level.
+    assert "FAST_BATCH_COMPLETE 10000" in log.read_text(encoding="utf-8")
     assert "\x1b[" not in run.stdout
 
 
