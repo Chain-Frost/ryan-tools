@@ -138,6 +138,8 @@ jobs:
         run: |
           python repo-scripts/check_documentation.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python repo-scripts/check_documentation.py --links-only docs/MCP_SETUP.md docs/mcp-handoff/README.md docs/work/README.md docs/work/2026-11-01-mcp-workflow-discovery-136.md
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python repo-scripts/check_loguru_formatting.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           git diff --check

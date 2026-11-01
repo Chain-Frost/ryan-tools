@@ -59,7 +59,7 @@ if MCPServer is not None:
             "When the domain is unclear, start with list_workflows(overview=True) for compact domain counts and up to "
             "three examples each; otherwise search directly. Use list_workflows(domain='gdal', query='crop') to narrow "
             "results and follow next_offset for more pages. Call get_workflow('clip_rasters_to_polygon') for selected "
-            "details. Review help_command, mutation metadata, paths, and approval requirement before running the returned 
+            "details. Review help_command, mutation metadata, paths, and approval requirement before running the "
             "CLI command through the client shell. Use inspect_tuflow_result or inspect_tuflow_collection for bounded, "
             "read-only result queries, and consult the TUFLOW processor guidance resource for advanced Python analysis. "
             "This MCP server discovers scripts; it does not execute them."
