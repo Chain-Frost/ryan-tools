@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import math
-from pathlib import Path
 
 import pytest
 
@@ -17,7 +16,8 @@ from ryan_library.functions.live_dashboard import (
 
 def _worker(item: int) -> int | None:
     if item == 2:
-        raise OSError("synthetic recoverable error")
+        msg = "synthetic recoverable error"
+        raise OSError(msg)
     return None if item == 3 else item * 10
 
 
@@ -90,7 +90,8 @@ def test_bounded_history_and_plain_output(capsys: pytest.CaptureFixture[str]) ->
         d.finish(outcome="SUCCESS", detail="should not repeat")
     text = capsys.readouterr().out
     assert text.count("Batch: SUCCESS") == 1
-    assert "OK 100" in text and "output written" in text
+    assert "OK 100" in text
+    assert "output written" in text
     assert "\x1b[" not in text
 
 
@@ -111,7 +112,8 @@ def test_report_distinguishes_fail_skip_and_returned_none() -> None:
     assert [o.index for o in report.outcomes] == [1, 2, 3]
     assert report.results == [10, None]
     assert report.outcomes[1].error is not None
-    assert report.outcomes[2].has_result and report.outcomes[2].result is None
+    assert report.outcomes[2].has_result
+    assert report.outcomes[2].result is None
     assert len(report.failures) == 1
     assert d._tasks[2].status == "FAIL"
 
@@ -139,7 +141,8 @@ def test_status_validation_and_empty_batch() -> None:
         status_for_result=_status,  # type: ignore[arg-type]
         detail_for_result=_detail,
     )
-    assert report.outcomes == () and report.results == []
+    assert report.outcomes == ()
+    assert report.results == []
 
     with pytest.raises(ValueError, match="pool_size"):
         run_dashboard_workflow_report(
