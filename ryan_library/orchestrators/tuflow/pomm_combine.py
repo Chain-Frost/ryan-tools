@@ -14,6 +14,8 @@ from typing import Literal, Protocol, runtime_checkable
 
 import pandas as pd
 
+from ryan_library.functions.live_dashboard import LiveWorkflowDashboard
+
 from ._combination_workflow import (
     combine_and_export_results as _combine_and_export_results,
 )
@@ -53,9 +55,21 @@ def export_results(
     *,
     results: RawCombinationResults | PommCombinationResults,
     export_mode: Literal["excel", "parquet", "both"] = "excel",
-) -> None:
-    """Export combined POMM results through the shared combination exporter."""
-    _combine_and_export_results(
+    dashboard: LiveWorkflowDashboard | None = None,
+) -> bool:
+    """Export the POMM results through the established public entry point."""
+    if dashboard is not None:
+        return _combine_and_export_results(
+            results=results,
+            export_mode=export_mode,
+            export_prefix="combined_POMM",
+            export_sheet_name="combined_POMM",
+            export_metadata={"Workflow": "POMM combine"},
+            combine_callable=_combine_pomm_results,
+            dashboard=dashboard,
+            row_metric_label="Combined peak rows",
+        )
+    return _combine_and_export_results(
         results=results,
         export_mode=export_mode,
         export_prefix="combined_POMM",
@@ -68,26 +82,18 @@ def export_results(
 def main_processing(
     paths_to_process: list[Path],
     include_data_types: list[str] | None = None,
-    console_log_level: str = "INFO",
+    console_log_level: str | None = None,
     locations_to_include: Collection[str] | None = None,
     export_mode: Literal["excel", "parquet", "both"] = "excel",
-) -> None:
-    """Generate merged culvert data and export the results.
-
-    Orchestrates the workflow:
-      1. Normalize and validate input arguments (data types, locations).
-      2. Collect target files from `paths_to_process`.
-      3. Process files concurrently to extract data.
-      4. Combine and export the results.
-
-    Args:
-        paths_to_process: Directories to search for POMM files.
-        include_data_types: Specific file types to look for (e.g. "POMM", "RLL_Qmx").
-        console_log_level: Logging verbosity ("INFO", "DEBUG", etc.).
-        locations_to_include: Specific location strings to filter for.
-        export_mode: Output format ("excel", "parquet", "both").
-    """
-    execute_combination_workflow(
+    *,
+    use_live_dashboard: bool = False,
+    live_refresh_per_second: float = 2.0,
+    live_max_rows: int = 25,
+    log_file: str | None = None,
+    file_log_level: str = "DEBUG",
+) -> bool:
+    """Combine and export POMM results, preserving the public path."""
+    return execute_combination_workflow(
         paths_to_process=paths_to_process,
         include_data_types=include_data_types,
         default_data_types=DEFAULT_DATA_TYPES,
@@ -97,4 +103,9 @@ def main_processing(
         console_log_level=console_log_level,
         locations_to_include=locations_to_include,
         export_mode=export_mode,
+        use_live_dashboard=use_live_dashboard,
+        live_refresh_per_second=live_refresh_per_second,
+        live_max_rows=live_max_rows,
+        log_file=log_file,
+        file_log_level=file_log_level,
     )
