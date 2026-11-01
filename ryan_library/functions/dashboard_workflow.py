@@ -15,8 +15,8 @@ import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from multiprocessing import Pool, Queue
-from multiprocessing.pool import ApplyResult
-from queue import Empty
+from multiprocessing.pool import ApplyResult, MaybeEncodingError
+from queue import Empty, Full
 from typing import Protocol, cast
 
 from loguru import logger
@@ -31,6 +31,8 @@ class ProgressQueue(Protocol):
     def put(self, item: object, block: bool = True, timeout: float | None = None) -> None: ...
 
     def get_nowait(self) -> object: ...
+
+    def cancel_join_thread(self) -> None: ...
 
 
 @dataclass(slots=True, frozen=True)
@@ -215,13 +217,15 @@ def _run_serial_dashboard_workflow[TItem, TResult](
         dashboard.mark_running(index=index)
         try:
             result: TResult = process_item(item)
-            status = _terminal_status(status_for_result(result))
-            detail = detail_for_result(result)
         except Exception as exc:
             logger.exception("Error processing workflow item index {}", index)
             dashboard.mark_finished(index=index, status="FAIL", detail=str(exc))
             outcome = WorkflowItemOutcome[TResult](index=index, status="FAIL", error=exc)
         else:
+            # Result adapters are caller code. Errors here are configuration/
+            # programming faults, not failures of the work item itself.
+            status = _terminal_status(status_for_result(result))
+            detail = detail_for_result(result)
             indexed_results[index] = result
             dashboard.mark_finished(index=index, status=status, detail=detail)
             outcome = WorkflowItemOutcome(index=index, status=status, result=result, has_result=True)
@@ -249,9 +253,11 @@ def _run_parallel_dashboard_workflow[TItem, TResult](
 ) -> None:
     """Run work in a process pool and poll async results for dashboard updates."""
     completed_indexes: set[int] = set()
-    raw_queue = Queue()
-    start_queue: ProgressQueue = cast("ProgressQueue", raw_queue)
     event_limit: int = max_start_events if max_start_events is not None else max(pool_size * 2, dashboard.max_rows)
+    # Start events are cosmetic; a bounded queue prevents a fast batch from
+    # generating unlimited messages while the parent is harvesting results.
+    raw_queue = Queue(maxsize=event_limit)
+    start_queue: ProgressQueue = cast("ProgressQueue", raw_queue)
 
     try:
         with Pool(
@@ -316,6 +322,10 @@ def _dashboard_worker_initializer(
     global _workflow_processor, _workflow_start_queue
     _workflow_start_queue = start_queue
     _workflow_processor = process_item
+    # The parent can stop draining once every result is collected. A worker
+    # must not wait on its Queue feeder during pool.join() merely to deliver
+    # stale RUNNING indicators. Terminal outcomes come via ApplyResult.
+    start_queue.cancel_join_thread()
     if log_queue is not None:
         worker_initializer(queue=log_queue, level=worker_log_level)
 
@@ -326,7 +336,11 @@ def _process_indexed_workflow_item(request: IndexedWorkflowItem[object]) -> obje
         msg = "Dashboard workflow worker was not initialised"
         raise RuntimeError(msg)
     if _workflow_start_queue is not None:
-        _workflow_start_queue.put(request.index)
+        try:
+            _workflow_start_queue.put(request.index, block=False)
+        except Full:
+            # Dropping a transient start notification never drops the result.
+            pass
     return _workflow_processor(request.item)
 
 
@@ -368,13 +382,18 @@ def _collect_finished_dashboard_results[TResult](
             continue
         try:
             result: TResult = async_result.get()
-            status = _terminal_status(status_for_result(result))
-            detail = detail_for_result(result)
+        except (MaybeEncodingError, OSError):
+            # Pool transport/serialization faults must reach the caller's
+            # existing retry/fallback policy, including in the report API.
+            raise
         except Exception as exc:
             logger.exception("Error processing workflow item index {}", index)
             dashboard.mark_finished(index=index, status="FAIL", detail=str(exc), refresh=False)
             outcome = WorkflowItemOutcome[TResult](index=index, status="FAIL", error=exc)
         else:
+            # Never hide invalid result statuses or caller adapter failures.
+            status = _terminal_status(status_for_result(result))
+            detail = detail_for_result(result)
             indexed_results[index] = result
             dashboard.mark_finished(index=index, status=status, detail=detail, refresh=False)
             outcome = WorkflowItemOutcome(index=index, status=status, result=result, has_result=True)
