@@ -278,7 +278,7 @@ foreach ($startup in $reportedStartups) {
     }
 
     $results += New-Object -TypeName PSObject -Property ([ordered]@{
-        Startup       = $startupTime.ToString("yyyy-MM-dd HH:mm:ss zzz")
+        Startup       = $startupTime.ToString("dddd, yyyy-MM-dd HH:mm:ss zzz")
         Classification = $classification
         Initiator     = $initiator
         Reason        = $reason
