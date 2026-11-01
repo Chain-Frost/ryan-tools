@@ -76,7 +76,6 @@ class WorkflowTask:
     finished_time: datetime.datetime | None = None
 
 
-
 @dataclass(slots=True, frozen=True)
 class WorkflowMetric:
     """One optional, caller-owned aggregate measure; None means unknown.
@@ -279,8 +278,9 @@ class LiveWorkflowDashboard:
             return
         self._final_summary_sent = True
         if self.enabled:
-            counts = {status: sum(task.status == status for task in self._tasks.values())
-                      for status in ("OK", "SKIP", "FAIL")}
+            counts = {
+                status: sum(task.status == status for task in self._tasks.values()) for status in ("OK", "SKIP", "FAIL")
+            }
             suffix = f" - {detail}" if detail else ""
             self.print(
                 f"{self.title}: {outcome} (OK {counts['OK']}, SKIP {counts['SKIP']}, FAIL {counts['FAIL']}){suffix}"
