@@ -100,6 +100,9 @@ def test_result_wrapper_passes_effective_options_and_paths_without_chdir_leak(
 
     worker.return_value = False
     assert main(working_directory=job, use_live_dashboard=False) == 1
+    worker.side_effect = OSError("synthetic exporter failure")
+    assert main(working_directory=job, use_live_dashboard=False) == 1
+    worker.side_effect = None
     with pytest.raises(ValueError, match="live_refresh_per_second"):
         main(working_directory=job, live_refresh_per_second=0)
 
