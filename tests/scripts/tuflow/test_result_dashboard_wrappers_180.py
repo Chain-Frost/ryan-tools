@@ -52,7 +52,7 @@ def test_result_wrapper_passes_effective_options_and_paths_without_chdir_leak(
     monkeypatch.setattr(module, "change_working_directory", change_directory)
     worker = Mock(return_value=True)
     monkeypatch.setattr(module, entry, worker)
-    main = cast("Callable[..., int]", getattr(module, "main"))
+    main = cast("Callable[..., int]", module.main)
     extras: dict[str, object] = {}
     if kind == "merge":
         extras["output_directory"] = Path("exports")
@@ -105,6 +105,6 @@ def test_result_wrapper_pause_is_bidirectional(
     del entry, kind
     module = _load_wrapper(path)
     monkeypatch.setattr(sys, "argv", ["wrapper.py", flag])
-    parse = cast("Callable[[], object]", getattr(module, "_parse_cli_arguments"))
+    parse = cast("Callable[[], object]", module._parse_cli_arguments)
     options = parse_common_cli_arguments(cast("argparse.Namespace", parse()))
     assert options.pause_on_finish is expected
