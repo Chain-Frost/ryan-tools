@@ -232,7 +232,6 @@ def test_archived_score_dry_run_has_no_filesystem_side_effects(tmp_path: Path) -
     assert not target.exists()
 
 
-
 def test_malformed_archived_output_does_not_create_results(tmp_path: Path) -> None:
     archived = tmp_path / "bad.out"
     archived.write_text("Inc Time Hyd001 Hyd002\n1 0 10 10\n2 1 ******** 100\n3 2 12 20\nEnd\n")
