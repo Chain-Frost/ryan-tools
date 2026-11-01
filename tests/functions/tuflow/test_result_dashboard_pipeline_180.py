@@ -13,8 +13,9 @@ import pandas as pd
 from ryan_library.functions.live_dashboard import LiveWorkflowDashboard
 from ryan_library.functions.loguru_helpers import LogQueue
 from ryan_library.functions.tuflow import tuflow_common as common
-from ryan_library.processors.tuflow.base_processor import BaseProcessor
+from ryan_library.processors.tuflow.base_processor import BaseProcessor, ProcessorStatus
 from ryan_library.processors.tuflow.other_processors.POProcessor import POProcessor
+from ryan_library.processors.tuflow.other_processors.RLLQmxProcessor import RLLQmxProcessor
 
 
 def _processed(name: str, *, processed: bool = True, empty: bool = False) -> BaseProcessor:
@@ -172,3 +173,71 @@ def test_malformed_po_with_filter_remains_a_failure() -> None:
     assert not processor.filtered_empty
     assert common._result_status(processor) == "FAIL"
     assert processor.raw_df.empty
+
+
+def test_valid_rll_qmx_without_selected_locations_is_skip() -> None:
+    """Valid RLL_Qmx data excluded by the filter must not fail a POMM export."""
+    processor = RLLQmxProcessor(
+        Path("synthetic_RLL_Qmx.csv"), entity_filter=frozenset({"SelectedLocation"})
+    )
+    processor.df = pd.DataFrame(
+        {
+            "ID": ["OtherLocation"],
+            "Qmax": [10.0],
+            "Time Qmax": [1.0],
+            "dQmax": [0.0],
+            "Time dQmax": [1.0],
+            "H": [5.0],
+        }
+    )
+    with (
+        patch.object(common.BaseProcessor, "from_file", return_value=processor),
+        patch.object(processor, "read_maximums_csv", return_value=ProcessorStatus.SUCCESS),
+        patch.object(processor, "validate_data", wraps=processor.validate_data) as validate,
+    ):
+        actual = common.process_file(
+            Path("synthetic_RLL_Qmx.csv"), entity_filters=("SelectedLocation",)
+        )
+    assert actual is processor
+    assert processor.filtered_empty
+    assert not processor.processed
+    assert processor.df.empty
+    validate.assert_not_called()
+    assert common._result_status(processor) == "SKIP"
+    assert common._dashboard_detail(processor) == "no matching locations"
+
+    dashboard = LiveWorkflowDashboard(title="Filtered RLL Qmx", enabled=False)
+    progress = common.FileBatchProgress()
+    with (
+        patch.object(common, "calculate_pool_size", return_value=1),
+        patch.object(common, "_summarize_file_batch", return_value=(2, 0, None, 0)),
+        patch.object(common, "process_file", side_effect=[processor, _processed("matching_POMM.csv")]),
+    ):
+        collection = common.process_files_in_parallel(
+            file_list=[Path("synthetic_RLL_Qmx.csv"), Path("matching_POMM.csv")],
+            log_queue=cast("LogQueue", Mock()),
+            dashboard=dashboard,
+            batch_progress=progress,
+        )
+    assert [item.file_name for item in collection.processors] == ["matching_POMM.csv"]
+    assert (progress.succeeded, progress.skipped, progress.failed) == (1, 1, 0)
+
+
+def test_malformed_rll_qmx_with_filter_remains_failure() -> None:
+    """Missing source columns are not mistaken for a filter exclusion."""
+    processor = RLLQmxProcessor(
+        Path("malformed_RLL_Qmx.csv"), entity_filter=frozenset({"SelectedLocation"})
+    )
+    processor.df = pd.DataFrame({"ID": ["OtherLocation"], "Qmax": [10.0]})
+    with (
+        patch.object(common.BaseProcessor, "from_file", return_value=processor),
+        patch.object(processor, "read_maximums_csv", return_value=ProcessorStatus.SUCCESS),
+    ):
+        actual = common.process_file(
+            Path("malformed_RLL_Qmx.csv"), entity_filters=("SelectedLocation",)
+        )
+    assert actual is processor
+    assert not processor.filtered_empty
+    assert not processor.processed
+    assert processor.df.empty
+    assert common._result_status(processor) == "FAIL"

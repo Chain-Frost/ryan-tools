@@ -385,3 +385,16 @@ PR #184 was then non-forced fast-forwarded into #183; GitHub closed #184 as merg
 No main merge, auto-merge, PyPI publication, licensed solver execution or production
 model/UNC acceptance occurred. This documentation-only record update follows
 the tested source SHA and requires its own fresh CI receipt.
+
+
+### 2026-11-01 — consolidated review follow-up for RLL_Qmx filter misses
+
+The consolidated Codex review identified the same valid-but-filtered-empty
+classification issue in `RLLQmxProcessor` that was previously fixed for PO.
+This source follow-up adds an explicit filtered-empty SKIP only after a
+successful read and a non-empty valid required-column reshape. Malformed
+RLL_Qmx inputs remain FAIL; exported collection contents remain unchanged.
+Focused tests cover mixed SKIP/OK accounting and malformed input. Updated
+Windows CI and review confirmation are required before this follow-up is
+called accepted. No main merge or publication is authorised by this update.
+
