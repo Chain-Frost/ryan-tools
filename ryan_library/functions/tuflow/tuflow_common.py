@@ -12,11 +12,11 @@ from loguru import logger
 
 from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
 from ryan_library.classes.tuflow_string_classes import TuflowStringParser
+from ryan_library.functions.dashboard_workflow import WorkflowItemOutcome, run_dashboard_workflow_report
 from ryan_library.functions.file_utils import (
     find_files_parallel,
     is_non_zero_file,
 )
-from ryan_library.functions.dashboard_workflow import WorkflowItemOutcome, run_dashboard_workflow_report
 from ryan_library.functions.live_dashboard import LiveWorkflowDashboard, WorkflowMetric, WorkflowStatus
 from ryan_library.functions.loguru_helpers import LogQueue, worker_initializer
 from ryan_library.functions.multiprocessing_helpers import calculate_pool_size
