@@ -26,7 +26,8 @@ from ryan_library.functions.geometry import find_similarity_transform
 from ryan_library.functions.path_stuff import sanitize_windows_filename
 from ryan_library.mcp.installed_scripts import available_wrappers, copy_wrapper
 from ryan_library.mcp.registry import WorkflowRegistry
-from ryan_library.mcp.server import REGISTRY as SERVER_REGISTRY, list_workflows
+from ryan_library.mcp.server import REGISTRY as SERVER_REGISTRY
+from ryan_library.mcp.server import list_workflows
 
 
 def _require_installed_below(module_file: str | None, expected_root: Path, package: str) -> None:
@@ -48,9 +49,8 @@ def _check_installed_scripts() -> None:
             raise RuntimeError(msg)
 
 
-def _check_installed_keyword_discovery() -> None:
-    """Prove discovery using only packaged catalogues and the actual installed wheel."""
-    registry = WorkflowRegistry(discover_repository=False, configured_profile="privileged")
+def _check_installed_curated_keywords(registry: WorkflowRegistry) -> None:
+    """Check curated keywords using only the wheel catalogue and canonical IDs."""
     for domain, query, workflow_id in (
         ("gdal", "CrOp", "clip_rasters_to_polygon"),
         ("gdal", "cropping", "clip_rasters_to_polygon"),
@@ -67,6 +67,11 @@ def _check_installed_keyword_discovery() -> None:
             msg = f"Installed keywords missing for {workflow_id}: {detail['keywords']}"
             raise RuntimeError(msg)
 
+
+def _check_installed_keyword_discovery() -> None:
+    """Prove discovery using only packaged catalogues and the actual installed wheel."""
+    registry = WorkflowRegistry(discover_repository=False, configured_profile="privileged")
+    _check_installed_curated_keywords(registry)
     if SERVER_REGISTRY.repository_root is not None:
         msg = "Installed MCP server unexpectedly discovered the source checkout."
         raise RuntimeError(msg)
