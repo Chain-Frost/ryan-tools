@@ -10,7 +10,7 @@
 | Issue | [#136](https://github.com/Chain-Frost/ryan-tools/issues/136) |
 | Baseline | [main at 99cd3cc](https://github.com/Chain-Frost/ryan-tools/commit/99cd3ccaaabd83b682392f7e285d90b570d353cb), merge commit ddcf6e7 |
 | Delivery branch | `fix/mcp-overview-boolean-136-stack184`, targeting PR #184's `feat/tuflow-result-dashboards-180` |
-| Delivery state | [Draft PR #186](https://github.com/Chain-Frost/ryan-tools/pull/186) targets #184. Code `984dbab84fb83233345fcc8ae18b6fc39f269f6c` is pushed and has actual installed-wheel acceptance. A normal merge incorporates parent `d8f9d782` and this receipt; the PR description records the resulting head and its final CI. PR #182 previously merged as `82c1a1b`; no new PR merge or release is authorized. |
+| Delivery state | [Draft PR #186](https://github.com/Chain-Frost/ryan-tools/pull/186) targets #184. Pushed parent-integration head `75cc9544796a239a237d57eb2990584355e47c5f` passed actual installed-wheel MCP acceptance. Its integration CI also includes newer parent `63686600` and is blocked by that parent's TUFLOW syntax/lint errors. The PR description records the final documentation head and current checks. PR #182 previously merged as `82c1a1b`; no new PR merge or release is authorized. |
 
 ## Outcome and scope
 
@@ -507,6 +507,40 @@ Independent integration review found one shared-caller omission: the release ver
 script and needed its SDK test dependency. That omission was fixed before publication; no correctness or safety
 findings remained in the bounded seven-file correction. Release execution itself is not authorized or attempted.
 
-The full Hosted tests job and any later parent-merge/head receipts are recorded in the PR description when complete.
-The prior red results at parent `d16dce0` are historical; acceptance depends on the actual head being reviewed.
-No proprietary application, licensed solver or external GDAL/QGIS execution is claimed by these metadata checks.
+The full Hosted tests job at `984dbab` subsequently passed: **1,996 passed, 14 skipped, 8 deselected**, with
+128 warnings. The prior red results at parent `d16dce0` are historical; acceptance depends on the actual head being
+reviewed. No proprietary application, licensed solver or external GDAL/QGIS execution is claimed by these checks.
+
+### Parent-integration receipt and remaining gate
+
+Pushed head `75cc9544796a239a237d57eb2990584355e47c5f` normally merges parent `d8f9d782` without changing the MCP
+implementation. GitHub's subsequent integration runs checked synthetic merge
+`d4d2718a605c05baaa0ba56da50df7e2dc374403`, which combines that head with a still-newer parent,
+`63686600b482ec8c567a03e91d41ffc6f5cfdbfe`. The workflow event's earlier base was `d8f9d782`.
+
+| Gate at integration merge `d4d2718` | Result |
+| --- | --- |
+| [Package](https://github.com/Chain-Frost/ryan-tools/actions/runs/41302362091/job/124835786514) | **Passed** fresh no-bump build, verification, actual installed keyword/overview/registered-boolean checks, copied wrappers and parent's copied log-summary smoke |
+| POSIX wrapper security | **Passed** |
+| MCP smoke | Blocked before tests: inherited TUFLOW indentation errors during `python -m compileall -q ryan_library` |
+| Hosted tests | Blocked during collection: **2 collection errors, 8 deselected**; no test-pass count is claimed for this run |
+| Policy | Failed at Ruff: **23 errors** in inherited dashboard files; strict Pyright/documentation steps were not reached |
+| [Fast PR checks](https://github.com/Chain-Frost/ryan-tools/actions/runs/41302362090) | Failed before Ruff: trailing whitespace in the same two inherited TUFLOW files |
+
+The [Python integration run](https://github.com/Chain-Frost/ryan-tools/actions/runs/41302362091) is therefore red;
+the earlier all-green `984dbab` receipt is not substituted for it. The new Package result is genuine wheel evidence:
+Windows Python 3.14.9, MCP 2.3.0, Pydantic 2.14.2; `ryan_tools-26.11.1.1-py3-none-any.whl`, 895,836 bytes,
+SHA256 `9c17019869943d950bc0a13cbb55ad3903e3ce4e86e16ce09711940eb35e3a76`,
+[artifact `13081932794`](https://github.com/Chain-Frost/ryan-tools/actions/runs/41302362091/artifacts/13081932794).
+Both installed MCP success receipts and the full installed-wheel success receipt appear in that job's logs.
+
+The later parent has unindented bodies after `if` in `tuflow_culverts_merge.py` at line 108 and
+`tuflow_culverts_timeseries.py` at line 103, plus whitespace-only lines 115 and 110. Their blobs in published
+`75cc954` are identical to parent `d8f9d782` and have neither defect; the malformed versions come from `63686600`
+in GitHub's merge. Other inherited Ruff errors include unsorted imports in the culvert maximums wrapper,
+`tuflow_common.py` and `po_combine.py`. These remain owned by #184; this child does not edit those files to clear CI.
+
+The independent reviewer should examine the bounded MCP diff and real-wheel evidence, then require clean current
+stack integration after #184 fixes its source. The final documentation-only head and its checks are linked in the PR
+description. The latest known failures are explicit review gates, not waived checks or evidence of successful
+collection. Local submodules remain untouched, and no release or merge was performed.
