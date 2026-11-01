@@ -1,4 +1,5 @@
-# pyright: reportPrivateUsage=false - focused tests inspect internal state and pool collection.
+# pyright: reportPrivateUsage=false
+# focused tests inspect internal state and pool collection.
 """Regression coverage for the shared dashboard contract in issue #180."""
 
 from __future__ import annotations
