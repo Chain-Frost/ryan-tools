@@ -9,9 +9,10 @@ from __future__ import annotations
 
 import math
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from enum import StrEnum
 from pathlib import Path
+from typing import cast
 
 
 def choice[T: StrEnum](name: str, value: object, options: type[T]) -> T:
@@ -46,11 +47,10 @@ def input_paths(value: object) -> tuple[Path, ...]:
     """A raw string names one source; a list or tuple supplies multiple sources."""
     if value is None:
         return ()
-    sources: Sequence[object]
     if isinstance(value, (str, Path)):
         sources = (value,)
     elif isinstance(value, (list, tuple)):
-        sources = value
+        sources = cast(list[object] | tuple[object, ...], value)
     else:
         message = "INPUT_FILES must be one path or a list/tuple, e.g. ['runs1.bat', 'runs2.txt']."
         raise ValueError(message)
@@ -66,33 +66,26 @@ def gpu_groups(value: object) -> tuple[tuple[str, ...], ...]:
     """Top-level entries are concurrent slots; nested GPU strings share one slot."""
     if value is None:
         return ()
-    candidates: Sequence[object]
     if isinstance(value, str):
-        candidates = (value,)
+        candidates: tuple[object, ...] = (value,)
     elif isinstance(value, (list, tuple)):
-        candidates = value
+        candidates = tuple(cast(list[object] | tuple[object, ...], value))
     else:
         message = "GPU_DEVICES requires '-pu1', ['-pu0', '-pu1'], or [['-pu0', '-pu1']]."
         raise ValueError(message)
     groups: list[tuple[str, ...]] = []
     for index, group in enumerate(candidates):
-        tokens: Sequence[object]
         if isinstance(group, str):
-            tokens = (group,)
+            tokens: tuple[object, ...] = (group,)
         elif isinstance(group, (list, tuple)):
-            tokens = group
+            tokens = tuple(cast(list[object] | tuple[object, ...], group))
         else:
             message = f"GPU_DEVICES[{index}] must be a '-puN' string or list/tuple of '-puN' strings."
             raise ValueError(message)
-        message = f"GPU_DEVICES[{index}] needs one or more '-puN' strings; use [] for automatic placement."
-        if not tokens:
+        if not tokens or any(not isinstance(token, str) for token in tokens):
+            message = f"GPU_DEVICES[{index}] needs one or more '-puN' strings; use [] for automatic placement."
             raise ValueError(message)
-        validated: list[str] = []
-        for token in tokens:
-            if not isinstance(token, str):
-                raise ValueError(message)
-            validated.append(token)
-        groups.append(tuple(validated))
+        groups.append(cast(tuple[str, ...], tokens))
     return tuple(groups)
 
 
@@ -124,7 +117,7 @@ def finite_number(name: str, value: object, *, positive: bool) -> float:
 
 
 def _nonempty_variable_list(key: str, entries: Sequence[object]) -> list[str]:
-    """Accept an explicit list only when all entries are useful strings."""
+    """Accept explicit user lists only when every entry is a nonblank string."""
     message = f"RUN_VARIABLES_RAW[{key!r}] needs nonempty strings, e.g. ['Dry', 'Wet Season']."
     if not entries:
         raise ValueError(message)
@@ -143,8 +136,7 @@ def run_variables(value: object) -> dict[str, str | list[str]]:
         raise ValueError(message)
     validated: dict[str, str | list[str]] = {}
     seen: set[str] = set()
-    entries: Mapping[object, object] = value
-    for key, raw in entries.items():
+    for key, raw in cast(dict[object, object], value).items():
         if not isinstance(key, str) or re.fullmatch(r"[es][1-9]", key, flags=re.IGNORECASE) is None:
             message = f"RUN_VARIABLES_RAW key {key!r} must be e1-e9 or s1-s9."
             raise ValueError(message)
@@ -158,8 +150,7 @@ def run_variables(value: object) -> dict[str, str | list[str]]:
                 raise ValueError(message)
             validated[key] = raw
         elif isinstance(raw, list):
-            items: Sequence[object] = raw
-            validated[key] = _nonempty_variable_list(key, items)
+            validated[key] = _nonempty_variable_list(key, cast(list[object], raw))
         else:
             message = f"RUN_VARIABLES_RAW[{key!r}] requires a string or list of strings."
             raise ValueError(message)
