@@ -195,9 +195,8 @@ def run_dashboard_workflow_report[TItem, TResult](
                     on_outcome=on_outcome,
                 )
     if len(indexed_outcomes) != len(items):
-        raise RuntimeError(
-            f"Dashboard workflow lost {len(items) - len(indexed_outcomes)} item outcome(s); results are incomplete."
-        )
+        msg = f"Dashboard workflow lost {len(items) - len(indexed_outcomes)} item outcome(s); results are incomplete."
+        raise RuntimeError(msg)
     return WorkflowRunReport(outcomes=tuple(indexed_outcomes[index] for index in range(1, len(items) + 1)))
 
 
