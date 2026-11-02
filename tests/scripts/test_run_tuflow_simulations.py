@@ -280,10 +280,10 @@ def test_enum_defaults_and_raw_string_values_both_work(
     wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     module = sys.modules["tested_runner_wrapper"]
-    op = module.__dict__["settings"].OP
-    src = module.__dict__["settings"].SRC
-    cont = module.__dict__["settings"].CONT
-    prio = module.__dict__["settings"].PRIO
+    op = module.__dict__["params"].OP
+    src = module.__dict__["params"].SRC
+    cont = module.__dict__["params"].CONT
+    prio = module.__dict__["params"].PRIO
     normal = choice
     assert normal("OPERATION", op.RUN, op) is op.RUN
     assert normal("OPERATION", "run", op) is op.RUN

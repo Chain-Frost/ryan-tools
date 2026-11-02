@@ -596,11 +596,13 @@ def _input_issue_message(issue: CommandPreflightIssue) -> str:
     base = Path(run.working_directory).absolute()
 
     def display(value: str | PurePath) -> str:
-        path = Path(value)
+        filename, separator, layer = str(value).partition(" >> ")
+        path = Path(filename)
         try:
-            return str(path.relative_to(base)) if path.is_absolute() else str(path)
+            shown = str(path.relative_to(base)) if path.is_absolute() else str(path)
         except ValueError:
-            return str(path)
+            shown = str(path)
+        return f"{shown}{separator}{layer}"
 
     flags = " ".join(f"-{key} {value}" for key, value in run.flag_pairs)
     selection = f" {flags}" if flags else ""
@@ -616,7 +618,8 @@ def _input_issue_message(issue: CommandPreflightIssue) -> str:
     return (
         f"Input check run {run.index}: {finding.status.upper()} — {display(run.tcf)}{selection} "
         f"({finding.kind or finding.origin or 'input'})\n"
-        f"  Source      : {display(run.source)}:{run.line_start}-{run.line_end}\n"
+        f"  Source      : {display(run.source)}:{run.line_start}"
+        f"{f'-{run.line_end}' if run.line_end != run.line_start else ''}\n"
         f"  Control file: {owner}\n"
         f"  Command     : {finding.command_text or 'Full command not provided by validator'}\n"
         f"  Reference   : {display(finding.reference)}\n"
@@ -634,6 +637,7 @@ class AdvisoryInputCheck:
         self._lock = Lock()
         self._cancel = Event()
         self.finished = Event()
+        self.status = "Running"
         self._thread = Thread(target=self._work, name="tuflow-runner-preflight", daemon=True)
 
     def _work(self) -> None:
@@ -643,6 +647,7 @@ class AdvisoryInputCheck:
             # Keep upstream inspection inside this daemon. Thread-pool workers
             # are joined at interpreter exit and could hold shutdown on slow I/O.
             report = check_command_plan(self.plan, check_gpkg_layers=self._layers, io_workers=1)
+            status = "Passed" if report.passed else f"Issues: {len(report.issues)}"
             messages = [
                 (
                     "WARNING",
@@ -660,9 +665,11 @@ class AdvisoryInputCheck:
                 )
             )
         except Exception as exc:  # noqa: BLE001 - advisory checks are never a launch prerequisite
+            status = "Incomplete"
             messages = [("WARNING", f"Input checking unavailable or incomplete: {type(exc).__name__}: {exc}")]
         with self._lock:
             if not self._cancel.is_set():
+                self.status = status
                 for message in messages:
                     self._messages.put(message)
             self.finished.set()
@@ -683,6 +690,7 @@ class AdvisoryInputCheck:
         with self._lock:
             if not self.finished.is_set():
                 self._cancel.set()
+                self.status = "Incomplete"
                 logger.warning("Input checking incomplete at shutdown; no all-clear is implied.")
         self.drain()
 
@@ -700,6 +708,8 @@ def check_plan_only(plan: CommandPlan, *, check_gpkg_layers: bool = True) -> boo
         logger.warning("{}", _input_issue_message(issue))
     if not report.passed:
         logger.error("Input checking failed or is incomplete: {}/{} completed", report.completed_runs, report.run_count)
+    else:
+        logger.success("Input check passed for {}/{} runs.", report.completed_runs, report.run_count)
     return report.passed
 
 
@@ -866,6 +876,8 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
             while queue or active:
                 if advisory is not None:
                     advisory.drain()
+                    if dashboard is not None:
+                        dashboard.set_extra_metrics({"Input checks": advisory.status})
                 if dashboard is not None:
                     dashboard.refresh()
                 if stop.is_set():
@@ -919,6 +931,10 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                 poll_children()
             if advisory is not None:
                 advisory.drain()
+                if dashboard is not None:
+                    dashboard.set_extra_metrics(
+                        {"Input checks": advisory.status if advisory.finished.is_set() else "Incomplete"}
+                    )
         finally:
             if active:
                 _stop_children(active)

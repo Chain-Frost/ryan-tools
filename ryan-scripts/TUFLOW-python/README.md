@@ -20,6 +20,11 @@ thread alongside model launches; its findings do not block launches.
 `--preflight-only` waits for checking, returns failure for input issues and
 never launches TUFLOW. If advisory checking is unfinished at shutdown, the
 runner reports it as incomplete rather than waiting or claiming success.
+The live dashboard retains an `Input checks` status (Running, Passed, Issues
+or Incomplete). At console level INFO or SUCCESS, a completed clean check
+prints `Input check passed for N/N runs.` above the live table. Findings are
+WARNING messages. Runner log output uses time, level and the message, without
+internal function names; single-line source locations show one line number.
 
 [`model_management/check_tuflow_inputs.py`](model_management/check_tuflow_inputs.py)
 checks every supported model input (including selected GeoPackage layers and
@@ -62,19 +67,19 @@ Python wrapper. Its operational constants can use concise names; the wrapper
 standard does not require a `DEFAULT_` prefix. CLI arguments override editable
 values when supplied.
 
-The shipped `OPERATION = settings.OP.RUN` runs pending simulations using
+The shipped `OPERATION = params.OP.RUN` runs pending simulations using
 the licensed solver and may overwrite existing model outputs. The default
-`CONTINUATION_MODE = settings.CONT.RESUME` skips recorded successful runs.
+`CONTINUATION_MODE = params.CONT.RESUME` skips recorded successful runs.
 To export editable command TXT without launching, set
-`OPERATION = settings.OP.EXPORT_ONLY` (or raw `"export_only"`) or pass
+`OPERATION = params.OP.EXPORT_ONLY` (or raw `"export_only"`) or pass
 `--export-only`. To check inputs without launching, use
-`OPERATION = settings.OP.PREFLIGHT_ONLY` or `--preflight-only`.
+`OPERATION = params.OP.PREFLIGHT_ONLY` or `--preflight-only`.
 `--run-simulations` explicitly selects execution regardless of the editable
 operation setting. CLI arguments override editable values.
 
 The wrapper imports its `StrEnum` choices through `settings`:
-`settings.OP.RUN`, `settings.SRC.TEXTFILES`, `settings.CONT.RESUME` and
-`settings.PRIO.LOW` and `settings.LOG.INFO`. Equivalent raw strings are accepted and validated.
+`params.OP.RUN`, `params.SRC.TEXTFILES`, `params.CONT.RESUME` and
+`params.PRIO.LOW` and `params.LOG.INFO`. Equivalent raw strings are accepted and validated.
 
 Generated list entries intentionally have leading and trailing whitespace
 stripped before warnings and deduplication. For example, `[" Wet ", "Wet"]`
@@ -214,7 +219,7 @@ runs 101 through 400 in their original order. If later runs also succeeded,
 those are skipped too; original run numbers can therefore have gaps. Input
 preflight and dashboard presentation preserve those original identities.
 
-Set `CONTINUATION_MODE = settings.CONT.ALL` (or raw `"all"`) or pass `--run-mode all` to append a RESET row and
+Set `CONTINUATION_MODE = params.CONT.ALL` (or raw `"all"`) or pass `--run-mode all` to append a RESET row and
 run every occurrence again. Previous history is retained. Changing model-file contents
 is not detected; use Run all when prior successes should be disregarded.
 The identity uses the **TCF filename** (case-insensitive on Windows) and effective

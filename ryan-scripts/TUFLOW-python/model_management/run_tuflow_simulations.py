@@ -6,12 +6,12 @@ Also supports CLI"""
 
 from pathlib import Path
 
-from ryan_library.functions.tuflow import runner_settings as settings
+from ryan_library.functions.tuflow import runner_settings as params
 
 # CLI options override these defaults.
 # None allows distinct TCFs in "textfiles" mode; generated runs require a TCF.
-TCF: settings.PathSetting | None = r".\runs\PROJECT_01_~s2~_~s1~_~e1~_~e2~_~e4~_~e3~_~s4~.tcf"
-TUFLOW_EXE: settings.PathSetting = r"C:\TUFLOW\tuflow-2026.3\TUFLOW_iSP_w64.exe"
+TCF: params.PathLike | None = r".\runs\PROJECT_01_~s2~_~s1~_~e1~_~e2~_~e4~_~e3~_~s4~.tcf"
+TUFLOW_EXE: params.PathLike = r"C:\TUFLOW\tuflow-2026.3\TUFLOW_iSP_w64.exe"
 BATCH_COMMANDS = "-b"
 PRIORITY_ORDER: str | None = "e3 e2 e1"  # Generated flag order, e.g. "e3 e2 e1". None preserves dictionary order.
 RUN_VARIABLES_RAW: dict[str, str | list[str]] = {
@@ -27,30 +27,30 @@ RUN_VARIABLES_RAW: dict[str, str | list[str]] = {
 # GPU_DEVICES = ["-pu0", "-pu1"]            # 2 slots: GPU 0, GPU 1
 # GPU_DEVICES = [["-pu0", "-pu1"]]          # 1 slot using both GPUs
 # None, [] or () gives one automatic-placement slot; GPU IDs cannot repeat.
-GPU_DEVICES: settings.GpuDevicesSetting = "-pu0"
-INPUT_FILES: settings.InputFilesSetting = ()  # BAT/TXT sources for "textfiles"/"both"; Example: ["runs1.bat", "runs2.txt"] or "runs1.bat".
+GPU_DEVICES: params.GPUS = "-pu0"
+INPUT_FILES: params.InputFiles = []  # BAT/TXT sources for "textfiles"/"both"; Example: ["runs1.bat", "runs2.txt"] or "runs1.bat".
 # "parameter_product": generate combinations; "textfiles": import inert
 # BAT/CMD/TXT selections; "both": imported first, then generated. Equivalent
-# selections are deduplicated. Prefer settings.SRC.TEXTFILES; raw "textfiles" works.
-MODE: settings.SourceSetting = settings.SRC.PARAMETER_PRODUCT
+# selections are deduplicated. Prefer params.SRC.TEXTFILES; raw "textfiles" works.
+MODE: params.SourceMode = params.SRC.PARAMETER_PRODUCT
 # "resume": skip observed successes in this wrapper's adjacent CSV;
 # "all": reset completion baseline and rerun everything. Use a different
 # filename for each TCF version so its run wrapper gets a separate CSV.
-# Prefer settings.CONT.RESUME; raw "resume" also works.
-CONTINUATION_MODE: settings.ContinuationSetting = settings.CONT.RESUME
-OPERATION: settings.OperationSetting = settings.OP.RUN
-WORKING_DIR: settings.PathSetting | None = None  # Model directory: None uses the this python files directory, not cwd.
+# Prefer params.CONT.RESUME; raw "resume" also works.
+CONTINUATION_MODE: params.ContMode = params.CONT.RESUME
+OPERATION: params.RunMode = params.OP.RUN
+WORKING_DIR: params.PathLike | None = None  # Model directory: None uses the this python files directory, not cwd.
 # Optional Python follow-up after a normally completed batch (even when
 # children failed). None disables. Accepts str or Path, relative to WORKING_DIR.
 # Example: "next_batch.py"; not launched after an interruption.
-NEXT_RUN_FILE: settings.PathSetting | None = None
-COMPUTATIONAL_PRIORITY: settings.PrioritySetting = settings.PRIO.LOW
+NEXT_RUN_FILE: params.PathLike | None = None
+COMPUTATIONAL_PRIORITY: params.PrioritySetting = params.PRIO.LOW
 MINIMIZE_ON_LAUNCH = True  # True opens solver windows minimized; False shows them normally.
 EXPORT_COMMANDS = True  # True refreshes <wrapper_name>.txt, BAT format.
 CHECK_INPUTS = True  # Enable BACKGROUND model-input checks while TUFLOW runs.
 USE_LIVE_DASHBOARD = True  # True shows the Rich live dashboard; False uses ordinary console logging.
 LIVE_REFRESH_PER_SECOND = 1.0
-CONSOLE_LOG_LEVEL: settings.LogLevelSetting = settings.LOG.INFO
+CONSOLE_LOG_LEVEL: params.LogLevel = params.LOG.INFO
 WAIT_TIME_AFTER_RUN = 2.0  # Seconds between launches (>=0). Example: 0.5. Does not change GPU slots.
 PAUSE_ON_FINISH = True  # Pause interactively on finish; --no-pause forces False, --pause forces True.
 WRAPPER_VERSION = "2026-11-03.1"
@@ -98,9 +98,9 @@ def _settings(arguments: argparse.Namespace) -> RunnerSettings:
     configured_tcf = None if arguments.no_tcf else (arguments.tcf if arguments.tcf is not None else TCF)
     selected_inputs = tuple(arguments.input_file) if arguments.input_file is not None else INPUT_FILES
     selected_mode = runner_user_inputs.choice(
-        "MODE", arguments.mode if arguments.mode is not None else MODE, settings.SRC
+        "MODE", arguments.mode if arguments.mode is not None else MODE, params.SRC
     )
-    selected_priority = runner_user_inputs.choice("COMPUTATIONAL_PRIORITY", COMPUTATIONAL_PRIORITY, settings.PRIO)
+    selected_priority = runner_user_inputs.choice("COMPUTATIONAL_PRIORITY", COMPUTATIONAL_PRIORITY, params.PRIO)
     selected_batch_commands = runner_user_inputs.batch_commands(BATCH_COMMANDS)
     selected_executable = runner_user_inputs.path(
         "TUFLOW_EXE", arguments.solver_exe if arguments.solver_exe is not None else TUFLOW_EXE
@@ -196,7 +196,7 @@ def _warn_optional_file_paths(plan: CommandPlan, run_settings: RunnerSettings) -
             if not exists_as_file(optional):
                 logger.warning(
                     "INPUT_FILES source not found: {}. This is ignored because MODE is "
-                    "'parameter_product'; switch MODE to settings.SRC.TEXTFILES or settings.SRC.BOTH to use it.",
+                    "'parameter_product'; switch MODE to params.SRC.TEXTFILES or params.SRC.BOTH to use it.",
                     optional,
                 )
 
@@ -244,25 +244,30 @@ def main(argv: list[str] | None = None) -> int:
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     try:
         log_level = arguments.console_log_level if arguments.console_log_level is not None else CONSOLE_LOG_LEVEL
-        if not isinstance(log_level, str) or log_level.upper() not in settings.LOG:
-            choices = ", ".join(settings.LOG)
+        if not isinstance(log_level, str) or log_level.upper() not in params.LOG:
+            choices = ", ".join(params.LOG)
             message = f"CONSOLE_LOG_LEVEL={log_level!r} is invalid; use {choices}."
             raise ValueError(message)
-        configure_serial_logging(console_log_level=log_level.upper())
+        configure_serial_logging(
+            console_log_level=log_level.upper(),
+            # Look up stdout at emission time so Rich can print above its live display.
+            console_sink=lambda message: print(message, end="", flush=True),
+            console_format="{time:HH:mm:ss} | {level:<7} | {message}",
+        )
         run_settings = _settings(arguments)
         # Validate finite-choice inputs before export, history or simulation launch.
         if arguments.run_simulations:
-            selected_operation = settings.OP.RUN
+            selected_operation = params.OP.RUN
         elif arguments.preflight_only:
-            selected_operation = settings.OP.PREFLIGHT_ONLY
+            selected_operation = params.OP.PREFLIGHT_ONLY
         elif arguments.export_only:
-            selected_operation = settings.OP.EXPORT_ONLY
+            selected_operation = params.OP.EXPORT_ONLY
         else:
-            selected_operation = runner_user_inputs.choice("OPERATION", OPERATION, settings.OP)
+            selected_operation = runner_user_inputs.choice("OPERATION", OPERATION, params.OP)
         selected_continuation = runner_user_inputs.choice(
             "CONTINUATION_MODE",
             arguments.run_mode if arguments.run_mode is not None else CONTINUATION_MODE,
-            settings.CONT,
+            params.CONT,
         )
         if not run_settings.working_directory.is_dir():
             logger.error("Working directory does not exist: {}", run_settings.working_directory)

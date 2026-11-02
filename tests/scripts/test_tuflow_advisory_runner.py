@@ -105,6 +105,7 @@ def test_launches_during_held_advisory_and_delivers_all_findings(
     advisory.start()
     try:
         assert started.wait(2)
+        assert advisory.status == "Running"
 
         def popen(**_kwargs: object) -> FakeProcess:
             assert not release.is_set()
@@ -116,6 +117,7 @@ def test_launches_during_held_advisory_and_delivers_all_findings(
         assert len(launched) == 2
         release.set()
         assert advisory.finished.wait(3)
+        assert advisory.status == "Issues: 25"
         advisory.drain()
         assert sum("Input check run" in record.message for record in caplog.records) == 25
         assert "passed for" not in caplog.text
@@ -143,6 +145,7 @@ def test_shutdown_never_waits_for_slow_io_or_produces_late_all_clear(
         assert started.wait(2)
         advisory.close()
         assert "incomplete at shutdown" in caplog.text
+        assert advisory.status == "Incomplete"
     finally:
         release.set()
         assert advisory.finished.wait(2)
