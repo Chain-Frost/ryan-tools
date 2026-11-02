@@ -13,9 +13,12 @@ Examples:
 from __future__ import annotations
 
 from pathlib import Path, PurePath
+from time import perf_counter
 from typing import Literal
 
-WRAPPER_VERSION = "2026-11-02.2"
+_SCRIPT_STARTED_AT = perf_counter()
+
+WRAPPER_VERSION = "2026-11-02.3"
 
 # ------------------------ USER-EDITABLE SETTINGS -------------------------
 # CLI arguments override these settings. No naming prefix is required.
@@ -154,7 +157,12 @@ def _plan_manifest(plan: CommandPlan) -> dict[str, object]:
     }
 
 
-def _print_preflight(result: CommandPreflightReport, *, display_base: Path | None = None) -> None:
+def _print_preflight(
+    result: CommandPreflightReport,
+    *,
+    display_base: Path | None = None,
+    elapsed_seconds: float | None = None,
+) -> None:
     """Present a complete check result with actionable issue detail."""
     base = display_base.absolute() if display_base is not None else None
     _section("INPUT CHECK")
@@ -163,10 +171,14 @@ def _print_preflight(result: CommandPreflightReport, *, display_base: Path | Non
     print(f"  Unique input paths: {len(result.checked_paths)}")
     print(f"  Issues            : {len(result.issues)}")
     print(f"  Affected runs     : {result.affected_runs}")
-    print("  Time spent:")
-    print(f"    Control parsing : {result.parse_seconds:.2f} s")
-    print(f"    Run contexts    : {result.context_seconds:.2f} s")
-    print(f"    File inventory  : {result.inventory_seconds:.2f} s")
+    print("  Timing:")
+    if elapsed_seconds is not None:
+        print(f"    Script wall time : {elapsed_seconds:.2f} s")
+        print("      Includes library startup, arguments, planning, checking and report writing.")
+    print("    Input-check phases:")
+    print(f"      Control parsing: {result.parse_seconds:.2f} s")
+    print(f"      Run contexts   : {result.context_seconds:.2f} s")
+    print(f"      File inventory : {result.inventory_seconds:.2f} s")
 
     if result.issues:
         _section("ISSUES")
@@ -201,8 +213,10 @@ def main(
     encoding: str = "utf-8-sig",
     io_workers: int = 4,
     maximum_directory_entries: int = 50_000,
+    started_at: float | None = None,
 ) -> int:
     """Plan and check grouped TCFs, printing findings and optionally writing a new CSV."""
+    operation_started_at = perf_counter() if started_at is None else started_at
     # Establish both bases before parsing; BAT CD never changes Python config.
     initial = (working_directory if working_directory is not None else Path.cwd()).absolute()
     configured_base = (
@@ -234,6 +248,7 @@ def main(
         _section("RESULT")
         print("  PLAN ONLY: Commands were interpreted, but model inputs were not checked.")
         print("  No TUFLOW executable or simulation was run.")
+        print(f"  Script wall time: {perf_counter() - operation_started_at:.2f} s")
         return 0
     result: CommandPreflightReport = check_command_plan(
         plan,
@@ -242,7 +257,11 @@ def main(
         maximum_directory_entries=maximum_directory_entries,
     )
     report_output = result.write_csv(report) if report is not None else None
-    _print_preflight(result, display_base=initial)
+    _print_preflight(
+        result,
+        display_base=initial,
+        elapsed_seconds=perf_counter() - operation_started_at,
+    )
     if report_output is not None:
         print(f"\nIssues CSV: {_display_path(report_output, initial)}")
     return 0 if result.passed else 1
@@ -320,12 +339,14 @@ def _run_cli(options: argparse.Namespace) -> int:
                 if options.maximum_directory_entries is not None
                 else MAX_DIRECTORY_ENTRIES
             ),
+            started_at=_SCRIPT_STARTED_AT,
         )
     except Exception as exc:  # noqa: BLE001 - wrapper reports an incomplete check as failure
         _section("INPUT CHECK FAILED")
         print("  The checker could not produce a complete result.")
         print(f"  Reason: {exc}")
         print("  Do not rely on a partial run plan or partial input-check output.")
+        print(f"  Script wall time: {perf_counter() - _SCRIPT_STARTED_AT:.2f} s")
         return 1
     finally:
         _print_banner(display_base=base, leading_blank_line=True)

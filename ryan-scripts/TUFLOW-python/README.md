@@ -17,6 +17,8 @@ boundary CSV headers), without running TUFLOW. Its terminal report separates the
 run plan, control files, input-check totals, numbered issues and final result.
 Console paths inside `WORKING_DIR` are shortened relative to that directory;
 external paths remain absolute and JSON manifest paths remain absolute.
+The script wall time includes library startup, argument parsing, run planning,
+input checks and report writing; phase timings describe input-check work only.
 Literal `!` characters are ignored everywhere in imported command text and
 reported by source line because planned runs and outputs may be wrong after
 that lossy interpretation. Configure the straightforward editable settings

@@ -146,6 +146,10 @@ default. Paths inside the working directory are shown relative to that directory
 paths outside it remain absolute, and the optional JSON manifest retains absolute
 paths:
 
+The reported script wall time starts before ryan-tools and PyTUFLOW are imported
+and ends when the input check is complete. The separately listed parsing,
+context and inventory values are internal input-check phases.
+
 ```powershell
 py -3.14 check_tuflow_inputs.py --runs runs.txt --working-directory "T:\project" --no-pause
 ```

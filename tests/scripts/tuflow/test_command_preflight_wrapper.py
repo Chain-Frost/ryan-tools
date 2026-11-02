@@ -150,12 +150,15 @@ def test_preflight_presentation_separates_summary_issue_detail_and_result(
     namespace = runpy.run_path(str(WRAPPER))
     printer = cast(Callable[..., None], namespace["_print_preflight"])
 
-    printer(result, display_base=tmp_path)
+    printer(result, display_base=tmp_path, elapsed_seconds=12.345)
 
     console = capsys.readouterr().out
     assert "INPUT CHECK\n-----------" in console
     assert "Status            : FAIL" in console
     assert "Runs checked      : 1 of 1" in console
+    assert "Script wall time : 12.35 s" in console
+    assert "Includes library startup, arguments, planning, checking and report writing." in console
+    assert "Input-check phases:" in console
     assert "ISSUES\n------" in console
     assert "1. UNRESOLVED — run 1 (csv_header)" in console
     assert "Command  : runs.bat:1-1" in console
