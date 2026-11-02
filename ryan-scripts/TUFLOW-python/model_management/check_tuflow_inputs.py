@@ -18,7 +18,7 @@ from typing import Literal
 
 _SCRIPT_STARTED_AT = perf_counter()
 
-WRAPPER_VERSION = "2026-11-02.3"
+WRAPPER_VERSION = "2026-11-02.5"
 
 # ------------------------ USER-EDITABLE SETTINGS -------------------------
 # CLI arguments override these settings. No naming prefix is required.
@@ -124,8 +124,8 @@ def _print_plan(plan: CommandPlan, *, display_base: Path | None = None) -> None:
 
     _section("CONTROL FILES")
     for number, (control_file, count) in enumerate(counts.items(), 1):
-        print(f"  {number}. {count} run(s)")
-        print(f"     {_display_path(control_file, base) if base is not None else control_file}")
+        path = _display_path(control_file, base) if base is not None else control_file
+        print(f"  {number}. {path} ({count} run(s))")
 
     if not plan.ignored_exclamations:
         return
@@ -174,7 +174,6 @@ def _print_preflight(
     print("  Timing:")
     if elapsed_seconds is not None:
         print(f"    Script wall time : {elapsed_seconds:.2f} s")
-        print("      Includes library startup, arguments, planning, checking and report writing.")
     print("    Input-check phases:")
     print(f"      Control parsing: {result.parse_seconds:.2f} s")
     print(f"      Run contexts   : {result.context_seconds:.2f} s")
@@ -185,12 +184,26 @@ def _print_preflight(
         for number, issue in enumerate(result.issues, 1):
             finding = issue.finding
             issue_type = finding.kind or finding.origin or "input"
-            print(f"  {number}. {finding.status.upper()} — run {issue.run.index} ({issue_type})")
+            tcf = _display_path(issue.run.tcf, base) if base is not None else str(issue.run.tcf)
+            flags = " ".join(f"-{key} {value}" for key, value in issue.run.flag_pairs)
+            selection = f" {flags}" if flags else ""
+            print(f"  {number}. {finding.status.upper()} — {tcf}{selection} (run {issue.run.index}; {issue_type})")
             source = _display_path(issue.run.source, base) if base is not None else str(issue.run.source)
             reference = _display_path(finding.reference, base) if base is not None else finding.reference
-            print(f"     Command  : {source}:{issue.run.line_start}-{issue.run.line_end}")
+            print(f"     Source   : {source}:{issue.run.line_start}-{issue.run.line_end}")
+            owner = finding.owner_control_file
+            control = _display_path(owner, base) if owner is not None and base is not None else str(owner)
+            location = control if owner is not None else "Not provided by validator"
+            if finding.line_number is not None:
+                location = f"{location}:{finding.line_number}"
+            print(f"     Control file: {location}")
+            print(f"     Command  : {finding.command_text or 'Full command not provided by validator'}")
             print(f"     Reference: {reference}")
-            print(f"     Detail   : {finding.detail}")
+            detail = finding.detail
+            if finding.csv_columns:
+                required = ", ".join(repr(column) for column in finding.csv_columns)
+                detail = f"{detail.rstrip('. ')}. Required CSV columns: {required}."
+            print(f"     Detail   : {detail}")
 
     _section("RESULT")
     if result.passed:

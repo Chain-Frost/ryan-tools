@@ -144,6 +144,10 @@ def test_preflight_presentation_separates_summary_issue_detail_and_result(
                 reference="boundary.csv",
                 detail="Required CSV header was not found.",
                 kind="csv_header",
+                owner_control_file=tmp_path / "model" / "boundary.tbc",
+                csv_columns=("Time", "Flow"),
+                command_text="BC Database == boundary.csv",
+                line_number=12,
             ),
         )
     )
@@ -157,13 +161,15 @@ def test_preflight_presentation_separates_summary_issue_detail_and_result(
     assert "Status            : FAIL" in console
     assert "Runs checked      : 1 of 1" in console
     assert "Script wall time : 12.35 s" in console
-    assert "Includes library startup, arguments, planning, checking and report writing." in console
     assert "Input-check phases:" in console
     assert "ISSUES\n------" in console
-    assert "1. UNRESOLVED — run 1 (csv_header)" in console
-    assert "Command  : runs.bat:1-1" in console
+    assert "1. UNRESOLVED — model.tcf -e1 A (run 1; csv_header)" in console
+    assert "Source   : runs.bat:1-1" in console
+    assert f"Control file: {Path('model/boundary.tbc')}:12" in console
+    assert "Command  : BC Database == boundary.csv" in console
     assert "Reference: boundary.csv" in console
     assert "Detail   : Required CSV header was not found." in console
+    assert "Required CSV columns: 'Time', 'Flow'." in console
     assert "RESULT\n------" in console
     assert "FAIL: 1 issue(s) affect 1 planned run(s)." in console
     assert "before relying on the planned simulations or their outputs" in console

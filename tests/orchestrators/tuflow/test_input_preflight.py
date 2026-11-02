@@ -76,6 +76,10 @@ def test_real_public_bc_csv_header_option_is_explicitly_enabled(tmp_path: Path) 
     assert not report.passed
     assert report.csv_headers_checked == 1
     assert any(issue.kind == "csv_header" and issue.run_index == 3 for issue in report.issues)
+    issue = next(issue for issue in report.issues if issue.kind == "csv_header")
+    assert issue.command_text == "BC Database == bc.csv"
+    assert issue.line_number == 1
+    assert issue.owner_control_file == tcf
 
 
 def test_real_public_gis_linked_source_is_checked(tmp_path: Path) -> None:

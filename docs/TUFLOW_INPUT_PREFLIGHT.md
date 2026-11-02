@@ -146,6 +146,12 @@ default. Paths inside the working directory are shown relative to that directory
 paths outside it remain absolute, and the optional JSON manifest retains absolute
 paths:
 
+Each issue identifies its TCF, event/scenario flags and run number. `Source`
+locates the imported command-list row; `Control file` identifies the owning
+model control file and physical line number when supplied by the validator,
+and `Command` shows the complete original model command. CSV-header details include the requested column
+names; BC database lookup errors retain the identifier that could not be resolved.
+
 The reported script wall time starts before ryan-tools and PyTUFLOW are imported
 and ends when the input check is complete. The separately listed parsing,
 context and inventory values are internal input-check phases.
