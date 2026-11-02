@@ -346,3 +346,14 @@ all 14 PR-changed Python files; seven-document and Loguru policy checks pass.
 No package implementation or metadata changed; no wheel rebuild required.
 Delivery: repair to PR #190; hosted final-head validation pending. Next action:
 verify terminal CI on the pushed repair; next review 2026-11-03. No merge.
+
+The first repair head `8c6f56a2` passed Fast PR checks, Policy, Package, MCP
+smoke, POSIX security and all three TUFLOW jobs. Hosted tests completed with
+1,957 passed, 14 skipped, 8 deselected and one stale documentation-inventory
+count failure. Corrected the central index to 83 selected / 73 excluded and
+restored the work-register lifecycle-audit wording required by its contract.
+The 22 inventory tests now pass. The requested runner log-level enum also
+passes the 68 focused runner tests (90 combined passes); Ruff, strict Pyright,
+documentation and logging policy pass. Wheel 26.11.3.2 is built and verified,
+including a non-editable installed-wheel enum and copied-wrapper help smoke.
+Final pushed-head CI remains pending; no merge is authorised.
