@@ -74,7 +74,7 @@ operation setting. CLI arguments override editable values.
 
 The wrapper imports its `StrEnum` choices through `settings`:
 `settings.OP.RUN`, `settings.SRC.TEXTFILES`, `settings.CONT.RESUME` and
-`settings.PRIO.LOW`. Equivalent raw strings are accepted and validated.
+`settings.PRIO.LOW` and `settings.LOG.INFO`. Equivalent raw strings are accepted and validated.
 
 Generated list entries intentionally have leading and trailing whitespace
 stripped before warnings and deduplication. For example, `[" Wet ", "Wet"]`

@@ -65,6 +65,19 @@ class PRIO(StrEnum):
     REALTIME = "REALTIME"
 
 
+class LOG(StrEnum):
+    """Console logging thresholds, from most detailed to least detailed."""
+
+    TRACE = "TRACE"
+    DEBUG = "DEBUG"
+    INFO = "INFO"
+    SUCCESS = "SUCCESS"
+    WARNING = "WARNING"
+    ERROR = "ERROR"
+    CRITICAL = "CRITICAL"
+
+
+type LogLevelSetting = LOG | Literal["TRACE", "DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL"]
 type OperationSetting = OP | Literal["run", "export_only", "preflight_only"]
 type SourceSetting = SRC | Literal["parameter_product", "textfiles", "both"]
 type ContinuationSetting = CONT | Literal["resume", "all"]

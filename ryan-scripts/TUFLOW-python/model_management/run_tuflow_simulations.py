@@ -5,7 +5,6 @@ installed; no repository checkout or PYTHONPATH adjustment is required.
 Also supports CLI"""
 
 from pathlib import Path
-from typing import Literal
 
 from ryan_library.functions.tuflow import runner_settings as settings
 
@@ -51,10 +50,10 @@ EXPORT_COMMANDS = True  # True refreshes <wrapper_name>.txt, BAT format.
 CHECK_INPUTS = True  # Enable BACKGROUND model-input checks while TUFLOW runs.
 USE_LIVE_DASHBOARD = True  # True shows the Rich live dashboard; False uses ordinary console logging.
 LIVE_REFRESH_PER_SECOND = 1.0
-CONSOLE_LOG_LEVEL: Literal["TRACE", "DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL"] = "INFO"
+CONSOLE_LOG_LEVEL: settings.LogLevelSetting = settings.LOG.INFO
 WAIT_TIME_AFTER_RUN = 2.0  # Seconds between launches (>=0). Example: 0.5. Does not change GPU slots.
 PAUSE_ON_FINISH = True  # Pause interactively on finish; --no-pause forces False, --pause forces True.
-WRAPPER_VERSION = "2026-11-01.5"
+WRAPPER_VERSION = "2026-11-03.1"
 
 import argparse
 import signal
@@ -245,18 +244,9 @@ def main(argv: list[str] | None = None) -> int:
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     try:
         log_level = arguments.console_log_level if arguments.console_log_level is not None else CONSOLE_LOG_LEVEL
-        if not isinstance(log_level, str) or log_level.upper() not in {
-            "TRACE",
-            "DEBUG",
-            "INFO",
-            "SUCCESS",
-            "WARNING",
-            "ERROR",
-            "CRITICAL",
-        }:
-            message = (
-                f"CONSOLE_LOG_LEVEL={log_level!r} is invalid; use DEBUG, INFO, SUCCESS, WARNING, ERROR or CRITICAL."
-            )
+        if not isinstance(log_level, str) or log_level.upper() not in settings.LOG:
+            choices = ", ".join(settings.LOG)
+            message = f"CONSOLE_LOG_LEVEL={log_level!r} is invalid; use {choices}."
             raise ValueError(message)
         configure_serial_logging(console_log_level=log_level.upper())
         run_settings = _settings(arguments)
