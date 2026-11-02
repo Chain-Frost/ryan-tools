@@ -29,6 +29,7 @@ from loguru import logger
 
 if TYPE_CHECKING:
     from ...functions.live_dashboard import LiveWorkflowDashboard
+    from .command_preflight import CommandPreflightIssue
 
 from ...functions.tuflow.command_plan import (
     CommandPlan,
@@ -589,6 +590,40 @@ def _gpu_startup_message(groups: tuple[tuple[str, ...], ...]) -> None:
         logger.warning("At least one configured GPU group has no explicit device identifier.")
 
 
+def _input_issue_message(issue: CommandPreflightIssue) -> str:
+    """Describe one attributed input failure without changing launch policy."""
+    run, finding = issue.run, issue.finding
+    base = Path(run.working_directory).absolute()
+
+    def display(value: str | PurePath) -> str:
+        path = Path(value)
+        try:
+            return str(path.relative_to(base)) if path.is_absolute() else str(path)
+        except ValueError:
+            return str(path)
+
+    flags = " ".join(f"-{key} {value}" for key, value in run.flag_pairs)
+    selection = f" {flags}" if flags else ""
+    owner = (
+        display(finding.owner_control_file) if finding.owner_control_file is not None else "Not provided by validator"
+    )
+    if finding.line_number is not None:
+        owner = f"{owner}:{finding.line_number}"
+    detail = finding.detail
+    if finding.csv_columns:
+        columns = ", ".join(repr(column) for column in finding.csv_columns)
+        detail = f"{detail.rstrip('. ')}. Required CSV columns: {columns}."
+    return (
+        f"Input check run {run.index}: {finding.status.upper()} — {display(run.tcf)}{selection} "
+        f"({finding.kind or finding.origin or 'input'})\n"
+        f"  Source      : {display(run.source)}:{run.line_start}-{run.line_end}\n"
+        f"  Control file: {owner}\n"
+        f"  Command     : {finding.command_text or 'Full command not provided by validator'}\n"
+        f"  Reference   : {display(finding.reference)}\n"
+        f"  Detail      : {detail}"
+    )
+
+
 class AdvisoryInputCheck:
     """At most one daemon validation of the frozen plan; never gates launching."""
 
@@ -611,11 +646,7 @@ class AdvisoryInputCheck:
             messages = [
                 (
                     "WARNING",
-                    (
-                        f"Input check run {issue.run.index} {issue.run.source}:{issue.run.line_start}: "
-                        f"[{issue.finding.status}] {issue.finding.origin}: "
-                        f"{issue.finding.reference} ({issue.finding.detail})"
-                    ),
+                    _input_issue_message(issue),
                 )
                 for issue in report.issues
             ]
@@ -666,16 +697,7 @@ def check_plan_only(plan: CommandPlan, *, check_gpkg_layers: bool = True) -> boo
         logger.exception("Input checking failed or is unavailable.")
         return False
     for issue in report.issues:
-        logger.warning(
-            "Input check run {} {}:{} [{}] {}: {} ({})",
-            issue.run.index,
-            issue.run.source,
-            issue.run.line_start,
-            issue.finding.status,
-            issue.finding.origin,
-            issue.finding.reference,
-            issue.finding.detail,
-        )
+        logger.warning("{}", _input_issue_message(issue))
     if not report.passed:
         logger.error("Input checking failed or is incomplete: {}/{} completed", report.completed_runs, report.run_count)
     return report.passed

@@ -11,6 +11,16 @@ The TUFLOW runner and its command TXT exports target Windows.
 
 ## Input checker reports
 
+The simulation runner reports input findings with the run number, TCF and
+event/scenario flags, command-list source, owning control file and physical
+line number, full parsed model command, input reference and lookup details.
+Paths within each run's working directory are shown relative to that directory.
+During normal execution, input checking is advisory and runs in a daemon
+thread alongside model launches; its findings do not block launches.
+`--preflight-only` waits for checking, returns failure for input issues and
+never launches TUFLOW. If advisory checking is unfinished at shutdown, the
+runner reports it as incomplete rather than waiting or claiming success.
+
 [`model_management/check_tuflow_inputs.py`](model_management/check_tuflow_inputs.py)
 checks every supported model input (including selected GeoPackage layers and
 boundary CSV headers), without running TUFLOW. Its terminal report separates the

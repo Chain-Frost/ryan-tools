@@ -167,6 +167,10 @@ def test_preflight_only_reports_every_finding_and_fails_closed(
     caplog.set_level(logging.INFO)
     assert runner.check_plan_only(plan) is False
     assert sum("Input check run" in record.message for record in caplog.records) == 13
+    assert "Control file:" in caplog.text
+    assert "Source      :" in caplog.text
+    assert "Command     : Full command not provided by validator" in caplog.text
+    assert str(plan.runs[0].tcf.name) in caplog.text
 
     def unavailable(*_args: object, **_kwargs: object) -> CommandPreflightReport:
         message = "public API unavailable"
