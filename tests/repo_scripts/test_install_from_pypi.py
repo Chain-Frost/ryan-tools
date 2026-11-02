@@ -114,7 +114,10 @@ def test_pypi_dry_run_prints_checks_without_running_them(
         pytest.fail("A dry run must not execute installation or verification commands")
 
     monkeypatch.setattr(subprocess, "run", unexpected_command)
-    monkeypatch.setattr(installer, "supported_python", lambda _major, _minor: False)
+    def unsupported_python(_major: int, _minor: int) -> bool:
+        return False
+
+    monkeypatch.setattr(installer, "supported_python", unsupported_python)
     assert installer.main(["--dry-run", "--skip-codex", "--skip-qgis-mcp", "--disable-bytecode"]) == 0
     captured = capsys.readouterr()
     output = captured.out
