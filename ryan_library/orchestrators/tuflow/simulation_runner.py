@@ -356,10 +356,22 @@ def prepare_plan(settings: RunnerSettings) -> CommandPlan:
             syntax=plans[0].syntax if len(plans) == 1 else "mixed",
             source_files=tuple(source for plan in plans for source in plan.source_files),
             duplicates_dropped=sum(plan.duplicates_dropped for plan in plans),
+            ignored_exclamations=tuple(
+                ignored for plan in plans for ignored in plan.ignored_exclamations
+            ),
         )
     )
     if result.duplicates_dropped:
         logger.warning("Discarded {} duplicate TUFLOW selections, keeping the first.", result.duplicates_dropped)
+    if result.ignored_exclamations:
+        count = sum(ignored.count for ignored in result.ignored_exclamations)
+        logger.warning(
+            "Ignored {} literal '!' character(s) across {} source line(s); planned runs and outputs may be wrong.",
+            count,
+            len(result.ignored_exclamations),
+        )
+        for ignored in result.ignored_exclamations:
+            logger.warning("Ignored {} '!' character(s) at {}:{}.", ignored.count, ignored.source, ignored.line)
     _warn_unusual_flag_values(result)
     return result
 

@@ -13,9 +13,12 @@ The TUFLOW runner and its command TXT exports target Windows.
 
 [`model_management/check_tuflow_inputs.py`](model_management/check_tuflow_inputs.py)
 checks every supported model input (including selected GeoPackage layers and
-boundary CSV headers), without running TUFLOW. It prints findings in the
-terminal by default. Configure the straightforward editable settings near the
-top: `TCF`, `RUN_FILES`, `WORKING_DIR`, `CONFIGURATION_DIR`,
+boundary CSV headers), without running TUFLOW. Its terminal report separates the
+run plan, control files, input-check totals, numbered issues and final result.
+Literal `!` characters are ignored everywhere in imported command text and
+reported by source line because planned runs and outputs may be wrong after
+that lossy interpretation. Configure the straightforward editable settings
+near the top: `TCF`, `RUN_FILES`, `WORKING_DIR`, `CONFIGURATION_DIR`,
 `REPORT_CSV`, `PLAN_ONLY`, `PLAN_JSON`, `INPUT_SYNTAX`,
 `INPUT_ENCODING`, `IO_WORKERS`, `MAX_DIRECTORY_ENTRIES` and
 `PAUSE_ON_FINISH`. There is no mandatory `DEFAULT_` prefix or separate

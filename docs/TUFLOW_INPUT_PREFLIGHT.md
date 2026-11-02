@@ -104,12 +104,12 @@ uses the TCF filename and effective flags rather than the complete path.
 | Input feature | Supported behavior |
 | --- | --- |
 | Comments | REM/@REM and full-line `::`; text command lists also allow full-line `#`, `;` and `//`. |
-| Variables | Quoted or plain SET, reassignment/unset, case-insensitive `%NAME%`, `%CD%` and `%~dp0`; undefined variables fail. |
+| Variables | Quoted or plain SET, reassignment/unset, case-insensitive `%NAME%`, `%CD%` and `%~dp0`; undefined variables fail. Literal `!` characters are removed and reported because delayed expansion is not evaluated. |
 | Directories | CD/CHDIR with optional `/D`, local/mapped PUSHD/POPD, and per-run START `/D`; paths retain their intended base. |
 | Run rows | Direct TUFLOW invocations, supported START forms and bare numbered event/scenario rows. |
 | Arguments | Numbered event/scenario pairs, supported engine switches, individual `-puN` tokens and numeric `-etN` switches. |
 | Text | Quoted values and paths, UTF-8/BOM by default, explicit encoding override, and supported terminal-caret continuation. |
-| Boundaries | No shell execution, IF/FOR/CALL, general GOTO, pipelines, redirection or delayed expansion. Unsupported active syntax fails the complete plan. |
+| Boundaries | No shell execution, IF/FOR/CALL, general GOTO, pipelines, redirection or delayed expansion. Every literal `!` is ignored with its source line recorded; the checker and runner warn that planned runs and outputs may be wrong. Other unsupported active syntax fails the complete plan. |
 
 The standalone reader and checker select batch syntax for `.bat` and `.cmd`,
 and command-list syntax for `.txt`. The Python runner reads all three extensions
@@ -140,7 +140,9 @@ cwd); absolute command-file paths remain unchanged. The shipped input is
 `run_tuflow_simulations.txt` beside the checker; point `RUN_FILES` at a
 version-specific TXT when applicable. No `DEFAULT_` prefix is required.
 
-It prints findings in the terminal by default:
+It prints a structured run plan, control-file summary, input-check totals,
+timing, numbered issue details and a final pass/fail result in the terminal by
+default:
 
 ```powershell
 py -3.14 check_tuflow_inputs.py --runs runs.txt --working-directory "T:\project" --no-pause
@@ -152,7 +154,10 @@ wrapper. Set `REPORT_CSV = Path("issues.csv")` or supply `--report issues.csv`
 for a new CSV; existing reports are not overwritten.
 `--plan-only` checks the static plan without inspecting model inputs. An explicit
 `--plan-report new_plan.json` creates a new diagnostic manifest; Resume does not
-require or use that manifest.
+require or use that manifest. If imported source text contains `!`, the console
+shows a prominent warning for every affected source line and the JSON manifest
+records the same warnings. The marks are removed before parsing, so the warning
+states that planned runs and input-check outputs may be wrong.
 
 ## Supported checks
 
