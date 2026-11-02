@@ -8,7 +8,7 @@
 | Next review | 2026-11-04 |
 | Branch | `fix/live-dashboard-console-routing`, based on `b2b07da1` |
 | Pull request | [#191](https://github.com/Chain-Frost/ryan-tools/pull/191) |
-| Git delivery | Logging fix `3257de20`, handoff `96ce004c`, and selection/startup follow-up committed and pushed in PR #191. |
+| Git delivery | Logging fix `3257de20`, handoff `96ce004c`, selection/startup `1c586fb2`, and GPU/batch display follow-up delivered in PR #191. |
 | Next action | Run Ruff and CI on another system as requested, then review the PR; no merge or release authorised. |
 
 The reported copied runner uses wrapper 2026-11-01.5 and library 26.11.2.3.
@@ -91,9 +91,27 @@ Direct script help against the user's older installed package cannot use the new
 wrapper's `params.LOG`; validation uses matching checkout code and the rebuilt wheel,
 without upgrading the user's installation. Ruff and hosted CI remain external work.
 
-Final wheel verification and copied-wrapper smoke pass: installed the wheel without
+Selection/startup wheel verification and copied-wrapper smoke pass: installed the wheel without
 dependencies into a disposable target, confirmed that import location, ran `--help`
 and `--export-only --no-pause` on synthetic text input, and checked the full plan,
 effective controls and TXT export with no CSV history or solver launch. The user's
 normal Python installation is unchanged. Wheel SHA-256:
 `d027d669dab30719bd7faa93bf246f40d432de42fc10667930eeb4046f414fc0`.
+
+## GPU and batch display follow-up
+
+The older dashboard had a GPU column. Restore this from the actual group passed
+to the child, rather than predicting an assignment from row order. Active and
+completed rows show `-pu0`, `-pu0 -pu1`, etc.; automatic placement says `Auto`,
+queued rows say `Pending`, and unsuccessful launches say `Not launched`.
+The persistent footer shows effective batch switches, such as `Batch: -b -t`,
+excluding GPU tokens in BATCH_COMMANDS because the runner's GPU groups replace them.
+Configured batch commands remain visible in the startup settings.
+
+The rendered-output regression covers automatic, single-GPU and multi-GPU groups,
+active/completed rows, and exclusion of an overridden `-pu9` batch token. Focused
+runner/advisory checks: **76 passed, 2 symlink-privilege skips**. Strict Pyright on
+both changed Python files, documentation, Loguru policy and whitespace checks pass.
+The same PR wheel was rebuilt and verified without another version bump (SHA-256
+`df5365f59aefab0c741cdaf953014eeeb54a8986fdb319d89aca07c8a8d61ef6`). Ruff/CI remain deferred
+to another system, as requested; no installed package or running batch is modified.

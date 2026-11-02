@@ -883,6 +883,7 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                 index=display_indices[result.run.index],
                 status="OK" if result.successful else "FAIL",
                 detail=result.error or f"Exit {result.return_code}",
+                metadata={"gpu": "Not launched"} if result.pid is None else None,
                 refresh=False,
             )
             dashboard.set_active_count(len(active), refresh=False)
@@ -906,6 +907,8 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
 
         dashboard = LiveWorkflowDashboard(
             title="TUFLOW simulations",
+            subtitle="Batch: "
+            + (" ".join(flag for flag in shlex.split(settings.batch_commands) if not is_gpu_switch(flag)) or "(none)"),
             refresh_per_second=settings.live_refresh_per_second,
             transient=False,
             columns=(
@@ -913,13 +916,14 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                 WorkflowColumn("Selection", "label"),
                 WorkflowColumn("Model", "metadata", metadata_key="model", no_wrap=True, overflow="ellipsis"),
                 WorkflowColumn("Status", "status", no_wrap=True),
+                WorkflowColumn("GPU", "metadata", metadata_key="gpu", no_wrap=True),
                 WorkflowColumn("Duration", "duration", no_wrap=True),
                 WorkflowColumn("Detail", "detail"),
             ),
         )
         dashboard.set_tasks(
             labels=[" ".join(f"{key} {value}" for key, value in run.flag_pairs) or "(no flags)" for run in plan.runs],
-            metadata=[{"run_index": run.index, "model": run.tcf.name} for run in plan.runs],
+            metadata=[{"run_index": run.index, "model": run.tcf.name, "gpu": "Pending"} for run in plan.runs],
         )
     with dashboard if dashboard is not None else nullcontext():
         try:
@@ -976,7 +980,10 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                     )
                     if dashboard is not None:
                         dashboard.mark_running(
-                            index=display_indices[run.index], detail=f"PID {process.pid}", refresh=False
+                            index=display_indices[run.index],
+                            detail=f"PID {process.pid}",
+                            metadata={"gpu": " ".join(group) if group else "Auto"},
+                            refresh=False,
                         )
                         dashboard.set_active_count(len(active), refresh=False)
                         dashboard.refresh(force=True)

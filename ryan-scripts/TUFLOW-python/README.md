@@ -40,6 +40,12 @@ The dashboard's `Selection` column shows each run's event/scenario values, for
 example `e1 01.0p e2 00030m s1 BigModel`, alongside its original run number and
 TCF in the `Model` column. Selections remain visible in completed rows; long model
 names are shortened to give the selections room. Runs without flags show `(no flags)`.
+The `GPU` column shows the group actually assigned at launch, such as `-pu0` or
+`-pu0 -pu1`, and retains it after completion. `Auto` means TUFLOW chooses placement;
+queued rows say `Pending`, and launch failures say `Not launched`. The dashboard
+footer keeps the effective batch flags visible, for example `Batch: -b -t`.
+GPU switches embedded in `BATCH_COMMANDS` are excluded because runtime GPU groups
+control launches; the startup settings still show the configured value and warning.
 
 At `INFO` level, startup prints the effective runner settings and the complete
 deduplicated simulation plan, including every run's flags, TCF and source location.
