@@ -108,8 +108,10 @@ def test_ignored_exclamations_are_prominent_in_console_and_manifest(
     assert "WARNING: SOURCE TEXT WAS IGNORED" in console
     assert "Ignored 6 literal '!' character(s) on 2 line(s)." in console
     assert "Planned runs and input-check outputs may be wrong." in console
-    assert f"{source}:1" in console
-    assert f"{source}:2" in console
+    assert "runs.bat:1" in console
+    assert "runs.bat:2" in console
+    assert "model.tcf" in console
+    assert str(tmp_path) not in console
     assert "PLAN ONLY: Commands were interpreted, but model inputs were not checked." in console
 
     manifest = json.loads(output.read_text(encoding="utf-8"))
@@ -146,9 +148,9 @@ def test_preflight_presentation_separates_summary_issue_detail_and_result(
         )
     )
     namespace = runpy.run_path(str(WRAPPER))
-    printer = cast(Callable[[CommandPreflightReport], None], namespace["_print_preflight"])
+    printer = cast(Callable[..., None], namespace["_print_preflight"])
 
-    printer(result)
+    printer(result, display_base=tmp_path)
 
     console = capsys.readouterr().out
     assert "INPUT CHECK\n-----------" in console
@@ -156,7 +158,7 @@ def test_preflight_presentation_separates_summary_issue_detail_and_result(
     assert "Runs checked      : 1 of 1" in console
     assert "ISSUES\n------" in console
     assert "1. UNRESOLVED — run 1 (csv_header)" in console
-    assert f"Command  : {source}:1-1" in console
+    assert "Command  : runs.bat:1-1" in console
     assert "Reference: boundary.csv" in console
     assert "Detail   : Required CSV header was not found." in console
     assert "RESULT\n------" in console

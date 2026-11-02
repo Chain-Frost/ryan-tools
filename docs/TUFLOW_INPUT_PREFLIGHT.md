@@ -142,7 +142,9 @@ version-specific TXT when applicable. No `DEFAULT_` prefix is required.
 
 It prints a structured run plan, control-file summary, input-check totals,
 timing, numbered issue details and a final pass/fail result in the terminal by
-default:
+default. Paths inside the working directory are shown relative to that directory;
+paths outside it remain absolute, and the optional JSON manifest retains absolute
+paths:
 
 ```powershell
 py -3.14 check_tuflow_inputs.py --runs runs.txt --working-directory "T:\project" --no-pause

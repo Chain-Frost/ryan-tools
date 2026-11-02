@@ -12,10 +12,10 @@ Examples:
 
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Literal
 
-WRAPPER_VERSION = "2026-11-02.1"
+WRAPPER_VERSION = "2026-11-02.2"
 
 # ------------------------ USER-EDITABLE SETTINGS -------------------------
 # CLI arguments override these settings. No naming prefix is required.
@@ -80,7 +80,7 @@ from collections import Counter
 from collections.abc import Sequence
 
 from ryan_library.functions.tuflow.command_plan import CommandPlan, read_command_plans
-from ryan_library.functions.wrapper_utils import add_no_pause_cli_argument, pause_console, print_wrapper_banner
+from ryan_library.functions.wrapper_utils import add_no_pause_cli_argument, pause_console, print_library_version
 from ryan_library.orchestrators.tuflow.command_preflight import CommandPreflightReport, check_command_plan
 
 
@@ -90,8 +90,28 @@ def _section(title: str) -> None:
     print("-" * len(title))
 
 
-def _print_plan(plan: CommandPlan) -> None:
+def _display_path(path: str | PurePath, base: Path) -> str:
+    """Shorten a path inside the working directory for console output."""
+    candidate = Path(path)
+    if not candidate.is_absolute():
+        return str(candidate)
+    try:
+        return str(candidate.relative_to(base))
+    except ValueError:
+        return str(candidate)
+
+
+def _print_banner(*, display_base: Path, leading_blank_line: bool = False) -> None:
+    """Show this wrapper using the same concise project-relative path style."""
+    if leading_blank_line:
+        print()
+    print(f"Wrapper: {_display_path(Path(__file__).absolute(), display_base)} (version {WRAPPER_VERSION})")
+    print_library_version()
+
+
+def _print_plan(plan: CommandPlan, *, display_base: Path | None = None) -> None:
     """Show the selected workload and every lossy source interpretation."""
+    base = display_base.absolute() if display_base is not None else None
     counts = Counter(str(run.tcf) for run in plan.runs)
     _section("RUN PLAN")
     print(f"  Active runs       : {len(plan.runs)}")
@@ -102,7 +122,7 @@ def _print_plan(plan: CommandPlan) -> None:
     _section("CONTROL FILES")
     for number, (control_file, count) in enumerate(counts.items(), 1):
         print(f"  {number}. {count} run(s)")
-        print(f"     {control_file}")
+        print(f"     {_display_path(control_file, base) if base is not None else control_file}")
 
     if not plan.ignored_exclamations:
         return
@@ -112,7 +132,8 @@ def _print_plan(plan: CommandPlan) -> None:
     print("  Delayed expansion is not evaluated; each '!' was removed before parsing.")
     print("  Planned runs and input-check outputs may be wrong. Review these source lines:")
     for ignored in plan.ignored_exclamations:
-        print(f"    - {ignored.source}:{ignored.line} ({ignored.count} character(s) ignored)")
+        source = _display_path(ignored.source, base) if base is not None else str(ignored.source)
+        print(f"    - {source}:{ignored.line} ({ignored.count} character(s) ignored)")
 
 
 def _plan_manifest(plan: CommandPlan) -> dict[str, object]:
@@ -133,8 +154,9 @@ def _plan_manifest(plan: CommandPlan) -> dict[str, object]:
     }
 
 
-def _print_preflight(result: CommandPreflightReport) -> None:
+def _print_preflight(result: CommandPreflightReport, *, display_base: Path | None = None) -> None:
     """Present a complete check result with actionable issue detail."""
+    base = display_base.absolute() if display_base is not None else None
     _section("INPUT CHECK")
     print(f"  Status            : {'PASS' if result.passed else 'FAIL'}")
     print(f"  Runs checked      : {result.completed_runs} of {result.run_count}")
@@ -152,8 +174,10 @@ def _print_preflight(result: CommandPreflightReport) -> None:
             finding = issue.finding
             issue_type = finding.kind or finding.origin or "input"
             print(f"  {number}. {finding.status.upper()} — run {issue.run.index} ({issue_type})")
-            print(f"     Command  : {issue.run.source}:{issue.run.line_start}-{issue.run.line_end}")
-            print(f"     Reference: {finding.reference}")
+            source = _display_path(issue.run.source, base) if base is not None else str(issue.run.source)
+            reference = _display_path(finding.reference, base) if base is not None else finding.reference
+            print(f"     Command  : {source}:{issue.run.line_start}-{issue.run.line_end}")
+            print(f"     Reference: {reference}")
             print(f"     Detail   : {finding.detail}")
 
     _section("RESULT")
@@ -199,13 +223,13 @@ def main(
         syntax=syntax,
         encoding=encoding,
     )
-    _print_plan(plan)
+    _print_plan(plan, display_base=initial)
     if plan_report is not None:
         output = plan_report.absolute()
         output.parent.mkdir(parents=True, exist_ok=True)
         with output.open("x", encoding="utf-8") as stream:
             json.dump(_plan_manifest(plan), stream, indent=2)
-        print(f"\nPrivate run manifest: {output}")
+        print(f"\nPrivate run manifest: {_display_path(output, initial)}")
     if plan_only:
         _section("RESULT")
         print("  PLAN ONLY: Commands were interpreted, but model inputs were not checked.")
@@ -218,9 +242,9 @@ def main(
         maximum_directory_entries=maximum_directory_entries,
     )
     report_output = result.write_csv(report) if report is not None else None
-    _print_preflight(result)
+    _print_preflight(result, display_base=initial)
     if report_output is not None:
-        print(f"\nIssues CSV: {report_output}")
+        print(f"\nIssues CSV: {_display_path(report_output, initial)}")
     return 0 if result.passed else 1
 
 
@@ -276,7 +300,7 @@ def _run_cli(options: argparse.Namespace) -> int:
     plan_report = (
         None if options.no_plan_report else (options.plan_report if options.plan_report is not None else PLAN_JSON)
     )
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    _print_banner(display_base=base)
     try:
         return main(
             tcf=tcf,
@@ -304,7 +328,7 @@ def _run_cli(options: argparse.Namespace) -> int:
         print("  Do not rely on a partial run plan or partial input-check output.")
         return 1
     finally:
-        print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+        _print_banner(display_base=base, leading_blank_line=True)
         if (options.pause or PAUSE_ON_FINISH) and not options.no_pause:
             pause_console()
 

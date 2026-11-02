@@ -356,9 +356,7 @@ def prepare_plan(settings: RunnerSettings) -> CommandPlan:
             syntax=plans[0].syntax if len(plans) == 1 else "mixed",
             source_files=tuple(source for plan in plans for source in plan.source_files),
             duplicates_dropped=sum(plan.duplicates_dropped for plan in plans),
-            ignored_exclamations=tuple(
-                ignored for plan in plans for ignored in plan.ignored_exclamations
-            ),
+            ignored_exclamations=tuple(ignored for plan in plans for ignored in plan.ignored_exclamations),
         )
     )
     if result.duplicates_dropped:

@@ -797,8 +797,6 @@ def read_command_plans(
             syntax=merged_syntax,
             source_files=tuple(plan.source for plan in plans),
             duplicates_dropped=sum(plan.duplicates_dropped for plan in plans),
-            ignored_exclamations=tuple(
-                ignored for plan in plans for ignored in plan.ignored_exclamations
-            ),
+            ignored_exclamations=tuple(ignored for plan in plans for ignored in plan.ignored_exclamations),
         )
     )

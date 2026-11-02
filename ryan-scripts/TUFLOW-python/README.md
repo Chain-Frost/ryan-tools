@@ -15,6 +15,8 @@ The TUFLOW runner and its command TXT exports target Windows.
 checks every supported model input (including selected GeoPackage layers and
 boundary CSV headers), without running TUFLOW. Its terminal report separates the
 run plan, control files, input-check totals, numbered issues and final result.
+Console paths inside `WORKING_DIR` are shortened relative to that directory;
+external paths remain absolute and JSON manifest paths remain absolute.
 Literal `!` characters are ignored everywhere in imported command text and
 reported by source line because planned runs and outputs may be wrong after
 that lossy interpretation. Configure the straightforward editable settings
