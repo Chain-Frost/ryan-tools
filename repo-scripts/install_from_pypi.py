@@ -57,7 +57,7 @@ def codex_installed() -> bool:
 
 
 def supported_python(major: int, minor: int) -> bool:
-    """Reject Python 3.13 and below without limiting future Python minors."""
+    """Report the supported runtime; installers can opt past this metadata restriction."""
     return (major, minor) >= (3, 14)
 
 
@@ -122,8 +122,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     if not supported_python(sys.version_info.major, sys.version_info.minor):
-        print("ERROR: This installer requires Python 3.14 or newer.", file=sys.stderr)
-        return 1
+        print(
+            f"WARNING: Python {sys.version_info.major}.{sys.version_info.minor} is below the supported "
+            "ryan-tools minimum of 3.14. --ignore-requires-python bypasses package metadata "
+            "but cannot guarantee compatible dependencies or runtime behaviour.",
+            file=sys.stderr,
+        )
 
     disable_bytecode = args.disable_bytecode or disable_bytecode_for_environment()
     sys.dont_write_bytecode = sys.dont_write_bytecode or disable_bytecode
