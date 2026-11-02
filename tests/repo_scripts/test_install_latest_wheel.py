@@ -124,6 +124,7 @@ def test_rejects_nonaccepted_same_version_source(tmp_path: Path, monkeypatch: py
     with pytest.raises(ValueError, match="Invalid PyTUFLOW source"):
         installer._pytuflow_requirement()
 
+
 def test_batch_installers_allow_older_python_3_and_interpreter_override() -> None:
     root = Path(__file__).absolute().parents[2]
     for name in ("install-from-pypi.bat", "install-local-wheel.bat"):
