@@ -172,9 +172,7 @@ def test_pinned_parser_replaces_same_version_before_full_dependency_resolution(
     )
     consumer_name = "ryan_installer_consumer_probe"
     consumer = tmp_path / f"{consumer_name}-1.0-py3-none-any.whl"
-    consumer.write_bytes(
-        _wheel_bytes(consumer_name, "1.0", "", dependency=f"{name}>=1,<2", requires_python=">=99")
-    )
+    consumer.write_bytes(_wheel_bytes(consumer_name, "1.0", "", dependency=f"{name}>=1,<2", requires_python=">=99"))
 
     # Synthetic wheels require Python >=99, exercising the version override
     # for the package and the dependency in the real offline pip resolver.
