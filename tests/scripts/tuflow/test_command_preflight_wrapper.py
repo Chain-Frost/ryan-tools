@@ -10,8 +10,10 @@ from typing import Protocol, cast
 
 import pytest
 
-from ryan_library.functions.tuflow.command_plan import CommandPlanError
+from ryan_library.functions.tuflow.command_plan import CommandPlanError, parse_command_plan
 from ryan_library.orchestrators.tuflow import command_preflight
+from ryan_library.orchestrators.tuflow.command_preflight import CommandPreflightIssue, CommandPreflightReport
+from ryan_library.orchestrators.tuflow.input_preflight import PreflightIssue
 
 WRAPPER = Path(__file__).absolute().parents[3] / "ryan-scripts/TUFLOW-python/model_management/check_tuflow_inputs.py"
 
@@ -81,6 +83,96 @@ def test_plan_only_writes_manifest_without_preflight(tmp_path: Path, monkeypatch
     assert [Path(row["tcf"]).name for row in manifest["runs"]] == ["first.tcf", "second.tcf"]
     assert source.read_bytes() == before
     assert not (tmp_path / "issues.csv").exists()
+
+
+def test_ignored_exclamations_are_prominent_in_console_and_manifest(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    source = tmp_path / "runs.bat"
+    source.write_text("set TCF=mo!del.tcf\n-e1 !EVENT! !!!", encoding="utf-8")
+    output = tmp_path / "plan.json"
+
+    assert (
+        entry()(
+            tcf=None,
+            commands=source,
+            report=tmp_path / "issues.csv",
+            working_directory=tmp_path,
+            plan_only=True,
+            plan_report=output,
+        )
+        == 0
+    )
+
+    console = capsys.readouterr().out
+    assert "WARNING: SOURCE TEXT WAS IGNORED" in console
+    assert "Ignored 6 literal '!' character(s) on 2 line(s)." in console
+    assert "Planned runs and input-check outputs may be wrong." in console
+    assert "runs.bat:1" in console
+    assert "runs.bat:2" in console
+    assert "model.tcf" in console
+    assert str(tmp_path) not in console
+    assert "PLAN ONLY: Commands were interpreted, but model inputs were not checked." in console
+
+    manifest = json.loads(output.read_text(encoding="utf-8"))
+    assert Path(manifest["runs"][0]["tcf"]).name == "model.tcf"
+    assert manifest["runs"][0]["flags"] == {"e1": "EVENT"}
+    assert [(warning["line"], warning["count"]) for warning in manifest["warnings"]] == [(1, 1), (2, 5)]
+    assert all("outputs may be wrong" in warning["message"] for warning in manifest["warnings"])
+
+
+def test_preflight_presentation_separates_summary_issue_detail_and_result(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    source = (tmp_path / "runs.bat").absolute()
+    plan = parse_command_plan(
+        "-e1 A",
+        source=source,
+        initial_directory=tmp_path.absolute(),
+        fallback_tcf="model.tcf",
+    )
+    result = CommandPreflightReport(plan=plan, completed_runs=1)
+    result.checked_paths.add(str(tmp_path / "boundary.csv"))
+    result.issues.append(
+        CommandPreflightIssue(
+            run=plan.runs[0],
+            finding=PreflightIssue(
+                run_index=1,
+                flags="-e1 A",
+                status="unresolved",
+                origin="boundary database",
+                reference="boundary.csv",
+                detail="Required CSV header was not found.",
+                kind="csv_header",
+                owner_control_file=tmp_path / "model" / "boundary.tbc",
+                csv_columns=("Time", "Flow"),
+                command_text="BC Database == boundary.csv",
+                line_number=12,
+            ),
+        )
+    )
+    namespace = runpy.run_path(str(WRAPPER))
+    printer = cast(Callable[..., None], namespace["_print_preflight"])
+
+    printer(result, display_base=tmp_path, elapsed_seconds=12.345)
+
+    console = capsys.readouterr().out
+    assert "INPUT CHECK\n-----------" in console
+    assert "Status            : FAIL" in console
+    assert "Runs checked      : 1 of 1" in console
+    assert "Script wall time : 12.35 s" in console
+    assert "Input-check phases:" in console
+    assert "ISSUES\n------" in console
+    assert "1. UNRESOLVED — model.tcf -e1 A (run 1; csv_header)" in console
+    assert "Source   : runs.bat:1-1" in console
+    assert f"Control file: {Path('model/boundary.tbc')}:12" in console
+    assert "Command  : BC Database == boundary.csv" in console
+    assert "Reference: boundary.csv" in console
+    assert "Detail   : Required CSV header was not found." in console
+    assert "Required CSV columns: 'Time', 'Flow'." in console
+    assert "RESULT\n------" in console
+    assert "FAIL: 1 issue(s) affect 1 planned run(s)." in console
+    assert "before relying on the planned simulations or their outputs" in console
 
 
 def test_failed_plan_does_not_emit_a_partial_manifest(tmp_path: Path) -> None:

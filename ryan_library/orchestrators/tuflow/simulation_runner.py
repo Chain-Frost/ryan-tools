@@ -29,6 +29,7 @@ from loguru import logger
 
 if TYPE_CHECKING:
     from ...functions.live_dashboard import LiveWorkflowDashboard
+    from .command_preflight import CommandPreflightIssue
 
 from ...functions.tuflow.command_plan import (
     CommandPlan,
@@ -356,10 +357,25 @@ def prepare_plan(settings: RunnerSettings) -> CommandPlan:
             syntax=plans[0].syntax if len(plans) == 1 else "mixed",
             source_files=tuple(source for plan in plans for source in plan.source_files),
             duplicates_dropped=sum(plan.duplicates_dropped for plan in plans),
+            ignored_exclamations=tuple(ignored for plan in plans for ignored in plan.ignored_exclamations),
         )
     )
     if result.duplicates_dropped:
         logger.warning("Discarded {} duplicate TUFLOW selections, keeping the first.", result.duplicates_dropped)
+    if result.ignored_exclamations:
+        count = sum(ignored.count for ignored in result.ignored_exclamations)
+        logger.warning(
+            "Ignored {} literal '!' character(s) across {} source line(s); planned runs and outputs may be wrong.",
+            count,
+            len(result.ignored_exclamations),
+        )
+        for ignored in result.ignored_exclamations:
+            logger.warning(
+                "Ignored {} '!' character(s) at {}:{}.",
+                ignored.count,
+                display_runner_path(ignored.source, settings.working_directory),
+                ignored.line,
+            )
     _warn_unusual_flag_values(result)
     return result
 
@@ -579,6 +595,48 @@ def _gpu_startup_message(groups: tuple[tuple[str, ...], ...]) -> None:
         logger.warning("At least one configured GPU group has no explicit device identifier.")
 
 
+def display_runner_path(value: str | PurePath, base: Path) -> str:
+    """Show project-relative paths without dereferencing links or changing I/O paths."""
+    filename, separator, layer = str(value).partition(" >> ")
+    path = Path(filename)
+    try:
+        shown = str(path.relative_to(base.absolute())) if path.is_absolute() else str(path)
+    except ValueError:
+        shown = str(path)
+    return f"{shown}{separator}{layer}"
+
+
+def _input_issue_message(issue: CommandPreflightIssue) -> str:
+    """Describe one attributed input failure without changing launch policy."""
+    run, finding = issue.run, issue.finding
+    base = Path(run.working_directory).absolute()
+
+    def display(value: str | PurePath) -> str:
+        return display_runner_path(value, base)
+
+    flags = " ".join(f"-{key} {value}" for key, value in run.flag_pairs)
+    selection = f" {flags}" if flags else ""
+    owner = (
+        display(finding.owner_control_file) if finding.owner_control_file is not None else "Not provided by validator"
+    )
+    if finding.line_number is not None:
+        owner = f"{owner}:{finding.line_number}"
+    detail = finding.detail
+    if finding.csv_columns:
+        columns = ", ".join(repr(column) for column in finding.csv_columns)
+        detail = f"{detail.rstrip('. ')}. Required CSV columns: {columns}."
+    return (
+        f"Input check run {run.index}: {finding.status.upper()} — {display(run.tcf)}{selection} "
+        f"({finding.kind or finding.origin or 'input'})\n"
+        f"  Source      : {display(run.source)}:{run.line_start}"
+        f"{f'-{run.line_end}' if run.line_end != run.line_start else ''}\n"
+        f"  Control file: {owner}\n"
+        f"  Command     : {finding.command_text or 'Full command not provided by validator'}\n"
+        f"  Reference   : {display(finding.reference)}\n"
+        f"  Detail      : {detail}"
+    )
+
+
 class AdvisoryInputCheck:
     """At most one daemon validation of the frozen plan; never gates launching."""
 
@@ -589,6 +647,7 @@ class AdvisoryInputCheck:
         self._lock = Lock()
         self._cancel = Event()
         self.finished = Event()
+        self.status = "Running"
         self._thread = Thread(target=self._work, name="tuflow-runner-preflight", daemon=True)
 
     def _work(self) -> None:
@@ -598,14 +657,11 @@ class AdvisoryInputCheck:
             # Keep upstream inspection inside this daemon. Thread-pool workers
             # are joined at interpreter exit and could hold shutdown on slow I/O.
             report = check_command_plan(self.plan, check_gpkg_layers=self._layers, io_workers=1)
+            status = "Passed" if report.passed else f"Issues: {len(report.issues)}"
             messages = [
                 (
                     "WARNING",
-                    (
-                        f"Input check run {issue.run.index} {issue.run.source}:{issue.run.line_start}: "
-                        f"[{issue.finding.status}] {issue.finding.origin}: "
-                        f"{issue.finding.reference} ({issue.finding.detail})"
-                    ),
+                    _input_issue_message(issue),
                 )
                 for issue in report.issues
             ]
@@ -619,9 +675,11 @@ class AdvisoryInputCheck:
                 )
             )
         except Exception as exc:  # noqa: BLE001 - advisory checks are never a launch prerequisite
+            status = "Incomplete"
             messages = [("WARNING", f"Input checking unavailable or incomplete: {type(exc).__name__}: {exc}")]
         with self._lock:
             if not self._cancel.is_set():
+                self.status = status
                 for message in messages:
                     self._messages.put(message)
             self.finished.set()
@@ -642,6 +700,7 @@ class AdvisoryInputCheck:
         with self._lock:
             if not self.finished.is_set():
                 self._cancel.set()
+                self.status = "Incomplete"
                 logger.warning("Input checking incomplete at shutdown; no all-clear is implied.")
         self.drain()
 
@@ -656,18 +715,11 @@ def check_plan_only(plan: CommandPlan, *, check_gpkg_layers: bool = True) -> boo
         logger.exception("Input checking failed or is unavailable.")
         return False
     for issue in report.issues:
-        logger.warning(
-            "Input check run {} {}:{} [{}] {}: {} ({})",
-            issue.run.index,
-            issue.run.source,
-            issue.run.line_start,
-            issue.finding.status,
-            issue.finding.origin,
-            issue.finding.reference,
-            issue.finding.detail,
-        )
+        logger.warning("{}", _input_issue_message(issue))
     if not report.passed:
         logger.error("Input checking failed or is incomplete: {}/{} completed", report.completed_runs, report.run_count)
+    else:
+        logger.success("Input check passed for {}/{} runs.", report.completed_runs, report.run_count)
     return report.passed
 
 
@@ -834,6 +886,8 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
             while queue or active:
                 if advisory is not None:
                     advisory.drain()
+                    if dashboard is not None:
+                        dashboard.set_extra_metrics({"Input checks": advisory.status})
                 if dashboard is not None:
                     dashboard.refresh()
                 if stop.is_set():
@@ -868,7 +922,17 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                     except Exception as exc:  # noqa: BLE001 - keep ownership after Popen succeeds
                         logger.warning("PID {} launched but process priority could not be set: {}", process.pid, exc)
                     logger.info(
-                        "Launched run {} ({} selected) PID {}: {}", run.index, len(plan.runs), process.pid, args
+                        "Launched run {} ({} selected) PID {}: {}",
+                        run.index,
+                        len(plan.runs),
+                        process.pid,
+                        subprocess.list2cmdline(
+                            [
+                                display_runner_path(args[0], settings.working_directory),
+                                *args[1:-1],
+                                display_runner_path(args[-1], settings.working_directory),
+                            ]
+                        ),
                     )
                     if dashboard is not None:
                         dashboard.mark_running(
@@ -887,6 +951,10 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                 poll_children()
             if advisory is not None:
                 advisory.drain()
+                if dashboard is not None:
+                    dashboard.set_extra_metrics(
+                        {"Input checks": advisory.status if advisory.finished.is_set() else "Incomplete"}
+                    )
         finally:
             if active:
                 _stop_children(active)

@@ -5,14 +5,13 @@ installed; no repository checkout or PYTHONPATH adjustment is required.
 Also supports CLI"""
 
 from pathlib import Path
-from typing import Literal
 
-from ryan_library.functions.tuflow import runner_settings as settings
+from ryan_library.functions.tuflow import runner_settings as params
 
 # CLI options override these defaults.
 # None allows distinct TCFs in "textfiles" mode; generated runs require a TCF.
-TCF: settings.PathSetting | None = r".\runs\PROJECT_01_~s2~_~s1~_~e1~_~e2~_~e4~_~e3~_~s4~.tcf"
-TUFLOW_EXE: settings.PathSetting = r"C:\TUFLOW\tuflow-2026.3\TUFLOW_iSP_w64.exe"
+TCF: params.PathLike | None = r".\runs\PROJECT_01_~s2~_~s1~_~e1~_~e2~_~e4~_~e3~_~s4~.tcf"
+TUFLOW_EXE: params.PathLike = r"C:\TUFLOW\tuflow-2026.3\TUFLOW_iSP_w64.exe"
 BATCH_COMMANDS = "-b"
 PRIORITY_ORDER: str | None = "e3 e2 e1"  # Generated flag order, e.g. "e3 e2 e1". None preserves dictionary order.
 RUN_VARIABLES_RAW: dict[str, str | list[str]] = {
@@ -28,33 +27,33 @@ RUN_VARIABLES_RAW: dict[str, str | list[str]] = {
 # GPU_DEVICES = ["-pu0", "-pu1"]            # 2 slots: GPU 0, GPU 1
 # GPU_DEVICES = [["-pu0", "-pu1"]]          # 1 slot using both GPUs
 # None, [] or () gives one automatic-placement slot; GPU IDs cannot repeat.
-GPU_DEVICES: settings.GpuDevicesSetting = "-pu0"
-INPUT_FILES: settings.InputFilesSetting = ()  # BAT/TXT sources for "textfiles"/"both"; Example: ["runs1.bat", "runs2.txt"] or "runs1.bat".
+GPU_DEVICES: params.GPUS = "-pu0"
+INPUT_FILES: params.InputFiles = []  # BAT/TXT sources for "textfiles"/"both"; Example: ["runs1.bat", "runs2.txt"] or "runs1.bat".
 # "parameter_product": generate combinations; "textfiles": import inert
 # BAT/CMD/TXT selections; "both": imported first, then generated. Equivalent
-# selections are deduplicated. Prefer settings.SRC.TEXTFILES; raw "textfiles" works.
-MODE: settings.SourceSetting = settings.SRC.PARAMETER_PRODUCT
+# selections are deduplicated. Prefer params.SRC.TEXTFILES; raw "textfiles" works.
+MODE: params.SourceMode = params.SRC.PARAMETER_PRODUCT
 # "resume": skip observed successes in this wrapper's adjacent CSV;
 # "all": reset completion baseline and rerun everything. Use a different
 # filename for each TCF version so its run wrapper gets a separate CSV.
-# Prefer settings.CONT.RESUME; raw "resume" also works.
-CONTINUATION_MODE: settings.ContinuationSetting = settings.CONT.RESUME
-OPERATION: settings.OperationSetting = settings.OP.RUN
-WORKING_DIR: settings.PathSetting | None = None  # Model directory: None uses the this python files directory, not cwd.
+# Prefer params.CONT.RESUME; raw "resume" also works.
+CONTINUATION_MODE: params.ContMode = params.CONT.RESUME
+OPERATION: params.RunMode = params.OP.RUN
+WORKING_DIR: params.PathLike | None = None  # Model directory: None uses the this python files directory, not cwd.
 # Optional Python follow-up after a normally completed batch (even when
 # children failed). None disables. Accepts str or Path, relative to WORKING_DIR.
 # Example: "next_batch.py"; not launched after an interruption.
-NEXT_RUN_FILE: settings.PathSetting | None = None
-COMPUTATIONAL_PRIORITY: settings.PrioritySetting = settings.PRIO.LOW
+NEXT_RUN_FILE: params.PathLike | None = None
+COMPUTATIONAL_PRIORITY: params.PrioritySetting = params.PRIO.LOW
 MINIMIZE_ON_LAUNCH = True  # True opens solver windows minimized; False shows them normally.
 EXPORT_COMMANDS = True  # True refreshes <wrapper_name>.txt, BAT format.
 CHECK_INPUTS = True  # Enable BACKGROUND model-input checks while TUFLOW runs.
 USE_LIVE_DASHBOARD = True  # True shows the Rich live dashboard; False uses ordinary console logging.
 LIVE_REFRESH_PER_SECOND = 1.0
-CONSOLE_LOG_LEVEL: Literal["TRACE", "DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL"] = "INFO"
+CONSOLE_LOG_LEVEL: params.LogLevel = params.LOG.INFO
 WAIT_TIME_AFTER_RUN = 2.0  # Seconds between launches (>=0). Example: 0.5. Does not change GPU slots.
 PAUSE_ON_FINISH = True  # Pause interactively on finish; --no-pause forces False, --pause forces True.
-WRAPPER_VERSION = "2026-11-01.5"
+WRAPPER_VERSION = "2026-11-03.1"
 
 import argparse
 import signal
@@ -81,6 +80,7 @@ from ryan_library.orchestrators.tuflow.simulation_runner import (
     BatchOutcome,
     RunnerSettings,
     check_plan_only,
+    display_runner_path,
     export_batch_commands,
     launch_plan,
     prepare_plan,
@@ -99,9 +99,9 @@ def _settings(arguments: argparse.Namespace) -> RunnerSettings:
     configured_tcf = None if arguments.no_tcf else (arguments.tcf if arguments.tcf is not None else TCF)
     selected_inputs = tuple(arguments.input_file) if arguments.input_file is not None else INPUT_FILES
     selected_mode = runner_user_inputs.choice(
-        "MODE", arguments.mode if arguments.mode is not None else MODE, settings.SRC
+        "MODE", arguments.mode if arguments.mode is not None else MODE, params.SRC
     )
-    selected_priority = runner_user_inputs.choice("COMPUTATIONAL_PRIORITY", COMPUTATIONAL_PRIORITY, settings.PRIO)
+    selected_priority = runner_user_inputs.choice("COMPUTATIONAL_PRIORITY", COMPUTATIONAL_PRIORITY, params.PRIO)
     selected_batch_commands = runner_user_inputs.batch_commands(BATCH_COMMANDS)
     selected_executable = runner_user_inputs.path(
         "TUFLOW_EXE", arguments.solver_exe if arguments.solver_exe is not None else TUFLOW_EXE
@@ -188,7 +188,7 @@ def _warn_optional_file_paths(plan: CommandPlan, run_settings: RunnerSettings) -
             logger.warning(
                 "TCF not found or not readable: {}. Plan/export will continue; "
                 "preflight or the solver may report missing model inputs.",
-                tcf,
+                display_runner_path(tcf, run_settings.working_directory),
             )
 
     if run_settings.mode == "parameter_product":
@@ -197,8 +197,8 @@ def _warn_optional_file_paths(plan: CommandPlan, run_settings: RunnerSettings) -
             if not exists_as_file(optional):
                 logger.warning(
                     "INPUT_FILES source not found: {}. This is ignored because MODE is "
-                    "'parameter_product'; switch MODE to settings.SRC.TEXTFILES or settings.SRC.BOTH to use it.",
-                    optional,
+                    "'parameter_product'; switch MODE to params.SRC.TEXTFILES or params.SRC.BOTH to use it.",
+                    display_runner_path(optional, run_settings.working_directory),
                 )
 
     executable = (
@@ -210,7 +210,7 @@ def _warn_optional_file_paths(plan: CommandPlan, run_settings: RunnerSettings) -
         logger.warning(
             "TUFLOW_EXE not found or not readable: {}. This is allowed without "
             "a solver launch; any pending execution will require a valid executable.",
-            executable,
+            display_runner_path(executable, run_settings.working_directory),
         )
 
     if NEXT_RUN_FILE is not None:
@@ -220,22 +220,24 @@ def _warn_optional_file_paths(plan: CommandPlan, run_settings: RunnerSettings) -
             logger.warning(
                 "NEXT_RUN_FILE not found or not readable: {}. The follow-up will "
                 "fail if it is still missing after batch completion.",
-                target,
+                display_runner_path(target, run_settings.working_directory),
             )
 
 
 def _run_follow_up(path: Path, working_directory: Path) -> bool:
     target = path if path.is_absolute() else (working_directory / path).absolute()
     if not target.is_file():
-        logger.error("Configured follow-up not found: {}", target)
+        logger.error("Configured follow-up not found: {}", display_runner_path(target, working_directory))
         return False
     try:
         result = subprocess.run([sys.executable, str(target)], cwd=str(working_directory), check=False)
     except OSError:
-        logger.exception("Could not launch configured Python follow-up {}", target)
+        logger.exception(
+            "Could not launch configured Python follow-up {}", display_runner_path(target, working_directory)
+        )
         return False
     if result.returncode != 0:
-        logger.error("Follow-up {} returned {}", target, result.returncode)
+        logger.error("Follow-up {} returned {}", display_runner_path(target, working_directory), result.returncode)
     return result.returncode == 0
 
 
@@ -245,34 +247,30 @@ def main(argv: list[str] | None = None) -> int:
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     try:
         log_level = arguments.console_log_level if arguments.console_log_level is not None else CONSOLE_LOG_LEVEL
-        if not isinstance(log_level, str) or log_level.upper() not in {
-            "TRACE",
-            "DEBUG",
-            "INFO",
-            "SUCCESS",
-            "WARNING",
-            "ERROR",
-            "CRITICAL",
-        }:
-            message = (
-                f"CONSOLE_LOG_LEVEL={log_level!r} is invalid; use DEBUG, INFO, SUCCESS, WARNING, ERROR or CRITICAL."
-            )
+        if not isinstance(log_level, str) or log_level.upper() not in params.LOG:
+            choices = ", ".join(params.LOG)
+            message = f"CONSOLE_LOG_LEVEL={log_level!r} is invalid; use {choices}."
             raise ValueError(message)
-        configure_serial_logging(console_log_level=log_level.upper())
+        configure_serial_logging(
+            console_log_level=log_level.upper(),
+            # Look up stdout at emission time so Rich can print above its live display.
+            console_sink=lambda message: print(message, end="", flush=True),
+            console_format="{time:HH:mm:ss} | {level:<7} | {message}",
+        )
         run_settings = _settings(arguments)
         # Validate finite-choice inputs before export, history or simulation launch.
         if arguments.run_simulations:
-            selected_operation = settings.OP.RUN
+            selected_operation = params.OP.RUN
         elif arguments.preflight_only:
-            selected_operation = settings.OP.PREFLIGHT_ONLY
+            selected_operation = params.OP.PREFLIGHT_ONLY
         elif arguments.export_only:
-            selected_operation = settings.OP.EXPORT_ONLY
+            selected_operation = params.OP.EXPORT_ONLY
         else:
-            selected_operation = runner_user_inputs.choice("OPERATION", OPERATION, settings.OP)
+            selected_operation = runner_user_inputs.choice("OPERATION", OPERATION, params.OP)
         selected_continuation = runner_user_inputs.choice(
             "CONTINUATION_MODE",
             arguments.run_mode if arguments.run_mode is not None else CONTINUATION_MODE,
-            settings.CONT,
+            params.CONT,
         )
         if not run_settings.working_directory.is_dir():
             logger.error("Working directory does not exist: {}", run_settings.working_directory)
@@ -297,7 +295,9 @@ def main(argv: list[str] | None = None) -> int:
         if exporting:
             # Fixed TXT beside the copied wrapper, not an executable BAT file.
             destination = export_batch_commands(plan, run_settings, Path(__file__).absolute().with_suffix(".txt"))
-            logger.success("Editable commands exported to {}", destination)
+            logger.success(
+                "Editable commands exported to {}", display_runner_path(destination, run_settings.working_directory)
+            )
         if operation == "export_only":
             logger.success("Export-only: no solver processes, GPU scan or input checking.")
             return 0
@@ -322,7 +322,10 @@ def main(argv: list[str] | None = None) -> int:
         with CsvExecutionLog(log_path) as history:
             if requested_mode == "all":
                 history.reset()
-                logger.info("Run all: new CSV completion baseline recorded in {}.", log_path)
+                logger.info(
+                    "Run all: new CSV completion baseline recorded in {}.",
+                    display_runner_path(log_path, run_settings.working_directory),
+                )
             pending = select_pending(plan, identities, history.successful_keys())
             skipped = len(plan.runs) - len(pending.runs)
             if not pending.runs:
@@ -338,7 +341,7 @@ def main(argv: list[str] | None = None) -> int:
                     requested_mode.capitalize(),
                     len(pending.runs),
                     skipped,
-                    log_path,
+                    display_runner_path(log_path, run_settings.working_directory),
                 )
                 session = CompletionSession(history, identities)
                 advisory = None

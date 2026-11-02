@@ -7,9 +7,9 @@ allocations, utilisation, recent denials, model paths, completion, runtime, and
 GPU device IDs.
 
 Examples:
-    py -3.14 check_tuflow_user_activity.py --no-pause
-    py -3.14 check_tuflow_user_activity.py --recent-hours 48 --no-pause
-    py -3.14 check_tuflow_user_activity.py --no-codemeter --no-pause
+    python check_tuflow_user_activity.py --no-pause
+    python check_tuflow_user_activity.py --recent-hours 48 --no-pause
+    python check_tuflow_user_activity.py --no-codemeter --no-pause
 """
 
 from __future__ import annotations

@@ -44,8 +44,6 @@
     "TUFLOW-python/raster_processing/run_asc_to_asc_maximum_searches.py",
     "TUFLOW-python/raster_processing/run_asc_to_asc_mean_then_maximum.py",
     "TUFLOW-python/raster_processing/run_asc_to_asc_median_then_maximum.py",
-    "TUFLOW-python/raster_processing/run_grouped_asc_to_asc_statistics.py",
-    "TUFLOW-python/raster_processing/run_python_raster_calculations.py",
     "WRAPPER_STANDARD.md",
     "culvert.py",
     "docx-python/word_style_audit.py",

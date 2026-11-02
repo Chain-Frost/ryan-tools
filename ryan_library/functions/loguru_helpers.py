@@ -12,6 +12,7 @@ import pickle
 import sys
 import threading
 import traceback
+from collections.abc import Callable
 from multiprocessing import Process, Queue
 from pathlib import Path
 from types import TracebackType
@@ -154,6 +155,9 @@ def configure_serial_logging(
     console_log_level: str = "INFO",
     log_file: str | None = None,
     file_log_level: str = "DEBUG",
+    *,
+    console_sink: Callable[[str], None] | None = None,
+    console_format: str | None = None,
 ) -> None:
     """Configure Loguru for a serial workflow.
 
@@ -161,6 +165,8 @@ def configure_serial_logging(
         console_log_level: Minimum console level.
         log_file: Optional file-sink path.
         file_log_level: Minimum file level when ``log_file`` is supplied.
+        console_sink: Optional console writer, for example one using Rich's redirected stdout.
+        console_format: Optional console-only format; file formatting is unchanged.
     """
     if LoguruMultiprocessingLogger.has_active_context():
         msg = "Cannot replace serial sinks while a multiprocessing logging context is active."
@@ -168,7 +174,7 @@ def configure_serial_logging(
     normalized_console_level: str = normalize_log_level(console_log_level)
     normalized_file_level: str = normalize_log_level(file_log_level)
     reset_logging()
-    _add_console_sink(level=normalized_console_level, forwarded=False)
+    _add_console_sink(level=normalized_console_level, forwarded=False, sink=console_sink, format_string=console_format)
     if log_file:
         add_file_sink(log_file=log_file, file_log_level=normalized_file_level)
 

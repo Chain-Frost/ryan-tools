@@ -11,11 +11,37 @@ The TUFLOW runner and its command TXT exports target Windows.
 
 ## Input checker reports
 
+The simulation runner reports input findings with the run number, TCF and
+event/scenario flags, command-list source, owning control file and physical
+line number, full parsed model command, input reference and lookup details.
+Paths within each run's working directory are shown relative to that directory.
+Launch commands, export destinations, CSV-history locations and configured-file
+warnings also use paths relative to the runner working directory where possible.
+External paths remain absolute. This presentation does not change subprocess
+arguments, working directories or absolute CSV execution-history provenance.
+During normal execution, input checking is advisory and runs in a daemon
+thread alongside model launches; its findings do not block launches.
+`--preflight-only` waits for checking, returns failure for input issues and
+never launches TUFLOW. If advisory checking is unfinished at shutdown, the
+runner reports it as incomplete rather than waiting or claiming success.
+The live dashboard retains an `Input checks` status (Running, Passed, Issues
+or Incomplete). At console level INFO or SUCCESS, a completed clean check
+prints `Input check passed for N/N runs.` above the live table. Findings are
+WARNING messages. Runner log output uses time, level and the message, without
+internal function names; single-line source locations show one line number.
+
 [`model_management/check_tuflow_inputs.py`](model_management/check_tuflow_inputs.py)
 checks every supported model input (including selected GeoPackage layers and
-boundary CSV headers), without running TUFLOW. It prints findings in the
-terminal by default. Configure the straightforward editable settings near the
-top: `TCF`, `RUN_FILES`, `WORKING_DIR`, `CONFIGURATION_DIR`,
+boundary CSV headers), without running TUFLOW. Its terminal report separates the
+run plan, control files, input-check totals, numbered issues and final result.
+Console paths inside `WORKING_DIR` are shortened relative to that directory;
+external paths remain absolute and JSON manifest paths remain absolute.
+The script wall time includes library startup, argument parsing, run planning,
+input checks and report writing; phase timings describe input-check work only.
+Literal `!` characters are ignored everywhere in imported command text and
+reported by source line because planned runs and outputs may be wrong after
+that lossy interpretation. Configure the straightforward editable settings
+near the top: `TCF`, `RUN_FILES`, `WORKING_DIR`, `CONFIGURATION_DIR`,
 `REPORT_CSV`, `PLAN_ONLY`, `PLAN_JSON`, `INPUT_SYNTAX`,
 `INPUT_ENCODING`, `IO_WORKERS`, `MAX_DIRECTORY_ENTRIES` and
 `PAUSE_ON_FINISH`. There is no mandatory `DEFAULT_` prefix or separate
@@ -45,19 +71,19 @@ Python wrapper. Its operational constants can use concise names; the wrapper
 standard does not require a `DEFAULT_` prefix. CLI arguments override editable
 values when supplied.
 
-The shipped `OPERATION = settings.OP.RUN` runs pending simulations using
+The shipped `OPERATION = params.OP.RUN` runs pending simulations using
 the licensed solver and may overwrite existing model outputs. The default
-`CONTINUATION_MODE = settings.CONT.RESUME` skips recorded successful runs.
+`CONTINUATION_MODE = params.CONT.RESUME` skips recorded successful runs.
 To export editable command TXT without launching, set
-`OPERATION = settings.OP.EXPORT_ONLY` (or raw `"export_only"`) or pass
+`OPERATION = params.OP.EXPORT_ONLY` (or raw `"export_only"`) or pass
 `--export-only`. To check inputs without launching, use
-`OPERATION = settings.OP.PREFLIGHT_ONLY` or `--preflight-only`.
+`OPERATION = params.OP.PREFLIGHT_ONLY` or `--preflight-only`.
 `--run-simulations` explicitly selects execution regardless of the editable
 operation setting. CLI arguments override editable values.
 
 The wrapper imports its `StrEnum` choices through `settings`:
-`settings.OP.RUN`, `settings.SRC.TEXTFILES`, `settings.CONT.RESUME` and
-`settings.PRIO.LOW`. Equivalent raw strings are accepted and validated.
+`params.OP.RUN`, `params.SRC.TEXTFILES`, `params.CONT.RESUME` and
+`params.PRIO.LOW` and `params.LOG.INFO`. Equivalent raw strings are accepted and validated.
 
 Generated list entries intentionally have leading and trailing whitespace
 stripped before warnings and deduplication. For example, `[" Wet ", "Wet"]`
@@ -197,7 +223,7 @@ runs 101 through 400 in their original order. If later runs also succeeded,
 those are skipped too; original run numbers can therefore have gaps. Input
 preflight and dashboard presentation preserve those original identities.
 
-Set `CONTINUATION_MODE = settings.CONT.ALL` (or raw `"all"`) or pass `--run-mode all` to append a RESET row and
+Set `CONTINUATION_MODE = params.CONT.ALL` (or raw `"all"`) or pass `--run-mode all` to append a RESET row and
 run every occurrence again. Previous history is retained. Changing model-file contents
 is not detected; use Run all when prior successes should be disregarded.
 The identity uses the **TCF filename** (case-insensitive on Windows) and effective
@@ -242,12 +268,11 @@ the top of each file. This includes the log-summary, POMM/PO combination,
 culvert reporting, time-series checking, result styling and ASC_to_ASC search
 wrappers.
 
-`raster_processing/run_grouped_asc_to_asc_statistics.py` and
-`raster_processing/run_python_raster_calculations.py` were promoted from `unsorted-python` on 20 August 2026. They retain an explicit
-source warning because they have focused automated coverage but have not yet been used on a production project. The
-native-Python wrapper uses the shared raster-calculation implementation; the grouped wrapper coordinates the external
-TUFLOW `asc_to_asc` executable. The native implementation's supported command mapping, NoData policies, closest-source
-mean, upper median and optional executable-comparison boundary are documented in
+The experimental [grouped raster statistics](../unsorted-python/run_grouped_asc_to_asc_statistics.py) and
+[Python raster calculations](../unsorted-python/run_python_raster_calculations.py) entry points have returned to
+`unsorted-python`; they are not maintained TUFLOW
+wrappers, packaged scripts or MCP workflows. The maintained native implementation's supported command mapping, NoData
+policies, closest-source mean, upper median and optional executable-comparison boundary are documented in
 [`../../docs/ASC_TO_ASC_NATIVE_OPERATIONS.md`](../../docs/ASC_TO_ASC_NATIVE_OPERATIONS.md).
 
 `raster_processing/run_asc_to_asc_mean_then_maximum.py` and

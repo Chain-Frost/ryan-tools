@@ -65,11 +65,24 @@ class PRIO(StrEnum):
     REALTIME = "REALTIME"
 
 
-type OperationSetting = OP | Literal["run", "export_only", "preflight_only"]
-type SourceSetting = SRC | Literal["parameter_product", "textfiles", "both"]
-type ContinuationSetting = CONT | Literal["resume", "all"]
+class LOG(StrEnum):
+    """Console logging thresholds, from most detailed to least detailed."""
+
+    TRACE = "TRACE"
+    DEBUG = "DEBUG"
+    INFO = "INFO"
+    SUCCESS = "SUCCESS"
+    WARNING = "WARNING"
+    ERROR = "ERROR"
+    CRITICAL = "CRITICAL"
+
+
+type LogLevel = LOG | Literal["TRACE", "DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL"]
+type RunMode = OP | Literal["run", "export_only", "preflight_only"]
+type SourceMode = SRC | Literal["parameter_product", "textfiles", "both"]
+type ContMode = CONT | Literal["resume", "all"]
 type PrioritySetting = PRIO | Literal["LOW", "BELOWNORMAL", "NORMAL", "ABOVENORMAL", "HIGH", "REALTIME"]
-type PathSetting = str | Path
+type PathLike = str | Path
 r"""A path string or `Path` object.
 
 Examples: `r"C:\Models\run.tcf"`, `r"Q:\Models"`,
@@ -80,9 +93,9 @@ invoking directory. See the individual setting for its file or directory require
 Mapped-drive and UNC paths are supported; links are not dereferenced merely
 to make a path absolute.
 """
-type InputFilesSetting = PathSetting | list[PathSetting] | tuple[PathSetting, ...] | None
+type InputFiles = PathLike | list[PathLike] | tuple[PathLike, ...] | None
 type GpuGroupSetting = str | list[str] | tuple[str, ...]
-type GpuDevicesSetting = str | list[GpuGroupSetting] | tuple[GpuGroupSetting, ...] | None
+type GPUS = str | list[GpuGroupSetting] | tuple[GpuGroupSetting, ...] | None
 """GPU assignments: each outer entry is one concurrent simulation slot.
 
 - `"-pu1"`: 1 run on GPU 1.

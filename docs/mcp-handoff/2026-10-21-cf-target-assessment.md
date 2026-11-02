@@ -34,7 +34,6 @@
 | `RORB-python/RORB-find-closure-durations.py` | `rorb_closure_durations` | create; creates_outputs | Creates closure outputs; not an RORB executable launch; verify units and thresholds. |
 | `RORB-python/plot_ensemble_results.py` | `rorb_ensemble_plots` | create; creates_outputs | Creates plots; separate input/output CLI; verify source-preserving failure. |
 | `TUFLOW-python/log_processing/append_log_summary_to_master_workbook.py` | `tuflow_log_summary_append_master` | privileged; in_place | Changes existing XLSX table in-place; project-specific default Q: path; use disposable workbook only. |
-| `TUFLOW-python/raster_processing/run_grouped_asc_to_asc_statistics.py` | `tuflow_asc2asc_groups` | privileged; executes_external | Runs external ASC_to_ASC via --executable; has --dry-run; requires actual executable and synthetic raster tests. |
 | `TUFLOW-python/model_management/run_tuflow_simulations.py` | `run_tuflow_batch` | privileged; executes_external | Configured TUFLOW executable, run_simulations=True and pause_on_finish=True; NOT a standard help CLI, never invoke on real project for probing. |
 | `TUFLOW-python/model_management/delete_duplicate_check_files.py` | `delete_duplicate_tuflow_files` | privileged; deletes | DRY_RUN=False; requires typed DELETE confirmation but writes proposal/report even when cancelled; no safe --help. |
 | `misc-python/remove_excel_protection.py` | `remove_excel_protection` | privileged; creates_or_replaces | Modifies/replaces workbook protection; preserve input and test on disposable file. |
