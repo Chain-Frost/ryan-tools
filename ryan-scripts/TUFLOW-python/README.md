@@ -30,6 +30,13 @@ prints `Input check passed for N/N runs.` above the live table. Findings are
 WARNING messages. Runner log output uses time, level and the message, without
 internal function names; single-line source locations show one line number.
 
+The library's default serial logger also supports the live dashboard in older copied
+runner wrappers. Launch/completion messages must pass through Rich's redirected stdout
+to avoid leaving partial panels in terminal scrollback. See the
+[logging guide](../../docs/LOGGING.md#live-dashboards-and-copied-wrappers).
+Library upgrades apply to the next Python process, not an active batch. For future
+unattended runs, `--no-live-dashboard` selects ordinary console logging.
+
 [`model_management/check_tuflow_inputs.py`](model_management/check_tuflow_inputs.py)
 checks every supported model input (including selected GeoPackage layers and
 boundary CSV headers), without running TUFLOW. Its terminal report separates the
