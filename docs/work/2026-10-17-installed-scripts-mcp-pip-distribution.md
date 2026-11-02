@@ -332,3 +332,17 @@ points over their shared generic orchestrator. The current 156-row inventory con
 97 tests passed and 10 skipped. Documentation link validation and the 26.11.3.1 package build/verification pass. Ruff
 could not launch under the workstation's application-control policy and remains an exact-head CI check. Git delivery
 is recorded on PR #190.
+
+### PR #190 CI repair - 3 November 2026
+
+Reconciled current remote head `2dffddb4` before repair. The raster-script moves
+left the promoted-script test import configuration pointing at the old folder,
+causing three hosted collection errors. Added the repository-owned
+`ryan-scripts/unsorted-python` import directory (not the excluded `unsorted`
+submodule), formatted the changed MCP registry test, and corrected two stale
+documentation references. Focused validation: 101 passed, 2 existing skips;
+strict Pyright clean on the two changed test files; Ruff lint/format passes on
+all 14 PR-changed Python files; seven-document and Loguru policy checks pass.
+No package implementation or metadata changed; no wheel rebuild required.
+Delivery: repair to PR #190; hosted final-head validation pending. Next action:
+verify terminal CI on the pushed repair; next review 2026-11-03. No merge.

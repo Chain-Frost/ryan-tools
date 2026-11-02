@@ -259,8 +259,9 @@ the top of each file. This includes the log-summary, POMM/PO combination,
 culvert reporting, time-series checking, result styling and ASC_to_ASC search
 wrappers.
 
-The experimental `run_grouped_asc_to_asc_statistics.py` and
-`run_python_raster_calculations.py` entry points have returned to `unsorted-python`; they are not maintained TUFLOW
+The experimental [grouped raster statistics](../unsorted-python/run_grouped_asc_to_asc_statistics.py) and
+[Python raster calculations](../unsorted-python/run_python_raster_calculations.py) entry points have returned to
+`unsorted-python`; they are not maintained TUFLOW
 wrappers, packaged scripts or MCP workflows. The maintained native implementation's supported command mapping, NoData
 policies, closest-source mean, upper median and optional executable-comparison boundary are documented in
 [`../../docs/ASC_TO_ASC_NATIVE_OPERATIONS.md`](../../docs/ASC_TO_ASC_NATIVE_OPERATIONS.md).
