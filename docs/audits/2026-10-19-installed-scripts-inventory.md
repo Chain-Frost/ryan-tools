@@ -1,8 +1,8 @@
 # Per-file installed-script inventory — evidence ledger (2026-10-19)
 
 **Status: incomplete review.** This ledger originated with 146 files at `1ac42c6` and now covers all **156** Git-tracked source files under `ryan-scripts/`, including five repository-only additions in PR #187. It excludes submodules. It does not enter or inspect the `unsorted` submodule.
-There are **85 selected wheel files**, **71 excluded source files** and
-**34 distinct existing MCP script paths**. These counts are inventory evidence,
+There are **83 selected wheel files**, **73 excluded source files** and
+**33 distinct existing MCP script paths**. These counts are inventory evidence,
 **not proof** that every source file is maintained, safe to import, or correctly excluded.
 
 The original [requirements baseline](2026-10-17-installed-scripts-original-requirements.md) requires each executable
@@ -84,8 +84,8 @@ available in the repository but excluded from the wheel. MCP “Yes” denotes a
 | `TUFLOW-python/raster_processing/run_asc_to_asc_maximum_searches.py` | Yes | No | Source inspected; selected native raster max wrapper; owner acceptance pending | Argparse common flags, dry-run, worker override and guarded no-pause; help acceptance already tested | Native ASC_to_ASC max jobs from template axes and glob; executable discovery, duplicates, outputs and process concurrency unverified |
 | `TUFLOW-python/raster_processing/run_asc_to_asc_mean_then_maximum.py` | Yes | No | Source inspected; selected native raster mean/max wrapper; owner acceptance pending | Argparse common flags, dry-run/strictness/worker flags and no-pause; representative help already tested | Per-duration TP mean then duration max via native raster tool; minimum contributing value, ensemble assumptions, result parity unverified |
 | `TUFLOW-python/raster_processing/run_asc_to_asc_median_then_maximum.py` | Yes | No | Selected native TP-median/duration-max wrapper; source inspected; owner acceptance pending | Guarded argparse/common CLI, --dry-run and source-output controls; behaviour unverified | Native ASC_to_ASC dependency; upper median, filenames, grouping and source rasters require engineering parity |
-| `TUFLOW-python/raster_processing/run_grouped_asc_to_asc_statistics.py` | Yes | Yes | Selected experimental grouped native raster utility; source inspected; owner pending | Argparse dry-run/executable/worker controls; no original CLI parity evidence | Launches asc_to_asc_w64.exe via subprocess; group matching, output collisions and native tool availability need tests |
-| `TUFLOW-python/raster_processing/run_python_raster_calculations.py` | Yes | No | Selected experimental Python raster operator; source inspected; owner pending | Guarded argparse --no-pause; hard-coded sample default after.tif/before.tif; parity unverified | Computes max/diff/mean/median/min via library; exact nodata and source output parity to ASC_to_ASC pending |
+| `unsorted-python/run_grouped_asc_to_asc_statistics.py` | No | No | Experimental grouped native raster utility returned to `unsorted-python`; source inspected | Argparse dry-run/executable/worker controls; no original CLI parity evidence | Overlaps maintained raster workflows; group matching, output collisions and native tool availability remain unverified |
+| `unsorted-python/run_python_raster_calculations.py` | No | No | Experimental Python raster operator returned to `unsorted-python`; source inspected | Guarded argparse --no-pause; hard-coded sample default after.tif/before.tif; parity unverified | Overlaps the shared raster API and dedicated difference wrapper; exact NoData and source-output parity remain unverified |
 | `WRAPPER_STANDARD.md` | Yes | No | Resource inspected; packaged wrapper-standard reference | N/A executable; Markdown documentation only | Defines maintained wrapper/version/CLI/exit contracts; link and installed inclusion verified by manifest only |
 | `cad-python/dtm_str_converter_to_gpkg.py` | No | No | Source inspected; repository-only specialist Surpac converter; owner pending | Guarded configurable argparse, optional pause, export switches; errors reported but output acceptance absent | Reads ASCII/binary STR/DTM, creates point/line/triangle GeoPackages and optional Excel; compare against Surpac reference |
 | `cad-python/extract_dxf_polyface.py` | No | No | Source inspected; repository-only streaming CAD converter; owner pending | Argparse input/output/batch-size; guarded main; exit/default parity not verified | Streams multi-GB text DXF into PyArrow vertex/face Parquet; geometry counts and cp1252 encoding need fixtures |
@@ -364,7 +364,7 @@ external-tool test evidence. Verify companions and resource dependencies in the 
 
 Priority: currently MCP catalogued scripts, destructive/privileged scripts, excluded
 source files that were shipped before PR #130, and frequently copied TUFLOW/GDAL/RORB
-utilities. Do not change the current 85-file allowlist from this inventory alone:
+utilities. Do not change the current 83-file allowlist from this inventory alone:
 make deliberate, tested additions/removals once reviewed.
 
 ## Completion definition

@@ -320,3 +320,15 @@ Addressed the three findings on pushed head `40a50ef` locally:
 Validation: 15 focused archive tests pass, including native relative-executable regression and bracketed-name success, collision and cleanup checks. Ruff lint/format, strict Pyright on all five modified Python files, Loguru policy and diff whitespace checks pass. Synthetic PowerShell queries return exit 0 for no matching events and exit 1 for access/query failure. Package build and verification pass for 26.11.2.1; a copied wrapper outside the checkout creates a native split archive with a bracketed filename and relative executable using the rebuilt wheel. The first native regression attempt picked up the older installed package; source tests were rerun with the source environment, and the separate wheel check verifies the rebuilt package.
 
 Delivery: maintainer authorises commit/push on 2026-11-02. The review-fix commit carries this record; new-head hosted CI must be verified after pushing. All six hosted checks pass for `40a50ef`, which predates these fixes. Next action: verify new-head CI, then respond to and resolve the three threads. No merge or release authorised. Next review: 2026-11-08.
+
+
+### 2026-11-03 PR #190 raster-script lifecycle correction
+
+The maintainer returned `run_grouped_asc_to_asc_statistics.py` and
+`run_python_raster_calculations.py` to `ryan-scripts/unsorted-python`. They are no longer packaged or MCP-catalogued.
+The maintained mean and median statistic-then-maximum wrappers intentionally remain separate project-editable entry
+points over their shared generic orchestrator. The current 156-row inventory contains 83 wheel-selected files,
+73 excluded files and 33 existing MCP script paths. Focused MCP, installed-script and packaging validation passes with
+97 tests passed and 10 skipped. Documentation link validation and the 26.11.3.1 package build/verification pass. Ruff
+could not launch under the workstation's application-control policy and remains an exact-head CI check. Git delivery
+is recorded on PR #190.

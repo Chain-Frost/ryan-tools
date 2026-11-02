@@ -314,7 +314,6 @@ def test_tuflow_external_prerequisites_are_declared_without_claiming_readiness()
     registry = WorkflowRegistry(configured_profile=CapabilityProfile.PRIVILEGED, repository_root=PROJECT_ROOT)
     for workflow_id, program in (
         ("run_tuflow_batch", "TUFLOW executable configured by wrapper"),
-        ("tuflow_asc2asc_groups", "asc_to_asc_w64.exe"),
     ):
         prerequisite = registry.get_workflow(workflow_id)["external_prerequisites"]
         assert prerequisite["status"] == "not_verified"

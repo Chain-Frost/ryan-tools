@@ -259,12 +259,10 @@ the top of each file. This includes the log-summary, POMM/PO combination,
 culvert reporting, time-series checking, result styling and ASC_to_ASC search
 wrappers.
 
-`raster_processing/run_grouped_asc_to_asc_statistics.py` and
-`raster_processing/run_python_raster_calculations.py` were promoted from `unsorted-python` on 20 August 2026. They retain an explicit
-source warning because they have focused automated coverage but have not yet been used on a production project. The
-native-Python wrapper uses the shared raster-calculation implementation; the grouped wrapper coordinates the external
-TUFLOW `asc_to_asc` executable. The native implementation's supported command mapping, NoData policies, closest-source
-mean, upper median and optional executable-comparison boundary are documented in
+The experimental `run_grouped_asc_to_asc_statistics.py` and
+`run_python_raster_calculations.py` entry points have returned to `unsorted-python`; they are not maintained TUFLOW
+wrappers, packaged scripts or MCP workflows. The maintained native implementation's supported command mapping, NoData
+policies, closest-source mean, upper median and optional executable-comparison boundary are documented in
 [`../../docs/ASC_TO_ASC_NATIVE_OPERATIONS.md`](../../docs/ASC_TO_ASC_NATIVE_OPERATIONS.md).
 
 `raster_processing/run_asc_to_asc_mean_then_maximum.py` and
