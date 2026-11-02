@@ -32,7 +32,9 @@ Default documentation checks, explicit links for all three touched documents and
 `git diff --check` passed. No package rebuild was required for workflow-only changes.
 
 Delivery: submission authorized on 2026-11-02, using branch
-`fix/pypi-release-smoke-dependencies`. The tag ruleset correction is already live.
+`fix/pypi-release-smoke-dependencies`, committed and pushed as
+[PR #188](https://github.com/Chain-Frost/ryan-tools/pull/188).
+The tag ruleset correction is already live.
 The PR targets main and deliberately retains release eligibility (no skip-release
 label or merge-message opt-out). Hosted exact-head CI and maintainer merge remain
 the next gates; no merge, tag or publication has been performed. Observe tag creation,
