@@ -15,6 +15,10 @@ The simulation runner reports input findings with the run number, TCF and
 event/scenario flags, command-list source, owning control file and physical
 line number, full parsed model command, input reference and lookup details.
 Paths within each run's working directory are shown relative to that directory.
+Launch commands, export destinations, CSV-history locations and configured-file
+warnings also use paths relative to the runner working directory where possible.
+External paths remain absolute. This presentation does not change subprocess
+arguments, working directories or absolute CSV execution-history provenance.
 During normal execution, input checking is advisory and runs in a daemon
 thread alongside model launches; its findings do not block launches.
 `--preflight-only` waits for checking, returns failure for input issues and

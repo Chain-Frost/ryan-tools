@@ -80,6 +80,7 @@ from ryan_library.orchestrators.tuflow.simulation_runner import (
     BatchOutcome,
     RunnerSettings,
     check_plan_only,
+    display_runner_path,
     export_batch_commands,
     launch_plan,
     prepare_plan,
@@ -187,7 +188,7 @@ def _warn_optional_file_paths(plan: CommandPlan, run_settings: RunnerSettings) -
             logger.warning(
                 "TCF not found or not readable: {}. Plan/export will continue; "
                 "preflight or the solver may report missing model inputs.",
-                tcf,
+                display_runner_path(tcf, run_settings.working_directory),
             )
 
     if run_settings.mode == "parameter_product":
@@ -197,7 +198,7 @@ def _warn_optional_file_paths(plan: CommandPlan, run_settings: RunnerSettings) -
                 logger.warning(
                     "INPUT_FILES source not found: {}. This is ignored because MODE is "
                     "'parameter_product'; switch MODE to params.SRC.TEXTFILES or params.SRC.BOTH to use it.",
-                    optional,
+                    display_runner_path(optional, run_settings.working_directory),
                 )
 
     executable = (
@@ -209,7 +210,7 @@ def _warn_optional_file_paths(plan: CommandPlan, run_settings: RunnerSettings) -
         logger.warning(
             "TUFLOW_EXE not found or not readable: {}. This is allowed without "
             "a solver launch; any pending execution will require a valid executable.",
-            executable,
+            display_runner_path(executable, run_settings.working_directory),
         )
 
     if NEXT_RUN_FILE is not None:
@@ -219,22 +220,24 @@ def _warn_optional_file_paths(plan: CommandPlan, run_settings: RunnerSettings) -
             logger.warning(
                 "NEXT_RUN_FILE not found or not readable: {}. The follow-up will "
                 "fail if it is still missing after batch completion.",
-                target,
+                display_runner_path(target, run_settings.working_directory),
             )
 
 
 def _run_follow_up(path: Path, working_directory: Path) -> bool:
     target = path if path.is_absolute() else (working_directory / path).absolute()
     if not target.is_file():
-        logger.error("Configured follow-up not found: {}", target)
+        logger.error("Configured follow-up not found: {}", display_runner_path(target, working_directory))
         return False
     try:
         result = subprocess.run([sys.executable, str(target)], cwd=str(working_directory), check=False)
     except OSError:
-        logger.exception("Could not launch configured Python follow-up {}", target)
+        logger.exception(
+            "Could not launch configured Python follow-up {}", display_runner_path(target, working_directory)
+        )
         return False
     if result.returncode != 0:
-        logger.error("Follow-up {} returned {}", target, result.returncode)
+        logger.error("Follow-up {} returned {}", display_runner_path(target, working_directory), result.returncode)
     return result.returncode == 0
 
 
@@ -292,7 +295,9 @@ def main(argv: list[str] | None = None) -> int:
         if exporting:
             # Fixed TXT beside the copied wrapper, not an executable BAT file.
             destination = export_batch_commands(plan, run_settings, Path(__file__).absolute().with_suffix(".txt"))
-            logger.success("Editable commands exported to {}", destination)
+            logger.success(
+                "Editable commands exported to {}", display_runner_path(destination, run_settings.working_directory)
+            )
         if operation == "export_only":
             logger.success("Export-only: no solver processes, GPU scan or input checking.")
             return 0
@@ -317,7 +322,10 @@ def main(argv: list[str] | None = None) -> int:
         with CsvExecutionLog(log_path) as history:
             if requested_mode == "all":
                 history.reset()
-                logger.info("Run all: new CSV completion baseline recorded in {}.", log_path)
+                logger.info(
+                    "Run all: new CSV completion baseline recorded in {}.",
+                    display_runner_path(log_path, run_settings.working_directory),
+                )
             pending = select_pending(plan, identities, history.successful_keys())
             skipped = len(plan.runs) - len(pending.runs)
             if not pending.runs:
@@ -333,7 +341,7 @@ def main(argv: list[str] | None = None) -> int:
                     requested_mode.capitalize(),
                     len(pending.runs),
                     skipped,
-                    log_path,
+                    display_runner_path(log_path, run_settings.working_directory),
                 )
                 session = CompletionSession(history, identities)
                 advisory = None

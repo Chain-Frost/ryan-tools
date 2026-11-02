@@ -370,7 +370,12 @@ def prepare_plan(settings: RunnerSettings) -> CommandPlan:
             len(result.ignored_exclamations),
         )
         for ignored in result.ignored_exclamations:
-            logger.warning("Ignored {} '!' character(s) at {}:{}.", ignored.count, ignored.source, ignored.line)
+            logger.warning(
+                "Ignored {} '!' character(s) at {}:{}.",
+                ignored.count,
+                display_runner_path(ignored.source, settings.working_directory),
+                ignored.line,
+            )
     _warn_unusual_flag_values(result)
     return result
 
@@ -590,19 +595,24 @@ def _gpu_startup_message(groups: tuple[tuple[str, ...], ...]) -> None:
         logger.warning("At least one configured GPU group has no explicit device identifier.")
 
 
+def display_runner_path(value: str | PurePath, base: Path) -> str:
+    """Show project-relative paths without dereferencing links or changing I/O paths."""
+    filename, separator, layer = str(value).partition(" >> ")
+    path = Path(filename)
+    try:
+        shown = str(path.relative_to(base.absolute())) if path.is_absolute() else str(path)
+    except ValueError:
+        shown = str(path)
+    return f"{shown}{separator}{layer}"
+
+
 def _input_issue_message(issue: CommandPreflightIssue) -> str:
     """Describe one attributed input failure without changing launch policy."""
     run, finding = issue.run, issue.finding
     base = Path(run.working_directory).absolute()
 
     def display(value: str | PurePath) -> str:
-        filename, separator, layer = str(value).partition(" >> ")
-        path = Path(filename)
-        try:
-            shown = str(path.relative_to(base)) if path.is_absolute() else str(path)
-        except ValueError:
-            shown = str(path)
-        return f"{shown}{separator}{layer}"
+        return display_runner_path(value, base)
 
     flags = " ".join(f"-{key} {value}" for key, value in run.flag_pairs)
     selection = f" {flags}" if flags else ""
@@ -912,7 +922,17 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                     except Exception as exc:  # noqa: BLE001 - keep ownership after Popen succeeds
                         logger.warning("PID {} launched but process priority could not be set: {}", process.pid, exc)
                     logger.info(
-                        "Launched run {} ({} selected) PID {}: {}", run.index, len(plan.runs), process.pid, args
+                        "Launched run {} ({} selected) PID {}: {}",
+                        run.index,
+                        len(plan.runs),
+                        process.pid,
+                        subprocess.list2cmdline(
+                            [
+                                display_runner_path(args[0], settings.working_directory),
+                                *args[1:-1],
+                                display_runner_path(args[-1], settings.working_directory),
+                            ]
+                        ),
                     )
                     if dashboard is not None:
                         dashboard.mark_running(
