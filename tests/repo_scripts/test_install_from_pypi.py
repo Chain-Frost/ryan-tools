@@ -127,9 +127,7 @@ def test_pypi_dry_run_prints_checks_without_running_them(
     assert "no packages or validation capabilities were checked" in output
 
 
-def _wheel_bytes(
-    name: str, version: str, source: str, *, dependency: str = "", requires_python: str = ""
-) -> bytes:
+def _wheel_bytes(name: str, version: str, source: str, *, dependency: str = "", requires_python: str = "") -> bytes:
     metadata = f"Metadata-Version: 2.1\nName: {name}\nVersion: {version}\n"
     if dependency:
         metadata += f"Requires-Dist: {dependency}\n"
