@@ -1,0 +1,9 @@
+# Shared by normal package CI and PyPI publication's installed-wheel smoke test.
+pandas
+loguru
+openpyxl
+psutil
+rich
+colorama
+run-hy8>=2026.10.16.1
+ryan-culverts>=26.10.16.1

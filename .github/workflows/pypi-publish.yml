@@ -227,10 +227,10 @@ jobs:
           '@ | python -
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Install packaging tools
+      - name: Install packaging and smoke-test dependencies
         shell: pwsh
         run: |
-          python -m pip install --upgrade build setuptools wheel twine pandas loguru
+          python -m pip install --upgrade build setuptools wheel twine -r repo-scripts/wheel-smoke-requirements.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Build and verify current version
