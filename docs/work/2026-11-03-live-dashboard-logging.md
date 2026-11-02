@@ -8,7 +8,7 @@
 | Next review | 2026-11-04 |
 | Branch | `fix/live-dashboard-console-routing`, based on `b2b07da1` |
 | Pull request | [#191](https://github.com/Chain-Frost/ryan-tools/pull/191) |
-| Git delivery | Implementation committed as `3257de20` and pushed; documentation handoff follows in the same PR. |
+| Git delivery | Logging fix `3257de20`, handoff `96ce004c`, and selection/startup follow-up committed and pushed in PR #191. |
 | Next action | Run Ruff and CI on another system as requested, then review the PR; no merge or release authorised. |
 
 The reported copied runner uses wrapper 2026-11-01.5 and library 26.11.2.3.
@@ -50,3 +50,50 @@ No release or merge is authorised by the request to create a PR.
   and Ruff/CI on another system; those checks remain explicitly pending.
 - The local pytest cache directory is inaccessible; focused runs use a temporary
   cache outside the checkout and ignore failed `pytest-cache-files-*` entries.
+
+## Run selection follow-up
+
+The owner also reported that identical TCF names hide which event/scenario is
+running. The dashboard now shows a `Selection` column using the immutable run's
+flag/value pairs, for example `e1 01.0p e2 00030m s1 BigModel`. The model filename
+remains in a separate, ellipsized column. Flags are display text only: launch
+arguments, CSV identities and original Resume run numbers do not change.
+Runs without flags show `(no flags)`.
+
+The existing fake-process regression now verifies event/scenario selections in
+both active and completed rows, alongside the original sparse Resume index and
+TCF name. Focused runner/dashboard/logging tests pass **76 tests, 2 symlink-privilege
+skips**; strict Pyright on the changed runner and test passes with **0 errors,
+0 warnings**. Documentation and Loguru checks pass. The current 26.11.3.7 wheel
+was rebuilt and verified with `--no-bump --skip-pip` for this same PR. Ruff and CI remain
+deferred to another system at the owner's request.
+
+## Startup output follow-up
+
+Comparison with the pre-#159 runner confirmed that its `CoreParameters.dump()`
+and `dump_simulations_preview()` printed settings and every planned run. The shared
+planner now restores this output at INFO, including all effective runner settings,
+each unique run's original index, model arguments, TCF and source location. The
+heading explicitly says the preview is before Resume filtering and GPU assignment.
+Older copied wrappers receive this library behaviour without changing their settings.
+
+Wrapper 2026-11-03.2 additionally reports effective operation, continuation, export,
+input-check, console-level, pause and follow-up controls after CLI overrides. The
+clean external-GPU snapshot message is now SUCCESS, per owner request; incomplete
+or unknown inspections remain warnings. Execution and continuation are unchanged.
+
+Combined selection/startup checks: **145 passed, 2 Windows symlink-privilege skips**.
+The preview regression checks all 480 rows; copied-wrapper export-only checks cover
+source locations and effective controls, and the GPU test captures at SUCCESS level.
+Strict Pyright on all five additionally changed Python files passes. Compilation,
+source-wrapper help, documentation, Loguru policy and whitespace checks pass.
+Direct script help against the user's older installed package cannot use the new
+wrapper's `params.LOG`; validation uses matching checkout code and the rebuilt wheel,
+without upgrading the user's installation. Ruff and hosted CI remain external work.
+
+Final wheel verification and copied-wrapper smoke pass: installed the wheel without
+dependencies into a disposable target, confirmed that import location, ran `--help`
+and `--export-only --no-pause` on synthetic text input, and checked the full plan,
+effective controls and TXT export with no CSV history or solver launch. The user's
+normal Python installation is unchanged. Wheel SHA-256:
+`d027d669dab30719bd7faa93bf246f40d432de42fc10667930eeb4046f414fc0`.

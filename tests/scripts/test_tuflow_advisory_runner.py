@@ -228,11 +228,14 @@ def test_no_external_models_message_never_claims_overcapacity(
     monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", lambda: GpuOccupancySnapshot((), (), False))
     monkeypatch.setattr(runner, "_apply_priority", _no_op)
     config = settings(tmp_path)
-    caplog.set_level(logging.INFO)
+    caplog.set_level(logger.level("SUCCESS").no)
 
     def popen(**_kwargs: object) -> FakeProcess:
         return FakeProcess(123)
 
     runner.launch_plan(runner.prepare_plan(config), config, popen=popen)
     assert "No other running local TUFLOW models detected" in caplog.text
+    assert next(
+        record.levelno for record in caplog.records if "No other running local TUFLOW models detected" in record.message
+    ) == logger.level("SUCCESS").no
     assert "All configured GPU groups appear occupied" not in caplog.text

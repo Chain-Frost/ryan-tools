@@ -36,6 +36,20 @@ to avoid leaving partial panels in terminal scrollback. See the
 [logging guide](../../docs/LOGGING.md#live-dashboards-and-copied-wrappers).
 Library upgrades apply to the next Python process, not an active batch. For future
 unattended runs, `--no-live-dashboard` selects ordinary console logging.
+The dashboard's `Selection` column shows each run's event/scenario values, for
+example `e1 01.0p e2 00030m s1 BigModel`, alongside its original run number and
+TCF in the `Model` column. Selections remain visible in completed rows; long model
+names are shortened to give the selections room. Runs without flags show `(no flags)`.
+
+At `INFO` level, startup prints the effective runner settings and the complete
+deduplicated simulation plan, including every run's flags, TCF and source location.
+This preview is before Resume filtering and does not assign GPU slots; the subsequent
+Resume summary identifies how many runs are pending or already successful. The
+current wrapper also prints its effective operation, continuation, export, input-check,
+logging, pause and follow-up controls after CLI overrides. Use console level `SUCCESS`
+to suppress that detailed preview. A complete startup inspection that finds no other
+local TUFLOW models logs `No other running local TUFLOW models detected.` at `SUCCESS`;
+unknown assignments and incomplete inspection remain warnings.
 
 [`model_management/check_tuflow_inputs.py`](model_management/check_tuflow_inputs.py)
 checks every supported model input (including selected GeoPackage layers and

@@ -377,7 +377,46 @@ def prepare_plan(settings: RunnerSettings) -> CommandPlan:
                 ignored.line,
             )
     _warn_unusual_flag_values(result)
+    _log_plan_preview(result, settings)
     return result
+
+
+def _log_plan_preview(plan: CommandPlan, settings: RunnerSettings) -> None:
+    """Restore the startup settings and complete selection list before execution."""
+    values: tuple[tuple[str, object], ...] = (
+        ("WRAPPER", settings.wrapper_file),
+        ("WORKING_DIR", settings.working_directory),
+        ("TCF", settings.tcf),
+        ("TUFLOW_EXE", settings.executable),
+        ("MODE", settings.mode),
+        ("INPUT_FILES", settings.input_files),
+        ("RUN_VARIABLES", settings.run_variables),
+        ("BATCH_COMMANDS", settings.batch_commands),
+        ("PRIORITY_ORDER", settings.priority_order),
+        ("GPU_DEVICES", settings.gpu_devices or "automatic placement"),
+        ("CONCURRENT_SLOTS", len(settings.gpu_devices) or 1),
+        ("COMPUTATIONAL_PRIORITY", settings.computational_priority),
+        ("MINIMIZE_ON_LAUNCH", settings.minimize_on_launch),
+        ("WAIT_TIME_AFTER_RUN (seconds)", settings.wait_time_after_run),
+        ("USE_LIVE_DASHBOARD", settings.use_live_dashboard),
+        ("LIVE_REFRESH_PER_SECOND", settings.live_refresh_per_second),
+    )
+    logger.info("Runner settings:\n{}", "\n".join(f"  {name}: {value}" for name, value in values))
+    logger.info(
+        "Simulation plan: {} unique runs, {} duplicates discarded (before Resume filtering; GPU slots assigned at launch).",
+        len(plan.runs),
+        plan.duplicates_dropped,
+    )
+    for run in plan.runs:
+        source = display_runner_path(run.source, settings.working_directory)
+        if run.line_start:
+            source += f":{run.line_start}"
+            if run.line_end != run.line_start:
+                source += f"-{run.line_end}"
+        command = subprocess.list2cmdline(
+            [*model_arguments(run, include_gpu=False), display_runner_path(run.tcf, settings.working_directory)]
+        )
+        logger.info("Run {:03d}: {} | source {}", run.index, command, source)
 
 
 def _executable(run: PlannedRun, settings: RunnerSettings) -> str:
@@ -573,7 +612,7 @@ def _gpu_startup_message(groups: tuple[tuple[str, ...], ...]) -> None:
         logger.warning("Startup GPU inspection unavailable: {}; assignments are unknown.", exc)
         return
     if not snapshot.assigned and not snapshot.unknown_pids and not snapshot.inspection_incomplete:
-        logger.info("No other running local TUFLOW models detected.")
+        logger.success("No other running local TUFLOW models detected.")
     assigned = {identifier for process in snapshot.assigned for identifier in process.gpu_ids}
     capacity = [tuple(sorted(gpu_ids_from_flags(group))) for group in groups]
     configured_ids: set[int] = {identifier for group in capacity for identifier in group}
@@ -871,15 +910,16 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
             transient=False,
             columns=(
                 WorkflowColumn("Run", "metadata", metadata_key="run_index", justify="right", no_wrap=True),
-                WorkflowColumn("Model", "label"),
+                WorkflowColumn("Selection", "label"),
+                WorkflowColumn("Model", "metadata", metadata_key="model", no_wrap=True, overflow="ellipsis"),
                 WorkflowColumn("Status", "status", no_wrap=True),
                 WorkflowColumn("Duration", "duration", no_wrap=True),
                 WorkflowColumn("Detail", "detail"),
             ),
         )
         dashboard.set_tasks(
-            labels=[run.tcf.name for run in plan.runs],
-            metadata=[{"run_index": run.index} for run in plan.runs],
+            labels=[" ".join(f"{key} {value}" for key, value in run.flag_pairs) or "(no flags)" for run in plan.runs],
+            metadata=[{"run_index": run.index, "model": run.tcf.name} for run in plan.runs],
         )
     with dashboard if dashboard is not None else nullcontext():
         try:
