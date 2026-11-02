@@ -114,6 +114,7 @@ def test_pypi_dry_run_prints_checks_without_running_them(
         pytest.fail("A dry run must not execute installation or verification commands")
 
     monkeypatch.setattr(subprocess, "run", unexpected_command)
+
     def unsupported_python(_major: int, _minor: int) -> bool:
         return False
 
