@@ -2,12 +2,14 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Locally validated; PR delivery and external Ruff/CI pending |
+| Status | Draft PR #191 published; external Ruff/CI pending |
 | Owner | ChatGPT |
 | Created / Updated | 2026-11-03 |
 | Next review | 2026-11-04 |
 | Branch | `fix/live-dashboard-console-routing`, based on `b2b07da1` |
-| Next action | Open the bug-fix PR; run Ruff and CI on another system as requested. |
+| Pull request | [#191](https://github.com/Chain-Frost/ryan-tools/pull/191) |
+| Git delivery | Implementation committed as `3257de20` and pushed; documentation handoff follows in the same PR. |
+| Next action | Run Ruff and CI on another system as requested, then review the PR; no merge or release authorised. |
 
 The reported copied runner uses wrapper 2026-11-01.5 and library 26.11.2.3.
 The shared renderer did not change between that version and the initially inspected
