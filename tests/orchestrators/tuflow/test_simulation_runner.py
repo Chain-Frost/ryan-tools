@@ -972,7 +972,9 @@ def test_shared_dashboard_shows_middle_active_run_and_original_resume_index(
     assert rendered
     assert "250" in rendered[0]
     assert "RUNNING" in rendered[0]
-    assert "e1" in rendered[0] and "e2" in rendered[0] and "s1" in rendered[0]
+    assert "e1" in rendered[0]
+    assert "e2" in rendered[0]
+    assert "s1" in rendered[0]
     assert "250 00030m BigModel" in " ".join(rendered[0].split())
     assert plan.runs[0].tcf.name in rendered[0]
     assert gpu_text in rendered[0]

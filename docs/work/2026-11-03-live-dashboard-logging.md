@@ -2,14 +2,14 @@
 
 | Field | Value |
 | --- | --- |
-| Status | PR #191 merged; presentation follow-up validated locally, new PR pending |
+| Status | PR #192 open; presentation validated locally, hosted checks running |
 | Owner | ChatGPT |
 | Created / Updated | 2026-11-03 |
 | Next review | 2026-11-04 |
 | Branch | `fix/tuflow-output-presentation`, based on `31f898de` |
-| Pull request | [#191](https://github.com/Chain-Frost/ryan-tools/pull/191) |
-| Git delivery | Logging fix `3257de20`, handoff `96ce004c`, selection/startup `1c586fb2`, and GPU/batch display follow-up delivered in PR #191. |
-| Next action | Open the new presentation PR and verify hosted Ruff/CI; no merge or release authorised. |
+| Pull request | [#192](https://github.com/Chain-Frost/ryan-tools/pull/192), following merged [#191](https://github.com/Chain-Frost/ryan-tools/pull/191) |
+| Git delivery | PR #191 merged as `31f898de`; presentation follow-up committed and pushed as `0963ece6` in PR #192. |
+| Next action | Verify PR #192 hosted Ruff/CI, then review; no merge or release authorised. |
 
 The reported copied runner uses wrapper 2026-11-01.5 and library 26.11.2.3.
 The shared renderer did not change between that version and the initially inspected
@@ -151,5 +151,5 @@ Local Ruff execution is blocked by Windows (WinError 5); hosted formatting/CI
 remains pending. No new MCP surface: existing runner presentation only.
 
 Implementation is in a separate temporary worktree to preserve the user's
-pre-existing main-checkout pyproject.toml version edit. Changes are uncommitted
-pending PR preparation. Next review: 2026-11-04.
+pre-existing main-checkout pyproject.toml version edit. Changes are committed and pushed in [PR #192](https://github.com/Chain-Frost/ryan-tools/pull/192);
+hosted checks are running on `0963ece6`. Documentation and whitespace checks pass. Next review: 2026-11-04.
