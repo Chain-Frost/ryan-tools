@@ -106,7 +106,9 @@ def _settings(arguments: argparse.Namespace) -> RunnerSettings:
     selected_mode = runner_user_inputs.choice(
         "MODE", arguments.mode if arguments.mode is not None else MODE, params.SRC
     )
-    configured_tcf = None if arguments.no_tcf else (arguments.tcf if arguments.tcf is not None else globals().get("TCF"))
+    configured_tcf = (
+        None if arguments.no_tcf else (arguments.tcf if arguments.tcf is not None else globals().get("TCF"))
+    )
     selected_inputs = tuple(arguments.input_file) if arguments.input_file is not None else INPUT_FILES
     if selected_mode is not params.SRC.TEXTFILES and "RUN_VARIABLES_RAW" not in globals():
         message = "RUN_VARIABLES_RAW must be defined for generated parameter_product/both runs."
