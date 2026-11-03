@@ -17,7 +17,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-20.2"
+WRAPPER_VERSION = "2026-11-03.1"
 
 DEFAULT_LOG_ROOT = Path(os.environ.get("ProgramData", r"C:\ProgramData")) / "TUFLOW" / "log"
 DEFAULT_RECENT_HOURS = 24.0

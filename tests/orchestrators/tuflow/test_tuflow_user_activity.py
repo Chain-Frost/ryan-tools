@@ -656,6 +656,11 @@ def test_live_tsf_values_are_reported_only_for_active_start(tmp_path: Path) -> N
     assert "21.500h" in rendered
     assert "48.000h" in rendered
     assert "44.8%" in rendered
+    assert rendered.index("SELECTED SIMULATION STARTS") < rendered.index("ACTIVE CODEMETER TUFLOW PROCESSES")
+    assert rendered.index("ACTIVE CODEMETER TUFLOW PROCESSES") < rendered.index(
+        "CODEMETER CURRENT LICENCE UTILISATION"
+    )
+    assert rendered.rstrip().endswith("No CodeMeter product quantities were found.")
 
 
 def test_tsf_timestamp_predating_start_is_not_reported(tmp_path: Path) -> None:

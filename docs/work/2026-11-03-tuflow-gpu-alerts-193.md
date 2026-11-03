@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active; implementation pushed, hosted validation pending |
+| Status | Active; implementation and report-order update ready for PR delivery; two-GPU validation pending |
 | Owner | ChatGPT |
 | Created | 2026-11-03 |
 | Updated | 2026-11-03 |
@@ -25,8 +25,8 @@ physical GPU ID.
 
 ## Next action
 
-Update the PR description and verify exact-head hosted Ruff, strict Pyright and CI. Licensed two-GPU execution remains
-the follow-up described by the committed future-agent prompt.
+Run the committed hardware prompt on a machine with two compatible GPUs and two available CodeMeter GPU licences.
+Verify exact-head hosted Ruff, strict Pyright and CI after each final PR push.
 
 ## Completion criteria
 
@@ -45,12 +45,15 @@ the follow-up described by the committed future-agent prompt.
 - 2026-11-03: compileall, benchmark smoke, Loguru formatting policy, documentation/index validation and `git diff
   --check` passed.
 - 2026-11-03: five local and five CodeMeter benchmark samples plus one unavailable-CodeMeter observation recorded.
-- Ruff and Pyright executables: blocked by Windows `PermissionError [WinError 5]`; exact-head hosted checks pending.
+- Ruff and Pyright executables: blocked by Windows `PermissionError [WinError 5]`; hosted Ruff identified one benchmark
+  type-union ordering issue, which was corrected in `b29f8c2b`; exact-head hosted checks rerun after subsequent pushes.
 - No-bump package build reached the QGIS style inventory and stopped because the isolated worktree lacked a materialized
   `qgis-resources` checkout. The optional resource clone was stopped and package verification dropped at user request.
 - MCP exposure assessed: no catalogue change; this is an existing wrapper behavior change plus a maintainer benchmark.
-- Implementation and prompt committed as `e0863cc4` and pushed to the existing PR #193 branch. No merge or publication.
-- PR description update and exact-head hosted checks: pending.
+- Implementation and prompt committed as `e0863cc4`; handoff record as `f3c8bf40`; benchmark lint correction as
+  `b29f8c2b`. All were pushed to the existing PR #193 branch. No merge or publication.
+- PR description updated with the two-GPU handoff and validation evidence. Exact-head hosted checks remain the delivery
+  gate after the final report-order push.
 
 ## Progress
 
@@ -64,3 +67,7 @@ two-GPU/two-licence agent session and prepared it for delivery in PR #193.
 
 Committed and pushed the implementation, benchmark, evidence and future hardware prompt as `e0863cc4`. The partial
 isolated `qgis-resources` clone remains outside the commit and has no parent-repository delivery effect.
+
+Reordered the user-activity report so inferred log/TLF groups appear first, active CodeMeter processes follow, and the
+authoritative current CodeMeter licence-utilisation table is the final output group. Focused activity-report validation
+passed with 17 tests; compileall, documentation/index validation, Loguru policy and `git diff --check` also passed.

@@ -820,77 +820,7 @@ def render_activity_report(  # noqa: C901
             "another model's completion does not affect it."
         ),
         report.selection_summary,
-        "",
-        "CODEMETER CURRENT LICENCE UTILISATION",
     ]
-
-    if report.codemeter is None:
-        lines.append("CodeMeter data unavailable or disabled.")
-    elif report.codemeter.products:
-        lines.extend(
-            _table(
-                (
-                    (
-                        str(product.product_code),
-                        product.name,
-                        str(product.used),
-                        str(product.total),
-                        str(product.available),
-                    )
-                    for product in report.codemeter.products
-                ),
-                headers=("CODE", "LICENCE", "USED", "TOTAL", "AVAILABLE"),
-            )
-        )
-    else:
-        lines.append("No CodeMeter product quantities were found.")
-
-    lines.extend(("", "ACTIVE CODEMETER TUFLOW PROCESSES"))
-    if report.codemeter_processes:
-        process_rows: list[tuple[str, ...]] = []
-        for process in report.codemeter_processes:
-            simulation = process.simulation
-            process_rows.append(
-                (
-                    process.user,
-                    str(process.process_id or "-"),
-                    process.first_access.strftime("%Y-%m-%d %H:%M:%S") if process.first_access else "-",
-                    process.last_access.strftime("%Y-%m-%d %H:%M:%S") if process.last_access else "-",
-                    simulation.inspection.gpu_device_ids if simulation else "-",
-                    simulation.status if simulation else "UNMATCHED",
-                    _format_sim_hours(
-                        simulation.progress.model_time_hours if simulation and simulation.progress else None
-                    ),
-                    _format_sim_hours(
-                        simulation.progress.end_time_hours if simulation and simulation.progress else None
-                    ),
-                    _format_sim_percent(
-                        simulation.progress.percentage_complete if simulation and simulation.progress else None
-                    ),
-                    simulation.record.model if simulation else "(no matching recent start)",
-                    ", ".join(f"{item.product_code}:H{item.handle_id}" for item in process.allocations),
-                )
-            )
-        lines.extend(
-            _table(
-                process_rows,
-                headers=(
-                    "USER",
-                    "PID",
-                    "FIRST ACCESS",
-                    "LAST ACCESS",
-                    "GPU ID",
-                    "TLF STATUS",
-                    "SIM TIME",
-                    "SIM END",
-                    "PROGRESS",
-                    "MODEL",
-                    "LICENCE:HANDLE",
-                ),
-            )
-        )
-    else:
-        lines.append("No active CodeMeter TUFLOW allocations were found.")
 
     lines.extend(("", "SELECTED SIMULATION STARTS"))
     if report.starts:
@@ -1043,4 +973,73 @@ def render_activity_report(  # noqa: C901
         lines.extend(("", "WARNINGS"))
         lines.extend(f"WARNING: {warning}" for warning in warnings)
     lines.extend(("", "This report is read-only and is not proof that a TUFLOW process is still running."))
+
+    lines.extend(("", "ACTIVE CODEMETER TUFLOW PROCESSES"))
+    if report.codemeter_processes:
+        process_rows: list[tuple[str, ...]] = []
+        for process in report.codemeter_processes:
+            simulation = process.simulation
+            process_rows.append(
+                (
+                    process.user,
+                    str(process.process_id or "-"),
+                    process.first_access.strftime("%Y-%m-%d %H:%M:%S") if process.first_access else "-",
+                    process.last_access.strftime("%Y-%m-%d %H:%M:%S") if process.last_access else "-",
+                    simulation.inspection.gpu_device_ids if simulation else "-",
+                    simulation.status if simulation else "UNMATCHED",
+                    _format_sim_hours(
+                        simulation.progress.model_time_hours if simulation and simulation.progress else None
+                    ),
+                    _format_sim_hours(
+                        simulation.progress.end_time_hours if simulation and simulation.progress else None
+                    ),
+                    _format_sim_percent(
+                        simulation.progress.percentage_complete if simulation and simulation.progress else None
+                    ),
+                    simulation.record.model if simulation else "(no matching recent start)",
+                    ", ".join(f"{item.product_code}:H{item.handle_id}" for item in process.allocations),
+                )
+            )
+        lines.extend(
+            _table(
+                process_rows,
+                headers=(
+                    "USER",
+                    "PID",
+                    "FIRST ACCESS",
+                    "LAST ACCESS",
+                    "GPU ID",
+                    "TLF STATUS",
+                    "SIM TIME",
+                    "SIM END",
+                    "PROGRESS",
+                    "MODEL",
+                    "LICENCE:HANDLE",
+                ),
+            )
+        )
+    else:
+        lines.append("No active CodeMeter TUFLOW allocations were found.")
+
+    lines.extend(("", "CODEMETER CURRENT LICENCE UTILISATION"))
+    if report.codemeter is None:
+        lines.append("CodeMeter data unavailable or disabled.")
+    elif report.codemeter.products:
+        lines.extend(
+            _table(
+                (
+                    (
+                        str(product.product_code),
+                        product.name,
+                        str(product.used),
+                        str(product.total),
+                        str(product.available),
+                    )
+                    for product in report.codemeter.products
+                ),
+                headers=("CODE", "LICENCE", "USED", "TOTAL", "AVAILABLE"),
+            )
+        )
+    else:
+        lines.append("No CodeMeter product quantities were found.")
     return "\n".join(lines)

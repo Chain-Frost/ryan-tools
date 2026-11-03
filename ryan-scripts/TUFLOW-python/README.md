@@ -504,6 +504,8 @@ The `MODEL` column displays the full filename rather than truncating it at 48 ch
 TLF paths in the final section can be opened from terminal hyperlinks. Windows Terminal receives OSC 8 links
 automatically where supported; VS Code's terminal can usually Ctrl+click the plain Windows paths through its native
 file-link detection. Use `--hyperlinks` to force OSC 8 links, or `--no-hyperlinks` to print plain paths.
+The report prints inferred log and TLF activity first, followed by active CodeMeter processes, and finishes with the
+authoritative current CodeMeter licence-utilisation table.
 Redirected output and other non-OSC terminals get plain readable paths by default.
 
 By default, the wrapper also reads local CodeMeter WebAdmin at `http://localhost:22352`. It reports current TUFLOW
