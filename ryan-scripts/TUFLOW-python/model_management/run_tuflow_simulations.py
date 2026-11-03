@@ -53,7 +53,7 @@ LIVE_REFRESH_PER_SECOND = 1.0
 CONSOLE_LOG_LEVEL: params.LogLevel = params.LOG.INFO
 WAIT_TIME_AFTER_RUN = 2.0  # Seconds between launches (>=0). Example: 0.5. Does not change GPU slots.
 PAUSE_ON_FINISH = True  # Pause interactively on finish; --no-pause forces False, --pause forces True.
-WRAPPER_VERSION = "2026-11-03.1"
+WRAPPER_VERSION = "2026-11-03.2"
 
 import argparse
 import signal
@@ -292,6 +292,22 @@ def main(argv: list[str] | None = None) -> int:
         )
         if operation == "export_only":
             exporting = True
+        effective_checks = CHECK_INPUTS if arguments.preflight is None else arguments.preflight
+        if operation == "preflight_only":
+            effective_checks = True
+        elif operation == "export_only":
+            effective_checks = False
+        logger.info(
+            "Run controls:\n  OPERATION: {}\n  CONTINUATION_MODE: {}\n  EXPORT_COMMANDS: {}"
+            "\n  CHECK_INPUTS: {}\n  CONSOLE_LOG_LEVEL: {}\n  PAUSE_ON_FINISH: {}\n  NEXT_RUN_FILE: {}",
+            operation,
+            requested_mode,
+            exporting,
+            effective_checks,
+            log_level.upper(),
+            (arguments.pause or PAUSE_ON_FINISH is True) and not arguments.no_pause,
+            NEXT_RUN_FILE,
+        )
         if exporting:
             # Fixed TXT beside the copied wrapper, not an executable BAT file.
             destination = export_batch_commands(plan, run_settings, Path(__file__).absolute().with_suffix(".txt"))

@@ -95,6 +95,14 @@ def minimum_log_level(*levels: str) -> str:
     return min(normalized_levels, key=lambda level: logger.level(level).no)
 
 
+def _write_stdout(message: str) -> None:
+    """Follow temporary stdout redirection, including Rich's live display proxy."""
+    # A captured stream bypasses Live when logging is configured before it starts.
+    stream = sys.stdout
+    stream.write(message)
+    stream.flush()
+
+
 def _add_console_sink(
     *,
     level: str,
@@ -104,7 +112,7 @@ def _add_console_sink(
 ) -> None:
     """Install the standard stdout sink."""
     logger.add(
-        sink=sys.stdout if sink is None else sink,
+        sink=_write_stdout if sink is None else sink,
         level=normalize_log_level(level),
         format=format_string or (FORWARDED_CONSOLE_FORMAT if forwarded else CONSOLE_FORMAT),
         colorize=CONSOLE_COLORIZE,
@@ -165,7 +173,8 @@ def configure_serial_logging(
         console_log_level: Minimum console level.
         log_file: Optional file-sink path.
         file_log_level: Minimum file level when ``log_file`` is supplied.
-        console_sink: Optional console writer, for example one using Rich's redirected stdout.
+        console_sink: Optional console writer. By default, follow current stdout so
+            Rich Live can clear and redraw around messages even when started later.
         console_format: Optional console-only format; file formatting is unchanged.
     """
     if LoguruMultiprocessingLogger.has_active_context():

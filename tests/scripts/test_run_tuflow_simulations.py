@@ -67,7 +67,7 @@ def _source(path: Path) -> Path:
 
 
 def test_configured_export_only_operation_and_cli_override(
-    tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     module = sys.modules["tested_runner_wrapper"]
     source = _source(tmp_path)
@@ -80,6 +80,14 @@ def test_configured_export_only_operation_and_cli_override(
     monkeypatch.setattr(module, "launch_plan", forbid)
     args = ["--mode", "textfiles", "--input-file", str(source), "--no-tcf", "--no-pause"]
     assert wrapper.main(args) == 0
+    output = capsys.readouterr().out
+    assert "OPERATION: export_only" in output
+    assert "EXPORT_COMMANDS: True" in output
+    assert "CHECK_INPUTS: False" in output
+    assert "PAUSE_ON_FINISH: False" in output
+    assert "Simulation plan: 1 unique runs" in output
+    assert "Run 001: -b -e1 A" in output
+    assert "source models.bat:1" in output
     assert Path(wrapper.__file__).with_suffix(".txt").is_file()
     assert not Path(wrapper.__file__).with_name("run_tuflow_simulations_runs.csv").exists()
 

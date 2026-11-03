@@ -842,8 +842,35 @@ def test_export_rechecks_destination_alias_before_atomic_replacement(
     assert not tuple(tmp_path.glob(".*.tmp"))
 
 
+def test_plan_preview_lists_all_runs_and_effective_settings(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level("INFO")
+    config = settings(
+        tmp_path,
+        run_variables={"e1": [str(i) for i in range(1, 481)], "e2": ["00030m"]},
+        gpu_devices=(("-pu0",), ("-pu1",)),
+    )
+    plan = runner.prepare_plan(config)
+    output = caplog.text
+    assert "Runner settings:" in output
+    assert "GPU_DEVICES: (('-pu0',), ('-pu1',))" in output
+    assert "CONCURRENT_SLOTS: 2" in output
+    assert "WAIT_TIME_AFTER_RUN (seconds): 0" in output
+    assert "Simulation plan: 480 unique runs" in output
+    assert "before Resume filtering; GPU slots assigned at launch" in output
+    rows = [record.message for record in caplog.records if record.message.startswith("Run ")]
+    assert len(rows) == len(plan.runs) == 480
+    assert "Run 001: -b -e1 1 -e2 00030m" in rows[0]
+    assert "Run 480: -b -e1 480 -e2 00030m" in rows[-1]
+    assert f"source {config.wrapper_file.name}" in rows[-1]
+    assert not list(tmp_path.glob("*_runs.csv"))
+
+
+@pytest.mark.parametrize(
+    ("gpu_devices", "gpu_text"),
+    [((), "Auto"), ((("-pu0",),), "-pu0"), ((("-pu0", "-pu1"),), "-pu0 -pu1")],
+)
 def test_shared_dashboard_shows_middle_active_run_and_original_resume_index(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, gpu_devices: tuple[tuple[str, ...], ...], gpu_text: str
 ) -> None:
     from collections.abc import Sequence
 
@@ -851,7 +878,13 @@ def test_shared_dashboard_shows_middle_active_run_and_original_resume_index(
 
     from ryan_library.functions import live_dashboard
 
-    config = settings(tmp_path, run_variables={"e1": [str(i) for i in range(1, 401)]}, use_live_dashboard=True)
+    config = settings(
+        tmp_path,
+        run_variables={"e1": [str(i) for i in range(1, 401)], "e2": ["00030m"], "s1": ["BigModel"]},
+        use_live_dashboard=True,
+        gpu_devices=gpu_devices,
+        batch_commands="-b -t -pu9",
+    )
     full = runner.prepare_plan(config)
     plan = replace(full, runs=full.runs[100:])
     rendered: list[str] = []
@@ -860,13 +893,23 @@ def test_shared_dashboard_shows_middle_active_run_and_original_resume_index(
     actual_type = live_dashboard.LiveWorkflowDashboard
 
     def display(
-        *, title: str, refresh_per_second: float, transient: bool, columns: Sequence[live_dashboard.WorkflowColumn]
+        *,
+        title: str,
+        subtitle: str,
+        refresh_per_second: float,
+        transient: bool,
+        columns: Sequence[live_dashboard.WorkflowColumn],
     ) -> live_dashboard.LiveWorkflowDashboard:
         assert transient is False
         result = actual_type(
-            title=title, refresh_per_second=refresh_per_second, transient=transient, columns=columns, enabled=False
+            title=title,
+            subtitle=subtitle,
+            refresh_per_second=refresh_per_second,
+            transient=transient,
+            columns=columns,
+            enabled=False,
         )
-        result.console = Console(file=StringIO(), record=True, width=100, height=25, color_system=None)
+        result.console = Console(file=StringIO(), record=True, width=160, height=25, color_system=None)
         displays.append(result)
         return result
 
@@ -897,6 +940,20 @@ def test_shared_dashboard_shows_middle_active_run_and_original_resume_index(
     assert rendered
     assert "250" in rendered[0]
     assert "RUNNING" in rendered[0]
+    assert "e1 250 e2 00030m s1 BigModel" in rendered[0]
+    assert plan.runs[0].tcf.name in rendered[0]
+    assert gpu_text in rendered[0]
+    assert "Batch: -b -t" in rendered[0]
+    assert "-pu9" not in rendered[0]
+    # The same selected values remain visible after a run finishes.
+    dashboard = displays[0]
+    render = cast(Callable[[], RenderableType], getattr(dashboard, "_render"))  # noqa: B009
+    dashboard.console.print(render())
+    completed = dashboard.console.export_text()
+    assert "e1 400 e2 00030m s1 BigModel" in completed
+    assert "OK" in completed
+    assert gpu_text in completed
+    assert "Batch: -b -t" in completed
 
 
 def test_imported_start_executable_and_directory_never_control_launch(tmp_path: Path) -> None:

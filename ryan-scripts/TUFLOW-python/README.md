@@ -30,6 +30,33 @@ prints `Input check passed for N/N runs.` above the live table. Findings are
 WARNING messages. Runner log output uses time, level and the message, without
 internal function names; single-line source locations show one line number.
 
+The library's default serial logger also supports the live dashboard in older copied
+runner wrappers. Launch/completion messages must pass through Rich's redirected stdout
+to avoid leaving partial panels in terminal scrollback. See the
+[logging guide](../../docs/LOGGING.md#live-dashboards-and-copied-wrappers).
+Library upgrades apply to the next Python process, not an active batch. For future
+unattended runs, `--no-live-dashboard` selects ordinary console logging.
+The dashboard's `Selection` column shows each run's event/scenario values, for
+example `e1 01.0p e2 00030m s1 BigModel`, alongside its original run number and
+TCF in the `Model` column. Selections remain visible in completed rows; long model
+names are shortened to give the selections room. Runs without flags show `(no flags)`.
+The `GPU` column shows the group actually assigned at launch, such as `-pu0` or
+`-pu0 -pu1`, and retains it after completion. `Auto` means TUFLOW chooses placement;
+queued rows say `Pending`, and launch failures say `Not launched`. The dashboard
+footer keeps the effective batch flags visible, for example `Batch: -b -t`.
+GPU switches embedded in `BATCH_COMMANDS` are excluded because runtime GPU groups
+control launches; the startup settings still show the configured value and warning.
+
+At `INFO` level, startup prints the effective runner settings and the complete
+deduplicated simulation plan, including every run's flags, TCF and source location.
+This preview is before Resume filtering and does not assign GPU slots; the subsequent
+Resume summary identifies how many runs are pending or already successful. The
+current wrapper also prints its effective operation, continuation, export, input-check,
+logging, pause and follow-up controls after CLI overrides. Use console level `SUCCESS`
+to suppress that detailed preview. A complete startup inspection that finds no other
+local TUFLOW models logs `No other running local TUFLOW models detected.` at `SUCCESS`;
+unknown assignments and incomplete inspection remain warnings.
+
 [`model_management/check_tuflow_inputs.py`](model_management/check_tuflow_inputs.py)
 checks every supported model input (including selected GeoPackage layers and
 boundary CSV headers), without running TUFLOW. Its terminal report separates the
