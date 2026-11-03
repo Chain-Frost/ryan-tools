@@ -23,7 +23,7 @@ import psutil
 from ryan_library.functions.tuflow.codemeter import fetch_codemeter_snapshot
 from ryan_library.functions.tuflow.gpu_occupancy import local_gpu_occupancy
 
-type JsonValue = None | bool | int | float | str | list[JsonValue] | JsonObject
+type JsonValue = bool | int | float | str | list[JsonValue] | JsonObject | None
 type JsonObject = dict[str, JsonValue]
 
 
