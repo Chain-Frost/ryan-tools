@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active |
+| Status | Active; implementation pushed, hosted validation pending |
 | Owner | ChatGPT |
 | Created | 2026-11-03 |
 | Updated | 2026-11-03 |
@@ -25,8 +25,8 @@ physical GPU ID.
 
 ## Next action
 
-Review the final diff, commit and push the PR branch, update the PR description, then verify exact-head hosted Ruff,
-strict Pyright and CI.
+Update the PR description and verify exact-head hosted Ruff, strict Pyright and CI. Licensed two-GPU execution remains
+the follow-up described by the committed future-agent prompt.
 
 ## Completion criteria
 
@@ -49,7 +49,8 @@ strict Pyright and CI.
 - No-bump package build reached the QGIS style inventory and stopped because the isolated worktree lacked a materialized
   `qgis-resources` checkout. The optional resource clone was stopped and package verification dropped at user request.
 - MCP exposure assessed: no catalogue change; this is an existing wrapper behavior change plus a maintainer benchmark.
-- Commit/push and PR description: pending.
+- Implementation and prompt committed as `e0863cc4` and pushed to the existing PR #193 branch. No merge or publication.
+- PR description update and exact-head hosted checks: pending.
 
 ## Progress
 
@@ -60,3 +61,6 @@ local and five CodeMeter measurements on the one-GPU workstation, plus CodeMeter
 no physical GPU identifier; a separate TLF correlation reported GPU 0 for the shared PID. Two-GPU licensed scenarios
 remain outstanding and are documented without fabricated results. Added a standalone copy-ready prompt for the future
 two-GPU/two-licence agent session and prepared it for delivery in PR #193.
+
+Committed and pushed the implementation, benchmark, evidence and future hardware prompt as `e0863cc4`. The partial
+isolated `qgis-resources` clone remains outside the commit and has no parent-repository delivery effect.
