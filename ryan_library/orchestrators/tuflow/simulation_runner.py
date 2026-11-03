@@ -83,6 +83,7 @@ class RunnerSettings:
     wait_time_after_run: float = 2.0
     use_live_dashboard: bool = True
     live_refresh_per_second: float = 1.0
+    live_max_rows: int = 10
 
 
 @dataclass(frozen=True, slots=True)
@@ -191,6 +192,9 @@ def _validate_settings(settings: RunnerSettings) -> tuple[str, ...]:
         raise CommandPlanError(message)
     if settings.wait_time_after_run < 0 or settings.live_refresh_per_second <= 0:
         message = "Launch delay must be nonnegative and dashboard refresh must be positive"
+        raise CommandPlanError(message)
+    if isinstance(settings.live_max_rows, bool) or not isinstance(settings.live_max_rows, int) or settings.live_max_rows < 1:
+        message = "Dashboard row limit must be a positive integer (>=1)"
         raise CommandPlanError(message)
     if not settings.working_directory.is_absolute():
         message = "The configured working directory must be absolute"
@@ -402,6 +406,7 @@ def _log_plan_preview(plan: CommandPlan, settings: RunnerSettings) -> None:
         ("WAIT_TIME_AFTER_RUN (seconds)", settings.wait_time_after_run),
         ("USE_LIVE_DASHBOARD", settings.use_live_dashboard),
         ("LIVE_REFRESH_PER_SECOND", settings.live_refresh_per_second),
+        ("LIVE_MAX_ROWS", settings.live_max_rows),
     )
     baseline = RunnerSettings(
         wrapper_file=settings.wrapper_file,
@@ -421,6 +426,7 @@ def _log_plan_preview(plan: CommandPlan, settings: RunnerSettings) -> None:
             "MINIMIZE_ON_LAUNCH",
             "USE_LIVE_DASHBOARD",
             "LIVE_REFRESH_PER_SECOND",
+            "LIVE_MAX_ROWS",
         )
     }
     defaults.update(
@@ -943,6 +949,7 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
             subtitle="Batch: "
             + (" ".join(flag for flag in shlex.split(settings.batch_commands) if not is_gpu_switch(flag)) or "(none)"),
             refresh_per_second=settings.live_refresh_per_second,
+            max_rows=settings.live_max_rows,
             transient=False,
             columns=(
                 WorkflowColumn("Run", "metadata", metadata_key="run_index", justify="right", no_wrap=True),
