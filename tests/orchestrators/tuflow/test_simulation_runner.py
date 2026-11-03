@@ -942,10 +942,12 @@ def test_shared_dashboard_shows_middle_active_run_and_original_resume_index(
         title: str,
         subtitle: str,
         refresh_per_second: float,
+        max_rows: int,
         transient: bool,
         columns: Sequence[live_dashboard.WorkflowColumn],
     ) -> live_dashboard.LiveWorkflowDashboard:
         assert transient is False
+        assert max_rows == config.live_max_rows == 10
         assert [column.header for column in columns] == [
             "Run",
             "e1",
@@ -963,6 +965,7 @@ def test_shared_dashboard_shows_middle_active_run_and_original_resume_index(
             title=title,
             subtitle=subtitle,
             refresh_per_second=refresh_per_second,
+            max_rows=max_rows,
             transient=transient,
             columns=columns,
             enabled=False,
