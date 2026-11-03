@@ -598,14 +598,15 @@ def test_busy_gpu_group_is_not_used_when_another_slot_is_free(
 
 @pytest.mark.parametrize("uncertainty", ["unknown", "incomplete", "error"])
 def test_gpu_guard_does_not_assume_uncertain_gpu_is_free(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, uncertainty: str
+    monkeypatch: pytest.MonkeyPatch, uncertainty: str
 ) -> None:
     from ryan_library.functions.tuflow import gpu_occupancy
 
     def inspect(*, exclude_pids: object = ()) -> GpuOccupancySnapshot:
         del exclude_pids
         if uncertainty == "error":
-            raise OSError("Access denied")
+            message = "Access denied"
+            raise OSError(message)
         return GpuOccupancySnapshot((), (42,) if uncertainty == "unknown" else (), uncertainty == "incomplete")
 
     monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
@@ -648,6 +649,7 @@ def test_explicitly_disabled_gpu_wait_preserves_warning_only_launch(
     monkeypatch.setattr(runner, "_apply_priority", _no_op)
 
     def inspect(*, exclude_pids: object = ()) -> GpuOccupancySnapshot:
+        del exclude_pids
         pytest.fail("GPU scheduling inspection ran even though WAIT_FOR_AVAILABLE_GPU is False")
 
     monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)

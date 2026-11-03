@@ -186,6 +186,16 @@ def _validate_gpu_groups(groups: tuple[tuple[str, ...], ...]) -> None:
         assigned_gpu_ids.update(group_ids)
 
 
+def _validate_gpu_wait_settings(settings: RunnerSettings) -> None:
+    """Validate optional GPU-scheduling controls independently of plan complexity."""
+    if type(settings.wait_for_available_gpu) is not bool:
+        message = "WAIT_FOR_AVAILABLE_GPU must be True or False"
+        raise CommandPlanError(message)
+    if not math.isfinite(settings.gpu_check_interval_seconds) or settings.gpu_check_interval_seconds <= 0:
+        message = "GPU_CHECK_INTERVAL_SECONDS must be a finite positive number"
+        raise CommandPlanError(message)
+
+
 def _validate_settings(settings: RunnerSettings) -> tuple[str, ...]:
     if settings.mode not in {"parameter_product", "textfiles", "both"}:
         message = f"Invalid runner mode: {settings.mode}"
@@ -199,12 +209,7 @@ def _validate_settings(settings: RunnerSettings) -> tuple[str, ...]:
     if type(settings.live_max_rows) is not int or settings.live_max_rows < 1:
         message = "Dashboard row limit must be a positive integer (>=1)"
         raise CommandPlanError(message)
-    if type(settings.wait_for_available_gpu) is not bool:
-        message = "WAIT_FOR_AVAILABLE_GPU must be True or False"
-        raise CommandPlanError(message)
-    if not math.isfinite(settings.gpu_check_interval_seconds) or settings.gpu_check_interval_seconds <= 0:
-        message = "GPU_CHECK_INTERVAL_SECONDS must be a finite positive number"
-        raise CommandPlanError(message)
+    _validate_gpu_wait_settings(settings)
     if not settings.working_directory.is_absolute():
         message = "The configured working directory must be absolute"
         raise CommandPlanError(message)
