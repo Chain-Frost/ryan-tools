@@ -606,7 +606,11 @@ def test_gpu_guard_does_not_assume_uncertain_gpu_is_free(monkeypatch: pytest.Mon
 
     monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
     groups = (("-pu0",), ("-pu1",))
-    blocked, reason = runner._blocked_external_gpu_slots(groups, exclude_pids=set())
+    inspect_gpu_slots = cast(
+        Callable[..., tuple[frozenset[int], str]],
+        getattr(runner, "_blocked_external_gpu_slots"),  # noqa: B009 - test a private scheduler policy
+    )
+    blocked, reason = inspect_gpu_slots(groups, exclude_pids=set())
     assert blocked == frozenset({0, 1})
     assert reason
 
@@ -648,7 +652,10 @@ def test_explicitly_disabled_gpu_wait_preserves_warning_only_launch(
         pytest.fail("GPU scheduling inspection ran even though WAIT_FOR_AVAILABLE_GPU is False")
 
     monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
-    outcome = runner.launch_plan(plan, config, popen=lambda **_kwargs: FakeProcess(123))
+    def popen(**_options: object) -> FakeProcess:
+        return FakeProcess(123)
+
+    outcome = runner.launch_plan(plan, config, popen=popen)
     assert outcome.successful
 
 

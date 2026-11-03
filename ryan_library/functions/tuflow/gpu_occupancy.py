@@ -53,8 +53,8 @@ def local_gpu_occupancy(*, exclude_pids: Collection[int] = ()) -> GpuOccupancySn
 
     TUFLOW runs without explicit -puN switches are returned as unknown,
     because their GPU assignment cannot safely be inferred from a command line.
-    The caller owns snapshot timing; the simulation runner requests one startup
-    snapshot. No TUFLOW or CodeMeter is launched.
+    The caller owns snapshot timing. A guarded simulation runner can poll this
+    read-only function before dispatch. No TUFLOW or CodeMeter is launched.
     """
     excluded = set(exclude_pids)
     assigned: list[TuflowGpuProcess] = []

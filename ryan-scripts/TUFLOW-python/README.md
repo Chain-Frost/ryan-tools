@@ -169,7 +169,7 @@ cannot direct launches. First occurrences are kept; duplicate model selections
 are discarded. For example, `BATCH_COMMANDS = "-b -t -nlc"` applies to
 both generated and imported runs; an imported `-x` does not override it.
 
-`GPU_DEVICES` **alone controls concurrency**: `"-pu1"` assigns one GPU
+`GPU_DEVICES` sets the **maximum configured concurrency**; the GPU availability guard may temporarily reduce active slots: `"-pu1"` assigns one GPU
 to one slot; `["-pu0", "-pu1"]` makes two simultaneous single-GPU slots;
 `[["-pu0", "-pu1"], "-pu2"]` makes two slots, one using GPUs 0+1 and one
 using GPU 2. Legacy nested tuples such as `(("-pu0",), ("-pu1",))`
