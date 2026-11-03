@@ -27,6 +27,8 @@ from typing import TYPE_CHECKING, Literal, Protocol, cast
 
 from loguru import logger
 
+from ...functions.loguru_helpers import log_settings
+
 if TYPE_CHECKING:
     from ...functions.live_dashboard import LiveWorkflowDashboard
     from .command_preflight import CommandPreflightIssue
@@ -401,7 +403,34 @@ def _log_plan_preview(plan: CommandPlan, settings: RunnerSettings) -> None:
         ("USE_LIVE_DASHBOARD", settings.use_live_dashboard),
         ("LIVE_REFRESH_PER_SECOND", settings.live_refresh_per_second),
     )
-    logger.info("Runner settings:\n{}", "\n".join(f"  {name}: {value}" for name, value in values))
+    baseline = RunnerSettings(
+        wrapper_file=settings.wrapper_file,
+        working_directory=settings.working_directory,
+        executable=settings.executable,
+        tcf=settings.tcf,
+    )
+    defaults: dict[str, object] = {
+        name: getattr(baseline, name.lower())
+        for name in (
+            "MODE",
+            "INPUT_FILES",
+            "RUN_VARIABLES",
+            "BATCH_COMMANDS",
+            "PRIORITY_ORDER",
+            "COMPUTATIONAL_PRIORITY",
+            "MINIMIZE_ON_LAUNCH",
+            "USE_LIVE_DASHBOARD",
+            "LIVE_REFRESH_PER_SECOND",
+        )
+    }
+    defaults.update(
+        {
+            "GPU_DEVICES": "automatic placement",
+            "CONCURRENT_SLOTS": 1,
+            "WAIT_TIME_AFTER_RUN (seconds)": baseline.wait_time_after_run,
+        }
+    )
+    log_settings("Runner settings", dict(values), defaults)
     logger.info(
         "Simulation plan: {} unique runs, {} duplicates discarded (before Resume filtering; GPU slots assigned at launch).",
         len(plan.runs),
@@ -819,12 +848,15 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
     interrupted: Event | None = None,
     popen: _ProcessFactory | None = None,
     advisory: AdvisoryInputCheck | None = None,
+    proposed_plan: CommandPlan | None = None,
 ) -> BatchOutcome:
     """Launch each immutable occurrence once, with its own cwd and argv.
 
     The prelaunch hook is called before Popen; the completion hook is called
     immediately when poll observes exit, *before* ordered console output.
     The hooks provide scope 04's append-only START/FINISH integration point.
+    proposed_plan supplies the complete pre-Resume selection for dashboard columns;
+    only plan is launched. Omit it when plan already contains all proposed runs.
     """
     if not plan.runs:
         message = "No selected simulations to launch"
@@ -905,6 +937,7 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
     if settings.use_live_dashboard:
         from ...functions.live_dashboard import LiveWorkflowDashboard, WorkflowColumn
 
+        flag_keys = sorted({key for run in (proposed_plan or plan).runs + plan.runs for key, _ in run.flag_pairs})
         dashboard = LiveWorkflowDashboard(
             title="TUFLOW simulations",
             subtitle="Batch: "
@@ -913,7 +946,7 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
             transient=False,
             columns=(
                 WorkflowColumn("Run", "metadata", metadata_key="run_index", justify="right", no_wrap=True),
-                WorkflowColumn("Selection", "label"),
+                *(WorkflowColumn(key, "metadata", metadata_key=key) for key in flag_keys),
                 WorkflowColumn("Model", "metadata", metadata_key="model", no_wrap=True, overflow="ellipsis"),
                 WorkflowColumn("Status", "status", no_wrap=True),
                 WorkflowColumn("GPU", "metadata", metadata_key="gpu", no_wrap=True),
@@ -923,7 +956,9 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
         )
         dashboard.set_tasks(
             labels=[" ".join(f"{key} {value}" for key, value in run.flag_pairs) or "(no flags)" for run in plan.runs],
-            metadata=[{"run_index": run.index, "model": run.tcf.name, "gpu": "Pending"} for run in plan.runs],
+            metadata=[
+                {"run_index": run.index, "model": run.tcf.name, "gpu": "Pending", **run.flags} for run in plan.runs
+            ],
         )
     with dashboard if dashboard is not None else nullcontext():
         try:

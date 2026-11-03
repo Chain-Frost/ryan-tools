@@ -12,7 +12,7 @@ import pickle
 import sys
 import threading
 import traceback
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from multiprocessing import Process, Queue
 from pathlib import Path
 from types import TracebackType
@@ -101,6 +101,27 @@ def _write_stdout(message: str) -> None:
     stream = sys.stdout
     stream.write(message)
     stream.flush()
+
+
+def log_settings(title: str, values: Mapping[str, object], defaults: Mapping[str, object]) -> None:
+    """Log settings at INFO: grey defaults, cyan changes/required values, plain file text.
+
+    The baseline is explicit and independent of editable or CLI-selected values.
+    Nonempty mappings are displayed one entry per line in insertion order.
+    Values remain format arguments so user text cannot inject Loguru colour tags.
+    """
+    formats = ["{}:"]
+    arguments: list[str] = [title]
+    for name, value in values.items():
+        style = "<light-black>{}</light-black>" if name in defaults and value == defaults[name] else "<cyan>{}</cyan>"
+        if isinstance(value, Mapping) and value:
+            mapping = cast(Mapping[object, object], value)
+            text = f"  {name}: {{\n" + "\n".join(f"    {key!r}: {item!r}," for key, item in mapping.items()) + "\n  }"
+        else:
+            text = f"  {name}: {value}"
+        formats.append(style)
+        arguments.append(text)
+    logger.opt(colors=True).info("\n".join(formats), *arguments)
 
 
 def _add_console_sink(
