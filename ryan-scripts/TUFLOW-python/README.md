@@ -178,9 +178,28 @@ or tuple is a group of GPUs assigned to that one slot. An empty `[]`, `()` or `N
 `MAXIMUM_CONCURRENT`. GPU tokens must match `-puN` (N is a
 nonnegative integer); malformed tokens such as `-pu0,1`, empty
 groups and repeated GPU IDs are rejected before export or launch.
-GPU occupancy is checked once at execution startup; the scheduler
-tracks its own children and does not rescan CodeMeter, TLF or TSF
-activity.
+By default, `WAIT_FOR_AVAILABLE_GPU = True` checks other **local** TUFLOW
+processes before assigning a configured GPU slot. If another run is using
+one of that slot's GPUs, the slot is excluded until it becomes available;
+other available configured slots continue launching. When all slots are
+blocked, no queued model starts and the runner rechecks every
+`GPU_CHECK_INTERVAL_SECONDS = 60.0` seconds. A completed owned child
+also triggers a fresh check before another model is assigned. A group
+such as `[["-pu0", "-pu1"]]` requires **both** GPUs to be free.
+
+The check uses running TUFLOW process command lines (`-puN`) and excludes
+children already tracked by this runner. CodeMeter licence allocations
+do not reliably identify the local GPU number; this is **GPU occupancy**
+protection, not a guarantee that a separate CodeMeter licence is available.
+Unknown GPU assignments, incomplete inspection or inspection failures
+conservatively block all explicit GPU slots until the next successful
+check. Ctrl+C interrupts the wait. To revert to warning-only startup
+inspection use `WAIT_FOR_AVAILABLE_GPU = False` or
+`--no-wait-for-available-gpu`. Override the polling interval with
+`--gpu-check-interval 60` (positive seconds). Automatic placement
+(`GPU_DEVICES = []`) cannot be mapped to a specific GPU: the runner warns
+and retains the original one-slot behaviour. Export-only and preflight-only
+do not perform this waiting or polling.
 
 The wrapper rejects malformed settings with explicit names and examples:
 unsupported enum choices, invalid path types/extensions, blank or

@@ -34,6 +34,10 @@ RUN_VARIABLES_RAW: dict[str, str | list[str]] = {
 # GPU_DEVICES = [["-pu0", "-pu1"]]          # 1 slot using both GPUs
 # None, [] or () gives one automatic-placement slot; GPU IDs cannot repeat.
 GPU_DEVICES: params.GPUS = "-pu0"
+# Exclude GPU groups used by other local TUFLOW processes; wait rather than launching on a busy GPU.
+# Poll once per minute when blocked. Automatic GPU selection cannot be checked reliably.
+WAIT_FOR_AVAILABLE_GPU = True
+GPU_CHECK_INTERVAL_SECONDS = 60.0
 INPUT_FILES: params.InputFiles = []  # BAT/TXT sources for "textfiles"/"both"; Example: ["runs1.bat", "runs2.txt"] or "runs1.bat".
 # "parameter_product": generate combinations; "textfiles": import inert
 # BAT/CMD/TXT selections; "both": imported first, then generated. Equivalent
@@ -60,7 +64,7 @@ LIVE_MAX_ROWS = 10  # Maximum task rows shown at once; all runs still execute an
 CONSOLE_LOG_LEVEL: params.LogLevel = params.LOG.INFO
 WAIT_TIME_AFTER_RUN = 2.0  # Seconds between launches (>=0). Example: 0.5. Does not change GPU slots.
 PAUSE_ON_FINISH = True  # Pause interactively on finish; --no-pause forces False, --pause forces True.
-WRAPPER_VERSION = "2026-11-03.4"
+WRAPPER_VERSION = "2026-11-03.5"
 
 import argparse
 import signal
@@ -135,6 +139,10 @@ def _settings(arguments: argparse.Namespace) -> RunnerSettings:
     runner_user_inputs.boolean("PAUSE_ON_FINISH", PAUSE_ON_FINISH)
     runner_user_inputs.boolean("MINIMIZE_ON_LAUNCH", MINIMIZE_ON_LAUNCH)
     runner_user_inputs.boolean("USE_LIVE_DASHBOARD", USE_LIVE_DASHBOARD)
+    wait_for_gpu = runner_user_inputs.boolean(
+        "WAIT_FOR_AVAILABLE_GPU",
+        arguments.wait_for_available_gpu if arguments.wait_for_available_gpu is not None else WAIT_FOR_AVAILABLE_GPU,
+    )
     return RunnerSettings(
         wrapper_file=Path(__file__).absolute(),
         working_directory=directory,
@@ -146,6 +154,12 @@ def _settings(arguments: argparse.Namespace) -> RunnerSettings:
         batch_commands=selected_batch_commands,
         priority_order=runner_user_inputs.priority_order(PRIORITY_ORDER),
         gpu_devices=runner_user_inputs.gpu_groups(GPU_DEVICES),
+        wait_for_available_gpu=wait_for_gpu,
+        gpu_check_interval_seconds=runner_user_inputs.finite_number(
+            "GPU_CHECK_INTERVAL_SECONDS",
+            arguments.gpu_check_interval if arguments.gpu_check_interval is not None else GPU_CHECK_INTERVAL_SECONDS,
+            positive=True,
+        ),
         computational_priority=selected_priority.value,
         minimize_on_launch=MINIMIZE_ON_LAUNCH,
         wait_time_after_run=runner_user_inputs.finite_number(
@@ -485,6 +499,15 @@ def _arguments(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--live-refresh-per-second", type=float, help="Override dashboard refresh rate (>0).")
     parser.add_argument("--live-max-rows", type=int, help="Maximum dashboard task rows shown at once (>=1).")
     parser.add_argument("--launch-delay", type=float, help="Seconds between launches (>=0).")
+    parser.add_argument(
+        "--wait-for-available-gpu",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Wait for explicitly configured GPUs used by other local TUFLOW processes.",
+    )
+    parser.add_argument(
+        "--gpu-check-interval", type=float, help="Seconds between external GPU checks while blocked (>0)."
+    )
     parser.add_argument("--pause", action="store_true", help="Pause interactively at the end.")
     parsed = parser.parse_args(argv)
     if parsed.pause and parsed.no_pause:

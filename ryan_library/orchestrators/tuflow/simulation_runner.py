@@ -8,6 +8,7 @@ This module neither changes the process working directory nor exits/pauses.
 from __future__ import annotations
 
 import itertools
+import math
 import os
 import re
 import shlex
@@ -78,6 +79,8 @@ class RunnerSettings:
     batch_commands: str = "-b"
     priority_order: str | None = None
     gpu_devices: tuple[tuple[str, ...], ...] = ()
+    wait_for_available_gpu: bool = True
+    gpu_check_interval_seconds: float = 60.0
     computational_priority: str = "LOW"
     minimize_on_launch: bool = True
     wait_time_after_run: float = 2.0
@@ -195,6 +198,12 @@ def _validate_settings(settings: RunnerSettings) -> tuple[str, ...]:
         raise CommandPlanError(message)
     if type(settings.live_max_rows) is not int or settings.live_max_rows < 1:
         message = "Dashboard row limit must be a positive integer (>=1)"
+        raise CommandPlanError(message)
+    if type(settings.wait_for_available_gpu) is not bool:
+        message = "WAIT_FOR_AVAILABLE_GPU must be True or False"
+        raise CommandPlanError(message)
+    if not math.isfinite(settings.gpu_check_interval_seconds) or settings.gpu_check_interval_seconds <= 0:
+        message = "GPU_CHECK_INTERVAL_SECONDS must be a finite positive number"
         raise CommandPlanError(message)
     if not settings.working_directory.is_absolute():
         message = "The configured working directory must be absolute"
@@ -400,6 +409,8 @@ def _log_plan_preview(plan: CommandPlan, settings: RunnerSettings) -> None:
         ("BATCH_COMMANDS", settings.batch_commands),
         ("PRIORITY_ORDER", settings.priority_order),
         ("GPU_DEVICES", settings.gpu_devices or "automatic placement"),
+        ("WAIT_FOR_AVAILABLE_GPU", settings.wait_for_available_gpu),
+        ("GPU_CHECK_INTERVAL_SECONDS", settings.gpu_check_interval_seconds),
         ("CONCURRENT_SLOTS", len(settings.gpu_devices) or 1),
         ("COMPUTATIONAL_PRIORITY", settings.computational_priority),
         ("MINIMIZE_ON_LAUNCH", settings.minimize_on_launch),
@@ -427,6 +438,8 @@ def _log_plan_preview(plan: CommandPlan, settings: RunnerSettings) -> None:
             "USE_LIVE_DASHBOARD",
             "LIVE_REFRESH_PER_SECOND",
             "LIVE_MAX_ROWS",
+            "WAIT_FOR_AVAILABLE_GPU",
+            "GPU_CHECK_INTERVAL_SECONDS",
         )
     }
     defaults.update(
@@ -635,6 +648,42 @@ def export_batch_commands(plan: CommandPlan, settings: RunnerSettings, destinati
         if temporary is not None:
             temporary.unlink(missing_ok=True)
     return target
+
+
+def _blocked_external_gpu_slots(
+    groups: tuple[tuple[str, ...], ...], *, exclude_pids: set[int]
+) -> tuple[frozenset[int], str]:
+    """Find unavailable configured GPU groups without treating uncertainty as free.
+
+    CodeMeter reports licence allocations, but not a reliable GPU ID mapping.
+    Local TUFLOW process command lines provide explicit -puN assignments.
+    Our own children are excluded; their slots are already tracked separately.
+    """
+    from ...functions.tuflow.gpu_occupancy import gpu_ids_from_flags, local_gpu_occupancy
+
+    all_slots = frozenset(range(len(groups)))
+    try:
+        snapshot = local_gpu_occupancy(exclude_pids=exclude_pids)
+    except Exception as exc:  # noqa: BLE001 - inspection uncertainty must not launch on a possibly busy GPU
+        return all_slots, f"Local TUFLOW process inspection failed: {exc}"
+    if snapshot.inspection_incomplete or snapshot.unknown_pids:
+        reasons: list[str] = []
+        if snapshot.unknown_pids:
+            reasons.append(f"TUFLOW GPU assignment unknown for PIDs {snapshot.unknown_pids}")
+        if snapshot.inspection_incomplete:
+            reasons.append("local process inspection incomplete")
+        return all_slots, "; ".join(reasons)
+
+    blocked: set[int] = set()
+    conflicts: list[str] = []
+    for index, group in enumerate(groups):
+        selected = gpu_ids_from_flags(group)
+        for process in snapshot.assigned:
+            overlap = selected.intersection(process.gpu_ids)
+            if overlap:
+                blocked.add(index)
+                conflicts.append(f"PID {process.pid} using GPU(s) {sorted(overlap)}")
+    return frozenset(blocked), "; ".join(dict.fromkeys(conflicts))
 
 
 def _gpu_startup_message(groups: tuple[tuple[str, ...], ...]) -> None:
@@ -883,6 +932,9 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
     outcomes: list[RunOutcome] = []
     ordered: dict[int, RunOutcome] = {}
     next_print = 0
+    blocked_external_slots: frozenset[int] = frozenset()
+    next_gpu_check = 0.0
+    gpu_status: str | None = "Checking" if settings.wait_for_available_gpu and groups else None
     has_configured_gpu = any(is_gpu_switch(token) for run in plan.runs for token in run.arguments)
     has_source_priority = any(run.start_options for run in plan.runs)
     if has_configured_gpu:
@@ -891,7 +943,19 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
         logger.info("Imported START priority/minimise/wait hints are replaced by runner scheduling settings.")
     if stop.is_set():
         return BatchOutcome(tuple(plan.runs), (), True)
-    _gpu_startup_message(groups)
+    if gpu_status is not None:
+        logger.info(
+            "Waiting for external GPU availability is enabled for {} configured group(s); recheck interval {}s.",
+            len(groups),
+            settings.gpu_check_interval_seconds,
+        )
+    else:
+        if settings.wait_for_available_gpu and not groups:
+            logger.warning(
+                "WAIT_FOR_AVAILABLE_GPU cannot protect automatic GPU placement. "
+                "Configure explicit -puN GPU_DEVICES to enable guarded scheduling."
+            )
+        _gpu_startup_message(groups)
 
     dashboard: LiveWorkflowDashboard | None = None
     # Resume keeps the original logical indices. The renderer owns separate,
@@ -972,16 +1036,48 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
             while queue or active:
                 if advisory is not None:
                     advisory.drain()
-                    if dashboard is not None:
-                        dashboard.set_extra_metrics({"Input checks": advisory.status})
                 if dashboard is not None:
+                    metrics: dict[str, object] = {}
+                    if advisory is not None:
+                        metrics["Input checks"] = advisory.status
+                    if gpu_status is not None:
+                        metrics["GPU slots"] = gpu_status
+                    if metrics:
+                        dashboard.set_extra_metrics(metrics)
                     dashboard.refresh()
                 if stop.is_set():
                     break
-                poll_children()
+                if poll_children() and gpu_status is not None:
+                    next_gpu_check = 0.0
                 while queue and len(active) < capacity and not stop.is_set():
-                    slot = next((i for i in range(len(groups)) if i not in owned_slots), None) if groups else None
+                    if gpu_status is not None and time.monotonic() >= next_gpu_check:
+                        blocked, reason = _blocked_external_gpu_slots(
+                            groups, exclude_pids={child.process.pid for child in active}
+                        )
+                        if blocked:
+                            labels = [" ".join(groups[index]) for index in sorted(blocked)]
+                            logger.warning(
+                                "GPU group(s) {} unavailable ({}). Remaining GPU slots may run; rechecking in {}s.",
+                                labels,
+                                reason,
+                                settings.gpu_check_interval_seconds,
+                            )
+                        elif blocked_external_slots:
+                            logger.success("Previously occupied GPU groups are now available.")
+                        blocked_external_slots = blocked
+                        gpu_status = f"{len(groups) - len(blocked)}/{len(groups)} external-clear"
+                        next_gpu_check = time.monotonic() + settings.gpu_check_interval_seconds
+                    slot = (
+                        next(
+                            (i for i in range(len(groups)) if i not in owned_slots and i not in blocked_external_slots),
+                            None,
+                        )
+                        if groups
+                        else None
+                    )
                     if groups and slot is None:
+                        break
+                    if stop.is_set():
                         break
                     run = queue.popleft()
                     group = groups[slot] if slot is not None else ()
@@ -1031,9 +1127,13 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                         dashboard.refresh(force=True)
                     if queue and settings.wait_time_after_run:
                         time.sleep(settings.wait_time_after_run)
-                    poll_children()
+                    if poll_children() and gpu_status is not None:
+                        next_gpu_check = 0.0
                 if active:
                     time.sleep(0.1)
+                elif queue and gpu_status is not None:
+                    # No owned children: wait interruptibly instead of spinning while external GPUs are occupied.
+                    stop.wait(min(0.1, max(0.0, next_gpu_check - time.monotonic())))
             if stop.is_set():
                 logger.warning("Batch interrupted. Terminating owned child processes.")
                 _stop_children(active)

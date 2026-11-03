@@ -108,6 +108,8 @@ def test_editable_settings_and_cli_precedence(
     monkeypatch.setattr(module, "USE_LIVE_DASHBOARD", True)
     monkeypatch.setattr(module, "LIVE_REFRESH_PER_SECOND", 1.0)
     monkeypatch.setattr(module, "LIVE_MAX_ROWS", 10)
+    monkeypatch.setattr(module, "WAIT_FOR_AVAILABLE_GPU", True)
+    monkeypatch.setattr(module, "GPU_CHECK_INTERVAL_SECONDS", 60.0)
     monkeypatch.setattr(module, "WAIT_TIME_AFTER_RUN", 2.0)
     parse_arguments = cast(
         Callable[[list[str]], argparse.Namespace],
@@ -125,6 +127,9 @@ def test_editable_settings_and_cli_precedence(
             "0.5",
             "--live-max-rows",
             "4",
+            "--no-wait-for-available-gpu",
+            "--gpu-check-interval",
+            "0.25",
             "--launch-delay",
             "0",
             "--working-directory",
@@ -136,6 +141,8 @@ def test_editable_settings_and_cli_precedence(
     assert settings.use_live_dashboard is False
     assert settings.live_refresh_per_second == 0.5
     assert settings.live_max_rows == 4
+    assert settings.wait_for_available_gpu is False
+    assert settings.gpu_check_interval_seconds == 0.25
     assert settings.wait_time_after_run == 0
     assert args.preflight is False
     with pytest.raises(SystemExit) as invalid:
@@ -270,6 +277,9 @@ def test_blank_editable_paths_are_rejected(
         ("NEXT_RUN_FILE", "next_batch.txt"),
         ("BATCH_COMMANDS", ["-b"]),
         ("WAIT_TIME_AFTER_RUN", -1),
+        ("WAIT_FOR_AVAILABLE_GPU", "False"),
+        ("GPU_CHECK_INTERVAL_SECONDS", 0),
+        ("GPU_CHECK_INTERVAL_SECONDS", float("nan")),
         ("LIVE_REFRESH_PER_SECOND", 0),
         ("LIVE_REFRESH_PER_SECOND", float("nan")),
         ("LIVE_MAX_ROWS", 0),

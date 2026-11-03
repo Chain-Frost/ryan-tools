@@ -48,6 +48,7 @@ def settings(base: Path, **changes: object) -> runner.RunnerSettings:
         run_variables={"e1": ["A", "B"]},
         batch_commands="-b",
         wait_time_after_run=0,
+        wait_for_available_gpu=False,  # Existing lifecycle tests deliberately exclude external scheduling.
         use_live_dashboard=False,
     )
     return replace(initial, **changes)
@@ -524,6 +525,134 @@ def test_per_child_directory_argument_list_and_runtime_gpu_policy(
     assert all(sum(arg.startswith("-pu") for arg in args) == 1 for args, _ in launched)
     assert {arg for args, _ in launched for arg in args if arg.startswith("-pu")} == {"-pu2", "-pu3"}
     assert len(snapshots) == 1
+
+
+
+def test_waits_until_selected_gpu_is_externally_free(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from ryan_library.functions.tuflow import gpu_occupancy
+    from ryan_library.functions.tuflow.gpu_occupancy import TuflowGpuProcess
+
+    config = settings(
+        tmp_path,
+        run_variables={"e1": ["A"]},
+        gpu_devices=(("-pu0",),),
+        wait_for_available_gpu=True,
+        gpu_check_interval_seconds=0.01,
+    )
+    plan = runner.prepare_plan(config)
+    snapshots = [
+        GpuOccupancySnapshot((TuflowGpuProcess(999, frozenset({0})),), (), False),
+        GpuOccupancySnapshot((), (), False),
+    ]
+    checked: list[object] = []
+
+    def inspect(*, exclude_pids: object = ()) -> GpuOccupancySnapshot:
+        checked.append(exclude_pids)
+        return snapshots.pop(0) if snapshots else GpuOccupancySnapshot((), (), False)
+
+    def popen(*, args: list[str], **_options: object) -> FakeProcess:
+        assert len(checked) >= 2  # No launch on the first, occupied snapshot.
+        assert "-pu0" in args
+        return FakeProcess(123)
+
+    monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    outcome = runner.launch_plan(plan, config, popen=popen)
+    assert outcome.successful
+    assert len(checked) >= 2
+
+
+def test_busy_gpu_group_is_not_used_when_another_slot_is_free(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from ryan_library.functions.tuflow import gpu_occupancy
+    from ryan_library.functions.tuflow.gpu_occupancy import TuflowGpuProcess
+
+    config = settings(
+        tmp_path,
+        run_variables={"e1": ["A", "B", "C"]},
+        gpu_devices=(("-pu0", "-pu1"), ("-pu2",)),
+        wait_for_available_gpu=True,
+        gpu_check_interval_seconds=0.01,
+    )
+    plan = runner.prepare_plan(config)
+    checked: list[set[int]] = []
+    launched: list[list[str]] = []
+
+    def inspect(*, exclude_pids: set[int]) -> GpuOccupancySnapshot:
+        checked.append(set(exclude_pids))
+        return GpuOccupancySnapshot((TuflowGpuProcess(999, frozenset({1})),), (), False)
+
+    def popen(*, args: list[str], **_options: object) -> FakeProcess:
+        launched.append(args)
+        return FakeProcess(100 + len(launched))
+
+    monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    outcome = runner.launch_plan(plan, config, popen=popen)
+    assert outcome.successful
+    assert len(launched) == 3
+    assert checked
+    assert all("-pu2" in args and "-pu0" not in args and "-pu1" not in args for args in launched)
+
+
+@pytest.mark.parametrize("uncertainty", ["unknown", "incomplete", "error"])
+def test_gpu_guard_does_not_assume_uncertain_gpu_is_free(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, uncertainty: str
+) -> None:
+    from ryan_library.functions.tuflow import gpu_occupancy
+
+    def inspect(*, exclude_pids: object = ()) -> GpuOccupancySnapshot:
+        del exclude_pids
+        if uncertainty == "error":
+            raise OSError("Access denied")
+        return GpuOccupancySnapshot((), (42,) if uncertainty == "unknown" else (), uncertainty == "incomplete")
+
+    monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
+    groups = (("-pu0",), ("-pu1",))
+    blocked, reason = runner._blocked_external_gpu_slots(groups, exclude_pids=set())
+    assert blocked == frozenset({0, 1})
+    assert reason
+
+
+def test_external_gpu_wait_is_interruptible_without_launch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from ryan_library.functions.tuflow import gpu_occupancy
+    from ryan_library.functions.tuflow.gpu_occupancy import TuflowGpuProcess
+
+    config = settings(tmp_path, gpu_devices=(("-pu0",),), wait_for_available_gpu=True)
+    plan = runner.prepare_plan(config)
+    stop = Event()
+
+    def inspect(*, exclude_pids: object = ()) -> GpuOccupancySnapshot:
+        del exclude_pids
+        stop.set()
+        return GpuOccupancySnapshot((TuflowGpuProcess(321, frozenset({0})),), (), False)
+
+    def popen(**_options: object) -> FakeProcess:
+        pytest.fail("The runner launched while a GPU was occupied or after interruption")
+
+    monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
+    outcome = runner.launch_plan(plan, config, interrupted=stop, popen=popen)
+    assert outcome.interrupted
+    assert not outcome.outcomes
+
+
+def test_explicitly_disabled_gpu_wait_preserves_warning_only_launch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from ryan_library.functions.tuflow import gpu_occupancy
+
+    config = settings(tmp_path, gpu_devices=(("-pu0",),), wait_for_available_gpu=False)
+    plan = runner.prepare_plan(config)
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+
+    def inspect(*, exclude_pids: object = ()) -> GpuOccupancySnapshot:
+        pytest.fail("GPU scheduling inspection ran even though WAIT_FOR_AVAILABLE_GPU is False")
+
+    monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
+    outcome = runner.launch_plan(plan, config, popen=lambda **_kwargs: FakeProcess(123))
+    assert outcome.successful
 
 
 @pytest.mark.parametrize(
