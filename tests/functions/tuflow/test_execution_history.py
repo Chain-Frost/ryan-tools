@@ -130,7 +130,7 @@ def test_existing_internal_first_column_order_remains_appendable(tmp_path: Path)
     with path.open(encoding="utf-8", newline="") as source:
         rows = list(csv.DictReader(source))
     with path.open("w", encoding="utf-8", newline="") as destination:
-        writer = csv.DictWriter(destination, fieldnames=legacy_columns, lineterminator="\n")
+        writer: csv.DictWriter[str] = csv.DictWriter(destination, fieldnames=legacy_columns, lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
 

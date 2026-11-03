@@ -119,3 +119,9 @@ test files. Applied the exact formatter output; ASTs are unchanged. The affected
 101 tests with 2 symlink skips, strict Pyright passed on all three files, and the no-bump wheel rebuilt/verified
 (SHA-256 `1d9864663d0b14c54a1a7ab952c2b2f156b16d9464b10191ee8965645d2f3243`). The preceding installed-wheel smoke remains behavioral evidence
 for the identical ASTs. No repeat solver execution is needed for these formatting-only changes.
+
+Final-head Ruff/whitespace passed at `b7bb9814`; Package, MCP smoke and POSIX security also passed. Hosted strict
+Pyright then exposed intentional private-state access in the dashboard unit tests and overly narrow CSV key
+inference in the legacy-history fixture. Documented the test-only private-access exception and annotated the
+CSV writer with string keys. All 14 PR-changed Python files now pass local strict Pyright; 31 affected tests pass.
+These test-only annotations do not require another wheel or solver run. Hosted checks rerun on the follow-up.

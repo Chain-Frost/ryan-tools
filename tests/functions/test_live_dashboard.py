@@ -1,5 +1,8 @@
 """Tests for ryan_library.functions.live_dashboard."""
 
+# These unit tests intentionally inspect internal rendering and task state.
+# pyright: reportPrivateUsage=false
+
 from io import StringIO
 
 from rich.console import Console
