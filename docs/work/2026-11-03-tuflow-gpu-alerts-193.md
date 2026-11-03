@@ -2,12 +2,12 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active; implementation and report-order update ready for PR delivery; two-GPU validation pending |
+| Status | Needs review; licensed hardware evidence complete within recorded scope; hosted validation tracked in PR |
 | Owner | ChatGPT |
 | Created | 2026-11-03 |
-| Updated | 2026-11-03 |
-| Next review | 2026-11-04 |
-| Baseline | PR #193 branch `fix/tuflow-textfile-optional-settings-rows`; remote head `8ca3a8bc`; isolated worktree `Q:\BGER\PER\RPRT\temp\ryan-tools-pr193-gpu-alerts` |
+| Updated | 2026-11-04 |
+| Next review | 2026-11-05 |
+| Baseline | PR #193; scheduler tested at `b29f8c2b`, integrated remote `efeff949`; isolated `ryan-tools-pr193-two-gpu` worktree |
 
 ## Outcome and scope
 
@@ -17,16 +17,22 @@ hardware observations separately from synthetic evidence. Do not merge or publis
 
 ## Current state
 
-Implementation, synthetic tests, benchmark harness, measured one-GPU evidence and the future-agent hardware prompt are
-complete locally. The development workstation has only one TUFLOW-capable GPU and its one observed GPU licence is in
-use by another user's running model, which was not interrupted. Licensed two-GPU execution remains a named external
-validation dependency. Current read-only observations confirm that CodeMeter reports a GPU licence and PID but not a
-physical GPU ID.
+Licensed two-GPU execution on a second workstation is now recorded in
+[the validation report](../TUFLOW_GPU_CODEMETER_VALIDATION.md#licensed-two-gpu-observations-on-2026-11-0304).
+RTX 3090/3080 hardware, two available paid GPU licences, reversed TUFLOW/nvidia-smi numbering, concurrent runs,
+external occupancy, real 60-second recovery, grouped placement, unknown assignment and cancellation were exercised.
+CodeMeter endpoint failure was tested without stopping the licence service. All test solvers exited and allocations
+returned to zero. The one-GPU observations below remain historical evidence from the earlier machine.
+
+A strict benchmark JSON annotation was corrected without changing its output. Incoming remote history/report changes
+through `efeff949` were fast-forwarded and preserved. Local Ruff remains blocked by Windows; hosted checks are required.
+Native keyboard interrupt delivery, a real licence-service restart and interactive terminal visual inspection remain
+explicit scope limits, rather than claimed results.
 
 ## Next action
 
-Run the committed hardware prompt on a machine with two compatible GPUs and two available CodeMeter GPU licences.
-Verify exact-head hosted Ruff, strict Pyright and CI after each final PR push.
+Verify the final pushed commit's hosted checks, then review the hardware evidence and retained scope limits.
+Do not merge or publish without separate authorization.
 
 ## Completion criteria
 
@@ -81,3 +87,25 @@ context, with internal hashes and schema metadata last. Existing internal-first 
 still readable and appendable. The focused history suite passed with 24 tests. Four copied-wrapper integration cases
 were blocked during fixture import by the host's existing `OSError: [Errno 9] Bad file descriptor`, before repository
 code executed.
+
+### 2026-11-04: licensed two-GPU execution
+
+- Hardware results and sanitized timing tables are in the validation report. Raw evidence is retained outside Git at
+  `C:/Temp/ryan-tools-pr193-two-gpu-20261103`; no tutorial models, TLFs, operational identifiers or licence secrets are committed.
+- `pytest --noconftest` focused GPU/CodeMeter/dashboard/runner tests: 101 passed, 2 symlink skips. Focused wrapper tests:
+  71 passed. Incoming execution-history tests: 24 passed. The fixture-independent suites bypassed only the repository
+  startup requirement for unrelated test-data materialization; no tests were deselected.
+- Strict Pyright passed on all six selected production/benchmark files using explicit source-checkout extraPaths and
+  explicit file arguments; this avoids resolving wrappers against the older globally installed package.
+- Benchmark CLI smoke and Loguru formatting policy passed. Documentation/index, explicit changed-document links and whitespace checks passed.
+- No-bump wheel build/verification and installed-wheel smoke passed on the hardware baseline. The final integrated
+  wheel also built and verified: SHA-256 `5780af0f4d1bd7827936730239355c4875d6ffc5b82dfc027fec4653e54e1e19`. The normal Python installation is unchanged. The optional fully isolated
+  dependency smoke could not run all wrapper behaviors because its dependency target lacked pandas; normal installed
+  smoke passed with the existing dependencies.
+- Submodule initialization in the new worktree exposed incorrect relative core.worktree paths. Only those new
+  submodule configurations were corrected; their checkout used Git LFS skip-smudge. No existing submodule worktree was
+  changed, and the excluded submodule was not inspected.
+- Delivery: this record accompanies the source/documentation commit pushed to the existing PR #193 branch. The PR
+  records the final commit SHA and exact-head hosted results. Only the four task files are staged/committed; generated
+  wheel artifacts remain local and isolated submodule checkout state is excluded.
+  No merge, publication or production-model mutation. Next review: 2026-11-05.

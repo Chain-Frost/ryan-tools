@@ -66,10 +66,14 @@ class BenchmarkOptions:
 
 def _local_snapshot() -> JsonObject:
     snapshot = local_gpu_occupancy()
+    assigned: list[JsonValue] = []
+    for process in snapshot.assigned:
+        gpu_ids: list[JsonValue] = []
+        gpu_ids.extend(sorted(process.gpu_ids))
+        entry: JsonObject = {"pid": process.pid, "gpu_ids": gpu_ids}
+        assigned.append(entry)
     return {
-        "assigned": [
-            {"pid": process.pid, "gpu_ids": sorted(process.gpu_ids)} for process in snapshot.assigned
-        ],
+        "assigned": assigned,
         "unknown_pids": list(snapshot.unknown_pids),
         "inspection_incomplete": snapshot.inspection_incomplete,
     }
