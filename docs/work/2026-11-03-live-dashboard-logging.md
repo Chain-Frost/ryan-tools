@@ -144,7 +144,7 @@ are launched. Older callers can omit this optional argument.
 
 Validation: 140 focused logging/runner/wrapper tests passed, two Windows symlink
 privilege skips; strict Pyright passed on all six changed Python files. Loguru
-policy passed. Wheel 26.11.3.8 built and verified, and a disposable installation
+policy passed. Wheel 26.11.3.9 built and verified, and a disposable installation
 passed copied-wrapper --help and --export-only --no-pause smoke with colour
 assertions, no CSV and no solver. The normal installed package is unchanged.
 Local Ruff execution is blocked by Windows (WinError 5); hosted formatting/CI
@@ -152,4 +152,19 @@ remains pending. No new MCP surface: existing runner presentation only.
 
 Implementation is in a separate temporary worktree to preserve the user's
 pre-existing main-checkout pyproject.toml version edit. Changes are committed and pushed in [PR #192](https://github.com/Chain-Frost/ryan-tools/pull/192);
-hosted checks are running on `0963ece6`. Documentation and whitespace checks pass. Next review: 2026-11-04.
+Hosted Ruff/whitespace passes on `848afa18`; final-head Python CI remains pending. Documentation and whitespace checks pass. Next review: 2026-11-04.
+
+Follow-up review against the last single-file implementation found three remaining
+presentation losses, outside this PR: completion lines omit GPU/duration/selections
+and use print time rather than observed finish time; the dashboard no longer explains
+finished results waiting for ordered printing; launch commands lost token-specific
+colours. Startup-only external GPU checks and the one-CSV Resume redesign were
+explicit integration decisions. This was a source comparison, not full runtime parity
+validation; no additional execution defect was confirmed.
+
+Hosted Ruff identified one combined test assertion; it was split at `848afa18`.
+The existing release tag v26.11.3.8 points to merged PR #191, so this PR's wheel
+was advanced and rebuilt as 26.11.3.9 to avoid reusing that published version.
+
+Final version/record follow-up is committed with this entry. The 26.11.3.9 installed-wheel
+copied-wrapper help/export smoke also passes. Main retains only the original version edit.
