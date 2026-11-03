@@ -527,7 +527,6 @@ def test_per_child_directory_argument_list_and_runtime_gpu_policy(
     assert len(snapshots) == 1
 
 
-
 def test_waits_until_selected_gpu_is_externally_free(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from ryan_library.functions.tuflow import gpu_occupancy
     from ryan_library.functions.tuflow.gpu_occupancy import TuflowGpuProcess
@@ -562,9 +561,7 @@ def test_waits_until_selected_gpu_is_externally_free(tmp_path: Path, monkeypatch
     assert len(checked) >= 2
 
 
-def test_busy_gpu_group_is_not_used_when_another_slot_is_free(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_busy_gpu_group_is_not_used_when_another_slot_is_free(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from ryan_library.functions.tuflow import gpu_occupancy
     from ryan_library.functions.tuflow.gpu_occupancy import TuflowGpuProcess
 
@@ -597,9 +594,7 @@ def test_busy_gpu_group_is_not_used_when_another_slot_is_free(
 
 
 @pytest.mark.parametrize("uncertainty", ["unknown", "incomplete", "error"])
-def test_gpu_guard_does_not_assume_uncertain_gpu_is_free(
-    monkeypatch: pytest.MonkeyPatch, uncertainty: str
-) -> None:
+def test_gpu_guard_does_not_assume_uncertain_gpu_is_free(monkeypatch: pytest.MonkeyPatch, uncertainty: str) -> None:
     from ryan_library.functions.tuflow import gpu_occupancy
 
     def inspect(*, exclude_pids: object = ()) -> GpuOccupancySnapshot:
