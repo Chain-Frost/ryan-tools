@@ -16,6 +16,7 @@ from typing import cast
 import pytest
 from loguru import logger
 
+from ryan_library.functions.live_dashboard import WorkflowAlert
 from ryan_library.functions.tuflow.command_plan import (
     CommandPlanError,
     PlannedRun,
@@ -109,6 +110,19 @@ def _command(run: PlannedRun, config: runner.RunnerSettings, gpu: tuple[str, ...
         getattr(runner, "_command"),  # noqa: B009 - explicitly exercise the internal test contract
     )
     return build(run, config, gpu)
+
+
+def _gpu_alert(
+    availability: runner.GpuAvailability,
+    groups: tuple[tuple[str, ...], ...],
+    *,
+    interval_seconds: float,
+) -> WorkflowAlert | None:
+    factory = cast(
+        Callable[..., WorkflowAlert | None],
+        getattr(runner, "_gpu_dashboard_alert"),  # noqa: B009 - test the scheduler/display adapter
+    )
+    return factory(availability, groups, interval_seconds=interval_seconds)
 
 
 @pytest.mark.parametrize("invalid", [0, -1, True, 1.5])
@@ -527,7 +541,9 @@ def test_per_child_directory_argument_list_and_runtime_gpu_policy(
     assert len(snapshots) == 1
 
 
-def test_waits_until_selected_gpu_is_externally_free(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_waits_until_selected_gpu_is_externally_free(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
     from ryan_library.functions.tuflow import gpu_occupancy
     from ryan_library.functions.tuflow.gpu_occupancy import TuflowGpuProcess
 
@@ -541,6 +557,7 @@ def test_waits_until_selected_gpu_is_externally_free(tmp_path: Path, monkeypatch
     plan = runner.prepare_plan(config)
     snapshots = [
         GpuOccupancySnapshot((TuflowGpuProcess(999, frozenset({0})),), (), False),
+        GpuOccupancySnapshot((TuflowGpuProcess(999, frozenset({0})),), (), False),
         GpuOccupancySnapshot((), (), False),
     ]
     checked: list[object] = []
@@ -550,7 +567,7 @@ def test_waits_until_selected_gpu_is_externally_free(tmp_path: Path, monkeypatch
         return snapshots.pop(0) if snapshots else GpuOccupancySnapshot((), (), False)
 
     def popen(*, args: list[str], **_options: object) -> FakeProcess:
-        assert len(checked) >= 2  # No launch on the first, occupied snapshot.
+        assert len(checked) >= 3  # No launch on either occupied snapshot.
         assert "-pu0" in args
         return FakeProcess(123)
 
@@ -558,7 +575,15 @@ def test_waits_until_selected_gpu_is_externally_free(tmp_path: Path, monkeypatch
     monkeypatch.setattr(runner, "_apply_priority", _no_op)
     outcome = runner.launch_plan(plan, config, popen=popen)
     assert outcome.successful
-    assert len(checked) >= 2
+    assert len(checked) >= 3
+    errors = [record.message for record in caplog.records if record.levelname == "ERROR"]
+    assert len(errors) == 1
+    assert "GPU AVAILABILITY ERROR" in errors[0]
+    assert "external TUFLOW PID 999" in errors[0]
+    assert "ALL CONFIGURED GPU SLOTS BLOCKED" in errors[0]
+    assert "Next availability check in 0.01 seconds" in errors[0]
+    assert "restriction is unchanged" in caplog.text
+    assert "available again" in caplog.text
 
 
 def test_busy_gpu_group_is_not_used_when_another_slot_is_free(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -607,15 +632,58 @@ def test_gpu_guard_does_not_assume_uncertain_gpu_is_free(monkeypatch: pytest.Mon
     monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
     groups = (("-pu0",), ("-pu1",))
     inspect_gpu_slots = cast(
-        Callable[..., tuple[frozenset[int], str]],
+        Callable[..., runner.GpuAvailability],
         getattr(runner, "_blocked_external_gpu_slots"),  # noqa: B009 - test a private scheduler policy
     )
-    blocked, reason = inspect_gpu_slots(groups, exclude_pids=set())
-    assert blocked == frozenset({0, 1})
-    assert reason
+    availability = inspect_gpu_slots(groups, exclude_pids=set())
+    assert availability.blocked_slots == frozenset({0, 1})
+    assert availability.issues
+    expected_kind = {
+        "unknown": "unknown_assignment",
+        "incomplete": "inspection_incomplete",
+        "error": "query_failed",
+    }[uncertainty]
+    assert availability.issues[0].kind == expected_kind
 
 
-def test_external_gpu_wait_is_interruptible_without_launch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_gpu_dashboard_alert_distinguishes_occupied_capacity_and_unknown_status() -> None:
+    groups = (("-pu0",), ("-pu1",))
+    occupied = runner.GpuAvailability(
+        blocked_slots=frozenset({0}),
+        issues=(
+            runner.GpuAvailabilityIssue(
+                kind="occupied",
+                slot_indexes=frozenset({0}),
+                gpu_ids=frozenset({0}),
+                pids=(12345,),
+            ),
+        ),
+    )
+    alert = _gpu_alert(occupied, groups, interval_seconds=60)
+    assert alert is not None
+    assert alert.title == "GPU AVAILABILITY ERROR"
+    assert "GPU 0: OCCUPIED - external TUFLOW PID 12345" in alert.lines
+    assert "Available GPU slot(s) may continue: -pu1" in alert.lines
+
+    unknown = runner.GpuAvailability(
+        blocked_slots=frozenset({0, 1}),
+        issues=(
+            runner.GpuAvailabilityIssue(
+                kind="query_failed",
+                slot_indexes=frozenset({0, 1}),
+                detail="Local TUFLOW process query failed: access denied",
+            ),
+        ),
+    )
+    alert = _gpu_alert(unknown, groups, interval_seconds=60)
+    assert alert is not None
+    assert alert.title == "GPU STATUS UNKNOWN - SCHEDULING PAUSED"
+    assert "ALL CONFIGURED GPU SLOTS BLOCKED - queued batch is waiting" in alert.lines
+
+
+def test_external_gpu_wait_is_interruptible_without_launch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
     from ryan_library.functions.tuflow import gpu_occupancy
     from ryan_library.functions.tuflow.gpu_occupancy import TuflowGpuProcess
 
@@ -635,6 +703,52 @@ def test_external_gpu_wait_is_interruptible_without_launch(tmp_path: Path, monke
     outcome = runner.launch_plan(plan, config, interrupted=stop, popen=popen)
     assert outcome.interrupted
     assert not outcome.outcomes
+    assert "Next availability check in 60 seconds" in caplog.text
+    assert "Run 1: FAIL" not in caplog.text
+
+
+def test_one_minute_gpu_poll_wait_does_not_busy_wait_or_rescan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from ryan_library.functions.tuflow import gpu_occupancy
+    from ryan_library.functions.tuflow.gpu_occupancy import TuflowGpuProcess
+
+    config = settings(tmp_path, gpu_devices=(("-pu0",),), wait_for_available_gpu=True)
+    plan = runner.prepare_plan(config)
+    scans = 0
+
+    def inspect(*, exclude_pids: object = ()) -> GpuOccupancySnapshot:
+        nonlocal scans
+        del exclude_pids
+        scans += 1
+        return GpuOccupancySnapshot((TuflowGpuProcess(321, frozenset({0})),), (), False)
+
+    class CapturedStop:
+        def __init__(self) -> None:
+            self.timeouts: list[float] = []
+            self.stopped = False
+
+        def is_set(self) -> bool:
+            return self.stopped
+
+        def wait(self, timeout: float | None = None) -> bool:
+            assert timeout is not None
+            self.timeouts.append(timeout)
+            self.stopped = True
+            return True
+
+    stop = CapturedStop()
+    monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
+
+    def popen(**_options: object) -> FakeProcess:
+        pytest.fail("The runner launched instead of waiting for the configured GPU")
+
+    outcome = runner.launch_plan(plan, config, interrupted=cast(Event, stop), popen=popen)
+    assert outcome.interrupted
+    assert not outcome.outcomes
+    assert scans == 1
+    assert len(stop.timeouts) == 1
+    assert 59.0 <= stop.timeouts[0] <= 60.0
 
 
 def test_explicitly_disabled_gpu_wait_preserves_warning_only_launch(

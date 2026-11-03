@@ -1,0 +1,62 @@
+# TUFLOW GPU availability alerts and CodeMeter validation
+
+| Field | Value |
+| --- | --- |
+| Status | Active |
+| Owner | ChatGPT |
+| Created | 2026-11-03 |
+| Updated | 2026-11-03 |
+| Next review | 2026-11-04 |
+| Baseline | PR #193 branch `fix/tuflow-textfile-optional-settings-rows`; remote head `8ca3a8bc`; isolated worktree `Q:\BGER\PER\RPRT\temp\ryan-tools-pr193-gpu-alerts` |
+
+## Outcome and scope
+
+Continue PR #193 with transition-based terminal GPU errors, a persistent reusable dashboard alert, synthetic scheduler
+coverage, a non-destructive polling benchmark and a licensed two-GPU validation procedure. Record actual CodeMeter and
+hardware observations separately from synthetic evidence. Do not merge or publish the package.
+
+## Current state
+
+Implementation, synthetic tests, benchmark harness, measured one-GPU evidence and the future-agent hardware prompt are
+complete locally. The development workstation has only one TUFLOW-capable GPU and its one observed GPU licence is in
+use by another user's running model, which was not interrupted. Licensed two-GPU execution remains a named external
+validation dependency. Current read-only observations confirm that CodeMeter reports a GPU licence and PID but not a
+physical GPU ID.
+
+## Next action
+
+Review the final diff, commit and push the PR branch, update the PR description, then verify exact-head hosted Ruff,
+strict Pyright and CI.
+
+## Completion criteria
+
+- A configured unavailable GPU produces one transition `ERROR`, a persistent red dashboard alert and a recovery message.
+- Other clear groups continue, uncertainty pauses conservatively, and simulation outcome/Resume behavior is unchanged.
+- Synthetic tests cover alert state, scheduler transitions, interruption and disabled/non-execution paths.
+- The benchmark and licensed two-GPU procedure are reproducible, with measured local limitations clearly separated.
+- Required source, documentation, package and hosted checks are recorded; implementation is committed and pushed to PR #193.
+
+## Validation and delivery
+
+- 2026-11-03: focused dashboard, CodeMeter, GPU occupancy and runner suite: 101 passed, 2 skipped, 5 deselected. The five
+  hardlink-alias cases were deselected after repeated host `OSError: [Errno 9] Bad file descriptor` reads of copied
+  `run_tuflow_simulations.py` files. The wrapper suite similarly reached 70 setup errors before repository code because
+  endpoint security denied the copied wrapper read; one non-fixture test passed. Hosted CI remains the wrapper gate.
+- 2026-11-03: compileall, benchmark smoke, Loguru formatting policy, documentation/index validation and `git diff
+  --check` passed.
+- 2026-11-03: five local and five CodeMeter benchmark samples plus one unavailable-CodeMeter observation recorded.
+- Ruff and Pyright executables: blocked by Windows `PermissionError [WinError 5]`; exact-head hosted checks pending.
+- No-bump package build reached the QGIS style inventory and stopped because the isolated worktree lacked a materialized
+  `qgis-resources` checkout. The optional resource clone was stopped and package verification dropped at user request.
+- MCP exposure assessed: no catalogue change; this is an existing wrapper behavior change plus a maintainer benchmark.
+- Commit/push and PR description: pending.
+
+## Progress
+
+### 2026-11-03
+
+Added structured GPU availability states, transition logging and a generic dashboard alert interface. Captured five
+local and five CodeMeter measurements on the one-GPU workstation, plus CodeMeter-unavailable behavior. CodeMeter had
+no physical GPU identifier; a separate TLF correlation reported GPU 0 for the shared PID. Two-GPU licensed scenarios
+remain outstanding and are documented without fabricated results. Added a standalone copy-ready prompt for the future
+two-GPU/two-licence agent session and prepared it for delivery in PR #193.

@@ -31,7 +31,7 @@ from loguru import logger
 from ...functions.loguru_helpers import log_settings
 
 if TYPE_CHECKING:
-    from ...functions.live_dashboard import LiveWorkflowDashboard
+    from ...functions.live_dashboard import LiveWorkflowDashboard, WorkflowAlert
     from .command_preflight import CommandPreflightIssue
 
 from ...functions.tuflow.command_plan import (
@@ -52,6 +52,7 @@ _FLAG = re.compile(r"[es][1-9]", re.IGNORECASE)
 _PRIORITY = frozenset({"LOW", "BELOWNORMAL", "NORMAL", "ABOVENORMAL", "HIGH", "REALTIME"})
 _ENGINE = frozenset({"-b", "-x", "-t", "-nlc"})
 type RunMode = Literal["parameter_product", "textfiles", "both"]
+type GpuAvailabilityIssueKind = Literal["occupied", "unknown_assignment", "inspection_incomplete", "query_failed"]
 
 
 def _empty_run_variables() -> dict[str, str | Sequence[str]]:
@@ -124,6 +125,25 @@ class BatchOutcome:
     @property
     def exit_code(self) -> int:
         return 0 if self.successful else 1
+
+
+@dataclass(frozen=True, slots=True)
+class GpuAvailabilityIssue:
+    """One confirmed or uncertain reason configured GPU slots cannot run."""
+
+    kind: GpuAvailabilityIssueKind
+    slot_indexes: frozenset[int]
+    gpu_ids: frozenset[int] = frozenset()
+    pids: tuple[int, ...] = ()
+    detail: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class GpuAvailability:
+    """One local process-inspection result used by guarded scheduling."""
+
+    blocked_slots: frozenset[int] = frozenset()
+    issues: tuple[GpuAvailabilityIssue, ...] = ()
 
 
 # Scope 04 supplies the persistence implementation, not another plan class.
@@ -657,7 +677,7 @@ def export_batch_commands(plan: CommandPlan, settings: RunnerSettings, destinati
 
 def _blocked_external_gpu_slots(
     groups: tuple[tuple[str, ...], ...], *, exclude_pids: set[int]
-) -> tuple[frozenset[int], str]:
+) -> GpuAvailability:
     """Find unavailable configured GPU groups without treating uncertainty as free.
 
     CodeMeter reports licence allocations, but not a reliable GPU ID mapping.
@@ -670,25 +690,147 @@ def _blocked_external_gpu_slots(
     try:
         snapshot = local_gpu_occupancy(exclude_pids=exclude_pids)
     except Exception as exc:  # noqa: BLE001 - inspection uncertainty must not launch on a possibly busy GPU
-        return all_slots, f"Local TUFLOW process inspection failed: {exc}"
+        return GpuAvailability(
+            blocked_slots=all_slots,
+            issues=(
+                GpuAvailabilityIssue(
+                    kind="query_failed",
+                    slot_indexes=all_slots,
+                    detail=f"Local TUFLOW process query failed: {exc}",
+                ),
+            ),
+        )
     if snapshot.inspection_incomplete or snapshot.unknown_pids:
-        reasons: list[str] = []
+        issues: list[GpuAvailabilityIssue] = []
         if snapshot.unknown_pids:
-            reasons.append(f"TUFLOW GPU assignment unknown for PIDs {snapshot.unknown_pids}")
+            issues.append(
+                GpuAvailabilityIssue(
+                    kind="unknown_assignment",
+                    slot_indexes=all_slots,
+                    pids=snapshot.unknown_pids,
+                    detail="TUFLOW is running but its physical GPU assignment could not be determined.",
+                )
+            )
         if snapshot.inspection_incomplete:
-            reasons.append("local process inspection incomplete")
-        return all_slots, "; ".join(reasons)
+            issues.append(
+                GpuAvailabilityIssue(
+                    kind="inspection_incomplete",
+                    slot_indexes=all_slots,
+                    detail="Local process inspection was incomplete; configured GPUs cannot be declared free.",
+                )
+            )
+        return GpuAvailability(blocked_slots=all_slots, issues=tuple(issues))
 
     blocked: set[int] = set()
-    conflicts: list[str] = []
-    for index, group in enumerate(groups):
-        selected = gpu_ids_from_flags(group)
-        for process in snapshot.assigned:
+    issues = []
+    group_ids = tuple(gpu_ids_from_flags(group) for group in groups)
+    for process in snapshot.assigned:
+        process_slots: set[int] = set()
+        overlapping_ids: set[int] = set()
+        for index, selected in enumerate(group_ids):
             overlap = selected.intersection(process.gpu_ids)
             if overlap:
                 blocked.add(index)
-                conflicts.append(f"PID {process.pid} using GPU(s) {sorted(overlap)}")
-    return frozenset(blocked), "; ".join(dict.fromkeys(conflicts))
+                process_slots.add(index)
+                overlapping_ids.update(overlap)
+        if process_slots:
+            issues.append(
+                GpuAvailabilityIssue(
+                    kind="occupied",
+                    slot_indexes=frozenset(process_slots),
+                    gpu_ids=frozenset(overlapping_ids),
+                    pids=(process.pid,),
+                    detail="Confirmed from the external TUFLOW process command line.",
+                )
+            )
+    return GpuAvailability(blocked_slots=frozenset(blocked), issues=tuple(issues))
+
+
+def _gpu_group_label(group: tuple[str, ...]) -> str:
+    return " ".join(group)
+
+
+def _gpu_availability_lines(
+    availability: GpuAvailability,
+    groups: tuple[tuple[str, ...], ...],
+    *,
+    interval_seconds: float,
+) -> tuple[str, ...]:
+    """Build shared terminal/dashboard detail for one unavailable state."""
+    lines: list[str] = []
+    for issue in availability.issues:
+        if issue.kind == "occupied":
+            gpu_text = ", ".join(str(identifier) for identifier in sorted(issue.gpu_ids))
+            pid_text = ", ".join(str(pid) for pid in issue.pids)
+            lines.append(f"GPU {gpu_text}: OCCUPIED - external TUFLOW PID {pid_text}")
+        elif issue.kind == "unknown_assignment":
+            pid_text = ", ".join(str(pid) for pid in issue.pids)
+            lines.append(f"GPU assignment UNKNOWN for external TUFLOW PID {pid_text}")
+        elif issue.kind == "inspection_incomplete":
+            lines.append("GPU status UNKNOWN - local process inspection was incomplete")
+        else:
+            lines.append(f"GPU status UNKNOWN - {issue.detail}")
+
+    blocked_labels = [_gpu_group_label(groups[index]) for index in sorted(availability.blocked_slots)]
+    available_labels = [
+        _gpu_group_label(group) for index, group in enumerate(groups) if index not in availability.blocked_slots
+    ]
+    lines.append(f"Excluded from scheduling: {', '.join(blocked_labels)}")
+    if available_labels:
+        lines.append(f"Available GPU slot(s) may continue: {', '.join(available_labels)}")
+    else:
+        lines.append("ALL CONFIGURED GPU SLOTS BLOCKED - queued batch is waiting")
+    lines.append(f"Next availability check in {interval_seconds:g} seconds")
+    return tuple(lines)
+
+
+def _log_gpu_availability_transition(
+    availability: GpuAvailability,
+    previous: GpuAvailability,
+    groups: tuple[tuple[str, ...], ...],
+    *,
+    interval_seconds: float,
+) -> None:
+    """Emit prominent errors only when the external restriction changes."""
+    if availability == previous:
+        if availability.blocked_slots:
+            logger.info(
+                "GPU availability restriction is unchanged; {} of {} configured slot(s) remain blocked. "
+                "Next check in {}s.",
+                len(availability.blocked_slots),
+                len(groups),
+                interval_seconds,
+            )
+        return
+    if not availability.blocked_slots:
+        if previous.blocked_slots:
+            logger.success("Configured GPU slots are available again; queued scheduling may resume.")
+        return
+    uncertain = any(issue.kind != "occupied" for issue in availability.issues)
+    heading = "GPU STATUS UNKNOWN - SCHEDULING PAUSED" if uncertain else "GPU AVAILABILITY ERROR"
+    logger.error(
+        "{}\n{}",
+        heading,
+        "\n".join(_gpu_availability_lines(availability, groups, interval_seconds=interval_seconds)),
+    )
+
+
+def _gpu_dashboard_alert(
+    availability: GpuAvailability,
+    groups: tuple[tuple[str, ...], ...],
+    *,
+    interval_seconds: float,
+) -> WorkflowAlert | None:
+    """Translate scheduling state into the dashboard's reusable alert model."""
+    if not availability.blocked_slots:
+        return None
+    from ...functions.live_dashboard import WorkflowAlert
+
+    uncertain = any(issue.kind != "occupied" for issue in availability.issues)
+    return WorkflowAlert(
+        title="GPU STATUS UNKNOWN - SCHEDULING PAUSED" if uncertain else "GPU AVAILABILITY ERROR",
+        lines=_gpu_availability_lines(availability, groups, interval_seconds=interval_seconds),
+    )
 
 
 def _gpu_startup_message(groups: tuple[tuple[str, ...], ...]) -> None:
@@ -937,7 +1079,7 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
     outcomes: list[RunOutcome] = []
     ordered: dict[int, RunOutcome] = {}
     next_print = 0
-    blocked_external_slots: frozenset[int] = frozenset()
+    gpu_availability = GpuAvailability()
     next_gpu_check = 0.0
     gpu_status: str | None = "Checking" if settings.wait_for_available_gpu and groups else None
     has_configured_gpu = any(is_gpu_switch(token) for run in plan.runs for token in run.arguments)
@@ -1056,25 +1198,36 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                     next_gpu_check = 0.0
                 while queue and len(active) < capacity and not stop.is_set():
                     if gpu_status is not None and time.monotonic() >= next_gpu_check:
-                        blocked, reason = _blocked_external_gpu_slots(
+                        inspected_availability = _blocked_external_gpu_slots(
                             groups, exclude_pids={child.process.pid for child in active}
                         )
-                        if blocked:
-                            labels = [" ".join(groups[index]) for index in sorted(blocked)]
-                            logger.warning(
-                                "GPU group(s) {} unavailable ({}). Remaining GPU slots may run; rechecking in {}s.",
-                                labels,
-                                reason,
-                                settings.gpu_check_interval_seconds,
+                        _log_gpu_availability_transition(
+                            inspected_availability,
+                            gpu_availability,
+                            groups,
+                            interval_seconds=settings.gpu_check_interval_seconds,
+                        )
+                        gpu_availability = inspected_availability
+                        if dashboard is not None:
+                            dashboard.set_alert(
+                                _gpu_dashboard_alert(
+                                    gpu_availability,
+                                    groups,
+                                    interval_seconds=settings.gpu_check_interval_seconds,
+                                ),
+                                refresh=False,
                             )
-                        elif blocked_external_slots:
-                            logger.success("Previously occupied GPU groups are now available.")
-                        blocked_external_slots = blocked
-                        gpu_status = f"{len(groups) - len(blocked)}/{len(groups)} external-clear"
+                        gpu_status = (
+                            f"{len(groups) - len(gpu_availability.blocked_slots)}/{len(groups)} external-clear"
+                        )
                         next_gpu_check = time.monotonic() + settings.gpu_check_interval_seconds
                     slot = (
                         next(
-                            (i for i in range(len(groups)) if i not in owned_slots and i not in blocked_external_slots),
+                            (
+                                i
+                                for i in range(len(groups))
+                                if i not in owned_slots and i not in gpu_availability.blocked_slots
+                            ),
                             None,
                         )
                         if groups
@@ -1137,8 +1290,10 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                 if active:
                     time.sleep(0.1)
                 elif queue and gpu_status is not None:
-                    # No owned children: wait interruptibly instead of spinning while external GPUs are occupied.
-                    stop.wait(min(0.1, max(0.0, next_gpu_check - time.monotonic())))
+                    # No owned children: wait interruptibly without rescanning or waking at child-poll frequency.
+                    remaining = max(0.0, next_gpu_check - time.monotonic())
+                    dashboard_interval = 1.0 / settings.live_refresh_per_second if dashboard is not None else remaining
+                    stop.wait(min(dashboard_interval, remaining))
             if stop.is_set():
                 logger.warning("Batch interrupted. Terminating owned child processes.")
                 _stop_children(active)

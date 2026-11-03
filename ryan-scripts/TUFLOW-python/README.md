@@ -201,6 +201,17 @@ inspection use `WAIT_FOR_AVAILABLE_GPU = False` or
 and retains the original one-slot behaviour. Export-only and preflight-only
 do not perform this waiting or polling.
 
+When a configured group becomes unavailable, the runner emits one prominent
+`ERROR` for that state transition. It reports confirmed external PIDs where
+known, distinguishes unknown/incomplete/query-failure states, shows whether
+other groups can continue and gives the next check interval. Identical polling
+results produce only lower-severity status updates. The live dashboard keeps a
+red alert panel above its normal summary and task rows until the restriction
+clears; recovery emits a `SUCCESS` message. GPU restrictions do not mark a
+simulation failed. See the licensed two-GPU procedure, benchmark and measured
+CodeMeter limitations in
+[`docs/TUFLOW_GPU_CODEMETER_VALIDATION.md`](../../docs/TUFLOW_GPU_CODEMETER_VALIDATION.md).
+
 The wrapper rejects malformed settings with explicit names and examples:
 unsupported enum choices, invalid path types/extensions, blank or
 malformed event/scenario values, duplicate GPU IDs, invalid booleans,
