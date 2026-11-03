@@ -113,3 +113,9 @@ code executed.
 Hosted Ruff on `7c2e003f` found a missing blank line between standard-library and third-party benchmark imports.
 Applied the reported import-spacing fix; this changes no behavior or packaged code. Exact-head checks rerun on the
 follow-up commit, with the PR description retaining the authoritative delivery SHA and results.
+
+Hosted lint passed on `006c491e`; formatting then identified four line-wrap changes across the scheduler and two
+test files. Applied the exact formatter output; ASTs are unchanged. The affected runner/activity suites passed
+101 tests with 2 symlink skips, strict Pyright passed on all three files, and the no-bump wheel rebuilt/verified
+(SHA-256 `1d9864663d0b14c54a1a7ab952c2b2f156b16d9464b10191ee8965645d2f3243`). The preceding installed-wheel smoke remains behavioral evidence
+for the identical ASTs. No repeat solver execution is needed for these formatting-only changes.

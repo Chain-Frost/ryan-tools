@@ -707,9 +707,7 @@ def test_external_gpu_wait_is_interruptible_without_launch(
     assert "Run 1: FAIL" not in caplog.text
 
 
-def test_one_minute_gpu_poll_wait_does_not_busy_wait_or_rescan(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_one_minute_gpu_poll_wait_does_not_busy_wait_or_rescan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     from ryan_library.functions.tuflow import gpu_occupancy
     from ryan_library.functions.tuflow.gpu_occupancy import TuflowGpuProcess
 

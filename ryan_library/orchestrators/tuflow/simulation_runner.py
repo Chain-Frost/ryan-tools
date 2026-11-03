@@ -675,9 +675,7 @@ def export_batch_commands(plan: CommandPlan, settings: RunnerSettings, destinati
     return target
 
 
-def _blocked_external_gpu_slots(
-    groups: tuple[tuple[str, ...], ...], *, exclude_pids: set[int]
-) -> GpuAvailability:
+def _blocked_external_gpu_slots(groups: tuple[tuple[str, ...], ...], *, exclude_pids: set[int]) -> GpuAvailability:
     """Find unavailable configured GPU groups without treating uncertainty as free.
 
     CodeMeter reports licence allocations, but not a reliable GPU ID mapping.
@@ -1217,9 +1215,7 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                                 ),
                                 refresh=False,
                             )
-                        gpu_status = (
-                            f"{len(groups) - len(gpu_availability.blocked_slots)}/{len(groups)} external-clear"
-                        )
+                        gpu_status = f"{len(groups) - len(gpu_availability.blocked_slots)}/{len(groups)} external-clear"
                         next_gpu_check = time.monotonic() + settings.gpu_check_interval_seconds
                     slot = (
                         next(
