@@ -2,14 +2,14 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Draft PR #191 published; external Ruff/CI pending |
+| Status | PR #191 CI formatting repaired; final-head CI pending |
 | Owner | ChatGPT |
 | Created / Updated | 2026-11-03 |
 | Next review | 2026-11-04 |
 | Branch | `fix/live-dashboard-console-routing`, based on `b2b07da1` |
 | Pull request | [#191](https://github.com/Chain-Frost/ryan-tools/pull/191) |
 | Git delivery | Logging fix `3257de20`, handoff `96ce004c`, selection/startup `1c586fb2`, and GPU/batch display follow-up delivered in PR #191. |
-| Next action | Run Ruff and CI on another system as requested, then review the PR; no merge or release authorised. |
+| Next action | Verify terminal CI on the pushed formatting repair, then review; no merge or release authorised. |
 
 The reported copied runner uses wrapper 2026-11-01.5 and library 26.11.2.3.
 The shared renderer did not change between that version and the initially inspected
@@ -115,3 +115,14 @@ both changed Python files, documentation, Loguru policy and whitespace checks pa
 The same PR wheel was rebuilt and verified without another version bump (SHA-256
 `df5365f59aefab0c741cdaf953014eeeb54a8986fdb319d89aca07c8a8d61ef6`). Ruff/CI remain deferred
 to another system, as requested; no installed package or running batch is modified.
+
+## CI formatting repair - 3 November 2026
+
+Verified PR head e15ab794 before repair. Fast PR checks and Policy both failed
+only Ruff formatting of the SUCCESS-level assertion in
+`tests/scripts/test_tuflow_advisory_runner.py`. Hosted tests, Package, MCP smoke
+and POSIX security already passed on that head. Applied the pinned Ruff
+formatter; six focused advisory tests and strict Pyright pass. Ruff lint and
+format pass across all seven PR-changed Python files. Test-only formatting
+requires no wheel rebuild. Repair committed/pushed to PR #191; exact new-head
+hosted checks pending. Next review: 2026-11-04. No solver, merge or release.
