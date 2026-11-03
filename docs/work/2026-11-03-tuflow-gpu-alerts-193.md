@@ -71,3 +71,7 @@ isolated `qgis-resources` clone remains outside the commit and has no parent-rep
 Reordered the user-activity report so inferred log/TLF groups appear first, active CodeMeter processes follow, and the
 authoritative current CodeMeter licence-utilisation table is the final output group. Focused activity-report validation
 passed with 17 tests; compileall, documentation/index validation, Loguru policy and `git diff --check` also passed.
+
+Changed runner execution-history `recorded_at` values from forced UTC to the local computer timezone with an explicit
+UTC offset. Existing timezone-aware UTC rows remain readable. The focused execution-history suite passed with 22 tests;
+compileall, documentation/index validation, Loguru policy and `git diff --check` also passed.

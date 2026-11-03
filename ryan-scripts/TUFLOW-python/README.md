@@ -294,7 +294,8 @@ is one runner file per TUFLOW project/TCF version, with a unique runner filename
 for each version; therefore each wrapper has its **own** CSV, rather than sharing
 a project-wide or network-wide history. The CSV is an append-only START / FINISH
 / RESET log of observed process outcomes. No saved run manifest or additional
-session directory is required.
+session directory is required. Each `recorded_at` value uses the local computer's
+timezone and includes its UTC offset; existing timezone-aware UTC rows remain valid.
 
 **Resume is the default.** The runner regenerates the full current plan and
 selects its launch queue using the CSV:

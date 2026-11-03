@@ -13,7 +13,7 @@ import os
 import re
 import subprocess
 from dataclasses import dataclass, replace
-from datetime import UTC, datetime
+from datetime import datetime
 from io import FileIO, StringIO
 from pathlib import Path, PureWindowsPath
 from typing import Protocol
@@ -135,7 +135,7 @@ def select_pending(
 
 
 def _timestamp() -> str:
-    return datetime.now(UTC).isoformat(timespec="microseconds")
+    return datetime.now().astimezone().isoformat(timespec="microseconds")
 
 
 def _parse_line(line: bytes, number: int) -> list[str]:

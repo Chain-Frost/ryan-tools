@@ -64,7 +64,7 @@ LIVE_MAX_ROWS = 10  # Maximum task rows shown at once; all runs still execute an
 CONSOLE_LOG_LEVEL: params.LogLevel = params.LOG.INFO
 WAIT_TIME_AFTER_RUN = 2.0  # Seconds between launches (>=0). Example: 0.5. Does not change GPU slots.
 PAUSE_ON_FINISH = True  # Pause interactively on finish; --no-pause forces False, --pause forces True.
-WRAPPER_VERSION = "2026-11-03.5"
+WRAPPER_VERSION = "2026-11-03.6"
 
 import argparse
 import signal

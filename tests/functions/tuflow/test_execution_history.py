@@ -7,10 +7,12 @@ from __future__ import annotations
 
 import csv
 from dataclasses import dataclass, replace
+from datetime import datetime, tzinfo
 from pathlib import Path, PureWindowsPath
 
 import pytest
 
+import ryan_library.functions.tuflow.execution_history as execution_history
 from ryan_library.functions.tuflow.command_plan import CommandPlan, PlannedRun, read_command_plan
 from ryan_library.functions.tuflow.execution_history import (
     COLUMNS,
@@ -57,6 +59,27 @@ def _success(log: CsvExecutionLog, plan: CommandPlan, identities: dict[int, RunI
         identity = identities[run.index]
         attempt = log.start(identity)
         log.finish(identity, attempt, Observed(run, 0))
+
+
+def test_csv_recorded_at_uses_local_computer_timezone(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    local_time = datetime(2026, 11, 3, 14, 25, 30, 123456)
+    expected = local_time.astimezone().isoformat(timespec="microseconds")
+
+    class LocalDateTime(datetime):
+        @classmethod
+        def now(cls, tz: tzinfo | None = None) -> LocalDateTime:
+            assert tz is None
+            return cls(2026, 11, 3, 14, 25, 30, 123456)
+
+    monkeypatch.setattr(execution_history, "datetime", LocalDateTime)
+    plan = _plan(tmp_path, 1)
+    identity = identify_runs(plan, fallback_executable=Path("unused.exe"), base_directory=tmp_path)[1]
+    path = tmp_path / "batch_runs.csv"
+    with CsvExecutionLog(path) as log:
+        log.start(identity)
+
+    rows = list(csv.DictReader(path.open(encoding="utf-8", newline="")))
+    assert rows[0]["recorded_at"] == expected
 
 
 def test_400_run_resume_queues_300_in_original_order(tmp_path: Path) -> None:
