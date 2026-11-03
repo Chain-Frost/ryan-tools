@@ -720,8 +720,7 @@ def test_inspection_labels_selected_gpu_from_companion_hpc_log(tmp_path: Path) -
     tlf = tmp_path / "model.tlf"
     tlf.write_text("GPU Device IDs == 1, \n", encoding="utf-8")
     tlf.with_suffix(".hpc.tlf").write_text(
-        "Device 0, RTX 3090, has compute capability = 8.6\n"
-        "Device 1, RTX 3080, has compute capability = 8.6\n",
+        "Device 0, RTX 3090, has compute capability = 8.6\nDevice 1, RTX 3080, has compute capability = 8.6\n",
         encoding="utf-8",
     )
     inspection = inspect_tlf(tlf)

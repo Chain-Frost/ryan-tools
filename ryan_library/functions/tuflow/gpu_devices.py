@@ -10,6 +10,7 @@ import ctypes
 import os
 import re
 from collections.abc import Mapping, Sequence
+from datetime import datetime
 from itertools import islice
 from pathlib import Path
 
@@ -62,16 +63,19 @@ def gpu_group_label(flags: Sequence[str], names: Mapping[int, str] | None = None
     return ", ".join(gpu_device_label(int(flag[3:]), names) for flag in flags) if flags else "Auto"
 
 
-def recorded_gpu_names(tlf_path: Path) -> dict[int, str]:
+def recorded_gpu_names(tlf_path: Path, *, started_at: datetime | None = None) -> dict[int, str]:
     """Read the companion HPC header, conservatively rejecting stale companions.
 
-    Both logs must have modification times within two minutes. A long-running
-    model with an older HPC log therefore retains unknown names until both
-    files are updated; a name is preferable to a guess only with usable evidence.
+    The HPC log must have been updated during this run, allowing one minute
+    for the TLF start timestamp's minute precision. Without a parsed start,
+    require both logs' modification times to be within two minutes instead.
     """
     hpc_path = tlf_path.with_suffix(".hpc.tlf")
     try:
-        if abs(hpc_path.stat().st_mtime - tlf_path.stat().st_mtime) > 120:
+        modified = tlf_path.stat().st_mtime
+        hpc_modified = hpc_path.stat().st_mtime
+        earliest = started_at.timestamp() - 60 if started_at is not None else modified - 120
+        if not earliest <= hpc_modified <= modified + 120:
             return {}
         names: dict[int, str] = {}
         with hpc_path.open(encoding="utf-8", errors="replace") as stream:

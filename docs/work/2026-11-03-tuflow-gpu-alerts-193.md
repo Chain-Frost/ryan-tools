@@ -134,9 +134,10 @@ dashboard rows and configured-slot alerts show names, with PCI identifiers for d
 The map belongs to the launch environment, not external processes with potentially different CUDA settings.
 Activity rows use their own companion HPC header and preserve the simulation machine; no current-machine
 or NVIDIA-index guesses are applied to historic/remote logs. Unknown/stale/conflicting names stay explicit.
-The conservative companion freshness check can omit names on long-running models whose HPC log is older.
+Companion freshness uses the recorded simulation start, retaining valid headers on long runs; without a
+start timestamp, it requires modification times within two minutes.
 
-Validation: 110 focused GPU/runner/activity tests passed, 2 Windows symlink skips; strict Pyright passed on
+Validation: 111 focused GPU/runner/activity tests passed, 2 Windows symlink skips; strict Pyright passed on
 all seven changed Python files. Read-only hardware smoke matched `-pu0` RTX 3090 / `-pu1` RTX 3080 and
 confirmed that a fresh process with CUDA_VISIBLE_DEVICES=1,0 reverses the labels. Both retained licensed
 numbering logs produced the expected names. No solver was launched for this presentation change.
@@ -144,3 +145,10 @@ Loguru policy passed. Local Ruff remains blocked by WinError 5; hosted lint/form
 MCP assessment: existing runner/activity workflows already expose this behavior; no extra tool is warranted.
 Delivery: this follow-up is being committed/pushed to existing PR #193; exact-head CI and package evidence
 are recorded in its description. Keep the PR open and unmerged; no publication. Next review 2026-11-05.
+
+The no-bump wheel build and isolated-target installed GPU-name/log smoke passed. Hosted Ruff requested
+an equivalent typed dictionary factory instead of a lambda; strict typing still passes. Companion freshness
+now uses the existing parsed simulation start to retain names during long runs, with a regression case
+that rejects an HPC log from a prior run. Final validation and delivery SHA are kept in the PR description.
+
+Hosted lint passed after the default-factory correction; applied its three exact formatting edits.

@@ -521,9 +521,8 @@ file-link detection. Use `--hyperlinks` to force OSC 8 links, or `--no-hyperlink
 GPU cells explicitly show TUFLOW switches, for example `-pu1 (NVIDIA GeForce RTX 3080)`.
 Names come only from that simulation's companion `.hpc.tlf` device header, never from the current
 computer's hardware or CodeMeter allocation counts. Missing, unreadable, conflicting or stale
-companions retain `-puN (name unknown)`. As a conservative freshness check, companion and main TLF
-modification times must be within two minutes; active models whose HPC log has not recently updated
-may therefore show unknown names. The report retains each record's machine alongside the GPU label.
+companions retain `-puN (name unknown)`. The companion must have been updated since the recorded simulation start. If the start timestamp
+is missing, companion and main TLF modification times must be within two minutes instead. The report retains each record's machine alongside the GPU label.
 
 The report prints inferred log and TLF activity first, followed by active CodeMeter processes, and finishes with the
 authoritative current CodeMeter licence-utilisation table.

@@ -1,5 +1,6 @@
 """GPU labels must preserve the device namespace and evidence source."""
 
+from datetime import datetime
 from os import utime
 from pathlib import Path
 from unittest.mock import patch
@@ -40,8 +41,18 @@ def test_conflicting_hpc_names_are_not_guessed(tmp_path: Path) -> None:
     tlf = tmp_path / "model.tlf"
     tlf.write_text("GPU Device IDs == 0\n", encoding="utf-8")
     tlf.with_suffix(".hpc.tlf").write_text(
-        "Device 0, First card, has compute capability = 8.6\n"
-        "Device 0, Other card, has compute capability = 8.6\n",
+        "Device 0, First card, has compute capability = 8.6\nDevice 0, Other card, has compute capability = 8.6\n",
         encoding="utf-8",
     )
     assert recorded_gpu_names(tlf) == {}
+
+
+def test_active_run_can_use_older_hpc_header_from_same_run(tmp_path: Path) -> None:
+    tlf = tmp_path / "model.tlf"
+    tlf.write_text("GPU Device IDs == 0\n", encoding="utf-8")
+    hpc = tlf.with_suffix(".hpc.tlf")
+    hpc.write_text("Device 0, RTX 3090, has compute capability = 8.6\n", encoding="utf-8")
+    now = tlf.stat().st_mtime
+    utime(hpc, (now - 3600, now - 3600))
+    assert recorded_gpu_names(tlf, started_at=datetime.fromtimestamp(now - 7200)) == {0: "RTX 3090"}
+    assert recorded_gpu_names(tlf, started_at=datetime.fromtimestamp(now - 1800)) == {}

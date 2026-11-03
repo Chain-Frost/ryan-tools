@@ -308,10 +308,11 @@ def inspect_tlf(tlf_path: Path | None) -> TlfInspection:  # noqa: C901
     final_runtime = data.get("Final_RunTime")
     runtime_seconds = round(float(final_runtime) * 3600) if isinstance(final_runtime, int | float) else None
     status = "COMPLETE" if is_complete_tlf(data_dict=data, sim_complete=sim_complete) else "INCOMPLETE"
+    started_at = data.get("StartDate")
     return TlfInspection(
         status=status,
         gpu_device_ids=gpu_device_ids,
-        gpu_names=recorded_gpu_names(tlf_path),
+        gpu_names=recorded_gpu_names(tlf_path, started_at=started_at if isinstance(started_at, datetime) else None),
         runtime_seconds=runtime_seconds,
         modified_at=modified_at,
     )
@@ -896,7 +897,15 @@ def render_activity_report(  # noqa: C901
                     for row in report.completions
                 ),
                 headers=(
-                    "USER", "FINISHED", "AGE", "RUNTIME", "MACHINE", "LICENCE", "TUFLOW GPU (-pu)", "TLF", "MODEL"
+                    "USER",
+                    "FINISHED",
+                    "AGE",
+                    "RUNTIME",
+                    "MACHINE",
+                    "LICENCE",
+                    "TUFLOW GPU (-pu)",
+                    "TLF",
+                    "MODEL",
                 ),
             )
         )
