@@ -18,6 +18,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+
 import psutil
 
 from ryan_library.functions.tuflow.codemeter import fetch_codemeter_snapshot

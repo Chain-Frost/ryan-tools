@@ -109,3 +109,7 @@ code executed.
   records the final commit SHA and exact-head hosted results. Only the four task files are staged/committed; generated
   wheel artifacts remain local and isolated submodule checkout state is excluded.
   No merge, publication or production-model mutation. Next review: 2026-11-05.
+
+Hosted Ruff on `7c2e003f` found a missing blank line between standard-library and third-party benchmark imports.
+Applied the reported import-spacing fix; this changes no behavior or packaged code. Exact-head checks rerun on the
+follow-up commit, with the PR description retaining the authoritative delivery SHA and results.
