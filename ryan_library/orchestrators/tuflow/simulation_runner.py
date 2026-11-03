@@ -193,11 +193,7 @@ def _validate_settings(settings: RunnerSettings) -> tuple[str, ...]:
     if settings.wait_time_after_run < 0 or settings.live_refresh_per_second <= 0:
         message = "Launch delay must be nonnegative and dashboard refresh must be positive"
         raise CommandPlanError(message)
-    if (
-        isinstance(settings.live_max_rows, bool)
-        or not isinstance(settings.live_max_rows, int)
-        or settings.live_max_rows < 1
-    ):
+    if type(settings.live_max_rows) is not int or settings.live_max_rows < 1:
         message = "Dashboard row limit must be a positive integer (>=1)"
         raise CommandPlanError(message)
     if not settings.working_directory.is_absolute():
