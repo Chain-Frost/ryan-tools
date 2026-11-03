@@ -114,11 +114,12 @@ def test_ordinals_require_a_shared_cuda_selection_environment(
             external[key] = value
 
     class ExternalProcess:
-        info: dict[str, object] = {
-            "pid": 77,
-            "name": "TUFLOW_iSP_w64.exe",
-            "cmdline": ["TUFLOW_iSP_w64.exe", "-pu1", "model.tcf"],
-        }
+        def __init__(self) -> None:
+            self.info: dict[str, object] = {
+                "pid": 77,
+                "name": "TUFLOW_iSP_w64.exe",
+                "cmdline": ["TUFLOW_iSP_w64.exe", "-pu1", "model.tcf"],
+            }
 
         def environ(self) -> dict[str, str]:
             return external
@@ -135,11 +136,12 @@ def test_ordinals_require_a_shared_cuda_selection_environment(
 @pytest.mark.parametrize("failure", ["denied", "exited"])
 def test_unreadable_cuda_environment_is_not_assumed_default(monkeypatch: pytest.MonkeyPatch, failure: str) -> None:
     class ExternalProcess:
-        info: dict[str, object] = {
-            "pid": 88,
-            "name": "TUFLOW_iSP_w64.exe",
-            "cmdline": ["TUFLOW_iSP_w64.exe", "-pu1", "model.tcf"],
-        }
+        def __init__(self) -> None:
+            self.info: dict[str, object] = {
+                "pid": 88,
+                "name": "TUFLOW_iSP_w64.exe",
+                "cmdline": ["TUFLOW_iSP_w64.exe", "-pu1", "model.tcf"],
+            }
 
         def environ(self) -> dict[str, str]:
             if failure == "exited":

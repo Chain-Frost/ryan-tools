@@ -168,3 +168,6 @@ An actual read-only Windows process-environment probe accepted a matching child 
 child; both temporary Python processes were reaped. No solver execution or licence allocation was needed.
 Package/check evidence and the final pushed SHA are recorded in PR #193. The existing MCP workflow needs
 no new tool for this scheduling correction. Keep the PR open and unmerged; review again 2026-11-05.
+
+Hosted Ruff requested instance-owned process-info dictionaries in three new test fixtures; applied the
+fixture-only correction. The verified wheel and installed smoke are unaffected; exact-head CI reruns.

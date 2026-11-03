@@ -1414,11 +1414,12 @@ def test_guard_checks_cuda_namespace_before_intersecting_ordinals(
     monkeypatch.delenv("CUDA_DEVICE_ORDER", raising=False)
 
     class ExternalProcess:
-        info: dict[str, object] = {
-            "pid": 99,
-            "name": "TUFLOW_iSP_w64.exe",
-            "cmdline": ["TUFLOW_iSP_w64.exe", "-pu1", "model.tcf"],
-        }
+        def __init__(self) -> None:
+            self.info: dict[str, object] = {
+                "pid": 99,
+                "name": "TUFLOW_iSP_w64.exe",
+                "cmdline": ["TUFLOW_iSP_w64.exe", "-pu1", "model.tcf"],
+            }
 
         def environ(self) -> dict[str, str]:
             if external_selection == "unreadable":
