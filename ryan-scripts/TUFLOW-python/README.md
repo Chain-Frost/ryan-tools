@@ -296,6 +296,9 @@ a project-wide or network-wide history. The CSV is an append-only START / FINISH
 / RESET log of observed process outcomes. No saved run manifest or additional
 session directory is required. Each `recorded_at` value uses the local computer's
 timezone and includes its UTC offset; existing timezone-aware UTC rows remain valid.
+New CSVs place operator-facing fields first: timestamp, event, outcome, return code,
+TCF, PID and error. Command context follows, while run hashes and schema metadata are
+last. Existing CSVs retain their original column order and remain readable and appendable.
 
 **Resume is the default.** The runner regenerates the full current plan and
 selects its launch queue using the CSV:

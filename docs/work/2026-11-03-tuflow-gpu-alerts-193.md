@@ -75,3 +75,9 @@ passed with 17 tests; compileall, documentation/index validation, Loguru policy 
 Changed runner execution-history `recorded_at` values from forced UTC to the local computer timezone with an explicit
 UTC offset. Existing timezone-aware UTC rows remain readable. The focused execution-history suite passed with 22 tests;
 compileall, documentation/index validation, Loguru policy and `git diff --check` also passed.
+
+Reordered new runner history CSVs for operators: timestamp and event/result fields first, followed by model/process
+context, with internal hashes and schema metadata last. Existing internal-first CSVs retain their header order and are
+still readable and appendable. The focused history suite passed with 24 tests. Four copied-wrapper integration cases
+were blocked during fixture import by the host's existing `OSError: [Errno 9] Bad file descriptor`, before repository
+code executed.

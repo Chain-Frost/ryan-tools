@@ -25,6 +25,21 @@ from .command_plan import CommandPlan, CommandPlanError, PlannedRun, effective_e
 
 SCHEMA_VERSION = "1"
 COLUMNS = (
+    "recorded_at",
+    "event",
+    "outcome",
+    "return_code",
+    "tcf",
+    "pid",
+    "error",
+    "arguments",
+    "working_directory",
+    "executable",
+    "run_key",
+    "attempt_id",
+    "schema_version",
+)
+_LEGACY_COLUMNS = (
     "schema_version",
     "event",
     "recorded_at",
@@ -39,6 +54,7 @@ COLUMNS = (
     "pid",
     "error",
 )
+_SUPPORTED_COLUMN_ORDERS = (COLUMNS, _LEGACY_COLUMNS)
 _HEX_SHA = re.compile(r"[0-9a-f]{64}")
 _HEX_ATTEMPT = re.compile(r"[0-9a-f]{32}")
 
@@ -138,15 +154,15 @@ def _timestamp() -> str:
     return datetime.now().astimezone().isoformat(timespec="microseconds")
 
 
-def _parse_line(line: bytes, number: int) -> list[str]:
+def _parse_line(line: bytes, number: int, *, columns: tuple[str, ...]) -> list[str]:
     try:
         decoded = line.decode("utf-8")
         values = list(csv.reader([decoded], strict=True))
     except (UnicodeError, csv.Error) as exc:
         msg = f"Invalid UTF-8/CSV at line {number}: {exc}"
         raise ExecutionLogError(msg) from exc
-    if len(values) != 1 or len(values[0]) != len(COLUMNS):
-        msg = f"Invalid CSV record shape at line {number}; expected {len(COLUMNS)} fields"
+    if len(values) != 1 or len(values[0]) != len(columns):
+        msg = f"Invalid CSV record shape at line {number}; expected {len(columns)} fields"
         raise ExecutionLogError(msg)
     return values[0]
 
@@ -161,6 +177,7 @@ class CsvExecutionLog:
     def __init__(self, path: Path) -> None:
         self.path = path
         self._file: FileIO | None = None
+        self._columns: tuple[str, ...] = COLUMNS
         self._attempts: dict[str, _Attempt] = {}
         self._latest: dict[str, str] = {}
 
@@ -217,7 +234,7 @@ class CsvExecutionLog:
         end = len(data) if data.endswith(b"\n") else data.rfind(b"\n") + 1
         complete = data[:end]
         rows = complete.splitlines(keepends=True)
-        if not rows and not csv_line(COLUMNS).startswith(data):
+        if not rows and not any(csv_line(columns).startswith(data) for columns in _SUPPORTED_COLUMN_ORDERS):
             msg = (
                 f"Unsupported execution CSV schema or corrupt header in {self.path}; "
                 "cannot safely repair a file without a valid header."
@@ -229,15 +246,19 @@ class CsvExecutionLog:
             except (UnicodeError, csv.Error) as exc:
                 msg = f"Invalid CSV header in {self.path}: {exc}"
                 raise ExecutionLogError(msg) from exc
-            if tuple(header) != COLUMNS:
+            parsed_columns = tuple(header)
+            if parsed_columns not in _SUPPORTED_COLUMN_ORDERS:
                 msg = (
                     f"Unsupported execution CSV schema in {self.path}. Expected version {SCHEMA_VERSION} "
                     "START/FINISH/RESET history; an old completion-only report cannot be resumed. "
                     "Keep the old file separately and use a new log."
                 )
                 raise ExecutionLogError(msg)
+            self._columns = parsed_columns
         for number, line in enumerate(rows[1:], 2):
-            record: dict[str, str] = dict(zip(COLUMNS, _parse_line(line, number), strict=True))
+            record: dict[str, str] = dict(
+                zip(self._columns, _parse_line(line, number, columns=self._columns), strict=True)
+            )
             self._apply(record, number)
         if end != len(data):
             logger.warning("Repairing incomplete trailing CSV fragment ({} bytes) in {}", len(data) - end, self.path)
@@ -309,7 +330,7 @@ class CsvExecutionLog:
         attempt.outcome = outcome
 
     def _append_header(self) -> None:
-        self._write(csv_line(COLUMNS))
+        self._write(csv_line(self._columns))
 
     def _write(self, content: bytes) -> None:
         try:
@@ -325,7 +346,7 @@ class CsvExecutionLog:
             raise ExecutionLogError(msg) from exc
 
     def _append(self, record: dict[str, str]) -> None:
-        row = [record.get(column, "") for column in COLUMNS]
+        row = [record.get(column, "") for column in self._columns]
         if any("\n" in cell or "\r" in cell for cell in row):
             msg = "CSV context may not contain newline characters"
             raise ExecutionLogError(msg)

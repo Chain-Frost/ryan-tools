@@ -82,6 +82,65 @@ def test_csv_recorded_at_uses_local_computer_timezone(tmp_path: Path, monkeypatc
     assert rows[0]["recorded_at"] == expected
 
 
+def test_new_csv_prioritizes_operator_facing_columns(tmp_path: Path) -> None:
+    path = tmp_path / "batch_runs.csv"
+    with CsvExecutionLog(path):
+        pass
+
+    with path.open(encoding="utf-8", newline="") as source:
+        header = next(csv.reader(source))
+    assert header == [
+        "recorded_at",
+        "event",
+        "outcome",
+        "return_code",
+        "tcf",
+        "pid",
+        "error",
+        "arguments",
+        "working_directory",
+        "executable",
+        "run_key",
+        "attempt_id",
+        "schema_version",
+    ]
+
+
+def test_existing_internal_first_column_order_remains_appendable(tmp_path: Path) -> None:
+    legacy_columns = (
+        "schema_version",
+        "event",
+        "recorded_at",
+        "run_key",
+        "attempt_id",
+        "outcome",
+        "return_code",
+        "tcf",
+        "working_directory",
+        "executable",
+        "arguments",
+        "pid",
+        "error",
+    )
+    plan = _plan(tmp_path, 1)
+    identity = identify_runs(plan, fallback_executable=Path("unused.exe"), base_directory=tmp_path)[1]
+    path = tmp_path / "batch_runs.csv"
+    with CsvExecutionLog(path) as log:
+        log.finish(identity, log.start(identity), Observed(plan.runs[0], 0))
+    with path.open(encoding="utf-8", newline="") as source:
+        rows = list(csv.DictReader(source))
+    with path.open("w", encoding="utf-8", newline="") as destination:
+        writer = csv.DictWriter(destination, fieldnames=legacy_columns, lineterminator="\n")
+        writer.writeheader()
+        writer.writerows(rows)
+
+    with CsvExecutionLog(path) as log:
+        assert log.successful_keys() == {identity.key}
+        log.start(identity)
+    with path.open(encoding="utf-8", newline="") as source:
+        assert tuple(next(csv.reader(source))) == legacy_columns
+
+
 def test_400_run_resume_queues_300_in_original_order(tmp_path: Path) -> None:
     plan = _plan(tmp_path, 400)
     identities = identify_runs(plan, fallback_executable=Path("unused.exe"), base_directory=tmp_path)
