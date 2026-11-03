@@ -110,6 +110,12 @@ def _command(run: PlannedRun, config: runner.RunnerSettings, gpu: tuple[str, ...
     return build(run, config, gpu)
 
 
+@pytest.mark.parametrize("invalid", [0, -1, True, 1.5])
+def test_dashboard_rows_require_a_positive_integer(tmp_path: Path, invalid: object) -> None:
+    with pytest.raises(CommandPlanError, match="Dashboard row limit"):
+        runner.prepare_plan(settings(tmp_path, live_max_rows=invalid))
+
+
 def test_parameter_product_discards_repeated_selections_in_order(tmp_path: Path) -> None:
     config = settings(tmp_path, run_variables={"e1": ["A", "A", "B"]})
     plan = runner.prepare_plan(config)
