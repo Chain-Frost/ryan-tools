@@ -9,11 +9,17 @@ from pathlib import Path
 from ryan_library.functions.tuflow import runner_settings as params
 
 # CLI options override these defaults.
-# None allows distinct TCFs in "textfiles" mode; generated runs require a TCF.
+# In MODE = params.SRC.TEXTFILES, TCF can be deleted entirely or set to None.
+# The TCF then comes from each BAT/CMD/TXT command (or its SET TCF=... value).
+# When Python TCF is supplied, imported commands must select that same TCF.
+# MODE = params.SRC.PARAMETER_PRODUCT or params.SRC.BOTH requires Python TCF.
 TCF: params.PathLike | None = r".\runs\PROJECT_01_~s2~_~s1~_~e1~_~e2~_~e4~_~e3~_~s4~.tcf"
 TUFLOW_EXE: params.PathLike = r"C:\TUFLOW\tuflow-2026.3\TUFLOW_iSP_w64.exe"
 BATCH_COMMANDS = "-b"
-PRIORITY_ORDER: str | None = "e3 e2 e1"  # Generated flag order, e.g. "e3 e2 e1". None preserves dictionary order.
+# Generated combinations only: earlier flags vary slower; BAT/TXT run order is never sorted by this.
+PRIORITY_ORDER: str | None = "e3 e2 e1"  # None preserves the generated dictionary order.
+# In MODE = params.SRC.TEXTFILES, this entire RUN_VARIABLES_RAW block can be deleted.
+# Imported -eN/-sN values are read directly from the source command files.
 RUN_VARIABLES_RAW: dict[str, str | list[str]] = {
     "e1": "01.0p 20.0p 05.0p 02.0p 10.0p 50.0p",
     "e2": "00720m 01080m 01440m 01800m 02160m 02880m 04320m",
@@ -50,10 +56,11 @@ EXPORT_COMMANDS = True  # True refreshes <wrapper_name>.txt, BAT format.
 CHECK_INPUTS = True  # Enable BACKGROUND model-input checks while TUFLOW runs.
 USE_LIVE_DASHBOARD = True  # True shows the Rich live dashboard; False uses ordinary console logging.
 LIVE_REFRESH_PER_SECOND = 1.0
+LIVE_MAX_ROWS = 10  # Maximum task rows shown at once; all runs still execute and are tracked.
 CONSOLE_LOG_LEVEL: params.LogLevel = params.LOG.INFO
 WAIT_TIME_AFTER_RUN = 2.0  # Seconds between launches (>=0). Example: 0.5. Does not change GPU slots.
 PAUSE_ON_FINISH = True  # Pause interactively on finish; --no-pause forces False, --pause forces True.
-WRAPPER_VERSION = "2026-11-03.3"
+WRAPPER_VERSION = "2026-11-03.4"
 
 import argparse
 import signal
@@ -96,11 +103,15 @@ def _settings(arguments: argparse.Namespace) -> RunnerSettings:
         if base is not None
         else Path(__file__).absolute().parent
     )
-    configured_tcf = None if arguments.no_tcf else (arguments.tcf if arguments.tcf is not None else TCF)
-    selected_inputs = tuple(arguments.input_file) if arguments.input_file is not None else INPUT_FILES
     selected_mode = runner_user_inputs.choice(
         "MODE", arguments.mode if arguments.mode is not None else MODE, params.SRC
     )
+    configured_tcf = None if arguments.no_tcf else (arguments.tcf if arguments.tcf is not None else globals().get("TCF"))
+    selected_inputs = tuple(arguments.input_file) if arguments.input_file is not None else INPUT_FILES
+    if selected_mode is not params.SRC.TEXTFILES and "RUN_VARIABLES_RAW" not in globals():
+        message = "RUN_VARIABLES_RAW must be defined for generated parameter_product/both runs."
+        raise ValueError(message)
+    raw_variables = globals().get("RUN_VARIABLES_RAW", {})
     selected_priority = runner_user_inputs.choice("COMPUTATIONAL_PRIORITY", COMPUTATIONAL_PRIORITY, params.PRIO)
     selected_batch_commands = runner_user_inputs.batch_commands(BATCH_COMMANDS)
     selected_executable = runner_user_inputs.path(
@@ -127,7 +138,7 @@ def _settings(arguments: argparse.Namespace) -> RunnerSettings:
         working_directory=directory,
         tcf=selected_tcf,
         executable=selected_executable,
-        run_variables=runner_user_inputs.run_variables(RUN_VARIABLES_RAW),
+        run_variables=runner_user_inputs.run_variables(raw_variables),
         input_files=runner_user_inputs.input_paths(selected_inputs),
         mode=selected_mode.value,
         batch_commands=selected_batch_commands,
@@ -147,6 +158,9 @@ def _settings(arguments: argparse.Namespace) -> RunnerSettings:
             if arguments.live_refresh_per_second is not None
             else LIVE_REFRESH_PER_SECOND,
             positive=True,
+        ),
+        live_max_rows=runner_user_inputs.positive_integer(
+            "LIVE_MAX_ROWS", arguments.live_max_rows if arguments.live_max_rows is not None else LIVE_MAX_ROWS
         ),
     )
 
@@ -467,6 +481,7 @@ def _arguments(argv: list[str] | None = None) -> argparse.Namespace:
         help="Enable/disable the live progress display.",
     )
     parser.add_argument("--live-refresh-per-second", type=float, help="Override dashboard refresh rate (>0).")
+    parser.add_argument("--live-max-rows", type=int, help="Maximum dashboard task rows shown at once (>=1).")
     parser.add_argument("--launch-delay", type=float, help="Seconds between launches (>=0).")
     parser.add_argument("--pause", action="store_true", help="Pause interactively at the end.")
     parsed = parser.parse_args(argv)
