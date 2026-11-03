@@ -2,14 +2,14 @@
 
 | Field | Value |
 | --- | --- |
-| Status | PR #191 CI formatting repaired; final-head CI pending |
+| Status | PR #191 merged; presentation follow-up validated locally, new PR pending |
 | Owner | ChatGPT |
 | Created / Updated | 2026-11-03 |
 | Next review | 2026-11-04 |
-| Branch | `fix/live-dashboard-console-routing`, based on `b2b07da1` |
+| Branch | `fix/tuflow-output-presentation`, based on `31f898de` |
 | Pull request | [#191](https://github.com/Chain-Frost/ryan-tools/pull/191) |
 | Git delivery | Logging fix `3257de20`, handoff `96ce004c`, selection/startup `1c586fb2`, and GPU/batch display follow-up delivered in PR #191. |
-| Next action | Verify terminal CI on the pushed formatting repair, then review; no merge or release authorised. |
+| Next action | Open the new presentation PR and verify hosted Ruff/CI; no merge or release authorised. |
 
 The reported copied runner uses wrapper 2026-11-01.5 and library 26.11.2.3.
 The shared renderer did not change between that version and the initially inspected
@@ -126,3 +126,30 @@ formatter; six focused advisory tests and strict Pyright pass. Ruff lint and
 format pass across all seven PR-changed Python files. Test-only formatting
 requires no wheel rebuild. Repair committed/pushed to PR #191; exact new-head
 hosted checks pending. Next review: 2026-11-04. No solver, merge or release.
+
+## Presentation follow-up - 3 November 2026
+
+PR #191 is merged as `31f898de`. This new PR restores grey default settings,
+cyan changed/required settings and green SUCCESS messages; RUN_VARIABLES prints
+one Python-style entry per line. The old wrapper's defaults map was removed in
+#159. Comparisons now use current RunnerSettings defaults (-b, LOW, minimized)
+and explicit current run-control defaults, independent of edited wrapper values.
+Required paths and nonempty run selections have no universal baseline.
+
+Separate event/scenario dashboard columns are computed once from the full
+proposed plan before Resume filtering, sorted e1..e9 then s1..s9. Missing cells
+are blank; launch arguments, CSV identities and original run numbers are unchanged.
+The wrapper passes the complete plan solely for presentation; only pending runs
+are launched. Older callers can omit this optional argument.
+
+Validation: 140 focused logging/runner/wrapper tests passed, two Windows symlink
+privilege skips; strict Pyright passed on all six changed Python files. Loguru
+policy passed. Wheel 26.11.3.8 built and verified, and a disposable installation
+passed copied-wrapper --help and --export-only --no-pause smoke with colour
+assertions, no CSV and no solver. The normal installed package is unchanged.
+Local Ruff execution is blocked by Windows (WinError 5); hosted formatting/CI
+remains pending. No new MCP surface: existing runner presentation only.
+
+Implementation is in a separate temporary worktree to preserve the user's
+pre-existing main-checkout pyproject.toml version edit. Changes are uncommitted
+pending PR preparation. Next review: 2026-11-04.

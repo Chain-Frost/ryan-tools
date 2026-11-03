@@ -53,7 +53,7 @@ LIVE_REFRESH_PER_SECOND = 1.0
 CONSOLE_LOG_LEVEL: params.LogLevel = params.LOG.INFO
 WAIT_TIME_AFTER_RUN = 2.0  # Seconds between launches (>=0). Example: 0.5. Does not change GPU slots.
 PAUSE_ON_FINISH = True  # Pause interactively on finish; --no-pause forces False, --pause forces True.
-WRAPPER_VERSION = "2026-11-03.2"
+WRAPPER_VERSION = "2026-11-03.3"
 
 import argparse
 import signal
@@ -65,7 +65,7 @@ from threading import Event
 
 from loguru import logger
 
-from ryan_library.functions.loguru_helpers import configure_serial_logging
+from ryan_library.functions.loguru_helpers import configure_serial_logging, log_settings
 from ryan_library.functions.tuflow import runner_user_inputs
 from ryan_library.functions.tuflow.command_plan import CommandPlan
 from ryan_library.functions.tuflow.execution_history import (
@@ -255,7 +255,7 @@ def main(argv: list[str] | None = None) -> int:
             console_log_level=log_level.upper(),
             # Look up stdout at emission time so Rich can print above its live display.
             console_sink=lambda message: print(message, end="", flush=True),
-            console_format="{time:HH:mm:ss} | {level:<7} | {message}",
+            console_format="{time:HH:mm:ss} | <level>{level:<7}</level> | <level>{message}</level>",
         )
         run_settings = _settings(arguments)
         # Validate finite-choice inputs before export, history or simulation launch.
@@ -297,16 +297,26 @@ def main(argv: list[str] | None = None) -> int:
             effective_checks = True
         elif operation == "export_only":
             effective_checks = False
-        logger.info(
-            "Run controls:\n  OPERATION: {}\n  CONTINUATION_MODE: {}\n  EXPORT_COMMANDS: {}"
-            "\n  CHECK_INPUTS: {}\n  CONSOLE_LOG_LEVEL: {}\n  PAUSE_ON_FINISH: {}\n  NEXT_RUN_FILE: {}",
-            operation,
-            requested_mode,
-            exporting,
-            effective_checks,
-            log_level.upper(),
-            (arguments.pause or PAUSE_ON_FINISH is True) and not arguments.no_pause,
-            NEXT_RUN_FILE,
+        log_settings(
+            "Run controls",
+            {
+                "OPERATION": operation,
+                "CONTINUATION_MODE": requested_mode,
+                "EXPORT_COMMANDS": exporting,
+                "CHECK_INPUTS": effective_checks,
+                "CONSOLE_LOG_LEVEL": log_level.upper(),
+                "PAUSE_ON_FINISH": (arguments.pause or PAUSE_ON_FINISH is True) and not arguments.no_pause,
+                "NEXT_RUN_FILE": NEXT_RUN_FILE,
+            },
+            {
+                "OPERATION": "run",
+                "CONTINUATION_MODE": "resume",
+                "EXPORT_COMMANDS": True,
+                "CHECK_INPUTS": True,
+                "CONSOLE_LOG_LEVEL": "INFO",
+                "PAUSE_ON_FINISH": True,
+                "NEXT_RUN_FILE": None,
+            },
         )
         if exporting:
             # Fixed TXT beside the copied wrapper, not an executable BAT file.
@@ -376,6 +386,7 @@ def main(argv: list[str] | None = None) -> int:
                         result = launch_plan(
                             pending,
                             run_settings,
+                            proposed_plan=plan,
                             interrupted=stopped,
                             advisory=advisory,
                             on_before_launch=session.before_launch,

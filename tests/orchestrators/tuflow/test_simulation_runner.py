@@ -852,6 +852,8 @@ def test_plan_preview_lists_all_runs_and_effective_settings(tmp_path: Path, capl
     plan = runner.prepare_plan(config)
     output = caplog.text
     assert "Runner settings:" in output
+    assert "  RUN_VARIABLES: {\n    'e1': [" in output
+    assert "\n    'e2': ['00030m'],\n  }\n  BATCH_COMMANDS:" in output
     assert "GPU_DEVICES: (('-pu0',), ('-pu1',))" in output
     assert "CONCURRENT_SLOTS: 2" in output
     assert "WAIT_TIME_AFTER_RUN (seconds): 0" in output
@@ -886,6 +888,23 @@ def test_shared_dashboard_shows_middle_active_run_and_original_resume_index(
         batch_commands="-b -t -pu9",
     )
     full = runner.prepare_plan(config)
+    # A skipped run is the only source of s9; the last pending run alone has e3.
+    full = replace(
+        full,
+        runs=(
+            replace(
+                full.runs[0],
+                flag_pairs=(*full.runs[0].flag_pairs, ("s9", "Skipped")),
+                arguments=(*full.runs[0].arguments[:-1], "-s9", "Skipped", full.runs[0].arguments[-1]),
+            ),
+            *full.runs[1:-1],
+            replace(
+                full.runs[-1],
+                flag_pairs=(*full.runs[-1].flag_pairs, ("e3", "TP10")),
+                arguments=(*full.runs[-1].arguments[:-1], "-e3", "TP10", full.runs[-1].arguments[-1]),
+            ),
+        ),
+    )
     plan = replace(full, runs=full.runs[100:])
     rendered: list[str] = []
     displays: list[live_dashboard.LiveWorkflowDashboard] = []
@@ -901,6 +920,19 @@ def test_shared_dashboard_shows_middle_active_run_and_original_resume_index(
         columns: Sequence[live_dashboard.WorkflowColumn],
     ) -> live_dashboard.LiveWorkflowDashboard:
         assert transient is False
+        assert [column.header for column in columns] == [
+            "Run",
+            "e1",
+            "e2",
+            "e3",
+            "s1",
+            "s9",
+            "Model",
+            "Status",
+            "GPU",
+            "Duration",
+            "Detail",
+        ]
         result = actual_type(
             title=title,
             subtitle=subtitle,
@@ -933,14 +965,15 @@ def test_shared_dashboard_shows_middle_active_run_and_original_resume_index(
     monkeypatch.setattr(live_dashboard, "LiveWorkflowDashboard", display)
     monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
     monkeypatch.setattr(runner, "_apply_priority", _no_op)
-    outcome = runner.launch_plan(plan, config, popen=popen, on_observed_completion=finished)
+    outcome = runner.launch_plan(plan, config, popen=popen, on_observed_completion=finished, proposed_plan=full)
     assert outcome.successful
     assert observed == list(range(101, 401))
     assert len(displays) == 1
     assert rendered
     assert "250" in rendered[0]
     assert "RUNNING" in rendered[0]
-    assert "e1 250 e2 00030m s1 BigModel" in rendered[0]
+    assert "e1" in rendered[0] and "e2" in rendered[0] and "s1" in rendered[0]
+    assert "250 00030m BigModel" in " ".join(rendered[0].split())
     assert plan.runs[0].tcf.name in rendered[0]
     assert gpu_text in rendered[0]
     assert "Batch: -b -t" in rendered[0]
@@ -950,7 +983,8 @@ def test_shared_dashboard_shows_middle_active_run_and_original_resume_index(
     render = cast(Callable[[], RenderableType], getattr(dashboard, "_render"))  # noqa: B009
     dashboard.console.print(render())
     completed = dashboard.console.export_text()
-    assert "e1 400 e2 00030m s1 BigModel" in completed
+    assert "400 00030m TP10 BigModel" in " ".join(completed.split())
+    assert "Skipped" not in completed
     assert "OK" in completed
     assert gpu_text in completed
     assert "Batch: -b -t" in completed

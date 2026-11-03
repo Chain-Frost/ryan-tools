@@ -98,6 +98,21 @@ Python wrapper. Its operational constants can use concise names; the wrapper
 standard does not require a `DEFAULT_` prefix. CLI arguments override editable
 values when supplied.
 
+The startup settings print `RUN_VARIABLES` as a Python-style dictionary with
+one event/scenario entry per line, preserving input order and values. The
+runner colours log levels and message text, including green SUCCESS messages.
+Copied wrappers need version `2026-11-03.3` or newer for this console format.
+Settings matching current library defaults are grey; changed values and required
+paths are cyan. The baseline includes `-b`, LOW priority, minimized windows,
+automatic GPU placement and a two-second launch delay; it does not change when
+you edit the wrapper. Run controls compare against run/resume, export and input
+checks enabled, INFO logging, pause enabled and no follow-up script.
+
+The dashboard computes separate `e1` through `e9` and `s1` through `s9` columns
+from the flags present anywhere in the proposed plan, before Resume filtering.
+Only present flags get columns, in event-then-scenario order. Missing values are
+blank and the column layout stays fixed throughout the batch.
+
 The shipped `OPERATION = params.OP.RUN` runs pending simulations using
 the licensed solver and may overwrite existing model outputs. The default
 `CONTINUATION_MODE = params.CONT.RESUME` skips recorded successful runs.
