@@ -1400,3 +1400,46 @@ def test_windows_real_python_child_is_terminated_on_interrupt(tmp_path: Path, mo
             if process.poll() is None:
                 process.kill()
             process.wait(timeout=5)
+
+
+@pytest.mark.parametrize("external_selection", ["0,1", "1,0", "unreadable"])
+def test_guard_checks_cuda_namespace_before_intersecting_ordinals(
+    monkeypatch: pytest.MonkeyPatch, external_selection: str
+) -> None:
+    from collections.abc import Iterator
+
+    from ryan_library.functions.tuflow import gpu_occupancy
+
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "1,0")
+    monkeypatch.delenv("CUDA_DEVICE_ORDER", raising=False)
+
+    class ExternalProcess:
+        info: dict[str, object] = {
+            "pid": 99,
+            "name": "TUFLOW_iSP_w64.exe",
+            "cmdline": ["TUFLOW_iSP_w64.exe", "-pu1", "model.tcf"],
+        }
+
+        def environ(self) -> dict[str, str]:
+            if external_selection == "unreadable":
+                raise gpu_occupancy.psutil.AccessDenied(pid=99)
+            return {"CUDA_VISIBLE_DEVICES": external_selection}
+
+    def fake_process_iter(**_kwargs: object) -> Iterator[ExternalProcess]:
+        return iter([ExternalProcess()])
+
+    monkeypatch.setattr(gpu_occupancy.psutil, "process_iter", fake_process_iter)
+    inspect_gpu_slots = cast(
+        Callable[..., runner.GpuAvailability],
+        getattr(runner, "_blocked_external_gpu_slots"),  # noqa: B009 - exercise the real occupancy integration
+    )
+    result = inspect_gpu_slots((("-pu0",), ("-pu1",)), exclude_pids=set())
+    if external_selection == "1,0":
+        assert result.blocked_slots == frozenset({1})
+        assert result.issues[0].kind == "occupied"
+    else:
+        # With opposite order, external -pu1 can physically be runner -pu0.
+        # Neither ordinal can be declared free without a shared namespace.
+        assert result.blocked_slots == frozenset({0, 1})
+        assert result.issues[0].kind == "unknown_assignment"
+        assert result.issues[0].pids == (99,)

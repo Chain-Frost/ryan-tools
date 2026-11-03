@@ -198,7 +198,11 @@ also triggers a fresh check before another model is assigned. A group
 such as `[["-pu0", "-pu1"]]` requires **both** GPUs to be free.
 
 The check uses running TUFLOW process command lines (`-puN`) and excludes
-children already tracked by this runner. CodeMeter licence allocations
+children already tracked by this runner. Before comparing ordinals, it requires exact matching
+`CUDA_VISIBLE_DEVICES` and `CUDA_DEVICE_ORDER` settings in the external and runner environments.
+Different settings or denied environment access make the assignment unknown and pause all explicit
+slots; the guard never assumes an unreadable environment uses defaults. It does not translate
+ordinals across different CUDA environments. Unrelated environment values are never logged. CodeMeter licence allocations
 do not reliably identify the local GPU number; this is **GPU occupancy**
 protection, not a guarantee that a separate CodeMeter licence is available.
 Unknown GPU assignments, incomplete inspection or inspection failures

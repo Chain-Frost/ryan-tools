@@ -152,3 +152,19 @@ now uses the existing parsed simulation start to retain names during long runs, 
 that rejects an HPC log from a prior run. Final validation and delivery SHA are kept in the PR description.
 
 Hosted lint passed after the default-factory correction; applied its three exact formatting edits.
+
+### 2026-11-04: review correction for external CUDA numbering
+
+Addressed review thread PRRT_kwDONDA8NM6zO3gf: external -pu ordinals are no longer compared until
+CUDA_VISIBLE_DEVICES and CUDA_DEVICE_ORDER exactly match the runner environment. Different or unreadable
+settings produce an unknown assignment and block all explicit slots; unrelated processes and owned
+children are excluded before environment inspection. No environment contents are logged or persisted.
+Equivalent-but-differently-spelled selectors are conservatively unknown rather than translated.
+
+Validation: 100 focused occupancy/runner tests passed, two Windows symlink skips; strict Pyright passed
+on all four changed Python files. Regression cases cover reversed integer/UUID lists, device-order changes,
+missing versus empty selection, denied environment access, exited processes and scheduler integration.
+An actual read-only Windows process-environment probe accepted a matching child and rejected a changed
+child; both temporary Python processes were reaped. No solver execution or licence allocation was needed.
+Package/check evidence and the final pushed SHA are recorded in PR #193. The existing MCP workflow needs
+no new tool for this scheduling correction. Keep the PR open and unmerged; review again 2026-11-05.

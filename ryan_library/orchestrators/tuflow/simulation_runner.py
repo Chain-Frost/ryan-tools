@@ -680,7 +680,8 @@ def _blocked_external_gpu_slots(groups: tuple[tuple[str, ...], ...], *, exclude_
     """Find unavailable configured GPU groups without treating uncertainty as free.
 
     CodeMeter reports licence allocations, but not a reliable GPU ID mapping.
-    Local TUFLOW process command lines provide explicit -puN assignments.
+    Explicit -puN assignments are comparable only in a verified shared CUDA
+    selection environment; differing or unreadable environments remain unknown.
     Our own children are excluded; their slots are already tracked separately.
     """
     from ...functions.tuflow.gpu_occupancy import gpu_ids_from_flags, local_gpu_occupancy
@@ -739,7 +740,7 @@ def _blocked_external_gpu_slots(groups: tuple[tuple[str, ...], ...], *, exclude_
                     slot_indexes=frozenset(process_slots),
                     gpu_ids=frozenset(overlapping_ids),
                     pids=(process.pid,),
-                    detail="Confirmed from the external TUFLOW process command line.",
+                    detail="Confirmed from explicit switches and matching CUDA selection environments.",
                 )
             )
     return GpuAvailability(blocked_slots=frozenset(blocked), issues=tuple(issues))
