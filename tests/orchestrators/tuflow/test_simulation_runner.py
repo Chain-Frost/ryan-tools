@@ -652,6 +652,7 @@ def test_explicitly_disabled_gpu_wait_preserves_warning_only_launch(
         pytest.fail("GPU scheduling inspection ran even though WAIT_FOR_AVAILABLE_GPU is False")
 
     monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
+
     def popen(**_options: object) -> FakeProcess:
         return FakeProcess(123)
 
