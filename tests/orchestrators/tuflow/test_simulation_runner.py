@@ -116,6 +116,26 @@ def test_dashboard_rows_require_a_positive_integer(tmp_path: Path, invalid: obje
         runner.prepare_plan(settings(tmp_path, live_max_rows=invalid))
 
 
+def test_imported_order_and_first_occurrence_are_unchanged_by_priority_order(tmp_path: Path) -> None:
+    first = tmp_path / "first.bat"
+    second = tmp_path / "second.bat"
+    first.write_text("TUFLOW.exe -e1 B model.tcf\nTUFLOW.exe -e1 A model.tcf\n", encoding="utf-8")
+    second.write_text("TUFLOW.exe -e1 A model.tcf\nTUFLOW.exe -e1 C model.tcf\n", encoding="utf-8")
+    plan = runner.prepare_plan(
+        settings(
+            tmp_path,
+            mode="textfiles",
+            tcf=None,
+            run_variables={},
+            input_files=(first, second),
+            priority_order="e1",
+        )
+    )
+    assert [run.flags["e1"] for run in plan.runs] == ["B", "A", "C"]
+    assert [run.source for run in plan.runs] == [first, first, second]
+    assert plan.duplicates_dropped == 1
+
+
 def test_parameter_product_discards_repeated_selections_in_order(tmp_path: Path) -> None:
     config = settings(tmp_path, run_variables={"e1": ["A", "A", "B"]})
     plan = runner.prepare_plan(config)
