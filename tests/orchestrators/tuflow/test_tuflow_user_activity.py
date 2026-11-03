@@ -714,3 +714,16 @@ def test_reused_tlf_path_only_gives_progress_to_latest_active_start(tmp_path: Pa
     assert newest.progress is not None
     assert newest.progress.model_time_hours == 8
     assert older.progress is None
+
+
+def test_inspection_labels_selected_gpu_from_companion_hpc_log(tmp_path: Path) -> None:
+    tlf = tmp_path / "model.tlf"
+    tlf.write_text("GPU Device IDs == 1, \n", encoding="utf-8")
+    tlf.with_suffix(".hpc.tlf").write_text(
+        "Device 0, RTX 3090, has compute capability = 8.6\n"
+        "Device 1, RTX 3080, has compute capability = 8.6\n",
+        encoding="utf-8",
+    )
+    inspection = inspect_tlf(tlf)
+    assert inspection.gpu_device_ids == "1"
+    assert inspection.gpu_label == "-pu1 (RTX 3080)"

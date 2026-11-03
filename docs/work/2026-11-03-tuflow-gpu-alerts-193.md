@@ -31,7 +31,7 @@ explicit scope limits, rather than claimed results.
 
 ## Next action
 
-Verify the final pushed commit's hosted checks, then review the hardware evidence and retained scope limits.
+Verify the GPU-name follow-up commit's hosted checks, then review the hardware evidence and retained scope limits.
 Do not merge or publish without separate authorization.
 
 ## Completion criteria
@@ -125,3 +125,22 @@ Pyright then exposed intentional private-state access in the dashboard unit test
 inference in the legacy-history fixture. Documented the test-only private-access exception and annotated the
 CSV writer with string keys. All 14 PR-changed Python files now pass local strict Pyright; 31 affected tests pass.
 These test-only annotations do not require another wheel or solver run. Hosted checks rerun on the follow-up.
+
+### 2026-11-04: GPU names and explicit device numbering
+
+User requested GPU model names and an unambiguous `-puN` mapping in the runner and activity wrapper.
+A shared read-only helper enumerates CUDA names once per executing batch; startup, launch messages,
+dashboard rows and configured-slot alerts show names, with PCI identifiers for duplicate GPU models.
+The map belongs to the launch environment, not external processes with potentially different CUDA settings.
+Activity rows use their own companion HPC header and preserve the simulation machine; no current-machine
+or NVIDIA-index guesses are applied to historic/remote logs. Unknown/stale/conflicting names stay explicit.
+The conservative companion freshness check can omit names on long-running models whose HPC log is older.
+
+Validation: 110 focused GPU/runner/activity tests passed, 2 Windows symlink skips; strict Pyright passed on
+all seven changed Python files. Read-only hardware smoke matched `-pu0` RTX 3090 / `-pu1` RTX 3080 and
+confirmed that a fresh process with CUDA_VISIBLE_DEVICES=1,0 reverses the labels. Both retained licensed
+numbering logs produced the expected names. No solver was launched for this presentation change.
+Loguru policy passed. Local Ruff remains blocked by WinError 5; hosted lint/format is the final gate.
+MCP assessment: existing runner/activity workflows already expose this behavior; no extra tool is warranted.
+Delivery: this follow-up is being committed/pushed to existing PR #193; exact-head CI and package evidence
+are recorded in its description. Keep the PR open and unmerged; no publication. Next review 2026-11-05.

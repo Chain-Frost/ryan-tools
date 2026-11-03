@@ -47,6 +47,7 @@ from ...functions.tuflow.command_plan import (
     read_command_plans,
     validate_run_arguments,
 )
+from ...functions.tuflow.gpu_devices import gpu_device_label, gpu_group_label, local_cuda_device_names
 
 _FLAG = re.compile(r"[es][1-9]", re.IGNORECASE)
 _PRIORITY = frozenset({"LOW", "BELOWNORMAL", "NORMAL", "ABOVENORMAL", "HIGH", "REALTIME"})
@@ -744,23 +745,20 @@ def _blocked_external_gpu_slots(groups: tuple[tuple[str, ...], ...], *, exclude_
     return GpuAvailability(blocked_slots=frozenset(blocked), issues=tuple(issues))
 
 
-def _gpu_group_label(group: tuple[str, ...]) -> str:
-    return " ".join(group)
-
-
 def _gpu_availability_lines(
     availability: GpuAvailability,
     groups: tuple[tuple[str, ...], ...],
     *,
     interval_seconds: float,
+    device_names: Mapping[int, str] | None = None,
 ) -> tuple[str, ...]:
     """Build shared terminal/dashboard detail for one unavailable state."""
     lines: list[str] = []
     for issue in availability.issues:
         if issue.kind == "occupied":
-            gpu_text = ", ".join(str(identifier) for identifier in sorted(issue.gpu_ids))
+            gpu_text = ", ".join(f"-pu{identifier}" for identifier in sorted(issue.gpu_ids))
             pid_text = ", ".join(str(pid) for pid in issue.pids)
-            lines.append(f"GPU {gpu_text}: OCCUPIED - external TUFLOW PID {pid_text}")
+            lines.append(f"TUFLOW {gpu_text}: OCCUPIED - external TUFLOW PID {pid_text}")
         elif issue.kind == "unknown_assignment":
             pid_text = ", ".join(str(pid) for pid in issue.pids)
             lines.append(f"GPU assignment UNKNOWN for external TUFLOW PID {pid_text}")
@@ -769,9 +767,11 @@ def _gpu_availability_lines(
         else:
             lines.append(f"GPU status UNKNOWN - {issue.detail}")
 
-    blocked_labels = [_gpu_group_label(groups[index]) for index in sorted(availability.blocked_slots)]
+    blocked_labels = [gpu_group_label(groups[index], device_names) for index in sorted(availability.blocked_slots)]
     available_labels = [
-        _gpu_group_label(group) for index, group in enumerate(groups) if index not in availability.blocked_slots
+        gpu_group_label(group, device_names)
+        for index, group in enumerate(groups)
+        if index not in availability.blocked_slots
     ]
     lines.append(f"Excluded from scheduling: {', '.join(blocked_labels)}")
     if available_labels:
@@ -788,6 +788,7 @@ def _log_gpu_availability_transition(
     groups: tuple[tuple[str, ...], ...],
     *,
     interval_seconds: float,
+    device_names: Mapping[int, str] | None = None,
 ) -> None:
     """Emit prominent errors only when the external restriction changes."""
     if availability == previous:
@@ -809,7 +810,9 @@ def _log_gpu_availability_transition(
     logger.error(
         "{}\n{}",
         heading,
-        "\n".join(_gpu_availability_lines(availability, groups, interval_seconds=interval_seconds)),
+        "\n".join(
+            _gpu_availability_lines(availability, groups, interval_seconds=interval_seconds, device_names=device_names)
+        ),
     )
 
 
@@ -818,6 +821,7 @@ def _gpu_dashboard_alert(
     groups: tuple[tuple[str, ...], ...],
     *,
     interval_seconds: float,
+    device_names: Mapping[int, str] | None = None,
 ) -> WorkflowAlert | None:
     """Translate scheduling state into the dashboard's reusable alert model."""
     if not availability.blocked_slots:
@@ -827,7 +831,9 @@ def _gpu_dashboard_alert(
     uncertain = any(issue.kind != "occupied" for issue in availability.issues)
     return WorkflowAlert(
         title="GPU STATUS UNKNOWN - SCHEDULING PAUSED" if uncertain else "GPU AVAILABILITY ERROR",
-        lines=_gpu_availability_lines(availability, groups, interval_seconds=interval_seconds),
+        lines=_gpu_availability_lines(
+            availability, groups, interval_seconds=interval_seconds, device_names=device_names
+        ),
     )
 
 
@@ -847,7 +853,7 @@ def _gpu_startup_message(groups: tuple[tuple[str, ...], ...]) -> None:
     configured_ids: set[int] = {identifier for group in capacity for identifier in group}
     if groups and capacity and all(group and set(group).intersection(assigned) for group in capacity):
         details = ", ".join(
-            f"PID {pid}: GPUs {sorted(identifiers)}"
+            f"PID {pid}: TUFLOW switches {', '.join(f'-pu{identifier}' for identifier in sorted(identifiers))}"
             for pid, identifiers in gpu_conflicts(configured_ids, snapshot.assigned)
         )
         logger.warning("All configured GPU groups appear occupied by external TUFLOW runs ({}).", details)
@@ -1088,6 +1094,19 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
         logger.info("Imported START priority/minimise/wait hints are replaced by runner scheduling settings.")
     if stop.is_set():
         return BatchOutcome(tuple(plan.runs), (), True)
+    device_names = local_cuda_device_names()
+    if device_names:
+        logger.success(
+            "Local CUDA device mapping for this launch environment: {}",
+            "; ".join(gpu_device_label(identifier, device_names) for identifier in sorted(device_names)),
+        )
+    else:
+        logger.info("CUDA device names unavailable; -puN identifiers remain usable.")
+    logger.info(
+        "-puN uses TUFLOW/CUDA order, not NVIDIA or Windows display indexes. "
+        "Names below describe this launch environment; external processes may use different CUDA ordering. "
+        "For older TUFLOW builds, verify device names in the model's .hpc.tlf."
+    )
     if gpu_status is not None:
         logger.info(
             "Waiting for external GPU availability is enabled for {} configured group(s); recheck interval {}s.",
@@ -1204,6 +1223,7 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                             gpu_availability,
                             groups,
                             interval_seconds=settings.gpu_check_interval_seconds,
+                            device_names=device_names,
                         )
                         gpu_availability = inspected_availability
                         if dashboard is not None:
@@ -1212,6 +1232,7 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                                     gpu_availability,
                                     groups,
                                     interval_seconds=settings.gpu_check_interval_seconds,
+                                    device_names=device_names,
                                 ),
                                 refresh=False,
                             )
@@ -1258,10 +1279,11 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                     except Exception as exc:  # noqa: BLE001 - keep ownership after Popen succeeds
                         logger.warning("PID {} launched but process priority could not be set: {}", process.pid, exc)
                     logger.info(
-                        "Launched run {} ({} selected) PID {}: {}",
+                        "Launched run {} ({} selected) PID {} [{}]: {}",
                         run.index,
                         len(plan.runs),
                         process.pid,
+                        gpu_group_label(group, device_names),
                         subprocess.list2cmdline(
                             [
                                 display_runner_path(args[0], settings.working_directory),
@@ -1274,7 +1296,7 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                         dashboard.mark_running(
                             index=display_indices[run.index],
                             detail=f"PID {process.pid}",
-                            metadata={"gpu": " ".join(group) if group else "Auto"},
+                            metadata={"gpu": gpu_group_label(group, device_names)},
                             refresh=False,
                         )
                         dashboard.set_active_count(len(active), refresh=False)

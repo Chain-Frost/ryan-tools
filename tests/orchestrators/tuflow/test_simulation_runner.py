@@ -117,12 +117,13 @@ def _gpu_alert(
     groups: tuple[tuple[str, ...], ...],
     *,
     interval_seconds: float,
+    device_names: dict[int, str] | None = None,
 ) -> WorkflowAlert | None:
     factory = cast(
         Callable[..., WorkflowAlert | None],
         getattr(runner, "_gpu_dashboard_alert"),  # noqa: B009 - test the scheduler/display adapter
     )
-    return factory(availability, groups, interval_seconds=interval_seconds)
+    return factory(availability, groups, interval_seconds=interval_seconds, device_names=device_names)
 
 
 @pytest.mark.parametrize("invalid", [0, -1, True, 1.5])
@@ -659,11 +660,12 @@ def test_gpu_dashboard_alert_distinguishes_occupied_capacity_and_unknown_status(
             ),
         ),
     )
-    alert = _gpu_alert(occupied, groups, interval_seconds=60)
+    alert = _gpu_alert(occupied, groups, interval_seconds=60, device_names={0: "RTX 3090", 1: "RTX 3080"})
     assert alert is not None
+    assert "Excluded from scheduling: -pu0 (RTX 3090)" in alert.lines
     assert alert.title == "GPU AVAILABILITY ERROR"
-    assert "GPU 0: OCCUPIED - external TUFLOW PID 12345" in alert.lines
-    assert "Available GPU slot(s) may continue: -pu1" in alert.lines
+    assert "TUFLOW -pu0: OCCUPIED - external TUFLOW PID 12345" in alert.lines
+    assert "Available GPU slot(s) may continue: -pu1 (RTX 3080)" in alert.lines
 
     unknown = runner.GpuAvailability(
         blocked_slots=frozenset({0, 1}),
@@ -1141,7 +1143,7 @@ def test_plan_preview_lists_all_runs_and_effective_settings(tmp_path: Path, capl
 
 @pytest.mark.parametrize(
     ("gpu_devices", "gpu_text"),
-    [((), "Auto"), ((("-pu0",),), "-pu0"), ((("-pu0", "-pu1"),), "-pu0 -pu1")],
+    [((), "Auto"), ((("-pu0",),), "-pu0"), ((("-pu0", "-pu1"),), "-pu0 (RTX 3090), -pu1 (RTX 3080)")],
 )
 def test_shared_dashboard_shows_middle_active_run_and_original_resume_index(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, gpu_devices: tuple[tuple[str, ...], ...], gpu_text: str
@@ -1151,6 +1153,8 @@ def test_shared_dashboard_shows_middle_active_run_and_original_resume_index(
     from rich.console import Console, RenderableType
 
     from ryan_library.functions import live_dashboard
+
+    monkeypatch.setattr(runner, "local_cuda_device_names", lambda: {0: "RTX 3090", 1: "RTX 3080"})
 
     config = settings(
         tmp_path,

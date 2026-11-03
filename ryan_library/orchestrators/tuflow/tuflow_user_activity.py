@@ -5,20 +5,21 @@ from __future__ import annotations
 import math
 import re
 from collections.abc import Iterable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 from itertools import islice
 from pathlib import Path, PureWindowsPath
 from typing import Any
 from urllib.parse import quote
 
-from ryan_library.functions.parse_tlf import get_log_lines, is_complete_tlf, search_for_completion, search_from_top
-from ryan_library.functions.tuflow.codemeter import (
+from ...functions.parse_tlf import get_log_lines, is_complete_tlf, search_for_completion, search_from_top
+from ...functions.tuflow.codemeter import (
     CodeMeterAllocation,
     CodeMeterLicenseDenial,
     CodeMeterSnapshot,
     fetch_codemeter_snapshot,
 )
+from ...functions.tuflow.gpu_devices import recorded_gpu_label, recorded_gpu_names
 
 MAX_RECENT_HOURS = 7 * 24
 TIMESTAMP_FORMAT = "%Y-%b-%d %H:%M"
@@ -71,6 +72,12 @@ class TlfInspection:
     gpu_device_ids: str = "-"
     runtime_seconds: int | None = None
     modified_at: datetime | None = None
+    gpu_names: dict[int, str] = field(default_factory=lambda: dict[int, str]())
+
+    @property
+    def gpu_label(self) -> str:
+        """Selected devices in this simulation's recorded TUFLOW numbering."""
+        return recorded_gpu_label(self.gpu_device_ids, self.gpu_names)
 
 
 @dataclass(frozen=True, slots=True)
@@ -304,6 +311,7 @@ def inspect_tlf(tlf_path: Path | None) -> TlfInspection:  # noqa: C901
     return TlfInspection(
         status=status,
         gpu_device_ids=gpu_device_ids,
+        gpu_names=recorded_gpu_names(tlf_path),
         runtime_seconds=runtime_seconds,
         modified_at=modified_at,
     )
@@ -813,6 +821,7 @@ def render_activity_report(  # noqa: C901
 ) -> str:
     """Render a console report without mutating external state."""
     lines = [
+        "GPU labels use recorded TUFLOW -pu IDs, not NVIDIA/Windows indexes; names come from each model's HPC log.",
         f"TUFLOW user activity from: {report.log_root}",
         f"Checked: {report.checked_at:%Y-%m-%d %H:%M} (local time)",
         (
@@ -835,7 +844,7 @@ def render_activity_report(  # noqa: C901
                         _format_runtime(row.runtime_seconds),
                         row.record.machine,
                         f"{row.record.licence_origin} {row.record.seat}".strip(),
-                        row.inspection.gpu_device_ids,
+                        row.inspection.gpu_label,
                         tlf_status_for_record(row.record, row.inspection),
                         _format_sim_hours(row.progress.model_time_hours if row.progress else None),
                         _format_sim_hours(row.progress.end_time_hours if row.progress else None),
@@ -852,7 +861,7 @@ def render_activity_report(  # noqa: C901
                     "RUNTIME",
                     "MACHINE",
                     "LICENCE",
-                    "GPU ID",
+                    "TUFLOW GPU (-pu)",
                     "TLF",
                     "SIM TIME",
                     "SIM END",
@@ -880,13 +889,15 @@ def render_activity_report(  # noqa: C901
                         ),
                         row.record.machine,
                         f"{row.record.licence_origin} {row.record.seat}".strip(),
-                        row.inspection.gpu_device_ids,
+                        row.inspection.gpu_label,
                         tlf_status_for_record(row.record, row.inspection),
                         row.record.model,
                     )
                     for row in report.completions
                 ),
-                headers=("USER", "FINISHED", "AGE", "RUNTIME", "MACHINE", "LICENCE", "GPU ID", "TLF", "MODEL"),
+                headers=(
+                    "USER", "FINISHED", "AGE", "RUNTIME", "MACHINE", "LICENCE", "TUFLOW GPU (-pu)", "TLF", "MODEL"
+                ),
             )
         )
     else:
@@ -905,7 +916,7 @@ def render_activity_report(  # noqa: C901
                         _format_runtime(row.record.runtime_seconds),
                         row.record.machine,
                         f"{row.record.licence_origin} {row.record.seat}".strip(),
-                        row.inspection.gpu_device_ids,
+                        row.inspection.gpu_label,
                         tlf_status_for_record(row.record, row.inspection),
                         row.record.model,
                     )
@@ -919,7 +930,7 @@ def render_activity_report(  # noqa: C901
                     "RUNTIME",
                     "MACHINE",
                     "LICENCE",
-                    "GPU ID",
+                    "TUFLOW GPU (-pu)",
                     "TLF",
                     "MODEL",
                 ),
@@ -985,7 +996,7 @@ def render_activity_report(  # noqa: C901
                     str(process.process_id or "-"),
                     process.first_access.strftime("%Y-%m-%d %H:%M:%S") if process.first_access else "-",
                     process.last_access.strftime("%Y-%m-%d %H:%M:%S") if process.last_access else "-",
-                    simulation.inspection.gpu_device_ids if simulation else "-",
+                    simulation.inspection.gpu_label if simulation else "-",
                     simulation.status if simulation else "UNMATCHED",
                     _format_sim_hours(
                         simulation.progress.model_time_hours if simulation and simulation.progress else None
@@ -1008,7 +1019,7 @@ def render_activity_report(  # noqa: C901
                     "PID",
                     "FIRST ACCESS",
                     "LAST ACCESS",
-                    "GPU ID",
+                    "TUFLOW GPU (-pu)",
                     "TLF STATUS",
                     "SIM TIME",
                     "SIM END",

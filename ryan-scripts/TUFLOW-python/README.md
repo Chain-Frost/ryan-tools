@@ -47,6 +47,16 @@ footer keeps the effective batch flags visible, for example `Batch: -b -t`.
 GPU switches embedded in `BATCH_COMMANDS` are excluded because runtime GPU groups
 control launches; the startup settings still show the configured value and warning.
 
+GPU names are discovered once for each executing batch using the read-only CUDA driver API.
+Startup prints the local launch-environment mapping, for example `-pu0 (NVIDIA GeForce RTX 3090)`;
+the dashboard and configured-slot alerts use the same labels. Identical model names include a PCI bus
+identifier where available. Missing drivers or failed discovery leave `name unknown` and do not change
+scheduling. Export and preflight do not query hardware. `-puN` uses TUFLOW/CUDA order, which can differ
+from NVIDIA `nvidia-smi` and Windows display indexes. The inherited `CUDA_VISIBLE_DEVICES` and
+`CUDA_DEVICE_ORDER` affect this mapping; external processes may have different environments.
+Older TUFLOW builds may enumerate differently: verify their `.hpc.tlf` device list.
+See [TUFLOW's device-selection guidance](https://wiki.tuflow.com/Configure_CUDA_device_selection).
+
 At `INFO` level, startup prints the effective runner settings and the complete
 deduplicated simulation plan, including every run's flags, TCF and source location.
 This preview is before Resume filtering and does not assign GPU slots; the subsequent
@@ -508,6 +518,13 @@ The `MODEL` column displays the full filename rather than truncating it at 48 ch
 TLF paths in the final section can be opened from terminal hyperlinks. Windows Terminal receives OSC 8 links
 automatically where supported; VS Code's terminal can usually Ctrl+click the plain Windows paths through its native
 file-link detection. Use `--hyperlinks` to force OSC 8 links, or `--no-hyperlinks` to print plain paths.
+GPU cells explicitly show TUFLOW switches, for example `-pu1 (NVIDIA GeForce RTX 3080)`.
+Names come only from that simulation's companion `.hpc.tlf` device header, never from the current
+computer's hardware or CodeMeter allocation counts. Missing, unreadable, conflicting or stale
+companions retain `-puN (name unknown)`. As a conservative freshness check, companion and main TLF
+modification times must be within two minutes; active models whose HPC log has not recently updated
+may therefore show unknown names. The report retains each record's machine alongside the GPU label.
+
 The report prints inferred log and TLF activity first, followed by active CodeMeter processes, and finishes with the
 authoritative current CodeMeter licence-utilisation table.
 Redirected output and other non-OSC terminals get plain readable paths by default.
