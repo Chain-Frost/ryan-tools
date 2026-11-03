@@ -72,7 +72,7 @@ class TlfInspection:
     gpu_device_ids: str = "-"
     runtime_seconds: int | None = None
     modified_at: datetime | None = None
-    gpu_names: dict[int, str] = field(default_factory=lambda: dict[int, str]())
+    gpu_names: dict[int, str] = field(default_factory=dict[int, str])
 
     @property
     def gpu_label(self) -> str:
