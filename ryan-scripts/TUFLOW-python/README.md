@@ -94,9 +94,15 @@ BAT/text syntax, multiple TCFs, installation and validation boundaries.
 [`model_management/run_tuflow_simulations.py`](model_management/run_tuflow_simulations.py)
 accepts generated parameter combinations, BAT/text command lists, or both.
 Edit `MODE`, `RUN_VARIABLES_RAW` and `INPUT_FILES` near the top of a copied
-Python wrapper. Its operational constants can use concise names; the wrapper
-standard does not require a `DEFAULT_` prefix. CLI arguments override editable
-values when supplied.
+Python wrapper. For `MODE = params.SRC.TEXTFILES`, the entire `TCF` line and
+`RUN_VARIABLES_RAW` block may be deleted. Imported commands supply their own
+TCFs (explicit command arguments or `SET TCF=...`) and event/scenario flags.
+A Python `TCF`, when present, is also a constraint: imported TCFs must match.
+Generated modes (`PARAMETER_PRODUCT` and `BOTH`) still require a Python
+`TCF` and the `RUN_VARIABLES_RAW` setting. Missing effective TCFs fail planning.
+Its operational constants can use concise names; the wrapper standard
+does not require a `DEFAULT_` prefix. CLI arguments override editable values
+when supplied.
 
 The startup settings print `RUN_VARIABLES` as a Python-style dictionary with
 one event/scenario entry per line, preserving input order and values. The
@@ -107,6 +113,17 @@ paths are cyan. The baseline includes `-b`, LOW priority, minimized windows,
 automatic GPU placement and a two-second launch delay; it does not change when
 you edit the wrapper. Run controls compare against run/resume, export and input
 checks enabled, INFO logging, pause enabled and no follow-up script.
+
+`LIVE_MAX_ROWS = 10` limits the runner dashboard to at most ten task rows
+at once, without reducing the number of runs planned or executed. It is
+editable or can be overridden using `--live-max-rows N` (positive integer).
+
+`PRIORITY_ORDER` affects only generated combinations: flags listed first vary
+more slowly in the Cartesian product. It never reorders imported BAT/TXT
+selections. Imported commands retain the order they appear in each source, and
+multiple `INPUT_FILES` are consumed in the listed order. Duplicate effective
+selections retain only their first occurrence. In `BOTH` mode, imported
+selections precede generated combinations.
 
 The dashboard computes separate `e1` through `e9` and `s1` through `s9` columns
 from the flags present anywhere in the proposed plan, before Resume filtering.
