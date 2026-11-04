@@ -21,7 +21,6 @@ from __future__ import annotations
 # pyright: reportMissingTypeStubs=false, reportUnknownArgumentType=false, reportUnknownMemberType=false
 # pyright: reportUnknownVariableType=false, reportUnknownParameterType=false, reportAttributeAccessIssue=false
 # pyright: reportCallIssue=false, reportGeneralTypeIssues=false
-
 from pathlib import Path
 
 WRAPPER_VERSION = "2026-11-04.1"
@@ -48,9 +47,10 @@ from typing import Any, cast
 
 import geopandas as gpd
 import numpy as np
-from pytuflow import Context, TGC as PyTuflowTGC
 import rasterio
 import rasterio.warp
+from pytuflow import TGC as PyTuflowTGC
+from pytuflow import Context
 from rasterio.enums import Resampling
 from rasterio.features import geometry_mask
 from rasterio.transform import array_bounds, from_origin
