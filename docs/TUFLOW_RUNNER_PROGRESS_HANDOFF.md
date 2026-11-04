@@ -120,13 +120,20 @@ and `FILE_SHARE_DELETE`. It must not request exclusive access, byte-range locks,
 write access or a persistent memory map. Handles must close after each bounded
 read, including exception paths. Inspect handle counts across repeated samples.
 With a compatible writer already open and while the monitor holds its brief
-read handle, confirm continuous appends and log rename/replacement can proceed.
-Exercise writer close/reopen as well as a long-lived writer. If the writer denies
+read handle, confirm continuous appends can proceed. Exercise writer close/reopen
+as well as a long-lived writer. Check source-file rename while the reader is open
+and direct destination replacement after the sample closes. Legacy Windows
+`MoveFileExW` (Python `os.replace`) rejects replacing an existing open destination
+even with delete sharing; do not assert that operation must succeed during a read.
+The supplied native regression covers source rotation into a vacant name and
+replacement after closure. Record whether the actual solver ever replaces logs
+during execution and whether that operation is affected. If the writer denies
 read sharing, the monitor must skip the sample and retry only at its normal
 interval, with no immediate retry/wait loop. Never change the solver's sharing
 mode to make a test pass. Record actual TUFLOW and SMB behaviour separately from
-the synthetic Win32 sharing test; permissive reader flags cannot guarantee that
-an independently exclusive writer will coexist with another read handle.
+the synthetic Win32 sharing tests; permissive reader flags cannot guarantee that
+an independently exclusive writer or every replacement API will coexist with
+another read handle.
 
 Repeat observation against a mapped drive or UNC path with spaces. Verify paths
 keep their user-supplied spelling. Exercise missing logs, temporary sharing or

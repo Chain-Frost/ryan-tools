@@ -100,14 +100,19 @@ observed hour-based TLF value.
 
 On Windows, log handles request read access with
 `FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE`. They open existing files
-only and allow a compatible TUFLOW writer to continue appending, renaming or
-replacing them. The monitor takes no exclusive or byte-range lock, does not use
+only and allow compatible writers to continue appending, including writers that
+close and reopen the log. The monitor takes no exclusive or byte-range lock, does not use
 memory mapping and closes each handle immediately after its bounded read. A
 sharing/access error skips the sample; retry occurs at the next normal poll,
 without a wait-for-unlock loop. See Microsoft's
 [CreateFileW sharing contract](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew).
+Delete sharing allows a compatible rename of the open source file. It does not
+make every replacement operation compatible: legacy Windows `MoveFileExW`
+(used by Python `os.replace`) rejects an existing open destination, even with
+permissive sharing. Replacement works after the sample's read handle closes.
+See the [Windows rename rules](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-fsa/87f86c9b-6c2a-4803-84b7-131a74a434fa).
 No file reader can guarantee zero storage/network latency or compatibility with
-a writer that insists on exclusive access. Validate the actual solver and SMB
+an exclusive writer or every replacement API. Validate the actual solver and SMB
 environment using the linked handoff; the scheduler never waits on this I/O.
 
 Log observations must belong to the current invocation. Old, unchanged logs

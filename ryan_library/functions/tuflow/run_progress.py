@@ -233,6 +233,7 @@ class _Parsed:
 @dataclass(slots=True)
 class _Source:
     path: Path
+    path_stamp: _Stamp | None = None
     stamp: _Stamp | None = None
     head: bytes = b""
     parsed: _Parsed = _Parsed()
@@ -277,7 +278,7 @@ def _read_windows(path: Path) -> tuple[_Stamp, bytes, tuple[str, ...]]:
 
 
 def _open_shared_binary(path: Path) -> FileIO:
-    """Open read-only without denying an existing writer's append or replacement.
+    """Open read-only with permissive read/write/delete sharing.
 
     Windows CRT defaults do not guarantee delete sharing. Request all three
     share flags explicitly, then transfer HANDLE ownership to the file object.
@@ -475,13 +476,14 @@ class LogProgressReader:
 
     def _poll_source(self, source: _Source, *, hpc: bool) -> _Observation:
         try:
-            stamp = _Stamp.from_stat(source.path.stat())
-            if stamp == source.stamp:
+            path_stamp = _Stamp.from_stat(source.path.stat())
+            if path_stamp == source.path_stamp:
                 return self._observation(source, hpc=hpc)
             stamp, head, sections = _read_windows(source.path)
         except FileNotFoundError:
             if not hpc and source.stamp is not None:
                 self._hpc = _Source(self._hpc.path, require_change=True)
+            source.path_stamp = None
             source.stamp = None
             source.head = b""
             source.parsed = _Parsed()
@@ -510,11 +512,23 @@ class LogProgressReader:
             self._hpc = _Source(self._hpc.path, require_change=True)
         changed_after_observation = previous is not None and stamp != previous
         was_fresh = source.fresh
-        source.fresh = stamp.modified >= self._started_at or source.missing_seen or changed_after_observation
+        source.fresh = (
+            (was_fresh and not replaced)
+            or stamp.modified >= self._started_at
+            or source.missing_seen
+            or changed_after_observation
+        )
         if source.require_change:
             source.fresh = source.missing_seen or changed_after_observation
             if source.fresh:
                 source.require_change = False
+        # Compare path observations only with earlier path observations. On
+        # Windows, stat() and fstat() can report different ctime meanings for
+        # the same file (CPython issue #157671). The handle stamp remains the
+        # authority for the bytes read and for generation comparisons.
+        # Keep the pre-read path stamp: a change during reading must cause a
+        # fresh poll rather than be hidden by caching a newer unread state.
+        source.path_stamp = path_stamp
         source.stamp = stamp
         if not replaced and was_fresh and head == source.head:
             # Replaying an unchanged head could overwrite a newer effective

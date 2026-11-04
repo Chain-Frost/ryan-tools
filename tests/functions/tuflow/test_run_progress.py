@@ -345,14 +345,35 @@ def test_hpc_sharing_violation_retains_verified_sample_and_age(tmp_path: Path, m
     assert reader.poll().state == "live"
 
 
+@pytest.mark.parametrize("different_stat_metadata", [False, True])
 def test_reads_are_bounded_closed_and_skipped_when_stat_is_unchanged(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, different_stat_metadata: bool
 ) -> None:
     path = tmp_path / "run.tlf"
     _write(path, _main() + "unchanged model detail\n" * 100_000 + "SIM: 1:00:00\n")
     original = progress._open_shared_binary
+    original_fstat = os.fstat
     requests: list[int] = []
     handles: list[FileIO] = []
+
+    def handle_metadata(descriptor: int) -> os.stat_result:
+        value = original_fstat(descriptor)
+        # Windows stat(path) and fstat(fd) can disagree on ctime semantics.
+        # Deliberately distinct identity representations also prove that the
+        # cache compares observations obtained through the same API.
+        return cast(
+            os.stat_result,
+            SimpleNamespace(
+                st_dev=value.st_dev + 1,
+                st_ino=value.st_ino + 1,
+                st_size=value.st_size,
+                st_mtime_ns=value.st_mtime_ns,
+                st_ctime_ns=value.st_ctime_ns + 1_000_000_000,
+            ),
+        )
+
+    if different_stat_metadata:
+        monkeypatch.setattr(os, "fstat", handle_metadata)
 
     class CountedFile:
         def __init__(self, source: FileIO) -> None:
@@ -386,6 +407,47 @@ def test_reads_are_bounded_closed_and_skipped_when_stat_is_unchanged(
     assert all(source.closed for source in handles)
     assert reader.poll().model_hours == 1
     assert requests == [64 * 1024, 64 * 1024]
+    with path.open("a", encoding="utf-8") as writer:
+        writer.write("SIM: 2:00:00\n")
+    os.utime(path, (_LAUNCH + 2, _LAUNCH + 2))
+    assert reader.poll().model_hours == 2
+    assert requests == [64 * 1024] * 4
+    assert all(source.closed for source in handles)
+    assert reader.poll().model_hours == 2
+    assert requests == [64 * 1024] * 4
+
+
+def test_path_only_metadata_change_preserves_verified_coarse_timestamp_progress(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "run.tlf"
+    coarse = _LAUNCH - 0.5
+    _write(path, _main(), modified=coarse)
+    reader = progress.LogProgressReader(path, started_at=_LAUNCH)
+    assert reader.poll().state == "unverified"
+    _write(path, _main() + "SIM: 1:00:00\n", modified=coarse)
+    verified = reader.poll()
+    assert verified.state == "live"
+    original_stat = Path.stat
+
+    def path_metadata(candidate: Path, *, follow_symlinks: bool = True) -> os.stat_result:
+        value = original_stat(candidate, follow_symlinks=follow_symlinks)
+        return cast(
+            os.stat_result,
+            SimpleNamespace(
+                st_dev=value.st_dev,
+                st_ino=value.st_ino,
+                st_size=value.st_size,
+                st_mtime_ns=value.st_mtime_ns,
+                st_ctime_ns=value.st_ctime_ns + 1,
+            ),
+        )
+
+    monkeypatch.setattr(Path, "stat", path_metadata)
+    # A path observation can change independently of the handle sampled for the
+    # read. Rereading that same verified generation must not revoke freshness.
+    assert reader.poll() == verified
+    assert reader.poll() == verified
 
 
 def test_model_record_split_between_contiguous_windows_is_retained(tmp_path: Path) -> None:
@@ -422,19 +484,42 @@ def test_real_fixture_replay(tmp_path: Path, relative: str, start: float, end: f
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Requires native Windows handle sharing")
-def test_windows_reader_allows_writer_append_and_replacement(tmp_path: Path) -> None:
+def test_windows_reader_allows_long_lived_and_reopened_writer(tmp_path: Path) -> None:
     path = tmp_path / "run.tlf"
+    path.write_bytes(b"old\n")
+    with path.open("ab", buffering=0) as writer:
+        with progress._open_shared_binary(path) as reader:
+            assert not os.get_inheritable(reader.fileno())
+            writer.write(b"appended\n")
+            assert reader.read() == b"old\nappended\n"
+    with progress._open_shared_binary(path) as reader:
+        with path.open("ab", buffering=0) as writer:
+            writer.write(b"reopened\n")
+        assert reader.read() == b"old\nappended\nreopened\n"
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Requires native Windows handle sharing")
+def test_windows_reader_allows_source_rename_and_replacement_after_close(tmp_path: Path) -> None:
+    path = tmp_path / "run.tlf"
+    rotated = tmp_path / "rotated.tlf"
     replacement = tmp_path / "replacement.tlf"
     path.write_bytes(b"old\n")
     replacement.write_bytes(b"replacement\n")
     with progress._open_shared_binary(path) as reader:
         assert not os.get_inheritable(reader.fileno())
-        with path.open("ab") as writer:
-            writer.write(b"appended\n")
-            writer.flush()
+        # Delete sharing allows the open source to be renamed. Legacy Windows
+        # MoveFileExW cannot replace an open destination, even with all share
+        # flags, so place the replacement at the now-vacant original name.
+        path.rename(rotated)
         replacement.replace(path)
-        assert reader.read() == b"old\nappended\n"
+        assert reader.read() == b"old\n"
     assert path.read_bytes() == b"replacement\n"
+    assert rotated.read_bytes() == b"old\n"
+    with progress._open_shared_binary(path) as reader:
+        assert reader.read() == b"replacement\n"
+    # A completed sample leaves no retained handle to obstruct replacement.
+    rotated.replace(path)
+    assert path.read_bytes() == b"old\n"
 
 
 @pytest.mark.parametrize("failure", ["", "transfer", "file_object"])

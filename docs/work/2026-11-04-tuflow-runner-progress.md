@@ -45,6 +45,11 @@ log-based completion, retries, recovery, launch gating, automatic merge or relea
   `CreateFileW` read handle with all three read/write/delete sharing flags, no
   exclusive/byte-range locks or memory maps, and no blocking retry loops.
   Sharing violations defer the optional sample to the normal polling interval.
+- Windows destination replacement has a separate OS limitation: legacy
+  `MoveFileExW` rejects an existing open destination despite delete sharing.
+  Native tests therefore distinguish concurrent append/source rename from
+  direct replacement after read-handle closure. Actual solver/SMB acceptance
+  must establish which operations TUFLOW performs while running.
 
 ## Fixture evidence
 
@@ -82,22 +87,24 @@ those limitations are reviewed; report each unrun or blocked case explicitly.
   partial lines, old logs, replacement/truncation and bounded reads.
 - Optional worker failures and slow file operations never delay child lifecycle
   decisions; disabled/nonexecution paths do not inspect model logs.
-- Windows concurrent writer/rename/replacement tests prove compatible sharing
-  and handle cleanup; local acceptance verifies the actual TUFLOW/SMB behaviour.
+- Windows tests verify concurrent append with long-lived/reopened writers,
+  source rename and replacement after closure; local acceptance verifies actual
+  TUFLOW/SMB behaviour and any different replacement API used by the solver.
 - Focused tests, Ruff, strict modified-file Pyright, documentation, Loguru policy,
   wheel verification and copied-wrapper smoke checks are recorded.
 - New PR and handoff are pushed, with native acceptance status stated separately.
 
 ## Validation and delivery
 
-Source validation completed in an isolated checkout using Python 3.14.9 on Linux:
+Source validation after the Windows corrections completed in an isolated
+checkout using Python 3.14.9 on Linux:
 
 ```text
 python -m pytest -q tests/functions/test_live_dashboard.py tests/functions/test_live_dashboard_logging.py tests/functions/test_dashboard_workflow.py tests/functions/tuflow/test_run_progress.py tests/orchestrators/tuflow/test_advisory_run_progress.py tests/orchestrators/tuflow/test_simulation_runner.py tests/scripts/test_run_tuflow_simulations.py tests/scripts/test_tuflow_advisory_runner.py tests/functions/tuflow/test_execution_history.py
 ```
 
-Result: **279 passed, 11 skipped**, 5.12 seconds. The skips are native Windows
-cases, including the actual shared reader/writer/rename test; mocked Win32 flags
+Result: **281 passed, 12 skipped**, 5.06 seconds. The skips are native Windows
+cases, including the shared reader/writer/rename tests; mocked Win32 flags
 and handle-ownership tests did run. Real pinned-PyTUFLOW path/context tests and
 HPC/Quadtree fixture replays passed. No TUFLOW executable was launched.
 
@@ -110,8 +117,8 @@ HPC/Quadtree fixture replays passed. No TUFLOW executable was launched.
   compilation and `git diff --check` passed.
 - `python repo-scripts/build_library.py --no-bump --skip-pip` and
   `python repo-scripts/verify_wheel.py dist/ryan_tools-26.11.3.9-py3-none-any.whl`
-  passed. Verified wheel: 910,378 bytes; SHA-256
-  `9e6f151b0a35b756eb9ae8a41d00ee56f5924a891e424dd24ed390ebcad4d729`.
+  passed. Verified wheel: 910,790 bytes; SHA-256
+  `05baa73516a23083b8ac0392f6fca72c2345f6f6fc8a85f767ad818bcd96c438`.
   The four changed library modules were compared byte-for-byte with that wheel.
 - Installed the wheel into a disposable target and copied the wrapper outside
   the repository. `--help` and explicit textfile `--export-only
@@ -132,7 +139,7 @@ handoff are published in draft [PR #205](https://github.com/Chain-Frost/ryan-too
 on `feat/tuflow-runner-progress`, targeting `main`. The implementation commit is
 `5c4c9ff5f4bf0f5b389bd5c190dd6812ebd4c96c`; its published Git tree exactly matches
 the locally validated source tree. The PR description records the latest pushed
-SHA and current hosted checks, including subsequent documentation-only commits.
+SHA and current hosted checks, including the Windows corrections described below.
 No merge, auto-merge or release is authorized by this work.
 
 MCP discovery assessment: the existing runner workflow remains the supported
@@ -162,3 +169,22 @@ sharing, non-inheritable scoped handles, mocked cleanup tests and native sharing
 acceptance. Runtime observer failures disable progress and warn while preserving
 actual process outcomes; test cases cover register, drain, discard, cleanup and
 malformed progress conversion.
+
+The first hosted Windows test run on implementation commit `5c4c9ff` completed
+with 2 failures, 2,091 passes, 14 skips and 8 deselections. It exposed two concrete
+Windows distinctions before local-machine handoff:
+
+- Python 3.14 can report different `st_ctime_ns` values for `os.stat(path)` and
+  `os.fstat(fd)` on the same unchanged file. Cross-API comparison caused redundant
+  reads. The correction keeps separate path-stat and open-handle fingerprints;
+  only observations from the same API are compared. See
+  [CPython issue #157671](https://github.com/python/cpython/issues/157671).
+- The native test incorrectly expected Python `os.replace` to replace an open
+  destination. Legacy Windows `FileRenameInformation` rejects that operation
+  even with delete sharing. Tests and documentation now distinguish concurrent
+  append/source rename from direct replacement after closure; no sharing
+  restrictions or retries were added to the reader. See the
+  [Windows rename rules](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-fsa/87f86c9b-6c2a-4803-84b7-131a74a434fa).
+
+The PR description records the final published revision and its hosted checks;
+earlier successful policy/package jobs do not substitute for that final run.
