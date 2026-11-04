@@ -193,7 +193,7 @@ def resolve_terrain_layers(tgc_path: Path, scenario: str) -> list[TerrainLayer]:
                 source=source,
                 mask=mask_path,
                 source_expression=source_expression,
-                command_text=str(run_input._command.original_text).strip(),
+                command_text=str(run_input.command()).strip(),
             )
         )
 
