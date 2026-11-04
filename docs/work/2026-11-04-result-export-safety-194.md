@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active - validation and GitHub delivery |
+| Status | Needs review - PR #202 published |
 | Owner | ChatGPT |
 | Created | 2026-11-04 |
 | Updated | 2026-11-04 |
@@ -56,8 +56,12 @@ Windows, normal Python 3.14.6, 2026-11-04:
 
 ## Next action and delivery
 
-Publish the validated branch as a PR stacked on #183 and verify all GitHub
-checks and review threads. Implementation is currently uncommitted. No main merge or release is authorised.
+[PR #202](https://github.com/Chain-Frost/ryan-tools/pull/202) is published,
+stacked on #183. Implementation `7d22927e` is committed and pushed. Review
+its safety policy and verify all current-head GitHub checks and review threads.
+The PR body and [checks tab](https://github.com/Chain-Frost/ryan-tools/pull/202/checks)
+record terminal hosted evidence after this publication milestone. No main merge
+or release is authorised.
 
 Next shared audit front after this fix is #195 (invalid discovery inputs versus
 valid empty selections); #196/#198 dashboard adoption depends on truthful
