@@ -3,7 +3,6 @@ from __future__ import annotations
 # Rasterio does not currently expose complete read-dataset type information.
 # pyright: reportUnknownArgumentType=false, reportUnknownMemberType=false
 # pyright: reportUnknownVariableType=false, reportAttributeAccessIssue=false
-
 import importlib.util
 import sys
 from pathlib import Path
