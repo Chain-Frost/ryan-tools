@@ -104,6 +104,7 @@ but they are not current architectural policy when they conflict with the canoni
 | [TUFLOW batch preflight optimisation](work/2026-10-22-tuflow-batch-preflight-optimisation.md) | Stacked draft against PR #143: consume PyTUFLOW batch API, share GIS/filesystem inspection, preserve parity and benchmark 500-run workloads |
 | [TUFLOW runner model checks](work/2026-10-23-tuflow-runner-model-checks.md) | PR #159 current decisions, implementation, validation and delivery state |
 | [TUFLOW GPU availability alerts and CodeMeter validation](work/2026-11-03-tuflow-gpu-alerts-193.md) | PR #193 implementation, measured evidence, validation and delivery state |
+| [TGC terrain crop workflow](work/2026-11-04-tgc-terrain-crop.md) | Single-scenario PyTUFLOW terrain selection, buffered precedence crop, validation and delivery state |
 | [Live dashboard logging regression](work/2026-11-03-live-dashboard-logging.md) | Default stdout routing for older copied runners, regression evidence and PR delivery |
 | [TUFLOW scope index](work/2026-10-31-tuflow-integration-scopes/00_scope_index.md) | Agreed shared decisions, ownership, dependencies and delegation order for #159 and follow-ups |
 | [TUFLOW scope 01: PyTUFLOW integration](work/2026-10-31-tuflow-integration-scopes/01_pytuflow_integration.md) | Sole PR17 API, capability guard, existing installer, local raster removal and obsolete-path retirement |

@@ -271,6 +271,42 @@ The Python runner and its generated TXT support UNC working directories.
 Generated and imported paths compare consistently when they contain `..`;
 comparison is lexical and does not resolve drive mappings or filesystem links.
 
+## Crop an ordered TGC terrain stack
+
+[`crop_tgc_terrains.py`](crop_tgc_terrains.py) creates smaller copies of the
+`Read Grid Zpts` rasters active for one scenario. PyTUFLOW evaluates the TGC's
+scenario scopes and preserves command order; the script does not implement a
+second TUFLOW conditional parser and intentionally accepts only one `-s1`
+scenario value.
+
+The supplied analysis box is a hard outer limit. Within it, later terrain reads
+have precedence. Lower layers retain their uniquely required area plus the
+default 50 m seam allowance, leaving deliberate overlap around dataset edges
+without retaining deep redundant overlap. Source elevations stay on their
+native grids and are not reprojected or resampled. Optional `|` polygon masks
+participate in coverage planning and remain on the corresponding patched TGC
+commands.
+
+The default is plan-only. `--write` creates new losslessly compressed rasters,
+a new `_SCENARIO_cropped.tgc` beside the source TGC, and a JSON manifest. It
+refuses to overwrite any destination and never edits the original TGC or
+rasters.
+
+```powershell
+py -3.14 .\ryan-scripts\TUFLOW-python\crop_tgc_terrains.py `
+  --tgc "Q:\Project\TUFLOW\model\GEOM_01.tgc" `
+  --scenario EXG `
+  --bounds 700000 7400000 750000 7450000 `
+  --crs EPSG:28350 `
+  --buffer 50 `
+  --output-dir "Q:\Project\TUFLOW\terrain\cropped_EXG" `
+  --write --no-pause
+```
+
+The planning grid controls coverage-mask precision only; it does not change
+terrain resolution. Review the manifest and compare a TUFLOW `DEM_Z` check
+against the original stack before replacing a production TGC reference.
+
 ## Fixed TXT command export
 
 Command export remains enabled by default. A copied `<runner-name>.py` refreshes
