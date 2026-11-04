@@ -212,7 +212,7 @@ def _read_mask_geometries(mask_path: Path, destination_crs: str) -> list[dict[st
         message = f"Terrain clip mask has no CRS: {mask_path}"
         raise ValueError(message)
     frame = frame.to_crs(destination_crs)
-    geometries = [mapping(geometry) for geometry in frame.geometry if geometry is not None and not geometry.is_empty]
+    geometries = [mapping(geometry) for geometry in frame.geometry.dropna() if not geometry.is_empty]
     if not geometries:
         message = f"Terrain clip mask contains no usable geometry: {mask_path}"
         raise ValueError(message)

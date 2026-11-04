@@ -3,10 +3,14 @@ from __future__ import annotations
 import importlib.util
 import sys
 from pathlib import Path
+from typing import Any, cast
 
 import numpy as np
 import pytest
 import rasterio
+from affine import Affine
+from numpy.typing import NDArray
+from rasterio.io import DatasetReader
 from rasterio.transform import from_origin
 
 SCRIPT = Path(__file__).parents[1] / "ryan-scripts" / "TUFLOW-python" / "crop_tgc_terrains.py"
@@ -18,7 +22,12 @@ sys.modules[SPEC.name] = MODULE
 SPEC.loader.exec_module(MODULE)
 
 
-def _write_raster(path: Path, data: np.ndarray, *, transform=None) -> None:
+def _write_raster(
+    path: Path,
+    data: NDArray[np.floating[Any]],
+    *,
+    transform: Affine | None = None,
+) -> None:
     with rasterio.open(
         path,
         "w",
@@ -28,7 +37,7 @@ def _write_raster(path: Path, data: np.ndarray, *, transform=None) -> None:
         count=1,
         dtype="float32",
         crs="EPSG:28350",
-        transform=transform or from_origin(0, 100, 10, 10),
+        transform=transform if transform is not None else from_origin(0, 100, 10, 10),
         nodata=-9999.0,
     ) as dataset:
         dataset.write(data.astype("float32"), 1)
@@ -114,7 +123,8 @@ def test_write_creates_new_rasters_manifest_and_patched_tgc(tmp_path: Path) -> N
     assert "cropped\\001_lower_cropped.tif" in patched_text
     assert "cropped\\002_higher_cropped.tif" in patched_text
 
-    with rasterio.open(outputs[0]) as cropped_lower:
+    with rasterio.open(outputs[0], mode="r") as opened:
+        cropped_lower = cast(DatasetReader, opened)
         data = cropped_lower.read(1)
         assert np.any(data == 10.0)
         assert cropped_lower.width == 7
