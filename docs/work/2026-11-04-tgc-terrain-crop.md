@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Needs review; PR #204 open |
+| Status | Ready for review; PR #204 open and exact-head CI green |
 | Owner | ChatGPT |
 | Created | 2026-11-04 |
 | Updated | 2026-11-04 |
@@ -20,15 +20,16 @@ or scenario-slot switching.
 ## Current state
 
 Implementation, focused tests, user documentation and real plan-only model
-validation are complete locally. The script defaults to plan-only, writes only
+validation are complete. The script defaults to plan-only, writes only
 new destinations with explicit `--write`, preserves native grids and source
 values, and produces a patched TGC plus manifest. No production rasters or TGCs
-were changed during validation. PR #204 is open for review.
+were changed during validation. PR #204 is open, mergeable and ready for
+maintainer review.
 
 ## Next action
 
-Review hosted validation on PR #204 at exact head, then obtain maintainer
-approval before merge. No merge or release is authorised by this work.
+Obtain maintainer approval before merge. No merge or release is authorised by
+this work.
 
 ## Completion criteria
 
@@ -44,13 +45,16 @@ approval before merge. No merge or release is authorised by this work.
 - `python -B -m pytest -q -p no:cacheprovider tests/test_crop_tgc_terrains.py`:
   3 passed with the current Q: PyTUFLOW checkout; one existing pytest
   configuration warning.
-- Strict Pyright on the maintained script: 0 errors, 0 warnings.
+- Strict Pyright on the maintained script and focused tests: 0 errors, 0
+  warnings.
 - TUFLOW Python README link check: passed.
 - Actual private model plan-only checks at 50 m and the shipped 10 m planning
   resolution selected 12 ordered terrain layers and completed without writes.
-- Ruff execution is blocked by the corporate executable policy; formatting is
-  checked manually and `git diff --check` is clean.
-- Delivery: commit `2496e1c0` pushed on `feat/tgc-terrain-crop`; PR #204 open.
+- Local Ruff execution is blocked by corporate executable policy; GitHub's
+  pinned Ruff lint and format check passed.
+- Exact-head GitHub validation on `c8359713` passed Ruff and whitespace, Policy,
+  Package, MCP smoke, POSIX wrapper security and Hosted tests.
+- Delivery: branch `feat/tgc-terrain-crop` pushed; PR #204 open and mergeable.
 
 ## Progress
 
