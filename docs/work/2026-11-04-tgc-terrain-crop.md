@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active |
+| Status | Needs review; PR #204 open |
 | Owner | ChatGPT |
 | Created | 2026-11-04 |
 | Updated | 2026-11-04 |
@@ -23,12 +23,12 @@ Implementation, focused tests, user documentation and real plan-only model
 validation are complete locally. The script defaults to plan-only, writes only
 new destinations with explicit `--write`, preserves native grids and source
 values, and produces a patched TGC plus manifest. No production rasters or TGCs
-were changed during validation.
+were changed during validation. PR #204 is open for review.
 
 ## Next action
 
-Commit and publish the bounded change, open the pull request, then record the
-exact PR/head and hosted validation state here.
+Review hosted validation on PR #204 at exact head, then obtain maintainer
+approval before merge. No merge or release is authorised by this work.
 
 ## Completion criteria
 
@@ -50,7 +50,7 @@ exact PR/head and hosted validation state here.
   resolution selected 12 ordered terrain layers and completed without writes.
 - Ruff execution is blocked by the corporate executable policy; formatting is
   checked manually and `git diff --check` is clean.
-- Delivery: local branch only; commit, push and PR pending.
+- Delivery: commit `2496e1c0` pushed on `feat/tgc-terrain-crop`; PR #204 open.
 
 ## Progress
 
