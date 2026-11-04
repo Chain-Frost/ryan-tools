@@ -93,6 +93,7 @@ class RunnerSettings:
     live_max_rows: int = 10
     monitor_progress: bool = True
     progress_poll_interval_seconds: float = 10.0
+    show_progress_diagnostics: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -225,6 +226,9 @@ def _validate_progress_settings(settings: RunnerSettings) -> None:
     """Reject invalid observation controls before any exports or launches."""
     if type(settings.monitor_progress) is not bool:
         message = "MONITOR_PROGRESS must be True or False"
+        raise CommandPlanError(message)
+    if type(settings.show_progress_diagnostics) is not bool:
+        message = "SHOW_PROGRESS_DIAGNOSTICS must be True or False"
         raise CommandPlanError(message)
     if (
         type(settings.progress_poll_interval_seconds) not in (int, float)
@@ -465,6 +469,7 @@ def _log_plan_preview(plan: CommandPlan, settings: RunnerSettings) -> None:
         ("LIVE_MAX_ROWS", settings.live_max_rows),
         ("MONITOR_PROGRESS", settings.monitor_progress),
         ("PROGRESS_POLL_INTERVAL_SECONDS", settings.progress_poll_interval_seconds),
+        ("SHOW_PROGRESS_DIAGNOSTICS", settings.show_progress_diagnostics),
     )
     baseline = RunnerSettings(
         wrapper_file=settings.wrapper_file,
@@ -489,6 +494,7 @@ def _log_plan_preview(plan: CommandPlan, settings: RunnerSettings) -> None:
             "GPU_CHECK_INTERVAL_SECONDS",
             "MONITOR_PROGRESS",
             "PROGRESS_POLL_INTERVAL_SECONDS",
+            "SHOW_PROGRESS_DIAGNOSTICS",
         )
     }
     defaults.update(
@@ -1117,20 +1123,53 @@ def _progress_metadata(snapshot: LogProgressSnapshot) -> dict[str, str]:
     return values
 
 
-def _progress_detail(update: ProgressUpdate, *, stale_after: float) -> str:
+def _progress_observation_detail(update: ProgressUpdate, *, stale_after: float) -> str | None:
     snapshot = update.snapshot
-    detail = f"PID {update.pid}"
-    if snapshot.state == "waiting":
-        return f"{detail}; waiting log"
-    if snapshot.state == "unverified":
-        return f"{detail}; log unverified"
-    if snapshot.state == "unavailable":
-        return f"{detail}; progress unavailable"
-    if snapshot.last_log_update is not None:
+    state_labels = {"waiting": "waiting log", "unverified": "log unverified", "unavailable": "progress unavailable"}
+    if snapshot.state in state_labels:
+        return state_labels[snapshot.state]
+    if snapshot.last_log_update is not None and math.isfinite(snapshot.last_log_update):
         age = max(0.0, time.time() - snapshot.last_log_update)
         if age >= stale_after:
-            return f"{detail}; log {int(age // 60)}m old"
-    return detail
+            return f"log {int(age // 60)}m old"
+    return "log warning" if update.warning else None
+
+
+def _progress_diagnostic_detail(snapshot: LogProgressSnapshot) -> str | None:
+    diagnostics: list[str] = []
+    timestep = snapshot.timestep_seconds
+    if timestep is not None and type(timestep) in (int, float) and math.isfinite(timestep) and timestep > 0:
+        diagnostics.append(f"dt {timestep:.4g}s")
+    mass_error = snapshot.final_mass_error_percent
+    if mass_error is not None and type(mass_error) in (int, float) and math.isfinite(mass_error):
+        diagnostics.append(f"ME {mass_error:.4g}%")
+    return " / ".join(diagnostics) if diagnostics else None
+
+
+def _progress_detail(
+    update: ProgressUpdate,
+    *,
+    stale_after: float,
+    show_diagnostics: bool = True,
+    outcome_detail: str | None = None,
+) -> str:
+    """Describe observed work without turning a log phase into process status."""
+    snapshot = update.snapshot
+    phase_labels = {"initialising": "Initialising", "solving": "Solving", "writing_results": "Writing results"}
+    parts: list[str] = []
+    if outcome_detail is not None:
+        parts.append(outcome_detail)
+    elif snapshot.phase is not None and snapshot.phase in phase_labels:
+        parts.append(phase_labels[snapshot.phase])
+    observation = _progress_observation_detail(update, stale_after=stale_after)
+    if observation:
+        parts.append(observation)
+    diagnostics = _progress_diagnostic_detail(snapshot) if show_diagnostics else None
+    if diagnostics:
+        parts.append(diagnostics)
+    if outcome_detail is None:
+        parts.append(f"PID {update.pid}")
+    return "; ".join(parts)
 
 
 def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation boundary
@@ -1231,8 +1270,13 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
             except Exception as exc:  # noqa: BLE001 - optional cleanup must not affect owned solver processes
                 logger.warning("Run progress monitoring cleanup failed; continuing simulations: {}", exc)
 
-    def disable_progress(error: Exception) -> None:
-        logger.warning("Run progress monitoring unavailable; continuing simulations: {}", error)
+    def disable_progress(error: Exception, *, after_exit: bool = False) -> None:
+        if after_exit:
+            logger.warning(
+                "Run progress monitoring unavailable after process exit; recorded outcome unchanged: {}", error
+            )
+        else:
+            logger.warning("Run progress monitoring unavailable; continuing simulations: {}", error)
         close_progress()
         if dashboard is not None:
             try:
@@ -1246,18 +1290,32 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
             except Exception as exc:  # noqa: BLE001 - a failed optional display must not terminate owned children
                 logger.warning("Could not clear unavailable progress from the dashboard: {}", exc)
 
+    def finish_progress(result: RunOutcome) -> ProgressUpdate | None:
+        progress_update = latest_progress.get(result.run.index)
+        if progress_update is not None and (result.pid is None or progress_update.pid != result.pid):
+            progress_update = None
+        if progress_monitor is not None:
+            try:
+                if result.pid is None:
+                    progress_monitor.discard(result.run.index)
+                else:
+                    pending = progress_monitor.finish(result.run.index, pid=result.pid)
+                    if pending is not None and pending.run_index == result.run.index and pending.pid == result.pid:
+                        progress_update = pending
+                        if pending.warning:
+                            logger.warning("Run {} log observation: {}", pending.run_index, pending.warning)
+            except Exception as exc:  # noqa: BLE001 - observation cannot change an observed exit or continuation
+                disable_progress(exc, after_exit=result.pid is not None)
+        latest_progress.pop(result.run.index, None)
+        return progress_update
+
     def observed(result: RunOutcome) -> None:
         nonlocal next_print
         outcomes.append(result)
         ordered[result.run.index] = result
         if on_observed_completion is not None:
             on_observed_completion(result)
-        if progress_monitor is not None:
-            try:
-                progress_monitor.discard(result.run.index)
-            except Exception as exc:  # noqa: BLE001 - observation cannot change an observed exit or continuation
-                disable_progress(exc)
-        latest_progress.pop(result.run.index, None)
+        progress_update = finish_progress(result)
         # Presentation can be ordered, but the lifecycle callback above cannot.
         while next_print < len(plan.runs) and plan.runs[next_print].index in ordered:
             item = ordered.pop(plan.runs[next_print].index)
@@ -1271,11 +1329,27 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
             )
             next_print += 1
         if dashboard is not None:
+            outcome_detail = result.error or f"Exit {result.return_code}"
+            completion_detail = outcome_detail
+            completion_metadata: dict[str, str] | None = {"gpu": "Not launched"} if result.pid is None else None
+            if progress_update is not None:
+                try:
+                    metadata = _progress_metadata(progress_update.snapshot)
+                    detail = _progress_detail(
+                        progress_update,
+                        stale_after=max(60.0, settings.progress_poll_interval_seconds * 3),
+                        show_diagnostics=settings.show_progress_diagnostics,
+                        outcome_detail=outcome_detail,
+                    )
+                    completion_metadata = metadata
+                    completion_detail = detail
+                except Exception as exc:  # noqa: BLE001 - optional terminal observations cannot change the exit
+                    disable_progress(exc, after_exit=True)
             dashboard.mark_finished(
                 index=display_indices[result.run.index],
                 status="OK" if result.successful else "FAIL",
-                detail=result.error or f"Exit {result.return_code}",
-                metadata={"gpu": "Not launched"} if result.pid is None else None,
+                detail=completion_detail,
+                metadata=completion_metadata,
                 refresh=False,
             )
             dashboard.set_active_count(len(active), refresh=False)
@@ -1355,7 +1429,9 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                                         index=display_indices[child.run.index],
                                         metadata=_progress_metadata(update.snapshot),
                                         detail=_progress_detail(
-                                            update, stale_after=max(60.0, settings.progress_poll_interval_seconds * 3)
+                                            update,
+                                            stale_after=max(60.0, settings.progress_poll_interval_seconds * 3),
+                                            show_diagnostics=settings.show_progress_diagnostics,
                                         ),
                                         refresh=False,
                                     )

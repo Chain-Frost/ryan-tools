@@ -95,14 +95,23 @@ def test_interval_must_be_finite_and_positive(interval: float) -> None:
         progress.AdvisoryRunProgress(interval)
 
 
-def test_register_drain_discard_and_close_do_not_inspect_paths(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_scheduler_methods_do_not_inspect_paths(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     def unexpected_resolve(_path: Path, _variables: Mapping[str, str]) -> RunLogPrediction:
         pytest.fail("Caller thread inspected a TCF")
 
-    _install_io(monkeypatch, resolve=unexpected_resolve)
+    def unexpected_poll(_path: Path) -> LogProgressSnapshot:
+        pytest.fail("Caller thread read a log")
+
+    def unexpected_opened(_options: ReadOptions) -> None:
+        pytest.fail("Caller thread opened a reader")
+
+    _install_io(monkeypatch, resolve=unexpected_resolve, poll=unexpected_poll, opened=unexpected_opened)
     observer = progress.AdvisoryRunProgress()
     observer.register(_run(tmp_path), pid=10, started_at=100.0)
     assert observer.drain() == ()
+    assert observer.finish(1, pid=20) is None
+    assert observer.finish(1, pid=10) is None
+    observer.register(_run(tmp_path), pid=10, started_at=100.0)
     observer.discard(1)
     observer.close()
     observer.start()
@@ -144,6 +153,7 @@ def test_slow_io_does_not_block_scheduler_methods_or_publish_after_close(
         assert entered.wait(2.0)
         began = time.monotonic()
         observer.register(_run(tmp_path, 2), pid=20, started_at=101.0)
+        observer.finish(1, pid=10)
         observer.discard(1)
         observer.drain()
         observer.close()
@@ -155,6 +165,138 @@ def test_slow_io_does_not_block_scheduler_methods_or_publish_after_close(
     assert returned.wait(2.0)
     assert worker_is_daemon == [True]
     assert observer.drain() == ()
+
+
+def test_finish_returns_pending_final_diagnostics_and_warning_without_reading(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    final_snapshot = LogProgressSnapshot(
+        start_hours=0.0,
+        end_hours=3.0,
+        model_hours=3.0,
+        state="live",
+        phase="writing_results",
+        timestep_seconds=0.674,
+        final_mass_error_percent=-0.25,
+    )
+    late_read_started = Event()
+    release_late_read = Event()
+    calls = 0
+
+    def poll(path: Path) -> LogProgressSnapshot:
+        nonlocal calls
+        assert current_thread().daemon, "A scheduler method must not read a log"
+        if path.name != "model_1.tlf":
+            return _live(path)
+        calls += 1
+        if calls == 1:
+            return LogProgressSnapshot(state="unavailable", detail="temporary sharing violation")
+        if calls == 2:
+            return final_snapshot
+        if calls == 3:
+            late_read_started.set()
+            release_late_read.wait(3.0)
+            return _live(path)
+        pytest.fail("Retired invocation was polled again")
+
+    _install_io(monkeypatch, poll=poll)
+    observer = progress.AdvisoryRunProgress(interval_seconds=0.01)
+    observer.start()
+    observer.register(_run(tmp_path), pid=10, started_at=100.0)
+    try:
+        # A later blocked read proves the final snapshot was already published.
+        assert late_read_started.wait(2.0)
+        began = time.monotonic()
+        update = observer.finish(1, pid=10)
+        assert time.monotonic() - began < 0.5
+        assert update == progress.ProgressUpdate(1, 10, final_snapshot, "temporary sharing violation")
+        assert calls == 3
+        assert not release_late_read.is_set()
+        assert observer.finish(1, pid=10) is None
+        assert observer.drain() == ()
+
+        # Processing another run proves the late old result has been rejected.
+        observer.register(_run(tmp_path, 2), pid=20, started_at=101.0)
+        release_late_read.set()
+        received = _updates_until(observer, lambda items: 2 in items and items[2].snapshot.state == "live")
+        assert set(received) == {2}
+        assert calls == 3
+    finally:
+        observer.close()
+        release_late_read.set()
+
+
+def test_finish_without_pending_update_still_retires_invocation(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    resolved: list[Path] = []
+
+    def resolve(path: Path, _variables: Mapping[str, str]) -> RunLogPrediction:
+        resolved.append(path)
+        return RunLogPrediction(tlf_path=tmp_path / "shared.tlf")
+
+    _install_io(monkeypatch, resolve=resolve)
+    observer = progress.AdvisoryRunProgress(interval_seconds=60.0)
+    observer.register(_run(tmp_path), pid=10, started_at=100.0)
+    assert observer.finish(1, pid=10) is None
+    assert observer.finish(1, pid=10) is None
+    assert observer.finish(99, pid=990) is None
+    observer.start()
+    observer.register(_run(tmp_path, 2), pid=20, started_at=101.0)
+    try:
+        received = _updates_until(observer, lambda items: 2 in items and items[2].snapshot.state == "live")
+        assert set(received) == {2}
+        assert resolved == [tmp_path / "model_2.tcf"]
+        # The update has already been drained; finishing still removes the run.
+        assert observer.finish(2, pid=20) is None
+        # Its output path can now be observed for a new invocation.
+        observer.register(_run(tmp_path, 3), pid=30, started_at=102.0)
+        received = _updates_until(observer, lambda items: 3 in items and items[3].snapshot.state == "live")
+        assert set(received) == {3}
+        assert resolved == [tmp_path / "model_2.tcf", tmp_path / "model_3.tcf"]
+    finally:
+        observer.close()
+
+
+def test_finish_with_wrong_pid_preserves_newer_invocation_and_pending_update(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    second_read_started = Event()
+    release_second_read = Event()
+    calls = 0
+
+    def poll(_path: Path) -> LogProgressSnapshot:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            second_read_started.set()
+            release_second_read.wait(3.0)
+        return LogProgressSnapshot(model_hours=float(calls), state="live")
+
+    _install_io(monkeypatch, poll=poll)
+    observer = progress.AdvisoryRunProgress(interval_seconds=0.01)
+    run = _run(tmp_path)
+    observer.register(run, pid=10, started_at=100.0)
+    observer.register(run, pid=20, started_at=200.0)
+    observer.start()
+    try:
+        assert second_read_started.wait(2.0)
+        assert observer.finish(1, pid=10) is None
+        updates = observer.drain()
+        assert len(updates) == 1
+        assert updates[0].pid == 20
+        assert updates[0].snapshot.model_hours == 1.0
+        release_second_read.set()
+        received = _updates_until(
+            observer,
+            lambda items: (
+                1 in items and items[1].snapshot.model_hours is not None and items[1].snapshot.model_hours >= 2.0
+            ),
+        )
+        assert received[1].pid == 20
+    finally:
+        observer.close()
+        release_second_read.set()
 
 
 def test_replacement_ignores_in_flight_old_invocation(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

@@ -54,11 +54,12 @@ class AdvisoryRunProgress:
 
     ``register`` accepts only launched children. ``drain`` returns at most one
     update per active run, independently of polling cadence. Callers present
-    ``ProgressUpdate.warning`` on their normal logging thread.
+    ``ProgressUpdate.warning`` on their normal logging thread. ``finish`` takes
+    any pending update before retiring the matching invocation without a read.
 
-    Closing or discarding a run does not wait for an in-flight filesystem call.
-    Its result is ignored, and no further reads are scheduled for that entry.
-    This observer does not join its daemon during interpreter shutdown.
+    Closing, finishing or discarding a run does not wait for an in-flight
+    filesystem call. Its result is ignored, and no further reads are scheduled
+    for that entry. This observer does not join its daemon during shutdown.
     """
 
     def __init__(self, interval_seconds: float = 10.0) -> None:
@@ -104,8 +105,19 @@ class AdvisoryRunProgress:
                 self._publish_locked(entry, LogProgressSnapshot(state="unavailable", detail=self._startup_error))
         self._wake.set()
 
+    def finish(self, run_index: int, *, pid: int) -> ProgressUpdate | None:
+        """Take a matching invocation's pending update and retire it without I/O."""
+        with self._lock:
+            entry = self._active.get(run_index)
+            if entry is None or entry.pid != pid:
+                return None
+            update = self._pending.get(run_index)
+            self._remove_locked(run_index)
+        self._wake.set()
+        return update
+
     def discard(self, run_index: int) -> None:
-        """Forget an exited invocation and discard any unconsumed observations."""
+        """Forget an invocation and discard any unconsumed observations."""
         with self._lock:
             self._remove_locked(run_index)
         self._wake.set()

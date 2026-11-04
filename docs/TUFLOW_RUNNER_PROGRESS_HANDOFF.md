@@ -24,6 +24,8 @@ submodule or change any submodule pins.
 The requested behaviour is implemented for review: no Model column, one TCF
 heading/box per model, compact GPU IDs with hardware names logged above the
 table, and periodic TLF/HPC observations for end time, model time and percent.
+The follow-up adds observed run phase, the latest HPC timestep and signed final
+cumulative mass error in `Detail`; ETA is deliberately outside this scope.
 Your task is to test this on Windows and fix demonstrated defects on this same
 branch, including any remaining implementation needed for these acceptance cases.
 
@@ -49,12 +51,15 @@ The progress controls are:
 ```python
 MONITOR_PROGRESS = True
 PROGRESS_POLL_INTERVAL_SECONDS = 10.0
+SHOW_PROGRESS_DIAGNOSTICS = True
 USE_LIVE_DASHBOARD = True
 LIVE_MAX_ROWS = 10
 ```
 
 CLI overrides are `--monitor-progress`, `--no-monitor-progress` and
-`--progress-poll-interval SECONDS`. Preserve pause, imported order, GPU scheduling
+`--progress-poll-interval SECONDS`. `--progress-diagnostics` /
+`--no-progress-diagnostics` control the timestep and final mass-error values;
+phase remains visible. Preserve pause, imported order, GPU scheduling
 and CSV Resume semantics. Optional observation failure must never gate execution.
 
 ### 2. Read-only fixture replay
@@ -73,6 +78,19 @@ where the main log has reached the end but HPC's last row is earlier.
 Confirm numeric progress uses `(model - start) / (end - start)` and cannot mark a
 process successful. No solver run is necessary for these reader cases.
 
+Replay initialization, timestepping and final `Writing maximums...`/summary
+records to check the three phase labels. Repeated earlier headers and a lagging
+HPC companion must not undo the final-writing phase. Compare the displayed `dt`
+with its actual HPC header column and preserve signed final mass error, including
+Module 11's negative value. Check tiny values, malformed/nonfinite values,
+partial trailing records and new-generation resets. Live `CE` values and HPC
+`Eff` are not substitutes for final cumulative mass error or timestep.
+At process exit the monitor can hand back an already-sampled pending update,
+but it must not force a final read or wait for storage. Verify that this cached
+final ME survives completion and that an unobserved summary remains unavailable.
+Retiring an invocation must ignore its later in-flight result and must not
+remove a replacement invocation with the same run index but a different PID.
+
 ### 3. Real Windows execution and display
 
 Use a copied writable tutorial model in a disposable output area. Start with
@@ -84,6 +102,9 @@ licence needs before proceeding under the user's existing/local authorization.
 - Observe a genuine HPC run through initialization, timestepping and completion.
   Compare the predicted path, selected events/scenarios, `End (h)` and `Model (h)`
   against the actual files. Capture before/during/after terminal screenshots.
+  Check phase, timestep and final mass error in `Detail`, including retained
+  diagnostics beside the actual process exit. Test the diagnostics toggle and
+  confirm it leaves phase visible without adding columns or wrapping rows.
 - Run the same command again with completed old `.tlf` and `.hpc.tlf` still
   present. Until current-invocation evidence is available, it must not show the
   previous end time as current progress or show 100% from the old run. Repeat

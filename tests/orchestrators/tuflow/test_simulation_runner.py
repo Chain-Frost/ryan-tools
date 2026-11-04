@@ -171,6 +171,7 @@ class ProgressProbe:
         self.pending: list[ProgressUpdate] = []
         self.registered: list[tuple[PlannedRun, int, float]] = []
         self.discarded: list[int] = []
+        self.finished: list[tuple[int, int]] = []
         self.started = False
         self.closed = False
 
@@ -183,6 +184,15 @@ class ProgressProbe:
 
     def discard(self, run_index: int) -> None:
         self.discarded.append(run_index)
+
+    def finish(self, run_index: int, *, pid: int) -> ProgressUpdate | None:
+        self.finished.append((run_index, pid))
+        latest: ProgressUpdate | None = None
+        for update in self.pending.copy():
+            if update.run_index == run_index and update.pid == pid:
+                latest = update
+                self.pending.remove(update)
+        return latest
 
     def drain(self) -> tuple[ProgressUpdate, ...]:
         updates = tuple(self.pending)
@@ -217,6 +227,18 @@ class FailingProgressProbe(ProgressProbe):
         if self.failure == "discard":
             raise RuntimeError(self.message)
         super().discard(run_index)
+
+    def finish(self, run_index: int, *, pid: int) -> ProgressUpdate | None:
+        if self.failure == "finish":
+            raise RuntimeError(self.message)
+        update = super().finish(run_index, pid=pid)
+        if self.failure == "finish_snapshot":
+            return ProgressUpdate(
+                run_index=run_index,
+                pid=pid,
+                snapshot=replace(self.snapshot, model_hours=cast(float, "malformed final model time")),
+            )
+        return update
 
     def close(self) -> None:
         super().close()
@@ -1229,6 +1251,7 @@ def test_plan_preview_lists_all_runs_and_effective_settings(tmp_path: Path, capl
     assert "GPU_DEVICES: (('-pu0',), ('-pu1',))" in output
     assert "CONCURRENT_SLOTS: 2" in output
     assert "WAIT_TIME_AFTER_RUN (seconds): 0" in output
+    assert "SHOW_PROGRESS_DIAGNOSTICS: True" in output
     assert "Simulation plan: 480 unique runs" in output
     assert "before Resume filtering; GPU slots assigned at launch" in output
     rows = [record.message for record in caplog.records if record.message.startswith("Run ")]
@@ -1380,6 +1403,196 @@ def test_shared_dashboard_shows_middle_active_run_and_original_resume_index(
     assert "Batch: -b -t" in completed
 
 
+@pytest.mark.parametrize("invalid", [None, 0, 1, "False"])
+def test_progress_diagnostics_requires_an_explicit_boolean(tmp_path: Path, invalid: object) -> None:
+    with pytest.raises(CommandPlanError, match="SHOW_PROGRESS_DIAGNOSTICS must be True or False"):
+        runner.prepare_plan(settings(tmp_path, show_progress_diagnostics=invalid))
+
+
+@pytest.mark.parametrize("show_diagnostics", [True, False])
+@pytest.mark.parametrize(
+    ("phase", "label"),
+    [("initialising", "Initialising"), ("solving", "Solving"), ("writing_results", "Writing results")],
+)
+def test_progress_detail_keeps_phase_when_optional_diagnostics_are_disabled(
+    phase: str, label: str, show_diagnostics: bool
+) -> None:
+    snapshot = replace(
+        LogProgressSnapshot(state="live", timestep_seconds=0.674, final_mass_error_percent=-0.00000025),
+        phase=phase,
+    )
+    detail = cast(
+        Callable[..., str],
+        getattr(runner, "_progress_detail"),  # noqa: B009 - test the observational display adapter
+    )(ProgressUpdate(run_index=1, pid=501, snapshot=snapshot), stale_after=60.0, show_diagnostics=show_diagnostics)
+    assert detail.startswith(label)
+    assert "PID 501" in detail
+    if show_diagnostics:
+        assert "dt 0.674s / ME -2.5e-07%" in detail
+    else:
+        assert "dt " not in detail
+        assert "ME " not in detail
+    assert "ETA" not in detail
+
+
+@pytest.mark.parametrize(
+    ("timestep", "mass_error"),
+    [(0.0, float("nan")), (-1.0, float("inf")), (float("nan"), float("-inf")), (float("inf"), None), (None, None)],
+)
+def test_invalid_or_unknown_diagnostics_are_omitted(timestep: float | None, mass_error: float | None) -> None:
+    snapshot = LogProgressSnapshot(
+        state="live", phase="solving", timestep_seconds=timestep, final_mass_error_percent=mass_error
+    )
+    detail = cast(
+        Callable[..., str],
+        getattr(runner, "_progress_detail"),  # noqa: B009 - test the observational display adapter
+    )(ProgressUpdate(run_index=1, pid=501, snapshot=snapshot), stale_after=60.0)
+    assert detail == "Solving; PID 501"
+
+
+@pytest.mark.parametrize(
+    ("snapshot", "expected"),
+    [
+        (LogProgressSnapshot(state="waiting"), "waiting log"),
+        (LogProgressSnapshot(state="unverified"), "log unverified"),
+        (LogProgressSnapshot(state="unavailable"), "progress unavailable"),
+        (LogProgressSnapshot(state="live", last_log_update=100.0), "log 15m old"),
+    ],
+)
+def test_phase_diagnostics_do_not_hide_log_observation_limits(
+    monkeypatch: pytest.MonkeyPatch, snapshot: LogProgressSnapshot, expected: str
+) -> None:
+    monkeypatch.setattr(runner.time, "time", lambda: 1000.0)
+    detail = cast(
+        Callable[..., str],
+        getattr(runner, "_progress_detail"),  # noqa: B009 - test the observational display adapter
+    )(
+        ProgressUpdate(run_index=1, pid=501, snapshot=replace(snapshot, phase="solving", timestep_seconds=0.674)),
+        stale_after=60.0,
+    )
+    assert detail.startswith(f"Solving; {expected}")
+    assert "dt 0.674s" in detail
+
+
+def test_expected_initialisation_detail_is_not_a_log_warning() -> None:
+    snapshot = LogProgressSnapshot(state="live", phase="initialising", detail="Waiting for model-time output")
+    detail = cast(
+        Callable[..., str],
+        getattr(runner, "_progress_detail"),  # noqa: B009 - test the observational display adapter
+    )(ProgressUpdate(run_index=1, pid=501, snapshot=snapshot), stale_after=60.0)
+    assert detail == "Initialising; PID 501"
+
+
+@pytest.mark.parametrize("show_diagnostics", [True, False])
+@pytest.mark.parametrize("exit_code", [0, 7])
+def test_completion_consumes_pending_snapshot_after_callback_and_keeps_actual_exit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    show_diagnostics: bool,
+    exit_code: int,
+) -> None:
+    config = settings(
+        tmp_path,
+        run_variables={"e1": ["A"]},
+        use_live_dashboard=True,
+        monitor_progress=True,
+        show_progress_diagnostics=show_diagnostics,
+    )
+    plan = runner.prepare_plan(config)
+    displays = _capture_dashboards(monkeypatch)
+    probe = ProgressProbe(
+        LogProgressSnapshot(start_hours=0.0, end_hours=2.0, model_hours=0.5, state="live", phase="solving")
+    )
+    final_snapshot = replace(
+        probe.snapshot,
+        model_hours=2.0,
+        phase="writing_results",
+        timestep_seconds=0.674,
+        final_mass_error_percent=-0.00000025,
+    )
+    completed: list[runner.RunOutcome] = []
+
+    def monitor(*, interval_seconds: float) -> ProgressProbe:
+        del interval_seconds
+        return probe
+
+    class FinalSampleProcess(FakeProcess):
+        def poll(self) -> int | None:
+            code = super().poll()
+            if code is not None:
+                # Simulate the worker publishing between the main loop's last
+                # drain and its process-exit observation. No terminal file read.
+                probe.pending.append(
+                    ProgressUpdate(run_index=1, pid=self.pid, snapshot=final_snapshot, warning="cached log warning")
+                )
+            return code
+
+    def popen(**_options: object) -> FakeProcess:
+        return FinalSampleProcess(501, code=exit_code, polls_before_exit=2)
+
+    def observed(result: runner.RunOutcome) -> None:
+        assert not probe.finished
+        assert probe.pending
+        task = _dashboard_tasks(displays[0])[1]
+        assert task.status == "RUNNING"
+        assert task.detail.startswith("Solving")
+        completed.append(result)
+
+    monkeypatch.setattr(runner, "AdvisoryRunProgress", monitor)
+    outcome = runner.launch_plan(plan, config, popen=popen, on_observed_completion=observed)
+    assert outcome.successful is (exit_code == 0)
+    assert [result.return_code for result in completed] == [exit_code]
+    task = _dashboard_tasks(displays[0])[1]
+    assert task.status == ("OK" if exit_code == 0 else "FAIL")
+    assert task.detail.startswith(f"Exit {exit_code}; log warning")
+    assert task.metadata["progress"] == "100.0"
+    assert task.metadata["model_hours"] == "2.000"
+    if show_diagnostics:
+        assert "dt 0.674s / ME -2.5e-07%" in task.detail
+    else:
+        assert "dt " not in task.detail
+        assert "ME " not in task.detail
+    assert probe.finished == [(1, 501)]
+    assert not probe.pending
+    warnings = [record.message for record in caplog.records if "cached log warning" in record.message]
+    assert warnings == ["Run 1 log observation: cached log warning"]
+
+
+@pytest.mark.parametrize(("wrong_index", "wrong_pid"), [(2, 501), (1, 999)])
+def test_completion_rejects_another_invocations_pending_snapshot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, wrong_index: int, wrong_pid: int
+) -> None:
+    config = settings(tmp_path, run_variables={"e1": ["A"]}, use_live_dashboard=True, monitor_progress=True)
+    plan = runner.prepare_plan(config)
+    displays = _capture_dashboards(monkeypatch)
+    snapshot = LogProgressSnapshot(start_hours=0.0, end_hours=2.0, model_hours=0.5, state="live")
+
+    class WrongInvocationProbe(ProgressProbe):
+        def finish(self, run_index: int, *, pid: int) -> ProgressUpdate:
+            super().finish(run_index, pid=pid)
+            return ProgressUpdate(
+                run_index=wrong_index,
+                pid=wrong_pid,
+                snapshot=replace(snapshot, model_hours=2.0, final_mass_error_percent=999.0),
+            )
+
+    probe = WrongInvocationProbe(snapshot)
+
+    def monitor(*, interval_seconds: float) -> ProgressProbe:
+        del interval_seconds
+        return probe
+
+    def popen(**_options: object) -> FakeProcess:
+        return FakeProcess(501, polls_before_exit=1)
+
+    monkeypatch.setattr(runner, "AdvisoryRunProgress", monitor)
+    assert runner.launch_plan(plan, config, popen=popen).successful
+    task = _dashboard_tasks(displays[0])[1]
+    assert task.metadata["progress"] == "25.0"
+    assert task.detail == "Exit 0"
+
+
 @pytest.mark.parametrize(
     ("start", "end", "model", "expected_percent", "exit_code"),
     [(2.0, 6.0, 3.0, "25.0", 0), (-2.0, 2.0, -1.0, "25.0", 0), (0.0, 2.0, 2.0, "100.0", 7)],
@@ -1402,7 +1615,18 @@ def test_progress_observations_preserve_lifecycle_and_real_exit_outcome(
     )
     plan = runner.prepare_plan(config)
     displays = _capture_dashboards(monkeypatch)
-    probe = ProgressProbe(LogProgressSnapshot(start_hours=start, end_hours=end, model_hours=model, state="live"))
+    phase = "writing_results" if model >= end else "solving"
+    probe = ProgressProbe(
+        LogProgressSnapshot(
+            start_hours=start,
+            end_hours=end,
+            model_hours=model,
+            state="live",
+            phase=phase,
+            timestep_seconds=0.674,
+            final_mass_error_percent=-0.25,
+        )
+    )
 
     def monitor(*, interval_seconds: float) -> ProgressProbe:
         assert interval_seconds == 30.0
@@ -1422,6 +1646,8 @@ def test_progress_observations_preserve_lifecycle_and_real_exit_outcome(
                 assert task.status == "RUNNING"
                 assert task.started_time == original_started
                 assert task.finished_time is None
+                assert task.detail.startswith("Writing results" if phase == "writing_results" else "Solving")
+                assert "dt 0.674s / ME -0.25%" in task.detail
                 observations.append(task.metadata.copy())
             return super().poll()
 
@@ -1440,12 +1666,13 @@ def test_progress_observations_preserve_lifecycle_and_real_exit_outcome(
     task = _dashboard_tasks(displays[0])[1]
     assert task.status == ("OK" if exit_code == 0 else "FAIL")
     assert task.started_time == original_started
-    assert task.detail == f"Exit {exit_code}"
+    assert task.detail == f"Exit {exit_code}; dt 0.674s / ME -0.25%"
     assert task.metadata["progress"] == expected_percent
     assert probe.started
     assert probe.closed
     assert [(run.index, pid) for run, pid, _started_at in probe.registered] == [(1, 501)]
-    assert probe.discarded == [1]
+    assert probe.finished == [(1, 501)]
+    assert probe.discarded == []
 
 
 @pytest.mark.parametrize(("monitor_progress", "use_live_dashboard"), [(False, True), (True, False), (False, False)])
@@ -1509,7 +1736,7 @@ def test_monitor_initialization_failure_warns_and_still_runs(
     assert probe.closed is (failure == "start")
 
 
-@pytest.mark.parametrize("failure", ["drain", "register", "discard", "close", "snapshot"])
+@pytest.mark.parametrize("failure", ["drain", "register", "finish", "close", "snapshot", "finish_snapshot"])
 def test_runtime_monitor_failure_never_terminates_children_or_loses_completion(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1547,8 +1774,42 @@ def test_runtime_monitor_failure_never_terminates_children_or_loses_completion(
     assert [task.status for task in _dashboard_tasks(displays[0]).values()] == ["OK", "OK"]
     warnings = [record.message for record in caplog.records if record.message.startswith("Run progress monitoring")]
     assert len(warnings) == 1
-    assert "continuing simulations" in warnings[0]
+    if failure in {"finish", "finish_snapshot"}:
+        assert "recorded outcome unchanged" in warnings[0]
+    else:
+        assert "continuing simulations" in warnings[0]
     assert probe.closed
+
+
+def test_monitor_discard_failure_does_not_replace_a_launch_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    config = settings(tmp_path, run_variables={"e1": ["A"]}, use_live_dashboard=True, monitor_progress=True)
+    plan = runner.prepare_plan(config)
+    displays = _capture_dashboards(monkeypatch)
+    probe = FailingProgressProbe(LogProgressSnapshot(), failure="discard")
+
+    def monitor(*, interval_seconds: float) -> ProgressProbe:
+        del interval_seconds
+        return probe
+
+    def popen(**_options: object) -> FakeProcess:
+        message = "solver executable unavailable"
+        raise OSError(message)
+
+    monkeypatch.setattr(runner, "AdvisoryRunProgress", monitor)
+    completed: list[runner.RunOutcome] = []
+    outcome = runner.launch_plan(plan, config, popen=popen, on_observed_completion=completed.append)
+    assert not outcome.successful
+    assert len(completed) == 1
+    assert completed[0].pid is None
+    assert completed[0].error == "Launch failed: solver executable unavailable"
+    task = _dashboard_tasks(displays[0])[1]
+    assert task.status == "FAIL"
+    assert task.detail == completed[0].error
+    assert task.metadata["gpu"] == "Not launched"
+    assert not probe.finished
+    assert "synthetic discard failure" in caplog.text
 
 
 def test_multiple_tcf_panels_preserve_launch_order_and_one_global_row_cap(
@@ -1625,17 +1886,38 @@ def test_narrow_grouped_runner_keeps_selected_active_rows_in_terminal_height(
         input_files=(source,),
         gpu_devices=(("-pu0",), ("-pu1",), ("-pu2",), ("-pu3",)),
         use_live_dashboard=True,
+        monitor_progress=True,
         live_max_rows=10,
     )
     plan = runner.prepare_plan(config)
     displays = _capture_dashboards(monkeypatch, width=width, height=24)
+    probe = ProgressProbe(
+        LogProgressSnapshot(
+            start_hours=-2.0,
+            end_hours=2.0,
+            model_hours=1.5,
+            state="live",
+            phase="writing_results",
+            timestep_seconds=0.674,
+            final_mass_error_percent=-0.00000025,
+        )
+    )
+
+    def monitor(*, interval_seconds: float) -> ProgressProbe:
+        del interval_seconds
+        return probe
+
+    monkeypatch.setattr(runner, "AdvisoryRunProgress", monitor)
     active_frames: list[str] = []
     launched = 0
 
     class CapturedProcess(FakeProcess):
         def poll(self) -> int | None:
             dashboard = displays[0]
-            if sum(task.status == "RUNNING" for task in _dashboard_tasks(dashboard).values()) == 4:
+            tasks = _dashboard_tasks(dashboard)
+            if all(task.status == "RUNNING" and task.metadata["progress"] == "87.5" for task in tasks.values()):
+                assert all(task.detail.startswith("Writing results") for task in tasks.values())
+                assert all("ME -2.5e-07%" in task.detail for task in tasks.values())
                 active_frames.append(_render_dashboard(dashboard))
             return super().poll()
 

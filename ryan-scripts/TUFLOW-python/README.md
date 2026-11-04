@@ -73,6 +73,22 @@ times and runs starting after zero are handled correctly. Unknown values are `--
 The process exit code remains the source of `OK`/`FAIL` and CSV continuation;
 reaching the end time in a log never marks a process successful.
 
+The existing `Detail` field also shows the observed run phase: `Initialising`,
+`Solving` or `Writing results`. Phase follows records from the current invocation;
+the final-writing phase is retained when an older HPC timestep is observed.
+It does not add another dashboard column or change the process status.
+
+`SHOW_PROGRESS_DIAGNOSTICS = True` adds compact diagnostic values in the same
+field: the latest complete HPC table's `dt` in seconds, and the signed final
+cumulative mass error from an explicit `Final Cumulative ME` summary in the main
+TLF. These are sampled observations, not estimates. Missing or invalid values
+are omitted. A live `CE` value or HPC `Eff` value is not substituted for either
+diagnostic. Final mass error is retained with the process exit detail when it
+has been observed, including when the process fails.
+Set `SHOW_PROGRESS_DIAGNOSTICS = False` or pass `--no-progress-diagnostics` to
+hide these two values while retaining phase; `--progress-diagnostics` enables
+them explicitly. No ETA or estimated time remaining is calculated.
+
 `MONITOR_PROGRESS = True` enables an advisory background worker when the live
 dashboard is enabled. `PROGRESS_POLL_INTERVAL_SECONDS = 10.0` controls the log
 read cadence independently of `LIVE_REFRESH_PER_SECOND`. Both can be overridden

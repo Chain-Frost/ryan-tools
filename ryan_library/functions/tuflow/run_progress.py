@@ -22,6 +22,8 @@ from pathlib import Path
 from typing import Literal, Protocol, cast
 
 ProgressState = Literal["waiting", "live", "unverified", "unavailable"]
+RunPhase = Literal["initialising", "solving", "writing_results"]
+_PHASES: tuple[RunPhase, ...] = ("initialising", "solving", "writing_results")
 
 # A poll reads at most two windows from each of two files, regardless of file size.
 _WINDOW_BYTES = 64 * 1024
@@ -40,7 +42,14 @@ _LIMIT = re.compile(
 _MAIN_TIME = re.compile(rf"^\s*(?:SIM:|Writing HPC Output at:)\s*({_CLOCK})(?=\s|$)", re.IGNORECASE)
 _HPC_START = re.compile(rf"^\s*Start Time\s*={{1,2}}\s*({_CLOCK})(?=\s|$)", re.IGNORECASE)
 _HPC_TABLE = re.compile(r"^\s*iStep\s+time\s+", re.IGNORECASE)
-_HPC_ROW = re.compile(rf"^\s*\d+\s+({_CLOCK})\s+{_NUMBER}\s+{_NUMBER}\s+{_NUMBER}\s+")
+_INITIALISING = re.compile(r"^\s*Initiali[sz]ing\s+", re.IGNORECASE)
+_WRITING_RESULTS = re.compile(
+    r"^\s*(?:Finished (?:HPC|Quadtree) Solution\.|Run Finished\s+\.{2,}|Writing maximums\.{2,}|"
+    r"Closing map output files\.{2,}|Writing TUFLOW 1D output\.{2,}|"
+    r"Writing any PO output\.{2,}|SIMULATION SUMMARY\s*$|Simulation FINISHED\s*$)",
+    re.IGNORECASE,
+)
+_FINAL_MASS_ERROR = re.compile(rf"^\s*Final Cumulative ME:\s*({_NUMBER})\s*%\s*$", re.IGNORECASE)
 _MONTHS = ("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec")
 
 
@@ -64,6 +73,9 @@ class LogProgressSnapshot:
     last_log_update: float | None = None
     state: ProgressState = "waiting"
     detail: str = ""
+    phase: RunPhase | None = None
+    timestep_seconds: float | None = None
+    final_mass_error_percent: float | None = None
 
 
 class _TimeInput(Protocol):
@@ -227,7 +239,11 @@ class _Parsed:
     model_hours: float | None = None
     start_priority: int = 0
     end_priority: int = 0
-    hpc_table: bool = False
+    phase: RunPhase | None = None
+    timestep_seconds: float | None = None
+    final_mass_error_percent: float | None = None
+    hpc_columns: tuple[str, ...] = ()
+    hpc_step: int | None = None
 
 
 @dataclass(slots=True)
@@ -355,19 +371,50 @@ def _clock_hours(value: str) -> float | None:
         return None
 
 
+def _later_phase(current: RunPhase | None, observed: RunPhase | None) -> RunPhase | None:
+    """A generation advances through phases; replayed or lagging records cannot reverse it."""
+    if current is None:
+        return observed
+    if observed is None:
+        return current
+    return current if _PHASES.index(current) >= _PHASES.index(observed) else observed
+
+
+def _hpc_timestep(columns: tuple[str, ...], fields: list[str]) -> float | None:
+    # Use the labelled column, never a fixed offset or the efficiency value.
+    if columns.count("dt") != 1:
+        return None
+    raw = fields[columns.index("dt")]
+    if re.fullmatch(_NUMBER, raw) is None:
+        return None
+    value = _finite_number(float(raw.replace("D", "E").replace("d", "e")))
+    return value if value is not None and value > 0 else None
+
+
 def _parse_hpc_line(line: str, parsed: _Parsed) -> _Parsed:
     if _HPC_TABLE.match(line):
-        parsed = replace(parsed, hpc_table=True)
+        return replace(parsed, hpc_columns=tuple(line.casefold().split()))
+    if _INITIALISING.match(line):
+        return replace(parsed, phase=_later_phase(parsed.phase, "initialising"))
     start = _HPC_START.match(line)
     if start:
-        parsed = replace(parsed, start_hours=_clock_hours(start.group(1)))
-    row = _HPC_ROW.match(line) if parsed.hpc_table else None
-    if row:
-        parsed = _advance_model_time(parsed, _clock_hours(row.group(1)))
+        return replace(parsed, start_hours=_clock_hours(start.group(1)))
+    fields = line.split()
+    if not parsed.hpc_columns or len(fields) != len(parsed.hpc_columns):
+        return parsed
+    if not fields[0].isdigit() or re.fullmatch(_CLOCK, fields[1]) is None:
+        return parsed
+    value = _clock_hours(fields[1])
+    if value is None:
+        return parsed
+    step = int(fields[0])
+    parsed = _advance_model_time(parsed, value)
+    if parsed.hpc_step is None or step >= parsed.hpc_step:
+        parsed = replace(parsed, hpc_step=step, timestep_seconds=_hpc_timestep(parsed.hpc_columns, fields))
     return parsed
 
 
-def _parse_main_line(line: str, parsed: _Parsed, *, allow_command_end: bool) -> _Parsed:
+def _parse_timing(line: str, parsed: _Parsed, *, allow_command_end: bool) -> _Parsed:
     limit = _LIMIT.match(line)
     if limit:
         value = _finite_number(float(limit.group(3).replace("D", "E").replace("d", "e")))
@@ -377,9 +424,24 @@ def _parse_main_line(line: str, parsed: _Parsed, *, allow_command_end: bool) -> 
                 parsed = replace(parsed, start_hours=value, start_priority=priority)
         elif value is not None and priority >= parsed.end_priority and (priority == 2 or allow_command_end):
             parsed = replace(parsed, end_hours=value, end_priority=priority)
+    return parsed
+
+
+def _parse_main_line(line: str, parsed: _Parsed, *, allow_command_end: bool) -> _Parsed:
+    parsed = _parse_timing(line, parsed, allow_command_end=allow_command_end)
     progress = _MAIN_TIME.match(line)
     if progress:
+        # Periodic "Writing HPC Output at" records still belong to solving.
         parsed = _advance_model_time(parsed, _clock_hours(progress.group(1)))
+    if _INITIALISING.match(line):
+        parsed = replace(parsed, phase=_later_phase(parsed.phase, "initialising"))
+    elif _WRITING_RESULTS.match(line):
+        parsed = replace(parsed, phase="writing_results")
+    error = _FINAL_MASS_ERROR.match(line)
+    if error:
+        value = _finite_number(float(error.group(1).replace("D", "E").replace("d", "e")))
+        if value is not None:
+            parsed = replace(parsed, phase="writing_results", final_mass_error_percent=value)
     return parsed
 
 
@@ -387,7 +449,7 @@ def _advance_model_time(parsed: _Parsed, value: float | None) -> _Parsed:
     if value is None:
         return parsed
     current = value if parsed.model_hours is None else max(value, parsed.model_hours)
-    return replace(parsed, model_hours=current)
+    return replace(parsed, model_hours=current, phase=_later_phase(parsed.phase, "solving"))
 
 
 def _parse_sections(sections: tuple[str, ...], previous: _Parsed, *, hpc: bool, allow_command_end: bool) -> _Parsed:
@@ -453,8 +515,12 @@ class LogProgressReader:
         start = main.parsed.start_hours
         end = main.parsed.end_hours
         current = main.parsed.model_hours
+        phase = main.parsed.phase
+        timestep = None
         modified = main.stamp.modified if main.stamp else None
         if companion.stamp is not None and companion.state in {"live", "unavailable"}:
+            phase = _later_phase(phase, companion.parsed.phase)
+            timestep = companion.parsed.timestep_seconds
             if start is None:
                 start = companion.parsed.start_hours
             if companion.parsed.model_hours is not None:
@@ -471,6 +537,9 @@ class LogProgressReader:
             companion.detail
             if companion.state == "unavailable"
             else ("Waiting for model-time output" if current is None else ""),
+            phase=phase,
+            timestep_seconds=timestep,
+            final_mass_error_percent=main.parsed.final_mass_error_percent,
         )
         return self._snapshot
 

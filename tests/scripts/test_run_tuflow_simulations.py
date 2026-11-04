@@ -112,6 +112,7 @@ def test_editable_settings_and_cli_precedence(
     monkeypatch.setattr(module, "GPU_CHECK_INTERVAL_SECONDS", 60.0)
     monkeypatch.setattr(module, "MONITOR_PROGRESS", True)
     monkeypatch.setattr(module, "PROGRESS_POLL_INTERVAL_SECONDS", 10.0)
+    monkeypatch.setattr(module, "SHOW_PROGRESS_DIAGNOSTICS", True)
     monkeypatch.setattr(module, "WAIT_TIME_AFTER_RUN", 2.0)
     parse_arguments = cast(
         Callable[[list[str]], argparse.Namespace],
@@ -135,6 +136,7 @@ def test_editable_settings_and_cli_precedence(
             "--no-monitor-progress",
             "--progress-poll-interval",
             "30",
+            "--no-progress-diagnostics",
             "--launch-delay",
             "0",
             "--working-directory",
@@ -150,6 +152,7 @@ def test_editable_settings_and_cli_precedence(
     assert settings.gpu_check_interval_seconds == 0.25
     assert settings.monitor_progress is False
     assert settings.progress_poll_interval_seconds == 30.0
+    assert settings.show_progress_diagnostics is False
     assert settings.wait_time_after_run == 0
     assert args.preflight is False
     with pytest.raises(SystemExit) as invalid:
@@ -171,17 +174,23 @@ def test_progress_monitor_defaults_edits_and_cli_enable_override(
     defaults = _settings_from_wrapper(wrapper)
     assert defaults.monitor_progress is True
     assert defaults.progress_poll_interval_seconds == 10.0
+    assert defaults.show_progress_diagnostics is True
     module = sys.modules["tested_runner_wrapper"]
     monkeypatch.setattr(module, "MONITOR_PROGRESS", False)
     monkeypatch.setattr(module, "PROGRESS_POLL_INTERVAL_SECONDS", 60.0)
+    monkeypatch.setattr(module, "SHOW_PROGRESS_DIAGNOSTICS", False)
     configured = _settings_from_wrapper(wrapper)
     assert configured.monitor_progress is False
     assert configured.progress_poll_interval_seconds == 60.0
+    assert configured.show_progress_diagnostics is False
     parser = cast(Callable[[list[str]], argparse.Namespace], module.__dict__["_arguments"])
     settings_factory = cast(Callable[[argparse.Namespace], RunnerSettings], module.__dict__["_settings"])
-    explicit = settings_factory(parser(["--monitor-progress", "--progress-poll-interval", "5", "--no-pause"]))
+    explicit = settings_factory(
+        parser(["--monitor-progress", "--progress-poll-interval", "5", "--progress-diagnostics", "--no-pause"])
+    )
     assert explicit.monitor_progress is True
     assert explicit.progress_poll_interval_seconds == 5.0
+    assert explicit.show_progress_diagnostics is True
     with pytest.raises(ValueError, match="PROGRESS_POLL_INTERVAL_SECONDS"):
         settings_factory(parser(["--progress-poll-interval", "0", "--no-pause"]))
 
@@ -310,6 +319,8 @@ def test_blank_editable_paths_are_rejected(
         ("GPU_CHECK_INTERVAL_SECONDS", float("nan")),
         ("MONITOR_PROGRESS", "False"),
         ("MONITOR_PROGRESS", 1),
+        ("SHOW_PROGRESS_DIAGNOSTICS", "False"),
+        ("SHOW_PROGRESS_DIAGNOSTICS", 1),
         ("PROGRESS_POLL_INTERVAL_SECONDS", 0),
         ("PROGRESS_POLL_INTERVAL_SECONDS", -1),
         ("PROGRESS_POLL_INTERVAL_SECONDS", True),

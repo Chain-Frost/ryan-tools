@@ -173,7 +173,7 @@ def test_resolver_caches_model_and_keeps_isodate_unknown(tmp_path: Path, monkeyp
 @pytest.mark.parametrize("old_header", [False, True])
 def test_preexisting_completion_never_becomes_current_progress(tmp_path: Path, old_header: bool) -> None:
     path = tmp_path / "run.tlf"
-    text = _main("3:00:00")
+    text = _main("3:00:00") + "SIMULATION SUMMARY\nFinal Cumulative ME: -0.25%\n"
     modified = _LAUNCH - 1
     if old_header:
         text = text.replace("2024-Dec-03", "2024-Dec-02")
@@ -186,6 +186,9 @@ def test_preexisting_completion_never_becomes_current_progress(tmp_path: Path, o
         assert result.model_hours is None
         assert result.end_hours == 8
         assert result.last_log_update is None
+        assert result.phase is None
+        assert result.timestep_seconds is None
+        assert result.final_mass_error_percent is None
 
 
 def test_coarse_mtime_requires_observed_post_launch_change(tmp_path: Path) -> None:
@@ -481,6 +484,263 @@ def test_real_fixture_replay(tmp_path: Path, relative: str, start: float, end: f
     assert result.start_hours == start
     assert result.end_hours == end
     assert result.model_hours == end
+
+
+def test_snapshot_new_fields_preserve_existing_positional_arguments() -> None:
+    snapshot = progress.LogProgressSnapshot(0, 3, 1, _LAUNCH, "live", "Observed")
+    assert snapshot.phase is None
+    assert snapshot.timestep_seconds is None
+    assert snapshot.final_mass_error_percent is None
+
+
+def test_phases_require_markers_and_advance_within_a_generation(tmp_path: Path) -> None:
+    path = tmp_path / "run.tlf"
+    companion = path.with_suffix(".hpc.tlf")
+    text = _HEADER
+    _write(path, text)
+    reader = progress.LogProgressReader(path, started_at=_LAUNCH)
+    assert reader.poll().phase is None
+    text += "Initialising TUFLOW Licence Settings...\n"
+    _write(path, text)
+    assert reader.poll().phase == "initialising"
+    text += "SIM: 0:00:00\nWriting HPC Output at: 0:00:00 Clock: 1:00:00\n"
+    _write(path, text)
+    assert reader.poll().phase == "solving"
+    _write(companion, "Initialising model ...\n")
+    assert reader.poll().phase == "solving"
+    text += "Finished HPC Solution.\n"
+    _write(path, text)
+    assert reader.poll().phase == "writing_results"
+    _write(companion, _HPC_HEADER + _row("0:30:00"))
+    assert reader.poll().phase == "writing_results"
+    # These earlier-phase records can also appear in replayed windows.
+    text += "Initialising model ...\nSIM: 0:15:00\n"
+    _write(path, text)
+    assert reader.poll().phase == "writing_results"
+
+
+@pytest.mark.parametrize(
+    "marker",
+    [
+        "Finished Quadtree Solution.",
+        "Run Finished ..... Steps completed: 37",
+        "Writing maximums...",
+        "Closing map output files...",
+        "SIMULATION SUMMARY",
+        "Simulation FINISHED",
+    ],
+)
+def test_explicit_final_results_markers_set_phase(tmp_path: Path, marker: str) -> None:
+    path = tmp_path / "run.tlf"
+    _write(path, _main("3:00:00") + marker + "\n")
+    result = progress.LogProgressReader(path, started_at=_LAUNCH).poll()
+    assert result.phase == "writing_results"
+    assert result.final_mass_error_percent is None
+
+
+@pytest.mark.parametrize(
+    ("header", "row", "expected"),
+    [
+        ("iStep time maxNu maxNc maxNd nWet vol dt Eff", "100 1:00:00 .1 .2 .3 6 .31 .721 99.4%", 0.721),
+        ("iStep time dt maxNu maxNc maxNd nWet vol Eff", "100 1:00:00 1.25 .1 .2 .3 6 .31 99.4%", 1.25),
+        ("iStep time maxNu dt maxNc maxNd nWet vol Eff CPU", "100 1:00:00 .1 2D-1 .2 .3 6 .31 99% 4", 0.2),
+        ("ISTEP TIME MAXNU MAXNC MAXND NWET VOL DT EFF", "100 1:00:00 .1 .2 .3 6 .31 .25 99.4%", 0.25),
+        ("iStep time maxNu maxNc maxNd nWet vol Eff", "100 1:00:00 .1 .2 .3 6 .31 99.4%", None),
+        ("iStep time maxNu maxNc maxNd nWet vol dt dt", "100 1:00:00 .1 .2 .3 6 .31 .25 .5", None),
+    ],
+)
+def test_hpc_timestep_uses_unique_labelled_column(
+    tmp_path: Path, header: str, row: str, expected: float | None
+) -> None:
+    path = tmp_path / "run.tlf"
+    _write(path, _main())
+    _write(path.with_suffix(".hpc.tlf"), header + "\n" + row + "\n")
+    result = progress.LogProgressReader(path, started_at=_LAUNCH).poll()
+    assert result.model_hours == 1
+    assert result.phase == "solving"
+    assert result.timestep_seconds == expected
+
+
+@pytest.mark.parametrize("raw", ["nan", "inf", "-inf", "1e999", "0", "-0.5"])
+def test_hpc_nonfinite_or_nonpositive_timestep_is_unknown(tmp_path: Path, raw: str) -> None:
+    path = tmp_path / "run.tlf"
+    _write(path, _main())
+    _write(path.with_suffix(".hpc.tlf"), _HPC_HEADER + _row("1:00:00").replace("0.721", raw))
+    result = progress.LogProgressReader(path, started_at=_LAUNCH).poll()
+    assert result.model_hours == 1
+    assert result.timestep_seconds is None
+
+
+def test_hpc_timestep_waits_for_complete_row_and_uses_latest_step(tmp_path: Path) -> None:
+    path = tmp_path / "run.tlf"
+    companion = path.with_suffix(".hpc.tlf")
+    _write(path, _main())
+    text = _row("1:00:00")
+    _write(companion, text)
+    reader = progress.LogProgressReader(path, started_at=_LAUNCH)
+    assert reader.poll().timestep_seconds is None  # No observed table header.
+    text += _HPC_HEADER + _row("1:00:00", step=200).replace("0.721", "0.125")
+    _write(companion, text)
+    assert reader.poll().timestep_seconds == 0.125
+    text += _row("1:00:00", step=300).replace("0.721", "0.350").rstrip("\n")
+    _write(companion, text)
+    assert reader.poll().timestep_seconds == 0.125  # The writer has not ended this record.
+    text += "\n"
+    _write(companion, text)
+    assert reader.poll().timestep_seconds == 0.350
+    text += "400 1:00:01 .1 .2 .3 6 .31\n"  # A truncated row, even with a newline.
+    _write(companion, text)
+    assert reader.poll().timestep_seconds == 0.350
+    text += _row("1:00:01", step=400).replace("0.721", "nan")
+    _write(companion, text)
+    assert reader.poll().timestep_seconds is None
+
+
+def test_scrolled_out_phase_and_timestep_do_not_regress_on_replayed_records(tmp_path: Path) -> None:
+    path = tmp_path / "run.tlf"
+    companion = path.with_suffix(".hpc.tlf")
+    text = _main() + "padding\n" * 10_000 + "Finished HPC Solution.\n"
+    hpc_text = _HPC_HEADER + _row("0:01:00") + "padding\n" * 10_000
+    hpc_text += _row("2:00:00", step=200).replace("0.721", "0.250")
+    _write(path, text)
+    _write(companion, hpc_text)
+    reader = progress.LogProgressReader(path, started_at=_LAUNCH)
+    first = reader.poll()
+    assert first.phase == "writing_results"
+    assert first.timestep_seconds == 0.250
+    _write(path, text + "padding\n" * 30_000 + "SIM: 0:01:00\n", modified=_LAUNCH + 2)
+    _write(companion, hpc_text + "padding\n" * 30_000 + _row("0:01:00"), modified=_LAUNCH + 2)
+    result = reader.poll()
+    assert result.phase == "writing_results"
+    assert result.timestep_seconds == 0.250
+
+
+@pytest.mark.parametrize(("raw", "expected"), [("-0.25", -0.25), ("+0.4", 0.4), ("0.00", 0.0), ("-2D-1", -0.2)])
+def test_final_mass_error_keeps_explicit_signed_percent(tmp_path: Path, raw: str, expected: float) -> None:
+    path = tmp_path / "run.tlf"
+    _write(path, _main() + f"Final Cumulative ME:   {raw}%\n")
+    result = progress.LogProgressReader(path, started_at=_LAUNCH).poll()
+    assert result.final_mass_error_percent == expected
+    assert result.phase == "writing_results"
+
+
+@pytest.mark.parametrize("raw", ["nan%", "inf%", "1e999%", "-0.25", "-0.25% extra"])
+def test_ambiguous_or_nonfinite_final_mass_error_stays_unknown(tmp_path: Path, raw: str) -> None:
+    path = tmp_path / "run.tlf"
+    text = _main() + f"Final Cumulative ME: {raw}\n"
+    text += "CE -0.3% -0.1% -0.2%\nCumulative ME: -0.25%\nVolume Error (m3): -23 or -0.3% of Volume In + Out\n"
+    _write(path, text)
+    _write(path.with_suffix(".hpc.tlf"), "Final Cumulative ME: -0.75%\n")
+    result = progress.LogProgressReader(path, started_at=_LAUNCH).poll()
+    assert result.final_mass_error_percent is None
+    assert result.phase == "solving"
+
+
+@pytest.mark.parametrize("remove_first", [False, True])
+def test_new_generation_clears_phase_timestep_and_final_mass_error(tmp_path: Path, remove_first: bool) -> None:
+    path = tmp_path / "run.tlf"
+    companion = path.with_suffix(".hpc.tlf")
+    _write(path, _main("3:00:00") + "SIMULATION SUMMARY\nFinal Cumulative ME: -0.25%\n")
+    _write(companion, _HPC_HEADER + _row("2:59:59"))
+    reader = progress.LogProgressReader(path, started_at=_LAUNCH)
+    first = reader.poll()
+    assert first.phase == "writing_results"
+    assert first.timestep_seconds == 0.721
+    assert first.final_mass_error_percent == -0.25
+    if remove_first:
+        path.unlink()
+        missing = reader.poll()
+        assert missing.phase is None
+        assert missing.timestep_seconds is None
+        assert missing.final_mass_error_percent is None
+    _write(path, _HEADER + "Initialising model ...\n", modified=_LAUNCH + 2)
+    reset = reader.poll()
+    assert reset.phase == "initialising"
+    assert reset.timestep_seconds is None
+    assert reset.final_mass_error_percent is None
+    _write(companion, _HPC_HEADER + _row("0:01:00").replace("0.721", "0.125"), modified=_LAUNCH + 3)
+    current = reader.poll()
+    assert current.phase == "solving"
+    assert current.timestep_seconds == 0.125
+    assert current.final_mass_error_percent is None
+    _write(companion, "Initialising model ...\n", modified=_LAUNCH + 4)
+    truncated = reader.poll()
+    assert truncated.timestep_seconds is None
+
+
+@pytest.mark.parametrize("blocked_source", ["main", "hpc"])
+def test_sharing_conflicts_retain_verified_telemetry_and_original_age(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, blocked_source: str
+) -> None:
+    path = tmp_path / "run.tlf"
+    companion = path.with_suffix(".hpc.tlf")
+    _write(path, _main("3:00:00") + "SIMULATION SUMMARY\nFinal Cumulative ME: -0.25%\n")
+    _write(companion, _HPC_HEADER + _row("2:59:59"), modified=_LAUNCH + 2)
+    reader = progress.LogProgressReader(path, started_at=_LAUNCH)
+    first = reader.poll()
+    original = Path.stat
+
+    def denied(candidate: Path, *, follow_symlinks: bool = True) -> os.stat_result:
+        if candidate == (path if blocked_source == "main" else companion):
+            message = "The writer temporarily denies shared reading"
+            raise PermissionError(message)
+        return original(candidate, follow_symlinks=follow_symlinks)
+
+    monkeypatch.setattr(Path, "stat", denied)
+    result = reader.poll()
+    assert result.state == "unavailable"
+    assert result.phase == first.phase == "writing_results"
+    assert result.timestep_seconds == first.timestep_seconds == 0.721
+    assert result.final_mass_error_percent == first.final_mass_error_percent == -0.25
+    assert result.last_log_update == first.last_log_update
+
+
+@pytest.mark.parametrize(
+    ("relative", "timestep", "mass_error"),
+    [
+        ("tutorials/Module_01/runs/log/M01_5m_001.tlf", 0.674, 0.0),
+        ("tutorials/Module_07/runs/log/M07_5m_001.tlf", 0.682, 0.0),
+        ("tutorials/Module_11/runs/log/M11_5m_001.tlf", 0.845, -0.25),
+        ("tutorials/Module_11/runs/log/M11_5m_002.tlf", 0.845, -0.20),
+    ],
+)
+def test_real_fixture_final_telemetry(tmp_path: Path, relative: str, timestep: float, mass_error: float) -> None:
+    original = _FIXTURES / relative
+    if not original.is_file():
+        pytest.skip("The scoped TUFLOW test-data submodule is unavailable")
+    path = tmp_path / original.name
+    text = re.sub(r"Simulation Started:[^\n]*\n", _HEADER, original.read_text(encoding="utf-8"), count=1)
+    _write(path, text)
+    _write(path.with_suffix(".hpc.tlf"), original.with_suffix(".hpc.tlf").read_text(encoding="utf-8"))
+    result = progress.LogProgressReader(path, started_at=_LAUNCH).poll()
+    assert result.phase == "writing_results"
+    assert result.timestep_seconds == pytest.approx(timestep)
+    assert result.final_mass_error_percent == pytest.approx(mass_error)
+
+
+def test_real_fixture_phase_transitions_precede_final_mass_error(tmp_path: Path) -> None:
+    original = _FIXTURES / "tutorials/Module_11/runs/log/M11_5m_001.tlf"
+    if not original.is_file():
+        pytest.skip("The scoped TUFLOW test-data submodule is unavailable")
+    text = re.sub(r"Simulation Started:[^\n]*\n", _HEADER, original.read_text(encoding="utf-8"), count=1)
+    path = tmp_path / original.name
+    first_sim = text.index("\nSIM:") + 1
+    _write(path, text[:first_sim])
+    reader = progress.LogProgressReader(path, started_at=_LAUNCH)
+    assert reader.poll().phase == "initialising"
+    first_sim_end = text.index("\n", first_sim) + 1
+    _write(path, text[:first_sim_end], modified=_LAUNCH + 2)
+    solving = reader.poll()
+    assert solving.phase == "solving"
+    assert solving.final_mass_error_percent is None
+    final_marker = text.index("Finished HPC Solution.")
+    final_marker_end = text.index("\n", final_marker) + 1
+    _write(path, text[:final_marker_end], modified=_LAUNCH + 3)
+    writing = reader.poll()
+    assert writing.phase == "writing_results"
+    assert writing.final_mass_error_percent is None
+    _write(path, text, modified=_LAUNCH + 4)
+    assert reader.poll().final_mass_error_percent == -0.25
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Requires native Windows handle sharing")

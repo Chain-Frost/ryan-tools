@@ -225,3 +225,68 @@ def test_ungrouped_dashboard_ignores_group_metadata() -> None:
     assert "Task two" in rendered
     assert "A.tcf" not in rendered
     assert "B.tcf" not in rendered
+
+
+def test_ellipsized_columns_shrink_before_identity_without_wrapping_rows_or_headers() -> None:
+    dashboard = ld.LiveWorkflowDashboard(
+        title="Test",
+        enabled=False,
+        columns=(
+            ld.WorkflowColumn("Run", "metadata", metadata_key="run", no_wrap=True, min_width=3),
+            ld.WorkflowColumn("A selection heading that would wrap", "label", no_wrap=True, overflow="ellipsis"),
+            ld.WorkflowColumn("Status", "status", no_wrap=True, min_width=7),
+            ld.WorkflowColumn("GPU", "metadata", metadata_key="gpu", no_wrap=True, min_width=4),
+            ld.WorkflowColumn("Elapsed", "duration", no_wrap=True, min_width=8),
+            ld.WorkflowColumn("A diagnostic heading that would also wrap", "detail", no_wrap=True, overflow="ellipsis"),
+        ),
+    )
+    dashboard.console = Console(file=StringIO(), record=True, width=80, color_system=None)
+    dashboard.set_tasks(
+        ["A very long event and scenario selection" * 3, "Another very long selection" * 3],
+        metadata=[{"run": 101, "gpu": "-pu0"}, {"run": 102, "gpu": "-pu1"}],
+    )
+    for index in (1, 2):
+        dashboard.mark_running(index=index, detail="Writing results; dt 0.674s / ME -2.5e-07%; " * 4)
+    dashboard.console.print(dashboard._build_task_table())
+    rendered = dashboard.console.export_text()
+    rows = [line for line in rendered.splitlines() if "RUNNING" in line]
+    assert len(rows) == 2
+    for row, run, gpu in zip(rows, ("101", "102"), ("-pu0", "-pu1"), strict=True):
+        assert run in row.split()
+        assert gpu in row.split()
+        assert "00:00:00" in row
+    # Simple table: one header, one rule, two data rows, and two spacing lines.
+    assert len(rendered.splitlines()) == 6
+    assert "…" in rendered
+
+
+def test_ellipsized_text_keeps_literal_markup_characters() -> None:
+    dashboard = ld.LiveWorkflowDashboard(
+        title="Test",
+        enabled=False,
+        columns=(
+            ld.WorkflowColumn("Selection [red]", "label", no_wrap=True, overflow="ellipsis"),
+            ld.WorkflowColumn("Detail [bold]", "detail", no_wrap=True, overflow="ellipsis"),
+        ),
+    )
+    dashboard.console = Console(file=StringIO(), record=True, width=80, color_system=None)
+    dashboard.set_tasks(["model[red].tcf"])
+    dashboard.mark_running(index=1, detail="Literal [bold] diagnostic")
+    dashboard.console.print(dashboard._build_task_table())
+    rendered = dashboard.console.export_text()
+    for expected in ("Selection [red]", "Detail [bold]", "model[red].tcf", "Literal [bold] diagnostic"):
+        assert expected in rendered
+
+
+def test_default_columns_still_wrap_complete_detail_text() -> None:
+    dashboard = ld.LiveWorkflowDashboard(title="Test", enabled=False)
+    dashboard.console = Console(file=StringIO(), record=True, width=70, color_system=None)
+    dashboard.set_tasks(["Input"])
+    detail = "This detailed explanation remains available across several lines and preserves the final words."
+    dashboard.mark_running(index=1, detail=detail)
+    dashboard.console.print(dashboard._build_task_table())
+    rendered = dashboard.console.export_text()
+    assert len(rendered.splitlines()) > 5
+    assert "This detailed" in rendered
+    assert "final words." in rendered
+    assert "…" not in rendered

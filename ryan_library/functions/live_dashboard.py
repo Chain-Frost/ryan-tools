@@ -48,6 +48,10 @@ class WorkflowColumn:
     ``source="metadata"``, ``metadata_key`` selects the value from the task's
     metadata dictionary. This lets wrappers add domain-specific columns such as
     file size, scenario, or model name without changing the renderer.
+
+    Combining ``no_wrap=True`` with ``overflow="ellipsis"`` lets a column
+    shrink before other no-wrap columns while keeping its header and cells
+    on one line. Ordinary wrapping columns retain their configured overflow.
     """
 
     header: str
@@ -361,10 +365,15 @@ class LiveWorkflowDashboard:
     def _build_task_table(self, rows: Sequence[WorkflowTask] | None = None) -> Table:
         table = Table(box=box.SIMPLE_HEAVY, expand=True)
         for column in self.columns:
+            shrinkable = column.no_wrap and column.overflow == "ellipsis"
+            header = Text(column.header, no_wrap=True, overflow="ellipsis") if shrinkable else column.header
             table.add_column(
-                column.header,
+                header,
                 justify=column.justify,
-                no_wrap=column.no_wrap,
+                # Rich protects no-wrap columns from preferential shrinking.
+                # Keep ellipsized cells on one line through Text instead, so
+                # long descriptions give up width before row identity/status.
+                no_wrap=column.no_wrap and not shrinkable,
                 overflow=column.overflow,
                 min_width=column.min_width,
             )
@@ -372,11 +381,20 @@ class LiveWorkflowDashboard:
         if rows is None:
             rows = self._visible_tasks()
         if not rows:
-            table.add_row(*_empty_row_values(columns=self.columns, message="Waiting for work"), style="dim")
+            values = _empty_row_values(columns=self.columns, message="Waiting for work")
+            table.add_row(
+                *(_table_cell(value=value, column=column) for column, value in zip(self.columns, values, strict=True)),
+                style="dim",
+            )
             return table
 
         for task in rows:
-            table.add_row(*(self._column_value(task=task, column=column) for column in self.columns))
+            table.add_row(
+                *(
+                    _table_cell(value=self._column_value(task=task, column=column), column=column)
+                    for column in self.columns
+                )
+            )
         return table
 
     def _build_grouped_task_tables(self) -> RenderableType:
@@ -510,6 +528,15 @@ def _format_duration(total_seconds: float) -> str:
     hours, rem = divmod(seconds, 3600)
     minutes, seconds = divmod(rem, 60)
     return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+
+
+def _table_cell(*, value: str, column: WorkflowColumn) -> str | Text:
+    """Preserve literal escaped values and styles while allowing ellipsis sizing."""
+    if not (column.no_wrap and column.overflow == "ellipsis"):
+        return value
+    text = Text.from_markup(value, overflow="ellipsis")
+    text.no_wrap = True
+    return text
 
 
 def _empty_row_values(*, columns: Sequence[WorkflowColumn], message: str) -> list[str]:

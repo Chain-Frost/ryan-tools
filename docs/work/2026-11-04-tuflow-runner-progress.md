@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Draft PR #205 open; native acceptance pending |
+| Status | Draft PR #205 open; TUFLOW/SMB acceptance pending |
 | Owner | ChatGPT / local validation agent |
 | Created | 2026-11-04 |
 | Updated | 2026-11-04 |
@@ -20,6 +20,11 @@ live-log reads. Supply a concrete Windows/local-machine handoff. Preserve the
 current scheduler, imported batch order, original Resume indexes, global ten-row
 default, GPU uncertainty policy and process-observed CSV completion.
 
+The subsequent user request excludes ETA and adds observed run phase, latest
+HPC timestep and signed final cumulative mass error. These use the existing
+`Detail` field. `SHOW_PROGRESS_DIAGNOSTICS` and its CLI overrides control the two
+numeric diagnostics; phase remains visible when they are hidden.
+
 This request authorizes the observational polling introduced here and supersedes
 the earlier scope-03 exclusion of all live TLF polling. It does not authorize
 log-based completion, retries, recovery, launch gating, automatic merge or release.
@@ -30,6 +35,14 @@ log-based completion, retries, recovery, launch gating, automatic merge or relea
   task updates. Ungrouped workflows retain their prior presentation.
 - Runner rows have TCF headings, short GPU identifiers, `End (h)`, `Model (h)`, `%`
   and `Elapsed`. Duplicate TCF basenames are disambiguated by path.
+- The phase/diagnostics follow-up adds current-invocation phase markers, a
+  header-identified HPC timestep and explicit final cumulative ME parsing.
+  No ETA or additional dashboard columns are introduced. The two numeric
+  diagnostics default on and can be hidden while retaining phase.
+- Completion takes an already-pending sample under the monitor's short lock,
+  verifies the PID and retires that invocation without a final file read or wait.
+  Observed final ME is retained beside the actual process exit; a summary written
+  between the last poll and process exit remains unavailable.
 - The wrapper exposes `MONITOR_PROGRESS` and `PROGRESS_POLL_INTERVAL_SECONDS`;
   polling is default-on for live dashboards, with a ten-second default interval.
 - One daemon worker performs prediction and bounded log reads away from the
@@ -96,14 +109,14 @@ those limitations are reviewed; report each unrun or blocked case explicitly.
 
 ## Validation and delivery
 
-Source validation after the Windows corrections completed in an isolated
-checkout using Python 3.14.9 on Linux:
+Source validation including the phase/diagnostics follow-up completed in an
+isolated checkout using Python 3.14.9 on Linux:
 
 ```text
 python -m pytest -q tests/functions/test_live_dashboard.py tests/functions/test_live_dashboard_logging.py tests/functions/test_dashboard_workflow.py tests/functions/tuflow/test_run_progress.py tests/orchestrators/tuflow/test_advisory_run_progress.py tests/orchestrators/tuflow/test_simulation_runner.py tests/scripts/test_run_tuflow_simulations.py tests/scripts/test_tuflow_advisory_runner.py tests/functions/tuflow/test_execution_history.py
 ```
 
-Result: **281 passed, 12 skipped**, 5.06 seconds. The skips are native Windows
+Result: **357 passed, 12 skipped**, 5.15 seconds. The skips are native Windows
 cases, including the shared reader/writer/rename tests; mocked Win32 flags
 and handle-ownership tests did run. Real pinned-PyTUFLOW path/context tests and
 HPC/Quadtree fixture replays passed. No TUFLOW executable was launched.
@@ -117,17 +130,21 @@ HPC/Quadtree fixture replays passed. No TUFLOW executable was launched.
   compilation and `git diff --check` passed.
 - `python repo-scripts/build_library.py --no-bump --skip-pip` and
   `python repo-scripts/verify_wheel.py dist/ryan_tools-26.11.3.9-py3-none-any.whl`
-  passed. Verified wheel: 910,790 bytes; SHA-256
-  `05baa73516a23083b8ac0392f6fca72c2345f6f6fc8a85f767ad818bcd96c438`.
+  passed. Verified wheel: 913,634 bytes; SHA-256
+  `ed79832b212b248e39408db426f229cc1c10d6364b21d165b69df3d5651d39a5`.
   The four changed library modules were compared byte-for-byte with that wheel.
 - Installed the wheel into a disposable target and copied the wrapper outside
   the repository. `--help` and explicit textfile `--export-only
-  --no-monitor-progress --no-pause` passed; no execution CSV was created. An
-  installed-package predictor smoke resolved `model_01.0p.tlf` and End Time 3 h.
+  --no-monitor-progress --no-progress-diagnostics --no-pause` passed; no execution
+  CSV was created. An installed-package predictor smoke resolved
+  `model_01.0p.tlf` and End Time 3 h. The installed reader also returned
+  `writing_results`, timestep 0.674 s and final ME -0.25% from disposable logs.
   The imported module location was verified as the disposable installed target.
 - Rendered two illustrative TCF panels for visual inspection. Automated narrow
   terminal cases verify four active rows, IDs, statuses and GPUs fit at widths
-  100/120 and height 24 without wrapping/cropping the lower panel.
+  100/120 and height 24 with long diagnostics, without wrapping/cropping the
+  lower panel. Ellipsized headers/cells now shrink before protected identity
+  columns; shared regressions retain literal brackets and normal default wrapping.
 
 Only `tests/test_data` and `qgis-resources` were initialized at their existing
 pins for required checks; no submodule edits are part of this work. The excluded
@@ -188,3 +205,28 @@ Windows distinctions before local-machine handoff:
 
 The PR description records the final published revision and its hosted checks;
 earlier successful policy/package jobs do not substitute for that final run.
+
+### 2026-11-04 phase and diagnostic follow-up
+
+The user excluded ETA and authorized the other suggested observations. Added
+monotonic observed phase (`Initialising`, `Solving`, `Writing results`), the
+latest complete HPC step's labelled `dt` and signed explicit final cumulative
+ME. All use the existing bounded reads and one-line `Detail` field. Added
+`SHOW_PROGRESS_DIAGNOSTICS = True` and `--progress-diagnostics` /
+`--no-progress-diagnostics`; wrapper version is `2026-11-04.2`.
+
+Integrated review corrected normal initialization detail being labelled as a
+warning and the longer Detail text squeezing run/GPU IDs out of narrow tables.
+The shared renderer now lets configured ellipsis columns shrink preferentially
+while their headers/cells stay on one line; no new public column setting was
+needed and default wrapping remains covered.
+
+Kept completion free of filesystem work: the monitor atomically returns an
+already-cached pending update only for the matching PID, then retires it.
+Completion callbacks still run first. No terminal read, new polling cadence,
+thread join or retry loop was added. Unknown final ME remains omitted; reused
+run indexes and late worker results cannot attach diagnostics to a new process.
+
+The preceding `4e5b0e7` revision had all six hosted checks green, including
+2,096 Windows passes, 14 skips and 8 deselections. The updated PR description
+records the separate hosted result for this follow-up's published revision.

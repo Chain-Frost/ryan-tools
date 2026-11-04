@@ -63,10 +63,11 @@ LIVE_REFRESH_PER_SECOND = 1.0
 LIVE_MAX_ROWS = 10  # Maximum task rows shown at once; all runs still execute and are tracked.
 MONITOR_PROGRESS = True  # Read model progress in the background when the live dashboard is enabled.
 PROGRESS_POLL_INTERVAL_SECONDS = 10.0  # Separate from display refresh; increase for slow network shares.
+SHOW_PROGRESS_DIAGNOSTICS = True  # Show the latest timestep and observed final mass error in Detail.
 CONSOLE_LOG_LEVEL: params.LogLevel = params.LOG.INFO
 WAIT_TIME_AFTER_RUN = 2.0  # Seconds between launches (>=0). Example: 0.5. Does not change GPU slots.
 PAUSE_ON_FINISH = True  # Pause interactively on finish; --no-pause forces False, --pause forces True.
-WRAPPER_VERSION = "2026-11-04.1"
+WRAPPER_VERSION = "2026-11-04.2"
 
 import argparse
 import signal
@@ -190,6 +191,10 @@ def _settings(arguments: argparse.Namespace) -> RunnerSettings:
             if arguments.progress_poll_interval is not None
             else PROGRESS_POLL_INTERVAL_SECONDS,
             positive=True,
+        ),
+        show_progress_diagnostics=runner_user_inputs.boolean(
+            "SHOW_PROGRESS_DIAGNOSTICS",
+            arguments.progress_diagnostics if arguments.progress_diagnostics is not None else SHOW_PROGRESS_DIAGNOSTICS,
         ),
     )
 
@@ -519,6 +524,12 @@ def _arguments(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--progress-poll-interval", type=float, help="Seconds between progress log reads per active run (>0)."
+    )
+    parser.add_argument(
+        "--progress-diagnostics",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Show/hide the latest HPC timestep and observed final mass error in Detail; retain run phase.",
     )
     parser.add_argument("--launch-delay", type=float, help="Seconds between launches (>=0).")
     parser.add_argument(
