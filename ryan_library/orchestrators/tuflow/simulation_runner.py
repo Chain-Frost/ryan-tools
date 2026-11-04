@@ -973,10 +973,7 @@ class AdvisoryInputCheck:
                 )
                 for issue in report.issues
             ]
-            messages.extend(
-                ("WARNING", _input_issue_message(warning, advisory=True))
-                for warning in report.warnings
-            )
+            messages.extend(("WARNING", _input_issue_message(warning, advisory=True)) for warning in report.warnings)
             messages.append(
                 (
                     "SUCCESS" if report.passed else "WARNING",

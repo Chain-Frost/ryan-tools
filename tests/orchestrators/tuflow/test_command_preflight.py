@@ -76,9 +76,7 @@ def test_interleaved_tcf_groups_preserve_global_indices_and_options(
     assert report.checked_paths == {"shared"}
 
 
-def test_advisory_warning_survives_grouping_without_failing(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_advisory_warning_survives_grouping_without_failing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     def checker(runs: tuple[PlannedRun, ...], **_options: object) -> FakeReport:
         result = outcome(runs)
         result.warnings = [_issue(runs[0].index, status="unresolved", origin="TCF Projection", detail="Missing")]
@@ -90,7 +88,6 @@ def test_advisory_warning_survives_grouping_without_failing(
     assert report.issues == []
     assert len(report.warnings) == 2
     assert [item.run.index for item in report.warnings] == [1, 2]
-
 
 
 def test_one_failed_model_invalidates_its_runs_and_does_not_drop_other_models(

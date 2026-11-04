@@ -223,7 +223,6 @@ def test_advisory_crs_warning_is_reported_without_failing_preflight(
     assert report.warnings[0].kind == "crs"
 
 
-
 @pytest.mark.parametrize(
     ("positions", "physical_count"),
     [([0], None), ([0, 0], None), ([0, 2], None), ([0, 1], 1)],

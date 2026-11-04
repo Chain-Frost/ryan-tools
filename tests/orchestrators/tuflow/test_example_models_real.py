@@ -137,8 +137,7 @@ def test_all_example_models_public_validation(example_plan: CommandPlan, tmp_pat
         report.write_csv(output / f"{tcf.stem}-issues.csv")
         if not report.passed or report.completed_runs != len(runs) or report.issues:
             unexpected_failures.append(
-                f"{tcf.name}: {len(report.issues)} issue(s), "
-                f"{report.completed_runs}/{len(runs)} runs checked"
+                f"{tcf.name}: {len(report.issues)} issue(s), {report.completed_runs}/{len(runs)} runs checked"
             )
         rows.append(
             {
@@ -166,6 +165,8 @@ def test_all_example_models_public_validation(example_plan: CommandPlan, tmp_pat
         "unexpected_failures": unexpected_failures,
     }
     (output / "results.json").write_text(json.dumps(summary, indent=2, default=str), encoding="utf-8")
-    assert not unexpected_failures, f"Expected all 161 TCFs / 174 runs to pass: {unexpected_failures}; reports: {output}"
+    assert not unexpected_failures, (
+        f"Expected all 161 TCFs / 174 runs to pass: {unexpected_failures}; reports: {output}"
+    )
     assert summary["passed_tcfs"] == 161
     assert summary["passed_runs"] == 174
