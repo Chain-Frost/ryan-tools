@@ -620,3 +620,43 @@ The previous investigation material and detailed interim status are available
 in [the reviewed Git revision](https://github.com/Chain-Frost/ryan-tools/tree/5edc2f5371da3a55faec4cbab2115e43574f1c43/docs/work).
 They are removed from the final working tree at the owner's request; they are
 not outstanding benchmark tasks or additional acceptance gates.
+
+### Concise runner settings - 3 November 2026
+
+Implemented locally on PR #190 branch after pushed `88b9bc03`: rename wrapper
+module alias to `params`; shorten editable types to GPUS, InputFiles, ContMode,
+RunMode, LogLevel and PathLike. PathLike is strictly `str | pathlib.Path`, per
+owner instruction; no os.PathLike/fspath change. INPUT_FILES defaults to an
+empty user-editable list and normalises to an ordered tuple. Updated the
+wrapper enum lookup tests and user documentation. Validation: 68 runner tests
+pass; Ruff lint/format and strict Pyright pass on all 17 PR-changed Python
+files; documentation checks pass; 26.11.3.3 wheel built and verified; copied
+wrapper help passes against the non-editable installed wheel. These naming
+changes and this receipt remain uncommitted. Next: commit/push the requested
+naming follow-up and verify its exact-head CI; review 2026-11-03.
+
+For the pushed `88b9bc03` CI-repair/log-enum baseline, Fast PR checks, Package,
+Policy, MCP smoke, POSIX security and all three TUFLOW jobs passed. Hosted
+tests are still running; terminal hosted success has not been established.
+No solver, parser repin, merge or release.
+
+### Dashboard diagnostics follow-up - 3 November 2026
+
+Owner requested clearer runner errors and reliable INFO-level visibility with
+the live dashboard, then noted the earlier session may have used an old version.
+Local Python imports this checkout (distribution 26.11.3.4 before rebuild); the
+earlier running process version cannot be inferred. The current local follow-up
+routes the wrapper console sink through dynamically redirected stdout, uses
+time/level/message formatting, preserves input checks as a dashboard metric,
+prints success in preflight-only mode, handles layer selectors separately from
+relative file paths and shortens single-line source locations. Normal launch
+policy remains advisory and asynchronous. Added focused status assertions.
+Validation: 76 focused tests pass; forced-terminal Rich Live smoke confirms
+WARNING and SUCCESS output at INFO; strict Pyright passes on changed logging,
+runner and tests; Ruff lint/format passes on all 19 PR-changed Python files;
+documentation and Loguru policy pass. Wheel 26.11.3.5 built and verified.
+These changes and concise-setting renames remain uncommitted and unpushed.
+Next: deliver the local follow-up when requested, then verify its exact-head
+CI. Review 2026-11-03. Separately, pushed baseline 88b9bc03 now has all three
+workflows terminal SUCCESS, including Python CI run 41486879494. That hosted
+evidence does not cover the local follow-up. No merge or solver launch.

@@ -1,6 +1,6 @@
 # Development and execution environments
 
-`ryan-tools` requires Python 3.14 or newer in the user's normal Python installation. Python 3.14 is the developer/CI baseline. Users are not expected to create, understand
+`ryan-tools` officially supports Python 3.14 or newer in the user's normal Python installation. Python 3.14 is the developer/CI baseline. The batch installers bypass pip's `Requires-Python` metadata for an explicitly selected older Python 3 interpreter, but compatibility is not guaranteed. Users are not expected to create, understand
 or activate a virtual environment. Wrappers copied into project folders use the same installed `ryan-tools` package.
 
 Some QGIS, OSGeo4W and GDAL workflows use their application's Python or command environment instead. An operation working
@@ -54,7 +54,7 @@ For an end user, double-click [install-from-pypi.bat](../install-from-pypi.bat)
 This installs the current published `ryan-tools[mcp]` package from PyPI,
 the upstream QGIS MCP Python bridge and the accepted PyTUFLOW PR17 archive in
 [`repo-scripts/pytuflow-requirement.txt`](../repo-scripts/pytuflow-requirement.txt),
-using Python 3.14 or later (automatic highest-installed 3.x selection, overrideable with `RYAN_TOOLS_PYTHON`).
+using the highest installed Python 3 by default (overrideable with `RYAN_TOOLS_PYTHON`). Every pip install step includes `--ignore-requires-python`, allowing Python 3.13 installations to bypass package metadata checks. Dependency wheels and runtime imports may still be incompatible.
 Both normal installers bootstrap binary Fiona, Rasterio and GDAL, explicitly
 reinstall only the accepted PyTUFLOW source, then resolve `ryan-tools` and the
 pinned parser together with their dependencies. This replaces an incompatible
@@ -67,7 +67,7 @@ the script safely configures its QGIS and ryan-tools MCP entries in the shared u
 it leaves Codex configuration untouched. Pass `--skip-codex` to disable automatic
 registration, `--skip-qgis-mcp` for headless/offline installation, or
 `--qgis-mcp-source <path>` to install the bridge from a local source.
-After updating Codex configuration, restart Codex or reload the Codex extension in VS Code. Python 3.14 or newer is required for `ryan-tools`; `ryan-culverts` remains an independent dependency. The QGIS desktop plugin
+After updating Codex configuration, restart Codex or reload the Codex extension in VS Code. Python 3.14 or newer remains the supported runtime for `ryan-tools`; `ryan-culverts` remains an independent dependency. The QGIS desktop plugin
 must still be installed and started through QGIS Plugin Manager.
 
 For developers working from the checkout, keep the local verified-wheel workflow:

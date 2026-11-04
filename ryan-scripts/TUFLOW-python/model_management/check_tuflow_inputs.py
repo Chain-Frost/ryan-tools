@@ -12,10 +12,13 @@ Examples:
 
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import Path, PurePath
+from time import perf_counter
 from typing import Literal
 
-WRAPPER_VERSION = "2026-11-01.2"
+_SCRIPT_STARTED_AT = perf_counter()
+
+WRAPPER_VERSION = "2026-11-02.5"
 
 # ------------------------ USER-EDITABLE SETTINGS -------------------------
 # CLI arguments override these settings. No naming prefix is required.
@@ -79,9 +82,135 @@ import os
 from collections import Counter
 from collections.abc import Sequence
 
-from ryan_library.functions.tuflow.command_plan import read_command_plans
-from ryan_library.functions.wrapper_utils import add_no_pause_cli_argument, pause_console, print_wrapper_banner
+from ryan_library.functions.tuflow.command_plan import CommandPlan, read_command_plans
+from ryan_library.functions.wrapper_utils import add_no_pause_cli_argument, pause_console, print_library_version
 from ryan_library.orchestrators.tuflow.command_preflight import CommandPreflightReport, check_command_plan
+
+
+def _section(title: str) -> None:
+    """Print one readable console section."""
+    print(f"\n{title}")
+    print("-" * len(title))
+
+
+def _display_path(path: str | PurePath, base: Path) -> str:
+    """Shorten a path inside the working directory for console output."""
+    candidate = Path(path)
+    if not candidate.is_absolute():
+        return str(candidate)
+    try:
+        return str(candidate.relative_to(base))
+    except ValueError:
+        return str(candidate)
+
+
+def _print_banner(*, display_base: Path, leading_blank_line: bool = False) -> None:
+    """Show this wrapper using the same concise project-relative path style."""
+    if leading_blank_line:
+        print()
+    print(f"Wrapper: {_display_path(Path(__file__).absolute(), display_base)} (version {WRAPPER_VERSION})")
+    print_library_version()
+
+
+def _print_plan(plan: CommandPlan, *, display_base: Path | None = None) -> None:
+    """Show the selected workload and every lossy source interpretation."""
+    base = display_base.absolute() if display_base is not None else None
+    counts = Counter(str(run.tcf) for run in plan.runs)
+    _section("RUN PLAN")
+    print(f"  Active runs       : {len(plan.runs)}")
+    print(f"  Command files     : {len(plan.source_files)}")
+    print(f"  Control files     : {len(counts)}")
+    print(f"  Duplicates ignored: {plan.duplicates_dropped}")
+
+    _section("CONTROL FILES")
+    for number, (control_file, count) in enumerate(counts.items(), 1):
+        path = _display_path(control_file, base) if base is not None else control_file
+        print(f"  {number}. {path} ({count} run(s))")
+
+    if not plan.ignored_exclamations:
+        return
+    ignored_count = sum(ignored.count for ignored in plan.ignored_exclamations)
+    _section("WARNING: SOURCE TEXT WAS IGNORED")
+    print(f"  Ignored {ignored_count} literal '!' character(s) on {len(plan.ignored_exclamations)} line(s).")
+    print("  Delayed expansion is not evaluated; each '!' was removed before parsing.")
+    print("  Planned runs and input-check outputs may be wrong. Review these source lines:")
+    for ignored in plan.ignored_exclamations:
+        source = _display_path(ignored.source, base) if base is not None else str(ignored.source)
+        print(f"    - {source}:{ignored.line} ({ignored.count} character(s) ignored)")
+
+
+def _plan_manifest(plan: CommandPlan) -> dict[str, object]:
+    """Return the private plan plus warnings that affect its interpretation."""
+    return {
+        "preflight_performed": False,
+        "warnings": [
+            {
+                "code": "ignored-exclamation-mark",
+                "source_file": str(ignored.source),
+                "line": ignored.line,
+                "count": ignored.count,
+                "message": "Literal '!' characters were ignored; planned runs and outputs may be wrong.",
+            }
+            for ignored in plan.ignored_exclamations
+        ],
+        "runs": plan.manifest(),
+    }
+
+
+def _print_preflight(
+    result: CommandPreflightReport,
+    *,
+    display_base: Path | None = None,
+    elapsed_seconds: float | None = None,
+) -> None:
+    """Present a complete check result with actionable issue detail."""
+    base = display_base.absolute() if display_base is not None else None
+    _section("INPUT CHECK")
+    print(f"  Status            : {'PASS' if result.passed else 'FAIL'}")
+    print(f"  Runs checked      : {result.completed_runs} of {result.run_count}")
+    print(f"  Unique input paths: {len(result.checked_paths)}")
+    print(f"  Issues            : {len(result.issues)}")
+    print(f"  Affected runs     : {result.affected_runs}")
+    print("  Timing:")
+    if elapsed_seconds is not None:
+        print(f"    Script wall time : {elapsed_seconds:.2f} s")
+    print("    Input-check phases:")
+    print(f"      Control parsing: {result.parse_seconds:.2f} s")
+    print(f"      Run contexts   : {result.context_seconds:.2f} s")
+    print(f"      File inventory : {result.inventory_seconds:.2f} s")
+
+    if result.issues:
+        _section("ISSUES")
+        for number, issue in enumerate(result.issues, 1):
+            finding = issue.finding
+            issue_type = finding.kind or finding.origin or "input"
+            tcf = _display_path(issue.run.tcf, base) if base is not None else str(issue.run.tcf)
+            flags = " ".join(f"-{key} {value}" for key, value in issue.run.flag_pairs)
+            selection = f" {flags}" if flags else ""
+            print(f"  {number}. {finding.status.upper()} — {tcf}{selection} (run {issue.run.index}; {issue_type})")
+            source = _display_path(issue.run.source, base) if base is not None else str(issue.run.source)
+            reference = _display_path(finding.reference, base) if base is not None else finding.reference
+            print(f"     Source   : {source}:{issue.run.line_start}-{issue.run.line_end}")
+            owner = finding.owner_control_file
+            control = _display_path(owner, base) if owner is not None and base is not None else str(owner)
+            location = control if owner is not None else "Not provided by validator"
+            if finding.line_number is not None:
+                location = f"{location}:{finding.line_number}"
+            print(f"     Control file: {location}")
+            print(f"     Command  : {finding.command_text or 'Full command not provided by validator'}")
+            print(f"     Reference: {reference}")
+            detail = finding.detail
+            if finding.csv_columns:
+                required = ", ".join(repr(column) for column in finding.csv_columns)
+                detail = f"{detail.rstrip('. ')}. Required CSV columns: {required}."
+            print(f"     Detail   : {detail}")
+
+    _section("RESULT")
+    if result.passed:
+        print("  PASS: All planned runs completed the supported input checks with no issues.")
+    else:
+        print(f"  FAIL: {len(result.issues)} issue(s) affect {result.affected_runs} planned run(s).")
+        print("  Review every issue above before relying on the planned simulations or their outputs.")
 
 
 def main(
@@ -97,8 +226,10 @@ def main(
     encoding: str = "utf-8-sig",
     io_workers: int = 4,
     maximum_directory_entries: int = 50_000,
+    started_at: float | None = None,
 ) -> int:
     """Plan and check grouped TCFs, printing findings and optionally writing a new CSV."""
+    operation_started_at = perf_counter() if started_at is None else started_at
     # Establish both bases before parsing; BAT CD never changes Python config.
     initial = (working_directory if working_directory is not None else Path.cwd()).absolute()
     configured_base = (
@@ -119,21 +250,18 @@ def main(
         syntax=syntax,
         encoding=encoding,
     )
-    counts = Counter(str(run.tcf) for run in plan.runs)
-    print(
-        f"Plan: {len(plan.runs)} active run(s), {len(counts)} TCF(s) "
-        f"from {len(plan.source_files)} command file(s); {plan.duplicates_dropped} duplicate(s) discarded"
-    )
-    for control_file, count in counts.items():
-        print(f"  {count} run(s): {control_file}")
+    _print_plan(plan, display_base=initial)
     if plan_report is not None:
         output = plan_report.absolute()
         output.parent.mkdir(parents=True, exist_ok=True)
         with output.open("x", encoding="utf-8") as stream:
-            json.dump({"preflight_performed": False, "runs": plan.manifest()}, stream, indent=2)
-        print(f"Private run manifest: {output}")
+            json.dump(_plan_manifest(plan), stream, indent=2)
+        print(f"\nPrivate run manifest: {_display_path(output, initial)}")
     if plan_only:
-        print("Plan only: no model inputs, executables or preflight have been run.")
+        _section("RESULT")
+        print("  PLAN ONLY: Commands were interpreted, but model inputs were not checked.")
+        print("  No TUFLOW executable or simulation was run.")
+        print(f"  Script wall time: {perf_counter() - operation_started_at:.2f} s")
         return 0
     result: CommandPreflightReport = check_command_plan(
         plan,
@@ -141,23 +269,14 @@ def main(
         io_workers=io_workers,
         maximum_directory_entries=maximum_directory_entries,
     )
-    print(
-        f"Preflight: {result.completed_runs}/{result.run_count} run(s) checked, "
-        f"{len(result.checked_paths)} unique input path(s), {len(result.issues)} issue(s), "
-        f"{result.affected_runs} affected run(s)"
+    report_output = result.write_csv(report) if report is not None else None
+    _print_preflight(
+        result,
+        display_base=initial,
+        elapsed_seconds=perf_counter() - operation_started_at,
     )
-    print(
-        f"Timing: parse {result.parse_seconds:.2f}s; contexts {result.context_seconds:.2f}s; "
-        f"inventory {result.inventory_seconds:.2f}s"
-    )
-    if report is not None:
-        output = result.write_csv(report)
-        print(f"Issues CSV: {output}")
-    for issue in result.issues:
-        print(
-            f"[{issue.finding.status.upper()}] {issue.run.source}:{issue.run.line_start}-{issue.run.line_end} "
-            f"run {issue.run.index}: {issue.finding.reference} {issue.finding.detail}"
-        )
+    if report_output is not None:
+        print(f"\nIssues CSV: {_display_path(report_output, initial)}")
     return 0 if result.passed else 1
 
 
@@ -213,7 +332,7 @@ def _run_cli(options: argparse.Namespace) -> int:
     plan_report = (
         None if options.no_plan_report else (options.plan_report if options.plan_report is not None else PLAN_JSON)
     )
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    _print_banner(display_base=base)
     try:
         return main(
             tcf=tcf,
@@ -233,12 +352,17 @@ def _run_cli(options: argparse.Namespace) -> int:
                 if options.maximum_directory_entries is not None
                 else MAX_DIRECTORY_ENTRIES
             ),
+            started_at=_SCRIPT_STARTED_AT,
         )
     except Exception as exc:  # noqa: BLE001 - wrapper reports an incomplete check as failure
-        print(f"Input preflight failed: {exc}")
+        _section("INPUT CHECK FAILED")
+        print("  The checker could not produce a complete result.")
+        print(f"  Reason: {exc}")
+        print("  Do not rely on a partial run plan or partial input-check output.")
+        print(f"  Script wall time: {perf_counter() - _SCRIPT_STARTED_AT:.2f} s")
         return 1
     finally:
-        print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+        _print_banner(display_base=base, leading_blank_line=True)
         if (options.pause or PAUSE_ON_FINISH) and not options.no_pause:
             pause_console()
 

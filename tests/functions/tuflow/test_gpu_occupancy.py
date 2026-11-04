@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterator
 from typing import Any
 
@@ -29,6 +30,9 @@ def test_only_live_matching_engines_with_explicit_gpu_flags(monkeypatch: pytest.
     class FakeProcess:
         def __init__(self, pid: int, name: str, cmd: list[str]) -> None:
             self.info: dict[str, object] = {"pid": pid, "name": name, "cmdline": cmd}
+
+        def environ(self) -> dict[str, str]:
+            return dict(os.environ)
 
     processes: list[Any] = [
         FakeProcess(10, "TUFLOW_iSP_w64.exe", ["Q:\\TUFLOW_iSP_w64.exe", "-b", "-pu0", "run.tcf"]),
@@ -78,3 +82,76 @@ def test_no_gpu_flags_means_assignment_unknown(monkeypatch: pytest.MonkeyPatch) 
     result = gpu_occupancy.local_gpu_occupancy()
     assert result.assigned == ()
     assert result.unknown_pids == (5,)
+
+
+@pytest.mark.parametrize(
+    ("runner_visible", "runner_order", "external_visible", "external_order", "shared"),
+    [
+        ("1,0", None, "0,1", None, False),
+        (None, "PCI_BUS_ID", None, "FASTEST_FIRST", False),
+        ("GPU-first,GPU-second", None, "GPU-second,GPU-first", None, False),
+        (None, None, "", None, False),
+        ("1,0", "PCI_BUS_ID", "1,0", "PCI_BUS_ID", True),
+        (None, None, None, None, True),
+    ],
+)
+def test_ordinals_require_a_shared_cuda_selection_environment(
+    monkeypatch: pytest.MonkeyPatch,
+    runner_visible: str | None,
+    runner_order: str | None,
+    external_visible: str | None,
+    external_order: str | None,
+    shared: bool,
+) -> None:
+    for key, value in (("CUDA_VISIBLE_DEVICES", runner_visible), ("CUDA_DEVICE_ORDER", runner_order)):
+        if value is None:
+            monkeypatch.delenv(key, raising=False)
+        else:
+            monkeypatch.setenv(key, value)
+    external: dict[str, str] = {}
+    for key, value in (("CUDA_VISIBLE_DEVICES", external_visible), ("CUDA_DEVICE_ORDER", external_order)):
+        if value is not None:
+            external[key] = value
+
+    class ExternalProcess:
+        def __init__(self) -> None:
+            self.info: dict[str, object] = {
+                "pid": 77,
+                "name": "TUFLOW_iSP_w64.exe",
+                "cmdline": ["TUFLOW_iSP_w64.exe", "-pu1", "model.tcf"],
+            }
+
+        def environ(self) -> dict[str, str]:
+            return external
+
+    def fake_process_iter(**_kwargs: object) -> Iterator[ExternalProcess]:
+        return iter([ExternalProcess()])
+
+    monkeypatch.setattr(gpu_occupancy.psutil, "process_iter", fake_process_iter)
+    snapshot = gpu_occupancy.local_gpu_occupancy()
+    assert bool(snapshot.assigned) is shared
+    assert snapshot.unknown_pids == (() if shared else (77,))
+
+
+@pytest.mark.parametrize("failure", ["denied", "exited"])
+def test_unreadable_cuda_environment_is_not_assumed_default(monkeypatch: pytest.MonkeyPatch, failure: str) -> None:
+    class ExternalProcess:
+        def __init__(self) -> None:
+            self.info: dict[str, object] = {
+                "pid": 88,
+                "name": "TUFLOW_iSP_w64.exe",
+                "cmdline": ["TUFLOW_iSP_w64.exe", "-pu1", "model.tcf"],
+            }
+
+        def environ(self) -> dict[str, str]:
+            if failure == "exited":
+                raise gpu_occupancy.psutil.NoSuchProcess(pid=88)
+            raise gpu_occupancy.psutil.AccessDenied(pid=88)
+
+    def fake_process_iter(**_kwargs: object) -> Iterator[ExternalProcess]:
+        return iter([ExternalProcess()])
+
+    monkeypatch.setattr(gpu_occupancy.psutil, "process_iter", fake_process_iter)
+    snapshot = gpu_occupancy.local_gpu_occupancy()
+    assert snapshot.assigned == ()
+    assert snapshot.unknown_pids == ((88,) if failure == "denied" else ())

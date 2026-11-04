@@ -337,11 +337,11 @@ ignore = [
 "ryan-scripts/TUFLOW-python/raster_processing/mask_velocity_by_depth.py" = [
     "BLE001", # filename parsing falls back to Unknown and each raster edit is isolated with traceback logging
 ]
-"ryan-scripts/TUFLOW-python/raster_processing/run_grouped_asc_to_asc_statistics.py" = [
-    "BLE001", # maintained wrapper logs unexpected workflow failures and returns a nonzero process result
+"ryan-scripts/unsorted-python/run_grouped_asc_to_asc_statistics.py" = [
+    "BLE001", # experimental script logs unexpected workflow failures and returns a nonzero process result
 ]
-"ryan-scripts/TUFLOW-python/raster_processing/run_python_raster_calculations.py" = [
-    "BLE001", # maintained wrapper logs unexpected workflow failures and returns a nonzero process result
+"ryan-scripts/unsorted-python/run_python_raster_calculations.py" = [
+    "BLE001", # experimental script logs unexpected workflow failures and returns a nonzero process result
 ]
 "ryan-scripts/TUFLOW-python/gis_processing/apply_qgis_styles_to_results.py" = [
     "BLE001", # maintained wrapper logs unexpected styling failures and returns a nonzero process result

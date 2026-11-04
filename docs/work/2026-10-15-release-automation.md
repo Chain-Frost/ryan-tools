@@ -1,6 +1,45 @@
 # Merge-only PyPI release policy follow-up, 2026-10-18
 
-Status: Needs review. Owner: Unassigned. Next review: 2026-10-19.
+Status: Active release repair. Owner: ChatGPT / maintainer. Updated: 2026-11-02. Next review: 2026-11-03.
+
+## Current release repair, 2026-11-02
+
+Baseline: clean parent checkout on `main`, `4a919b2b` (PR #187).
+The policy implementation below is historical; the merge-only workflows are now on main.
+
+Confirmed publisher run 41225969873 failed its installed-wheel smoke with missing
+`openpyxl`. Release decision 41331080668 failed creating `v26.11.2.2` with HTTP 422.
+Live tag ruleset 25169344 required the obsolete `Python 3.13 compatibility and MCP`.
+Replaced only that check with `MCP smoke`, then re-read the API to confirm all other
+rules, strict/create enforcement, integration IDs and bypass actors were retained.
+The stale check explains the blocked tag, though the generic HTTP 422 alone does not
+prove the rule responsible. Actual workflow-token tag creation remains to be verified.
+
+Both package CI and publication now install the shared
+`repo-scripts/wheel-smoke-requirements.txt`, including openpyxl, psutil, rich and
+colorama previously missing from publication. No package source or metadata changed.
+No MCP discovery change is needed for repository-only release infrastructure.
+
+Validation: checksum-verified Actionlint 1.7.12 passed; focused release-policy,
+calendar-version and preparation tests passed (50 tests, Python 3.14.6 / Windows).
+PyPI still reports `26.10.31.1`. Full application/GIS tests were not run.
+Retained wheel `26.11.2.1` passed the full installed-wheel smoke outside the checkout
+with the shared requirements installed into a temporary target (including resolved
+transitive dependencies). The initial no-dependencies local install failed on NumPy;
+the corrected install passed. This verifies the existing wheel, not a new hosted
+release build. The existing vendored simil ComplexWarning remains visible.
+Default documentation checks, explicit links for all three touched documents and
+`git diff --check` passed. No package rebuild was required for workflow-only changes.
+
+Delivery: submission authorized on 2026-11-02, using branch
+`fix/pypi-release-smoke-dependencies`, committed and pushed as
+[PR #188](https://github.com/Chain-Frost/ryan-tools/pull/188).
+The tag ruleset correction is already live.
+The PR targets main and deliberately retains release eligibility (no skip-release
+label or merge-message opt-out). Hosted exact-head CI and maintainer merge remain
+the next gates; no merge, tag or publication has been performed. Observe tag creation,
+Windows wheel build/smoke, OIDC PyPI upload and checksum-verified Release attachment
+for that new merge before marking this repair complete. Do not backfill old releases.
 
 ## Current work
 

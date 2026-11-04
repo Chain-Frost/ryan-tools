@@ -86,6 +86,14 @@ def test_case_insensitive_environment_single_assignment_expansion_and_scope() ->
     assert [run.tcf for run in plan.runs] == [CWD / "one/a.tcf", CWD / "inner.tcf", CWD / "one/a.tcf"]
 
 
+def test_literal_exclamations_are_ignored_anywhere_and_reported() -> None:
+    plan = parse("REM note!\nset TCF=mo!del.tcf\n-e1 !EVENT! !!!")
+    assert plan.runs[0].tcf == CWD / "model.tcf"
+    assert plan.runs[0].flags == {"e1": "EVENT"}
+    assert [(warning.line, warning.count) for warning in plan.ignored_exclamations] == [(1, 1), (2, 1), (3, 5)]
+    assert all(warning.source == SOURCE for warning in plan.ignored_exclamations)
+
+
 def test_source_folder_and_launch_directory_are_distinct() -> None:
     plan = parse('set TCF=relative.tcf\n-e1 A\npushd "%~dp0"\n-e1 B\npopd\n-e1 C')
     assert [run.tcf for run in plan.runs] == [
@@ -147,7 +155,6 @@ def test_termination_ignores_unreachable_tail(ending: str) -> None:
         "set /a N=1",
         "setlocal EnableDelayedExpansion",
         "setlocal DisableExtensions",
-        "-e1 !EVENT!",
         "-e1 %UNKNOWN%",
         'set TCF=\n-e1 A "%TCF%"',
         "-e1 A & -e1 B",
@@ -385,8 +392,8 @@ def test_overwritten_assignments_and_disabled_rows_do_not_conflict() -> None:
 def test_multi_file_reader_deduplicates_and_preserves_isolated_state(tmp_path: Path) -> None:
     first = tmp_path / "first.bat"
     second = tmp_path / "second.txt"
-    first.write_text("set TCF=a.tcf\n-e1 A\n-e1 A\ncd other\n-e1 B", encoding="utf-8")
-    second.write_text("# list comment\nset TCF=b.tcf\n-e1 A", encoding="utf-8")
+    first.write_text("rem marker!\nset TCF=a.tcf\n-e1 A\n-e1 A\ncd other\n-e1 B", encoding="utf-8")
+    second.write_text("# list comment!!\nset TCF=b.tcf\n-e1 A", encoding="utf-8")
     plan = read_command_plans((first, second), initial_directory=tmp_path)
     assert [r.index for r in plan.runs] == [1, 2, 3]
     assert plan.duplicates_dropped == 1
@@ -396,6 +403,10 @@ def test_multi_file_reader_deduplicates_and_preserves_isolated_state(tmp_path: P
     assert plan.source_files == (first, second)
     assert plan.syntax == "mixed"
     assert plan.directories[-1].source == second
+    assert [(warning.source, warning.line, warning.count) for warning in plan.ignored_exclamations] == [
+        (first, 1, 1),
+        (second, 1, 2),
+    ]
 
 
 def test_separate_files_must_not_leak_tcf_or_cd(tmp_path: Path) -> None:

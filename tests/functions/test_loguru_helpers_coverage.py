@@ -38,7 +38,7 @@ def test_configure_serial_logging_with_independent_levels() -> None:
         )
 
     mock_reset.assert_called_once_with()
-    mock_console.assert_called_once_with(level="INFO", forwarded=False)
+    mock_console.assert_called_once_with(level="INFO", forwarded=False, sink=None, format_string=None)
     mock_file.assert_called_once_with(log_file="test.log", file_log_level="DEBUG")
 
 
@@ -64,10 +64,13 @@ def test_worker_initializer_uses_queue_capture_level_by_default() -> None:
 
 
 def test_worker_configurer_serializes_minimal_real_record_shape() -> None:
+    def level(name: str) -> SimpleNamespace:
+        return SimpleNamespace(name=name, no={"DEBUG": 10}[name])
+
     mock_queue = MagicMock()
     mock_queue.capture_log_level = "DEBUG"
     with patch.object(loguru_helpers, "logger") as mock_logger:
-        mock_logger.level.side_effect = lambda name: SimpleNamespace(name=name, no={"DEBUG": 10}[name])
+        mock_logger.level.side_effect = level
         loguru_helpers.worker_configurer(mock_queue)
 
     sink = mock_logger.add.call_args.kwargs["sink"]

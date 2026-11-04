@@ -8,7 +8,8 @@ licences, not a reliable map of GPUs on this local computer.
 
 from __future__ import annotations
 
-from collections.abc import Collection, Sequence
+import os
+from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import PureWindowsPath
 from typing import cast
@@ -20,7 +21,7 @@ from .command_plan import is_gpu_switch
 
 @dataclass(frozen=True, slots=True)
 class TuflowGpuProcess:
-    """Live TUFLOW process with its explicitly selected GPU identifiers."""
+    """Live TUFLOW process with selected IDs in a verified shared CUDA namespace."""
 
     pid: int
     gpu_ids: frozenset[int]
@@ -48,13 +49,34 @@ def _is_tuflow_executable(name: str, command: Sequence[str]) -> bool:
     return executable.startswith("tuflow") and executable.endswith(".exe")
 
 
+def _cuda_selection(environment: Mapping[str, str]) -> tuple[str | None, str | None]:
+    """Compare exact CUDA selectors; do not guess equivalence of different spellings."""
+    if os.name == "nt":
+        environment = {key.upper(): value for key, value in environment.items()}
+    return environment.get("CUDA_VISIBLE_DEVICES"), environment.get("CUDA_DEVICE_ORDER")
+
+
+def _shares_cuda_namespace(process: psutil.Process) -> bool:
+    """Only compare ordinals when both processes have the same CUDA selectors.
+
+    Differing selectors may reorder or hide physical GPUs. Missing permission
+    to read the external environment is uncertainty, not evidence of defaults.
+    Environment values are inspected locally and never logged or retained.
+    """
+    try:
+        return _cuda_selection(process.environ()) == _cuda_selection(os.environ)
+    except (psutil.AccessDenied, OSError, ValueError):
+        return False
+
+
 def local_gpu_occupancy(*, exclude_pids: Collection[int] = ()) -> GpuOccupancySnapshot:
     """Inspect currently running local TUFLOW executable command lines.
 
-    TUFLOW runs without explicit -puN switches are returned as unknown,
-    because their GPU assignment cannot safely be inferred from a command line.
-    The caller owns snapshot timing; the simulation runner requests one startup
-    snapshot. No TUFLOW or CodeMeter is launched.
+    TUFLOW runs without explicit -puN switches, or with different/unreadable
+    CUDA selection environments, are unknown. Command-line ordinals are only
+    comparable after verifying matching CUDA_VISIBLE_DEVICES and CUDA_DEVICE_ORDER.
+    The caller owns snapshot timing. A guarded simulation runner can poll this
+    read-only function before dispatch. No TUFLOW or CodeMeter is launched.
     """
     excluded = set(exclude_pids)
     assigned: list[TuflowGpuProcess] = []
@@ -80,7 +102,7 @@ def local_gpu_occupancy(*, exclude_pids: Collection[int] = ()) -> GpuOccupancySn
                     unknown.append(pid_value)
                     continue
                 ids = gpu_ids_from_flags(command)
-                if ids:
+                if ids and _shares_cuda_namespace(process):
                     assigned.append(TuflowGpuProcess(pid=pid_value, gpu_ids=ids))
                 else:
                     unknown.append(pid_value)

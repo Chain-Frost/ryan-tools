@@ -116,6 +116,14 @@ def finite_number(name: str, value: object, *, positive: bool) -> float:
     return float(value)
 
 
+def positive_integer(name: str, value: object) -> int:
+    """Require an actual positive integer, without bool-as-int coercion."""
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        message = f"{name} must be a positive integer (>=1), not {value!r}."
+        raise ValueError(message)
+    return value
+
+
 def _nonempty_variable_list(key: str, entries: Sequence[object]) -> list[str]:
     """Accept explicit user lists only when every entry is a nonblank string."""
     message = f"RUN_VARIABLES_RAW[{key!r}] needs nonempty strings, e.g. ['Dry', 'Wet Season']."

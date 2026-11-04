@@ -12,6 +12,7 @@ import pickle
 import sys
 import threading
 import traceback
+from collections.abc import Callable, Mapping
 from multiprocessing import Process, Queue
 from pathlib import Path
 from types import TracebackType
@@ -94,6 +95,35 @@ def minimum_log_level(*levels: str) -> str:
     return min(normalized_levels, key=lambda level: logger.level(level).no)
 
 
+def _write_stdout(message: str) -> None:
+    """Follow temporary stdout redirection, including Rich's live display proxy."""
+    # A captured stream bypasses Live when logging is configured before it starts.
+    stream = sys.stdout
+    stream.write(message)
+    stream.flush()
+
+
+def log_settings(title: str, values: Mapping[str, object], defaults: Mapping[str, object]) -> None:
+    """Log settings at INFO: grey defaults, cyan changes/required values, plain file text.
+
+    The baseline is explicit and independent of editable or CLI-selected values.
+    Nonempty mappings are displayed one entry per line in insertion order.
+    Values remain format arguments so user text cannot inject Loguru colour tags.
+    """
+    formats = ["{}:"]
+    arguments: list[str] = [title]
+    for name, value in values.items():
+        style = "<light-black>{}</light-black>" if name in defaults and value == defaults[name] else "<cyan>{}</cyan>"
+        if isinstance(value, Mapping) and value:
+            mapping = cast(Mapping[object, object], value)
+            text = f"  {name}: {{\n" + "\n".join(f"    {key!r}: {item!r}," for key, item in mapping.items()) + "\n  }"
+        else:
+            text = f"  {name}: {value}"
+        formats.append(style)
+        arguments.append(text)
+    logger.opt(colors=True).info("\n".join(formats), *arguments)
+
+
 def _add_console_sink(
     *,
     level: str,
@@ -103,7 +133,7 @@ def _add_console_sink(
 ) -> None:
     """Install the standard stdout sink."""
     logger.add(
-        sink=sys.stdout if sink is None else sink,
+        sink=_write_stdout if sink is None else sink,
         level=normalize_log_level(level),
         format=format_string or (FORWARDED_CONSOLE_FORMAT if forwarded else CONSOLE_FORMAT),
         # Never inject ANSI styling into redirected, piped or file-backed
@@ -156,6 +186,9 @@ def configure_serial_logging(
     console_log_level: str = "INFO",
     log_file: str | None = None,
     file_log_level: str = "DEBUG",
+    *,
+    console_sink: Callable[[str], None] | None = None,
+    console_format: str | None = None,
 ) -> None:
     """Configure Loguru for a serial workflow.
 
@@ -163,6 +196,9 @@ def configure_serial_logging(
         console_log_level: Minimum console level.
         log_file: Optional file-sink path.
         file_log_level: Minimum file level when ``log_file`` is supplied.
+        console_sink: Optional console writer. By default, follow current stdout so
+            Rich Live can clear and redraw around messages even when started later.
+        console_format: Optional console-only format; file formatting is unchanged.
     """
     if LoguruMultiprocessingLogger.has_active_context():
         msg = "Cannot replace serial sinks while a multiprocessing logging context is active."
@@ -170,7 +206,7 @@ def configure_serial_logging(
     normalized_console_level: str = normalize_log_level(console_log_level)
     normalized_file_level: str = normalize_log_level(file_log_level)
     reset_logging()
-    _add_console_sink(level=normalized_console_level, forwarded=False)
+    _add_console_sink(level=normalized_console_level, forwarded=False, sink=console_sink, format_string=console_format)
     if log_file:
         add_file_sink(log_file=log_file, file_log_level=normalized_file_level)
 

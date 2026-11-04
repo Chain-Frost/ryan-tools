@@ -4,12 +4,12 @@ This read-only wrapper checks recent per-user activity under
 ``%ProgramData%\TUFLOW\log``, inspects each referenced TLF independently, and
 optionally reads the local CodeMeter WebAdmin service. It reports active licence
 allocations, utilisation, recent denials, model paths, completion, runtime, and
-GPU device IDs.
+TUFLOW -pu device IDs and GPU names when recorded in companion HPC logs.
 
 Examples:
-    py -3.14 check_tuflow_user_activity.py --no-pause
-    py -3.14 check_tuflow_user_activity.py --recent-hours 48 --no-pause
-    py -3.14 check_tuflow_user_activity.py --no-codemeter --no-pause
+    python check_tuflow_user_activity.py --no-pause
+    python check_tuflow_user_activity.py --recent-hours 48 --no-pause
+    python check_tuflow_user_activity.py --no-codemeter --no-pause
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-20.2"
+WRAPPER_VERSION = "2026-11-04.1"
 
 DEFAULT_LOG_ROOT = Path(os.environ.get("ProgramData", r"C:\ProgramData")) / "TUFLOW" / "log"
 DEFAULT_RECENT_HOURS = 24.0

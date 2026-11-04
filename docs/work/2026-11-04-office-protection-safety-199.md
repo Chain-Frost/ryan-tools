@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active - implemented locally, parent integration and hosted CI pending |
+| Status | Active - parent integrated, stacked PR hosted validation pending |
 | Owner | ChatGPT |
 | Created | 2026-11-04 |
 | Updated | 2026-11-04 |
@@ -44,3 +44,11 @@ PR and wait for terminal hosted checks. Then continue #197 archive safety and
 
 Keep existing packaging/catalogue membership. This is a bounded safety repair
 of an existing Office entry point, not a new MCP workflow or library boundary.
+
+## Parent integration
+
+Merged updated #183 head 786cd44d (normal merge of main ec873425) into the
+child. Both parent dashboard contracts remain intact; the work-register conflict
+retains the independent Office row and all updated parent records. Parent CI has
+started. Current inventory is 157 tracked entries, 83 selected files and 33 MCP
+targets; the additional child entry is the repository-only Office README.
