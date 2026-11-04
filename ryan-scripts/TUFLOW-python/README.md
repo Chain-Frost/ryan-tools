@@ -99,9 +99,10 @@ completed Resume do not start the monitor.
 
 For each launched run, PyTUFLOW resolves its selected TCF context and supplies
 the log folder and output name. Appending `.tlf` preserves decimal points in
-names such as `01.0p` despite a suffix-handling defect in the accepted parser's
-`tlf_path()` convenience method. This uses the existing accepted dependency;
-no parser repin is required. TCFs are cached within the monitoring worker and
+names such as `01.0p` without depending on suffix handling in the parser's
+`tlf_path()` convenience method. This uses the immutable contributor-fork
+PR #63 source selected by the repository installers; it has not been accepted
+as an upstream release. TCFs are cached within the monitoring worker and
 deferred file resolution avoids repeating GIS input inventory scans. Unresolved
 or unsupported predictions produce a warning and leave progress unknown.
 

@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Draft PR #205 open; TUFLOW/SMB acceptance pending |
+| Status | PR #205 open; Windows/TUFLOW/SMB checks pass; interactive and Classic acceptance pending |
 | Owner | ChatGPT / local validation agent |
 | Created | 2026-11-04 |
 | Updated | 2026-11-05 |
@@ -53,8 +53,10 @@ log-based completion, retries, recovery, launch gating, automatic merge or relea
   `d089afaddde4b533581ebbe068dc38673c98803b`, superseding the prior PR #17 pin
   `05e35476c02d6d8ed17c83caf1cb0d185ce51d1b`. The public log-folder/output-name API is retained.
   PR #63 remains open and is not an accepted upstream release.
-- Native Windows TUFLOW execution, interactive Rich presentation and SMB timing
-  remain local acceptance work. See the [handoff](../TUFLOW_RUNNER_PROGRESS_HANDOFF.md).
+- Native Windows TUFLOW execution and mapped/UNC continuous-writer checks passed
+  on 2026-11-05. Interactive terminal resizing/screenshots and an independently
+  configured Classic model remain unrun. See the dated evidence below and the
+  [handoff](../TUFLOW_RUNNER_PROGRESS_HANDOFF.md).
 - User follow-up explicitly requires read access that does not impose write/delete
   denial on continuously written logs. Windows reads use a short-lived
   `CreateFileW` read handle with all three read/write/delete sharing flags, no
@@ -89,9 +91,11 @@ can reach the configured end while its companion's last step is slightly earlier
 
 ## Next action
 
-Check hosted CI on the pushed PR head, then execute the local
-Windows/solver/SMB acceptance matrix on this PR branch. Keep the PR draft until
-those limitations are reviewed; report each unrun or blocked case explicitly.
+Review the remaining interactive terminal and Classic-engine cases against the
+local handoff, and review final-head hosted checks before any merge decision.
+Native multi-GPU execution is unavailable on the one-GPU validation machine;
+grouped IDs and multiple-TCF scheduling have automated coverage. Keep the PR
+draft until the remaining acceptance limits are reviewed.
 
 ## Completion criteria
 
@@ -248,3 +252,148 @@ records the separate hosted result for this follow-up's published revision.
 - CI, native Windows/GDAL, installed-wheel and real TUFLOW/SMB acceptance are
   pending for this new head. Do not describe prior source verification as
   evidence for PR #63 or release automatically.
+
+### 2026-11-05 local Windows acceptance of PR #63 source
+
+The evidence in this entry supersedes the preceding pending-validation statement
+for implementation head `2841f8d49242d081148289b1eae5f6f97d91cd2f`. Fetched both
+refs before validation; `main` remained `ec8734256e33447856b648e02d5fe0c5a5802447`.
+Used detached worktree `E:/Github/ryan-tools-pr205-validation`, preserving the
+original branch checkout. Only the existing test-data and QGIS-resource pins
+were initialized. No submodule pins changed and the excluded submodule was not
+inspected.
+
+Environment and provenance:
+
+- Interpreter: `C:/Program Files/Python314/python.exe`, Python 3.14.6, Windows x64.
+- QA root: `F:/Temp/CodexValidation/PR205_20261105`; scripts, JSON, JUnit XML,
+  console captures and disposable models remain there. Network data is confined
+  to a matching disposable `CodexValidation/PR205_20261105` directory.
+- PyTUFLOW 1.2.9 installed with `python -m pip install --no-deps --target
+  <QA_ROOT>/dependency -r repo-scripts/pytuflow-requirement.txt`. Verified its
+  module path in that target and `direct_url.json` selecting
+  `d089afaddde4b533581ebbe068dc38673c98803b`; archive SHA-256
+  `cc078211560142f7248df9b4834bdadacf395c406d4600e2ee4249220e8e5532`.
+  The global user installation was not changed.
+- TUFLOW `C:/TUFLOW/tuflow-2026.3/TUFLOW_iSP_w64.exe`, build
+  `2026.3.0-iSP-w64`; HPC 3.51.9, CUDA driver 13000. CUDA API and actual HPC
+  header both map device 0 to NVIDIA GeForce RTX 5090. No CUDA selector override
+  was introduced. One physical GPU is available.
+- GDAL 3.13.3 and Rasterio 1.5.2 are installed in normal Python. This host has
+  an inherited HDF5 DLL import-order conflict (`0xc0000139`) when h5py loads
+  after GIS readers. A disposable h5py 3.16.0 installation alone did not fix
+  that order dependency. Loading `h5py` before `pytest` produced the clean
+  focused/replay results below; no project import or global package was changed.
+  A report-directory reuse also correctly raised `FileExistsError`; the clean
+  replay used a fresh output directory rather than overwriting its reports.
+
+Source and package validation:
+
+- `python -m ruff check` and `python -m ruff format --check` on all 22 Python
+  files returned by `git diff --name-only origin/main...HEAD -- '*.py'`: pass,
+  Ruff 0.16.6. `python -m pyright --pythonpath
+  "C:/Program Files/Python314/python.exe"` on those same files: zero errors,
+  warnings or information, Pyright 1.1.411 using repository strict settings.
+- The nine-file focused command above, invoked with `import h5py, pytest;
+  pytest.main(...)`: **367 passed, 2 skipped**, 7.71 s. Both skips require
+  unavailable Windows symlink privileges; native sharing and subprocess
+  lifecycle/interrupt cases passed. Evidence: `focused-clean.txt` and XML.
+- Pinned API, input/command preflight, both installers, opt-in checker and full
+  real-example tests: **62 passed**, 31.80 s (`preflight-clean.txt` and XML).
+  `example-reports-clean/results.json` confirms **161/161 TCFs and 174/174 runs**
+  pass with the exact new source, without old allowances. GPU device/occupancy
+  tests separately report **17 passed**, 0.43 s (`gpu.txt` and XML).
+- Additional installed-reader actual-log replays passed for EG05_018 (-72 to
+  3 h) and EG17_002 (0 to 48 h), recorded in `extra-replays.json`. The focused
+  suite covers the restart, negative-zero, partial-line, main/HPC disagreement,
+  signed Module 11 ME, collision, cached-finish and late-result cases.
+- `python repo-scripts/check_documentation.py`, explicit changed-record/handoff
+  `--links-only` checks and `python repo-scripts/check_loguru_formatting.py`: pass.
+- `python repo-scripts/build_library.py --no-bump --skip-pip` and
+  `python repo-scripts/verify_wheel.py
+  dist/ryan_tools-26.11.3.9-py3-none-any.whl`: pass. Wheel: 913,217 bytes,
+  SHA-256 `0bfdfd1394ce4eefb76cadee5ef3f4f51f37daeaaf870ea3f7d9969ddadaa7b0`.
+  No version bump or tracked artifact change. Installed with `pip --no-deps
+  --target <QA_ROOT>/installed`; verified the imported library came from there.
+- Copied wrapper `runner.py`, version `2026-11-04.2`: `--help`, explicit
+  `--mode textfiles --no-tcf --input-file <QA_ROOT>/runs.txt --export-only
+  --no-monitor-progress --no-pause` and invalid `--progress-poll-interval 0`
+  checks pass. Export-only created no execution CSV. Invalid input returned
+  exit 1 with the setting name and bound. `smoke-results.json` also confirms
+  that all seven changed library modules match the wheel source bytes.
+
+Real solver and network evidence:
+
+- Extracted the checksummed public example archive into disposable `model/`;
+  EG00_001 retained `Tutorial Model == ON`. No production model or paid
+  execution was used. `native_run.py` executed the copied wrapper twice with
+  textfile input, `--run-mode all --no-preflight --no-export --no-pause
+  --launch-delay 0 --progress-poll-interval 0.1 --console-log-level SUCCESS`.
+  Both runs exited 0; elapsed wrapper times were 75.65 and 69.75 s, including
+  process/GPU inspection. Each actual solver ran about 19-20 s. All three phases
+  were observed, followed by 3 h / 100%, dt 0.694 s and final ME 0% retained
+  beside `Exit 0`. CSV START/FINISH records agree with actual child exits.
+  The rerun began with old logs present and unknown model time, then verified
+  new progress. Evidence: `native-observations.json`, `native-wrapper-1.txt`,
+  `native-wrapper-2.txt` and `runner_runs.csv`.
+- A third actual copied-wrapper run with `--no-progress-diagnostics` exits 0
+  and omits dt/ME from the completed row (`toggle.txt`, UTF-16 PowerShell
+  capture). Intermediate phase visibility with this toggle is established by
+  focused tests, not this redirected capture. A headless Resume with
+  `--no-monitor-progress --no-live-dashboard` skips the already successful
+  run without a GPU query or solver launch (`resume-headless.txt`).
+- `native_variants.py` verified the requested `s2,s1,e1,e2,e4,e3,s4` filename
+  order, long dotted name, `01.0p`, a bare event alias and a Log Folder with
+  spaces against actual TUFLOW-created paths. `-et1` overrides the configured
+  3 h end: effective end/model time is 1 h; the initial effective end remains
+  unknown. Both variants exit 0, with dt 0.563 s and final ME +0.04%.
+  Evidence: `variant-results.json` and `variants.txt`.
+- Three repeated alias runs exit 0; the first two launched within the same
+  minute, with old completed logs preserved. Every initial model time was
+  unknown. Evidence: `repeat-results.json` and `repeat.txt`.
+- Real solver runs with mapped and equivalent UNC log folders containing
+  spaces also exit 0 with correct prediction, phases, 1 h end and diagnostics.
+  Automatic GPU selection was used and actual HPC headers select device 0.
+  During each local/mapped/UNC variant, the HPC file grew while QA deliberately
+  held the shared reader handle for 0.5 s. File identity remained unchanged
+  across that observation: append is proven, runtime replacement is not inferred.
+  Evidence: `mapped-solver-results.json` and `unc-solver-results.json`.
+- `io_acceptance.py` passes long-lived/reopened writer, source rename and
+  replacement-after-close tests locally and on mapped/UNC paths. A writer
+  denying read sharing gives one unavailable sample without a retry loop.
+  The large pair is 18,000,039 + 17,944,056 bytes: initial content read totals
+  262,144 bytes, then 100 unchanged polls read **zero content bytes**. Handle
+  counts remain 140 before/after 50 changed samples. Median/max unchanged
+  sample times: local 0.026/0.071 ms; mapped 2.360/170.471 ms; UNC
+  2.359/145.514 ms. Denied-read samples return in 0.107/1.548/2.212 ms.
+  These are warm filesystem samples; the separate worker isolation tests cover
+  slow/unavailable I/O and scheduler/shutdown independence. Production interval
+  remains 10 s; 0.1 s was an intentional disposable-run observation override.
+- `interrupt_native.py` exercises the installed runner's real TUFLOW child with
+  the public interruption event and execution-history callbacks. Six seconds
+  after launch, interruption stops the owned solver in 0.124 s with monitoring
+  enabled. One completion callback records actual exit 1 as CSV `FAILED`, and
+  no success key is retained. A separate harmless Python sentinel remains
+  alive, then is explicitly cleaned up by QA. Evidence:
+  `interrupt-results.json`, `interrupt-history.csv` and `interrupt.txt`.
+
+Remaining acceptance limits: physical terminal resizing, VS Code interaction and
+before/during/after screenshots are **not run**; console captures and automated
+100/120-column, 24-line layouts are separate evidence. No independently configured
+Classic model or second physical GPU was tested. Equal-basename TCF grouping,
+global row budget and grouped GPU IDs have focused synthetic coverage. No
+universal solver replacement/sharing claim follows from these append tests.
+
+All nine hosted checks passed on `2841f8d4`: Python CI
+[41905419682](https://github.com/Chain-Frost/ryan-tools/actions/runs/41905419682),
+Fast PR checks
+[41905419663](https://github.com/Chain-Frost/ryan-tools/actions/runs/41905419663)
+and pinned-input validation
+[41905419658](https://github.com/Chain-Frost/ryan-tools/actions/runs/41905419658).
+This validation found no demonstrated product defect requiring a source change.
+Delivery: only the acceptance record, its register row and a stale parser-source
+description are committed and pushed to the existing PR branch. The PR is
+returned to draft as the handoff requires while acceptance limits remain.
+There are no inline review threads. The PR description owns the exact final
+documentation commit and its separate terminal hosted results. No merge,
+auto-merge, release or dependency repin is authorized.
