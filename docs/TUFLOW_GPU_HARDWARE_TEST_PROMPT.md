@@ -45,8 +45,8 @@ Then execute and independently observe all scenarios:
 6. A single configured group requires GPUs 0+1: it waits until both devices are available.
 7. An external process terminates unexpectedly: occupancy refresh restores the slot.
 8. CodeMeter becomes unavailable: no false declaration of licence availability occurs; record local scheduling behavior.
-9. A TUFLOW GPU assignment is unknown or process inspection is incomplete: conservative scheduling and the
-   `GPU STATUS UNKNOWN - SCHEDULING PAUSED` alert remain in effect.
+9. A TUFLOW GPU assignment is unknown or process inspection is incomplete: queued runs continue with a
+   `GPU INSPECTION WARNING - CONTINUING` warning. Confirmed conflicts still block only their overlapping slots.
 10. Interrupt while all slots are waiting: shutdown is graceful and no queued process launches.
 
 For the principal occupancy tests, launch the external licensed TUFLOW process directly on the selected GPU before

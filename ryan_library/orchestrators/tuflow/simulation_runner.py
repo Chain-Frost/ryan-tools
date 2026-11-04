@@ -677,7 +677,7 @@ def export_batch_commands(plan: CommandPlan, settings: RunnerSettings, destinati
 
 
 def _blocked_external_gpu_slots(groups: tuple[tuple[str, ...], ...], *, exclude_pids: set[int]) -> GpuAvailability:
-    """Find unavailable configured GPU groups without treating uncertainty as free.
+    """Block confirmed conflicts and report uncertain inspection without stalling work.
 
     CodeMeter reports licence allocations, but not a reliable GPU ID mapping.
     Explicit -puN assignments are comparable only in a verified shared CUDA
@@ -689,9 +689,8 @@ def _blocked_external_gpu_slots(groups: tuple[tuple[str, ...], ...], *, exclude_
     all_slots = frozenset(range(len(groups)))
     try:
         snapshot = local_gpu_occupancy(exclude_pids=exclude_pids)
-    except Exception as exc:  # noqa: BLE001 - inspection uncertainty must not launch on a possibly busy GPU
+    except Exception as exc:  # noqa: BLE001 - optional inspection must not stop computation
         return GpuAvailability(
-            blocked_slots=all_slots,
             issues=(
                 GpuAvailabilityIssue(
                     kind="query_failed",
@@ -700,8 +699,8 @@ def _blocked_external_gpu_slots(groups: tuple[tuple[str, ...], ...], *, exclude_
                 ),
             ),
         )
+    issues: list[GpuAvailabilityIssue] = []
     if snapshot.inspection_incomplete or snapshot.unknown_pids:
-        issues: list[GpuAvailabilityIssue] = []
         if snapshot.unknown_pids:
             issues.append(
                 GpuAvailabilityIssue(
@@ -719,10 +718,8 @@ def _blocked_external_gpu_slots(groups: tuple[tuple[str, ...], ...], *, exclude_
                     detail="Local process inspection was incomplete; configured GPUs cannot be declared free.",
                 )
             )
-        return GpuAvailability(blocked_slots=all_slots, issues=tuple(issues))
 
     blocked: set[int] = set()
-    issues = []
     group_ids = tuple(gpu_ids_from_flags(group) for group in groups)
     for process in snapshot.assigned:
         process_slots: set[int] = set()
@@ -774,9 +771,12 @@ def _gpu_availability_lines(
         for index, group in enumerate(groups)
         if index not in availability.blocked_slots
     ]
-    lines.append(f"Excluded from scheduling: {', '.join(blocked_labels)}")
+    if blocked_labels:
+        lines.append(f"Excluded from scheduling: {', '.join(blocked_labels)}")
+    if any(issue.kind != "occupied" for issue in availability.issues):
+        lines.append("GPU inspection uncertain - continuing without verified availability; GPU sharing is possible")
     if available_labels:
-        lines.append(f"Available GPU slot(s) may continue: {', '.join(available_labels)}")
+        lines.append(f"Eligible GPU slot(s) may continue: {', '.join(available_labels)}")
     else:
         lines.append("ALL CONFIGURED GPU SLOTS BLOCKED - queued batch is waiting")
     lines.append(f"Next availability check in {interval_seconds:g} seconds")
@@ -802,19 +802,19 @@ def _log_gpu_availability_transition(
                 interval_seconds,
             )
         return
-    if not availability.blocked_slots:
-        if previous.blocked_slots:
-            logger.success("Configured GPU slots are available again; queued scheduling may resume.")
+    if previous.blocked_slots and not availability.issues:
+        logger.success("Confirmed GPU restrictions cleared; queued scheduling may resume.")
+    if not availability.issues:
+        if previous.issues:
+            logger.success("GPU inspection recovered; no external GPU restrictions detected.")
         return
-    uncertain = any(issue.kind != "occupied" for issue in availability.issues)
-    heading = "GPU STATUS UNKNOWN - SCHEDULING PAUSED" if uncertain else "GPU AVAILABILITY ERROR"
-    logger.error(
-        "{}\n{}",
-        heading,
-        "\n".join(
-            _gpu_availability_lines(availability, groups, interval_seconds=interval_seconds, device_names=device_names)
-        ),
+    details = "\n".join(
+        _gpu_availability_lines(availability, groups, interval_seconds=interval_seconds, device_names=device_names)
     )
+    if availability.blocked_slots:
+        logger.error("GPU AVAILABILITY ERROR\n{}", details)
+    else:
+        logger.warning("GPU INSPECTION WARNING - CONTINUING\n{}", details)
 
 
 def _gpu_dashboard_alert(
@@ -825,13 +825,16 @@ def _gpu_dashboard_alert(
     device_names: Mapping[int, str] | None = None,
 ) -> WorkflowAlert | None:
     """Translate scheduling state into the dashboard's reusable alert model."""
-    if not availability.blocked_slots:
+    if not availability.issues:
         return None
     from ...functions.live_dashboard import WorkflowAlert
 
-    uncertain = any(issue.kind != "occupied" for issue in availability.issues)
+    blocked = bool(availability.blocked_slots)
     return WorkflowAlert(
-        title="GPU STATUS UNKNOWN - SCHEDULING PAUSED" if uncertain else "GPU AVAILABILITY ERROR",
+        title="GPU AVAILABILITY ERROR" if blocked else "GPU INSPECTION WARNING - CONTINUING",
+        border_style="bright_red" if blocked else "yellow",
+        title_style="bold bright_red" if blocked else "bold yellow",
+        body_style="bold red" if blocked else "yellow",
         lines=_gpu_availability_lines(
             availability, groups, interval_seconds=interval_seconds, device_names=device_names
         ),
@@ -1095,14 +1098,18 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
         logger.info("Imported START priority/minimise/wait hints are replaced by runner scheduling settings.")
     if stop.is_set():
         return BatchOutcome(tuple(plan.runs), (), True)
-    device_names = local_cuda_device_names()
+    try:
+        device_names = local_cuda_device_names()
+    except Exception as exc:  # noqa: BLE001 - optional display metadata must not prevent launches
+        logger.warning("GPU name inspection failed; continuing with device IDs: {}", exc)
+        device_names = {}
     if device_names:
         logger.success(
             "Local CUDA device mapping for this launch environment: {}",
             "; ".join(gpu_device_label(identifier, device_names) for identifier in sorted(device_names)),
         )
     else:
-        logger.info("CUDA device names unavailable; -puN identifiers remain usable.")
+        logger.warning("CUDA device names unavailable; continuing with -puN identifiers.")
     logger.info(
         "-puN uses TUFLOW/CUDA order, not NVIDIA or Windows display indexes. "
         "Names below describe this launch environment; external processes may use different CUDA ordering. "
@@ -1237,7 +1244,9 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                                 ),
                                 refresh=False,
                             )
-                        gpu_status = f"{len(groups) - len(gpu_availability.blocked_slots)}/{len(groups)} external-clear"
+                        gpu_status = f"{len(groups) - len(gpu_availability.blocked_slots)}/{len(groups)} eligible"
+                        if any(issue.kind != "occupied" for issue in gpu_availability.issues):
+                            gpu_status += " (inspection uncertain)"
                         next_gpu_check = time.monotonic() + settings.gpu_check_interval_seconds
                     slot = (
                         next(

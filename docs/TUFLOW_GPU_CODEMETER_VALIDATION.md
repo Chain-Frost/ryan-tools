@@ -1,5 +1,11 @@
 # TUFLOW GPU scheduling and CodeMeter validation
 
+Current policy (2026-11-04 user clarification): uncertain/failed GPU inspection warns and continues;
+only confirmed conflicts wait. Historical unknown-assignment pause results below describe the earlier
+implementation and are not the current acceptance criterion. The new behavior has synthetic launch
+regressions; the licensed matrix has not been rerun for this policy change.
+
+
 This guide separates physical GPU occupancy from licence availability. The simulation runner schedules explicit
 `-puN` groups from local TUFLOW process command lines. CodeMeter observations are independent evidence that a licence
 was checked out; a GPU licence allocation does not identify a physical GPU.
@@ -41,7 +47,7 @@ Run and record every scenario:
 | One slot requires GPUs 0+1 | The multi-GPU slot waits until both devices are clear. |
 | External process terminates unexpectedly | Occupancy refresh restores the slot without marking a simulation failed. |
 | CodeMeter unavailable | Licence availability is not declared; local occupancy behavior remains explicit and separate. |
-| GPU assignment unknown | All explicit groups remain conservatively blocked with a `GPU STATUS UNKNOWN` alert. |
+| GPU assignment unknown | Warn and continue with unverified availability; do not stall computation. |
 | User interrupts while waiting | The runner exits gracefully and launches no queued simulation. |
 
 For each occupancy scenario, launch the external licensed TUFLOW executable directly on the selected GPU before

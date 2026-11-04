@@ -200,14 +200,15 @@ such as `[["-pu0", "-pu1"]]` requires **both** GPUs to be free.
 The check uses running TUFLOW process command lines (`-puN`) and excludes
 children already tracked by this runner. Before comparing ordinals, it requires exact matching
 `CUDA_VISIBLE_DEVICES` and `CUDA_DEVICE_ORDER` settings in the external and runner environments.
-Different settings or denied environment access make the assignment unknown and pause all explicit
-slots; the guard never assumes an unreadable environment uses defaults. It does not translate
+Different settings or denied environment access make the assignment unknown and produce a warning;
+computation continues without a verified availability check. the guard never assumes an unreadable environment uses defaults. It does not translate
 ordinals across different CUDA environments. Unrelated environment values are never logged. CodeMeter licence allocations
 do not reliably identify the local GPU number; this is **GPU occupancy**
 protection, not a guarantee that a separate CodeMeter licence is available.
-Unknown GPU assignments, incomplete inspection or inspection failures
-conservatively block all explicit GPU slots until the next successful
-check. Ctrl+C interrupts the wait. To revert to warning-only startup
+Unknown GPU assignments, incomplete inspection or inspection failures warn and continue.
+Only confirmed overlapping assignments block a slot. A failed helper must not stall computation;
+continuing under uncertainty can share a GPU or cause a solver failure. The dashboard shows a yellow
+`GPU INSPECTION WARNING - CONTINUING` alert and keeps unknown availability explicit. Ctrl+C interrupts the wait. To revert to warning-only startup
 inspection use `WAIT_FOR_AVAILABLE_GPU = False` or
 `--no-wait-for-available-gpu`. Override the polling interval with
 `--gpu-check-interval 60` (positive seconds). Automatic placement

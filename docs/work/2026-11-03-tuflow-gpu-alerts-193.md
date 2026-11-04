@@ -17,6 +17,10 @@ hardware observations separately from synthetic evidence. Do not merge or publis
 
 ## Current state
 
+User clarification on 2026-11-04 supersedes conservative unknown-state blocking: helper failure or
+uncertainty warns and continues. Only confirmed GPU conflicts wait. CUDA namespace checking remains
+in place so unknown assignments are never misrepresented as known physical matches.
+
 Licensed two-GPU execution on a second workstation is now recorded in
 [the validation report](../TUFLOW_GPU_CODEMETER_VALIDATION.md#licensed-two-gpu-observations-on-2026-11-0304).
 RTX 3090/3080 hardware, two available paid GPU licences, reversed TUFLOW/nvidia-smi numbering, concurrent runs,
@@ -37,7 +41,7 @@ Do not merge or publish without separate authorization.
 ## Completion criteria
 
 - A configured unavailable GPU produces one transition `ERROR`, a persistent red dashboard alert and a recovery message.
-- Other clear groups continue, uncertainty pauses conservatively, and simulation outcome/Resume behavior is unchanged.
+- Other groups continue; uncertain inspection warns without stalling computation. Simulation outcome/Resume is unchanged.
 - Synthetic tests cover alert state, scheduler transitions, interruption and disabled/non-execution paths.
 - The benchmark and licensed two-GPU procedure are reproducible, with measured local limitations clearly separated.
 - Required source, documentation, package and hosted checks are recorded; implementation is committed and pushed to PR #193.
@@ -171,3 +175,18 @@ no new tool for this scheduling correction. Keep the PR open and unmerged; revie
 
 Hosted Ruff requested instance-owned process-info dictionaries in three new test fixtures; applied the
 fixture-only correction. The verified wheel and installed smoke are unaffected; exact-head CI reruns.
+
+### 2026-11-04: prioritize computation over optional inspection
+
+User explicitly prefers a possible computation failure over a batch stalled by a helper. Unknown GPU
+assignments, inaccessible/different CUDA environments, incomplete inspection and query exceptions now
+produce transition warnings and a yellow continuing alert, without blocking queued work. Confirmed
+conflicts still block their own slots even in mixed known/unknown snapshots. GPU-name helper exceptions
+also warn and continue. Dashboard capacity says eligible rather than claiming uncertain GPUs are free.
+
+Validation: 105 focused runner/occupancy tests passed, 2 Windows symlink skips; strict Pyright passed
+on the two changed Python files. Added actual launch-path regression cases for unknown, incomplete,
+query failure, name-helper failure and mixed confirmed/unknown assignments. Hardware procedure and
+wrapper docs updated; earlier paid tests remain historical, not claimed as validation of the new policy.
+Build and current-head hosted evidence are recorded in PR #193. Existing MCP workflow unchanged.
+Delivery: commit/push to the existing PR, no merge/publication. Next review: 2026-11-05.

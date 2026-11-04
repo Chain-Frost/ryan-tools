@@ -584,7 +584,7 @@ def test_waits_until_selected_gpu_is_externally_free(
     assert "ALL CONFIGURED GPU SLOTS BLOCKED" in errors[0]
     assert "Next availability check in 0.01 seconds" in errors[0]
     assert "restriction is unchanged" in caplog.text
-    assert "available again" in caplog.text
+    assert "queued scheduling may resume" in caplog.text
 
 
 def test_busy_gpu_group_is_not_used_when_another_slot_is_free(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -620,7 +620,7 @@ def test_busy_gpu_group_is_not_used_when_another_slot_is_free(tmp_path: Path, mo
 
 
 @pytest.mark.parametrize("uncertainty", ["unknown", "incomplete", "error"])
-def test_gpu_guard_does_not_assume_uncertain_gpu_is_free(monkeypatch: pytest.MonkeyPatch, uncertainty: str) -> None:
+def test_gpu_guard_reports_uncertainty_without_blocking(monkeypatch: pytest.MonkeyPatch, uncertainty: str) -> None:
     from ryan_library.functions.tuflow import gpu_occupancy
 
     def inspect(*, exclude_pids: object = ()) -> GpuOccupancySnapshot:
@@ -637,7 +637,7 @@ def test_gpu_guard_does_not_assume_uncertain_gpu_is_free(monkeypatch: pytest.Mon
         getattr(runner, "_blocked_external_gpu_slots"),  # noqa: B009 - test a private scheduler policy
     )
     availability = inspect_gpu_slots(groups, exclude_pids=set())
-    assert availability.blocked_slots == frozenset({0, 1})
+    assert availability.blocked_slots == frozenset()
     assert availability.issues
     expected_kind = {
         "unknown": "unknown_assignment",
@@ -665,10 +665,9 @@ def test_gpu_dashboard_alert_distinguishes_occupied_capacity_and_unknown_status(
     assert "Excluded from scheduling: -pu0 (RTX 3090)" in alert.lines
     assert alert.title == "GPU AVAILABILITY ERROR"
     assert "TUFLOW -pu0: OCCUPIED - external TUFLOW PID 12345" in alert.lines
-    assert "Available GPU slot(s) may continue: -pu1 (RTX 3080)" in alert.lines
+    assert "Eligible GPU slot(s) may continue: -pu1 (RTX 3080)" in alert.lines
 
     unknown = runner.GpuAvailability(
-        blocked_slots=frozenset({0, 1}),
         issues=(
             runner.GpuAvailabilityIssue(
                 kind="query_failed",
@@ -679,8 +678,9 @@ def test_gpu_dashboard_alert_distinguishes_occupied_capacity_and_unknown_status(
     )
     alert = _gpu_alert(unknown, groups, interval_seconds=60)
     assert alert is not None
-    assert alert.title == "GPU STATUS UNKNOWN - SCHEDULING PAUSED"
-    assert "ALL CONFIGURED GPU SLOTS BLOCKED - queued batch is waiting" in alert.lines
+    assert alert.title == "GPU INSPECTION WARNING - CONTINUING"
+    assert alert.border_style == "yellow"
+    assert any("continuing without verified availability" in line for line in alert.lines)
 
 
 def test_external_gpu_wait_is_interruptible_without_launch(
@@ -1440,7 +1440,54 @@ def test_guard_checks_cuda_namespace_before_intersecting_ordinals(
         assert result.issues[0].kind == "occupied"
     else:
         # With opposite order, external -pu1 can physically be runner -pu0.
-        # Neither ordinal can be declared free without a shared namespace.
-        assert result.blocked_slots == frozenset({0, 1})
+        # Report uncertainty without blocking computation or claiming it is free.
+        assert result.blocked_slots == frozenset()
         assert result.issues[0].kind == "unknown_assignment"
         assert result.issues[0].pids == (99,)
+
+
+@pytest.mark.parametrize("failure", ["unknown", "incomplete", "query_failed", "names_failed", "mixed"])
+def test_optional_gpu_inspection_cannot_stall_computation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, failure: str
+) -> None:
+    from ryan_library.functions.tuflow import gpu_occupancy
+    from ryan_library.functions.tuflow.gpu_occupancy import TuflowGpuProcess
+
+    config = settings(tmp_path, gpu_devices=(("-pu0",), ("-pu1",)), wait_for_available_gpu=True)
+    plan = runner.prepare_plan(config)
+    launched: list[list[str]] = []
+
+    def inspect(*, exclude_pids: object = ()) -> GpuOccupancySnapshot:
+        del exclude_pids
+        if failure == "query_failed":
+            message = "inspection unavailable"
+            raise OSError(message)
+        return GpuOccupancySnapshot(
+            (TuflowGpuProcess(99, frozenset({0})),) if failure == "mixed" else (),
+            (77,) if failure in {"unknown", "mixed"} else (),
+            failure == "incomplete",
+        )
+
+    def names() -> dict[int, str]:
+        if failure == "names_failed":
+            message = "name discovery unavailable"
+            raise RuntimeError(message)
+        return {}
+
+    def popen(*, args: list[str], **_options: object) -> FakeProcess:
+        launched.append(args)
+        return FakeProcess(100 + len(launched))
+
+    monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
+    monkeypatch.setattr(runner, "local_cuda_device_names", names)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    outcome = runner.launch_plan(plan, config, popen=popen)
+    assert outcome.successful
+    assert len(launched) == len(plan.runs)
+    if failure == "mixed":
+        assert all("-pu1" in args and "-pu0" not in args for args in launched)
+        assert "inspection uncertain" in caplog.text
+    elif failure == "names_failed":
+        assert "GPU name inspection failed" in caplog.text
+    else:
+        assert "GPU INSPECTION WARNING - CONTINUING" in caplog.text
