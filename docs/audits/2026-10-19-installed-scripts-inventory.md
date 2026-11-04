@@ -1,7 +1,7 @@
 # Per-file installed-script inventory — evidence ledger (2026-10-19)
 
-**Status: incomplete review.** This ledger originated with 146 files at `1ac42c6` and now covers all **156** Git-tracked source files under `ryan-scripts/`, including five repository-only additions in PR #187. It excludes submodules. It does not enter or inspect the `unsorted` submodule.
-There are **83 selected wheel files**, **73 excluded source files** and
+**Status: incomplete review.** This ledger originated with 146 files at `1ac42c6` and now covers all **157** Git-tracked source files under `ryan-scripts/`, including the repository-only terrain crop added in PR #204. It excludes submodules. It does not enter or inspect the `unsorted` submodule.
+There are **83 selected wheel files**, **74 excluded source files** and
 **33 distinct existing MCP script paths**. These counts are inventory evidence,
 **not proof** that every source file is maintained, safe to import, or correctly excluded.
 
@@ -48,6 +48,7 @@ available in the repository but excluded from the wheel. MCP “Yes” denotes a
 | `TUFLOW-bat/asc_to_asc-DIFF.bat` | No | No | Source inspected; repository-only project batch; legacy configuration | Hard-coded Q: project input paths/native exe and unconditional pause; no safe headless CLI | Loops AEP/variable differences via asc_to_asc; overwritten outputs and failure exit propagation require Windows tests |
 | `TUFLOW-bat/asc_to_asc-MAX.bat` | No | No | Source inspected; repository-only project batch; legacy configuration | Hard-coded Q: project paths, date-specific binary, twelve native commands and pause | Produces Max rasters for fixed AEPs; shell quoting, glob and process failures require TUFLOW environment acceptance |
 | `TUFLOW-python/README.md` | Yes | No | Resource inspected; packaged TUFLOW wrapper guide | N/A executable; Markdown documentation only | Wheel companion describing maintained/experimental TUFLOW entry points; synchronise with lifecycle decisions |
+| `TUFLOW-python/crop_tgc_terrains.py` | No | No | Source inspected; repository-only maintained terrain crop wrapper; owner acceptance pending | Guarded CLI, plan-only default, single scenario input, exclusive new outputs and focused tests; live write mode not yet accepted | Uses PyTUFLOW scopes to select terrain precedence, trims deep overlap while retaining a 50 m seam allowance, and writes native-grid rasters plus a patched TGC and manifest |
 | `TUFLOW-python/culvert_results/__init__.py` | Yes | No | Resource inspected; packaged culvert-results namespace marker | N/A, docstring-only module | No imports or effects; retain package marker to support installed resources |
 | `TUFLOW-python/culvert_results/combine_culvert_maximums.py` | Yes | Yes | Source inspected; selected maintained library-backed wrapper; owner sign-off pending | Argparse common flags, guarded main, embedded version and no-pause; existing help test only | Orchestrator merges culvert maximum CSVs and optional raw result types to Excel/Parquet; workbook content/format unverified |
 | `TUFLOW-python/culvert_results/combine_culvert_timeseries.py` | Yes | Yes | Source inspected; selected maintained library-backed wrapper; owner sign-off pending | Argparse common flags and no-pause; help/invalid-directory tests added, CI pending | Orchestrator combines culvert Q/V/H/CF/Chan/EOF CSVs; editable Excel default and path selection; result/data-type output parity pending |
