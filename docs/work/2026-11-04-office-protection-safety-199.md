@@ -82,3 +82,13 @@ Restored editable LOG_FILE/FILE_LOG_LEVEL after batch preflight, preserving
 mutation-free preview and rejecting workbook/log path aliases. Added explicit
 DEBUG retention, preview and alias tests: 24 focused checks pass, 7 deselected.
 This supersedes the earlier 22-test code-validation count.
+
+## Final integration validation
+
+Parent #183 at 94a63b89 passes all six GitHub checks (2,098 hosted tests,
+14 skipped, 8 deselected). Child 71261b47 passes all code-focused tests but
+the hosted inventory checks found the new README missing from the ledger
+and stale index totals. Reconciled all 157 entries and 83/74 selections;
+focused inventory validation passes. The current child check result is linked
+in the PR body and checks tab; no merge is authorised. Final code wheel
+SHA-256: `aee480140e2dc21247f154e8baacce6f89f3450ed274b8de006ccd7e2f414662`.
