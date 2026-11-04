@@ -35,7 +35,7 @@ explicit scope limits, rather than claimed results.
 
 ## Next action
 
-Verify the GPU-name follow-up commit's hosted checks, then review the hardware evidence and retained scope limits.
+Verify the CI-repair commit's hosted checks, then review the hardware evidence and retained scope limits.
 Do not merge or publish without separate authorization.
 
 ## Completion criteria
@@ -190,3 +190,15 @@ query failure, name-helper failure and mixed confirmed/unknown assignments. Hard
 wrapper docs updated; earlier paid tests remain historical, not claimed as validation of the new policy.
 Build and current-head hosted evidence are recorded in PR #193. Existing MCP workflow unchanged.
 Delivery: commit/push to the existing PR, no merge/publication. Next review: 2026-11-05.
+
+### 2026-11-04: repair advisory test CI
+
+Exact head `e936b30` failed only Hosted tests (1 failed, 2,012 passed, 14 skipped, 8 deselected).
+The one-time startup advisory test inherited enabled GPU waiting and entered the scheduler instead;
+its zero-argument snapshot stub rejected the scheduler's `exclude_pids` keyword. Explicitly disabling
+waiting restores the intended advisory-only coverage, preserving all assertions and production behavior.
+
+Python 3.14.6: `python -m pytest -q tests/scripts/test_tuflow_advisory_runner.py` passes all six tests.
+Ruff 0.16.6 lint/format, strict Pyright on that file and `git diff --check` pass.
+No library or package changes; no wheel rebuild required. Repair is being committed and pushed to
+PR #193; final-head hosted checks remain pending. No solver execution, merge or publication.
