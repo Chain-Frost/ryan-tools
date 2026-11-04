@@ -1,18 +1,23 @@
 from __future__ import annotations
 
 import importlib.util
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import numpy as np
 import pytest
 import rasterio
 from rasterio.transform import from_origin
 
-
-SCRIPT = Path(__file__).parents[1] / "ryan-scripts" / "TUFLOW-python" / "crop_tgc_terrains.py"
+SCRIPT = (
+    Path(__file__).parents[1]
+    / "ryan-scripts"
+    / "TUFLOW-python"
+    / "crop_tgc_terrains.py"
+)
 SPEC = importlib.util.spec_from_file_location("crop_tgc_terrains", SCRIPT)
-assert SPEC is not None and SPEC.loader is not None
+assert SPEC is not None
+assert SPEC.loader is not None
 MODULE = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = MODULE
 SPEC.loader.exec_module(MODULE)
@@ -34,7 +39,9 @@ def _write_raster(path: Path, data: np.ndarray, *, transform=None) -> None:
         dataset.write(data.astype("float32"), 1)
 
 
-def test_pytuflow_selects_one_scenario_without_constructing_full_tgc(tmp_path: Path) -> None:
+def test_pytuflow_selects_one_scenario_without_constructing_full_tgc(
+    tmp_path: Path,
+) -> None:
     base = tmp_path / "base.tif"
     exg = tmp_path / "exg.tif"
     dev = tmp_path / "dev.tif"
