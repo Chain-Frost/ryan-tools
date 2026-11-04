@@ -130,6 +130,15 @@ def test_write_creates_new_rasters_manifest_and_patched_tgc(tmp_path: Path) -> N
         assert np.any(data == 10.0)
         assert opened.width == 7
         assert np.all(data == 10.0)
+        assert opened.compression is not None
+        assert opened.compression.value.upper() == "DEFLATE"
+        assert opened.tags(ns="IMAGE_STRUCTURE")["PREDICTOR"] == "2"
+        assert opened.block_shapes[0][1] == opened.width
+
+    assert payload["output_raster_profile"] == {
+        "name": "tuflow",
+        "creation_options": ["COMPRESS=DEFLATE", "PREDICTOR=2", "BIGTIFF=IF_SAFER", "NUM_THREADS=ALL_CPUS"],
+    }
 
     with pytest.raises(FileExistsError, match="Refusing to overwrite"):
         MODULE.run(

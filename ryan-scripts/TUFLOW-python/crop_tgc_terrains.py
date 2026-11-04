@@ -32,6 +32,7 @@ CRS = "EPSG:28350"
 SEAM_BUFFER_METRES = 50.0
 PLANNING_RESOLUTION_METRES = 10.0
 OUTPUT_DIRECTORY = Path("terrain/cropped_EXG")
+OUTPUT_PROFILE = "tuflow"
 WRITE = False
 PAUSE_ON_FINISH = True
 
@@ -57,6 +58,8 @@ from rasterio.transform import array_bounds, from_origin
 from rasterio.windows import Window, from_bounds
 from scipy.ndimage import binary_dilation
 from shapely.geometry import box, mapping
+
+from ryan_library.functions.gdal.raster_processing import geotiff_creation_options
 
 
 @dataclass(frozen=True, slots=True)
@@ -384,24 +387,20 @@ def _retained_bounds(
 def _output_profile(source: Any, window: Window) -> dict[str, Any]:
     profile = dict(source.profile)
     width, height = int(window.width), int(window.height)
+    options = dict(option.split("=", maxsplit=1) for option in geotiff_creation_options(OUTPUT_PROFILE, "ALL_CPUS"))
     profile.update(
         driver="GTiff",
         width=width,
         height=height,
         transform=rasterio.windows.transform(window, source.transform),
-        compress="DEFLATE",
-        predictor=3 if np.issubdtype(np.dtype(source.dtypes[0]), np.floating) else 2,
-        BIGTIFF="IF_SAFER",
-        tiled=width >= 16 and height >= 16,
+        compress=options["COMPRESS"],
+        predictor=int(options["PREDICTOR"]),
+        BIGTIFF=options["BIGTIFF"],
+        NUM_THREADS=options["NUM_THREADS"],
+        tiled=False,
     )
-    if profile["tiled"]:
-        profile.update(
-            blockxsize=min(512, max(16, width // 16 * 16)),
-            blockysize=min(512, max(16, height // 16 * 16)),
-        )
-    else:
-        profile.pop("blockxsize", None)
-        profile.pop("blockysize", None)
+    profile.pop("blockxsize", None)
+    profile.pop("blockysize", None)
     return profile
 
 
@@ -524,6 +523,10 @@ def _manifest_payload(
         "crs": grid.crs,
         "planning_resolution_metres": grid.resolution,
         "seam_buffer_metres": seam_buffer,
+        "output_raster_profile": {
+            "name": OUTPUT_PROFILE,
+            "creation_options": geotiff_creation_options(OUTPUT_PROFILE, "ALL_CPUS"),
+        },
         "layers": [
             {
                 "order": item.layer.order,

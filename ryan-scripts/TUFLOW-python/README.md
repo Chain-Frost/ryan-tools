@@ -287,8 +287,10 @@ native grids and are not reprojected or resampled. Optional `|` polygon masks
 participate in coverage planning and remain on the corresponding patched TGC
 commands.
 
-The default is plan-only. `--write` creates new losslessly compressed rasters,
-a new `_SCENARIO_cropped.tgc` beside the source TGC, and a JSON manifest. It
+The default is plan-only. `--write` creates new losslessly compressed rasters
+using the shared ryan-tools `tuflow` GeoTIFF profile: DEFLATE, predictor 2,
+conservative strips, GDAL threading and BigTIFF when safer. It also creates a
+new `_SCENARIO_cropped.tgc` beside the source TGC and a JSON manifest. It
 refuses to overwrite any destination and never edits the original TGC or
 rasters.
 
