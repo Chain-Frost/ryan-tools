@@ -7,6 +7,7 @@ and the handoff template. The linked record owns detailed progress; this table i
 
 | Work front / status record | Status | Owner | Updated | Next review | Next action / dependency |
 | --- | --- | --- | --- | --- | --- |
+| [Office protection safety](2026-11-04-office-protection-safety-199.md) | Active - parent integration pending | ChatGPT | 2026-11-04 | 2026-11-05 | 22 focused checks pass; publish separately on #183 after reconciling current main. |
 | [Batch dashboard foundation](2026-11-01-batch-dashboard-foundation-180.md) | Active — #180 wrapper audit resumed | ChatGPT / reviewers | 2026-11-04 | 2026-11-05 | Eleven entry-point fixes unstaged on #183 head 6d1178ce; 105 focused checks pass. Separate issues #194-#200 track shared outcomes, dashboards and data safety; continue remaining effective-setting checks. |
 | [TUFLOW result dashboard adoption](2026-11-01-tuflow-result-dashboards-180.md) | Integrated into #183 | PR #184 adoption agent | 2026-11-01 | None | #184 merged into #183 after PO-filter skip fix `8ac1f0f`, final code `beb5a2c` passed six checks including copied-wheel smoke. Native licensed/UNC acceptance remains separate. |
 | [MCP workflow keywords and overview](2026-11-01-mcp-workflow-discovery-136.md) | Integrated into #183 | ChatGPT / maintainer | 2026-11-01 | None | #186 merged into #184, then #184 into #183. Strict registered boolean validation passed six Windows checks at `0a8f8ab`; no release/main merge. |

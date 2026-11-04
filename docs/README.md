@@ -166,3 +166,6 @@ but they are not current architectural policy when they conflict with the canoni
 
 Run `python repo-scripts/check_documentation.py` after changing the documentation structure. Its default run checks the
 main README links and paths and verifies that every tracked Markdown document is linked from this index.
+
+- [Office utility guide](../ryan-scripts/misc-python/README.md): safe workbook-copy behavior.
+- [Office protection safety work](work/2026-11-04-office-protection-safety-199.md): issue #199 implementation and validation.

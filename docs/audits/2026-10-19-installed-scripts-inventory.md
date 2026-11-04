@@ -391,3 +391,8 @@ points** (excluding package `__init__` resources), and successful guarded
 wheel. The other **8** have no statically recognised guarded argparse interface
 and were not executed. These are CLI/import checks, not processing acceptance.
 The full existing-script regression selection also passed **105 tests**.
+
+The #199 child adds `misc-python/README.md` as repository-only documentation
+(152 tracked entries after staging; 85 selected files unchanged). It documents
+the existing Office entry point and is indexed centrally; no runtime acceptance
+is implied by the new resource.
