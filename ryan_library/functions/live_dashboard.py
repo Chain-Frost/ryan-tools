@@ -32,6 +32,8 @@ WorkflowColumnSource = Literal["index", "status", "duration", "label", "detail",
 WorkflowOverflow = Literal["fold", "crop", "ellipsis", "ignore"]
 
 _LIVE_PANEL_FIXED_ROW_ALLOWANCE = 12
+_FIRST_GROUP_EXTRA_ROW_ALLOWANCE = 2
+_ADDITIONAL_GROUP_ROW_ALLOWANCE = 6
 
 
 def _empty_metadata() -> dict[str, str]:
@@ -54,6 +56,7 @@ class WorkflowColumn:
     justify: Literal["left", "center", "right"] = "left"
     no_wrap: bool = False
     overflow: WorkflowOverflow = "fold"
+    min_width: int | None = None
 
 
 @dataclass(slots=True)
@@ -101,6 +104,11 @@ class LiveWorkflowDashboard:
     update task states, set summary metrics, and refresh. That keeps this class
     usable with any execution model, including simple loops, thread pools, or
     the multiprocessing runner in ``dashboard_workflow.py``.
+
+    ``group_by`` optionally names a metadata key identifying groups of rows.
+    Each visible group gets a separate table panel under the shared summary.
+    ``group_label_key`` supplies its human-readable title; the identity key is
+    used when no label is supplied. Row limits apply across all groups.
     """
 
     def __init__(
@@ -114,6 +122,8 @@ class LiveWorkflowDashboard:
         columns: Sequence[WorkflowColumn] | None = None,
         transient: bool = True,
         screen: bool = False,
+        group_by: str | None = None,
+        group_label_key: str | None = None,
     ) -> None:
         if enabled:
             # Rich inspects console capabilities when Console is constructed.
@@ -128,6 +138,8 @@ class LiveWorkflowDashboard:
         self.columns: tuple[WorkflowColumn, ...] = tuple(columns or DEFAULT_WORKFLOW_COLUMNS)
         self.transient: bool = transient
         self.screen: bool = screen
+        self.group_by: str | None = group_by
+        self.group_label_key: str | None = group_label_key
         self.console: Console = Console()
         self._live: Live | None = None
         self._last_refresh: float = 0.0
@@ -246,6 +258,31 @@ class LiveWorkflowDashboard:
         if refresh:
             self.refresh(force=True)
 
+    def update_task(
+        self,
+        *,
+        index: int,
+        metadata: Mapping[str, object] | None = None,
+        detail: str | None = None,
+        refresh: bool = True,
+    ) -> None:
+        """Update observations without changing a task's status or duration.
+
+        Metadata is merged with the existing values. ``detail=None`` retains
+        the current detail, while an empty string deliberately clears it.
+        Updates use the normal refresh throttle rather than restarting a task.
+        """
+        task = self._tasks.get(index)
+        if task is None:
+            return
+        if metadata is not None:
+            for key, value in metadata.items():
+                task.metadata[key] = str(value)
+        if detail is not None:
+            task.detail = detail
+        if refresh:
+            self.refresh()
+
     def print(self, message: str) -> None:
         """Print through the dashboard console so output coexists with Live."""
         self.console.print(message, markup=False)
@@ -262,9 +299,11 @@ class LiveWorkflowDashboard:
 
     def _render(self) -> RenderableType:
         summary: Table = self._build_summary()
-        task_table: Table = self._build_task_table()
+        task_tables: RenderableType = (
+            self._build_task_table() if self.group_by is None else self._build_grouped_task_tables()
+        )
         dashboard_panel = Panel(
-            Group(summary, task_table),
+            Group(summary, task_tables),
             title=self.title,
             subtitle=self.subtitle,
             border_style="cyan",
@@ -319,7 +358,7 @@ class LiveWorkflowDashboard:
             return ""
         return " | ".join(f"{key} {value}" for key, value in self._extra_metrics.items())
 
-    def _build_task_table(self) -> Table:
+    def _build_task_table(self, rows: Sequence[WorkflowTask] | None = None) -> Table:
         table = Table(box=box.SIMPLE_HEAVY, expand=True)
         for column in self.columns:
             table.add_column(
@@ -327,9 +366,11 @@ class LiveWorkflowDashboard:
                 justify=column.justify,
                 no_wrap=column.no_wrap,
                 overflow=column.overflow,
+                min_width=column.min_width,
             )
 
-        rows: list[WorkflowTask] = self._visible_tasks()
+        if rows is None:
+            rows = self._visible_tasks()
         if not rows:
             table.add_row(*_empty_row_values(columns=self.columns, message="Waiting for work"), style="dim")
             return table
@@ -337,6 +378,30 @@ class LiveWorkflowDashboard:
         for task in rows:
             table.add_row(*(self._column_value(task=task, column=column) for column in self.columns))
         return table
+
+    def _build_grouped_task_tables(self) -> RenderableType:
+        rows = self._visible_tasks()
+        if self.group_by is None or not rows:
+            return self._build_task_table(rows)
+
+        groups: dict[str, list[WorkflowTask]] = {}
+        for task in rows:
+            identity = task.metadata.get(self.group_by, "")
+            groups.setdefault(identity, []).append(task)
+
+        panels: list[Panel] = []
+        for identity, grouped_rows in groups.items():
+            title = identity
+            if self.group_label_key is not None:
+                title = grouped_rows[0].metadata.get(self.group_label_key, "") or identity
+            panels.append(
+                Panel(
+                    self._build_task_table(grouped_rows),
+                    title=Text(title or "Unspecified", no_wrap=True, overflow="ellipsis"),
+                    border_style="cyan",
+                )
+            )
+        return Group(*panels)
 
     def _column_value(self, *, task: WorkflowTask, column: WorkflowColumn) -> str:
         if column.source == "index":
@@ -359,7 +424,10 @@ class LiveWorkflowDashboard:
         first, recent finished tasks fill any spare rows, and queued tasks are
         shown only while nothing has started yet.
         """
-        max_rows: int = self._effective_max_rows()
+        return self._select_tasks(self._effective_max_rows())
+
+    def _select_tasks(self, max_rows: int) -> list[WorkflowTask]:
+        """Select rows globally before assigning them to any group panels."""
         running: list[WorkflowTask] = [
             task for task in sorted(self._tasks.values(), key=lambda item: item.index) if task.status == "RUNNING"
         ]
@@ -382,8 +450,36 @@ class LiveWorkflowDashboard:
         """Clamp visible task rows so the live region fits in the terminal."""
         terminal_height: int = self.console.size.height
         alert_rows = len(self._alert.lines) + 2 if self._alert is not None else 0
-        safe_rows: int = max(terminal_height - _LIVE_PANEL_FIXED_ROW_ALLOWANCE - alert_rows, 1)
-        return min(self.max_rows, safe_rows)
+        available_rows = terminal_height - _LIVE_PANEL_FIXED_ROW_ALLOWANCE - alert_rows
+        max_rows = min(self.max_rows, max(available_rows, 1))
+        if self.group_by is None:
+            return max_rows
+
+        rows = self._select_tasks(max_rows)
+        if not rows:
+            return max_rows
+        # Retain the same selection priority if the group panels require fewer
+        # rows: all active work first, then newest history. Queued rows keep
+        # their original order and appear only before any work has started.
+        priority_rows: list[WorkflowTask] = []
+        recent_rows: list[WorkflowTask] = []
+        for task in rows:
+            if task.status in {"RUNNING", "QUEUED"}:
+                priority_rows.append(task)
+            else:
+                recent_rows.append(task)
+        priority_rows.extend(reversed(recent_rows))
+
+        identities: set[str] = set()
+        group_allowance = 0
+        for row_number, task in enumerate(priority_rows, start=1):
+            identities.add(task.metadata.get(self.group_by, ""))
+            # The first nested panel adds two border rows; each subsequent
+            # panel also repeats the table header, rule and padding.
+            group_allowance = _FIRST_GROUP_EXTRA_ROW_ALLOWANCE + (len(identities) - 1) * _ADDITIONAL_GROUP_ROW_ALLOWANCE
+            if row_number + group_allowance > available_rows:
+                return max(row_number - 1, 1)
+        return min(max_rows, max(available_rows - group_allowance, 1))
 
     def _format_row_limit(self, *, effective_max_rows: int) -> str:
         if effective_max_rows == self.max_rows:

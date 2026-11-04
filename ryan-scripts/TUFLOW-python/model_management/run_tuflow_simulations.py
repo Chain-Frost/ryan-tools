@@ -61,10 +61,12 @@ CHECK_INPUTS = True  # Enable BACKGROUND model-input checks while TUFLOW runs.
 USE_LIVE_DASHBOARD = True  # True shows the Rich live dashboard; False uses ordinary console logging.
 LIVE_REFRESH_PER_SECOND = 1.0
 LIVE_MAX_ROWS = 10  # Maximum task rows shown at once; all runs still execute and are tracked.
+MONITOR_PROGRESS = True  # Read model progress in the background when the live dashboard is enabled.
+PROGRESS_POLL_INTERVAL_SECONDS = 10.0  # Separate from display refresh; increase for slow network shares.
 CONSOLE_LOG_LEVEL: params.LogLevel = params.LOG.INFO
 WAIT_TIME_AFTER_RUN = 2.0  # Seconds between launches (>=0). Example: 0.5. Does not change GPU slots.
 PAUSE_ON_FINISH = True  # Pause interactively on finish; --no-pause forces False, --pause forces True.
-WRAPPER_VERSION = "2026-11-03.7"
+WRAPPER_VERSION = "2026-11-04.1"
 
 import argparse
 import signal
@@ -177,6 +179,17 @@ def _settings(arguments: argparse.Namespace) -> RunnerSettings:
         ),
         live_max_rows=runner_user_inputs.positive_integer(
             "LIVE_MAX_ROWS", arguments.live_max_rows if arguments.live_max_rows is not None else LIVE_MAX_ROWS
+        ),
+        monitor_progress=runner_user_inputs.boolean(
+            "MONITOR_PROGRESS",
+            arguments.monitor_progress if arguments.monitor_progress is not None else MONITOR_PROGRESS,
+        ),
+        progress_poll_interval_seconds=runner_user_inputs.finite_number(
+            "PROGRESS_POLL_INTERVAL_SECONDS",
+            arguments.progress_poll_interval
+            if arguments.progress_poll_interval is not None
+            else PROGRESS_POLL_INTERVAL_SECONDS,
+            positive=True,
         ),
     )
 
@@ -498,6 +511,15 @@ def _arguments(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--live-refresh-per-second", type=float, help="Override dashboard refresh rate (>0).")
     parser.add_argument("--live-max-rows", type=int, help="Maximum dashboard task rows shown at once (>=1).")
+    parser.add_argument(
+        "--monitor-progress",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Read TLF/HPC model times in the background while the live dashboard is enabled.",
+    )
+    parser.add_argument(
+        "--progress-poll-interval", type=float, help="Seconds between progress log reads per active run (>0)."
+    )
     parser.add_argument("--launch-delay", type=float, help="Seconds between launches (>=0).")
     parser.add_argument(
         "--wait-for-available-gpu",

@@ -36,10 +36,16 @@ to avoid leaving partial panels in terminal scrollback. See the
 [logging guide](../../docs/LOGGING.md#live-dashboards-and-copied-wrappers).
 Library upgrades apply to the next Python process, not an active batch. For future
 unattended runs, `--no-live-dashboard` selects ordinary console logging.
-The dashboard's `Selection` column shows each run's event/scenario values, for
-example `e1 01.0p e2 00030m s1 BigModel`, alongside its original run number and
-TCF in the `Model` column. Selections remain visible in completed rows; long model
-names are shortened to give the selections room. Runs without flags show `(no flags)`.
+The dashboard shows event/scenario values in separate `e1`...`e9` and `s1`...`s9`
+columns alongside the original run number. The TCF appears once as the heading
+of its own boxed run list, with no repeated `Model` column. Batches using multiple
+TCFs have separate boxes; repeated basenames include their relative/full paths
+to distinguish them. This is presentation grouping only: launch order is unchanged.
+`LIVE_MAX_ROWS` remains a global task-row limit across all boxes, and short terminals
+may show fewer rows to accommodate headings. Active runs take precedence over
+recent completed rows; queued runs remain counted in the batch summary.
+Event/scenario values and details stay on one line and use ellipses in narrow
+terminals so wrapped cells cannot hide a lower model's active rows.
 The `GPU` column shows the group actually assigned at launch, such as `-pu0` or
 `-pu0 -pu1`, and retains it after completion. `Auto` means TUFLOW chooses placement;
 queued rows say `Pending`, and launch failures say `Not launched`. The dashboard
@@ -49,13 +55,75 @@ control launches; the startup settings still show the configured value and warni
 
 GPU names are discovered once for each executing batch using the read-only CUDA driver API.
 Startup prints the local launch-environment mapping, for example `-pu0 (NVIDIA GeForce RTX 3090)`;
-the dashboard and configured-slot alerts use the same labels. Identical model names include a PCI bus
+configured-slot alerts retain the full labels, while task rows show only the assigned
+`-puN` identifiers. Identical model names include a PCI bus
 identifier where available. Missing drivers or failed discovery leave `name unknown` and do not change
 scheduling. Export and preflight do not query hardware. `-puN` uses TUFLOW/CUDA order, which can differ
 from NVIDIA `nvidia-smi` and Windows display indexes. The inherited `CUDA_VISIBLE_DEVICES` and
 `CUDA_DEVICE_ORDER` affect this mapping; external processes may have different environments.
 Older TUFLOW builds may enumerate differently: verify their `.hpc.tlf` device list.
 See [TUFLOW's device-selection guidance](https://wiki.tuflow.com/Configure_CUDA_device_selection).
+
+## Live simulation progress
+
+The runner adds `End (h)`, `Model (h)` and `%` to the active run table. These are
+simulation hours; `Elapsed` is the real elapsed process time. Percent is
+`100 * (model - start) / (end - start)`, so warm-up periods with negative start
+times and runs starting after zero are handled correctly. Unknown values are `--`.
+The process exit code remains the source of `OK`/`FAIL` and CSV continuation;
+reaching the end time in a log never marks a process successful.
+
+`MONITOR_PROGRESS = True` enables an advisory background worker when the live
+dashboard is enabled. `PROGRESS_POLL_INTERVAL_SECONDS = 10.0` controls the log
+read cadence independently of `LIVE_REFRESH_PER_SECOND`. Both can be overridden
+with `--monitor-progress` / `--no-monitor-progress` and `--progress-poll-interval`.
+Increase the polling interval for a slow network share. Disabling the dashboard
+also disables progress observation. Export-only, preflight-only and a fully
+completed Resume do not start the monitor.
+
+For each launched run, PyTUFLOW resolves its selected TCF context and supplies
+the log folder and output name. Appending `.tlf` preserves decimal points in
+names such as `01.0p` despite a suffix-handling defect in the accepted parser's
+`tlf_path()` convenience method. This uses the existing accepted dependency;
+no parser repin is required. TCFs are cached within the monitoring worker and
+deferred file resolution avoids repeating GIS input inventory scans. Unresolved
+or unsupported predictions produce a warning and leave progress unknown.
+
+The monitor reads bounded header/tail windows of the predicted `.tlf` and its
+`.hpc.tlf` companion, skipping unchanged files. It reads model `SIM` / output
+times and HPC step-table times, never `Clock` or `CPU` elapsed times. The furthest
+verified model time from either source is shown; the companion's final recorded
+step can be earlier than the main log's final output. Complete numeric model
+start/end times from the TLF take precedence over numeric TCF predictions.
+Absolute-date control times are not presented as numeric hours without an
+observed hour-based TLF value.
+
+On Windows, log handles request read access with
+`FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE`. They open existing files
+only and allow a compatible TUFLOW writer to continue appending, renaming or
+replacing them. The monitor takes no exclusive or byte-range lock, does not use
+memory mapping and closes each handle immediately after its bounded read. A
+sharing/access error skips the sample; retry occurs at the next normal poll,
+without a wait-for-unlock loop. See Microsoft's
+[CreateFileW sharing contract](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew).
+No file reader can guarantee zero storage/network latency or compatibility with
+a writer that insists on exclusive access. Validate the actual solver and SMB
+environment using the linked handoff; the scheduler never waits on this I/O.
+
+Log observations must belong to the current invocation. Old, unchanged logs
+remain unverified while the new process initializes. Missing logs, sharing
+violations, partial writes, replacement and truncation are tolerated. When
+concurrent runs predict the same output log, progress is suppressed for the
+affected invocations because the writer cannot be attributed safely. A stale
+sample shows its log age in `Detail`; this is an observation age, not a stall
+diagnosis. Completed rows retain their last observation, which may precede the
+final timestep if the process finishes between polls.
+
+All prediction and file reads take place in one daemon worker. The scheduler
+does not wait for it before launches, completion callbacks or shutdown. Optional
+monitoring cannot change GPU assignments, execution order, exit codes or Resume.
+The [local validation handoff](../../docs/TUFLOW_RUNNER_PROGRESS_HANDOFF.md)
+records the required Windows/SMB and live-solver checks and supported fixture evidence.
 
 At `INFO` level, startup prints the effective runner settings and the complete
 deduplicated simulation plan, including every run's flags, TCF and source location.

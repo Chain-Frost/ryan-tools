@@ -116,3 +116,112 @@ def test_persistent_alert_appears_updates_and_clears() -> None:
     assert "UPDATED ALERT" not in cleared
     assert "GPU status unknown" not in cleared
     assert "T1" in cleared
+
+
+def test_observations_preserve_task_lifecycle_and_other_metadata() -> None:
+    dashboard = ld.LiveWorkflowDashboard(title="Test", enabled=False)
+    dashboard.set_tasks(["Model"], metadata=[{"gpu": "-pu0"}])
+    dashboard.mark_running(index=1, detail="PID 123")
+    started = dashboard._tasks[1].started_time
+
+    dashboard.update_task(index=1, metadata={"model_time": "0.25", "end_time": "2.0"}, refresh=False)
+    task = dashboard._tasks[1]
+    assert task.status == "RUNNING"
+    assert task.started_time == started
+    assert task.finished_time is None
+    assert task.detail == "PID 123"
+    assert task.metadata == {"gpu": "-pu0", "model_time": "0.25", "end_time": "2.0"}
+
+    dashboard.mark_finished(index=1, status="OK", detail="Exit 0")
+    finished = task.finished_time
+    dashboard.update_task(index=1, metadata={"model_time": "2.0"}, detail="")
+    assert task.status == "OK"
+    assert task.started_time == started
+    assert task.finished_time == finished
+    assert task.detail == ""
+    assert task.metadata["model_time"] == "2.0"
+    assert list(dashboard._completed_order) == [1]
+
+
+def test_grouped_tables_use_distinct_identities_and_literal_titles() -> None:
+    dashboard = ld.LiveWorkflowDashboard(
+        title="Test", enabled=False, group_by="model_path", group_label_key="model_name"
+    )
+    dashboard.console = Console(file=StringIO(), record=True, width=100, height=60, color_system=None)
+    dashboard.set_tasks(
+        ["First selection", "Second selection"],
+        metadata=[
+            {"model_path": "project-a/model.tcf", "model_name": "model[red].tcf"},
+            {"model_path": "project-b/model.tcf", "model_name": "model[red].tcf"},
+        ],
+    )
+    dashboard.mark_running(index=1)
+    dashboard.mark_running(index=2)
+    dashboard.console.print(dashboard._render())
+    rendered = dashboard.console.export_text()
+    assert rendered.count("model[red].tcf") == 2
+    assert "First selection" in rendered
+    assert "Second selection" in rendered
+    assert rendered.count("active 2") == 1
+
+
+def test_grouped_tables_share_one_row_cap_and_keep_running_priority() -> None:
+    dashboard = ld.LiveWorkflowDashboard(title="Test", enabled=False, max_rows=4, group_by="model")
+    dashboard.console = Console(file=StringIO(), record=True, width=100, height=80, color_system=None)
+    labels: list[str] = []
+    metadata: list[dict[str, str]] = []
+    for index in range(1, 13):
+        labels.append(f"Selection {index:02d}")
+        metadata.append({"model": "A.tcf" if index % 2 else "B.tcf"})
+    dashboard.set_tasks(labels, metadata=metadata)
+    dashboard.mark_finished(index=1, status="OK")
+    dashboard.mark_finished(index=2, status="OK")
+    for index in (9, 10, 11):
+        dashboard.mark_running(index=index)
+
+    assert [task.index for task in dashboard._visible_tasks()] == [9, 10, 11, 2]
+    dashboard.console.print(dashboard._render())
+    rendered = dashboard.console.export_text()
+    assert rendered.count("Selection ") == 4
+    assert rendered.count("A.tcf") == 1
+    assert rendered.count("B.tcf") == 1
+    assert "Selection 01" not in rendered
+    assert "Selection 12" not in rendered
+
+
+def test_grouped_tables_reserve_height_for_repeated_headers_and_alerts() -> None:
+    dashboard = ld.LiveWorkflowDashboard(title="Test", enabled=False, max_rows=10, group_by="model")
+    dashboard.console = Console(file=StringIO(), record=True, width=100, height=26, color_system=None)
+    dashboard.set_tasks(
+        ["Selection 1", "Selection 2", "Selection 3", "Selection 4"],
+        metadata=[{"model": "A.tcf"}, {"model": "B.tcf"}, {"model": "C.tcf"}, {"model": "D.tcf"}],
+    )
+    for index in range(1, 5):
+        dashboard.mark_running(index=index)
+    assert [task.index for task in dashboard._visible_tasks()] == [1, 2]
+    dashboard.console.print(dashboard._render())
+    rendered = dashboard.console.export_text(clear=True)
+    assert len(rendered.splitlines()) <= dashboard.console.size.height
+    assert "Selection 2" in rendered
+    assert "Selection 3" not in rendered
+
+    dashboard.console.height = 20
+    dashboard.set_alert(ld.WorkflowAlert(title="GPU warning", lines=("Waiting for GPU 0",)))
+    dashboard.console.print(dashboard._render())
+    rendered_with_alert = dashboard.console.export_text(clear=True)
+    assert [task.index for task in dashboard._visible_tasks()] == [1]
+    assert len(rendered_with_alert.splitlines()) <= dashboard.console.size.height
+    assert "GPU warning" in rendered_with_alert
+    assert "Selection 1" in rendered_with_alert
+
+
+def test_ungrouped_dashboard_ignores_group_metadata() -> None:
+    dashboard = ld.LiveWorkflowDashboard(title="Test", enabled=False)
+    dashboard.console = Console(file=StringIO(), record=True, width=100, height=30, color_system=None)
+    dashboard.set_tasks(["Task one", "Task two"], metadata=[{"model": "A.tcf"}, {"model": "B.tcf"}])
+    dashboard.console.print(dashboard._render())
+    rendered = dashboard.console.export_text()
+    assert "Task one" in rendered
+    assert "Task two" in rendered
+    assert "A.tcf" not in rendered
+    assert "B.tcf" not in rendered
