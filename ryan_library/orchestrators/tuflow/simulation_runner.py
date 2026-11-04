@@ -913,8 +913,8 @@ def display_runner_path(value: str | PurePath, base: Path) -> str:
     return f"{shown}{separator}{layer}"
 
 
-def _input_issue_message(issue: CommandPreflightIssue) -> str:
-    """Describe one attributed input failure without changing launch policy."""
+def _input_issue_message(issue: CommandPreflightIssue, *, advisory: bool = False) -> str:
+    """Describe an attributed error or advisory without changing launch policy."""
     run, finding = issue.run, issue.finding
     base = Path(run.working_directory).absolute()
 
@@ -933,7 +933,8 @@ def _input_issue_message(issue: CommandPreflightIssue) -> str:
         columns = ", ".join(repr(column) for column in finding.csv_columns)
         detail = f"{detail.rstrip('. ')}. Required CSV columns: {columns}."
     return (
-        f"Input check run {run.index}: {finding.status.upper()} — {display(run.tcf)}{selection} "
+        f"{'Input advisory' if advisory else 'Input check'} run {run.index}: "
+        f"{'WARNING' if advisory else finding.status.upper()} — {display(run.tcf)}{selection} "
         f"({finding.kind or finding.origin or 'input'})\n"
         f"  Source      : {display(run.source)}:{run.line_start}"
         f"{f'-{run.line_end}' if run.line_end != run.line_start else ''}\n"
@@ -972,6 +973,10 @@ class AdvisoryInputCheck:
                 )
                 for issue in report.issues
             ]
+            messages.extend(
+                ("WARNING", _input_issue_message(warning, advisory=True))
+                for warning in report.warnings
+            )
             messages.append(
                 (
                     "SUCCESS" if report.passed else "WARNING",
@@ -1023,6 +1028,8 @@ def check_plan_only(plan: CommandPlan, *, check_gpkg_layers: bool = True) -> boo
         return False
     for issue in report.issues:
         logger.warning("{}", _input_issue_message(issue))
+    for warning in report.warnings:
+        logger.warning("{}", _input_issue_message(warning, advisory=True))
     if not report.passed:
         logger.error("Input checking failed or is incomplete: {}/{} completed", report.completed_runs, report.run_count)
     else:

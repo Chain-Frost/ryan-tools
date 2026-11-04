@@ -37,7 +37,21 @@ def test_real_public_batch_validation_checks_run_specific_missing_files(tmp_path
     _public_api()
     tcf = tmp_path / "model.tcf"
     tcf.write_text("Read Grid Zpts == grid_<<~s1~>>.tif\n", encoding="utf-8")
-    (tmp_path / "grid_DEV.tif").write_bytes(b"not a raster header")
+    from rasterio import open as raster_open
+    from rasterio.transform import from_origin
+
+    with raster_open(
+        tmp_path / "grid_DEV.tif",
+        "w",
+        driver="GTiff",
+        width=1,
+        height=1,
+        count=1,
+        dtype="float32",
+        crs="EPSG:28350",
+        transform=from_origin(0, 10, 1, 1),
+    ):
+        pass
     runs = [RunRequest(17, {"s1": "DEV"}), RunRequest(42, {"s1": "EXG"})]
     report = check_simulation_inputs(tcf, runs)
     assert not report.passed
@@ -46,8 +60,10 @@ def test_real_public_batch_validation_checks_run_specific_missing_files(tmp_path
     assert {issue.status for issue in report.issues} == {"missing"}
     assert report.issues[0].path == tmp_path / "grid_EXG.tif"
     assert report.files_examined >= 1
-    # A present non-raster is sufficient: local raster header/pixel checking is removed.
-    assert check_simulation_inputs(tcf, runs[:1]).passed
+    # The newer public validator checks raster headers without reading pixels.
+    present = check_simulation_inputs(tcf, runs[:1])
+    assert present.passed
+    assert not present.issues
     report_file = report.write_csv(tmp_path / "missing.csv")
     assert "grid_EXG.tif" in report_file.read_text(encoding="utf-8-sig")
     with pytest.raises(FileExistsError):
@@ -174,9 +190,38 @@ def test_structured_flags_spaces_and_reordered_public_results_are_mapped_once(
     assert seen[1] == [{"s1": "Future Works"}, {"s1": "Existing Model"}]
     assert cast(SimpleNamespace, seen[2]).check_bc_csv_headers is True
     assert report.issues[0].run_index == 5
+    assert report.warnings == []
     assert report.issues[0].owner_control_file == missing.with_suffix(".tgc")
     assert report.issues[0].csv_columns == ("Time", "Flow")
     assert not report.passed
+
+
+def test_advisory_crs_warning_is_reported_without_failing_preflight(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    warning = _finding(0, tmp_path / "model.gpkg")
+    warning.status = "unresolved"
+    warning.kind = "crs"
+    warning.severity = "warning"
+    warning.detail = "Model has no TCF projection"
+    result = _fake_result([0], findings=[warning], passed=True)
+
+    def validate(_model: object, _flags: object, *, options: object) -> object:
+        del options
+        return result
+
+    monkeypatch.setattr(
+        input_preflight,
+        "require_validation_api",
+        lambda: SimpleNamespace(validate_batch_inputs=validate, options_factory=_fake_options),
+    )
+    report = check_simulation_inputs(tmp_path / "model.tcf", [RunRequest(42, {"s1": "DEV"})])
+    assert report.passed
+    assert report.issues == []
+    assert len(report.warnings) == 1
+    assert report.warnings[0].run_index == 42
+    assert report.warnings[0].kind == "crs"
+
 
 
 @pytest.mark.parametrize(

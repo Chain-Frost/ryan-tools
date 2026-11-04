@@ -35,6 +35,7 @@ def _issue(
 class FakeReport:
     run_count: int
     issues: Sequence[PreflightIssue] = ()
+    warnings: Sequence[PreflightIssue] = ()
     checked_paths: set[str] = field(default_factory=lambda: {"shared"})
     parse_seconds: float = 1.0
     context_seconds: float = 2.0
@@ -73,6 +74,23 @@ def test_interleaved_tcf_groups_preserve_global_indices_and_options(
     assert report.context_seconds == 4.0
     assert report.inventory_seconds == 6.0
     assert report.checked_paths == {"shared"}
+
+
+def test_advisory_warning_survives_grouping_without_failing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def checker(runs: tuple[PlannedRun, ...], **_options: object) -> FakeReport:
+        result = outcome(runs)
+        result.warnings = [_issue(runs[0].index, status="unresolved", origin="TCF Projection", detail="Missing")]
+        return result
+
+    monkeypatch.setattr(subject, "_check_group", checker)
+    report = subject.check_command_plan(plan(tmp_path))
+    assert report.passed
+    assert report.issues == []
+    assert len(report.warnings) == 2
+    assert [item.run.index for item in report.warnings] == [1, 2]
+
 
 
 def test_one_failed_model_invalidates_its_runs_and_does_not_drop_other_models(
