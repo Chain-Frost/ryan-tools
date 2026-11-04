@@ -88,10 +88,10 @@ def test_configured_export_only_operation_and_cli_override(
     assert "Simulation plan: 1 unique runs" in output
     assert "Run 001: -b -e1 A" in output
     assert "source models.bat:1" in output
-    assert "\x1b[90m  BATCH_COMMANDS: -b\x1b[0m" in output
-    assert "\x1b[36m  OPERATION: export_only\x1b[0m" in output
-    assert "\x1b[32m" in output
-    assert "\x1b[1mEditable commands exported to" in output
+    assert "  BATCH_COMMANDS: -b" in output
+    assert "  OPERATION: export_only" in output
+    assert "\x1b[" not in output  # Captured output is non-interactive.
+    assert "Editable commands exported to" in output
     assert Path(wrapper.__file__).with_suffix(".txt").is_file()
     assert not Path(wrapper.__file__).with_name("run_tuflow_simulations_runs.csv").exists()
 
