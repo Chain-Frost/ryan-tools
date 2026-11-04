@@ -2,13 +2,14 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Implemented; draft PR and native acceptance pending |
+| Status | Draft PR #205 open; native acceptance pending |
 | Owner | ChatGPT / local validation agent |
 | Created | 2026-11-04 |
 | Updated | 2026-11-04 |
 | Next review | 2026-11-06 |
 | Baseline | `main` at `ec8734256e33447856b648e02d5fe0c5a5802447` (merged PR #193) |
-| Branch | `feat/tuflow-runner-progress`; new PR targeting `main` |
+| Branch | `feat/tuflow-runner-progress`; targets `main` |
+| Pull request | [#205](https://github.com/Chain-Frost/ryan-tools/pull/205) |
 
 ## Outcome and scope
 
@@ -127,8 +128,11 @@ holding-area submodule was not inspected. Generated wheels and QA previews are
 local build artifacts, not committed project inputs.
 
 Delivery: implementation, tests, maintained documentation and the copy-ready
-handoff are prepared for the new `feat/tuflow-runner-progress` PR targeting
-`main`. The PR description records the pushed SHA and current hosted checks.
+handoff are published in draft [PR #205](https://github.com/Chain-Frost/ryan-tools/pull/205)
+on `feat/tuflow-runner-progress`, targeting `main`. The implementation commit is
+`5c4c9ff5f4bf0f5b389bd5c190dd6812ebd4c96c`; its published Git tree exactly matches
+the locally validated source tree. The PR description records the latest pushed
+SHA and current hosted checks, including subsequent documentation-only commits.
 No merge, auto-merge or release is authorized by this work.
 
 MCP discovery assessment: the existing runner workflow remains the supported

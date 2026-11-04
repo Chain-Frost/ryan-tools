@@ -7,9 +7,10 @@ status record.
 
 ## Copy-ready prompt
 
-Continue the new TUFLOW runner progress PR in `Chain-Frost/ryan-tools`.
+Continue TUFLOW runner progress PR #205 in `Chain-Frost/ryan-tools`.
 
 Repository: `https://github.com/Chain-Frost/ryan-tools`
+PR: `https://github.com/Chain-Frost/ryan-tools/pull/205`
 Branch: `feat/tuflow-runner-progress`
 Base: `main`
 
