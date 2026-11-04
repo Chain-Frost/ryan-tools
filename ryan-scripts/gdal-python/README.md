@@ -97,6 +97,20 @@ intended; the catalogue's `mutation` field identifies tools that create, replace
 
 ### Raster conversion and compression
 
+`qgis_convert_loaded_flt_to_tif.py` is a self-contained QGIS 3/Python 3.9
+script. Run it from the QGIS Python editor to convert every loaded `.flt`
+raster to a compressed Cloud Optimized GeoTIFF (`.tif`) beside its source and
+repoint the existing map layer after successful conversion. It uses the
+TUFLOW 2026.3 GDAL COG profile: GDAL format `COG` with the profile's blank
+creation options, plus `OVERVIEWS=NONE` to avoid creating or copying raster
+overviews. It uses only the PyQGIS and GDAL modules bundled with QGIS; it does
+not import or require `ryan-tools`.
+
+The script preserves each layer's tree position, display name and renderer.
+It does not overwrite existing TIFFs or save the QGIS project by default;
+review the editable safety settings at the top of the file if either behaviour
+is required. FLT, HDR and PRJ source files are retained.
+
 ```powershell
 # Recursively convert FLT/ASC/RST beside each source.
 python gdal_translate_TIF_ovr.py "D:\Terrain" --extensions flt asc rst
