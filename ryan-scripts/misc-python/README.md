@@ -15,7 +15,10 @@ python remove_excel_protection.py -i "E:\Workbooks" --no-live-dashboard --no-pau
 
 Edit `DEFAULT_INPUT_DIR`, `DEFAULT_OUTPUT_DIR`, `WRITE`, `USE_LIVE_DASHBOARD`,
 `LIVE_REFRESH_PER_SECOND`, `LIVE_MAX_ROWS`, `PAUSE_ON_FINISH` and
-`CONSOLE_LOG_LEVEL` near the top. `--output-directory` overrides the output
+`CONSOLE_LOG_LEVEL`, `LOG_FILE` and `FILE_LOG_LEVEL` near the top. Write runs
+retain DEBUG records in `remove_excel_protection.log` relative to the invocation
+directory by default; preview creates no log file. A log cannot alias a selected
+workbook or planned workbook output. `--output-directory` overrides the output
 setting: a relative folder is based on each input root; an absolute folder is
 shared. CLI `--write`/`--no-write` and `--live-dashboard`/`--no-live-dashboard`
 override their editable settings in both directions. `--no-pause` disables the

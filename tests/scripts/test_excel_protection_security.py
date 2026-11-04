@@ -19,12 +19,13 @@ NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 
 
 @pytest.fixture
-def script() -> ModuleType:
+def script(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     spec = importlib.util.spec_from_file_location("office_security_199", SCRIPT)
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    monkeypatch.setattr(module, "LOG_FILE", tmp_path / "batch.log")
     return module
 
 
@@ -236,3 +237,32 @@ def test_no_protection_keeps_xml_bytes(script: ModuleType, tmp_path: Path) -> No
     assert script.process_excel_file(source, tmp_path / "out") is True
     with zipfile.ZipFile(tmp_path / "out/source_unprotected.xlsx") as archive:
         assert archive.read("xl/workbook.xml") == payload
+
+
+def test_write_retains_debug_log_and_preview_does_not_create_it(
+    script: ModuleType,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workbook(tmp_path / "source.xlsx")
+    log_path = tmp_path / "details.log"
+    monkeypatch.setattr(script, "LOG_FILE", log_path)
+    assert script.main(input_directories=tmp_path, write=False) == 0
+    assert not log_path.exists()
+    assert script.main(input_directories=tmp_path, use_live_dashboard=True) == 0
+    contents = log_path.read_text(encoding="utf-8")
+    assert "Created workbook copy" in contents
+    assert "source_unprotected.xlsx" in contents
+
+
+def test_log_cannot_alias_selected_workbook(
+    script: ModuleType,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = tmp_path / "source.xlsx"
+    original = workbook(source)
+    monkeypatch.setattr(script, "LOG_FILE", source)
+    assert script.main(input_directories=tmp_path) == 1
+    assert source.read_bytes() == original
+    assert not (tmp_path / "unprotected").exists()

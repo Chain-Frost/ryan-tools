@@ -19,6 +19,8 @@ LIVE_REFRESH_PER_SECOND = 2.0
 LIVE_MAX_ROWS = 25
 PAUSE_ON_FINISH = True
 CONSOLE_LOG_LEVEL = "SUCCESS"
+LOG_FILE: Path | None = Path("remove_excel_protection.log")  # Relative to the invocation directory.
+FILE_LOG_LEVEL = "DEBUG"
 
 import argparse
 import copy
@@ -198,6 +200,21 @@ def _plan_jobs(targets: list[Path], output: Path) -> list[tuple[Path, Path]]:
     return jobs
 
 
+def _log_path_for_jobs(jobs: list[tuple[Path, Path]], *, write: bool) -> Path | None:
+    """Choose the write-run log after checking workbook and link collisions."""
+    log_path = None if not write or LOG_FILE is None else Path(LOG_FILE).expanduser().absolute()
+    if log_path is not None:
+        _reject_linked_path(log_path)
+        # Follow links to prevent log output from aliasing workbook inputs/outputs.
+        log_identity = log_path.resolve()
+        for source, destination in jobs:
+            planned_output = destination / f"{source.stem}_unprotected{source.suffix}"
+            if log_identity in (source.resolve(), planned_output.resolve()):
+                message = f"Log file aliases a workbook input or output: {log_path}"
+                raise ValueError(message)
+    return log_path
+
+
 def main(
     *,
     input_directories: PathOrList | None = None,
@@ -219,41 +236,47 @@ def main(
             raise ValueError(message)
         validate_dashboard_settings(refresh_per_second=LIVE_REFRESH_PER_SECOND, max_rows=LIVE_MAX_ROWS)
         jobs = _plan_jobs(targets, output)
+        log_path = _log_path_for_jobs(jobs, write=effective_write)
     except (OSError, ValueError, TypeError):
         logger.exception("Invalid workbook batch configuration")
         return 1
-    if not effective_write:
-        for source, destination in jobs:
-            logger.success("Preview: {} -> {}", source, destination / f"{source.stem}_unprotected{source.suffix}")
-        return 0
-    with LiveWorkflowDashboard(
-        title="Excel protection copies",
-        enabled=effective_dashboard,
-        refresh_per_second=LIVE_REFRESH_PER_SECOND,
-        max_rows=LIVE_MAX_ROWS,
-    ) as dashboard:
-        dashboard.set_tasks([str(source) for source, _ in jobs])
-        dashboard.set_phase("Creating workbook copies")
-        failures = 0
-        try:
-            for index, (source, destination) in enumerate(jobs, start=1):
-                dashboard.mark_running(index=index)
-                succeeded = process_excel_file(source, destination)
-                failures += not succeeded
-                dashboard.mark_finished(index=index, status="OK" if succeeded else "FAIL")
-            outcome = "FAILED" if failures else "SUCCESS" if jobs else "SKIPPED"
-            dashboard.finish(outcome=outcome, detail=f"{len(jobs) - failures} created, {failures} failed")
-            if not effective_dashboard:
-                logger.log(
-                    "ERROR" if failures else "SUCCESS",
-                    "Workbook copies: {} created, {} failed",
-                    len(jobs) - failures,
-                    failures,
-                )
-            return 1 if failures else 0
-        except KeyboardInterrupt:
-            dashboard.finish(outcome="INTERRUPTED", detail="Copying interrupted")
-            return 130
+    with setup_logger(
+        console_log_level=CONSOLE_LOG_LEVEL,
+        log_file=str(log_path) if log_path is not None else None,
+        file_log_level=FILE_LOG_LEVEL,
+    ):
+        if not effective_write:
+            for source, destination in jobs:
+                logger.success("Preview: {} -> {}", source, destination / f"{source.stem}_unprotected{source.suffix}")
+            return 0
+        with LiveWorkflowDashboard(
+            title="Excel protection copies",
+            enabled=effective_dashboard,
+            refresh_per_second=LIVE_REFRESH_PER_SECOND,
+            max_rows=LIVE_MAX_ROWS,
+        ) as dashboard:
+            dashboard.set_tasks([str(source) for source, _ in jobs])
+            dashboard.set_phase("Creating workbook copies")
+            failures = 0
+            try:
+                for index, (source, destination) in enumerate(jobs, start=1):
+                    dashboard.mark_running(index=index)
+                    succeeded = process_excel_file(source, destination)
+                    failures += not succeeded
+                    dashboard.mark_finished(index=index, status="OK" if succeeded else "FAIL")
+                outcome = "FAILED" if failures else "SUCCESS" if jobs else "SKIPPED"
+                dashboard.finish(outcome=outcome, detail=f"{len(jobs) - failures} created, {failures} failed")
+                if not effective_dashboard:
+                    logger.log(
+                        "ERROR" if failures else "SUCCESS",
+                        "Workbook copies: {} created, {} failed",
+                        len(jobs) - failures,
+                        failures,
+                    )
+                return 1 if failures else 0
+            except KeyboardInterrupt:
+                dashboard.finish(outcome="INTERRUPTED", detail="Copying interrupted")
+                return 130
 
 
 def _parse_cli_arguments() -> argparse.Namespace:
@@ -277,13 +300,12 @@ def _parse_cli_arguments() -> argparse.Namespace:
 if __name__ == "__main__":
     args = _parse_cli_arguments()
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
-    with setup_logger(console_log_level=CONSOLE_LOG_LEVEL):
-        result = main(
-            input_directories=args.input_directories,
-            output_directory=args.output_directory,
-            write=args.write,
-            use_live_dashboard=args.live_dashboard,
-        )
+    result = main(
+        input_directories=args.input_directories,
+        output_directory=args.output_directory,
+        write=args.write,
+        use_live_dashboard=args.live_dashboard,
+    )
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
     if PAUSE_ON_FINISH and not args.no_pause:
         pause_console()

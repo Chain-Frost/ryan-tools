@@ -139,6 +139,7 @@ def test_remove_excel_protection_main_reports_processing_failure(
     script = _load_script("remove_excel_protection")
     (tmp_path / "input.xlsx").touch()
     monkeypatch.setattr(script, "DEFAULT_OUTPUT_DIR", tmp_path / "output")
+    monkeypatch.setattr(script, "LOG_FILE", tmp_path / "batch.log")
     monkeypatch.setattr(script, "process_excel_file", _excel_processing_fails)
 
     assert script.main(input_directories=tmp_path) == 1

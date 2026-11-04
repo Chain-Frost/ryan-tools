@@ -74,3 +74,11 @@ native Office fidelity and live UNC acceptance remain explicitly separate.
 Reassess #197 against current main before implementation: its pre-existing
 archive guard has improved since the original audit, while publication races
 still require checking. #194/#195 remain the next shared TUFLOW result work.
+
+## Review correction
+
+The #201 review identified loss of the previous persistent DEBUG file sink.
+Restored editable LOG_FILE/FILE_LOG_LEVEL after batch preflight, preserving
+mutation-free preview and rejecting workbook/log path aliases. Added explicit
+DEBUG retention, preview and alias tests: 24 focused checks pass, 7 deselected.
+This supersedes the earlier 22-test code-validation count.
