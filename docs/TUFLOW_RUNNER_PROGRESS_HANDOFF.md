@@ -29,8 +29,9 @@ cumulative mass error in `Detail`; ETA is deliberately outside this scope.
 Your task is to test this on Windows and fix demonstrated defects on this same
 branch, including any remaining implementation needed for these acceptance cases.
 
-Use the normal Python 3.14 installation. Do not replace the accepted PyTUFLOW pin
-or change the global user installation solely to perform a test. Build a wheel
+Use Python 3.14 with the immutable PyTUFLOW PR #63 source specified by
+`repo-scripts/pytuflow-requirement.txt`. Do not change the global user
+installation solely to perform a test; use an isolated validation installation. Build a wheel
 with the repository's build helper and test a copied wrapper against that wheel
 in a disposable installation target. Record the interpreter, package/wrapper
 versions, installed module location, TUFLOW version, exact Git SHA and CUDA
@@ -182,5 +183,4 @@ commands, results, screenshots/evidence locations, measured costs, remaining
 limitations and next action. Update the existing PR description as appropriate.
 
 Return a concise pass/fail/not-run acceptance table and the commit SHA. Do not
-merge, enable auto-merge, publish a release, change production models, alter the
-PyTUFLOW pin or claim a native case passed based solely on synthetic tests.
+merge, enable auto-merge, publish a release, change production models, repin PyTUFLOW again or claim a native case passed based solely on synthetic tests.

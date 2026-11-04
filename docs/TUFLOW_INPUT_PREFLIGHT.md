@@ -1,7 +1,8 @@
 # TUFLOW proposed-run input preflight
 
 The read-only input check uses the public PyTUFLOW batch validator from the
-[accepted PR #17 source](https://github.com/Chain-Frost/PyTuflow/commit/05e35476c02d6d8ed17c83caf1cb0d185ce51d1b).
+[pinned PyTUFLOW PR #63 source](https://github.com/Chain-Frost/PyTuflow/pull/63)
+(commit [`d089afaddde4`](https://github.com/Chain-Frost/PyTuflow/commit/d089afaddde4b533581ebbe068dc38673c98803b)).
 It validates the **actual planned runs**, not all possible combinations.
 Input validation is not TUFLOW execution and never modifies model inputs.
 
@@ -9,8 +10,9 @@ Input validation is not TUFLOW execution and never modifies model inputs.
 
 The supported temporary PyTUFLOW requirement is maintained in
 [`repo-scripts/pytuflow-requirement.txt`](../repo-scripts/pytuflow-requirement.txt).
-The source revision is immutable until a separately accepted official release
-provides the required public API. Public package metadata retains the publishable
+The selected source is a fixed contributor-fork commit, not an upstream release.
+It includes the public API from upstream PR #17 plus the validation fixes in fork PR #63.
+It remains under review and requires native acceptance before release. Public package metadata retains the publishable
 version range `pytuflow>=1.2,<2`; a matching version number alone does **not**
 prove compatibility. Another PyTUFLOW 1.2.7 build lacks the batch validation API.
 
@@ -186,11 +188,12 @@ check, including selected GeoPackage layers. There is no separate layer toggle
 in the runner. Explicit preflight-only operation waits for those same checks
 and launches no solver processes.
 
-**This release does not inspect raster headers, projections, pixel data or raster
-validity.** Required raster files still undergo the ordinary file availability
-checks. Rasterio remains installed because other maintained features use it.
-Header validation will return only after it is supported by a public PyTUFLOW
-option in a separately reviewed change.
+The pinned PyTUFLOW validator now inspects **selected raster headers by default**
+without reading pixels, and compares selected GIS/raster CRS metadata against
+the TCF projection where available. Missing or conflicting CRS metadata is
+reported as a **non-failing advisory warning**. Invalid raster headers and
+missing required inputs remain blocking issues. These metadata checks are
+read-only and can add I/O cost for large or network-hosted models.
 
 A finding retains the upstream source command, path, selected layer, owning
 control file, database context, type, detail and original planned run identity.
@@ -255,7 +258,7 @@ workflow is retained because it checks the immutable accepted PyTUFLOW source,
 deliberately rejects an incompatible same-version build, and replays the entire
 public example archive. The standalone command-plan and CSV unit tests already
 run in the main Hosted tests; the separate scope-specific workflows are retired.
-This workflow installs the exact accepted PR17 archive and exercises real public
+This workflow installs the exact pinned PR63 archive and exercises real public
 file, selected-layer, BC CSV, GIS-linked-source and mapping checks, plus
 same-version incompatibility, broken transitive imports, shadowed packages,
 incomplete group results, lazy imports and installer dry-run commands.
@@ -284,19 +287,15 @@ Use a new report directory for each invocation; issue CSVs never overwrite exist
 files. Without the environment setting, reports use pytest's temporary directory.
 The native replay is marked `gdal` and runs explicitly in the dedicated workflow;
 the ordinary hosted suite excludes it while retaining the BAT inventory check.
-The separate `windows-example-regression` job now passes with a temporary,
-**exact-signature allowance for eight known upstream PyTUFLOW findings** (seven
-1D boundary-schema findings and one rainfall-triangle Name finding). Every one of
-the 161 TCFs / 174 contexts is still inspected. An additional or changed finding,
-incomplete validation, or unexpectedly passing known case fails the regression.
-The public validator itself continues to report the eight affected models as
-unsuccessful; green CI does **not** mean 161/161 models have clean preflight.
-[PyTUFLOW #60](https://github.com/Chain-Frost/PyTuflow/pull/60) is the proposed fix.
-[Follow-up #181](https://github.com/Chain-Frost/ryan-tools/issues/181) tracks
-adopting a reviewed parser and removing the allowance to obtain 161/161 clean.
-The accepted pin remains unchanged until then, and raster/CRS validation remains
-independently scoped. Missing parser/GIS capabilities or unexpected unresolved
-findings still fail CI; nothing is skipped. JSON results and per-model issue CSVs
+The 161-TCF regression now requires all **161 TCFs and 174 selected run
+contexts to pass**. The previous allowance for seven 1D boundary-schema errors
+and one rainfall-triangle Name error was removed with the fix consolidated in
+[PyTUFLOW PR #63](https://github.com/Chain-Frost/PyTuflow/pull/63).
+[ryan-tools #181](https://github.com/Chain-Frost/ryan-tools/issues/181)
+tracks this correction. Advisory CRS warnings are included in the JSON results
+but do not fail validation; blocking raster/header/BC issues do. The new pin
+needs fresh Windows/GDAL and installed-wheel acceptance; earlier green tests
+refer to the old parser. JSON results and per-model issue CSVs
 are uploaded even on failure.
 No BAT or TUFLOW executable is launched, and source inputs remain in the submodule;
 only a verified temporary extraction is inspected. This covers dependency validation,

@@ -5,7 +5,7 @@
 | Status | Draft PR #205 open; TUFLOW/SMB acceptance pending |
 | Owner | ChatGPT / local validation agent |
 | Created | 2026-11-04 |
-| Updated | 2026-11-04 |
+| Updated | 2026-11-05 |
 | Next review | 2026-11-06 |
 | Baseline | `main` at `ec8734256e33447856b648e02d5fe0c5a5802447` (merged PR #193) |
 | Branch | `feat/tuflow-runner-progress`; targets `main` |
@@ -48,9 +48,11 @@ log-based completion, retries, recovery, launch gating, automatic merge or relea
 - One daemon worker performs prediction and bounded log reads away from the
   scheduler. Missing/unverified values stay unknown; observations never certify
   successful execution. Shared predicted paths are treated as ambiguous.
-- The accepted PyTUFLOW pin remains
-  `05e35476c02d6d8ed17c83caf1cb0d185ce51d1b`. The public log-folder/output-name API
-  avoids its dotted-output-name suffix defect. No upstream repository changes.
+- The PyTUFLOW source was updated at the owner's request to the immutable
+  [fork PR #63](https://github.com/Chain-Frost/PyTuflow/pull/63) commit
+  `d089afaddde4b533581ebbe068dc38673c98803b`, superseding the prior PR #17 pin
+  `05e35476c02d6d8ed17c83caf1cb0d185ce51d1b`. The public log-folder/output-name API is retained.
+  PR #63 remains open and is not an accepted upstream release.
 - Native Windows TUFLOW execution, interactive Rich presentation and SMB timing
   remain local acceptance work. See the [handoff](../TUFLOW_RUNNER_PROGRESS_HANDOFF.md).
 - User follow-up explicitly requires read access that does not impose write/delete
@@ -230,3 +232,19 @@ run indexes and late worker results cannot attach diagnostics to a new process.
 The preceding `4e5b0e7` revision had all six hosted checks green, including
 2,096 Windows passes, 14 skips and 8 deselections. The updated PR description
 records the separate hosted result for this follow-up's published revision.
+
+## 2026-11-05 PyTUFLOW source update
+
+- The standard developer and end-user installers select PR #63's fixed commit
+  through `repo-scripts/pytuflow-requirement.txt`; installer guards, diagnostics
+  and regression expectations use the same source. Published package metadata
+  retains `pytuflow>=1.2,<2`, avoiding a direct Git URL in PyPI metadata.
+- The consumer distinguishes non-blocking PyTUFLOW CRS warnings from failed
+  input requirements, preserving their run provenance and surfacing advisory
+  messages. Default-on raster-header failures remain blocking.
+- The eight obsolete expected-failure allowances in the 161-TCF/174-run replay
+  are removed. A clean replay is now required; previously recorded acceptance
+  for the older pin is historical and does not validate the new source.
+- CI, native Windows/GDAL, installed-wheel and real TUFLOW/SMB acceptance are
+  pending for this new head. Do not describe prior source verification as
+  evidence for PR #63 or release automatically.
