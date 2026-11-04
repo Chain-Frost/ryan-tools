@@ -126,18 +126,14 @@ def _absolute(path: Path, base: Path | None = None) -> Path:
 def _normalise_scenario(value: str) -> str:
     scenario = value.strip()
     if not scenario or re.search(r"\s", scenario):
-        message = (
-            f"SCENARIO must be one non-blank TUFLOW scenario value, received {value!r}"
-        )
+        message = f"SCENARIO must be one non-blank TUFLOW scenario value, received {value!r}"
         raise ValueError(message)
     return scenario
 
 
 def _planning_grid(bounds: AnalysisBounds, resolution: float, crs: str) -> PlanningGrid:
     if not math.isfinite(resolution) or resolution <= 0:
-        message = (
-            f"PLANNING_RESOLUTION_METRES must be positive, received {resolution!r}"
-        )
+        message = f"PLANNING_RESOLUTION_METRES must be positive, received {resolution!r}"
         raise ValueError(message)
     width = math.ceil((bounds.xmax - bounds.xmin) / resolution)
     height = math.ceil((bounds.ymax - bounds.ymin) / resolution)
@@ -175,9 +171,7 @@ def resolve_terrain_layers(tgc_path: Path, scenario: str) -> list[TerrainLayer]:
     _load_active_variables(model, context)
 
     selected: list[TerrainLayer] = []
-    for build_input in model.find_input(  # pyright: ignore[reportArgumentType]
-        lhs="Read Grid Zpts", recursive=True
-    ):
+    for build_input in model.find_input(lhs="Read Grid Zpts", recursive=True):  # pyright: ignore[reportArgumentType]
         if not context.in_context_by_scope(build_input.scope):
             continue
         run_input = build_input.context(context=context)
@@ -189,14 +183,8 @@ def resolve_terrain_layers(tgc_path: Path, scenario: str) -> list[TerrainLayer]:
             message = f"Line {run_input.line_number} has unsupported extra references: {run_input.rhs}"
             raise ValueError(message)
 
-        source = _absolute(
-            Path(str(references[0].path_pattern))
-        )  # pyright: ignore[reportGeneralTypeIssues]
-        mask_path = (
-            _absolute(Path(str(references[1].path_pattern)))
-            if len(references) == 2
-            else None
-        )
+        source = _absolute(Path(str(references[0].path_pattern)))  # pyright: ignore[reportGeneralTypeIssues]
+        mask_path = _absolute(Path(str(references[1].path_pattern))) if len(references) == 2 else None
         source_expression = str(run_input.rhs).split("|", maxsplit=1)[0].strip()
         selected.append(
             TerrainLayer(
@@ -215,9 +203,7 @@ def resolve_terrain_layers(tgc_path: Path, scenario: str) -> list[TerrainLayer]:
     return selected
 
 
-def _read_mask_geometries(
-    mask_path: Path, destination_crs: str
-) -> list[dict[str, Any]]:
+def _read_mask_geometries(mask_path: Path, destination_crs: str) -> list[dict[str, Any]]:
     if not mask_path.is_file():
         message = f"Terrain clip mask does not exist: {mask_path}"
         raise FileNotFoundError(message)
@@ -226,11 +212,7 @@ def _read_mask_geometries(
         message = f"Terrain clip mask has no CRS: {mask_path}"
         raise ValueError(message)
     frame = frame.to_crs(destination_crs)
-    geometries = [
-        mapping(geometry)
-        for geometry in frame.geometry
-        if geometry is not None and not geometry.is_empty
-    ]
+    geometries = [mapping(geometry) for geometry in frame.geometry if geometry is not None and not geometry.is_empty]
     if not geometries:
         message = f"Terrain clip mask contains no usable geometry: {mask_path}"
         raise ValueError(message)
@@ -258,11 +240,7 @@ def _coverage_mask(
         if source.nodata is None:
             message = f"Terrain must declare NoData before safe overlap trimming: {layer.source}"
             raise ValueError(message)
-        if (
-            not source.transform.is_rectilinear
-            or source.transform.a <= 0
-            or source.transform.e >= 0
-        ):
+        if not source.transform.is_rectilinear or source.transform.a <= 0 or source.transform.e >= 0:
             message = f"Terrain must use a north-up rectilinear grid: {layer.source}"
             raise ValueError(message)
         west, south, east, north = array_bounds(grid.height, grid.width, grid.transform)
@@ -297,9 +275,7 @@ def _coverage_mask(
     return coverage
 
 
-def _buffer_binary(
-    mask: np.ndarray[Any, np.dtype[np.bool_]], cells: int
-) -> np.ndarray[Any, np.dtype[np.bool_]]:
+def _buffer_binary(mask: np.ndarray[Any, np.dtype[np.bool_]], cells: int) -> np.ndarray[Any, np.dtype[np.bool_]]:
     if cells <= 0 or not mask.any():
         return mask.copy()
     axis = np.arange(-cells, cells + 1)
@@ -332,9 +308,7 @@ def allocate_retained_coverage(
 
 
 def _safe_output_name(layer: TerrainLayer) -> str:
-    safe_stem = (
-        re.sub(r"[^A-Za-z0-9._-]+", "_", layer.source.stem).strip("._") or "terrain"
-    )
+    safe_stem = re.sub(r"[^A-Za-z0-9._-]+", "_", layer.source.stem).strip("._") or "terrain"
     return f"{layer.order:03d}_{safe_stem}_cropped.tif"
 
 
@@ -368,9 +342,7 @@ def build_plan(
             omitted=not retained.any(),
             retained_mask=retained,
         )
-        for layer, coverage, (retained, responsibility_cells) in zip(
-            layers, coverages, allocations, strict=True
-        )
+        for layer, coverage, (retained, responsibility_cells) in zip(layers, coverages, allocations, strict=True)
     ]
     return grid, plan
 
@@ -389,9 +361,7 @@ def _source_window(source: Any, bounds: tuple[float, float, float, float]) -> Wi
         message = "Retained coverage does not intersect the source raster"
         raise ValueError(message)
     width, height = col_stop - col_start, row_stop - row_start
-    return Window(
-        col_start, row_start, width, height
-    )  # pyright: ignore[reportCallIssue]
+    return Window(col_start, row_start, width, height)  # pyright: ignore[reportCallIssue]
 
 
 def _retained_bounds(
@@ -404,14 +374,10 @@ def _retained_bounds(
     row_start, row_stop = int(rows.min()), int(rows.max()) + 1
     col_start, col_stop = int(cols.min()), int(cols.max()) + 1
     transform = rasterio.windows.transform(
-        Window(
-            col_start, row_start, col_stop - col_start, row_stop - row_start
-        ),  # pyright: ignore[reportCallIssue]
+        Window(col_start, row_start, col_stop - col_start, row_stop - row_start),  # pyright: ignore[reportCallIssue]
         grid.transform,
     )
-    west, south, east, north = array_bounds(
-        row_stop - row_start, col_stop - col_start, transform
-    )
+    west, south, east, north = array_bounds(row_stop - row_start, col_stop - col_start, transform)
     return west, south, east, north
 
 
@@ -439,9 +405,7 @@ def _output_profile(source: Any, window: Window) -> dict[str, Any]:
     return profile
 
 
-def _write_layer(
-    planned: PlannedLayer, grid: PlanningGrid, bounds: AnalysisBounds
-) -> None:
+def _write_layer(planned: PlannedLayer, grid: PlanningGrid, bounds: AnalysisBounds) -> None:
     retained_bounds = _retained_bounds(planned.retained_mask, grid)
     requested = (bounds.xmin, bounds.ymin, bounds.xmax, bounds.ymax)
     intersected = (
@@ -483,9 +447,7 @@ def _write_layer(
                     )  # pyright: ignore[reportCallIssue]
                     data = source.read(1, window=read_window)
                     source_valid = source.read_masks(1, window=read_window) > 0
-                    destination_transform = rasterio.windows.transform(
-                        read_window, source.transform
-                    )
+                    destination_transform = rasterio.windows.transform(read_window, source.transform)
                     retained = np.zeros(data.shape, dtype=np.uint8)
                     rasterio.warp.reproject(
                         source=retained_source,
@@ -497,11 +459,7 @@ def _write_layer(
                         resampling=Resampling.nearest,
                     )
                     inside = geometry_mask(
-                        [
-                            mapping(
-                                box(bounds.xmin, bounds.ymin, bounds.xmax, bounds.ymax)
-                            )
-                        ],
+                        [mapping(box(bounds.xmin, bounds.ymin, bounds.xmax, bounds.ymax))],
                         out_shape=data.shape,
                         transform=destination_transform,
                         invert=True,
@@ -520,9 +478,7 @@ def _patched_tgc_path(tgc_path: Path, scenario: str) -> Path:
     return tgc_path.with_name(f"{tgc_path.stem}_{scenario}_cropped{tgc_path.suffix}")
 
 
-def _write_patched_tgc(
-    tgc_path: Path, scenario: str, plan: Sequence[PlannedLayer]
-) -> Path:
+def _write_patched_tgc(tgc_path: Path, scenario: str, plan: Sequence[PlannedLayer]) -> Path:
     destination = _patched_tgc_path(tgc_path, scenario)
     if destination.exists():
         message = f"Patched TGC already exists: {destination}"
@@ -531,25 +487,19 @@ def _write_patched_tgc(
     for planned in plan:
         index = planned.layer.line_number - 1
         if index < 0 or index >= len(lines):
-            message = (
-                f"PyTUFLOW line number is outside the TGC: {planned.layer.line_number}"
-            )
+            message = f"PyTUFLOW line number is outside the TGC: {planned.layer.line_number}"
             raise ValueError(message)
         if planned.omitted:
             lines[index] = f"! Omitted by terrain crop: {lines[index].lstrip()}"
             continue
-        relative = os.path.relpath(planned.output, start=tgc_path.parent).replace(
-            "/", "\\"
-        )
+        relative = os.path.relpath(planned.output, start=tgc_path.parent).replace("/", "\\")
         if planned.layer.source_expression not in lines[index]:
             message = (
                 f"Could not safely replace terrain path on TGC line {planned.layer.line_number}: "
                 f"{planned.layer.source_expression!r}"
             )
             raise ValueError(message)
-        lines[index] = lines[index].replace(
-            planned.layer.source_expression, relative, 1
-        )
+        lines[index] = lines[index].replace(planned.layer.source_expression, relative, 1)
     with destination.open("x", encoding="utf-8", newline="") as output:
         output.write("".join(lines))
     return destination
@@ -591,9 +541,7 @@ def _manifest_payload(
     }
 
 
-def _check_write_targets(
-    tgc_path: Path, scenario: str, output_directory: Path, plan: Sequence[PlannedLayer]
-) -> None:
+def _check_write_targets(tgc_path: Path, scenario: str, output_directory: Path, plan: Sequence[PlannedLayer]) -> None:
     targets = [item.output for item in plan if not item.omitted]
     targets.extend(
         (
@@ -624,9 +572,7 @@ def run(
     absolute_tgc = _absolute(tgc_path)
     absolute_output = _absolute(output_directory)
     layers = resolve_terrain_layers(absolute_tgc, scenario)
-    grid, plan = build_plan(
-        layers, absolute_output, bounds, crs, planning_resolution, seam_buffer
-    )
+    grid, plan = build_plan(layers, absolute_output, bounds, crs, planning_resolution, seam_buffer)
 
     patched_tgc: Path | None = None
     if write:
@@ -636,34 +582,22 @@ def run(
             if not item.omitted:
                 _write_layer(item, grid, bounds)
         patched_tgc = _write_patched_tgc(absolute_tgc, scenario, plan)
-        payload = _manifest_payload(
-            absolute_tgc, patched_tgc, scenario, bounds, grid, seam_buffer, plan
-        )
+        payload = _manifest_payload(absolute_tgc, patched_tgc, scenario, bounds, grid, seam_buffer, plan)
         manifest = absolute_output / "terrain_crop_manifest.json"
         with manifest.open("x", encoding="utf-8") as output:
             output.write(json.dumps(payload, indent=2))
         return payload
-    return _manifest_payload(
-        absolute_tgc, None, scenario, bounds, grid, seam_buffer, plan
-    )
+    return _manifest_payload(absolute_tgc, None, scenario, bounds, grid, seam_buffer, plan)
 
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Crop a PyTUFLOW-selected terrain stack with buffered overlap. Defaults to plan-only."
     )
-    parser.add_argument(
-        "--tgc", type=Path, help=f"Geometry control file (default: {TGC})"
-    )
-    parser.add_argument(
-        "--scenario", help=f"Single s1 scenario value (default: {SCENARIO})"
-    )
-    parser.add_argument(
-        "--bounds", nargs=4, type=float, metavar=("XMIN", "YMIN", "XMAX", "YMAX")
-    )
-    parser.add_argument(
-        "--crs", help=f"Projected CRS for bounds and outputs (default: {CRS})"
-    )
+    parser.add_argument("--tgc", type=Path, help=f"Geometry control file (default: {TGC})")
+    parser.add_argument("--scenario", help=f"Single s1 scenario value (default: {SCENARIO})")
+    parser.add_argument("--bounds", nargs=4, type=float, metavar=("XMIN", "YMIN", "XMAX", "YMAX"))
+    parser.add_argument("--crs", help=f"Projected CRS for bounds and outputs (default: {CRS})")
     parser.add_argument(
         "--buffer",
         type=float,
@@ -697,13 +631,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     crs = args.crs if args.crs is not None else CRS
     seam_buffer = args.buffer if args.buffer is not None else SEAM_BUFFER_METRES
     planning_resolution = (
-        args.planning_resolution
-        if args.planning_resolution is not None
-        else PLANNING_RESOLUTION_METRES
+        args.planning_resolution if args.planning_resolution is not None else PLANNING_RESOLUTION_METRES
     )
-    output_directory = (
-        args.output_dir if args.output_dir is not None else OUTPUT_DIRECTORY
-    )
+    output_directory = args.output_dir if args.output_dir is not None else OUTPUT_DIRECTORY
     write = args.write if args.write is not None else WRITE
     pause = args.pause if args.pause is not None else PAUSE_ON_FINISH
 
@@ -729,9 +659,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 1
 
     mode = "WROTE" if write else "PLAN ONLY"
-    print(
-        f"{mode}: {len(payload['layers'])} active terrain layer(s) for -s1 {scenario}"
-    )
+    print(f"{mode}: {len(payload['layers'])} active terrain layer(s) for -s1 {scenario}")
     for layer in payload["layers"]:
         print(
             f"  {layer['order']:03d} line {layer['line_number']}: retained "

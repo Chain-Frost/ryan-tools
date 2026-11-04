@@ -9,12 +9,7 @@ import pytest
 import rasterio
 from rasterio.transform import from_origin
 
-SCRIPT = (
-    Path(__file__).parents[1]
-    / "ryan-scripts"
-    / "TUFLOW-python"
-    / "crop_tgc_terrains.py"
-)
+SCRIPT = Path(__file__).parents[1] / "ryan-scripts" / "TUFLOW-python" / "crop_tgc_terrains.py"
 SPEC = importlib.util.spec_from_file_location("crop_tgc_terrains", SCRIPT)
 assert SPEC is not None
 assert SPEC.loader is not None
