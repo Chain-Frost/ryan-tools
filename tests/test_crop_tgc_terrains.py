@@ -1,16 +1,19 @@
 from __future__ import annotations
 
+# Rasterio does not currently expose complete read-dataset type information.
+# pyright: reportUnknownArgumentType=false, reportUnknownMemberType=false
+# pyright: reportUnknownVariableType=false, reportAttributeAccessIssue=false
+
 import importlib.util
 import sys
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 import pytest
 import rasterio
 from affine import Affine
 from numpy.typing import NDArray
-from rasterio.io import DatasetReader
 from rasterio.transform import from_origin
 
 SCRIPT = Path(__file__).parents[1] / "ryan-scripts" / "TUFLOW-python" / "crop_tgc_terrains.py"
@@ -124,10 +127,9 @@ def test_write_creates_new_rasters_manifest_and_patched_tgc(tmp_path: Path) -> N
     assert "cropped\\002_higher_cropped.tif" in patched_text
 
     with rasterio.open(outputs[0], mode="r") as opened:
-        cropped_lower = cast(DatasetReader, opened)
-        data = cropped_lower.read(1)
+        data = opened.read(1)
         assert np.any(data == 10.0)
-        assert cropped_lower.width == 7
+        assert opened.width == 7
         assert np.all(data == 10.0)
 
     with pytest.raises(FileExistsError, match="Refusing to overwrite"):
