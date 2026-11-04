@@ -107,6 +107,9 @@ def test_editable_settings_and_cli_precedence(
     module = cast(_RunnerWrapper, sys.modules["tested_runner_wrapper"])
     monkeypatch.setattr(module, "USE_LIVE_DASHBOARD", True)
     monkeypatch.setattr(module, "LIVE_REFRESH_PER_SECOND", 1.0)
+    monkeypatch.setattr(module, "LIVE_MAX_ROWS", 10)
+    monkeypatch.setattr(module, "WAIT_FOR_AVAILABLE_GPU", True)
+    monkeypatch.setattr(module, "GPU_CHECK_INTERVAL_SECONDS", 60.0)
     monkeypatch.setattr(module, "WAIT_TIME_AFTER_RUN", 2.0)
     parse_arguments = cast(
         Callable[[list[str]], argparse.Namespace],
@@ -122,6 +125,11 @@ def test_editable_settings_and_cli_precedence(
             "--no-live-dashboard",
             "--live-refresh-per-second",
             "0.5",
+            "--live-max-rows",
+            "4",
+            "--no-wait-for-available-gpu",
+            "--gpu-check-interval",
+            "0.25",
             "--launch-delay",
             "0",
             "--working-directory",
@@ -132,6 +140,9 @@ def test_editable_settings_and_cli_precedence(
     settings = build_settings(args)
     assert settings.use_live_dashboard is False
     assert settings.live_refresh_per_second == 0.5
+    assert settings.live_max_rows == 4
+    assert settings.wait_for_available_gpu is False
+    assert settings.gpu_check_interval_seconds == 0.25
     assert settings.wait_time_after_run == 0
     assert args.preflight is False
     with pytest.raises(SystemExit) as invalid:
@@ -266,8 +277,14 @@ def test_blank_editable_paths_are_rejected(
         ("NEXT_RUN_FILE", "next_batch.txt"),
         ("BATCH_COMMANDS", ["-b"]),
         ("WAIT_TIME_AFTER_RUN", -1),
+        ("WAIT_FOR_AVAILABLE_GPU", "False"),
+        ("GPU_CHECK_INTERVAL_SECONDS", 0),
+        ("GPU_CHECK_INTERVAL_SECONDS", float("nan")),
         ("LIVE_REFRESH_PER_SECOND", 0),
         ("LIVE_REFRESH_PER_SECOND", float("nan")),
+        ("LIVE_MAX_ROWS", 0),
+        ("LIVE_MAX_ROWS", True),
+        ("LIVE_MAX_ROWS", 1.5),
         ("CHECK_INPUTS", "False"),
         ("MINIMIZE_ON_LAUNCH", 1),
         ("EXPORT_COMMANDS", "True"),
@@ -338,6 +355,37 @@ def test_missing_optional_paths_warn_once_each_not_fail_planning(
         assert warnings == []
     finally:
         logger.remove(sink)
+
+
+def test_textfiles_accept_deleted_tcf_and_run_variables(
+    tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = sys.modules["tested_runner_wrapper"]
+    source = _source(tmp_path)
+    monkeypatch.setattr(module, "MODE", "textfiles")
+    monkeypatch.setattr(module, "INPUT_FILES", source.name)
+    monkeypatch.delattr(module, "TCF")
+    monkeypatch.delattr(module, "RUN_VARIABLES_RAW")
+
+    settings = _settings_from_wrapper(wrapper)
+    assert settings.tcf is None
+    assert settings.run_variables == {}
+    assert settings.live_max_rows == 10
+    plan = prepare_plan(settings)
+    assert len(plan.runs) == 1
+    assert plan.runs[0].tcf == tmp_path / "model.tcf"
+    assert plan.runs[0].flags == {"e1": "A"}
+
+
+@pytest.mark.parametrize("mode", ["parameter_product", "both"])
+def test_generated_modes_still_require_run_variables_setting(
+    mode: str, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = sys.modules["tested_runner_wrapper"]
+    monkeypatch.setattr(module, "MODE", mode)
+    monkeypatch.delattr(module, "RUN_VARIABLES_RAW")
+    with pytest.raises(ValueError, match="RUN_VARIABLES_RAW"):
+        _settings_from_wrapper(wrapper)
 
 
 def test_one_string_input_file_can_be_imported_without_a_python_tcf(

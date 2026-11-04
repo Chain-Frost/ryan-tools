@@ -50,6 +50,8 @@ These documents stay near the code they describe so that browsing a target direc
 | TUFLOW processors | [Processor development notes](../ryan_library/processors/tuflow/README.md) | Processor lifecycle, collections, combinations, filtering, caching and extension |
 | TUFLOW wrappers | [TUFLOW Python wrappers](../ryan-scripts/TUFLOW-python/README.md) | Maintained entry points, shared CLI behavior and wrapper selection |
 | TUFLOW run preflight | [Proposed-run input preflight](TUFLOW_INPUT_PREFLIGHT.md) | Check event/scenario-dependent input references, boundary source CSVs and GPKG layers before launching simulations |
+| TUFLOW GPU scheduling | [GPU and CodeMeter validation](TUFLOW_GPU_CODEMETER_VALIDATION.md) | Licensed two-GPU procedure, polling benchmark, measured limitations and scheduler evidence |
+| TUFLOW GPU hardware handoff | [Licensed two-GPU agent prompt](TUFLOW_GPU_HARDWARE_TEST_PROMPT.md) | Copy-ready prompt for completing PR #193 validation on suitable hardware |
 | TUFLOW project setup | [Project setup guide](../ryan-scripts/tuflow/PROJECT_SETUP.md) | Compact project initialization, canonical empty-file generation and validation evidence |
 | Native ASC_to_ASC operations | [Native ASC_to_ASC-style raster operations](ASC_TO_ASC_NATIVE_OPERATIONS.md) | Supported commands, module responsibilities, NoData policies and executable comparison |
 | GDAL wrappers | [GDAL Python wrappers](../ryan-scripts/gdal-python/README.md) | Maintained GDAL workflows, recipes, mutation risks and automation catalogue |
@@ -101,6 +103,7 @@ but they are not current architectural policy when they conflict with the canoni
 | [TUFLOW proposed-run input preflight](work/2026-10-21-tuflow-input-preflight.md) | PR #143 read-only PyTUFLOW checks, integrated simulation preflight and standalone wrapper; merged as bcc8e5c, with separate follow-up records |
 | [TUFLOW batch preflight optimisation](work/2026-10-22-tuflow-batch-preflight-optimisation.md) | Stacked draft against PR #143: consume PyTUFLOW batch API, share GIS/filesystem inspection, preserve parity and benchmark 500-run workloads |
 | [TUFLOW runner model checks](work/2026-10-23-tuflow-runner-model-checks.md) | PR #159 current decisions, implementation, validation and delivery state |
+| [TUFLOW GPU availability alerts and CodeMeter validation](work/2026-11-03-tuflow-gpu-alerts-193.md) | PR #193 implementation, measured evidence, validation and delivery state |
 | [Live dashboard logging regression](work/2026-11-03-live-dashboard-logging.md) | Default stdout routing for older copied runners, regression evidence and PR delivery |
 | [TUFLOW scope index](work/2026-10-31-tuflow-integration-scopes/00_scope_index.md) | Agreed shared decisions, ownership, dependencies and delegation order for #159 and follow-ups |
 | [TUFLOW scope 01: PyTUFLOW integration](work/2026-10-31-tuflow-integration-scopes/01_pytuflow_integration.md) | Sole PR17 API, capability guard, existing installer, local raster removal and obsolete-path retirement |

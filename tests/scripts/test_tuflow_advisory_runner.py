@@ -201,7 +201,7 @@ def test_gpu_inspected_only_once_and_inspection_uncertainty_is_not_all_clear(
 
     monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", snapshot)
     monkeypatch.setattr(runner, "_apply_priority", _no_op)
-    config = settings(tmp_path, gpu_devices=(("-pu0",),))
+    config = settings(tmp_path, gpu_devices=(("-pu0",),), wait_for_available_gpu=False)
     plan = runner.prepare_plan(config)
     caplog.set_level(logging.INFO)
     count: list[int] = []

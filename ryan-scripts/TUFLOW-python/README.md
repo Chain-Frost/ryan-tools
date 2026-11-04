@@ -47,6 +47,16 @@ footer keeps the effective batch flags visible, for example `Batch: -b -t`.
 GPU switches embedded in `BATCH_COMMANDS` are excluded because runtime GPU groups
 control launches; the startup settings still show the configured value and warning.
 
+GPU names are discovered once for each executing batch using the read-only CUDA driver API.
+Startup prints the local launch-environment mapping, for example `-pu0 (NVIDIA GeForce RTX 3090)`;
+the dashboard and configured-slot alerts use the same labels. Identical model names include a PCI bus
+identifier where available. Missing drivers or failed discovery leave `name unknown` and do not change
+scheduling. Export and preflight do not query hardware. `-puN` uses TUFLOW/CUDA order, which can differ
+from NVIDIA `nvidia-smi` and Windows display indexes. The inherited `CUDA_VISIBLE_DEVICES` and
+`CUDA_DEVICE_ORDER` affect this mapping; external processes may have different environments.
+Older TUFLOW builds may enumerate differently: verify their `.hpc.tlf` device list.
+See [TUFLOW's device-selection guidance](https://wiki.tuflow.com/Configure_CUDA_device_selection).
+
 At `INFO` level, startup prints the effective runner settings and the complete
 deduplicated simulation plan, including every run's flags, TCF and source location.
 This preview is before Resume filtering and does not assign GPU slots; the subsequent
@@ -94,9 +104,15 @@ BAT/text syntax, multiple TCFs, installation and validation boundaries.
 [`model_management/run_tuflow_simulations.py`](model_management/run_tuflow_simulations.py)
 accepts generated parameter combinations, BAT/text command lists, or both.
 Edit `MODE`, `RUN_VARIABLES_RAW` and `INPUT_FILES` near the top of a copied
-Python wrapper. Its operational constants can use concise names; the wrapper
-standard does not require a `DEFAULT_` prefix. CLI arguments override editable
-values when supplied.
+Python wrapper. For `MODE = params.SRC.TEXTFILES`, the entire `TCF` line and
+`RUN_VARIABLES_RAW` block may be deleted. Imported commands supply their own
+TCFs (explicit command arguments or `SET TCF=...`) and event/scenario flags.
+A Python `TCF`, when present, is also a constraint: imported TCFs must match.
+Generated modes (`PARAMETER_PRODUCT` and `BOTH`) still require a Python
+`TCF` and the `RUN_VARIABLES_RAW` setting. Missing effective TCFs fail planning.
+Its operational constants can use concise names; the wrapper standard
+does not require a `DEFAULT_` prefix. CLI arguments override editable values
+when supplied.
 
 The startup settings print `RUN_VARIABLES` as a Python-style dictionary with
 one event/scenario entry per line, preserving input order and values. The
@@ -107,6 +123,17 @@ paths are cyan. The baseline includes `-b`, LOW priority, minimized windows,
 automatic GPU placement and a two-second launch delay; it does not change when
 you edit the wrapper. Run controls compare against run/resume, export and input
 checks enabled, INFO logging, pause enabled and no follow-up script.
+
+`LIVE_MAX_ROWS = 10` limits the runner dashboard to at most ten task rows
+at once, without reducing the number of runs planned or executed. It is
+editable or can be overridden using `--live-max-rows N` (positive integer).
+
+`PRIORITY_ORDER` affects only generated combinations: flags listed first vary
+more slowly in the Cartesian product. It never reorders imported BAT/TXT
+selections. Imported commands retain the order they appear in each source, and
+multiple `INPUT_FILES` are consumed in the listed order. Duplicate effective
+selections retain only their first occurrence. In `BOTH` mode, imported
+selections precede generated combinations.
 
 The dashboard computes separate `e1` through `e9` and `s1` through `s9` columns
 from the flags present anywhere in the proposed plan, before Resume filtering.
@@ -152,7 +179,7 @@ cannot direct launches. First occurrences are kept; duplicate model selections
 are discarded. For example, `BATCH_COMMANDS = "-b -t -nlc"` applies to
 both generated and imported runs; an imported `-x` does not override it.
 
-`GPU_DEVICES` **alone controls concurrency**: `"-pu1"` assigns one GPU
+`GPU_DEVICES` sets the **maximum configured concurrency**; the GPU availability guard may temporarily reduce active slots: `"-pu1"` assigns one GPU
 to one slot; `["-pu0", "-pu1"]` makes two simultaneous single-GPU slots;
 `[["-pu0", "-pu1"], "-pu2"]` makes two slots, one using GPUs 0+1 and one
 using GPU 2. Legacy nested tuples such as `(("-pu0",), ("-pu1",))`
@@ -161,9 +188,44 @@ or tuple is a group of GPUs assigned to that one slot. An empty `[]`, `()` or `N
 `MAXIMUM_CONCURRENT`. GPU tokens must match `-puN` (N is a
 nonnegative integer); malformed tokens such as `-pu0,1`, empty
 groups and repeated GPU IDs are rejected before export or launch.
-GPU occupancy is checked once at execution startup; the scheduler
-tracks its own children and does not rescan CodeMeter, TLF or TSF
-activity.
+By default, `WAIT_FOR_AVAILABLE_GPU = True` checks other **local** TUFLOW
+processes before assigning a configured GPU slot. If another run is using
+one of that slot's GPUs, the slot is excluded until it becomes available;
+other available configured slots continue launching. When all slots are
+blocked, no queued model starts and the runner rechecks every
+`GPU_CHECK_INTERVAL_SECONDS = 60.0` seconds. A completed owned child
+also triggers a fresh check before another model is assigned. A group
+such as `[["-pu0", "-pu1"]]` requires **both** GPUs to be free.
+
+The check uses running TUFLOW process command lines (`-puN`) and excludes
+children already tracked by this runner. Before comparing ordinals, it requires exact matching
+`CUDA_VISIBLE_DEVICES` and `CUDA_DEVICE_ORDER` settings in the external and runner environments.
+Different settings or denied environment access make the assignment unknown and produce a warning;
+computation continues without a verified availability check. the guard never assumes an unreadable environment uses defaults. It does not translate
+ordinals across different CUDA environments. Unrelated environment values are never logged. CodeMeter licence allocations
+do not reliably identify the local GPU number; this is **GPU occupancy**
+protection, not a guarantee that a separate CodeMeter licence is available.
+Unknown GPU assignments, incomplete inspection or inspection failures warn and continue.
+Only confirmed overlapping assignments block a slot. A failed helper must not stall computation;
+continuing under uncertainty can share a GPU or cause a solver failure. The dashboard shows a yellow
+`GPU INSPECTION WARNING - CONTINUING` alert and keeps unknown availability explicit. Ctrl+C interrupts the wait. To revert to warning-only startup
+inspection use `WAIT_FOR_AVAILABLE_GPU = False` or
+`--no-wait-for-available-gpu`. Override the polling interval with
+`--gpu-check-interval 60` (positive seconds). Automatic placement
+(`GPU_DEVICES = []`) cannot be mapped to a specific GPU: the runner warns
+and retains the original one-slot behaviour. Export-only and preflight-only
+do not perform this waiting or polling.
+
+When a configured group becomes unavailable, the runner emits one prominent
+`ERROR` for that state transition. It reports confirmed external PIDs where
+known, distinguishes unknown/incomplete/query-failure states, shows whether
+other groups can continue and gives the next check interval. Identical polling
+results produce only lower-severity status updates. The live dashboard keeps a
+red alert panel above its normal summary and task rows until the restriction
+clears; recovery emits a `SUCCESS` message. GPU restrictions do not mark a
+simulation failed. See the licensed two-GPU procedure, benchmark and measured
+CodeMeter limitations in
+[`docs/TUFLOW_GPU_CODEMETER_VALIDATION.md`](../../docs/TUFLOW_GPU_CODEMETER_VALIDATION.md).
 
 The wrapper rejects malformed settings with explicit names and examples:
 unsupported enum choices, invalid path types/extensions, blank or
@@ -247,7 +309,11 @@ is one runner file per TUFLOW project/TCF version, with a unique runner filename
 for each version; therefore each wrapper has its **own** CSV, rather than sharing
 a project-wide or network-wide history. The CSV is an append-only START / FINISH
 / RESET log of observed process outcomes. No saved run manifest or additional
-session directory is required.
+session directory is required. Each `recorded_at` value uses the local computer's
+timezone and includes its UTC offset; existing timezone-aware UTC rows remain valid.
+New CSVs place operator-facing fields first: timestamp, event, outcome, return code,
+TCF, PID and error. Command context follows, while run hashes and schema metadata are
+last. Existing CSVs retain their original column order and remain readable and appendable.
 
 **Resume is the default.** The runner regenerates the full current plan and
 selects its launch queue using the CSV:
@@ -457,6 +523,14 @@ The `MODEL` column displays the full filename rather than truncating it at 48 ch
 TLF paths in the final section can be opened from terminal hyperlinks. Windows Terminal receives OSC 8 links
 automatically where supported; VS Code's terminal can usually Ctrl+click the plain Windows paths through its native
 file-link detection. Use `--hyperlinks` to force OSC 8 links, or `--no-hyperlinks` to print plain paths.
+GPU cells explicitly show TUFLOW switches, for example `-pu1 (NVIDIA GeForce RTX 3080)`.
+Names come only from that simulation's companion `.hpc.tlf` device header, never from the current
+computer's hardware or CodeMeter allocation counts. Missing, unreadable, conflicting or stale
+companions retain `-puN (name unknown)`. The companion must have been updated since the recorded simulation start. If the start timestamp
+is missing, companion and main TLF modification times must be within two minutes instead. The report retains each record's machine alongside the GPU label.
+
+The report prints inferred log and TLF activity first, followed by active CodeMeter processes, and finishes with the
+authoritative current CodeMeter licence-utilisation table.
 Redirected output and other non-OSC terminals get plain readable paths by default.
 
 By default, the wrapper also reads local CodeMeter WebAdmin at `http://localhost:22352`. It reports current TUFLOW

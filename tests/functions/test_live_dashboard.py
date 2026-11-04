@@ -1,5 +1,12 @@
 """Tests for ryan_library.functions.live_dashboard."""
 
+# These unit tests intentionally inspect internal rendering and task state.
+# pyright: reportPrivateUsage=false
+
+from io import StringIO
+
+from rich.console import Console
+
 from ryan_library.functions import live_dashboard as ld
 
 
@@ -81,3 +88,31 @@ def test_metrics_and_summary() -> None:
 
     summary = dashboard._build_summary()
     assert summary is not None
+
+
+def test_persistent_alert_appears_updates_and_clears() -> None:
+    dashboard = ld.LiveWorkflowDashboard(title="Test", enabled=False, max_rows=3)
+    dashboard.console = Console(file=StringIO(), record=True, width=100, height=30, color_system=None)
+    dashboard.set_tasks(["T1", "T2", "T3"])
+
+    dashboard.set_alert(ld.WorkflowAlert(title="FIRST ALERT", lines=("GPU 0 unavailable",)))
+    dashboard.console.print(dashboard._render())
+    first = dashboard.console.export_text(clear=True)
+    assert "FIRST ALERT" in first
+    assert "GPU 0 unavailable" in first
+    assert "T1" in first
+
+    dashboard.set_alert(ld.WorkflowAlert(title="UPDATED ALERT", lines=("GPU status unknown", "All work waiting")))
+    dashboard.console.print(dashboard._render())
+    updated = dashboard.console.export_text(clear=True)
+    assert "UPDATED ALERT" in updated
+    assert "GPU status unknown" in updated
+    assert "FIRST ALERT" not in updated
+    assert "T1" in updated
+
+    dashboard.set_alert(None)
+    dashboard.console.print(dashboard._render())
+    cleared = dashboard.console.export_text(clear=True)
+    assert "UPDATED ALERT" not in cleared
+    assert "GPU status unknown" not in cleared
+    assert "T1" in cleared

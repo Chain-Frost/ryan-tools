@@ -656,6 +656,9 @@ def test_live_tsf_values_are_reported_only_for_active_start(tmp_path: Path) -> N
     assert "21.500h" in rendered
     assert "48.000h" in rendered
     assert "44.8%" in rendered
+    assert rendered.index("SELECTED SIMULATION STARTS") < rendered.index("ACTIVE CODEMETER TUFLOW PROCESSES")
+    assert rendered.index("ACTIVE CODEMETER TUFLOW PROCESSES") < rendered.index("CODEMETER CURRENT LICENCE UTILISATION")
+    assert rendered.rstrip().endswith("No CodeMeter product quantities were found.")
 
 
 def test_tsf_timestamp_predating_start_is_not_reported(tmp_path: Path) -> None:
@@ -711,3 +714,15 @@ def test_reused_tlf_path_only_gives_progress_to_latest_active_start(tmp_path: Pa
     assert newest.progress is not None
     assert newest.progress.model_time_hours == 8
     assert older.progress is None
+
+
+def test_inspection_labels_selected_gpu_from_companion_hpc_log(tmp_path: Path) -> None:
+    tlf = tmp_path / "model.tlf"
+    tlf.write_text("GPU Device IDs == 1, \n", encoding="utf-8")
+    tlf.with_suffix(".hpc.tlf").write_text(
+        "Device 0, RTX 3090, has compute capability = 8.6\nDevice 1, RTX 3080, has compute capability = 8.6\n",
+        encoding="utf-8",
+    )
+    inspection = inspect_tlf(tlf)
+    assert inspection.gpu_device_ids == "1"
+    assert inspection.gpu_label == "-pu1 (RTX 3080)"
