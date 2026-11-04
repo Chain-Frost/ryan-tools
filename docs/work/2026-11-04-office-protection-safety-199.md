@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active - parent integrated, stacked PR hosted validation pending |
+| Status | Needs review - published as stacked PR #201 |
 | Owner | ChatGPT |
 | Created | 2026-11-04 |
 | Updated | 2026-11-04 |
@@ -52,3 +52,25 @@ child. Both parent dashboard contracts remain intact; the work-register conflict
 retains the independent Office row and all updated parent records. Parent CI has
 started. Current inventory is 157 tracked entries, 83 selected files and 33 MCP
 targets; the additional child entry is the repository-only Office README.
+
+
+## GitHub delivery
+
+Published [PR #201](https://github.com/Chain-Frost/ryan-tools/pull/201), based on
+#183 at 786cd44d. Implementation c9f0a958 and parent integration 88b366ba are
+pushed. The branch is not merged; no auto-merge/release is enabled.
+
+The integrated child rerun passes 22 tests (7 deselected). Fresh verified
+26.11.3.9 wheel SHA-256:
+`ba7c6cc421ad39cdb9dd1bc19ebdd2dd7028224997d2d1ed25868c7887b11767`.
+It is installed in normal Python; the copied CLI test passes (1 pass, 19
+deselected). Ruff, strict Pyright, docs and Loguru policy pass. Both PRs now
+have running hosted checks; terminal exact-head results are maintained in the
+[PR checks](https://github.com/Chain-Frost/ryan-tools/pull/201/checks) and PR body.
+This record's publication milestone precedes those terminal results.
+
+Next action: review the exact published child checks and safety diff. Broader
+native Office fidelity and live UNC acceptance remain explicitly separate.
+Reassess #197 against current main before implementation: its pre-existing
+archive guard has improved since the original audit, while publication races
+still require checking. #194/#195 remain the next shared TUFLOW result work.
