@@ -11,7 +11,7 @@
 | Branch / base | `feat/batch-dashboard-foundation-180` -> `main` |
 | Issue | [#180](https://github.com/Chain-Frost/ryan-tools/issues/180), dashboard foundation and resumed wrapper/script audit |
 | Dependent work | [TUFLOW result dashboard adoption](2026-11-01-tuflow-result-dashboards-180.md) |
-| Delivery | Audit patch published as 50cf9c6e on #183. Current-main reconciliation validated locally; hosted checks pending on the merge head. Office #199 remains a separate stacked branch. |
+| Delivery | #183 is published and fully green at 94a63b89 (2,098 hosted passes, 14 skips, 8 deselected). Office #199 is separate PR #201, fully green at 2c06d8d4. Shared export #194 proceeds in a separate child; no main merge/release. |
 
 ## Outcome and scope
 
@@ -388,3 +388,12 @@ Current static inventory is 156 tracked, 83 selected, 33 MCP targets. The earlie
 151/85/34 and per-entry CLI evidence remain explicitly historical. Hosted
 acceptance must now run on the merge head. Office issue #199 is implemented in
 a separate child branch awaiting this parent integration.
+
+### Export safety continuation
+
+Parent #183 now passes all six GitHub checks at `94a63b89`; its review threads
+are resolved. Office PR #201 independently passes all six checks at `2c06d8d4`
+(2,120 hosted passes, 14 skips, 8 deselected). Both remain unmerged.
+The next selected work is [shared export safety #194](2026-11-04-result-export-safety-194.md),
+stacked directly on #183. Discovery #195 and later dashboard adoption remain
+separate follow-ups. Earlier pending/local-only statements above are historical.

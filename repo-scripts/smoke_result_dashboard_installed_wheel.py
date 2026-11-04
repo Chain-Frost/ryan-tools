@@ -11,6 +11,7 @@ import os
 import subprocess
 import sys
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -153,11 +154,54 @@ def _one_case(
         msg = f"Detailed file sink missing in {case.wrapper}"
         raise RuntimeError(msg)
     output = _snapshot(work, sheet=case.sheet)
+    if dashboard:
+        _export_failure_cases(case, root, work, script)
     invalid = _run(script, work, root, "--data-types", case.data_type, "--live-max-rows", "0")
     if invalid.returncode == 0 or "live_max_rows" not in (invalid.stdout + invalid.stderr):
         msg = f"Invalid display settings were silently accepted by {case.wrapper}"
         raise RuntimeError(msg)
     return output
+
+
+def _export_failure_cases(case: Case, root: Path, work: Path, script: Path) -> None:
+    """Exercise installed writer errors and collisions through copied process boundaries."""
+    before = {path: path.read_bytes() for path in work.glob("*.xlsx")}
+    first = next(iter(before))
+    timestamp = datetime.strptime(first.name.split("_", 1)[0], "%Y%m%d-%H%M")
+    launcher = work / "collision_probe.py"
+    launcher.write_text(
+        "from datetime import datetime\nfrom unittest.mock import Mock\nimport runpy\n"
+        "from ryan_library.functions import excel_export\n"
+        "excel_export.datetime = Mock(wraps=datetime)\n"
+        f"excel_export.datetime.now.return_value = datetime.fromisoformat({timestamp.isoformat()!r})\n"
+        f"runpy.run_path({str(script)!r}, run_name='__main__')\n",
+        encoding="utf-8",
+    )
+    collision = _run(launcher, work, root, "--data-types", case.data_type, "--live-dashboard")
+    if collision.returncode != 1 or ": FAILED" not in collision.stdout:
+        msg = f"Existing-report collision did not fail {case.wrapper}: {collision.stdout[-1800:]}"
+        raise RuntimeError(msg)
+    if {path: path.read_bytes() for path in work.glob("*.xlsx")} != before:
+        msg = f"Collision changed an existing workbook in {case.wrapper}"
+        raise RuntimeError(msg)
+
+    failure_work = work / "writer_failure"
+    _write_inputs(failure_work / "inputs")
+    launcher = work / "write_failure_probe.py"
+    launcher.write_text(
+        "import runpy\nimport pandas as pd\n"
+        "def fail(*args, **kwargs):\n    raise PermissionError('synthetic installed export denial')\n"
+        "pd.DataFrame.to_excel = fail\n"
+        f"runpy.run_path({str(script)!r}, run_name='__main__')\n",
+        encoding="utf-8",
+    )
+    failure = _run(launcher, failure_work, root, "--data-types", case.data_type, "--live-dashboard")
+    if failure.returncode != 1 or ": FAILED" not in failure.stdout:
+        msg = f"Writer failure did not fail {case.wrapper}: {failure.stdout[-1800:]}"
+        raise RuntimeError(msg)
+    if list(failure_work.rglob("*.xlsx")) or list(failure_work.rglob(".ryan-export-*")):
+        msg = f"Writer failure left partial reports in {case.wrapper}"
+        raise RuntimeError(msg)
 
 
 def main() -> None:

@@ -3,7 +3,11 @@
 
 from __future__ import annotations
 
+import os
+from contextlib import ExitStack
+from dataclasses import dataclass
 from datetime import datetime
+from tempfile import TemporaryDirectory
 
 __lazy_modules__: list[str] = ["openpyxl", "pandas"]
 import re
@@ -14,7 +18,6 @@ from typing import Literal, TypedDict
 import pandas as pd
 from loguru import logger
 from openpyxl.utils import get_column_letter
-from openpyxl.utils.exceptions import InvalidFileException
 from openpyxl.worksheet.worksheet import Worksheet
 
 from ..classes.column_definitions import ColumnDefinition, ColumnMetadataRegistry
@@ -25,6 +28,14 @@ ParquetCompression = Literal["snappy", "gzip", "brotli", "lz4", "zstd"] | None
 
 
 class ExportContent(TypedDict):
+    dataframes: list[pd.DataFrame]
+    sheets: list[str]
+
+
+@dataclass(frozen=True)
+class _ExportTarget:
+    path: Path
+    kind: Literal["excel", "parquet", "csv"]
     dataframes: list[pd.DataFrame]
     sheets: list[str]
 
@@ -112,7 +123,11 @@ class ExcelExporter:
         include_data_dictionary: bool = False,
         data_dictionary_metadata: Mapping[str, str] | None = None,
     ) -> None:
-        """Export multiple DataFrames to Excel files with optional column widths.
+        """Export reports as a batch without replacing existing files.
+
+        Validate all destinations, stage every report, then publish exclusively.
+        A publication failure can leave completed reports; the exception notes
+        identify those retained outputs. Unsupported hard-link filesystems fail closed.
 
         Args:
             export_dict (dict[str, ExportContent]):
@@ -158,7 +173,8 @@ class ExcelExporter:
 
         Raises:
             ValueError: If the number of DataFrames doesn't match the number of sheets.
-            InvalidFileException: If there's an issue with writing the Excel file.
+            FileExistsError: If any planned report already exists.
+            OSError: If staging or no-replace publication fails. Writer exceptions propagate.
 
         Example:
             export_dict = {
@@ -173,141 +189,169 @@ class ExcelExporter:
             }
             ExcelExporter().export_dataframes(export_dict, output_directory=Path("exports"))
         """
-        datetime_string: str = datetime.now().strftime(format="%Y%m%d-%H%M")
-        normalized_mode: str = export_mode.lower()
-        valid_modes: set[str] = {"excel", "parquet", "both"}
-        if normalized_mode not in valid_modes:
-            msg = f"Invalid export_mode '{export_mode}'. Expected one of {sorted(valid_modes)}."
-            raise ValueError(msg)
+        targets = self._plan_exports(
+            export_dict, output_directory, file_name, export_mode, parquet_compression, include_data_dictionary
+        )
+        published: list[Path] = []
+        try:
+            # Stage the complete batch before publishing: writer failures expose no partial reports.
+            with ExitStack() as stack:
+                staged: list[tuple[Path, Path]] = []
+                for target in targets:
+                    target.path.parent.mkdir(parents=True, exist_ok=True)
+                    directory = stack.enter_context(TemporaryDirectory(prefix=".ryan-export-", dir=target.path.parent))
+                    temporary = Path(directory) / target.path.name
+                    self._write_target(
+                        target,
+                        temporary,
+                        column_widths,
+                        auto_adjust_width,
+                        parquet_compression,
+                        include_data_dictionary,
+                        data_dictionary_metadata,
+                    )
+                    if not temporary.is_file():
+                        msg = f"Export did not create the staged report for {target.path}"
+                        raise OSError(msg)
+                    staged.append((temporary, target.path))
+                for temporary, destination in staged:
+                    # Atomic no-replace publication also refuses a concurrently created file or symlink.
+                    # Filesystems without hard-link support fail closed; there is no overwrite fallback.
+                    os.link(temporary, destination)
+                    published.append(destination)
+        except BaseException as exc:
+            if published:
+                paths = ", ".join(str(path) for path in published)
+                detail = f"Export incomplete; already published reports retained: {paths}"
+                exc.add_note(detail)
+                logger.error("{}", detail)
+            raise
+        for destination in published:
+            logger.success("Exported report to {}", destination)
 
+    def _plan_exports(
+        self,
+        export_dict: dict[str, ExportContent],
+        output_directory: Path | None,
+        file_name: str | None,
+        export_mode: str,
+        compression: ParquetCompression,
+        include_data_dictionary: bool,
+    ) -> list[_ExportTarget]:
+        mode = export_mode.lower()
+        if mode not in {"excel", "parquet", "both"}:
+            msg = f"Invalid export_mode '{export_mode}'. Expected excel, parquet or both."
+            raise ValueError(msg)
         if file_name is not None and len(export_dict) != 1:
             msg = "'file_name' can only be provided when exporting a single workbook."
             raise ValueError(msg)
-
-        for export_key, content in export_dict.items():
-            dataframes: list[pd.DataFrame] = content.get("dataframes", [])
-            sheets: list[str] = content.get("sheets", [])
-
-            if len(dataframes) != len(sheets):
-                file_label: str = file_name if file_name is not None else export_key
-                msg = (
-                    f"For file '{file_label}', the number of dataframes ({len(dataframes)}) and sheets "
-                    f"({len(sheets)}) must match."
-                )
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M")
+        targets: list[_ExportTarget] = []
+        for key, content in export_dict.items():
+            frames, sheets = content["dataframes"], content["sheets"]
+            if len(frames) != len(sheets):
+                msg = f"For file '{key}', the number of dataframes and sheets must match."
                 raise ValueError(msg)
-
-            if include_data_dictionary and DATA_DICTIONARY_SHEET_NAME in sheets:
+            if not frames:
+                msg = f"No dataframes supplied for '{key}'."
+                raise ValueError(msg)
+            if len({sheet.casefold() for sheet in sheets}) != len(sheets):
+                msg = f"Duplicate sheet names in '{key}'."
+                raise ValueError(msg)
+            for frame, sheet in zip(frames, sheets, strict=True):
+                if not frame.columns.is_unique:
+                    msg = f"Duplicate column names found in sheet '{sheet}'."
+                    raise ValueError(msg)
+            if include_data_dictionary and any(sheet.casefold() == DATA_DICTIONARY_SHEET_NAME for sheet in sheets):
                 msg = f"Sheet name '{DATA_DICTIONARY_SHEET_NAME}' is reserved when include_data_dictionary=True."
                 raise ValueError(msg)
-
-            export_stem: str = self._resolve_export_stem(
-                datetime_string=datetime_string, export_key=export_key, file_name=file_name
-            )
-
-            if normalized_mode == "parquet":
-                self._export_as_parquet_only(
-                    export_stem=export_stem,
-                    dataframes=dataframes,
-                    sheets=sheets,
-                    output_directory=output_directory,
-                    compression=parquet_compression,
+            stem = self._resolve_export_stem(datetime_string=timestamp, export_key=key, file_name=file_name)
+            fallback = mode != "parquet" and self._exceeds_excel_limits(frames)
+            if mode != "parquet" and not fallback:
+                for sheet in sheets:
+                    if not sheet or len(sheet) > 31 or re.search(r"[\\*?:/\[\]]", sheet):
+                        msg = f"Invalid Excel sheet name: {sheet!r}"
+                        raise ValueError(msg)
+                workbook_name = (
+                    file_name if file_name is not None and file_name.lower().endswith(".xlsx") else f"{stem}.xlsx"
                 )
-                continue
-
-            if self._exceeds_excel_limits(dataframes=dataframes):
-                logger.warning(
-                    "Data for '{}' exceeds Excel size limits. Exporting to Parquet and CSV instead.", export_stem
+                targets.append(
+                    _ExportTarget(self._build_output_path(workbook_name, output_directory), "excel", frames, sheets)
                 )
-                self._export_as_parquet_and_csv(
-                    export_stem=export_stem,
-                    dataframes=dataframes,
-                    sheets=sheets,
-                    output_directory=output_directory,
-                    compression=parquet_compression,
-                )
-                continue
-
-            # Determine the export path
-            if file_name is not None:
-                export_filename = file_name if file_name.lower().endswith(".xlsx") else f"{file_name}.xlsx"
-            else:
-                export_filename = f"{export_stem}.xlsx"
-            export_path: Path = (
-                (output_directory / export_filename) if output_directory else Path(export_filename)  # Defaults to CWD
-            )
-
-            # Ensure the output directory exists
-            if output_directory:
-                export_path.parent.mkdir(parents=True, exist_ok=True)
-
-            logger.info("Exporting to {}", export_path)
-
-            try:
-                excel_dataframes: list[pd.DataFrame] = list(dataframes)
-                excel_sheets: list[str] = list(sheets)
-                if include_data_dictionary:
-                    metadata_rows: dict[str, str] = {
-                        "Generated at": datetime.now().astimezone().isoformat(timespec="seconds"),
-                        "Generator": f"ryan-tools {get_tools_version()}",
-                    }
-                    metadata_rows.update(data_dictionary_metadata or {})
-                    dictionary_df: pd.DataFrame = build_data_dictionary(
-                        sheet_frames=dict(zip(sheets, dataframes, strict=True)),
-                        metadata_rows=metadata_rows,
+            if fallback:
+                logger.warning("Data for '{}' exceeds Excel size limits. Exporting to Parquet and CSV instead.", stem)
+            if mode in {"parquet", "both"} or fallback:
+                for frame, sheet in zip(frames, sheets, strict=True):
+                    base = f"{stem}_{self._sanitize_name(sheet)}"
+                    name = self._build_parquet_filename(base, compression)
+                    targets.append(
+                        _ExportTarget(self._build_output_path(name, output_directory), "parquet", [frame], [sheet])
                     )
-                    excel_dataframes.append(dictionary_df)
-                    excel_sheets.append(DATA_DICTIONARY_SHEET_NAME)
-
-                with pd.ExcelWriter(path=export_path, engine="openpyxl") as writer:
-                    writer.book.properties.creator = f"ryan-tools {get_tools_version()}"
-                    for df, sheet in zip(excel_dataframes, excel_sheets, strict=True):
-                        # Check for unique column names
-                        if not df.columns.is_unique:
-                            logger.error(
-                                "Duplicate column names in DataFrame for sheet '{}'. Ensure all column names are unique.",
-                                sheet,
+                    if fallback:
+                        targets.append(
+                            _ExportTarget(
+                                self._build_output_path(f"{base}.csv", output_directory), "csv", [frame], [sheet]
                             )
-                            msg = f"Duplicate column names found in sheet '{sheet}'."
-                            raise ValueError(msg)
-
-                        df.to_excel(  # pyright: ignore[reportUnknownMemberType]
-                            excel_writer=writer,
-                            sheet_name=sheet,
-                            merge_cells=False,
-                            index=False,
                         )
+        identities: set[str] = set()
+        for target in targets:
+            # Follow links deliberately for physical destination aliases, including linked parent directories.
+            identity = str(target.path.resolve()).casefold()
+            if identity in identities:
+                msg = f"Export destinations collide: {target.path}"
+                raise ValueError(msg)
+            identities.add(identity)
+            if os.path.lexists(target.path):
+                msg = f"Report already exists: {target.path}"
+                raise FileExistsError(msg)
+            # Apply a portable case-insensitive collision policy even on case-sensitive filesystems.
+            if target.path.parent.is_dir() and any(
+                child.name.casefold() == target.path.name.casefold() for child in target.path.parent.iterdir()
+            ):
+                msg = f"Report already exists (case-insensitive match): {target.path}"
+                raise FileExistsError(msg)
+        return targets
 
-                        # Access the worksheet
-                        worksheet: Worksheet = writer.sheets[sheet]
-
-                        # Automatically adjust column widths if enabled
-                        if auto_adjust_width:
-                            dynamic_widths: dict[str, float] = self.calculate_column_widths(df=df)
-                            self.auto_adjust_column_widths(worksheet=worksheet, dynamic_widths=dynamic_widths)
-                            self._apply_default_column_widths(worksheet=worksheet, df=df, sheet_name=sheet)
-
-                        # Apply specific column widths if provided
-                        if column_widths and sheet in column_widths:
-                            self.set_column_widths(
-                                worksheet=worksheet,
-                                df=df,
-                                sheet_name=sheet,
-                                column_widths=column_widths[sheet],
-                            )
-
-                logger.success("Finished exporting '{}' to '{}'", export_filename, export_path)
-            except InvalidFileException as e:
-                logger.error("Failed to write to '{}': {}", export_path, e)
-                raise
-
-            if normalized_mode == "both":
-                self._export_as_parquet_only(
-                    export_stem=export_stem,
-                    dataframes=dataframes,
-                    sheets=sheets,
-                    output_directory=output_directory,
-                    compression=parquet_compression,
-                )
+    def _write_target(
+        self,
+        target: _ExportTarget,
+        temporary: Path,
+        column_widths: dict[str, dict[str, float]] | None,
+        auto_adjust_width: bool,
+        compression: ParquetCompression,
+        include_data_dictionary: bool,
+        metadata: Mapping[str, str] | None,
+    ) -> None:
+        logger.debug("Staging {} report for {}", target.kind, target.path)
+        if target.kind == "parquet":
+            target.dataframes[0].to_parquet(path=temporary, index=False, compression=compression)
+            return
+        if target.kind == "csv":
+            target.dataframes[0].to_csv(path_or_buf=temporary, index=False)
+            return
+        frames, sheets = list(target.dataframes), list(target.sheets)
+        if include_data_dictionary:
+            rows = {
+                "Generated at": datetime.now().astimezone().isoformat(timespec="seconds"),
+                "Generator": f"ryan-tools {get_tools_version()}",
+            }
+            rows.update(metadata or {})
+            frames.append(
+                build_data_dictionary(sheet_frames=dict(zip(sheets, frames, strict=True)), metadata_rows=rows)
+            )
+            sheets.append(DATA_DICTIONARY_SHEET_NAME)
+        with temporary.open("xb") as handle, pd.ExcelWriter(path=handle, engine="openpyxl") as writer:
+            # Keep a valid sheet even if the first DataFrame write fails, so close preserves the original error.
+            writer.book.create_sheet(sheets[0])
+            writer.book.properties.creator = f"ryan-tools {get_tools_version()}"
+            for frame, sheet in zip(frames, sheets, strict=True):
+                frame.to_excel(excel_writer=writer, sheet_name=sheet, merge_cells=False, index=False)  # pyright: ignore[reportUnknownMemberType]
+                worksheet: Worksheet = writer.sheets[sheet]
+                if auto_adjust_width:
+                    self.auto_adjust_column_widths(worksheet, self.calculate_column_widths(frame))
+                    self._apply_default_column_widths(worksheet, frame, sheet)
+                if column_widths and sheet in column_widths:
+                    self.set_column_widths(worksheet, frame, sheet, column_widths[sheet])
 
     def _exceeds_excel_limits(self, dataframes: list[pd.DataFrame]) -> bool:
         """Return True if any dataframe exceeds Excel's size limits."""
@@ -346,98 +390,6 @@ class ExcelExporter:
                 return f"{base_filename}.parquet.gzip"
             return f"{base_filename}.parquet.{suffix}"
         return f"{base_filename}.parquet"
-
-    def _write_parquet(
-        self,
-        *,
-        df: pd.DataFrame,
-        sheet: str,
-        parquet_path: Path,
-        export_label: str,
-        compression: ParquetCompression,
-    ) -> None:
-        """Write a DataFrame to Parquet with consistent logging and error handling."""
-        try:
-            df.to_parquet(path=parquet_path, index=False, compression=compression)
-            logger.info("Exported Parquet to {}", parquet_path)
-        except (ImportError, ValueError) as exc:
-            message: str = (
-                f"Unable to export Parquet for '{export_label}' sheet '{sheet}': {exc}. Install pyarrow or fastparquet."
-            )
-            logger.error(message)
-            print(message)
-        except Exception as exc:  # pragma: no cover - unforeseen errors should be logged
-            logger.exception("Unexpected error during Parquet export for '{}' sheet '{}': {}", export_label, sheet, exc)
-
-    def _export_as_parquet_only(
-        self,
-        *,
-        export_stem: str,
-        dataframes: list[pd.DataFrame],
-        sheets: list[str],
-        output_directory: Path | None,
-        compression: ParquetCompression,
-    ) -> None:
-        """Export each DataFrame to a Parquet file sharing the Excel naming scheme."""
-        export_targets: list[tuple[pd.DataFrame, str, Path]] = []
-        for df, sheet in zip(dataframes, sheets, strict=True):
-            sanitized_sheet: str = self._sanitize_name(sheet)
-            base_filename: str = f"{export_stem}_{sanitized_sheet}"
-            parquet_filename: str = self._build_parquet_filename(base_filename, compression)
-            parquet_path: Path = self._build_output_path(
-                base_filename=parquet_filename, output_directory=output_directory
-            )
-            parquet_path.parent.mkdir(parents=True, exist_ok=True)
-            export_targets.append((df, sheet, parquet_path))
-
-        for df, sheet, parquet_path in export_targets:
-            self._write_parquet(
-                df=df,
-                sheet=sheet,
-                parquet_path=parquet_path,
-                export_label=export_stem,
-                compression=compression,
-            )
-
-    def _export_as_parquet_and_csv(
-        self,
-        *,
-        export_stem: str,
-        dataframes: list[pd.DataFrame],
-        sheets: list[str],
-        output_directory: Path | None,
-        compression: ParquetCompression = None,
-    ) -> None:
-        """Export dataframes to Parquet and CSV files when Excel limits are exceeded."""
-        export_targets: list[tuple[pd.DataFrame, str, Path, Path]] = []
-
-        for df, sheet in zip(dataframes, sheets, strict=True):
-            sanitized_sheet: str = self._sanitize_name(sheet)
-            base_filename: str = f"{export_stem}_{sanitized_sheet}"
-
-            parquet_filename: str = self._build_parquet_filename(base_filename, compression)
-            parquet_path: Path = self._build_output_path(
-                base_filename=parquet_filename, output_directory=output_directory
-            )
-            csv_path: Path = self._build_output_path(
-                base_filename=f"{base_filename}.csv", output_directory=output_directory
-            )
-
-            parquet_path.parent.mkdir(parents=True, exist_ok=True)
-            export_targets.append((df, sheet, parquet_path, csv_path))
-
-        for df, sheet, parquet_path, _ in export_targets:
-            self._write_parquet(
-                df=df,
-                sheet=sheet,
-                parquet_path=parquet_path,
-                export_label=export_stem,
-                compression=compression,
-            )
-
-        for df, _sheet, _, csv_path in export_targets:
-            df.to_csv(path_or_buf=csv_path, index=False)
-            logger.info("Exported CSV to {}", csv_path)
 
     def _build_output_path(self, base_filename: str, output_directory: Path | None) -> Path:
         """Create the full output path for a file name."""

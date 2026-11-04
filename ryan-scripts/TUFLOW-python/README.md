@@ -791,5 +791,17 @@ single-dataset operation.
 
 The [audit backlog](../../docs/audits/2026-10-22-script-remediation-backlog.md#issue-180-continuation--2026-11-04)
 tracks remaining shared exporter/discovery defects and dashboard adoption.
-Current dashboards alone do not establish reliable export-failure handling until
-those separate issues are resolved.
+The shared exporter fix addresses #194; discovery outcomes and the remaining
+dashboard adoption issues are tracked separately.
+
+## Report output protection
+
+Shared Excel/Parquet/CSV exports refuse existing report destinations, including
+same-minute generated filenames and sanitized sheet-name collisions. All files
+are staged before publication; writer failures produce no completed reports. A
+later publication failure retains and identifies any reports already published,
+and the wrapper returns failure. Choose another output directory/name or move
+previous reports before rerunning. Publication requires filesystem hard-link
+support; live mapped/UNC acceptance is separate. See the
+[shared output contract](../../ryan_library/functions/excel_export.md) and
+[#194 work record](../../docs/work/2026-11-04-result-export-safety-194.md).
