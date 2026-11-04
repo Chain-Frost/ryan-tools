@@ -8,6 +8,7 @@ This module neither changes the process working directory nor exits/pauses.
 from __future__ import annotations
 
 import itertools
+import math
 import os
 import re
 import shlex
@@ -27,8 +28,11 @@ from typing import TYPE_CHECKING, Literal, Protocol, cast
 
 from loguru import logger
 
+from ...functions.loguru_helpers import log_settings
+
 if TYPE_CHECKING:
-    from ...functions.live_dashboard import LiveWorkflowDashboard
+    from ...functions.live_dashboard import LiveWorkflowDashboard, WorkflowAlert
+    from .command_preflight import CommandPreflightIssue
 
 from ...functions.tuflow.command_plan import (
     CommandPlan,
@@ -43,11 +47,13 @@ from ...functions.tuflow.command_plan import (
     read_command_plans,
     validate_run_arguments,
 )
+from ...functions.tuflow.gpu_devices import gpu_device_label, gpu_group_label, local_cuda_device_names
 
 _FLAG = re.compile(r"[es][1-9]", re.IGNORECASE)
 _PRIORITY = frozenset({"LOW", "BELOWNORMAL", "NORMAL", "ABOVENORMAL", "HIGH", "REALTIME"})
 _ENGINE = frozenset({"-b", "-x", "-t", "-nlc"})
 type RunMode = Literal["parameter_product", "textfiles", "both"]
+type GpuAvailabilityIssueKind = Literal["occupied", "unknown_assignment", "inspection_incomplete", "query_failed"]
 
 
 def _empty_run_variables() -> dict[str, str | Sequence[str]]:
@@ -75,11 +81,14 @@ class RunnerSettings:
     batch_commands: str = "-b"
     priority_order: str | None = None
     gpu_devices: tuple[tuple[str, ...], ...] = ()
+    wait_for_available_gpu: bool = True
+    gpu_check_interval_seconds: float = 60.0
     computational_priority: str = "LOW"
     minimize_on_launch: bool = True
     wait_time_after_run: float = 2.0
     use_live_dashboard: bool = True
     live_refresh_per_second: float = 1.0
+    live_max_rows: int = 10
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,6 +126,25 @@ class BatchOutcome:
     @property
     def exit_code(self) -> int:
         return 0 if self.successful else 1
+
+
+@dataclass(frozen=True, slots=True)
+class GpuAvailabilityIssue:
+    """One confirmed or uncertain reason configured GPU slots cannot run."""
+
+    kind: GpuAvailabilityIssueKind
+    slot_indexes: frozenset[int]
+    gpu_ids: frozenset[int] = frozenset()
+    pids: tuple[int, ...] = ()
+    detail: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class GpuAvailability:
+    """One local process-inspection result used by guarded scheduling."""
+
+    blocked_slots: frozenset[int] = frozenset()
+    issues: tuple[GpuAvailabilityIssue, ...] = ()
 
 
 # Scope 04 supplies the persistence implementation, not another plan class.
@@ -179,6 +207,16 @@ def _validate_gpu_groups(groups: tuple[tuple[str, ...], ...]) -> None:
         assigned_gpu_ids.update(group_ids)
 
 
+def _validate_gpu_wait_settings(settings: RunnerSettings) -> None:
+    """Validate optional GPU-scheduling controls independently of plan complexity."""
+    if type(settings.wait_for_available_gpu) is not bool:
+        message = "WAIT_FOR_AVAILABLE_GPU must be True or False"
+        raise CommandPlanError(message)
+    if not math.isfinite(settings.gpu_check_interval_seconds) or settings.gpu_check_interval_seconds <= 0:
+        message = "GPU_CHECK_INTERVAL_SECONDS must be a finite positive number"
+        raise CommandPlanError(message)
+
+
 def _validate_settings(settings: RunnerSettings) -> tuple[str, ...]:
     if settings.mode not in {"parameter_product", "textfiles", "both"}:
         message = f"Invalid runner mode: {settings.mode}"
@@ -189,6 +227,10 @@ def _validate_settings(settings: RunnerSettings) -> tuple[str, ...]:
     if settings.wait_time_after_run < 0 or settings.live_refresh_per_second <= 0:
         message = "Launch delay must be nonnegative and dashboard refresh must be positive"
         raise CommandPlanError(message)
+    if type(settings.live_max_rows) is not int or settings.live_max_rows < 1:
+        message = "Dashboard row limit must be a positive integer (>=1)"
+        raise CommandPlanError(message)
+    _validate_gpu_wait_settings(settings)
     if not settings.working_directory.is_absolute():
         message = "The configured working directory must be absolute"
         raise CommandPlanError(message)
@@ -356,12 +398,99 @@ def prepare_plan(settings: RunnerSettings) -> CommandPlan:
             syntax=plans[0].syntax if len(plans) == 1 else "mixed",
             source_files=tuple(source for plan in plans for source in plan.source_files),
             duplicates_dropped=sum(plan.duplicates_dropped for plan in plans),
+            ignored_exclamations=tuple(ignored for plan in plans for ignored in plan.ignored_exclamations),
         )
     )
     if result.duplicates_dropped:
         logger.warning("Discarded {} duplicate TUFLOW selections, keeping the first.", result.duplicates_dropped)
+    if result.ignored_exclamations:
+        count = sum(ignored.count for ignored in result.ignored_exclamations)
+        logger.warning(
+            "Ignored {} literal '!' character(s) across {} source line(s); planned runs and outputs may be wrong.",
+            count,
+            len(result.ignored_exclamations),
+        )
+        for ignored in result.ignored_exclamations:
+            logger.warning(
+                "Ignored {} '!' character(s) at {}:{}.",
+                ignored.count,
+                display_runner_path(ignored.source, settings.working_directory),
+                ignored.line,
+            )
     _warn_unusual_flag_values(result)
+    _log_plan_preview(result, settings)
     return result
+
+
+def _log_plan_preview(plan: CommandPlan, settings: RunnerSettings) -> None:
+    """Restore the startup settings and complete selection list before execution."""
+    values: tuple[tuple[str, object], ...] = (
+        ("WRAPPER", settings.wrapper_file),
+        ("WORKING_DIR", settings.working_directory),
+        ("TCF", settings.tcf),
+        ("TUFLOW_EXE", settings.executable),
+        ("MODE", settings.mode),
+        ("INPUT_FILES", settings.input_files),
+        ("RUN_VARIABLES", settings.run_variables),
+        ("BATCH_COMMANDS", settings.batch_commands),
+        ("PRIORITY_ORDER", settings.priority_order),
+        ("GPU_DEVICES", settings.gpu_devices or "automatic placement"),
+        ("WAIT_FOR_AVAILABLE_GPU", settings.wait_for_available_gpu),
+        ("GPU_CHECK_INTERVAL_SECONDS", settings.gpu_check_interval_seconds),
+        ("CONCURRENT_SLOTS", len(settings.gpu_devices) or 1),
+        ("COMPUTATIONAL_PRIORITY", settings.computational_priority),
+        ("MINIMIZE_ON_LAUNCH", settings.minimize_on_launch),
+        ("WAIT_TIME_AFTER_RUN (seconds)", settings.wait_time_after_run),
+        ("USE_LIVE_DASHBOARD", settings.use_live_dashboard),
+        ("LIVE_REFRESH_PER_SECOND", settings.live_refresh_per_second),
+        ("LIVE_MAX_ROWS", settings.live_max_rows),
+    )
+    baseline = RunnerSettings(
+        wrapper_file=settings.wrapper_file,
+        working_directory=settings.working_directory,
+        executable=settings.executable,
+        tcf=settings.tcf,
+    )
+    defaults: dict[str, object] = {
+        name: getattr(baseline, name.lower())
+        for name in (
+            "MODE",
+            "INPUT_FILES",
+            "RUN_VARIABLES",
+            "BATCH_COMMANDS",
+            "PRIORITY_ORDER",
+            "COMPUTATIONAL_PRIORITY",
+            "MINIMIZE_ON_LAUNCH",
+            "USE_LIVE_DASHBOARD",
+            "LIVE_REFRESH_PER_SECOND",
+            "LIVE_MAX_ROWS",
+            "WAIT_FOR_AVAILABLE_GPU",
+            "GPU_CHECK_INTERVAL_SECONDS",
+        )
+    }
+    defaults.update(
+        {
+            "GPU_DEVICES": "automatic placement",
+            "CONCURRENT_SLOTS": 1,
+            "WAIT_TIME_AFTER_RUN (seconds)": baseline.wait_time_after_run,
+        }
+    )
+    log_settings("Runner settings", dict(values), defaults)
+    logger.info(
+        "Simulation plan: {} unique runs, {} duplicates discarded (before Resume filtering; GPU slots assigned at launch).",
+        len(plan.runs),
+        plan.duplicates_dropped,
+    )
+    for run in plan.runs:
+        source = display_runner_path(run.source, settings.working_directory)
+        if run.line_start:
+            source += f":{run.line_start}"
+            if run.line_end != run.line_start:
+                source += f"-{run.line_end}"
+        command = subprocess.list2cmdline(
+            [*model_arguments(run, include_gpu=False), display_runner_path(run.tcf, settings.working_directory)]
+        )
+        logger.info("Run {:03d}: {} | source {}", run.index, command, source)
 
 
 def _executable(run: PlannedRun, settings: RunnerSettings) -> str:
@@ -547,6 +676,171 @@ def export_batch_commands(plan: CommandPlan, settings: RunnerSettings, destinati
     return target
 
 
+def _blocked_external_gpu_slots(groups: tuple[tuple[str, ...], ...], *, exclude_pids: set[int]) -> GpuAvailability:
+    """Block confirmed conflicts and report uncertain inspection without stalling work.
+
+    CodeMeter reports licence allocations, but not a reliable GPU ID mapping.
+    Explicit -puN assignments are comparable only in a verified shared CUDA
+    selection environment; differing or unreadable environments remain unknown.
+    Our own children are excluded; their slots are already tracked separately.
+    """
+    from ...functions.tuflow.gpu_occupancy import gpu_ids_from_flags, local_gpu_occupancy
+
+    all_slots = frozenset(range(len(groups)))
+    try:
+        snapshot = local_gpu_occupancy(exclude_pids=exclude_pids)
+    except Exception as exc:  # noqa: BLE001 - optional inspection must not stop computation
+        return GpuAvailability(
+            issues=(
+                GpuAvailabilityIssue(
+                    kind="query_failed",
+                    slot_indexes=all_slots,
+                    detail=f"Local TUFLOW process query failed: {exc}",
+                ),
+            ),
+        )
+    issues: list[GpuAvailabilityIssue] = []
+    if snapshot.inspection_incomplete or snapshot.unknown_pids:
+        if snapshot.unknown_pids:
+            issues.append(
+                GpuAvailabilityIssue(
+                    kind="unknown_assignment",
+                    slot_indexes=all_slots,
+                    pids=snapshot.unknown_pids,
+                    detail="TUFLOW is running but its physical GPU assignment could not be determined.",
+                )
+            )
+        if snapshot.inspection_incomplete:
+            issues.append(
+                GpuAvailabilityIssue(
+                    kind="inspection_incomplete",
+                    slot_indexes=all_slots,
+                    detail="Local process inspection was incomplete; configured GPUs cannot be declared free.",
+                )
+            )
+
+    blocked: set[int] = set()
+    group_ids = tuple(gpu_ids_from_flags(group) for group in groups)
+    for process in snapshot.assigned:
+        process_slots: set[int] = set()
+        overlapping_ids: set[int] = set()
+        for index, selected in enumerate(group_ids):
+            overlap = selected.intersection(process.gpu_ids)
+            if overlap:
+                blocked.add(index)
+                process_slots.add(index)
+                overlapping_ids.update(overlap)
+        if process_slots:
+            issues.append(
+                GpuAvailabilityIssue(
+                    kind="occupied",
+                    slot_indexes=frozenset(process_slots),
+                    gpu_ids=frozenset(overlapping_ids),
+                    pids=(process.pid,),
+                    detail="Confirmed from explicit switches and matching CUDA selection environments.",
+                )
+            )
+    return GpuAvailability(blocked_slots=frozenset(blocked), issues=tuple(issues))
+
+
+def _gpu_availability_lines(
+    availability: GpuAvailability,
+    groups: tuple[tuple[str, ...], ...],
+    *,
+    interval_seconds: float,
+    device_names: Mapping[int, str] | None = None,
+) -> tuple[str, ...]:
+    """Build shared terminal/dashboard detail for one unavailable state."""
+    lines: list[str] = []
+    for issue in availability.issues:
+        if issue.kind == "occupied":
+            gpu_text = ", ".join(f"-pu{identifier}" for identifier in sorted(issue.gpu_ids))
+            pid_text = ", ".join(str(pid) for pid in issue.pids)
+            lines.append(f"TUFLOW {gpu_text}: OCCUPIED - external TUFLOW PID {pid_text}")
+        elif issue.kind == "unknown_assignment":
+            pid_text = ", ".join(str(pid) for pid in issue.pids)
+            lines.append(f"GPU assignment UNKNOWN for external TUFLOW PID {pid_text}")
+        elif issue.kind == "inspection_incomplete":
+            lines.append("GPU status UNKNOWN - local process inspection was incomplete")
+        else:
+            lines.append(f"GPU status UNKNOWN - {issue.detail}")
+
+    blocked_labels = [gpu_group_label(groups[index], device_names) for index in sorted(availability.blocked_slots)]
+    available_labels = [
+        gpu_group_label(group, device_names)
+        for index, group in enumerate(groups)
+        if index not in availability.blocked_slots
+    ]
+    if blocked_labels:
+        lines.append(f"Excluded from scheduling: {', '.join(blocked_labels)}")
+    if any(issue.kind != "occupied" for issue in availability.issues):
+        lines.append("GPU inspection uncertain - continuing without verified availability; GPU sharing is possible")
+    if available_labels:
+        lines.append(f"Eligible GPU slot(s) may continue: {', '.join(available_labels)}")
+    else:
+        lines.append("ALL CONFIGURED GPU SLOTS BLOCKED - queued batch is waiting")
+    lines.append(f"Next availability check in {interval_seconds:g} seconds")
+    return tuple(lines)
+
+
+def _log_gpu_availability_transition(
+    availability: GpuAvailability,
+    previous: GpuAvailability,
+    groups: tuple[tuple[str, ...], ...],
+    *,
+    interval_seconds: float,
+    device_names: Mapping[int, str] | None = None,
+) -> None:
+    """Emit prominent errors only when the external restriction changes."""
+    if availability == previous:
+        if availability.blocked_slots:
+            logger.info(
+                "GPU availability restriction is unchanged; {} of {} configured slot(s) remain blocked. "
+                "Next check in {}s.",
+                len(availability.blocked_slots),
+                len(groups),
+                interval_seconds,
+            )
+        return
+    if previous.blocked_slots and not availability.issues:
+        logger.success("Confirmed GPU restrictions cleared; queued scheduling may resume.")
+    if not availability.issues:
+        if previous.issues:
+            logger.success("GPU inspection recovered; no external GPU restrictions detected.")
+        return
+    details = "\n".join(
+        _gpu_availability_lines(availability, groups, interval_seconds=interval_seconds, device_names=device_names)
+    )
+    if availability.blocked_slots:
+        logger.error("GPU AVAILABILITY ERROR\n{}", details)
+    else:
+        logger.warning("GPU INSPECTION WARNING - CONTINUING\n{}", details)
+
+
+def _gpu_dashboard_alert(
+    availability: GpuAvailability,
+    groups: tuple[tuple[str, ...], ...],
+    *,
+    interval_seconds: float,
+    device_names: Mapping[int, str] | None = None,
+) -> WorkflowAlert | None:
+    """Translate scheduling state into the dashboard's reusable alert model."""
+    if not availability.issues:
+        return None
+    from ...functions.live_dashboard import WorkflowAlert
+
+    blocked = bool(availability.blocked_slots)
+    return WorkflowAlert(
+        title="GPU AVAILABILITY ERROR" if blocked else "GPU INSPECTION WARNING - CONTINUING",
+        border_style="bright_red" if blocked else "yellow",
+        title_style="bold bright_red" if blocked else "bold yellow",
+        body_style="bold red" if blocked else "yellow",
+        lines=_gpu_availability_lines(
+            availability, groups, interval_seconds=interval_seconds, device_names=device_names
+        ),
+    )
+
+
 def _gpu_startup_message(groups: tuple[tuple[str, ...], ...]) -> None:
     """Exactly one external snapshot for an executing (nonempty) batch."""
     from ...functions.tuflow.gpu_occupancy import gpu_conflicts, gpu_ids_from_flags, local_gpu_occupancy
@@ -557,13 +851,13 @@ def _gpu_startup_message(groups: tuple[tuple[str, ...], ...]) -> None:
         logger.warning("Startup GPU inspection unavailable: {}; assignments are unknown.", exc)
         return
     if not snapshot.assigned and not snapshot.unknown_pids and not snapshot.inspection_incomplete:
-        logger.info("No other running local TUFLOW models detected.")
+        logger.success("No other running local TUFLOW models detected.")
     assigned = {identifier for process in snapshot.assigned for identifier in process.gpu_ids}
     capacity = [tuple(sorted(gpu_ids_from_flags(group))) for group in groups]
     configured_ids: set[int] = {identifier for group in capacity for identifier in group}
     if groups and capacity and all(group and set(group).intersection(assigned) for group in capacity):
         details = ", ".join(
-            f"PID {pid}: GPUs {sorted(identifiers)}"
+            f"PID {pid}: TUFLOW switches {', '.join(f'-pu{identifier}' for identifier in sorted(identifiers))}"
             for pid, identifiers in gpu_conflicts(configured_ids, snapshot.assigned)
         )
         logger.warning("All configured GPU groups appear occupied by external TUFLOW runs ({}).", details)
@@ -579,6 +873,48 @@ def _gpu_startup_message(groups: tuple[tuple[str, ...], ...]) -> None:
         logger.warning("At least one configured GPU group has no explicit device identifier.")
 
 
+def display_runner_path(value: str | PurePath, base: Path) -> str:
+    """Show project-relative paths without dereferencing links or changing I/O paths."""
+    filename, separator, layer = str(value).partition(" >> ")
+    path = Path(filename)
+    try:
+        shown = str(path.relative_to(base.absolute())) if path.is_absolute() else str(path)
+    except ValueError:
+        shown = str(path)
+    return f"{shown}{separator}{layer}"
+
+
+def _input_issue_message(issue: CommandPreflightIssue) -> str:
+    """Describe one attributed input failure without changing launch policy."""
+    run, finding = issue.run, issue.finding
+    base = Path(run.working_directory).absolute()
+
+    def display(value: str | PurePath) -> str:
+        return display_runner_path(value, base)
+
+    flags = " ".join(f"-{key} {value}" for key, value in run.flag_pairs)
+    selection = f" {flags}" if flags else ""
+    owner = (
+        display(finding.owner_control_file) if finding.owner_control_file is not None else "Not provided by validator"
+    )
+    if finding.line_number is not None:
+        owner = f"{owner}:{finding.line_number}"
+    detail = finding.detail
+    if finding.csv_columns:
+        columns = ", ".join(repr(column) for column in finding.csv_columns)
+        detail = f"{detail.rstrip('. ')}. Required CSV columns: {columns}."
+    return (
+        f"Input check run {run.index}: {finding.status.upper()} — {display(run.tcf)}{selection} "
+        f"({finding.kind or finding.origin or 'input'})\n"
+        f"  Source      : {display(run.source)}:{run.line_start}"
+        f"{f'-{run.line_end}' if run.line_end != run.line_start else ''}\n"
+        f"  Control file: {owner}\n"
+        f"  Command     : {finding.command_text or 'Full command not provided by validator'}\n"
+        f"  Reference   : {display(finding.reference)}\n"
+        f"  Detail      : {detail}"
+    )
+
+
 class AdvisoryInputCheck:
     """At most one daemon validation of the frozen plan; never gates launching."""
 
@@ -589,6 +925,7 @@ class AdvisoryInputCheck:
         self._lock = Lock()
         self._cancel = Event()
         self.finished = Event()
+        self.status = "Running"
         self._thread = Thread(target=self._work, name="tuflow-runner-preflight", daemon=True)
 
     def _work(self) -> None:
@@ -598,14 +935,11 @@ class AdvisoryInputCheck:
             # Keep upstream inspection inside this daemon. Thread-pool workers
             # are joined at interpreter exit and could hold shutdown on slow I/O.
             report = check_command_plan(self.plan, check_gpkg_layers=self._layers, io_workers=1)
+            status = "Passed" if report.passed else f"Issues: {len(report.issues)}"
             messages = [
                 (
                     "WARNING",
-                    (
-                        f"Input check run {issue.run.index} {issue.run.source}:{issue.run.line_start}: "
-                        f"[{issue.finding.status}] {issue.finding.origin}: "
-                        f"{issue.finding.reference} ({issue.finding.detail})"
-                    ),
+                    _input_issue_message(issue),
                 )
                 for issue in report.issues
             ]
@@ -619,9 +953,11 @@ class AdvisoryInputCheck:
                 )
             )
         except Exception as exc:  # noqa: BLE001 - advisory checks are never a launch prerequisite
+            status = "Incomplete"
             messages = [("WARNING", f"Input checking unavailable or incomplete: {type(exc).__name__}: {exc}")]
         with self._lock:
             if not self._cancel.is_set():
+                self.status = status
                 for message in messages:
                     self._messages.put(message)
             self.finished.set()
@@ -642,6 +978,7 @@ class AdvisoryInputCheck:
         with self._lock:
             if not self.finished.is_set():
                 self._cancel.set()
+                self.status = "Incomplete"
                 logger.warning("Input checking incomplete at shutdown; no all-clear is implied.")
         self.drain()
 
@@ -656,18 +993,11 @@ def check_plan_only(plan: CommandPlan, *, check_gpkg_layers: bool = True) -> boo
         logger.exception("Input checking failed or is unavailable.")
         return False
     for issue in report.issues:
-        logger.warning(
-            "Input check run {} {}:{} [{}] {}: {} ({})",
-            issue.run.index,
-            issue.run.source,
-            issue.run.line_start,
-            issue.finding.status,
-            issue.finding.origin,
-            issue.finding.reference,
-            issue.finding.detail,
-        )
+        logger.warning("{}", _input_issue_message(issue))
     if not report.passed:
         logger.error("Input checking failed or is incomplete: {}/{} completed", report.completed_runs, report.run_count)
+    else:
+        logger.success("Input check passed for {}/{} runs.", report.completed_runs, report.run_count)
     return report.passed
 
 
@@ -728,12 +1058,15 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
     interrupted: Event | None = None,
     popen: _ProcessFactory | None = None,
     advisory: AdvisoryInputCheck | None = None,
+    proposed_plan: CommandPlan | None = None,
 ) -> BatchOutcome:
     """Launch each immutable occurrence once, with its own cwd and argv.
 
     The prelaunch hook is called before Popen; the completion hook is called
     immediately when poll observes exit, *before* ordered console output.
     The hooks provide scope 04's append-only START/FINISH integration point.
+    proposed_plan supplies the complete pre-Resume selection for dashboard columns;
+    only plan is launched. Omit it when plan already contains all proposed runs.
     """
     if not plan.runs:
         message = "No selected simulations to launch"
@@ -754,6 +1087,9 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
     outcomes: list[RunOutcome] = []
     ordered: dict[int, RunOutcome] = {}
     next_print = 0
+    gpu_availability = GpuAvailability()
+    next_gpu_check = 0.0
+    gpu_status: str | None = "Checking" if settings.wait_for_available_gpu and groups else None
     has_configured_gpu = any(is_gpu_switch(token) for run in plan.runs for token in run.arguments)
     has_source_priority = any(run.start_options for run in plan.runs)
     if has_configured_gpu:
@@ -762,7 +1098,36 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
         logger.info("Imported START priority/minimise/wait hints are replaced by runner scheduling settings.")
     if stop.is_set():
         return BatchOutcome(tuple(plan.runs), (), True)
-    _gpu_startup_message(groups)
+    try:
+        device_names = local_cuda_device_names()
+    except Exception as exc:  # noqa: BLE001 - optional display metadata must not prevent launches
+        logger.warning("GPU name inspection failed; continuing with device IDs: {}", exc)
+        device_names = {}
+    if device_names:
+        logger.success(
+            "Local CUDA device mapping for this launch environment: {}",
+            "; ".join(gpu_device_label(identifier, device_names) for identifier in sorted(device_names)),
+        )
+    else:
+        logger.warning("CUDA device names unavailable; continuing with -puN identifiers.")
+    logger.info(
+        "-puN uses TUFLOW/CUDA order, not NVIDIA or Windows display indexes. "
+        "Names below describe this launch environment; external processes may use different CUDA ordering. "
+        "For older TUFLOW builds, verify device names in the model's .hpc.tlf."
+    )
+    if gpu_status is not None:
+        logger.info(
+            "Waiting for external GPU availability is enabled for {} configured group(s); recheck interval {}s.",
+            len(groups),
+            settings.gpu_check_interval_seconds,
+        )
+    else:
+        if settings.wait_for_available_gpu and not groups:
+            logger.warning(
+                "WAIT_FOR_AVAILABLE_GPU cannot protect automatic GPU placement. "
+                "Configure explicit -puN GPU_DEVICES to enable guarded scheduling."
+            )
+        _gpu_startup_message(groups)
 
     dashboard: LiveWorkflowDashboard | None = None
     # Resume keeps the original logical indices. The renderer owns separate,
@@ -792,6 +1157,7 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                 index=display_indices[result.run.index],
                 status="OK" if result.successful else "FAIL",
                 detail=result.error or f"Exit {result.return_code}",
+                metadata={"gpu": "Not launched"} if result.pid is None else None,
                 refresh=False,
             )
             dashboard.set_active_count(len(active), refresh=False)
@@ -813,21 +1179,29 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
     if settings.use_live_dashboard:
         from ...functions.live_dashboard import LiveWorkflowDashboard, WorkflowColumn
 
+        flag_keys = sorted({key for run in (proposed_plan or plan).runs + plan.runs for key, _ in run.flag_pairs})
         dashboard = LiveWorkflowDashboard(
             title="TUFLOW simulations",
+            subtitle="Batch: "
+            + (" ".join(flag for flag in shlex.split(settings.batch_commands) if not is_gpu_switch(flag)) or "(none)"),
             refresh_per_second=settings.live_refresh_per_second,
+            max_rows=settings.live_max_rows,
             transient=False,
             columns=(
                 WorkflowColumn("Run", "metadata", metadata_key="run_index", justify="right", no_wrap=True),
-                WorkflowColumn("Model", "label"),
+                *(WorkflowColumn(key, "metadata", metadata_key=key) for key in flag_keys),
+                WorkflowColumn("Model", "metadata", metadata_key="model", no_wrap=True, overflow="ellipsis"),
                 WorkflowColumn("Status", "status", no_wrap=True),
+                WorkflowColumn("GPU", "metadata", metadata_key="gpu", no_wrap=True),
                 WorkflowColumn("Duration", "duration", no_wrap=True),
                 WorkflowColumn("Detail", "detail"),
             ),
         )
         dashboard.set_tasks(
-            labels=[run.tcf.name for run in plan.runs],
-            metadata=[{"run_index": run.index} for run in plan.runs],
+            labels=[" ".join(f"{key} {value}" for key, value in run.flag_pairs) or "(no flags)" for run in plan.runs],
+            metadata=[
+                {"run_index": run.index, "model": run.tcf.name, "gpu": "Pending", **run.flags} for run in plan.runs
+            ],
         )
     with dashboard if dashboard is not None else nullcontext():
         try:
@@ -835,13 +1209,60 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                 if advisory is not None:
                     advisory.drain()
                 if dashboard is not None:
+                    metrics: dict[str, object] = {}
+                    if advisory is not None:
+                        metrics["Input checks"] = advisory.status
+                    if gpu_status is not None:
+                        metrics["GPU slots"] = gpu_status
+                    if metrics:
+                        dashboard.set_extra_metrics(metrics)
                     dashboard.refresh()
                 if stop.is_set():
                     break
-                poll_children()
+                if poll_children() and gpu_status is not None:
+                    next_gpu_check = 0.0
                 while queue and len(active) < capacity and not stop.is_set():
-                    slot = next((i for i in range(len(groups)) if i not in owned_slots), None) if groups else None
+                    if gpu_status is not None and time.monotonic() >= next_gpu_check:
+                        inspected_availability = _blocked_external_gpu_slots(
+                            groups, exclude_pids={child.process.pid for child in active}
+                        )
+                        _log_gpu_availability_transition(
+                            inspected_availability,
+                            gpu_availability,
+                            groups,
+                            interval_seconds=settings.gpu_check_interval_seconds,
+                            device_names=device_names,
+                        )
+                        gpu_availability = inspected_availability
+                        if dashboard is not None:
+                            dashboard.set_alert(
+                                _gpu_dashboard_alert(
+                                    gpu_availability,
+                                    groups,
+                                    interval_seconds=settings.gpu_check_interval_seconds,
+                                    device_names=device_names,
+                                ),
+                                refresh=False,
+                            )
+                        gpu_status = f"{len(groups) - len(gpu_availability.blocked_slots)}/{len(groups)} eligible"
+                        if any(issue.kind != "occupied" for issue in gpu_availability.issues):
+                            gpu_status += " (inspection uncertain)"
+                        next_gpu_check = time.monotonic() + settings.gpu_check_interval_seconds
+                    slot = (
+                        next(
+                            (
+                                i
+                                for i in range(len(groups))
+                                if i not in owned_slots and i not in gpu_availability.blocked_slots
+                            ),
+                            None,
+                        )
+                        if groups
+                        else None
+                    )
                     if groups and slot is None:
+                        break
+                    if stop.is_set():
                         break
                     run = queue.popleft()
                     group = groups[slot] if slot is not None else ()
@@ -868,25 +1289,49 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                     except Exception as exc:  # noqa: BLE001 - keep ownership after Popen succeeds
                         logger.warning("PID {} launched but process priority could not be set: {}", process.pid, exc)
                     logger.info(
-                        "Launched run {} ({} selected) PID {}: {}", run.index, len(plan.runs), process.pid, args
+                        "Launched run {} ({} selected) PID {} [{}]: {}",
+                        run.index,
+                        len(plan.runs),
+                        process.pid,
+                        gpu_group_label(group, device_names),
+                        subprocess.list2cmdline(
+                            [
+                                display_runner_path(args[0], settings.working_directory),
+                                *args[1:-1],
+                                display_runner_path(args[-1], settings.working_directory),
+                            ]
+                        ),
                     )
                     if dashboard is not None:
                         dashboard.mark_running(
-                            index=display_indices[run.index], detail=f"PID {process.pid}", refresh=False
+                            index=display_indices[run.index],
+                            detail=f"PID {process.pid}",
+                            metadata={"gpu": gpu_group_label(group, device_names)},
+                            refresh=False,
                         )
                         dashboard.set_active_count(len(active), refresh=False)
                         dashboard.refresh(force=True)
                     if queue and settings.wait_time_after_run:
                         time.sleep(settings.wait_time_after_run)
-                    poll_children()
+                    if poll_children() and gpu_status is not None:
+                        next_gpu_check = 0.0
                 if active:
                     time.sleep(0.1)
+                elif queue and gpu_status is not None:
+                    # No owned children: wait interruptibly without rescanning or waking at child-poll frequency.
+                    remaining = max(0.0, next_gpu_check - time.monotonic())
+                    dashboard_interval = 1.0 / settings.live_refresh_per_second if dashboard is not None else remaining
+                    stop.wait(min(dashboard_interval, remaining))
             if stop.is_set():
                 logger.warning("Batch interrupted. Terminating owned child processes.")
                 _stop_children(active)
                 poll_children()
             if advisory is not None:
                 advisory.drain()
+                if dashboard is not None:
+                    dashboard.set_extra_metrics(
+                        {"Input checks": advisory.status if advisory.finished.is_set() else "Incomplete"}
+                    )
         finally:
             if active:
                 _stop_children(active)

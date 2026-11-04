@@ -1,7 +1,8 @@
 """Read TUFLOW selections from BAT/TXT as inert text, never executing shell code.
 
 This is NOT a general cmd.exe interpreter. Unsupported flow control, shell
-operators, delayed expansion and CALL fail before a partial plan is returned.
+operators and CALL fail before a partial plan is returned. Literal exclamation
+marks are removed and reported because delayed expansion is not interpreted.
 Windows path calculations are lexical and can be tested on other platforms.
 """
 
@@ -78,6 +79,15 @@ class DirectoryRequirement:
 
 
 @dataclass(frozen=True, slots=True)
+class IgnoredExclamation:
+    """Literal exclamation marks removed from one physical source line."""
+
+    source: PurePath
+    line: int
+    count: int
+
+
+@dataclass(frozen=True, slots=True)
 class CommandPlan:
     """All selected runs; construction raises rather than returning partial work."""
 
@@ -90,6 +100,7 @@ class CommandPlan:
     # directory requirement carries its own source for multi-file aggregation.
     source_files: tuple[PurePath, ...] = ()
     duplicates_dropped: int = 0
+    ignored_exclamations: tuple[IgnoredExclamation, ...] = ()
 
     def manifest(self) -> list[dict[str, object]]:
         """Return private, JSON-serialisable provenance, not benchmark acceptance."""
@@ -231,10 +242,20 @@ def _expand(text: str, environment: Mapping[str, str], source: PurePath, cwd: Pu
         raise ValueError(message)
 
     result = _VARIABLE.sub(replace, text)
-    if "%" in result or "!" in result:
-        message = "Unresolved percent expression or delayed expansion is unsupported"
+    if "%" in result:
+        message = "Unresolved percent expression is unsupported"
         raise ValueError(message)
     return result
+
+
+def _remove_exclamations(text: str, source: PurePath) -> tuple[str, tuple[IgnoredExclamation, ...]]:
+    """Remove every literal ``!`` while retaining auditable source locations."""
+    ignored = tuple(
+        IgnoredExclamation(source=source, line=line_number, count=line.count("!"))
+        for line_number, line in enumerate(text.splitlines(), 1)
+        if "!" in line
+    )
+    return text.replace("!", ""), ignored
 
 
 def is_gpu_switch(token: str) -> bool:
@@ -654,6 +675,7 @@ def parse_command_plan(
         raise CommandPlanError(message)
     config_base = configuration_directory if configuration_directory is not None else initial_directory
     python_tcf = _configured_tcf(fallback_tcf, source=source, configuration_directory=config_base)
+    sanitized_text, ignored_exclamations = _remove_exclamations(text, source)
     reader = _Reader(
         source,
         initial_directory,
@@ -664,7 +686,7 @@ def parse_command_plan(
     reader.directories.append(DirectoryRequirement(initial_directory, 0, source))
     start, end = 1, 1
     try:
-        for start, end, raw in _statements(text.lstrip("\ufeff"), syntax):
+        for start, end, raw in _statements(sanitized_text.lstrip("\ufeff"), syntax):
             reader.statement(raw, start, end)
             if reader.stopped:
                 break
@@ -676,7 +698,15 @@ def parse_command_plan(
         raise CommandPlanError(message)
     _require_matching_tcf(reader.runs, python_tcf)
     return deduplicate_plan(
-        CommandPlan(source, tuple(reader.runs), tuple(reader.directories), reader.ignored, syntax, (source,))
+        CommandPlan(
+            source,
+            tuple(reader.runs),
+            tuple(reader.directories),
+            reader.ignored,
+            syntax,
+            (source,),
+            ignored_exclamations=ignored_exclamations,
+        )
     )
 
 
@@ -767,5 +797,6 @@ def read_command_plans(
             syntax=merged_syntax,
             source_files=tuple(plan.source for plan in plans),
             duplicates_dropped=sum(plan.duplicates_dropped for plan in plans),
+            ignored_exclamations=tuple(ignored for plan in plans for ignored in plan.ignored_exclamations),
         )
     )

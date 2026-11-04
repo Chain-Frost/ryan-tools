@@ -55,6 +55,22 @@ level. A redirected terminal must not receive repeated Rich frames or ANSI
 cursor controls. Report the whole workflow through aggregation/export and
 emit one truthful final outcome, including failed/partial reports.
 
+## Live dashboards and copied wrappers
+
+The default stdout sink follows `sys.stdout` at each write. Configure serial logging
+before entering a Rich `Live` dashboard as usual: Rich can then clear the live region,
+print each message above it and redraw the table. Capturing `sys.stdout` directly when
+adding a sink bypasses that later redirection and can leave repeated partial panels.
+This default also supports older copied TUFLOW runners that do not supply a custom
+`console_sink`. Explicit console writers and notebook stderr routing remain unchanged.
+
+Installing a corrected library affects newly started Python processes; it does not
+repair an already running dashboard or remove old terminal scrollback. Terminal
+reconnection/reflow can still leave display artifacts. For a future unattended run,
+the TUFLOW wrapper accepts `--no-live-dashboard` for ordinary logging.
+Multiprocessing listeners have their own stdout; this does not route a separate
+listener process through a parent process's Rich display.
+
 ## Jupyter notebooks
 
 Notebook cells can be rerun many times. Use the notebook helper, which replaces existing sinks on every call instead

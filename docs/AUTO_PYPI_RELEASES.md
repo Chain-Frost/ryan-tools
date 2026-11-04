@@ -37,6 +37,12 @@ the next released main revision.
 
 ## Cutover and recovery
 
+- Package CI and the publisher install their wheel-smoke dependencies from
+  `repo-scripts/wheel-smoke-requirements.txt`. Keep this shared list current
+  when installed-wrapper smoke checks need another dependency.
+- The active `v*` tag ruleset requires `Policy`, `Hosted tests`, `Package`
+  and `MCP smoke`. When renaming a required CI job, update both the main
+  branch and tag rulesets while retaining their other protections.
 - The marker's first addition to main history defines the cutover. The marker
   merge itself is deliberately not a release.
 - There are **no hourly, daily, scheduled, manual or release-published

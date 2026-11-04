@@ -105,6 +105,7 @@ def test_launches_during_held_advisory_and_delivers_all_findings(
     advisory.start()
     try:
         assert started.wait(2)
+        assert advisory.status == "Running"
 
         def popen(**_kwargs: object) -> FakeProcess:
             assert not release.is_set()
@@ -116,6 +117,7 @@ def test_launches_during_held_advisory_and_delivers_all_findings(
         assert len(launched) == 2
         release.set()
         assert advisory.finished.wait(3)
+        assert advisory.status == "Issues: 25"
         advisory.drain()
         assert sum("Input check run" in record.message for record in caplog.records) == 25
         assert "passed for" not in caplog.text
@@ -143,6 +145,7 @@ def test_shutdown_never_waits_for_slow_io_or_produces_late_all_clear(
         assert started.wait(2)
         advisory.close()
         assert "incomplete at shutdown" in caplog.text
+        assert advisory.status == "Incomplete"
     finally:
         release.set()
         assert advisory.finished.wait(2)
@@ -167,6 +170,10 @@ def test_preflight_only_reports_every_finding_and_fails_closed(
     caplog.set_level(logging.INFO)
     assert runner.check_plan_only(plan) is False
     assert sum("Input check run" in record.message for record in caplog.records) == 13
+    assert "Control file:" in caplog.text
+    assert "Source      :" in caplog.text
+    assert "Command     : Full command not provided by validator" in caplog.text
+    assert str(plan.runs[0].tcf.name) in caplog.text
 
     def unavailable(*_args: object, **_kwargs: object) -> CommandPreflightReport:
         message = "public API unavailable"
@@ -194,7 +201,7 @@ def test_gpu_inspected_only_once_and_inspection_uncertainty_is_not_all_clear(
 
     monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", snapshot)
     monkeypatch.setattr(runner, "_apply_priority", _no_op)
-    config = settings(tmp_path, gpu_devices=(("-pu0",),))
+    config = settings(tmp_path, gpu_devices=(("-pu0",),), wait_for_available_gpu=False)
     plan = runner.prepare_plan(config)
     caplog.set_level(logging.INFO)
     count: list[int] = []
@@ -221,11 +228,19 @@ def test_no_external_models_message_never_claims_overcapacity(
     monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", lambda: GpuOccupancySnapshot((), (), False))
     monkeypatch.setattr(runner, "_apply_priority", _no_op)
     config = settings(tmp_path)
-    caplog.set_level(logging.INFO)
+    caplog.set_level(logger.level("SUCCESS").no)
 
     def popen(**_kwargs: object) -> FakeProcess:
         return FakeProcess(123)
 
     runner.launch_plan(runner.prepare_plan(config), config, popen=popen)
     assert "No other running local TUFLOW models detected" in caplog.text
+    assert (
+        next(
+            record.levelno
+            for record in caplog.records
+            if "No other running local TUFLOW models detected" in record.message
+        )
+        == logger.level("SUCCESS").no
+    )
     assert "All configured GPU groups appear occupied" not in caplog.text

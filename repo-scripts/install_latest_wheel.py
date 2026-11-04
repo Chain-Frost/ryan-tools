@@ -44,6 +44,7 @@ def _pip_install_command(*, disable_bytecode: bool = False) -> list[str]:
         "pip",
         "install",
         "--upgrade",
+        "--ignore-requires-python",
         *(["--no-compile"] if disable_bytecode else []),
     ]
 

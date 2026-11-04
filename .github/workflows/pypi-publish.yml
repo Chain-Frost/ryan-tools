@@ -227,11 +227,10 @@ jobs:
           '@ | python -
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Install packaging tools
+      - name: Install packaging and smoke-test dependencies
         shell: pwsh
         run: |
-          # The shared wheel smoke exercises registered MCP validation as well as direct helpers.
-          python -m pip install --upgrade build setuptools wheel twine pandas loguru "mcp[cli]>=2.1,<3"
+          python -m pip install --upgrade build setuptools wheel twine -r repo-scripts/wheel-smoke-requirements.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Build and verify current version

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import csv
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Literal, Protocol, cast
 
@@ -35,9 +35,18 @@ class _Finding(Protocol):
     csv_columns: tuple[str, ...] | None
 
 
+class _InputCommand(Protocol):
+    input_uuid: str
+    command_index: int
+    owner_control_file: Path | None
+    line_number: int
+    command_text: str
+
+
 class _DependencyRun(Protocol):
     index: int
     error: str | None
+    ordered_inputs: tuple[_InputCommand, ...]
 
 
 class _Dependencies(Protocol):
@@ -103,6 +112,8 @@ class PreflightIssue:
     command_index: int = -1
     csv_columns: tuple[str, ...] | None = None
     source_pattern: Path | None = None
+    command_text: str = ""
+    line_number: int | None = None
 
 
 @dataclass(slots=True)
@@ -301,7 +312,19 @@ def check_simulation_inputs(  # noqa: C901 - fail-closed public result validatio
             if finding.path is not None:
                 report.checked_paths.add(str(finding.path))
             continue
-        report.issues.append(_issue(finding, by_position[position]))
+        issue = _issue(finding, by_position[position])
+        commands = cast(tuple[_InputCommand, ...], getattr(run_results[indices.index(position)], "ordered_inputs", ()))
+        matches = [
+            command
+            for command in commands
+            if command.input_uuid == finding.input_uuid
+            and command.command_index == finding.command_index
+            and command.owner_control_file == finding.owner_control_file
+        ]
+        if len(matches) == 1:
+            command = matches[0]
+            issue = replace(issue, command_text=command.command_text.strip(), line_number=command.line_number)
+        report.issues.append(issue)
         if finding.path is not None:
             report.checked_paths.add(str(finding.path))
 

@@ -11,7 +11,7 @@
 | Branch / base | `feat/batch-dashboard-foundation-180` -> `main` |
 | Issue | [#180](https://github.com/Chain-Frost/ryan-tools/issues/180), dashboard foundation and resumed wrapper/script audit |
 | Dependent work | [TUFLOW result dashboard adoption](2026-11-01-tuflow-result-dashboards-180.md) |
-| Delivery | PR #183 head 6d1178ce remains published/unmerged. Eleven entry-point fixes plus audit records are local, unstaged and uncommitted; 105 selected tests and final five PO-label checks pass. Issues #194-#200 are published for separate stacked PRs. |
+| Delivery | Audit patch published as 50cf9c6e on #183. Current-main reconciliation validated locally; hosted checks pending on the merge head. Office #199 remains a separate stacked branch. |
 
 ## Outcome and scope
 
@@ -369,3 +369,22 @@ The user requested GitHub delivery and further work. Publish the validated wrapp
 audit patch to #183, then address #199 in a separate branch stacked on that head.
 The local-only delivery statements above describe the preceding audit milestone.
 No merge or release is authorized. Hosted checks must be verified on the new heads.
+
+
+### Current-main reconciliation
+
+Audit commit 50cf9c6e is published on #183. GitHub reported merge conflicts,
+which prevent pull-request checks from starting. Reconciled main ec873425 in a
+normal merge, preserving WorkflowMetric/phase/outcome support and WorkflowAlert,
+live stdout routing, current release smoke dependencies plus the required MCP
+SDK, current main inventory/lifecycle decisions and both sets of work records.
+No changes were merged into main.
+
+Validation: 85 dashboard/logging/wrapper checks plus 165 integration/release
+checks pass (2 skips); strict Pyright for the merged dashboard/logging files,
+Ruff, docs and Loguru policy pass. No-bump build 26.11.3.9 verifies; SHA-256
+1ab2a0fa72aff3513cc1bf49c00bfb32739584faf242137ce33931b7357b6781.
+Current static inventory is 156 tracked, 83 selected, 33 MCP targets. The earlier
+151/85/34 and per-entry CLI evidence remain explicitly historical. Hosted
+acceptance must now run on the merge head. Office issue #199 is implemented in
+a separate child branch awaiting this parent integration.

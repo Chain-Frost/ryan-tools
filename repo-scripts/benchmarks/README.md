@@ -29,3 +29,17 @@ py -3.14 repo-scripts\benchmarks\benchmark_dataframe_backends.py --input-glob "r
 
 Backend timings include different conversion and feature scopes, so compare like-for-like actions and validate output
 semantics before choosing an implementation.
+
+## TUFLOW GPU polling
+
+`benchmark_tuflow_gpu_polling.py` measures read-only local TUFLOW process inspection, CodeMeter WebAdmin snapshots and
+their combined cost. It records individual wall-time, CPU-time and RSS-delta samples plus median, 95th percentile and
+maximum summaries:
+
+```powershell
+py -3.14 repo-scripts\benchmarks\benchmark_tuflow_gpu_polling.py --scenario "GPU 0 occupied" --samples 30
+```
+
+Run it only alongside independently observed hardware states. CodeMeter allocations are licence evidence, not physical
+GPU IDs. The complete two-GPU procedure and interpretation rules are in
+[`TUFLOW_GPU_CODEMETER_VALIDATION.md`](../../docs/TUFLOW_GPU_CODEMETER_VALIDATION.md).

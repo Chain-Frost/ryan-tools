@@ -323,8 +323,7 @@ jobs:
       - name: Install packaging and smoke-test dependencies
         shell: pwsh
         run: |
-          # Include the declared MCP extra's SDK range for registered-tool wheel acceptance.
-          python -m pip install build pandas loguru openpyxl psutil rich colorama "mcp[cli]>=2.1,<3" "run-hy8>=2026.10.16.1" "ryan-culverts>=26.10.16.1"
+          python -m pip install build -r repo-scripts/wheel-smoke-requirements.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Build fresh current-version wheel and verify

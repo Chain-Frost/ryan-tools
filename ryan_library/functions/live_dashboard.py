@@ -21,11 +21,12 @@ from typing import Literal
 
 import colorama
 from rich import box
-from rich.console import Console, Group
+from rich.console import Console, Group, RenderableType
 from rich.live import Live
 from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
+from rich.text import Text
 
 WorkflowStatus = Literal["QUEUED", "RUNNING", "OK", "SKIP", "FAIL"]
 WorkflowColumnSource = Literal["index", "status", "duration", "label", "detail", "metadata"]
@@ -126,6 +127,17 @@ def validate_dashboard_settings(*, refresh_per_second: float, max_rows: int) -> 
         raise ValueError(msg)
 
 
+@dataclass(slots=True, frozen=True)
+class WorkflowAlert:
+    """Persistent workflow alert rendered above the normal dashboard panel."""
+
+    title: str
+    lines: tuple[str, ...]
+    border_style: str = "bright_red"
+    title_style: str = "bold bright_red"
+    body_style: str = "bold red"
+
+
 DEFAULT_WORKFLOW_COLUMNS: tuple[WorkflowColumn, ...] = (
     WorkflowColumn(header="#", source="index", justify="right", no_wrap=True),
     WorkflowColumn(header="State", source="status", no_wrap=True),
@@ -181,6 +193,8 @@ class LiveWorkflowDashboard:
         self._phase: WorkflowPhase = "Queued"
         self._context_depth: int = 0
         self._final_summary_sent: bool = False
+
+        self._alert: WorkflowAlert | None = None
 
     def __enter__(self) -> LiveWorkflowDashboard:
         self._context_depth += 1
@@ -286,6 +300,12 @@ class LiveWorkflowDashboard:
                 f"{self.title}: {outcome} (OK {counts['OK']}, SKIP {counts['SKIP']}, FAIL {counts['FAIL']}){suffix}"
             )
 
+    def set_alert(self, alert: WorkflowAlert | None, *, refresh: bool = True) -> None:
+        """Show, replace, or clear one persistent alert above the dashboard."""
+        self._alert = alert
+        if refresh:
+            self.refresh(force=True)
+
     def mark_running(
         self,
         *,
@@ -347,15 +367,24 @@ class LiveWorkflowDashboard:
             self._live.update(self._render(), refresh=True)
             self._last_refresh = now_monotonic
 
-    def _render(self) -> Panel:
+    def _render(self) -> RenderableType:
         summary: Table = self._build_summary()
         task_table: Table = self._build_task_table()
-        return Panel(
+        dashboard_panel = Panel(
             Group(summary, task_table),
             title=self.title,
             subtitle=self.subtitle,
             border_style="cyan",
         )
+        if self._alert is None:
+            return dashboard_panel
+        alert_panel = Panel(
+            Text("\n".join(self._alert.lines), style=self._alert.body_style),
+            title=Text(self._alert.title, style=self._alert.title_style),
+            border_style=self._alert.border_style,
+            expand=True,
+        )
+        return Group(alert_panel, dashboard_panel)
 
     def _build_summary(self) -> Table:
         effective_max_rows: int = self._effective_max_rows()
@@ -459,7 +488,8 @@ class LiveWorkflowDashboard:
     def _effective_max_rows(self) -> int:
         """Clamp visible task rows so the live region fits in the terminal."""
         terminal_height: int = self.console.size.height
-        safe_rows: int = max(terminal_height - _LIVE_PANEL_FIXED_ROW_ALLOWANCE, 1)
+        alert_rows = len(self._alert.lines) + 2 if self._alert is not None else 0
+        safe_rows: int = max(terminal_height - _LIVE_PANEL_FIXED_ROW_ALLOWANCE - alert_rows, 1)
         return min(self.max_rows, safe_rows)
 
     def _format_row_limit(self, *, effective_max_rows: int) -> str:

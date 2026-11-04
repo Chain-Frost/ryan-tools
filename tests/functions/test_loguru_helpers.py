@@ -10,10 +10,34 @@ from pathlib import Path
 import pytest
 from loguru import logger
 
-from ryan_library.functions.loguru_helpers import configure_notebook_logging, setup_logger
+from ryan_library.functions.loguru_helpers import configure_notebook_logging, log_settings, setup_logger
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 HARNESS = REPO_ROOT / "tests" / "support" / "loguru_multiprocessing_harness.py"
+
+
+def test_settings_colours_preserve_literal_values_and_plain_file_output(tmp_path: Path) -> None:
+    coloured: list[str] = []
+    log_file = tmp_path / "settings.log"
+    console_sink = logger.add(coloured.append, colorize=True, format="{message}")
+    file_sink = logger.add(log_file, colorize=False, format="{message}")
+    try:
+        log_settings(
+            "Settings",
+            {"DEFAULT": False, "CHANGED": 0, "PATH": "<red>{model}</red>", "FLAGS": {"e2": "B A", "e1": ["A"]}},
+            {"DEFAULT": False, "CHANGED": 2},
+        )
+    finally:
+        logger.remove(console_sink)
+        logger.remove(file_sink)
+    output = "".join(coloured)
+    assert "\x1b[90m  DEFAULT: False\x1b[0m" in output
+    assert "\x1b[36m  CHANGED: 0\x1b[0m" in output
+    assert "\x1b[36m  PATH: <red>{model}</red>\x1b[0m" in output
+    plain = log_file.read_text(encoding="utf-8")
+    assert "\x1b[" not in plain
+    assert "PATH: <red>{model}</red>" in plain
+    assert "FLAGS: {\n    'e2': 'B A',\n    'e1': ['A'],\n  }" in plain
 
 
 def run_harness(*args: str) -> subprocess.CompletedProcess[str]:
