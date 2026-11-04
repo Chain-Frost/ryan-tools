@@ -32,6 +32,7 @@ class _WrapperMain(Protocol):
 class _SuccessfulGroup:
     run_count: int
     issues: list[object] = field(default_factory=list[object])
+    warnings: list[object] = field(default_factory=list[object])
     checked_paths: set[str] = field(default_factory=set[str])
     parse_seconds: float = 0.0
     context_seconds: float = 0.0
