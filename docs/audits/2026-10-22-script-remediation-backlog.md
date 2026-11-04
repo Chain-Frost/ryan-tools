@@ -138,3 +138,31 @@ closed by an explicit decision** and must not be treated as still blocked.
 The [original A–F requirements](2026-10-17-installed-scripts-original-requirements.md)
 remain authoritative. PR #137 stays open until the required A/B work is
 implemented or deliberately deferred through a visible maintainer decision.
+
+
+## Issue #180 continuation — 2026-11-04
+
+Baseline: PR #183 `6d1178ce`, clean parent worktree. All 151 tracked entries were
+reconciled with the existing static auditor: 85 wheel files, 34 MCP targets,
+no missing catalogue paths or conservative import-policy failures. This does
+not upgrade the existing lifecycle/engineering acceptance of any row.
+
+| Existing ID | Current finding / disposition | Evidence and remaining work |
+| --- | --- | --- |
+| AB-025 / AB-032 | Six culvert/PO/POMM dashboard wrappers expand home paths before joining WORKING_DIR and convert configuration errors to exit 1 before changing directory. Log-summary home paths also corrected. | Focused path/configuration tests; local unstaged changes. Discovery and export outcomes still need #194/#195. |
+| AB-025 / AB-032 | PO peak, stability and closure wrappers normalize the working directory before chdir; default relative roots no longer become job/job. Editable pause added. | Actual chdir regressions cover default and explicit relative input roots. Dashboard integration remains #198. |
+| AB-024 | PO label utility now requires a selected input rather than a project-specific default; editable LAYER and --version added; SQLite is read-only and explicitly closed; output uses exclusive creation. | Existing-output and missing-database safety regressions plus copied synthetic label export. Native GeoPackage semantics remain unverified. |
+| AB-025 / AB-032 | [#194](https://github.com/Chain-Frost/ryan-tools/issues/194): shared exporter swallows Parquet failures and permits report collisions. | Disposable PermissionError injection returned normally with zero files. Minute-resolution Excel naming and direct write are source-reviewed. Separate stacked PR. |
+| AB-025 / AB-032 | [#195](https://github.com/Chain-Frost/ryan-tools/issues/195): invalid/missing scan roots and unsupported types collapse into valid-empty outcomes. | Missing-root collect_files probe returned an empty list. Partial discovery, zero-byte and selection validation need shared outcome design. Separate stacked PR. |
+| AB-009 | [#196](https://github.com/Chain-Frost/ryan-tools/issues/196): master-log append does not carry failure accounting/dashboard lifecycle through workbook saving. | Source review of wrapper, append orchestrator and workbook helper; preserve duplicate/table semantics in separate PR. |
+| AB-019 | [#197](https://github.com/Chain-Frost/ryan-tools/issues/197): dotted folder names collide; archive failure cleanup can delete an existing destination. | Disposable subprocess-failure injection deleted a pre-existing sentinel archive; no 7-Zip process launched. Separate safety PR before broader dashboard adoption. |
+| AB-025 / AB-032 | [#198](https://github.com/Chain-Frost/ryan-tools/issues/198): remaining POMM mean/median, PO peak/stability and closure workflows need consistent supported dashboard options and outcomes. | Shared CLI advertises options ignored by wrappers; call-chain/source evidence. Use existing renderer, preserve engineering algorithms, implement in stacked PR. |
+| AB-027 | [#199](https://github.com/Chain-Frost/ryan-tools/issues/199): Office worksheet member paths escape owned extraction staging; predictable temp/output paths also collide. | A synthetic ZIP with a traversal worksheet name changed an external disposable XML sentinel and returned True. No real document used. Separate safety PR. |
+| AB-021 | [#200](https://github.com/Chain-Frost/ryan-tools/issues/200): cutline clipping overwrites outputs/sources and overrides tagged source CRS with DEFAULT_CRS. | Source-reviewed predictable staging unlink, replace and WarpOptions. Native GDAL output reproduction remains required. Separate PR. |
+
+Prioritise #199 and #197 for data safety, then #194/#195 for truthful reports,
+#200 for raster safety, and #196/#198 for consistent workflow dashboards.
+No existing AB ID is closed by this pass. AB-008 remains deliberately deferred;
+AB-023 remains accepted and is not reopened. No lifecycle/package/MCP membership
+was changed. The PO label utility remains a narrow helper rather than gaining a
+duplicate MCP endpoint; existing catalogued result interfaces are unchanged.

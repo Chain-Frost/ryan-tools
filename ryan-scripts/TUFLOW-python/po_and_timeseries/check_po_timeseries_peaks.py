@@ -9,7 +9,8 @@ import os
 from pathlib import Path
 from typing import Literal
 
-WRAPPER_VERSION = "2026-08-02.1"
+WRAPPER_VERSION = "2026-11-04.1"
+PAUSE_ON_FINISH = True
 
 # TODO: make it more like the other wrappers, more CLI options.
 
@@ -77,7 +78,15 @@ def main(
     """
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
 
-    script_directory: Path = working_directory or WORKING_DIR
+    script_directory: Path = (
+        Path(working_directory if working_directory is not None else WORKING_DIR).expanduser().absolute()
+    )
+    configured_paths = PATHS_TO_PROCESS if paths_to_process is None else paths_to_process
+    effective_paths_to_process = [
+        path.absolute() if path.is_absolute() else (script_directory / path).absolute()
+        for configured_path in (configured_paths or (script_directory,))
+        for path in (Path(configured_path).expanduser(),)
+    ]
     if not change_working_directory(target_dir=script_directory):
         return 1
 
@@ -85,7 +94,6 @@ def main(
     effective_data_types: tuple[str, ...] = include_data_types or DATATYPE_INCLUDE
     effective_locations: tuple[str, ...] | tuple[()] = locations_to_include or (LOCATION_INCLUDE or ())
     effective_export_mode: Literal["excel", "parquet", "both"] = export_mode or EXPORT_MODE
-    effective_paths_to_process: list[Path] = list(paths_to_process or PATHS_TO_PROCESS or (script_directory,))
 
     main_processing(
         paths_to_process=effective_paths_to_process,
@@ -134,6 +142,7 @@ if __name__ == "__main__":
         wrapper_version=WRAPPER_VERSION,
         leading_blank_line=True,
     )
-    if not common_options.no_pause:
+    should_pause = PAUSE_ON_FINISH if common_options.pause_on_finish is None else common_options.pause_on_finish
+    if should_pause:
         pause_console()
     raise SystemExit(result)

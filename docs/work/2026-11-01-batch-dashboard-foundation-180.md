@@ -5,13 +5,13 @@
 | Status | Needs final review — #184 and #186 consolidated into PR #183; main unchanged |
 | Owner | ChatGPT (foundation recovery) |
 | Created | 2026-11-01 |
-| Updated | 2026-11-01 |
-| Next review | 2026-11-08 |
+| Updated | 2026-11-04 |
+| Next review | 2026-11-05 |
 | Baseline | main at `99cd3ccaaabd83b682392f7e285d90b570d353cb` (merged PR #159) |
 | Branch / base | `feat/batch-dashboard-foundation-180` -> `main` |
-| Issue | [#180](https://github.com/Chain-Frost/ryan-tools/issues/180), bounded dashboard work |
+| Issue | [#180](https://github.com/Chain-Frost/ryan-tools/issues/180), dashboard foundation and resumed wrapper/script audit |
 | Dependent work | [TUFLOW result dashboard adoption](2026-11-01-tuflow-result-dashboards-180.md) |
-| Delivery | Foundation implemented at `023253ed`; consolidated dashboard/PO/MCP code `beb5a2c5526aed3229daa4a4bcee3e7995a7a7c0` passed six Windows checks (2,013 hosted tests). PR #183 is open and unmerged into main. |
+| Delivery | PR #183 head 6d1178ce remains published/unmerged. Eleven entry-point fixes plus audit records are local, unstaged and uncommitted; 105 selected tests and final five PO-label checks pass. Issues #194-#200 are published for separate stacked PRs. |
 
 ## Outcome and scope
 
@@ -282,3 +282,90 @@ lost to routine dashboard refresh throttling just before a blocking export.
 `set_phase` now forces a render, while ordinary item and metric updates retain
 the configured throttle. A focused regression asserts this separation.
 Fresh Windows CI and review evidence remain required before final acceptance.
+
+
+## 2026-11-04 — broader issue #180 audit continuation
+
+The user resumed the all-wrapper/script audit on #183 and requested separate
+issues for broader orchestrator/processor defects and appropriate dashboard use.
+The checkout began clean on `feat/batch-dashboard-foundation-180`, matching
+published PR head `6d1178ce9e0c282b107ee925027c7c848e75cd0d`. Earlier pending
+RLL_Qmx/phase fixes are already in that baseline, not newly pending work.
+
+### Current result
+
+- Eleven TUFLOW entry points have bounded local fixes: six result dashboard
+  wrappers now expand home paths before joining the working directory and
+  convert configuration failures to exit 1; the log summary also expands home
+  paths; three PO analysis wrappers no longer apply relative working directories
+  twice and expose editable pausing; PO label export uses a selected input,
+  read-only/closed SQLite connection and exclusive output creation.
+- Preserve processing algorithms, dashboard defaults and existing shared APIs.
+  No library/orchestrator changes are mixed into these wrapper fixes.
+- Seven independently reviewable issues were raised: [#194](https://github.com/Chain-Frost/ryan-tools/issues/194)
+  export failure/collisions, [#195](https://github.com/Chain-Frost/ryan-tools/issues/195)
+  discovery outcomes, [#196](https://github.com/Chain-Frost/ryan-tools/issues/196)
+  master append, [#197](https://github.com/Chain-Frost/ryan-tools/issues/197)
+  archive publication, [#198](https://github.com/Chain-Frost/ryan-tools/issues/198)
+  remaining result dashboards, [#199](https://github.com/Chain-Frost/ryan-tools/issues/199)
+  Office containment/publication and [#200](https://github.com/Chain-Frost/ryan-tools/issues/200)
+  cutline safety/CRS. They are for separate stacked PRs, not fixed here.
+- Existing inventory and AB backlog remain authoritative. All 151 tracked entries
+  reconcile (85 wheel files, 66 excluded, 34 MCP targets). No lifecycle or MCP
+  membership changes; AB-008 stays deferred and AB-023 stays closed.
+- Disposable probes reproduce swallowed Parquet PermissionError (normal return,
+  zero outputs), missing-root empty discovery, archive failure deleting an existing
+  sentinel, and Office worksheet traversal modifying an external sentinel while
+  reporting success. No production files, licensed solver or real Office document
+  was used. Cutline CRS behavior is source-reviewed, not native validated.
+
+### Validation and delivery
+
+Windows, normal Python 3.14.6, 2026-11-04:
+
+- Focused wrapper checks: **105 passed in 38.16 seconds** across result wrappers,
+  PO label safety, generic wrappers, copied behavior/help, GDAL wrapper configuration,
+  editable defaults, archive folder wrapper, file inventory and RORB hydrographs.
+- `python -m ruff format`, `python -m ruff check` and strict `python -m pyright`
+  on the 13 modified/new Python files: pass; Pyright 0 errors/warnings.
+- A final PO-label follow-up preserves UNC spelling in SQLite read-only URIs
+  without requiring URI-authority support: 5 focused label checks pass (15
+  unrelated tests deselected). The UNC test intercepts connect before network
+  access; it does not claim a live share test. Final label help/version also pass.
+- All 74 wheel-selected Python entry points compile (excluding __init__ resources);
+  all 66 guarded argparse entry points pass --help subprocess checks against the
+  final rebuilt/installed wheel. Eight non-argparse entry points are not executed.
+  Per-entry evidence is retained in the existing inventory.
+- Default documentation/index checks and explicit links-only checks pass.
+- `python repo-scripts/audit_installed_scripts.py --check` passes. Local detailed
+  artifacts are under ignored `.pytest_tmp/issue180/`.
+- Initial copied checks had 8 failures because the normal user installation was
+  stale `26.10.21.2`; matching-package rerun passed. Rebuilt with
+  `python repo-scripts/build_library.py --no-bump --skip-pip`, verified and installed
+  `26.11.1.1` using `pip install --no-deps --force-reinstall`.
+  Final wheel SHA-256: `a3d2999c021f3c255b9c9f99147690095c8ad52368c355bbe4f6b0c202d00948`.
+  Package metadata/version unchanged; wheel is ignored under `dist`.
+- All source/documentation changes remain **unstaged and uncommitted**. No push,
+  merge, release or current-head hosted CI was performed for these local edits.
+  Historical hosted counts are not evidence for this new patch.
+- Native licensed TUFLOW, production/UNC, native GDAL spatial outputs and Office
+  fidelity remain unverified where relevant. The broad audit is not complete.
+
+### Next action
+
+Review the local wrapper patch and current per-entry evidence, then continue
+AB-032 effective-setting/CLI checks for the remaining maintained scripts.
+Prioritise separate #199/#197 safety fixes, then #194/#195 report outcomes;
+stack #196/#198 dashboard adoption on explicit shared outcome contracts.
+Preserve manual delivery/merge boundaries. Next review: 2026-11-05.
+
+Unrelated register fronts still have overdue review dates (vendor integration,
+installed scripts, release automation, floodway exclusions, GeoTIFF recompression
+and shared verification). Reading their dates did not authorize their remediation.
+
+### GitHub continuation
+
+The user requested GitHub delivery and further work. Publish the validated wrapper
+audit patch to #183, then address #199 in a separate branch stacked on that head.
+The local-only delivery statements above describe the preceding audit milestone.
+No merge or release is authorized. Hosted checks must be verified on the new heads.

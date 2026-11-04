@@ -630,3 +630,25 @@ or change `ROOT_DIR` in the script.
   verify content. The saved-proposal apply workflow skips hashing by design.
 
 Verify first on a disposable copy of model results, particularly on network drives.
+
+
+## Result-wrapper path and label-output safety
+
+Result dashboard wrappers expand `~` before joining relative inputs, logs and
+output folders to `WORKING_DIR`. Invalid dashboard settings return exit 1 before
+changing directory. PO peak, stability and closure wrappers also make the working
+directory absolute before changing into it, so a relative `--working-directory`
+is applied only once. Their editable `PAUSE_ON_FINISH` is overridden by `--no-pause`.
+
+[`generate_2d_po_label_list.py`](po_and_timeseries/generate_2d_po_label_list.py)
+requires a GeoPackage CLI argument or an edited `HARDCODED_GPKG_PATH` (default
+`None`). `--layer` overrides editable `LAYER`; `--version` reports the script
+version. It opens SQLite read-only and creates the adjacent `.txt` exclusively.
+An existing text file is preserved and returns an error; move or rename it before
+requesting another export. It does not pause and needs no dashboard for this
+single-dataset operation.
+
+The [audit backlog](../../docs/audits/2026-10-22-script-remediation-backlog.md#issue-180-continuation--2026-11-04)
+tracks remaining shared exporter/discovery defects and dashboard adoption.
+Current dashboards alone do not establish reliable export-failure handling until
+those separate issues are resolved.

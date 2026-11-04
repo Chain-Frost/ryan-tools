@@ -8,7 +8,7 @@ Users can edit certain constants (like CONSOLE_LOG_LEVEL) to control the default
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-01.1"
+WRAPPER_VERSION = "2026-11-04.1"
 
 # None chooses SUCCESS with the dashboard and INFO without it; an explicit level always wins.
 CONSOLE_LOG_LEVEL: str | None = None
@@ -61,7 +61,9 @@ def main(
         file_log_level: DEBUG file sink level override.
     """
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
-    script_directory: Path = (working_directory if working_directory is not None else WORKING_DIR).absolute()
+    script_directory: Path = (
+        Path(working_directory if working_directory is not None else WORKING_DIR).expanduser().absolute()
+    )
     effective_console_log_level = console_log_level if console_log_level is not None else CONSOLE_LOG_LEVEL
     effective_live_max_rows = live_max_rows if live_max_rows is not None else LIVE_MAX_ROWS
     effective_live_refresh = live_refresh_per_second if live_refresh_per_second is not None else LIVE_REFRESH_PER_SECOND
@@ -78,6 +80,7 @@ def main(
     # mapped-drive or UNC paths merely to display them.
     log_path: Path | None = None
     if configured_log_file is not None:
+        configured_log_file = Path(configured_log_file).expanduser()
         log_path = (
             configured_log_file if configured_log_file.is_absolute() else script_directory / configured_log_file
         ).absolute()

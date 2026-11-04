@@ -14,7 +14,7 @@ Key features:
 from pathlib import Path
 from typing import Literal
 
-WRAPPER_VERSION = "2026-11-01.1"
+WRAPPER_VERSION = "2026-11-04.1"
 
 # None chooses SUCCESS with a dashboard, INFO without; an explicit level overrides it.
 CONSOLE_LOG_LEVEL: str | None = None
@@ -63,34 +63,40 @@ def main(
 ) -> int:
     """Run the installed library workflow with effective editable and CLI options."""
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
-    script_directory = (working_directory if working_directory is not None else WORKING_DIR).expanduser().absolute()
-    selected_roots = paths_to_process or PATHS_TO_PROCESS or (script_directory,)
-    effective_paths = [
-        (item if item.is_absolute() else script_directory / item).expanduser().absolute() for item in selected_roots
-    ]
-    selected_locations = locations_to_include if locations_to_include is not None else LOCATIONS_TO_INCLUDE
-    effective_locations = selected_locations or None
-    effective_data_types = include_data_types or INCLUDE_DATA_TYPES
-    effective_dashboard = USE_LIVE_DASHBOARD if use_live_dashboard is None else use_live_dashboard
-    effective_refresh = LIVE_REFRESH_PER_SECOND if live_refresh_per_second is None else live_refresh_per_second
-    effective_rows = LIVE_MAX_ROWS if live_max_rows is None else live_max_rows
-    effective_console_level = CONSOLE_LOG_LEVEL if console_log_level is None else console_log_level
-    effective_file_level = FILE_LOG_LEVEL if file_log_level is None else file_log_level
-    configured_log_file = LOG_FILE if log_file is None else log_file
-    effective_log_file = (
-        None
-        if configured_log_file is None
-        else (
-            (configured_log_file if configured_log_file.is_absolute() else script_directory / configured_log_file)
-            .expanduser()
-            .absolute()
-        )
-    )
-    validate_dashboard_settings(refresh_per_second=effective_refresh, max_rows=effective_rows)
-    if not change_working_directory(target_dir=script_directory):
-        return 1
-
     try:
+        script_directory = (
+            Path(working_directory if working_directory is not None else WORKING_DIR).expanduser().absolute()
+        )
+        selected_roots = paths_to_process or PATHS_TO_PROCESS or (script_directory,)
+        effective_paths = [
+            (item if item.is_absolute() else script_directory / item).expanduser().absolute()
+            for configured_path in selected_roots
+            for item in (Path(configured_path).expanduser(),)
+        ]
+        selected_locations = locations_to_include if locations_to_include is not None else LOCATIONS_TO_INCLUDE
+        effective_locations = selected_locations or None
+        effective_data_types = include_data_types or INCLUDE_DATA_TYPES
+        effective_dashboard = USE_LIVE_DASHBOARD if use_live_dashboard is None else use_live_dashboard
+        effective_refresh = LIVE_REFRESH_PER_SECOND if live_refresh_per_second is None else live_refresh_per_second
+        effective_rows = LIVE_MAX_ROWS if live_max_rows is None else live_max_rows
+        effective_console_level = CONSOLE_LOG_LEVEL if console_log_level is None else console_log_level
+        effective_file_level = FILE_LOG_LEVEL if file_log_level is None else file_log_level
+        configured_log_file = LOG_FILE if log_file is None else log_file
+        if configured_log_file is not None:
+            configured_log_file = Path(configured_log_file).expanduser()
+        effective_log_file = (
+            None
+            if configured_log_file is None
+            else (
+                (configured_log_file if configured_log_file.is_absolute() else script_directory / configured_log_file)
+                .expanduser()
+                .absolute()
+            )
+        )
+        validate_dashboard_settings(refresh_per_second=effective_refresh, max_rows=effective_rows)
+        if not change_working_directory(target_dir=script_directory):
+            return 1
+
         succeeded = main_processing(
             paths_to_process=effective_paths,
             include_data_types=list(effective_data_types),

@@ -103,8 +103,9 @@ def test_result_wrapper_passes_effective_options_and_paths_without_chdir_leak(
     worker.side_effect = OSError("synthetic exporter failure")
     assert main(working_directory=job, use_live_dashboard=False) == 1
     worker.side_effect = None
-    with pytest.raises(ValueError, match="live_refresh_per_second"):
-        main(working_directory=job, live_refresh_per_second=0)
+    worker.reset_mock()
+    assert main(working_directory=job, live_refresh_per_second=0) == 1
+    worker.assert_not_called()
 
 
 @pytest.mark.parametrize(("path", "entry", "kind"), WRAPPERS)
@@ -136,3 +137,96 @@ def test_result_wrapper_defaults_to_pause_with_only_no_pause_override(
     with pytest.raises(SystemExit) as error:
         parse()
     assert error.value.code == 2
+
+
+@pytest.mark.parametrize(("path", "entry", "kind"), WRAPPERS)
+def test_result_wrapper_expands_home_before_working_directory(
+    path: str,
+    entry: str,
+    kind: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_wrapper(path)
+    home = tmp_path / "home"
+    job = tmp_path / "job"
+    monkeypatch.setenv("USERPROFILE", str(home))
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setattr(module, "change_working_directory", Mock(return_value=True))
+    worker = Mock(return_value=True)
+    monkeypatch.setattr(module, entry, worker)
+    main = cast("Callable[..., int]", module.main)
+    extras = {"output_directory": Path("~/exports")} if kind == "merge" else {}
+    assert (
+        main(working_directory=job, paths_to_process=(Path("~/inputs"),), log_file=Path("~/detail.log"), **extras) == 0
+    )
+    assert worker.call_args.kwargs["paths_to_process"] == [home / "inputs"]
+    assert worker.call_args.kwargs["log_file"] == str(home / "detail.log")
+    if kind == "merge":
+        assert worker.call_args.kwargs["output_dir"] == home / "exports"
+
+
+@pytest.mark.parametrize(("path", "entry", "kind"), WRAPPERS)
+def test_result_wrapper_configuration_error_does_not_change_directory(
+    path: str,
+    entry: str,
+    kind: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    del kind
+    module = _load_wrapper(path)
+    change_directory = Mock(return_value=True)
+    worker = Mock(return_value=True)
+    monkeypatch.setattr(module, "change_working_directory", change_directory)
+    monkeypatch.setattr(module, entry, worker)
+    main = cast("Callable[..., int]", module.main)
+    assert main(working_directory=tmp_path, live_max_rows=0) == 1
+    change_directory.assert_not_called()
+    worker.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("path", "entry", "paths_key"),
+    [
+        ("po_and_timeseries/check_po_timeseries_peaks.py", "main_processing", "paths_to_process"),
+        ("po_and_timeseries/check_timeseries_stability.py", "main_processing", "paths_to_process"),
+        ("po_and_timeseries/calculate_po_closure_durations.py", "run_closure_durations", "paths"),
+    ],
+)
+def test_report_relative_working_directory_is_not_applied_twice(
+    path: str,
+    entry: str,
+    paths_key: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_wrapper(path)
+    job = tmp_path / "job"
+    job.mkdir()
+    monkeypatch.chdir(tmp_path)
+    worker = Mock(return_value=None)
+    monkeypatch.setattr(module, entry, worker)
+    main = cast("Callable[..., int]", module.main)
+    assert main(working_directory=Path("job")) == 0
+    assert worker.call_args.kwargs[paths_key] == [job]
+    monkeypatch.chdir(tmp_path)
+    assert main(working_directory=Path("job"), paths_to_process=(Path("results"),)) == 0
+    assert worker.call_args.kwargs[paths_key] == [job / "results"]
+
+
+def test_log_summary_expands_home_for_working_directory_and_log(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_wrapper("log_processing/create_log_summary_report.py")
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    monkeypatch.setenv("HOME", str(tmp_path))
+    change_directory = Mock(return_value=True)
+    worker = Mock(return_value=True)
+    monkeypatch.setattr(module, "change_working_directory", change_directory)
+    monkeypatch.setattr(module, "main_processing", worker)
+    main = cast("Callable[..., int]", module.main)
+    assert main(working_directory=Path("~/job"), log_file=Path("~/detail.log")) == 0
+    change_directory.assert_called_once_with(target_dir=tmp_path / "job")
+    assert worker.call_args.kwargs["log_file"] == str(tmp_path / "detail.log")
