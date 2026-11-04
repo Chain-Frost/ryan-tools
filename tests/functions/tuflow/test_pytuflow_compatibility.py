@@ -48,9 +48,8 @@ def test_official_same_version_without_batch_api_fails(tmp_path: Path, monkeypat
     assert not status.available
     assert status.version == "1.2.7"
     assert "public validation import failed" in status.problem
-    requirement = (
-        Path(__file__).absolute().parents[3] / "repo-scripts" / "pytuflow-requirement.txt"
-    ).read_text(encoding="utf-8").strip()
+    requirement_file = Path(__file__).absolute().parents[3] / "repo-scripts" / "pytuflow-requirement.txt"
+    requirement = requirement_file.read_text(encoding="utf-8").strip()
     with pytest.raises(compatibility.PyTuflowCompatibilityError) as error:
         compatibility.require_validation_api()
     assert requirement in str(error.value)
