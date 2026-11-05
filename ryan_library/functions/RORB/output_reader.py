@@ -37,7 +37,7 @@ def _numeric_table(doc: RorbDocument, start: int, columns: list[str], name: str)
     return table
 
 
-def read_output(doc: RorbDocument) -> None:
+def read_output(doc: RorbDocument) -> None:  # noqa: C901 - preserve ordered format state and diagnostic scope
     """Read named hydrographs and supported rainfall tables; retain all other source lines."""
     report_metadata(doc)
     sites = read_sites(doc, "Site", "Hyd")
@@ -48,7 +48,7 @@ def read_output(doc: RorbDocument) -> None:
     hydrograph_count = 0
     rainfall_count = 0
     for i, line in enumerate(doc.lines):
-        if re.search(r"\b(?:warning|error)\b", line, re.I):
+        if re.search(r"\b(?:warning|error)\b", line, re.IGNORECASE):
             messages.rows.append({"line": i + 1, "text": line})
         match = re.fullmatch(r"\s*Time increment \(hours\)\s*=\s*(\S+)\s*", line)
         if match:

@@ -11,6 +11,20 @@ from .result_readers import read_batch, read_csv
 MAX_FILE_BYTES = 32 * 1024 * 1024
 
 
+def _decode(content: bytes, encoding: str | None) -> tuple[str, str, bool]:
+    """Decode without replacement and report whether an encoding fallback was used."""
+    fallback = False
+    selected = encoding or "utf-8-sig"
+    try:
+        decoded = content.decode(selected, errors="strict")
+    except UnicodeDecodeError:
+        if encoding is not None:
+            raise
+        selected, fallback = "cp1252", True
+        decoded = content.decode(selected, errors="strict")
+    return decoded, selected, fallback
+
+
 def read_rorb_file(path: Path, *, encoding: str | None = None, max_bytes: int = MAX_FILE_BYTES) -> RorbDocument:
     """Inspect one file without following references, executing RORB or writing outputs.
 
@@ -26,15 +40,7 @@ def read_rorb_file(path: Path, *, encoding: str | None = None, max_bytes: int = 
     if len(content) > max_bytes:
         msg = f"File exceeds the {max_bytes}-byte reader limit"
         raise ValueError(msg)
-    fallback = False
-    selected = encoding or "utf-8-sig"
-    try:
-        decoded = content.decode(selected, errors="strict")
-    except UnicodeDecodeError:
-        if encoding is not None:
-            raise
-        selected, fallback = "cp1252", True
-        decoded = content.decode(selected, errors="strict")
+    decoded, selected, fallback = _decode(content, encoding)
     lines = tuple(decoded.splitlines())
     doc = RorbDocument(path.absolute(), "unsupported", selected, sha256(content).hexdigest(), lines)
     if fallback:

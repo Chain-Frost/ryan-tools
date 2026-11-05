@@ -1,7 +1,6 @@
 """Bounded, explicit associations and comparisons; never search recursively or repair source times."""
 
 import math
-from pathlib import Path
 
 from .reader_types import Record, RorbDocument, Section
 from .readers import read_rorb_file

@@ -35,3 +35,17 @@ def test_guidance_separates_engine_support_from_format_parsing() -> None:
     guidance = json.loads(rorb_reader_guidance_resource())
     assert guidance["tool"] == "inspect_rorb_file"
     assert any("engine compatibility" in s for s in guidance["semantics"])
+
+
+def test_long_column_previews_do_not_collapse_distinct_series(tmp_path: Path) -> None:
+    path = tmp_path / "long.csv"
+    label = "Calculated hydrograph: " + "x" * 1000
+    path.write_text(
+        "RORBWin CSV Output File\nRefer output file for complete listing of inputs and outputs\n"
+        f"Inc,Time (hrs),{label}A,{label}B\n0,1,10,20\n"
+    )
+    result = inspect_rorb_file(str(path), section="hydrographs")
+    assert result["values_truncated"] is True
+    assert len(result["sample"][0]) == 5
+    assert len(set(result["columns"])) == 5
+    assert len(json.dumps(result)) < 60000

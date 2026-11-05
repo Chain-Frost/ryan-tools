@@ -7,7 +7,7 @@ command-line layout. Recognition never certifies executable feature support.
 from .reader_types import RorbDocument, Section, integer, number
 
 
-def read_cmd_parameters(doc: RorbDocument) -> None:
+def read_cmd_parameters(doc: RorbDocument) -> None:  # noqa: C901 - preserve ordered format state and diagnostic scope
     """Parse the V2 single-burst layout; retain other variants without guessing."""
     doc.metadata["format_contract"] = "RORB_CMD-documentation_V2, single-burst subset"
     doc.metadata["engine_compatibility"] = "not_checked"

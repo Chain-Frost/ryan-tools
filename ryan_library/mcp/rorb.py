@@ -86,13 +86,14 @@ def inspect_rorb_file(
                 section=section,
                 offset=offset,
                 row_count=count,
-                columns=[_bounded_text(c) for c in columns[:30]],
+                columns=[
+                    str(c) if _bounded_text(c) == c else f"[{i}] {_bounded_text(c)}" for i, c in enumerate(columns[:30])
+                ],
                 columns_truncated=len(columns) > 30,
             )
             # Long labels are displayed only as bounded previews; Python retains exact keys.
-            sample = [
-                {str(_bounded_text(k)): _bounded_text(v) for k, v in row.items() if k in columns[:30]} for row in rows
-            ]
+            labels = dict(zip(columns[:30], result["columns"], strict=True))
+            sample = [{labels[k]: _bounded_text(v) for k, v in row.items() if k in labels} for row in rows]
             result["sample"] = sample
             result["values_truncated"] = any(_bounded_text(c) != c for c in columns[:30]) or any(
                 _bounded_text(v) != v for row in rows for v in row.values()

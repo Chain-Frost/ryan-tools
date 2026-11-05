@@ -6,7 +6,7 @@ import re
 from .reader_types import Record, RorbDocument, Section, integer, number, validate_series
 
 
-def report_metadata(doc: RorbDocument) -> None:
+def report_metadata(doc: RorbDocument) -> None:  # noqa: C901 - preserve ordered format state and diagnostic scope
     """Retain labelled report metadata and each parameter occurrence with provenance."""
     parameters = Section("parameters", ["line", "kc", "m", "IL", "CL", "ROC", "loss_model"])
     doc.sections.append(parameters)
@@ -42,7 +42,11 @@ def report_metadata(doc: RorbDocument) -> None:
                 parameters.valid = False
                 doc.issue("routing_parameters", str(exc), i + 1, error=True)
         if stripped.startswith("Loss parameters"):
-            model = "CL" if "Cont. loss (mm/h)" in line else "ROC" if re.search(r"runoff coeff", line, re.I) else None
+            model = (
+                "CL"
+                if "Cont. loss (mm/h)" in line
+                else "ROC" if re.search(r"runoff coeff", line, re.IGNORECASE) else None
+            )
             if model is None or "Initial loss (mm)" not in line:
                 doc.issue("unsupported_losses", "Loss layout retained as raw text; no values inferred.", i + 1)
                 continue
@@ -87,7 +91,7 @@ def read_sites(doc: RorbDocument, marker: str, prefix: str) -> Section:
             continue
         identifier = f"{prefix}{int(match[1]):04d}"
         description = match[2]
-        role_match = re.fullmatch(r"(.+?) hydrograph[:,]\s*(.*)", description, re.I)
+        role_match = re.fullmatch(r"(.+?) hydrograph[:,]\s*(.*)", description, re.IGNORECASE)
         role, name = (role_match[1], role_match[2]) if role_match else (None, None)
         if identifier in seen:
             doc.issue(
@@ -99,7 +103,7 @@ def read_sites(doc: RorbDocument, marker: str, prefix: str) -> Section:
     return section
 
 
-def read_batch(doc: RorbDocument) -> None:
+def read_batch(doc: RorbDocument) -> None:  # noqa: C901 - preserve ordered format state and diagnostic scope
     """Parse run rows with explicit frequency kinds, durations and table boundaries."""
     report_metadata(doc)
     sites = read_sites(doc, "Peak", "Peak")
@@ -138,7 +142,7 @@ def read_batch(doc: RorbDocument) -> None:
             active, ended = False, True
             continue
         if expect_representative:
-            match = re.fullmatch(r"\s*(\d+)\s+(.+\.out)\s*", line, re.I)
+            match = re.fullmatch(r"\s*(\d+)\s+(.+\.out)\s*", line, re.IGNORECASE)
             if match:
                 representatives.rows.append({"line": i + 1, "Run": int(match[1]), "reference": match[2].rstrip()})
             else:
@@ -223,7 +227,7 @@ def read_csv(doc: RorbDocument) -> None:
         if columns[:2] != ["Inc", "Time (hrs)"] or len(columns) < 3 or len(set(columns)) != len(columns):
             msg = "Expected unique Inc, Time (hrs), and hydrograph columns."
             raise ValueError(msg)
-        if any(re.fullmatch(r".+ hydrograph:\s*.*", c, re.I) is None for c in columns[2:]):
+        if any(re.fullmatch(r".+ hydrograph:\s*.*", c, re.IGNORECASE) is None for c in columns[2:]):
             msg = "Unrecognized hydrograph column role."
             raise ValueError(msg)
         for values in reader:

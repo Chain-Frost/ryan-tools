@@ -187,7 +187,7 @@ def test_output_csv_time_discrepancy_is_not_repaired(tmp_path: Path) -> None:
     assert result["status"] == "mismatch"
 
 
-@pytest.mark.parametrize("model,key", [("1", "CL"), ("2", "ROC")])
+@pytest.mark.parametrize(("model", "key"), [("1", "CL"), ("2", "ROC")])
 def test_cmd_documented_subset_is_not_engine_acceptance(tmp_path: Path, model: str, key: str) -> None:
     doc = read_rorb_file(write(tmp_path, cmd_text(model), "model.par"))
     assert doc.status == "ok"
@@ -228,7 +228,7 @@ def test_saved_settings_candidates_remain_explicitly_unverified() -> None:
 
 def test_encoding_limit_and_no_mutation(tmp_path: Path) -> None:
     path = tmp_path / "model.out"
-    raw = batch_text().replace("Program version 6.45", "Program version 6.45\nRainfall location: km²").encode("cp1252")
+    raw = batch_text().replace("Program version 6.45", "Program version 6.45\nRainfall location: kmÂ²").encode("cp1252")
     path.write_bytes(raw)
     doc = read_rorb_file(path)
     assert doc.encoding == "cp1252"

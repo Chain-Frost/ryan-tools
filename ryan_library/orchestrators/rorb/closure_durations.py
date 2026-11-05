@@ -54,7 +54,8 @@ def _collect_batch_data(paths: Iterable[Path]) -> pd.DataFrame:
 def _build_jobs(batch_df: pd.DataFrame, thresholds: list[float]) -> list[HydrographJob]:
     """Convert parsed batch rows into typed worker jobs."""
     if "csv" not in batch_df or batch_df["csv"].isna().any():
-        raise ValueError("Missing or ambiguous RORB CSV associations; inspect the batch before analysis")
+        msg = "Missing or ambiguous RORB CSV associations; inspect the batch before analysis"
+        raise ValueError(msg)
     threshold_values = tuple(float(value) for value in thresholds)
     return [
         HydrographJob(
