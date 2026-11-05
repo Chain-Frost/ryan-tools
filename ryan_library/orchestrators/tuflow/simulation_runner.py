@@ -32,6 +32,7 @@ from ...functions.loguru_helpers import log_settings
 
 if TYPE_CHECKING:
     from ...functions.live_dashboard import LiveWorkflowDashboard, WorkflowAlert
+    from ...functions.tuflow.run_progress import LogProgressSnapshot
     from .command_preflight import CommandPreflightIssue
 
 from ...functions.tuflow.command_plan import (
@@ -48,6 +49,7 @@ from ...functions.tuflow.command_plan import (
     validate_run_arguments,
 )
 from ...functions.tuflow.gpu_devices import gpu_device_label, gpu_group_label, local_cuda_device_names
+from .run_progress import AdvisoryRunProgress, ProgressUpdate
 
 _FLAG = re.compile(r"[es][1-9]", re.IGNORECASE)
 _PRIORITY = frozenset({"LOW", "BELOWNORMAL", "NORMAL", "ABOVENORMAL", "HIGH", "REALTIME"})
@@ -89,6 +91,9 @@ class RunnerSettings:
     use_live_dashboard: bool = True
     live_refresh_per_second: float = 1.0
     live_max_rows: int = 10
+    monitor_progress: bool = True
+    progress_poll_interval_seconds: float = 10.0
+    show_progress_diagnostics: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -217,6 +222,23 @@ def _validate_gpu_wait_settings(settings: RunnerSettings) -> None:
         raise CommandPlanError(message)
 
 
+def _validate_progress_settings(settings: RunnerSettings) -> None:
+    """Reject invalid observation controls before any exports or launches."""
+    if type(settings.monitor_progress) is not bool:
+        message = "MONITOR_PROGRESS must be True or False"
+        raise CommandPlanError(message)
+    if type(settings.show_progress_diagnostics) is not bool:
+        message = "SHOW_PROGRESS_DIAGNOSTICS must be True or False"
+        raise CommandPlanError(message)
+    if (
+        type(settings.progress_poll_interval_seconds) not in (int, float)
+        or not math.isfinite(settings.progress_poll_interval_seconds)
+        or settings.progress_poll_interval_seconds <= 0
+    ):
+        message = "PROGRESS_POLL_INTERVAL_SECONDS must be a finite positive number"
+        raise CommandPlanError(message)
+
+
 def _validate_settings(settings: RunnerSettings) -> tuple[str, ...]:
     if settings.mode not in {"parameter_product", "textfiles", "both"}:
         message = f"Invalid runner mode: {settings.mode}"
@@ -231,6 +253,7 @@ def _validate_settings(settings: RunnerSettings) -> tuple[str, ...]:
         message = "Dashboard row limit must be a positive integer (>=1)"
         raise CommandPlanError(message)
     _validate_gpu_wait_settings(settings)
+    _validate_progress_settings(settings)
     if not settings.working_directory.is_absolute():
         message = "The configured working directory must be absolute"
         raise CommandPlanError(message)
@@ -444,6 +467,9 @@ def _log_plan_preview(plan: CommandPlan, settings: RunnerSettings) -> None:
         ("USE_LIVE_DASHBOARD", settings.use_live_dashboard),
         ("LIVE_REFRESH_PER_SECOND", settings.live_refresh_per_second),
         ("LIVE_MAX_ROWS", settings.live_max_rows),
+        ("MONITOR_PROGRESS", settings.monitor_progress),
+        ("PROGRESS_POLL_INTERVAL_SECONDS", settings.progress_poll_interval_seconds),
+        ("SHOW_PROGRESS_DIAGNOSTICS", settings.show_progress_diagnostics),
     )
     baseline = RunnerSettings(
         wrapper_file=settings.wrapper_file,
@@ -466,6 +492,9 @@ def _log_plan_preview(plan: CommandPlan, settings: RunnerSettings) -> None:
             "LIVE_MAX_ROWS",
             "WAIT_FOR_AVAILABLE_GPU",
             "GPU_CHECK_INTERVAL_SECONDS",
+            "MONITOR_PROGRESS",
+            "PROGRESS_POLL_INTERVAL_SECONDS",
+            "SHOW_PROGRESS_DIAGNOSTICS",
         )
     }
     defaults.update(
@@ -884,8 +913,8 @@ def display_runner_path(value: str | PurePath, base: Path) -> str:
     return f"{shown}{separator}{layer}"
 
 
-def _input_issue_message(issue: CommandPreflightIssue) -> str:
-    """Describe one attributed input failure without changing launch policy."""
+def _input_issue_message(issue: CommandPreflightIssue, *, advisory: bool = False) -> str:
+    """Describe an attributed error or advisory without changing launch policy."""
     run, finding = issue.run, issue.finding
     base = Path(run.working_directory).absolute()
 
@@ -904,7 +933,8 @@ def _input_issue_message(issue: CommandPreflightIssue) -> str:
         columns = ", ".join(repr(column) for column in finding.csv_columns)
         detail = f"{detail.rstrip('. ')}. Required CSV columns: {columns}."
     return (
-        f"Input check run {run.index}: {finding.status.upper()} — {display(run.tcf)}{selection} "
+        f"{'Input advisory' if advisory else 'Input check'} run {run.index}: "
+        f"{'WARNING' if advisory else finding.status.upper()} — {display(run.tcf)}{selection} "
         f"({finding.kind or finding.origin or 'input'})\n"
         f"  Source      : {display(run.source)}:{run.line_start}"
         f"{f'-{run.line_end}' if run.line_end != run.line_start else ''}\n"
@@ -943,6 +973,7 @@ class AdvisoryInputCheck:
                 )
                 for issue in report.issues
             ]
+            messages.extend(("WARNING", _input_issue_message(warning, advisory=True)) for warning in report.warnings)
             messages.append(
                 (
                     "SUCCESS" if report.passed else "WARNING",
@@ -994,6 +1025,8 @@ def check_plan_only(plan: CommandPlan, *, check_gpkg_layers: bool = True) -> boo
         return False
     for issue in report.issues:
         logger.warning("{}", _input_issue_message(issue))
+    for warning in report.warnings:
+        logger.warning("{}", _input_issue_message(warning, advisory=True))
     if not report.passed:
         logger.error("Input checking failed or is incomplete: {}/{} completed", report.completed_runs, report.run_count)
     else:
@@ -1047,6 +1080,100 @@ def _stop_children(active: list[_OwnedChild]) -> None:
                 logger.warning("Could not confirm termination of PID {}: {}", child.process.pid, exc)
         except OSError as exc:
             logger.warning("Could not confirm termination of PID {}: {}", child.process.pid, exc)
+
+
+def _dashboard_metadata(plan: CommandPlan, settings: RunnerSettings) -> list[dict[str, object]]:
+    """Group by lexical TCF identity, disambiguating repeated basenames."""
+    name_paths: dict[str, set[str]] = {}
+    for run in plan.runs:
+        key = os.path.normcase(str(normalize_plan_path(run.tcf)))
+        name_paths.setdefault(run.tcf.name.casefold(), set()).add(key)
+    rows: list[dict[str, object]] = []
+    for run in plan.runs:
+        label = run.tcf.name
+        if len(name_paths[label.casefold()]) > 1:
+            label = display_runner_path(run.tcf, settings.working_directory)
+        rows.append(
+            {
+                "run_index": run.index,
+                "tcf_key": os.path.normcase(str(normalize_plan_path(run.tcf))),
+                "tcf_label": label,
+                "gpu": "Pending",
+                "end_hours": "--",
+                "model_hours": "--",
+                "progress": "--",
+                **run.flags,
+            }
+        )
+    return rows
+
+
+def _progress_metadata(snapshot: LogProgressSnapshot) -> dict[str, str]:
+    """Display hours and elapsed model fraction, never infer solver success."""
+    values = {"end_hours": "--", "model_hours": "--", "progress": "--"}
+    for key, value in (("end_hours", snapshot.end_hours), ("model_hours", snapshot.model_hours)):
+        if value is not None and math.isfinite(value):
+            values[key] = f"{value:.3f}"
+    start, end, model = snapshot.start_hours, snapshot.end_hours, snapshot.model_hours
+    if (
+        start is not None
+        and end is not None
+        and model is not None
+        and all(math.isfinite(value) for value in (start, end, model))
+        and end > start
+    ):
+        fraction = min(100.0, max(0.0, 100.0 * (model - start) / (end - start)))
+        values["progress"] = f"{fraction:.1f}"
+    return values
+
+
+def _progress_observation_detail(update: ProgressUpdate, *, stale_after: float) -> str | None:
+    snapshot = update.snapshot
+    state_labels = {"waiting": "waiting log", "unverified": "log unverified", "unavailable": "progress unavailable"}
+    if snapshot.state in state_labels:
+        return state_labels[snapshot.state]
+    if snapshot.last_log_update is not None and math.isfinite(snapshot.last_log_update):
+        age = max(0.0, time.time() - snapshot.last_log_update)
+        if age >= stale_after:
+            return f"log {int(age // 60)}m old"
+    return "log warning" if update.warning else None
+
+
+def _progress_diagnostic_detail(snapshot: LogProgressSnapshot) -> str | None:
+    diagnostics: list[str] = []
+    timestep = snapshot.timestep_seconds
+    if timestep is not None and type(timestep) in (int, float) and math.isfinite(timestep) and timestep > 0:
+        diagnostics.append(f"dt {timestep:.4g}s")
+    mass_error = snapshot.final_mass_error_percent
+    if mass_error is not None and type(mass_error) in (int, float) and math.isfinite(mass_error):
+        diagnostics.append(f"ME {mass_error:.4g}%")
+    return " / ".join(diagnostics) if diagnostics else None
+
+
+def _progress_detail(
+    update: ProgressUpdate,
+    *,
+    stale_after: float,
+    show_diagnostics: bool = True,
+    outcome_detail: str | None = None,
+) -> str:
+    """Describe observed work without turning a log phase into process status."""
+    snapshot = update.snapshot
+    phase_labels = {"initialising": "Initialising", "solving": "Solving", "writing_results": "Writing results"}
+    parts: list[str] = []
+    if outcome_detail is not None:
+        parts.append(outcome_detail)
+    elif snapshot.phase is not None and snapshot.phase in phase_labels:
+        parts.append(phase_labels[snapshot.phase])
+    observation = _progress_observation_detail(update, stale_after=stale_after)
+    if observation:
+        parts.append(observation)
+    diagnostics = _progress_diagnostic_detail(snapshot) if show_diagnostics else None
+    if diagnostics:
+        parts.append(diagnostics)
+    if outcome_detail is None:
+        parts.append(f"PID {update.pid}")
+    return "; ".join(parts)
 
 
 def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation boundary
@@ -1112,7 +1239,7 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
         logger.warning("CUDA device names unavailable; continuing with -puN identifiers.")
     logger.info(
         "-puN uses TUFLOW/CUDA order, not NVIDIA or Windows display indexes. "
-        "Names below describe this launch environment; external processes may use different CUDA ordering. "
+        "These names describe this launch environment; external processes may use different CUDA ordering. "
         "For older TUFLOW builds, verify device names in the model's .hpc.tlf."
     )
     if gpu_status is not None:
@@ -1130,9 +1257,61 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
         _gpu_startup_message(groups)
 
     dashboard: LiveWorkflowDashboard | None = None
+    progress_monitor: AdvisoryRunProgress | None = None
+    latest_progress: dict[int, ProgressUpdate] = {}
     # Resume keeps the original logical indices. The renderer owns separate,
     # contiguous display slots and shows original indices through metadata.
     display_indices = {run.index: index for index, run in enumerate(plan.runs, 1)}
+
+    def close_progress() -> None:
+        nonlocal progress_monitor
+        monitor = progress_monitor
+        progress_monitor = None
+        latest_progress.clear()
+        if monitor is not None:
+            try:
+                monitor.close()
+            except Exception as exc:  # noqa: BLE001 - optional cleanup must not affect owned solver processes
+                logger.warning("Run progress monitoring cleanup failed; continuing simulations: {}", exc)
+
+    def disable_progress(error: Exception, *, after_exit: bool = False) -> None:
+        if after_exit:
+            logger.warning(
+                "Run progress monitoring unavailable after process exit; recorded outcome unchanged: {}", error
+            )
+        else:
+            logger.warning("Run progress monitoring unavailable; continuing simulations: {}", error)
+        close_progress()
+        if dashboard is not None:
+            try:
+                for child in active:
+                    dashboard.update_task(
+                        index=display_indices[child.run.index],
+                        metadata={"end_hours": "--", "model_hours": "--", "progress": "--"},
+                        detail=f"PID {child.process.pid}; progress unavailable",
+                        refresh=False,
+                    )
+            except Exception as exc:  # noqa: BLE001 - a failed optional display must not terminate owned children
+                logger.warning("Could not clear unavailable progress from the dashboard: {}", exc)
+
+    def finish_progress(result: RunOutcome) -> ProgressUpdate | None:
+        progress_update = latest_progress.get(result.run.index)
+        if progress_update is not None and (result.pid is None or progress_update.pid != result.pid):
+            progress_update = None
+        if progress_monitor is not None:
+            try:
+                if result.pid is None:
+                    progress_monitor.discard(result.run.index)
+                else:
+                    pending = progress_monitor.finish(result.run.index, pid=result.pid)
+                    if pending is not None and pending.run_index == result.run.index and pending.pid == result.pid:
+                        progress_update = pending
+                        if pending.warning:
+                            logger.warning("Run {} log observation: {}", pending.run_index, pending.warning)
+            except Exception as exc:  # noqa: BLE001 - observation cannot change an observed exit or continuation
+                disable_progress(exc, after_exit=result.pid is not None)
+        latest_progress.pop(result.run.index, None)
+        return progress_update
 
     def observed(result: RunOutcome) -> None:
         nonlocal next_print
@@ -1140,6 +1319,7 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
         ordered[result.run.index] = result
         if on_observed_completion is not None:
             on_observed_completion(result)
+        progress_update = finish_progress(result)
         # Presentation can be ordered, but the lifecycle callback above cannot.
         while next_print < len(plan.runs) and plan.runs[next_print].index in ordered:
             item = ordered.pop(plan.runs[next_print].index)
@@ -1153,11 +1333,27 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
             )
             next_print += 1
         if dashboard is not None:
+            outcome_detail = result.error or f"Exit {result.return_code}"
+            completion_detail = outcome_detail
+            completion_metadata: dict[str, str] | None = {"gpu": "Not launched"} if result.pid is None else None
+            if progress_update is not None:
+                try:
+                    metadata = _progress_metadata(progress_update.snapshot)
+                    detail = _progress_detail(
+                        progress_update,
+                        stale_after=max(60.0, settings.progress_poll_interval_seconds * 3),
+                        show_diagnostics=settings.show_progress_diagnostics,
+                        outcome_detail=outcome_detail,
+                    )
+                    completion_metadata = metadata
+                    completion_detail = detail
+                except Exception as exc:  # noqa: BLE001 - optional terminal observations cannot change the exit
+                    disable_progress(exc, after_exit=True)
             dashboard.mark_finished(
                 index=display_indices[result.run.index],
                 status="OK" if result.successful else "FAIL",
-                detail=result.error or f"Exit {result.return_code}",
-                metadata={"gpu": "Not launched"} if result.pid is None else None,
+                detail=completion_detail,
+                metadata=completion_metadata,
                 refresh=False,
             )
             dashboard.set_active_count(len(active), refresh=False)
@@ -1187,28 +1383,64 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
             refresh_per_second=settings.live_refresh_per_second,
             max_rows=settings.live_max_rows,
             transient=False,
+            group_by="tcf_key",
+            group_label_key="tcf_label",
             columns=(
-                WorkflowColumn("Run", "metadata", metadata_key="run_index", justify="right", no_wrap=True),
-                *(WorkflowColumn(key, "metadata", metadata_key=key) for key in flag_keys),
-                WorkflowColumn("Model", "metadata", metadata_key="model", no_wrap=True, overflow="ellipsis"),
-                WorkflowColumn("Status", "status", no_wrap=True),
-                WorkflowColumn("GPU", "metadata", metadata_key="gpu", no_wrap=True),
-                WorkflowColumn("Duration", "duration", no_wrap=True),
-                WorkflowColumn("Detail", "detail"),
+                WorkflowColumn("Run", "metadata", metadata_key="run_index", justify="right", no_wrap=True, min_width=3),
+                *(
+                    WorkflowColumn(key, "metadata", metadata_key=key, no_wrap=True, overflow="ellipsis")
+                    for key in flag_keys
+                ),
+                WorkflowColumn("Status", "status", no_wrap=True, min_width=7),
+                WorkflowColumn("GPU", "metadata", metadata_key="gpu", no_wrap=True, min_width=4),
+                WorkflowColumn("End (h)", "metadata", metadata_key="end_hours", justify="right", no_wrap=True),
+                WorkflowColumn("Model (h)", "metadata", metadata_key="model_hours", justify="right", no_wrap=True),
+                WorkflowColumn("%", "metadata", metadata_key="progress", justify="right", no_wrap=True),
+                WorkflowColumn("Elapsed", "duration", no_wrap=True, min_width=8),
+                WorkflowColumn("Detail", "detail", no_wrap=True, overflow="ellipsis"),
             ),
         )
         dashboard.set_tasks(
             labels=[" ".join(f"{key} {value}" for key, value in run.flag_pairs) or "(no flags)" for run in plan.runs],
-            metadata=[
-                {"run_index": run.index, "model": run.tcf.name, "gpu": "Pending", **run.flags} for run in plan.runs
-            ],
+            metadata=_dashboard_metadata(plan, settings),
         )
     with dashboard if dashboard is not None else nullcontext():
         try:
+            if dashboard is not None and settings.monitor_progress:
+                try:
+                    progress_monitor = AdvisoryRunProgress(interval_seconds=settings.progress_poll_interval_seconds)
+                    progress_monitor.start()
+                except Exception as exc:  # noqa: BLE001 - optional monitoring must never prevent solver execution
+                    disable_progress(exc)
             while queue or active:
                 if advisory is not None:
                     advisory.drain()
                 if dashboard is not None:
+                    if progress_monitor is not None:
+                        try:
+                            for update in progress_monitor.drain():
+                                latest_progress[update.run_index] = update
+                                if update.warning:
+                                    logger.warning(
+                                        "Run {} progress unavailable: {}; solver continues.",
+                                        update.run_index,
+                                        update.warning,
+                                    )
+                            for child in active:
+                                update = latest_progress.get(child.run.index)
+                                if update is not None and update.pid == child.process.pid:
+                                    dashboard.update_task(
+                                        index=display_indices[child.run.index],
+                                        metadata=_progress_metadata(update.snapshot),
+                                        detail=_progress_detail(
+                                            update,
+                                            stale_after=max(60.0, settings.progress_poll_interval_seconds * 3),
+                                            show_diagnostics=settings.show_progress_diagnostics,
+                                        ),
+                                        refresh=False,
+                                    )
+                        except Exception as exc:  # noqa: BLE001 - corrupt/failed observations cannot cancel computation
+                            disable_progress(exc)
                     metrics: dict[str, object] = {}
                     if advisory is not None:
                         metrics["Input checks"] = advisory.status
@@ -1270,6 +1502,7 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                     started = datetime.now()
                     if on_before_launch is not None:
                         on_before_launch(run)
+                    progress_started_at = time.time()
                     try:
                         process = factory(
                             args=args,
@@ -1284,6 +1517,11 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                     active.append(_OwnedChild(run, process, started, slot))
                     if slot is not None:
                         owned_slots.add(slot)
+                    if progress_monitor is not None:
+                        try:
+                            progress_monitor.register(run, pid=process.pid, started_at=progress_started_at)
+                        except Exception as exc:  # noqa: BLE001 - retain child ownership after optional observer failure
+                            disable_progress(exc)
                     try:
                         _apply_priority(process.pid, settings.computational_priority)
                     except Exception as exc:  # noqa: BLE001 - keep ownership after Popen succeeds
@@ -1306,7 +1544,7 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                         dashboard.mark_running(
                             index=display_indices[run.index],
                             detail=f"PID {process.pid}",
-                            metadata={"gpu": gpu_group_label(group, device_names)},
+                            metadata={"gpu": " ".join(group) or "Auto"},
                             refresh=False,
                         )
                         dashboard.set_active_count(len(active), refresh=False)
@@ -1333,6 +1571,7 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                         {"Input checks": advisory.status if advisory.finished.is_set() else "Incomplete"}
                     )
         finally:
+            close_progress()
             if active:
                 _stop_children(active)
                 poll_children()

@@ -124,7 +124,7 @@ def test_pypi_dry_run_prints_checks_without_running_them(
     output = captured.out
     assert "WARNING: Python" in captured.err
     assert "--ignore-requires-python" in output
-    assert "05e35476c02d6d8ed17c83caf1cb0d185ce51d1b" in output
+    assert "d089afaddde4b533581ebbe068dc38673c98803b" in output
     assert "-B -m pip check" in output
     assert "-B -c" in output
     assert "require_validation_api" in output

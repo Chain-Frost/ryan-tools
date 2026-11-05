@@ -8,6 +8,7 @@ import subprocess
 import sys
 from collections.abc import Callable, Generator
 from dataclasses import replace
+from datetime import datetime
 from io import StringIO
 from pathlib import Path
 from threading import Event
@@ -15,8 +16,10 @@ from typing import cast
 
 import pytest
 from loguru import logger
+from rich.console import Console, RenderableType
 
-from ryan_library.functions.live_dashboard import WorkflowAlert
+from ryan_library.functions import live_dashboard
+from ryan_library.functions.live_dashboard import WorkflowAlert, WorkflowTask
 from ryan_library.functions.tuflow.command_plan import (
     CommandPlanError,
     PlannedRun,
@@ -25,7 +28,9 @@ from ryan_library.functions.tuflow.command_plan import (
 )
 from ryan_library.functions.tuflow.execution_history import identify_runs
 from ryan_library.functions.tuflow.gpu_occupancy import GpuOccupancySnapshot
+from ryan_library.functions.tuflow.run_progress import LogProgressSnapshot
 from ryan_library.orchestrators.tuflow import simulation_runner as runner
+from ryan_library.orchestrators.tuflow.run_progress import ProgressUpdate
 
 
 @pytest.fixture(autouse=True)
@@ -51,6 +56,7 @@ def settings(base: Path, **changes: object) -> runner.RunnerSettings:
         wait_time_after_run=0,
         wait_for_available_gpu=False,  # Existing lifecycle tests deliberately exclude external scheduling.
         use_live_dashboard=False,
+        monitor_progress=False,  # Focused lifecycle tests do not inspect logs or start monitoring threads.
     )
     return replace(initial, **changes)
 
@@ -124,6 +130,120 @@ def _gpu_alert(
         getattr(runner, "_gpu_dashboard_alert"),  # noqa: B009 - test the scheduler/display adapter
     )
     return factory(availability, groups, interval_seconds=interval_seconds, device_names=device_names)
+
+
+def _capture_dashboards(
+    monkeypatch: pytest.MonkeyPatch, *, width: int = 180, height: int = 80
+) -> list[live_dashboard.LiveWorkflowDashboard]:
+    """Keep the real renderer and lifecycle without opening an interactive Live."""
+    displays: list[live_dashboard.LiveWorkflowDashboard] = []
+
+    def enter(dashboard: live_dashboard.LiveWorkflowDashboard) -> live_dashboard.LiveWorkflowDashboard:
+        dashboard.enabled = False
+        dashboard.console = Console(file=StringIO(), record=True, width=width, height=height, color_system=None)
+        displays.append(dashboard)
+        return dashboard
+
+    monkeypatch.setattr(live_dashboard.LiveWorkflowDashboard, "__enter__", enter)
+    monkeypatch.setattr(runner, "local_cuda_device_names", dict[int, str])
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    monkeypatch.setattr(runner.time, "sleep", _no_op)
+    return displays
+
+
+def _dashboard_tasks(dashboard: live_dashboard.LiveWorkflowDashboard) -> dict[int, WorkflowTask]:
+    """Inspect the real renderer's retained lifecycle state in integration tests."""
+    return cast(dict[int, WorkflowTask], getattr(dashboard, "_tasks"))  # noqa: B009 - intentional test introspection
+
+
+def _render_dashboard(dashboard: live_dashboard.LiveWorkflowDashboard) -> str:
+    render = cast(Callable[[], RenderableType], getattr(dashboard, "_render"))  # noqa: B009 - render without Live
+    dashboard.console.print(render())
+    return dashboard.console.export_text(clear=True)
+
+
+class ProgressProbe:
+    """Deterministic observations without filesystem reads or a worker thread."""
+
+    def __init__(self, snapshot: LogProgressSnapshot) -> None:
+        self.snapshot = snapshot
+        self.pending: list[ProgressUpdate] = []
+        self.registered: list[tuple[PlannedRun, int, float]] = []
+        self.discarded: list[int] = []
+        self.finished: list[tuple[int, int]] = []
+        self.started = False
+        self.closed = False
+
+    def start(self) -> None:
+        self.started = True
+
+    def register(self, run: PlannedRun, *, pid: int, started_at: float) -> None:
+        self.registered.append((run, pid, started_at))
+        self.pending.append(ProgressUpdate(run_index=run.index, pid=pid, snapshot=self.snapshot))
+
+    def discard(self, run_index: int) -> None:
+        self.discarded.append(run_index)
+
+    def finish(self, run_index: int, *, pid: int) -> ProgressUpdate | None:
+        self.finished.append((run_index, pid))
+        latest: ProgressUpdate | None = None
+        for update in self.pending.copy():
+            if update.run_index == run_index and update.pid == pid:
+                latest = update
+                self.pending.remove(update)
+        return latest
+
+    def drain(self) -> tuple[ProgressUpdate, ...]:
+        updates = tuple(self.pending)
+        self.pending.clear()
+        return updates
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class FailingProgressProbe(ProgressProbe):
+    """Inject one runtime failure, including after a child has been launched."""
+
+    def __init__(self, snapshot: LogProgressSnapshot, *, failure: str) -> None:
+        super().__init__(snapshot)
+        self.failure = failure
+        self.message = f"synthetic {failure} failure"
+        self.drain_count = 0
+
+    def drain(self) -> tuple[ProgressUpdate, ...]:
+        self.drain_count += 1
+        if self.failure == "drain" and self.drain_count > 1:
+            raise RuntimeError(self.message)
+        return super().drain()
+
+    def register(self, run: PlannedRun, *, pid: int, started_at: float) -> None:
+        if self.failure == "register":
+            raise RuntimeError(self.message)
+        super().register(run, pid=pid, started_at=started_at)
+
+    def discard(self, run_index: int) -> None:
+        if self.failure == "discard":
+            raise RuntimeError(self.message)
+        super().discard(run_index)
+
+    def finish(self, run_index: int, *, pid: int) -> ProgressUpdate | None:
+        if self.failure == "finish":
+            raise RuntimeError(self.message)
+        update = super().finish(run_index, pid=pid)
+        if self.failure == "finish_snapshot":
+            return ProgressUpdate(
+                run_index=run_index,
+                pid=pid,
+                snapshot=replace(self.snapshot, model_hours=cast(float, "malformed final model time")),
+            )
+        return update
+
+    def close(self) -> None:
+        super().close()
+        if self.failure == "close":
+            raise RuntimeError(self.message)
 
 
 @pytest.mark.parametrize("invalid", [0, -1, True, 1.5])
@@ -1131,6 +1251,7 @@ def test_plan_preview_lists_all_runs_and_effective_settings(tmp_path: Path, capl
     assert "GPU_DEVICES: (('-pu0',), ('-pu1',))" in output
     assert "CONCURRENT_SLOTS: 2" in output
     assert "WAIT_TIME_AFTER_RUN (seconds): 0" in output
+    assert "SHOW_PROGRESS_DIAGNOSTICS: True" in output
     assert "Simulation plan: 480 unique runs" in output
     assert "before Resume filtering; GPU slots assigned at launch" in output
     rows = [record.message for record in caplog.records if record.message.startswith("Run ")]
@@ -1143,16 +1264,16 @@ def test_plan_preview_lists_all_runs_and_effective_settings(tmp_path: Path, capl
 
 @pytest.mark.parametrize(
     ("gpu_devices", "gpu_text"),
-    [((), "Auto"), ((("-pu0",),), "-pu0"), ((("-pu0", "-pu1"),), "-pu0 (RTX 3090), -pu1 (RTX 3080)")],
+    [((), "Auto"), ((("-pu0",),), "-pu0"), ((("-pu0", "-pu1"),), "-pu0 -pu1")],
 )
 def test_shared_dashboard_shows_middle_active_run_and_original_resume_index(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, gpu_devices: tuple[tuple[str, ...], ...], gpu_text: str
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    gpu_devices: tuple[tuple[str, ...], ...],
+    gpu_text: str,
 ) -> None:
     from collections.abc import Sequence
-
-    from rich.console import Console, RenderableType
-
-    from ryan_library.functions import live_dashboard
 
     monkeypatch.setattr(runner, "local_cuda_device_names", lambda: {0: "RTX 3090", 1: "RTX 3080"})
 
@@ -1195,9 +1316,13 @@ def test_shared_dashboard_shows_middle_active_run_and_original_resume_index(
         max_rows: int,
         transient: bool,
         columns: Sequence[live_dashboard.WorkflowColumn],
+        group_by: str,
+        group_label_key: str,
     ) -> live_dashboard.LiveWorkflowDashboard:
         assert transient is False
         assert max_rows == config.live_max_rows == 10
+        assert group_by == "tcf_key"
+        assert group_label_key == "tcf_label"
         assert [column.header for column in columns] == [
             "Run",
             "e1",
@@ -1205,10 +1330,12 @@ def test_shared_dashboard_shows_middle_active_run_and_original_resume_index(
             "e3",
             "s1",
             "s9",
-            "Model",
             "Status",
             "GPU",
-            "Duration",
+            "End (h)",
+            "Model (h)",
+            "%",
+            "Elapsed",
             "Detail",
         ]
         result = actual_type(
@@ -1219,6 +1346,8 @@ def test_shared_dashboard_shows_middle_active_run_and_original_resume_index(
             transient=transient,
             columns=columns,
             enabled=False,
+            group_by=group_by,
+            group_label_key=group_label_key,
         )
         result.console = Console(file=StringIO(), record=True, width=160, height=25, color_system=None)
         displays.append(result)
@@ -1257,6 +1386,8 @@ def test_shared_dashboard_shows_middle_active_run_and_original_resume_index(
     assert "250 00030m BigModel" in " ".join(rendered[0].split())
     assert plan.runs[0].tcf.name in rendered[0]
     assert gpu_text in rendered[0]
+    assert "RTX" not in rendered[0]
+    assert "Local CUDA device mapping for this launch environment: -pu0 (RTX 3090); -pu1 (RTX 3080)" in caplog.text
     assert "Batch: -b -t" in rendered[0]
     assert "-pu9" not in rendered[0]
     # The same selected values remain visible after a run finishes.
@@ -1268,7 +1399,546 @@ def test_shared_dashboard_shows_middle_active_run_and_original_resume_index(
     assert "Skipped" not in completed
     assert "OK" in completed
     assert gpu_text in completed
+    assert "RTX" not in completed
     assert "Batch: -b -t" in completed
+
+
+@pytest.mark.parametrize("invalid", [None, 0, 1, "False"])
+def test_progress_diagnostics_requires_an_explicit_boolean(tmp_path: Path, invalid: object) -> None:
+    with pytest.raises(CommandPlanError, match="SHOW_PROGRESS_DIAGNOSTICS must be True or False"):
+        runner.prepare_plan(settings(tmp_path, show_progress_diagnostics=invalid))
+
+
+@pytest.mark.parametrize("show_diagnostics", [True, False])
+@pytest.mark.parametrize(
+    ("phase", "label"),
+    [("initialising", "Initialising"), ("solving", "Solving"), ("writing_results", "Writing results")],
+)
+def test_progress_detail_keeps_phase_when_optional_diagnostics_are_disabled(
+    phase: str, label: str, show_diagnostics: bool
+) -> None:
+    snapshot = replace(
+        LogProgressSnapshot(state="live", timestep_seconds=0.674, final_mass_error_percent=-0.00000025),
+        phase=phase,
+    )
+    detail = cast(
+        Callable[..., str],
+        getattr(runner, "_progress_detail"),  # noqa: B009 - test the observational display adapter
+    )(ProgressUpdate(run_index=1, pid=501, snapshot=snapshot), stale_after=60.0, show_diagnostics=show_diagnostics)
+    assert detail.startswith(label)
+    assert "PID 501" in detail
+    if show_diagnostics:
+        assert "dt 0.674s / ME -2.5e-07%" in detail
+    else:
+        assert "dt " not in detail
+        assert "ME " not in detail
+    assert "ETA" not in detail
+
+
+@pytest.mark.parametrize(
+    ("timestep", "mass_error"),
+    [(0.0, float("nan")), (-1.0, float("inf")), (float("nan"), float("-inf")), (float("inf"), None), (None, None)],
+)
+def test_invalid_or_unknown_diagnostics_are_omitted(timestep: float | None, mass_error: float | None) -> None:
+    snapshot = LogProgressSnapshot(
+        state="live", phase="solving", timestep_seconds=timestep, final_mass_error_percent=mass_error
+    )
+    detail = cast(
+        Callable[..., str],
+        getattr(runner, "_progress_detail"),  # noqa: B009 - test the observational display adapter
+    )(ProgressUpdate(run_index=1, pid=501, snapshot=snapshot), stale_after=60.0)
+    assert detail == "Solving; PID 501"
+
+
+@pytest.mark.parametrize(
+    ("snapshot", "expected"),
+    [
+        (LogProgressSnapshot(state="waiting"), "waiting log"),
+        (LogProgressSnapshot(state="unverified"), "log unverified"),
+        (LogProgressSnapshot(state="unavailable"), "progress unavailable"),
+        (LogProgressSnapshot(state="live", last_log_update=100.0), "log 15m old"),
+    ],
+)
+def test_phase_diagnostics_do_not_hide_log_observation_limits(
+    monkeypatch: pytest.MonkeyPatch, snapshot: LogProgressSnapshot, expected: str
+) -> None:
+    monkeypatch.setattr(runner.time, "time", lambda: 1000.0)
+    detail = cast(
+        Callable[..., str],
+        getattr(runner, "_progress_detail"),  # noqa: B009 - test the observational display adapter
+    )(
+        ProgressUpdate(run_index=1, pid=501, snapshot=replace(snapshot, phase="solving", timestep_seconds=0.674)),
+        stale_after=60.0,
+    )
+    assert detail.startswith(f"Solving; {expected}")
+    assert "dt 0.674s" in detail
+
+
+def test_expected_initialisation_detail_is_not_a_log_warning() -> None:
+    snapshot = LogProgressSnapshot(state="live", phase="initialising", detail="Waiting for model-time output")
+    detail = cast(
+        Callable[..., str],
+        getattr(runner, "_progress_detail"),  # noqa: B009 - test the observational display adapter
+    )(ProgressUpdate(run_index=1, pid=501, snapshot=snapshot), stale_after=60.0)
+    assert detail == "Initialising; PID 501"
+
+
+@pytest.mark.parametrize("show_diagnostics", [True, False])
+@pytest.mark.parametrize("exit_code", [0, 7])
+def test_completion_consumes_pending_snapshot_after_callback_and_keeps_actual_exit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    show_diagnostics: bool,
+    exit_code: int,
+) -> None:
+    config = settings(
+        tmp_path,
+        run_variables={"e1": ["A"]},
+        use_live_dashboard=True,
+        monitor_progress=True,
+        show_progress_diagnostics=show_diagnostics,
+    )
+    plan = runner.prepare_plan(config)
+    displays = _capture_dashboards(monkeypatch)
+    probe = ProgressProbe(
+        LogProgressSnapshot(start_hours=0.0, end_hours=2.0, model_hours=0.5, state="live", phase="solving")
+    )
+    final_snapshot = replace(
+        probe.snapshot,
+        model_hours=2.0,
+        phase="writing_results",
+        timestep_seconds=0.674,
+        final_mass_error_percent=-0.00000025,
+    )
+    completed: list[runner.RunOutcome] = []
+
+    def monitor(*, interval_seconds: float) -> ProgressProbe:
+        del interval_seconds
+        return probe
+
+    class FinalSampleProcess(FakeProcess):
+        def poll(self) -> int | None:
+            code = super().poll()
+            if code is not None:
+                # Simulate the worker publishing between the main loop's last
+                # drain and its process-exit observation. No terminal file read.
+                probe.pending.append(
+                    ProgressUpdate(run_index=1, pid=self.pid, snapshot=final_snapshot, warning="cached log warning")
+                )
+            return code
+
+    def popen(**_options: object) -> FakeProcess:
+        return FinalSampleProcess(501, code=exit_code, polls_before_exit=2)
+
+    def observed(result: runner.RunOutcome) -> None:
+        assert not probe.finished
+        assert probe.pending
+        task = _dashboard_tasks(displays[0])[1]
+        assert task.status == "RUNNING"
+        assert task.detail.startswith("Solving")
+        completed.append(result)
+
+    monkeypatch.setattr(runner, "AdvisoryRunProgress", monitor)
+    outcome = runner.launch_plan(plan, config, popen=popen, on_observed_completion=observed)
+    assert outcome.successful is (exit_code == 0)
+    assert [result.return_code for result in completed] == [exit_code]
+    task = _dashboard_tasks(displays[0])[1]
+    assert task.status == ("OK" if exit_code == 0 else "FAIL")
+    assert task.detail.startswith(f"Exit {exit_code}; log warning")
+    assert task.metadata["progress"] == "100.0"
+    assert task.metadata["model_hours"] == "2.000"
+    if show_diagnostics:
+        assert "dt 0.674s / ME -2.5e-07%" in task.detail
+    else:
+        assert "dt " not in task.detail
+        assert "ME " not in task.detail
+    assert probe.finished == [(1, 501)]
+    assert not probe.pending
+    warnings = [record.message for record in caplog.records if "cached log warning" in record.message]
+    assert warnings == ["Run 1 log observation: cached log warning"]
+
+
+@pytest.mark.parametrize(("wrong_index", "wrong_pid"), [(2, 501), (1, 999)])
+def test_completion_rejects_another_invocations_pending_snapshot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, wrong_index: int, wrong_pid: int
+) -> None:
+    config = settings(tmp_path, run_variables={"e1": ["A"]}, use_live_dashboard=True, monitor_progress=True)
+    plan = runner.prepare_plan(config)
+    displays = _capture_dashboards(monkeypatch)
+    snapshot = LogProgressSnapshot(start_hours=0.0, end_hours=2.0, model_hours=0.5, state="live")
+
+    class WrongInvocationProbe(ProgressProbe):
+        def finish(self, run_index: int, *, pid: int) -> ProgressUpdate:
+            super().finish(run_index, pid=pid)
+            return ProgressUpdate(
+                run_index=wrong_index,
+                pid=wrong_pid,
+                snapshot=replace(snapshot, model_hours=2.0, final_mass_error_percent=999.0),
+            )
+
+    probe = WrongInvocationProbe(snapshot)
+
+    def monitor(*, interval_seconds: float) -> ProgressProbe:
+        del interval_seconds
+        return probe
+
+    def popen(**_options: object) -> FakeProcess:
+        return FakeProcess(501, polls_before_exit=1)
+
+    monkeypatch.setattr(runner, "AdvisoryRunProgress", monitor)
+    assert runner.launch_plan(plan, config, popen=popen).successful
+    task = _dashboard_tasks(displays[0])[1]
+    assert task.metadata["progress"] == "25.0"
+    assert task.detail == "Exit 0"
+
+
+@pytest.mark.parametrize(
+    ("start", "end", "model", "expected_percent", "exit_code"),
+    [(2.0, 6.0, 3.0, "25.0", 0), (-2.0, 2.0, -1.0, "25.0", 0), (0.0, 2.0, 2.0, "100.0", 7)],
+)
+def test_progress_observations_preserve_lifecycle_and_real_exit_outcome(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    start: float,
+    end: float,
+    model: float,
+    expected_percent: str,
+    exit_code: int,
+) -> None:
+    config = settings(
+        tmp_path,
+        run_variables={"e1": ["A"]},
+        use_live_dashboard=True,
+        monitor_progress=True,
+        progress_poll_interval_seconds=30.0,
+    )
+    plan = runner.prepare_plan(config)
+    displays = _capture_dashboards(monkeypatch)
+    phase = "writing_results" if model >= end else "solving"
+    probe = ProgressProbe(
+        LogProgressSnapshot(
+            start_hours=start,
+            end_hours=end,
+            model_hours=model,
+            state="live",
+            phase=phase,
+            timestep_seconds=0.674,
+            final_mass_error_percent=-0.25,
+        )
+    )
+
+    def monitor(*, interval_seconds: float) -> ProgressProbe:
+        assert interval_seconds == 30.0
+        return probe
+
+    monkeypatch.setattr(runner, "AdvisoryRunProgress", monitor)
+    original_started: datetime | None = None
+    observations: list[dict[str, str]] = []
+
+    class ObservedProcess(FakeProcess):
+        def poll(self) -> int | None:
+            nonlocal original_started
+            task = _dashboard_tasks(displays[0])[1]
+            if original_started is None:
+                original_started = task.started_time
+            if task.metadata["model_hours"] != "--":
+                assert task.status == "RUNNING"
+                assert task.started_time == original_started
+                assert task.finished_time is None
+                assert task.detail.startswith("Writing results" if phase == "writing_results" else "Solving")
+                assert "dt 0.674s / ME -0.25%" in task.detail
+                observations.append(task.metadata.copy())
+            return super().poll()
+
+    def popen(**_options: object) -> FakeProcess:
+        return ObservedProcess(501, code=exit_code, polls_before_exit=1)
+
+    completed: list[runner.RunOutcome] = []
+    outcome = runner.launch_plan(plan, config, popen=popen, on_observed_completion=completed.append)
+    assert outcome.successful is (exit_code == 0)
+    assert len(completed) == 1
+    assert completed[0].return_code == exit_code
+    assert observations
+    assert observations[-1]["model_hours"] == f"{model:.3f}"
+    assert observations[-1]["end_hours"] == f"{end:.3f}"
+    assert observations[-1]["progress"] == expected_percent
+    task = _dashboard_tasks(displays[0])[1]
+    assert task.status == ("OK" if exit_code == 0 else "FAIL")
+    assert task.started_time == original_started
+    assert task.detail == f"Exit {exit_code}; dt 0.674s / ME -0.25%"
+    assert task.metadata["progress"] == expected_percent
+    assert probe.started
+    assert probe.closed
+    assert [(run.index, pid) for run, pid, _started_at in probe.registered] == [(1, 501)]
+    assert probe.finished == [(1, 501)]
+    assert probe.discarded == []
+
+
+@pytest.mark.parametrize(("monitor_progress", "use_live_dashboard"), [(False, True), (True, False), (False, False)])
+def test_disabled_progress_or_dashboard_never_starts_monitor(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    monitor_progress: bool,
+    use_live_dashboard: bool,
+) -> None:
+    config = settings(
+        tmp_path,
+        run_variables={"e1": ["A"]},
+        use_live_dashboard=use_live_dashboard,
+        monitor_progress=monitor_progress,
+    )
+    plan = runner.prepare_plan(config)
+    _capture_dashboards(monkeypatch)
+
+    def forbidden_monitor(*, interval_seconds: float) -> ProgressProbe:
+        del interval_seconds
+        pytest.fail("Disabled monitoring created a progress worker")
+
+    def popen(**_options: object) -> FakeProcess:
+        return FakeProcess(501)
+
+    monkeypatch.setattr(runner, "AdvisoryRunProgress", forbidden_monitor)
+    assert runner.launch_plan(plan, config, popen=popen).successful
+
+
+@pytest.mark.parametrize("failure", ["construct", "start"])
+def test_monitor_initialization_failure_warns_and_still_runs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    failure: str,
+) -> None:
+    config = settings(tmp_path, run_variables={"e1": ["A"]}, use_live_dashboard=True, monitor_progress=True)
+    plan = runner.prepare_plan(config)
+    _capture_dashboards(monkeypatch)
+    probe = ProgressProbe(LogProgressSnapshot())
+    message = "monitor unavailable"
+
+    def unavailable() -> None:
+        raise RuntimeError(message)
+
+    def monitor(*, interval_seconds: float) -> ProgressProbe:
+        del interval_seconds
+        if failure == "construct":
+            raise RuntimeError(message)
+        return probe
+
+    def popen(**_options: object) -> FakeProcess:
+        return FakeProcess(501)
+
+    monkeypatch.setattr(probe, "start", unavailable)
+    monkeypatch.setattr(runner, "AdvisoryRunProgress", monitor)
+    outcome = runner.launch_plan(plan, config, popen=popen)
+    assert outcome.successful
+    assert len(outcome.outcomes) == 1
+    assert "Run progress monitoring unavailable; continuing simulations: monitor unavailable" in caplog.text
+    assert probe.closed is (failure == "start")
+
+
+@pytest.mark.parametrize("failure", ["drain", "register", "finish", "close", "snapshot", "finish_snapshot"])
+def test_runtime_monitor_failure_never_terminates_children_or_loses_completion(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    failure: str,
+) -> None:
+    config = settings(tmp_path, use_live_dashboard=True, monitor_progress=True)
+    plan = runner.prepare_plan(config)
+    displays = _capture_dashboards(monkeypatch)
+    snapshot = LogProgressSnapshot(start_hours=0.0, end_hours=2.0, model_hours=0.5, state="live")
+    if failure == "snapshot":
+        # Deliberately violate the observer contract to prove an unexpected
+        # presentation-conversion error cannot terminate an owned solver.
+        snapshot = replace(snapshot, model_hours=cast(float, "malformed model time"))
+    probe = FailingProgressProbe(snapshot, failure=failure)
+
+    def monitor(*, interval_seconds: float) -> ProgressProbe:
+        assert interval_seconds == config.progress_poll_interval_seconds
+        return probe
+
+    monkeypatch.setattr(runner, "AdvisoryRunProgress", monitor)
+    children: list[FakeProcess] = []
+
+    def popen(**_options: object) -> FakeProcess:
+        child = FakeProcess(501 + len(children), polls_before_exit=2)
+        children.append(child)
+        return child
+
+    completed: list[runner.RunOutcome] = []
+    outcome = runner.launch_plan(plan, config, popen=popen, on_observed_completion=completed.append)
+    assert outcome.successful
+    assert len(children) == 2
+    assert all(not child.terminated for child in children)
+    assert [(result.run.index, result.return_code) for result in completed] == [(1, 0), (2, 0)]
+    assert [task.status for task in _dashboard_tasks(displays[0]).values()] == ["OK", "OK"]
+    warnings = [record.message for record in caplog.records if record.message.startswith("Run progress monitoring")]
+    assert len(warnings) == 1
+    if failure in {"finish", "finish_snapshot"}:
+        assert "recorded outcome unchanged" in warnings[0]
+    else:
+        assert "continuing simulations" in warnings[0]
+    assert probe.closed
+
+
+def test_monitor_discard_failure_does_not_replace_a_launch_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    config = settings(tmp_path, run_variables={"e1": ["A"]}, use_live_dashboard=True, monitor_progress=True)
+    plan = runner.prepare_plan(config)
+    displays = _capture_dashboards(monkeypatch)
+    probe = FailingProgressProbe(LogProgressSnapshot(), failure="discard")
+
+    def monitor(*, interval_seconds: float) -> ProgressProbe:
+        del interval_seconds
+        return probe
+
+    def popen(**_options: object) -> FakeProcess:
+        message = "solver executable unavailable"
+        raise OSError(message)
+
+    monkeypatch.setattr(runner, "AdvisoryRunProgress", monitor)
+    completed: list[runner.RunOutcome] = []
+    outcome = runner.launch_plan(plan, config, popen=popen, on_observed_completion=completed.append)
+    assert not outcome.successful
+    assert len(completed) == 1
+    assert completed[0].pid is None
+    assert completed[0].error == "Launch failed: solver executable unavailable"
+    task = _dashboard_tasks(displays[0])[1]
+    assert task.status == "FAIL"
+    assert task.detail == completed[0].error
+    assert task.metadata["gpu"] == "Not launched"
+    assert not probe.finished
+    assert "synthetic discard failure" in caplog.text
+
+
+def test_multiple_tcf_panels_preserve_launch_order_and_one_global_row_cap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    first = tmp_path / "project-b" / "model.tcf"
+    second = tmp_path / "project-a" / "model.tcf"
+    source = tmp_path / "runs.txt"
+    source.write_text(
+        f'TUFLOW.exe -e1 B "{first}"\nTUFLOW.exe -e1 A "{second}"\nTUFLOW.exe -e1 C "{first}"\n',
+        encoding="utf-8",
+    )
+    config = settings(
+        tmp_path,
+        mode="textfiles",
+        tcf=None,
+        input_files=(source,),
+        gpu_devices=(("-pu0",), ("-pu1",)),
+        use_live_dashboard=True,
+        live_max_rows=2,
+    )
+    plan = runner.prepare_plan(config)
+    displays = _capture_dashboards(monkeypatch)
+    launches: list[tuple[str, str]] = []
+    active_frames: list[str] = []
+
+    class CapturedProcess(FakeProcess):
+        def poll(self) -> int | None:
+            dashboard = displays[0]
+            tasks = _dashboard_tasks(dashboard)
+            if tasks[1].status == tasks[2].status == "RUNNING":
+                active_frames.append(_render_dashboard(dashboard))
+            return super().poll()
+
+    def popen(**options: object) -> FakeProcess:
+        args = cast(list[str], options["args"])
+        launches.append((args[-1], args[args.index("-e1") + 1]))
+        return CapturedProcess(len(launches) + 500, polls_before_exit=2)
+
+    outcome = runner.launch_plan(plan, config, popen=popen)
+    assert outcome.successful
+    assert launches == [(str(first), "B"), (str(second), "A"), (str(first), "C")]
+    assert active_frames
+    dashboard = displays[0]
+    assert dashboard.max_rows == 2
+    tasks = _dashboard_tasks(dashboard)
+    assert tasks[1].metadata["tcf_key"] == tasks[3].metadata["tcf_key"]
+    assert tasks[1].metadata["tcf_key"] != tasks[2].metadata["tcf_key"]
+    assert tasks[1].metadata["tcf_label"] == str(first.relative_to(tmp_path))
+    assert tasks[2].metadata["tcf_label"] == str(second.relative_to(tmp_path))
+    first_frame = active_frames[0]
+    assert first_frame.index(tasks[1].metadata["tcf_label"]) < first_frame.index(tasks[2].metadata["tcf_label"])
+    assert first_frame.count("RUNNING") == 2
+    assert first_frame.count("model.tcf") == 2
+    visible = cast(Callable[[], list[WorkflowTask]], getattr(dashboard, "_visible_tasks"))  # noqa: B009
+    assert len(visible()) == 2
+
+
+@pytest.mark.parametrize("width", [100, 120])
+def test_narrow_grouped_runner_keeps_selected_active_rows_in_terminal_height(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, width: int
+) -> None:
+    source = tmp_path / "runs.txt"
+    arguments = "-e2 00720m -e3 Dummy -e4 NestedNL -e5 CCNear -s1 EXG -s2 Coondiner -s4 08M"
+    commands: list[str] = []
+    for index in range(1, 5):
+        model = "first.tcf" if index < 3 else "second.tcf"
+        commands.append(f'TUFLOW.exe -e1 0{index}.0p {arguments} "{tmp_path / model}"\n')
+    source.write_text("".join(commands), encoding="utf-8")
+    config = settings(
+        tmp_path,
+        mode="textfiles",
+        tcf=None,
+        input_files=(source,),
+        gpu_devices=(("-pu0",), ("-pu1",), ("-pu2",), ("-pu3",)),
+        use_live_dashboard=True,
+        monitor_progress=True,
+        live_max_rows=10,
+    )
+    plan = runner.prepare_plan(config)
+    displays = _capture_dashboards(monkeypatch, width=width, height=24)
+    probe = ProgressProbe(
+        LogProgressSnapshot(
+            start_hours=-2.0,
+            end_hours=2.0,
+            model_hours=1.5,
+            state="live",
+            phase="writing_results",
+            timestep_seconds=0.674,
+            final_mass_error_percent=-0.00000025,
+        )
+    )
+
+    def monitor(*, interval_seconds: float) -> ProgressProbe:
+        del interval_seconds
+        return probe
+
+    monkeypatch.setattr(runner, "AdvisoryRunProgress", monitor)
+    active_frames: list[str] = []
+    launched = 0
+
+    class CapturedProcess(FakeProcess):
+        def poll(self) -> int | None:
+            dashboard = displays[0]
+            tasks = _dashboard_tasks(dashboard)
+            if all(task.status == "RUNNING" and task.metadata["progress"] == "87.5" for task in tasks.values()):
+                assert all(task.detail.startswith("Writing results") for task in tasks.values())
+                assert all("ME -2.5e-07%" in task.detail for task in tasks.values())
+                active_frames.append(_render_dashboard(dashboard))
+            return super().poll()
+
+    def popen(**_options: object) -> FakeProcess:
+        nonlocal launched
+        launched += 1
+        return CapturedProcess(launched + 50330, polls_before_exit=10)
+
+    assert runner.launch_plan(plan, config, popen=popen).successful
+    assert active_frames
+    for frame in active_frames:
+        assert len(frame.splitlines()) <= 24
+        # Selection/detail fields may shorten, but row identity and status must
+        # remain readable and both panels must fit inside the live region.
+        assert frame.count("RUNNING") == 4
+        for gpu in ("-pu0", "-pu1", "-pu2", "-pu3"):
+            assert frame.count(gpu) == 1
+        run_rows = [line for line in frame.splitlines() if "RUNNING" in line]
+        assert [line.split()[2] for line in run_rows] == ["1", "2", "3", "4"]
+        assert "first.tcf" in frame
+        assert "second.tcf" in frame
 
 
 def test_imported_start_executable_and_directory_never_control_launch(tmp_path: Path) -> None:

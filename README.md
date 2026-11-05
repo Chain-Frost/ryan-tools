@@ -125,8 +125,8 @@ Windows convenience entry points are:
 ```
 
 `install-ryan-tools.bat` installs the latest published `ryan-tools[mcp]` release
-directly from PyPI, along with upstream QGIS MCP and the accepted PyTUFLOW PR17
-source pinned in [`repo-scripts/pytuflow-requirement.txt`](repo-scripts/pytuflow-requirement.txt).
+directly from PyPI, along with upstream QGIS MCP and the pinned PyTUFLOW PR #63
+contributor-fork source (based on upstream PR #17) referenced in [`repo-scripts/pytuflow-requirement.txt`](repo-scripts/pytuflow-requirement.txt).
 It keeps the binary GIS bootstrap, replaces incompatible same-version PyTUFLOW
 builds, and checks installed dependencies and the public validation API before
 reporting success. The local-wheel installer uses the same dependency setup and
