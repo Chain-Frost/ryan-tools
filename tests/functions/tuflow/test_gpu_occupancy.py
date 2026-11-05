@@ -11,6 +11,27 @@ import pytest
 from ryan_library.functions.tuflow import gpu_occupancy
 
 
+@pytest.fixture(autouse=True)
+def active_licences(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(gpu_occupancy, "tuflow_licences_in_use", lambda: True)
+
+
+@pytest.mark.parametrize("usage", [False, None])
+def test_zero_or_unverified_licence_usage_skips_all_process_inspection(
+    monkeypatch: pytest.MonkeyPatch, usage: bool | None
+) -> None:
+    monkeypatch.setattr(gpu_occupancy, "tuflow_licences_in_use", lambda: usage)
+
+    def forbidden(**_kwargs: object) -> None:
+        pytest.fail("CodeMeter zero/unverified usage must not enumerate processes")
+
+    monkeypatch.setattr(gpu_occupancy.psutil, "process_iter", forbidden)
+    result = gpu_occupancy.local_gpu_occupancy()
+    assert result.assigned == ()
+    assert result.unknown_pids == ()
+    assert result.inspection_incomplete is (usage is None)
+
+
 def test_extract_gpu_ids_and_find_conflicts() -> None:
     selected = gpu_occupancy.gpu_ids_from_flags(["-b", "-pu0", "-PU2", "-e1", "01.0p", "-pu2"])
     assert selected == frozenset({0, 2})
@@ -30,6 +51,11 @@ def test_only_live_matching_engines_with_explicit_gpu_flags(monkeypatch: pytest.
     class FakeProcess:
         def __init__(self, pid: int, name: str, cmd: list[str]) -> None:
             self.info: dict[str, object] = {"pid": pid, "name": name, "cmdline": cmd}
+            self._command = cmd
+
+        def cmdline(self) -> list[str]:
+            assert self.info["pid"] not in {20, 40}, "Excluded/unrelated processes must not have command lines read"
+            return self._command
 
         def environ(self) -> dict[str, str]:
             return dict(os.environ)
@@ -42,6 +68,7 @@ def test_only_live_matching_engines_with_explicit_gpu_flags(monkeypatch: pytest.
     ]
 
     def fake_process_iter(**_kwargs: object) -> Iterator[Any]:
+        assert _kwargs == {"attrs": ["pid", "name"]}
         return iter(processes)
 
     monkeypatch.setattr(gpu_occupancy.psutil, "process_iter", fake_process_iter)
@@ -74,6 +101,9 @@ def test_no_gpu_flags_means_assignment_unknown(monkeypatch: pytest.MonkeyPatch) 
                 "name": "TUFLOW_GPU_w64.exe",
                 "cmdline": ["TUFLOW_GPU_w64.exe", "-b", "model.tcf"],
             }
+
+        def cmdline(self) -> list[str]:
+            return ["TUFLOW_GPU_w64.exe", "-b", "model.tcf"]
 
     def fake_process_iter(**_kwargs: object) -> Iterator[FakeProcess]:
         return iter([FakeProcess()])
@@ -121,6 +151,9 @@ def test_ordinals_require_a_shared_cuda_selection_environment(
                 "cmdline": ["TUFLOW_iSP_w64.exe", "-pu1", "model.tcf"],
             }
 
+        def cmdline(self) -> list[str]:
+            return ["TUFLOW_iSP_w64.exe", "-pu1", "model.tcf"]
+
         def environ(self) -> dict[str, str]:
             return external
 
@@ -142,6 +175,9 @@ def test_unreadable_cuda_environment_is_not_assumed_default(monkeypatch: pytest.
                 "name": "TUFLOW_iSP_w64.exe",
                 "cmdline": ["TUFLOW_iSP_w64.exe", "-pu1", "model.tcf"],
             }
+
+        def cmdline(self) -> list[str]:
+            return ["TUFLOW_iSP_w64.exe", "-pu1", "model.tcf"]
 
         def environ(self) -> dict[str, str]:
             if failure == "exited":

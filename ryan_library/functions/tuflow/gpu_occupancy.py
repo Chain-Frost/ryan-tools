@@ -16,6 +16,7 @@ from typing import cast
 
 import psutil
 
+from .codemeter import tuflow_licences_in_use
 from .command_plan import is_gpu_switch
 
 
@@ -34,6 +35,7 @@ class GpuOccupancySnapshot:
     assigned: tuple[TuflowGpuProcess, ...]
     unknown_pids: tuple[int, ...]
     inspection_incomplete: bool = False
+    detail: str = ""
 
 
 def gpu_ids_from_flags(flags: Sequence[str]) -> frozenset[int]:
@@ -75,28 +77,45 @@ def local_gpu_occupancy(*, exclude_pids: Collection[int] = ()) -> GpuOccupancySn
     TUFLOW runs without explicit -puN switches, or with different/unreadable
     CUDA selection environments, are unknown. Command-line ordinals are only
     comparable after verifying matching CUDA_VISIBLE_DEVICES and CUDA_DEVICE_ORDER.
-    The caller owns snapshot timing. A guarded simulation runner can poll this
-    read-only function before dispatch. No TUFLOW or CodeMeter is launched.
+    A fresh CodeMeter summary confirming zero TUFLOW licence use avoids process
+    enumeration. Only confirmed active usage triggers local inspection; an
+    unavailable or unverified summary returns incomplete inspection immediately.
+    The caller owns snapshot timing. No TUFLOW or CodeMeter process is launched.
     """
+    licence_usage = tuflow_licences_in_use()
+    if licence_usage is not True:
+        return GpuOccupancySnapshot(
+            assigned=(),
+            unknown_pids=(),
+            inspection_incomplete=licence_usage is None,
+            detail=(
+                "CodeMeter reports no TUFLOW licences in use; GPU process inspection skipped."
+                if licence_usage is False
+                else "CodeMeter usage is unavailable or unverified; GPU process inspection skipped, continuing launches."
+            ),
+        )
+    return _inspect_local_gpu_processes(exclude_pids)
+
+
+def _inspect_local_gpu_processes(exclude_pids: Collection[int]) -> GpuOccupancySnapshot:
+    """Inspect process state only after CodeMeter confirms active licence use."""
     excluded = set(exclude_pids)
     assigned: list[TuflowGpuProcess] = []
     unknown: list[int] = []
     incomplete = False
     try:
-        processes = psutil.process_iter(attrs=["pid", "name", "cmdline"])
+        processes = psutil.process_iter(attrs=["pid", "name"])
         for process in processes:
             try:
                 info = cast(dict[str, object], process.info)
                 pid_value = info.get("pid")
                 if not isinstance(pid_value, int) or pid_value in excluded:
                     continue
-                command_value = info.get("cmdline")
-                command = (
-                    tuple(str(arg) for arg in cast(Sequence[object], command_value))
-                    if isinstance(command_value, list | tuple)
-                    else ()
-                )
-                if not _is_tuflow_executable(str(info.get("name") or ""), command):
+                name = str(info.get("name") or "")
+                if name and not _is_tuflow_executable(name, ()):
+                    continue
+                command = tuple(process.cmdline())
+                if not _is_tuflow_executable(name, command):
                     continue
                 if not command:
                     unknown.append(pid_value)

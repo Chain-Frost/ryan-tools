@@ -5,8 +5,8 @@
 | Status | Needs review; licensed hardware evidence complete within recorded scope; hosted validation tracked in PR |
 | Owner | ChatGPT |
 | Created | 2026-11-03 |
-| Updated | 2026-11-04 |
-| Next review | 2026-11-05 |
+| Updated | 2026-11-05 |
+| Next review | 2026-11-06 |
 | Baseline | PR #193; scheduler tested at `b29f8c2b`, integrated remote `efeff949`; isolated `ryan-tools-pr193-two-gpu` worktree |
 
 ## Outcome and scope
@@ -16,6 +16,13 @@ coverage, a non-destructive polling benchmark and a licensed two-GPU validation 
 hardware observations separately from synthetic evidence. Do not merge or publish the package.
 
 ## Current state
+
+The 2026-11-05 startup follow-up is on a new branch/PR,
+`fix/codemeter-first-gpu-inspection`, based on current main after PR #205 merged.
+It supersedes unconditional process enumeration: check the CodeMeter summary first;
+zero or unverified usage skips enumeration, and unverified usage warns and continues.
+Only confirmed active usage triggers inspection. Earlier hardware evidence below
+does not validate this shortcut or licence-free/tutorial runs.
 
 User clarification on 2026-11-04 supersedes conservative unknown-state blocking: helper failure or
 uncertainty warns and continues. Only confirmed GPU conflicts wait. CUDA namespace checking remains
@@ -202,3 +209,35 @@ Python 3.14.6: `python -m pytest -q tests/scripts/test_tuflow_advisory_runner.py
 Ruff 0.16.6 lint/format, strict Pyright on that file and `git diff --check` pass.
 No library or package changes; no wheel rebuild required. Repair is being committed and pushed to
 PR #193; final-head hosted checks remain pending. No solver execution, merge or publication.
+
+### 2026-11-05: avoid slow unconditional startup process enumeration
+
+An observed startup spent 49 seconds between CUDA-name reporting and the completed
+local-process check. Read-only process probes reproduced slow enumeration. The runner
+now requests only the CodeMeter monitoring summary, using IPv4 loopback to avoid
+sequential localhost IPv6/IPv4 retries and a one-second request timeout. It does not
+fetch product details or event history. A complete zero-usage summary skips process
+inspection. Per the user's explicit clarification, unavailable, malformed, partial or
+ambiguous usage also skips inspection and allows launches with a warning. Only active
+usage triggers enumeration, with command lines read after executable-name filtering.
+Every scheduling check obtains fresh usage; no idle result is cached across launches.
+
+Validation: 199 focused tests passed, two Windows symlink tests skipped. Ruff lint and
+format, strict Pyright on all six modified Python files, Loguru policy and documentation
+links passed. Synthetic regressions cover zero/unknown usage in both guarded and
+advisory launch paths, summary-only requests, malformed/ambiguous data and selective
+command-line access. Existing CUDA namespace/conflict coverage remains passing.
+
+Built and verified wheel `26.11.5.2` (SHA256
+`9874efac363ae995e2a7f158adae68965f0eb2e11fcf501bd7056edf45af09a3`). An isolated
+installation passed the four launch combinations and copied runner `--help`. A live
+CodeMeter-unavailable probe returned in 1.021 seconds without enumerating processes.
+The broad installed-wheel smoke stopped at missing pandas in its isolated environment;
+it is not claimed as passed. No solver was launched or licence allocated. The normal
+user-site installation remains unchanged. Existing MCP runner discovery is sufficient;
+no new tool is needed for this internal scheduling correction.
+
+Delivery: new branch/PR requested; changes are committed/pushed for review with hosted
+CI tracked on the PR. No merge/publication is authorized. The separately reported live
+dashboard repaint issue remains unresolved; passing logging tests do not reproduce the
+user's terminal artifacts. Next review: 2026-11-06.

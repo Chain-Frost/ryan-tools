@@ -287,7 +287,16 @@ blocked, no queued model starts and the runner rechecks every
 also triggers a fresh check before another model is assigned. A group
 such as `[["-pu0", "-pu1"]]` requires **both** GPUs to be free.
 
-The check uses running TUFLOW process command lines (`-puN`) and excludes
+Before inspecting processes, each check reads only the local CodeMeter WebAdmin
+licence summary (`http://127.0.0.1:22352`, one-second request timeout). A complete
+summary reporting zero TUFLOW licence usage skips process inspection. An unavailable,
+incomplete or ambiguous response also skips process inspection, warns and continues
+launching with unverified GPU availability. Only confirmed active licence usage
+triggers process inspection; allocation-detail pages and event history are not fetched.
+This shortcut assumes licensed runs; licence-free/tutorial runs are not protected
+when CodeMeter reports zero usage. A fresh summary is read for each scheduling check.
+
+Process inspection uses running TUFLOW process command lines (`-puN`) and excludes
 children already tracked by this runner. Before comparing ordinals, it requires exact matching
 `CUDA_VISIBLE_DEVICES` and `CUDA_DEVICE_ORDER` settings in the external and runner environments.
 Different settings or denied environment access make the assignment unknown and produce a warning;

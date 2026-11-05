@@ -2083,6 +2083,8 @@ def test_guard_checks_cuda_namespace_before_intersecting_ordinals(
     monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "1,0")
     monkeypatch.delenv("CUDA_DEVICE_ORDER", raising=False)
 
+    monkeypatch.setattr(gpu_occupancy, "tuflow_licences_in_use", lambda: True)
+
     class ExternalProcess:
         def __init__(self) -> None:
             self.info: dict[str, object] = {
@@ -2090,6 +2092,9 @@ def test_guard_checks_cuda_namespace_before_intersecting_ordinals(
                 "name": "TUFLOW_iSP_w64.exe",
                 "cmdline": ["TUFLOW_iSP_w64.exe", "-pu1", "model.tcf"],
             }
+
+        def cmdline(self) -> list[str]:
+            return ["TUFLOW_iSP_w64.exe", "-pu1", "model.tcf"]
 
         def environ(self) -> dict[str, str]:
             if external_selection == "unreadable":
@@ -2161,3 +2166,37 @@ def test_optional_gpu_inspection_cannot_stall_computation(
         assert "GPU name inspection failed" in caplog.text
     else:
         assert "GPU INSPECTION WARNING - CONTINUING" in caplog.text
+
+
+@pytest.mark.parametrize("usage", [False, None])
+@pytest.mark.parametrize("guard", [False, True])
+def test_codemeter_idle_or_failure_launches_without_process_scan(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    usage: bool | None,
+    guard: bool,
+) -> None:
+    from ryan_library.functions.tuflow import gpu_occupancy
+
+    config = settings(tmp_path, gpu_devices=(("-pu0",),), wait_for_available_gpu=guard)
+    plan = runner.prepare_plan(config)
+    launched: list[list[str]] = []
+
+    def forbidden(**_kwargs: object) -> None:
+        pytest.fail("Idle/unverified CodeMeter must not trigger process inspection")
+
+    def popen(*, args: list[str], **_options: object) -> FakeProcess:
+        launched.append(args)
+        return FakeProcess(100 + len(launched))
+
+    monkeypatch.setattr(gpu_occupancy, "tuflow_licences_in_use", lambda: usage)
+    monkeypatch.setattr(gpu_occupancy.psutil, "process_iter", forbidden)
+    monkeypatch.setattr(runner, "local_cuda_device_names", dict)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    assert runner.launch_plan(plan, config, popen=popen).successful
+    assert len(launched) == len(plan.runs)
+    if usage is None:
+        assert "CodeMeter usage is unavailable or unverified" in caplog.text
+    elif not guard:
+        assert "CodeMeter reports no TUFLOW licences in use" in caplog.text

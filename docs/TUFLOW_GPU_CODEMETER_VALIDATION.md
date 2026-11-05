@@ -10,6 +10,15 @@ This guide separates physical GPU occupancy from licence availability. The simul
 `-puN` groups from local TUFLOW process command lines. CodeMeter observations are independent evidence that a licence
 was checked out; a GPU licence allocation does not identify a physical GPU.
 
+As of 2026-11-05, occupancy checks first read only the local CodeMeter licence-summary
+page with a one-second request timeout. Confirmed zero TUFLOW usage skips process
+enumeration. Failed, empty, partial or ambiguous queries also skip enumeration and
+continue with a warning, following the user's computation-first policy. Only confirmed
+active usage triggers local inspection, which reads command lines after filtering by
+executable name. No allocation-detail or event-history requests are made on this path.
+This assumes licensed runs; a zero-usage shortcut does not protect licence-free/tutorial
+processes. The historical full-snapshot timings below do not measure this summary path.
+
 For a future agent session on a suitable workstation, use the copy-ready
 [licensed two-GPU validation prompt](TUFLOW_GPU_HARDWARE_TEST_PROMPT.md).
 

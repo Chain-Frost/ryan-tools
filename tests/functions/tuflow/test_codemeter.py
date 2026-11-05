@@ -2,6 +2,8 @@
 
 from unittest.mock import patch
 
+import pytest
+
 from ryan_library.functions.tuflow import codemeter
 
 MONITORING_HTML = """
@@ -139,3 +141,43 @@ def test_product_row_without_matching_firm_link_is_not_attributed() -> None:
     products, links = codemeter.parse_license_monitoring_html(html)
     assert [product.product_code for product in products] == [20, 99]
     assert set(links) == {20, 99}
+
+
+@pytest.mark.parametrize("active", [True, False])
+def test_launch_usage_reads_only_summary(active: bool) -> None:
+    html = MONITORING_HTML
+    if not active:
+        html = html.replace("<td>2</td><td>2</td>", "<td>0</td><td>4</td>")
+        html = html.replace("<td>1</td><td>1</td><td>0</td>", "<td>1</td><td>0</td><td>1</td>")
+    with patch.object(codemeter, "_fetch_text", return_value=html) as fetch:
+        assert codemeter.tuflow_licences_in_use() is active
+    fetch.assert_called_once_with("http://127.0.0.1:22352/license_monitoring.html", timeout_seconds=1.0)
+
+
+@pytest.mark.parametrize("failure", [TimeoutError("timeout"), OSError("unavailable"), ValueError("invalid URL")])
+def test_launch_usage_failure_is_unknown(failure: Exception) -> None:
+    with patch.object(codemeter, "_fetch_text", side_effect=failure) as fetch:
+        assert codemeter.tuflow_licences_in_use() is None
+    assert fetch.call_count == 1
+
+
+@pytest.mark.parametrize(
+    "html",
+    [
+        "<html>WebAdmin unavailable</html>",
+        MONITORING_HTML.replace("<td>4</td>", "<td>unknown</td>"),
+        MONITORING_HTML.replace("<td>4</td>", "<td>-1</td>"),
+        MONITORING_HTML.replace("<td>4</td>", "<td>1</td>"),
+        MONITORING_HTML
+        + '<a href="/license_monitoring/license_monitoring_details.html?FirmCode=101139&amp;ProductCode=88">88</a>',
+        MONITORING_HTML
+        + '<a href="/license_monitoring/license_monitoring_details.html?FirmCode=777&amp;ProductCode=20">20</a>',
+        # Total/available suggest idle, but Used says active: never accept zero.
+        MONITORING_HTML.replace("<td>2</td><td>2</td>", "<td>2</td><td>4</td>").replace(
+            "<td>1</td><td>1</td><td>0</td>", "<td>1</td><td>0</td><td>1</td>"
+        ),
+    ],
+)
+def test_launch_usage_incomplete_or_inconsistent_summary_is_unknown(html: str) -> None:
+    with patch.object(codemeter, "_fetch_text", return_value=html):
+        assert codemeter.tuflow_licences_in_use() is None
