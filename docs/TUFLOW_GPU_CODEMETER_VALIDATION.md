@@ -26,6 +26,16 @@ worker has a 1.9-second timeout and reserves 0.1 seconds for termination and
 reaping. The worker's daemon scan thread cannot outlive the subprocess. On timeout,
 partial results are discarded; the runner warns and continues.
 
+A successfully launched solver claims its configured GPU group for the remainder
+of the batch. A child exit does not remove this batch-level reservation:
+subsequent runs on the same GPU need no CodeMeter/GPU rescan. The scheduler
+continues inspecting only groups that have **never been claimed**, such as
+groups blocked by an external TUFLOW process at batch startup. Once all groups
+have been claimed, inspections stop and any stale inspection warning is cleared.
+This is a scheduler-level reservation rather than an OS-level GPU lock. The
+policy assumes third-party work does not claim one of these devices during a
+gap between the batch's own simulations.
+
 ### 2026-11-05 bounded timing check
 
 Read-only measurements used the current source on the Windows workstation. CodeMeter
