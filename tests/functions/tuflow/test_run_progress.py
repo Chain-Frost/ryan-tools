@@ -117,9 +117,7 @@ def test_real_pytuflow_resolves_override_log_folder(
     assert not result.detail
 
 
-def test_missing_filename_slot_fails_without_importing_parser(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_missing_filename_slot_fails_without_importing_parser(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     path = tmp_path / "model_~s2~.tcf"
     path.touch()
 
