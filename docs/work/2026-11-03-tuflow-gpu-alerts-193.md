@@ -5,8 +5,8 @@
 | Status | Needs review; licensed hardware evidence complete within recorded scope; hosted validation tracked in PR |
 | Owner | ChatGPT |
 | Created | 2026-11-03 |
-| Updated | 2026-11-04 |
-| Next review | 2026-11-05 |
+| Updated | 2026-11-05 |
+| Next review | 2026-11-06 |
 | Baseline | PR #193; scheduler tested at `b29f8c2b`, integrated remote `efeff949`; isolated `ryan-tools-pr193-two-gpu` worktree |
 
 ## Outcome and scope
@@ -16,6 +16,13 @@ coverage, a non-destructive polling benchmark and a licensed two-GPU validation 
 hardware observations separately from synthetic evidence. Do not merge or publish the package.
 
 ## Current state
+
+The 2026-11-05 startup follow-up is on a new branch/PR,
+`fix/codemeter-first-gpu-inspection`, based on current main after PR #205 merged.
+It supersedes unconditional process enumeration: check the CodeMeter summary first;
+zero or unverified usage skips enumeration, and unverified usage warns and continues.
+Only confirmed active usage triggers inspection. Earlier hardware evidence below
+does not validate this shortcut or licence-free/tutorial runs.
 
 User clarification on 2026-11-04 supersedes conservative unknown-state blocking: helper failure or
 uncertainty warns and continues. Only confirmed GPU conflicts wait. CUDA namespace checking remains
@@ -202,3 +209,82 @@ Python 3.14.6: `python -m pytest -q tests/scripts/test_tuflow_advisory_runner.py
 Ruff 0.16.6 lint/format, strict Pyright on that file and `git diff --check` pass.
 No library or package changes; no wheel rebuild required. Repair is being committed and pushed to
 PR #193; final-head hosted checks remain pending. No solver execution, merge or publication.
+
+### 2026-11-05: avoid slow unconditional startup process enumeration
+
+An observed startup spent 49 seconds between CUDA-name reporting and the completed
+local-process check. Read-only process probes reproduced slow enumeration. The runner
+now requests only the CodeMeter monitoring summary, using IPv4 loopback to avoid
+sequential localhost IPv6/IPv4 retries and a one-second request timeout. It does not
+fetch product details or event history. A complete zero-usage summary skips process
+inspection. Per the user's explicit clarification, unavailable, malformed, partial or
+ambiguous usage also skips inspection and allows launches with a warning. Only active
+usage triggers enumeration, with command lines read after executable-name filtering.
+Every scheduling check obtains fresh usage; no idle result is cached across launches.
+
+Validation: 199 focused tests passed, two Windows symlink tests skipped. Ruff lint and
+format, strict Pyright on all six modified Python files, Loguru policy and documentation
+links passed. Synthetic regressions cover zero/unknown usage in both guarded and
+advisory launch paths, summary-only requests, malformed/ambiguous data and selective
+command-line access. Existing CUDA namespace/conflict coverage remains passing.
+
+Built and verified wheel `26.11.5.2` (SHA256
+`9874efac363ae995e2a7f158adae68965f0eb2e11fcf501bd7056edf45af09a3`). An isolated
+installation passed the four launch combinations and copied runner `--help`. A live
+CodeMeter-unavailable probe returned in 1.021 seconds without enumerating processes.
+The broad installed-wheel smoke stopped at missing pandas in its isolated environment;
+it is not claimed as passed. No solver was launched or licence allocated. The normal
+user-site installation remains unchanged. Existing MCP runner discovery is sufficient;
+no new tool is needed for this internal scheduling correction.
+
+The subsequent troubleshooting follow-up adds the WebAdmin URL and Windows Services
+instructions to unverified-usage warnings in both guarded and advisory mode. The
+exact Windows service name is `CmWebAdmin.exe` (display name `CmWebAdmin`); it is
+separate from the licence runtime. Automatic startup is an optional user choice.
+Multiline issue details are split into dashboard alert lines so height accounting
+includes the added guidance. Zero usage does not print troubleshooting advice.
+Validation: 161 focused tests passed / 2 Windows symlink skips, then all four affected
+CodeMeter launch cases passed after the final wording edit. Ruff lint/format, strict
+Pyright, Loguru policy, documentation links, a no-bump wheel build and an isolated
+installed-wheel warning check passed. The user's existing local version edit to
+26.11.5.3 is preserved and excluded from this follow-up commit; the verification
+build uses that local version without changing metadata. No installed user package
+or Windows service is changed. Delivery continues in PR #206.
+
+Delivery: new branch/PR requested; changes are committed/pushed for review with hosted
+CI tracked on the PR. No merge/publication is authorized. The separately reported live
+dashboard repaint issue remains unresolved; passing logging tests do not reproduce the
+user's terminal artifacts. Next review: 2026-11-06.
+
+### 2026-11-05: enforce the user's one-second inspection budget
+
+The user requested timing of the detailed path and set a maximum optional overhead
+of one second. Three CodeMeter summaries took 0.191726–0.240229 seconds. The actual
+detailed process scan exceeded a three-second probe cutoff; a separate one-second
+probe also timed out. The previous name-filter optimization alone is therefore not
+accepted as a fast launch path on this workstation.
+
+The entire optional CodeMeter/GPU check now runs in one owned hidden Python worker
+with a 0.9-second timeout, reserving 0.1 seconds for cancellation and reaping. This
+covers imports/startup, HTTP and process inspection together. The summary request
+uses a half-second socket timeout. Confirmed idle and failed usage still skip process
+enumeration; only active usage enters it. Timeout/failure returns unverified status,
+discards partial findings and continues launching. The worker is killed and reaped;
+there is no late result or non-daemon thread holding shutdown open.
+
+Three complete idle calls took 0.311939–0.330644 seconds. Three forced-active calls
+using real process inspection timed out and were reaped in 0.939249–0.970314 seconds.
+All three child PIDs were confirmed absent after return. The isolated installed
+wheel repeated idle at 0.320773 seconds and detailed cancellation at 0.920239 seconds,
+again confirming the worker exited. No solver was launched or licence allocated.
+These observations do not guarantee latency on every OS/load or repeat licensed
+multi-GPU acceptance of the deadline policy. Full timing samples and method are in
+[the validation report](../TUFLOW_GPU_CODEMETER_VALIDATION.md#2026-11-05-bounded-timing-check).
+
+Validation: 202 focused passes / 2 Windows symlink skips; Ruff lint/format, strict
+Pyright on five modified Python files, Loguru policy, links and whitespace passed.
+New regressions cover successful worker snapshots, timeout, launch failure, malformed
+output, and continued guarded/advisory launches after timeout. Built and verified
+the local no-bump 26.11.5.3 wheel and tested its actual subprocess boundary in an
+isolated install. The user's version edit remains unstaged and excluded. Delivery
+continues in PR #206; final-head hosted CI is recorded in the PR. No merge/release.

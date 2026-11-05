@@ -6,7 +6,7 @@ import logging
 import os
 import subprocess
 import sys
-from collections.abc import Callable, Generator
+from collections.abc import Callable, Collection, Generator
 from dataclasses import replace
 from datetime import datetime
 from io import StringIO
@@ -95,6 +95,18 @@ class FakeProcess:
 
 def _no_op(*_args: object) -> None:
     """Suppress unrelated GPU/priority behaviour in focused scheduler tests."""
+
+
+def _inline_gpu_inspection(exclude_pids: Collection[int], *, timeout_seconds: float) -> GpuOccupancySnapshot:
+    """Keep worker mocks in-process while separate regressions cover the deadline."""
+    from ryan_library.functions.tuflow import gpu_occupancy
+
+    del timeout_seconds
+    query = cast(
+        Callable[[Collection[int]], GpuOccupancySnapshot],
+        getattr(gpu_occupancy, "_local_gpu_occupancy"),  # noqa: B009 - exercise the worker integration
+    )
+    return query(exclude_pids)
 
 
 def _unexpected_gpu_scan(*_args: object) -> None:
@@ -2083,6 +2095,9 @@ def test_guard_checks_cuda_namespace_before_intersecting_ordinals(
     monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "1,0")
     monkeypatch.delenv("CUDA_DEVICE_ORDER", raising=False)
 
+    monkeypatch.setattr(gpu_occupancy, "tuflow_licences_in_use", lambda: True)
+    monkeypatch.setattr(gpu_occupancy, "_bounded_gpu_inspection", _inline_gpu_inspection)
+
     class ExternalProcess:
         def __init__(self) -> None:
             self.info: dict[str, object] = {
@@ -2090,6 +2105,9 @@ def test_guard_checks_cuda_namespace_before_intersecting_ordinals(
                 "name": "TUFLOW_iSP_w64.exe",
                 "cmdline": ["TUFLOW_iSP_w64.exe", "-pu1", "model.tcf"],
             }
+
+        def cmdline(self) -> list[str]:
+            return ["TUFLOW_iSP_w64.exe", "-pu1", "model.tcf"]
 
         def environ(self) -> dict[str, str]:
             if external_selection == "unreadable":
@@ -2161,3 +2179,69 @@ def test_optional_gpu_inspection_cannot_stall_computation(
         assert "GPU name inspection failed" in caplog.text
     else:
         assert "GPU INSPECTION WARNING - CONTINUING" in caplog.text
+
+
+@pytest.mark.parametrize("usage", [False, None])
+@pytest.mark.parametrize("guard", [False, True])
+def test_codemeter_idle_or_failure_launches_without_process_scan(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    usage: bool | None,
+    guard: bool,
+) -> None:
+    from ryan_library.functions.tuflow import gpu_occupancy
+
+    config = settings(tmp_path, gpu_devices=(("-pu0",),), wait_for_available_gpu=guard)
+    plan = runner.prepare_plan(config)
+    launched: list[list[str]] = []
+
+    def forbidden(**_kwargs: object) -> None:
+        pytest.fail("Idle/unverified CodeMeter must not trigger process inspection")
+
+    def popen(*, args: list[str], **_options: object) -> FakeProcess:
+        launched.append(args)
+        return FakeProcess(100 + len(launched))
+
+    monkeypatch.setattr(gpu_occupancy, "tuflow_licences_in_use", lambda: usage)
+    monkeypatch.setattr(gpu_occupancy, "_bounded_gpu_inspection", _inline_gpu_inspection)
+    monkeypatch.setattr(gpu_occupancy.psutil, "process_iter", forbidden)
+    monkeypatch.setattr(runner, "local_cuda_device_names", dict)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    assert runner.launch_plan(plan, config, popen=popen).successful
+    assert len(launched) == len(plan.runs)
+    if usage is None:
+        assert "CodeMeter usage is unavailable or unverified" in caplog.text
+        assert "http://127.0.0.1:22352" in caplog.text
+        assert "services.msc" in caplog.text
+        assert "CmWebAdmin.exe" in caplog.text
+        assert "Startup type to Automatic" in caplog.text
+    elif not guard:
+        assert "CodeMeter reports no TUFLOW licences in use" in caplog.text
+        assert "services.msc" not in caplog.text
+
+
+@pytest.mark.parametrize("guard", [False, True])
+def test_optional_check_timeout_still_launches_all_runs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, guard: bool
+) -> None:
+    from ryan_library.functions.tuflow import gpu_occupancy
+
+    config = settings(tmp_path, gpu_devices=(("-pu0",),), wait_for_available_gpu=guard)
+    plan = runner.prepare_plan(config)
+    launched: list[list[str]] = []
+
+    def timeout(*_args: object, **_kwargs: object) -> None:
+        command = "optional GPU worker"
+        raise subprocess.TimeoutExpired(command, 0.9)
+
+    def popen(*, args: list[str], **_options: object) -> FakeProcess:
+        launched.append(args)
+        return FakeProcess(100 + len(launched))
+
+    monkeypatch.setattr(gpu_occupancy.subprocess, "run", timeout)
+    monkeypatch.setattr(runner, "local_cuda_device_names", dict)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    assert runner.launch_plan(plan, config, popen=popen).successful
+    assert len(launched) == len(plan.runs)
+    assert "exceeded the one-second budget" in caplog.text

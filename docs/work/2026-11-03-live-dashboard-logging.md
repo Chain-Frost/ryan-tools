@@ -2,14 +2,197 @@
 
 | Field | Value |
 | --- | --- |
-| Status | PR #192 open; presentation validated locally, hosted checks running |
+| Status | Ready for review; 26.11.5.9 real-user startup/input-check/Ctrl+C display acceptance passed |
 | Owner | ChatGPT |
-| Created / Updated | 2026-11-03 |
-| Next review | 2026-11-04 |
-| Branch | `fix/tuflow-output-presentation`, based on `31f898de` |
-| Pull request | [#192](https://github.com/Chain-Frost/ryan-tools/pull/192), following merged [#191](https://github.com/Chain-Frost/ryan-tools/pull/191) |
-| Git delivery | PR #191 merged as `31f898de`; presentation follow-up committed and pushed as `0963ece6` in PR #192. |
-| Next action | Verify PR #192 hosted Ruff/CI, then review; no merge or release authorised. |
+| Created / Updated | 2026-11-03 / 2026-11-05 |
+| Next review | 2026-11-06 |
+| Branch | `fix/dashboard-single-refresh`, stacked on PR #206 at `fffc13e3` |
+| Pull request | [#208](https://github.com/Chain-Frost/ryan-tools/pull/208); historical PR #192 is merged. |
+| Git delivery | Parser forwarding, wrapper, tests and verified version delivered on PR #208; final-head checks tracked separately. |
+| Next action | Review PR #208 and its final-head checks; no merge or public release authorized. |
+
+## Accepted real-user display check: 26.11.5.9
+
+The user confirmed the table stays clean through input checking and Ctrl+C on
+library 26.11.5.9 / wrapper 2026-11-05.2. Their screenshot shows one retained table,
+three visible parser warnings, input-check success and the correct `Batch
+interrupted.` message. The private capture has 26 Rich writes at a stable 184x33;
+replay likewise retains one heading and one summary. This verifies the reported
+startup/input-check/interruption path, not a newly completed full solver batch.
+
+Temporary diagnostics have been removed from the copied wrapper. Its run settings
+remain AST-identical to the backup, compilation and help pass, and the accepted
+library/wrapper versions remain installed. Raw evidence stays outside the repository.
+All six hosted checks passed on source commit `8099c368` (Python CI `41976786301`,
+Fast PR checks `41976786394`), with 2,204 hosted passes, 14 skips and 8 deselections.
+The acceptance-documentation follow-up is on the same PR. Final-head checks and
+review state are tracked on PR #208. No merge/release.
+
+## 2026-11-05: dependency handler captures stdout before Live
+
+The user's instrumented 26.11.5.8 run reproduced the defect and was stopped with
+Ctrl+C. Its 20 captured Rich writes all came from the main thread at a stable
+184x33 size; replay produced one clean frame, whereas the screenshot retained
+three headings. This means those recorded Rich commands alone do not explain the
+cursor displacement.
+
+The missing reproduction condition is PyTUFLOW import timing. It installs a
+standard-library handler capturing stdout at import. In the real wrapper, input
+checks start before the optional GPU availability check and Live, allowing that
+handler to retain the original stdout. Its warnings bypass Live, displace the
+cursor, and can then be overwritten. Earlier harmless-child probes skipped the
+startup work and generally imported PyTUFLOW after Live, so their worker warnings
+used Rich's redirected stream instead. Forcing early import reproduces four stale
+headings even with 26.11.5.8's serialized console.
+
+Wrapper 2026-11-05.2 now enters `forward_standard_logging("pytuflow")` before its
+work starts. The temporary handler forwards parser records through Loguru's current
+sinks, preserving their effective threshold, then restores prior logger handlers,
+level and propagation on exit. This handles both an already imported dependency
+and first import during the run; it does not import PyTUFLOW eagerly or add startup
+inspection. Root/unrelated loggers are unchanged by the wrapper.
+
+The same early-import native reproduction retains one heading after forwarding,
+including with the normal installed 26.11.5.9 wheel at 184x33. Two regressions cover
+existing and absent dependency handlers, worker warnings above the table and
+configuration restoration on exception. Validation: 266 focused tests passed,
+two Windows symlink skips; Ruff lint/format, strict Pyright on all three changed
+Python files, logging policy and verified wheel build pass. Wheel SHA256:
+`f0b180a117df52d33982531003f5d41703933ae27b7141400815306335edcbc8`.
+The copied wrapper's settings remain AST-identical and its decorated main matches
+the maintained template. Help passes. Real-user acceptance and diagnostic removal
+are recorded above. This is internal logging
+routing, so no new MCP discovery entry is appropriate.
+
+## Historical real-run acceptance: 26.11.5.8 failed
+
+The user confirmed wrapper 2026-11-05.1 and library 26.11.5.8 for a new screenshot
+showing an old partial frame above input-check success. The native reproduction and
+forced-overlap regression below therefore establish only a concurrency repair,
+not resolution of the reported terminal defect. PR #208 remains draft. All six
+hosted checks passed on `673401ea` (Python CI `41975216221`, Fast `41975216218`);
+green CI does not supersede the failed real-user acceptance.
+
+Temporary diagnostics are installed only in the private test wrapper's guarded
+entry-point footer. Its settings and main function are AST-identical to the backup.
+The diagnostic records Rich's rendered command strings, thread, dimensions and
+frame shape in a bounded in-memory buffer, then saves privately before the pause
+prompt. No project names or raw captures belong in this repository. The next user
+run is needed to separate an incorrect generated cursor reset from terminal output
+translation; remove the temporary footer once the investigation is complete.
+
+## 2026-11-05: serialize background messages with coordinator redraws
+
+The real-child reproduction uses harmless hidden Python processes with the runner's
+Windows new-console creation flag, real read-only input checks and progress
+resolution, and no solver or CSV/export callbacks. Package 26.11.5.7 retained two
+headings; leaving a spare column did not fix it. Detailed frame instrumentation
+changed timing enough to hide the failure. The uninstrumented terminal capture
+shows background parser warnings triggering additional redraws.
+
+Rich's thread-local buffers allow a worker to prepare a live frame and cursor reset
+before the coordinator writes a newer, differently sized frame. Disabling the
+automatic refresh thread does not prevent redirected worker output from rendering.
+The dashboard now serializes each complete console context, including rendering
+and writes. Startup, refresh and shutdown enter that context before calling Live,
+so both message and coordinator paths acquire locks in the same order. No parser
+messages are suppressed and no licence/GPU inspection behavior changes.
+
+A controlled regression pauses the worker immediately before flushing its rendered
+frame, then attempts a coordinator refresh. It fails with the ordinary Rich console
+and passes with the serialized console, with both threads exiting and the warning
+retained. Native tests retained one heading and one summary with the source candidate
+and isolated wheel 26.11.5.8 at 151x23 and 80x23. These are stronger reproductions,
+but they still do not replace acceptance in the user's real solver run.
+
+Validation: 256 focused display/workflow/runner/wrapper tests passed, two Windows
+symlink tests skipped; Ruff lint/format, strict Pyright on the two modified Python
+files, Loguru policy, documentation and whitespace passed. The verified wheel is
+26.11.5.8, SHA256 `75aad8239afa54133546147fb6a7cb473ee73dcb6e5719bf010f1810a8103d03`.
+Native captures and model-specific reproduction scripts remain private, outside
+the repository. This internal renderer change needs no new MCP workflow entry.
+The wheel is installed in the normal Python 3.14 user environment and the copied
+wrapper's `--help` passes. Wrapper settings and model outputs were not changed.
+The source, regression, version and documentation are being delivered on the
+existing PR #208 branch; final-head hosted checks are tracked separately.
+
+## Latest acceptance correction: 2026-11-05
+
+The user's fresh real-solver run still repeats dashboard headers on package
+26.11.5.7 and wrapper 2026-11-05.1. The earlier fake-child native trials below
+remain valid observations but do not establish acceptance of the real workflow.
+Do not describe the redraw defect as resolved or merge PR #208 on that evidence.
+The interruption-wording fix and PR #206's startup budget are separate from this
+remaining display issue.
+
+A diagnostic taken inside the active wrapper confirms the installed renderer is
+loaded, `auto_refresh` is false and no refresh worker exists. stdout is Rich's
+FileProxy; its console targets TextIOWrapper, with one render hook, no nesting,
+modern ANSI mode, terminal size 151x23 and last frame shape 151x11. There is no
+PYTHONPATH override. Thus an old package or remaining automatic refresher does not
+explain this latest failure. Compare actual child-console creation and real
+progress/log observations with the fake-child reproduction before another fix.
+Private runtime identifiers, snapshots and the compact continuation handoff are
+retained outside the repository. No model was interrupted by these diagnostics.
+
+## 2026-11-05: native partial-frame reproduction and single refresh owner
+
+The user's fixed-size VS Code terminal still retained partial dashboard headers
+with wrapper 2026-11-04.2 and library 26.11.5.5, despite correct dynamic stdout routing.
+The startup delay was separately resolved by PR #206. The table fragments appeared
+before the input-check success message, so that message alone was not the trigger.
+
+Read-only native console inspection confirmed ANSI cursor support and three visible
+dashboard headings in the terminal buffer. Simpler synthetic dashboards did not
+reproduce it. A controlled native Windows terminal at 151 columns by 23 rows, using
+real background input validation and fake solver processes, retained four headings
+and four summary rows. No solver was launched, and no CSV/export callbacks were
+supplied. Private model/control paths and raw captures remain outside the repository.
+
+The runner already refreshes the renderer from its coordinator loop, but Rich Live
+also started a background refresher. Disabling that redundant thread eliminated the
+partial frames in the controlled reproduction: all three single-refresh trials
+retained one heading and one summary, including two trials of the isolated installed
+wheel. Input checks passed in every trial. This is native console evidence, not a
+claim that every terminal/resize scenario is covered. A focused regression checks
+that no auto-refresh worker exists and SUCCESS/WARNING messages clear and redraw
+the grouped table; it fails under the previous refresh policy.
+
+Validation: 172 focused tests passed, two Windows symlink tests skipped. Ruff lint
+and format, strict Pyright on both changed Python files, Loguru policy and whitespace
+passed. Wheel 26.11.5.6 was built and verified (SHA256
+`1521a1417e30aad89aaa62f844cdcfb1c3a8749d57fe02be575cc03f72b57e92`), installed in
+an isolated target for the native trials, then installed into the user's normal
+Python 3.14 for the requested test. The project wrapper's `--help` passed. Existing
+run settings and model outputs were preserved; normal Resume can skip completed
+cases, so the user may choose `--run-mode all` when deliberately retesting them.
+
+PR #208 is stacked on #206 to retain the one-second optional inspection budget and
+CodeMeter troubleshooting. The primary checkout's unrelated version edit remains
+untouched. This is an internal display correction; existing MCP workflow discovery
+is sufficient. Final-head CI is tracked on PR #208. No merge or public release is
+authorized. The user's actual post-install interactive rerun remains to be confirmed.
+
+## 2026-11-05: conditional interruption wording
+
+The interruption message previously mentioned a configured follow-up even when
+`NEXT_RUN_FILE` was `None`. Wrapper 2026-11-05.1 now logs `Batch interrupted.` in
+that case, and mentions the unstarted follow-up only when one was configured.
+Both cases retain exit code 1 and never call the follow-up after interruption.
+The project's copied test wrapper was patched without changing any run settings;
+an AST comparison against its backup confirms the settings are preserved, and
+its main function matches the packaged wrapper. No solver was launched.
+
+Validation: 87 wrapper/CSV-continuation tests passed, including both follow-up
+configurations. Ruff lint/format, strict Pyright on both changed Python files,
+Loguru policy, compilation and copied-wrapper `--help` passed. Wheel 26.11.5.7
+was built, verified and installed for the user, superseding the 26.11.5.6 test
+installation above. The redraw fix and one-second inspection budget are retained.
+This small presentation follow-up remains in PR #208; final-head CI is tracked
+there. Apply it by starting a fresh wrapper run. No merge/publication authorized.
+
+## Historical 2026-11-03 investigation
+
 
 The reported copied runner uses wrapper 2026-11-01.5 and library 26.11.2.3.
 The shared renderer did not change between that version and the initially inspected

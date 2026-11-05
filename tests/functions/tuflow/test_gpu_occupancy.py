@@ -1,14 +1,40 @@
 """GPU sharing checks use live process data and never require a TUFLOW executable."""
 
+# Worker regressions deliberately exercise internal process inspection directly.
+# pyright: reportPrivateUsage=false
+
 from __future__ import annotations
 
+import json
 import os
+import subprocess
 from collections.abc import Iterator
 from typing import Any
 
 import pytest
 
 from ryan_library.functions.tuflow import gpu_occupancy
+
+
+@pytest.fixture(autouse=True)
+def active_licences(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(gpu_occupancy, "tuflow_licences_in_use", lambda: True)
+
+
+@pytest.mark.parametrize("usage", [False, None])
+def test_zero_or_unverified_licence_usage_skips_all_process_inspection(
+    monkeypatch: pytest.MonkeyPatch, usage: bool | None
+) -> None:
+    monkeypatch.setattr(gpu_occupancy, "tuflow_licences_in_use", lambda: usage)
+
+    def forbidden(**_kwargs: object) -> None:
+        pytest.fail("CodeMeter zero/unverified usage must not enumerate processes")
+
+    monkeypatch.setattr(gpu_occupancy.psutil, "process_iter", forbidden)
+    result = gpu_occupancy._local_gpu_occupancy(())
+    assert result.assigned == ()
+    assert result.unknown_pids == ()
+    assert result.inspection_incomplete is (usage is None)
 
 
 def test_extract_gpu_ids_and_find_conflicts() -> None:
@@ -30,6 +56,11 @@ def test_only_live_matching_engines_with_explicit_gpu_flags(monkeypatch: pytest.
     class FakeProcess:
         def __init__(self, pid: int, name: str, cmd: list[str]) -> None:
             self.info: dict[str, object] = {"pid": pid, "name": name, "cmdline": cmd}
+            self._command = cmd
+
+        def cmdline(self) -> list[str]:
+            assert self.info["pid"] not in {20, 40}, "Excluded/unrelated processes must not have command lines read"
+            return self._command
 
         def environ(self) -> dict[str, str]:
             return dict(os.environ)
@@ -42,10 +73,11 @@ def test_only_live_matching_engines_with_explicit_gpu_flags(monkeypatch: pytest.
     ]
 
     def fake_process_iter(**_kwargs: object) -> Iterator[Any]:
+        assert _kwargs == {"attrs": ["pid", "name"]}
         return iter(processes)
 
     monkeypatch.setattr(gpu_occupancy.psutil, "process_iter", fake_process_iter)
-    found = gpu_occupancy.local_gpu_occupancy(exclude_pids={20})
+    found = gpu_occupancy._local_gpu_occupancy({20})
     assert found.assigned == (gpu_occupancy.TuflowGpuProcess(pid=10, gpu_ids=frozenset({0})),)
     assert found.unknown_pids == (30,)
     assert not found.inspection_incomplete
@@ -61,7 +93,7 @@ def test_missing_access_cannot_be_classified_as_free(monkeypatch: pytest.MonkeyP
         return iter([RestrictedProcess()])
 
     monkeypatch.setattr(gpu_occupancy.psutil, "process_iter", fake_process_iter)
-    found = gpu_occupancy.local_gpu_occupancy()
+    found = gpu_occupancy._local_gpu_occupancy(())
     assert not found.assigned
     assert found.inspection_incomplete
 
@@ -75,11 +107,14 @@ def test_no_gpu_flags_means_assignment_unknown(monkeypatch: pytest.MonkeyPatch) 
                 "cmdline": ["TUFLOW_GPU_w64.exe", "-b", "model.tcf"],
             }
 
+        def cmdline(self) -> list[str]:
+            return ["TUFLOW_GPU_w64.exe", "-b", "model.tcf"]
+
     def fake_process_iter(**_kwargs: object) -> Iterator[FakeProcess]:
         return iter([FakeProcess()])
 
     monkeypatch.setattr(gpu_occupancy.psutil, "process_iter", fake_process_iter)
-    result = gpu_occupancy.local_gpu_occupancy()
+    result = gpu_occupancy._local_gpu_occupancy(())
     assert result.assigned == ()
     assert result.unknown_pids == (5,)
 
@@ -121,6 +156,9 @@ def test_ordinals_require_a_shared_cuda_selection_environment(
                 "cmdline": ["TUFLOW_iSP_w64.exe", "-pu1", "model.tcf"],
             }
 
+        def cmdline(self) -> list[str]:
+            return ["TUFLOW_iSP_w64.exe", "-pu1", "model.tcf"]
+
         def environ(self) -> dict[str, str]:
             return external
 
@@ -128,7 +166,7 @@ def test_ordinals_require_a_shared_cuda_selection_environment(
         return iter([ExternalProcess()])
 
     monkeypatch.setattr(gpu_occupancy.psutil, "process_iter", fake_process_iter)
-    snapshot = gpu_occupancy.local_gpu_occupancy()
+    snapshot = gpu_occupancy._local_gpu_occupancy(())
     assert bool(snapshot.assigned) is shared
     assert snapshot.unknown_pids == (() if shared else (77,))
 
@@ -143,6 +181,9 @@ def test_unreadable_cuda_environment_is_not_assumed_default(monkeypatch: pytest.
                 "cmdline": ["TUFLOW_iSP_w64.exe", "-pu1", "model.tcf"],
             }
 
+        def cmdline(self) -> list[str]:
+            return ["TUFLOW_iSP_w64.exe", "-pu1", "model.tcf"]
+
         def environ(self) -> dict[str, str]:
             if failure == "exited":
                 raise gpu_occupancy.psutil.NoSuchProcess(pid=88)
@@ -152,6 +193,41 @@ def test_unreadable_cuda_environment_is_not_assumed_default(monkeypatch: pytest.
         return iter([ExternalProcess()])
 
     monkeypatch.setattr(gpu_occupancy.psutil, "process_iter", fake_process_iter)
-    snapshot = gpu_occupancy.local_gpu_occupancy()
+    snapshot = gpu_occupancy._local_gpu_occupancy(())
     assert snapshot.assigned == ()
     assert snapshot.unknown_pids == ((88,) if failure == "denied" else ())
+
+
+@pytest.mark.parametrize("failure", ["timeout", "unavailable", "invalid_output", "success"])
+def test_optional_check_has_one_budget_and_fails_without_blocking(
+    monkeypatch: pytest.MonkeyPatch, failure: str
+) -> None:
+    def run(args: list[str], **options: Any) -> subprocess.CompletedProcess[str]:
+        assert 0 < options["timeout"] < 1.0
+        assert json.loads(args[3]) == [7, 8]
+        assert options["stderr"] == subprocess.DEVNULL
+        if failure == "timeout":
+            raise subprocess.TimeoutExpired(args, options["timeout"])
+        if failure == "unavailable":
+            message = "worker unavailable"
+            raise OSError(message)
+        output = (
+            "not JSON"
+            if failure == "invalid_output"
+            else json.dumps(
+                {"assigned": [[99, [0]]], "unknown_pids": [100], "inspection_incomplete": False, "detail": ""}
+            )
+        )
+        return subprocess.CompletedProcess(args, 0, stdout=output)
+
+    monkeypatch.setattr(gpu_occupancy.subprocess, "run", run)
+    result = gpu_occupancy.local_gpu_occupancy(exclude_pids={8, 7})
+    if failure == "success":
+        assert result.assigned == (gpu_occupancy.TuflowGpuProcess(99, frozenset({0})),)
+        assert result.unknown_pids == (100,)
+        assert not result.inspection_incomplete
+    else:
+        assert result.assigned == ()
+        assert result.inspection_incomplete
+        assert "continuing launches" in result.detail
+        assert "CmWebAdmin.exe" in result.detail

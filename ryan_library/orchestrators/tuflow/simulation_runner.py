@@ -744,7 +744,8 @@ def _blocked_external_gpu_slots(groups: tuple[tuple[str, ...], ...], *, exclude_
                 GpuAvailabilityIssue(
                     kind="inspection_incomplete",
                     slot_indexes=all_slots,
-                    detail="Local process inspection was incomplete; configured GPUs cannot be declared free.",
+                    detail=snapshot.detail
+                    or "Local process inspection was incomplete; configured GPUs cannot be declared free.",
                 )
             )
 
@@ -789,10 +790,8 @@ def _gpu_availability_lines(
         elif issue.kind == "unknown_assignment":
             pid_text = ", ".join(str(pid) for pid in issue.pids)
             lines.append(f"GPU assignment UNKNOWN for external TUFLOW PID {pid_text}")
-        elif issue.kind == "inspection_incomplete":
-            lines.append("GPU status UNKNOWN - local process inspection was incomplete")
         else:
-            lines.append(f"GPU status UNKNOWN - {issue.detail}")
+            lines.extend(f"GPU status UNKNOWN - {issue.detail}".splitlines())
 
     blocked_labels = [gpu_group_label(groups[index], device_names) for index in sorted(availability.blocked_slots)]
     available_labels = [
@@ -880,7 +879,7 @@ def _gpu_startup_message(groups: tuple[tuple[str, ...], ...]) -> None:
         logger.warning("Startup GPU inspection unavailable: {}; assignments are unknown.", exc)
         return
     if not snapshot.assigned and not snapshot.unknown_pids and not snapshot.inspection_incomplete:
-        logger.success("No other running local TUFLOW models detected.")
+        logger.success("{}", snapshot.detail or "No other running local TUFLOW models detected.")
     assigned = {identifier for process in snapshot.assigned for identifier in process.gpu_ids}
     capacity = [tuple(sorted(gpu_ids_from_flags(group))) for group in groups]
     configured_ids: set[int] = {identifier for group in capacity for identifier in group}
@@ -897,7 +896,7 @@ def _gpu_startup_message(groups: tuple[tuple[str, ...], ...]) -> None:
     if snapshot.unknown_pids:
         logger.warning("External TUFLOW GPU assignments are unknown for PIDs {}.", snapshot.unknown_pids)
     if snapshot.inspection_incomplete:
-        logger.warning("Local process inspection is incomplete; GPU capacity is uncertain.")
+        logger.warning("{}", snapshot.detail or "Local process inspection is incomplete; GPU capacity is uncertain.")
     if groups and any(not group for group in capacity):
         logger.warning("At least one configured GPU group has no explicit device identifier.")
 
