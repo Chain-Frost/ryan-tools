@@ -779,15 +779,17 @@ def test_external_gpu_probe_ignores_claimed_slot_conflicts(monkeypatch: pytest.M
         )
 
     monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
-    selected = runner._blocked_external_gpu_slots(
-        (("-pu0",), ("-pu1",)),
-        exclude_pids=set(),
-        eligible_slots=frozenset({1}),
+    inspect_gpu_slots = cast(
+        Callable[..., runner.GpuAvailability],
+        getattr(runner, "_blocked_external_gpu_slots"),  # noqa: B009 - exercise targeted slot inspection
+    )
+    selected = inspect_gpu_slots(
+        (("-pu0",), ("-pu1",)), exclude_pids=set(), eligible_slots=frozenset({1})
     )
     assert selected.blocked_slots == frozenset({1})
     assert selected.issues
     assert all(issue.slot_indexes == frozenset({1}) for issue in selected.issues)
-    empty = runner._blocked_external_gpu_slots(
+    empty = inspect_gpu_slots(
         (("-pu0",), ("-pu1",)), exclude_pids=set(), eligible_slots=frozenset()
     )
     assert not empty.issues
