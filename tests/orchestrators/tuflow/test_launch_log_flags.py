@@ -5,7 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from ryan_library.functions.tuflow.command_plan import CommandPlan, PlannedRun
-from ryan_library.orchestrators.tuflow.simulation_runner import _launch_flag_layout, _launch_flag_text
+from ryan_library.orchestrators.tuflow.simulation_runner import (
+    _launch_flag_layout,  # pyright: ignore[reportPrivateUsage] - exercise internal launch formatting
+    _launch_flag_text,  # pyright: ignore[reportPrivateUsage] - exercise internal launch formatting
+)
 
 
 def _run(index: int, pairs: tuple[tuple[str, str], ...]) -> PlannedRun:
