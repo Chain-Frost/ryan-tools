@@ -53,6 +53,27 @@ the TUFLOW wrapper accepts `--no-live-dashboard` for ordinary logging.
 Multiprocessing listeners have their own stdout; this does not route a separate
 listener process through a parent process's Rich display.
 
+`LiveWorkflowDashboard` does not start Rich's background auto-refresh thread. Its
+coordinator owns state updates and calls `refresh()` while polling; task updates
+can also request an immediate refresh. The TUFLOW runner and generic dashboard
+workflow already provide the polling refresh loop.
+
+Background stdout/stderr messages can still trigger a Rich redraw. The dashboard
+console therefore serializes the complete render and write, with the coordinator
+entering that console context before calling Live. This keeps cursor measurements
+and frame output together and maintains the same lock order during startup,
+refresh and shutdown. Locking writes alone leaves a window for a worker's older
+frame to overwrite a newer, differently sized frame. Warnings remain visible;
+this does not add a polling delay or change the optional GPU-inspection budget.
+
+The TUFLOW runner also enters `forward_standard_logging("pytuflow")` before
+starting checks. PyTUFLOW otherwise captures stdout when first imported, which
+can occur before Live redirects it. Those saved-stream writes bypass Rich and
+leave stale frames even when all Rich rendering is serialized. The temporary
+forwarder sends dependency records through the wrapper's current Loguru sinks,
+preserves their logger threshold, and restores the named logger's previous
+handlers, level and propagation on exit. It does not change the root logger.
+
 ## Jupyter notebooks
 
 Notebook cells can be rerun many times. Use the notebook helper, which replaces existing sinks on every call instead

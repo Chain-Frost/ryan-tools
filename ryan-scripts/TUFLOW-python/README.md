@@ -214,6 +214,10 @@ automatic GPU placement and a two-second launch delay; it does not change when
 you edit the wrapper. Run controls compare against run/resume, export and input
 checks enabled, INFO logging, pause enabled and no follow-up script.
 
+On interruption, the wrapper prints `Batch interrupted.` when `NEXT_RUN_FILE`
+is `None`. It mentions that a follow-up was not started only when one was
+configured. An interrupted batch never starts the follow-up.
+
 `LIVE_MAX_ROWS = 10` limits the runner dashboard to at most ten task rows
 at once, without reducing the number of runs planned or executed. It is
 editable or can be overridden using `--live-max-rows N` (positive integer).
