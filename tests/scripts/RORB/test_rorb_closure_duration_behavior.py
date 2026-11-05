@@ -30,7 +30,9 @@ def test_worker_count_respects_explicit_limit() -> None:
 def test_process_hydrographs_can_run_serially(tmp_path: Path) -> None:
     hydrograph_path = tmp_path / "hydrograph.csv"
     hydrograph_path.write_text(
-        "Header\nHeader\nInc,Time (hrs),Calculated hydrograph:  L1\n0,0,0\n1,1,10\n",
+        "RORBWin CSV Output File\n"
+        "Refer output file for complete listing of inputs and outputs\n"
+        "Inc,Time (hrs),Calculated hydrograph:  L1\n0,0,0\n1,1,10\n",
         encoding="utf-8",
     )
     batch = pd.DataFrame(

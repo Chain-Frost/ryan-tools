@@ -3,7 +3,6 @@
 
 __lazy_modules__ = ["pandas"]
 
-import re
 from collections.abc import Iterable
 from pathlib import Path
 
@@ -11,7 +10,8 @@ import pandas as pd
 from loguru import logger
 from pandas import DataFrame
 
-_NUMBER_PATTERN = r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[Ee][-+]?\d+)?"
+from .associations import associate_batch_csvs
+from .readers import read_rorb_file
 
 
 def find_batch_files(paths: Iterable[Path]) -> list[Path]:
@@ -22,145 +22,50 @@ def find_batch_files(paths: Iterable[Path]) -> list[Path]:
     return sorted(files)
 
 
-def _numeric_prefix(value: str) -> float | str:
-    """Return the leading RORB numeric value, or the original text."""
-    match: re.Match[str] | None = re.match(
-        pattern=_NUMBER_PATTERN,
-        string=value,
-    )
-    return float(match.group()) if match else value
-
-
-def _parse_run_line(line: str, batchout_file: Path) -> list[float | int | str] | None:
-    """Parse one run-table row from a RORB ``batch.out`` file."""
-    raw: list[str] = line.split()
-    if len(raw) < 8:
-        logger.warning("Invalid RORB run row skipped: {}", line.strip())
-        return None
-
-    try:
-        run = int(raw[0])
-        duration_value = float(raw[1])
-        duration_unit = raw[2]
-        duration_part = f"{raw[1]}{duration_unit}"
-        aep = raw[3].removesuffix("%")
-        tp = int(raw[4])
-        # RORB uses Y/N in some older run tables. Preserve the numeric output
-        # shape expected by the corresponding header.
-        remaining_values: list[float | int | str] = [
-            1 if value.upper() == "Y" else 0 if value.upper() == "N" else _numeric_prefix(value) for value in raw[5:]
-        ]
-
-        if duration_unit.casefold() != "hour":
-            duration_value /= 60.0
-
-        csv_path: Path = _construct_csv_path(
-            batchout=batchout_file,
-            aep_part=f"aep{aep}",
-            duration_part=duration_part,
-            tpat=tp,
-        )
-        return [run, duration_value, aep, tp, *remaining_values, str(csv_path)]
-    except (IndexError, TypeError, ValueError):
-        logger.exception("Error parsing RORB run row: {}", line.rstrip())
-        return None
-
-
-def _construct_csv_path(batchout: Path, aep_part: str, duration_part: str, tpat: int) -> Path:
-    """Construct the hydrograph CSV path referenced by a batch run row."""
-    aep: str = aep_part.replace(".", "p")
-    duration: str = duration_part.replace(".", "_")
-    base_name: str = batchout.name.removesuffix("batch.out")
-    return batchout.parent / f"{base_name} {aep}_du{duration}tp{tpat}.csv"
-
-
 def parse_batch_output(batchout_file: Path) -> pd.DataFrame:
-    """Return the run table from ``batchout_file``.
+    """Return strictly validated runs with corroborated CSV paths.
 
-    Durations are reported in hours. AEP labels such as ``0.2EY`` are retained
-    as text so their meaning and associated hydrograph filenames are preserved.
+    Invalid tables raise ValueError instead of silently returning a prefix.
+    Missing or ambiguous associations remain null; downstream workflows must
+    reject them. Absent and inapplicable parameters remain null, never zero.
     """
-    runs: list[list[float | int | str]] = []
-    headers: list[str] = []
-    reading_runs = False
-    parameters = {"IL": 0.0, "CL": 0.0, "m": 0.0, "kc": 0.0, "ROC": 1.0}
-    pending_loss_parameter: str | None = None
-
-    try:
-        with batchout_file.open(encoding="utf-8", errors="replace") as batch_stream:
-            for line in batch_stream:
-                if pending_loss_parameter is not None and line.strip():
-                    loss_values = re.findall(_NUMBER_PATTERN, line)
-                    if len(loss_values) >= 2:
-                        parameters["IL"] = float(loss_values[0])
-                        parameters[pending_loss_parameter] = float(loss_values[1])
-                    else:
-                        logger.warning("Invalid RORB loss parameters in {}: {}", batchout_file, line.strip())
-                    pending_loss_parameter = None
-                    continue
-                if "Parameters:" in line:
-                    kc_match = re.search(rf"\bkc\s*=\s*({_NUMBER_PATTERN})", line)
-                    m_match = re.search(rf"\bm\s*=\s*({_NUMBER_PATTERN})", line)
-                    if kc_match is not None:
-                        parameters["kc"] = float(kc_match.group(1))
-                    if m_match is not None:
-                        parameters["m"] = float(m_match.group(1))
-                    continue
-                if "Loss parameters" in line:
-                    pending_loss_parameter = "CL" if "Cont" in line else "ROC"
-                    continue
-                if "Run,    Representative hydrograph" in line:
-                    break
-                if " Run        Duration" in line:
-                    headers = [header for header in line.split() if header != "Unit"]
-                    headers.append("csv")
-                    reading_runs = True
-                    continue
-                if not reading_runs or not line.strip():
-                    continue
-
-                run = _parse_run_line(line=line, batchout_file=batchout_file)
-                if run is not None:
-                    runs.append(run)
-    except OSError:
-        logger.exception("Failed reading RORB batch output {}", batchout_file)
-        return pd.DataFrame()
-
-    if not runs or not headers:
-        logger.warning("No RORB run table found in {}", batchout_file)
-        return pd.DataFrame()
-    if any(len(run) != len(headers) for run in runs):
-        logger.error("RORB run-table columns do not match the header in {}", batchout_file)
-        return pd.DataFrame()
-
-    result = pd.DataFrame(data=runs, columns=headers)
-    for name, value in parameters.items():
-        result[name] = value
+    document = read_rorb_file(batchout_file)
+    if document.kind != "batch_output" or document.status == "invalid":
+        msg = f"Invalid or unsupported RORB batch output: {batchout_file}; {document.diagnostics}"
+        raise ValueError(msg)
+    runs = document.section("runs")
+    # The established workflow processes the full table; only MCP applies the fixed 500-run ceiling.
+    associations = associate_batch_csvs(document, max_runs=len(runs.rows))
+    result = pd.DataFrame.from_records(runs.rows)
+    result["csv"] = [row["path"] for row in associations.rows]
+    result["csv_status"] = [row["status"] for row in associations.rows]
+    parameters = document.section("parameters")
+    for name in ("IL", "CL", "m", "kc", "ROC"):
+        values = {row[name] for row in parameters.rows if name in row}
+        if len(values) > 1:
+            msg = f"Multiple {name} parameter values require scoped interpretation"
+            raise ValueError(msg)
+        result[name] = next(iter(values)) if values else None
     result["file"] = batchout_file.name
     result["folder"] = str(batchout_file.parent)
-    try:
-        result["Path"] = batchout_file.relative_to(Path.cwd()).as_posix()
-    except ValueError:
-        result["Path"] = str(batchout_file)
+    result["Path"] = str(batchout_file.absolute())
+    result.attrs["rorb_status"] = document.status
+    result.attrs["diagnostics"] = [d.message for d in document.diagnostics]
     return result
 
 
 def read_hydrograph_csv(filepath: Path) -> pd.DataFrame:
-    """Return a normalized hydrograph table from a RORB CSV.
+    """Return a validated RORB hydrograph table, excluding Inc for existing callers.
 
-    The RORB sample counter (``Inc``) is metadata rather than a hydrograph and
-    is removed when present. Column whitespace is also normalized.
+    The richer read_rorb_file API retains Inc, provenance and diagnostics.
+    Malformed data raises ValueError rather than producing partial results.
     """
-    try:
-        result: DataFrame = pd.read_csv(filepath_or_buffer=filepath, skiprows=2)
-    except (OSError, pd.errors.ParserError, UnicodeError):
-        logger.exception("Error reading RORB hydrograph {}", filepath)
-        return pd.DataFrame()
-
-    result.columns = [str(column).strip() for column in result.columns]
-    if "Inc" in result.columns:
-        result = result.drop(columns="Inc")
-    return result
+    document = read_rorb_file(filepath)
+    if document.kind != "hydrograph_csv" or document.status == "invalid":
+        msg = f"Invalid or unsupported RORB hydrograph: {filepath}; {document.diagnostics}"
+        raise ValueError(msg)
+    table = document.section("hydrographs")
+    return pd.DataFrame.from_records(table.rows).drop(columns=["line", "Inc"])
 
 
 def _location_name(column: str) -> str:
