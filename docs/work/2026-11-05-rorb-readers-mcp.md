@@ -42,8 +42,11 @@ Strict Pyright passed on all 15 modified Python files; documentation links and p
 The current-version wheel built successfully without a version bump. An isolated Q: wheel installation successfully
 read all four supplied file types, exercised MCP inspection and verified packaged guidance without importing the checkout.
 Hosted package/isolated-wheel, MCP smoke and POSIX security jobs passed on `062d0d24`. Hosted Ruff lint passed;
-the two formatter differences were applied in `237ed132`. Local Ruff remains blocked by Windows application control.
-Final hosted checks and a formatting-only wheel rebuild are underway; see the PR for current check results.
+Ruff lint and formatting both passed on `237ed132`, as did its clean-checkout package build and isolated-wheel smoke.
+Local Ruff remains blocked by Windows application control. A final local rebuild produced a wheel but failed source
+verification because concurrently edited `ryan_library/functions/tuflow/pomm_utils.py` differed from the packaged file.
+Do not distribute that shared-workspace wheel; use the verified hosted PR artifact. Earlier isolated RORB smoke evidence
+remains valid. Final documentation-head CI is pending; see the PR for current check results.
 
 The stages are delivered together on one coherent draft branch because the shared result contract, adapter migration
 and MCP surface need to remain consistent. Further formats can be stacked on this branch or added after merge; no merge
