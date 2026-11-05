@@ -89,6 +89,34 @@ def test_real_pytuflow_handles_conditional_log_folder_and_simple_alias(tmp_path:
     assert developed.end_hours == 8
 
 
+@pytest.mark.parametrize("selection", ["none", "generic", "machine", "both"])
+def test_real_pytuflow_resolves_override_log_folder(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, selection: str
+) -> None:
+    pytest.importorskip("pytuflow")
+    monkeypatch.setattr("platform.node", lambda: "test-node")
+    path = tmp_path / "model_~e1~_001.tcf"
+    path.write_text(
+        "Set Variable OutputBase == base\nLog Folder == <<OutputBase>>/logs\nStart Time == 0\nEnd Time == 1\n",
+        encoding="utf-8",
+    )
+    for kind, name in (
+        ("generic", "_TUFLOW_Override.tcf"),
+        ("machine", "_TUFLOW_Override_test-node.tcf"),
+    ):
+        if selection in (kind, "both"):
+            (tmp_path / name).write_text(
+                f"Set Variable OutputBase == {tmp_path / kind}\nLog Folder == <<OutputBase>>/logs\n",
+                encoding="utf-8",
+            )
+    result = progress.RunProgressResolver().resolve(path, {"e1": "01.0p"})
+    effective = "machine" if selection == "both" else "base" if selection == "none" else selection
+    assert result.tlf_path == tmp_path / effective / "logs" / "model_01.0p_001.tlf", result.detail
+    assert result.start_hours == 0
+    assert result.end_hours == 1
+    assert not result.detail
+
+
 def test_unknown_alias_pattern_fails_without_importing_parser(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     path = tmp_path / "model_~e~_~e1~.tcf"
     path.touch()
