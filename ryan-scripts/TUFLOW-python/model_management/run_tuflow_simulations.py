@@ -67,7 +67,7 @@ SHOW_PROGRESS_DIAGNOSTICS = True  # Show the latest timestep and observed final 
 CONSOLE_LOG_LEVEL: params.LogLevel = params.LOG.INFO
 WAIT_TIME_AFTER_RUN = 2.0  # Seconds between launches (>=0). Example: 0.5. Does not change GPU slots.
 PAUSE_ON_FINISH = True  # Pause interactively on finish; --no-pause forces False, --pause forces True.
-WRAPPER_VERSION = "2026-11-04.2"
+WRAPPER_VERSION = "2026-11-05.1"
 
 import argparse
 import signal
@@ -444,7 +444,10 @@ def main(argv: list[str] | None = None) -> int:
                     if advisory is not None:
                         advisory.close()
         if result.interrupted:
-            logger.error("Interrupted batch; configured follow-up is not started.")
+            if NEXT_RUN_FILE is None:
+                logger.error("Batch interrupted.")
+            else:
+                logger.error("Batch interrupted; configured follow-up was not started.")
             return 1
         logger.log(
             "SUCCESS" if result.successful else "ERROR",

@@ -520,6 +520,38 @@ def test_wrapper_preflight_only_waits_and_returns_failure(
     assert calls == ["preflight"]
 
 
+@pytest.mark.parametrize("next_run", [None, "post.py"])
+def test_interruption_only_mentions_a_configured_follow_up(
+    tmp_path: Path,
+    wrapper: _RunnerWrapper,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    next_run: str | None,
+) -> None:
+    module = sys.modules["tested_runner_wrapper"]
+    monkeypatch.setattr(module, "EXPORT_COMMANDS", False)
+    monkeypatch.setattr(module, "CHECK_INPUTS", False)
+    monkeypatch.setattr(module, "NEXT_RUN_FILE", next_run)
+    if next_run is not None:
+        (tmp_path / next_run).write_text("pass\n", encoding="utf-8")
+
+    def interrupted(plan: CommandPlan, *_args: object, **_kwargs: object) -> BatchOutcome:
+        return BatchOutcome(plan.runs, (), interrupted=True)
+
+    def forbidden_follow_up(*_args: object) -> None:
+        pytest.fail("An interrupted batch must never launch the follow-up")
+
+    monkeypatch.setattr(module, "launch_plan", interrupted)
+    monkeypatch.setattr(module, "_run_follow_up", forbidden_follow_up)
+    assert wrapper.main(["--working-directory", str(tmp_path), "--no-pause"]) == 1
+    output = capsys.readouterr().out
+    if next_run is None:
+        assert "Batch interrupted." in output
+        assert "configured follow-up" not in output
+    else:
+        assert "Batch interrupted; configured follow-up was not started." in output
+
+
 def test_failed_child_still_chains_but_keeps_failure_exit_code(
     tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
 ) -> None:

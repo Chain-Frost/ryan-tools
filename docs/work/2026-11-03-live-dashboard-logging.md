@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | PR #208 single-refresh follow-up; native reproduction and local checks pass |
+| Status | PR #208 redraw and interruption wording fixes; local checks pass |
 | Owner | ChatGPT |
 | Created / Updated | 2026-11-03 / 2026-11-05 |
 | Next review | 2026-11-06 |
@@ -49,7 +49,26 @@ untouched. This is an internal display correction; existing MCP workflow discove
 is sufficient. Final-head CI is tracked on PR #208. No merge or public release is
 authorized. The user's actual post-install interactive rerun remains to be confirmed.
 
+## 2026-11-05: conditional interruption wording
+
+The interruption message previously mentioned a configured follow-up even when
+`NEXT_RUN_FILE` was `None`. Wrapper 2026-11-05.1 now logs `Batch interrupted.` in
+that case, and mentions the unstarted follow-up only when one was configured.
+Both cases retain exit code 1 and never call the follow-up after interruption.
+The project's copied test wrapper was patched without changing any run settings;
+an AST comparison against its backup confirms the settings are preserved, and
+its main function matches the packaged wrapper. No solver was launched.
+
+Validation: 87 wrapper/CSV-continuation tests passed, including both follow-up
+configurations. Ruff lint/format, strict Pyright on both changed Python files,
+Loguru policy, compilation and copied-wrapper `--help` passed. Wheel 26.11.5.7
+was built, verified and installed for the user, superseding the 26.11.5.6 test
+installation above. The redraw fix and one-second inspection budget are retained.
+This small presentation follow-up remains in PR #208; final-head CI is tracked
+there. Apply it by starting a fresh wrapper run. No merge/publication authorized.
+
 ## Historical 2026-11-03 investigation
+
 
 The reported copied runner uses wrapper 2026-11-01.5 and library 26.11.2.3.
 The shared renderer did not change between that version and the initially inspected
