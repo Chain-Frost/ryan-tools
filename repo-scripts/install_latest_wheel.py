@@ -13,7 +13,7 @@ WHEEL_PATTERN: str = "ryan_tools-*.whl"
 # Install the current upstream bridge when the wheel-based developer path is used.
 QGIS_MCP_ARCHIVE: str = "https://github.com/nkarasiak/qgis-mcp/archive/refs/heads/main.zip"
 PYTUFLOW_REQUIREMENT_FILE = Path(__file__).absolute().with_name("pytuflow-requirement.txt")
-ACCEPTED_PYTUFLOW_SHA = "d089afaddde4b533581ebbe068dc38673c98803b"
+ACCEPTED_PYTUFLOW_SHA = "b1026d0cf72118ef68a0b6229610f427a7284e10"
 ACCEPTED_PYTUFLOW_SOURCE = f"pytuflow @ https://github.com/Chain-Frost/PyTuflow/archive/{ACCEPTED_PYTUFLOW_SHA}.zip"
 
 
