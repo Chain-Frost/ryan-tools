@@ -309,6 +309,16 @@ results are discarded and launches continue with a warning. The daemon thread
 cannot outlive its owning subprocess. Busy machines may therefore continue
 without verified GPU occupancy.
 
+After the runner successfully launches a solver on a GPU group, that group
+remains **claimed for the entire batch**, including gaps between consecutive
+runs. It is not re-inspected when a child exits. Only groups never claimed by
+this batch remain subject to external occupancy checks (for example, GPUs
+initially occupied by another TUFLOW process). Once every configured group is
+claimed, the runner stops all optional CodeMeter/GPU checks and clears any
+previous GPU inspection warning from its dashboard. This is a scheduling
+reservation, not an operating-system GPU lock: third-party processes should
+not start on a batch-claimed GPU during inter-run gaps.
+
 If the CodeMeter check fails, open `http://127.0.0.1:22352` to check WebAdmin.
 On Windows, open Services (`services.msc`) and start **CmWebAdmin** if stopped;
 its exact service name is **CmWebAdmin.exe**. Set its Startup type to **Automatic**
