@@ -2183,7 +2183,7 @@ def test_optional_gpu_inspection_cannot_stall_computation(
 
 @pytest.mark.parametrize("usage", [False, None])
 @pytest.mark.parametrize("guard", [False, True])
-def test_codemeter_idle_or_failure_launches_without_process_scan(
+def test_codemeter_idle_or_failure_ignores_parallel_process_scan(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
@@ -2196,8 +2196,12 @@ def test_codemeter_idle_or_failure_launches_without_process_scan(
     plan = runner.prepare_plan(config)
     launched: list[list[str]] = []
 
-    def forbidden(**_kwargs: object) -> None:
-        pytest.fail("Idle/unverified CodeMeter must not trigger process inspection")
+    from ryan_library.functions.tuflow.gpu_occupancy import TuflowGpuProcess
+
+    def scan(_exclude_pids: object) -> GpuOccupancySnapshot:
+        # The parallel scan can observe a busy GPU. CodeMeter's idle/unknown
+        # status still prevents its result from blocking scheduling.
+        return GpuOccupancySnapshot((TuflowGpuProcess(999, frozenset({0})),), ())
 
     def popen(*, args: list[str], **_options: object) -> FakeProcess:
         launched.append(args)
@@ -2205,7 +2209,7 @@ def test_codemeter_idle_or_failure_launches_without_process_scan(
 
     monkeypatch.setattr(gpu_occupancy, "tuflow_licences_in_use", lambda: usage)
     monkeypatch.setattr(gpu_occupancy, "_bounded_gpu_inspection", _inline_gpu_inspection)
-    monkeypatch.setattr(gpu_occupancy.psutil, "process_iter", forbidden)
+    monkeypatch.setattr(gpu_occupancy, "_inspect_local_gpu_processes", scan)
     monkeypatch.setattr(runner, "local_cuda_device_names", dict)
     monkeypatch.setattr(runner, "_apply_priority", _no_op)
     assert runner.launch_plan(plan, config, popen=popen).successful
@@ -2233,7 +2237,7 @@ def test_optional_check_timeout_still_launches_all_runs(
 
     def timeout(*_args: object, **_kwargs: object) -> None:
         command = "optional GPU worker"
-        raise subprocess.TimeoutExpired(command, 0.9)
+        raise subprocess.TimeoutExpired(command, 1.9)
 
     def popen(*, args: list[str], **_options: object) -> FakeProcess:
         launched.append(args)
@@ -2244,4 +2248,4 @@ def test_optional_check_timeout_still_launches_all_runs(
     monkeypatch.setattr(runner, "_apply_priority", _no_op)
     assert runner.launch_plan(plan, config, popen=popen).successful
     assert len(launched) == len(plan.runs)
-    assert "exceeded the one-second budget" in caplog.text
+    assert "exceeded the 2-second budget" in caplog.text
