@@ -83,7 +83,8 @@ def test_active_licence_waits_for_parallel_process_scan(monkeypatch: pytest.Monk
 
 def test_active_licence_process_scan_failure_is_uncertain(monkeypatch: pytest.MonkeyPatch) -> None:
     def broken_scan(_exclude_pids: object) -> gpu_occupancy.GpuOccupancySnapshot:
-        raise RuntimeError("synthetic process scan failure")
+        message = "synthetic process scan failure"
+        raise RuntimeError(message)
 
     monkeypatch.setattr(gpu_occupancy, "_inspect_local_gpu_processes", broken_scan)
     result = gpu_occupancy._local_gpu_occupancy(())
