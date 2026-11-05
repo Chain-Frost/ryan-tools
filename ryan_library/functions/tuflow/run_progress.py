@@ -107,13 +107,12 @@ def _finite_number(value: object) -> float | None:
     return number if math.isfinite(number) else None
 
 
-def _ordered_context(tcf_name: str, supplied: Mapping[str, str]) -> dict[str, str]:
-    """Adapt numbered flags to the accepted parser's filename-order requirement.
+def _validated_context(tcf_name: str, supplied: Mapping[str, str]) -> dict[str, str]:
+    """Validate placeholder coverage without changing the scheduled flag order.
 
-    The accepted PyTUFLOW pin removes used flags in reverse placeholder order,
-    using their original argument positions. Ordering this metadata-only context
-    accordingly avoids its IndexError without changing the actual solver argv.
-    Mixed ~e~/~e1~ spellings are deliberately unsupported rather than guessed.
+    The pinned PyTuflow #63 result-name translator now accepts arbitrary flag
+    order and mixed bare/numbered E/S aliases. Preserve the original order
+    and normalise aliases only once before constructing the parser Context.
     """
     values: dict[str, str] = {}
     for supplied_key, value in supplied.items():
@@ -121,29 +120,19 @@ def _ordered_context(tcf_name: str, supplied: Mapping[str, str]) -> dict[str, st
         if re.fullmatch(r"[es][1-9]?", key) is None:
             message = f"Unsupported progress flag: {supplied_key}"
             raise ValueError(message)
-        key = f"{key}1" if len(key) == 1 else key
-        if key in values and values[key] != value:
-            message = f"Conflicting progress flag: {key}"
+        canonical = f"{key}1" if len(key) == 1 else key
+        if canonical in values and values[canonical] != value:
+            message = f"Conflicting progress flag: {canonical}"
             raise ValueError(message)
-        values[key] = value
+        values[canonical] = value
 
-    context: dict[str, str] = {}
-    aliases: dict[str, str] = {}
     for match in _PLACEHOLDER.finditer(tcf_name):
         token = match.group(1).casefold()
         canonical = f"{token}1" if len(token) == 1 else token
         if canonical not in values:
             message = f"No value for {match.group(0)} in the TCF filename"
             raise ValueError(message)
-        if canonical in aliases and aliases[canonical] != token:
-            message = f"Mixed bare and numbered {token[0]} placeholders cannot be predicted reliably"
-            raise ValueError(message)
-        aliases[canonical] = token
-        context[token] = values[canonical]
-    for key, value in values.items():
-        if key not in aliases:
-            context[key] = value
-    return context
+    return values
 
 
 def _model_hours(run: _RunContext, label: str) -> float | None:
@@ -178,7 +167,7 @@ class RunProgressResolver:
         """Return a prediction or a readable failure without affecting a run."""
         try:
             path = tcf_path.absolute()
-            context = _ordered_context(path.name, run_variables)
+            context = _validated_context(path.name, run_variables)
             if not path.is_file():
                 message = f"TCF is unavailable: {path}"
                 raise FileNotFoundError(message)
@@ -204,8 +193,8 @@ class RunProgressResolver:
                 raise ValueError(message)
             if not folder.is_absolute():
                 folder = path.parent / folder
-            # Do not call tlf_path(): the accepted pin uses with_suffix on the
-            # extension-free name and truncates dotted event values (e.g. 01.0p).
+            # Assemble from the validated stem so decimal AEP values are not
+            # mistaken for a suffix by pathlib.
             tlf_path = folder / f"{name}.tlf"
             return RunLogPrediction(tlf_path, _model_hours(run, "Start"), _model_hours(run, "End"))
         except Exception as exc:  # noqa: BLE001 - optional third-party parsing must not stop a solver
