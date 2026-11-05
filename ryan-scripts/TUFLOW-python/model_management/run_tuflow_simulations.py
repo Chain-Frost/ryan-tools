@@ -69,7 +69,7 @@ WAIT_TIME_AFTER_RUN = 2.0  # Seconds between launches (>=0). Example: 0.5. Does 
 PAUSE_ON_FINISH = True  # Pause interactively on finish; --no-pause forces False, --pause forces True.
 WRAPPER_VERSION = "2026-11-05.3"
 
-import argparse
+import argparse  # noqa: I001, RUF100
 import signal
 import subprocess
 import sys
