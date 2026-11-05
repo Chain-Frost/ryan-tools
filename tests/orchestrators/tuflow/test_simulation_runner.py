@@ -684,7 +684,7 @@ def test_claimed_gpu_slots_are_reused_without_reinspection(
         tmp_path,
         run_variables={"e1": ("A", "B", "C", "D", "E")},
         gpu_devices=(("-pu0",), ("-pu1",)),
-        gpu_check_interval_seconds=0.001,
+        gpu_check_interval_seconds=60.0,
         use_live_dashboard=True,
     )
     plan = runner.prepare_plan(config)
