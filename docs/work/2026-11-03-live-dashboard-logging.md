@@ -2,14 +2,31 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active; PR #208 draft: early-import logger bypass reproduced; 26.11.5.9 user acceptance pending |
+| Status | Ready for review; 26.11.5.9 real-user startup/input-check/Ctrl+C display acceptance passed |
 | Owner | ChatGPT |
 | Created / Updated | 2026-11-03 / 2026-11-05 |
 | Next review | 2026-11-06 |
 | Branch | `fix/dashboard-single-refresh`, stacked on PR #206 at `fffc13e3` |
 | Pull request | [#208](https://github.com/Chain-Frost/ryan-tools/pull/208); historical PR #192 is merged. |
 | Git delivery | Parser forwarding, wrapper, tests and verified version delivered on PR #208; final-head checks tracked separately. |
-| Next action | Confirm the real-user rerun with 26.11.5.9 / wrapper 2026-11-05.2, then remove temporary diagnostics. |
+| Next action | Review PR #208 and its final-head checks; no merge or public release authorized. |
+
+## Accepted real-user display check: 26.11.5.9
+
+The user confirmed the table stays clean through input checking and Ctrl+C on
+library 26.11.5.9 / wrapper 2026-11-05.2. Their screenshot shows one retained table,
+three visible parser warnings, input-check success and the correct `Batch
+interrupted.` message. The private capture has 26 Rich writes at a stable 184x33;
+replay likewise retains one heading and one summary. This verifies the reported
+startup/input-check/interruption path, not a newly completed full solver batch.
+
+Temporary diagnostics have been removed from the copied wrapper. Its run settings
+remain AST-identical to the backup, compilation and help pass, and the accepted
+library/wrapper versions remain installed. Raw evidence stays outside the repository.
+All six hosted checks passed on source commit `8099c368` (Python CI `41976786301`,
+Fast PR checks `41976786394`), with 2,204 hosted passes, 14 skips and 8 deselections.
+The acceptance-documentation follow-up is on the same PR. Final-head checks and
+review state are tracked on PR #208. No merge/release.
 
 ## 2026-11-05: dependency handler captures stdout before Live
 
@@ -43,11 +60,11 @@ two Windows symlink skips; Ruff lint/format, strict Pyright on all three changed
 Python files, logging policy and verified wheel build pass. Wheel SHA256:
 `f0b180a117df52d33982531003f5d41703933ae27b7141400815306335edcbc8`.
 The copied wrapper's settings remain AST-identical and its decorated main matches
-the maintained template. Help passes. The real user is testing this candidate;
-temporary private diagnostics remain until acceptance. This is internal logging
+the maintained template. Help passes. Real-user acceptance and diagnostic removal
+are recorded above. This is internal logging
 routing, so no new MCP discovery entry is appropriate.
 
-## Latest real-run acceptance: 26.11.5.8 failed
+## Historical real-run acceptance: 26.11.5.8 failed
 
 The user confirmed wrapper 2026-11-05.1 and library 26.11.5.8 for a new screenshot
 showing an old partial frame above input-check success. The native reproduction and
