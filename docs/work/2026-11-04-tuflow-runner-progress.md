@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | PR #205 open; Windows/TUFLOW/SMB checks pass; interactive and Classic acceptance pending |
+| Status | PR #205 merged; override parser repin validated locally; consumer PR delivery in progress |
 | Owner | ChatGPT / local validation agent |
 | Created | 2026-11-04 |
 | Updated | 2026-11-05 |
@@ -50,7 +50,8 @@ log-based completion, retries, recovery, launch gating, automatic merge or relea
   successful execution. Shared predicted paths are treated as ambiguous.
 - The PyTUFLOW source was updated at the owner's request to the immutable
   [fork PR #63](https://github.com/Chain-Frost/PyTuflow/pull/63) commit
-  `d089afaddde4b533581ebbe068dc38673c98803b`, superseding the prior PR #17 pin
+  `b1026d0cf72118ef68a0b6229610f427a7284e10`, including the #64 override fix and superseding
+  `d089afaddde4b533581ebbe068dc38673c98803b` and the prior PR #17 pin
   `05e35476c02d6d8ed17c83caf1cb0d185ce51d1b`. The public log-folder/output-name API is retained.
   PR #63 remains open and is not an accepted upstream release.
 - Native Windows TUFLOW execution and mapped/UNC continuous-writer checks passed
