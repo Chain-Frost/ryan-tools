@@ -562,9 +562,7 @@ def _launch_flag_layout(plan: CommandPlan) -> tuple[tuple[str, int], ...]:
     )
 
 
-def _launch_flag_text(
-    run: PlannedRun, layout: tuple[tuple[str, int], ...]
-) -> tuple[str, str]:
+def _launch_flag_text(run: PlannedRun, layout: tuple[tuple[str, int], ...]) -> tuple[str, str]:
     """Keep event flags prominent and consistently align dimmed scenario flags."""
     values = {key.lower(): value for key, value in run.flag_pairs}
     event: list[str] = []
