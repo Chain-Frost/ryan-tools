@@ -413,3 +413,30 @@ coverage because the acceptance record's index link was still local. Committing
 the index in `cd79bb86` fixed that failure; the earlier local documentation pass
 had included that unstaged link. Final-head hosted evidence belongs to the
 follow-up push and must be checked on PR #235. Auto-merge remains owner-enabled.
+
+### Follow-up: compact GPU labels and completion timing
+
+All nine hosted checks passed on `b84c4172`, including Policy and Hosted tests.
+The owner then requested elapsed runtime plus the final observed model clock
+on completion lines, and GPU model names only in the existing startup mapping.
+Launch lines now use compact assigned `-puN` switches or `Auto`. Completion
+lines retain the recorded process duration and each run's own last model-time
+observation, even when console completion output waits for an earlier run.
+Unknown model time remains `Model --`; a failed launch with no process reports
+`Runtime --`. No solver exit status, arguments or scheduling rules changed.
+
+Validation: **153 passed, 2 skipped** across runner/formatting modules; existing
+symlink-privilege skips are unchanged. This includes final pending snapshots,
+failed exits, malformed observer data and out-of-order completion association.
+Ruff lint/format, strict Pyright on modified Python, documentation and Loguru
+policy checks pass. Built, verified and installed wheel **26.11.6.2**, SHA-256
+`3b8af707dff914d3ca2ab9a74f81d71c8d81b181deaf8866b95664c5664f4221`.
+Outside-checkout installed timing smoke prints
+`Runtime 00:02:43 | Model 3.000 h`; copied installed-wrapper `--help` passes.
+No real solver was launched for these presentation checks.
+
+These changes are delivered on the existing PR branch, with final-head hosted
+checks to follow the push. At the latest API observation GitHub reported
+auto-merge disabled; this session did not change that setting. Existing model
+processes retain their loaded version until restarted. No model wrapper
+settings changed and no manual merge/publication occurred.

@@ -1212,6 +1212,23 @@ def _progress_detail(
     return "; ".join(parts)
 
 
+def _completion_timing(result: RunOutcome, progress: ProgressUpdate | None) -> str:
+    """Show observed process duration and model time, retaining unknown values."""
+    runtime = "--"
+    if result.started_at is not None and result.pid is not None:
+        seconds = max(0, int((result.finished_at - result.started_at).total_seconds()))
+        hours, remainder = divmod(seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        runtime = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+    model_hours = progress.snapshot.model_hours if progress is not None else None
+    model = (
+        f"{model_hours:.3f} h"
+        if model_hours is not None and type(model_hours) in (int, float) and math.isfinite(model_hours)
+        else "--"
+    )
+    return f"Runtime {runtime} | Model {model}"
+
+
 def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation boundary
     plan: CommandPlan,
     settings: RunnerSettings,
@@ -1251,7 +1268,7 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
     # after a child finishes. Reusing a claimed GPU needs no external rescan.
     claimed_slots: set[int] = set()
     outcomes: list[RunOutcome] = []
-    ordered: dict[int, RunOutcome] = {}
+    ordered: dict[int, tuple[RunOutcome, ProgressUpdate | None]] = {}
     next_print = 0
     gpu_availability = GpuAvailability()
     next_gpu_check = 0.0
@@ -1356,20 +1373,21 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
     def observed(result: RunOutcome) -> None:
         nonlocal next_print
         outcomes.append(result)
-        ordered[result.run.index] = result
         if on_observed_completion is not None:
             on_observed_completion(result)
         progress_update = finish_progress(result)
+        ordered[result.run.index] = (result, progress_update)
         # Presentation can be ordered, but the lifecycle callback above cannot.
         while next_print < len(plan.runs) and plan.runs[next_print].index in ordered:
-            item = ordered.pop(plan.runs[next_print].index)
+            item, item_progress = ordered.pop(plan.runs[next_print].index)
             logger.log(
                 "SUCCESS" if item.successful else "ERROR",
-                "Run {}: {} (exit {}){}",
+                "Run {}: {} (exit {}){} | {}",
                 item.run.index,
                 "OK" if item.successful else "FAIL",
                 item.return_code,
                 f": {item.error}" if item.error else "",
+                _completion_timing(item, item_progress),
             )
             next_print += 1
         if dashboard is not None:
@@ -1589,7 +1607,7 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                         " | " if changing_flags and constant_flags else "",
                         constant_flags,
                         process.pid,
-                        gpu_group_label(group, device_names),
+                        " ".join(group) or "Auto",
                         display_runner_path(args[-1], settings.working_directory),
                     )
                     if dashboard is not None:

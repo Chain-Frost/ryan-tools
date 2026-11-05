@@ -8,7 +8,7 @@ import subprocess
 import sys
 from collections.abc import Callable, Collection, Generator
 from dataclasses import replace
-from datetime import datetime
+from datetime import datetime, timedelta
 from io import StringIO
 from pathlib import Path
 from threading import Event
@@ -1088,14 +1088,32 @@ def test_launch_failure_and_priority_failure_cannot_lose_scheduler_slot(
 def test_out_of_order_completion_callback_precedes_ordered_output(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    config = settings(tmp_path, gpu_devices=(("-pu0",), ("-pu1",)))
+    config = settings(tmp_path, gpu_devices=(("-pu0",), ("-pu1",)), monitor_progress=True, use_live_dashboard=True)
     plan = runner.prepare_plan(config)
+    _capture_dashboards(monkeypatch)
     monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
     monkeypatch.setattr(runner, "_apply_priority", _no_op)
     processes = iter((FakeProcess(1, polls_before_exit=5), FakeProcess(2)))
     observed: list[int] = []
     began: list[int] = []
     caplog.set_level(logging.INFO)
+
+    class CompletionProbe(ProgressProbe):
+        def finish(self, run_index: int, *, pid: int) -> ProgressUpdate | None:
+            super().finish(run_index, pid=pid)
+            return ProgressUpdate(
+                run_index=run_index,
+                pid=pid,
+                snapshot=LogProgressSnapshot(model_hours=float(run_index), state="live"),
+            )
+
+    probe = CompletionProbe(LogProgressSnapshot(state="live"))
+
+    def monitor(*, interval_seconds: float) -> ProgressProbe:
+        del interval_seconds
+        return probe
+
+    monkeypatch.setattr(runner, "AdvisoryRunProgress", monitor)
 
     def popen(**_options: object) -> FakeProcess:
         return next(processes)
@@ -1118,6 +1136,25 @@ def test_out_of_order_completion_callback_precedes_ordered_output(
     assert observed == [2, 1]
     assert [record.run.index for record in outcome.outcomes] == [2, 1]
     assert caplog.text.index("Run 1: OK") < caplog.text.index("Run 2: OK")
+    completion_messages = [record.message for record in caplog.records if ": OK (exit" in record.message]
+    assert completion_messages[0].endswith(" | Model 1.000 h")
+    assert completion_messages[1].endswith(" | Model 2.000 h")
+
+
+@pytest.mark.parametrize("model_hours", [None, 3.0, float("nan"), float("inf")])
+def test_completion_timing_preserves_observed_runtime_and_unknown_model_clock(
+    tmp_path: Path, model_hours: float | None
+) -> None:
+    run = runner.prepare_plan(settings(tmp_path)).runs[0]
+    started = datetime(2026, 11, 6, 1, 0)
+    result = runner.RunOutcome(run, 0, started, started + timedelta(hours=27, minutes=2, seconds=43), 501)
+    progress = ProgressUpdate(run_index=run.index, pid=501, snapshot=LogProgressSnapshot(model_hours=model_hours))
+    timing = runner._completion_timing(result, progress)  # pyright: ignore[reportPrivateUsage] - test completion presentation
+    expected_model = "3.000 h" if model_hours == 3.0 else "--"
+    assert timing == f"Runtime 27:02:43 | Model {expected_model}"
+    assert runner._completion_timing(result, None) == "Runtime 27:02:43 | Model --"  # pyright: ignore[reportPrivateUsage]
+    failed = replace(result, pid=None, started_at=None, return_code=None, error="Launch failed")
+    assert runner._completion_timing(failed, None) == "Runtime -- | Model --"  # pyright: ignore[reportPrivateUsage]
 
 
 def test_interruption_terminates_owned_child_without_imaginary_success(
@@ -1519,6 +1556,12 @@ def test_shared_dashboard_shows_middle_active_run_and_original_resume_index(
     assert gpu_text in rendered[0]
     assert "RTX" not in rendered[0]
     assert "Local CUDA device mapping for this launch environment: -pu0 (RTX 3090); -pu1 (RTX 3080)" in caplog.text
+    launch_messages = [
+        record.message for record in caplog.records if record.message.startswith("Run ") and " | PID " in record.message
+    ]
+    assert len(launch_messages) == len(plan.runs)
+    assert all(f"[{gpu_text}]" in message for message in launch_messages)
+    assert all("RTX" not in message for message in launch_messages)
     assert "Batch: -b -t" in rendered[0]
     assert "-pu9" not in rendered[0]
     # The same selected values remain visible after a run finishes.
@@ -1686,6 +1729,11 @@ def test_completion_consumes_pending_snapshot_after_callback_and_keeps_actual_ex
         assert "ME " not in task.detail
     assert probe.finished == [(1, 501)]
     assert not probe.pending
+    completion_messages = [record.message for record in caplog.records if record.message.startswith("Run 1:")]
+    assert len(completion_messages) == 1
+    assert f"(exit {exit_code})" in completion_messages[0]
+    assert " | Runtime " in completion_messages[0]
+    assert completion_messages[0].endswith(" | Model 2.000 h")
     warnings = [record.message for record in caplog.records if "cached log warning" in record.message]
     assert warnings == ["Run 1 log observation: cached log warning"]
 

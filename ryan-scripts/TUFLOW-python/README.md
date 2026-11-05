@@ -40,6 +40,12 @@ Each launch log line groups flags that change across the selected plan first,
 then shows constant flags together in dim text. This includes constant event
 flags and changing scenario flags. Columns stay aligned within each group;
 a flag omitted in some runs counts as changing. All flags remain on each line.
+The startup CUDA mapping identifies GPU models once; launch lines use only
+the assigned `-puN` switches (or `Auto`). Completion lines show elapsed process
+runtime as `HH:MM:SS` and the last observed model clock in hours. Unknown model
+time is `Model --`; launch failures without a process show `Runtime --`.
+Delayed completion messages retain the recorded finish time and that run's
+own log observation. The process exit code still determines success.
 The dashboard shows event/scenario values in separate `e1`...`e9` and `s1`...`s9`
 columns alongside the original run number. The TCF appears once as the heading
 of its own boxed run list, with no repeated `Model` column. Batches using multiple
