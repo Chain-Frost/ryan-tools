@@ -255,3 +255,36 @@ Delivery: new branch/PR requested; changes are committed/pushed for review with 
 CI tracked on the PR. No merge/publication is authorized. The separately reported live
 dashboard repaint issue remains unresolved; passing logging tests do not reproduce the
 user's terminal artifacts. Next review: 2026-11-06.
+
+### 2026-11-05: enforce the user's one-second inspection budget
+
+The user requested timing of the detailed path and set a maximum optional overhead
+of one second. Three CodeMeter summaries took 0.191726–0.240229 seconds. The actual
+detailed process scan exceeded a three-second probe cutoff; a separate one-second
+probe also timed out. The previous name-filter optimization alone is therefore not
+accepted as a fast launch path on this workstation.
+
+The entire optional CodeMeter/GPU check now runs in one owned hidden Python worker
+with a 0.9-second timeout, reserving 0.1 seconds for cancellation and reaping. This
+covers imports/startup, HTTP and process inspection together. The summary request
+uses a half-second socket timeout. Confirmed idle and failed usage still skip process
+enumeration; only active usage enters it. Timeout/failure returns unverified status,
+discards partial findings and continues launching. The worker is killed and reaped;
+there is no late result or non-daemon thread holding shutdown open.
+
+Three complete idle calls took 0.311939–0.330644 seconds. Three forced-active calls
+using real process inspection timed out and were reaped in 0.939249–0.970314 seconds.
+All three child PIDs were confirmed absent after return. The isolated installed
+wheel repeated idle at 0.320773 seconds and detailed cancellation at 0.920239 seconds,
+again confirming the worker exited. No solver was launched or licence allocated.
+These observations do not guarantee latency on every OS/load or repeat licensed
+multi-GPU acceptance of the deadline policy. Full timing samples and method are in
+[the validation report](../TUFLOW_GPU_CODEMETER_VALIDATION.md#2026-11-05-bounded-timing-check).
+
+Validation: 202 focused passes / 2 Windows symlink skips; Ruff lint/format, strict
+Pyright on five modified Python files, Loguru policy, links and whitespace passed.
+New regressions cover successful worker snapshots, timeout, launch failure, malformed
+output, and continued guarded/advisory launches after timeout. Built and verified
+the local no-bump 26.11.5.3 wheel and tested its actual subprocess boundary in an
+isolated install. The user's version edit remains unstaged and excluded. Delivery
+continues in PR #206; final-head hosted CI is recorded in the PR. No merge/release.

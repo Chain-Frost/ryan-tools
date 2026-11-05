@@ -8,16 +8,45 @@ licences, not a reliable map of GPUs on this local computer.
 
 from __future__ import annotations
 
+import json
 import os
+import subprocess
+import sys
 from collections.abc import Collection, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import PureWindowsPath
-from typing import cast
+from typing import TypedDict, cast
 
 import psutil
 
 from .codemeter import tuflow_licences_in_use
 from .command_plan import is_gpu_switch
+
+_INSPECTION_BUDGET_SECONDS = 1.0
+_CLEANUP_ALLOWANCE_SECONDS = 0.1
+_CODEMETER_TROUBLESHOOTING = (
+    "Check WebAdmin at http://127.0.0.1:22352.\n"
+    "Windows: open Services (services.msc); start CmWebAdmin if stopped (service name: CmWebAdmin.exe).\n"
+    "Optional: set that service's Startup type to Automatic to start WebAdmin after reboot."
+)
+_PROCESS_INSPECTION_WORKER = """
+import json, sys
+from ryan_library.functions.tuflow import gpu_occupancy
+snapshot = getattr(gpu_occupancy, sys.argv[2])(json.loads(sys.argv[1]))
+print(json.dumps({
+    'assigned': [[item.pid, sorted(item.gpu_ids)] for item in snapshot.assigned],
+    'unknown_pids': list(snapshot.unknown_pids),
+    'inspection_incomplete': snapshot.inspection_incomplete,
+    'detail': snapshot.detail,
+}))
+"""
+
+
+class _ProcessSnapshotPayload(TypedDict):
+    assigned: list[tuple[int, list[int]]]
+    unknown_pids: list[int]
+    inspection_incomplete: bool
+    detail: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,8 +109,17 @@ def local_gpu_occupancy(*, exclude_pids: Collection[int] = ()) -> GpuOccupancySn
     A fresh CodeMeter summary confirming zero TUFLOW licence use avoids process
     enumeration. Only confirmed active usage triggers local inspection; an
     unavailable or unverified summary returns incomplete inspection immediately.
-    The caller owns snapshot timing. No TUFLOW or CodeMeter process is launched.
+    Summary and process inspection share a one-second budget. Slow process
+    queries run in an owned subprocess which is killed and reaped on timeout.
+    No TUFLOW or CodeMeter process is launched.
     """
+    return _bounded_gpu_inspection(
+        exclude_pids, timeout_seconds=_INSPECTION_BUDGET_SECONDS - _CLEANUP_ALLOWANCE_SECONDS
+    )
+
+
+def _local_gpu_occupancy(exclude_pids: Collection[int]) -> GpuOccupancySnapshot:
+    """Worker-only summary and process checks, bounded by the owning caller."""
     licence_usage = tuflow_licences_in_use()
     if licence_usage is not True:
         return GpuOccupancySnapshot(
@@ -93,13 +131,45 @@ def local_gpu_occupancy(*, exclude_pids: Collection[int] = ()) -> GpuOccupancySn
                 if licence_usage is False
                 else (
                     "CodeMeter usage is unavailable or unverified; GPU process inspection skipped, continuing launches.\n"
-                    "Check WebAdmin at http://127.0.0.1:22352.\n"
-                    "Windows: open Services (services.msc); start CmWebAdmin if stopped (service name: CmWebAdmin.exe).\n"
-                    "Optional: set that service's Startup type to Automatic to start WebAdmin after reboot."
+                    + _CODEMETER_TROUBLESHOOTING
                 )
             ),
         )
     return _inspect_local_gpu_processes(exclude_pids)
+
+
+def _bounded_gpu_inspection(exclude_pids: Collection[int], *, timeout_seconds: float) -> GpuOccupancySnapshot:
+    """Bound the whole check without leaving work running at interpreter exit."""
+    try:
+        completed = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                _PROCESS_INSPECTION_WORKER,
+                json.dumps(sorted(exclude_pids)),
+                _local_gpu_occupancy.__name__,
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            encoding="utf-8",
+            timeout=timeout_seconds,
+            check=True,
+            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+        )
+        payload = cast(_ProcessSnapshotPayload, json.loads(completed.stdout))
+        return GpuOccupancySnapshot(
+            assigned=tuple(TuflowGpuProcess(pid, frozenset(ids)) for pid, ids in payload["assigned"]),
+            unknown_pids=tuple(payload["unknown_pids"]),
+            inspection_incomplete=payload["inspection_incomplete"],
+            detail=payload["detail"],
+        )
+    except subprocess.TimeoutExpired:
+        detail = "Optional CodeMeter/GPU inspection exceeded the one-second budget; skipped, continuing launches."
+    except (OSError, subprocess.SubprocessError, ValueError, TypeError, KeyError):
+        detail = "Optional CodeMeter/GPU inspection unavailable; skipped, continuing launches."
+    return GpuOccupancySnapshot(
+        assigned=(), unknown_pids=(), inspection_incomplete=True, detail=f"{detail}\n{_CODEMETER_TROUBLESHOOTING}"
+    )
 
 
 def _inspect_local_gpu_processes(exclude_pids: Collection[int]) -> GpuOccupancySnapshot:

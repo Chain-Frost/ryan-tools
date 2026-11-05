@@ -288,13 +288,20 @@ also triggers a fresh check before another model is assigned. A group
 such as `[["-pu0", "-pu1"]]` requires **both** GPUs to be free.
 
 Before inspecting processes, each check reads only the local CodeMeter WebAdmin
-licence summary (`http://127.0.0.1:22352`, one-second request timeout). A complete
+licence summary (`http://127.0.0.1:22352`, half-second request timeout). A complete
 summary reporting zero TUFLOW licence usage skips process inspection. An unavailable,
 incomplete or ambiguous response also skips process inspection, warns and continues
 launching with unverified GPU availability. Only confirmed active licence usage
 triggers process inspection; allocation-detail pages and event history are not fetched.
 This shortcut assumes licensed runs; licence-free/tutorial runs are not protected
 when CodeMeter reports zero usage. A fresh summary is read for each scheduling check.
+
+The entire optional check has a one-second budget, including worker startup and
+the CodeMeter request. It runs in an owned hidden Python process with a 0.9-second
+timeout, reserving 0.1 seconds for termination and cleanup. An unfinished worker is
+killed and reaped; its partial results are discarded and launches continue with a
+warning. Slow inspection does not continue in a background thread or delay shutdown.
+Busy machines may therefore continue without verified GPU occupancy.
 
 If the CodeMeter check fails, open `http://127.0.0.1:22352` to check WebAdmin.
 On Windows, open Services (`services.msc`) and start **CmWebAdmin** if stopped;

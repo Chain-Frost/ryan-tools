@@ -11,13 +11,37 @@ This guide separates physical GPU occupancy from licence availability. The simul
 was checked out; a GPU licence allocation does not identify a physical GPU.
 
 As of 2026-11-05, occupancy checks first read only the local CodeMeter licence-summary
-page with a one-second request timeout. Confirmed zero TUFLOW usage skips process
+page with a half-second request timeout. Confirmed zero TUFLOW usage skips process
 enumeration. Failed, empty, partial or ambiguous queries also skip enumeration and
 continue with a warning, following the user's computation-first policy. Only confirmed
 active usage triggers local inspection, which reads command lines after filtering by
 executable name. No allocation-detail or event-history requests are made on this path.
 This assumes licensed runs; a zero-usage shortcut does not protect licence-free/tutorial
 processes. The historical full-snapshot timings below do not measure this summary path.
+
+The user subsequently set a one-second total budget. Both the summary request and
+process inspection now run in one owned hidden Python worker. Its 0.9-second timeout
+reserves 0.1 seconds for termination and reaping. Timeouts discard partial findings,
+warn and continue. No inspection thread survives to delay shutdown.
+
+### 2026-11-05 bounded timing check
+
+Read-only measurements used the current source on the Windows workstation. CodeMeter
+reported zero TUFLOW licence usage. No solver was launched or licence allocated.
+The detailed branch was exercised by forcing an active-usage result inside the probe
+worker; process inspection itself remained real, with no synthetic process inventory.
+
+| Check | Three elapsed samples (seconds) | Result |
+| --- | --- | --- |
+| CodeMeter summary alone | 0.240229, 0.191726, 0.202196 | Complete zero-usage summaries. |
+| Full bounded idle check, including worker startup | 0.315859, 0.330644, 0.311939 | No process enumeration. |
+| Full bounded forced detailed check, including worker cleanup | 0.939249, 0.956447, 0.970314 | Timed out; each worker was verified exited. |
+
+The unbounded detailed inspection exceeded a three-second probe cutoff. A separate
+one-second probe also timed out (1.060247 seconds including cancellation/cleanup),
+which motivated reserving cleanup time rather than setting a one-second worker
+timeout. These are local timing observations, not cross-machine latency guarantees
+or licensed multi-GPU acceptance of the new deadline policy.
 
 For a future agent session on a suitable workstation, use the copy-ready
 [licensed two-GPU validation prompt](TUFLOW_GPU_HARDWARE_TEST_PROMPT.md).

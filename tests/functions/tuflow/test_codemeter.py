@@ -151,7 +151,7 @@ def test_launch_usage_reads_only_summary(active: bool) -> None:
         html = html.replace("<td>1</td><td>1</td><td>0</td>", "<td>1</td><td>0</td><td>1</td>")
     with patch.object(codemeter, "_fetch_text", return_value=html) as fetch:
         assert codemeter.tuflow_licences_in_use() is active
-    fetch.assert_called_once_with("http://127.0.0.1:22352/license_monitoring.html", timeout_seconds=1.0)
+    fetch.assert_called_once_with("http://127.0.0.1:22352/license_monitoring.html", timeout_seconds=0.5)
 
 
 @pytest.mark.parametrize("failure", [TimeoutError("timeout"), OSError("unavailable"), ValueError("invalid URL")])

@@ -290,7 +290,7 @@ def _fetch_text(url: str, *, timeout_seconds: float) -> str:
         return response.read().decode(encoding, errors="replace")
 
 
-def tuflow_licences_in_use(*, base_url: str = "http://127.0.0.1:22352", timeout_seconds: float = 1.0) -> bool | None:
+def tuflow_licences_in_use(*, base_url: str = "http://127.0.0.1:22352", timeout_seconds: float = 0.5) -> bool | None:
     """Read only the TUFLOW usage summary; None means usage is unverified.
 
     Use an IPv4 loopback address to avoid sequential localhost address retries.
