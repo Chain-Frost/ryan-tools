@@ -45,7 +45,9 @@ def report_metadata(doc: RorbDocument) -> None:  # noqa: C901 - preserve ordered
             model = (
                 "CL"
                 if "Cont. loss (mm/h)" in line
-                else "ROC" if re.search(r"runoff coeff", line, re.IGNORECASE) else None
+                else "ROC"
+                if re.search(r"runoff coeff", line, re.IGNORECASE)
+                else None
             )
             if model is None or "Initial loss (mm)" not in line:
                 doc.issue("unsupported_losses", "Loss layout retained as raw text; no values inferred.", i + 1)
