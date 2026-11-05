@@ -8,6 +8,7 @@ from __future__ import annotations
 import sys
 from io import StringIO
 from pathlib import Path
+from threading import Event, Thread, current_thread
 
 import pytest
 from loguru import logger
@@ -16,6 +17,74 @@ from rich.live import Live
 
 from ryan_library.functions.live_dashboard import LiveWorkflowDashboard
 from ryan_library.functions.loguru_helpers import configure_serial_logging
+
+
+def test_worker_log_render_finishes_before_coordinator_refresh(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A worker may render a live frame even when auto-refresh is disabled."""
+    stream = StringIO()
+    monkeypatch.setattr(sys, "stdout", stream)
+    monkeypatch.setenv("TERM", "xterm-256color")
+    monkeypatch.setenv("FORCE_COLOR", "1")
+    dashboard = LiveWorkflowDashboard(title="Concurrent render", group_by="model")
+    dashboard.console.width = 100
+    dashboard.console.height = 23
+    dashboard.set_tasks(["A", "B"], metadata=[{"model": "model.tcf"}, {"model": "model.tcf"}])
+    rendering = Event()
+    release = Event()
+    refreshing = Event()
+    refreshed = Event()
+    errors: list[BaseException] = []
+    write_buffer = dashboard.console._write_buffer
+
+    def paused_write() -> None:
+        if current_thread().name == "dashboard-test-worker":
+            rendering.set()
+            if not release.wait(5):
+                message = "Test did not release the worker frame"
+                raise TimeoutError(message)
+        write_buffer()
+
+    monkeypatch.setattr(dashboard.console, "_write_buffer", paused_write)
+
+    def worker_log() -> None:
+        try:
+            print("BACKGROUND_WARNING", flush=True)
+        except BaseException as exc:  # noqa: BLE001 - propagate worker failures to the test thread
+            errors.append(exc)
+
+    def refresh() -> None:
+        try:
+            refreshing.set()
+            dashboard.mark_running(index=1, refresh=False)
+            dashboard.refresh(force=True)
+            refreshed.set()
+        except BaseException as exc:  # noqa: BLE001 - propagate coordinator failures to the test thread
+            errors.append(exc)
+
+    with dashboard:
+        assert dashboard._live is not None
+        worker = Thread(target=worker_log, name="dashboard-test-worker", daemon=True)
+        coordinator = Thread(target=refresh, daemon=True)
+        worker.start()
+        try:
+            assert rendering.wait(3)
+            coordinator.start()
+            assert refreshing.wait(3)
+            # Without the console transaction, this refresh writes a new,
+            # shorter frame before the worker writes its stale cursor reset.
+            assert not refreshed.wait(0.1)
+        finally:
+            release.set()
+            worker.join(5)
+            if coordinator.ident is not None:
+                coordinator.join(5)
+        assert not worker.is_alive()
+        assert not coordinator.is_alive()
+        assert not errors
+        assert refreshed.is_set()
+    assert stream.getvalue().count("BACKGROUND_WARNING") == 1
+    assert "RUNNING" in stream.getvalue()
+    assert sys.stdout is stream
 
 
 def test_grouped_dashboard_uses_one_refresh_owner_and_keeps_log_messages(

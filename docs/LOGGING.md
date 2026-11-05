@@ -55,9 +55,16 @@ listener process through a parent process's Rich display.
 
 `LiveWorkflowDashboard` does not start Rich's background auto-refresh thread. Its
 coordinator owns state updates and calls `refresh()` while polling; task updates
-can also request an immediate refresh. Keep this single refresh owner so log-driven
-redraws and a second rendering thread do not compete for the live region. The TUFLOW
-runner and generic dashboard workflow already provide the polling refresh loop.
+can also request an immediate refresh. The TUFLOW runner and generic dashboard
+workflow already provide the polling refresh loop.
+
+Background stdout/stderr messages can still trigger a Rich redraw. The dashboard
+console therefore serializes the complete render and write, with the coordinator
+entering that console context before calling Live. This keeps cursor measurements
+and frame output together and maintains the same lock order during startup,
+refresh and shutdown. Locking writes alone leaves a window for a worker's older
+frame to overwrite a newer, differently sized frame. Warnings remain visible;
+this does not add a polling delay or change the optional GPU-inspection budget.
 
 ## Jupyter notebooks
 

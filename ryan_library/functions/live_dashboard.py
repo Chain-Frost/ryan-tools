@@ -15,6 +15,7 @@ import time
 from collections import deque
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from threading import RLock
 from types import TracebackType
 from typing import Literal
 
@@ -34,6 +35,36 @@ WorkflowOverflow = Literal["fold", "crop", "ellipsis", "ignore"]
 _LIVE_PANEL_FIXED_ROW_ALLOWANCE = 12
 _FIRST_GROUP_EXTRA_ROW_ALLOWANCE = 2
 _ADDITIONAL_GROUP_ROW_ALLOWANCE = 6
+
+
+class _DashboardConsole(Console):
+    """Keep cursor measurement, rendering and output in one transaction.
+
+    Rich buffers per thread and locks writes, but a background stdout message
+    can otherwise render Live's shared frame before another thread writes it.
+    The coordinator takes this same context before calling Live, maintaining
+    console-before-Live lock order for both refreshes and redirected messages.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._render_lock = RLock()
+
+    def __enter__(self) -> _DashboardConsole:
+        self._render_lock.acquire()
+        super().__enter__()
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        try:
+            super().__exit__(exc_type, exc_value, traceback)
+        finally:
+            self._render_lock.release()
 
 
 def _empty_metadata() -> dict[str, str]:
@@ -144,7 +175,7 @@ class LiveWorkflowDashboard:
         self.screen: bool = screen
         self.group_by: str | None = group_by
         self.group_label_key: str | None = group_label_key
-        self.console: Console = Console()
+        self.console: Console = _DashboardConsole()
         self._live: Live | None = None
         self._last_refresh: float = 0.0
         self._tasks: dict[int, WorkflowTask] = {}
@@ -168,7 +199,8 @@ class LiveWorkflowDashboard:
                 redirect_stderr=True,
                 vertical_overflow="crop",
             )
-            self._live.__enter__()
+            with self.console:
+                self._live.__enter__()
         return self
 
     def __exit__(
@@ -178,7 +210,8 @@ class LiveWorkflowDashboard:
         exc_tb: TracebackType | None,
     ) -> None:
         if self._live is not None:
-            self._live.__exit__(exc_type, exc_val, exc_tb)
+            with self.console:
+                self._live.__exit__(exc_type, exc_val, exc_tb)
             self._live = None
 
     def set_tasks(
@@ -301,7 +334,8 @@ class LiveWorkflowDashboard:
         now_monotonic: float = time.monotonic()
         min_interval: float = 1.0 / self.refresh_per_second
         if force or now_monotonic - self._last_refresh >= min_interval:
-            self._live.update(self._render(), refresh=True)
+            with self.console:
+                self._live.update(self._render(), refresh=True)
             self._last_refresh = now_monotonic
 
     def _render(self) -> RenderableType:

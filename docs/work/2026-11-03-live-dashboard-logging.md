@@ -2,14 +2,68 @@
 
 | Field | Value |
 | --- | --- |
-| Status | PR #208 redraw and interruption wording fixes; local checks pass |
+| Status | Active; PR #208 draft: serialized-render candidate validated locally; real user acceptance pending |
 | Owner | ChatGPT |
 | Created / Updated | 2026-11-03 / 2026-11-05 |
 | Next review | 2026-11-06 |
 | Branch | `fix/dashboard-single-refresh`, stacked on PR #206 at `fffc13e3` |
 | Pull request | [#208](https://github.com/Chain-Frost/ryan-tools/pull/208); historical PR #192 is merged. |
 | Git delivery | Single-refresh source/test/version commit `af358f48` pushed; documentation follow-up is on the same branch. |
-| Next action | Verify final-head PR #208 CI and the user's installed test; keep both #206 and #208 unmerged unless authorized. |
+| Next action | Confirm a fresh real-user run on 26.11.5.8; keep #208 draft and unmerged pending acceptance. |
+
+## 2026-11-05: serialize background messages with coordinator redraws
+
+The real-child reproduction uses harmless hidden Python processes with the runner's
+Windows new-console creation flag, real read-only input checks and progress
+resolution, and no solver or CSV/export callbacks. Package 26.11.5.7 retained two
+headings; leaving a spare column did not fix it. Detailed frame instrumentation
+changed timing enough to hide the failure. The uninstrumented terminal capture
+shows background parser warnings triggering additional redraws.
+
+Rich's thread-local buffers allow a worker to prepare a live frame and cursor reset
+before the coordinator writes a newer, differently sized frame. Disabling the
+automatic refresh thread does not prevent redirected worker output from rendering.
+The dashboard now serializes each complete console context, including rendering
+and writes. Startup, refresh and shutdown enter that context before calling Live,
+so both message and coordinator paths acquire locks in the same order. No parser
+messages are suppressed and no licence/GPU inspection behavior changes.
+
+A controlled regression pauses the worker immediately before flushing its rendered
+frame, then attempts a coordinator refresh. It fails with the ordinary Rich console
+and passes with the serialized console, with both threads exiting and the warning
+retained. Native tests retained one heading and one summary with the source candidate
+and isolated wheel 26.11.5.8 at 151x23 and 80x23. These are stronger reproductions,
+but they still do not replace acceptance in the user's real solver run.
+
+Validation: 256 focused display/workflow/runner/wrapper tests passed, two Windows
+symlink tests skipped; Ruff lint/format, strict Pyright on the two modified Python
+files, Loguru policy, documentation and whitespace passed. The verified wheel is
+26.11.5.8, SHA256 `75aad8239afa54133546147fb6a7cb473ee73dcb6e5719bf010f1810a8103d03`.
+Native captures and model-specific reproduction scripts remain private, outside
+the repository. This internal renderer change needs no new MCP workflow entry.
+The wheel is installed in the normal Python 3.14 user environment and the copied
+wrapper's `--help` passes. Wrapper settings and model outputs were not changed.
+The source, regression, version and documentation are being delivered on the
+existing PR #208 branch; final-head hosted checks are tracked separately.
+
+## Latest acceptance correction: 2026-11-05
+
+The user's fresh real-solver run still repeats dashboard headers on package
+26.11.5.7 and wrapper 2026-11-05.1. The earlier fake-child native trials below
+remain valid observations but do not establish acceptance of the real workflow.
+Do not describe the redraw defect as resolved or merge PR #208 on that evidence.
+The interruption-wording fix and PR #206's startup budget are separate from this
+remaining display issue.
+
+A diagnostic taken inside the active wrapper confirms the installed renderer is
+loaded, `auto_refresh` is false and no refresh worker exists. stdout is Rich's
+FileProxy; its console targets TextIOWrapper, with one render hook, no nesting,
+modern ANSI mode, terminal size 151x23 and last frame shape 151x11. There is no
+PYTHONPATH override. Thus an old package or remaining automatic refresher does not
+explain this latest failure. Compare actual child-console creation and real
+progress/log observations with the fake-child reproduction before another fix.
+Private runtime identifiers, snapshots and the compact continuation handoff are
+retained outside the repository. No model was interrupted by these diagnostics.
 
 ## 2026-11-05: native partial-frame reproduction and single refresh owner
 
