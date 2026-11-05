@@ -1,5 +1,19 @@
 # Local handoff: PyTuflow #63 + ryan-tools #235
 
+| Field | Current local acceptance status |
+| --- | --- |
+| Status | Needs review: performance and correctness pass; CI repair pushed; operational gates remain |
+| Owner | ChatGPT / maintainer |
+| Updated | 2026-11-06 |
+| Next review | 2026-11-07 |
+| Next action | Verify final-head CI and review remaining licensed active/occupied-GPU acceptance gaps |
+
+The owner authorised this handoff, then selected the current wrapper's complete
+390-run plan and an **under-50-second** input-check target. The historical
+40-run benchmark below remains historical. The owner also authorised refreshing
+the copied model wrapper while preserving its settings, including the exact
+`import argparse  # noqa: I001, RUF100` line.
+
 ## Objective and exact revisions
 
 Complete **read-only correctness, performance, and operational acceptance** before
@@ -159,3 +173,214 @@ timing breakdown, fallback counters, before/after comparison, GPU matrix,
 and remaining risks. Include exact references to either PR for any
 follow-up changes. Do not publish private TCF, GIS paths or file content.
 Do not merge PR #63 or #235 without explicit owner approval.
+
+## Local acceptance results — 2026-11-06
+
+### Revisions, environment and installation
+
+- PyTuflow source and installed SHA:
+  `5360c979a4da577c7eae04a2afded00eb21d5bf9`; clean checkout, fetched before and
+  after validation. The source checkout was fast-forwarded from `b1026d0`.
+- Consumer benchmark baseline: ryan-tools
+  `29f7c76ce4af9c16e56bcede0809b7c51936c35b`. The shared checkout subsequently
+  advanced externally to `a16dcd3` (requested import guard) and `b973896`
+  (QGIS resource gitlink). Neither external commit was created by this
+  validation session. The latter submodule change was not inspected or validated.
+- The verified local wheel includes the import guard. Installed runner,
+  progress, compatibility and GPU modules were compared byte-for-byte with
+  the final checkout; the installed copied-wrapper source also matches.
+- Windows **10 Pro**, build **19045**, rather than the requested Windows 11;
+  normal Python **3.14.6**, native QGIS **4.2.3**, Python **3.12.15**, GDAL
+  **3.13.3**. NVIDIA GeForce RTX 5090 plus AMD integrated graphics; only one
+  NVIDIA GPU was available. TUFLOW log reports **2026.3.0-iSP-w64**.
+- CodeMeter service is running. Three live summaries reported zero TUFLOW
+  licences in use, taking 0.202–0.220 s. Three combined probes took
+  0.302–0.352 s and correctly discarded the unnecessary process-scan result.
+- Installed the SHA requirement using normal Python 3.14 with
+  `pip install --force-reinstall --no-deps -r repo-scripts/pytuflow-requirement.txt`.
+  Imports outside either checkout resolve to installed site-packages. The
+  installed `direct_url.json` identifies the exact required SHA archive and
+  archive SHA-256
+  `bc3488c2ff2de7abcd186ff58cf749a76226f405864f0043c5874999d274e3e1`.
+  `pip check` passes.
+- Built with `py -3.14 repo-scripts/build_library.py --no-bump --skip-pip`, then
+  installed the verified wheel with `pip --force-reinstall --no-deps`.
+  Version remains **26.11.5.10**; wheel SHA-256
+  `e0894efc19a075a1bace7714bb9958b4cc993c48e1a752662e5279704e39815c`.
+  No package publication or version bump occurred. The user-supplied installer
+  BAT selects PyPI, so it was not used to substitute a released package for PR code.
+
+### Tests and findings
+
+- The five parser test modules listed above: **98 passed** under Python 3.14,
+  and **98 passed** under initialized OSGeo4W/QGIS. Native collection initially
+  lacked `dbfread`, then nine cases lacked `rasterio`; user-level installation
+  of those dependencies resolved the failures. They were not converted to skips.
+- The six consumer modules listed above plus `test_gpu_occupancy.py`,
+  `test_codemeter.py` and `test_launch_log_flags.py`: **380 passed, 2 skipped**.
+  Both skips require unavailable Windows symlink privileges.
+- Initial Python 3.14 pytest imports emitted the known HDF5 DLL-order diagnostic
+  `0xc0000139`. Clean reruns preload `h5py` before `pytest.main`; the 98 and
+  380 pass counts above were reproduced without that diagnostic. The model
+  timing harness uses ordinary imports, with no such workaround.
+- Ruff lint and format checks pass on all 13 consumer PR Python files.
+  Strict Pyright finds **two reportPrivateUsage errors** in imports of
+  `_launch_flag_layout` and `_launch_flag_text` in `test_launch_log_flags.py`.
+  This is an outstanding policy finding; no repository type rules were weakened.
+- Parser legacy lint remains unclean. A before/after rule-message inventory
+  against `b1026d0` retains existing findings, records complexity reducing
+  from 16 to 11, and identifies added B905/C408 style findings. Four touched
+  library modules report eight Pyright errors in the legacy context/run-state
+  modules; fragment collection and GPKG safety alone report zero. These results
+  do not constitute a clean parser-wide lint/type acceptance.
+- The exact 8-flag translation, aliases, repeated placeholders, context
+  immutability and dotted TLF/TPC names pass their regressions. Four actual
+  scheduled contexts also agree between PyTuflow and the runner's advisory
+  TLF prediction, including the effective override folder; prediction does
+  not open the production log.
+
+### Current-model timing and correctness
+
+Three unprofiled repetitions ran serially in fresh processes. They use all
+**390 ordered selections**: 3 AEPs × 13 durations × 10 temporal patterns,
+with the existing implicit override. The scheduled flag order and complete
+manifest are retained only in private local artifacts. Filesystem caches
+were not flushed: these are fresh-process, warmed-cache measurements, not
+a controlled cold-cache benchmark.
+
+| Stage, seconds | Median | Range |
+| --- | ---: | ---: |
+| Validation API loading | 1.481 | 1.454–1.489 |
+| TCF parsing in consumer call | 1.066 | 1.066–1.138 |
+| Dependency collection in consumer call | 5.543 | 5.201–5.597 |
+| Physical/GIS/BC/raster/CRS inspection | 1.584 | 1.444–2.788 |
+| `check_simulation_inputs` call | **8.069** | **7.876–9.539** |
+| Harness entry through completed result, including imports/setup | **9.750** | **9.670–11.357** |
+
+Every full repetition passes: **zero issues, zero warnings**, 72 examined
+files, 22 examined GeoPackages and 26 checked CSV headers. Medians of separate
+stages need not sum to the median total. Interpreter launch before harness
+entry is excluded from the last row. Direct `validate_batch_inputs` repetitions
+also pass, taking 7.738–7.821 s (median 7.800 s). A separate installed-only
+consumer smoke passes all 390 selections without repository import overrides.
+
+| Collection-only selection count | Median seconds | Range |
+| --- | ---: | ---: |
+| 1 | 0.152 | 0.147–0.153 |
+| 10 | 0.295 | 0.293–0.309 |
+| 40, first scheduled selections | 0.734 | 0.709–0.746 |
+| 390 | 5.247 | 5.202–5.255 |
+
+Full-batch counters are stable: `fallback_reason=None`, `fallback_runs=0`,
+`fragment_evaluations=816`, `fragment_reuses=22246`,
+`expression_evaluations=28501`, `expression_reuses=11540`. The first full
+consumer dependency result reports collection `elapsed_seconds=5.561`.
+The authoritative fallback evaluator passes all **390** selections and its
+complete per-run records equal the fragment result, with **zero mismatches**.
+That comparison includes selected references, database activation/selection,
+command ownership, run ordering and errors. The synthetic override regression
+also establishes zero fallback and equality for its 40 distinct contexts.
+
+The owner's current-model target is met. The historical 54.61 s / 40-run
+measurement is not a like-for-like speedup baseline for this 390-run selection.
+No profiled timing is used as speedup evidence.
+
+### GeoPackage and mutation checks
+
+All **23** inventoried GPKG candidates were checked read-only through mapped
+and resolved UNC names. Each reproduced DirEntry identity `(0,0)` with valid
+direct identity. Both aliases passed `check_gpkg_safety`, returned identical
+layer inventories, and rejected deliberately mismatching expected metadata
+without changing any file. File size/timestamps and journal/sidecar presence
+were unchanged. WAL/rollback protection remains covered by the core safety
+regressions. The earlier two specific reported layer names were not supplied
+separately; all available candidate layer inventories were retained privately.
+
+Before/after snapshots of the real dependency/control-file inventory found
+exactly one changed file: the explicitly authorised wrapper update. No
+production solver was launched, command export was disabled, and no production
+input or SQLite sidecar was modified by validation. This is input metadata
+evidence, not a filesystem-wide hash audit of concurrently generated outputs.
+
+### Copied wrapper and operational matrix
+
+- Updated the authorised model wrapper from **2026-11-05.2** to
+  **2026-11-05.3** using the current implementation. All configuration AST
+  values except the version, normalized settings, and the complete ordered
+  **390-run manifest** are identical. The original bytes were backed up
+  privately before replacement. Model files and running processes were untouched.
+- The copied wrapper contains the exact `import argparse  # noqa: I001, RUF100`
+  guard, as do the repository runner and installed wrapper. Focused import/noqa
+  checks pass both outside the repository and with repository lint settings;
+  copied-wrapper Pyright reports zero errors. A full external run of the
+  repository's strict lint rules still reports 22 other configuration/comment,
+  namespace and complexity findings because repository path-specific exemptions
+  do not apply. The requested guard is not claimed to solve those unrelated rules.
+- The updated production wrapper exits **0** with
+  `--preflight-only --no-export --no-pause --console-log-level SUCCESS`,
+  explicitly reporting **390/390 passed**. This command never launches a solver.
+- An independently extracted, checksum-verified public EG00 tutorial was run
+  twice consecutively through a copied current wrapper and the installed wheel,
+  using GPU 0. Both observed exits are **0**, CSV FINISH records report SUCCESS,
+  both displayed rows reach 3 h / 100%, original tutorial input hashes remain
+  unchanged, and no owned TUFLOW process remains. Total batch harness time was
+  49.108 s; this includes actual simulations and is separate from preflight timing.
+- Tutorial mode remains ON: these runs prove one-GPU execution/monitoring and
+  sequential child completion, **not** active CodeMeter licence detection.
+- Real active/unavailable-licence startup, externally occupied GPU release/retry,
+  two physical GPU groups, physical terminal colour acceptance and interactive
+  keypress-to-exit timing are **not tested**. Focused tests cover the scheduler's
+  ownership/reinspection rules and cleanup-before-pause ordering. The copied
+  model's configured two GPU IDs were preserved, not certified on this one-NVIDIA
+  workstation. No production execution is implied by preflight success.
+
+### Evidence, delivery and remaining gates
+
+Private evidence is retained outside Git under the local temporary directory
+`pytuflow63-ryan235-20261106-002824`: reproducible harness scripts, manifest,
+all repetitions, fallback comparison, layer/stat inventories, tracebacks,
+provenance, original wrapper backup, installed-source comparisons and tutorial
+logs/history. Do not commit that directory or its project-identifying paths.
+
+At consumer head `29f7c76`, Fast PR checks and TUFLOW input validation succeeded;
+Python CI's [Policy job](https://github.com/Chain-Frost/ryan-tools/actions/runs/42064360602/job/127374872621)
+failed in changed-Python checks. Hosted tests, Package, MCP smoke and POSIX
+wrapper security succeeded. Those hosted results belong to that historical
+head; inspect the externally advanced head's terminal checks separately.
+PyTuflow's tested head reports no Actions runs.
+
+At final observation of consumer `b973896`, Fast PR checks succeeded;
+[Python CI](https://github.com/Chain-Frost/ryan-tools/actions/runs/42066801358)
+and [TUFLOW input validation](https://github.com/Chain-Frost/ryan-tools/actions/runs/42066801096)
+were still in progress. No all-green claim is made. Local final-tree Ruff lint,
+format, documentation index/link checks and `git diff --check` pass; the
+reported strict-type errors remain unresolved. Shared production Python modules
+and the copied-wrapper implementation match the locally installed wheel bytes.
+
+This report and its index/register links are local unstaged documentation.
+The model wrapper and local installed packages were updated as authorised.
+No commit, push, merge, package publication or GitHub message was performed by
+this validation session. Licensed/hardware acceptance, parser lint/type debt
+and consumer policy findings remain explicit review gates for #63/#235.
+Unrelated overdue register entries were observed and left outside this task.
+
+## CI repair — 2026-11-06
+
+The owner subsequently requested the CI repair on PR #235. At `b973896`,
+eight checks succeeded and only Policy failed: strict Pyright rejected the
+two intentional private-helper imports in `test_launch_log_flags.py`.
+Commit `1b346d77a50b0981302c88f0e68a3b7a1ec6f240` annotates only those imports
+with explained `reportPrivateUsage` exceptions, matching nearby internal-helper
+tests. Production code and repository type-checking rules are unchanged.
+
+Both focused launch-formatting tests pass. Ruff lint, Ruff format and strict
+Pyright pass across all 13 PR Python files; documentation/index checks,
+Loguru policy and `git diff --check` pass. The test-only repair requires no
+package rebuild. It is committed and pushed to the existing PR branch;
+seven hosted checks have passed, with Policy and Hosted tests still pending
+at the documentation checkpoint. The owner requested committing this acceptance
+report and its index/register links as well. Those documentation changes are
+included in the follow-up commit, so final-head checks must be verified again.
+The owner has enabled squash auto-merge on PR #235. No manual merge or
+publication was performed by this repair session; the operational acceptance
+gaps above remain recorded independently of CI.
