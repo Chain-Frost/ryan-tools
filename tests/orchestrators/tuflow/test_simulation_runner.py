@@ -707,9 +707,7 @@ def test_claimed_gpu_slots_are_reused_without_reinspection(
     assert runner.launch_plan(plan, config, popen=popen).successful
     assert len(launched) == 5
     assert checks == 1
-    assert {"-pu0", "-pu1"} == {
-        flag for args in launched for flag in args if flag.startswith("-pu")
-    }
+    assert {"-pu0", "-pu1"} == {flag for args in launched for flag in args if flag.startswith("-pu")}
     assert "GPU INSPECTION WARNING - CONTINUING" in caplog.text
     # Initial uncertainty must not persist as a misleading warning after
     # every GPU has been claimed by the batch.
@@ -783,15 +781,11 @@ def test_external_gpu_probe_ignores_claimed_slot_conflicts(monkeypatch: pytest.M
         Callable[..., runner.GpuAvailability],
         getattr(runner, "_blocked_external_gpu_slots"),  # noqa: B009 - exercise targeted slot inspection
     )
-    selected = inspect_gpu_slots(
-        (("-pu0",), ("-pu1",)), exclude_pids=set(), eligible_slots=frozenset({1})
-    )
+    selected = inspect_gpu_slots((("-pu0",), ("-pu1",)), exclude_pids=set(), eligible_slots=frozenset({1}))
     assert selected.blocked_slots == frozenset({1})
     assert selected.issues
     assert all(issue.slot_indexes == frozenset({1}) for issue in selected.issues)
-    empty = inspect_gpu_slots(
-        (("-pu0",), ("-pu1",)), exclude_pids=set(), eligible_slots=frozenset()
-    )
+    empty = inspect_gpu_slots((("-pu0",), ("-pu1",)), exclude_pids=set(), eligible_slots=frozenset())
     assert not empty.issues
     assert not empty.blocked_slots
     assert checks == 1
