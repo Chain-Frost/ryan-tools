@@ -2,14 +2,54 @@
 
 | Field | Value |
 | --- | --- |
-| Status | PR #192 open; presentation validated locally, hosted checks running |
+| Status | PR #208 single-refresh follow-up; native reproduction and local checks pass |
 | Owner | ChatGPT |
-| Created / Updated | 2026-11-03 |
-| Next review | 2026-11-04 |
-| Branch | `fix/tuflow-output-presentation`, based on `31f898de` |
-| Pull request | [#192](https://github.com/Chain-Frost/ryan-tools/pull/192), following merged [#191](https://github.com/Chain-Frost/ryan-tools/pull/191) |
-| Git delivery | PR #191 merged as `31f898de`; presentation follow-up committed and pushed as `0963ece6` in PR #192. |
-| Next action | Verify PR #192 hosted Ruff/CI, then review; no merge or release authorised. |
+| Created / Updated | 2026-11-03 / 2026-11-05 |
+| Next review | 2026-11-06 |
+| Branch | `fix/dashboard-single-refresh`, stacked on PR #206 at `fffc13e3` |
+| Pull request | [#208](https://github.com/Chain-Frost/ryan-tools/pull/208); historical PR #192 is merged. |
+| Git delivery | Single-refresh source/test/version commit `af358f48` pushed; documentation follow-up is on the same branch. |
+| Next action | Verify final-head PR #208 CI and the user's installed test; keep both #206 and #208 unmerged unless authorized. |
+
+## 2026-11-05: native partial-frame reproduction and single refresh owner
+
+The user's fixed-size VS Code terminal still retained partial dashboard headers
+with wrapper 2026-11-04.2 and library 26.11.5.5, despite correct dynamic stdout routing.
+The startup delay was separately resolved by PR #206. The table fragments appeared
+before the input-check success message, so that message alone was not the trigger.
+
+Read-only native console inspection confirmed ANSI cursor support and three visible
+dashboard headings in the terminal buffer. Simpler synthetic dashboards did not
+reproduce it. A controlled native Windows terminal at 151 columns by 23 rows, using
+real background input validation and fake solver processes, retained four headings
+and four summary rows. No solver was launched, and no CSV/export callbacks were
+supplied. Private model/control paths and raw captures remain outside the repository.
+
+The runner already refreshes the renderer from its coordinator loop, but Rich Live
+also started a background refresher. Disabling that redundant thread eliminated the
+partial frames in the controlled reproduction: all three single-refresh trials
+retained one heading and one summary, including two trials of the isolated installed
+wheel. Input checks passed in every trial. This is native console evidence, not a
+claim that every terminal/resize scenario is covered. A focused regression checks
+that no auto-refresh worker exists and SUCCESS/WARNING messages clear and redraw
+the grouped table; it fails under the previous refresh policy.
+
+Validation: 172 focused tests passed, two Windows symlink tests skipped. Ruff lint
+and format, strict Pyright on both changed Python files, Loguru policy and whitespace
+passed. Wheel 26.11.5.6 was built and verified (SHA256
+`1521a1417e30aad89aaa62f844cdcfb1c3a8749d57fe02be575cc03f72b57e92`), installed in
+an isolated target for the native trials, then installed into the user's normal
+Python 3.14 for the requested test. The project wrapper's `--help` passed. Existing
+run settings and model outputs were preserved; normal Resume can skip completed
+cases, so the user may choose `--run-mode all` when deliberately retesting them.
+
+PR #208 is stacked on #206 to retain the one-second optional inspection budget and
+CodeMeter troubleshooting. The primary checkout's unrelated version edit remains
+untouched. This is an internal display correction; existing MCP workflow discovery
+is sufficient. Final-head CI is tracked on PR #208. No merge or public release is
+authorized. The user's actual post-install interactive rerun remains to be confirmed.
+
+## Historical 2026-11-03 investigation
 
 The reported copied runner uses wrapper 2026-11-01.5 and library 26.11.2.3.
 The shared renderer did not change between that version and the initially inspected

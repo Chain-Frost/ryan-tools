@@ -53,6 +53,12 @@ the TUFLOW wrapper accepts `--no-live-dashboard` for ordinary logging.
 Multiprocessing listeners have their own stdout; this does not route a separate
 listener process through a parent process's Rich display.
 
+`LiveWorkflowDashboard` does not start Rich's background auto-refresh thread. Its
+coordinator owns state updates and calls `refresh()` while polling; task updates
+can also request an immediate refresh. Keep this single refresh owner so log-driven
+redraws and a second rendering thread do not compete for the live region. The TUFLOW
+runner and generic dashboard workflow already provide the polling refresh loop.
+
 ## Jupyter notebooks
 
 Notebook cells can be rerun many times. Use the notebook helper, which replaces existing sinks on every call instead
