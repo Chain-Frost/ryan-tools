@@ -56,15 +56,18 @@ Every supported `compute_stat()` operation can write a source raster by passing
 `write_source=True`; source output is disabled by default. For `result.tif`,
 the auxiliary outputs are `result_src.tif` and `result_src_legend.csv`. Source
 IDs are 1-based and follow the caller-provided input order; the CSV records the
-absolute input path for each ID. Per-result legend names avoid races and
-overwrites when independent statistics run in the same directory.
+absolute input path and the number of cells assigned to each ID in the source
+raster. Per-result legend names avoid races and overwrites when independent
+statistics run in the same directory.
 
 For minimum, maximum and median, the source identifies the input supplying the
 value. Duplicate values select the first matching input. For either mean-value
 method, it identifies the closest contributing value; an equal-distance tie
 selects the higher value and then the first matching input. Cells that are
 NoData in the value raster receive source ID `0`, which is the source raster's
-NoData value.
+NoData value. A source cell is also `0` when every contributing input cell is
+NoData, including when the `zero` policy writes a numeric zero to the value
+raster.
 
 The maintained wrapper exposes the opt-in as `--source`. Explicit
 `source_output_file` and `source_legend_file` paths are also supported. This
@@ -89,6 +92,8 @@ shared TUFLOW creation profile by default: `COMPRESS=DEFLATE`, `PREDICTOR=2`,
 `BIGTIFF=IF_SAFER`, and `NUM_THREADS=ALL_CPUS`. This does not depend on whether
 the input GeoTIFF is compressed. Explicit `-co NAME=VALUE` creation options
 override the corresponding defaults when another lossless profile is required.
+Flattening multi-stage source provenance preserves the source raster's complete
+creation profile.
 
 ## NoData policies
 

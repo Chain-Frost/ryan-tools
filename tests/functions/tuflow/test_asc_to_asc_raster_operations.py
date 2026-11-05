@@ -40,7 +40,7 @@ class _RasterReader(Protocol):
     def close(self) -> None: ...
 
 
-def _write_raster(path: Path, values: list[float]) -> None:
+def _write_raster(path: Path, values: list[float], *, compress: str | None = None) -> None:
     data = np.asarray([values], dtype=np.float32)
     destination = cast(
         "_RasterWriter",
@@ -54,6 +54,7 @@ def _write_raster(path: Path, values: list[float]) -> None:
             dtype="float32",
             transform=from_origin(0.0, 1.0, 1.0, 1.0),
             nodata=NODATA,
+            compress=compress,
         ),
     )
     try:
@@ -89,9 +90,17 @@ def test_compute_stat_treats_nodata_as_zero(tmp_path: Path, stat_type: str, expe
     _write_raster(first, [2.0, NODATA])
     _write_raster(second, [NODATA, NODATA])
 
-    compute_stat(stat_type, [str(first), str(second)], str(output), nodata_policy="zero")
+    compute_stat(stat_type, [str(first), str(second)], str(output), nodata_policy="zero", write_source=True)
 
     np.testing.assert_array_equal(_read_raster(output), np.asarray([expected], dtype=np.float32))
+    np.testing.assert_array_equal(_read_raster(tmp_path / "mean_src.tif"), np.asarray([[1, 0]], dtype=np.int32))
+    with (tmp_path / "mean_src_legend.csv").open(encoding="utf-8", newline="") as stream:
+        rows = list(csv.reader(stream))
+    assert rows == [
+        ["source_id", "source_file", "cell_count"],
+        ["1", str(first.resolve()), "1"],
+        ["2", str(second.resolve()), "0"],
+    ]
 
 
 @pytest.mark.parametrize(
@@ -188,10 +197,10 @@ def test_compute_stat_writes_source_ids_and_legend(tmp_path: Path) -> None:
     with (tmp_path / "maximum_src_legend.csv").open(encoding="utf-8", newline="") as stream:
         rows = list(csv.reader(stream))
     assert rows == [
-        ["source_id", "source_file"],
-        ["1", str(first.resolve())],
-        ["2", str(second.resolve())],
-        ["3", str(third.resolve())],
+        ["source_id", "source_file", "cell_count"],
+        ["1", str(first.resolve()), "1"],
+        ["2", str(second.resolve()), "1"],
+        ["3", str(third.resolve()), "1"],
     ]
 
 
@@ -264,7 +273,7 @@ def test_flatten_nested_source_provenance_links_to_original_rasters(tmp_path: Pa
     final_source = tmp_path / "maximum_src.tif"
     first_mean_source = tmp_path / "mean_duration1_src.tif"
     second_mean_source = tmp_path / "mean_duration2_src.tif"
-    _write_raster(final_source, [1.0, 2.0, 2.0, 0.0])
+    _write_raster(final_source, [1.0, 2.0, 2.0, 0.0], compress="deflate")
     _write_raster(first_mean_source, [2.0, 1.0, 1.0, 0.0])
     _write_raster(second_mean_source, [1.0, 2.0, 0.0, 0.0])
 
@@ -281,9 +290,13 @@ def test_flatten_nested_source_provenance_links_to_original_rasters(tmp_path: Pa
     with (tmp_path / "maximum_src_legend.csv").open(encoding="utf-8", newline="") as stream:
         rows = list(csv.reader(stream))
     assert rows == [
-        ["source_id", "source_file"],
-        *[[str(index), str(path.resolve())] for index, path in enumerate(originals, start=1)],
+        ["source_id", "source_file", "cell_count"],
+        ["1", str(originals[0].resolve()), "0"],
+        ["2", str(originals[1].resolve()), "1"],
+        ["3", str(originals[2].resolve()), "0"],
+        ["4", str(originals[3].resolve()), "1"],
     ]
+    assert _compression(final_source) == "deflate"
 
 
 def _parsed_raster(*, tmp_path: Path, result_type: str) -> ParsedRaster:
