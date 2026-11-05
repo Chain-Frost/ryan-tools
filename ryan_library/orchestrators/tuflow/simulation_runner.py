@@ -550,6 +550,33 @@ def _command(run: PlannedRun, settings: RunnerSettings, group: tuple[str, ...]) 
     return [_executable(run, settings), *model_arguments(run, include_gpu=False), *group, str(run.tcf)]
 
 
+def _launch_flag_layout(plan: CommandPlan) -> tuple[tuple[str, int], ...]:
+    """Stable columns across all launched runs, independent of input flag order."""
+    keys = sorted(
+        {key.lower() for run in plan.runs for key, _ in run.flag_pairs},
+        key=lambda key: (key[0] != "e", int(key[1:])),
+    )
+    return tuple(
+        (key, max(len(value) for run in plan.runs for flag, value in run.flag_pairs if flag.lower() == key))
+        for key in keys
+    )
+
+
+def _launch_flag_text(
+    run: PlannedRun, layout: tuple[tuple[str, int], ...]
+) -> tuple[str, str]:
+    """Keep event flags prominent and consistently align dimmed scenario flags."""
+    values = {key.lower(): value for key, value in run.flag_pairs}
+    event: list[str] = []
+    scenario: list[str] = []
+    for key, width in layout:
+        value = values.get(key)
+        # Reserve a column for omitted flags when imported runs differ.
+        cell = f"-{key} {value:<{width}}" if value is not None else " " * (len(key) + 2 + width)
+        (event if key.startswith("e") else scenario).append(cell)
+    return "  ".join(event).rstrip(), "  ".join(scenario).rstrip()
+
+
 def _bat_quote(value: str, *, always: bool = False) -> str:
     # Double quotes protect CMD operators in data arguments. Percent/delayed
     # expansion, embedded quotes and caret expressions remain unsupported.
@@ -1261,6 +1288,7 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
     # Resume keeps the original logical indices. The renderer owns separate,
     # contiguous display slots and shows original indices through metadata.
     display_indices = {run.index: index for index, run in enumerate(plan.runs, 1)}
+    launch_flag_layout = _launch_flag_layout(plan)
 
     def close_progress() -> None:
         nonlocal progress_monitor
@@ -1525,19 +1553,16 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                         _apply_priority(process.pid, settings.computational_priority)
                     except Exception as exc:  # noqa: BLE001 - keep ownership after Popen succeeds
                         logger.warning("PID {} launched but process priority could not be set: {}", process.pid, exc)
-                    logger.info(
-                        "Launched run {} ({} selected) PID {} [{}]: {}",
-                        run.index,
+                    event_flags, scenario_flags = _launch_flag_text(run, launch_flag_layout)
+                    logger.opt(colors=True).info(
+                        "Run {} / {} | {} | <dim>{}</dim> | PID {} [{}] | {}",
+                        f"{run.index:0{len(str(len(plan.runs)))}d}",
                         len(plan.runs),
+                        event_flags,
+                        scenario_flags,
                         process.pid,
                         gpu_group_label(group, device_names),
-                        subprocess.list2cmdline(
-                            [
-                                display_runner_path(args[0], settings.working_directory),
-                                *args[1:-1],
-                                display_runner_path(args[-1], settings.working_directory),
-                            ]
-                        ),
+                        display_runner_path(args[-1], settings.working_directory),
                     )
                     if dashboard is not None:
                         dashboard.mark_running(
