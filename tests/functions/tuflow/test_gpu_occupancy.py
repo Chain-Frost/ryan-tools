@@ -34,9 +34,7 @@ def test_zero_or_unverified_licence_usage_ignores_parallel_process_scan_without_
         scan_started.set()
         try:
             release_scan.wait(timeout=1.0)
-            return gpu_occupancy.GpuOccupancySnapshot(
-                (gpu_occupancy.TuflowGpuProcess(123, frozenset({0})),), ()
-            )
+            return gpu_occupancy.GpuOccupancySnapshot((gpu_occupancy.TuflowGpuProcess(123, frozenset({0})),), ())
         finally:
             scan_finished.set()
 
@@ -62,9 +60,7 @@ def test_zero_or_unverified_licence_usage_ignores_parallel_process_scan_without_
 def test_active_licence_waits_for_parallel_process_scan(monkeypatch: pytest.MonkeyPatch) -> None:
     scan_started = Event()
     release_scan = Event()
-    expected = gpu_occupancy.GpuOccupancySnapshot(
-        (gpu_occupancy.TuflowGpuProcess(99, frozenset({1})),), ()
-    )
+    expected = gpu_occupancy.GpuOccupancySnapshot((gpu_occupancy.TuflowGpuProcess(99, frozenset({1})),), ())
 
     def scan(_exclude_pids: object) -> gpu_occupancy.GpuOccupancySnapshot:
         scan_started.set()
