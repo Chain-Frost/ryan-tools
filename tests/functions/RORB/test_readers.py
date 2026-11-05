@@ -228,7 +228,7 @@ def test_saved_settings_candidates_remain_explicitly_unverified() -> None:
 
 def test_encoding_limit_and_no_mutation(tmp_path: Path) -> None:
     path = tmp_path / "model.out"
-    raw = batch_text().replace("Program version 6.45", "Program version 6.45\nRainfall location: kmÂ²").encode("cp1252")
+    raw = batch_text().replace("Program version 6.45", "Program version 6.45\nRainfall location: km\u00b2").encode("cp1252")
     path.write_bytes(raw)
     doc = read_rorb_file(path)
     assert doc.encoding == "cp1252"
