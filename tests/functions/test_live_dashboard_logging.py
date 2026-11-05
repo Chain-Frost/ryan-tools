@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import logging
 import sys
 from io import StringIO
 from pathlib import Path
@@ -16,7 +17,7 @@ from rich.console import Console
 from rich.live import Live
 
 from ryan_library.functions.live_dashboard import LiveWorkflowDashboard
-from ryan_library.functions.loguru_helpers import configure_serial_logging
+from ryan_library.functions.loguru_helpers import configure_serial_logging, forward_standard_logging
 
 
 def test_worker_log_render_finishes_before_coordinator_refresh(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -191,3 +192,48 @@ def test_explicit_serial_console_sink_remains_authoritative(monkeypatch: pytest.
         logger.remove()
     assert messages == ["CUSTOM_SINK\n"]
     assert stream.getvalue() == ""
+
+
+@pytest.mark.parametrize("existing_handler", [False, True])
+def test_dependency_logs_follow_live_stdout_and_restore_configuration(
+    monkeypatch: pytest.MonkeyPatch, existing_handler: bool
+) -> None:
+    stream = StringIO()
+    monkeypatch.setattr(sys, "stdout", stream)
+    monkeypatch.setenv("TERM", "xterm-256color")
+    dependency = logging.getLogger("synthetic_dashboard_dependency")
+    original = logging.StreamHandler(stream)
+    handlers = [original] if existing_handler else []
+    monkeypatch.setattr(dependency, "handlers", handlers)
+    monkeypatch.setattr(dependency, "level", logging.WARNING)
+    monkeypatch.setattr(dependency, "propagate", True)
+    root_handlers = logging.root.handlers[:]
+    console = Console(force_terminal=True, legacy_windows=False, width=100, height=30)
+    try:
+        configure_serial_logging(console_format="{message}")
+        with (  # noqa: PT012 - assert routing before exercising exceptional context exit
+            pytest.raises(RuntimeError, match="exercise restoration"),
+            forward_standard_logging(dependency.name),
+        ):
+            # Match a dependency that only installs its own default handler if
+            # none exists. This works before and after its first import.
+            assert dependency.hasHandlers()
+            assert not dependency.propagate
+            with Live("DEPENDENCY DASHBOARD", console=console, auto_refresh=False):
+                start = stream.tell()
+                worker = Thread(target=lambda: dependency.warning("DEPENDENCY_WARNING %s", "[literal]"))
+                worker.start()
+                worker.join(3)
+                assert not worker.is_alive()
+                output = stream.getvalue()[start:]
+                assert "\x1b[2K" in output.split("DEPENDENCY_WARNING", 1)[0]
+                assert output.index("DEPENDENCY_WARNING") < output.index("DEPENDENCY DASHBOARD")
+            message = "exercise restoration"
+            raise RuntimeError(message)
+    finally:
+        logger.remove()
+    assert dependency.handlers == handlers
+    assert dependency.level == logging.WARNING
+    assert dependency.propagate
+    assert logging.root.handlers == root_handlers
+    assert stream.getvalue().count("DEPENDENCY_WARNING [literal]") == 1

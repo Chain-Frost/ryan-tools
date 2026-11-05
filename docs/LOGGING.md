@@ -66,6 +66,14 @@ refresh and shutdown. Locking writes alone leaves a window for a worker's older
 frame to overwrite a newer, differently sized frame. Warnings remain visible;
 this does not add a polling delay or change the optional GPU-inspection budget.
 
+The TUFLOW runner also enters `forward_standard_logging("pytuflow")` before
+starting checks. PyTUFLOW otherwise captures stdout when first imported, which
+can occur before Live redirects it. Those saved-stream writes bypass Rich and
+leave stale frames even when all Rich rendering is serialized. The temporary
+forwarder sends dependency records through the wrapper's current Loguru sinks,
+preserves their logger threshold, and restores the named logger's previous
+handlers, level and propagation on exit. It does not change the root logger.
+
 ## Jupyter notebooks
 
 Notebook cells can be rerun many times. Use the notebook helper, which replaces existing sinks on every call instead

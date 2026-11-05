@@ -2,14 +2,67 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active; PR #208 draft: serialized-render candidate validated locally; real user acceptance pending |
+| Status | Active; PR #208 draft: early-import logger bypass reproduced; 26.11.5.9 user acceptance pending |
 | Owner | ChatGPT |
 | Created / Updated | 2026-11-03 / 2026-11-05 |
 | Next review | 2026-11-06 |
 | Branch | `fix/dashboard-single-refresh`, stacked on PR #206 at `fffc13e3` |
 | Pull request | [#208](https://github.com/Chain-Frost/ryan-tools/pull/208); historical PR #192 is merged. |
-| Git delivery | Single-refresh source/test/version commit `af358f48` pushed; documentation follow-up is on the same branch. |
-| Next action | Confirm a fresh real-user run on 26.11.5.8; keep #208 draft and unmerged pending acceptance. |
+| Git delivery | Parser forwarding, wrapper, tests and verified version delivered on PR #208; final-head checks tracked separately. |
+| Next action | Confirm the real-user rerun with 26.11.5.9 / wrapper 2026-11-05.2, then remove temporary diagnostics. |
+
+## 2026-11-05: dependency handler captures stdout before Live
+
+The user's instrumented 26.11.5.8 run reproduced the defect and was stopped with
+Ctrl+C. Its 20 captured Rich writes all came from the main thread at a stable
+184x33 size; replay produced one clean frame, whereas the screenshot retained
+three headings. This means those recorded Rich commands alone do not explain the
+cursor displacement.
+
+The missing reproduction condition is PyTUFLOW import timing. It installs a
+standard-library handler capturing stdout at import. In the real wrapper, input
+checks start before the optional GPU availability check and Live, allowing that
+handler to retain the original stdout. Its warnings bypass Live, displace the
+cursor, and can then be overwritten. Earlier harmless-child probes skipped the
+startup work and generally imported PyTUFLOW after Live, so their worker warnings
+used Rich's redirected stream instead. Forcing early import reproduces four stale
+headings even with 26.11.5.8's serialized console.
+
+Wrapper 2026-11-05.2 now enters `forward_standard_logging("pytuflow")` before its
+work starts. The temporary handler forwards parser records through Loguru's current
+sinks, preserving their effective threshold, then restores prior logger handlers,
+level and propagation on exit. This handles both an already imported dependency
+and first import during the run; it does not import PyTUFLOW eagerly or add startup
+inspection. Root/unrelated loggers are unchanged by the wrapper.
+
+The same early-import native reproduction retains one heading after forwarding,
+including with the normal installed 26.11.5.9 wheel at 184x33. Two regressions cover
+existing and absent dependency handlers, worker warnings above the table and
+configuration restoration on exception. Validation: 266 focused tests passed,
+two Windows symlink skips; Ruff lint/format, strict Pyright on all three changed
+Python files, logging policy and verified wheel build pass. Wheel SHA256:
+`f0b180a117df52d33982531003f5d41703933ae27b7141400815306335edcbc8`.
+The copied wrapper's settings remain AST-identical and its decorated main matches
+the maintained template. Help passes. The real user is testing this candidate;
+temporary private diagnostics remain until acceptance. This is internal logging
+routing, so no new MCP discovery entry is appropriate.
+
+## Latest real-run acceptance: 26.11.5.8 failed
+
+The user confirmed wrapper 2026-11-05.1 and library 26.11.5.8 for a new screenshot
+showing an old partial frame above input-check success. The native reproduction and
+forced-overlap regression below therefore establish only a concurrency repair,
+not resolution of the reported terminal defect. PR #208 remains draft. All six
+hosted checks passed on `673401ea` (Python CI `41975216221`, Fast `41975216218`);
+green CI does not supersede the failed real-user acceptance.
+
+Temporary diagnostics are installed only in the private test wrapper's guarded
+entry-point footer. Its settings and main function are AST-identical to the backup.
+The diagnostic records Rich's rendered command strings, thread, dimensions and
+frame shape in a bounded in-memory buffer, then saves privately before the pause
+prompt. No project names or raw captures belong in this repository. The next user
+run is needed to separate an incorrect generated cursor reset from terminal output
+translation; remove the temporary footer once the investigation is complete.
 
 ## 2026-11-05: serialize background messages with coordinator redraws
 
