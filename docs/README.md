@@ -101,6 +101,8 @@ but they are not current architectural policy when they conflict with the canoni
 
 | Document | Scope and status |
 | --- | --- |
+| [RORB reader audit and MCP scope](work/2026-11-05-rorb-readers-mcp.md) | Current functions/scripts, supplied-file evidence, parser reliability gaps and staged read-only MCP requirements |
+| [RORB reader API and format limits](../ryan_library/functions/RORB/README.md) | Strict source-preserving readers, explicit partial formats, associations, time comparisons and DataFrame migration |
 | [TUFLOW proposed-run input preflight](work/2026-10-21-tuflow-input-preflight.md) | PR #143 read-only PyTUFLOW checks, integrated simulation preflight and standalone wrapper; merged as bcc8e5c, with separate follow-up records |
 | [TUFLOW batch preflight optimisation](work/2026-10-22-tuflow-batch-preflight-optimisation.md) | Stacked draft against PR #143: consume PyTUFLOW batch API, share GIS/filesystem inspection, preserve parity and benchmark 500-run workloads |
 | [TUFLOW runner model checks](work/2026-10-23-tuflow-runner-model-checks.md) | PR #159 current decisions, implementation, validation and delivery state |
