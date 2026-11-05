@@ -296,6 +296,13 @@ triggers process inspection; allocation-detail pages and event history are not f
 This shortcut assumes licensed runs; licence-free/tutorial runs are not protected
 when CodeMeter reports zero usage. A fresh summary is read for each scheduling check.
 
+If the CodeMeter check fails, open `http://127.0.0.1:22352` to check WebAdmin.
+On Windows, open Services (`services.msc`) and start **CmWebAdmin** if stopped;
+its exact service name is **CmWebAdmin.exe**. Set its Startup type to **Automatic**
+if WebAdmin should start after reboot. This is separate from the CodeMeter licence
+runtime service. The warning includes these steps; launches continue without GPU
+process inspection while usage is unverified.
+
 Process inspection uses running TUFLOW process command lines (`-puN`) and excludes
 children already tracked by this runner. Before comparing ordinals, it requires exact matching
 `CUDA_VISIBLE_DEVICES` and `CUDA_DEVICE_ORDER` settings in the external and runner environments.

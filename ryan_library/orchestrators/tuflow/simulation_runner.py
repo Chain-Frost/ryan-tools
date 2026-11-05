@@ -791,7 +791,7 @@ def _gpu_availability_lines(
             pid_text = ", ".join(str(pid) for pid in issue.pids)
             lines.append(f"GPU assignment UNKNOWN for external TUFLOW PID {pid_text}")
         else:
-            lines.append(f"GPU status UNKNOWN - {issue.detail}")
+            lines.extend(f"GPU status UNKNOWN - {issue.detail}".splitlines())
 
     blocked_labels = [gpu_group_label(groups[index], device_names) for index in sorted(availability.blocked_slots)]
     available_labels = [

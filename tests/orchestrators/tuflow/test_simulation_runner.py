@@ -2198,5 +2198,10 @@ def test_codemeter_idle_or_failure_launches_without_process_scan(
     assert len(launched) == len(plan.runs)
     if usage is None:
         assert "CodeMeter usage is unavailable or unverified" in caplog.text
+        assert "http://127.0.0.1:22352" in caplog.text
+        assert "services.msc" in caplog.text
+        assert "CmWebAdmin.exe" in caplog.text
+        assert "Startup type to Automatic" in caplog.text
     elif not guard:
         assert "CodeMeter reports no TUFLOW licences in use" in caplog.text
+        assert "services.msc" not in caplog.text

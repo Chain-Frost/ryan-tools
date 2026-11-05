@@ -237,6 +237,20 @@ it is not claimed as passed. No solver was launched or licence allocated. The no
 user-site installation remains unchanged. Existing MCP runner discovery is sufficient;
 no new tool is needed for this internal scheduling correction.
 
+The subsequent troubleshooting follow-up adds the WebAdmin URL and Windows Services
+instructions to unverified-usage warnings in both guarded and advisory mode. The
+exact Windows service name is `CmWebAdmin.exe` (display name `CmWebAdmin`); it is
+separate from the licence runtime. Automatic startup is an optional user choice.
+Multiline issue details are split into dashboard alert lines so height accounting
+includes the added guidance. Zero usage does not print troubleshooting advice.
+Validation: 161 focused tests passed / 2 Windows symlink skips, then all four affected
+CodeMeter launch cases passed after the final wording edit. Ruff lint/format, strict
+Pyright, Loguru policy, documentation links, a no-bump wheel build and an isolated
+installed-wheel warning check passed. The user's existing local version edit to
+26.11.5.3 is preserved and excluded from this follow-up commit; the verification
+build uses that local version without changing metadata. No installed user package
+or Windows service is changed. Delivery continues in PR #206.
+
 Delivery: new branch/PR requested; changes are committed/pushed for review with hosted
 CI tracked on the PR. No merge/publication is authorized. The separately reported live
 dashboard repaint issue remains unresolved; passing logging tests do not reproduce the

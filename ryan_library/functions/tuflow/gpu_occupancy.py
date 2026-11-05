@@ -91,7 +91,12 @@ def local_gpu_occupancy(*, exclude_pids: Collection[int] = ()) -> GpuOccupancySn
             detail=(
                 "CodeMeter reports no TUFLOW licences in use; GPU process inspection skipped."
                 if licence_usage is False
-                else "CodeMeter usage is unavailable or unverified; GPU process inspection skipped, continuing launches."
+                else (
+                    "CodeMeter usage is unavailable or unverified; GPU process inspection skipped, continuing launches.\n"
+                    "Check WebAdmin at http://127.0.0.1:22352.\n"
+                    "Windows: open Services (services.msc); start CmWebAdmin if stopped (service name: CmWebAdmin.exe).\n"
+                    "Optional: set that service's Startup type to Automatic to start WebAdmin after reboot."
+                )
             ),
         )
     return _inspect_local_gpu_processes(exclude_pids)
