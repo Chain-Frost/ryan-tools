@@ -10,19 +10,21 @@ This guide separates physical GPU occupancy from licence availability. The simul
 `-puN` groups from local TUFLOW process command lines. CodeMeter observations are independent evidence that a licence
 was checked out; a GPU licence allocation does not identify a physical GPU.
 
-As of 2026-11-05, occupancy checks first read only the local CodeMeter licence-summary
-page with a half-second request timeout. Confirmed zero TUFLOW usage skips process
-enumeration. Failed, empty, partial or ambiguous queries also skip enumeration and
-continue with a warning, following the user's computation-first policy. Only confirmed
-active usage triggers local inspection, which reads command lines after filtering by
-executable name. No allocation-detail or event-history requests are made on this path.
-This assumes licensed runs; a zero-usage shortcut does not protect licence-free/tutorial
-processes. The historical full-snapshot timings below do not measure this summary path.
+As of 2026-11-05, GPU occupancy checks run the CodeMeter licence-summary
+request (half-second socket timeout) and local TUFLOW process enumeration **concurrently**.
+The scan runs in a daemon thread inside an owned subprocess. The result is ignored
+without waiting when CodeMeter reports zero use, or when its response is unavailable,
+partial or ambiguous; only confirmed active licence use permits a scanned conflict
+to block scheduling. Scanning still starts on idle checks, but its result is not
+used. Enumeration reads command lines after executable-name filtering. No
+allocation-detail or event-history requests are made on this path. This assumes
+licensed runs; a zero-use shortcut does not protect licence-free/tutorial processes.
+The historical full-snapshot timings below do not measure this concurrent path.
 
-The user subsequently set a one-second total budget. Both the summary request and
-process inspection now run in one owned hidden Python worker. Its 0.9-second timeout
-reserves 0.1 seconds for termination and reaping. Timeouts discard partial findings,
-warn and continue. No inspection thread survives to delay shutdown.
+The current total optional check budget is **two seconds**. The owned hidden Python
+worker has a 1.9-second timeout and reserves 0.1 seconds for termination and
+reaping. The worker's daemon scan thread cannot outlive the subprocess. On timeout,
+partial results are discarded; the runner warns and continues.
 
 ### 2026-11-05 bounded timing check
 
