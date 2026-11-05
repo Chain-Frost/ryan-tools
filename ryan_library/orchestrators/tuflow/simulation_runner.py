@@ -705,17 +705,24 @@ def export_batch_commands(plan: CommandPlan, settings: RunnerSettings, destinati
     return target
 
 
-def _blocked_external_gpu_slots(groups: tuple[tuple[str, ...], ...], *, exclude_pids: set[int]) -> GpuAvailability:
-    """Block confirmed conflicts and report uncertain inspection without stalling work.
+def _blocked_external_gpu_slots(
+    groups: tuple[tuple[str, ...], ...],
+    *,
+    exclude_pids: set[int],
+    eligible_slots: frozenset[int] | None = None,
+) -> GpuAvailability:
+    """Inspect only GPU groups the runner has not yet claimed for this batch.
 
     CodeMeter reports licence allocations, but not a reliable GPU ID mapping.
     Explicit -puN assignments are comparable only in a verified shared CUDA
     selection environment; differing or unreadable environments remain unknown.
-    Our own children are excluded; their slots are already tracked separately.
+    Our own children are excluded; claimed slots are reserved by the runner.
     """
     from ...functions.tuflow.gpu_occupancy import gpu_ids_from_flags, local_gpu_occupancy
 
-    all_slots = frozenset(range(len(groups)))
+    all_slots = frozenset(range(len(groups))) if eligible_slots is None else eligible_slots
+    if not all_slots:
+        return GpuAvailability()
     try:
         snapshot = local_gpu_occupancy(exclude_pids=exclude_pids)
     except Exception as exc:  # noqa: BLE001 - optional inspection must not stop computation
@@ -754,8 +761,8 @@ def _blocked_external_gpu_slots(groups: tuple[tuple[str, ...], ...], *, exclude_
     for process in snapshot.assigned:
         process_slots: set[int] = set()
         overlapping_ids: set[int] = set()
-        for index, selected in enumerate(group_ids):
-            overlap = selected.intersection(process.gpu_ids)
+        for index in all_slots:
+            overlap = group_ids[index].intersection(process.gpu_ids)
             if overlap:
                 blocked.add(index)
                 process_slots.add(index)
@@ -1210,6 +1217,9 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
     queue = deque(plan.runs)
     active: list[_OwnedChild] = []
     owned_slots: set[int] = set()
+    # Unlike owned_slots (live children), these batch reservations persist
+    # after a child finishes. Reusing a claimed GPU needs no external rescan.
+    claimed_slots: set[int] = set()
     outcomes: list[RunOutcome] = []
     ordered: dict[int, RunOutcome] = {}
     next_print = 0
@@ -1453,9 +1463,15 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                 if poll_children() and gpu_status is not None:
                     next_gpu_check = 0.0
                 while queue and len(active) < capacity and not stop.is_set():
-                    if gpu_status is not None and time.monotonic() >= next_gpu_check:
+                    if (
+                        gpu_status is not None
+                        and len(claimed_slots) < len(groups)
+                        and time.monotonic() >= next_gpu_check
+                    ):
                         inspected_availability = _blocked_external_gpu_slots(
-                            groups, exclude_pids={child.process.pid for child in active}
+                            groups,
+                            exclude_pids={child.process.pid for child in active},
+                            eligible_slots=frozenset(range(len(groups))) - claimed_slots,
                         )
                         _log_gpu_availability_transition(
                             inspected_availability,
@@ -1516,6 +1532,14 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                     active.append(_OwnedChild(run, process, started, slot))
                     if slot is not None:
                         owned_slots.add(slot)
+                        claimed_slots.add(slot)
+                    if gpu_status is not None and len(claimed_slots) == len(groups):
+                        # All configured GPUs are reserved for this batch; do not
+                        # leave an old inspection warning on the live dashboard.
+                        gpu_availability = GpuAvailability()
+                        gpu_status = f"{len(groups)}/{len(groups)} claimed"
+                        if dashboard is not None:
+                            dashboard.set_alert(None, refresh=False)
                     if progress_monitor is not None:
                         try:
                             progress_monitor.register(run, pid=process.pid, started_at=progress_started_at)
