@@ -67,9 +67,9 @@ SHOW_PROGRESS_DIAGNOSTICS = True  # Show the latest timestep and observed final 
 CONSOLE_LOG_LEVEL: params.LogLevel = params.LOG.INFO
 WAIT_TIME_AFTER_RUN = 2.0  # Seconds between launches (>=0). Example: 0.5. Does not change GPU slots.
 PAUSE_ON_FINISH = True  # Pause interactively on finish; --no-pause forces False, --pause forces True.
-WRAPPER_VERSION = "2026-11-05.2"
+WRAPPER_VERSION = "2026-11-05.3"
 
-import argparse
+import argparse  # noqa: I001, RUF100
 import signal
 import subprocess
 import sys
@@ -290,9 +290,9 @@ def _run_follow_up(path: Path, working_directory: Path) -> bool:
 
 
 @forward_standard_logging("pytuflow")
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None, *, _parsed_arguments: argparse.Namespace | None = None) -> int:
     """Return 0 on success, 1 on planning/validation/processing failure."""
-    arguments = _arguments(argv)
+    arguments = _parsed_arguments if _parsed_arguments is not None else _arguments(argv)
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     try:
         log_level = arguments.console_log_level if arguments.console_log_level is not None else CONSOLE_LOG_LEVEL
@@ -477,8 +477,6 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     finally:
         print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
-        if (arguments.pause or PAUSE_ON_FINISH is True) and not arguments.no_pause:
-            pause_console()
 
 
 def _arguments(argv: list[str] | None = None) -> argparse.Namespace:
@@ -552,5 +550,22 @@ def _arguments(argv: list[str] | None = None) -> argparse.Namespace:
     return parsed
 
 
+def _cli_main() -> int:
+    """Release wrapper resources before waiting for the final console keypress.
+
+    Parse once and pass the same arguments through to main(). Its decorated
+    logging context, execution-history lock and dashboard have all closed
+    before the prompt. Close Loguru's sinks as well, so they cannot defer
+    file flushing until Python interpreter shutdown.
+    """
+    arguments = _arguments()
+    try:
+        return main(_parsed_arguments=arguments)
+    finally:
+        logger.remove()
+        if (arguments.pause or PAUSE_ON_FINISH is True) and not arguments.no_pause:
+            pause_console()
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(_cli_main())

@@ -117,17 +117,48 @@ def test_real_pytuflow_resolves_override_log_folder(
     assert not result.detail
 
 
-def test_unknown_alias_pattern_fails_without_importing_parser(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    path = tmp_path / "model_~e~_~e1~.tcf"
+def test_missing_filename_slot_fails_without_importing_parser(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    path = tmp_path / "model_~s2~.tcf"
     path.touch()
 
     def unexpected_import(_name: str) -> ModuleType:
-        pytest.fail("Unsupported aliases should be rejected before parser import")
+        pytest.fail("Missing filename flags should be rejected before parser import")
 
     monkeypatch.setattr(progress.importlib, "import_module", unexpected_import)
-    result = progress.RunProgressResolver().resolve(path, {"e1": "01.0p"})
+    result = progress.RunProgressResolver().resolve(path, {"s1": "EXG"})
     assert result.tlf_path is None
-    assert "Mixed bare and numbered" in result.detail
+    assert "No value for ~s2~" in result.detail
+
+
+def test_real_pytuflow_mixed_aliases_and_repeated_slot(tmp_path: Path) -> None:
+    pytest.importorskip("pytuflow")
+    path = tmp_path / "model_~e~_~e1~_~s~_~s1~.tcf"
+    path.write_text("Log Folder == log\n", encoding="utf-8")
+    result = progress.RunProgressResolver().resolve(path, {"e1": "01.0p", "s1": "EXG"})
+    assert result.tlf_path == tmp_path / "log" / "model_01.0p_01.0p_EXG_EXG.tlf", result.detail
+
+
+def test_real_pytuflow_complex_unordered_context_keeps_full_tlf_name(tmp_path: Path) -> None:
+    pytest.importorskip("pytuflow")
+    path = tmp_path / "UON_04_~s2~_~s1~_~e1~_~e2~_~e4~_~e3~_~e5~_~s4~.tcf"
+    path.write_text("Log Folder == logs\nStart Time == 0\nEnd Time == 48\n", encoding="utf-8")
+    supplied = {
+        "e3": "TP01",
+        "e2": "00540m",
+        "e1": "01.0p",
+        "e4": "EnsembleILCL",
+        "e5": "CCNear",
+        "s1": "EXG",
+        "s2": "M3W",
+        "s4": "16M",
+    }
+    before = supplied.copy()
+    result = progress.RunProgressResolver().resolve(path, supplied)
+    name = "UON_04_M3W_EXG_01.0p_00540m_EnsembleILCL_TP01_CCNear_16M.tlf"
+    assert result.tlf_path == tmp_path / "logs" / name, result.detail
+    assert result.start_hours == 0
+    assert result.end_hours == 48
+    assert supplied == before
 
 
 def test_unavailable_parser_and_unresolved_path_are_advisory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

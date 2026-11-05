@@ -1,3 +1,13 @@
+> **Update for consolidated PR #235 (2026-11-06):** Historical entries below
+> refer to the earlier PyTuflow #63 commit b1026d0cf72118ef68a0b6229610f427a7284e10.
+> The new accepted integration source is
+> [5360c979a4da577c7eae04a2afded00eb21d5bf9](https://github.com/Chain-Frost/PyTuflow/commit/5360c979a4da577c7eae04a2afded00eb21d5bf9),
+> covering unordered result names, dotted TLF/TPC filenames, network
+> directory-entry identity and implicit override fragment reuse.
+> See [ryan-tools #235](https://github.com/Chain-Frost/ryan-tools/pull/235)
+> and [PyTuflow #63](https://github.com/Chain-Frost/PyTuflow/pull/63).
+> The new pin requires Windows/QGIS/CodeMeter acceptance before release.
+
 # TUFLOW runner grouping and live model progress
 
 | Field | Value |

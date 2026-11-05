@@ -699,6 +699,58 @@ def test_default_txt_cannot_replace_its_own_imported_source(
     assert not tuple(tmp_path.glob("*_runs.csv"))
 
 
+@pytest.mark.parametrize(
+    ("pause_default", "pause_flag", "no_pause", "expected_pause"),
+    [
+        (True, False, False, True),
+        (True, False, True, False),
+        (False, True, False, True),
+        (False, False, False, False),
+    ],
+)
+def test_cli_closes_logging_before_optional_pause(
+    wrapper: _RunnerWrapper,
+    monkeypatch: pytest.MonkeyPatch,
+    pause_default: bool,
+    pause_flag: bool,
+    no_pause: bool,
+    expected_pause: bool,
+) -> None:
+    """The UI prompt must outlive main's decorated resource contexts."""
+    module = sys.modules["tested_runner_wrapper"]
+    events: list[str] = []
+    arguments = argparse.Namespace(pause=pause_flag, no_pause=no_pause)
+
+    def parsed_args() -> argparse.Namespace:
+        events.append("parsed")
+        return arguments
+
+    def completed_main(*, _parsed_arguments: argparse.Namespace) -> int:
+        assert _parsed_arguments is arguments
+        events.append("main_finished")
+        return 7
+
+    def close_logging() -> None:
+        events.append("logger_closed")
+
+    def pause() -> None:
+        events.append("paused")
+
+    class StubLogger:
+        def remove(self) -> None:
+            close_logging()
+
+    monkeypatch.setattr(module, "PAUSE_ON_FINISH", pause_default)
+    monkeypatch.setattr(module, "_arguments", parsed_args)
+    monkeypatch.setattr(module, "main", completed_main)
+    monkeypatch.setattr(module, "logger", StubLogger())
+    monkeypatch.setattr(module, "pause_console", pause)
+    cli = cast(Callable[[], int], module.__dict__["_cli_main"])
+
+    assert cli() == 7
+    assert events == ["parsed", "main_finished", "logger_closed", *(["paused"] if expected_pause else [])]
+
+
 def test_script_entrypoint_parses_arguments_once(
     tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -715,6 +767,8 @@ def test_script_entrypoint_parses_arguments_once(
         return original(parser, args, namespace)
 
     monkeypatch.setattr(argparse.ArgumentParser, "parse_args", parse_once)
+    # runpy uses the pytest interpreter: do not remove its shared Loguru sinks.
+    monkeypatch.setattr(logger, "remove", lambda: None)
     monkeypatch.setattr(
         sys,
         "argv",
