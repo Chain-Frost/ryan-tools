@@ -550,6 +550,33 @@ def _command(run: PlannedRun, settings: RunnerSettings, group: tuple[str, ...]) 
     return [_executable(run, settings), *model_arguments(run, include_gpu=False), *group, str(run.tcf)]
 
 
+def _launch_flag_layout(plan: CommandPlan) -> tuple[tuple[str, int], ...]:
+    """Stable columns across all launched runs, independent of input flag order."""
+    keys = sorted(
+        {key.lower() for run in plan.runs for key, _ in run.flag_pairs},
+        key=lambda key: (key[0] != "e", int(key[1:])),
+    )
+    return tuple(
+        (key, max(len(value) for run in plan.runs for flag, value in run.flag_pairs if flag.lower() == key))
+        for key in keys
+    )
+
+
+def _launch_flag_text(
+    run: PlannedRun, layout: tuple[tuple[str, int], ...]
+) -> tuple[str, str]:
+    """Keep event flags prominent and consistently align dimmed scenario flags."""
+    values = {key.lower(): value for key, value in run.flag_pairs}
+    event: list[str] = []
+    scenario: list[str] = []
+    for key, width in layout:
+        value = values.get(key)
+        # Reserve a column for omitted flags when imported runs differ.
+        cell = f"-{key} {value:<{width}}" if value is not None else " " * (len(key) + 2 + width)
+        (event if key.startswith("e") else scenario).append(cell)
+    return "  ".join(event).rstrip(), "  ".join(scenario).rstrip()
+
+
 def _bat_quote(value: str, *, always: bool = False) -> str:
     # Double quotes protect CMD operators in data arguments. Percent/delayed
     # expansion, embedded quotes and caret expressions remain unsupported.
@@ -705,17 +732,24 @@ def export_batch_commands(plan: CommandPlan, settings: RunnerSettings, destinati
     return target
 
 
-def _blocked_external_gpu_slots(groups: tuple[tuple[str, ...], ...], *, exclude_pids: set[int]) -> GpuAvailability:
-    """Block confirmed conflicts and report uncertain inspection without stalling work.
+def _blocked_external_gpu_slots(
+    groups: tuple[tuple[str, ...], ...],
+    *,
+    exclude_pids: set[int],
+    eligible_slots: frozenset[int] | None = None,
+) -> GpuAvailability:
+    """Inspect only GPU groups the runner has not yet claimed for this batch.
 
     CodeMeter reports licence allocations, but not a reliable GPU ID mapping.
     Explicit -puN assignments are comparable only in a verified shared CUDA
     selection environment; differing or unreadable environments remain unknown.
-    Our own children are excluded; their slots are already tracked separately.
+    Our own children are excluded; claimed slots are reserved by the runner.
     """
     from ...functions.tuflow.gpu_occupancy import gpu_ids_from_flags, local_gpu_occupancy
 
-    all_slots = frozenset(range(len(groups)))
+    all_slots = frozenset(range(len(groups))) if eligible_slots is None else eligible_slots
+    if not all_slots:
+        return GpuAvailability()
     try:
         snapshot = local_gpu_occupancy(exclude_pids=exclude_pids)
     except Exception as exc:  # noqa: BLE001 - optional inspection must not stop computation
@@ -754,8 +788,8 @@ def _blocked_external_gpu_slots(groups: tuple[tuple[str, ...], ...], *, exclude_
     for process in snapshot.assigned:
         process_slots: set[int] = set()
         overlapping_ids: set[int] = set()
-        for index, selected in enumerate(group_ids):
-            overlap = selected.intersection(process.gpu_ids)
+        for index in all_slots:
+            overlap = group_ids[index].intersection(process.gpu_ids)
             if overlap:
                 blocked.add(index)
                 process_slots.add(index)
@@ -1210,6 +1244,9 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
     queue = deque(plan.runs)
     active: list[_OwnedChild] = []
     owned_slots: set[int] = set()
+    # Unlike owned_slots (live children), these batch reservations persist
+    # after a child finishes. Reusing a claimed GPU needs no external rescan.
+    claimed_slots: set[int] = set()
     outcomes: list[RunOutcome] = []
     ordered: dict[int, RunOutcome] = {}
     next_print = 0
@@ -1261,6 +1298,7 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
     # Resume keeps the original logical indices. The renderer owns separate,
     # contiguous display slots and shows original indices through metadata.
     display_indices = {run.index: index for index, run in enumerate(plan.runs, 1)}
+    launch_flag_layout = _launch_flag_layout(plan)
 
     def close_progress() -> None:
         nonlocal progress_monitor
@@ -1453,9 +1491,15 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                 if poll_children() and gpu_status is not None:
                     next_gpu_check = 0.0
                 while queue and len(active) < capacity and not stop.is_set():
-                    if gpu_status is not None and time.monotonic() >= next_gpu_check:
+                    if (
+                        gpu_status is not None
+                        and len(claimed_slots) < len(groups)
+                        and time.monotonic() >= next_gpu_check
+                    ):
                         inspected_availability = _blocked_external_gpu_slots(
-                            groups, exclude_pids={child.process.pid for child in active}
+                            groups,
+                            exclude_pids={child.process.pid for child in active},
+                            eligible_slots=frozenset(range(len(groups))) - claimed_slots,
                         )
                         _log_gpu_availability_transition(
                             inspected_availability,
@@ -1516,6 +1560,14 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                     active.append(_OwnedChild(run, process, started, slot))
                     if slot is not None:
                         owned_slots.add(slot)
+                        claimed_slots.add(slot)
+                    if gpu_status is not None and len(claimed_slots) == len(groups):
+                        # All configured GPUs are reserved for this batch; do not
+                        # leave an old inspection warning on the live dashboard.
+                        gpu_availability = GpuAvailability()
+                        gpu_status = f"{len(groups)}/{len(groups)} claimed"
+                        if dashboard is not None:
+                            dashboard.set_alert(None, refresh=False)
                     if progress_monitor is not None:
                         try:
                             progress_monitor.register(run, pid=process.pid, started_at=progress_started_at)
@@ -1525,19 +1577,16 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                         _apply_priority(process.pid, settings.computational_priority)
                     except Exception as exc:  # noqa: BLE001 - keep ownership after Popen succeeds
                         logger.warning("PID {} launched but process priority could not be set: {}", process.pid, exc)
-                    logger.info(
-                        "Launched run {} ({} selected) PID {} [{}]: {}",
-                        run.index,
+                    event_flags, scenario_flags = _launch_flag_text(run, launch_flag_layout)
+                    logger.opt(colors=True).info(
+                        "Run {} / {} | {} | <dim>{}</dim> | PID {} [{}] | {}",
+                        f"{run.index:0{len(str(len(plan.runs)))}d}",
                         len(plan.runs),
+                        event_flags,
+                        scenario_flags,
                         process.pid,
                         gpu_group_label(group, device_names),
-                        subprocess.list2cmdline(
-                            [
-                                display_runner_path(args[0], settings.working_directory),
-                                *args[1:-1],
-                                display_runner_path(args[-1], settings.working_directory),
-                            ]
-                        ),
+                        display_runner_path(args[-1], settings.working_directory),
                     )
                     if dashboard is not None:
                         dashboard.mark_running(

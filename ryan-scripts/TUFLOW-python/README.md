@@ -291,28 +291,40 @@ blocked, no queued model starts and the runner rechecks every
 also triggers a fresh check before another model is assigned. A group
 such as `[["-pu0", "-pu1"]]` requires **both** GPUs to be free.
 
-Before inspecting processes, each check reads only the local CodeMeter WebAdmin
-licence summary (`http://127.0.0.1:22352`, half-second request timeout). A complete
-summary reporting zero TUFLOW licence usage skips process inspection. An unavailable,
-incomplete or ambiguous response also skips process inspection, warns and continues
-launching with unverified GPU availability. Only confirmed active licence usage
-triggers process inspection; allocation-detail pages and event history are not fetched.
-This shortcut assumes licensed runs; licence-free/tutorial runs are not protected
-when CodeMeter reports zero usage. A fresh summary is read for each scheduling check.
+Each check runs the local CodeMeter WebAdmin summary request
+(`http://127.0.0.1:22352`, half-second request timeout) **in parallel** with a
+local TUFLOW process scan. The scan starts speculatively in a daemon thread; if
+CodeMeter reports zero use, its result is discarded immediately without waiting.
+Unavailable, incomplete or ambiguous CodeMeter responses likewise discard the
+scan and continue with a warning. Only confirmed active licence usage permits
+the scan result to block an occupied GPU. No allocation-detail or event-history
+requests are made. This assumes licensed runs; licence-free/tutorial runs are
+not protected when CodeMeter reports zero usage.
 
-The entire optional check has a one-second budget, including worker startup and
-the CodeMeter request. It runs in an owned hidden Python process with a 0.9-second
-timeout, reserving 0.1 seconds for termination and cleanup. An unfinished worker is
-killed and reaped; its partial results are discarded and launches continue with a
-warning. Slow inspection does not continue in a background thread or delay shutdown.
-Busy machines may therefore continue without verified GPU occupancy.
+The complete optional check has a **two-second budget**, including worker startup
+and CodeMeter. Both tasks run inside an owned hidden Python subprocess. The
+parent enforces a 1.9-second worker timeout and reserves 0.1 seconds for
+termination and cleanup. Unfinished inspection is killed and reaped; partial
+results are discarded and launches continue with a warning. The daemon thread
+cannot outlive its owning subprocess. Busy machines may therefore continue
+without verified GPU occupancy.
+
+After the runner successfully launches a solver on a GPU group, that group
+remains **claimed for the entire batch**, including gaps between consecutive
+runs. It is not re-inspected when a child exits. Only groups never claimed by
+this batch remain subject to external occupancy checks (for example, GPUs
+initially occupied by another TUFLOW process). Once every configured group is
+claimed, the runner stops all optional CodeMeter/GPU checks and clears any
+previous GPU inspection warning from its dashboard. This is a scheduling
+reservation, not an operating-system GPU lock: third-party processes should
+not start on a batch-claimed GPU during inter-run gaps.
 
 If the CodeMeter check fails, open `http://127.0.0.1:22352` to check WebAdmin.
 On Windows, open Services (`services.msc`) and start **CmWebAdmin** if stopped;
 its exact service name is **CmWebAdmin.exe**. Set its Startup type to **Automatic**
 if WebAdmin should start after reboot. This is separate from the CodeMeter licence
-runtime service. The warning includes these steps; launches continue without GPU
-process inspection while usage is unverified.
+runtime service. The warning includes these steps; launches continue without trusting the
+speculative GPU scan while usage is unverified.
 
 Process inspection uses running TUFLOW process command lines (`-puN`) and excludes
 children already tracked by this runner. Before comparing ordinals, it requires exact matching

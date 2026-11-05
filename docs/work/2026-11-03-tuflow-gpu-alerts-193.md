@@ -17,12 +17,21 @@ hardware observations separately from synthetic evidence. Do not merge or publis
 
 ## Current state
 
-The 2026-11-05 startup follow-up is on a new branch/PR,
-`fix/codemeter-first-gpu-inspection`, based on current main after PR #205 merged.
-It supersedes unconditional process enumeration: check the CodeMeter summary first;
-zero or unverified usage skips enumeration, and unverified usage warns and continues.
-Only confirmed active usage triggers inspection. Earlier hardware evidence below
-does not validate this shortcut or licence-free/tutorial runs.
+A 2026-11-05 follow-up on `fix/tuflow-parallel-gpu-occupancy-two-seconds`
+supersedes the serial CodeMeter-first GPU inspection introduced by PR #206.
+CodeMeter usage and the local process scan now execute concurrently in one
+bounded subprocess. Zero or unverified CodeMeter use discards the speculative
+process-scan result without waiting. Only confirmed active usage authorises that
+result to block a conflicting GPU. The total optional deadline is two seconds:
+1.9 seconds for the worker and 0.1 seconds reserved for cleanup. Timeouts warn
+and allow launching. The daemon scan thread cannot survive the worker's exit.
+Tests are synthetic; this concurrency change still needs Windows acceptance.
+
+The earlier 2026-11-05 startup follow-up was on
+`fix/codemeter-first-gpu-inspection`, based on main after PR #205 merged.
+Its sequential zero-use optimization and one-second budget are historical.
+The previous two-GPU hardware evidence does not validate this concurrent policy
+or licence-free/tutorial runs.
 
 User clarification on 2026-11-04 supersedes conservative unknown-state blocking: helper failure or
 uncertainty warns and continues. Only confirmed GPU conflicts wait. CUDA namespace checking remains
