@@ -159,6 +159,9 @@ class LiveWorkflowDashboard:
                 self._render(),
                 console=self.console,
                 screen=self.screen,
+                # Coordinators already refresh this snapshot. A second writer
+                # can race log-driven redraws and leave partial frames behind.
+                auto_refresh=False,
                 refresh_per_second=self.refresh_per_second,
                 transient=self.transient,
                 redirect_stdout=True,
