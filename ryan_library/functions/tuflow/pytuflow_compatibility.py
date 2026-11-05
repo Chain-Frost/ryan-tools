@@ -65,7 +65,7 @@ class CompatibilityStatus:
             "'python repo-scripts/install_latest_wheel.py' (normal mode), or "
             "'python -m pip install --upgrade --force-reinstall "
             '"pytuflow @ https://github.com/Chain-Frost/PyTuflow/archive/'
-            "b1026d0cf72118ef68a0b6229610f427a7284e10.zip\"'."
+            "5360c979a4da577c7eae04a2afded00eb21d5bf9.zip\"'."
         )
 
 
