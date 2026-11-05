@@ -2,13 +2,13 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active: supported readers and MCP implemented; final validation/delivery underway |
+| Status | Implemented: draft PR open; hosted final validation underway |
 | Owner | ChatGPT / maintainer |
 | Created | 2026-11-05 |
 | Updated | 2026-11-05 |
 | Next review | 2026-11-12 |
 | Baseline | Local main at `10b71898220d11feaff8256618ffb8eeec35f4ef` |
-| Delivery | Branch `feat/rorb-readers-mcp-20261105`; implementation and documentation prepared for draft PR |
+| Delivery | [Draft PR #233](https://github.com/Chain-Frost/ryan-tools/pull/233), branch `feat/rorb-readers-mcp-20261105`; committed and pushed, unmerged |
 
 ## Outcome and scope
 
@@ -37,10 +37,13 @@ defines the exact supported subset and migration behavior. No RORB engine was la
 - Existing DataFrame callers now reject malformed input; unresolved CSV associations block closure processing before
   hydrograph jobs. Missing parameters are null. Two closure metric definitions remain unchanged and documented.
 
-Validation so far: 100 focused reader/workflow/MCP tests passed; after adding distributed-CMD and linked-path coverage,
-43 reader tests passed with one Windows symlink-permission skip. Strict Pyright passed on all modified Python files;
-documentation links passed. Ruff was attempted but Windows application control denied execution. Black 26.3.1 was used
-for preliminary formatting; this is not a substitute for the required Ruff check. Package build and final checks pending.
+Validation: **103 focused reader/workflow/MCP tests passed**, with one Windows symlink-permission skip.
+Strict Pyright passed on all 15 modified Python files; documentation links and patch whitespace passed.
+The current-version wheel built successfully without a version bump. An isolated Q: wheel installation successfully
+read all four supplied file types, exercised MCP inspection and verified packaged guidance without importing the checkout.
+Hosted package/isolated-wheel, MCP smoke and POSIX security jobs passed on `062d0d24`. Hosted Ruff lint passed;
+the two formatter differences were applied in `237ed132`. Local Ruff remains blocked by Windows application control.
+Final hosted checks and a formatting-only wheel rebuild are underway; see the PR for current check results.
 
 The stages are delivered together on one coherent draft branch because the shared result contract, adapter migration
 and MCP surface need to remain consistent. Further formats can be stacked on this branch or added after merge; no merge
@@ -171,7 +174,7 @@ non-finite fields; repeated/multiple blocks; filename variants and missing/ambig
 targets to verify against documentation/examples, not an assertion that every combination exists in every version.
 Use synthetic distributable fixtures; keep proprietary models out of Git.
 
-## Validation and delivery
+## Initial audit validation and delivery (historical)
 
 - Python 3.14 source import confirmed from this checkout. Read-only execution of existing readers against the supplied
   files, independent table/value and `.out`/CSV comparisons, and in-memory adverse-input probes produced the evidence above.
@@ -193,8 +196,7 @@ Use synthetic distributable fixtures; keep proprietary models out of Git.
 
 ## Next action and completion criteria
 
-Finish package verification and installed-wheel inspection, publish the supported-subset implementation as a draft PR,
-and review exact-head CI including Ruff. Preserve explicit partial/unsupported outcomes. Future semantic expansion of
+Review draft PR #233 and its final hosted checks before any merge or release. Preserve explicit partial/unsupported outcomes. Future semantic expansion of
 saved settings, other CMD variants, multi-block output and storm/catchment readers requires documented fixtures; it is
 not justified by a single pattern match or by successful parsing of the installed CMD example.
 
@@ -206,3 +208,11 @@ Completed initial audit, supplied-file checks and focused regression run. Confir
 parsing, missing input readers and the standard-output/CSV time discrepancy. Registered the work and retained unrelated
 work. Several older work-register entries have overdue reviews (including vendor integration, installed scripts, release
 automation and shared-filesystem validation); they were not resumed or advanced as part of this RORB audit.
+
+### Implementation delivery, 2026-11-05
+
+Implemented the supported reader contract, adapter migration and bounded MCP surface together in draft PR #233.
+Validated 420/420 live batch associations and retained the reported one-hour output/CSV discrepancy.
+The final local focused command adds `tests/mcp/test_rorb.py tests/mcp/test_server.py` to the audit command above
+and uses `--basetemp=C:\Temp\rorb-readers-tests8-20261105`. It passed 103 tests, with one permission skip.
+No project files changed, no engine ran, and no merge or release occurred. Next review: 2026-11-12.
