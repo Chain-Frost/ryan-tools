@@ -2,7 +2,7 @@
 
 The read-only input check uses the public PyTUFLOW batch validator from the
 [pinned PyTUFLOW PR #63 source](https://github.com/Chain-Frost/PyTuflow/pull/63)
-(commit [`b1026d0cf721`](https://github.com/Chain-Frost/PyTuflow/commit/b1026d0cf72118ef68a0b6229610f427a7284e10)).
+(commit [`b1026d0cf721`](https://github.com/Chain-Frost/PyTuflow/commit/5360c979a4da577c7eae04a2afded00eb21d5bf9)).
 It validates the **actual planned runs**, not all possible combinations.
 Input validation is not TUFLOW execution and never modifies model inputs.
 
