@@ -550,29 +550,34 @@ def _command(run: PlannedRun, settings: RunnerSettings, group: tuple[str, ...]) 
     return [_executable(run, settings), *model_arguments(run, include_gpu=False), *group, str(run.tcf)]
 
 
-def _launch_flag_layout(plan: CommandPlan) -> tuple[tuple[str, int], ...]:
-    """Stable columns across all launched runs, independent of input flag order."""
+def _launch_flag_layout(plan: CommandPlan) -> tuple[tuple[str, int, bool], ...]:
+    """Stable columns with flags classified by variation across the selected plan."""
+    run_values = [{key.lower(): value for key, value in run.flag_pairs} for run in plan.runs]
     keys = sorted(
-        {key.lower() for run in plan.runs for key, _ in run.flag_pairs},
+        {key for values in run_values for key in values},
         key=lambda key: (key[0] != "e", int(key[1:])),
     )
     return tuple(
-        (key, max(len(value) for run in plan.runs for flag, value in run.flag_pairs if flag.lower() == key))
+        (
+            key,
+            max(len(values[key]) for values in run_values if key in values),
+            len({values.get(key) for values in run_values}) == 1,
+        )
         for key in keys
     )
 
 
-def _launch_flag_text(run: PlannedRun, layout: tuple[tuple[str, int], ...]) -> tuple[str, str]:
-    """Keep event flags prominent and consistently align dimmed scenario flags."""
+def _launch_flag_text(run: PlannedRun, layout: tuple[tuple[str, int, bool], ...]) -> tuple[str, str]:
+    """Keep changing flags prominent and align the dimmed constant flags."""
     values = {key.lower(): value for key, value in run.flag_pairs}
-    event: list[str] = []
-    scenario: list[str] = []
-    for key, width in layout:
+    changing: list[str] = []
+    constant: list[str] = []
+    for key, width, is_constant in layout:
         value = values.get(key)
         # Reserve a column for omitted flags when imported runs differ.
         cell = f"-{key} {value:<{width}}" if value is not None else " " * (len(key) + 2 + width)
-        (event if key.startswith("e") else scenario).append(cell)
-    return "  ".join(event).rstrip(), "  ".join(scenario).rstrip()
+        (constant if is_constant else changing).append(cell)
+    return "  ".join(changing).rstrip(), "  ".join(constant).rstrip()
 
 
 def _bat_quote(value: str, *, always: bool = False) -> str:
@@ -1575,13 +1580,14 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                         _apply_priority(process.pid, settings.computational_priority)
                     except Exception as exc:  # noqa: BLE001 - keep ownership after Popen succeeds
                         logger.warning("PID {} launched but process priority could not be set: {}", process.pid, exc)
-                    event_flags, scenario_flags = _launch_flag_text(run, launch_flag_layout)
+                    changing_flags, constant_flags = _launch_flag_text(run, launch_flag_layout)
                     logger.opt(colors=True).info(
-                        "Run {} / {} | {} | <dim>{}</dim> | PID {} [{}] | {}",
+                        "Run {} / {} | {}{}<dim>{}</dim> | PID {} [{}] | {}",
                         f"{run.index:0{len(str(len(plan.runs)))}d}",
                         len(plan.runs),
-                        event_flags,
-                        scenario_flags,
+                        changing_flags,
+                        " | " if changing_flags and constant_flags else "",
+                        constant_flags,
                         process.pid,
                         gpu_group_label(group, device_names),
                         display_runner_path(args[-1], settings.working_directory),

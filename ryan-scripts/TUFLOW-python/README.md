@@ -36,6 +36,10 @@ to avoid leaving partial panels in terminal scrollback. See the
 [logging guide](../../docs/LOGGING.md#live-dashboards-and-copied-wrappers).
 Library upgrades apply to the next Python process, not an active batch. For future
 unattended runs, `--no-live-dashboard` selects ordinary console logging.
+Each launch log line groups flags that change across the selected plan first,
+then shows constant flags together in dim text. This includes constant event
+flags and changing scenario flags. Columns stay aligned within each group;
+a flag omitted in some runs counts as changing. All flags remain on each line.
 The dashboard shows event/scenario values in separate `e1`...`e9` and `s1`...`s9`
 columns alongside the original run number. The TCF appears once as the heading
 of its own boxed run list, with no repeated `Model` column. Batches using multiple

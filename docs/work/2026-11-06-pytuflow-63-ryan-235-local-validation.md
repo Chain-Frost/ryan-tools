@@ -384,3 +384,32 @@ included in the follow-up commit, so final-head checks must be verified again.
 The owner has enabled squash auto-merge on PR #235. No manual merge or
 publication was performed by this repair session; the operational acceptance
 gaps above remain recorded independently of CI.
+
+### Follow-up: changing versus constant launch flags
+
+The owner requested keeping every flag on each launch line, with changing
+flags first and constants grouped together in dim text. The layout now compares
+values across the complete selected plan rather than treating all event flags
+as changing and all scenario flags as constant. Omission in some runs counts
+as variation. Each group retains stable event-then-scenario column ordering.
+This is log presentation only; solver arguments and launch order are unchanged.
+
+Focused formatting/runner validation: **149 passed, 2 skipped** (existing
+Windows symlink-privilege cases). Ruff lint/format and strict Pyright pass on
+both changed Python files; documentation links/index, Loguru policy and
+whitespace checks pass. Built and verified wheel **26.11.6.1**, SHA-256
+`4088617f65cb5ac6c247996ac5c270e3d517939a0d357cd192e87c74146ea2a6`.
+Installed that wheel in normal Python 3.14. Outside the checkout, installed
+grouping produces changing `-e1` followed by constant event/scenario flags,
+and a copied installed wrapper's `--help` succeeds without launching a solver.
+Existing running batches must restart to load the update. No copied model
+wrapper settings were changed. MCP discovery was assessed: the existing
+runner entry remains appropriate; no tool inputs or safety semantics changed.
+
+On documentation head `cd79bb86`, Policy and seven other hosted checks passed;
+Hosted tests was still running when this presentation follow-up was prepared.
+The earlier `1b346d77` passed hosted typing but then failed documentation index
+coverage because the acceptance record's index link was still local. Committing
+the index in `cd79bb86` fixed that failure; the earlier local documentation pass
+had included that unstaged link. Final-head hosted evidence belongs to the
+follow-up push and must be checked on PR #235. Auto-merge remains owner-enabled.
