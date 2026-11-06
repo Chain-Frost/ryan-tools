@@ -37,8 +37,30 @@ if TYPE_CHECKING:
 
 # ARR storm-duration sequence in minutes; see the TUFLOW scripts README for provenance.
 STANDARD_DURATIONS_MINUTES: tuple[int, ...] = (
-    10, 15, 20, 25, 30, 45, 60, 90, 120, 180, 270, 360, 540, 720,
-    1080, 1440, 1800, 2160, 2880, 4320, 5760, 7200, 8640, 10080,
+    10,
+    15,
+    20,
+    25,
+    30,
+    45,
+    60,
+    90,
+    120,
+    180,
+    270,
+    360,
+    540,
+    720,
+    1080,
+    1440,
+    1800,
+    2160,
+    2880,
+    4320,
+    5760,
+    7200,
+    8640,
+    10080,
 )
 
 
@@ -59,18 +81,18 @@ def _mean_coverage_findings(
     expected_tp_count: int,
 ) -> DataFrame:
     """Attach coverage findings using every duration in the same report group."""
-    if isinstance(expected_tp_count, bool) or not isinstance(expected_tp_count, int) or expected_tp_count < 1:
-        raise ValueError("expected_tp_count must be a positive integer, for example 10.")
-    if not standard_durations or any(
-        isinstance(value, bool) or not isinstance(value, int) or value <= 0 for value in standard_durations
-    ):
-        raise ValueError("standard_durations must contain positive integer minutes, for example (30, 60, 90).")
+    if type(expected_tp_count) is not int or expected_tp_count < 1:
+        msg = "expected_tp_count must be a positive integer, for example 10."
+        raise ValueError(msg)
+    if not standard_durations or any(type(value) is not int or value <= 0 for value in standard_durations):
+        msg = "standard_durations must contain positive integer minutes, for example (30, 60, 90)."
+        raise ValueError(msg)
     standards = sorted(set(standard_durations))
     keys = ["aep_text", "Location", "Type", "trim_runcode"]
     findings: list[dict[str, Any]] = []
     for key, group in duration_rows.groupby(keys, observed=True, dropna=False):
         minutes = group.get("duration_text", Series(index=group.index, dtype="object")).map(_duration_minutes)
-        tested = sorted(set(float(value) for value in minutes.dropna()))
+        tested = sorted({float(value) for value in minutes.dropna()})
         minimum = min(tested) if tested else float("nan")
         maximum = max(tested) if tested else float("nan")
         missing = [value for value in standards if minimum < value < maximum and value not in tested]
@@ -89,16 +111,19 @@ def _mean_coverage_findings(
             duration_notes.append("Non-standard durations (min): " + ", ".join(f"{value:g}" for value in unexpected))
         if minutes.isna().any():
             duration_notes.append("Unrecognised or missing duration; coverage may be incomplete")
-        findings.append({
-            **dict(zip(keys, key, strict=True)),
-            "min_duration_tested_minutes": minimum,
-            "max_duration_tested_minutes": maximum,
-            "durations_tested_minutes": ", ".join(f"{value:g}" for value in tested),
-            "missing_durations_minutes": ", ".join(map(str, missing)),
-            "tp_bin_warning": f"WARNING: Expected {expected_tp_count} storms per duration; " + "; ".join(bad_bins)
-            if bad_bins else "",
-            "duration_coverage_warning": "WARNING: " + "; ".join(duration_notes) if duration_notes else "",
-        })
+        findings.append(
+            {
+                **dict(zip(keys, key, strict=True)),
+                "min_duration_tested_minutes": minimum,
+                "max_duration_tested_minutes": maximum,
+                "durations_tested_minutes": ", ".join(f"{value:g}" for value in tested),
+                "missing_durations_minutes": ", ".join(map(str, missing)),
+                "tp_bin_warning": f"WARNING: Expected {expected_tp_count} storms per duration; " + "; ".join(bad_bins)
+                if bad_bins
+                else "",
+                "duration_coverage_warning": "WARNING: " + "; ".join(duration_notes) if duration_notes else "",
+            }
+        )
     result = peak_rows.merge(DataFrame(findings), on=keys, how="left", validate="one_to_one")
     boundary_warnings: list[str] = []
     for _, row in result.iterrows():
@@ -109,12 +134,14 @@ def _mean_coverage_findings(
         if peak == row["max_duration_tested_minutes"]:
             bounds.append("maximum")
         boundary_warnings.append(
-            "WARNING: Peak sourced from " + " and ".join(bounds) + " tested duration" if bounds
+            "WARNING: Peak sourced from " + " and ".join(bounds) + " tested duration"
+            if bounds
             else ("WARNING: Peak duration unavailable" if not isfinite(peak) else "")
         )
     result["peak_duration_warning"] = boundary_warnings
     warning_columns = ["peak_duration_warning", "tp_bin_warning", "duration_coverage_warning"]
-    result["findings_status"] = result[warning_columns].ne("").any(axis=1).map({True: "WARNING", False: "OK"})
+    has_warnings = (result[warning_columns] != "").any(axis=1)
+    result["findings_status"] = has_warnings.map({True: "WARNING", False: "OK"})
     result.attrs["coverage_settings"] = {
         "Expected storms per duration": str(expected_tp_count),
         "Standard duration schedule (minutes)": ", ".join(map(str, standards)),

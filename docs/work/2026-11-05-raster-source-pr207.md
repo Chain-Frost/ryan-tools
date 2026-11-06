@@ -3,11 +3,11 @@
 | Field | Value |
 | --- | --- |
 | Status | Needs review |
-| Owner | Unassigned |
+| Owner | ChatGPT / maintainer |
 | Created | 2026-11-05 |
 | Updated | 2026-11-06 |
-| Next review | 2026-11-12 |
-| Baseline | PR #207 detached head `81d98a30f0e9061b280671d9f2742c7371f97860`; isolated NAS worktree |
+| Next review | 2026-11-13 |
+| Baseline | PR #207 `81d98a30`; PR #238 `dee8e82f`, consolidated by merge `8550b511` on `fix/tuflow-src-profile-cell-counts` |
 
 ## Outcome and scope
 
@@ -18,13 +18,19 @@ constant. Generic library defaults are unchanged.
 
 ## Current state and next action
 
-Implementation and runtime validation are finished. Run Ruff and strict Pyright in an allowed environment
-before incorporating these unstaged changes into a PR. Windows application control denied both executables.
-The user authorised GitHub delivery on 2026-11-06. The reporting follow-up branch
-`feat/tuflow-reporting-findings-20261106` contains the wrapper defaults and tests; PR #207 retains
-the separate provenance fixes. No merge or package installation was performed. The primary checkout contains
-unrelated RORB/MCP work, preserved throughout. Only wrapper defaults/tests/documentation were copied
-back to the primary checkout; the PR library implementation remains in the isolated checkout.
+The user authorised consolidation of #238 into #207 and a default-off incomplete-TP override on 2026-11-06.
+#238 is merged into #207's branch; #207 now contains the source defaults, provenance fixes and POMM findings.
+Both raster wrappers expose `ALLOW_INCOMPLETE_TP_BINS = False` and matching positive/negative CLI flags.
+The [native raster guide](../ASC_TO_ASC_NATIVE_OPERATIONS.md#incomplete-temporal-pattern-bins) owns the
+current behaviour: zero-byte inputs count as missing; ordinary runs withhold affected maxima, while an
+explicit override calculates from available inputs and warns. Unaffected result groups can finish.
+Strict mode conflicts with the override; duplicate/unexpected TPs and processing failures remain errors.
+
+Local implementation, strict typing, focused validation and copied-wrapper wheel checks pass. Delivery is
+through `fix/tuflow-src-profile-cell-counts` / [PR #207](https://github.com/Chain-Frost/ryan-tools/pull/207).
+Next: review the integrated branch's hosted checks and validate against the user's real data in separate
+output folders. #207 remains open against main. Existing NAS/real-data evidence below is historical;
+the new override has been tested with synthetic rasters, not the proprietary project ensemble.
 
 ## Validation and delivery
 
@@ -57,9 +63,34 @@ worktree and are not intended for public delivery. Existing result files were pr
 
 - Default source output, explicit opt-out and explicit opt-in tests pass: met.
 - Real local raster run and provenance/compression/value checks pass: met.
-- Ruff and strict Pyright validation: pending allowed environment.
+- Ruff and strict Pyright validation: passed on the integrated change on 2026-11-06.
+- Incomplete-bin values, provenance, zero-byte handling and CLI precedence: passed synthetic validation.
+- Integrated hosted validation and real-data override acceptance: review on PR #207 / local handoff.
 
 ## Progress
+
+### 2026-11-06: Consolidation and incomplete TP override
+
+- Preserved #238's complete reporting work and raster source defaults while integrating into #207.
+- Added an explicit incomplete-bin opt-in to both wrappers and the shared orchestrator. A wholly unusable
+  bin remains a finding and can only be omitted with the override; no usable jobs still fails. Existing
+  withheld maxima are preserved with a warning that they were not refreshed.
+- Linux Python 3.14.10, real GDAL/Rasterio: **117 focused tests passed** (70 raster and 47 POMM), including
+  actual raster processing, unequal TP-bin provenance, source cell counts and workbook round trips.
+  Tests selected Windows-style `spawn`; this environment disallows POSIX forkserver sockets.
+- Ruff 0.16.6 formatting/lint and strict Pyright passed for the changed Python files. Corrected inherited
+  #238 lint/type issues without changing peak selection. Documentation, Loguru policy and whitespace pass.
+- `python repo-scripts/build_library.py --skip-pip` built and verified **26.11.6.3**; wheel SHA-256
+  `2fca993c39b089ffc0ae142a3ded032152101ed35ada7a1a373fb47a3fc6fcb1`.
+- Installed that wheel into a separate validation target and ran unmodified copied mean/median wrappers
+  outside the checkout. Both exposed both flags; default dry-run failed on 2/10 inputs; override runs
+  succeeded with mean 6 / upper median 10 for inputs 2 and 10. Final values, TP02 provenance, two-row
+  original-input legends, cell counts and DEFLATE source compression all passed. The ordinary installed
+  package was not replaced.
+- Independent implementation review found no blocking defect; added explicit stale-maximum wording from
+  that review. Both wrappers already belong to the installed-script inventory, so no duplicate MCP tool
+  or workflow entry is needed; their help and canonical documentation expose the new setting.
+- Unrelated overdue work-register entries remain outside this task and were not advanced.
 
 ### 2026-11-06: GitHub delivery
 

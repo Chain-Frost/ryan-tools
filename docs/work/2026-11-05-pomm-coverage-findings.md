@@ -3,10 +3,10 @@
 | Field | Value |
 | --- | --- |
 | Status | Needs review |
-| Owner | Unassigned |
+| Owner | ChatGPT / maintainer |
 | Created | 2026-11-05 |
 | Updated | 2026-11-06 |
-| Next review | 2026-11-12 |
+| Next review | 2026-11-13 |
 | Baseline | Primary NAS checkout; existing unpublished raster edits preserved |
 
 ## Outcome
@@ -42,11 +42,12 @@ holds the workbook; a project-local NAS validation script retains the comparison
 ## Delivery and next action
 
 On 2026-11-06, the user authorised GitHub delivery. Changes are isolated on
-`feat/tuflow-reporting-findings-20261106` from current main, excluding unrelated RORB and PyTUFLOW work. The updated
-wrapper requires the updated shared library: run with the NAS checkout on process-local `PYTHONPATH` for
-development, or install a newly versioned build after reconciling the newer installed package. Do not replace
-the installed 26.11.5.10 with this verification build of 26.11.5.9. Next: run lint/strict typing in an allowed
-environment and prepare the matching package update before ordinary installed-package wrapper use.
+`feat/tuflow-reporting-findings-20261106` from current main, excluding unrelated RORB and PyTUFLOW work.
+The user subsequently requested consolidation: [PR #238](https://github.com/Chain-Frost/ryan-tools/pull/238)
+is now merged into [PR #207](https://github.com/Chain-Frost/ryan-tools/pull/207) as `8550b511`.
+The updated wrapper requires the matching shared library. The integrated **26.11.6.3** build is verified;
+lint and strict typing now pass, and all 47 focused POMM tests pass. Next: review #207's hosted checks and
+the matching package before normal installed-package use. No publication or merge of #207 into main is requested.
 
 ### Related timeseries validation
 
@@ -66,6 +67,14 @@ The register contains overdue unrelated vendor integration, installed-script and
 these were not advanced or resumed. Concurrent RORB/MCP changes were preserved.
 
 ## Progress
+
+### 2026-11-06: Consolidated into PR #207
+
+Preserved all coverage warnings, workbook metadata and peak-selection behaviour while combining #238 with
+the raster provenance work. Fixed the inherited lint/typing findings and reran the six focused POMM test
+files listed above: **47 passed**, including workbook round trips. The combined raster/POMM validation
+has **117 passes**, strict changed-file checks and a verified 26.11.6.3 wheel. See the
+[raster work record](2026-11-05-raster-source-pr207.md) for integrated validation and delivery details.
 
 ### 2026-11-06: GitHub delivery
 

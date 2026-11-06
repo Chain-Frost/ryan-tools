@@ -300,8 +300,10 @@ def test_flatten_nested_source_provenance_links_to_original_rasters(tmp_path: Pa
 
 
 def _parsed_raster(*, tmp_path: Path, result_type: str) -> ParsedRaster:
+    path = tmp_path / f"input_{result_type}.tif"
+    _write_raster(path, [1.0])
     return ParsedRaster(
-        path=tmp_path / f"input_{result_type}.tif",
+        path=path,
         grid_directory=tmp_path,
         scenario="EXG",
         aep="1%AEP",

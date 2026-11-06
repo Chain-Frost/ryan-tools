@@ -22,8 +22,30 @@ EXPECTED_TP_COUNT = 10
 # Minutes; gaps are checked only between each group's shortest and longest tested durations.
 # Edit to match the study's adopted duration schedule where it differs from the ARR storm list.
 STANDARD_DURATIONS_MINUTES: tuple[int, ...] = (
-    10, 15, 20, 25, 30, 45, 60, 90, 120, 180, 270, 360, 540, 720,
-    1080, 1440, 1800, 2160, 2880, 4320, 5760, 7200, 8640, 10080,
+    10,
+    15,
+    20,
+    25,
+    30,
+    45,
+    60,
+    90,
+    120,
+    180,
+    270,
+    360,
+    540,
+    720,
+    1080,
+    1440,
+    1800,
+    2160,
+    2880,
+    4320,
+    5760,
+    7200,
+    8640,
+    10080,
 )
 
 CONSOLE_LOG_LEVEL = "INFO"  # or "DEBUG"

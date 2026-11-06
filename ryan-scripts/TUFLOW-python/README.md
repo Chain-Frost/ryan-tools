@@ -525,14 +525,26 @@ policies, closest-source mean, upper median and optional executable-comparison b
 `raster_processing/run_asc_to_asc_mean_then_maximum.py` and
 `raster_processing/run_asc_to_asc_median_then_maximum.py` share one generic
 statistic-then-maximum orchestrator. They aggregate temporal patterns for each
-duration, then take the maximum across durations. With `--source`, the final
-source legend resolves directly to the original temporal-pattern rasters.
+duration, then take the maximum across durations. Source rasters and legends
+are enabled by default; `--no-source` disables them. The final source legend
+resolves directly to the original temporal-pattern rasters.
 The mean wrapper defaults to ASC_to_ASC selection: its value raster contains
 the arithmetic mean and its source identifies the lowest contributing TP value
 at or above the mean. `MEAN_VALUE_METHOD` or `--mean-value-method` can instead
 select the closest contributing value or retain the arithmetic mean with
 closest-source provenance. Median uses the upper middle contributing value
 when the TP count is even.
+
+Both wrappers ship `ALLOW_INCOMPLETE_TP_BINS = False`. Incomplete TP bins,
+including zero-byte inputs, withhold their affected final maximum and cause
+exit code 1; complete statistics and unaffected maxima can still finish.
+Set the constant to `True` or pass `--allow-incomplete-tp-bins` to process
+available non-empty TPs with explicit warnings. Missing files are not filled
+with zeroes. `--no-allow-incomplete-tp-bins` restores the complete-bin requirement
+when the constant was edited. Strict mode and this override are incompatible;
+duplicate/unexpected TP IDs and raster-processing errors remain errors.
+See [incomplete TP bin behaviour](../../docs/ASC_TO_ASC_NATIVE_OPERATIONS.md#incomplete-temporal-pattern-bins)
+for empty-bin handling, dry runs and examples.
 
 [`plot_water_level_profiles.py`](po_and_timeseries/plot_water_level_profiles.py) creates terrain
 and TUFLOW water-level profile PNGs along GeoPackage lines.  CLI arguments can override paths and profile settings. The workflow validates CRS metadata and
