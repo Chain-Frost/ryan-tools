@@ -2,7 +2,7 @@
 
 The read-only input check uses the public PyTUFLOW batch validator from the
 [pinned PyTUFLOW PR #63 source](https://github.com/Chain-Frost/PyTuflow/pull/63)
-(commit [`d089afaddde4`](https://github.com/Chain-Frost/PyTuflow/commit/d089afaddde4b533581ebbe068dc38673c98803b)).
+(commit [`b1026d0cf721`](https://github.com/Chain-Frost/PyTuflow/commit/5360c979a4da577c7eae04a2afded00eb21d5bf9)).
 It validates the **actual planned runs**, not all possible combinations.
 Input validation is not TUFLOW execution and never modifies model inputs.
 
@@ -12,6 +12,8 @@ The supported temporary PyTUFLOW requirement is maintained in
 [`repo-scripts/pytuflow-requirement.txt`](../repo-scripts/pytuflow-requirement.txt).
 The selected source is a fixed contributor-fork commit, not an upstream release.
 It includes the public API from upstream PR #17 plus the validation fixes in fork PR #63.
+The pin also fixes implicit generic and machine-specific TCF override parsing,
+so the runner can discover redirected log folders through the public context API.
 It remains under review and requires native acceptance before release. Public package metadata retains the publishable
 version range `pytuflow>=1.2,<2`; a matching version number alone does **not**
 prove compatibility. Another PyTUFLOW 1.2.7 build lacks the batch validation API.

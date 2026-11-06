@@ -23,7 +23,7 @@ def test_normal_commands_pin_accepted_parser_and_preserve_gis_wheels() -> None:
     installer = _installer()
     wheel = Path("dist/ryan_tools-26.10.31.1-py3-none-any.whl")
     commands = installer._pip_commands(wheel, False, skip_qgis_mcp=True)
-    pin = "pytuflow @ https://github.com/Chain-Frost/PyTuflow/archive/d089afaddde4b533581ebbe068dc38673c98803b.zip"
+    pin = "pytuflow @ https://github.com/Chain-Frost/PyTuflow/archive/5360c979a4da577c7eae04a2afded00eb21d5bf9.zip"
     assert commands[0] == installer._gis_dependency_command()
     assert all("--ignore-requires-python" in command for command in commands)
     assert installer.GIS_WHEEL_INDEX == "https://gisidx.github.io/gwi"
@@ -80,7 +80,7 @@ def test_dry_run_has_public_guard_and_pip_check(
     assert installer.main(["--dry-run", "--skip-qgis-mcp"]) == 0
     output = capsys.readouterr().out
     assert "gisidx.github.io/gwi" in output
-    assert "d089afaddde4b533581ebbe068dc38673c98803b" in output
+    assert "5360c979a4da577c7eae04a2afded00eb21d5bf9" in output
     assert "pip check" in output
     assert "require_validation_api" in output
     assert "no packages or validation capabilities were checked" in output

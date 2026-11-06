@@ -36,6 +36,16 @@ to avoid leaving partial panels in terminal scrollback. See the
 [logging guide](../../docs/LOGGING.md#live-dashboards-and-copied-wrappers).
 Library upgrades apply to the next Python process, not an active batch. For future
 unattended runs, `--no-live-dashboard` selects ordinary console logging.
+Each launch log line groups flags that change across the selected plan first,
+then shows constant flags together in dim text. This includes constant event
+flags and changing scenario flags. Columns stay aligned within each group;
+a flag omitted in some runs counts as changing. All flags remain on each line.
+The startup CUDA mapping identifies GPU models once; launch lines use only
+the assigned `-puN` switches (or `Auto`). Completion lines show elapsed process
+runtime as `HH:MM:SS` and the last observed model clock in hours. Unknown model
+time is `Model --`; launch failures without a process show `Runtime --`.
+Delayed completion messages retain the recorded finish time and that run's
+own log observation. The process exit code still determines success.
 The dashboard shows event/scenario values in separate `e1`...`e9` and `s1`...`s9`
 columns alongside the original run number. The TCF appears once as the heading
 of its own boxed run list, with no repeated `Model` column. Batches using multiple
@@ -214,6 +224,10 @@ automatic GPU placement and a two-second launch delay; it does not change when
 you edit the wrapper. Run controls compare against run/resume, export and input
 checks enabled, INFO logging, pause enabled and no follow-up script.
 
+On interruption, the wrapper prints `Batch interrupted.` when `NEXT_RUN_FILE`
+is `None`. It mentions that a follow-up was not started only when one was
+configured. An interrupted batch never starts the follow-up.
+
 `LIVE_MAX_ROWS = 10` limits the runner dashboard to at most ten task rows
 at once, without reducing the number of runs planned or executed. It is
 editable or can be overridden using `--live-max-rows N` (positive integer).
@@ -287,7 +301,42 @@ blocked, no queued model starts and the runner rechecks every
 also triggers a fresh check before another model is assigned. A group
 such as `[["-pu0", "-pu1"]]` requires **both** GPUs to be free.
 
-The check uses running TUFLOW process command lines (`-puN`) and excludes
+Each check runs the local CodeMeter WebAdmin summary request
+(`http://127.0.0.1:22352`, half-second request timeout) **in parallel** with a
+local TUFLOW process scan. The scan starts speculatively in a daemon thread; if
+CodeMeter reports zero use, its result is discarded immediately without waiting.
+Unavailable, incomplete or ambiguous CodeMeter responses likewise discard the
+scan and continue with a warning. Only confirmed active licence usage permits
+the scan result to block an occupied GPU. No allocation-detail or event-history
+requests are made. This assumes licensed runs; licence-free/tutorial runs are
+not protected when CodeMeter reports zero usage.
+
+The complete optional check has a **two-second budget**, including worker startup
+and CodeMeter. Both tasks run inside an owned hidden Python subprocess. The
+parent enforces a 1.9-second worker timeout and reserves 0.1 seconds for
+termination and cleanup. Unfinished inspection is killed and reaped; partial
+results are discarded and launches continue with a warning. The daemon thread
+cannot outlive its owning subprocess. Busy machines may therefore continue
+without verified GPU occupancy.
+
+After the runner successfully launches a solver on a GPU group, that group
+remains **claimed for the entire batch**, including gaps between consecutive
+runs. It is not re-inspected when a child exits. Only groups never claimed by
+this batch remain subject to external occupancy checks (for example, GPUs
+initially occupied by another TUFLOW process). Once every configured group is
+claimed, the runner stops all optional CodeMeter/GPU checks and clears any
+previous GPU inspection warning from its dashboard. This is a scheduling
+reservation, not an operating-system GPU lock: third-party processes should
+not start on a batch-claimed GPU during inter-run gaps.
+
+If the CodeMeter check fails, open `http://127.0.0.1:22352` to check WebAdmin.
+On Windows, open Services (`services.msc`) and start **CmWebAdmin** if stopped;
+its exact service name is **CmWebAdmin.exe**. Set its Startup type to **Automatic**
+if WebAdmin should start after reboot. This is separate from the CodeMeter licence
+runtime service. The warning includes these steps; launches continue without trusting the
+speculative GPU scan while usage is unverified.
+
+Process inspection uses running TUFLOW process command lines (`-puN`) and excludes
 children already tracked by this runner. Before comparing ordinals, it requires exact matching
 `CUDA_VISIBLE_DEVICES` and `CUDA_DEVICE_ORDER` settings in the external and runner environments.
 Different settings or denied environment access make the assignment unknown and produce a warning;
