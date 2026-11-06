@@ -5,7 +5,7 @@
 | Status | Needs review |
 | Owner | Unassigned |
 | Created | 2026-11-05 |
-| Updated | 2026-11-05 |
+| Updated | 2026-11-06 |
 | Next review | 2026-11-12 |
 | Baseline | Primary NAS checkout; existing unpublished raster edits preserved |
 
@@ -66,6 +66,15 @@ The register contains overdue unrelated vendor integration, installed-script and
 these were not advanced or resumed. Concurrent RORB/MCP changes were preserved.
 
 ## Progress
+
+### 2026-11-06: GitHub delivery
+
+Uploaded code, tests and anonymised evidence in [draft PR #238](https://github.com/Chain-Frost/ryan-tools/pull/238).
+Raster validation is also posted on [PR #207](https://github.com/Chain-Frost/ryan-tools/pull/207#issuecomment-6675605193).
+On the current-main branch, 37 library tests and 10 orchestrator/report tests passed. Initial report-test
+failures were caused by the new worktree lacking tutorial fixtures; copying the bounded Module_01 fixture
+restored all 10 passes. Documentation index/links and whitespace passed. Hosted lint/type validation remains
+pending. No merge, release, package installation or project-data upload occurred; PyTUFLOW is excluded.
 
 ### 2026-11-05
 
