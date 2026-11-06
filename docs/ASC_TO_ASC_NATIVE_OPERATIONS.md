@@ -69,13 +69,15 @@ NoData value. A source cell is also `0` when every contributing input cell is
 NoData, including when the `zero` policy writes a numeric zero to the value
 raster.
 
-The maintained wrapper exposes the opt-in as `--source`. Explicit
-`source_output_file` and `source_legend_file` paths are also supported. This
-default differs from ASC_to_ASC, whose counter-intuitive `-src` switch
-suppresses source output rather than enabling it.
+The maintained mean-then-maximum and median-then-maximum wrappers enable
+source rasters and legends by default. Use `--no-source` or set
+`WRITE_SOURCE_RASTERS = False` to disable them; `--source` explicitly enables
+them. The general-purpose `compute_stat()` API remains opt-in. Explicit
+`source_output_file` and `source_legend_file` paths are also supported.
+ASC_to_ASC's counter-intuitive `-src` switch suppresses source output.
 
-For the mean-then-maximum and median-then-maximum workflows, `--source` is
-propagated through both stages. Per-duration statistic source rasters identify
+For the mean-then-maximum and median-then-maximum workflows, the source setting
+is propagated through both stages. Per-duration statistic source rasters identify
 the original temporal-pattern rasters. The maximum stage composes its
 intermediate selection with those source rasters, so the final source IDs and
 CSV legend point directly to the original temporal-pattern rasters rather than
