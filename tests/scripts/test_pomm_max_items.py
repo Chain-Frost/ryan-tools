@@ -76,4 +76,7 @@ class TestPommMaxItems:
 
         mock_workflow.assert_called_once()
         _, kwargs = mock_workflow.call_args
-        assert kwargs["exporter"] == pomm_max_items.save_peak_report_mean
+        exporter = kwargs["exporter"]
+        assert exporter.func == pomm_max_items.save_peak_report_mean
+        assert exporter.keywords["expected_tp_count"] == 10
+        assert exporter.keywords["standard_durations"] == pomm_max_items.STANDARD_DURATIONS_MINUTES

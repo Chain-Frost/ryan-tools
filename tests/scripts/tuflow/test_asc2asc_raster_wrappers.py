@@ -27,6 +27,55 @@ def _load_script(filename: str) -> ModuleType:
     return module
 
 
+@pytest.mark.parametrize("statistic", ["mean", "median"])
+@pytest.mark.parametrize(
+    ("flags", "expected"),
+    [((), True), (("--source",), True), (("--no-source",), False)],
+)
+def test_source_output_default_and_cli_override(
+    statistic: str,
+    flags: tuple[str, ...],
+    expected: bool,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_script(f"run_asc_to_asc_{statistic}_then_maximum.py")
+    captured: dict[str, object] = {}
+
+    def workflow(**kwargs: object) -> int:
+        captured.update(kwargs)
+        return 0
+
+    monkeypatch.setattr(module, "run_stat_then_max_workflow", workflow)
+    monkeypatch.setattr(sys, "argv", ["wrapper", *flags, "--no-pause"])
+    monkeypatch.chdir(tmp_path)
+    options = module._parse_cli_arguments()
+    assert module.WRITE_SOURCE_RASTERS is True
+    assert module.main(working_directory=tmp_path, write_source=options.write_source) == 0
+    assert captured["write_source"] is expected
+
+
+@pytest.mark.parametrize("statistic", ["mean", "median"])
+def test_source_cli_can_override_edited_false_default(
+    statistic: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_script(f"run_asc_to_asc_{statistic}_then_maximum.py")
+    captured: dict[str, object] = {}
+
+    def workflow(**kwargs: object) -> int:
+        captured.update(kwargs)
+        return 0
+
+    monkeypatch.setattr(module, "run_stat_then_max_workflow", workflow)
+    monkeypatch.setattr(module, "WRITE_SOURCE_RASTERS", False)
+    monkeypatch.chdir(tmp_path)
+    for flags, expected in [((), False), (("--source",), True)]:
+        monkeypatch.setattr(sys, "argv", ["wrapper", *flags, "--no-pause"])
+        options = module._parse_cli_arguments()
+        assert module.main(working_directory=tmp_path, write_source=options.write_source) == 0
+        assert captured["write_source"] is expected
+
+
 def test_max_search_wrapper_dry_run_uses_configured_fixture_layout(
     raster_test_data: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
