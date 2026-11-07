@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 from typing import Literal
 
-WRAPPER_VERSION = "2026-11-04.1"
+WRAPPER_VERSION = "2026-11-07.1"
 PAUSE_ON_FINISH = True
 
 # TODO: make it more like the other wrappers, more CLI options.
@@ -17,16 +17,16 @@ PAUSE_ON_FINISH = True
 CONSOLE_LOG_LEVEL = "INFO"
 WORKING_DIR: Path = Path(__file__).absolute().parent
 # Optional explicit folder roots to scan. If left empty, the wrapper scans WORKING_DIR recursively.
-PATHS_TO_PROCESS: tuple[Path, ...] = ()
+PATHS_TO_PROCESS: list[Path] = []
 CSV_GLOB: str = "**/*_PO.csv"
 
 # Datatype filter (include-list). Default: only 'Flow'.
-DATATYPE_INCLUDE: tuple[str, ...] = ("Flow",)
+DATATYPE_INCLUDE: list[str] = ["Flow"]
 DATATYPE_CASE_SENSITIVE: bool = False
 
 # Location filter (exact include-list). Empty => no include filter.
-LOCATION_INCLUDE: tuple[str, ...] = ()  # e.g. ("PO-009", "PO-010", "PO-011")
-LOCATION_EXCLUDE: tuple[str, ...] = ()
+LOCATION_INCLUDE: list[str] = []  # e.g. ["PO-009", "PO-010", "PO-011"]
+LOCATION_EXCLUDE: list[str] = []
 LOCATION_CASE_SENSITIVE: bool = False
 
 # Warning thresholds (hours from end)
@@ -91,8 +91,8 @@ def main(
         return 1
 
     effective_console_log_level: str = console_log_level or CONSOLE_LOG_LEVEL
-    effective_data_types: tuple[str, ...] = include_data_types or DATATYPE_INCLUDE
-    effective_locations: tuple[str, ...] | tuple[()] = locations_to_include or (LOCATION_INCLUDE or ())
+    effective_data_types: tuple[str, ...] = tuple(include_data_types or DATATYPE_INCLUDE)
+    effective_locations: tuple[str, ...] = tuple(locations_to_include or LOCATION_INCLUDE)
     effective_export_mode: Literal["excel", "parquet", "both"] = export_mode or EXPORT_MODE
 
     main_processing(
@@ -101,7 +101,7 @@ def main(
         datatype_include=effective_data_types,
         datatype_case_sensitive=DATATYPE_CASE_SENSITIVE,
         location_include=effective_locations,
-        location_exclude=LOCATION_EXCLUDE,
+        location_exclude=tuple(LOCATION_EXCLUDE),
         location_case_sensitive=LOCATION_CASE_SENSITIVE,
         warn_2hours=WARN_2HOURS,
         warn_1hour=WARN_1HOUR,

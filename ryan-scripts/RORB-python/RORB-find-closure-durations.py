@@ -20,12 +20,12 @@ Examples::
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-16.1"
+WRAPPER_VERSION = "2026-11-07.1"
 
 # Editable defaults for normal double-click or IDE execution.
 WORKING_DIR: Path = Path(__file__).absolute().parent
-PATHS_TO_PROCESS: tuple[Path, ...] = ()
-THRESHOLDS: tuple[float, ...] | None = None
+PATHS_TO_PROCESS: list[Path] = []
+THRESHOLDS: list[float] | None = None
 CONSOLE_LOG_LEVEL = "INFO"
 POOL_SIZE: int | None = None
 
@@ -69,12 +69,12 @@ def main(
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
 
     target_directory: Path = (working_directory or WORKING_DIR).absolute()
-    configured_paths: tuple[Path, ...] | tuple[Path] = paths_to_process or PATHS_TO_PROCESS or (target_directory,)
+    configured_paths: tuple[Path, ...] = paths_to_process or tuple(PATHS_TO_PROCESS) or (target_directory,)
     effective_paths: tuple[Path, ...] = tuple(path.absolute() for path in configured_paths)
     if not change_working_directory(target_dir=target_directory):
         return 1
 
-    effective_thresholds: tuple[float, ...] | None = THRESHOLDS if thresholds is None else thresholds
+    effective_thresholds = THRESHOLDS if thresholds is None else thresholds
     run_closure_durations(
         paths=effective_paths,
         thresholds=list(effective_thresholds) if effective_thresholds is not None else None,

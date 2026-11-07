@@ -2,13 +2,13 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Needs review — runner workflow parent refreshed |
+| Status | Integrated into #183; awaiting parent review |
 | Owner | ChatGPT |
 | Created | 2026-11-04 |
 | Updated | 2026-11-07 |
 | Next review | 2026-11-14 |
-| Baseline | Reviewed child aa7f1f03d36a524b77f2e312c94bc3bfd8c27c64; parent 348b2e385cf4f706237a0b4b5ff6a48dc20bfc71, package 26.11.7.2 |
-| Branch / base | fix/office-protection-safety-199 -> feat/batch-dashboard-foundation-180 |
+| Baseline | PR #201 child 70ae212f69fa922f8c3770829861456c9003d03a merged into #183 as 93b59f29d70e28b9eabf42e245e038b27c37a01f |
+| Branch / base | feat/batch-dashboard-foundation-180 -> main; former child fix/office-protection-safety-199 is merged |
 | Issue | [#199](https://github.com/Chain-Frost/ryan-tools/issues/199), AB-027 |
 
 ## Outcome
@@ -21,27 +21,19 @@ The [local guide](../../ryan-scripts/misc-python/README.md) owns the user contra
 
 ## Current state
 
-The refreshed Office tree adopts published #183 parent `348b2e38`, including
-the requested TUFLOW runner session extraction. The copied wrapper is now
-408 lines; package 26.11.7.2 owns export/preflight dispatch, CSV continuation
-and advisory lifetime. Existing scheduling, progress, rendering, logging,
-current-main integration, export safety and serial corrections are retained.
-The merge is conflict-free. All current parent handoffs, links and register
-rows remain alongside the independent Office links and updated Office row.
-The Office implementation and tests are unchanged from reviewed child
-`aa7f1f03` and the original Office source delivery.
-
-The normal merge retains reviewed child `aa7f1f03` and parent `348b2e38` as
-its parents. Current-head acceptance is recorded in the
-[PR #201 checks and review](https://github.com/Chain-Frost/ryan-tools/pull/201).
-Earlier checks below apply to their named commits. Existing published history
-is preserved; no main merge or release is part of this continuation.
+[PR #201](https://github.com/Chain-Frost/ryan-tools/pull/201) was merged into
+[PR #183](https://github.com/Chain-Frost/ryan-tools/pull/183) on 2026-11-07,
+as `93b59f29` from reviewed child `70ae212f`. The Office implementation and
+tests are now part of the parent; the editable-list follow-up changes neither.
+The current parent also retains the runner extraction and accepted dashboard
+work. Earlier validation and parent-refresh entries below apply to their
+named commits. No main merge or release has been performed.
 
 ## Next action
 
-Inspect the refreshed PR #201's new hosted checks and safety review. Native
-Office fidelity and live UNC acceptance remain separate;
-no new Windows, native Office or network-share acceptance is claimed here.
+Review PR #183's current hosted checks and review; no further child refresh is
+needed. Native Office fidelity and live UNC acceptance remain separate, with
+no new native Office or network-share acceptance claimed here.
 
 ## Runner workflow parent refresh — 2026-11-07
 

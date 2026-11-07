@@ -18,7 +18,7 @@ from typing import Literal
 
 _SCRIPT_STARTED_AT = perf_counter()
 
-WRAPPER_VERSION = "2026-11-02.5"
+WRAPPER_VERSION = "2026-11-07.1"
 
 # ------------------------ USER-EDITABLE SETTINGS -------------------------
 # CLI arguments override these settings. No naming prefix is required.
@@ -30,8 +30,8 @@ TCF: Path | None = None
 
 # BAT/CMD/TXT input files, parsed as data, not executed. Paths relative to
 # WORKING_DIR. The absolute shipped path reads the unrenamed runner's TXT
-# beside this wrapper. Example: (Path("runs.txt"), Path("extra.bat")).
-RUN_FILES: tuple[Path, ...] = (Path(__file__).absolute().with_name("run_tuflow_simulations.txt"),)
+# beside this wrapper. Example: [Path("runs.txt"), Path("extra.bat")].
+RUN_FILES: list[Path] = [Path(__file__).absolute().with_name("run_tuflow_simulations.txt")]
 
 # Initial directory for imported command paths: None uses the terminal cwd.
 # Example: Path(r"Q:\Project\TUFLOW") or Path(r"\\server\share\TUFLOW").
@@ -348,7 +348,7 @@ def _run_cli(options: argparse.Namespace) -> int:
     try:
         return main(
             tcf=tcf,
-            commands=tuple(options.runs) if options.runs is not None else RUN_FILES,
+            commands=tuple(options.runs if options.runs is not None else RUN_FILES),
             report=output_path(report),
             working_directory=work,
             configuration_directory=(

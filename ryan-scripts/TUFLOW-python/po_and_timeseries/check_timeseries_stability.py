@@ -15,20 +15,20 @@ import os
 from pathlib import Path
 from typing import Literal
 
-WRAPPER_VERSION = "2026-11-04.1"
+WRAPPER_VERSION = "2026-11-07.1"
 PAUSE_ON_FINISH = True
 
 CONSOLE_LOG_LEVEL = "INFO"
 WORKING_DIR: Path = Path(__file__).absolute().parent
 # Optional explicit folder roots to scan. If left empty, the wrapper scans WORKING_DIR recursively.
-PATHS_TO_PROCESS: tuple[Path, ...] = ()
-RESULT_TYPES: tuple[str, ...] = ("PO", "Q")
+PATHS_TO_PROCESS: list[Path] = []
+RESULT_TYPES: list[str] = ["PO", "Q"]
 
-DATATYPE_INCLUDE: tuple[str, ...] = ("Flow", "Q")
+DATATYPE_INCLUDE: list[str] = ["Flow", "Q"]
 DATATYPE_CASE_SENSITIVE: bool = False
 
-LOCATION_INCLUDE: tuple[str, ...] = ()
-LOCATION_EXCLUDE: tuple[str, ...] = ()
+LOCATION_INCLUDE: list[str] = []
+LOCATION_EXCLUDE: list[str] = []
 LOCATION_CASE_SENSITIVE: bool = False
 
 FLAT_TOL: float = 1e-6
@@ -93,9 +93,9 @@ def main(
         return 1
 
     effective_console_log_level: str = console_log_level or CONSOLE_LOG_LEVEL
-    effective_data_types: tuple[str, ...] = include_data_types or DATATYPE_INCLUDE
-    effective_result_types: tuple[str, ...] = result_types or RESULT_TYPES
-    effective_locations: tuple[str, ...] | tuple[()] = locations_to_include or (LOCATION_INCLUDE or ())
+    effective_data_types: tuple[str, ...] = tuple(include_data_types or DATATYPE_INCLUDE)
+    effective_result_types: tuple[str, ...] = tuple(result_types or RESULT_TYPES)
+    effective_locations: tuple[str, ...] = tuple(locations_to_include or LOCATION_INCLUDE)
     effective_export_mode: Literal["excel", "parquet", "both"] = export_mode or EXPORT_MODE
 
     main_processing(
@@ -104,7 +104,7 @@ def main(
         datatype_include=effective_data_types,
         datatype_case_sensitive=DATATYPE_CASE_SENSITIVE,
         location_include=effective_locations,
-        location_exclude=LOCATION_EXCLUDE,
+        location_exclude=tuple(LOCATION_EXCLUDE),
         location_case_sensitive=LOCATION_CASE_SENSITIVE,
         flat_tol=FLAT_TOL,
         diff_rel_tol=DIFF_REL_TOL,

@@ -150,6 +150,24 @@ Existing scripts need not rename their current constants. This rule
 specifies observable behaviour and human-editable configuration, not a
 repository-wide migration to a particular spelling.
 
+Use **lists for editable collections**, including one-item lists, nested groups,
+and optional collection annotations. Users should not need tuple syntax or a
+trailing comma to enter a single item:
+
+```python
+LOCATIONS_TO_INCLUDE: list[str] = []
+INPUT_PATHS: list[Path] = [Path("results")]
+GPU_DEVICES: list[list[str]] = [["-pu0"], ["-pu1"]]
+BANDS: list[int] | None = None
+```
+
+Preserve documented differences between `None`, an empty list and a populated
+list. After resolving CLI overrides, convert to tuples, fixed pairs or frozen
+sets inside the script or library when the internal interface needs them.
+Validate fixed-length groups before indexing. Do not bind editable lists as
+function defaults; select the current setting inside the function and take an
+independent snapshot when dispatching work.
+
 One-way convenience switches do not require artificial opposites. In
 particular, `PAUSE_ON_FINISH = True` is the editable default, while `--no-pause`
 is the only pause CLI override needed: an omitted switch retains the editable
@@ -195,7 +213,7 @@ copy-ready example **only where it adds information the user needs**, such as:
   paths, mapped drives and UNC shares.
 - Dependencies between settings or effects that are not apparent from the
   names alone.
-- Unusual tuple, list or mapping shapes; show a copy-ready Python example
+- Unusual list or mapping shapes; show a copy-ready Python example
   rather than making the user inspect parsing code.
 - Destructive changes, output replacement, external execution, licence/cost
   implications or other meaningful risks. Explain safeguards and required
@@ -214,10 +232,10 @@ RECURSIVE = False
 # None allows different imported TCFs; a relative TCF uses WORKING_DIR.
 TCF: Path | None = None
 
-# Each inner tuple is one concurrent run; two GPU flags in a group
+# Each inner list is one concurrent run; two GPU flags in a group
 # assign both GPUs to that run.
-# Example: (("-pu0", "-pu1"), ("-pu2",)) for two concurrent runs.
-GPU_DEVICES = (("-pu0",), ("-pu1",))
+# Example: [["-pu0", "-pu1"], ["-pu2"]] for two concurrent runs.
+GPU_DEVICES = [["-pu0"], ["-pu1"]]
 ```
 
 This is a usability rule, not a requirement for a prescribed number of

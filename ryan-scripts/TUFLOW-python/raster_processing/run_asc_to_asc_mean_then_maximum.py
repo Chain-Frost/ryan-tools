@@ -26,14 +26,14 @@ output cell remains NoData only when every contributing cell is NoData.
 from pathlib import Path
 from typing import Literal
 
-WRAPPER_VERSION = "2026-09-10.1"
+WRAPPER_VERSION = "2026-11-07.1"
 
 WORKING_DIR: Path = Path(__file__).absolute().parent
 OUTPUT_DIRECTORY_NAME = "ensemble_statistics"
 INPUT_GLOB = "*.tif"
-EXPECTED_TPS: frozenset[int] = frozenset(range(1, 11))
-SCENARIOS = ("EXG", "DEV")
-RESULT_TYPES = ("d_HR_Max", "h_HR_Max", "V_Max")
+EXPECTED_TPS: list[int] = list(range(1, 11))
+SCENARIOS: list[str] = ["EXG", "DEV"]
+RESULT_TYPES: list[str] = ["d_HR_Max", "h_HR_Max", "V_Max"]
 MEAN_VALUE_METHOD: Literal["asc_to_asc", "closest_source", "arithmetic"] = "asc_to_asc"
 WORKERS: int | None = None
 STRICT_INCOMPLETE_GROUPS = False
@@ -92,9 +92,9 @@ def main(
         search_root=search_root,
         output_root=search_root / OUTPUT_DIRECTORY_NAME,
         input_glob=INPUT_GLOB,
-        expected_tps=EXPECTED_TPS,
-        scenarios=SCENARIOS,
-        result_types=RESULT_TYPES,
+        expected_tps=frozenset(EXPECTED_TPS),
+        scenarios=tuple(SCENARIOS),
+        result_types=tuple(RESULT_TYPES),
         mean_value_method=mean_value_method or MEAN_VALUE_METHOD,
         workers=workers if workers is not None else WORKERS,
         dry_run=dry_run,

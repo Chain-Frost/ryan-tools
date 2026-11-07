@@ -14,15 +14,15 @@ Key features:
 from pathlib import Path
 from typing import Literal
 
-WRAPPER_VERSION = "2026-11-04.1"
+WRAPPER_VERSION = "2026-11-07.1"
 
 # None chooses SUCCESS with a dashboard, INFO without; an explicit level overrides it.
 CONSOLE_LOG_LEVEL: str | None = None
-INCLUDE_DATA_TYPES: tuple[str, ...] = ("PO",)
-LOCATIONS_TO_INCLUDE: tuple[str, ...] = ()
+INCLUDE_DATA_TYPES: list[str] = ["PO"]
+LOCATIONS_TO_INCLUDE: list[str] = []
 WORKING_DIR: Path = Path(__file__).absolute().parent
 # Relative input/output paths are interpreted relative to WORKING_DIR.
-PATHS_TO_PROCESS: tuple[Path, ...] = ()
+PATHS_TO_PROCESS: list[Path] = []
 EXPORT_MODE: Literal["excel", "parquet", "both"] = "excel"
 USE_LIVE_DASHBOARD = True
 LIVE_REFRESH_PER_SECOND = 2.0
@@ -74,8 +74,8 @@ def main(
             for item in (Path(configured_path).expanduser(),)
         ]
         selected_locations = locations_to_include if locations_to_include is not None else LOCATIONS_TO_INCLUDE
-        effective_locations = selected_locations or None
-        effective_data_types = include_data_types or INCLUDE_DATA_TYPES
+        effective_locations = tuple(selected_locations) or None
+        effective_data_types = tuple(include_data_types or INCLUDE_DATA_TYPES)
         effective_dashboard = USE_LIVE_DASHBOARD if use_live_dashboard is None else use_live_dashboard
         effective_refresh = LIVE_REFRESH_PER_SECOND if live_refresh_per_second is None else live_refresh_per_second
         effective_rows = LIVE_MAX_ROWS if live_max_rows is None else live_max_rows

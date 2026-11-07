@@ -4,15 +4,21 @@ from __future__ import annotations
 
 import argparse
 import runpy
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
+from types import FunctionType
 from typing import Protocol, cast
 from xml.etree import ElementTree as ET
 from zipfile import ZipFile
 
 import pytest
 
-from ryan_library.functions.qgis_project import local_source_path, project_layer_sources
+from ryan_library.functions.qgis_project import (
+    QgisDriveMappings,
+    local_source_path,
+    project_layer_sources,
+    validate_drive_mappings,
+)
 
 SCRIPT = Path(__file__).absolute().parents[2] / "ryan-scripts" / "other" / "repair_qgis_project_paths.py"
 
@@ -24,10 +30,11 @@ class RepairMain(Protocol):
         working_directory: Path | None = None,
         project_path: Path | None = None,
         old_project_directory: Path | None = None,
-        replace_root: tuple[Path, Path] | None = None,
+        replace_root: Sequence[Path] | None = None,
         absolute_paths: bool = False,
         output_path: Path | None = None,
         write: bool = True,
+        drive_mappings: Sequence[Sequence[str]] | None = None,
     ) -> int: ...
 
 
@@ -108,7 +115,7 @@ def test_repair_cli_version_and_help(capsys: pytest.CaptureFixture[str]) -> None
     assert "--write" in text
     assert "--no-write" in text
     assert "INPUT_repaired" in text
-    assert "2026-10-31.2" in text
+    assert "2026-11-07.1" in text
 
 
 def test_repair_rejects_missing_project(tmp_path: Path) -> None:
@@ -189,26 +196,82 @@ def test_preview_does_not_overwrite_existing_output(tmp_path: Path, monkeypatch:
 def test_copied_repair_wrapper_defaults_and_no_write_override(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     project = tmp_path / "model.qgs"
     output = tmp_path / "fixed.qgs"
-    _write_project(project, "roads.gpkg|layername=roads")
+    _write_project(project, "./old/roads.gpkg|layername=roads")
     original = project.read_bytes()
+    configured_mappings = [["Q:", r"\\server\share"]]
     namespace = _load_copied_repair(
         tmp_path,
         {
             "DEFAULT_PROJECT: Path | None = None": 'DEFAULT_PROJECT: Path | None = Path("model.qgs")',
             "DEFAULT_OUTPUT: Path | None = None": 'DEFAULT_OUTPUT: Path | None = Path("fixed.qgs")',
+            "DEFAULT_REPLACE_ROOT: list[Path] | None = None": 'DEFAULT_REPLACE_ROOT: list[Path] | None = [Path("old"), Path("new")]',
+            "DEFAULT_DRIVE_MAPPINGS: list[list[str]] = []": f"DEFAULT_DRIVE_MAPPINGS: list[list[str]] = {configured_mappings!r}",
         },
     )
     assert namespace["DEFAULT_WRITE"] is True
     main = cast(RepairMain, namespace["main"])
     parse_args = cast(Callable[[list[str] | None], argparse.Namespace], namespace["_parse_cli_arguments"])
-    monkeypatch.chdir(tmp_path)
+    validated: list[tuple[Path, QgisDriveMappings]] = []
+
+    def record_validation(mappings: QgisDriveMappings) -> None:
+        validated.append((Path.cwd(), mappings))
+        validate_drive_mappings(mappings)
+
+    monkeypatch.setitem(cast(FunctionType, main).__globals__, "validate_drive_mappings", record_validation)
+    caller_directory = tmp_path / "caller"
+    caller_directory.mkdir()
+    monkeypatch.chdir(caller_directory)
 
     assert parse_args(["--no-write"]).write is False
     assert main(working_directory=tmp_path, write=False) == 0
+    assert validated == [(caller_directory, (("Q:", r"\\server\share"),))]
+    assert not output.exists()
+    assert main(working_directory=tmp_path, write=False, drive_mappings=[]) == 0
+    assert validated[-1] == (tmp_path, ())
     assert not output.exists()
     assert main(working_directory=tmp_path) == 0
-    assert output.exists()
+    assert project_layer_sources(output)[0].uri == "./new/roads.gpkg|layername=roads"
+    output_bytes = output.read_bytes()
+    assert main(working_directory=tmp_path) == 1
+    assert output.read_bytes() == output_bytes
     assert project.read_bytes() == original
+    assert namespace["DEFAULT_REPLACE_ROOT"] == [Path("old"), Path("new")]
+    assert namespace["DEFAULT_DRIVE_MAPPINGS"] == configured_mappings
+
+
+@pytest.mark.parametrize(
+    "root_expression",
+    [
+        pytest.param("[]", id="empty-list"),
+        pytest.param('[Path("old")]', id="one-path"),
+        pytest.param('[Path("old"), Path("new"), Path("extra")]', id="three-paths"),
+        pytest.param('"ab"', id="string-pair"),
+        pytest.param('b"ab"', id="bytes-pair"),
+    ],
+)
+def test_invalid_edited_root_pairs_fail_before_work(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, root_expression: str
+) -> None:
+    project_directory = tmp_path / "project"
+    project_directory.mkdir()
+    project = project_directory / "model.qgs"
+    output = project_directory / "model_repaired.qgs"
+    _write_project(project, "./a/roads.gpkg|layername=roads")
+    original = project.read_bytes()
+    output.write_bytes(b"existing output")
+    namespace = _load_copied_repair(
+        tmp_path,
+        {"DEFAULT_REPLACE_ROOT: list[Path] | None = None": f"DEFAULT_REPLACE_ROOT = {root_expression}"},
+    )
+    main = cast(RepairMain, namespace["main"])
+    monkeypatch.chdir(tmp_path)
+
+    assert main(working_directory=project_directory, project_path=project) == 1
+
+    assert Path.cwd() == tmp_path
+    assert project.read_bytes() == original
+    assert output.read_bytes() == b"existing output"
+    assert sorted(project_directory.iterdir()) == [project, output]
 
 
 @pytest.mark.parametrize("suffix", [".qgs", ".qgz"])

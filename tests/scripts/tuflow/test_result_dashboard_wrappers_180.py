@@ -109,6 +109,52 @@ def test_result_wrapper_passes_effective_options_and_paths_without_chdir_leak(
 
 
 @pytest.mark.parametrize(("path", "entry", "kind"), WRAPPERS)
+def test_result_wrapper_snapshots_edited_list_defaults_and_clears_locations(
+    path: str,
+    entry: str,
+    kind: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_wrapper(path)
+    job = tmp_path / "model"
+    monkeypatch.chdir(tmp_path)
+    roots = [Path("second"), Path("first")]
+    locations = ["Loc2", "Loc1"]
+    data_types = ["POMM", "PO"]
+    monkeypatch.setattr(module, "PATHS_TO_PROCESS", roots)
+    monkeypatch.setattr(module, "LOCATIONS_TO_INCLUDE", locations)
+    data_type_setting = "INCLUDED_DATA_TYPES" if kind == "mean" else "INCLUDE_DATA_TYPES"
+    monkeypatch.setattr(module, data_type_setting, data_types)
+    monkeypatch.setattr(module, "change_working_directory", Mock(return_value=True))
+    worker = Mock(return_value=True)
+    monkeypatch.setattr(module, entry, worker)
+    main = cast("Callable[..., int]", module.main)
+
+    assert main(working_directory=job, use_live_dashboard=False) == 0
+    recorded = worker.call_args.kwargs
+    expected_paths = [job / "second", job / "first"]
+    expected_types = ("POMM", "PO") if kind == "mean" else ["POMM", "PO"]
+    assert recorded["paths_to_process"] == expected_paths
+    assert recorded["locations_to_include"] == ("Loc2", "Loc1")
+    assert recorded["include_data_types"] == expected_types
+
+    # Later project edits must not alter the values already passed to a worker.
+    roots[:] = [Path("later")]
+    locations[:] = ["Later"]
+    data_types[:] = ["RLL_Qmx"]
+    assert recorded["paths_to_process"] == expected_paths
+    assert recorded["locations_to_include"] == ("Loc2", "Loc1")
+    assert recorded["include_data_types"] == expected_types
+
+    # An explicit empty CLI selection clears an edited include-list to mean all.
+    assert main(working_directory=job, locations_to_include=(), use_live_dashboard=False) == 0
+    assert worker.call_args.kwargs["locations_to_include"] is None
+    assert worker.call_args.kwargs["paths_to_process"] == [job / "later"]
+    assert worker.call_args.kwargs["include_data_types"] == (("RLL_Qmx",) if kind == "mean" else ["RLL_Qmx"])
+
+
+@pytest.mark.parametrize(("path", "entry", "kind"), WRAPPERS)
 def test_result_wrapper_defaults_to_pause_with_only_no_pause_override(
     path: str,
     entry: str,

@@ -19,15 +19,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-16.1"
+WRAPPER_VERSION = "2026-11-07.1"
 
 # Editable defaults for normal double-click or IDE execution.
 WORKING_DIR: Path = Path(__file__).absolute().parent
 CONSOLE_LOG_LEVEL = "INFO"
 GROUP_REMOVE_INDEX = 2
-ALLOWED_SUFFIXES: tuple[str, ...] = ("d_HR_Max", "h_HR_Max", "V_Max", "DEM_Z_HR")
+ALLOWED_SUFFIXES: list[str] = ["d_HR_Max", "h_HR_Max", "V_Max", "DEM_Z_HR"]
 PROFILE: RasterProfile = "tuflow"
-OVERVIEW_LEVELS: tuple[int, ...] = (2, 4, 8, 16, 32)
+OVERVIEW_LEVELS: list[int] = [2, 4, 8, 16, 32]
 OVERVIEW_RESAMPLING: OverviewResampling = "nearest"
 WORKERS: int | None = None
 OVERWRITE = False
@@ -71,9 +71,9 @@ def main(
             outputs = create_grouped_mosaics(
                 directory=target_directory,
                 group_remove_index=group_remove_index or GROUP_REMOVE_INDEX,
-                allowed_suffixes=allowed_suffixes or ALLOWED_SUFFIXES,
+                allowed_suffixes=tuple(allowed_suffixes or ALLOWED_SUFFIXES),
                 profile=profile or PROFILE,
-                overview_levels=overview_levels or OVERVIEW_LEVELS,
+                overview_levels=tuple(overview_levels or OVERVIEW_LEVELS),
                 overview_resampling=overview_resampling or OVERVIEW_RESAMPLING,
                 workers=workers if workers is not None else WORKERS,
                 overwrite=OVERWRITE if overwrite is None else overwrite,

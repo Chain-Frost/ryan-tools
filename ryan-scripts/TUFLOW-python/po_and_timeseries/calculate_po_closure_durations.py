@@ -11,15 +11,15 @@ tables are always included in the same protected output batch.
 from pathlib import Path
 from typing import Literal
 
-WRAPPER_VERSION = "2026-11-07.1"
+WRAPPER_VERSION = "2026-11-07.2"
 PAUSE_ON_FINISH = True
 
 CONSOLE_LOG_LEVEL = "INFO"
-LOCATIONS_TO_INCLUDE: tuple[str, ...] = ()
+LOCATIONS_TO_INCLUDE: list[str] = []
 EXPORT_MODE: Literal["excel", "parquet", "both"] = "excel"
 WORKING_DIR: Path = Path(__file__).absolute().parent
 # Optional explicit folder roots to scan. If left empty, the wrapper scans WORKING_DIR recursively.
-PATHS_TO_PROCESS: tuple[Path, ...] = ()
+PATHS_TO_PROCESS: list[Path] = []
 # WORKING_DIR: Path = Path(r"E:\path\to\custom\directory")
 
 # TODO. expand this to work on a variety of file formats and data types.
@@ -61,7 +61,7 @@ def main(
         return 1
 
     effective_console_log_level: str = console_log_level or CONSOLE_LOG_LEVEL
-    effective_locations: tuple[str, ...] | None = locations_to_include or (LOCATIONS_TO_INCLUDE or None)
+    effective_locations: tuple[str, ...] | None = tuple(locations_to_include or LOCATIONS_TO_INCLUDE) or None
     effective_export_mode: Literal["excel", "parquet", "both"] = export_mode or EXPORT_MODE
     run_closure_durations(
         paths=effective_paths_to_process,

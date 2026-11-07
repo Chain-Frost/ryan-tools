@@ -19,13 +19,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-16.1"
+WRAPPER_VERSION = "2026-11-07.1"
 
 WORKING_DIR: Path = Path(__file__).absolute().parent
 CONSOLE_LOG_LEVEL = "INFO"
 FILE_PATTERN = "*.tif"
 NODATA_VALUE: float = -9999.0
-BANDS: tuple[int, ...] | None = None
+BANDS: list[int] | None = None
 RECURSIVE = False
 WORKERS: int | None = None
 
@@ -57,13 +57,14 @@ def main(
     target_directory: Path = (working_directory or WORKING_DIR).absolute()
     if not change_working_directory(target_dir=target_directory):
         return 1
+    configured_bands = bands if bands is not None else BANDS
     with setup_logger(console_log_level=console_log_level or CONSOLE_LOG_LEVEL):
         try:
             outputs: list[Path] = set_nodata_in_directory(
                 directory=target_directory,
                 pattern=file_pattern or FILE_PATTERN,
                 nodata=NODATA_VALUE if nodata_value is None else nodata_value,
-                bands=bands if bands is not None else BANDS,
+                bands=tuple(configured_bands) if configured_bands is not None else None,
                 recursive=RECURSIVE if recursive is None else recursive,
                 workers=workers if workers is not None else WORKERS,
             )

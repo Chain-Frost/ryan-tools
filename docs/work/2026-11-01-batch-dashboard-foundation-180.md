@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Needs review — integration complete; runner session extracted into library |
+| Status | Needs review — editable collections use lists; runner extraction retained |
 | Owner | ChatGPT (foundation recovery) |
 | Created | 2026-11-01 |
 | Updated | 2026-11-07 |
@@ -11,7 +11,7 @@
 | Branch / base | `feat/batch-dashboard-foundation-180` -> `main` |
 | Issue | [#180](https://github.com/Chain-Frost/ryan-tools/issues/180), dashboard foundation and resumed wrapper/script audit |
 | Dependent work | [TUFLOW result dashboard adoption](2026-11-01-tuflow-result-dashboards-180.md) |
-| Delivery | #202, current main, closure safety and serial rendering corrections remain integrated. The requested runner extraction reduces the wrapper from 570 to 408 lines while preserving scheduling, progress, rendering and logging mechanisms. Package 26.11.7.2 and wrapper 2026-11-07.2 supply the new workflow boundary. Use current PR checks/review for published-head acceptance and keep Office #201 on this parent. No main merge/release. |
+| Delivery | #202, current main, closure safety, serial rendering corrections and the 408-line runner extraction remain integrated. Office #201 is now merged into this parent at 93b59f29. Package 26.11.7.3 changes editable collections in 27 maintained entry points to lists, with internal normalization and retained empty/None semantics. Use current PR checks/review for published-head acceptance. No main merge/release. |
 
 ## Outcome and scope
 
@@ -573,3 +573,99 @@ The refactor is delivered on #183 using normal history; current-head hosted
 CI and Codex review are tracked in the PR. Office #201 receives a normal
 parent refresh with its implementation and tests unchanged. No main merge,
 auto-merge or release is part of this continuation.
+
+### 2026-11-07 — Use lists for editable wrapper collections
+
+The user requested list syntax for wrapper inputs, including
+`LOCATIONS_TO_INCLUDE: list[str] = []`, with tuple conversion inside the
+implementation. The follow-up starts at `93b59f29`, which already includes
+the merged Office #201 change, and is delivered through the existing #183
+branch. The Office child no longer needs a parent refresh.
+
+Twenty-seven maintained entry points now expose lists for editable collection
+values and optional annotations. This includes twelve TUFLOW result wrappers,
+the input checker, three raster workflows, six GDAL wrappers, RORB closure,
+two archive scripts and both QGIS project tools. Nested drive mappings and
+template axes use nested lists or list-valued mappings; TP selection becomes
+a frozen set only at dispatch. The multi-folder archive utility remains a
+repository-only standalone script; this change does not expand packaging.
+
+Original values, ordering, documented `None`/empty distinctions and existing
+CLI override behavior are retained. Processing receives the existing tuple,
+fixed-pair, frozen-set or independent-list types. No editable mutable collection
+is bound as a function default. Retile dimensions and QGIS replacement roots
+require exactly two entries before work, and replacement roots reject scalar
+strings/bytes instead of interpreting them as individual paths.
+
+The runner itself already accepts list inputs. Its 408-line extraction,
+scheduler, rendering, logging, progress, history and workflow implementation
+have no diff in this follow-up. Schema constants, parser choices, internal
+tuple APIs and archived/project-specific utilities are outside the conversion.
+The excluded submodule was not inspected or initialized.
+
+Local Python 3.14.9 validation uses
+`PYTHONUSERBASE=/workspace/scratch/174af26f7506/py-userbase`, the repository and
+`validation-deps` on `PYTHONPATH` where copied source subprocesses require
+them, `WP08_VALIDATION_SPAWN=1`, and `MPLBACKEND=Agg`:
+
+| Selection | Result |
+| --- | --- |
+| `pytest -q tests/scripts/tuflow/test_result_dashboard_wrappers_180.py` | 34 passed; six new cases exercise ordered list inputs, independent worker snapshots and explicit empty location overrides. |
+| `pytest -q tests/scripts/test_repair_qgis_project_paths.py tests/scripts/test_audit_qgis_project_sources.py` | 48 passed, one existing Windows-only skip; real copied-default repair, overwrite refusal, nested list normalization, empty overrides and malformed-pair rejection. |
+| `pytest -q tests/scripts/gdal/test_gdal_raster_wrappers.py -k retile` | Six passed, twelve deselected; invalid lengths cause no output/process, and CLI values override both valid and invalid edited defaults. |
+| `pytest -q tests/scripts/tuflow/test_command_preflight_wrapper.py tests/scripts/test_tuflow_preflight_opt_in.py` | 15 passed. |
+| `pytest -q tests/scripts/test_installed_wrapper_help.py -k 'culvert_results or po_and_timeseries'` | Nine source-tree help cases passed, twenty deselected; two additional POMM help commands passed. |
+| `pytest -q tests/scripts/test_installed_wrapper_behaviour.py -k combine_culvert_timeseries` | Two copied-source failure cases passed, fifteen deselected. |
+
+The existing archive/RORB selection passed 19 tests:
+`pytest -q tests/scripts/test_archive_compress_folder_wrapper.py tests/scripts/test_archive_compress_multiple_folders.py tests/scripts/RORB/test_rorb_closure_durations.py tests/scripts/RORB/test_rorb_closure_duration_behavior.py`.
+Two copied RORB failure checks passed separately. Source-tree checks are
+distinct from the isolated wheel checks below. The new scalar QGIS root-pair
+cases were confirmed to fail before the guard. Independent cross-review found
+no consequential regression in the converted settings or call boundaries.
+
+All 33 changed Python files compile and pass Ruff 0.16.6 formatting/lint and
+strict Pyright with the explicit Python 3.14 interpreter and Windows target.
+The seven default documentation checks, five explicit guide/work-record link
+checks, Loguru formatting and whitespace checks pass. Local native GDAL raster
+execution and the profile-wrapper executable help check are unavailable because
+this runtime lacks `osgeo`; hosted provisioned CI owns those checks.
+
+Normal `repo-scripts/build_library.py --skip-pip` built and verified package
+`26.11.7.3`, SHA-256
+`fd2023c17a436d6294dc412c25d1a9340c93177e171e9c6544053fc7ed9fb4ed`.
+Modified entry-point revisions are `2026-11-07.1`, except PO closure's second
+revision of the day (`2026-11-07.2`). No release is published.
+
+The wheel was installed without dependencies into
+`/workspace/scratch/174af26f7506/wheel-install-list-inputs`, with existing
+validation dependencies linked separately. Outside the checkout, with
+`PYTHONPATH` set only to that installation and `PYTHONNOUSERSITE=1`, both
+installed version and physical import origins were verified. All 26 packaged
+changed wrappers byte-match their final sources. The existing
+`smoke_result_dashboard_installed_wheel.py --expected-root` acceptance passed
+all six result-wrapper groups, including dashboard on/off workbook parity,
+headless output, diagnostics, output collisions and writer-failure cleanup.
+
+Nine additional copied installed-wrapper cases passed: populated PO/POMM
+path/type/location lists with actual filtering, PO CLI overrides, QGIS repair
+and audit list defaults plus CLI overrides of malformed defaults, and preflight
+ordered list inputs plus repeated CLI overrides. They use disposable data,
+preserve original bytes and launch no solver.
+
+**Separate existing finding:** the extra Cmx acceptance fixture exposed a
+location-filter limitation in the unchanged culvert pipeline. Its post-read
+filter recognizes `Location`, while Cmx stores channel identifiers in `Chan ID`.
+Edited lists, old tuple defaults and equivalent CLI selections produced
+identical complete maximums rows retaining both channels. This predates the
+conversion and remains a separate audit follow-up; no Cmx filtering change is
+included here. The source trace is
+`ryan_library/orchestrators/tuflow/tuflow_culverts_merge.py` calling
+`BaseProcessor.filter_locations` in
+`ryan_library/processors/tuflow/base_processor.py`.
+
+MCP discovery assessment: the maintained CLI options and catalogue are
+unchanged. List syntax is an editable-file convenience and needs no new MCP
+tool, entry or automation permission. Existing runner and Office acceptance
+boundaries remain in place. Current #183 checks and review record acceptance
+of the published commit; no main merge or auto-merge is authorized.
