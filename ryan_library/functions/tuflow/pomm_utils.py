@@ -679,10 +679,23 @@ def find_aep_median_max(aep_dur_median: DataFrame) -> DataFrame:
     """Return rows representing the maximum median for each AEP/Location/Type/RunCode group."""
     group_cols: list[str] = ["aep_text", "Location", "Type", "trim_runcode"]
     try:
-        df: DataFrame = aep_dur_median.copy()
-        df["count_TP_aep"] = df.groupby(by=group_cols, observed=True)["MedianAbsMax"].transform("size")
-        idx: Series = df.groupby(by=group_cols, observed=True)["MedianAbsMax"].idxmax()
-        aep_med_max: DataFrame = df.loc[idx].reset_index(drop=True)
+        df: DataFrame = aep_dur_median.copy().reset_index(drop=True)
+        if "count_TP_aep" not in df.columns:
+            if "count_TP" in df.columns:
+                df["count_TP_aep"] = (
+                    df.groupby(by=group_cols, observed=True)["count_TP"].transform("sum").astype("Int64")
+                )
+            else:
+                df["count_TP_aep"] = pd.Series(pd.NA, index=df.index, dtype="Int64")
+        if "count_duration" not in df.columns:
+            df["count_duration"] = (
+                df.groupby(by=group_cols, observed=True)["duration_text"].transform("nunique").astype("Int64")
+            )
+        valid = finite_sorted_rows(group=df, value_column="MedianAbsMax")
+        if valid.empty:
+            return DataFrame()
+        idx: Series = valid.groupby(by=group_cols, observed=True)["MedianAbsMax"].idxmax()
+        aep_med_max: DataFrame = valid.loc[idx].reset_index(drop=True)
         mean_value_columns: list[str] = [
             column
             for column in (
@@ -699,7 +712,8 @@ def find_aep_median_max(aep_dur_median: DataFrame) -> DataFrame:
             if "mean_PeakFlow" not in mean_df.columns:
                 return DataFrame()
             mean_df["_mean_peakflow_numeric"] = pd.to_numeric(arg=mean_df["mean_PeakFlow"], errors="coerce")
-            if mean_df["_mean_peakflow_numeric"].notna().any():
+            mean_df = mean_df[mean_df["_mean_peakflow_numeric"].notna() & mean_df["_mean_peakflow_numeric"].abs().ne(float("inf"))]
+            if not mean_df.empty:
                 # When the mean columns are present we track the rows that best represent
                 # the maximum mean independently from the median selection above.
                 idx_mean: Series = (
@@ -708,6 +722,9 @@ def find_aep_median_max(aep_dur_median: DataFrame) -> DataFrame:
                     .idxmax()
                 )
                 merge_columns: list[str] = mean_value_columns.copy()
+                for field in ("mean_internalName", "mean_file"):
+                    if field in aep_dur_median.columns:
+                        merge_columns.append(field)
                 if "mean_storm_is_median_storm" in aep_dur_median.columns:
                     merge_columns.append("mean_storm_is_median_storm")
                 mean_subset: DataFrame = mean_df.loc[idx_mean, group_cols + merge_columns]
