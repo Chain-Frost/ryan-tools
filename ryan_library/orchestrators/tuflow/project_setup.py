@@ -378,7 +378,7 @@ def _create_working_layer_from_empty(
     if target_path.exists():
         target_path.unlink()
 
-    schema: dict[str, object] = read_empty_schema(source_path=source_path, source_layer=source_layer)
+    schema: dict[str, object] = _read_fiona_schema(source_path=source_path, source_layer=source_layer)
     with fiona.open(  # pyright: ignore[reportUnknownMemberType]
         fp=source_path,
         layer=source_layer,
