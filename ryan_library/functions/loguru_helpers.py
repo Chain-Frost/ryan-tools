@@ -8,11 +8,13 @@ processors should only emit records through :data:`loguru.logger`.
 from __future__ import annotations
 
 import atexit
+import logging
 import pickle
 import sys
 import threading
 import traceback
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Generator, Mapping
+from contextlib import contextmanager
 from multiprocessing import Process, Queue
 from pathlib import Path
 from types import TracebackType
@@ -101,6 +103,47 @@ def _write_stdout(message: str) -> None:
     stream = sys.stdout
     stream.write(message)
     stream.flush()
+
+
+class _StandardLoggingForwarder(logging.Handler):
+    """Send dependency records through the wrapper's current Loguru sinks."""
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            level: str | int = logger.level(record.levelname).name
+        except ValueError:
+            level = record.levelno
+        logger.opt(exception=record.exc_info).log(level, "{}: {}", record.name, record.getMessage())
+
+
+@contextmanager
+def forward_standard_logging(*names: str) -> Generator[None]:
+    """Temporarily route named dependency loggers through Loguru.
+
+    Wrappers enter this before starting workers or importing dependencies whose
+    default handlers capture stdout. Preserve each logger's effective threshold;
+    restore its handlers, explicit level and propagation on every exit. Root and
+    unrelated loggers are untouched. Selected loggers use Loguru's console/file
+    sinks for the duration instead of their previous handlers.
+    """
+    previous: list[tuple[logging.Logger, list[logging.Handler], int, bool]] = []
+    handler = _StandardLoggingForwarder()
+    try:
+        for name in dict.fromkeys(names):
+            standard_logger = logging.getLogger(name)
+            previous.append(
+                (standard_logger, standard_logger.handlers[:], standard_logger.level, standard_logger.propagate)
+            )
+            standard_logger.setLevel(standard_logger.getEffectiveLevel())
+            standard_logger.handlers = [handler]
+            standard_logger.propagate = False
+        yield
+    finally:
+        for standard_logger, handlers, level, propagate in reversed(previous):
+            standard_logger.handlers = handlers
+            standard_logger.setLevel(level)
+            standard_logger.propagate = propagate
+        handler.close()
 
 
 def log_settings(title: str, values: Mapping[str, object], defaults: Mapping[str, object]) -> None:

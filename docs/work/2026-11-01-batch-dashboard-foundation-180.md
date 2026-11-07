@@ -2,16 +2,16 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Needs final review — #184 and #186 consolidated into PR #183; main unchanged |
+| Status | Active — reconcile current main and the integrated exporter; refresh Office child #201 |
 | Owner | ChatGPT (foundation recovery) |
 | Created | 2026-11-01 |
-| Updated | 2026-11-04 |
-| Next review | 2026-11-05 |
+| Updated | 2026-11-07 |
+| Next review | 2026-11-14 |
 | Baseline | main at `99cd3ccaaabd83b682392f7e285d90b570d353cb` (merged PR #159) |
 | Branch / base | `feat/batch-dashboard-foundation-180` -> `main` |
 | Issue | [#180](https://github.com/Chain-Frost/ryan-tools/issues/180), dashboard foundation and resumed wrapper/script audit |
 | Dependent work | [TUFLOW result dashboard adoption](2026-11-01-tuflow-result-dashboards-180.md) |
-| Delivery | #183 is published and fully green at 94a63b89 (2,098 hosted passes, 14 skips, 8 deselected). Office #199 is separate PR #201, fully green at 2c06d8d4. Shared export #194 proceeds in a separate child; no main merge/release. |
+| Delivery | #202 was squash-merged into this feature branch at a56e0c6b on 2026-11-07. Current main e317e4ef is being integrated normally; closure raw-output safety and Office #201 refresh follow. Prior green checks are historical until the updated heads are validated. No main merge/release. |
 
 ## Outcome and scope
 
@@ -397,3 +397,32 @@ are resolved. Office PR #201 independently passes all six checks at `2c06d8d4`
 The next selected work is [shared export safety #194](2026-11-04-result-export-safety-194.md),
 stacked directly on #183. Discovery #195 and later dashboard adoption remain
 separate follow-ups. Earlier pending/local-only statements above are historical.
+
+
+### 2026-11-07 — Current runner and export integration
+
+The maintainer requested continuation of WP08 in issue #240. A live recheck found
+that #202 had already been squash-merged into #183 as `a56e0c6b`; its exporter
+implementation is retained. Current main `e317e4ef` is integrated by a normal
+merge, preserving the main PyTuflow pin and recent runner progress, grouping,
+GPU ownership and terminal rendering fixes.
+
+The dashboard lifecycle combines nested processing/export contexts and plain
+redirected output with main's console transaction lock and single refresh owner.
+Integration checks also preserve runner console colours through the default
+stdout sink, omit phase text for callers that do not supply it, and render serial
+starts/final batch counts before a blocking stage can leave stale rows visible.
+
+Local validation on Linux Python 3.14.10, with spawn explicitly selected to match
+the supported Windows process model: 84 dashboard/logging/workflow checks pass;
+380 runner/GPU/progress/result-pipeline checks pass, with 12 platform-specific
+skips. Ruff format/lint and strict Pyright on the resolved integration files pass.
+The earlier local attempt used an incomplete subprocess dependency path and the
+Linux forkserver default, which cannot create Unix sockets in this executor;
+those environment failures were resolved in the task environment without
+changing product behavior. Native Windows acceptance remains the hosted gate.
+
+Next: complete the #194 closure raw-output batch, verify the installed wheel and
+updated hosted head, request a fresh Codex review, and refresh #201 from the
+settled parent. #196/#198 remain separate subsequent changes; broader audit #180
+stays open. The merge is local at this checkpoint; no main merge or release.

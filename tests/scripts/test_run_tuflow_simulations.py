@@ -12,6 +12,7 @@ import sys
 from collections.abc import Callable, Sequence
 from contextlib import AbstractContextManager
 from datetime import datetime
+from io import StringIO
 from pathlib import Path
 from threading import Event
 from typing import Protocol, cast
@@ -101,6 +102,48 @@ def test_configured_export_only_operation_and_cli_override(
     assert not Path(wrapper.__file__).with_name("run_tuflow_simulations_runs.csv").exists()
 
 
+@pytest.mark.parametrize("terminal", [False, True])
+def test_wrapper_preserves_terminal_log_colours_without_colouring_redirected_output(
+    tmp_path: Path,
+    wrapper: _RunnerWrapper,
+    monkeypatch: pytest.MonkeyPatch,
+    terminal: bool,
+) -> None:
+    """Exercise the copied wrapper's actual logger configuration, without a solver."""
+    source = _source(tmp_path)
+    stream = StringIO()
+    monkeypatch.setattr(stream, "isatty", lambda: terminal)
+    monkeypatch.setattr(sys, "stdout", stream)
+    try:
+        assert (
+            wrapper.main(
+                [
+                    "--working-directory",
+                    str(tmp_path),
+                    "--mode",
+                    "textfiles",
+                    "--input-file",
+                    str(source),
+                    "--no-tcf",
+                    "--export-only",
+                    "--no-pause",
+                ]
+            )
+            == 0
+        )
+    finally:
+        logger.remove()
+    output = stream.getvalue()
+    assert "OPERATION: export_only" in output
+    assert "Export-only: no solver processes, GPU scan or input checking." in output
+    if terminal:
+        assert "\x1b[36m  OPERATION: export_only" in output
+        assert "\x1b[90m  CONSOLE_LOG_LEVEL: INFO" in output
+        assert "\x1b[32m" in output  # SUCCESS keeps its green terminal styling.
+    else:
+        assert "\x1b[" not in output
+
+
 def test_editable_settings_and_cli_precedence(
     tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -110,6 +153,9 @@ def test_editable_settings_and_cli_precedence(
     monkeypatch.setattr(module, "LIVE_MAX_ROWS", 10)
     monkeypatch.setattr(module, "WAIT_FOR_AVAILABLE_GPU", True)
     monkeypatch.setattr(module, "GPU_CHECK_INTERVAL_SECONDS", 60.0)
+    monkeypatch.setattr(module, "MONITOR_PROGRESS", True)
+    monkeypatch.setattr(module, "PROGRESS_POLL_INTERVAL_SECONDS", 10.0)
+    monkeypatch.setattr(module, "SHOW_PROGRESS_DIAGNOSTICS", True)
     monkeypatch.setattr(module, "WAIT_TIME_AFTER_RUN", 2.0)
     parse_arguments = cast(
         Callable[[list[str]], argparse.Namespace],
@@ -130,6 +176,10 @@ def test_editable_settings_and_cli_precedence(
             "--no-wait-for-available-gpu",
             "--gpu-check-interval",
             "0.25",
+            "--no-monitor-progress",
+            "--progress-poll-interval",
+            "30",
+            "--no-progress-diagnostics",
             "--launch-delay",
             "0",
             "--working-directory",
@@ -143,6 +193,9 @@ def test_editable_settings_and_cli_precedence(
     assert settings.live_max_rows == 4
     assert settings.wait_for_available_gpu is False
     assert settings.gpu_check_interval_seconds == 0.25
+    assert settings.monitor_progress is False
+    assert settings.progress_poll_interval_seconds == 30.0
+    assert settings.show_progress_diagnostics is False
     assert settings.wait_time_after_run == 0
     assert args.preflight is False
     with pytest.raises(SystemExit) as invalid:
@@ -156,6 +209,33 @@ def _settings_from_wrapper(wrapper: _RunnerWrapper) -> RunnerSettings:
     parser = cast(Callable[[list[str]], argparse.Namespace], module.__dict__["_arguments"])
     settings_factory = cast(Callable[[argparse.Namespace], RunnerSettings], module.__dict__["_settings"])
     return settings_factory(parser(["--no-pause"]))
+
+
+def test_progress_monitor_defaults_edits_and_cli_enable_override(
+    wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    defaults = _settings_from_wrapper(wrapper)
+    assert defaults.monitor_progress is True
+    assert defaults.progress_poll_interval_seconds == 10.0
+    assert defaults.show_progress_diagnostics is True
+    module = sys.modules["tested_runner_wrapper"]
+    monkeypatch.setattr(module, "MONITOR_PROGRESS", False)
+    monkeypatch.setattr(module, "PROGRESS_POLL_INTERVAL_SECONDS", 60.0)
+    monkeypatch.setattr(module, "SHOW_PROGRESS_DIAGNOSTICS", False)
+    configured = _settings_from_wrapper(wrapper)
+    assert configured.monitor_progress is False
+    assert configured.progress_poll_interval_seconds == 60.0
+    assert configured.show_progress_diagnostics is False
+    parser = cast(Callable[[list[str]], argparse.Namespace], module.__dict__["_arguments"])
+    settings_factory = cast(Callable[[argparse.Namespace], RunnerSettings], module.__dict__["_settings"])
+    explicit = settings_factory(
+        parser(["--monitor-progress", "--progress-poll-interval", "5", "--progress-diagnostics", "--no-pause"])
+    )
+    assert explicit.monitor_progress is True
+    assert explicit.progress_poll_interval_seconds == 5.0
+    assert explicit.show_progress_diagnostics is True
+    with pytest.raises(ValueError, match="PROGRESS_POLL_INTERVAL_SECONDS"):
+        settings_factory(parser(["--progress-poll-interval", "0", "--no-pause"]))
 
 
 @pytest.mark.parametrize(
@@ -280,6 +360,15 @@ def test_blank_editable_paths_are_rejected(
         ("WAIT_FOR_AVAILABLE_GPU", "False"),
         ("GPU_CHECK_INTERVAL_SECONDS", 0),
         ("GPU_CHECK_INTERVAL_SECONDS", float("nan")),
+        ("MONITOR_PROGRESS", "False"),
+        ("MONITOR_PROGRESS", 1),
+        ("SHOW_PROGRESS_DIAGNOSTICS", "False"),
+        ("SHOW_PROGRESS_DIAGNOSTICS", 1),
+        ("PROGRESS_POLL_INTERVAL_SECONDS", 0),
+        ("PROGRESS_POLL_INTERVAL_SECONDS", -1),
+        ("PROGRESS_POLL_INTERVAL_SECONDS", True),
+        ("PROGRESS_POLL_INTERVAL_SECONDS", float("nan")),
+        ("PROGRESS_POLL_INTERVAL_SECONDS", float("inf")),
         ("LIVE_REFRESH_PER_SECOND", 0),
         ("LIVE_REFRESH_PER_SECOND", float("nan")),
         ("LIVE_MAX_ROWS", 0),
@@ -474,6 +563,38 @@ def test_wrapper_preflight_only_waits_and_returns_failure(
     assert calls == ["preflight"]
 
 
+@pytest.mark.parametrize("next_run", [None, "post.py"])
+def test_interruption_only_mentions_a_configured_follow_up(
+    tmp_path: Path,
+    wrapper: _RunnerWrapper,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    next_run: str | None,
+) -> None:
+    module = sys.modules["tested_runner_wrapper"]
+    monkeypatch.setattr(module, "EXPORT_COMMANDS", False)
+    monkeypatch.setattr(module, "CHECK_INPUTS", False)
+    monkeypatch.setattr(module, "NEXT_RUN_FILE", next_run)
+    if next_run is not None:
+        (tmp_path / next_run).write_text("pass\n", encoding="utf-8")
+
+    def interrupted(plan: CommandPlan, *_args: object, **_kwargs: object) -> BatchOutcome:
+        return BatchOutcome(plan.runs, (), interrupted=True)
+
+    def forbidden_follow_up(*_args: object) -> None:
+        pytest.fail("An interrupted batch must never launch the follow-up")
+
+    monkeypatch.setattr(module, "launch_plan", interrupted)
+    monkeypatch.setattr(module, "_run_follow_up", forbidden_follow_up)
+    assert wrapper.main(["--working-directory", str(tmp_path), "--no-pause"]) == 1
+    output = capsys.readouterr().out
+    if next_run is None:
+        assert "Batch interrupted." in output
+        assert "configured follow-up" not in output
+    else:
+        assert "Batch interrupted; configured follow-up was not started." in output
+
+
 def test_failed_child_still_chains_but_keeps_failure_exit_code(
     tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -621,6 +742,58 @@ def test_default_txt_cannot_replace_its_own_imported_source(
     assert not tuple(tmp_path.glob("*_runs.csv"))
 
 
+@pytest.mark.parametrize(
+    ("pause_default", "pause_flag", "no_pause", "expected_pause"),
+    [
+        (True, False, False, True),
+        (True, False, True, False),
+        (False, True, False, True),
+        (False, False, False, False),
+    ],
+)
+def test_cli_closes_logging_before_optional_pause(
+    wrapper: _RunnerWrapper,
+    monkeypatch: pytest.MonkeyPatch,
+    pause_default: bool,
+    pause_flag: bool,
+    no_pause: bool,
+    expected_pause: bool,
+) -> None:
+    """The UI prompt must outlive main's decorated resource contexts."""
+    module = sys.modules["tested_runner_wrapper"]
+    events: list[str] = []
+    arguments = argparse.Namespace(pause=pause_flag, no_pause=no_pause)
+
+    def parsed_args() -> argparse.Namespace:
+        events.append("parsed")
+        return arguments
+
+    def completed_main(*, _parsed_arguments: argparse.Namespace) -> int:
+        assert _parsed_arguments is arguments
+        events.append("main_finished")
+        return 7
+
+    def close_logging() -> None:
+        events.append("logger_closed")
+
+    def pause() -> None:
+        events.append("paused")
+
+    class StubLogger:
+        def remove(self) -> None:
+            close_logging()
+
+    monkeypatch.setattr(module, "PAUSE_ON_FINISH", pause_default)
+    monkeypatch.setattr(module, "_arguments", parsed_args)
+    monkeypatch.setattr(module, "main", completed_main)
+    monkeypatch.setattr(module, "logger", StubLogger())
+    monkeypatch.setattr(module, "pause_console", pause)
+    cli = cast(Callable[[], int], module.__dict__["_cli_main"])
+
+    assert cli() == 7
+    assert events == ["parsed", "main_finished", "logger_closed", *(["paused"] if expected_pause else [])]
+
+
 def test_script_entrypoint_parses_arguments_once(
     tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -637,6 +810,8 @@ def test_script_entrypoint_parses_arguments_once(
         return original(parser, args, namespace)
 
     monkeypatch.setattr(argparse.ArgumentParser, "parse_args", parse_once)
+    # runpy uses the pytest interpreter: do not remove its shared Loguru sinks.
+    monkeypatch.setattr(logger, "remove", lambda: None)
     monkeypatch.setattr(
         sys,
         "argv",

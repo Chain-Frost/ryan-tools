@@ -13,12 +13,12 @@ WHEEL_PATTERN: str = "ryan_tools-*.whl"
 # Install the current upstream bridge when the wheel-based developer path is used.
 QGIS_MCP_ARCHIVE: str = "https://github.com/nkarasiak/qgis-mcp/archive/refs/heads/main.zip"
 PYTUFLOW_REQUIREMENT_FILE = Path(__file__).absolute().with_name("pytuflow-requirement.txt")
-ACCEPTED_PYTUFLOW_SHA = "05e35476c02d6d8ed17c83caf1cb0d185ce51d1b"
+ACCEPTED_PYTUFLOW_SHA = "5360c979a4da577c7eae04a2afded00eb21d5bf9"
 ACCEPTED_PYTUFLOW_SOURCE = f"pytuflow @ https://github.com/Chain-Frost/PyTuflow/archive/{ACCEPTED_PYTUFLOW_SHA}.zip"
 
 
 def _pytuflow_requirement() -> str:
-    """Read the single immutable PyTUFLOW PR17 source used for normal installs."""
+    """Read the single immutable PyTUFLOW PR63 source used for normal installs."""
     requirement = PYTUFLOW_REQUIREMENT_FILE.read_text(encoding="utf-8").strip()
     if requirement != ACCEPTED_PYTUFLOW_SOURCE:
         message = f"Invalid PyTUFLOW source requirement in {PYTUFLOW_REQUIREMENT_FILE}"

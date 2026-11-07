@@ -32,6 +32,8 @@ not block on stale start notifications at pool shutdown.
 The constructor takes `title: str`, optional `subtitle: str = ""`, `enabled: bool = True`,
 `refresh_per_second: float = 2.0`, `max_rows: int = 25`, optional
 `columns: Sequence[WorkflowColumn] | None`, `transient: bool = True` and `screen: bool = False`.
+Optional `group_by` and `group_label_key` metadata keys place related tasks in separate
+panels while retaining a shared row limit and summary, as used by the TUFLOW runner.
 `validate_dashboard_settings(refresh_per_second=..., max_rows=...)` rejects zero, negative,
 non-finite refresh values and non-positive/non-integer row counts. Validate effective editable
 settings and CLI overrides before side effects; explicit `False` and `0` must not be replaced
@@ -41,7 +43,11 @@ retains at most `max_rows` completed entries and throttles routine redraws.
 Use `set_tasks(labels, metadata=None)`, `mark_running(index=...)`,
 `mark_finished(index=..., status=...)`, `set_phase("Processing")`,
 `set_metrics([...])` and `finish(outcome=..., detail=...)`. Other meaningful phases include
-Discovering, Aggregating and Exporting. A finished input batch is **not** a finished report.
+Discovering, Aggregating and Exporting. Phase text is omitted until a caller sets it;
+existing task-only consumers do not acquire a permanent Queued phase. Phase changes,
+serial task starts and final batch counts render immediately. Routine parallel updates
+remain throttled. Nested processing reuses the outer display so it stays open for export.
+A finished input batch is **not** a finished report.
 Do not announce SUCCESS before output writing completes. `finish` prints one durable summary
 in dashboard mode; with redirected/unsupported-terminal output it is plain text with no
 animated frames, ANSI or required input. `enabled=False` does not draw Live or print the
