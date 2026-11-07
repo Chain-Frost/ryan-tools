@@ -6,7 +6,7 @@
 | Owner | WP12; coordinate numerical, validity and export contracts with WP03, WP04, WP08, WP10 and WP11 |
 | Updated | 2026-11-08 |
 | Next review | 2026-11-15 or after #219's no-data contract is accepted |
-| Delivery | Draft WP12 child PR based on [#251](https://github.com/Chain-Frost/ryan-tools/pull/251); no main merge |
+| Delivery | HU/HD draft [#262](https://github.com/Chain-Frost/ryan-tools/pull/262) based on [#251](https://github.com/Chain-Frost/ryan-tools/pull/251); reporting-point child draft [#269](https://github.com/Chain-Frost/ryan-tools/pull/269) based on #262; no main merge |
 | Tracking | [#237](https://github.com/Chain-Frost/ryan-tools/issues/237), [#236](https://github.com/Chain-Frost/ryan-tools/issues/236), [#240](https://github.com/Chain-Frost/ryan-tools/issues/240), [#212](https://github.com/Chain-Frost/ryan-tools/issues/212) |
 
 ## Decision from the first-delivery investigation
@@ -55,7 +55,24 @@ The original [WP12 child head `69e15789`](https://github.com/Chain-Frost/ryan-to
 
 The WP12 test now binds only the explicitly exercised public TPC interface through a typed Protocol and checks 44 missing NaNs, 137 valid values, and the known levels/maxima with an explicit float32 tolerance. The source PO/POProcessor regression still checks that the legacy source keeps its 44 `-99999` values, documenting the present mismatch rather than masking it. Recheck exact-head hosted Policy and tests before marking this correction accepted. No upstream dependency change or main merge is authorised.
 
-## #236 selected next: reporting-location point water levels
+## 2026-11-08 second delivery — selected reporting-point results (#236)
+
+The implementation is staged as [draft #269](https://github.com/Chain-Frost/ryan-tools/pull/269), targeting #262 (which targets #251), not main. This is a **bounded reporting-point slice only**, not completion of all #236 formats. The prior HU/HD branch was refreshed against the current #251 feature branch by the normal merge commit `db356814`, retaining other work packs' changes and existing WP12 history without a force push.
+
+| Product / source | Current new public reader | Destination / preservation |
+| --- | --- | --- |
+| `_RLP_H.csv` | `RLPHProcessor`, `data_type=RLP_H`, registry `dataformat=PO` | `Time` simulation hours, `Location` reporting-point ID, `Type=Reporting Point Water Level`, signed float64 `Value` and nullable `AbsValue`; labels selected during CSV read |
+| `_RLP_Hmx.csv` | `RLPHmxProcessor`, `data_type=RLP_Hmx` | Source-supplied `Hmax`, `Time Hmax`, `dHmax`, `Time dHmax` and `Q` retained without generating coincident maxima |
+| Python orchestration | `ryan_library.orchestrators.tuflow.reporting_points.main_processing` | Uses existing finder/collection, location selection, dashboard and protected exporter; separate `Water_Level_Series` and `Source_Maxima` sheets/Parquet files |
+| Existing MCP inspection | `inspect_tuflow_result` / `inspect_tuflow_collection` via the registered processor factory | Read-only selected rows; no extra TPC or specialised MCP endpoint |
+
+The source headers and current automated fixture target are the `EG02_013`/`EG02_014` `plot/csv` files at the pinned test-data revision. For `EG02_013`, RL_01 has 181 samples and 22 reserved missing levels, and its **largest printed time-series sample is 42.4816**, whereas the source **Hmax is 42.4817** at 1.2814 hours. `dHmax=100038.01562` is the source value (likely affected by no-data), **not** a newly computed maximum stage or validated physical increase; `Q=-99999` is reserved and becomes missing. In the selected processing path `-99999` and `**********` map to NaN; legitimate negative and zero values remain. Unknown numeric tokens/nonfinite values fail rather than silently becoming observations. Neither a new TPC parser nor a PyTuflow pin change is included.
+
+**Run/report limitations:** The two families retain original run codes; history and source maxima are exported separately, not as two ensemble realisations. The new Python workflow is API-accessible and generic MCP inspection works via the registry; no new copied CLI wrapper or direct integration into the POMM mean/median reports is claimed. The new readers use explicit time/header/location validation but **do not replace WP04's shared #219 validity contract**, and they must not mask accepted cross-format/zero/missing correctness gates. Existing RLL_Qmx (#218), general lines/regions, SQ/SHmx, generic split H/Q/V, loss coefficients, mass balance and native NetCDF/GPKG remain staged or unsupported unless separately selected.
+
+**Validation:** Source-backed and synthetic regression tests are committed in #269, including factory, pre-read location projection, missing/negative/zero/filter/invalid inputs, collection and protected Excel/Parquet readback. Current-head hosted Ruff/strict Pyright, tests, installed-wheel/packaging and documentation checks are required before recording the slice as implemented/accepted. Native Windows/SMB and real large-file selected-read memory remain unverified; coordinate with #228/#229. The full #236 issue remains open.
+
+## #236 selected next: reporting-location point water levels (initial decision)
 
 Select the reporting-location family next, starting with **_RLP_H.csv** (point water-level series) and **_RLP_Hmx.csv** (source-provided maximum and associated fields) using the existing PO-style report consumer. These have genuine EG02_013 source files, and TPC already has reporting-location readers. Reporting point/line/region types and measurement units must stay distinct even if their labels coincide; dHmax, Q and time columns must retain their source associations rather than all becoming independent maxima.
 
@@ -65,7 +82,7 @@ Acceptance before marking either suffix supported: real factory/dispatch, locati
 
 - **Passed source-level review:** current pin, registry, PO/POMM, collection/export, QA/plot and TPC source/API inspection; source-file pair comparisons and independent maxima/sentinel/precision calculations above.
 - **Local authoring limitation:** The changes were made through GitHub's connector on a dedicated branch, not in an actual local Git worktree. No independently verified local Python 3.13 compile is claimed. Windows Python 3.14 hosted compilation/test evidence is tracked separately above.
-- **Executed in hosted Windows Python 3.14 CI on prior head `69e15789`:** Ruff/whitespace, Package (installed/copy smoke), MCP smoke and POSIX wrapper security passed; strict Pyright and one numerical TPC assertion failed as above. The corrected code then passed Ruff, Policy (including strict Pyright), Package, MCP and POSIX on head `525eef1`; hosted regression was still running when this record was updated. Validate the final commit again, and do not infer passing native Windows/SMB acceptance from ordinary CI.
+- **Executed in hosted Windows Python 3.14 CI on prior head `69e15789`:** Ruff/whitespace, Package (installed/copy smoke), MCP smoke and POSIX wrapper security passed; strict Pyright and one numerical TPC assertion failed as above. The corrected HU/HD head `9e375778` passed all six GitHub checks (including Hosted, strict Pyright, Package, Ruff and MCP). Validate the final commit again, and do not infer passing native Windows/SMB acceptance from ordinary CI.
 - **Not run / native:** Windows/SMB/UNC selected-read memory testing, licensed solver checks and any genuine network-output acceptance.
 
-Next action: run the focused regression with a complete Python 3.14 installation and pinned test-data submodule, review its hosted CI result, coordinate #219 with WP04 and #229 with WP11, then take reporting-point integration in a separate reviewable stage. #237 remains open until actual reader/consumer parity and required validity are accepted; broad #236 remains open. Do not merge, release or change the PyTuflow pin.
+Next action: verify final-head #269 hosted CI and real report readback, reconcile source-unit/precision and selected-memory evidence with WP11, and agree the #219 no-data contract with WP04 before declaring full consumer acceptance. #237 remains open until actual reader/consumer parity and required validity are accepted; broad #236 remains open. Do not merge, release or change the PyTuflow pin.

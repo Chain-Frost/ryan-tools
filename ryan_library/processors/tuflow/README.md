@@ -189,6 +189,46 @@ read the `ryan-tools://guidance/tuflow-processors` MCP resource and use `BasePro
 processor factory, collection methods, registry and source locations. Processing is read-only until an export or write
 method is explicitly called.
 
+## Reporting-location point levels
+
+The factory now accepts `*_RLP_H.csv` and `*_RLP_Hmx.csv` for source-provided reporting **points**. These are
+not arbitrary network nodes, reporting lines or reporting regions. The two source products remain separate:
+
+| Suffix | Output schema | Interpretation |
+| --- | --- | --- |
+| `_RLP_H.csv` | `Time`, `Location`, `Type`, `Value`, `AbsValue` | One level sample per point and simulation-hour timestamp. A requested location is selected before CSV columns are materialised. |
+| `_RLP_Hmx.csv` | `Location`, `Type`, `Hmax`, `Time Hmax`, `dHmax`, `Time dHmax`, `Q` | TUFLOW-supplied summary with its own value/time associations; not recomputed independent maxima. |
+
+The source units remain those of the original model (in the pinned metric EG02 examples, levels are metres,
+simulation time is hours). The CSV readers keep printed numerical precision in float64 and treat documented
+`-99999`, `**********` and empty samples as missing, never as hydraulic extrema. Do not infer a coincident
+structure flow from `Q` or `dHmax`. The original source value `dHmax` may itself reflect a dry sentinel;
+retaining the field is not an engineering validity endorsement.
+
+Use the existing protected exporter to produce separate time-series and supplied-summary sheets:
+
+```python
+from pathlib import Path
+
+from ryan_library.orchestrators.tuflow.reporting_points import main_processing
+
+success = main_processing(
+    paths_to_process=[Path("TUFLOW/results/EG02/plot/csv")],
+    include_data_types=["RLP_H", "RLP_Hmx"],
+    locations_to_include=["RL_01"],
+    export_mode="both",
+    use_live_dashboard=False,
+)
+```
+
+This is a Python API rather than a newly supported copied CLI wrapper. Outputs are published under the current
+working directory, and existing report files are not replaced. The generic MCP result-inspection tools can
+inspect both registered types without a new endpoint. `RLP_H` is PO-shaped, but not automatically added to
+a combined PO batch, so no alternate input is silently counted as an additional ensemble event.
+
+The selected scope is tracked in [WP12's living record](../../../docs/work/2026-11-08-wp12-hu-hd-coverage.md);
+other reporting lines/regions, structure SQ/SHmx, 2D split equivalents and general networks are not included.
+
 ## Add a processor-backed data type
 
 ### 1. Choose the appropriate base class
