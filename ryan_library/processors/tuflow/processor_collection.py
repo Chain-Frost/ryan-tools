@@ -941,7 +941,7 @@ class ProcessorCollection:
             raise ValueError(msg)
 
         for processor in self.processors:
-            if destination.exists() and processor.file_path.exists() and destination.samefile(processor.file_path):
+            if destination.exists() and processor.resolved_file_path.exists() and destination.samefile(processor.resolved_file_path):
                 msg = f"HDF5 cache destination aliases a processor source: {destination}"
                 raise ValueError(msg)
 
@@ -973,8 +973,8 @@ class ProcessorCollection:
                         {
                             "hdf_key": name,
                             "sha256": hashlib.sha256(payload).hexdigest(),
-                            "file_path": str(processor.file_path),
-                            "source": self._hdf_source_signature(processor.file_path),
+                            "file_path": str(processor.resolved_file_path),
+                            "source": self._hdf_source_signature(processor.resolved_file_path),
                             "class_name": processor.__class__.__name__,
                             "class_module": processor.__class__.__module__,
                             "processor_module": processor.processor_module,
