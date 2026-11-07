@@ -2,10 +2,10 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Complete; local delivery |
+| Status | Complete; hosted inventory documentation repair awaiting validation |
 | Owner | ChatGPT |
 | Created / Updated | 2026-11-07 |
-| Next review | None |
+| Next review | 2026-11-08 |
 | Git delivery | Committed/pushed on `feat/tlf-ensemble-inference`; open PR [#250](https://github.com/Chain-Frost/ryan-tools/pull/250) targets main |
 
 ## Outcome
@@ -108,3 +108,15 @@ Ruff, strict Pyright, compilation and help pass. Disposable wrapper checks confi
 missing-folder failure and rejection of the removed CLI option. Documentation links and whitespace checks pass.
 Wrapper-only change: shared library and package version remain 26.11.7.13; no package rebuild is required.
 Deliver through existing PR #250; no merge authorized.
+
+## Hosted CI inventory documentation repair, 2026-11-07
+
+GitHub Actions Python CI hosted tests at `cbd525a9` completed with 2,521 passes, 14 skips, 8 deselections
+and two failures in `tests/test_script_inventory.py`. The script inventory documentation remained at 157
+source paths after `ryan-scripts/tuflow/MISSING_RUNS.md` was added. The guide is a repository-only Markdown
+resource: not in the wheel and not an MCP target.
+
+Reconciled the per-file evidence ledger to 158 entries (83 selected, 75 excluded), including the new guide,
+and updated both documentation indexes to match the inventory assertions. Functional code and packaging are
+unchanged. Validate the two inventory tests and then all required checks on the updated PR head; no merge
+is authorized.
