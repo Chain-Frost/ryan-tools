@@ -34,6 +34,19 @@ def _create_minimal_cca_gpkg(path: Path) -> None:
 
         cur.execute(
             """
+            CREATE TABLE gpkg_geometry_columns (
+                table_name TEXT NOT NULL PRIMARY KEY,
+                column_name TEXT NOT NULL,
+                geometry_type_name TEXT NOT NULL,
+                srs_id INTEGER NOT NULL,
+                z TINYINT NOT NULL DEFAULT 0,
+                m TINYINT NOT NULL DEFAULT 0
+            );
+            """
+        )
+
+        cur.execute(
+            """
             CREATE TABLE cc_results_1d_ccA_L (
                 fid INTEGER PRIMARY KEY,
                 geom BLOB,
@@ -56,6 +69,12 @@ def _create_minimal_cca_gpkg(path: Path) -> None:
             """
             INSERT INTO gpkg_contents (table_name, data_type, identifier, srs_id)
             VALUES ('cc_results_1d_ccA_L', 'features', 'cc_results_1d_ccA_L', 4326);
+            """
+        )
+        cur.execute(
+            """
+            INSERT INTO gpkg_geometry_columns (table_name, column_name, geometry_type_name, srs_id)
+            VALUES ('cc_results_1d_ccA_L', 'geom', 'POINT', 4326);
             """
         )
         cur.execute(
@@ -238,3 +257,130 @@ def test_process_exception(tmp_path):
         processor.process()
         assert not processor.processed
         assert processor.df.empty
+
+
+def test_cca_gpkg_reads_committed_wal_with_active_writer(tmp_path: Path, change_cwd) -> None:
+    """Uncheckpointed committed WAL values must take precedence over the base database."""
+    gpkg_path = tmp_path / "Café #1_Results1D.gpkg"
+    _create_minimal_cca_gpkg(gpkg_path)
+    with sqlite3.connect(gpkg_path) as writer:
+        assert writer.execute("PRAGMA journal_mode=WAL").fetchone()[0] == "wal"
+        writer.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        writer.execute("UPDATE cc_results_1d_ccA_L SET pFull_Max = 99")
+        writer.commit()
+
+        original_main = gpkg_path.read_bytes()
+        original_wal = gpkg_path.with_name(gpkg_path.name + "-wal").read_bytes()
+        files_before = set(tmp_path.iterdir())
+        with change_cwd(tmp_path):
+            processor = ccAProcessor(file_path=gpkg_path)
+            processor.process()
+
+        assert processor.processed
+        assert processor.df.loc[0, "pFull_Max"] == 99
+        assert gpkg_path.read_bytes() == original_main
+        assert gpkg_path.with_name(gpkg_path.name + "-wal").read_bytes() == original_wal
+        assert set(tmp_path.iterdir()) == files_before
+
+        writer.execute("BEGIN IMMEDIATE")
+        writer.execute("UPDATE cc_results_1d_ccA_L SET pFull_Max = 150")
+        with change_cwd(tmp_path):
+            next_processor = ccAProcessor(file_path=gpkg_path)
+            next_processor.process()
+        assert next_processor.processed
+        assert next_processor.df.loc[0, "pFull_Max"] == 99
+        writer.rollback()
+
+
+def test_cca_gpkg_locked_writer_fails_with_bounded_wait(tmp_path: Path) -> None:
+    """An exclusive writer must not hang processing or cause a stale fallback."""
+    import time
+
+    path = tmp_path / "Locked_Results1D.gpkg"
+    _create_minimal_cca_gpkg(path)
+    with sqlite3.connect(path) as writer:
+        writer.execute("PRAGMA locking_mode=EXCLUSIVE")
+        writer.execute("BEGIN EXCLUSIVE")
+        writer.execute("UPDATE cc_results_1d_ccA_L SET pFull_Max=77")
+        start = time.monotonic()
+        processor = ccAProcessor(file_path=path)
+        assert processor.process_gpkg().empty
+        assert time.monotonic() - start < 2.5
+        writer.rollback()
+
+
+def test_cca_gpkg_ambiguous_layers_are_rejected(tmp_path: Path) -> None:
+    path = tmp_path / "Ambiguous_Results1D.gpkg"
+    _create_minimal_cca_gpkg(path)
+    with sqlite3.connect(path) as conn:
+        conn.execute("CREATE TABLE other_1d_ccA_L (fid INTEGER PRIMARY KEY, shape BLOB, Channel TEXT)")
+        conn.execute(
+            "INSERT INTO gpkg_contents (table_name, data_type, identifier, srs_id) "
+            "VALUES ('other_1d_ccA_L', 'features', 'other_1d_ccA_L', 4326)"
+        )
+        conn.execute(
+            "INSERT INTO gpkg_geometry_columns (table_name, column_name, geometry_type_name, srs_id) "
+            "VALUES ('other_1d_ccA_L', 'shape', 'POINT', 4326)"
+        )
+    processor = ccAProcessor(file_path=path)
+    assert processor.process_gpkg().empty
+
+
+def test_cca_gpkg_reads_geometry_identity_from_metadata(tmp_path: Path) -> None:
+    """An attribute named geom is retained when the actual geometry column is shape."""
+    path = tmp_path / "Geometry_Results1D.gpkg"
+    _create_minimal_cca_gpkg(path)
+    with sqlite3.connect(path) as conn:
+        conn.execute("ALTER TABLE cc_results_1d_ccA_L RENAME COLUMN geom TO shape")
+        conn.execute("ALTER TABLE cc_results_1d_ccA_L ADD COLUMN geom TEXT")
+        conn.execute("UPDATE gpkg_geometry_columns SET column_name = 'shape'")
+        conn.execute("UPDATE cc_results_1d_ccA_L SET geom = 'ordinary attribute'")
+    processor = ccAProcessor(file_path=path)
+    result = processor.process_gpkg()
+    assert result.loc[0, "geom"] == "ordinary attribute"
+    assert "shape" not in result.columns
+    assert "fid" not in result.columns
+
+
+def test_cca_gpkg_partial_optional_fields_match_dbf_contract(tmp_path: Path) -> None:
+    """Missing optional metrics must not invalidate an otherwise useful ccA layer."""
+    path = tmp_path / "Partial_Results1D.gpkg"
+    with sqlite3.connect(path) as conn:
+        conn.execute("CREATE TABLE gpkg_contents (table_name TEXT, data_type TEXT)")
+        conn.execute("CREATE TABLE gpkg_geometry_columns (table_name TEXT, column_name TEXT)")
+        conn.execute('CREATE TABLE "partial_1d_ccA_L" (fid INTEGER PRIMARY KEY, geometry BLOB, Channel TEXT, pFull_Max REAL)')
+        conn.execute("INSERT INTO gpkg_contents VALUES ('partial_1d_ccA_L', 'features')")
+        conn.execute("INSERT INTO gpkg_geometry_columns VALUES ('partial_1d_ccA_L', 'geometry')")
+        conn.execute("INSERT INTO partial_1d_ccA_L VALUES (1, NULL, 'C1', 2.5)")
+    proc = ccAProcessor(file_path=path)
+    proc.process()
+    assert proc.processed
+    assert proc.df.loc[0, "Chan ID"] == "C1"
+    assert proc.df.loc[0, "pFull_Max"] == 2.5
+    assert "Dur_Sur" not in proc.df.columns
+
+
+def test_cca_gpkg_missing_shm_is_not_created(tmp_path: Path) -> None:
+    """Fail a WAL-only view instead of creating a -shm sidecar."""
+    path = tmp_path / "Sidecar_Results1D.gpkg"
+    _create_minimal_cca_gpkg(path)
+    wal = path.with_name(path.name + "-wal")
+    shm = path.with_name(path.name + "-shm")
+    wal.write_bytes(b"synthetic WAL awaiting writer recovery")
+    assert not shm.exists()
+    processor = ccAProcessor(file_path=path)
+    assert processor.process_gpkg().empty
+    assert wal.read_bytes() == b"synthetic WAL awaiting writer recovery"
+    assert not shm.exists()
+
+
+def test_cca_gpkg_missing_or_replaced_input_is_never_created(tmp_path: Path) -> None:
+    path = tmp_path / "Missing_Results1D.gpkg"
+    processor = ccAProcessor(file_path=path)
+    assert processor._open_sqlite_connection(path) is None
+    assert not path.exists()
+    _create_minimal_cca_gpkg(path)
+    path.unlink()
+    path.write_bytes(b"replacement which is not SQLite")
+    assert processor.process_gpkg().empty
+    assert path.read_bytes() == b"replacement which is not SQLite"
