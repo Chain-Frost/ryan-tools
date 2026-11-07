@@ -54,7 +54,7 @@ def test_init_notebook_logging() -> None:
     mock_configure.assert_any_call(
         console_log_level="INFO",
         log_file=None,
-        file_log_level="DEBUG",
+        file_log_level="INFO",
     )
 
 

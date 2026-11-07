@@ -1,15 +1,27 @@
+> **Current parser pin (7 November 2026):** ryan-tools uses upstream PyTuflow [PR #17](https://github.com/TUFLOW-Support/PyTuflow/pull/17) contribution commit [`887534ea8c15`](https://github.com/Chain-Frost/PyTuflow/commit/887534ea8c15b80d185a38a7ead1d42ab42a7167), built on upstream 1.3.0. The Windows validation completed for #63 is accepted for the tested implementation and will not be repeated solely for the 1.3.0 rebase; current-head hosted integration CI covers the changed package/pin. Historical #63/ryan-tools #235 SHAs below document prior acceptance and are not claimed as tests of the new commit.
+
+> **Update for consolidated PR #235 (2026-11-06):** Historical entries below
+> refer to the earlier PyTuflow #63 commit b1026d0cf72118ef68a0b6229610f427a7284e10.
+> The new accepted integration source is
+> [5360c979a4da577c7eae04a2afded00eb21d5bf9](https://github.com/Chain-Frost/PyTuflow/commit/5360c979a4da577c7eae04a2afded00eb21d5bf9),
+> covering unordered result names, dotted TLF/TPC filenames, network
+> directory-entry identity and implicit override fragment reuse.
+> See [ryan-tools #235](https://github.com/Chain-Frost/ryan-tools/pull/235)
+> and [PyTuflow #63](https://github.com/Chain-Frost/PyTuflow/pull/63).
+> This was a historical #235 acceptance requirement, not an instruction to repeat the completed #63 Windows testing for PR #241.
+
 # TUFLOW runner grouping and live model progress
 
 | Field | Value |
 | --- | --- |
-| Status | PR #205 open; Windows/TUFLOW/SMB checks pass; interactive and Classic acceptance pending |
+| Status | PR #205 merged; override parser repin in PR #211; local validation passes, hosted checks pending |
 | Owner | ChatGPT / local validation agent |
 | Created | 2026-11-04 |
 | Updated | 2026-11-05 |
 | Next review | 2026-11-06 |
 | Baseline | `main` at `ec8734256e33447856b648e02d5fe0c5a5802447` (merged PR #193) |
-| Branch | `feat/tuflow-runner-progress`; targets `main` |
-| Pull request | [#205](https://github.com/Chain-Frost/ryan-tools/pull/205) |
+| Branch | `fix/pytuflow-override-pin`; targets `main` (earlier runner implementation: `feat/tuflow-runner-progress`) |
+| Pull request | [#211 parser repin](https://github.com/Chain-Frost/ryan-tools/pull/211); earlier [#205](https://github.com/Chain-Frost/ryan-tools/pull/205) merged |
 
 ## Outcome and scope
 
@@ -50,7 +62,8 @@ log-based completion, retries, recovery, launch gating, automatic merge or relea
   successful execution. Shared predicted paths are treated as ambiguous.
 - The PyTUFLOW source was updated at the owner's request to the immutable
   [fork PR #63](https://github.com/Chain-Frost/PyTuflow/pull/63) commit
-  `d089afaddde4b533581ebbe068dc38673c98803b`, superseding the prior PR #17 pin
+  `b1026d0cf72118ef68a0b6229610f427a7284e10`, including the #64 override fix and superseding
+  `d089afaddde4b533581ebbe068dc38673c98803b` and the prior PR #17 pin
   `05e35476c02d6d8ed17c83caf1cb0d185ce51d1b`. The public log-folder/output-name API is retained.
   PR #63 remains open and is not an accepted upstream release.
 - Native Windows TUFLOW execution and mapped/UNC continuous-writer checks passed
@@ -397,3 +410,57 @@ returned to draft as the handoff requires while acceptance limits remain.
 There are no inline review threads. The PR description owns the exact final
 documentation commit and its separate terminal hosted results. No merge,
 auto-merge, release or dependency repin is authorized.
+
+## 2026-11-05: authorized override remediation and parser repin
+
+The owner subsequently requested implementation of PyTuflow issue #64, retaining
+all consolidated fixes in the existing PyTuflow PR #63 and creating a new
+immutable parser pin for ryan-tools. This authorizes this repin and PR delivery;
+the earlier session's no-repin boundary remains historical.
+
+- PyTuflow [PR #63](https://github.com/Chain-Frost/PyTuflow/pull/63) is updated and
+  pushed at `b1026d0cf72118ef68a0b6229610f427a7284e10`. The fix parses the selected
+  override once and includes its commands in eager/deferred contexts, preserving
+  the original model name, relative paths, accumulated variables/events and
+  machine-specific precedence. Issue #61's TEF fix remains included.
+- ryan-tools [PR #211](https://github.com/Chain-Frost/ryan-tools/pull/211) updates
+  the source requirement, installer guard, compatibility remedy and current docs
+  together. Four real-parser resolver regressions cover absent, generic,
+  machine-specific and both overrides, and pinned-parser CI runs the resolver
+  suite. Existing advisory timing behavior is retained: conflicting Start/End
+  declarations remain unknown until the solver log supplies effective timing.
+- Local ryan-tools package version is `26.11.5.10`. The verified wheel is ignored
+  under `dist/`; CI builds the declared version from source. It is not published.
+
+Validation against this exact parser archive:
+
+- Python 3.14.6: **115 passed** across resolver, compatibility, input preflight,
+  both installer modules and public example replay. The replay retains all
+  **161/161 TCFs and 174/174 contexts passing**, with strict validation and no
+  historical allowances. The installed distribution reports the exact SHA URL.
+- Parser native Python 3.12.15 / QGIS 4.2.3 / GDAL 3.13.3: **868 passed, 10
+  skipped** across parser, dependency, BC, raster and CRS checks. Skips are
+  platform-specific or require unavailable Windows symlink privileges.
+- Parser wheel built from the source distribution: **21 installed native
+  override/TEF tests passed**. Its modified modules match the committed source.
+- ryan-tools installed wheel: package/resource/CLI/copied-wrapper smoke passed;
+  **4 real resolver override cases passed outside the checkout**, importing both
+  libraries from isolated installed locations. Existing vendored similarity
+  smoke emits a `ComplexWarning` and completes successfully.
+- Ruff 0.16.6 lint/format, strict Pyright on all five changed Python files,
+  documentation links and `git diff --check` pass.
+
+Evidence is retained outside the repositories under
+`E:/validation/pytuflow-issue64-20261105/`: `final-native.log`,
+`final-installed-native.log`, `consumer-final.log`,
+`example-reports-final/results.json`, `ryan-final-build.log`,
+`ryan-installed-smoke-final.log` and `installed-resolver.log`.
+Python 3.14 validation preloads h5py before pytest to avoid the existing native
+DLL import-order problem; no global package environment was changed.
+
+Delivery: implementation commit `4b5690f7` and this evidence update are on the
+consumer PR branch. All nine final-head hosted checks are pending at this
+milestone; inspect their terminal results before approval. PyTuflow #63 reports
+no hosted checks. Both PRs remain open and unmerged; no solver, upstream PR,
+auto-merge or package publication is part of this update. Next action: review
+the final-head CI and both PRs. Next review: 2026-11-06.

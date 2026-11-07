@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, NamedTuple, cast
 
-WRAPPER_VERSION = "2026-10-16.1"
+WRAPPER_VERSION = "2026-11-07.1"
 
 DEFAULT_WORKING_DIR = Path()
 DEFAULT_CURRENT_RASTERS: list[Path] = [Path("MDHR_01.0p_0360m_TP10_Post_v03_d_HR_Max.tif")]
@@ -174,7 +174,11 @@ def main(args: argparse.Namespace, *, working_directory: Path | None = None) -> 
     target_directory = (working_directory or DEFAULT_WORKING_DIR).absolute()
     if not change_working_directory(target_dir=target_directory):
         return 1
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="TUFLOW-python/raster_processing/calculate_raster_differences.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+    )
     configuration = resolve_configuration(args)
 
     if not Path(configuration.subtract_raster).is_file():
@@ -231,7 +235,12 @@ def _parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
 if __name__ == "__main__":
     cli_args = _parse_cli_arguments()
     result = main(cli_args)
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+    print_wrapper_banner(
+        wrapper_source="TUFLOW-python/raster_processing/calculate_raster_differences.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        leading_blank_line=True,
+    )
     if resolve_configuration(cli_args).pause:
         pause_console(collect_before_pause=True)
     raise SystemExit(result)

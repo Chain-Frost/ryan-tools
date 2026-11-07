@@ -38,7 +38,10 @@ are removed alongside their `.gitmodules` entries; do not reintroduce them or lo
 - Format Python with `ruff format` using the 120-character line length configured in `ruff.toml`.
 - Run Pyright in strict mode only on modified Python files.
 - Add type annotations to public functions and methods.
-- Preserve unrelated worktree and submodule changes. Do not stage or commit unless explicitly asked.
+- Preserve unrelated worktree and submodule changes. Stage and commit task-related changes when appropriate without
+  requiring a separate request. After making a task-related commit, pushing it to the appropriate GitHub branch is
+  permitted without a separate request. Respect explicit user restrictions on commits or pushes; do not force-push
+  or push unrelated commits. Merge only when explicitly instructed by the user.
 
 ### Filesystem paths
 
@@ -58,7 +61,8 @@ are removed alongside their `.gitmodules` entries; do not reintroduce them or lo
 - Log visibility is controlled by sink levels, not by eager versus parameterized message formatting. Do not treat
   `SUCCESS` as a formatting exception.
 - Standalone scripts and wrappers own user configuration and logging setup; orchestrators may coordinate library workflows but reusable functions and processors do not configure process logging.
-- Use console level `SUCCESS` for concise AI/MCP output while retaining detailed records in a `DEBUG` file sink.
+- Use console level `SUCCESS` for concise AI/MCP output. File sinks default to `INFO`; select `DEBUG` explicitly
+  when detailed diagnostics are needed, and preserve those records independently of console visibility.
 - Notebook logging must be safe to reconfigure when cells are rerun and must not require multiprocessing.
 - Do not expose internal helper names in user-facing output.
 - Run `python repo-scripts/check_loguru_formatting.py` after changing Loguru calls. See `docs/LOGGING.md` for the full
@@ -126,7 +130,7 @@ supported and state that a maintainer must rebuild the wheel locally. Use `--no-
 current declared version; it must not modify `pyproject.toml`.
 
 After a local build, inspect Git status for version, wheel and index changes. Preserve working-tree changes and do not
-leave files staged unless the user asked for staging or a commit.
+leave files staged unless they are part of an intentional task-related staging or commit operation.
 
 ## Environment notes
 
@@ -199,7 +203,8 @@ nearest local README or workflow document when it defines a more specific contra
   Keep one authoritative status record per work front, normally a dated file under `docs/work/`, and register it.
 - Before handing back unfinished work, and at milestones, blockers or completion, update the record and register row
   with current status, next action, validation evidence, Git delivery state and next review date. Preserve unrelated
-  records and staged changes. Do not stage or commit just to save a handoff.
+  records and staged changes. Commit task-related handoff updates when appropriate; merge only when explicitly
+  instructed by the user.
 - Link new records directly from [`docs/README.md`](docs/README.md). Local READMEs and the repository roadmap should
   point to the record where useful, rather than duplicate its session history. Small completed fixes need no new file.
 

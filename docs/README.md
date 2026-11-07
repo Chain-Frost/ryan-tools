@@ -36,6 +36,7 @@ rg -n -i "search terms" -g "*.md" -g "!unsorted/**" -g "!run-hy8 (PyPI)/**" -g "
 | [Work tracking](WORK_TRACKING.md) | Recording concurrent projects, resumable handoffs and review dates | Canonical status and handoff convention |
 | [Development and execution environments](ENVIRONMENTS.md) | Selecting Python, VS Code, installed-wheel, QGIS/OSGeo4W or headless execution | Canonical environment guide |
 | [Logging guide](LOGGING.md) | Changing Loguru configuration, message formatting, multiprocessing or notebook logging | Canonical logging contract |
+| [Batch dashboard standard](DASHBOARDS.md) | Presenting batch workflow states, optional measures, diagnostics and outcomes | Canonical dashboard contract |
 | [Ryan Scripts guide](../ryan-scripts/README.md) | Choosing and safely running scripts, including the minimal standalone script standard | Canonical script-selection and standalone-script guidance |
 | [Maintained wrapper standard](../ryan-scripts/WRAPPER_STANDARD.md) | Creating or changing a maintained library-backed wrapper | Canonical maintained-wrapper contract |
 
@@ -45,6 +46,7 @@ These documents stay near the code they describe so that browsing a target direc
 
 | Area | Local document | Relevant work |
 | --- | --- | --- |
+| Missing TUFLOW runs | [Filename ensemble inference](../ryan-scripts/tuflow/MISSING_RUNS.md) | Folder scanning, inferred scenario/event permutations and reporting limits |
 | Culvert analysis/design | [Culvert analysis and design workflow](CULVERT_WORKFLOW.md) | Project/scenario models, solver boundary, design search, rating curves, CLI and output contracts |
 | TUFLOW culvert engines | [Selectable TUFLOW culvert engines](TUFLOW_CULVERT_ENGINES.md) | TUFLOW Maximums/1d_nwk ingestion, HY-8 vs ryan-culverts dispatch, output and ownership boundaries |
 | TUFLOW processors | [Processor development notes](../ryan_library/processors/tuflow/README.md) | Processor lifecycle, collections, combinations, filtering, caching and extension |
@@ -101,6 +103,11 @@ but they are not current architectural policy when they conflict with the canoni
 
 | Document | Scope and status |
 | --- | --- |
+| [Missing TLF ensemble inference](work/2026-11-07-missing-tlf-ensembles.md) | Folder inference implementation, local validation and delivery |
+| [Dashboard defaults and background file properties](work/2026-11-07-dashboard-file-properties.md) | Shared presentation defaults, nonblocking file-size metadata and preserved legacy banner calls |
+| [Offline wrapper revision warnings](work/2026-11-07-wrapper-version-warnings.md) | Shared installed-package comparison, stable script identities and maintained-script rollout |
+| [Batch dashboard foundation](work/2026-11-01-batch-dashboard-foundation-180.md) | #180 stacked PR 1: shared batch display/diagnostics, optional workflow metrics, log-summary reference and concrete consumer handoff |
+| [TUFLOW result dashboard adoption](work/2026-11-01-tuflow-result-dashboards-180.md) | #180 stacked PR 2: scope six result wrappers immediately, wait for the implemented foundation, then integrate and validate |
 | [RORB reader audit and MCP scope](work/2026-11-05-rorb-readers-mcp.md) | Current functions/scripts, supplied-file evidence, parser reliability gaps and staged read-only MCP requirements |
 | [RORB reader API and format limits](../ryan_library/functions/RORB/README.md) | Strict source-preserving readers, explicit partial formats, associations, time comparisons and DataFrame migration |
 | [TUFLOW proposed-run input preflight](work/2026-10-21-tuflow-input-preflight.md) | PR #143 read-only PyTUFLOW checks, integrated simulation preflight and standalone wrapper; merged as bcc8e5c, with separate follow-up records |
@@ -108,6 +115,7 @@ but they are not current architectural policy when they conflict with the canoni
 | [TUFLOW runner model checks](work/2026-10-23-tuflow-runner-model-checks.md) | PR #159 current decisions, implementation, validation and delivery state |
 | [TUFLOW GPU availability alerts and CodeMeter validation](work/2026-11-03-tuflow-gpu-alerts-193.md) | PR #193 implementation, measured evidence, validation and delivery state |
 | [TUFLOW runner grouping and model progress](work/2026-11-04-tuflow-runner-progress.md) | New runner PR, PyTUFLOW filename prediction, bounded live-log observations and local acceptance |
+| [PyTuflow #63 and runner #235 local acceptance](work/2026-11-06-pytuflow-63-ryan-235-local-validation.md) | Current-model 390-run timing, native correctness, mapped/UNC safety, wrapper refresh and remaining hardware/policy gates |
 | [Live dashboard logging regression](work/2026-11-03-live-dashboard-logging.md) | Default stdout routing for older copied runners, regression evidence and PR delivery |
 | [TUFLOW scope index](work/2026-10-31-tuflow-integration-scopes/00_scope_index.md) | Agreed shared decisions, ownership, dependencies and delegation order for #159 and follow-ups |
 | [TUFLOW scope 01: PyTUFLOW integration](work/2026-10-31-tuflow-integration-scopes/01_pytuflow_integration.md) | Sole PR17 API, capability guard, existing installer, local raster removal and obsolete-path retirement |
@@ -120,7 +128,7 @@ but they are not current architectural policy when they conflict with the canoni
 | [Installed scripts and distribution rename](work/2026-10-18-installed-scripts.md) | PR #120 wheel scripts, automatic MCP resolution, removed import shim and PyPI name migration |
 | [Installed scripts and MCP requirements](work/2026-10-17-installed-scripts-mcp-pip-distribution.md) | PR #130/#137: corrected wrapper copying, provisional packaging and outstanding engineering acceptance |
 | [Original script distribution requirements](audits/2026-10-17-installed-scripts-original-requirements.md) | Preserved original A–F requirements |
-| [Installed script inventory](audits/2026-10-19-installed-scripts-inventory.md) | All 156 source paths; 83 selected and 73 excluded; lifecycle sign-off outstanding |
+| [Installed script inventory](audits/2026-10-19-installed-scripts-inventory.md) | All 158 source paths; 83 selected and 75 excluded; lifecycle sign-off outstanding |
 | [Script remediation backlog](audits/2026-10-22-script-remediation-backlog.md) | 47 AB items: open/deferred work plus accepted-closed HY-8 evidence (AB-023); triaged safety, engineering and lifecycle tasks |
 | [Fast PR checks and hosted timing](work/2026-10-17-fast-pr-checks-129.md) | PR #129 implementation, exact-head hosted validation, timing evidence and remaining Python-change exercise |
 | [Mapped-drive-safe filesystem paths and raster progress](work/2026-10-16-absolute-path-policy.md) | PR #128 path policy, multiline raster progress, retained-wheel rebuild blocker and validation handoff |
@@ -171,3 +179,8 @@ but they are not current architectural policy when they conflict with the canoni
 
 Run `python repo-scripts/check_documentation.py` after changing the documentation structure. Its default run checks the
 main README links and paths and verifies that every tracked Markdown document is linked from this index.
+
+- [Report export safety](../ryan_library/functions/excel_export.md): shared Excel/Parquet/CSV output policy.
+- [Shared result export safety work](work/2026-11-04-result-export-safety-194.md): issue #194 implementation and validation.
+- [Office utility guide](../ryan-scripts/misc-python/README.md): safe workbook-copy behavior.
+- [Office protection safety work](work/2026-11-04-office-protection-safety-199.md): issue #199 implementation and validation.

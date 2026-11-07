@@ -8,7 +8,7 @@ Users can define custom QML overrides in the `user_qml_overrides` dictionary wit
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-16.1"
+WRAPPER_VERSION = "2026-11-07.1"
 
 CONSOLE_LOG_LEVEL = "INFO"
 WORKING_DIR: Path = Path(__file__).absolute().parent
@@ -43,7 +43,11 @@ def main(*, console_log_level: str | None = None, working_directory: Path | None
     initializes the logger, and applies the configured styles using `TUFLOWResultsStyler`.
     It handles basic error logging and keeps the console window open upon completion/error.
     """
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="TUFLOW-python/gis_processing/apply_qgis_styles_to_results.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+    )
     try:
         with setup_logger(console_log_level=console_log_level or CONSOLE_LOG_LEVEL):
             script_location: Path = working_directory or WORKING_DIR
@@ -76,6 +80,7 @@ if __name__ == "__main__":
         working_directory=common_options.working_directory,
     )
     print_wrapper_banner(
+        wrapper_source="TUFLOW-python/gis_processing/apply_qgis_styles_to_results.py",
         wrapper_file=Path(__file__),
         wrapper_version=WRAPPER_VERSION,
         leading_blank_line=True,

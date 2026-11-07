@@ -93,6 +93,16 @@ applied_locations = collection.filter_locations(["Culvert_01", "Culvert_02"])
 ```
 
 Repeated application of the same normalised filter is skipped by processors that already record it.
+The filter uses `Location` when present, otherwise the first available identifier declared by the processor
+(normally `Chan ID` for culvert results). It operates on processed rows, so Nmx upstream/downstream node IDs
+have already been converted to their channel IDs. Matching is exact after trimming whitespace for comparison;
+the retained identifier values, DataFrame types and numerical results are preserved. An empty selection applies
+no additional filtering.
+
+Before selecting rows, the collection aligns shortened EOF labels against its complete, unfiltered set of
+channel references. Ambiguous labels remain literal. Once an EOF processor has been selected, later combination
+or repeated filtering does not reinterpret its labels against a reduced reference set; removing a conflicting
+channel must not make an ambiguous label appear unambiguous.
 
 ## Compact repeated path metadata
 

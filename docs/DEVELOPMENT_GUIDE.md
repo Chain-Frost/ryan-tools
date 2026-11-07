@@ -118,7 +118,9 @@ name and value need **no adjacent comment or docstring** when the user can
 reliably infer the purpose and valid edits. Add concise comments or one shared
 note for non-obvious choices, units, `None` semantics, path bases,
 interdependencies and risks. Complex settings benefit from copy-ready examples
-(e.g. a raw Windows `Path` or an old/new directory mapping tuple). Destructive
+(e.g. a raw Windows `Path` or an old/new directory mapping list). Editable
+collections use lists, including nested groups; convert to immutable internal
+types after resolving overrides. Destructive
 or costly effects and safeguards must remain explicit. CLI overrides
 take precedence even when explicitly set to `False` or `0`. Shipped values
 remain safe; a deliberate edit may opt into costly behaviour without bypassing

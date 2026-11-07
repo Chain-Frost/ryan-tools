@@ -9,6 +9,7 @@ import json
 import os
 import subprocess
 from collections.abc import Iterator
+from threading import Event
 from typing import Any
 
 import pytest
@@ -22,19 +23,70 @@ def active_licences(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.mark.parametrize("usage", [False, None])
-def test_zero_or_unverified_licence_usage_skips_all_process_inspection(
+def test_zero_or_unverified_licence_usage_ignores_parallel_process_scan_without_waiting(
     monkeypatch: pytest.MonkeyPatch, usage: bool | None
 ) -> None:
-    monkeypatch.setattr(gpu_occupancy, "tuflow_licences_in_use", lambda: usage)
+    scan_started = Event()
+    release_scan = Event()
+    scan_finished = Event()
 
-    def forbidden(**_kwargs: object) -> None:
-        pytest.fail("CodeMeter zero/unverified usage must not enumerate processes")
+    def scan(_exclude_pids: object) -> gpu_occupancy.GpuOccupancySnapshot:
+        scan_started.set()
+        try:
+            release_scan.wait(timeout=1.0)
+            return gpu_occupancy.GpuOccupancySnapshot((gpu_occupancy.TuflowGpuProcess(123, frozenset({0})),), ())
+        finally:
+            scan_finished.set()
 
-    monkeypatch.setattr(gpu_occupancy.psutil, "process_iter", forbidden)
+    def read_codemeter() -> bool | None:
+        assert scan_started.wait(timeout=1.0), "CodeMeter and process inspection must overlap"
+        return usage
+
+    monkeypatch.setattr(gpu_occupancy, "_inspect_local_gpu_processes", scan)
+    monkeypatch.setattr(gpu_occupancy, "tuflow_licences_in_use", read_codemeter)
+    try:
+        result = gpu_occupancy._local_gpu_occupancy(())
+        # The scanner is still waiting here: the fast path must not join it.
+        assert not scan_finished.is_set()
+        assert result.assigned == ()
+        assert result.unknown_pids == ()
+        assert result.inspection_incomplete is (usage is None)
+        assert "inspection ignored" in result.detail
+    finally:
+        release_scan.set()
+    assert scan_finished.wait(timeout=1.0)
+
+
+def test_active_licence_waits_for_parallel_process_scan(monkeypatch: pytest.MonkeyPatch) -> None:
+    scan_started = Event()
+    release_scan = Event()
+    expected = gpu_occupancy.GpuOccupancySnapshot((gpu_occupancy.TuflowGpuProcess(99, frozenset({1})),), ())
+
+    def scan(_exclude_pids: object) -> gpu_occupancy.GpuOccupancySnapshot:
+        scan_started.set()
+        assert release_scan.wait(timeout=1.0)
+        return expected
+
+    def read_codemeter() -> bool:
+        assert scan_started.wait(timeout=1.0), "GPU scan must start before CodeMeter finishes"
+        release_scan.set()
+        return True
+
+    monkeypatch.setattr(gpu_occupancy, "_inspect_local_gpu_processes", scan)
+    monkeypatch.setattr(gpu_occupancy, "tuflow_licences_in_use", read_codemeter)
+    assert gpu_occupancy._local_gpu_occupancy(()) == expected
+
+
+def test_active_licence_process_scan_failure_is_uncertain(monkeypatch: pytest.MonkeyPatch) -> None:
+    def broken_scan(_exclude_pids: object) -> gpu_occupancy.GpuOccupancySnapshot:
+        message = "synthetic process scan failure"
+        raise RuntimeError(message)
+
+    monkeypatch.setattr(gpu_occupancy, "_inspect_local_gpu_processes", broken_scan)
     result = gpu_occupancy._local_gpu_occupancy(())
-    assert result.assigned == ()
-    assert result.unknown_pids == ()
-    assert result.inspection_incomplete is (usage is None)
+    assert not result.assigned
+    assert result.inspection_incomplete
+    assert "GPU process inspection failed (RuntimeError)" in result.detail
 
 
 def test_extract_gpu_ids_and_find_conflicts() -> None:
@@ -203,7 +255,7 @@ def test_optional_check_has_one_budget_and_fails_without_blocking(
     monkeypatch: pytest.MonkeyPatch, failure: str
 ) -> None:
     def run(args: list[str], **options: Any) -> subprocess.CompletedProcess[str]:
-        assert 0 < options["timeout"] < 1.0
+        assert options["timeout"] == pytest.approx(1.9)
         assert json.loads(args[3]) == [7, 8]
         assert options["stderr"] == subprocess.DEVNULL
         if failure == "timeout":

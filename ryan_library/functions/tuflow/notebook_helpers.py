@@ -89,7 +89,7 @@ def init_notebook_logging(
     level: str = DEFAULT_NOTEBOOK_LOG_LEVEL,
     *,
     log_file: str | None = None,
-    file_log_level: str = "DEBUG",
+    file_log_level: str = "INFO",
 ) -> None:
     """Configure loguru for clean notebook output.
 

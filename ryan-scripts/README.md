@@ -36,6 +36,10 @@ experimental, vendored or versioned legacy files solely because they exist.
    (`YYYY-MM-DD.N`) near the top; identify the actual script/version when run,
    without relying on file modification times. An argparse `--version` is useful.
    Library-backed wrappers report both script and installed `ryan-tools` versions.
+   All maintained scripts use the shared offline installed-script revision warning
+   when `ryan-tools` is available; standalone scripts retain an optional import
+   and a local identity fallback. Preserve the original script identity after
+   renaming a copy. See the [revision comparison contract](WRAPPER_STANDARD.md#embedded-identity).
 2. **Complete editable configuration:** expose **every operational CLI
    option** as a visible, editable setting near the top, including modes,
    paths, output/write controls, logging and pause behaviour. Names are chosen
@@ -44,6 +48,9 @@ experimental, vendored or versioned legacy files solely because they exist.
    CLI arguments override the editable defaults in either direction;
    parser omission must remain distinguishable from an explicit `False`,
    `0` or empty value. Built-in `--help` and `--version` are exempt.
+   Use lists for editable collections, including nested groups and optional
+   inputs; normalize to immutable internal types after resolving overrides.
+   Preserve the documented meaning of `None` and empty lists.
    No per-setting comment or docstring is required when a clear name,
    value and nearby context make its purpose and valid edits reliably obvious.
    Use short comments or a shared note only for information the user cannot
@@ -127,7 +134,7 @@ It supports two editable/CLI audit modes:
   be slow or chargeable; empty files cannot provide a byte.
 
 Both scripts support explicit mapped-drive aliases. Set
-`DEFAULT_DRIVE_MAPPINGS = (("Q:", r"\\server\share"),)` or supply
+`DEFAULT_DRIVE_MAPPINGS = [["Q:", r"\\server\share"]]` or supply
 `--drive-map Q: '\\server\share'` (repeat the option for other drives).
 This treats Q:\Data\roads.gpkg and \\server\share\Data\roads.gpkg
 as equivalent for root substitution and duplicate-file detection. Each

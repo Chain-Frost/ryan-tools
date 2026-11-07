@@ -3,9 +3,10 @@
 from collections.abc import Sequence
 from pathlib import Path
 from typing import cast
-from unittest.mock import Mock, patch
+from unittest.mock import ANY, Mock, patch
 
 import pandas as pd
+import pytest
 
 from ryan_library.orchestrators.tuflow._combination_workflow import CombinationExporter, execute_combination_workflow
 from ryan_library.orchestrators.tuflow.po_combine import export_results as export_po_results
@@ -31,7 +32,8 @@ class _PommResults:
         return pd.DataFrame(data={"POMM": [1]})
 
 
-def test_shared_workflow_routes_results_to_supplied_public_exporter() -> None:
+@pytest.mark.parametrize("use_live_dashboard", [False, True])
+def test_shared_workflow_routes_results_to_supplied_public_exporter(use_live_dashboard: bool) -> None:
     """Processed results flow back through the domain module's public exporter."""
 
     results = ProcessorCollection()
@@ -56,9 +58,13 @@ def test_shared_workflow_routes_results_to_supplied_public_exporter() -> None:
             context_name="PO combination",
             export_results=cast("CombinationExporter", exporter),
             export_mode="both",
+            use_live_dashboard=use_live_dashboard,
         )
 
-    exporter.assert_called_once_with(results=results, export_mode="both")
+    if use_live_dashboard:
+        exporter.assert_called_once_with(results=results, export_mode="both", dashboard=ANY)
+    else:
+        exporter.assert_called_once_with(results=results, export_mode="both")
 
 
 def test_po_export_results_delegates_to_shared_exporter() -> None:

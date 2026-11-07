@@ -17,7 +17,7 @@ from pathlib import Path
 
 # ==============================================================================
 # WRAPPER IDENTITY
-WRAPPER_VERSION = "2026-11-02.1"
+WRAPPER_VERSION = "2026-11-07.2"
 
 # EDITABLE DEFAULTS
 DEFAULT_INPUT = Path()
@@ -30,7 +30,7 @@ DEFAULT_MAX_PART_SIZE_GIB: int | None = None  # None = one unsplit .7z; use 5 fo
 DEFAULT_DRY_RUN = False
 DEFAULT_CONSOLE_LOG_LEVEL = "INFO"
 DEFAULT_LOG_FILE: Path | None = Path("archive_compress_individual.log")
-DEFAULT_FILE_LOG_LEVEL = "DEBUG"
+DEFAULT_FILE_LOG_LEVEL = "INFO"
 DEFAULT_PAUSE_ON_FINISH = True
 # ==============================================================================
 
@@ -273,7 +273,11 @@ def _parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
 
 if __name__ == "__main__":
     args: argparse.Namespace = _parse_cli_arguments()
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="file-management-python/archive_compress_individual.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+    )
 
     configured_log = None if args.no_log_file else args.log_file if args.log_file is not None else DEFAULT_LOG_FILE
     log_file = str(configured_log.absolute()) if configured_log is not None else None
@@ -298,6 +302,7 @@ if __name__ == "__main__":
             result = 1
 
     print_wrapper_banner(
+        wrapper_source="file-management-python/archive_compress_individual.py",
         wrapper_file=Path(__file__),
         wrapper_version=WRAPPER_VERSION,
         leading_blank_line=True,

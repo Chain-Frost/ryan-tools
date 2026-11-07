@@ -16,20 +16,20 @@ Examples:
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-16.1"
+WRAPPER_VERSION = "2026-11-07.2"
 
 CONSOLE_LOG_LEVEL = "INFO"  # or "DEBUG"
 # Toggle to include the combined POMM sheet in the Excel export.
 INCLUDE_POMM: bool = False
-# Update this tuple to restrict processing to specific PO/Location values.
+# Update this list to restrict processing to specific PO/Location values.
 # Leave empty to include every location found in the POMM files.
-LOCATIONS_TO_INCLUDE: tuple[str, ...] = ()
+LOCATIONS_TO_INCLUDE: list[str] = []
 # Toggle which data types are included; defaults cover POMM peaks and RLL_Qmx.
-INCLUDE_DATA_TYPES: tuple[str, ...] = ("POMM", "RLL_Qmx")
+INCLUDE_DATA_TYPES: list[str] = ["POMM", "RLL_Qmx"]
 # Change the working directory
 WORKING_DIR: Path = Path(__file__).absolute().parent
 # Optional explicit folder roots to scan. If left empty, the wrapper scans WORKING_DIR recursively.
-PATHS_TO_PROCESS: tuple[Path, ...] = ()
+PATHS_TO_PROCESS: list[Path] = []
 # WORKING_DIR: Path = Path(r"E:\path\to\custom\directory")
 
 import argparse
@@ -67,16 +67,22 @@ def main(
         paths_to_process: Explicit folder roots to scan for result files.
         working_directory: Overrides the default WORKING_DIR.
     """
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="TUFLOW-python/po_and_timeseries/create_pomm_mean_peak_report.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+    )
     target_directory: Path = (working_directory or WORKING_DIR).absolute()
     if not change_working_directory(target_dir=target_directory):
         return 1
 
-    effective_data_types: tuple[str, ...] = INCLUDE_DATA_TYPES if include_data_types is None else include_data_types
-    effective_locations: tuple[str, ...] = (
+    effective_data_types: tuple[str, ...] = tuple(
+        INCLUDE_DATA_TYPES if include_data_types is None else include_data_types
+    )
+    effective_locations: tuple[str, ...] = tuple(
         LOCATIONS_TO_INCLUDE if locations_to_include is None else locations_to_include
     )
-    effective_paths: tuple[Path, ...] = PATHS_TO_PROCESS if paths_to_process is None else paths_to_process
+    effective_paths: tuple[Path, ...] = tuple(PATHS_TO_PROCESS if paths_to_process is None else paths_to_process)
 
     try:
         export_mean_peak_report(
@@ -123,6 +129,7 @@ if __name__ == "__main__":
         working_directory=common_options.working_directory,
     )
     print_wrapper_banner(
+        wrapper_source="TUFLOW-python/po_and_timeseries/create_pomm_mean_peak_report.py",
         wrapper_file=Path(__file__),
         wrapper_version=WRAPPER_VERSION,
         leading_blank_line=True,

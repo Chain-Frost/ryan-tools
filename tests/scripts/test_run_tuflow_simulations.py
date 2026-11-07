@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import logging
 import os
 import runpy
 import signal
@@ -12,6 +13,7 @@ import sys
 from collections.abc import Callable, Sequence
 from contextlib import AbstractContextManager
 from datetime import datetime
+from io import StringIO
 from pathlib import Path
 from threading import Event
 from typing import Protocol, cast
@@ -20,8 +22,18 @@ import pytest
 from loguru import logger
 
 from ryan_library.functions.tuflow.command_plan import CommandPlan, PlannedRun
+from ryan_library.functions.tuflow.execution_history import CsvExecutionLog
+from ryan_library.functions.tuflow.runner_settings import OP
 from ryan_library.functions.tuflow.runner_user_inputs import choice
-from ryan_library.orchestrators.tuflow.simulation_runner import BatchOutcome, RunnerSettings, RunOutcome, prepare_plan
+from ryan_library.orchestrators.tuflow import command_preflight, simulation_workflow
+from ryan_library.orchestrators.tuflow.command_preflight import CommandPreflightReport
+from ryan_library.orchestrators.tuflow.simulation_runner import (
+    AdvisoryInputCheck,
+    BatchOutcome,
+    RunnerSettings,
+    RunOutcome,
+    prepare_plan,
+)
 
 
 class _RunnerWrapper(Protocol):
@@ -77,7 +89,7 @@ def test_configured_export_only_operation_and_cli_override(
     def forbid(*_args: object, **_kwargs: object) -> None:
         pytest.fail("Export-only attempted to launch a solver")
 
-    monkeypatch.setattr(module, "launch_plan", forbid)
+    monkeypatch.setattr(simulation_workflow, "launch_plan", forbid)
     args = ["--mode", "textfiles", "--input-file", str(source), "--no-tcf", "--no-pause"]
     assert wrapper.main(args) == 0
     output = capsys.readouterr().out
@@ -88,10 +100,10 @@ def test_configured_export_only_operation_and_cli_override(
     assert "Simulation plan: 1 unique runs" in output
     assert "Run 001: -b -e1 A" in output
     assert "source models.bat:1" in output
-    assert "\x1b[90m  BATCH_COMMANDS: -b\x1b[0m" in output
-    assert "\x1b[36m  OPERATION: export_only\x1b[0m" in output
-    assert "\x1b[32m" in output
-    assert "\x1b[1mEditable commands exported to" in output
+    assert "  BATCH_COMMANDS: -b" in output
+    assert "  OPERATION: export_only" in output
+    assert "\x1b[" not in output  # Captured output is non-interactive.
+    assert "Editable commands exported to" in output
     assert Path(wrapper.__file__).with_suffix(".txt").is_file()
     assert not Path(wrapper.__file__).with_name("run_tuflow_simulations_runs.csv").exists()
 
@@ -99,6 +111,48 @@ def test_configured_export_only_operation_and_cli_override(
     # solver then fails before writing a continuation CSV.
     assert wrapper.main([*args, "--run-simulations"]) == 1
     assert not Path(wrapper.__file__).with_name("run_tuflow_simulations_runs.csv").exists()
+
+
+@pytest.mark.parametrize("terminal", [False, True])
+def test_wrapper_preserves_terminal_log_colours_without_colouring_redirected_output(
+    tmp_path: Path,
+    wrapper: _RunnerWrapper,
+    monkeypatch: pytest.MonkeyPatch,
+    terminal: bool,
+) -> None:
+    """Exercise the copied wrapper's actual logger configuration, without a solver."""
+    source = _source(tmp_path)
+    stream = StringIO()
+    monkeypatch.setattr(stream, "isatty", lambda: terminal)
+    monkeypatch.setattr(sys, "stdout", stream)
+    try:
+        assert (
+            wrapper.main(
+                [
+                    "--working-directory",
+                    str(tmp_path),
+                    "--mode",
+                    "textfiles",
+                    "--input-file",
+                    str(source),
+                    "--no-tcf",
+                    "--export-only",
+                    "--no-pause",
+                ]
+            )
+            == 0
+        )
+    finally:
+        logger.remove()
+    output = stream.getvalue()
+    assert "OPERATION: export_only" in output
+    assert "Export-only: no solver processes, GPU scan or input checking." in output
+    if terminal:
+        assert "\x1b[36m  OPERATION: export_only" in output
+        assert "\x1b[90m  CONSOLE_LOG_LEVEL: INFO" in output
+        assert "\x1b[32m" in output  # SUCCESS keeps its green terminal styling.
+    else:
+        assert "\x1b[" not in output
 
 
 def test_editable_settings_and_cli_precedence(
@@ -383,12 +437,17 @@ def test_missing_optional_paths_warn_once_each_not_fail_planning(
     monkeypatch.setattr(module, "NEXT_RUN_FILE", "follow_up.py")
     monkeypatch.setattr(module, "RUN_VARIABLES_RAW", {"e1": ["A", "B"]})
     settings = _settings_from_wrapper(wrapper)
-    plan = prepare_plan(settings)
     warnings: list[str] = []
     sink = logger.add(warnings.append, level="WARNING", format="{message}")
-    check = cast(Callable[[CommandPlan, RunnerSettings], None], module.__dict__["_warn_optional_file_paths"])
+    controls = simulation_workflow.WorkflowControls(operation=OP.PREFLIGHT_ONLY, export_commands=False)
+
+    def checked(_plan: CommandPlan) -> bool:
+        return True
+
+    monkeypatch.setattr(simulation_workflow, "check_plan_only", checked)
     try:
-        check(plan, settings)
+        outcome = simulation_workflow.run_simulation_workflow(settings, controls, follow_up=Path("follow_up.py"))
+        assert outcome.preflight_passed is True
         assert sum("TCF not found" in warning for warning in warnings) == 1
         assert sum("TUFLOW_EXE not found" in warning for warning in warnings) == 1
         assert sum("NEXT_RUN_FILE not found" in warning for warning in warnings) == 1
@@ -397,7 +456,8 @@ def test_missing_optional_paths_warn_once_each_not_fail_planning(
         (tmp_path / "TUFLOW_missing.exe").write_bytes(b"synthetic")
         (tmp_path / "follow_up.py").write_text("pass\n", encoding="utf-8")
         warnings.clear()
-        check(plan, settings)
+        outcome = simulation_workflow.run_simulation_workflow(settings, controls, follow_up=Path("follow_up.py"))
+        assert outcome.preflight_passed is True
         assert warnings == []
     finally:
         logger.remove(sink)
@@ -488,18 +548,17 @@ def test_wrapper_preflight_only_waits_and_returns_failure(
 ) -> None:
     source = _source(tmp_path)
     calls: list[str] = []
-    module = sys.modules["tested_runner_wrapper"]
 
     def check(*_args: object, **_kwargs: object) -> bool:
         calls.append("preflight")
         return False
 
-    monkeypatch.setattr(module, "check_plan_only", check)
+    monkeypatch.setattr(simulation_workflow, "check_plan_only", check)
 
     def forbidden_launch(*_args: object, **_kwargs: object) -> None:
         pytest.fail("Launched during check-only")
 
-    monkeypatch.setattr(module, "launch_plan", forbidden_launch)
+    monkeypatch.setattr(simulation_workflow, "launch_plan", forbidden_launch)
     assert (
         wrapper.main(
             [
@@ -541,7 +600,7 @@ def test_interruption_only_mentions_a_configured_follow_up(
     def forbidden_follow_up(*_args: object) -> None:
         pytest.fail("An interrupted batch must never launch the follow-up")
 
-    monkeypatch.setattr(module, "launch_plan", interrupted)
+    monkeypatch.setattr(simulation_workflow, "launch_plan", interrupted)
     monkeypatch.setattr(module, "_run_follow_up", forbidden_follow_up)
     assert wrapper.main(["--working-directory", str(tmp_path), "--no-pause"]) == 1
     output = capsys.readouterr().out
@@ -574,7 +633,7 @@ def test_failed_child_still_chains_but_keeps_failure_exit_code(
         calls.append("post")
         return True
 
-    monkeypatch.setattr(module, "launch_plan", fake_launch)
+    monkeypatch.setattr(simulation_workflow, "launch_plan", fake_launch)
     monkeypatch.setattr(module, "_run_follow_up", post)
     assert wrapper.main(["--working-directory", str(tmp_path), "--no-pause"]) == 1
     assert calls == ["launch", "post"]
@@ -593,7 +652,7 @@ def test_planning_failure_does_not_export_check_or_chain(
         pytest.fail("Launched bad input")
 
     monkeypatch.setattr(module, "_run_follow_up", forbidden_follow_up)
-    monkeypatch.setattr(module, "launch_plan", forbidden_launch)
+    monkeypatch.setattr(simulation_workflow, "launch_plan", forbidden_launch)
     assert (
         wrapper.main(
             [
@@ -645,7 +704,6 @@ def test_optional_help_is_available_without_loading_pytuflow() -> None:
 def test_default_txt_is_refreshed_for_all_complete_resume_without_extra_logs(
     tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    module = sys.modules["tested_runner_wrapper"]
     source = _source(tmp_path)
     wrapper_path = Path(wrapper.__file__)
     output = wrapper_path.with_suffix(".txt")
@@ -670,7 +728,7 @@ def test_default_txt_is_refreshed_for_all_complete_resume_without_extra_logs(
             outcomes.append(outcome)
         return BatchOutcome(plan.runs, tuple(outcomes))
 
-    monkeypatch.setattr(module, "launch_plan", complete)
+    monkeypatch.setattr(simulation_workflow, "launch_plan", complete)
     arguments = ["--mode", "textfiles", "--input-file", str(source), "--no-tcf", "--no-pause"]
     assert wrapper.main(arguments) == 0
     first_export, first_history = output.read_bytes(), history.read_bytes()
@@ -688,15 +746,176 @@ def test_default_txt_cannot_replace_its_own_imported_source(
     source = Path(wrapper.__file__).with_suffix(".txt")
     source.write_bytes(_source(tmp_path).read_bytes())
     before = source.read_bytes()
-    module = sys.modules["tested_runner_wrapper"]
 
     def forbidden(*_args: object, **_kwargs: object) -> None:
         pytest.fail("Conflicting export launched a solver")
 
-    monkeypatch.setattr(module, "launch_plan", forbidden)
+    monkeypatch.setattr(simulation_workflow, "launch_plan", forbidden)
     assert wrapper.main(["--mode", "textfiles", "--input-file", str(source), "--no-tcf", "--no-pause"]) == 1
     assert source.read_bytes() == before
     assert not tuple(tmp_path.glob("*_runs.csv"))
+
+
+@pytest.mark.parametrize(
+    ("pause_default", "pause_flag", "no_pause", "expected_pause"),
+    [
+        (True, False, False, True),
+        (True, False, True, False),
+        (False, True, False, True),
+        (False, False, False, False),
+    ],
+)
+def test_cli_closes_logging_before_optional_pause(
+    wrapper: _RunnerWrapper,
+    monkeypatch: pytest.MonkeyPatch,
+    pause_default: bool,
+    pause_flag: bool,
+    no_pause: bool,
+    expected_pause: bool,
+) -> None:
+    """The UI prompt must outlive main's decorated resource contexts."""
+    module = sys.modules["tested_runner_wrapper"]
+    events: list[str] = []
+    arguments = argparse.Namespace(pause=pause_flag, no_pause=no_pause)
+
+    def parsed_args() -> argparse.Namespace:
+        events.append("parsed")
+        return arguments
+
+    def completed_main(*, _parsed_arguments: argparse.Namespace) -> int:
+        assert _parsed_arguments is arguments
+        events.append("main_finished")
+        return 7
+
+    def close_logging() -> None:
+        events.append("logger_closed")
+
+    def pause() -> None:
+        events.append("paused")
+
+    class StubLogger:
+        def remove(self) -> None:
+            close_logging()
+
+    monkeypatch.setattr(module, "PAUSE_ON_FINISH", pause_default)
+    monkeypatch.setattr(module, "_arguments", parsed_args)
+    monkeypatch.setattr(module, "main", completed_main)
+    monkeypatch.setattr(module, "logger", StubLogger())
+    monkeypatch.setattr(module, "pause_console", pause)
+    cli = cast(Callable[[], int], module.__dict__["_cli_main"])
+
+    assert cli() == 7
+    assert events == ["parsed", "main_finished", "logger_closed", *(["paused"] if expected_pause else [])]
+
+
+@pytest.mark.parametrize("launch_error", [False, True])
+def test_cli_releases_real_workflow_resources_before_pause(
+    tmp_path: Path,
+    wrapper: _RunnerWrapper,
+    monkeypatch: pytest.MonkeyPatch,
+    launch_error: bool,
+) -> None:
+    """Both normal and exceptional sessions release their resources before the prompt."""
+    module = sys.modules["tested_runner_wrapper"]
+    source = _source(tmp_path)
+    wrapper_path = Path(wrapper.__file__)
+    history_path = wrapper_path.with_name(f"{wrapper_path.stem}_runs.csv")
+    previous_signal = signal.getsignal(signal.SIGINT)
+    dependency = logging.getLogger("pytuflow")
+    original_handler = logging.NullHandler()
+    monkeypatch.setattr(dependency, "handlers", [original_handler])
+    monkeypatch.setattr(dependency, "level", logging.WARNING)
+    monkeypatch.setattr(dependency, "propagate", True)
+    checking_started, release_check, sink_closed = Event(), Event(), Event()
+    checkers: list[AdvisoryInputCheck] = []
+    pauses: list[str] = []
+
+    def held_input_check(plan: CommandPlan, **_options: object) -> CommandPreflightReport:
+        checking_started.set()
+        assert release_check.wait(5)
+        report = CommandPreflightReport(plan)
+        report.completed_runs = len(plan.runs)
+        return report
+
+    class ClosingSink:
+        def write(self, message: str) -> None:
+            """Accept records until the wrapper closes the real Loguru sink."""
+            del message
+
+        def stop(self) -> None:
+            sink_closed.set()
+
+    def launch(
+        plan: CommandPlan,
+        _settings: RunnerSettings,
+        *,
+        advisory: AdvisoryInputCheck | None,
+        on_before_launch: Callable[[PlannedRun], None],
+        on_observed_completion: Callable[[RunOutcome], None],
+        **_options: object,
+    ) -> BatchOutcome:
+        assert advisory is not None
+        checkers.append(advisory)
+        assert checking_started.wait(2)
+        assert signal.getsignal(signal.SIGINT) is not previous_signal
+        assert dependency.handlers != [original_handler]
+        logger.add(ClosingSink(), format="{message}")
+        run = plan.runs[0]
+        on_before_launch(run)
+        if launch_error:
+            message = "Synthetic launch failure after opening the session"
+            raise RuntimeError(message)
+        outcome = RunOutcome(run, 0, datetime.now(), datetime.now(), 123)
+        on_observed_completion(outcome)
+        return BatchOutcome(plan.runs, (outcome,))
+
+    def pause() -> None:
+        assert signal.getsignal(signal.SIGINT) is previous_signal
+        assert dependency.handlers == [original_handler]
+        assert dependency.level == logging.WARNING
+        assert dependency.propagate
+        assert sink_closed.is_set()
+        assert len(checkers) == 1
+        # Closing an advisory cancels delivery without waiting for slow input I/O.
+        assert checkers[0].status == "Incomplete"
+        assert not checkers[0].finished.is_set()
+        # This is the actual CSV lock, not a fake close event or a sidecar file.
+        with CsvExecutionLog(history_path) as reopened:
+            assert len(reopened.successful_keys()) == (0 if launch_error else 1)
+        contents = history_path.read_bytes()
+        assert b",START," in contents
+        assert (b",FINISH," in contents) == (not launch_error)
+        pauses.append("paused")
+
+    monkeypatch.setattr(command_preflight, "check_command_plan", held_input_check)
+    monkeypatch.setattr(simulation_workflow, "launch_plan", launch)
+    monkeypatch.setattr(module, "pause_console", pause)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            wrapper.__file__,
+            "--working-directory",
+            str(tmp_path),
+            "--mode",
+            "textfiles",
+            "--input-file",
+            str(source),
+            "--no-tcf",
+            "--no-export",
+            "--preflight",
+            "--pause",
+        ],
+    )
+    cli = cast(Callable[[], int], module.__dict__["_cli_main"])
+    try:
+        assert cli() == (1 if launch_error else 0)
+        assert pauses == ["paused"]
+    finally:
+        release_check.set()
+        for checker in checkers:
+            assert checker.finished.wait(2)
+        logger.remove()
 
 
 def test_script_entrypoint_parses_arguments_once(
@@ -715,6 +934,8 @@ def test_script_entrypoint_parses_arguments_once(
         return original(parser, args, namespace)
 
     monkeypatch.setattr(argparse.ArgumentParser, "parse_args", parse_once)
+    # runpy uses the pytest interpreter: do not remove its shared Loguru sinks.
+    monkeypatch.setattr(logger, "remove", lambda: None)
     monkeypatch.setattr(
         sys,
         "argv",
