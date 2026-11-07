@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Needs review — current main and #202 integrated; closure export gap repaired |
+| Status | Needs review — integration complete; runner session extracted into library |
 | Owner | ChatGPT (foundation recovery) |
 | Created | 2026-11-01 |
 | Updated | 2026-11-07 |
@@ -11,7 +11,7 @@
 | Branch / base | `feat/batch-dashboard-foundation-180` -> `main` |
 | Issue | [#180](https://github.com/Chain-Frost/ryan-tools/issues/180), dashboard foundation and resumed wrapper/script audit |
 | Dependent work | [TUFLOW result dashboard adoption](2026-11-01-tuflow-result-dashboards-180.md) |
-| Delivery | #202 is retained at a56e0c6b; current main e317e4ef is integrated at 0b5a07cb; closure raw-output safety is implemented at 8878d42b. Hosted review follow-up 26d6e223 fixes direct serial TUFLOW rendering. Fresh installed 26.11.7.1 verification passes; use the current PR checks/review for final-head acceptance and keep Office #201 on this parent. No main merge/release. |
+| Delivery | #202, current main, closure safety and serial rendering corrections remain integrated. The requested runner extraction reduces the wrapper from 570 to 408 lines while preserving scheduling, progress, rendering and logging mechanisms. Package 26.11.7.2 and wrapper 2026-11-07.2 supply the new workflow boundary. Use current PR checks/review for published-head acceptance and keep Office #201 on this parent. No main merge/release. |
 
 ## Outcome and scope
 
@@ -501,3 +501,75 @@ parent. The [current #183 checks and review](https://github.com/Chain-Frost/ryan
 and [Office #201 checks and review](https://github.com/Chain-Frost/ryan-tools/pull/201)
 record hosted acceptance of the final published heads. No main merge, auto-merge
 or release is performed; native Office and real UNC acceptance remain separate.
+
+
+### 2026-11-07 — Extract the complete runner session
+
+The user requested a smaller copied runner after confirming that older copied
+wrappers may be replaced with the current maintained wrapper. No old-callback
+colour compatibility layer is added.
+
+`simulation_workflow.py` now owns plan preparation, optional-file diagnostics,
+export/preflight dispatch, CSV continuation, advisory lifetime and completion
+callback wiring. Its typed `WorkflowControls` rejects invalid operation,
+continuation and boolean values before work; `WorkflowOutcome` reports the
+completed operation, output path, strict check result, batch and skipped count.
+The existing `RunnerSettings` remains the single normalized run configuration.
+
+The wrapper is 408 lines, down from 570 on the previous #183 head (571 on
+current main). It retains all editable settings, CLI normalization, logging
+configuration and dependency forwarding, launch-only SIGINT handling, final
+reporting, follow-up execution, banners and pause. TXT/CSV locations derive from
+the actual supplying wrapper. All/Resume validation and history ordering,
+full-plan dashboard columns, failed-batch chaining and interrupted-batch policy
+remain unchanged. Advisory cancellation and history release finish before the
+workflow returns; slow optional input I/O is not joined during cleanup.
+
+Independent review found no consequential regression. The original settings,
+signal context, follow-up launcher, CLI parser and CLI cleanup are AST-identical;
+all 28 original top-level constants are retained except the wrapper revision.
+The renderer, scheduler, progress modules, logging helpers and history
+implementation have no diff. Existing behavior assertions remain, with mocks
+moved to the new workflow owner rather than adding compatibility imports.
+
+Local Python 3.14.9 validation on 2026-11-07 uses the same task dependencies and
+explicit spawn selection as earlier checks:
+
+- 211 runner, launch-log, history, renderer and logging tests passed; ten
+  existing platform-specific skips.
+- 100 copied-wrapper, CSV continuation and advisory-runner tests passed; one
+  existing Windows-native command-export skip. Two new real `_cli_main` cases
+  prove advisory cancellation, actual CSV lock release, SIGINT/dependency
+  logger restoration and Loguru sink closure before pause after success and
+  after a launcher exception following START.
+- Four new direct-library workflow tests passed: forced export-only,
+  strict preflight success/failure and resumable execution outside the main
+  thread, with no process signal changes and no source-wrapper dependency.
+- Ruff 0.16.6, strict changed-file Pyright targeting Windows, compilation,
+  `--help`, documentation and Loguru checks passed.
+
+Normal `repo-scripts/build_library.py --skip-pip` selected `26.11.7.2`; the
+verification rebuild uses `--no-bump`. Installed-wheel and published-head
+acceptance are recorded below and in the current PR checks/review. Native
+licensed Windows acceptance is retained from the earlier runner work; it is
+not repeated for this extraction.
+
+MCP discovery assessment: the existing `run_tuflow_batch` catalogue entry
+continues to expose the unchanged maintained CLI and its explicit external
+execution policy. The new Python coordinator is documented in the TUFLOW README;
+it does not need a duplicate MCP tool or package CLI.
+
+Installed acceptance uses the verified `26.11.7.2` wheel, SHA-256
+`2f7d25fd012bd9a56c440adf0153459885806058e2890e046718b0ce56f887da`.
+The isolated package and copied installed wrapper run outside the checkout,
+with user site disabled and installed module paths verified. Nine scenarios
+across ten subprocess invocations passed: help, solver-free export with no CSV,
+completed Resume without a solver and unchanged history, missing-solver All
+without RESET, two failed-child Resume attempts with durable failure records,
+and invalid operation/continuation/export/check settings without output writes.
+The four direct workflow cases also passed against that installed package.
+
+The refactor is delivered on #183 using normal history; current-head hosted
+CI and Codex review are tracked in the PR. Office #201 receives a normal
+parent refresh with its implementation and tests unchanged. No main merge,
+auto-merge or release is part of this continuation.

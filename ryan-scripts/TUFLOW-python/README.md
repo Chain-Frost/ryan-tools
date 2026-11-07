@@ -214,6 +214,25 @@ Its operational constants can use concise names; the wrapper standard
 does not require a `DEFAULT_` prefix. CLI arguments override editable values
 when supplied.
 
+The wrapper keeps editable settings, CLI normalization, logging setup, signal
+handling, final reporting, Python follow-up execution and optional pause. The
+complete batch session is coordinated by
+[`simulation_workflow.py`](../../ryan_library/orchestrators/tuflow/simulation_workflow.py):
+planning, optional-file diagnostics, command export, strict preflight, CSV
+continuation and advisory-check cleanup. The existing
+[`simulation_runner.py`](../../ryan_library/orchestrators/tuflow/simulation_runner.py)
+still owns planning primitives, scheduling, GPU selection and dashboard/progress integration.
+
+Python callers can supply `RunnerSettings` and `WorkflowControls` to
+`run_simulation_workflow()` without importing a wrapper or constructing CLI
+arguments. Controls use the `OP` and `CONT` enums and boolean export/check
+settings. The returned `WorkflowOutcome` contains the export path, preflight
+result or completed batch, skipped count and exit code after owned resources
+are closed. TXT and CSV locations always derive from `RunnerSettings.wrapper_file`.
+The library does not install signal handlers; the wrapper supplies a context
+that handles Ctrl+C only during pending execution. Use wrapper version
+`2026-11-07.2` with the matching `ryan-tools` package for this workflow boundary.
+
 The startup settings print `RUN_VARIABLES` as a Python-style dictionary with
 one event/scenario entry per line, preserving input order and values. The
 runner colours log levels and message text, including green SUCCESS messages.
