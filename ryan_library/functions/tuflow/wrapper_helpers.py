@@ -48,10 +48,10 @@ def validate_discovery_settings(
 
     for candidate in paths_to_process:
         path = Path(candidate).expanduser().absolute()
-        if not path.exists():
-            message = f"{context}: input directory does not exist: {path}"
-            raise FileNotFoundError(message)
         if not path.is_dir():
+            if not path.exists():
+                message = f"{context}: input directory does not exist: {path}"
+                raise FileNotFoundError(message)
             message = f"{context}: input path is not a directory: {path}"
             raise NotADirectoryError(message)
 
