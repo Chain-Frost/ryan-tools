@@ -1,3 +1,5 @@
+# pyright: reportPrivateUsage=false
+# Regression coverage deliberately calls private formatting/filter helpers.
 """Coverage tests for tuflow_common.py."""
 
 from collections.abc import Collection
