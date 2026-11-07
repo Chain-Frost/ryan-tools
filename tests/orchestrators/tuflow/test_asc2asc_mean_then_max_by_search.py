@@ -129,9 +129,7 @@ class TestDiscoverMeanJobs:
             discover_mean_jobs(rasters=[raster1, raster2], output_root=tmp_path, expected_tps=frozenset([1, 2]))
 
     def test_missing_tp(self, tmp_path: Path):
-        input_file = tmp_path / "f1.asc"
-        input_file.write_bytes(b"nonempty raster placeholder")
-        raster1 = ParsedRaster(input_file, tmp_path, "EXG", "1%", "2hr", 120.0, 1, "d", "model", "m.asc", "max.asc")
+        raster1 = ParsedRaster(Path("f1.asc"), tmp_path, "EXG", "1%", "2hr", 120.0, 1, "d", "model", "m.asc", "max.asc")
 
         jobs, incomplete = discover_mean_jobs(rasters=[raster1], output_root=tmp_path, expected_tps=frozenset([1, 2]))
         assert len(jobs) == 0

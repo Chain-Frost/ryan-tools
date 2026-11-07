@@ -377,7 +377,7 @@ def test_individual_lifecycle_ledger_tracks_manifest_and_mcp_targets() -> None:
         if not line.startswith("| `"):
             continue
         cells = [cell.strip() for cell in line.strip("|").split("|")]
-        assert len(cells) == 6, line
+        assert len(cells) == 7, line
         path = cells[0].strip("`")
         assert path not in parsed, f"Duplicate source in audit ledger: {path}"
         parsed[path] = cells
@@ -388,7 +388,7 @@ def test_individual_lifecycle_ledger_tracks_manifest_and_mcp_targets() -> None:
         cells = parsed[path]
         assert cells[1] == ("Yes" if entry["in_wheel"] else "No"), path
         assert cells[2] == ("Yes" if entry["mcp_workflow_ids"] else "No"), path
-        assert all(cells[i] for i in (3, 4, 5)), path
+        assert all(cells[i] for i in (3, 4, 5, 6)), path
         assert cells[3] != "Not assessed", path
         assert cells[4] != "Not assessed", path
         assert cells[5] != "Not assessed", path

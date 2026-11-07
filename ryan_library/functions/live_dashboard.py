@@ -3,7 +3,8 @@
 
 This module owns display concerns only: task state, summary counts, table
 columns, Rich Live lifecycle, and rendering. It does not start worker pools,
-read queues, or decide how work items are processed. Use
+decide how work items are processed. Optional file properties are sampled by a
+separate background helper and consumed during coordinator refreshes. Use
 ``dashboard_workflow.run_dashboard_workflow`` when a wrapper needs generic
 serial/multiprocessing execution wired into this dashboard.
 """
@@ -11,10 +12,12 @@ serial/multiprocessing execution wired into this dashboard.
 from __future__ import annotations
 
 import datetime
+import math
 import time
 from collections import deque
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from pathlib import Path
 from threading import RLock
 from types import TracebackType
 from typing import Literal
@@ -28,9 +31,13 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
+from .file_metadata import FileSizeProbe, TaskFiles, format_file_size
+
 WorkflowStatus = Literal["QUEUED", "RUNNING", "OK", "SKIP", "FAIL"]
 WorkflowColumnSource = Literal["index", "status", "duration", "label", "detail", "metadata"]
 WorkflowOverflow = Literal["fold", "crop", "ellipsis", "ignore"]
+WorkflowPhase = str
+WorkflowOutcome = Literal["SUCCESS", "SKIPPED", "FAILED", "INTERRUPTED"]
 
 _LIVE_PANEL_FIXED_ROW_ALLOWANCE = 12
 _FIRST_GROUP_EXTRA_ROW_ALLOWANCE = 2
@@ -113,6 +120,56 @@ class WorkflowTask:
 
 
 @dataclass(slots=True, frozen=True)
+class WorkflowMetric:
+    """One optional, caller-owned aggregate measure; None means unknown.
+
+    A total can be discovered later. Units are displayed verbatim: callers
+    must distinguish decimal MB, binary MiB and file-size metadata from
+    instrumented bytes read. The renderer never measures work itself.
+    """
+
+    label: str
+    value: int | float | str | None = None
+    unit: str = ""
+    total: int | float | None = None
+    metadata: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.label.strip():
+            msg = "WorkflowMetric.label must be non-empty."
+            raise ValueError(msg)
+        for name, value in (("value", self.value), ("total", self.total)):
+            if isinstance(value, bool) or (isinstance(value, (int, float)) and not math.isfinite(value)):
+                msg = f"WorkflowMetric.{name} must be a finite number, string or None."
+                raise ValueError(msg)
+        if self.total is not None and self.total < 0:
+            msg = "WorkflowMetric.total must be non-negative."
+            raise ValueError(msg)
+
+    def display(self) -> str:
+        value = "?" if self.value is None else str(self.value)
+        total = "" if self.total is None else f"/{self.total}"
+        unit = f" {self.unit}" if self.unit else ""
+        metadata = f" ({self.metadata})" if self.metadata else ""
+        return f"{self.label} {value}{total}{unit}{metadata}"
+
+
+def validate_dashboard_settings(*, refresh_per_second: float, max_rows: int) -> None:
+    """Reject invalid effective display settings before starting processing."""
+    if (
+        isinstance(refresh_per_second, bool)
+        or not isinstance(refresh_per_second, (int, float))  # pyright: ignore[reportUnnecessaryIsInstance]
+        or not math.isfinite(refresh_per_second)
+        or refresh_per_second <= 0
+    ):
+        msg = "live_refresh_per_second must be a finite number greater than 0 (e.g. 2.0)."
+        raise ValueError(msg)
+    if isinstance(max_rows, bool) or not isinstance(max_rows, int) or max_rows < 1:  # pyright: ignore[reportUnnecessaryIsInstance]
+        msg = "live_max_rows must be a positive integer (e.g. 25)."
+        raise ValueError(msg)
+
+
+@dataclass(slots=True, frozen=True)
 class WorkflowAlert:
     """Persistent workflow alert rendered above the normal dashboard panel."""
 
@@ -144,6 +201,8 @@ class LiveWorkflowDashboard:
     Each visible group gets a separate table panel under the shared summary.
     ``group_label_key`` supplies its human-readable title; the identity key is
     used when no label is supplied. Row limits apply across all groups.
+    ``newest_first`` displays selected started tasks in descending registration
+    order without changing active-task selection or the initial queued preview.
     """
 
     def __init__(
@@ -153,13 +212,15 @@ class LiveWorkflowDashboard:
         subtitle: str = "",
         enabled: bool = True,
         refresh_per_second: float = 2.0,
-        max_rows: int = 25,
+        max_rows: int = 10,
         columns: Sequence[WorkflowColumn] | None = None,
         transient: bool = True,
         screen: bool = False,
         group_by: str | None = None,
         group_label_key: str | None = None,
+        newest_first: bool = False,
     ) -> None:
+        validate_dashboard_settings(refresh_per_second=refresh_per_second, max_rows=max_rows)
         if enabled:
             # Rich inspects console capabilities when Console is constructed.
             # Enable native ANSI handling first so Windows terminals can update
@@ -168,39 +229,57 @@ class LiveWorkflowDashboard:
         self.title: str = title
         self.subtitle: str = subtitle
         self.enabled: bool = enabled
-        self.refresh_per_second: float = max(refresh_per_second, 0.1)
-        self.max_rows: int = max(max_rows, 1)
+        self.refresh_per_second: float = refresh_per_second
+        self.max_rows: int = max_rows
         self.columns: tuple[WorkflowColumn, ...] = tuple(columns or DEFAULT_WORKFLOW_COLUMNS)
+        self._configured_columns = self.columns
+        self._task_files: tuple[tuple[Path, ...], ...] = ()
+        self._file_sizes: FileSizeProbe | None = None
         self.transient: bool = transient
         self.screen: bool = screen
         self.group_by: str | None = group_by
         self.group_label_key: str | None = group_label_key
+        self.newest_first: bool = newest_first
         self.console: Console = _DashboardConsole()
         self._live: Live | None = None
         self._last_refresh: float = 0.0
         self._tasks: dict[int, WorkflowTask] = {}
-        self._completed_order: deque[int] = deque()
+        self._completed_order: deque[int] = deque(maxlen=max_rows)
         self._active_count: int = 0
         self._extra_metrics: dict[str, str] = {}
+        self._metrics: tuple[WorkflowMetric, ...] = ()
+        self._phase: WorkflowPhase = ""
+        self._context_depth: int = 0
+        self._final_summary_sent: bool = False
+
         self._alert: WorkflowAlert | None = None
 
     def __enter__(self) -> LiveWorkflowDashboard:
-        if self.enabled:
-            self._live = Live(
-                self._render(),
-                console=self.console,
-                screen=self.screen,
-                # Coordinators already refresh this snapshot. A second writer
-                # can race log-driven redraws and leave partial frames behind.
-                auto_refresh=False,
-                refresh_per_second=self.refresh_per_second,
-                transient=self.transient,
-                redirect_stdout=True,
-                redirect_stderr=True,
-                vertical_overflow="crop",
-            )
-            with self.console:
-                self._live.__enter__()
+        self._context_depth += 1
+        if self._context_depth == 1 and self.enabled and self.console.is_terminal:
+            try:
+                self._start_file_sizes()
+                self._live = Live(
+                    self._render(),
+                    console=self.console,
+                    screen=self.screen,
+                    # Coordinators refresh this snapshot. A background writer
+                    # can race log-driven redraws and leave partial frames.
+                    auto_refresh=False,
+                    refresh_per_second=self.refresh_per_second,
+                    transient=self.transient,
+                    redirect_stdout=True,
+                    redirect_stderr=True,
+                    vertical_overflow="crop",
+                )
+                with self.console:
+                    self._live.__enter__()
+            except BaseException:
+                self._live = None
+                self._context_depth -= 1
+                if self._context_depth == 0:
+                    self._stop_file_sizes()
+                raise
         return self
 
     def __exit__(
@@ -209,36 +288,97 @@ class LiveWorkflowDashboard:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
-        if self._live is not None:
-            with self.console:
-                self._live.__exit__(exc_type, exc_val, exc_tb)
-            self._live = None
+        if self._context_depth == 0:
+            return
+        self._context_depth -= 1
+        if self._context_depth == 0:
+            self._refresh_file_sizes()
+            self._stop_file_sizes()
+        if self._context_depth == 0 and self._live is not None:
+            try:
+                with self.console:
+                    self._live.__exit__(exc_type, exc_val, exc_tb)
+            finally:
+                self._live = None
 
     def set_tasks(
         self,
         labels: Sequence[str],
         metadata: Sequence[Mapping[str, object]] | None = None,
+        *,
+        files: Sequence[TaskFiles] | None = None,
     ) -> None:
         """Replace all dashboard tasks using one-based display indexes.
 
         ``metadata`` is optional per-task context used by configurable columns.
         Missing metadata values render as blank cells.
+        ``files`` identifies each task's input file or file group. Sizes are
+        sampled in the background only for an enabled interactive display.
         """
+        self._stop_file_sizes()
+        self._task_files = ()
+        self.columns = self._configured_columns
         self._tasks = {}
         for index, label in enumerate(labels, start=1):
             raw_metadata: Mapping[str, object] = metadata[index - 1] if metadata and index <= len(metadata) else {}
             self._tasks[index] = WorkflowTask(
                 index=index,
                 label=label,
-                metadata={key: str(value) for key, value in raw_metadata.items()},
+                metadata={key: str(value) for key, value in raw_metadata.items() if value is not None},
             )
         self._completed_order.clear()
         self._active_count = 0
-        self.refresh(force=True)
+        self._final_summary_sent = False
+        if files is not None:
+            self.set_task_files(files)
+        self.refresh()
+
+    def set_task_files(self, files: Sequence[TaskFiles]) -> None:
+        """Attach input paths without performing filesystem calls on the coordinator."""
+        if len(files) != len(self._tasks):
+            msg = "Supply one file or file group per dashboard task"
+            raise ValueError(msg)
+        groups = tuple((item,) if isinstance(item, Path) else tuple(item) if item is not None else () for item in files)
+        if groups == self._task_files:
+            return
+        self._stop_file_sizes()
+        self._task_files = groups
+        if not any(groups):
+            self.columns = self._configured_columns
+            return
+        if not any(column.source == "metadata" and column.metadata_key == "size" for column in self.columns):
+            self.columns = (
+                *self.columns[:2],
+                WorkflowColumn(header="Size", source="metadata", metadata_key="size", justify="right", no_wrap=True),
+                *self.columns[2:],
+            )
+        if self._context_depth > 0:
+            self._start_file_sizes()
+
+    def _start_file_sizes(self) -> None:
+        if self._file_sizes is None and any(self._task_files) and self.enabled and self.console.is_terminal:
+            self._file_sizes = FileSizeProbe(self._task_files, max_pending=max(10, self.max_rows * 2))
+            self._file_sizes.start()
+
+    def _refresh_file_sizes(self) -> None:
+        if self._file_sizes is not None:
+            for index, size in self._file_sizes.poll():
+                values: dict[str, object] = {"size": "unknown" if size is None else format_file_size(size)}
+                if size is not None:
+                    values["size_bytes"] = size
+                self.update_task(index=index, metadata=values, refresh=False)
+
+    def _stop_file_sizes(self) -> None:
+        if self._file_sizes is not None:
+            self._file_sizes.cancel()
+            self._file_sizes = None
 
     def set_active_count(self, count: int, *, refresh: bool = True) -> None:
         """Set active worker count for workflows that cannot name running tasks."""
-        self._active_count = max(count, 0)
+        if isinstance(count, bool) or not isinstance(count, int) or count < 0:  # pyright: ignore[reportUnnecessaryIsInstance]
+            msg = "active worker count must be a non-negative integer."
+            raise ValueError(msg)
+        self._active_count = count
         if refresh:
             self.refresh()
 
@@ -246,6 +386,37 @@ class LiveWorkflowDashboard:
         """Set short summary metrics displayed above the task table."""
         self._extra_metrics = {key: str(value) for key, value in metrics.items()}
         self.refresh()
+
+    def set_metrics(self, metrics: Sequence[WorkflowMetric]) -> None:
+        """Replace optional workflow-defined aggregate measures.
+
+        Do not include measures which have no meaning for this workflow.
+        Use value=None (rather than zero) for a genuinely unknown value.
+        """
+        self._metrics = tuple(metrics)
+        self.refresh()
+
+    def set_phase(self, phase: str) -> None:
+        """Show phase transitions immediately, even between ordinary throttled updates."""
+        if not phase.strip():
+            msg = "Workflow phase must be non-empty."
+            raise ValueError(msg)
+        self._phase = phase
+        self.refresh(force=True)
+
+    def finish(self, *, outcome: WorkflowOutcome, detail: str = "") -> None:
+        """Print one final outcome; plain/redirected mode never draws Live frames."""
+        if self._final_summary_sent:
+            return
+        self._final_summary_sent = True
+        if self.enabled:
+            counts = {
+                status: sum(task.status == status for task in self._tasks.values()) for status in ("OK", "SKIP", "FAIL")
+            }
+            suffix = f" - {detail}" if detail else ""
+            self.print(
+                f"{self.title}: {outcome} (OK {counts['OK']}, SKIP {counts['SKIP']}, FAIL {counts['FAIL']}){suffix}"
+            )
 
     def set_alert(self, alert: WorkflowAlert | None, *, refresh: bool = True) -> None:
         """Show, replace, or clear one persistent alert above the dashboard."""
@@ -268,11 +439,11 @@ class LiveWorkflowDashboard:
         task.status = "RUNNING"
         task.detail = detail
         if metadata:
-            task.metadata.update({key: str(value) for key, value in metadata.items()})
+            task.metadata.update({key: str(value) for key, value in metadata.items() if value is not None})
         task.started_time = datetime.datetime.now()
         task.finished_time = None
         if refresh:
-            self.refresh(force=True)
+            self.refresh()
 
     def mark_finished(
         self,
@@ -290,13 +461,15 @@ class LiveWorkflowDashboard:
         task.status = status
         task.detail = detail
         if metadata:
-            task.metadata.update({key: str(value) for key, value in metadata.items()})
+            task.metadata.update({key: str(value) for key, value in metadata.items() if value is not None})
         task.finished_time = datetime.datetime.now()
         if task.started_time is None:
             task.started_time = task.finished_time
+        if index in self._completed_order:
+            self._completed_order.remove(index)
         self._completed_order.append(index)
         if refresh:
-            self.refresh(force=True)
+            self.refresh()
 
     def update_task(
         self,
@@ -329,6 +502,7 @@ class LiveWorkflowDashboard:
 
     def refresh(self, *, force: bool = False) -> None:
         """Refresh the dashboard, throttling non-forced updates."""
+        self._refresh_file_sizes()
         if not self.enabled or self._live is None:
             return
         now_monotonic: float = time.monotonic()
@@ -380,11 +554,12 @@ class LiveWorkflowDashboard:
         summary.add_column(justify="left")
         summary.add_column(justify="left")
         summary.add_column(justify="left")
+        row_limit = self._format_row_limit(effective_max_rows=effective_max_rows)
         summary.add_row(
             f"finished {finished}/{total}",
             f"active {active}",
             f"queued {counts['QUEUED']}",
-            self._format_row_limit(effective_max_rows=effective_max_rows),
+            f"{self._phase} | {row_limit}" if self._phase else row_limit,
         )
         summary.add_row(
             f"OK {counts['OK']}",
@@ -395,9 +570,9 @@ class LiveWorkflowDashboard:
         return summary
 
     def _format_extra_metrics(self) -> str:
-        if not self._extra_metrics:
-            return ""
-        return " | ".join(f"{key} {value}" for key, value in self._extra_metrics.items())
+        values = [f"{key} {value}" for key, value in self._extra_metrics.items()]
+        values.extend(metric.display() for metric in self._metrics)
+        return " | ".join(values)
 
     def _build_task_table(self, rows: Sequence[WorkflowTask] | None = None) -> Table:
         table = Table(box=box.SIMPLE_HEAVY, expand=True)
@@ -475,11 +650,15 @@ class LiveWorkflowDashboard:
     def _visible_tasks(self) -> list[WorkflowTask]:
         """Return rows to render, prioritising active work over history.
 
-        The dashboard is deliberately compact: running tasks are always shown
-        first, recent finished tasks fill any spare rows, and queued tasks are
-        shown only while nothing has started yet.
+        Running tasks take selection priority, recent finished tasks fill spare
+        rows, and queued tasks appear only while nothing has started. The default
+        display puts running tasks first; newest_first orders selected started
+        tasks by descending index, independent of when they finish.
         """
-        return self._select_tasks(self._effective_max_rows())
+        rows = self._select_tasks(self._effective_max_rows())
+        if self.newest_first and any(task.status != "QUEUED" for task in rows):
+            rows.sort(key=lambda task: task.index, reverse=True)
+        return rows
 
     def _select_tasks(self, max_rows: int) -> list[WorkflowTask]:
         """Select rows globally before assigning them to any group panels."""

@@ -6,7 +6,7 @@ import argparse
 import json
 import os
 import runpy
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from types import FunctionType
 from typing import Protocol, cast
@@ -15,7 +15,7 @@ from zipfile import ZipFile
 
 import pytest
 
-from ryan_library.functions.qgis_project import QgisAuditMode
+from ryan_library.functions.qgis_project import QgisAuditMode, QgisDriveMappings, validate_drive_mappings
 
 SCRIPT = Path(__file__).absolute().parents[2] / "ryan-scripts" / "other" / "audit_qgis_projects.py"
 
@@ -27,6 +27,7 @@ class AuditMain(Protocol):
         working_directory: Path | None = None,
         mode: QgisAuditMode = "existence",
         project_path: Path | None = None,
+        drive_mappings: Sequence[Sequence[str]] | None = None,
     ) -> int: ...
 
 
@@ -214,6 +215,65 @@ def _load_copied_wrapper(tmp_path: Path, replacements: dict[str, str]) -> dict[s
     copy = tmp_path / "editable_audit_qgis_projects.py"
     copy.write_text(source, encoding="utf-8")
     return runpy.run_path(str(copy))
+
+
+def test_edited_mapping_lists_normalize_before_audit_and_allow_empty_override(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "roads.gpkg"
+    source.write_bytes(b"unchanged data")
+    project = tmp_path / "model.qgs"
+    _write_qgs(project, "./roads.gpkg|layername=roads")
+    original = {path: path.read_bytes() for path in (source, project)}
+    configured_mappings = [["Q:", r"\\server\share"]]
+    namespace = _load_copied_wrapper(
+        tmp_path,
+        {
+            "DEFAULT_DRIVE_MAPPINGS: list[list[str]] = []": f"DEFAULT_DRIVE_MAPPINGS: list[list[str]] = {configured_mappings!r}"
+        },
+    )
+    main = cast(AuditMain, namespace["main"])
+    validated: list[tuple[Path, QgisDriveMappings]] = []
+
+    def record_validation(mappings: QgisDriveMappings) -> None:
+        validated.append((Path.cwd(), mappings))
+        validate_drive_mappings(mappings)
+
+    monkeypatch.setitem(cast(FunctionType, main).__globals__, "validate_drive_mappings", record_validation)
+    caller_directory = tmp_path / "caller"
+    caller_directory.mkdir()
+    monkeypatch.chdir(caller_directory)
+
+    assert main(working_directory=tmp_path) == 0
+    assert validated == [(caller_directory, (("Q:", r"\\server\share"),))]
+    assert main(working_directory=tmp_path, drive_mappings=[]) == 0
+    assert validated[-1] == (tmp_path, ())
+    assert {path: path.read_bytes() for path in original} == original
+    assert namespace["DEFAULT_DRIVE_MAPPINGS"] == configured_mappings
+
+
+@pytest.mark.parametrize("mapping", [[], ["Q:"], ["Q:", r"\\server\share", "extra"]])
+def test_invalid_edited_mapping_pairs_fail_before_audit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mapping: list[str]
+) -> None:
+    project_directory = tmp_path / "project"
+    project_directory.mkdir()
+    source = project_directory / "roads.gpkg"
+    source.write_bytes(b"unchanged data")
+    project = project_directory / "model.qgs"
+    _write_qgs(project, "./roads.gpkg|layername=roads")
+    original = {path: path.read_bytes() for path in (source, project)}
+    namespace = _load_copied_wrapper(
+        tmp_path,
+        {"DEFAULT_DRIVE_MAPPINGS: list[list[str]] = []": f"DEFAULT_DRIVE_MAPPINGS = {[mapping]!r}"},
+    )
+    main = cast(AuditMain, namespace["main"])
+    monkeypatch.chdir(tmp_path)
+
+    assert main(working_directory=project_directory) == 1
+
+    assert Path.cwd() == tmp_path
+    assert {path: path.read_bytes() for path in original} == original
 
 
 def test_editing_default_audit_mode_enables_cold_ping_without_cli(

@@ -16,7 +16,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-08-31.1"
+WRAPPER_VERSION = "2026-11-07.1"
 
 CONSOLE_LOG_LEVEL = "INFO"
 WORKING_DIR: Path = Path(__file__).absolute().parent
@@ -129,7 +129,9 @@ def _parse_cli_arguments() -> argparse.Namespace:
 if __name__ == "__main__":
     args: argparse.Namespace = _parse_cli_arguments()
     common_options: CommonWrapperOptions = parse_common_cli_arguments(args)
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="tuflow/init_tuflow_project.py", wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION
+    )
     result: int = main(
         output_dir=args.output if args.output is not None else DEFAULT_OUTPUT_DIR,
         project_name=args.name if args.name is not None else DEFAULT_PROJECT_NAME,
@@ -142,6 +144,7 @@ if __name__ == "__main__":
         working_directory=common_options.working_directory,
     )
     print_wrapper_banner(
+        wrapper_source="tuflow/init_tuflow_project.py",
         wrapper_file=Path(__file__),
         wrapper_version=WRAPPER_VERSION,
         leading_blank_line=True,

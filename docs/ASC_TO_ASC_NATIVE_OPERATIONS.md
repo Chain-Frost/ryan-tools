@@ -50,86 +50,29 @@ mean-then-maximum workflow defaults to `asc_to_asc` and exposes
 `MEAN_VALUE_METHOD` wrapper setting provides the same choice without CLI
 arguments.
 
-## Incomplete temporal-pattern bins
-
-The mean-then-maximum and median-then-maximum wrappers require the configured
-`EXPECTED_TPS` (TP01–TP10 by default) in each discovered model/scenario/AEP/
-duration/result-type bin. Zero-byte files are ignored as missing TP inputs,
-including when every file in a discovered bin is empty. Duplicate TP IDs and
-TP IDs outside `EXPECTED_TPS` are errors in every mode.
-
-`ALLOW_INCOMPLETE_TP_BINS = False` is the shipped setting. Complete bins can
-still produce their mean or median, but any incomplete bin withholds its
-model/scenario/AEP/result-type maximum. Unaffected maximum groups can finish;
-the overall run returns exit code 1 to report the incomplete result. With
-`STRICT_INCOMPLETE_GROUPS = True` or `--strict`, incompleteness stops the run
-before either processing stage.
-
-To deliberately process incomplete bins, edit the setting in **either** wrapper:
-
-```python
-ALLOW_INCOMPLETE_TP_BINS = True
-```
-
-Or override it for one run:
-
-```powershell
-python run_asc_to_asc_mean_then_maximum.py --allow-incomplete-tp-bins --no-pause
-python run_asc_to_asc_median_then_maximum.py --allow-incomplete-tp-bins --no-pause
-```
-
-`--no-allow-incomplete-tp-bins` overrides an edited `True` setting. The override
-cannot be combined with strict mode; use `--no-strict` when a copied wrapper
-has strict mode enabled. `--dry-run` previews the same grouping and warnings
-without writing rasters, and returns a nonzero status when the selected mode
-cannot produce the requested complete results.
-
-Under the override, each nonempty bin uses only its available inputs. For
-example, TP values 2, 4 and 12 produce a mean of 6 and an upper median of 4;
-the seven missing TP files are not seven zero-valued inputs. Existing NoData
-cell policies still apply inside the available rasters. Warnings identify
-the model, directory, AEP, duration, result type, available/missing TPs and
-zero-byte paths. Source legends contain only the original rasters actually
-used, and source IDs and cell counts remain valid for unequal bin sizes.
-
-A bin with no nonempty inputs is omitted with an explicit warning even under
-the override; if no usable statistic jobs remain, the run fails. Corrupt
-nonempty rasters, grid-alignment errors and processing failures still stop the
-maximum stage. Missing durations with no discovered files cannot be inferred
-from `EXPECTED_TPS`: this option checks discovered TP bins, not an expected
-duration schedule. The override does not change output filenames or rebuild
-behaviour, so use a separate `OUTPUT_DIRECTORY_NAME` to retain earlier outputs.
-Withheld maxima from a previous run are not deleted or treated as new results.
-
 ## Source rasters and legends
 
 Every supported `compute_stat()` operation can write a source raster by passing
 `write_source=True`; source output is disabled by default. For `result.tif`,
 the auxiliary outputs are `result_src.tif` and `result_src_legend.csv`. Source
 IDs are 1-based and follow the caller-provided input order; the CSV records the
-absolute input path and the number of cells assigned to each ID in the source
-raster. Per-result legend names avoid races and overwrites when independent
-statistics run in the same directory.
+absolute input path for each ID. Per-result legend names avoid races and
+overwrites when independent statistics run in the same directory.
 
 For minimum, maximum and median, the source identifies the input supplying the
-value. Duplicate values select the first matching input. For `asc_to_asc`, the
-source identifies the lowest contributing value at or above the arithmetic
-mean. The other mean methods identify the closest contributing value; an
-equal-distance tie selects the higher value and then the first matching input. Cells that are
+value. Duplicate values select the first matching input. For either mean-value
+method, it identifies the closest contributing value; an equal-distance tie
+selects the higher value and then the first matching input. Cells that are
 NoData in the value raster receive source ID `0`, which is the source raster's
-NoData value. A source cell is also `0` when every contributing input cell is
-NoData, including when the `zero` policy writes a numeric zero to the value
-raster.
+NoData value.
 
-The maintained mean-then-maximum and median-then-maximum wrappers enable
-source rasters and legends by default. Use `--no-source` or set
-`WRITE_SOURCE_RASTERS = False` to disable them; `--source` explicitly enables
-them. The general-purpose `compute_stat()` API remains opt-in. Explicit
-`source_output_file` and `source_legend_file` paths are also supported.
-ASC_to_ASC's counter-intuitive `-src` switch suppresses source output.
+The maintained wrapper exposes the opt-in as `--source`. Explicit
+`source_output_file` and `source_legend_file` paths are also supported. This
+default differs from ASC_to_ASC, whose counter-intuitive `-src` switch
+suppresses source output rather than enabling it.
 
-For the mean-then-maximum and median-then-maximum workflows, the source setting
-is propagated through both stages. Per-duration statistic source rasters identify
+For the mean-then-maximum and median-then-maximum workflows, `--source` is
+propagated through both stages. Per-duration statistic source rasters identify
 the original temporal-pattern rasters. The maximum stage composes its
 intermediate selection with those source rasters, so the final source IDs and
 CSV legend point directly to the original temporal-pattern rasters rather than
@@ -146,8 +89,6 @@ shared TUFLOW creation profile by default: `COMPRESS=DEFLATE`, `PREDICTOR=2`,
 `BIGTIFF=IF_SAFER`, and `NUM_THREADS=ALL_CPUS`. This does not depend on whether
 the input GeoTIFF is compressed. Explicit `-co NAME=VALUE` creation options
 override the corresponding defaults when another lossless profile is required.
-Flattening multi-stage source provenance preserves the source raster's complete
-creation profile.
 
 ## NoData policies
 

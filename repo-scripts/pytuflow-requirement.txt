@@ -1,1 +1,1 @@
-pytuflow @ https://github.com/Chain-Frost/PyTuflow/archive/5360c979a4da577c7eae04a2afded00eb21d5bf9.zip
+pytuflow @ https://github.com/Chain-Frost/PyTuflow/archive/887534ea8c15b80d185a38a7ead1d42ab42a7167.zip

@@ -59,6 +59,34 @@ minimal supporting imports. Do not defer imports into `main()` merely to alter
 startup time; use a local import only for an optional or unusually expensive
 dependency on a rarely used code path.
 
+## Substantial batch dashboards
+
+Use the shared [dashboard standard](../docs/DASHBOARDS.md) for workflows
+processing substantial numbers of files, rows or other items. It is a
+preference, not an architectural requirement for small standalone jobs.
+Expose the editable dashboard toggle and any supported CLI override, plus
+refresh/row settings where relevant. Validate effective settings before work,
+preserving explicit `False` and `0` rather than silently substituting
+defaults. Console presentation must not remove worker diagnostics required
+by an independently configured DEBUG file sink; see
+[logging](../docs/LOGGING.md).
+
+Supported live dashboards default to enabled with ten visible rows. File sinks
+default to INFO; DEBUG remains an explicit diagnostic choice. Keep these
+editable script defaults consistent with the shared workflow defaults.
+For file-processing dashboards, identify the actual inputs through the shared
+`set_tasks(..., files=...)` interface so the Size column can show background file
+properties without a synchronous pre-scan. Use input groups for multi-file tasks;
+see the [file-size contract](../docs/DASHBOARDS.md#file-sizes).
+
+Optional progress measures are selected by the workflow. Do not force
+file counts, bytes, percentages or ETA on every wrapper; choose labels,
+units and metadata that match the domain. Unknown is not zero. File-size
+metadata is not a measured byte-read counter. Keep processing, aggregation
+and export phases explicit so a finished file batch does not prematurely
+report overall success. Headless use never draws animated frames or waits
+for a keypress; terminal detection and pause settings are independent.
+
 ## Embedded identity
 
 Every maintained wrapper must contain a date-based version that travels with a
@@ -77,11 +105,45 @@ is reported separately.
 At the start of `main`, print both identities:
 
 ```python
-print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+print_wrapper_banner(
+    wrapper_file=Path(__file__),
+    wrapper_version=WRAPPER_VERSION,
+    wrapper_source="TUFLOW-python/model_management/run_tuflow_simulations.py",
+)
 ```
 
 This tells a user which copied wrapper file is running and which installed
 `ryan-tools` package supplies its implementation.
+
+Use the script's own original path relative to `ryan-scripts` for
+`wrapper_source`, in both opening and closing banners. This is a stable identity,
+not an editable operational setting: keep it when renaming a project copy.
+The shared banner compares the embedded revision with that original script
+bundled in the **installed package**, using the installed script allowlist.
+It prints a visible warning when the running copy is older, naming both
+revisions and advising the user to copy the newer script and transfer their
+settings. It never replaces a script or settings automatically.
+
+This check is offline: it does not query GitHub or claim to know the latest
+repository revision. Update the installed package to obtain a newer reference.
+Dates and revision numbers are compared numerically; equal or newer copies do
+not warn. Unknown/malformed revisions, missing reference files and ambiguous
+identities skip the comparison without blocking execution. Legacy callers
+without `wrapper_source` can match a unique original filename, but cannot
+identify renamed copies. Missing banner arguments or an unsupported revision
+produce an outdated-script warning and execution continues; the helper uses the
+process entry point and an unknown revision when those values were omitted.
+Read the reference as source; never import or execute
+it merely to obtain its revision. The helper also recognizes `SCRIPT_VERSION`
+for maintained standalone scripts.
+
+Maintained standalone scripts use the same banner/check when `ryan-tools` is
+available, with an optional import and their own version banner as the fallback.
+They retain standalone operation when the package is absent or its banner
+helper predates the revision-comparison API. An installed
+reference is required for comparison; repository-only scripts without a bundled
+counterpart cannot be checked against the installed package. Do not retrofit
+legacy or experimental scripts solely to add this warning.
 
 Print the same two identities again after `main()` returns. The opening banner
 records what is about to run; the closing banner remains visible beside the
@@ -130,11 +192,33 @@ Existing scripts need not rename their current constants. This rule
 specifies observable behaviour and human-editable configuration, not a
 repository-wide migration to a particular spelling.
 
-For shared CLI helpers whose parser defaults cannot distinguish omission,
-adapt the local parser or add an opposite override (e.g. `--pause` when the
-shared helper defines `--no-pause`). Keep the shared helper's other callers
-unchanged. Avoid requiring CLI inputs that have reasonable editable defaults;
-one-time secrets and typed destructive confirmations are not normal defaults.
+Use **lists for editable collections**, including one-item lists, nested groups,
+and optional collection annotations. Users should not need tuple syntax or a
+trailing comma to enter a single item:
+
+```python
+LOCATIONS_TO_INCLUDE: list[str] = []
+INPUT_PATHS: list[Path] = [Path("results")]
+GPU_DEVICES: list[list[str]] = [["-pu0"], ["-pu1"]]
+BANDS: list[int] | None = None
+```
+
+Preserve documented differences between `None`, an empty list and a populated
+list. After resolving CLI overrides, convert to tuples, fixed pairs or frozen
+sets inside the script or library when the internal interface needs them.
+Validate fixed-length groups before indexing. Do not bind editable lists as
+function defaults; select the current setting inside the function and take an
+independent snapshot when dispatching work.
+
+One-way convenience switches do not require artificial opposites. In
+particular, `PAUSE_ON_FINISH = True` is the editable default, while `--no-pause`
+is the only pause CLI override needed: an omitted switch retains the editable
+setting, and non-interactive execution must never wait. When an operational
+toggle genuinely needs explicit CLI overrides in both directions, use a parser
+that distinguishes omission from an explicit choice; preserve other callers of
+shared helpers. Avoid requiring CLI inputs that have reasonable editable
+defaults; one-time secrets and typed destructive confirmations are not normal
+defaults.
 
 **Safe shipped values, deliberate user overrides:** ship non-destructive,
 non-chargeable defaults. An auditor normally starts read-only
@@ -171,7 +255,7 @@ copy-ready example **only where it adds information the user needs**, such as:
   paths, mapped drives and UNC shares.
 - Dependencies between settings or effects that are not apparent from the
   names alone.
-- Unusual tuple, list or mapping shapes; show a copy-ready Python example
+- Unusual list or mapping shapes; show a copy-ready Python example
   rather than making the user inspect parsing code.
 - Destructive changes, output replacement, external execution, licence/cost
   implications or other meaningful risks. Explain safeguards and required
@@ -190,10 +274,10 @@ RECURSIVE = False
 # None allows different imported TCFs; a relative TCF uses WORKING_DIR.
 TCF: Path | None = None
 
-# Each inner tuple is one concurrent run; two GPU flags in a group
+# Each inner list is one concurrent run; two GPU flags in a group
 # assign both GPUs to that run.
-# Example: (("-pu0", "-pu1"), ("-pu2",)) for two concurrent runs.
-GPU_DEVICES = (("-pu0",), ("-pu1",))
+# Example: [["-pu0", "-pu1"], ["-pu2"]] for two concurrent runs.
+GPU_DEVICES = [["-pu0"], ["-pu1"]]
 ```
 
 This is a usability rule, not a requirement for a prescribed number of

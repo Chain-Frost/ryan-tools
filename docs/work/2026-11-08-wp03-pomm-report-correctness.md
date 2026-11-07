@@ -7,8 +7,8 @@
 | Created | 2026-11-08 |
 | Updated | 2026-11-08 |
 | Next review | 2026-11-15 |
-| Baseline | PR #207 `fix/tuflow-src-profile-cell-counts` at `c7d063502e43391560fdd877e117cc6bcd064faf`; #238 integrated into #207 as `8550b511` |
-| Git delivery | Draft [#253](https://github.com/Chain-Frost/ryan-tools/pull/253) → [#260](https://github.com/Chain-Frost/ryan-tools/pull/260) → [#267](https://github.com/Chain-Frost/ryan-tools/pull/267), committed to separate remote branches |
+| Baseline | WP01 parent PR #251 `fix/tlf-hyphenated-variables-239` at `3a6dc23622b062f7d20467025e6e72d7f34addfe`; earlier WP03 work derived from separate PR #207 |
+| Git delivery | Single draft [WP03 #267](https://github.com/Chain-Frost/ryan-tools/pull/267) stacked on [WP01 parent #251](https://github.com/Chain-Frost/ryan-tools/pull/251); #253/#260 retained as superseded review records |
 
 ## Outcome and assigned boundaries
 
@@ -26,14 +26,15 @@ Preserve the upper-middle median and greatest nearest-mean representative-durati
 
 ## Current state
 
-- **#238 prerequisite:** Existing PR #238 was already merged into #207 (not main). The parent has
-  documented completed four lint/type repairs and 117 focused tests, verified wheel and six passing hosted checks.
-  The real-project raster override acceptance belongs to #207, not WP03.
-- **#227:** Draft #253 changes the two POMM `Series.map(func=...)` calls to positional mappers
+- **#238 separation:** Existing PR #238 remains integrated into separate, unmerged #207.
+  The accepted coverage warnings, raster defaults and historical native evidence remain on #207,
+  rather than being duplicated in WP03. WP03's POMM changes are based on #251; coordinate with
+  #207's owner before eventual integration of overlapping POMM files.
+- **#227:** Superseded review PR #253 changes the two POMM `Series.map(func=...)` calls to positional mappers
   without tightening the global pandas dependency; adds an actual grouped POMM statistics regression.
   **All six exact-head Windows CI checks passed** at `39b8c777`, including hosted tests, Ruff, Policy,
   Package, security and MCP. Native real-project validation is separate.
-- **#218:** Draft #260 uses `combine_raw()` for the already selected POMM/RLL inputs, normalizes
+- **#218:** Superseded review PR #260 uses `combine_raw()` for the already selected POMM/RLL inputs, normalizes
   RLL location and Q magnitude while keeping signed Q, source filename and distinct measurement type,
   and adds synthetic RLL-only/POMM-only/mixed file→real processor→workbook regressions.
   Hosted Windows/Python 3.14.10 initial run at `5f33e497` passed 2,272 tests with one newly added
@@ -86,3 +87,18 @@ Checked hosted CI and repaired the reported formatting failures. No change to
 The #267 numerical stack changes `median_calc.py`, `pomm_utils.py` and culvert statistics, with
 finite TP/count/representative-source provenance regressions and updated column definitions.
 Its draft was opened, and #240 coordination was posted; exact-head checks remain authoritative.
+
+### 2026-11-08 — Integrate onto WP01 #251
+
+The maintainer requested a single eventual squash merge to main. WP03 changes are consolidated
+into existing draft #267, stacked directly on WP01 parent #251 rather than maintaining
+multiple independently mergeable PRs. A normal two-parent merge commit retains historical
+#253/#260/#267 work while resolving the tree against #251 to include only WP03 files:
+pandas mapping compatibility, RLL retention, finite TP statistics, test coverage, column
+definitions and this work record. Unrelated raster and default-source changes inherited
+from #207 are excluded. No force-push or main merge is authorised.
+
+Treat #253/#260's previously passing CI as historical; run exact-head CI against the new
+#267 integration tree before claiming native or packaged acceptance. The parent #251 must
+integrate a reviewed WP03 child before the one eventual, explicitly approved squash
+merge to main. Native Windows project-file and installed/copied-wrapper parity remain pending.

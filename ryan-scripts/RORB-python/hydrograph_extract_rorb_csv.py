@@ -18,6 +18,7 @@ import argparse
 import re
 import sys
 from datetime import datetime
+from inspect import signature
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -28,6 +29,20 @@ import pandas as pd
 # Specify the hydrograph to process. Set to None to trigger dynamic selection.
 selected_hydrograph: str | None = "Calculated hydrograph:  Outlet"  # Example: "Calculated hydrograph: Outlet"
 # --- End of User Configuration ---
+
+
+SCRIPT_VERSION = "2026-11-07.2"
+
+# Standalone use remains supported without installing ryan-tools.
+try:
+    from ryan_library.functions.wrapper_utils import print_wrapper_banner
+except ModuleNotFoundError as exc:
+    if exc.name not in {"ryan_library", "ryan_library.functions", "ryan_library.functions.wrapper_utils"}:
+        raise
+    print_wrapper_banner = None
+else:
+    if "wrapper_source" not in signature(print_wrapper_banner).parameters:
+        print_wrapper_banner = None
 
 
 def extract_metadata_from_filename(file_name: str) -> tuple[str | None, str | None, str | None, str | None]:
@@ -314,6 +329,14 @@ def create_plot(
 
 
 def main(*, input_directory: Path | None = None) -> None:
+    if print_wrapper_banner is not None:
+        print_wrapper_banner(
+            wrapper_file=Path(__file__),
+            wrapper_version=SCRIPT_VERSION,
+            wrapper_source="RORB-python/hydrograph_extract_rorb_csv.py",
+        )
+    else:
+        print(f"Script: {Path(__file__).absolute()} (version {SCRIPT_VERSION})")
     # Preserve the original script-adjacent default; permit explicit CLI override.
     script_directory = Path(__file__).absolute().parent if input_directory is None else input_directory.absolute()
 

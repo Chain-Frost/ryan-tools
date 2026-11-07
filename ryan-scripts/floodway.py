@@ -40,7 +40,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-16.1"
+WRAPPER_VERSION = "2026-11-07.2"
 
 WORKING_DIR: Path = Path(__file__).absolute().parent
 DEFAULT_PROJECT_FILE = Path("culvert_project.json")
@@ -49,7 +49,7 @@ DEFAULT_OUTPUT_DIRECTORY = Path("floodway_results")
 DEFAULT_SWEEP_POINTS = 21
 CONSOLE_LOG_LEVEL = "SUCCESS"
 LOG_FILE = "floodway.log"
-FILE_LOG_LEVEL = "DEBUG"
+FILE_LOG_LEVEL = "INFO"
 
 import argparse
 from collections.abc import Callable, Sequence
@@ -135,7 +135,7 @@ def main(
     console_log_level: str | None = None,
 ) -> int:
     """Resolve wrapper settings and execute the floodway assessment workflow."""
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(wrapper_source="floodway.py", wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     target_directory = (working_directory or WORKING_DIR).absolute()
     project_path = _resolve_path(target_directory, project_file or DEFAULT_PROJECT_FILE)
     formation_path = _resolve_path(target_directory, formation_file or DEFAULT_FORMATION_FILE)
@@ -266,6 +266,7 @@ if __name__ == "__main__":
         console_log_level=args.console_log_level,
     )
     print_wrapper_banner(
+        wrapper_source="floodway.py",
         wrapper_file=Path(__file__),
         wrapper_version=WRAPPER_VERSION,
         leading_blank_line=True,

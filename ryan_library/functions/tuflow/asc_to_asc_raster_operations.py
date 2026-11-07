@@ -47,7 +47,6 @@ class _RasterDataset(Protocol):
     nodata: float | int | None
     dtypes: tuple[str, ...]
     meta: dict[str, object]
-    profile: dict[str, object]
 
     def block_windows(self, band_index: int) -> Iterable[tuple[tuple[int, int], object]]: ...
 
@@ -213,21 +212,15 @@ def source_output_paths(
     return _source_output_paths(Path(output_file).absolute(), source_output_file, source_legend_file)
 
 
-def _write_source_legend(legend_path: Path, input_paths: list[Path], cell_counts: npt.NDArray[np.int64]) -> None:
-    """Atomically write the 1-based source IDs and their output-cell counts."""
-    if len(input_paths) != len(cell_counts):
-        msg = "Source paths and cell counts must have equal lengths"
-        raise ValueError(msg)
+def _write_source_legend(legend_path: Path, input_paths: list[Path]) -> None:
+    """Atomically write the 1-based source IDs used by the source raster."""
     temporary_path = _temporary_output(legend_path)
     try:
         temporary_path.parent.mkdir(parents=True, exist_ok=True)
         with temporary_path.open("w", encoding="utf-8", newline="") as stream:
             writer = csv.writer(stream)
-            writer.writerow(["source_id", "source_file", "cell_count"])
-            writer.writerows(
-                (source_id, str(path), int(cell_count))
-                for source_id, (path, cell_count) in enumerate(zip(input_paths, cell_counts, strict=True), start=1)
-            )
+            writer.writerow(["source_id", "source_file"])
+            writer.writerows((source_id, str(path)) for source_id, path in enumerate(input_paths, start=1))
         _replace_output(temporary_path, legend_path)
     finally:
         temporary_path.unlink(missing_ok=True)
@@ -262,7 +255,6 @@ def flatten_nested_source_provenance(
     source_path, legend_path = source_output_paths(output_file, source_output_file, source_legend_file)
     temporary_source_path: Path = _temporary_output(source_path)
     original_paths: list[Path] = [Path(value).absolute() for group in original_input_groups for value in group]
-    source_cell_counts = np.zeros(len(original_paths), dtype=np.int64)
     missing_originals: list[Path] = [path for path in original_paths if not path.is_file()]
     if missing_originals:
         msg = f"Original source raster does not exist: {missing_originals[0]}"
@@ -276,7 +268,7 @@ def flatten_nested_source_provenance(
             stack.enter_context(rasterio.Env(GDAL_CACHEMAX=512, VSI_CACHE=True))
             _, datasets = _open_inputs(stack, [str(source_path), *nested_source_files])
             selector, *nested_sources = datasets
-            profile = selector.profile.copy()
+            profile = selector.meta.copy()
             profile["count"] = 1
             profile["dtype"] = "int32"
             profile["nodata"] = 0
@@ -303,12 +295,9 @@ def flatten_nested_source_provenance(
                     selected_cells = group_cells & valid_local_ids
                     flattened_ids[selected_cells] = np.asarray(offset + local_ids[selected_cells], dtype=np.int32)
                 destination.write(flattened_ids, 1, window=window)
-                source_cell_counts += np.bincount(flattened_ids.ravel(), minlength=len(original_paths) + 1)[1:].astype(
-                    np.int64, copy=False
-                )
 
         _replace_output(temporary_source_path, source_path)
-        _write_source_legend(legend_path, original_paths, source_cell_counts)
+        _write_source_legend(legend_path, original_paths)
     finally:
         temporary_source_path.unlink(missing_ok=True)
 
@@ -490,7 +479,6 @@ def compute_stat(
     source_path, legend_path = _source_output_paths(output_path, source_output_file, source_legend_file)
     temporary_source_path: Path = _temporary_output(source_path)
     input_paths: list[Path] = []
-    source_cell_counts = np.zeros(0, dtype=np.int64)
     try:
         with ExitStack() as stack:
             stack.enter_context(rasterio.Env(GDAL_CACHEMAX=512, VSI_CACHE=True))
@@ -498,7 +486,6 @@ def compute_stat(
             if len(datasets) > np.iinfo(np.int32).max:
                 msg = "Too many input rasters for a 32-bit source-ID raster"
                 raise ValueError(msg)
-            source_cell_counts = np.zeros(len(input_paths), dtype=np.int64)
             profile, output_nodata = _output_profile(datasets[0], extra_args)
             destination = stack.enter_context(closing(_open_raster(temporary_path, "w", profile)))
             source_destination: _RasterDataset | None = None
@@ -569,16 +556,12 @@ def compute_stat(
                 )
                 destination.write(result, 1, window=window)
                 if source_destination is not None:
-                    source_valid = output_valid & np.any(stack_valid, axis=0)
-                    source_ids = np.asarray(np.where(source_valid, source_indexes + 1, 0), dtype=np.int32)
+                    source_ids = np.asarray(np.where(output_valid, source_indexes + 1, 0), dtype=np.int32)
                     source_destination.write(source_ids, 1, window=window)
-                    source_cell_counts += np.bincount(source_ids.ravel(), minlength=len(input_paths) + 1)[1:].astype(
-                        np.int64, copy=False
-                    )
         _replace_output(temporary_path, output_path)
         if write_source:
             _replace_output(temporary_source_path, source_path)
-            _write_source_legend(legend_path, input_paths, source_cell_counts)
+            _write_source_legend(legend_path, input_paths)
     finally:
         temporary_path.unlink(missing_ok=True)
         temporary_source_path.unlink(missing_ok=True)

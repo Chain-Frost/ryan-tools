@@ -164,6 +164,10 @@ class ProcessorCollection:
         for processor in self.processors:
             if processor.data_type != "EOF" or "Chan ID" not in processor.df.columns:
                 continue
+            if processor.applied_location_filter:
+                # Selection may have removed conflicting full IDs. Retain the
+                # alignment established before filtering instead of guessing.
+                continue
 
             run_code = processor.name_parser.raw_run_code
             run_map = source_maps.get(run_code, {})
@@ -234,6 +238,11 @@ class ProcessorCollection:
         normalized_locations: frozenset[str] = BaseProcessor.normalize_locations(locations)
         if not normalized_locations:
             return normalized_locations
+
+        if any(processor.data_type == "EOF" for processor in self.processors):
+            # Resolve shortened labels against all available channel IDs before
+            # removing rows, while ambiguity information is still complete.
+            self.align_eof_channel_ids()
 
         total_before: int = sum(len(processor.df) for processor in self.processors)
 
