@@ -110,9 +110,13 @@ def main(
         LIVE_REFRESH_PER_SECOND if live_refresh_per_second is None else live_refresh_per_second
     )
     effective_live_max_rows: int = LIVE_MAX_ROWS if live_max_rows is None else live_max_rows
-    effective_data_types: tuple[str, ...] = tuple(DATATYPE_INCLUDE if include_data_types is None else include_data_types)
+    effective_data_types: tuple[str, ...] = tuple(
+        DATATYPE_INCLUDE if include_data_types is None else include_data_types
+    )
     effective_result_types: tuple[str, ...] = tuple(RESULT_TYPES if result_types is None else result_types)
-    effective_locations: tuple[str, ...] = tuple(LOCATION_INCLUDE if locations_to_include is None else locations_to_include)
+    effective_locations: tuple[str, ...] = tuple(
+        LOCATION_INCLUDE if locations_to_include is None else locations_to_include
+    )
     effective_export_mode: Literal["excel", "parquet", "both"] = export_mode or EXPORT_MODE
 
     try:

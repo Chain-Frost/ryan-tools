@@ -40,9 +40,7 @@ def test_stability_dashboard_export_is_not_early_success(tmp_path: Path, enabled
         pool.return_value.__enter__.return_value.map.return_value = [
             [{"run_code": "run1", "status": "OK", "points": 5}]
         ]
-        assert stability.main_processing(
-            paths_to_process=[tmp_path], result_types=["Q"], use_live_dashboard=enabled
-        )
+        assert stability.main_processing(paths_to_process=[tmp_path], result_types=["Q"], use_live_dashboard=enabled)
         exporter.return_value.save_to_excel.assert_called_once()
         assert finish.call_args is not None
         assert finish.call_args.kwargs["outcome"] == "SUCCESS"
@@ -141,8 +139,9 @@ def test_qa_rejects_bad_live_settings_before_discovery(tmp_path: Path, workflow:
             peak.main_processing(paths_to_process=[tmp_path], live_max_rows=0)
         find.assert_not_called()
     else:
-        with patch.object(stability, "collect_timeseries_files") as find, pytest.raises(
-            ValueError, match="live_max_rows"
+        with (
+            patch.object(stability, "collect_timeseries_files") as find,
+            pytest.raises(ValueError, match="live_max_rows"),
         ):
             stability.main_processing(paths_to_process=[tmp_path], live_max_rows=0)
         find.assert_not_called()
