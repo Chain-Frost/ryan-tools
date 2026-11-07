@@ -35,6 +35,14 @@ contain the actual culvert length, upstream/downstream inverts and a positive
 Manning roughness; the maintained wrapper does not invent fallback geometry or
 roughness when these merged source attributes are missing.
 
+The Maximums input contains **independent** peak discharge, velocity and upstream/downstream water levels.
+Their extrema may occur at different timesteps even within the selected governing simulation. In particular,
+`Q`, `V`, `US_h` and `DS_h` are not one concurrent hydraulic observation; the chosen
+`internalName` records the adopted simulation, not a common timestamp. Do not interpret a row containing these
+fields as a coincident flow/depth/velocity state. The report conventions, supported `.1`/`.2` end nodes
+and full-run-code requirement are detailed in the
+[processor contract](../ryan_library/processors/tuflow/README.md#supported-run-identifiers-and-culvert-maximums).
+
 Physical configuration is explicit and is **not inferred from Manning roughness
 or TUFLOW loss coefficients**. A mixed network can supply per-crossing
 `Material` and `Inlet Configuration` through `--culvert-attributes`, using a
