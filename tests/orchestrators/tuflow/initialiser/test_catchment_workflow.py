@@ -8,7 +8,11 @@ import pytest
 from rasterio.crs import CRS
 from shapely.geometry import LineString, Point, mapping
 
-from ryan_library.orchestrators.tuflow.initialiser.catchment_workflow import CatchmentConfig, build_catchments, read_interest_features
+from ryan_library.orchestrators.tuflow.initialiser.catchment_workflow import (
+    CatchmentConfig,
+    build_catchments,
+    read_interest_features,
+)
 
 
 def test_line_interest_with_stale_geopackage_count_is_read(tmp_path: Path) -> None:

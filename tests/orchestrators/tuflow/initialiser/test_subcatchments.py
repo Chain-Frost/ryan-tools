@@ -13,8 +13,14 @@ from shapely.geometry import box
 from shapely.ops import unary_union
 
 from ryan_library.orchestrators.tuflow.initialiser.d8 import contributing_cells
-from ryan_library.orchestrators.tuflow.initialiser.subcatchment_outputs import write_reach_subcatchment_summary, write_reach_subcatchments
-from ryan_library.orchestrators.tuflow.initialiser.subcatchments import SubcatchmentResult, delineate_reach_subcatchments
+from ryan_library.orchestrators.tuflow.initialiser.subcatchment_outputs import (
+    write_reach_subcatchment_summary,
+    write_reach_subcatchments,
+)
+from ryan_library.orchestrators.tuflow.initialiser.subcatchments import (
+    SubcatchmentResult,
+    delineate_reach_subcatchments,
+)
 
 
 def _network() -> tuple[NDArray[np.int16], NDArray[np.float64], NDArray[np.bool_], NDArray[np.bool_]]:

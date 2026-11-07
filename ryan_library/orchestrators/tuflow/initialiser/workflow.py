@@ -135,7 +135,8 @@ def _write_streams(
             )
 
 
-def build(config: BuildConfig) -> Path:
+def build(  # noqa: C901 - staged project generation validates GIS and raster outputs together
+config: BuildConfig) -> Path:
     """Run full hydrology, stage TUFLOW outputs, then publish atomically by directory.
 
     Existing target projects are never overwritten.

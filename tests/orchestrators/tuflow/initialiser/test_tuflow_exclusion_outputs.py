@@ -12,7 +12,11 @@ from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
 from ryan_library.orchestrators.tuflow.initialiser.geometry import make_domain
-from ryan_library.orchestrators.tuflow.initialiser.gis_writer import feature_geometry, write_analysis, write_tuflow_layers
+from ryan_library.orchestrators.tuflow.initialiser.gis_writer import (
+    feature_geometry,
+    write_analysis,
+    write_tuflow_layers,
+)
 
 
 def _empty(path: Path, props: dict[str, str], *, crs_wkt: str) -> None:
