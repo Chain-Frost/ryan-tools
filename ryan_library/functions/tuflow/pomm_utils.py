@@ -570,8 +570,12 @@ def find_aep_dur_median(aggregated_df: DataFrame) -> DataFrame:
                 "mean_TP",
             }
             if required_cols.issubset(median_df.columns):
-                median_duration_norm: Series[float] = median_df["median_duration"].map(TuflowStringParser.normalize_duration_value)
-                mean_duration_norm: Series[float] = median_df["mean_Duration"].map(TuflowStringParser.normalize_duration_value)
+                median_duration_norm: Series[float] = median_df["median_duration"].map(
+                    TuflowStringParser.normalize_duration_value
+                )
+                mean_duration_norm: Series[float] = median_df["mean_Duration"].map(
+                    TuflowStringParser.normalize_duration_value
+                )
                 duration_match: Series[bool] = median_duration_norm.eq(other=mean_duration_norm)
                 tp_match: Series[bool] = median_df["median_TP"].eq(other=median_df["mean_TP"])
                 mean_storm_matches = (duration_match & tp_match).fillna(value=False)
