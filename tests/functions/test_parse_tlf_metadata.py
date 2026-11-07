@@ -155,7 +155,7 @@ def test_tlf_processor_and_log_summary_match_across_size_and_encoding(
 
 def test_linewise_encoding_handles_mixed_complete_lines(tmp_path: Path) -> None:
     path = tmp_path / "mixed.tlf"
-    path.write_bytes("Model: 流域\n".encode("utf-8") + "User: René\n".encode("cp1252"))
+    path.write_bytes("Model: 流域\n".encode() + "User: René\n".encode("cp1252"))
     lines, last_lines = get_log_lines(path, is_large_file=False)
     assert lines == ["Model: 流域", "User: René"]
     assert last_lines == lines
