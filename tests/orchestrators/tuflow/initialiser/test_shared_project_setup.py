@@ -48,7 +48,12 @@ def test_initialiser_project_uses_shared_core_with_original_defaults(
     monkeypatch.setattr(shared_project_setup, "_run_tuflow_empty_generation", _fake_tuflow_generation)
     templates = (
         Path(__file__).resolve().parents[4]
-        / "ryan_library" / "orchestrators" / "tuflow" / "initialiser" / "resources" / "tuflow_templates"
+        / "ryan_library"
+        / "orchestrators"
+        / "tuflow"
+        / "initialiser"
+        / "resources"
+        / "tuflow_templates"
     )
     prj = tmp_path / "MGA94_Zone_51.prj"
     prj.write_text(CRS.from_epsg(28351).to_wkt(), encoding="utf-8")
@@ -80,9 +85,7 @@ def test_initialiser_project_uses_shared_core_with_original_defaults(
     assert not (result.project_dir / "model" / "gis" / "EXG" / "2d_loc_EXG_01_R.qml").exists()
     assert not (result.project_dir / "model" / "gis" / "EXG" / "2d_bc_EXG_01_L.gpkg").exists()
     expected_utilities = (
-        (result.project_dir / "model" / "gis" / "rename_geopackage_layer_to_filename.py",)
-        if copy_utilities
-        else ()
+        (result.project_dir / "model" / "gis" / "rename_geopackage_layer_to_filename.py",) if copy_utilities else ()
     )
     assert result.copied_utilities == expected_utilities
     assert (result.project_dir / "runs" / "Example_01_~s2~_~s1~_~e1~_~e2~_~e4~_~e3~_~s4~.tcf").is_file()
