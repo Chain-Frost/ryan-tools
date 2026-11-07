@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from loguru import logger
-from pandas import NA, DataFrame, Series, concat, to_numeric
+from pandas import NA, DataFrame, MultiIndex, Series, concat, to_numeric
 
 from ryan_library.functions.dataframe_helpers import (
     reorder_columns,
@@ -820,11 +820,13 @@ class ProcessorCollection:
         # Arrow's pandas metadata is JSON and rejects NumPy scalars in axis names.
         # Normalise only the copied axis metadata; do not alter source frames.
         portable = frame.copy(deep=False)
-        if isinstance(portable.columns, pd.MultiIndex):
+        if isinstance(portable.columns, MultiIndex):
             names = [name.item() if isinstance(name, np.generic) else name for name in portable.columns.names]
             portable.columns = portable.columns.set_names(names)
-        elif isinstance(portable.columns.name, np.generic):
-            portable.columns = portable.columns.rename(portable.columns.name.item())
+        else:
+            name = portable.columns.name
+            if isinstance(name, np.generic):
+                portable.columns = portable.columns.rename(name.item())
 
         sink = pa.BufferOutputStream()
         table = pa.Table.from_pandas(portable, preserve_index=True)
