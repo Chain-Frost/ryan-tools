@@ -27,7 +27,8 @@ unknown. The original table-based interface remains available. See the [usage gu
 
 ## Remaining scope
 
-None for filename inference. Successful-completion checks and pre-run simulation-plan generation are separate features.
+None for filename inference and optional completion-marker verification. Pre-run simulation-plan generation remains
+outside this workflow.
 MCP assessment: document the existing maintained headless CLI; no duplicate endpoint added for contextual inference.
 
 ## Next action
@@ -52,3 +53,22 @@ and conflicting CLI arguments. Delivery is on `feat/tlf-ensemble-inference`; Git
 The user authorized commit/push of this work and an AGENTS.md policy change permitting routine pushes of task-related
 commits without a separate request. Explicit user restrictions still apply; force-pushes, unrelated commits and merges
 are outside that routine permission. Branch starts at main `312c7f51`; no unrelated worktree edits were included.
+
+## TP coverage tables and optional verification, 2026-11-07
+
+Wrapper 2026-11-07.5 / package 26.11.7.12 adds per-scenario AEP-row/duration-column TP grids, grey complete cells,
+red gaps, and compact per-table TP-range summaries grouped across durations. Console log lines omit calling code
+locations. Uppercase grid labels such as 16M remain scenario fields. CSV retains full inferred missing names.
+
+`VERIFY_SUCCESS = False` preserves filename-only defaults. Opt-in verification requires a standalone
+`Simulation FINISHED` marker in the newest primary TLF, using HPC only when no primary exists. Changing logs remain
+unconfirmed, read failures abort, and all filenames still define expected dimensions. Verified gaps include both absent
+and unsuccessful/unconfirmed runs. This is completion-status evidence, not numerical-quality acceptance.
+
+29 focused tests pass, covering partial/complete/zero grids, scenario separation, duplicate logs, compact TP ranges,
+success markers, running primaries with old successful companions, newest-primary precedence, HPC-only logs, default
+no-read behaviour and explicit read failures. Ruff, strict Pyright, help, compilation and logging checks pass.
+Built/verified/installed 26.11.7.12; copied-wrapper presence/verification CSV checks and forced-colour/narrow rendering
+pass. User accepted the live-folder table layout. Verification marker spelling was checked against one real TLF;
+no full campaign completion audit was performed. Preserve the user's local RESULTS_FOLDER edit outside the commit.
+Deliver on the existing feature branch; hosted CI remains unverified and no merge is authorized.

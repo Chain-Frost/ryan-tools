@@ -25,7 +25,38 @@ All gaps are **inferred**. A whole missing ensemble can be identified when its c
 An AEP, duration or scenario absent everywhere cannot be inferred. This is intended for finding gaps near the end
 of a campaign, not defining a simulation plan before runs start. A present log does not prove successful completion.
 
-Console output lists at most 50 gaps. `--output-csv` saves all inferred missing run names, without an extension;
+For TP-bearing filename families, console output shows one AEP-row/duration-column table per scenario combination.
+Cells count distinct TPs found, including active runs whose logs already exist: these are not completion counts.
+Each scenario table is followed by a compact missing summary. Repeated duration groups share TP ranges, for example
+`01p: 060m,120m TP01-03,TP08`; `all TP` denotes an entirely absent set. The scenario prefix is not repeated.
+Complete cells are grey and incomplete cells red in terminals that support colour. The caption gives the expected TP
+count (normally 10; any additional observed TP codes also become expected). Entirely missing combinations show zero.
+Wide grids split into column sections instead of truncating durations. Missing AEP/duration fields get a placeholder.
+Without colour, the counts and expected total still identify gaps. Layouts with repeated event fields use the filename
+listing instead of an ambiguous grid. Non-TP families also retain a filename listing, including in mixed inventories.
+Log lines omit the calling filename/function. Fallback filename listings show at most 50 gaps.
+
+## Optional success verification
+
+Set `VERIFY_SUCCESS = True` or pass `--verify-success` to read the logs and count only simulations with a standalone
+`Simulation FINISHED` line. The default is `False`: filename-only scanning. `--no-verify-success` overrides an edited
+True setting. The same tables then show **Successful TPs**; compact summaries and CSV include absent runs and runs
+without confirmed success. A running, failed or interrupted simulation therefore remains outstanding. This verifies
+TUFLOW's completion status, not numerical quality or acceptable mass balance. All observed names still define the
+expected dimensions, even when none have succeeded.
+
+For each run, verification uses the newest primary `.tlf` across scanned directories. A primary TLF takes precedence
+over its `.hpc.tlf` companion; an old successful companion cannot mask a running or failed primary. If only HPC logs
+exist, use the newest HPC log. Files whose size or modification time changes during reading are not confirmed.
+An unreadable selected log fails the scan rather than claiming a complete verified inventory. Snapshots can change
+while models run; rerun after the campaign ends for final acceptance. Verification performs extra network reads and
+is unavailable in legacy tracking-table mode.
+
+```powershell
+python ryan-scripts/tuflow/find_missing_tlf_runs.py "T:\results\04" --verify-success --no-pause
+```
+
+`--output-csv` saves all inferred missing run names, without an extension;
 the report must not already exist. No report is written by default. The default combination limit is 1,000,000;
 `--max-combinations` can change it. Exceeding the limit fails rather than claiming a partial inventory is complete.
 Exit status is 0 for a completed analysis (including gaps), 1 for failure, and 2 for invalid CLI arguments.
