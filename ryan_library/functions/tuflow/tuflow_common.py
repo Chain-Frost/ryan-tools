@@ -388,7 +388,8 @@ def bulk_read_and_merge_tuflow_csv(
         suffixes_config=SuffixesConfig.get_instance(),
     )
     if not files:
-        logger.error("No files found")
+        # A validated empty scan is a normal skip, not a processing failure.
+        logger.info("No matching TUFLOW files found; skipping processing.")
         return ProcessorCollection()
 
     if dashboard is not None:
