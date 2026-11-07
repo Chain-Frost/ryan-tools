@@ -221,8 +221,9 @@ def _spatial_reference(crs: str) -> osr.SpatialReference:
 def _open_vector(path: Path, *, closed_lines_as_areas: bool) -> gdal.Dataset | None:
     option_value = "TRUE" if closed_lines_as_areas else "FALSE"
     gdal.ErrorReset()
-    with _gdal_config_option("DXF_CLOSED_LINE_AS_POLYGON", option_value), _gdal_config_option(
-        "DWG_CLOSED_LINE_AS_POLYGON", option_value
+    with (
+        _gdal_config_option("DXF_CLOSED_LINE_AS_POLYGON", option_value),
+        _gdal_config_option("DWG_CLOSED_LINE_AS_POLYGON", option_value),
     ):
         gdal.PushErrorHandler("CPLQuietErrorHandler")
         try:
@@ -283,8 +284,7 @@ def _export_dwg_to_dxf(
     script_path = destination.with_suffix(".scr")
     autocad_destination = destination.as_posix().replace('"', '\\"')
     script_path.write_text(
-        '(setvar "FILEDIA" 0)\n'
-        f'(command "_.SAVEAS" "_DXF" "_Version" "2013" "16" "{autocad_destination}")\n',
+        f'(setvar "FILEDIA" 0)\n(command "_.SAVEAS" "_DXF" "_Version" "2013" "16" "{autocad_destination}")\n',
         encoding="ascii",
     )
     command = [str(console_path), "/i", str(source), "/s", str(script_path), "/l", "en-US"]
