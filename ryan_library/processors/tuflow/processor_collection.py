@@ -836,8 +836,8 @@ class ProcessorCollection:
         # Preserve the exact pandas missing sentinel alongside Arrow metadata.
         na_positions: dict[str, list[int]] = {}
         for col_idx in range(frame.shape[1]):
-            if frame.dtypes.iloc[col_idx] == object:
-                positions = [row_idx for row_idx, value in enumerate(frame.iloc[:, col_idx]) if value is pd.NA]
+            if frame.dtypes.iloc[col_idx] == "object":
+                positions = [row_idx for row_idx, value in enumerate(frame.iloc[:, col_idx]) if value is NA]
                 if positions:
                     na_positions[str(col_idx)] = positions
 
@@ -882,7 +882,7 @@ class ProcessorCollection:
                     if not isinstance(row_idx, int) or not 0 <= row_idx < len(frame):
                         msg = "Cached Arrow missing-value row index is invalid"
                         raise ValueError(msg)
-                    frame.iat[row_idx, col_idx] = NA
+                    frame.iloc[row_idx, col_idx] = NA
         return frame
 
     @staticmethod
