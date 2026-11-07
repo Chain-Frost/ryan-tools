@@ -69,7 +69,9 @@ intentional validation tightening: malformed/unsupported input raises `ValueErro
 callers must handle those failures instead of relying on an empty DataFrame. Batch CSV paths are null when not
 corroborated, with a `csv_status` column. Missing or inapplicable IL/CL/ROC/kc/m values are null. The closure orchestrator
 rejects missing CSV associations before generating hydrograph jobs, so it cannot silently analyze only the remaining
-files. CSV DataFrame output still omits `Inc`; use the document API to retain it. Private filename-construction and row
+files. It also raises when a CSV has fewer than two time records or cannot supply uniform, positive time steps; it does
+not silently omit that run from closure statistics. CSV DataFrame output still omits `Inc`; use the document API to
+retain it. Private filename-construction and row
 parsing helpers were replaced by the validated public API.
 
 The two existing closure metrics are unchanged: `analyze_hydrograph` counts above-threshold samples times timestep;

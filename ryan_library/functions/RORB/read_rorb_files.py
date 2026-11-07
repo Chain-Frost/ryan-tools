@@ -102,12 +102,12 @@ def analyze_hydrograph(
     time_values = pd.to_numeric(hydrograph["Time (hrs)"], errors="coerce")
     time_steps = time_values.diff().dropna()
     if len(time_values.index) < 2 or time_steps.empty or time_steps.isna().any() or (time_steps <= 0).any():
-        logger.error("Invalid time values in {}", csv_path)
-        return pd.DataFrame()
+        msg = f"RORB hydrograph has insufficient or invalid time steps: {csv_path}"
+        raise ValueError(msg)
     timestep = float(time_steps.iloc[0])
     if not (time_steps - timestep).abs().le(1e-9).all():
-        logger.error("Non-uniform time steps in {}", csv_path)
-        return pd.DataFrame()
+        msg = f"RORB hydrograph has non-uniform time steps: {csv_path}"
+        raise ValueError(msg)
 
     hydrograph_columns = [column for column in hydrograph.columns if column != "Time (hrs)"]
     if not hydrograph_columns:

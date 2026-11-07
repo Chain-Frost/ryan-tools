@@ -2,13 +2,13 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Implemented: draft PR open; hosted final validation underway |
+| Status | Implemented: PR open for review; final-head CI underway |
 | Owner | ChatGPT / maintainer |
 | Created | 2026-11-05 |
-| Updated | 2026-11-05 |
+| Updated | 2026-11-07 |
 | Next review | 2026-11-12 |
 | Baseline | Local main at `10b71898220d11feaff8256618ffb8eeec35f4ef` |
-| Delivery | [Draft PR #233](https://github.com/Chain-Frost/ryan-tools/pull/233), branch `feat/rorb-readers-mcp-20261105`; committed and pushed, unmerged |
+| Delivery | [PR #233](https://github.com/Chain-Frost/ryan-tools/pull/233), branch `feat/rorb-readers-mcp-20261105`; committed and pushed, unmerged |
 
 ## Outcome and scope
 
@@ -18,6 +18,13 @@ not certification of all RORB versions or run modes. Proprietary inputs remain o
 The excluded submodule was not inspected. Unrelated untracked `QGIS-TUFLOW-Plugin/` content was left untouched.
 
 ## Current implementation
+
+2026-11-07 continuation: The reported hydrograph time-step inconsistency is now diagnosed with the source's
+printed precision; regression tests cover contradictory and rounded time axes, including increments listed after
+summary rows. The associated Codex thread is resolved. The latest `main` was merged without losing RORB MCP
+registration or current package metadata; all six hosted checks passed on `680ecff`. A further closure workflow
+safety change raises on nonuniform or insufficient CSV time samples rather than silently omitting a batch run.
+Final checks on that new commit must be reviewed; no merge or release was performed.
 
 The user authorized implementation after the audit and clarified that CMD parameter layouts and executable feature
 support can differ. Implemented source-preserving readers, structured diagnostics, strict DataFrame adapters, batch/CSV
