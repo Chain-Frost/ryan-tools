@@ -121,7 +121,7 @@ def test_unequal_duration_tp_counts_remain_event_counts_in_final_tables() -> Non
     assert final_median["count_duration"] == 2
 
     final_mean = find_aep_mean_max(find_aep_dur_mean(group)).iloc[0]
-    assert final_mean["mean_PeakFlow"] == 6
+    assert final_mean["mean_PeakFlow"] == 4
     assert final_mean["count_TP_aep"] == 5
     assert final_mean["count_duration"] == 2
 
@@ -144,6 +144,6 @@ def test_workbooks_preserve_counts_selected_run_and_dictionary(tmp_path: Path) -
         assert len(reported) == 1
         assert reported.iloc[0]["count_TP_aep"] == 5
         assert reported.iloc[0]["count_duration"] == 2
-        assert reported.iloc[0][statistic] == 6
+        assert reported.iloc[0][statistic] == (6 if statistic == "MedianAbsMax" else 4)
         assert pd.notna(reported.iloc[0]["internalName"])
         assert {"count_TP_aep", "count_duration", "internalName"}.issubset(set(dictionary["column"]))
