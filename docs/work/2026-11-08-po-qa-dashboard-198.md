@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Draft implementation; current integrated-head CI and native acceptance pending |
+| Status | Code implementation hosted-CI green; native and partial-input acceptance pending |
 | Owner | WP08 integration |
 | Created / updated | 2026-11-08 |
 | Next review | 2026-11-15 |
@@ -64,27 +64,41 @@ Do not claim #198 fully accepted until that contract is integrated and tested.
 
 ## Validation and native acceptance
 
-The earlier **QA-only** head `391ade6e` passed all six GitHub CI jobs,
-including Windows Python 3.14 hosted tests, strict Pyright and installed-wheel
-checks. These are historical for the newly added POMM/closure scope and do
-not validate the current head. Focused current-head Ruff, strict Pyright,
-hosted tests, installed-wheel/copied-wrapper parity and failure outcomes
-must pass before marking code acceptance.
+**Code implementation verified at `ee5040b04fb58159de9e03814cc06461dd270528`:**
+[Fast PR checks](https://github.com/Chain-Frost/ryan-tools/actions/runs/42401226388)
+and [Python CI](https://github.com/Chain-Frost/ryan-tools/actions/runs/42401226390)
+passed all six jobs. Windows Python 3.14 hosted tests **2,585 passed,
+14 skipped, eight deselected**. Ruff and format, strict Pyright (zero errors),
+documentation, POSIX security, MCP, package build and copied installed-wheel
+smoke passed. The smoke checks existing six result wrappers, both PO QA checks,
+POMM mean/median, and closure failure preservation.
+
+The isolated copied-wheel test has **neither Parquet engine**. Because closure
+always generates raw gzip Parquet sidecars, the test verifies that the wrapper
+returns FAILED/nonzero and does not leave partial outputs; it **does not
+prove successful closure export**. Success on a normal installed wheel with
+`pyarrow` or `fastparquet` requires native verification. The copied QA and POMM
+report success paths passed on/off workbook parity.
 
 No live TUFLOW solver, proprietary project, production workbook, mapped/UNC
 SMB share or Office lock was exercised. Native Windows Excel/UNC no-overwrite
 publication and representative project POMM/closure report parity remain separate.
 WP03 #267 real POMM-only/RLL_Qmx/mixed and WP09 #215 dry-event/scenario
 correctness are separate prerequisites, not covered by dashboard tests.
+Full partial-input truthfulness depends on WP07 #195 and WP04 #219/#223.
 
 The GitHub connector provided isolated branches and hosted checks; the
 agent's container uses Python 3.13 and cannot resolve github.com for Git clone.
 A local Python 3.14 worktree and installed/copied-wrapper check on native
 project data remain unperformed; no claims of such validation are made.
 
+The evidence above applies to the code head `ee5040b04`. A subsequent
+documentation-only handoff update has a new commit SHA; confirm current-head
+checks before closing review. Codex review was requested separately.
+
 ## Handoff
 
-Refresh this child through a normal merge from the current #251 parent;
+Child was refreshed through a normal merge from #251 at `63a36d48`; recheck that parent immediately before integration.
 shared `docs/README.md`, `docs/work/README.md` and TUFLOW script
 documentation must preserve WP01/WP02/WP06 and other pack owners' changes.
 Review the current #265 head and integrate into #251 only after accepted
