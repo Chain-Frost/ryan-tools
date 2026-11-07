@@ -55,6 +55,8 @@ class TuflowProjectConfig:
     templates_dir: Path
     copy_utilities: bool = True
     overwrite: bool = False
+    utility_source_root: Path | None = None
+    include_2d_loc_style: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,7 +154,7 @@ def initialize_tuflow_project(
         for spec in working_layers
     )
     for spec, working_layer in zip(working_layers, created_layers, strict=True):
-        if spec.empty_type == "2d_loc":
+        if config.include_2d_loc_style and spec.empty_type == "2d_loc":
             _copy_2d_loc_style(working_layer=working_layer, overwrite=config.overwrite)
     logger.success("Created TUFLOW project at {} with {} empty working layers", project_dir, len(created_layers))
     return ProjectSetupResult(
@@ -180,10 +182,11 @@ def _validate_config(config: TuflowProjectConfig) -> None:
     if not config.templates_dir.is_dir():
         msg = f"TUFLOW template directory not found: {config.templates_dir}"
         raise FileNotFoundError(msg)
-    style_file: Path = _resolve_2d_loc_style_file()
-    if not style_file.is_file():
-        msg = f"2d_loc QML style not found: {style_file}"
-        raise FileNotFoundError(msg)
+    if config.include_2d_loc_style:
+        style_file: Path = _resolve_2d_loc_style_file()
+        if not style_file.is_file():
+            msg = f"2d_loc QML style not found: {style_file}"
+            raise FileNotFoundError(msg)
 
 
 def _create_folders(project_dir: Path) -> None:
@@ -228,7 +231,7 @@ def _copy_text_templates(*, config: TuflowProjectConfig, project_dir: Path) -> N
 
 def _copy_project_utilities(*, config: TuflowProjectConfig, project_dir: Path) -> tuple[Path, ...]:
     copied: list[Path] = []
-    source_root: Path = _resolve_utility_source_root()
+    source_root: Path = config.utility_source_root or _resolve_utility_source_root()
     for utility in _PROJECT_UTILITIES:
         source_file: Path = source_root / utility.relative_source
         if not source_file.is_file():
@@ -375,7 +378,7 @@ def _create_working_layer_from_empty(
     if target_path.exists():
         target_path.unlink()
 
-    schema: dict[str, object] = _read_fiona_schema(source_path=source_path, source_layer=source_layer)
+    schema: dict[str, object] = read_empty_schema(source_path=source_path, source_layer=source_layer)
     with fiona.open(  # pyright: ignore[reportUnknownMemberType]
         fp=source_path,
         layer=source_layer,
@@ -396,7 +399,7 @@ def _create_working_layer_from_empty(
     return target_path
 
 
-def _read_fiona_schema(*, source_path: Path, source_layer: str) -> dict[str, object]:
+def read_empty_schema(*, source_path: Path, source_layer: str) -> dict[str, object]:
     """Read a complete Fiona schema, including fields Fiona may omit."""
     uri: str = f"file:{source_path.as_posix()}?mode=ro"
     with closing(sqlite3.connect(database=uri, uri=True)) as connection:
@@ -433,6 +436,11 @@ def _read_fiona_schema(*, source_path: Path, source_layer: str) -> dict[str, obj
             continue
         properties[column_name] = _fiona_field_type(declared_type)
     return {"geometry": geometry_name, "properties": properties}
+
+
+def _read_fiona_schema(*, source_path: Path, source_layer: str) -> dict[str, object]:
+    """Compatibility alias for the previously private schema helper."""
+    return read_empty_schema(source_path=source_path, source_layer=source_layer)
 
 
 def _quote_sql_identifier(identifier: str) -> str:

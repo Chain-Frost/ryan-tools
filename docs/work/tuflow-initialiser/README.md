@@ -28,6 +28,13 @@ installed TUFLOW and GRASS for the real workflows. The standalone CLI supports
 explicit terrain rasters or a PyTUFLOW-parsed TGC for catchments. Its `Read GIS
 Zpts` inputs are warned about but not rasterised into the hydrology DEM.
 
+Project creation now delegates to the maintained
+`ryan_library.orchestrators.tuflow.project_setup` implementation. The
+initialiser retains its three-layer default, explicitly configured optional
+utility source, and no QML style copy. The existing project setup retains its
+four-layer default, automatic utility fallback, and QML style handling.
+Regression tests cover both profiles without running TUFLOW.
+
 The `crop_tgc_terrains.py` script remains a separate terrain-preparation
 entry point managed by [PR #204](https://github.com/Chain-Frost/ryan-tools/pull/204),
 with opt-in raster writes and a planning-grid QA GeoPackage. It is **not** a
