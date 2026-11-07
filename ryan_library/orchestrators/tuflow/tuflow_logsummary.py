@@ -9,6 +9,7 @@ It aggregates this information into a summary Excel report.
 __lazy_modules__ = ["pandas"]
 
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 from typing import Literal
 
@@ -25,6 +26,7 @@ from ryan_library.functions.file_utils import find_files_parallel
 from ryan_library.functions.live_dashboard import LiveWorkflowDashboard, WorkflowColumn, WorkflowMetric, WorkflowStatus
 from ryan_library.functions.loguru_helpers import LogQueue, setup_logger
 from ryan_library.functions.multiprocessing_helpers import calculate_pool_size
+from ryan_library.functions.tuflow.hpc_companion import read_hpc_companion_metrics
 from ryan_library.functions.parse_tlf import (
     finalise_data,
     get_log_lines,
@@ -56,6 +58,19 @@ LOG_SUMMARY_SECOND_PRIORITY_COLUMNS: tuple[str, ...] = (
     "Final_RunTime",
     "Model_Start_Time",
     "Model_End_Time",
+    "TLF_Quadtree_ZC_Cells",
+    "TLF_1D_Negative_Depths",
+    "TLF_HPC_HCN_Repeated_Timesteps",
+    "TLF_HPC_NaN_Repeated_Timesteps",
+    "TLF_Warnings_Prior",
+    "TLF_Warnings_During",
+    "TLF_Checks_Prior",
+    "TLF_Checks_During",
+    "HPC_Active_2D_Cells",
+    "HPC_Sealed_Wall_Cells",
+    "HPC_nWet_Observed_Max",
+    "HPC_nWet_Sampled_Records",
+    "HPC_Companion_Status",
     "TGC",
     "TBC",
     "ECF",
@@ -70,7 +85,12 @@ LOG_SUMMARY_SECOND_PRIORITY_COLUMNS: tuple[str, ...] = (
     "Duration",
     "TP",
 )
-LOG_SUMMARY_COLUMNS_TO_END: tuple[str, ...] = ("orig_TCF_path", "orig_log_path", "orig_results_path")
+LOG_SUMMARY_COLUMNS_TO_END: tuple[str, ...] = (
+    "orig_TCF_path",
+    "orig_log_path",
+    "orig_results_path",
+    "HPC_Companion_Path",
+)
 
 
 @dataclass(slots=True)
@@ -83,7 +103,7 @@ class LogFileProcessingResult:
     detail: str
 
 
-def process_log_file(logfile: Path) -> pd.DataFrame:
+def process_log_file(logfile: Path, *, include_hpc_companion_metrics: bool = False) -> pd.DataFrame:
     """Processes a single log file and returns a DataFrame with the extracted data.
 
     This function attempts to:
@@ -98,13 +118,15 @@ def process_log_file(logfile: Path) -> pd.DataFrame:
     Returns:
         pd.DataFrame: DataFrame containing the processed data, or an empty DataFrame on failure/incomplete run.
     """
-    return _process_log_file_dataframe(logfile=logfile)
+    return _process_log_file_dataframe(logfile=logfile, include_hpc_companion_metrics=include_hpc_companion_metrics)
 
 
-def process_log_file_for_dashboard(logfile: Path) -> LogFileProcessingResult:
+def process_log_file_for_dashboard(logfile: Path, *, include_hpc_companion_metrics: bool = False) -> LogFileProcessingResult:
     """Process one log file and return enough metadata to update a live dashboard."""
     try:
-        data_frame: pd.DataFrame = _process_log_file_dataframe(logfile=logfile)
+        data_frame: pd.DataFrame = _process_log_file_dataframe(
+            logfile=logfile, include_hpc_companion_metrics=include_hpc_companion_metrics
+        )
     except Exception as exc:
         logger.exception("Unhandled error while processing {}", logfile)
         return LogFileProcessingResult(
@@ -130,7 +152,7 @@ def process_log_file_for_dashboard(logfile: Path) -> LogFileProcessingResult:
     )
 
 
-def _process_log_file_dataframe(logfile: Path) -> pd.DataFrame:
+def _process_log_file_dataframe(logfile: Path, *, include_hpc_companion_metrics: bool = False) -> pd.DataFrame:
     logfile_path: Path = logfile
     sim_complete: int = 0
     success: int = 0
@@ -193,6 +215,9 @@ def _process_log_file_dataframe(logfile: Path) -> pd.DataFrame:
                 logfile_path=logfile_path,
             )
             if not df.empty:
+                if include_hpc_companion_metrics:
+                    for field, value in read_hpc_companion_metrics(logfile_path).items():
+                        df[field] = value
                 logger.debug(df.head())
                 return df
             logger.warning("Finalization failed for {}, skipping", runcode)
@@ -211,6 +236,7 @@ def main_processing(
     live_max_rows: int = 10,
     log_file: str | None = None,
     file_log_level: str = "INFO",
+    include_hpc_companion_metrics: bool = False,
 ) -> bool:
     """Discover, process, aggregate and export logs; return False on a failed report.
 
@@ -261,6 +287,7 @@ def main_processing(
                         log_queue=log_queue,
                         console_log_level=console_level,
                         dashboard=dashboard,
+                        include_hpc_companion_metrics=include_hpc_companion_metrics,
                     )
 
                 dashboard.set_phase("Aggregating")
@@ -328,6 +355,7 @@ def process_log_files(
     log_queue: LogQueue | None,
     console_log_level: str,
     dashboard: LiveWorkflowDashboard | None = None,
+    include_hpc_companion_metrics: bool = False,
 ) -> list[LogFileProcessingResult]:
     pool_size = calculate_pool_size(num_files=len(files))
     logger.debug("Log summary selected console level: {}", console_log_level)
@@ -350,7 +378,11 @@ def process_log_files(
     # owns serial/process-pool execution and dashboard state updates.
     processing_results: list[LogFileProcessingResult] = run_dashboard_workflow(
         items=files,
-        process_item=process_log_file_for_dashboard,
+        process_item=(
+            partial(process_log_file_for_dashboard, include_hpc_companion_metrics=True)
+            if include_hpc_companion_metrics
+            else process_log_file_for_dashboard
+        ),
         dashboard=dashboard,
         pool_size=pool_size,
         status_for_result=_dashboard_status,
