@@ -226,7 +226,6 @@ def _read_mask_geometries(mask_path: Path, destination_crs: str) -> list[dict[st
     return geometries
 
 
-
 def _native_mask_on_grid(
     layer: TerrainLayer,
     grid: PlanningGrid,
