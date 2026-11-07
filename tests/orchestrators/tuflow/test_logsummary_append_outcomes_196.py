@@ -57,7 +57,9 @@ def test_append_reports_truthful_outcome(
             "process_log_files",
             return_value=[_result(p, s) for p, s in zip(files, statuses, strict=True)],
         ),
-        patch.object(app, "append_dataframe_to_workbook_table", wraps=excel_append.append_dataframe_to_workbook_table) as save,
+        patch.object(
+            app, "append_dataframe_to_workbook_table", wraps=excel_append.append_dataframe_to_workbook_table
+        ) as save,
     ):
         assert (
             app.append_to_master_log_summary(
