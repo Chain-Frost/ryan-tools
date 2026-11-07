@@ -200,9 +200,10 @@ def test_output_rejects_time_spacing_inconsistent_with_report(tmp_path: Path, ro
     )
 
 
-def test_output_accepts_rounding_to_reported_time_precision(tmp_path: Path) -> None:
+@pytest.mark.parametrize("reported_increment", ["0.333333", "0.333", "3.33D-1"])
+def test_output_accepts_rounding_to_reported_time_precision(tmp_path: Path, reported_increment: str) -> None:
     rows = "0 0.000 0\n1 0.333 12\n2 0.667 0\n"
-    text = output_text(rows).replace("Time increment (hours)= 1", "Time increment (hours)= 0.333333")
+    text = output_text(rows).replace("Time increment (hours)= 1", f"Time increment (hours)= {reported_increment}")
     document = read_rorb_file(write(tmp_path, text, "run.out"))
     section = document.section("hydrographs_1")
 
@@ -215,7 +216,7 @@ def test_output_accepts_rounding_to_reported_time_precision(tmp_path: Path) -> N
 
 def test_output_validates_increment_reported_after_summary(tmp_path: Path) -> None:
     text = output_text("0 0 0\n1 100 12\n2 101 0\n")
-    text = text.replace("Time increment (hours)= 1\n", "") + "Time increment (hours)= 1\n"
+    text = text.replace("Time increment (hours)= 1\n", "") + "\nTime increment (hours)= 1\n"
     document = read_rorb_file(write(tmp_path, text, "run.out"))
     assert document.status == "invalid"
     assert any(diagnostic.code == "time_increment_mismatch" for diagnostic in document.diagnostics)
