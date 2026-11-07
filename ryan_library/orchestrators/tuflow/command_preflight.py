@@ -28,6 +28,7 @@ class CommandPreflightReport:
 
     plan: CommandPlan
     issues: list[CommandPreflightIssue] = field(default_factory=list[CommandPreflightIssue])
+    warnings: list[CommandPreflightIssue] = field(default_factory=list[CommandPreflightIssue])
     checked_paths: set[str] = field(default_factory=set[str])
     groups_checked: int = 0
     completed_runs: int = 0
@@ -174,7 +175,9 @@ def check_command_plan(
                 io_workers=io_workers,
                 maximum_directory_entries=maximum_directory_entries,
             )
-            if report.run_count != len(runs) or any(issue.run_index not in by_index for issue in report.issues):
+            if report.run_count != len(runs) or any(
+                finding.run_index not in by_index for finding in (*report.issues, *report.warnings)
+            ):
                 message = "Incomplete or incorrectly indexed preflight group report"
                 raise ValueError(message)
             if not report.passed and not report.issues:
@@ -182,6 +185,9 @@ def check_command_plan(
                 raise ValueError(message)
             findings = [CommandPreflightIssue(by_index[issue.run_index], issue) for issue in report.issues]
             combined.issues.extend(findings)
+            combined.warnings.extend(
+                CommandPreflightIssue(by_index[warning.run_index], warning) for warning in report.warnings
+            )
             combined.checked_paths.update(report.checked_paths)
             combined.parse_seconds += report.parse_seconds
             combined.context_seconds += report.context_seconds
@@ -206,4 +212,5 @@ def check_command_plan(
                 for run in runs
             )
     combined.issues.sort(key=lambda issue: positions[issue.run.index])
+    combined.warnings.sort(key=lambda warning: positions[warning.run.index])
     return combined

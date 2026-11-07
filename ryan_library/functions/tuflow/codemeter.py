@@ -290,6 +290,47 @@ def _fetch_text(url: str, *, timeout_seconds: float) -> str:
         return response.read().decode(encoding, errors="replace")
 
 
+def tuflow_licences_in_use(*, base_url: str = "http://127.0.0.1:22352", timeout_seconds: float = 0.5) -> bool | None:
+    """Read only the TUFLOW usage summary; None means usage is unverified.
+
+    Use an IPv4 loopback address to avoid sequential localhost address retries.
+    Do not fetch allocation details or event history on the launch path. Empty,
+    partial, ambiguous or inconsistent summaries cannot establish zero usage.
+    """
+    try:
+        html_text = _fetch_text(
+            urljoin(f"{base_url.rstrip('/')}/", "license_monitoring.html"), timeout_seconds=timeout_seconds
+        )
+    except (OSError, ValueError):
+        return None
+    products, detail_urls = parse_license_monitoring_html(html_text)
+    if not products or {item.product_code for item in products} != detail_urls.keys():
+        return None
+    if any(item.total < 0 or not 0 <= item.available <= item.total for item in products):
+        return None
+    if any(item.used > 0 for item in products):
+        return True
+    if not _summary_used_cells_are_zero(html_text, detail_urls.keys()):
+        return None
+    return False if any(item.total > 0 for item in products) else None
+
+
+def _summary_used_cells_are_zero(html_text: str, product_codes: Collection[int]) -> bool:
+    """Verify explicit Used cells agree with derived zero usage when present."""
+    parser = _parse_html(html_text)
+    for table in parser.tables:
+        if not table or not {"Product Code", "License Quantity", "Used"}.issubset(table[0]):
+            continue
+        used_index = table[0].index("Used")
+        for row in table[1:]:
+            code_match = _PRODUCT_CODE_PATTERN.search(row[0]) if row else None
+            if code_match is None or int(code_match.group("code")) not in product_codes:
+                continue
+            if len(row) <= used_index or _integer(row[used_index]) != 0:
+                return False
+    return True
+
+
 def fetch_codemeter_snapshot(
     *,
     base_url: str,

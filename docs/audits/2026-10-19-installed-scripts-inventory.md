@@ -1,6 +1,6 @@
 # Per-file installed-script inventory — evidence ledger (2026-10-19)
 
-**Status: incomplete review.** This ledger originated with 146 files at `1ac42c6` and now covers all **157** Git-tracked source files under `ryan-scripts/`, including the repository-only terrain crop added in PR #204. It excludes submodules. It does not enter or inspect the `unsorted` submodule.
+**Status: incomplete review.** This ledger originated with 146 files at `1ac42c6` and now covers all **157** Git-tracked source files under `ryan-scripts/`, including five repository-only additions in PR #187. It excludes submodules. It does not enter or inspect the `unsorted` submodule.
 There are **83 selected wheel files**, **74 excluded source files** and
 **33 distinct existing MCP script paths**. These counts are inventory evidence,
 **not proof** that every source file is maintained, safe to import, or correctly excluded.
