@@ -292,7 +292,7 @@ jobs:
       - name: Run focused POMM compatibility tests with pandas 2.3.3
         shell: pwsh
         run: |
-          python -m pip install --only-binary=:all: --no-deps "pandas==2.3.3"
+          python -m pip install --only-binary=:all: "pandas==2.3.3"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -c "import pandas as pd; assert pd.__version__ == '2.3.3', pd.__version__; print(f'pandas {pd.__version__}')"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
