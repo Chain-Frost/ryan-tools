@@ -18,15 +18,15 @@ from typing import Literal
 
 from loguru import logger
 
-from ryan_library.classes.tuflow_string_classes import TuflowStringParser
-from ryan_library.functions.tuflow.asc_to_asc_raster_operations import MeanValueMethod, NodataPolicy
-from ryan_library.functions.tuflow.asc_to_asc_runner import RasterOperationJob
-from ryan_library.functions.tuflow.tuflow_result_naming import (
+from ...classes.tuflow_string_classes import TuflowStringParser
+from ...functions.tuflow.asc_to_asc_raster_operations import MeanValueMethod, NodataPolicy
+from ...functions.tuflow.asc_to_asc_runner import RasterOperationJob
+from ...functions.tuflow.tuflow_result_naming import (
     replace_filename_component,
     require_component_text,
     result_type_from_parser,
 )
-from ryan_library.orchestrators.tuflow.asc_to_asc_batch import (
+from .asc_to_asc_batch import (
     DashboardOptions,
     StageExecutionSummary,
     run_raster_operation_stage,
@@ -203,8 +203,17 @@ def discover_stat_jobs(
     first_stage_statistic: FirstStageStatistic,
     mean_value_method: MeanValueMethod = "asc_to_asc",
     write_source: bool = False,
+    allow_incomplete_tp_bins: bool = False,
 ) -> tuple[list[FirstStageJobDetails], list[str]]:
-    """Group the expected TPs and configure the first-stage value/source rule."""
+    """Prepare TP statistics, optionally admitting nonempty incomplete bins.
+
+    Zero-byte inputs count as missing contributors. Duplicate or unexpected TP
+    IDs remain errors, and no missing raster is substituted with a zero value.
+    The returned findings include admitted and wholly unusable bins.
+    """
+    if not expected_tps or any(tp < 1 for tp in expected_tps):
+        msg = "Expected temporal patterns must be a nonempty set of positive TP numbers"
+        raise ValueError(msg)
     groups: dict[tuple[Path, str, str, str, str], list[ParsedRaster]] = defaultdict(list)
     for raster in rasters:
         groups[
@@ -230,15 +239,38 @@ def discover_stat_jobs(
                 f"{representative.duration} {representative.result_type}: {found_tps}"
             )
             raise ValueError(msg)
+        unexpected = sorted(set(found_tps).difference(expected_tps))
+        if unexpected:
+            msg = (
+                f"Unexpected temporal patterns in {representative.scenario} {representative.aep} "
+                f"{representative.duration} {representative.result_type}: {unexpected}; "
+                "check EXPECTED_TPS and the input selection"
+            )
+            raise ValueError(msg)
+        empty_inputs: list[Path] = []
+        available: list[ParsedRaster] = []
+        for raster in group:
+            if raster.path.stat().st_size == 0:
+                empty_inputs.append(raster.path)
+            else:
+                available.append(raster)
+        found_tps = [raster.tp_number for raster in available]
         found_tp_set: frozenset[int] = frozenset(found_tps)
         if found_tp_set != expected_tps:
             missing: list[int] = sorted(expected_tps.difference(found_tp_set))
+            found_text = ", ".join(f"TP{tp:02d}" for tp in found_tps) or "none"
+            missing_text = ", ".join(f"TP{tp:02d}" for tp in missing)
+            empty_text = (
+                f"; ignored zero-byte inputs: {', '.join(str(path) for path in empty_inputs)}" if empty_inputs else ""
+            )
+            unavailable_text = "; no usable inputs, bin excluded" if not available else ""
             incomplete_groups.append(
                 f"{representative.scenario} {representative.aep} {representative.duration} "
-                f"{representative.result_type}: found TP{', TP'.join(f'{tp:02d}' for tp in found_tps)}; "
-                f"missing TP{', TP'.join(f'{tp:02d}' for tp in missing)}"
+                f"{representative.result_type} [{representative.trim_run_code}; {representative.grid_directory}]: "
+                f"found {found_text}; missing {missing_text}{empty_text}{unavailable_text}"
             )
-            continue
+            if not allow_incomplete_tp_bins or not available:
+                continue
 
         jobs.append(
             FirstStageJobDetails(
@@ -248,7 +280,7 @@ def discover_stat_jobs(
                         f"{representative.duration} {representative.result_type}"
                     ),
                     operation=operation,
-                    input_files=tuple(raster.path for raster in group),
+                    input_files=tuple(raster.path for raster in available),
                     output_file=(
                         output_root
                         / statistic_directory
@@ -275,20 +307,23 @@ def discover_stat_jobs(
     return jobs, sorted(incomplete_groups)
 
 
+def _maximum_group_key(details: ParsedRaster | FirstStageJobDetails) -> tuple[Path, str, str, str]:
+    """Identify independent maxima consistently before and after TP grouping."""
+    return (
+        details.grid_directory,
+        details.trim_run_code.casefold(),
+        details.aep.casefold(),
+        details.result_type.casefold(),
+    )
+
+
 def discover_max_jobs(
     *, stat_jobs: Sequence[FirstStageJobDetails], output_root: Path, write_source: bool = False
 ) -> list[tuple[RasterOperationJob, list[str]]]:
     """Group duration statistics by model, scenario, AEP, and result type."""
     groups: dict[tuple[Path, str, str, str], list[FirstStageJobDetails]] = defaultdict(list)
     for details in stat_jobs:
-        groups[
-            (
-                details.grid_directory,
-                details.trim_run_code.casefold(),
-                details.aep.casefold(),
-                details.result_type.casefold(),
-            )
-        ].append(details)
+        groups[_maximum_group_key(details)].append(details)
 
     jobs: list[tuple[RasterOperationJob, list[str]]] = []
     for group in groups.values():
@@ -345,6 +380,7 @@ def run_stat_then_max_workflow(
     workers: int | None = None,
     dry_run: bool = False,
     strict: bool = False,
+    allow_incomplete_tp_bins: bool = False,
     write_source: bool = False,
     use_live_dashboard: bool = True,
     live_refresh_per_second: float = 2.0,
@@ -355,7 +391,9 @@ def run_stat_then_max_workflow(
 
     Mean workflows default to ASC_to_ASC value/source selection. The option is
     accepted for median workflows for a uniform API but does not affect median
-    calculation.
+    calculation. Without the incomplete-TP override, skipped bins withhold
+    their model/AEP/result maximum and cause a nonzero exit. Strict mode stops
+    before either stage and cannot be combined with the override.
     """
     try:
         _statistic_settings(first_stage_statistic)
@@ -370,6 +408,9 @@ def run_stat_then_max_workflow(
         return 1
     if live_refresh_per_second <= 0 or live_max_rows < 1:
         print("ERROR: dashboard refresh and row values must be greater than zero")
+        return 1
+    if strict and allow_incomplete_tp_bins:
+        print("ERROR: --strict cannot be combined with --allow-incomplete-tp-bins; disable one of these settings.")
         return 1
     logger.disable("ryan_library")
     try:
@@ -387,37 +428,66 @@ def run_stat_then_max_workflow(
             first_stage_statistic=first_stage_statistic,
             mean_value_method=mean_value_method,
             write_source=write_source,
+            allow_incomplete_tp_bins=allow_incomplete_tp_bins,
         )
+        blocked_maximum_groups: set[tuple[Path, str, str, str]] = set()
+        if incomplete_groups and not allow_incomplete_tp_bins:
+            prepared_inputs = {path for details in stat_jobs for path in details.job.input_files}
+            blocked_maximum_groups = {
+                _maximum_group_key(raster) for raster in rasters if raster.path not in prepared_inputs
+            }
+        maximum_stat_jobs = [
+            details for details in stat_jobs if _maximum_group_key(details) not in blocked_maximum_groups
+        ]
         max_job_data: list[tuple[RasterOperationJob, list[str]]] = discover_max_jobs(
-            stat_jobs=stat_jobs,
+            stat_jobs=maximum_stat_jobs,
             output_root=output_root,
             write_source=write_source,
         )
-    except (FileNotFoundError, ValueError) as error:
+    except (OSError, ValueError) as error:
         print(f"ERROR: {error}")
         return 1
 
     incomplete_count = len(incomplete_groups)
-    incomplete_text = f" (excluded {incomplete_count} incomplete groups)" if incomplete_count else ""
+    admitted_count = sum(len(details.job.input_files) < len(expected_tps) for details in stat_jobs)
+    excluded_count = incomplete_count - admitted_count
     print(f"Found {len(rasters)} supported input rasters.")
-    print(f"Validated {len(stat_jobs)} complete TP {first_stage_statistic} groups{incomplete_text}.")
+    print(
+        f"Prepared {len(stat_jobs)} TP {first_stage_statistic} groups: "
+        f"{len(stat_jobs) - admitted_count} complete; {admitted_count} incomplete admitted; {excluded_count} excluded."
+    )
     print(f"Prepared {len(max_job_data)} maximum-of-{first_stage_statistic}s groups.")
     if first_stage_statistic == "mean":
         print(f"Mean value method: {mean_value_method}.")
     print(f"Source rasters and original-input legends: {'enabled' if write_source else 'disabled'}.")
+    print(f"Incomplete TP bin override: {'enabled' if allow_incomplete_tp_bins else 'disabled'}.")
     for job, durations in max_job_data:
         print(f"  {job.label}: {len(job.input_files)} duration {first_stage_statistic}s ({', '.join(durations)})")
     for incomplete in incomplete_groups:
-        print(f"WARNING: excluded incomplete group: {incomplete}")
+        print(f"WARNING: incomplete TP bin: {incomplete}")
+    if incomplete_groups and allow_incomplete_tp_bins:
+        print(
+            "WARNING: proceeding with incomplete TP bins by explicit override. Statistics use only available "
+            "non-empty rasters; bins with no usable inputs are omitted. Outputs do not represent the full TP ensemble."
+        )
+    if blocked_maximum_groups:
+        print(
+            f"WARNING: withholding {len(blocked_maximum_groups)} affected maximum groups because TP bins are incomplete. "
+            "Regenerate the missing rasters, or explicitly enable --allow-incomplete-tp-bins."
+        )
+        for grid_directory, run_code, aep, result_type in sorted(blocked_maximum_groups):
+            print(f"  Withheld maximum: {run_code} {aep} {result_type} [{grid_directory}]")
+        print("WARNING: any existing affected maximum files are left unchanged and are not results of this run.")
     if incomplete_groups and strict:
         print(f"ERROR: {incomplete_count} incomplete groups found in strict mode.")
         return 1
+    if not stat_jobs:
+        print("ERROR: no usable statistic jobs were prepared")
+        return 1
+    incomplete_failure = bool(incomplete_groups) and not allow_incomplete_tp_bins
     if dry_run:
         print("Dry run complete; no rasters were created.")
-        return 0
-    if not stat_jobs or not max_job_data:
-        print("ERROR: no complete statistic jobs were prepared")
-        return 1
+        return 1 if incomplete_failure else 0
 
     dashboard_options = DashboardOptions(
         enabled=use_live_dashboard,
@@ -442,6 +512,10 @@ def run_stat_then_max_workflow(
             print(f"  - {label} failed: {error}")
         return 1
 
+    if not max_job_data:
+        print("ERROR: maximum stage was not started because no complete maximum groups were prepared.")
+        return 1
+
     max_summary: StageExecutionSummary = run_raster_operation_stage(
         jobs=[job for job, _ in max_job_data],
         stage_name=f"maximum of {first_stage_statistic}s",
@@ -457,5 +531,10 @@ def run_stat_then_max_workflow(
             print(f"  - {label} failed: {error}")
         return 1
 
+    if incomplete_failure:
+        print(f"ERROR: incomplete TP bins withheld affected maxima. Available outputs are under {output_root}")
+        return 1
+    if incomplete_groups:
+        print("WARNING: finished using incomplete TP bins; review the missing-TP findings before using these outputs.")
     print(f"Finished. Outputs are under {output_root}")
     return 0

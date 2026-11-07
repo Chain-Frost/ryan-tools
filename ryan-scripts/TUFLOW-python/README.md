@@ -525,14 +525,26 @@ policies, closest-source mean, upper median and optional executable-comparison b
 `raster_processing/run_asc_to_asc_mean_then_maximum.py` and
 `raster_processing/run_asc_to_asc_median_then_maximum.py` share one generic
 statistic-then-maximum orchestrator. They aggregate temporal patterns for each
-duration, then take the maximum across durations. With `--source`, the final
-source legend resolves directly to the original temporal-pattern rasters.
+duration, then take the maximum across durations. Source rasters and legends
+are enabled by default; `--no-source` disables them. The final source legend
+resolves directly to the original temporal-pattern rasters.
 The mean wrapper defaults to ASC_to_ASC selection: its value raster contains
 the arithmetic mean and its source identifies the lowest contributing TP value
 at or above the mean. `MEAN_VALUE_METHOD` or `--mean-value-method` can instead
 select the closest contributing value or retain the arithmetic mean with
 closest-source provenance. Median uses the upper middle contributing value
 when the TP count is even.
+
+Both wrappers ship `ALLOW_INCOMPLETE_TP_BINS = False`. Incomplete TP bins,
+including zero-byte inputs, withhold their affected final maximum and cause
+exit code 1; complete statistics and unaffected maxima can still finish.
+Set the constant to `True` or pass `--allow-incomplete-tp-bins` to process
+available non-empty TPs with explicit warnings. Missing files are not filled
+with zeroes. `--no-allow-incomplete-tp-bins` restores the complete-bin requirement
+when the constant was edited. Strict mode and this override are incompatible;
+duplicate/unexpected TP IDs and raster-processing errors remain errors.
+See [incomplete TP bin behaviour](../../docs/ASC_TO_ASC_NATIVE_OPERATIONS.md#incomplete-temporal-pattern-bins)
+for empty-bin handling, dry runs and examples.
 
 [`plot_water_level_profiles.py`](po_and_timeseries/plot_water_level_profiles.py) creates terrain
 and TUFLOW water-level profile PNGs along GeoPackage lines.  CLI arguments can override paths and profile settings. The workflow validates CRS metadata and
@@ -689,6 +701,31 @@ The reusable Python function `fetch_codemeter_snapshot()` also accepts `firm_cod
 unattributable quantity rows are suppressed with a warning rather than reported against the wrong vendor.
 
 ## POMM peak wrapper migration
+
+### Mean peak coverage findings
+
+`po_and_timeseries/create_pomm_mean_peak_report.py` adds coverage findings to `aep-mean-max`,
+independently for each AEP, PO location, result type and run/scenario. Existing peak selection is unchanged.
+The new columns show the minimum and maximum tested duration in minutes, the sampled duration list,
+missing intermediate durations, and separate warnings for:
+
+- A selected peak sourced from the shortest or longest tested duration (both when only one was tested).
+- Any duration bin containing other than `EXPECTED_TP_COUNT` records (default 10), including non-winning bins.
+- Missing standard durations between the tested bounds, unrecognised duration labels or non-standard durations.
+
+`findings_status` is `WARNING` if any check fires, otherwise `OK`. These are coverage findings, not a
+model-validity assessment. Counts describe records, not proof that all temporal-pattern identities are distinct.
+For example, sampling 30, 60 and 120 minutes reports gaps at 45 and 90 minutes. Durations outside the
+sampled bounds are not labelled missing; the boundary warning identifies a potentially truncated peak search.
+
+The editable `STANDARD_DURATIONS_MINUTES` uses the
+[ARR Storm Generator duration sequence](https://help-innovyze.atlassian.net/wiki/spaces/arr2016/pages/14614606/Editing+the+Properties+of+ARR+Storms).
+Some listed durations are optional in downloaded ARR datasets: adopt the study's intended sequence explicitly
+when it differs. The effective schedule and expected ensemble size are recorded in the workbook data dictionary.
+Library callers can pass `standard_durations` and `expected_tp_count` to `export_mean_peak_report`,
+`save_peak_report_mean` or `find_aep_mean_max`. Updated wrappers require the matching updated library package.
+
+### Earlier wrapper migration
 
 The maintained mean and median POMM peak wrappers use
 `ryan_library.orchestrators.tuflow.pomm_max_items` directly. The deprecated

@@ -10,18 +10,24 @@ The workflow completes all per-duration upper medians before calculating maxima 
 durations. Input globs may contain wildcards, but output naming templates must
 render concrete filenames and must not rediscover generated outputs.
 
-Source rasters are disabled by default. Set ``WRITE_SOURCE_RASTERS`` or use
-``--source`` to create per-duration source outputs and final source outputs
-whose CSV IDs link directly to the original temporal-pattern rasters.
+Source rasters and legends are enabled by default, with final source IDs
+linked directly to the original temporal-pattern rasters. Set
+``WRITE_SOURCE_RASTERS = False`` or use ``--no-source`` to disable them.
 
 For ``d_HR_Max`` and ``V_Max``, NoData contributes zero to both statistics.
 For elevation results ``h_Max`` and ``h_HR_Max``, NoData is excluded and an
 output cell remains NoData only when every contributing cell is NoData.
+
+Incomplete TP bins normally withhold their affected final maximum. Set
+``ALLOW_INCOMPLETE_TP_BINS = True`` or use ``--allow-incomplete-tp-bins`` to
+proceed using available non-empty rasters, with missing-TP warnings. Missing
+files are not zero-valued contributors. This override cannot be combined with
+``STRICT_INCOMPLETE_GROUPS`` / ``--strict``.
 """
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-09-09.1"
+WRAPPER_VERSION = "2026-11-06.1"
 
 WORKING_DIR: Path = Path(__file__).absolute().parent
 OUTPUT_DIRECTORY_NAME = "ensemble_statistics"
@@ -31,7 +37,9 @@ SCENARIOS = ("EXG", "DEV")
 RESULT_TYPES = ("d_HR_Max", "h_HR_Max", "V_Max")
 WORKERS: int | None = None
 STRICT_INCOMPLETE_GROUPS = False
-WRITE_SOURCE_RASTERS = False
+# Opt in to statistics from fewer TPs; outputs will not represent the full ensemble.
+ALLOW_INCOMPLETE_TP_BINS = False
+WRITE_SOURCE_RASTERS = True
 USE_LIVE_DASHBOARD = True
 LIVE_REFRESH_PER_SECOND = 2.0
 LIVE_MAX_ROWS = 25
@@ -57,6 +65,7 @@ class CliOptions:
     workers: int | None
     dry_run: bool
     strict: bool | None
+    allow_incomplete_tp_bins: bool | None
     write_source: bool | None
 
 
@@ -66,6 +75,7 @@ def main(
     workers: int | None = None,
     dry_run: bool = False,
     strict: bool | None = None,
+    allow_incomplete_tp_bins: bool | None = None,
     write_source: bool | None = None,
     use_live_dashboard: bool | None = None,
     live_refresh_per_second: float | None = None,
@@ -89,6 +99,9 @@ def main(
         workers=workers if workers is not None else WORKERS,
         dry_run=dry_run,
         strict=STRICT_INCOMPLETE_GROUPS if strict is None else strict,
+        allow_incomplete_tp_bins=(
+            ALLOW_INCOMPLETE_TP_BINS if allow_incomplete_tp_bins is None else allow_incomplete_tp_bins
+        ),
         write_source=WRITE_SOURCE_RASTERS if write_source is None else write_source,
         use_live_dashboard=USE_LIVE_DASHBOARD if use_live_dashboard is None else use_live_dashboard,
         live_refresh_per_second=(
@@ -113,11 +126,20 @@ def _parse_cli_arguments() -> CliOptions:
     strict_group.add_argument("--strict", dest="strict", action="store_true", default=None)
     strict_group.add_argument("--no-strict", dest="strict", action="store_false")
     parser.add_argument(
+        "--allow-incomplete-tp-bins",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help=(
+            "Use available non-empty TPs in incomplete bins and create duration maxima with warnings "
+            "(default off; incompatible with --strict)."
+        ),
+    )
+    parser.add_argument(
         "--source",
         dest="write_source",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
         default=None,
-        help="Write source rasters and CSV legends linked to the original input rasters.",
+        help="Write source rasters and CSV legends linked to original inputs (enabled by default).",
     )
     args: argparse.Namespace = parser.parse_args()
     return CliOptions(
@@ -125,6 +147,7 @@ def _parse_cli_arguments() -> CliOptions:
         workers=args.workers,
         dry_run=args.dry_run,
         strict=args.strict,
+        allow_incomplete_tp_bins=args.allow_incomplete_tp_bins,
         write_source=args.write_source,
     )
 
@@ -136,6 +159,7 @@ if __name__ == "__main__":
         workers=cli_options.workers,
         dry_run=cli_options.dry_run,
         strict=cli_options.strict,
+        allow_incomplete_tp_bins=cli_options.allow_incomplete_tp_bins,
         write_source=cli_options.write_source,
         use_live_dashboard=cli_options.common.use_live_dashboard,
         live_refresh_per_second=cli_options.common.live_refresh_per_second,
