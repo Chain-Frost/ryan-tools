@@ -122,3 +122,12 @@ with `--no-bump --skip-pip` preserves package `26.11.6.2` and verifies its wheel
 The verification wheel is isolated; the user's installed dashboard package is
 not replaced. Final-head hosted checks remain authoritative at PR #204.
 No merge or publication is authorized.
+
+
+Typing implementation is pushed as `ae338782`. GitHub currently reports #204
+as conflicting with `main` (`DIRTY`); no workflow run was created for that head.
+Earlier passing runs belong to `becdc448` and are not validation of the typing
+transfer. Resolve the branch conflicts before collecting current-head PR CI.
+This transfer does not authorize merging or rebasing unrelated terrain work.
+The original checkout independently moved to clean `main` during the transfer;
+its changed state was detected before cleanup and left untouched.
