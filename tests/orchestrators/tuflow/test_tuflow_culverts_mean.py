@@ -175,10 +175,10 @@ class TestHelpers:
         assert _preferred_metric_column(df, "mean") == "mean_Q"
 
         df2 = pd.DataFrame(columns=["median_Other", "median_V"])
-        assert _preferred_metric_column(df2, "median") == "median_V"
+        assert _preferred_metric_column(df2, "median") is None
 
         df3 = pd.DataFrame(columns=["mean_Other"])
-        assert _preferred_metric_column(df3, "mean") == "mean_Other"
+        assert _preferred_metric_column(df3, "mean") is None
 
     def test_group_key_values(self):
         assert _group_key_values(["A", "B"], ("1", "2")) == {"A": "1", "B": "2"}
