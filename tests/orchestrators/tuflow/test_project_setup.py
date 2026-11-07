@@ -186,7 +186,7 @@ def test_project_layers_are_empty_derivatives_of_tuflow_empties(
     assert not list((result.project_dir / "model" / "gis" / "baseModel").glob("*__scenario__*"))
 
     runs_dir: Path = result.project_dir / "runs"
-    main_tcf: Path = runs_dir / "Example_01_~s2~_~s1~_~e1~_~e2~_~e4~_~e3~_~s4~.tcf"
+    main_tcf: Path = runs_dir / "Example_01_~s2~_~s1~_~e1~_~e2~_~e4~_~e3~_~e5~_~s4~.tcf"
     assert main_tcf.is_file()
     assert not (runs_dir / "Example_01.tcf").exists()
     tcf_text: str = main_tcf.read_text(encoding="utf-8")

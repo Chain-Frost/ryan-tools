@@ -49,6 +49,7 @@ These documents stay near the code they describe so that browsing a target direc
 | Missing TUFLOW runs | [Filename ensemble inference](../ryan-scripts/tuflow/MISSING_RUNS.md) | Folder scanning, inferred scenario/event permutations and reporting limits |
 | Culvert analysis/design | [Culvert analysis and design workflow](CULVERT_WORKFLOW.md) | Project/scenario models, solver boundary, design search, rating curves, CLI and output contracts |
 | TUFLOW culvert engines | [Selectable TUFLOW culvert engines](TUFLOW_CULVERT_ENGINES.md) | TUFLOW Maximums/1d_nwk ingestion, HY-8 vs ryan-culverts dispatch, output and ownership boundaries |
+| TUFLOW initialiser | [Initialiser implementation](../ryan_library/orchestrators/tuflow/initialiser/README.md) | Hydrology function boundaries, TUFLOW project generation and Windows QA gates |
 | TUFLOW processors | [Processor development notes](../ryan_library/processors/tuflow/README.md) | Processor lifecycle, collections, combinations, filtering, caching and extension |
 | TUFLOW wrappers | [TUFLOW Python wrappers](../ryan-scripts/TUFLOW-python/README.md) | Maintained entry points, shared CLI behavior and wrapper selection |
 | TUFLOW run preflight | [Proposed-run input preflight](TUFLOW_INPUT_PREFLIGHT.md) | Check event/scenario-dependent input references, boundary source CSVs and GPKG layers before launching simulations |
@@ -112,6 +113,16 @@ but they are not current architectural policy when they conflict with the canoni
 | [TUFLOW batch preflight optimisation](work/2026-10-22-tuflow-batch-preflight-optimisation.md) | Stacked draft against PR #143: consume PyTUFLOW batch API, share GIS/filesystem inspection, preserve parity and benchmark 500-run workloads |
 | [TUFLOW runner model checks](work/2026-10-23-tuflow-runner-model-checks.md) | PR #159 current decisions, implementation, validation and delivery state |
 | [TUFLOW GPU availability alerts and CodeMeter validation](work/2026-11-03-tuflow-gpu-alerts-193.md) | PR #193 implementation, measured evidence, validation and delivery state |
+| [TGC terrain crop workflow](work/2026-11-04-tgc-terrain-crop.md) | PR #204 source precedence, native-grid clipping, polygon QA and acceptance limits |
+| [TUFLOW initialiser — README.md](work/tuflow-initialiser/README.md) | Migrated initialiser design, validation or user instructions; PR #246 |
+| [TUFLOW initialiser — aoi-entry-catchments.md](work/tuflow-initialiser/aoi-entry-catchments.md) | Migrated initialiser design, validation or user instructions; PR #246 |
+| [TUFLOW initialiser — architecture.md](work/tuflow-initialiser/architecture.md) | Migrated initialiser design, validation or user instructions; PR #246 |
+| [TUFLOW initialiser — base-workflow-validation.md](work/tuflow-initialiser/base-workflow-validation.md) | Migrated initialiser design, validation or user instructions; PR #246 |
+| [TUFLOW initialiser — future-work.md](work/tuflow-initialiser/future-work.md) | Migrated initialiser design, validation or user instructions; PR #246 |
+| [TUFLOW initialiser — issue-7-quality-validation.md](work/tuflow-initialiser/issue-7-quality-validation.md) | Migrated initialiser design, validation or user instructions; PR #246 |
+| [TUFLOW initialiser — migration.md](work/tuflow-initialiser/migration.md) | Migrated initialiser design, validation or user instructions; PR #246 |
+| [TUFLOW initialiser — validation.md](work/tuflow-initialiser/validation.md) | Migrated initialiser design, validation or user instructions; PR #246 |
+| [TUFLOW initialiser — windows-verification-handoff.md](work/tuflow-initialiser/windows-verification-handoff.md) | Migrated initialiser design, validation or user instructions; PR #246 |
 | [TUFLOW runner grouping and model progress](work/2026-11-04-tuflow-runner-progress.md) | New runner PR, PyTUFLOW filename prediction, bounded live-log observations and local acceptance |
 | [PyTuflow #63 and runner #235 local acceptance](work/2026-11-06-pytuflow-63-ryan-235-local-validation.md) | Current-model 390-run timing, native correctness, mapped/UNC safety, wrapper refresh and remaining hardware/policy gates |
 | [Live dashboard logging regression](work/2026-11-03-live-dashboard-logging.md) | Default stdout routing for older copied runners, regression evidence and PR delivery |
@@ -126,7 +137,7 @@ but they are not current architectural policy when they conflict with the canoni
 | [Installed scripts and distribution rename](work/2026-10-18-installed-scripts.md) | PR #120 wheel scripts, automatic MCP resolution, removed import shim and PyPI name migration |
 | [Installed scripts and MCP requirements](work/2026-10-17-installed-scripts-mcp-pip-distribution.md) | PR #130/#137: corrected wrapper copying, provisional packaging and outstanding engineering acceptance |
 | [Original script distribution requirements](audits/2026-10-17-installed-scripts-original-requirements.md) | Preserved original A–F requirements |
-| [Installed script inventory](audits/2026-10-19-installed-scripts-inventory.md) | All 158 source paths; 83 selected and 75 excluded; lifecycle sign-off outstanding |
+| [Installed script inventory](audits/2026-10-19-installed-scripts-inventory.md) | All 160 source paths; 83 selected and 77 excluded; lifecycle sign-off outstanding |
 | [Script remediation backlog](audits/2026-10-22-script-remediation-backlog.md) | 47 AB items: open/deferred work plus accepted-closed HY-8 evidence (AB-023); triaged safety, engineering and lifecycle tasks |
 | [Fast PR checks and hosted timing](work/2026-10-17-fast-pr-checks-129.md) | PR #129 implementation, exact-head hosted validation, timing evidence and remaining Python-change exercise |
 | [Mapped-drive-safe filesystem paths and raster progress](work/2026-10-16-absolute-path-policy.md) | PR #128 path policy, multiline raster progress, retained-wheel rebuild blocker and validation handoff |

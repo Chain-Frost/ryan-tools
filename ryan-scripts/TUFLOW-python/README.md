@@ -944,6 +944,54 @@ or change `ROOT_DIR` in the script.
 
 Verify first on a disposable copy of model results, particularly on network drives.
 
+## Crop an ordered TGC terrain stack
+
+Active `Read Grid Zpts` commands must be in the root TGC. Terrain commands
+loaded through `Read File` includes are rejected before planning or writing
+outputs; publishing patched include hierarchies is not supported.
+
+[`crop_tgc_terrains.py`](crop_tgc_terrains.py) creates smaller copies of the
+`Read Grid Zpts` rasters active for one scenario. PyTUFLOW evaluates the TGC's
+scenario scopes and preserves command order; the script does not implement a
+second TUFLOW conditional parser and intentionally accepts only one `-s1`
+scenario value.
+
+The supplied analysis box is a hard outer limit. Within it, later terrain reads
+have precedence. Lower layers retain their uniquely required area plus the
+default 50 m seam allowance, leaving deliberate overlap around dataset edges
+without retaining deep redundant overlap. Source elevations stay on their
+native grids and are not reprojected or resampled. Optional `|` polygon masks
+participate in coverage planning and remain on the corresponding patched TGC
+commands.
+
+The default is plan-only. `--write` creates new losslessly compressed rasters
+using the shared ryan-tools `tuflow` GeoTIFF profile: DEFLATE, predictor 2,
+conservative strips, GDAL threading and BigTIFF when safer. It also creates a
+new `_SCENARIO_cropped.tgc` beside the source TGC, a JSON manifest,
+and a `terrain_coverage_qa.gpkg` for review in QGIS. The QA GeoPackage
+contains original raster footprints, per-layer valid coverage within the
+analysis bounds, clipped-out portions, the requested minimum coverage extent,
+observed final clipped extent, remaining coverage gaps and any valid coverage
+lost during trimming. All valid-coverage comparisons use the **planning-grid
+resolution**, so they are not proof of exact native-resolution equivalence.
+Written-raster QA retains each original polygon clip, including where native
+pixels cross planning-cell boundaries. It refuses to overwrite any destination
+and never edits original rasters or TGCs.
+
+```powershell
+py -3.14 .\ryan-scripts\TUFLOW-python\crop_tgc_terrains.py `
+  --tgc "Q:\Project\TUFLOW\model\GEOM_01.tgc" `
+  --scenario EXG `
+  --bounds 700000 7400000 750000 7450000 `
+  --crs EPSG:28350 `
+  --buffer 50 `
+  --output-dir "Q:\Project\TUFLOW\terrain\cropped_EXG" `
+  --write --no-pause
+```
+
+The planning grid controls coverage-mask precision only; it does not change
+terrain resolution. Review the manifest and compare a TUFLOW `DEM_Z` check
+against the original stack before replacing a production TGC reference.
 
 ## Result-wrapper path and label-output safety
 
