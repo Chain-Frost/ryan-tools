@@ -6,7 +6,7 @@
 | Owner | ChatGPT |
 | Created / Updated | 2026-11-07 |
 | Next review | None |
-| Git delivery | Implementation and this record committed together on `feat/tlf-ensemble-inference`; GitHub push authorized |
+| Git delivery | Committed/pushed on `feat/tlf-ensemble-inference`; open PR [#250](https://github.com/Chain-Frost/ryan-tools/pull/250) targets main |
 
 ## Outcome
 
@@ -93,3 +93,9 @@ verified a real completed log in disposable storage, exported/reopened the stand
 confirmed export-off mode writes no workbook, and rejected export without verification. No project report is retained
 in the repository. Deliver on the existing branch; preserve the user's local results-folder setting. Hosted CI is
 unverified; no merge authorized.
+
+## Pull request, 2026-11-07
+
+Opened [PR #250](https://github.com/Chain-Frost/ryan-tools/pull/250) against main, ready for review (not draft),
+with the enhancement label. Implementation head at creation: `97ac83e3`. Hosted CI remains pending/unverified;
+no merge performed or authorized. Next action: review the PR and its terminal hosted checks.
