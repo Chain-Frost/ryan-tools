@@ -38,7 +38,10 @@ are removed alongside their `.gitmodules` entries; do not reintroduce them or lo
 - Format Python with `ruff format` using the 120-character line length configured in `ruff.toml`.
 - Run Pyright in strict mode only on modified Python files.
 - Add type annotations to public functions and methods.
-- Preserve unrelated worktree and submodule changes. Staging and commits are permitted for work within the user-requested scope; exclude unrelated changes. Pushing the scoped work to its existing branch is permitted. Do not merge pull requests without explicit user authorisation; releases and publication remain separate actions.
+- Preserve unrelated worktree and submodule changes. Stage and commit task-related changes when appropriate without
+  requiring a separate request. After making a task-related commit, pushing it to the appropriate GitHub branch is
+  permitted without a separate request. Respect explicit user restrictions on commits or pushes; do not force-push
+  or push unrelated commits. Merge only when explicitly instructed by the user.
 
 ### Filesystem paths
 
