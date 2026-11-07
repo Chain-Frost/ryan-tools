@@ -65,19 +65,30 @@ def test_finite_q_only_and_valid_zero(
 
 def test_all_invalid_and_geometry_only_cannot_govern_peak() -> None:
     invalid = _culvert_events([float("nan"), float("inf"), float("-inf")])
-    for statistic, metric in (("mean", "mean_Q"), ("median", "median_Q")):
-        result = tuflow_culverts_mean._find_culvert_aep_dur_statistic(invalid, statistic)
+    mean_result = tuflow_culverts_mean.find_culvert_aep_dur_mean(invalid)
+    median_result = tuflow_culverts_mean.find_culvert_aep_dur_median(invalid)
+    for result, metric in ((mean_result, "mean_Q"), (median_result, "median_Q")):
         assert len(result) == 1
         assert result.iloc[0]["count"] == 0
         assert result.iloc[0]["count_unusable"] == 3
         assert result.iloc[0]["tp_population_status"] == "UNUSABLE"
         assert metric not in result or result[metric].isna().all()
-        assert tuflow_culverts_mean._find_culvert_aep_statistic_max(result, statistic).empty
+    assert tuflow_culverts_mean.find_culvert_aep_mean_max(mean_result).empty
+    assert tuflow_culverts_mean.find_culvert_aep_median_max(median_result).empty
 
     geometry_only = invalid.drop(columns=["Q"])
     assert tuflow_culverts_mean.find_culvert_aep_dur_mean(geometry_only).empty
     assert tuflow_culverts_mean.find_culvert_aep_dur_median(geometry_only).empty
-    assert tuflow_culverts_mean._preferred_metric_column(DataFrame({"mean_Height": [3.0]}), "mean") is None
+    geometry_summary = DataFrame(
+        {
+            "aep_text": ["01p"],
+            "duration_text": ["0060m"],
+            "trim_runcode": ["EXG"],
+            "Chan ID": ["C1"],
+            "mean_Height": [3.0],
+        }
+    )
+    assert tuflow_culverts_mean.find_culvert_aep_mean_max(geometry_summary).empty
 
 
 def test_ties_use_stable_event_identity_not_input_order() -> None:
