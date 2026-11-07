@@ -754,3 +754,17 @@ MCP discovery assessment: existing runner and result-wrapper catalogue entries
 already expose these workflows and selections. Their CLI and safety contracts
 are unchanged; these internal correctness fixes need no additional MCP tool
 or duplicate package entry point.
+
+### CI repair on 2026-11-07
+
+Hosted run `42374596132` at `3c55d479` reported 2,464 passes, 14 skips,
+eight deselections and one failure. The CSV continuation test's follow-up fake
+still used `_base` for the second parameter after the wrapper began passing
+`working_directory` by keyword. Match that parameter name and assert the
+selected model directory. Production behavior and package artifacts are unchanged.
+
+All four CSV continuation tests, Ruff lint/format and strict Pyright pass locally.
+The user authorized appropriate task-related commits generally and requested an
+AGENTS.md update retaining explicit authorization for merges. The repair and
+policy update are being committed and pushed to #183; hosted validation is
+pending. Next action: verify every check on the new head. Review by 2026-11-14; broader audit remains open.

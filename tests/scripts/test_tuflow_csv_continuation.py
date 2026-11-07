@@ -90,7 +90,8 @@ def test_copied_wrapper_resume_no_work_all_reset_and_follow_up(
     monkeypatch.setattr(simulation_workflow, "launch_plan", _fake_successful_launch(calls))
     monkeypatch.setattr(module, "NEXT_RUN_FILE", Path("follow-up.py"))
 
-    def fake_follow_up(path: Path, _base: Path) -> bool:
+    def fake_follow_up(path: Path, working_directory: Path) -> bool:
+        assert working_directory == tmp_path / "different-model-directory"
         chained.append(path)
         return True
 
