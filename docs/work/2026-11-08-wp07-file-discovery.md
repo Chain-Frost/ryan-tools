@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active — #203 hosted validated; #195 implemented in a stacked draft pending exact-head CI |
+| Status | Needs review — #203 and #195 implementations hosted validated; native acceptance and parent integration outstanding |
 | Owner | WP07 agent / maintainer |
 | Created | 2026-11-08 |
 | Updated | 2026-11-08 |
@@ -23,7 +23,7 @@ Allocation [#240](https://github.com/Chain-Frost/ryan-tools/issues/240), [#203](
 
 ## Next action
 
-Review and repair exact-head CI on #268 (parent #257 already has all six hosted jobs green), then verify installed/copied-wrapper no-pause success/failure parity and TLF read-failure propagation. Reconcile native Windows junction/mapped-drive/UNC/SMB acceptance separately; do not claim it from synthetic hosted tests. Keep both children stacked and unmerged until reviewed for integration into #251, and add closure references to the parent only after incorporation.
+Review the validated #268 diff and integration dependencies with WP01/WP08; verify new/copied wrapper headless success/failure behavior beyond the package CI smoke as needed. Reconcile native Windows junction/mapped-drive/UNC/SMB acceptance separately; do not claim it from synthetic hosted tests. Keep both children stacked and unmerged until reviewed for integration into #251, and add closure references to the parent only after incorporation.
 
 ## Completion criteria
 
@@ -34,7 +34,7 @@ Review and repair exact-head CI on #268 (parent #257 already has all six hosted 
 
 ## Validation and delivery
 
-2026-11-08: first-delivery changes and regression tests committed/pushed to #257; subsequently stacked on the #251 head through non-force merge commits. GitHub verified the PR file comparison is limited to WP07 code/test files. **All six #257 hosted jobs passed at `6666a6fa` (2,534 passed, 14 skipped, 8 deselected); new #268 CI is pending final-head verification.** Local Python 3.14, strict Pyright, focused pytest, package build and copied-wrapper checks have **not** been run in the connector environment; Git HTTPS DNS resolution failed, so a separate local filesystem worktree could not be provisioned. This is a known validation limitation, not acceptance. Native Windows junction and real mapped-drive/UNC path behavior remain open until observed test results are recorded.
+2026-11-08: first-delivery changes and regression tests committed/pushed to #257; subsequently stacked on the #251 head through non-force merge commits. GitHub verified the PR file comparison is limited to WP07 code/test files. **Both #257 and #268 passed all six hosted checks:** #257 at `6666a6fa` (2,534 passed, 14 skipped, 8 deselected), #268 code+register head `065d807a` ([Python CI 42400583651](https://github.com/Chain-Frost/ryan-tools/actions/runs/42400583651), [Fast checks 42400583617](https://github.com/Chain-Frost/ryan-tools/actions/runs/42400583617); 2,558 passed, 14 skipped, 8 deselected; strict Pyright, Ruff, package/installed-wheel smoke, MCP and POSIX security passed).** Local Python 3.14, strict Pyright, focused pytest, package build and copied-wrapper checks have **not** been run in the connector environment; Git HTTPS DNS resolution failed, so a separate local filesystem worktree could not be provisioned. This is a known validation limitation, not acceptance. Native Windows junction and real mapped-drive/UNC path behavior remain open until observed test results are recorded.
 
 ## Progress
 
@@ -49,3 +49,7 @@ Created isolated branch `fix/wp07-discovery-outcomes-195` from #257 and draft [#
 ### 2026-11-08 — Hosted verification reconciliation
 
 At the first comprehensive #268 hosted test run, 2,553 passed with five failures caused by historical tests asserting that malformed inputs were returned as empty/invalid processor objects or that an unreadable nonempty TLF was an intentional skip. The assertions now check FAIL outcomes, retaining intentional location-filter skips. Strict typing of modified legacy mock tests and Ruff formatting were also corrected. Current-head checks on the later commit remain pending; earlier failed/cancelled CI runs must not be treated as final acceptance. The validated-empty culvert collection now uses an informational SKIPPED log rather than an ERROR log. No local worktree/native share acceptance is claimed.
+
+### 2026-11-08 — Hosted acceptance milestone
+
+Latest WP07 #195 code and register were validated together at `065d807a`: all six GitHub Actions jobs green on Windows/Python 3.14, with 2,558 hosted tests passed, 14 skipped and eight deselected. Earlier five assertion failures and legacy strict-typing diagnostics were repaired before this passing head. The updated status record is a documentation-only handoff after the validated code SHA, not evidence of a new local worktree or native share acceptance. A valid empty collection now logs an informational SKIP. No additional implementation scope was authorized. The remaining native gate is real mapped-drive/UNC/SMB path, permission, lock and active-writer behavior; WP01 must retain precise parser/read-failure diagnostics, and WP08 must preserve outcome parity when integrating its report wrappers. Issue closure on #251 is not configured until reviewed child changes are actually incorporated there.
