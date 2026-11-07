@@ -18,7 +18,7 @@ from loguru import logger
 from pandas import DataFrame
 
 from ryan_library.functions.excel_export import ExcelExporter
-from ryan_library.functions.live_dashboard import LiveWorkflowDashboard
+from ryan_library.functions.live_dashboard import LiveWorkflowDashboard, WorkflowStatus
 from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.tuflow.po_timeseries_checks import (
     PeakCheckConfig,
@@ -33,6 +33,24 @@ from ryan_library.functions.tuflow.po_timeseries_checks import (
 def _analyze_peak_worker(path_str: str, config: PeakCheckConfig) -> list[dict[str, object]]:
     results: list[PeakCheckResult] = analyze_peak_csv(path=Path(path_str), config=config)
     return flatten_peak_results(results=results)
+
+
+_MALFORMED_INPUT_STATUSES: frozenset[str] = frozenset(
+    {"DECODE_FAIL", "CSV_PARSE_FAIL", "BAD_HEADER", "TIME_PARSE_FAIL"}
+)
+_NO_DATA_STATUSES: frozenset[str] = frozenset({"EMPTY_FILE", "NO_COLUMNS", "NO_DATA"})
+
+
+def _file_outcome(rows: list[dict[str, object]]) -> WorkflowStatus:
+    """Separate parser failures from successful QA findings and valid empty inputs."""
+    if not rows:
+        return "SKIP"
+    statuses = {str(row.get("status", "")) for row in rows}
+    if statuses & _MALFORMED_INPUT_STATUSES:
+        return "FAIL"
+    if statuses <= _NO_DATA_STATUSES:
+        return "SKIP"
+    return "OK"
 
 
 def main_processing(
@@ -107,6 +125,8 @@ def main_processing(
                 logger.info("Processing {} PO CSV file(s) for peak checks.", len(files))
                 dashboard.set_phase("Processing")
                 all_rows: list[dict[str, object]] = []
+                failed_files = 0
+                accepted_files = 0
                 with cf.ProcessPoolExecutor(max_workers=max_workers) as executor:
                     rows_iter = iter(
                         executor.map(
@@ -119,10 +139,15 @@ def main_processing(
                     for index in range(1, len(files) + 1):
                         dashboard.mark_running(index=index)
                         rows = next(rows_iter)
+                        status = _file_outcome(rows)
+                        if status == "FAIL":
+                            failed_files += 1
+                        elif status == "OK":
+                            accepted_files += 1
                         dashboard.mark_finished(
                             index=index,
-                            status="OK" if rows else "SKIP",
-                            detail=f"{len(rows)} matched row(s)",
+                            status=status,
+                            detail=f"{len(rows)} diagnostic/result row(s)",
                         )
                         if rows:
                             all_rows.extend(rows)
@@ -174,6 +199,17 @@ def main_processing(
                     data_dictionary_metadata={"Workflow": "Timeseries peak checks"},
                 )
                 logger.info("Peak summary export complete.")
+
+                if failed_files:
+                    logger.error(
+                        "{} input file(s) had malformed data; diagnostic rows were retained in the report.",
+                        failed_files,
+                    )
+                    dashboard.finish(outcome="FAILED", detail=f"{failed_files} malformed file(s); partial report exported")
+                    return False
+                if not accepted_files:
+                    dashboard.finish(outcome="SKIPPED", detail="diagnostic-only report exported")
+                    return True
 
                 dashboard.finish(outcome="SUCCESS", detail=f"{len(all_rows)} checked row(s) exported")
                 return True

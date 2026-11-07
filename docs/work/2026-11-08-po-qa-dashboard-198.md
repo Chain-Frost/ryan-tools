@@ -31,10 +31,15 @@ a follow-on PR for display-only POMM/closure changes after those contracts settl
   aggregation and export. Default enabled in both wrappers, configurable
   `USE_LIVE_DASHBOARD`, `LIVE_REFRESH_PER_SECOND`, `LIVE_MAX_ROWS`,
   overridden by the existing common CLI switches including `--no-live-dashboard`.
-- Per-input `OK`/no-data `SKIP` statuses, and explicit overall `SUCCESS`
-  only after the exporter returns. Empty discovery or no matching series is
-  `SKIPPED` (zero exit, no output). A worker or exporter exception is
-  `FAILED`, propagates through the orchestrator and gives nonzero wrapper exit.
+- Per-input `OK`, valid-empty `SKIP` and malformed parser `FAIL` statuses.
+  An `UNSTABLE` or `WARN_1H` result remains an engineering finding,
+  not an execution failure. Diagnostic parse rows are retained in a partial
+  report, but malformed input yields overall `FAILED` and nonzero exit
+  even if some valid rows also export.
+- Explicit overall `SUCCESS` only after exporter completion. Empty discovery
+  or no matching series is `SKIPPED` (zero exit, no output); a diagnostic-only
+  no-data report may still be exported but is not claimed as SUCCESS.
+  A worker/exporter exception is `FAILED` and propagates to the wrapper.
 - Dashboard on/off does not alter selected rows, result ordering, export format,
   or the existing processing engine. The pool's ordered `map` results supply
   completion updates; a displayed `RUNNING` row denotes the coordinator's
