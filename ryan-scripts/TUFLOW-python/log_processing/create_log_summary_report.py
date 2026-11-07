@@ -8,7 +8,7 @@ Users can edit certain constants (like CONSOLE_LOG_LEVEL) to control the default
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-07.2"
+WRAPPER_VERSION = "2026-11-08.1"
 
 # None chooses SUCCESS with the dashboard and INFO without it; an explicit level always wins.
 CONSOLE_LOG_LEVEL: str | None = None
@@ -20,6 +20,8 @@ WORKING_DIR: Path = Path(__file__).absolute().parent
 USE_LIVE_DASHBOARD = True
 LIVE_REFRESH_PER_SECOND = 2.0
 LIVE_MAX_ROWS = 10
+# Opt in to streaming matching *.hpc.tlf files; can increase network I/O substantially.
+INCLUDE_HPC_COMPANION_METRICS = False
 
 import argparse
 import sys
@@ -45,6 +47,7 @@ def main(
     use_live_dashboard: bool | None = None,
     log_file: Path | None = None,
     file_log_level: str | None = None,
+    include_hpc_companion_metrics: bool | None = None,
 ) -> int:
     """Main entry point for log summary analysis.
 
@@ -59,6 +62,7 @@ def main(
         use_live_dashboard: Overrides the USE_LIVE_DASHBOARD constant.
         log_file: Optional detailed log path; None uses LOG_FILE.
         file_log_level: File sink level override (INFO by default; DEBUG for diagnostics).
+        include_hpc_companion_metrics: Opt-in companion log scan; None uses script setting.
     """
     print_wrapper_banner(
         wrapper_source="TUFLOW-python/log_processing/create_log_summary_report.py",
@@ -74,6 +78,12 @@ def main(
     effective_dashboard = USE_LIVE_DASHBOARD if use_live_dashboard is None else use_live_dashboard
     configured_log_file = log_file if log_file is not None else LOG_FILE
     configured_file_level = file_log_level if file_log_level is not None else FILE_LOG_LEVEL
+    use_hpc_companions = (
+        INCLUDE_HPC_COMPANION_METRICS if include_hpc_companion_metrics is None else include_hpc_companion_metrics
+    )
+    if not isinstance(use_hpc_companions, bool):
+        print("Invalid HPC companion setting: expected True or False.", file=sys.stderr)
+        return 1
     try:
         validate_dashboard_settings(refresh_per_second=effective_live_refresh, max_rows=effective_live_max_rows)
     except ValueError as exc:
@@ -100,6 +110,7 @@ def main(
             live_max_rows=effective_live_max_rows,
             log_file=str(log_path) if log_path is not None else None,
             file_log_level=configured_file_level,
+            include_hpc_companion_metrics=use_hpc_companions,
         )
     except KeyboardInterrupt:
         print("Log summary interrupted.", file=sys.stderr)
