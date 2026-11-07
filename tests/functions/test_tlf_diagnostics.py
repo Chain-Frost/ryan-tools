@@ -159,6 +159,8 @@ def test_truncated_companion_only_returns_complete_samples(tmp_path: Path) -> No
     assert observed["HPC_Active_2D_Cells"] == 100
     assert observed["HPC_nWet_Sampled_Records"] == 1
     assert observed["HPC_nWet_Observed_Max"] == 0
+
+
 def test_signed_model_clocks_contribute_to_sampled_wet_max(tmp_path: Path) -> None:
     main = tmp_path / "S2.tlf"
     companion = tmp_path / "S2.hpc.tlf"
