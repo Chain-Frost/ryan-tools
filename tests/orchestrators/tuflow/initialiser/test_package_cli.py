@@ -4,6 +4,7 @@ import subprocess
 import sys
 from importlib.resources import files
 
+
 def test_initialiser_model_templates_are_packaged() -> None:
     resource_root = files("ryan_library.orchestrators.tuflow.initialiser")
     template = resource_root.joinpath("resources", "tuflow_templates", "model", "GEOM_01.tgc")
