@@ -1,6 +1,6 @@
 # WP06 — owned staging in standalone output workflows
 
-**Status:** Active — #232 draft PR #258 stacked on WP01/#251; #197 archive draft delivery stacked on #258; #200 requires GDAL environment.
+**Status:** Active — #232 in draft PR #258 (stacked on #251); #197 in draft PR #264 (stacked on #258); #200 requires GDAL environment.
 **Owner:** WP06 delivery agent.
 **Updated:** 2026-11-08 (Perth).
 **Next review:** 2026-11-15 or when current-head CI/native validation is available.
@@ -9,7 +9,7 @@
 
 ## First delivery — profile PNG publication (#232)
 
-- Draft [PR #258](https://github.com/Chain-Frost/ryan-tools/pull/258), branch `fix/wp06-profile-publication-232`. Source edit at `34ccbc1c`, regression tests at `53360981`; commits pushed through the connected GitHub API against live main `5ad632cc`.
+- Draft [PR #258](https://github.com/Chain-Frost/ryan-tools/pull/258), branch `fix/wp06-profile-publication-232`, is stacked on integration [#251](https://github.com/Chain-Frost/ryan-tools/pull/251). Source edit `34ccbc1c`, regression tests `53360981`, follow-up CI repair `805c6e11`. No change was merged to main.
 - Profile PNGs now render through an exclusive unique same-directory staging file; publication is explicit overwrite or operating-system atomic no-replace. Casefold name collisions are rejected, and only the invocation's stage is cleaned.
 - Focused tests cover concurrent publishers, a late competing destination, case aliases, render/publish failures and independent per-profile publication. Raster sampling is mocked while GIS fixture and output files are real.
 - Existing sampling values, CRS handling and profile selection were not intentionally changed.
@@ -19,7 +19,7 @@
 
 ## Second delivery — archive publication (#197)
 
-- Branch `fix/wp06-archive-publication-197` descends from the draft #258 head. This remains a separate reviewable delivery (no main merge).
+- Draft [PR #264](https://github.com/Chain-Frost/ryan-tools/pull/264), branch `fix/wp06-archive-publication-197`, is the reviewable #197 child of draft #258; this child incorporates the latest profile parent commits without changing that parent's branch.
 - `create_7zip_archive` writes to a unique temporary directory on the target filesystem and uses atomic no-replace part publication. A cooperative exclusive-writing claim prevents two library callers from simultaneously publishing the same destination. Failed subprocesses and interrupted execution clean only invocation-owned staging; any published parts are rolled back only when their file identity still matches this invocation.
 - Folder archiving now retains dotted source names: `model.v1` → `model.v1.7z`, distinct from `model.v2.7z`. The wrapper preflights physical destination aliases before dispatch, while preserving user-provided path spelling.
 - Existing single-volume, split-volume and individual-file consumers retain their public options. Split-volume publication consists of multiple file publishes, **not a filesystem-atomic set**; process/machine interruption can leave a partial set. An abandoned `.*.writing` claim requires inspection before manual removal.
@@ -32,6 +32,6 @@ Conditional on a suitable GDAL raster/cutline environment to validate CRS and sp
 
 ## Handoff and constraints
 
-The environment cannot resolve `github.com` over Git transport, so no remote clone/checkout or Git push was possible from the container. Work was staged on a dedicated remote branch using the connected GitHub API. A separate local Git worktree at `/mnt/data/wp06-profile-worktree` was used for an isolated filesystem harness only; it is **not** a checkout of the remote repository. No submodules or `unsorted` were traversed. No solver or production input was used. Nothing was merged or released.
+The environment cannot resolve `github.com` over Git transport, so no remote clone/checkout or Git push was possible from the container. Work was staged on a dedicated remote branch using the connected GitHub API. A separate local Git worktree at `/mnt/data/wp06-profile-worktree` was used for an isolated filesystem harness only; it is **not** a checkout of the remote repository. No submodules or `unsorted` were traversed. No solver or production input was used. Branch integration is by non-force merge commits only; nothing was merged to main or released.
 
 **Next action:** confirm #258/stack exact-head CI and archive #197 focused hosted tests; repair check failures on the owning branches. Obtain Windows 7-Zip/SMB evidence for #197. Keep #200 as a native-GDAL gate until a valid environment is available.
