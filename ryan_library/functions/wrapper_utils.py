@@ -1,13 +1,19 @@
 # ryan_library/functions/wrapper_utils.py
 """Utility functions shared by wrapper scripts."""
 
+import ast
+import json
 import os
+import re
 import sys
 from argparse import ArgumentParser, Namespace
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import date
 from importlib.metadata import PackageNotFoundError, version
+from importlib.resources import files
 from pathlib import Path
+from typing import cast
 
 
 @dataclass(slots=True)
@@ -89,13 +95,19 @@ def print_library_version(package_name: str = "ryan-tools") -> None:
         print(f"{package_name} version: unknown")
 
 
-def print_wrapper_identity(*, wrapper_file: Path, wrapper_version: str) -> None:
+def print_wrapper_identity(*, wrapper_file: Path, wrapper_version: str, display_base: Path | None = None) -> None:
     """Display the running wrapper path and its embedded revision.
 
     The revision is stored in the wrapper itself, so it remains available when
     that file is copied away from the repository and loses its Git history.
     """
-    print(f"Wrapper: {wrapper_file.absolute()} (version {wrapper_version})")
+    display_path = wrapper_file.absolute()
+    if display_base is not None:
+        try:
+            display_path = display_path.relative_to(display_base.absolute())
+        except ValueError:
+            pass
+    print(f"Wrapper: {display_path} (version {wrapper_version})")
 
 
 def print_wrapper_banner(
@@ -104,6 +116,8 @@ def print_wrapper_banner(
     wrapper_version: str,
     leading_blank_line: bool = False,
     package_name: str = "ryan-tools",
+    wrapper_source: str | None = None,
+    display_base: Path | None = None,
 ) -> None:
     """Display the wrapper identity and installed library version together.
 
@@ -113,11 +127,90 @@ def print_wrapper_banner(
         leading_blank_line: Print a blank separator before the banner. Use this
             for the closing banner after ``main()`` returns.
         package_name: Installed distribution whose version should be displayed.
+        wrapper_source: Original path relative to ``ryan-scripts``. Supply this
+            for renamed copies; otherwise a unique installed filename is used.
+        display_base: Optionally display the wrapper relative to this directory.
     """
     if leading_blank_line:
         print()
-    print_wrapper_identity(wrapper_file=wrapper_file, wrapper_version=wrapper_version)
+    print_wrapper_identity(wrapper_file=wrapper_file, wrapper_version=wrapper_version, display_base=display_base)
     print_library_version(package_name=package_name)
+    if package_name == "ryan-tools":
+        _warn_if_wrapper_is_older(
+            wrapper_file=wrapper_file, wrapper_version=wrapper_version, wrapper_source=wrapper_source
+        )
+
+
+def _wrapper_revision(value: str) -> tuple[date, int] | None:
+    """Parse the maintained wrapper revision numerically, including its date."""
+    match = re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})\.([1-9]\d*)", value)
+    if match is None:
+        return None
+    try:
+        return date(int(match[1]), int(match[2]), int(match[3])), int(match[4])
+    except ValueError:
+        return None
+
+
+def _warn_if_wrapper_is_older(*, wrapper_file: Path, wrapper_version: str, wrapper_source: str | None) -> None:
+    """Compare allowlisted installed source without executing it or using a network."""
+    current = _wrapper_revision(wrapper_version)
+    if current is None:
+        return
+    try:
+        resource = files("ryan_library.resources.mcp").joinpath("installed_scripts.json")
+        metadata: object = json.loads(resource.read_text(encoding="utf-8"))
+        if not isinstance(metadata, dict):
+            return
+        manifest = cast("dict[str, object]", metadata)
+        if manifest.get("schema_version") != 1:
+            return
+        entries: object = manifest.get("installed_files")
+        if not isinstance(entries, list):
+            return
+        candidates = [
+            entry
+            for entry in cast("list[object]", entries)
+            if isinstance(entry, str)
+            and entry.endswith(".py")
+            and (entry == wrapper_source if wrapper_source is not None else Path(entry).name == wrapper_file.name)
+        ]
+        if len(candidates) != 1:
+            return
+        source = candidates[0]
+        relative = Path(source)
+        if relative.is_absolute() or ".." in relative.parts:
+            return
+        original = Path(__file__).absolute().parents[2] / "ryan-scripts" / relative
+        latest_text = _read_wrapper_revision(original)
+        latest = _wrapper_revision(latest_text) if latest_text is not None else None
+        if latest is not None and current < latest:
+            print(
+                f"WARNING: This wrapper ({wrapper_version}) is older than the installed package's "
+                f"{source} ({latest_text}). Copy the newer script and transfer your settings before using it."
+            )
+    except (OSError, UnicodeError, ValueError, SyntaxError, RecursionError):
+        # A best-effort banner check must not prevent the wrapper from running.
+        return
+
+
+def _read_wrapper_revision(original: Path) -> str | None:
+    """Read a literal script revision without importing a human-facing entry point."""
+    tree = ast.parse(original.read_text(encoding="utf-8"))
+    for statement in tree.body:
+        if isinstance(statement, ast.Assign):
+            targets = statement.targets
+            value = statement.value
+        elif isinstance(statement, ast.AnnAssign):
+            targets = [statement.target]
+            value = statement.value
+        else:
+            continue
+        if any(
+            isinstance(target, ast.Name) and target.id in {"WRAPPER_VERSION", "SCRIPT_VERSION"} for target in targets
+        ):
+            return value.value if isinstance(value, ast.Constant) and isinstance(value.value, str) else None
+    return None
 
 
 def add_common_cli_arguments(parser: ArgumentParser) -> None:

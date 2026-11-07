@@ -11,7 +11,7 @@ tables are always included in the same protected output batch.
 from pathlib import Path
 from typing import Literal
 
-WRAPPER_VERSION = "2026-11-07.2"
+WRAPPER_VERSION = "2026-11-07.3"
 PAUSE_ON_FINISH = True
 
 CONSOLE_LOG_LEVEL = "INFO"
@@ -47,7 +47,11 @@ def main(
     paths_to_process: tuple[Path, ...] | None = None,
     working_directory: Path | None = None,
 ) -> int:
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="TUFLOW-python/po_and_timeseries/calculate_po_closure_durations.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+    )
     script_directory: Path = (
         Path(working_directory if working_directory is not None else WORKING_DIR).expanduser().absolute()
     )
@@ -98,6 +102,7 @@ if __name__ == "__main__":
         working_directory=common_options.working_directory,
     )
     print_wrapper_banner(
+        wrapper_source="TUFLOW-python/po_and_timeseries/calculate_po_closure_durations.py",
         wrapper_file=Path(__file__),
         wrapper_version=WRAPPER_VERSION,
         leading_blank_line=True,

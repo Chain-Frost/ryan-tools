@@ -97,11 +97,41 @@ is reported separately.
 At the start of `main`, print both identities:
 
 ```python
-print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+print_wrapper_banner(
+    wrapper_file=Path(__file__),
+    wrapper_version=WRAPPER_VERSION,
+    wrapper_source="TUFLOW-python/model_management/run_tuflow_simulations.py",
+)
 ```
 
 This tells a user which copied wrapper file is running and which installed
 `ryan-tools` package supplies its implementation.
+
+Use the script's own original path relative to `ryan-scripts` for
+`wrapper_source`, in both opening and closing banners. This is a stable identity,
+not an editable operational setting: keep it when renaming a project copy.
+The shared banner compares the embedded revision with that original script
+bundled in the **installed package**, using the installed script allowlist.
+It prints a visible warning when the running copy is older, naming both
+revisions and advising the user to copy the newer script and transfer their
+settings. It never replaces a script or settings automatically.
+
+This check is offline: it does not query GitHub or claim to know the latest
+repository revision. Update the installed package to obtain a newer reference.
+Dates and revision numbers are compared numerically; equal or newer copies do
+not warn. Unknown/malformed revisions, missing reference files and ambiguous
+identities skip the comparison without blocking execution. Legacy callers
+without `wrapper_source` can match a unique original filename, but cannot
+identify renamed copies. Read the reference as source; never import or execute
+it merely to obtain its revision. The helper also recognizes `SCRIPT_VERSION`
+for maintained standalone scripts.
+
+Maintained standalone scripts use the same banner/check when `ryan-tools` is
+available, with an optional import and their own version banner as the fallback.
+They retain standalone operation when the package is absent. An installed
+reference is required for comparison; repository-only scripts without a bundled
+counterpart cannot be checked against the installed package. Do not retrofit
+legacy or experimental scripts solely to add this warning.
 
 Print the same two identities again after `main()` returns. The opening banner
 records what is about to run; the closing banner remains visible beside the

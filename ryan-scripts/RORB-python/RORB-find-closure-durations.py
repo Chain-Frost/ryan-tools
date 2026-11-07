@@ -20,7 +20,7 @@ Examples::
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-07.1"
+WRAPPER_VERSION = "2026-11-07.2"
 
 # Editable defaults for normal double-click or IDE execution.
 WORKING_DIR: Path = Path(__file__).absolute().parent
@@ -66,7 +66,11 @@ def main(
         ``0`` after the orchestrator completes, or ``1`` when the working
         directory cannot be selected.
     """
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="RORB-python/RORB-find-closure-durations.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+    )
 
     target_directory: Path = (working_directory or WORKING_DIR).absolute()
     configured_paths: tuple[Path, ...] = paths_to_process or tuple(PATHS_TO_PROCESS) or (target_directory,)
@@ -134,6 +138,7 @@ if __name__ == "__main__":
         pool_size=cli_pool_size,
     )
     print_wrapper_banner(
+        wrapper_source="RORB-python/RORB-find-closure-durations.py",
         wrapper_file=Path(__file__),
         wrapper_version=WRAPPER_VERSION,
         leading_blank_line=True,

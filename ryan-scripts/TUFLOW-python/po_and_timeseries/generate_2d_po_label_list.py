@@ -21,7 +21,7 @@ from typing import Any
 # the file path below (either as a Path instance or a raw string). Leave it as
 # None to rely exclusively on argparse. When both a hardcoded path and a CLI
 # argument are supplied, the CLI argument wins.
-SCRIPT_VERSION = "2026-11-04.1"
+SCRIPT_VERSION = "2026-11-07.1"
 HARDCODED_GPKG_PATH: Path | str | None = None
 LAYER: str | None = None
 # The adjacent .txt is created exclusively; existing files are never overwritten.
@@ -33,6 +33,15 @@ class RuntimeOptions:
 
     gpkg_path: Path
     layer: str | None
+
+
+# Standalone use remains supported without installing ryan-tools.
+try:
+    from ryan_library.functions.wrapper_utils import print_wrapper_banner
+except ModuleNotFoundError as exc:
+    if exc.name not in {"ryan_library", "ryan_library.functions", "ryan_library.functions.wrapper_utils"}:
+        raise
+    print_wrapper_banner = None
 
 
 def parse_and_resolve_options(argv: Sequence[str] | None = None) -> RuntimeOptions:
@@ -69,6 +78,14 @@ def parse_and_resolve_options(argv: Sequence[str] | None = None) -> RuntimeOptio
 
 def main() -> None:
     """Entry point used by both CLI execution and IDE run configurations."""
+    if print_wrapper_banner is not None:
+        print_wrapper_banner(
+            wrapper_file=Path(__file__),
+            wrapper_version=SCRIPT_VERSION,
+            wrapper_source="TUFLOW-python/po_and_timeseries/generate_2d_po_label_list.py",
+        )
+    else:
+        print(f"Script: {Path(__file__).absolute()} (version {SCRIPT_VERSION})")
     options: RuntimeOptions = parse_and_resolve_options()
     if not options.gpkg_path.exists():
         msg = f"GeoPackage not found: {options.gpkg_path}"

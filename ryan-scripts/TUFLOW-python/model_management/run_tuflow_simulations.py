@@ -67,7 +67,7 @@ SHOW_PROGRESS_DIAGNOSTICS = True  # Show the latest timestep and observed final 
 CONSOLE_LOG_LEVEL: params.LogLevel = params.LOG.INFO
 WAIT_TIME_AFTER_RUN = 2.0  # Seconds between launches (>=0). Example: 0.5. Does not change GPU slots.
 PAUSE_ON_FINISH = True  # Pause interactively on finish; --no-pause forces False, --pause forces True.
-WRAPPER_VERSION = "2026-11-07.2"
+WRAPPER_VERSION = "2026-11-07.3"
 
 import argparse  # noqa: I001, RUF100
 import signal
@@ -224,7 +224,11 @@ def _run_follow_up(path: Path, working_directory: Path) -> bool:
 def main(argv: list[str] | None = None, *, _parsed_arguments: argparse.Namespace | None = None) -> int:
     """Return 0 on success, 1 on planning/validation/processing failure."""
     arguments = _parsed_arguments if _parsed_arguments is not None else _arguments(argv)
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        wrapper_source="TUFLOW-python/model_management/run_tuflow_simulations.py",
+    )
     try:
         log_level = arguments.console_log_level if arguments.console_log_level is not None else CONSOLE_LOG_LEVEL
         if not isinstance(log_level, str) or log_level.upper() not in params.LOG:
@@ -321,7 +325,12 @@ def main(argv: list[str] | None = None, *, _parsed_arguments: argparse.Namespace
         logger.exception("Unexpected runner failure.")
         return 1
     finally:
-        print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+        print_wrapper_banner(
+            wrapper_file=Path(__file__),
+            wrapper_version=WRAPPER_VERSION,
+            wrapper_source="TUFLOW-python/model_management/run_tuflow_simulations.py",
+            leading_blank_line=True,
+        )
 
 
 def _arguments(argv: list[str] | None = None) -> argparse.Namespace:

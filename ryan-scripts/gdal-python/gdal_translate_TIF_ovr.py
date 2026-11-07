@@ -26,7 +26,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-07.1"
+WRAPPER_VERSION = "2026-11-07.2"
 
 # Editable defaults for normal double-click or IDE execution.
 INPUT_FILE: Path | None = None
@@ -74,7 +74,11 @@ def main(
     overwrite: bool | None = None,
 ) -> int:
     """Resolve wrapper settings and run the shared raster-conversion workflow."""
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="gdal-python/gdal_translate_TIF_ovr.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+    )
     # Resolve before chdir so relative CLI paths remain relative to the launch directory.
     selected_file: Path | None = (
         input_file if input_file is not None else INPUT_FILE if working_directory is None else None
@@ -191,6 +195,7 @@ if __name__ == "__main__":
         overwrite=args.overwrite,
     )
     print_wrapper_banner(
+        wrapper_source="gdal-python/gdal_translate_TIF_ovr.py",
         wrapper_file=Path(__file__),
         wrapper_version=WRAPPER_VERSION,
         leading_blank_line=True,

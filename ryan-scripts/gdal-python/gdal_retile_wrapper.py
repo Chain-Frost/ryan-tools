@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-07.1"
+WRAPPER_VERSION = "2026-11-07.2"
 DEFAULT_INPUTS = [Path("input.tif")]
 DEFAULT_OUTPUT_DIR = Path("tiles")
 DEFAULT_TILE_SIZE: list[int] = [5000, 5000]
@@ -114,13 +114,22 @@ def _parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
 
 if __name__ == "__main__":
     cli_args = _parse_cli_arguments()
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="gdal-python/gdal_retile_wrapper.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+    )
     try:
         result = main(cli_args)
     except Exception:
         logger.exception("Wrapper failed.")
         result = 1
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+    print_wrapper_banner(
+        wrapper_source="gdal-python/gdal_retile_wrapper.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        leading_blank_line=True,
+    )
     if not cli_args.no_pause:
         pause_console(collect_before_pause=True)
     raise SystemExit(result)

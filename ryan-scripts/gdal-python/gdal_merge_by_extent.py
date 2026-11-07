@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-16.1"
+WRAPPER_VERSION = "2026-11-07.1"
 
 WORKING_DIR: Path = Path(__file__).absolute().parent
 EXTENT_VECTOR: Path | None = None
@@ -66,7 +66,11 @@ def main(
     overwrite: bool | None = None,
 ) -> int:
     """Resolve wrapper settings, select intersecting tiles, and optionally merge them."""
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="gdal-python/gdal_merge_by_extent.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+    )
     target_directory = (working_directory or WORKING_DIR).absolute()
     configured_extent = extent_vector or EXTENT_VECTOR
     if configured_extent is None:
@@ -146,6 +150,7 @@ if __name__ == "__main__":
         overwrite=args.overwrite,
     )
     print_wrapper_banner(
+        wrapper_source="gdal-python/gdal_merge_by_extent.py",
         wrapper_file=Path(__file__),
         wrapper_version=WRAPPER_VERSION,
         leading_blank_line=True,

@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-07.1"
+WRAPPER_VERSION = "2026-11-07.2"
 
 # All paths may be absolute or relative to DEFAULT_WORKING_DIR. Use raw Windows
 # strings such as Path(r"Q:\Project\GIS") or Path(r"\\server\share\GIS").
@@ -132,7 +132,11 @@ def main(
     if not change_working_directory(target_dir=directory):
         return 1
 
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="other/repair_qgis_project_paths.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+    )
     try:
         changes = plan_source_path_changes(
             project,
@@ -230,7 +234,12 @@ if __name__ == "__main__":
         write=args.write if args.write is not None else DEFAULT_WRITE,
         drive_mappings=args.drive_map if args.drive_map is not None else DEFAULT_DRIVE_MAPPINGS,
     )
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+    print_wrapper_banner(
+        wrapper_source="other/repair_qgis_project_paths.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        leading_blank_line=True,
+    )
     no_pause = args.no_pause if args.no_pause is not None else DEFAULT_NO_PAUSE
     if not no_pause:
         pause_console()

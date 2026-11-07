@@ -9,7 +9,7 @@ Use --no-write to preview destinations. Requires the matching ryan-tools package
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-04.1"
+WRAPPER_VERSION = "2026-11-07.1"
 DEFAULT_INPUT_DIR = Path()
 # Relative output folders are based on each input directory.
 DEFAULT_OUTPUT_DIR = Path("unprotected")
@@ -299,14 +299,23 @@ def _parse_cli_arguments() -> argparse.Namespace:
 
 if __name__ == "__main__":
     args = _parse_cli_arguments()
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="misc-python/remove_excel_protection.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+    )
     result = main(
         input_directories=args.input_directories,
         output_directory=args.output_directory,
         write=args.write,
         use_live_dashboard=args.live_dashboard,
     )
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+    print_wrapper_banner(
+        wrapper_source="misc-python/remove_excel_protection.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        leading_blank_line=True,
+    )
     if PAUSE_ON_FINISH and not args.no_pause:
         pause_console()
     raise SystemExit(result)

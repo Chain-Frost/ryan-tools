@@ -766,5 +766,7 @@ selected model directory. Production behavior and package artifacts are unchange
 All four CSV continuation tests, Ruff lint/format and strict Pyright pass locally.
 The user authorized appropriate task-related commits generally and requested an
 AGENTS.md update retaining explicit authorization for merges. The repair and
-policy update are being committed and pushed to #183; hosted validation is
-pending. Next action: verify every check on the new head. Review by 2026-11-14; broader audit remains open.
+policy update were committed/pushed as `b538fb87`; all six hosted checks passed
+in run `42375365710` plus fast-check run `42375365780`. The subsequent
+[wrapper revision warning](2026-11-07-wrapper-version-warnings.md) has its own
+validation/delivery record. Review by 2026-11-14; broader audit remains open.

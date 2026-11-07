@@ -28,7 +28,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
-WRAPPER_VERSION = "2026-11-07.1"
+WRAPPER_VERSION = "2026-11-07.2"
 
 # Editable defaults for normal double-click or IDE execution.
 WORKING_DIR: Path = Path(__file__).absolute().parent
@@ -75,7 +75,9 @@ def main(
     overwrite: bool | None = None,
 ) -> int:
     """Resolve wrapper settings and run the shared flood-extent workflow."""
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="gdal-python/gdal_flood_extent.py", wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION
+    )
     # Resolve every user path before chdir so relative paths retain their original meaning.
     target_directory: Path = (working_directory or WORKING_DIR).absolute()
     configured_paths: tuple[Path, ...] = paths_to_process or tuple(PATHS_TO_PROCESS) or (target_directory,)
@@ -175,6 +177,7 @@ if __name__ == "__main__":
         overwrite=args.overwrite,
     )
     print_wrapper_banner(
+        wrapper_source="gdal-python/gdal_flood_extent.py",
         wrapper_file=Path(__file__),
         wrapper_version=WRAPPER_VERSION,
         leading_blank_line=True,

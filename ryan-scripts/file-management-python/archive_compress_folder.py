@@ -26,7 +26,7 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 # Wrapper identity and editable project settings (CLI options override these)
 # ---------------------------------------------------------------------------
-WRAPPER_VERSION = "2026-11-07.1"
+WRAPPER_VERSION = "2026-11-07.2"
 
 DEFAULT_INPUT_PATHS: list[Path] = [Path.cwd()]
 DEFAULT_WORKING_DIRECTORY: Path | None = None  # None = first input directory
@@ -274,7 +274,11 @@ def _parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
 
 if __name__ == "__main__":
     cli = _parse_cli_arguments()
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="file-management-python/archive_compress_folder.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+    )
     configured_log = None if cli.no_log_file else cli.log_file if cli.log_file is not None else DEFAULT_LOG_FILE
     log_file = str(configured_log.absolute()) if configured_log is not None else None
     with setup_logger(
@@ -298,7 +302,12 @@ if __name__ == "__main__":
         except Exception:
             logger.exception("Archive compression wrapper failed.")
             exit_code = 1
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+    print_wrapper_banner(
+        wrapper_source="file-management-python/archive_compress_folder.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        leading_blank_line=True,
+    )
     pause_on_finish = cli.pause if cli.pause is not None else DEFAULT_PAUSE_ON_FINISH
     if pause_on_finish:
         pause_console()

@@ -8,7 +8,7 @@ Users can edit certain constants (like CONSOLE_LOG_LEVEL) to control the default
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-04.1"
+WRAPPER_VERSION = "2026-11-07.1"
 
 # None chooses SUCCESS with the dashboard and INFO without it; an explicit level always wins.
 CONSOLE_LOG_LEVEL: str | None = None
@@ -60,7 +60,11 @@ def main(
         log_file: Optional detailed log path; None uses LOG_FILE.
         file_log_level: DEBUG file sink level override.
     """
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="TUFLOW-python/log_processing/create_log_summary_report.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+    )
     script_directory: Path = (
         Path(working_directory if working_directory is not None else WORKING_DIR).expanduser().absolute()
     )
@@ -134,6 +138,7 @@ if __name__ == "__main__":
         file_log_level=common_options.file_log_level,
     )
     print_wrapper_banner(
+        wrapper_source="TUFLOW-python/log_processing/create_log_summary_report.py",
         wrapper_file=Path(__file__),
         wrapper_version=WRAPPER_VERSION,
         leading_blank_line=True,

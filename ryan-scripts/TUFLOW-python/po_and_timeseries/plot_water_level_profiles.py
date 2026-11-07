@@ -11,7 +11,7 @@ Edit the defaults below for ordinary use, or override them from a terminal::
 from pathlib import Path
 from typing import Literal
 
-WRAPPER_VERSION = "2026-11-07.1"
+WRAPPER_VERSION = "2026-11-07.2"
 
 # Project inputs currently used to validate the workflow.
 LINES_GPKG = Path(r"E:\Projects\profile-line_01.gpkg")
@@ -107,7 +107,11 @@ def main(
     overwrite_existing: bool | None = None,
 ) -> int:
     """Resolve editable defaults and run the profile workflow."""
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="TUFLOW-python/po_and_timeseries/plot_water_level_profiles.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+    )
     configure_serial_logging(console_log_level=console_log_level or CONSOLE_LOG_LEVEL)
     if not change_working_directory(target_dir=working_directory or WORKING_DIR):
         return 1
@@ -232,6 +236,7 @@ if __name__ == "__main__":
         overwrite_existing=options.overwrite_existing,
     )
     print_wrapper_banner(
+        wrapper_source="TUFLOW-python/po_and_timeseries/plot_water_level_profiles.py",
         wrapper_file=Path(__file__),
         wrapper_version=WRAPPER_VERSION,
         leading_blank_line=True,

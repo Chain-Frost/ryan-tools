@@ -36,6 +36,10 @@ experimental, vendored or versioned legacy files solely because they exist.
    (`YYYY-MM-DD.N`) near the top; identify the actual script/version when run,
    without relying on file modification times. An argparse `--version` is useful.
    Library-backed wrappers report both script and installed `ryan-tools` versions.
+   All maintained scripts use the shared offline installed-script revision warning
+   when `ryan-tools` is available; standalone scripts retain an optional import
+   and a local identity fallback. Preserve the original script identity after
+   renaming a copy. See the [revision comparison contract](WRAPPER_STANDARD.md#embedded-identity).
 2. **Complete editable configuration:** expose **every operational CLI
    option** as a visible, editable setting near the top, including modes,
    paths, output/write controls, logging and pause behaviour. Names are chosen

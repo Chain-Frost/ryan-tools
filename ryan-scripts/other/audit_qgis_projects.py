@@ -20,7 +20,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
-WRAPPER_VERSION = "2026-11-07.1"
+WRAPPER_VERSION = "2026-11-07.2"
 
 # Project directory; Path() uses the directory from which the script was run.
 # For example, set Path(r"Q:\Project\GIS") or Path(r"\\server\share\GIS").
@@ -188,7 +188,9 @@ def main(
     if not change_working_directory(target_dir=directory):
         return 1
 
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="other/audit_qgis_projects.py", wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION
+    )
     projects = [selected] if selected is not None else find_qgis_projects(directory)
     if not projects:
         logger.warning("No QGS or QGZ project files found in {}", directory)
@@ -262,7 +264,12 @@ if __name__ == "__main__":
         sample_rows=args.sample_rows if args.sample_rows is not None else DEFAULT_SAMPLE_ROWS,
         drive_mappings=args.drive_map if args.drive_map is not None else DEFAULT_DRIVE_MAPPINGS,
     )
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+    print_wrapper_banner(
+        wrapper_source="other/audit_qgis_projects.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        leading_blank_line=True,
+    )
     no_pause = args.no_pause if args.no_pause is not None else DEFAULT_NO_PAUSE
     if not no_pause:
         pause_console()

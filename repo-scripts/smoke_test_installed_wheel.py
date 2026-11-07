@@ -159,6 +159,24 @@ def _check_installed_wrapper_copy() -> None:
             msg = "Installed wrapper copy differs from the packaged source."
             raise RuntimeError(msg)
 
+        from contextlib import redirect_stdout
+        from io import StringIO
+
+        from ryan_library.functions.wrapper_utils import print_wrapper_banner
+
+        renamed = target.with_name("my_project_culverts.py")
+        target.rename(renamed)
+        original_bytes = renamed.read_bytes()
+        output = StringIO()
+        with redirect_stdout(output):
+            print_wrapper_banner(wrapper_file=renamed, wrapper_version="2000-01-01.1", wrapper_source="culvert.py")
+        if "WARNING:" not in output.getvalue() or "culvert.py (" not in output.getvalue():
+            msg = "Installed wrapper banner did not warn about an older renamed copy."
+            raise RuntimeError(msg)
+        if renamed.read_bytes() != original_bytes:
+            msg = "Installed wrapper banner changed a user's copied script."
+            raise RuntimeError(msg)
+
 
 def _run_installed_wrapper(
     relative: str, work: Path, expected_root: Path, *arguments: str

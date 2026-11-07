@@ -24,7 +24,7 @@ import geopandas as gpd
 import pyogrio
 from colorama import Fore, Style, init
 
-SCRIPT_VERSION = "2026-10-21.1"
+SCRIPT_VERSION = "2026-11-07.1"
 
 # === Configuration ===
 # Toggle to search subfolders recursively underneath the Python file.
@@ -35,6 +35,15 @@ GPKG_PATTERN: str = "*.gpkg"  # File pattern for GeoPackages
 # Function to apply color in terminal output
 def print_colored(message: str, color: str) -> None:
     print(color + message + Style.RESET_ALL)
+
+
+# Standalone use remains supported without installing ryan-tools.
+try:
+    from ryan_library.functions.wrapper_utils import print_wrapper_banner
+except ModuleNotFoundError as exc:
+    if exc.name not in {"ryan_library", "ryan_library.functions", "ryan_library.functions.wrapper_utils"}:
+        raise
+    print_wrapper_banner = None
 
 
 def press_any_key(prompt: str = "Press any key to exit...") -> None:
@@ -165,6 +174,14 @@ def process_geopackage_files(base_dir: Path, success_colour: str, skip_colour: s
 
 # Main function to execute the script
 def main() -> None:
+    if print_wrapper_banner is not None:
+        print_wrapper_banner(
+            wrapper_file=Path(__file__),
+            wrapper_version=SCRIPT_VERSION,
+            wrapper_source="TUFLOW-python/gis_processing/rename_geopackage_layer_to_filename.py",
+        )
+    else:
+        print(f"Script: {Path(__file__).absolute()} (version {SCRIPT_VERSION})")
     # OPTION A: Use the script's folder (keeps Q: if you launched it that way)
     base_dir, success_colour, skip_colour, fail_colour = initialize()
     print(

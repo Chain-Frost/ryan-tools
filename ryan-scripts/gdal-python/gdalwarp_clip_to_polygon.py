@@ -10,7 +10,7 @@ from pathlib import Path
 
 # ==============================================================================
 # WRAPPER IDENTITY
-WRAPPER_VERSION = "2026-10-16.1"
+WRAPPER_VERSION = "2026-11-07.1"
 
 # EDITABLE DEFAULTS
 DEFAULT_INPUT_DIR = Path()
@@ -186,12 +186,17 @@ def _parse_cli_arguments() -> argparse.Namespace:
 
 if __name__ == "__main__":
     args: argparse.Namespace = _parse_cli_arguments()
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="gdal-python/gdalwarp_clip_to_polygon.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+    )
 
     with setup_logger(console_log_level="SUCCESS", log_file="gdalwarp_clip.log", file_log_level="DEBUG"):
         result: int = main(input_directories=args.input_directories)
 
     print_wrapper_banner(
+        wrapper_source="gdal-python/gdalwarp_clip_to_polygon.py",
         wrapper_file=Path(__file__),
         wrapper_version=WRAPPER_VERSION,
         leading_blank_line=True,

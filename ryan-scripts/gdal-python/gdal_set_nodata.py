@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-07.1"
+WRAPPER_VERSION = "2026-11-07.2"
 
 WORKING_DIR: Path = Path(__file__).absolute().parent
 CONSOLE_LOG_LEVEL = "INFO"
@@ -53,7 +53,9 @@ def main(
     workers: int | None = None,
 ) -> int:
     """Resolve wrapper settings and update matching rasters through the shared library."""
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="gdal-python/gdal_set_nodata.py", wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION
+    )
     target_directory: Path = (working_directory or WORKING_DIR).absolute()
     if not change_working_directory(target_dir=target_directory):
         return 1
@@ -108,6 +110,7 @@ if __name__ == "__main__":
         workers=args.workers,
     )
     print_wrapper_banner(
+        wrapper_source="gdal-python/gdal_set_nodata.py",
         wrapper_file=Path(__file__),
         wrapper_version=WRAPPER_VERSION,
         leading_blank_line=True,
