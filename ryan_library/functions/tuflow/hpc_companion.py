@@ -8,6 +8,8 @@ No companion read happens unless the caller explicitly opts in.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
@@ -27,9 +29,9 @@ _COUNT_PATTERNS: dict[str, re.Pattern[str]] = {
 
 
 def _matched_count(line: str) -> tuple[str, int] | None:
-    for field, pattern in _COUNT_PATTERNS.items():
+    for field_name, pattern in _COUNT_PATTERNS.items():
         if match := pattern.match(line):
-            return field, int(match.group(1))
+            return field_name, int(match.group(1))
     return None
 
 
@@ -44,13 +46,72 @@ def _sampled_wet_count(line: str, wet_index: int | None) -> int | None:
     return int(parts[wet_index]) if parts[wet_index].isdigit() else None
 
 
-def read_hpc_companion_metrics(main_log_path: Path) -> dict[str, str | int]:
-    """Observe a matching *.hpc.tlf without locking it or claiming completion.
+@dataclass(slots=True)
+class _CompanionObservation:
+    counts: dict[str, int] = field(default_factory=dict)
+    duplicated_count_fields: set[str] = field(default_factory=set)
+    wet_index: int | None = None
+    wet_samples: int = 0
+    wet_max: int | None = None
+    partial: bool = False
 
-    Matches only the main log's conventional same-folder, same-run-code name.
-    Unknown counts are omitted. Repeated cell headers signal ambiguous
-    domains; they are not added. Samples do not establish all-timestep coverage.
-    Changing/truncated logs are reported rather than silently trusted.
+    def add_line(self, line: str) -> None:
+        if item := _matched_count(line):
+            field_name, count = item
+            if field_name in self.counts:
+                self.duplicated_count_fields.add(field_name)
+            else:
+                self.counts[field_name] = count
+
+        words = line.split()
+        if len(words) >= 9 and words[0].casefold() == "istep":
+            index = next((i for i, word in enumerate(words) if word.casefold() == "nwet"), None)
+            if index is not None:
+                self.wet_index = index
+                return
+
+        sample = _sampled_wet_count(line, self.wet_index)
+        if sample is not None:
+            self.wet_samples += 1
+            self.wet_max = sample if self.wet_max is None else max(self.wet_max, sample)
+
+
+def _complete_hpc_lines(path: Path, observation: _CompanionObservation) -> Iterator[str]:
+    """Stream only complete bounded lines; do not consume partially written rows."""
+    with path.open("rb") as stream:
+        while raw := stream.readline(_MAX_LINE_BYTES):
+            if not raw.endswith(b"\n"):
+                observation.partial = True
+                # Discard the rest of any oversized line, in bounded chunks.
+                if len(raw) == _MAX_LINE_BYTES:
+                    while segment := stream.readline(_MAX_LINE_BYTES):
+                        if segment.endswith(b"\n"):
+                            break
+                continue
+            try:
+                yield raw.decode("utf-8")
+            except UnicodeDecodeError:
+                yield raw.decode("cp1252", errors="replace")
+
+
+def _observation_status(
+    observation: _CompanionObservation, *, changed: bool
+) -> CompanionStatus:
+    if observation.duplicated_count_fields:
+        return "multiple_domains"
+    if changed:
+        return "changed_during_read"
+    if observation.partial or ("HPC_Active_2D_Cells" not in observation.counts and observation.wet_samples == 0):
+        return "incomplete"
+    return "observed"
+
+
+def read_hpc_companion_metrics(main_log_path: Path) -> dict[str, str | int]:
+    """Read an explicitly requested, matching HPC log, with sampled provenance.
+
+    A companion has the same run-code stem and folder as the main TLF.
+    The reader makes no exclusive lock and does not claim full-run sample
+    coverage or aggregate counts from a potentially multiple-domain log.
     """
     companion = main_log_path.with_name(f"{main_log_path.stem}.hpc.tlf")
     result: dict[str, str | int] = {"HPC_Companion_Path": str(companion)}
@@ -64,67 +125,25 @@ def read_hpc_companion_metrics(main_log_path: Path) -> dict[str, str | int]:
         result["HPC_Companion_Status"] = "unreadable"
         return result
 
-    count_values: dict[str, int] = {}
-    count_occurrences: dict[str, int] = {}
-    wet_index: int | None = None
-    wet_samples = 0
-    observed_wet_max: int | None = None
-    partial = False
-
+    observation = _CompanionObservation()
     try:
-        with companion.open("rb") as stream:
-            while raw := stream.readline(_MAX_LINE_BYTES):
-                if not raw.endswith(b"\n"):
-                    # Skip partial EOF lines or oversized lines in bounded chunks.
-                    partial = True
-                    if len(raw) == _MAX_LINE_BYTES:
-                        while segment := stream.readline(_MAX_LINE_BYTES):
-                            if segment.endswith(b"\n"):
-                                break
-                    continue
-                try:
-                    line = raw.decode("utf-8")
-                except UnicodeDecodeError:
-                    line = raw.decode("cp1252", errors="replace")
-
-                if match := _matched_count(line):
-                    field, count = match
-                    count_occurrences[field] = count_occurrences.get(field, 0) + 1
-                    count_values.setdefault(field, count)
-
-                words = line.split()
-                if len(words) >= 9 and words[0].casefold() == "istep":
-                    index = next((i for i, word in enumerate(words) if word.casefold() == "nwet"), None)
-                    if index is not None:
-                        wet_index = index
-                        continue
-                sample = _sampled_wet_count(line, wet_index)
-                if sample is not None:
-                    wet_samples += 1
-                    observed_wet_max = sample if observed_wet_max is None else max(observed_wet_max, sample)
-
+        for line in _complete_hpc_lines(companion, observation):
+            observation.add_line(line)
         after = companion.stat()
-        changed = (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns)
     except OSError as exc:
         logger.warning("Unable to read HPC companion {}: {}", companion, exc)
         result["HPC_Companion_Status"] = "unreadable"
         return result
 
-    if any(n > 1 for n in count_occurrences.values()):
-        result["HPC_Companion_Status"] = "multiple_domains"
-        # Even identical domain values do not prove a single global population.
+    changed = (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns)
+    status = _observation_status(observation, changed=changed)
+    result["HPC_Companion_Status"] = status
+    if status == "multiple_domains":
         return result
 
-    result.update(count_values)
-    if wet_index is not None:
-        result["HPC_nWet_Sampled_Records"] = wet_samples
-        if observed_wet_max is not None:
-            result["HPC_nWet_Observed_Max"] = observed_wet_max
-
-    status: CompanionStatus = "observed"
-    if changed:
-        status = "changed_during_read"
-    elif partial or ("HPC_Active_2D_Cells" not in result and wet_samples == 0):
-        status = "incomplete"
-    result["HPC_Companion_Status"] = status
+    result.update(observation.counts)
+    if observation.wet_index is not None:
+        result["HPC_nWet_Sampled_Records"] = observation.wet_samples
+    if observation.wet_max is not None:
+        result["HPC_nWet_Observed_Max"] = observation.wet_max
     return result
