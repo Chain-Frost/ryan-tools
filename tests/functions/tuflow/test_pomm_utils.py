@@ -51,7 +51,8 @@ class TestAggregation:
         row1 = res[res["aep_text"] == "1%"]
         assert not row1.empty
         assert row1["AbsMax"].iloc[0] == 20.0
-        assert row1["count_TP_aep"].iloc[0] == 2  # 2 durations in 1% group
+        assert row1["count_TP_aep"].iloc[0] == 3  # Three finite events across two durations
+        assert row1["count_duration"].iloc[0] == 2
 
     @patch("ryan_library.functions.tuflow.pomm_utils.median_calc")
     def test_find_aep_dur_median(self, mock_median, sample_df):
@@ -82,13 +83,15 @@ class TestAggregation:
                 "trim_runcode": ["Run1", "Run1"],
                 "MedianAbsMax": [50.0, 60.0],
                 "duration_text": ["1h", "2h"],
+                "count_TP": [3, 3],
             }
         )
 
         res: DataFrame = pomm_utils.find_aep_median_max(aep_dur_median=median_df)
         assert len(res) == 1
         assert res["MedianAbsMax"].iloc[0] == 60.0
-        assert res["count_TP_aep"].iloc[0] == 2
+        assert res["count_TP_aep"].iloc[0] == 6
+        assert res["count_duration"].iloc[0] == 2
 
 
 class TestHelpers:
