@@ -1,5 +1,6 @@
 """Fail-closed stream QA, including signed slopes and null geometry."""
 
+import ast
 import json
 import os
 import subprocess
@@ -114,3 +115,27 @@ def test_null_stream_geometry_is_rejected(tmp_path: Path) -> None:
         )
     with pytest.raises(ValueError, match="no geometry"):
         verify_streams(tmp_path)
+
+
+def test_windows_parity_runner_enables_catchment_outputs() -> None:
+    """The parity verifier requires the outputs guarded by generate_catchments."""
+    source = (
+        Path(__file__).absolute().parents[4]
+        / "repo-scripts"
+        / "tuflow-initialiser"
+        / "validate_test_project.py"
+    )
+    tree = ast.parse(source.read_text(encoding="utf-8"))
+    configs = (
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "BuildConfig"
+    )
+    assert any(
+        isinstance(keyword.value, ast.Constant) and keyword.value.value is True
+        for config in configs
+        for keyword in config.keywords
+        if keyword.arg == "generate_catchments"
+    )

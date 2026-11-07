@@ -40,6 +40,7 @@ def process_terrain(
     """
     if not dem.is_file():
         raise FileNotFoundError(dem)
+    work_dir = work_dir.absolute()
     if work_dir.exists() and any(work_dir.iterdir()):
         msg = f"GRASS staging directory must be empty: {work_dir}"
         raise FileExistsError(msg)

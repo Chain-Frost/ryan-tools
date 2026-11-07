@@ -67,6 +67,7 @@ def main() -> None:
             tuflow_executable=args.tuflow_exe.resolve(),
             rainfall_name="RF01",
             grass_executable=args.grass_exe,
+            generate_catchments=True,
         )
     )
     report: RunQA = {
