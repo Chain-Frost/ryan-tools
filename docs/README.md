@@ -103,6 +103,7 @@ but they are not current architectural policy when they conflict with the canoni
 
 | Document | Scope and status |
 | --- | --- |
+| [WP12 HU/HD capability and result-format review](work/2026-11-08-wp12-hu-hd-coverage.md) | #237 existing PO/POMM/PyTuflow consumer matrix, independent EG02 HU/HD values, precision/memory limits and #236 reporting-location next stage |
 | [Missing TLF ensemble inference](work/2026-11-07-missing-tlf-ensembles.md) | Folder inference implementation, local validation and delivery |
 | [Dashboard defaults and background file properties](work/2026-11-07-dashboard-file-properties.md) | Shared presentation defaults, nonblocking file-size metadata and preserved legacy banner calls |
 | [Offline wrapper revision warnings](work/2026-11-07-wrapper-version-warnings.md) | Shared installed-package comparison, stable script identities and maintained-script rollout |
