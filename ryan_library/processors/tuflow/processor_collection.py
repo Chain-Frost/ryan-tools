@@ -843,9 +843,11 @@ class ProcessorCollection:
     @staticmethod
     def _hdf_get_bytes(store: Any, name: str) -> bytes:
         """Reject a missing cache member rather than returning partial results."""
+        import tables  # pyright: ignore[reportMissingTypeStubs]
+
         try:
             node = store.get_node(f"/{name}")
-        except KeyError as exc:
+        except tables.NoSuchNodeError as exc:
             msg = f"HDF5 cache missing required member {name!r}"
             raise ValueError(msg) from exc
         return bytes(node.read())
@@ -867,9 +869,9 @@ class ProcessorCollection:
         replace it atomically. Source file metadata is captured for later freshness
         checks; the processed rows themselves are a snapshot, not live result data.
         """
+        self._hdf_require_storage()
         import tables  # pyright: ignore[reportMissingTypeStubs]
 
-        self._hdf_require_storage()
         destination = Path(file_path).absolute()
         if destination.is_symlink():
             msg = f"Refusing to publish through an HDF5 cache symlink: {destination}"
@@ -972,9 +974,9 @@ class ProcessorCollection:
         verify_sources=False explicitly treats the file as a historical snapshot
         even if the original sources have moved or changed.
         """
+        ProcessorCollection._hdf_require_storage()
         import tables  # pyright: ignore[reportMissingTypeStubs]
 
-        ProcessorCollection._hdf_require_storage()
         path = Path(file_path)
         if not path.is_file():
             msg = f"HDF5 cache file not found: {path}"
@@ -1008,10 +1010,17 @@ class ProcessorCollection:
                     raise ValueError(msg)
                 if verify_sources:
                     recorded = entry.get("source")
-                    if not isinstance(recorded, dict) or recorded != ProcessorCollection._hdf_source_signature(
-                        Path(recorded["path"])
-                    ):
-                        msg = f"HDF5 cache source has changed since snapshot: {entry.get('file_path')}"
+                    source_path = recorded.get("path") if isinstance(recorded, dict) else None
+                    if not isinstance(source_path, str):
+                        msg = f"HDF5 cache member lacks a valid source identity: {entry.get('file_path')}"
+                        raise ValueError(msg)
+                    try:
+                        current_source = ProcessorCollection._hdf_source_signature(Path(source_path))
+                    except OSError as exc:
+                        msg = f"HDF5 cache source is unavailable: {source_path}"
+                        raise ValueError(msg) from exc
+                    if recorded != current_source:
+                        msg = f"HDF5 cache source has changed since snapshot: {source_path}"
                         raise ValueError(msg)
 
                 key = entry["hdf_key"]
@@ -1060,7 +1069,7 @@ class ProcessorCollection:
             else:
                 try:
                     store.get_node("/basic_info_lookup")
-                except KeyError:
+                except tables.NoSuchNodeError:
                     pass
                 else:
                     msg = "HDF5 cache has an unrecorded basic-info lookup"
