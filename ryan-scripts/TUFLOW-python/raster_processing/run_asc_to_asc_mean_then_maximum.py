@@ -26,7 +26,7 @@ output cell remains NoData only when every contributing cell is NoData.
 from pathlib import Path
 from typing import Literal
 
-WRAPPER_VERSION = "2026-11-07.2"
+WRAPPER_VERSION = "2026-11-07.3"
 
 WORKING_DIR: Path = Path(__file__).absolute().parent
 OUTPUT_DIRECTORY_NAME = "ensemble_statistics"
@@ -40,7 +40,7 @@ STRICT_INCOMPLETE_GROUPS = False
 WRITE_SOURCE_RASTERS = False
 USE_LIVE_DASHBOARD = True
 LIVE_REFRESH_PER_SECOND = 2.0
-LIVE_MAX_ROWS = 25
+LIVE_MAX_ROWS = 10
 LIVE_USE_ALTERNATE_SCREEN = False
 
 import argparse

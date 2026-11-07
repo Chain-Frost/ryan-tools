@@ -17,7 +17,10 @@ Use the lowest-volume level that still suits the person or system reading the ou
 `SUCCESS` is the recommended low-context setting for an AI agent or MCP client. Loguru orders `SUCCESS` between
 `INFO` and `WARNING`, so it naturally removes routine progress without hiding completion or failure signals.
 
-Keep complete diagnostics outside the AI context by using independent console and file levels:
+File sinks default to `INFO` in shared helpers, supported workflows and maintained
+scripts. Select `DEBUG` explicitly for detailed diagnosis; console and file
+levels remain independent. For example, keep complete diagnostics outside the
+AI context with an explicitly enabled DEBUG file sink:
 
 ```python
 from loguru import logger

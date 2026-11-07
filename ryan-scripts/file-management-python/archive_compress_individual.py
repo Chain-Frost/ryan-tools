@@ -17,7 +17,7 @@ from pathlib import Path
 
 # ==============================================================================
 # WRAPPER IDENTITY
-WRAPPER_VERSION = "2026-11-07.1"
+WRAPPER_VERSION = "2026-11-07.2"
 
 # EDITABLE DEFAULTS
 DEFAULT_INPUT = Path()
@@ -30,7 +30,7 @@ DEFAULT_MAX_PART_SIZE_GIB: int | None = None  # None = one unsplit .7z; use 5 fo
 DEFAULT_DRY_RUN = False
 DEFAULT_CONSOLE_LOG_LEVEL = "INFO"
 DEFAULT_LOG_FILE: Path | None = Path("archive_compress_individual.log")
-DEFAULT_FILE_LOG_LEVEL = "DEBUG"
+DEFAULT_FILE_LOG_LEVEL = "INFO"
 DEFAULT_PAUSE_ON_FINISH = True
 # ==============================================================================
 

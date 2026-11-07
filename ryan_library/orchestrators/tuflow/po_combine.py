@@ -61,11 +61,11 @@ def main_processing(
     locations_to_include: Collection[str] | None = None,
     export_mode: Literal["excel", "parquet", "both"] = "excel",
     *,
-    use_live_dashboard: bool = False,
+    use_live_dashboard: bool = True,
     live_refresh_per_second: float = 2.0,
-    live_max_rows: int = 25,
+    live_max_rows: int = 10,
     log_file: str | None = None,
-    file_log_level: str = "DEBUG",
+    file_log_level: str = "INFO",
 ) -> bool:
     """Combine and export PO results, preserving the public path."""
     return execute_combination_workflow(

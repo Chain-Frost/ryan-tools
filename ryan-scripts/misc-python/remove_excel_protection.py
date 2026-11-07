@@ -9,18 +9,18 @@ Use --no-write to preview destinations. Requires the matching ryan-tools package
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-07.1"
+WRAPPER_VERSION = "2026-11-07.2"
 DEFAULT_INPUT_DIR = Path()
 # Relative output folders are based on each input directory.
 DEFAULT_OUTPUT_DIR = Path("unprotected")
 WRITE = True  # Creates new copies only; existing outputs are always protected.
 USE_LIVE_DASHBOARD = True
 LIVE_REFRESH_PER_SECOND = 2.0
-LIVE_MAX_ROWS = 25
+LIVE_MAX_ROWS = 10
 PAUSE_ON_FINISH = True
 CONSOLE_LOG_LEVEL = "SUCCESS"
 LOG_FILE: Path | None = Path("remove_excel_protection.log")  # Relative to the invocation directory.
-FILE_LOG_LEVEL = "DEBUG"
+FILE_LOG_LEVEL = "INFO"
 
 import argparse
 import copy
@@ -255,7 +255,7 @@ def main(
             refresh_per_second=LIVE_REFRESH_PER_SECOND,
             max_rows=LIVE_MAX_ROWS,
         ) as dashboard:
-            dashboard.set_tasks([str(source) for source, _ in jobs])
+            dashboard.set_tasks([str(source) for source, _ in jobs], files=[source for source, _ in jobs])
             dashboard.set_phase("Creating workbook copies")
             failures = 0
             try:

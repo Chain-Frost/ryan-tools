@@ -14,7 +14,7 @@ Key features:
 from pathlib import Path
 from typing import Literal
 
-WRAPPER_VERSION = "2026-11-07.2"
+WRAPPER_VERSION = "2026-11-07.3"
 
 # None chooses SUCCESS with a dashboard, INFO without; an explicit level overrides it.
 CONSOLE_LOG_LEVEL: str | None = None
@@ -26,10 +26,10 @@ PATHS_TO_PROCESS: list[Path] = []
 EXPORT_MODE: Literal["excel", "parquet", "both"] = "excel"
 USE_LIVE_DASHBOARD = True
 LIVE_REFRESH_PER_SECOND = 2.0
-LIVE_MAX_ROWS = 25
+LIVE_MAX_ROWS = 10
 PAUSE_ON_FINISH = True
 LOG_FILE: Path | None = None  # Optional detailed logfile, relative to WORKING_DIR.
-FILE_LOG_LEVEL = "DEBUG"
+FILE_LOG_LEVEL = "INFO"
 
 import argparse
 import sys

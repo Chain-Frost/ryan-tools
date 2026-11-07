@@ -228,7 +228,7 @@ def is_loguru_configured() -> bool:
 def configure_serial_logging(
     console_log_level: str = "INFO",
     log_file: str | None = None,
-    file_log_level: str = "DEBUG",
+    file_log_level: str = "INFO",
     *,
     console_sink: Callable[[str], None] | None = None,
     console_format: str | None = None,
@@ -257,7 +257,7 @@ def configure_serial_logging(
 def configure_notebook_logging(
     console_log_level: str = "INFO",
     log_file: str | None = None,
-    file_log_level: str = "DEBUG",
+    file_log_level: str = "INFO",
 ) -> None:
     """Configure a re-runnable, process-local logger for Jupyter/IPython.
 
@@ -285,7 +285,7 @@ def listener_process(
     queue: LogQueue,
     log_file: str | None = None,
     console_log_level: str = "INFO",
-    file_log_level: str = "DEBUG",
+    file_log_level: str = "INFO",
 ) -> None:
     """Receive trusted worker records and render them through listener sinks."""
     reset_logging()
@@ -380,7 +380,7 @@ class LoguruMultiprocessingLogger:
         self,
         log_file: str | None = None,
         console_log_level: str = "INFO",
-        file_log_level: str = "DEBUG",
+        file_log_level: str = "INFO",
     ) -> None:
         self.log_file: str | None = log_file
         self.console_log_level: str = normalize_log_level(console_log_level)
@@ -467,7 +467,7 @@ class LoguruMultiprocessingLogger:
 def setup_logger(
     console_log_level: str = "INFO",
     log_file: str | None = None,
-    file_log_level: str = "DEBUG",
+    file_log_level: str = "INFO",
 ) -> LoguruMultiprocessingLogger:
     """Return a multiprocessing logging context with independent sink levels."""
     if log_file and not Path(log_file).is_absolute():
@@ -479,7 +479,7 @@ def setup_logger(
     )
 
 
-def add_file_sink(log_file: str, file_log_level: str = "DEBUG") -> None:
+def add_file_sink(log_file: str, file_log_level: str = "INFO") -> None:
     """Add a standard rotating file sink outside a multiprocessing context."""
     if not Path(log_file).is_absolute():
         log_file = str(Path.cwd() / log_file)

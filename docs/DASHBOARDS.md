@@ -30,10 +30,14 @@ not block on stale start notifications at pool shutdown.
 ## Configuration, phases and metrics
 
 The constructor takes `title: str`, optional `subtitle: str = ""`, `enabled: bool = True`,
-`refresh_per_second: float = 2.0`, `max_rows: int = 25`, optional
+`refresh_per_second: float = 2.0`, `max_rows: int = 10`, optional
 `columns: Sequence[WorkflowColumn] | None`, `transient: bool = True` and `screen: bool = False`.
 Optional `group_by` and `group_label_key` metadata keys place related tasks in separate
 panels while retaining a shared row limit and summary, as used by the TUFLOW runner.
+Supported workflow entry points default to `use_live_dashboard=True` and ten
+visible rows. Explicit `False` and `--no-live-dashboard` disable the display;
+redirected/non-terminal output remains plain text. File logging defaults to
+`INFO`; explicitly choose `DEBUG` when collecting detailed diagnostics.
 Optional `newest_first=True` displays selected started tasks in descending registration
 order, as used for the runner's run numbers. Active tasks still take selection priority
 over recent history; completion order does not change the displayed numeric order.
@@ -45,7 +49,7 @@ settings and CLI overrides before side effects; explicit `False` and `0` must no
 using `or`. The renderer bounds visible task rows to both `max_rows` and terminal height,
 retains at most `max_rows` completed entries and throttles routine redraws.
 
-Use `set_tasks(labels, metadata=None)`, `mark_running(index=...)`,
+Use `set_tasks(labels, metadata=None, files=None)`, `mark_running(index=...)`,
 `mark_finished(index=..., status=...)`, `set_phase("Processing")`,
 `set_metrics([...])` and `finish(outcome=..., detail=...)`. Other meaningful phases include
 Discovering, Aggregating and Exporting. Phase text is omitted until a caller sets it;
@@ -74,8 +78,29 @@ storage cost, name the measure by its semantics: scheduled input size, known com
 input size, or successful input size. Track unknown sizes explicitly, avoid double
 counting retried inputs, and never label a stat snapshot as throughput or instrumented
 bytes read. Use numerical byte values and explicit decimal MB (1,000,000 bytes) or
-binary MiB (1,048,576 bytes) consistently. No extra file-content reads, stat passes
-or network scans are justified solely by optional presentation.
+binary MiB (1,048,576 bytes) consistently. No extra file-content reads or blocking
+metadata sweeps are justified solely by optional presentation.
+
+### File sizes
+
+File-processing dashboards normally include a **Size** column. Supply one input
+path per task through `set_tasks(..., files=paths)` or `set_task_files(paths)`;
+the shared workflow executor attaches paths automatically for `Path` work items.
+Never guess paths from display labels. A task processing multiple inputs may
+supply a sequence of paths; its size is the sum of those input files, not the
+output size or bytes read. Non-file workflows retain their existing columns.
+
+The shared file-property reader uses one daemon thread and a bounded result
+queue. Only enabled interactive dashboard contexts start it. The coordinator
+consumes ready properties during refresh; workers never mutate Rich state.
+Processing does not wait for metadata, and closing/replacing a dashboard signals
+cancellation without joining a potentially stalled network `stat()` call.
+An in-flight OS call cannot be interrupted, but its cancelled result is discarded
+and no further requests are issued. Pending sizes remain blank; unavailable
+properties display `unknown`, while a measured zero-byte file displays `0 B`.
+Sizes use explicit binary units (`KiB`, `MiB`, etc.). No file contents are read
+for these measurements. Refresh coordinators while waiting for long jobs so
+properties can appear before processing finishes.
 
 ## Item outcomes, failures and cleanup
 

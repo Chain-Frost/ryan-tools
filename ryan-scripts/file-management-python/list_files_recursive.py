@@ -12,7 +12,7 @@ from pathlib import Path
 
 # ==============================================================================
 # WRAPPER IDENTITY
-WRAPPER_VERSION = "2026-11-07.1"
+WRAPPER_VERSION = "2026-11-07.2"
 
 # EDITABLE DEFAULTS
 DEFAULT_INPUT_DIR = Path()
@@ -88,7 +88,7 @@ if __name__ == "__main__":
         wrapper_version=WRAPPER_VERSION,
     )
 
-    with setup_logger(console_log_level="SUCCESS", log_file="list_files_recursive.log", file_log_level="DEBUG"):
+    with setup_logger(console_log_level="SUCCESS", log_file="list_files_recursive.log", file_log_level="INFO"):
         result: int = main(input_directories=args.input_directories)
 
     print_wrapper_banner(

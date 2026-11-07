@@ -55,11 +55,11 @@ def execute_combination_workflow(
     console_log_level: str | None = None,
     locations_to_include: Collection[str] | None = None,
     export_mode: Literal["excel", "parquet", "both"] = "excel",
-    use_live_dashboard: bool = False,
+    use_live_dashboard: bool = True,
     live_refresh_per_second: float = 2.0,
-    live_max_rows: int = 25,
+    live_max_rows: int = 10,
     log_file: str | None = None,
-    file_log_level: str = "DEBUG",
+    file_log_level: str = "INFO",
 ) -> bool:
     """Discover, process, combine and export with a truthful full-workflow status."""
     requested_types, invalid_types = normalize_data_types(

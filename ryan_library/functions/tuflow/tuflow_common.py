@@ -179,7 +179,7 @@ def collect_files(
     return filtered_files
 
 
-def _summarize_file_batch(file_list: list[Path]) -> tuple[int, int, Path | None, int]:
+def _summarize_file_batch(file_list: list[Path]) -> tuple[int, int, Path | None, int]:  # pyright: ignore[reportUnusedFunction] - retained for legacy callers/tests
     """Return count, total bytes, largest path, largest size for ``file_list``."""
     total_bytes: int = 0
     largest_file: Path | None = None
@@ -196,7 +196,7 @@ def _summarize_file_batch(file_list: list[Path]) -> tuple[int, int, Path | None,
     return len(file_list), total_bytes, largest_file, largest_bytes
 
 
-def _format_bytes(size: int) -> str:
+def _format_bytes(size: int) -> str:  # pyright: ignore[reportUnusedFunction] - retained for legacy callers/tests
     """Convert ``size`` to a human-readable string."""
     if size <= 0:
         return "0 B"
@@ -277,15 +277,11 @@ def process_files_in_parallel(
     del log_level
     size: int = calculate_pool_size(num_files=len(file_list))
     logger.info("Spawning pool with {} workers", size)
-    file_count, total_bytes, largest_file, largest_bytes = _summarize_file_batch(file_list=file_list)
-    largest_desc: str = f"{largest_file.name} ({_format_bytes(largest_bytes)})" if largest_file else "n/a"
-    logger.info(
-        "Preparing to process {} files (~{} on disk; largest {}).",
-        file_count,
-        _format_bytes(total_bytes),
-        largest_desc,
-    )
-    dataset_summary: str = f"{file_count} files (~{_format_bytes(total_bytes)} on disk; largest {largest_desc})"
+    # File sizes are optional background dashboard metadata; avoid a blocking
+    # stat sweep of cold/network inputs before processing can start.
+    file_count = len(file_list)
+    logger.info("Preparing to process {} files.", file_count)
+    dataset_summary: str = f"{file_count} files"
 
     progress = (
         batch_progress if batch_progress is not None else (FileBatchProgress() if dashboard is not None else None)
@@ -293,7 +289,7 @@ def process_files_in_parallel(
     if progress is not None:
         progress.reset(scheduled=len(file_list))
     if dashboard is not None:
-        dashboard.set_tasks(labels=[path.name for path in file_list])
+        dashboard.set_tasks(labels=[path.name for path in file_list], files=file_list)
         dashboard.set_metrics([WorkflowMetric(label="Files finished", value=0, total=len(file_list), unit="files")])
 
     if size <= 1:

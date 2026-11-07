@@ -26,7 +26,7 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 # Wrapper identity and editable project settings (CLI options override these)
 # ---------------------------------------------------------------------------
-WRAPPER_VERSION = "2026-11-07.2"
+WRAPPER_VERSION = "2026-11-07.3"
 
 DEFAULT_INPUT_PATHS: list[Path] = [Path.cwd()]
 DEFAULT_WORKING_DIRECTORY: Path | None = None  # None = first input directory
@@ -40,7 +40,7 @@ DEFAULT_DRY_RUN = False
 DEFAULT_SHOW_PROGRESS = True  # Rich progress in interactive terminals; plain text otherwise
 DEFAULT_CONSOLE_LOG_LEVEL = "INFO"
 DEFAULT_LOG_FILE: Path | None = Path("archive_compress_folder.log")
-DEFAULT_FILE_LOG_LEVEL = "DEBUG"
+DEFAULT_FILE_LOG_LEVEL = "INFO"
 DEFAULT_PAUSE_ON_FINISH = True
 # ---------------------------------------------------------------------------
 

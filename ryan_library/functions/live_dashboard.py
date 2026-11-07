@@ -3,7 +3,8 @@
 
 This module owns display concerns only: task state, summary counts, table
 columns, Rich Live lifecycle, and rendering. It does not start worker pools,
-read queues, or decide how work items are processed. Use
+decide how work items are processed. Optional file properties are sampled by a
+separate background helper and consumed during coordinator refreshes. Use
 ``dashboard_workflow.run_dashboard_workflow`` when a wrapper needs generic
 serial/multiprocessing execution wired into this dashboard.
 """
@@ -16,6 +17,7 @@ import time
 from collections import deque
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from pathlib import Path
 from threading import RLock
 from types import TracebackType
 from typing import Literal
@@ -28,6 +30,8 @@ from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
+
+from .file_metadata import FileSizeProbe, TaskFiles, format_file_size
 
 WorkflowStatus = Literal["QUEUED", "RUNNING", "OK", "SKIP", "FAIL"]
 WorkflowColumnSource = Literal["index", "status", "duration", "label", "detail", "metadata"]
@@ -208,7 +212,7 @@ class LiveWorkflowDashboard:
         subtitle: str = "",
         enabled: bool = True,
         refresh_per_second: float = 2.0,
-        max_rows: int = 25,
+        max_rows: int = 10,
         columns: Sequence[WorkflowColumn] | None = None,
         transient: bool = True,
         screen: bool = False,
@@ -228,6 +232,9 @@ class LiveWorkflowDashboard:
         self.refresh_per_second: float = refresh_per_second
         self.max_rows: int = max_rows
         self.columns: tuple[WorkflowColumn, ...] = tuple(columns or DEFAULT_WORKFLOW_COLUMNS)
+        self._configured_columns = self.columns
+        self._task_files: tuple[tuple[Path, ...], ...] = ()
+        self._file_sizes: FileSizeProbe | None = None
         self.transient: bool = transient
         self.screen: bool = screen
         self.group_by: str | None = group_by
@@ -251,6 +258,7 @@ class LiveWorkflowDashboard:
         self._context_depth += 1
         if self._context_depth == 1 and self.enabled and self.console.is_terminal:
             try:
+                self._start_file_sizes()
                 self._live = Live(
                     self._render(),
                     console=self.console,
@@ -269,6 +277,8 @@ class LiveWorkflowDashboard:
             except BaseException:
                 self._live = None
                 self._context_depth -= 1
+                if self._context_depth == 0:
+                    self._stop_file_sizes()
                 raise
         return self
 
@@ -281,6 +291,9 @@ class LiveWorkflowDashboard:
         if self._context_depth == 0:
             return
         self._context_depth -= 1
+        if self._context_depth == 0:
+            self._refresh_file_sizes()
+            self._stop_file_sizes()
         if self._context_depth == 0 and self._live is not None:
             try:
                 with self.console:
@@ -292,12 +305,19 @@ class LiveWorkflowDashboard:
         self,
         labels: Sequence[str],
         metadata: Sequence[Mapping[str, object]] | None = None,
+        *,
+        files: Sequence[TaskFiles] | None = None,
     ) -> None:
         """Replace all dashboard tasks using one-based display indexes.
 
         ``metadata`` is optional per-task context used by configurable columns.
         Missing metadata values render as blank cells.
+        ``files`` identifies each task's input file or file group. Sizes are
+        sampled in the background only for an enabled interactive display.
         """
+        self._stop_file_sizes()
+        self._task_files = ()
+        self.columns = self._configured_columns
         self._tasks = {}
         for index, label in enumerate(labels, start=1):
             raw_metadata: Mapping[str, object] = metadata[index - 1] if metadata and index <= len(metadata) else {}
@@ -309,7 +329,49 @@ class LiveWorkflowDashboard:
         self._completed_order.clear()
         self._active_count = 0
         self._final_summary_sent = False
+        if files is not None:
+            self.set_task_files(files)
         self.refresh()
+
+    def set_task_files(self, files: Sequence[TaskFiles]) -> None:
+        """Attach input paths without performing filesystem calls on the coordinator."""
+        if len(files) != len(self._tasks):
+            msg = "Supply one file or file group per dashboard task"
+            raise ValueError(msg)
+        groups = tuple((item,) if isinstance(item, Path) else tuple(item) if item is not None else () for item in files)
+        if groups == self._task_files:
+            return
+        self._stop_file_sizes()
+        self._task_files = groups
+        if not any(groups):
+            self.columns = self._configured_columns
+            return
+        if not any(column.source == "metadata" and column.metadata_key == "size" for column in self.columns):
+            self.columns = (
+                *self.columns[:2],
+                WorkflowColumn(header="Size", source="metadata", metadata_key="size", justify="right", no_wrap=True),
+                *self.columns[2:],
+            )
+        if self._context_depth > 0:
+            self._start_file_sizes()
+
+    def _start_file_sizes(self) -> None:
+        if self._file_sizes is None and any(self._task_files) and self.enabled and self.console.is_terminal:
+            self._file_sizes = FileSizeProbe(self._task_files, max_pending=max(10, self.max_rows * 2))
+            self._file_sizes.start()
+
+    def _refresh_file_sizes(self) -> None:
+        if self._file_sizes is not None:
+            for index, size in self._file_sizes.poll():
+                values: dict[str, object] = {"size": "unknown" if size is None else format_file_size(size)}
+                if size is not None:
+                    values["size_bytes"] = size
+                self.update_task(index=index, metadata=values, refresh=False)
+
+    def _stop_file_sizes(self) -> None:
+        if self._file_sizes is not None:
+            self._file_sizes.cancel()
+            self._file_sizes = None
 
     def set_active_count(self, count: int, *, refresh: bool = True) -> None:
         """Set active worker count for workflows that cannot name running tasks."""
@@ -440,6 +502,7 @@ class LiveWorkflowDashboard:
 
     def refresh(self, *, force: bool = False) -> None:
         """Refresh the dashboard, throttling non-forced updates."""
+        self._refresh_file_sizes()
         if not self.enabled or self._live is None:
             return
         now_monotonic: float = time.monotonic()

@@ -30,7 +30,7 @@ def append_to_master_log_summary(
     table_name: str | None = None,
     use_live_dashboard: bool = True,
     live_refresh_per_second: float = 2.0,
-    live_max_rows: int = 25,
+    live_max_rows: int = 10,
 ) -> None:
     """Append newly completed TUFLOW log rows to an existing master log-summary workbook.
 

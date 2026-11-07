@@ -6,7 +6,7 @@ The input glob determines what each job aggregates; it need not vary by duration
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-07.2"
+WRAPPER_VERSION = "2026-11-07.3"
 
 WORKING_DIR: Path = Path(__file__).absolute().parent
 
@@ -21,7 +21,7 @@ OUTPUT_FILENAME_TEMPLATE = "site_05_mineModel_{scenario}_{event}_Max_08M_{result
 WORKERS: int | None = None
 USE_LIVE_DASHBOARD = True
 LIVE_REFRESH_PER_SECOND = 2.0
-LIVE_MAX_ROWS = 25
+LIVE_MAX_ROWS = 10
 LIVE_USE_ALTERNATE_SCREEN = False
 
 import argparse

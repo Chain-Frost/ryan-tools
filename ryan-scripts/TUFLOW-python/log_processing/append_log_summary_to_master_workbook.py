@@ -7,7 +7,7 @@ rows already present in the master workbook table, and appends only new rows.
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-07.1"
+WRAPPER_VERSION = "2026-11-07.2"
 
 CONSOLE_LOG_LEVEL = "INFO"
 WORKING_DIR: Path = Path(
@@ -18,7 +18,7 @@ SHEET_NAME = "Log Summary"
 TABLE_NAME = "Table1"
 USE_LIVE_DASHBOARD = True
 LIVE_REFRESH_PER_SECOND = 2.0
-LIVE_MAX_ROWS = 25
+LIVE_MAX_ROWS = 10
 
 import argparse
 

@@ -38,6 +38,7 @@ LogSummaryStatus = Literal["OK", "SKIP", "FAIL"]
 
 LOG_SUMMARY_DASHBOARD_COLUMNS: tuple[WorkflowColumn, ...] = (
     WorkflowColumn(header="State", source="status", no_wrap=True),
+    WorkflowColumn(header="Size", source="metadata", metadata_key="size", justify="right", no_wrap=True),
     WorkflowColumn(header="Duration", source="duration", no_wrap=True),
     WorkflowColumn(header="Log file", source="label", no_wrap=True, overflow="ellipsis"),
 )
@@ -207,9 +208,9 @@ def main_processing(
     *,
     use_live_dashboard: bool = True,
     live_refresh_per_second: float = 2.0,
-    live_max_rows: int = 25,
+    live_max_rows: int = 10,
     log_file: str | None = None,
-    file_log_level: str = "DEBUG",
+    file_log_level: str = "INFO",
 ) -> bool:
     """Discover, process, aggregate and export logs; return False on a failed report.
 
@@ -341,8 +342,7 @@ def process_log_files(
             max_rows=live_max_rows,
             columns=LOG_SUMMARY_DASHBOARD_COLUMNS,
         )
-    # Do not stat cold/network inputs solely to show their size. Per-task size
-    # metadata is optional; the parser already owns its own required stat.
+    # Shared file-workflow metadata is fetched in the background, never here.
     dashboard.set_tasks(labels=[_format_dashboard_label(logfile=file) for file in files])
     dashboard.set_metrics([WorkflowMetric(label="Workers", value=pool_size)])
 

@@ -8,18 +8,18 @@ Users can edit certain constants (like CONSOLE_LOG_LEVEL) to control the default
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-07.1"
+WRAPPER_VERSION = "2026-11-07.2"
 
 # None chooses SUCCESS with the dashboard and INFO without it; an explicit level always wins.
 CONSOLE_LOG_LEVEL: str | None = None
 LOG_FILE: Path | None = None  # Optional detailed log; relative paths use WORKING_DIR.
-FILE_LOG_LEVEL = "DEBUG"
+FILE_LOG_LEVEL = "INFO"
 PAUSE_ON_FINISH = True
 WORKING_DIR: Path = Path(__file__).absolute().parent
 # WORKING_DIR: Path = Path(r"E:\path\to\custom\directory")
 USE_LIVE_DASHBOARD = True
 LIVE_REFRESH_PER_SECOND = 2.0
-LIVE_MAX_ROWS = 25
+LIVE_MAX_ROWS = 10
 
 import argparse
 import sys
@@ -58,7 +58,7 @@ def main(
         live_refresh_per_second: Overrides the LIVE_REFRESH_PER_SECOND constant.
         use_live_dashboard: Overrides the USE_LIVE_DASHBOARD constant.
         log_file: Optional detailed log path; None uses LOG_FILE.
-        file_log_level: DEBUG file sink level override.
+        file_log_level: File sink level override (INFO by default; DEBUG for diagnostics).
     """
     print_wrapper_banner(
         wrapper_source="TUFLOW-python/log_processing/create_log_summary_report.py",

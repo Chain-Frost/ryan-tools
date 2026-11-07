@@ -64,3 +64,11 @@ cover the shared behavior without exposing a duplicate MCP tool.
   presentation regression now passes.
 - Hosted CI was green at prerequisite `b538fb87` (six checks); this is not evidence
   for the wrapper-warning changes. Use the PR checks link for this commit.
+
+## Compatibility and defaults follow-up
+
+The subsequent [dashboard defaults and file-properties work](2026-11-07-dashboard-file-properties.md)
+also makes old banner arguments optional: missing identity/revision information
+prints an outdated-script warning and execution continues. Unique original
+filenames can still be compared when the explicit original path is absent.
+That record owns the latest package and validation evidence.

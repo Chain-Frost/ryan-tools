@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from multiprocessing import Pool, Queue
 from multiprocessing import pool as multiprocessing_pool
 from multiprocessing.pool import ApplyResult
+from pathlib import Path
 from queue import Empty, Full
 from typing import TYPE_CHECKING, Protocol, cast, runtime_checkable
 
@@ -179,6 +180,9 @@ def run_dashboard_workflow_report[TItem, TResult](
 
     indexed_results: dict[int, TResult] = {}
     indexed_outcomes: dict[int, WorkflowItemOutcome[TResult]] = {}
+    # Path items identify file workflows without guessing from display labels.
+    if any(isinstance(item, Path) for item in items):
+        dashboard.set_task_files([item if isinstance(item, Path) else None for item in items])
     with dashboard:
         if items:
             if pool_size == 1:

@@ -168,7 +168,7 @@ def test_wrapper_banner_compares_installed_revision(
     output = capsys.readouterr().out
     assert output.startswith("\nWrapper:")
     assert "ryan-tools version: 26.11.7.5" in output
-    assert ("WARNING:" in output) is warn
+    assert ("is older than" in output) is warn
     if warn:
         assert f"tools/runner.py ({bundled})" in output
         assert "transfer your settings" in output
@@ -194,7 +194,18 @@ def test_wrapper_banner_unavailable_comparison_does_not_block(
 
     monkeypatch.setattr(wrapper_utils, "files", resources)
     wrapper_utils.print_wrapper_banner(wrapper_file=Path("runner.py"), wrapper_version="2026-11-07.1")
-    assert "WARNING:" not in capsys.readouterr().out
+    assert "is older than" not in capsys.readouterr().out
+
+
+def test_legacy_banner_calls_warn_and_continue(capsys: pytest.CaptureFixture[str]) -> None:
+    wrapper_utils.print_wrapper_banner()
+    output = capsys.readouterr().out
+    assert "version unknown" in output
+    assert "outdated banner interface" in output
+    assert "Execution will continue" in output
+
+    wrapper_utils.print_wrapper_banner(wrapper_file=Path("old-copy.py"), wrapper_version="2026-11-07.1")
+    assert "outdated banner interface" in capsys.readouterr().out
 
 
 def test_versioned_installed_scripts_keep_identity_after_renaming() -> None:

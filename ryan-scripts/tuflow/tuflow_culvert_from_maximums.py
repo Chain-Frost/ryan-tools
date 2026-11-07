@@ -345,7 +345,7 @@ def run(args: argparse.Namespace) -> int:
         aep = str(row.get("aep_text") or "").strip()
         source = str(args.input_workbook)
         try:
-            definition = _definition(
+            definition: TuflowCircularCulvert = _definition(
                 row,
                 args.material,
                 args.inlet_configuration,
@@ -384,7 +384,7 @@ def run(args: argparse.Namespace) -> int:
                         else None
                     )
                     if mode == "forward":
-                        result = solve_tuflow_culvert_forward(
+                        result: CulvertEngineResult = solve_tuflow_culvert_forward(
                             definition,
                             scenario=scenario,
                             discharge_m3s=value,

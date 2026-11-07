@@ -10,7 +10,7 @@
     "gdal_raster_footprint.py": "2026-11-07.1",
     "batch_vector_clip.py": "2026-11-07.1",
     "gdal_stage_storage.py": "2026-11-07.1",
-    "gdalwarp_clip_to_polygon.py": "2026-11-07.1",
+    "gdalwarp_clip_to_polygon.py": "2026-11-07.2",
     "split_vector_by_attribute.py": "2026-11-07.1"
   },
   "repository_scripts_relative_to_root": "ryan-scripts/gdal-python",

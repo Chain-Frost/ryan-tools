@@ -591,8 +591,9 @@ Each has editable `USE_LIVE_DASHBOARD`, `LIVE_REFRESH_PER_SECOND`,
 is enabled by the editable `PAUSE_ON_FINISH = True` default; `--no-pause` disables
 it, and redirected/headless runs do not wait. A separate `--pause` flag is not needed.
 A `CONSOLE_LOG_LEVEL` of `None` chooses SUCCESS for dashboard runs and INFO
-for ordinary logging; an explicit level is respected. DEBUG file logging is
-independent of the concise console level.
+for ordinary logging; an explicit level is respected. Dashboards default to
+enabled with ten visible rows. File logging defaults to INFO; explicitly select
+DEBUG for detailed diagnostics independently of the concise console level.
 
 The dashboard follows discovery, processing, aggregation and export. Successful
 input parsing does not mean a workbook has been written; a processing failure

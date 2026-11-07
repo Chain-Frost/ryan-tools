@@ -112,8 +112,8 @@ def print_wrapper_identity(*, wrapper_file: Path, wrapper_version: str, display_
 
 def print_wrapper_banner(
     *,
-    wrapper_file: Path,
-    wrapper_version: str,
+    wrapper_file: Path | None = None,
+    wrapper_version: str | None = None,
     leading_blank_line: bool = False,
     package_name: str = "ryan-tools",
     wrapper_source: str | None = None,
@@ -122,8 +122,10 @@ def print_wrapper_banner(
     """Display the wrapper identity and installed library version together.
 
     Args:
-        wrapper_file: ``__file__`` from the calling wrapper.
-        wrapper_version: Embedded revision from the calling wrapper.
+        wrapper_file: ``__file__`` from the calling wrapper. Legacy calls that
+            omit this fall back to the process entry point and print a warning.
+        wrapper_version: Embedded revision from the calling wrapper. Missing or
+            unsupported revisions print a warning without blocking execution.
         leading_blank_line: Print a blank separator before the banner. Use this
             for the closing banner after ``main()`` returns.
         package_name: Installed distribution whose version should be displayed.
@@ -133,11 +135,19 @@ def print_wrapper_banner(
     """
     if leading_blank_line:
         print()
-    print_wrapper_identity(wrapper_file=wrapper_file, wrapper_version=wrapper_version, display_base=display_base)
+    actual_file = wrapper_file if isinstance(wrapper_file, Path) else Path(sys.argv[0])
+    actual_version = wrapper_version if isinstance(wrapper_version, str) else "unknown"
+    print_wrapper_identity(wrapper_file=actual_file, wrapper_version=actual_version, display_base=display_base)
     print_library_version(package_name=package_name)
     if package_name == "ryan-tools":
+        if wrapper_file is None or _wrapper_revision(actual_version) is None or not wrapper_source:
+            print(
+                "WARNING: This script uses an outdated banner interface or unsupported revision. "
+                "Update the script to supply its original script path and embedded revision. "
+                "Execution will continue."
+            )
         _warn_if_wrapper_is_older(
-            wrapper_file=wrapper_file, wrapper_version=wrapper_version, wrapper_source=wrapper_source
+            wrapper_file=actual_file, wrapper_version=actual_version, wrapper_source=wrapper_source
         )
 
 

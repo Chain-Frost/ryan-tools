@@ -59,7 +59,8 @@ are removed alongside their `.gitmodules` entries; do not reintroduce them or lo
 - Log visibility is controlled by sink levels, not by eager versus parameterized message formatting. Do not treat
   `SUCCESS` as a formatting exception.
 - Standalone scripts and wrappers own user configuration and logging setup; orchestrators may coordinate library workflows but reusable functions and processors do not configure process logging.
-- Use console level `SUCCESS` for concise AI/MCP output while retaining detailed records in a `DEBUG` file sink.
+- Use console level `SUCCESS` for concise AI/MCP output. File sinks default to `INFO`; select `DEBUG` explicitly
+  when detailed diagnostics are needed, and preserve those records independently of console visibility.
 - Notebook logging must be safe to reconfigure when cells are rerun and must not require multiprocessing.
 - Do not expose internal helper names in user-facing output.
 - Run `python repo-scripts/check_loguru_formatting.py` after changing Loguru calls. See `docs/LOGGING.md` for the full

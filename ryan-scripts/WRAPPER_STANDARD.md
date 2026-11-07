@@ -71,6 +71,14 @@ defaults. Console presentation must not remove worker diagnostics required
 by an independently configured DEBUG file sink; see
 [logging](../docs/LOGGING.md).
 
+Supported live dashboards default to enabled with ten visible rows. File sinks
+default to INFO; DEBUG remains an explicit diagnostic choice. Keep these
+editable script defaults consistent with the shared workflow defaults.
+For file-processing dashboards, identify the actual inputs through the shared
+`set_tasks(..., files=...)` interface so the Size column can show background file
+properties without a synchronous pre-scan. Use input groups for multi-file tasks;
+see the [file-size contract](../docs/DASHBOARDS.md#file-sizes).
+
 Optional progress measures are selected by the workflow. Do not force
 file counts, bytes, percentages or ETA on every wrapper; choose labels,
 units and metadata that match the domain. Unknown is not zero. File-size
@@ -122,7 +130,10 @@ Dates and revision numbers are compared numerically; equal or newer copies do
 not warn. Unknown/malformed revisions, missing reference files and ambiguous
 identities skip the comparison without blocking execution. Legacy callers
 without `wrapper_source` can match a unique original filename, but cannot
-identify renamed copies. Read the reference as source; never import or execute
+identify renamed copies. Missing banner arguments or an unsupported revision
+produce an outdated-script warning and execution continues; the helper uses the
+process entry point and an unknown revision when those values were omitted.
+Read the reference as source; never import or execute
 it merely to obtain its revision. The helper also recognizes `SCRIPT_VERSION`
 for maintained standalone scripts.
 

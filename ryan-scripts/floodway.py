@@ -40,7 +40,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-07.1"
+WRAPPER_VERSION = "2026-11-07.2"
 
 WORKING_DIR: Path = Path(__file__).absolute().parent
 DEFAULT_PROJECT_FILE = Path("culvert_project.json")
@@ -49,7 +49,7 @@ DEFAULT_OUTPUT_DIRECTORY = Path("floodway_results")
 DEFAULT_SWEEP_POINTS = 21
 CONSOLE_LOG_LEVEL = "SUCCESS"
 LOG_FILE = "floodway.log"
-FILE_LOG_LEVEL = "DEBUG"
+FILE_LOG_LEVEL = "INFO"
 
 import argparse
 from collections.abc import Callable, Sequence

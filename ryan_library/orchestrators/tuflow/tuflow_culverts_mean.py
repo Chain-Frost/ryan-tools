@@ -40,11 +40,11 @@ def run_culvert_mean_report(
     locations_to_include: Collection[str] | None = None,
     export_raw: bool = True,
     *,
-    use_live_dashboard: bool = False,
+    use_live_dashboard: bool = True,
     live_refresh_per_second: float = 2.0,
-    live_max_rows: int = 25,
+    live_max_rows: int = 10,
     log_file: str | None = None,
-    file_log_level: str = "DEBUG",
+    file_log_level: str = "INFO",
 ) -> bool:
     """Generate AEP/Duration mean statistics and export the existing Excel report."""
     return _run_culvert_statistic_report(
@@ -72,11 +72,11 @@ def run_culvert_median_report(
     locations_to_include: Collection[str] | None = None,
     export_raw: bool = True,
     *,
-    use_live_dashboard: bool = False,
+    use_live_dashboard: bool = True,
     live_refresh_per_second: float = 2.0,
-    live_max_rows: int = 25,
+    live_max_rows: int = 10,
     log_file: str | None = None,
-    file_log_level: str = "DEBUG",
+    file_log_level: str = "INFO",
 ) -> bool:
     """Generate upper-middle median statistics and export the existing Excel report."""
     return _run_culvert_statistic_report(
@@ -106,11 +106,11 @@ def _run_culvert_statistic_report(
     include_data_types: Sequence[str] | None = None,
     locations_to_include: Collection[str] | None = None,
     export_raw: bool = True,
-    use_live_dashboard: bool = False,
+    use_live_dashboard: bool = True,
     live_refresh_per_second: float = 2.0,
-    live_max_rows: int = 25,
+    live_max_rows: int = 10,
     log_file: str | None = None,
-    file_log_level: str = "DEBUG",
+    file_log_level: str = "INFO",
 ) -> bool:
     """Compute existing peak statistics while reporting the full export lifecycle."""
     if script_directory is None:
