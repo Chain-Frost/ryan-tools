@@ -36,6 +36,27 @@ those already-published paths. The exporter does not delete published reports
 while handling an error. It emits final success messages only after the complete
 batch is published.
 
+## Raw tables accompanying reports
+
+`ExcelExporter.export_dataframes(..., raw_exports=...)` accepts a sequence of
+`RawTableExport` records containing an exact filename, a DataFrame and either
+`"csv"` or `"parquet"`. These explicit outputs join the same destination checks,
+staging and publication batch as the formatted reports. `export_mode` selects
+the formatted reports; it does not disable explicitly supplied raw tables.
+CSV omits the index, while raw Parquet retains pandas' default index
+representation and uses the batch's `parquet_compression`. Existing report
+Parquet files continue to omit the index. DataFrames are not copied to plan
+these outputs.
+
+The TUFLOW closure-duration workflow retains its legacy
+`<timestamp>_durex.csv` and `<timestamp>_durex.parquet.gzip` outputs in every
+mode, including `excel`. It computes the summary before staging anything,
+then exports those two raw tables together with the selected formatted
+reports. Existing formatted filenames are preserved. A collision or writer
+failure anywhere in that combined batch cannot leave newly published raw
+tables behind. Publication failures retain and identify earlier completed
+files under the same partial-publication policy described above.
+
 ## Failure reporting
 
 Parquet dependency, conversion and I/O failures propagate to callers, as do

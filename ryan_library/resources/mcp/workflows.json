@@ -208,7 +208,7 @@
       "id": "tuflow_closure_durations",
       "title": "TUFLOW closure durations",
       "domain": "tuflow",
-      "purpose": "Calculate closure durations from TUFLOW time-series results. Existing report destinations are refused.",
+      "purpose": "Calculate closure durations from TUFLOW time-series results. Always writes raw CSV and gzip-Parquet tables; export mode selects formatted reports. Existing raw and report destinations are refused.",
       "script": "ryan-scripts/TUFLOW-python/po_and_timeseries/calculate_po_closure_durations.py",
       "profile": "create",
       "mutation": "creates_outputs",

@@ -944,3 +944,12 @@ previous reports before rerunning. Publication requires filesystem hard-link
 support; live mapped/UNC acceptance is separate. See the
 [shared output contract](../../ryan_library/functions/excel_export.md) and
 [#194 work record](../../docs/work/2026-11-04-result-export-safety-194.md).
+
+The closure-duration wrapper always retains its legacy raw
+`<timestamp>_durex.csv` and `<timestamp>_durex.parquet.gzip` tables.
+`EXPORT_MODE` / `--export-mode` chooses the formatted Excel/Parquet report
+formats; it does not disable those raw outputs. Summary calculation completes
+before any file is staged. Raw tables and formatted reports share one
+preflight and publication batch, so an existing raw or report filename stops
+the entire export before writing, and a writer failure publishes no new files.
+Existing formatted report names are unchanged.

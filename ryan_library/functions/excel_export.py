@@ -11,7 +11,7 @@ from tempfile import TemporaryDirectory
 
 __lazy_modules__: list[str] = ["openpyxl", "pandas"]
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Literal, TypedDict
 
@@ -33,11 +33,25 @@ class ExportContent(TypedDict):
 
 
 @dataclass(frozen=True)
+class RawTableExport:
+    """An explicitly named CSV or Parquet table in the same batch as report exports.
+
+    The filename is preserved exactly and Parquet uses the batch compression.
+    CSV omits the index; Parquet preserves pandas' default index representation.
+    """
+
+    file_name: str
+    dataframe: pd.DataFrame
+    format: Literal["parquet", "csv"]
+
+
+@dataclass(frozen=True)
 class _ExportTarget:
     path: Path
     kind: Literal["excel", "parquet", "csv"]
     dataframes: list[pd.DataFrame]
     sheets: list[str]
+    parquet_index: bool | None = False
 
 
 def build_data_dictionary(
@@ -122,6 +136,7 @@ class ExcelExporter:
         parquet_compression: ParquetCompression = "gzip",
         include_data_dictionary: bool = False,
         data_dictionary_metadata: Mapping[str, str] | None = None,
+        raw_exports: Sequence[RawTableExport] = (),
     ) -> None:
         """Export reports as a batch without replacing existing files.
 
@@ -170,6 +185,10 @@ class ExcelExporter:
                 column. Parquet-only exports are unchanged. Defaults to ``False``.
             data_dictionary_metadata (Mapping[str, str] | None, optional):
                 Additional metadata rows to place before the column definitions.
+            raw_exports (Sequence[RawTableExport], optional):
+                Explicitly named raw tables included regardless of ``export_mode``.
+                Their destinations and writes participate in the same preflight,
+                staging and publication batch as the formatted reports.
 
         Raises:
             ValueError: If the number of DataFrames doesn't match the number of sheets.
@@ -190,7 +209,13 @@ class ExcelExporter:
             ExcelExporter().export_dataframes(export_dict, output_directory=Path("exports"))
         """
         targets = self._plan_exports(
-            export_dict, output_directory, file_name, export_mode, parquet_compression, include_data_dictionary
+            export_dict,
+            output_directory,
+            file_name,
+            export_mode,
+            parquet_compression,
+            include_data_dictionary,
+            raw_exports,
         )
         published: list[Path] = []
         try:
@@ -237,6 +262,7 @@ class ExcelExporter:
         export_mode: str,
         compression: ParquetCompression,
         include_data_dictionary: bool,
+        raw_exports: Sequence[RawTableExport] = (),
     ) -> list[_ExportTarget]:
         mode = export_mode.lower()
         if mode not in {"excel", "parquet", "both"}:
@@ -247,6 +273,22 @@ class ExcelExporter:
             raise ValueError(msg)
         timestamp = datetime.now().strftime("%Y%m%d-%H%M")
         targets: list[_ExportTarget] = []
+        for raw in raw_exports:
+            if raw.format not in {"parquet", "csv"}:
+                msg = f"Invalid raw table format: {raw.format!r}"
+                raise ValueError(msg)
+            if not raw.dataframe.columns.is_unique:
+                msg = f"Duplicate column names found in raw table '{raw.file_name}'."
+                raise ValueError(msg)
+            targets.append(
+                _ExportTarget(
+                    self._build_output_path(raw.file_name, output_directory),
+                    raw.format,
+                    [raw.dataframe],
+                    [],
+                    parquet_index=None,
+                )
+            )
         for key, content in export_dict.items():
             frames, sheets = content["dataframes"], content["sheets"]
             if len(frames) != len(sheets):
@@ -324,7 +366,7 @@ class ExcelExporter:
     ) -> None:
         logger.debug("Staging {} report for {}", target.kind, target.path)
         if target.kind == "parquet":
-            target.dataframes[0].to_parquet(path=temporary, index=False, compression=compression)
+            target.dataframes[0].to_parquet(path=temporary, index=target.parquet_index, compression=compression)
             return
         if target.kind == "csv":
             target.dataframes[0].to_csv(path_or_buf=temporary, index=False)

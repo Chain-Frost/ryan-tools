@@ -116,6 +116,20 @@ def test_batch_validation_precedes_first_workbook(tmp_path: Path) -> None:
     assert list(tmp_path.iterdir()) == []
 
 
+def test_raw_and_report_destinations_share_collision_preflight(tmp_path: Path) -> None:
+    frame = pd.DataFrame({"value": [1]})
+    output_directory = tmp_path / "new"
+    with pytest.raises(ValueError, match="destinations collide"):
+        exports.ExcelExporter().export_dataframes(
+            {"report": {"dataframes": [frame], "sheets": ["Summary"]}},
+            file_name="report",
+            output_directory=output_directory,
+            export_mode="parquet",
+            raw_exports=[exports.RawTableExport("report_Summary.parquet.gzip", frame, "parquet")],
+        )
+    assert not output_directory.exists()
+
+
 def test_case_variant_existing_output_is_preserved(tmp_path: Path) -> None:
     output = tmp_path / "REPORT.XLSX"
     output.write_bytes(b"existing")
