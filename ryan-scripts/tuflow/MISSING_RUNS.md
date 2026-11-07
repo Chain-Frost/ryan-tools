@@ -8,8 +8,9 @@ python ryan-scripts/tuflow/find_missing_tlf_runs.py "T:\results\04" --output-csv
 ```
 
 Alternatively edit `RESULTS_FOLDER` near the top of the script. The default is the launch directory.
-CLI values override the editable settings. Relative inputs and outputs use the launch directory, before any
-`--working-directory` change. `--no-recursive` limits discovery to the root. Directory links/junctions are skipped.
+CLI values override the editable settings. Relative inputs and outputs use the launch directory. The script does not
+change the process working directory; `RESULTS_FOLDER` or the positional folder argument selects what to process.
+`--no-recursive` limits discovery to the root. Directory links/junctions are skipped.
 An inaccessible directory causes failure. Missing folders and folders without logs also fail.
 
 Every observed underscore-separated field value is crossed with every other observed field value in its filename
@@ -91,8 +92,8 @@ The legacy `--input-table FILE --sheet 0` route remains table-based with its ori
 summary export beside the input. It now refuses to overwrite an existing summary CSV. Table summary messages remain
 visible at the default SUCCESS console level. It cannot be combined with folder or report options.
 
-The wrapper prints opening and closing script/package versions. It validates effective settings before changing
-directory or writing reports; failures return 1 without pausing. Only successful interactive runs can pause.
+The wrapper prints opening and closing script/package versions. It validates effective settings before scanning
+or writing reports; failures return 1 without pausing. Only successful interactive runs can pause.
 
 For AI agents, use the maintained CLI with `--no-pause` and an explicit scan root; optionally request a new CSV path.
 No separate MCP endpoint is added: filename inference and its scope still need the campaign context documented here.

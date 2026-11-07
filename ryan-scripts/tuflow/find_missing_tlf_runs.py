@@ -7,8 +7,8 @@ Example: python find_missing_tlf_runs.py "T:\results\04" --no-pause
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-07.6"
-# Relative paths use the launch directory, before WORKING_DIR is applied.
+WRAPPER_VERSION = "2026-11-07.7"
+# Relative paths use the launch directory. RESULTS_FOLDER selects the folder to scan.
 RESULTS_FOLDER: Path = Path.cwd()
 # None selects folder mode; otherwise select a CSV/XLSX/XLS tracking table.
 INPUT_TABLE: Path | None = None
@@ -30,7 +30,6 @@ OUTPUT_CSV: Path | None = None
 # Positive upper bound on inferred combinations.
 MAX_COMBINATIONS = 1_000_000
 CONSOLE_LOG_LEVEL = "SUCCESS"
-WORKING_DIR: Path = Path.cwd()
 PAUSE_ON_FINISH = True
 
 import argparse
@@ -44,12 +43,12 @@ from rich.text import Text
 from ryan_library.functions.live_dashboard import validate_dashboard_settings
 from ryan_library.functions.loguru_helpers import configure_serial_logging
 from ryan_library.functions.tlf_ensemble_inventory import EnsembleInventory
-from ryan_library.functions.wrapper_utils import change_working_directory, pause_console, print_wrapper_banner
+from ryan_library.functions.wrapper_utils import pause_console, print_wrapper_banner
 from ryan_library.orchestrators.tuflow.tlf_missing_runs import orchestrate_ensemble_scan, orchestrate_missing_runs_check
 
 
 def _parse_cli_arguments() -> argparse.Namespace:
-    """Resolve settings before changing directory and run the selected inventory."""
+    """Parse overrides for the selected inventory."""
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("folder", nargs="?", type=Path, default=None, help="Results root; defaults to RESULTS_FOLDER.")
     parser.add_argument(
@@ -100,7 +99,6 @@ def _parse_cli_arguments() -> argparse.Namespace:
         "--max-combinations", type=int, default=MAX_COMBINATIONS, help="Positive limit on inferred combinations."
     )
     parser.add_argument("--console-log-level", default=CONSOLE_LOG_LEVEL, help="Loguru level, e.g. SUCCESS or DEBUG.")
-    parser.add_argument("--working-directory", type=Path, default=WORKING_DIR, help="Existing execution directory.")
     parser.add_argument(
         "--pause",
         action=argparse.BooleanOptionalAction,
@@ -120,8 +118,8 @@ def _path_setting(value: object, name: str) -> Path:
     return Path(value).absolute()
 
 
-def _validate_settings(args: argparse.Namespace) -> tuple[Path, Path | None, Path | None, Path]:
-    """Validate all effective values before changing directory or writing reports."""
+def _validate_settings(args: argparse.Namespace) -> tuple[Path, Path | None, Path | None]:
+    """Validate all effective values before scanning or writing reports."""
     for name, value in (
         ("RECURSIVE", args.recursive),
         ("PAUSE_ON_FINISH", args.pause),
@@ -152,14 +150,13 @@ def _validate_settings(args: argparse.Namespace) -> tuple[Path, Path | None, Pat
     folder = _path_setting(args.folder if args.folder is not None else RESULTS_FOLDER, "RESULTS_FOLDER")
     table = _path_setting(args.input_table, "INPUT_TABLE") if args.input_table is not None else None
     output = _path_setting(args.output_csv, "OUTPUT_CSV") if args.output_csv is not None else None
-    working_dir = _path_setting(args.working_directory, "WORKING_DIR")
     _validate_table(table, args.sheet)
     if output is not None and (output.suffix.lower() != ".csv" or not output.parent.is_dir()):
         message = f"OUTPUT_CSV must be a CSV path in an existing directory; got {output}"
         raise ValueError(message)
     if output is not None and (output.exists() or output.is_symlink()):
         raise FileExistsError(output)
-    return folder, table, output, working_dir
+    return folder, table, output
 
 
 def _validate_table(table: Path | None, sheet: object) -> None:
@@ -217,9 +214,7 @@ def main(args: argparse.Namespace) -> int:
     )
     result = 0
     try:
-        folder, table, output, working_dir = _validate_settings(args)
-        if not change_working_directory(target_dir=working_dir):
-            return 1
+        folder, table, output = _validate_settings(args)
         configure_serial_logging(
             console_log_level=args.console_log_level,
             console_format="<green>{time:HH:mm:ss}</green> | <level>{level}</level> | <level>{message}</level>",

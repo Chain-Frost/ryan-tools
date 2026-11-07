@@ -99,3 +99,12 @@ unverified; no merge authorized.
 Opened [PR #250](https://github.com/Chain-Frost/ryan-tools/pull/250) against main, ready for review (not draft),
 with the enhancement label. Implementation head at creation: `97ac83e3`. Hosted CI remains pending/unverified;
 no merge performed or authorized. Next action: review the PR and its terminal hosted checks.
+
+## Single scan-folder setting, 2026-11-07
+
+Wrapper 2026-11-07.7 removes redundant WORKING_DIR, --working-directory and process chdir behaviour. RESULTS_FOLDER
+and the positional CLI override select the scan root; relative inputs and outputs retain the launch-directory base.
+Ruff, strict Pyright, compilation and help pass. Disposable wrapper checks confirm relative scan/report paths,
+missing-folder failure and rejection of the removed CLI option. Documentation links and whitespace checks pass.
+Wrapper-only change: shared library and package version remain 26.11.7.13; no package rebuild is required.
+Deliver through existing PR #250; no merge authorized.
