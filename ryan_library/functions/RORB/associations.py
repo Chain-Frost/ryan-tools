@@ -59,6 +59,7 @@ def _matches_peaks(batch: RorbDocument, row: Record, csv_doc: RorbDocument) -> b
             return False
     return bool(batch.section("sites").rows)
 
+
 def associate_batch_csvs(batch: RorbDocument, *, max_runs: int = 500) -> Section:
     """Check only two observed filename conventions against signatures, references, sites and peaks.
 
