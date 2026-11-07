@@ -34,6 +34,11 @@ The constructor takes `title: str`, optional `subtitle: str = ""`, `enabled: boo
 `columns: Sequence[WorkflowColumn] | None`, `transient: bool = True` and `screen: bool = False`.
 Optional `group_by` and `group_label_key` metadata keys place related tasks in separate
 panels while retaining a shared row limit and summary, as used by the TUFLOW runner.
+Optional `newest_first=True` displays selected started tasks in descending registration
+order, as used for the runner's run numbers. Active tasks still take selection priority
+over recent history; completion order does not change the displayed numeric order.
+The initial queued preview keeps its original order. Grouped panels show descending
+rows within each panel, with the panel containing the newest visible task first.
 `validate_dashboard_settings(refresh_per_second=..., max_rows=...)` rejects zero, negative,
 non-finite refresh values and non-positive/non-integer row counts. Validate effective editable
 settings and CLI overrides before side effects; explicit `False` and `0` must not be replaced

@@ -54,6 +54,12 @@ to distinguish them. This is presentation grouping only: launch order is unchang
 `LIVE_MAX_ROWS` remains a global task-row limit across all boxes, and short terminals
 may show fewer rows to accommodate headings. Active runs take precedence over
 recent completed rows; queued runs remain counted in the batch summary.
+Visible runs appear newest first by run number within each TCF box: for example,
+active run 604 is followed by completed runs 603, 602, down to 595. Parallel runs
+keep this numeric order even when they finish out of order; an older active run
+remains selected and appears below newer visible runs. The box containing the
+newest visible run appears first. Before any run starts, the queued preview keeps
+the original launch order.
 Event/scenario values and details stay on one line and use ellipses in narrow
 terminals so wrapped cells cannot hide a lower model's active rows.
 The `GPU` column shows the group actually assigned at launch, such as `-pu0` or

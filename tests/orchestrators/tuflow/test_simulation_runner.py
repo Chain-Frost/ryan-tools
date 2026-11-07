@@ -1090,10 +1090,20 @@ def test_out_of_order_completion_callback_precedes_ordered_output(
 ) -> None:
     config = settings(tmp_path, gpu_devices=(("-pu0",), ("-pu1",)), monitor_progress=True, use_live_dashboard=True)
     plan = runner.prepare_plan(config)
-    _capture_dashboards(monkeypatch)
+    displays = _capture_dashboards(monkeypatch)
     monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
     monkeypatch.setattr(runner, "_apply_priority", _no_op)
-    processes = iter((FakeProcess(1, polls_before_exit=5), FakeProcess(2)))
+    mixed_frames: list[str] = []
+
+    class CapturedProcess(FakeProcess):
+        def poll(self) -> int | None:
+            dashboard = displays[0]
+            tasks = _dashboard_tasks(dashboard)
+            if tasks[1].status == "RUNNING" and tasks[2].status == "OK":
+                mixed_frames.append(_render_dashboard(dashboard))
+            return super().poll()
+
+    processes = iter((CapturedProcess(1, polls_before_exit=5), FakeProcess(2)))
     observed: list[int] = []
     began: list[int] = []
     caplog.set_level(logging.INFO)
@@ -1139,6 +1149,16 @@ def test_out_of_order_completion_callback_precedes_ordered_output(
     completion_messages = [record.message for record in caplog.records if ": OK (exit" in record.message]
     assert completion_messages[0].endswith(" | Model 1.000 h")
     assert completion_messages[1].endswith(" | Model 2.000 h")
+    assert mixed_frames
+    for frame in mixed_frames:
+        run_rows = [
+            tokens
+            for line in frame.splitlines()
+            if len(tokens := line.split()) > 2 and tokens[:2] == ["│", "│"] and tokens[2].isdigit()
+        ]
+        assert [row[2] for row in run_rows] == ["2", "1"]
+        assert "OK" in run_rows[0]
+        assert "RUNNING" in run_rows[1]
 
 
 @pytest.mark.parametrize("model_hours", [None, 3.0, float("nan"), float("inf")])
@@ -1486,11 +1506,13 @@ def test_shared_dashboard_shows_middle_active_run_and_original_resume_index(
         columns: Sequence[live_dashboard.WorkflowColumn],
         group_by: str,
         group_label_key: str,
+        newest_first: bool,
     ) -> live_dashboard.LiveWorkflowDashboard:
         assert transient is False
         assert max_rows == config.live_max_rows == 10
         assert group_by == "tcf_key"
         assert group_label_key == "tcf_label"
+        assert newest_first is True
         assert [column.header for column in columns] == [
             "Run",
             "e1",
@@ -1516,6 +1538,7 @@ def test_shared_dashboard_shows_middle_active_run_and_original_resume_index(
             enabled=False,
             group_by=group_by,
             group_label_key=group_label_key,
+            newest_first=newest_first,
         )
         result.console = Console(file=StringIO(), record=True, width=160, height=25, color_system=None)
         displays.append(result)
@@ -2040,11 +2063,11 @@ def test_multiple_tcf_panels_preserve_launch_order_and_one_global_row_cap(
     assert tasks[1].metadata["tcf_label"] == str(first.relative_to(tmp_path))
     assert tasks[2].metadata["tcf_label"] == str(second.relative_to(tmp_path))
     first_frame = active_frames[0]
-    assert first_frame.index(tasks[1].metadata["tcf_label"]) < first_frame.index(tasks[2].metadata["tcf_label"])
+    assert first_frame.index(tasks[2].metadata["tcf_label"]) < first_frame.index(tasks[1].metadata["tcf_label"])
     assert first_frame.count("RUNNING") == 2
     assert first_frame.count("model.tcf") == 2
     visible = cast(Callable[[], list[WorkflowTask]], getattr(dashboard, "_visible_tasks"))  # noqa: B009
-    assert len(visible()) == 2
+    assert [task.index for task in visible()] == [3, 2]
 
 
 @pytest.mark.parametrize("width", [100, 120])
@@ -2115,9 +2138,8 @@ def test_narrow_grouped_runner_keeps_selected_active_rows_in_terminal_height(
         for gpu in ("-pu0", "-pu1", "-pu2", "-pu3"):
             assert frame.count(gpu) == 1
         run_rows = [line for line in frame.splitlines() if "RUNNING" in line]
-        assert [line.split()[2] for line in run_rows] == ["1", "2", "3", "4"]
-        assert "first.tcf" in frame
-        assert "second.tcf" in frame
+        assert [line.split()[2] for line in run_rows] == ["4", "3", "2", "1"]
+        assert frame.index("second.tcf") < frame.index("first.tcf")
 
 
 def test_imported_start_executable_and_directory_never_control_launch(tmp_path: Path) -> None:

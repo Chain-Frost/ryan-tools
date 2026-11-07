@@ -197,6 +197,8 @@ class LiveWorkflowDashboard:
     Each visible group gets a separate table panel under the shared summary.
     ``group_label_key`` supplies its human-readable title; the identity key is
     used when no label is supplied. Row limits apply across all groups.
+    ``newest_first`` displays selected started tasks in descending registration
+    order without changing active-task selection or the initial queued preview.
     """
 
     def __init__(
@@ -212,6 +214,7 @@ class LiveWorkflowDashboard:
         screen: bool = False,
         group_by: str | None = None,
         group_label_key: str | None = None,
+        newest_first: bool = False,
     ) -> None:
         validate_dashboard_settings(refresh_per_second=refresh_per_second, max_rows=max_rows)
         if enabled:
@@ -229,6 +232,7 @@ class LiveWorkflowDashboard:
         self.screen: bool = screen
         self.group_by: str | None = group_by
         self.group_label_key: str | None = group_label_key
+        self.newest_first: bool = newest_first
         self.console: Console = _DashboardConsole()
         self._live: Live | None = None
         self._last_refresh: float = 0.0
@@ -583,11 +587,15 @@ class LiveWorkflowDashboard:
     def _visible_tasks(self) -> list[WorkflowTask]:
         """Return rows to render, prioritising active work over history.
 
-        The dashboard is deliberately compact: running tasks are always shown
-        first, recent finished tasks fill any spare rows, and queued tasks are
-        shown only while nothing has started yet.
+        Running tasks take selection priority, recent finished tasks fill spare
+        rows, and queued tasks appear only while nothing has started. The default
+        display puts running tasks first; newest_first orders selected started
+        tasks by descending index, independent of when they finish.
         """
-        return self._select_tasks(self._effective_max_rows())
+        rows = self._select_tasks(self._effective_max_rows())
+        if self.newest_first and any(task.status != "QUEUED" for task in rows):
+            rows.sort(key=lambda task: task.index, reverse=True)
+        return rows
 
     def _select_tasks(self, max_rows: int) -> list[WorkflowTask]:
         """Select rows globally before assigning them to any group panels."""
