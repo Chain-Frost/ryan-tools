@@ -76,14 +76,14 @@ def test_real_main_tlf_diagnostics_in_processor_and_report(filename: str, field:
 
 
 @pytest.mark.parametrize(
-    ("runcode", "active_cells", "samples", "observed_max"),
+    ("runcode", "active_cells", "sealed_wall_cells", "samples", "observed_max"),
     [
-        ("M11_5m_001", 19166, 136, 6046),
-        ("M11_5m_002", 19142, 131, 5167),
+        ("M11_5m_001", 19166, 16330, 136, 6046),
+        ("M11_5m_002", 19142, 16354, 131, 5167),
     ],
 )
 def test_real_hpc_observation_values_and_public_opt_in(
-    runcode: str, active_cells: int, samples: int, observed_max: int
+    runcode: str, active_cells: int, sealed_wall_cells: int, samples: int, observed_max: int
 ) -> None:
     source = MODULE11_LOG / f"{runcode}.tlf"
     if not source.is_file():
@@ -91,6 +91,9 @@ def test_real_hpc_observation_values_and_public_opt_in(
     observed = read_hpc_companion_metrics(source)
     assert observed["HPC_Companion_Status"] == "observed"
     assert observed["HPC_Active_2D_Cells"] == active_cells
+    assert observed["HPC_Sealed_Wall_Cells"] == sealed_wall_cells
+    assert observed["HPC_Groundwater_Active_Cells"] == active_cells
+    assert observed["HPC_Groundwater_Sealed_Wall_Cells"] == sealed_wall_cells
     assert observed["HPC_nWet_Sampled_Records"] == samples
     assert observed["HPC_nWet_Observed_Max"] == observed_max
     assert observed["HPC_nWet_Observed_Max"] <= observed["HPC_Active_2D_Cells"]
