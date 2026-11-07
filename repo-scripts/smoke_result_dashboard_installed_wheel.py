@@ -245,6 +245,86 @@ def _export_failure_cases(case: Case, root: Path, work: Path, script: Path) -> N
         raise RuntimeError(msg)
 
 
+QA_WRAPPERS: tuple[str, ...] = (
+    "TUFLOW-python/po_and_timeseries/check_po_timeseries_peaks.py",
+    "TUFLOW-python/po_and_timeseries/check_timeseries_stability.py",
+)
+
+
+def _qa_snapshot(work: Path) -> WorkbookSnapshot:
+    """Compare copied QA exports by workbook schema and numerical content."""
+    books = list(work.glob("*.xlsx"))
+    if len(books) != 1:
+        msg = f"Expected exactly one PO QA report in {work}, received {books}"
+        raise RuntimeError(msg)
+    workbook = load_workbook(books[0], read_only=True, data_only=True)
+    try:
+        if "Summary" not in workbook.sheetnames:
+            msg = f"Missing QA Summary sheet: {workbook.sheetnames}"
+            raise RuntimeError(msg)
+        rows = list(workbook["Summary"].values)
+        if len(rows) < 2:
+            msg = f"QA report had no result rows: {rows}"
+            raise RuntimeError(msg)
+        headers = tuple(str(value) for value in rows[0])
+        if "location" not in headers:
+            msg = f"QA report missing location column: {headers}"
+            raise RuntimeError(msg)
+        location_column = headers.index("location")
+        if {str(row[location_column]) for row in rows[1:]} != {"C01"}:
+            msg = f"PO QA copied wrapper did not preserve location selection: {rows}"
+            raise RuntimeError(msg)
+        numbers = tuple(
+            tuple(float(value) for value in row if isinstance(value, (int, float)) and not isinstance(value, bool))
+            for row in rows[1:]
+        )
+        return {"Summary": (headers, numbers)}
+    finally:
+        workbook.close()
+
+
+def _one_qa_case(wrapper: str, root: Path, work: Path, *, dashboard: bool) -> WorkbookSnapshot:
+    """Run a copied QA wrapper from an unrelated working directory against wheel imports."""
+    work.mkdir(parents=True)
+    _write_inputs(work / "inputs")
+    script = copy_wrapper(wrapper, work)
+    if not script.is_file() or not script.absolute().is_relative_to(work):
+        msg = f"PO QA wrapper was not copied into disposable work folder: {script}"
+        raise RuntimeError(msg)
+    help_result = _run(script, work, root, "--help")
+    if help_result.returncode != 0 or "--no-live-dashboard" not in help_result.stdout:
+        msg = f"Copied QA help failed for {wrapper}: {help_result.stdout[-600:]} {help_result.stderr[-600:]}"
+        raise RuntimeError(msg)
+
+    result = _run(
+        script,
+        work,
+        root,
+        "--data-types",
+        "Flow",
+        "--live-dashboard" if dashboard else "--no-live-dashboard",
+    )
+    if result.returncode != 0:
+        msg = (
+            f"Copied QA wrapper {wrapper} (dashboard={dashboard}) failed with {result.returncode}: "
+            f"{result.stdout[-1500:]} {result.stderr[-1500:]}"
+        )
+        raise RuntimeError(msg)
+    if dashboard and ": SUCCESS" not in result.stdout:
+        msg = f"QA workflow was not marked successful after export: {wrapper}: {result.stdout[-1500:]}"
+        raise RuntimeError(msg)
+    if "\\x1b[" in result.stdout:
+        msg = f"Unexpected ANSI updates in redirected QA workflow: {wrapper}"
+        raise RuntimeError(msg)
+
+    snapshot = _qa_snapshot(work)
+    invalid = _run(script, work, root, "--live-max-rows", "0")
+    if invalid.returncode == 0 or "live_max_rows" not in invalid.stdout + invalid.stderr:
+        msg = f"Copied QA wrapper accepted invalid dashboard settings: {wrapper}"
+        raise RuntimeError(msg)
+    return snapshot
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--expected-root", type=Path, required=True)
@@ -265,9 +345,16 @@ def main() -> None:
                 msg = f"Dashboard changed workbook values/headers for {case.wrapper}: {without!r} vs {with_dashboard!r}"
                 raise RuntimeError(msg)
 
+    for index, wrapper in enumerate(QA_WRAPPERS):
+        without = _one_qa_case(wrapper, root, base / f"qa_{index}_ordinary", dashboard=False)
+        with_dashboard = _one_qa_case(wrapper, root, base / f"qa_{index}_dashboard", dashboard=True)
+        if without != with_dashboard:
+            msg = f"PO QA dashboard changed copied-wheel workbook values: {wrapper}: {without!r} vs {with_dashboard!r}"
+            raise RuntimeError(msg)
+
     print(
-        f"Six copied result wrappers passed installed-wheel smoke at {actual}: "
-        "on/off workbook parity, channel selection and settings."
+        f"Six copied result wrappers and two PO QA wrappers passed installed-wheel smoke at {actual}: "
+        "dashboard on/off workbook parity and settings."
     )
 
 
