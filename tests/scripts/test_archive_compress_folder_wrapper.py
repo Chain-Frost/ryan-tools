@@ -78,7 +78,7 @@ def test_archive_helper_preserves_output_and_native_exclusions(tmp_path: Path, m
     assert result.status == "SUCCESS"
     assert observed == {
         "exe": executable,
-        "output": source.with_suffix(".7z"),
+        "output": source.with_name(f"{source.name}.7z"),
         "inputs": [f"{source}\\*"],
         "exclusions": ["-xr!xf", "-xr!*.dat", "-xr!*.xmdf"],
         "max_part_size_gib": None,
