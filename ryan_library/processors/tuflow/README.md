@@ -10,6 +10,41 @@ The authoritative data-type and suffix configuration is
 That registry also contains raster classifications used for discovery; a configured suffix is processor-backed only
 when its entry names a processor class.
 
+## Supported run identifiers and culvert maximums
+
+**Every distinct simulation combined in a result workflow must have a unique full raw run code.** Model authors must
+use filenames that encode the intended scenario, AEP, duration and temporal pattern (TP); the report tools do not
+recover ambiguous names or reconcile collisions. For example, the supported filename parser recognises:
+
+| File | Interpretation |
+| --- | --- |
+| `M11_01p_00120m_TP01_1d_Cmx.csv` | Full raw run code `M11_01p_00120m_TP01`; scenario `M11`; AEP `01p`; duration `00120m` (120 min); `TP01` |
+| `M11_01p_00120m_TP02_1d_Cmx.csv` | A **different** simulation because the TP changed |
+| `M11_01p_00180m_TP01_1d_Cmx.csv` | A **different** simulation because the duration changed |
+| `M12_01p_00120m_TP01_1d_Cmx.csv` | A **different** scenario and simulation |
+
+The companion `M11_01p_00120m_TP01_1d_Q.csv`, `_1d_V.csv`, `_1d_H.csv`, `_1d_Chan.csv`,
+`_1d_Nmx.csv`, `_1d_Cmx.csv`, `_POMM.csv` and `.eof` products from that **same simulation** legitimately
+share `M11_01p_00120m_TP01` before their respective suffixes. The
+`TuflowStringParser.trim_run_code` grouping key is `M11` for these examples: it removes recognised AEP,
+duration and TP components so related simulations can be grouped into an ensemble. It is **not** a unique simulation
+identifier; the raw run code (`internalName` in processed tables) retains that role.
+`ProcessorCollection.check_duplicates()` checks the combination of raw run code **and data type**.
+
+The maintained 1D culvert reports assume the existing simple culvert convention: `Chan ID` identifies a culvert
+channel, and the `_1d_Nmx.csv` node IDs `<Chan ID>.1` and `<Chan ID>.2` denote its upstream and downstream
+ends respectively. `NmxProcessor` reshapes them to `US_h` and `DS_h`. The reports also use matching `Chan`
+and `EOF` attributes. They do **not** implement arbitrary junctions, shared nodes, pits or general node-to-channel
+network tracing; that wider scope is deferred in [#221](https://github.com/Chain-Frost/ryan-tools/issues/221).
+
+**Maximum discharge (`Q`), velocity (`V`) and upstream/downstream water levels (`US_h`, `DS_h`) are
+independent extrema within the selected simulation.** In particular, `CmxProcessor` preserves distinct Qmax and
+Vmax records and their own `Time` values; `NmxProcessor` takes each reported end-node Hmax. The maxima need not
+occur at the same timestep. A combined Maximums row or a selected governing/representative simulation identifies
+which run supplied the reported values, **not** a simultaneous hydraulic state. No coincident-hydraulics extraction
+or peak-time schema change is implied. See the [culvert-engine report interpretation](../../../docs/TUFLOW_CULVERT_ENGINES.md#maximums-workbook)
+when using such maxima in a hydraulic check.
+
 ## Processor lifecycle
 
 Create processors through `BaseProcessor.from_file()` so the filename parser, suffix registry and configured module
