@@ -260,7 +260,9 @@ def combine_df_from_paths(
     if not results_set.processors:
         return DataFrame()
 
-    combined: DataFrame = results_set.pomm_combine()
+    # The requested input types have already been selected by collect_files().
+    # pomm_combine() drops RLL_Qmx because its registered dataformat is Maximums.
+    combined: DataFrame = results_set.combine_raw()
     logger.info("Combined POMM/RLL data into a single DataFrame with {} row(s).", len(combined))
     return combined
 
@@ -283,21 +285,37 @@ def aggregated_from_paths(
         return df
     logger.info("Aggregated dataframe ready for normalisation with {} row(s).", len(df))
 
-    # Normalize columns for RLLQmx support
-    if "Location" in df.columns and "Chan ID" in df.columns:
-        df["Location"] = df["Location"].fillna(value=df["Chan ID"])
-    elif "Location" not in df.columns and "Chan ID" in df.columns:
-        df["Location"] = df["Chan ID"]
+    # RLL_Qmx is a signed *maximum* flow result (Qmax), whereas POMM
+    # AbsMax is the larger magnitude of its time-series minimum and maximum.
+    # Preserve the original signed Q and the source filename for provenance.
+    # No missing RLL time-series minimum can be reconstructed from Qmax.
+    if "Chan ID" in df.columns:
+        channel_ids = df["Chan ID"].astype("string")
+        if "Location" in df.columns:
+            # A mixed POMM/RLL collection may have categorical Location values
+            # whose categories do not contain the incoming RLL identifiers.
+            df["Location"] = df["Location"].astype("string").fillna(value=channel_ids)
+        else:
+            df["Location"] = channel_ids
 
-    if "AbsMax" in df.columns and "Q" in df.columns:
-        df["AbsMax"] = df["AbsMax"].fillna(value=df["Q"])
-    elif "AbsMax" not in df.columns and "Q" in df.columns:
-        df["AbsMax"] = df["Q"]
+    if "Q" in df.columns:
+        signed_q = pd.to_numeric(arg=df["Q"], errors="coerce")
+        magnitude_q = signed_q.abs()
+        if "AbsMax" in df.columns:
+            df["AbsMax"] = pd.to_numeric(arg=df["AbsMax"], errors="coerce").fillna(value=magnitude_q)
+        else:
+            df["AbsMax"] = magnitude_q
+        if "SignedAbsMax" in df.columns:
+            df["SignedAbsMax"] = df["SignedAbsMax"].fillna(value=signed_q)
+        else:
+            df["SignedAbsMax"] = signed_q
 
     if "Type" not in df.columns:
         df["Type"] = "Q"
     else:
-        df["Type"] = df["Type"].fillna(value="Q")
+        # Keep RLL's Q distinct from POMM's Flow: each is independently
+        # grouped, despite both describing discharge.
+        df["Type"] = df["Type"].astype("string").fillna(value="Q")
 
     return df
 
