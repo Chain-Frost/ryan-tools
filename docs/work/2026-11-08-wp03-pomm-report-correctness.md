@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active |
+| Status | Active; native acceptance partial, real RLL/mixed inputs required |
 | Owner | WP03 allocation agent |
 | Created | 2026-11-08 |
 | Updated | 2026-11-08 |
@@ -166,3 +166,15 @@ and is not incorporated, all four issues stay open. Transfer these
 closing keywords to parent #251 only after the child is accepted and
 incorporated; do not close issues merely because an intermediate PR is
 stacked or CI is green.
+
+### 2026-11-08 — Native Windows acceptance, partial pass
+
+Tested exact implementation head `dcbec3aead0d8e63a201e49b607f9f1b77c3d9bc` using its successful Package run 42398158770/artifact 13584103558. All six checks passed on that SHA. Installed wheel `ryan_tools-26.11.7.13-py3-none-any.whl` into a disposable local target with `pip --no-deps --target`; SHA-256 `206c195221ba78f92c459ddaaccf6701c8a79eeca92c356dcf74fcc3c8486bf4`. Python 3.14.6/pandas 3.0.5 imported from the installed target, not the checkout. All four requested wrappers were copied through installed `copy_wrapper`.
+
+Measured passes: real POMM 20 unchanged CSV copies/two durations/ten TPs (2,604 independent workbook comparisons); real Cmx 20 unchanged copies/two durations/ten TPs (676 comparisons); direct actual UNC POMM 110 CSVs/11 durations/ten TPs (13,485 comparisons); synthetic POMM-only/RLL-only/mixed and culvert finite/zero/invalid/tie/provenance cases (505 comparisons); 38 data-dictionary sheet checks; 20 shuffled tie checks. Selected original source hashes and UNC independent-read hashes remained unchanged. All outputs stayed on local scratch; no solver, release, merge or normal installation replacement.
+
+Full sanitized evidence, expected/actual values, environment, commands and limitations: [native acceptance comment](https://github.com/Chain-Frost/ryan-tools/pull/267#issuecomment-6711270903). Private raw workbooks/logs/manifests remain only under local scratch `C:\Temp\wp03-native-20261108`; do not publish their identifiers or paths. Scratch drivers and JSON comparisons preserve reproduction details.
+
+**INCOMPLETE:** Suitable real TP-named RLL_Qmx-only and mixed POMM/RLL ensembles were not located; real-input path clarification is pending. Tutorial inputs without TP metadata produced missing-column diagnostics and empty tables despite wrapper success; do not count these as passing ensemble acceptance. No new WP03 regression was established; missing-metadata failure signaling remains a triage limitation. #207/#238 combined coverage semantics remain separate and unverified; preserve observed TP/file coverage versus finite contributing counts and rerun both regression sets before any authorized integration.
+
+Next action: maintainer supplies suitable real RLL/mixed ensembles; run copied wrappers and independent readback against the exact verified wheel and record results. Keep native acceptance open and next review 2026-11-15. This handoff is a documentation-only follow-up on the existing WP03 branch; wheel evidence stays anchored to the tested implementation SHA, and later-head CI must be checked separately. No production code or unrelated checkout state changed.
