@@ -133,7 +133,7 @@ def _absolute_from(path: Path, base_directory: Path) -> Path:
     return candidate.absolute()
 
 
-def _validate_options(
+def _validate_options(  # noqa: C901 - Keep related input and output safeguards together.
     *,
     input_paths: Sequence[Path],
     output_directory: Path | None,
@@ -422,7 +422,7 @@ def _copy_attributes(
         output_feature.SetField(output_name, value)
 
 
-def _write_geopackage(
+def _write_geopackage(  # noqa: C901 - Preserve transaction and geometry-handling logic.
     source_dataset: gdal.Dataset,
     temporary_output: Path,
     *,
@@ -444,7 +444,7 @@ def _write_geopackage(
         dimension: _create_output_layer(output_dataset, name, spatial_reference, field_specs)
         for dimension, name in OUTPUT_LAYER_NAMES.items()
     }
-    counts = {name: 0 for name in OUTPUT_LAYER_NAMES.values()}
+    counts = dict.fromkeys(OUTPUT_LAYER_NAMES.values(), 0)
 
     transaction_active = False
     try:
@@ -548,13 +548,19 @@ def _copy_to_destination_staging(
 
 def _publish_temporary_output(temporary_output: Path, output: Path, *, overwrite: bool) -> None:
     if overwrite:
-        os.replace(temporary_output, output)
+        temporary_output.replace(output)
         return
     if output.exists():
         message = f"Output appeared during conversion and was not replaced: {output}"
         raise ConversionError(message)
     try:
-        os.rename(temporary_output, output)
+        if os.name == "nt":
+            # Windows rename refuses an existing destination; keep this for SMB shares.
+            temporary_output.rename(output)
+        else:
+            # POSIX rename replaces an existing file. Hard-link creation is no-clobber.
+            os.link(temporary_output, output)
+            temporary_output.unlink()
     except FileExistsError as exc:
         message = f"Output appeared during conversion and was not replaced: {output}"
         raise ConversionError(message) from exc
