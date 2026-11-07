@@ -20,8 +20,7 @@ def _write_peak_csv_files(directory: Path) -> dict[str, Path]:
     run_code = "Model_01p_0060m_TP01"
     rll_path = directory / f"{run_code}_RLL_Qmx.csv"
     rll_path.write_text(
-        "ID,Qmax,Time Qmax,dQmax,Time dQmax,H\n"
-        "C1,42,1,0.2,1.2,100\n",
+        "ID,Qmax,Time Qmax,dQmax,Time dQmax,H\nC1,42,1,0.2,1.2,100\n",
         encoding="utf-8",
     )
 
