@@ -90,7 +90,8 @@ def read_interest_features(path: Path) -> tuple[CRS, list[BaseGeometry]]:
     return crs, geometries
 
 
-def build_catchments(config: CatchmentConfig) -> Path:
+def build_catchments(  # noqa: C901 - staged catchment pipeline includes distinct point and AOI branches
+config: CatchmentConfig) -> Path:
     """Generate only a catchment GeoPackage; never create TUFLOW files."""
     if config.output.exists():
         msg = f"Existing catchment output is protected: {config.output}"

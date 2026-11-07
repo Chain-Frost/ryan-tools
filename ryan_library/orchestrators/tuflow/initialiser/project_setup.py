@@ -316,7 +316,7 @@ def _create_projection_files(*, prj_file: Path, gis_dir: Path, overwrite: bool) 
 def _run_tuflow_empty_generation(*, tuflow_executable: Path, control_file: Path, expected_empty_dir: Path) -> None:
     command: list[str] = [str(tuflow_executable), "-b", "-nmb", str(control_file)]
     logger.info("Generating canonical empty GeoPackages with TUFLOW")
-    completed: subprocess.CompletedProcess[str] = subprocess.run(  # noqa: S603 - validated executable, explicit argv, no shell
+    completed: subprocess.CompletedProcess[str] = subprocess.run( - validated executable, explicit argv, no shell
         args=command,
         cwd=control_file.parent,
         check=False,
