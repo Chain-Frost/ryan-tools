@@ -18,7 +18,7 @@ from loguru import logger
 CompanionStatus = Literal["missing", "observed", "incomplete", "changed_during_read", "multiple_domains", "unreadable"]
 
 _MAX_LINE_BYTES = 8192
-_STEP_TIME = re.compile(r"\d+:[0-5]\d:[0-5]\d(?:\.\d+)?")
+_STEP_TIME = re.compile(r"[+-]?\d+:[0-5]\d:[0-5]\d(?:\.\d+)?")
 _COUNT_PATTERNS: dict[str, re.Pattern[str]] = {
     "HPC_Active_2D_Cells": re.compile(r"^\s*Number active cells\s*=\s*(\d+)\s*$", re.IGNORECASE),
     "HPC_Sealed_Wall_Cells": re.compile(r"^\s*Number sealed wall cells\s*=\s*(\d+)\s*$", re.IGNORECASE),
