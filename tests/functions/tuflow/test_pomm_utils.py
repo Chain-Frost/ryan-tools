@@ -207,7 +207,9 @@ class TestReportWrappers:
     @patch("ryan_library.functions.tuflow.pomm_utils.save_to_excel")
     @patch("ryan_library.functions.tuflow.pomm_utils.find_aep_median_max")
     @patch("ryan_library.functions.tuflow.pomm_utils.find_aep_dur_median")
-    def test_save_peak_report_median(self, mock_dur: MagicMock, mock_max: MagicMock, mock_save: MagicMock, tmp_path: Path) -> None:
+    def test_save_peak_report_median(
+        self, mock_dur: MagicMock, mock_max: MagicMock, mock_save: MagicMock, tmp_path: Path
+    ) -> None:
         """Test median report wrapper."""
         mock_dur.return_value = pd.DataFrame({"MedianAbsMax": [10]})
         mock_max.return_value = pd.DataFrame({"MedianAbsMax": [10]})
@@ -219,7 +221,9 @@ class TestReportWrappers:
     @patch("ryan_library.functions.tuflow.pomm_utils.save_to_excel")
     @patch("ryan_library.functions.tuflow.pomm_utils.find_aep_mean_max")
     @patch("ryan_library.functions.tuflow.pomm_utils.find_aep_dur_mean")
-    def test_save_peak_report_mean(self, mock_dur: MagicMock, mock_max: MagicMock, mock_save: MagicMock, tmp_path: Path) -> None:
+    def test_save_peak_report_mean(
+        self, mock_dur: MagicMock, mock_max: MagicMock, mock_save: MagicMock, tmp_path: Path
+    ) -> None:
         """Test mean report wrapper."""
         mock_dur.return_value = pd.DataFrame({"mean_PeakFlow": [10]})
         mock_max.return_value = pd.DataFrame({"mean_PeakFlow": [10]})
