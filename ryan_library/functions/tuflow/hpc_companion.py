@@ -48,10 +48,18 @@ def _sampled_wet_count(line: str, wet_index: int | None) -> int | None:
     return int(parts[wet_index]) if parts[wet_index].isdigit() else None
 
 
+def _new_counts() -> dict[str, int]:
+    return {}
+
+
+def _new_count_fields() -> set[str]:
+    return set()
+
+
 @dataclass(slots=True)
 class _CompanionObservation:
-    counts: dict[str, int] = field(default_factory=dict)
-    duplicated_count_fields: set[str] = field(default_factory=set)
+    counts: dict[str, int] = field(default_factory=_new_counts)
+    duplicated_count_fields: set[str] = field(default_factory=_new_count_fields)
     wet_index: int | None = None
     wet_samples: int = 0
     wet_max: int | None = None
