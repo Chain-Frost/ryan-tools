@@ -210,7 +210,7 @@ def calculate_median_statistics(
     if not all_valid.empty:
         max_stats_dict["low"] = float(all_valid[stat_col].iloc[0])
         max_stats_dict["high"] = float(all_valid[stat_col].iloc[-1])
-    elif not max_stats_dict:
+    elif "median" not in max_stats_dict:
         max_stats_dict["median"] = float("nan")
     return max_stats_dict, bin_stats_list
 
