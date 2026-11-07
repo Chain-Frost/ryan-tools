@@ -20,6 +20,7 @@ from ryan_library.functions.file_utils import (
 from ryan_library.functions.live_dashboard import LiveWorkflowDashboard, WorkflowMetric, WorkflowStatus
 from ryan_library.functions.loguru_helpers import LogQueue, worker_initializer
 from ryan_library.functions.multiprocessing_helpers import calculate_pool_size
+from ryan_library.functions.tuflow.wrapper_helpers import validate_discovery_settings
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 
@@ -116,68 +117,42 @@ def collect_files(
     include_data_types: Iterable[str],
     suffixes_config: SuffixesConfig,
 ) -> list[Path]:
-    """Return all non-empty files matching ``include_data_types`` underneath ``paths_to_process``."""
-    normalized_roots: list[Path] = []
-    seen_roots: set[Path] = set()
-    for candidate in paths_to_process:
-        path: Path = Path(candidate).expanduser()
-        normalized: Path = path.absolute()
-        if normalized in seen_roots:
-            continue
-        seen_roots.add(normalized)
-        normalized_roots.append(normalized)
+    """Return matching nonempty files; raise on invalid or incomplete discovery.
 
-    deduped_types: list[str] = []
-    seen_types: set[str] = set()
-    for data_type in include_data_types:
-        if data_type in seen_types:
-            continue
-        seen_types.add(data_type)
-        deduped_types.append(data_type)
-
-    if not deduped_types:
-        logger.error("No data types were supplied for file collection.")
-        return []
-
+    A valid directory with no matching files returns [] (an intentional skip).
+    Missing roots, unsupported types, zero-byte files and traversal errors do not
+    appear as a complete empty batch or as a partial successful batch.
+    """
+    normalized_roots: list[Path] = list(
+        dict.fromkeys(Path(path).expanduser().absolute() for path in paths_to_process)
+    )
+    deduped_types: list[str] = list(dict.fromkeys(include_data_types))
     data_map: dict[str, list[str]] = suffixes_config.invert_suffix_to_type()
+    validate_discovery_settings(
+        paths_to_process=normalized_roots,
+        selected_data_types=deduped_types,
+        accepted_data_types=data_map.keys(),
+        context="TUFLOW file discovery",
+    )
     suffixes: list[str] = []
     for data_type in deduped_types:
-        dt_suffixes: list[str] | None = data_map.get(data_type)
-        if not dt_suffixes:
-            logger.error(f"No suffixes for data type '{data_type}'. Skipping.")
-            continue
-        suffixes.extend(dt_suffixes)
+        configured = data_map[data_type]
+        if not configured:
+            message = f"TUFLOW file discovery: no suffixes configured for {data_type!r}"
+            raise ValueError(message)
+        suffixes.extend(configured)
 
-    suffixes = list(dict.fromkeys(suffixes))
-    if not suffixes:
-        logger.error("No suffixes found for the requested data types.")
-        return []
-
-    patterns: list[str] = [f"*{suffix}" for suffix in suffixes]
+    patterns: list[str] = [f"*{suffix}" for suffix in dict.fromkeys(suffixes)]
     logger.debug("Collecting files with patterns: {}", patterns)
-    roots: list[Path] = [p for p in normalized_roots if p.is_dir()]
-    logger.debug("Searching in roots: {}", roots)
-    invalid_roots: list[Path] = [p for p in normalized_roots if not p.is_dir()]
-    for bad_root in invalid_roots:
-        logger.warning(f"Skipping non-directory path {bad_root}")
-
-    if not roots:
-        logger.warning("No valid directories were supplied for file collection.")
-        return []
-
-    files: list[Path] = find_files_parallel(root_dirs=roots, patterns=patterns)
-    logger.debug("find_files_parallel found {} files.", len(files))
+    files: list[Path] = find_files_parallel(root_dirs=normalized_roots, patterns=patterns)
+    logger.debug("Found {} matching files before validation.", len(files))
     filtered_files: list[Path] = []
-    seen_files: set[Path] = set()
-    for file_path in files:
-        if file_path in seen_files:
-            continue
-        seen_files.add(file_path)
+    for file_path in dict.fromkeys(files):
         if not is_non_zero_file(file_path):
-            continue
+            message = f"TUFLOW file discovery: matched input empty, unavailable or unreadable: {file_path}"
+            raise OSError(message)
         filtered_files.append(file_path)
     return filtered_files
-
 
 def _summarize_file_batch(file_list: list[Path]) -> tuple[int, int, Path | None, int]:  # pyright: ignore[reportUnusedFunction] - retained for legacy callers/tests
     """Return count, total bytes, largest path, largest size for ``file_list``."""
