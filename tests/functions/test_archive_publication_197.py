@@ -153,7 +153,7 @@ def test_split_volume_failure_rolls_back_only_owned_parts(tmp_path: Path, monkey
         (staged.parent / f"{staged.name}.002").write_bytes(b"ours")
         return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
 
-    native_publish = archive_utils._publish_archive_part
+    native_publish = archive_utils._publish_archive_part  # pyright: ignore[reportPrivateUsage]
 
     def competing_second(staged: Path, destination: Path) -> None:
         if destination.name.endswith(".002"):
