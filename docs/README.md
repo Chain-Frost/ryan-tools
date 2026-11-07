@@ -170,3 +170,6 @@ but they are not current architectural policy when they conflict with the canoni
 
 Run `python repo-scripts/check_documentation.py` after changing the documentation structure. Its default run checks the
 main README links and paths and verifies that every tracked Markdown document is linked from this index.
+
+- [Report export safety](../ryan_library/functions/excel_export.md): shared Excel/Parquet/CSV output policy.
+- [Shared result export safety work](work/2026-11-04-result-export-safety-194.md): issue #194 implementation and validation.
