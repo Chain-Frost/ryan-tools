@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 
 import rasterio
-from verify_project import ProjectQA, verify_project
+from ryan_library.orchestrators.tuflow.initialiser.verification import ProjectQA, verify_project
 
 from ryan_library.orchestrators.tuflow.initialiser.workflow import BuildConfig, build
 
