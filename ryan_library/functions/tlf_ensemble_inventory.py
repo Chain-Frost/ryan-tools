@@ -2,10 +2,15 @@
 
 import os
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from itertools import product
 from math import prod
 from pathlib import Path
+from typing import Literal
+
+VerificationStatus = Literal["RUNNING", "OK", "SKIP", "FAIL"]
+VerificationProgress = Callable[[int, Path, VerificationStatus], None]
 
 
 @dataclass(frozen=True)
@@ -204,7 +209,13 @@ def _token_kind(token: str) -> str:
 
 
 def scan_ensemble_inventory(
-    root: Path, *, recursive: bool = True, max_combinations: int = 1_000_000, verify_success: bool = False
+    root: Path,
+    *,
+    recursive: bool = True,
+    max_combinations: int = 1_000_000,
+    verify_success: bool = False,
+    on_verification_start: Callable[[list[Path]], None] | None = None,
+    on_verification_progress: VerificationProgress | None = None,
 ) -> EnsembleInventory:
     """Scan filenames only, rejecting inaccessible directories rather than claiming completeness.
 
@@ -234,11 +245,17 @@ def scan_ensemble_inventory(
     return infer_ensemble_inventory(
         names,
         max_combinations=max_combinations,
-        successful_names=_successful_log_names(logs) if verify_success else None,
+        successful_names=_successful_log_names(logs, on_verification_start, on_verification_progress)
+        if verify_success
+        else None,
     )
 
 
-def _successful_log_names(logs: list[Path]) -> set[str]:
+def _successful_log_names(
+    logs: list[Path],
+    on_start: Callable[[list[Path]], None] | None = None,
+    on_progress: VerificationProgress | None = None,
+) -> set[str]:
     """Prefer the newest primary TLF over HPC companions; never reuse an older successful attempt."""
     selected: dict[tuple[str, ...], tuple[tuple[bool, int], Path]] = {}
     for path in logs:
@@ -247,11 +264,28 @@ def _successful_log_names(logs: list[Path]) -> set[str]:
         if key not in selected or priority > selected[key][0]:
             selected[key] = (priority, path)
     successful: set[str] = set()
-    for _, path in selected.values():
-        before = path.stat()
-        with path.open(encoding="utf-8", errors="replace") as stream:
-            finished = any(line.strip() == "Simulation FINISHED" for line in stream)
-        after = path.stat()
-        if finished and (before.st_size, before.st_mtime_ns) == (after.st_size, after.st_mtime_ns):
+    paths = [path for _, path in selected.values()]
+    if on_start is not None:
+        on_start(paths)
+    for index, path in enumerate(paths, start=1):
+        if on_progress is not None:
+            on_progress(index, path, "RUNNING")
+        try:
+            finished = _log_finished(path)
+        except OSError:
+            if on_progress is not None:
+                on_progress(index, path, "FAIL")
+            raise
+        if finished:
             successful.add(path.name)
+        if on_progress is not None:
+            on_progress(index, path, "OK" if finished else "SKIP")
     return successful
+
+
+def _log_finished(path: Path) -> bool:
+    before = path.stat()
+    with path.open(encoding="utf-8", errors="replace") as stream:
+        finished = any(line.strip() == "Simulation FINISHED" for line in stream)
+    after = path.stat()
+    return finished and (before.st_size, before.st_mtime_ns) == (after.st_size, after.st_mtime_ns)

@@ -56,6 +56,32 @@ is unavailable in legacy tracking-table mode.
 python ryan-scripts/tuflow/find_missing_tlf_runs.py "T:\results\04" --verify-success --no-pause
 ```
 
+Success verification uses the shared TUFLOW log-summary progress dashboard: enabled by default, ten visible rows,
+two refreshes per second, with actual selected log paths supplied for background file-size metadata. The dashboard
+covers discovery/latest-log selection, status verification, aggregation and any requested workbook export. Missing
+success markers count as SKIP; unreadable logs or export failures finish as FAILED. `--no-live-dashboard` disables
+the display and prints periodic progress instead. Redirected output stays plain text. Editable controls are
+`USE_LIVE_DASHBOARD`, `LIVE_REFRESH_PER_SECOND` and `LIVE_MAX_ROWS`, with matching CLI overrides.
+
+## Optional standard log-summary export
+
+Set `EXPORT_LOG_SUMMARY = True` or pass `--export-log-summary`, together with success verification. Export is off by
+default, and `--no-export-log-summary` overrides an edited True setting. The report uses the existing log-summary
+parser, DataFrame assembly/column ordering and protected Excel exporter, with the standard timestamped
+`ModellingLog` workbook, `Log Summary` sheet and data dictionary. Existing outputs are never overwritten.
+
+Only the verified scan's selected successful logs are passed to the canonical parser; there is no second folder
+discovery pass. The existing parser rereads those logs to extract its normal metadata. An incomplete log is excluded;
+if a completion marker exists but the normal parser cannot construct a summary row, a warning identifies the omission.
+No workbook is written when there are no summary rows. Parsing errors or export failures fail the operation.
+The default output directory is the results root. Set `LOG_SUMMARY_DIRECTORY` or `--log-summary-directory` to select
+another existing directory; relative values use the launch directory. This workbook is independent of the optional
+missing-run CSV. A filename-only scan never reads log contents or exports a log-summary workbook.
+
+```powershell
+python ryan-scripts/tuflow/find_missing_tlf_runs.py "T:\results\04" --verify-success --export-log-summary --no-pause
+```
+
 `--output-csv` saves all inferred missing run names, without an extension;
 the report must not already exist. No report is written by default. The default combination limit is 1,000,000;
 `--max-combinations` can change it. Exceeding the limit fails rather than claiming a partial inventory is complete.

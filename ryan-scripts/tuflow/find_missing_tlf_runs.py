@@ -7,7 +7,7 @@ Example: python find_missing_tlf_runs.py "T:\results\04" --no-pause
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-07.5"
+WRAPPER_VERSION = "2026-11-07.6"
 # Relative paths use the launch directory, before WORKING_DIR is applied.
 RESULTS_FOLDER: Path = Path.cwd()
 # None selects folder mode; otherwise select a CSV/XLSX/XLS tracking table.
@@ -17,6 +17,13 @@ SHEET: str | int = 0
 RECURSIVE = True
 # False counts filenames only. True reads TLFs and counts confirmed successful simulations.
 VERIFY_SUCCESS = False
+# Requires VERIFY_SUCCESS. Creates the standard timestamped ModellingLog workbook; never overwrites.
+EXPORT_LOG_SUMMARY = False
+# None exports beside the scanned results; a path selects an existing output directory.
+LOG_SUMMARY_DIRECTORY: Path | None = None
+USE_LIVE_DASHBOARD = True
+LIVE_REFRESH_PER_SECOND = 2.0
+LIVE_MAX_ROWS = 10
 # None means no folder report; a path creates a new CSV and never overwrites.
 # Table mode always exports beside its input; leave OUTPUT_CSV as None.
 OUTPUT_CSV: Path | None = None
@@ -34,10 +41,11 @@ from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 
+from ryan_library.functions.live_dashboard import validate_dashboard_settings
 from ryan_library.functions.loguru_helpers import configure_serial_logging
-from ryan_library.functions.tlf_ensemble_inventory import EnsembleInventory, scan_ensemble_inventory
+from ryan_library.functions.tlf_ensemble_inventory import EnsembleInventory
 from ryan_library.functions.wrapper_utils import change_working_directory, pause_console, print_wrapper_banner
-from ryan_library.orchestrators.tuflow.tlf_missing_runs import orchestrate_missing_runs_check
+from ryan_library.orchestrators.tuflow.tlf_missing_runs import orchestrate_ensemble_scan, orchestrate_missing_runs_check
 
 
 def _parse_cli_arguments() -> argparse.Namespace:
@@ -48,6 +56,33 @@ def _parse_cli_arguments() -> argparse.Namespace:
         "--input-table", "-i", type=Path, default=INPUT_TABLE, help="CSV/Excel tracking table instead of folder mode."
     )
     parser.add_argument("--sheet", "-s", default=SHEET, help="Excel sheet name or zero-based index.")
+    parser.add_argument(
+        "--export-log-summary",
+        action=argparse.BooleanOptionalAction,
+        default=EXPORT_LOG_SUMMARY,
+        help="Export the standard ModellingLog workbook; requires --verify-success. Default: off.",
+    )
+    parser.add_argument(
+        "--log-summary-directory",
+        type=Path,
+        default=LOG_SUMMARY_DIRECTORY,
+        help="Existing workbook output directory; default: scanned results folder.",
+    )
+    parser.add_argument(
+        "--live-dashboard",
+        action=argparse.BooleanOptionalAction,
+        default=USE_LIVE_DASHBOARD,
+        help="Live success-scan progress; default: enabled in interactive terminals.",
+    )
+    parser.add_argument(
+        "--live-refresh-per-second",
+        type=float,
+        default=LIVE_REFRESH_PER_SECOND,
+        help="Positive dashboard refresh rate; default: 2.",
+    )
+    parser.add_argument(
+        "--live-max-rows", type=int, default=LIVE_MAX_ROWS, help="Positive dashboard row limit; default: 10."
+    )
     parser.add_argument(
         "--verify-success",
         action=argparse.BooleanOptionalAction,
@@ -91,6 +126,8 @@ def _validate_settings(args: argparse.Namespace) -> tuple[Path, Path | None, Pat
         ("RECURSIVE", args.recursive),
         ("PAUSE_ON_FINISH", args.pause),
         ("VERIFY_SUCCESS", args.verify_success),
+        ("EXPORT_LOG_SUMMARY", args.export_log_summary),
+        ("USE_LIVE_DASHBOARD", args.live_dashboard),
     ):
         if not isinstance(value, bool):
             message = f"{name} must be True or False; got {value!r}"
@@ -102,6 +139,16 @@ def _validate_settings(args: argparse.Namespace) -> tuple[Path, Path | None, Pat
         message = "CONSOLE_LOG_LEVEL must be a level name, e.g. 'SUCCESS'"
         raise ValueError(message)
     logger.level(args.console_log_level)
+    validate_dashboard_settings(refresh_per_second=args.live_refresh_per_second, max_rows=args.live_max_rows)
+    if args.export_log_summary and (not args.verify_success or args.input_table is not None):
+        message = "EXPORT_LOG_SUMMARY requires VERIFY_SUCCESS = True (or --verify-success) in folder mode"
+        raise ValueError(message)
+    if args.export_log_summary and args.log_summary_directory is not None:
+        summary_dir = _path_setting(args.log_summary_directory, "LOG_SUMMARY_DIRECTORY")
+        if not summary_dir.is_dir():
+            message = f"LOG_SUMMARY_DIRECTORY must already exist; got {summary_dir}"
+            raise ValueError(message)
+        args.log_summary_directory = summary_dir
     folder = _path_setting(args.folder if args.folder is not None else RESULTS_FOLDER, "RESULTS_FOLDER")
     table = _path_setting(args.input_table, "INPUT_TABLE") if args.input_table is not None else None
     output = _path_setting(args.output_csv, "OUTPUT_CSV") if args.output_csv is not None else None
@@ -110,6 +157,8 @@ def _validate_settings(args: argparse.Namespace) -> tuple[Path, Path | None, Pat
     if output is not None and (output.suffix.lower() != ".csv" or not output.parent.is_dir()):
         message = f"OUTPUT_CSV must be a CSV path in an existing directory; got {output}"
         raise ValueError(message)
+    if output is not None and (output.exists() or output.is_symlink()):
+        raise FileExistsError(output)
     return folder, table, output, working_dir
 
 
@@ -179,11 +228,16 @@ def main(args: argparse.Namespace) -> int:
             sheet = int(args.sheet) if str(args.sheet).isdigit() else args.sheet
             orchestrate_missing_runs_check(input_path=table, sheet_name=sheet)
         else:
-            inventory: EnsembleInventory = scan_ensemble_inventory(
+            inventory: EnsembleInventory = orchestrate_ensemble_scan(
                 root=folder,
                 recursive=args.recursive,
                 max_combinations=args.max_combinations,
                 verify_success=args.verify_success,
+                use_live_dashboard=args.live_dashboard,
+                live_refresh_per_second=args.live_refresh_per_second,
+                live_max_rows=args.live_max_rows,
+                export_log_summary=args.export_log_summary,
+                log_summary_directory=args.log_summary_directory,
             )
             logger.success(
                 "{} logs; {} unique runs; {} filename families; {} inferred expected; {} inferred missing",

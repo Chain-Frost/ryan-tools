@@ -72,3 +72,24 @@ Built/verified/installed 26.11.7.12; copied-wrapper presence/verification CSV ch
 pass. User accepted the live-folder table layout. Verification marker spelling was checked against one real TLF;
 no full campaign completion audit was performed. Preserve the user's local RESULTS_FOLDER edit outside the commit.
 Deliver on the existing feature branch; hosted CI remains unverified and no merge is authorized.
+
+## Verification dashboard and canonical export, 2026-11-07
+
+Wrapper 2026-11-07.6 / package 26.11.7.13 uses the shared log-summary dashboard during success scanning, with ten
+rows, two refreshes per second and background sizes from selected input paths. Progress callbacks keep rendering
+out of the inventory functions; the existing missing-runs orchestrator coordinates status reads and optional export.
+Disabled dashboards provide periodic plain progress. Failures and interruptions terminate the dashboard explicitly.
+
+`EXPORT_LOG_SUMMARY = False` is the default. Opt-in export requires verification and reuses
+`process_log_file_for_dashboard`, `build_log_summary_dataframe` and `ExcelExporter.save_to_excel` with the canonical
+ModellingLog sheet/dictionary contract. It reuses selected logs without another discovery traversal; the standard
+parser rereads successful logs for metadata. Output defaults to the results root or a configured existing directory.
+An existing missing-run CSV is rejected before scanning/export side effects.
+
+33 focused tests pass, including actual-path dashboard registration, terminal OK/SKIP outcomes, export-off defaults,
+canonical parser/export arguments, the verification dependency and failed-export dashboard state. Strict Pyright,
+Ruff, logging, compilation and help checks pass. Built/verified/installed 26.11.7.13. A copied installed wrapper
+verified a real completed log in disposable storage, exported/reopened the standard workbook and data dictionary,
+confirmed export-off mode writes no workbook, and rejected export without verification. No project report is retained
+in the repository. Deliver on the existing branch; preserve the user's local results-folder setting. Hosted CI is
+unverified; no merge authorized.
