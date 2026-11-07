@@ -24,13 +24,20 @@ def collection(tmp_path: Path, change_cwd) -> ProcessorCollection:
     po_path = tmp_path / "Run_01.0p_0060m_TP01_PO.csv"
     po_path.write_text("Dummy,Time,H\nDummy,Time,Loc1\nDummy,0,10\nDummy,1,11\n", encoding="utf-8")
     pomm_path = tmp_path / "Run_01.0p_0060m_TP01_POMM.csv"
-    pomm_columns = [
-        ["Run_01.0p_0060m_TP01", "Location", "Time", "Maximum (Extracted from Time Series)",
-         "Time of Maximum", "Minimum (Extracted From Time Series)", "Time of Minimum"],
-        ["Run_01.0p_0060m_TP01", "H", "Loc1", 12.5, 1, 10.0, 0],
-        ["Run_01.0p_0060m_TP01", "Q", "Loc2", 4.0, 1, -1.0, 0],
-    ]
-    pd.DataFrame(pomm_columns).T.to_csv(pomm_path, header=False, index=False)
+    pomm_raw = {
+        0: ["Run_01.0p_0060m_TP01"] * 6,
+        1: [
+            "Location",
+            "Time",
+            "Maximum (Extracted from Time Series)",
+            "Time of Maximum",
+            "Minimum (Extracted From Time Series)",
+            "Time of Minimum",
+        ],
+        2: ["H", "Loc1", 12.5, 1, 10.0, 0],
+        3: ["Q", "Loc2", 4.0, 1, -1.0, 0],
+    }
+    pd.DataFrame(pomm_raw).to_csv(pomm_path, header=False, index=False)
 
     processors: list[BaseProcessor] = []
     with change_cwd(tmp_path):
