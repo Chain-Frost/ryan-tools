@@ -150,6 +150,10 @@ def test_parse_tlf_real_world(regression_snapshot):
         }
         extra_keys = set(actual_data.keys()) - set(expected_data.keys())
         unexpected = extra_keys - diagnostic_fields
+        if filename == "EG05_018.tlf":
+            # #224 now captures the archived -72 h start that older snapshots omitted.
+            assert actual_data["Model_Start_Time"] == -72.0
+            unexpected.discard("Model_Start_Time")
         assert not unexpected, f"Unexpected extra keys in {filename}: {unexpected}"
 
         # Check values

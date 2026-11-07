@@ -109,7 +109,7 @@ def _write_synthetic_tlf(path: Path, *, encoding: str, large: bool) -> None:
         "End Time (h): 1.2E+02",
     ]
     footer = [
-        r"Input File: C:\\Modèle\\My.Model.v2.tcf",
+        r"Input File: C:\Modèle\My.Model.v2.tcf",
         "Final Times",
         "Processor Time: [+1.5E+00 h]",
         "Clock Time: [2.0E+00 h]",
