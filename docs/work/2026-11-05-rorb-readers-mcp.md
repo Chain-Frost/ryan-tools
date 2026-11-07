@@ -19,12 +19,13 @@ The excluded submodule was not inspected. Unrelated untracked `QGIS-TUFLOW-Plugi
 
 ## Current implementation
 
-2026-11-07 continuation: The reported hydrograph time-step inconsistency is now diagnosed with the source's
-printed precision; regression tests cover contradictory and rounded time axes, including increments listed after
-summary rows. The associated Codex thread is resolved. The latest `main` was merged without losing RORB MCP
-registration or current package metadata; all six hosted checks passed on `680ecff`. A further closure workflow
-safety change raises on nonuniform or insufficient CSV time samples rather than silently omitting a batch run.
-Final checks on that new commit must be reviewed; no merge or release was performed.
+2026-11-07 continuation: Standard-output hydrograph increments are validated against the reported step using exact
+source decimals and the printed precision of both the step and the time records. Regression tests cover contradictory,
+rounded and Fortran-exponent time values, including increment metadata following the summary. Both Codex review threads
+are resolved (`0cad1d9`, `d144148`). Current `main` has been merged without losing MCP registration or current package
+metadata; all six hosted checks passed at `680ecff`. Closure processing now raises on nonuniform or insufficient CSV
+time samples rather than silently omitting batch runs (`4074ee0`, `920ae7f`). Review current-head CI before merging;
+no engine runs, merge or release were performed.
 
 The user authorized implementation after the audit and clarified that CMD parameter layouts and executable feature
 support can differ. Implemented source-preserving readers, structured diagnostics, strict DataFrame adapters, batch/CSV
