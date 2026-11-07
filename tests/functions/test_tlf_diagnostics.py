@@ -49,7 +49,7 @@ def test_quadtree_mesh_counts(kind: str, field: str, value: int) -> None:
 
 def test_main_diagnostics_omit_missing_values() -> None:
     data, _, _ = search_for_completion("No additional errors were encountered", {}, 1, "final")
-    assert not any(key.startswith("TLF_") or key.startswith("HPC_") for key in data)
+    assert not any(key.startswith(("TLF_", "HPC_")) for key in data)
 
 
 @pytest.mark.parametrize(
