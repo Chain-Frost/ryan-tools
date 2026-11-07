@@ -27,16 +27,23 @@ def _fake_tuflow_generation(*, control_file: Path, expected_empty_dir: Path, **_
 
 def test_existing_and_migrated_working_layer_defaults_are_distinct() -> None:
     assert [item.empty_type for item in shared_project_setup.DEFAULT_WORKING_LAYERS] == [
-        "2d_bc", "2d_code", "2d_loc", "2d_rf",
+        "2d_bc",
+        "2d_code",
+        "2d_loc",
+        "2d_rf",
     ]
     assert [item.empty_type for item in initialiser_setup.DEFAULT_WORKING_LAYERS] == [
-        "2d_code", "2d_loc", "2d_rf",
+        "2d_code",
+        "2d_loc",
+        "2d_rf",
     ]
 
 
 @pytest.mark.parametrize("copy_utilities", [False, True])
 def test_initialiser_project_uses_shared_core_with_original_defaults(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, copy_utilities: bool,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    copy_utilities: bool,
 ) -> None:
     monkeypatch.setattr(shared_project_setup, "_run_tuflow_empty_generation", _fake_tuflow_generation)
     templates = (
