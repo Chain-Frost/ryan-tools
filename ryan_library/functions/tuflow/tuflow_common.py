@@ -123,9 +123,7 @@ def collect_files(
     Missing roots, unsupported types, zero-byte files and traversal errors do not
     appear as a complete empty batch or as a partial successful batch.
     """
-    normalized_roots: list[Path] = list(
-        dict.fromkeys(Path(path).expanduser().absolute() for path in paths_to_process)
-    )
+    normalized_roots: list[Path] = list(dict.fromkeys(Path(path).expanduser().absolute() for path in paths_to_process))
     deduped_types: list[str] = list(dict.fromkeys(include_data_types))
     data_map: dict[str, list[str]] = suffixes_config.invert_suffix_to_type()
     validate_discovery_settings(
@@ -153,6 +151,7 @@ def collect_files(
             raise OSError(message)
         filtered_files.append(file_path)
     return filtered_files
+
 
 def _summarize_file_batch(file_list: list[Path]) -> tuple[int, int, Path | None, int]:  # pyright: ignore[reportUnusedFunction] - retained for legacy callers/tests
     """Return count, total bytes, largest path, largest size for ``file_list``."""

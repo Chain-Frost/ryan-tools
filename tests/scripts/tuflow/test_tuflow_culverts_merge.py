@@ -41,9 +41,7 @@ def test_main_processing_parquet() -> None:
         mock_collection.combine_raw.return_value = pd.DataFrame({"B": [2]})
         mock_bulk.return_value = mock_collection
 
-        tuflow_culverts_merge.main_processing(
-            paths_to_process=[Path()], include_data_types=["Nmx"], export_mode="both"
-        )
+        tuflow_culverts_merge.main_processing(paths_to_process=[Path()], include_data_types=["Nmx"], export_mode="both")
 
         _, kwargs = mock_exporter.return_value.export_dataframes.call_args
         assert kwargs["export_mode"] == "both"
