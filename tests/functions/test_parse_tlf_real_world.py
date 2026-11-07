@@ -1,6 +1,7 @@
 import json
 import sys
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 
@@ -17,15 +18,15 @@ from ryan_library.functions.parse_tlf import (
 
 
 # Helper function to parse a single TLF file (same logic as in generate_tlf_snapshot.py)
-def parse_tlf_file(logfile_path: Path) -> dict:
+def parse_tlf_file(logfile_path: Path) -> dict[str, Any]:
     """Parses a single TLF file and returns the result as a dictionary."""
     sim_complete = 0
     success = 0
     spec_events = False
     spec_scen = False
     spec_var = False
-    data_dict = {}
-    current_section = None
+    data_dict: dict[str, Any] = {}
+    current_section: str | None = None
 
     file_size = logfile_path.stat().st_size
     is_large_file = file_size > 10 * 1024 * 1024  # 10 MB
@@ -74,7 +75,7 @@ def parse_tlf_file(logfile_path: Path) -> dict:
                 logfile_path=logfile_path,
             )
             if not df.empty:
-                result = df.to_dict(orient="records")[0]
+                result: dict[str, Any] = {str(key): value for key, value in df.to_dict(orient="records")[0].items()}
                 # Convert datetime objects to strings for comparison
                 for key, value in result.items():
                     if hasattr(value, "isoformat"):
@@ -85,16 +86,16 @@ def parse_tlf_file(logfile_path: Path) -> dict:
 
 
 @pytest.fixture(scope="module")
-def regression_snapshot():
+def regression_snapshot() -> dict[str, dict[str, Any]]:
     snapshot_path = Path(__file__).parent.parent / "test_data" / "tlf_regression_snapshot.json"
     if not snapshot_path.exists():
         pytest.fail(f"Snapshot file not found: {snapshot_path}. Run tests/generate_tlf_snapshot.py to generate it.")
 
     with open(snapshot_path, encoding="utf-8") as f:
-        return json.load(f)
+        return cast("dict[str, dict[str, Any]]", json.load(f))
 
 
-def test_parse_tlf_real_world(regression_snapshot):
+def test_parse_tlf_real_world(regression_snapshot: dict[str, dict[str, Any]]) -> None:
     base_dir = Path(__file__).parent.parent / "test_data" / "tuflow" / "TUFLOW_Example_Model_Dataset" / "log"
     tlf_files = sorted(
         [f for f in base_dir.glob("*.tlf") if not f.name.endswith(".hpc.tlf") and not f.name.endswith(".gpu.tlf")]
