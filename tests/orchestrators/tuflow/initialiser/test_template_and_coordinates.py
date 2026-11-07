@@ -10,9 +10,6 @@ from ryan_library.functions.geometry.raster_coordinates import pixel_centre
 _TEMPLATE_ROOT = (
     Path(__file__).resolve().parents[4]
     / "ryan_library"
-    / "orchestrators"
-    / "tuflow"
-    / "initialiser"
     / "resources"
     / "tuflow_templates"
 )
@@ -37,6 +34,11 @@ def test_check_files_reference_configured_outputroot() -> None:
         assert "<<OutputRoot>>\\check\\" in text
         assert "OutputRoot>>\\check\\" not in text.replace("<<OutputRoot>>", "")
     assert matching > 0
+
+
+def test_standard_template_contains_boundary_condition_profile_marker() -> None:
+    text = (_TEMPLATE_ROOT / "model" / "BOUND_01.tbc").read_text(encoding="utf-8")
+    assert "<<BC_READ_COMMENT>>Read GIS BC ==" in text
 
 
 def test_pixel_centre_matches_map_coordinates_on_rectangular_grid() -> None:

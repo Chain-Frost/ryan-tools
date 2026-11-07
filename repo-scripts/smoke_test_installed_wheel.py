@@ -332,9 +332,7 @@ def _check_installed_initialiser_resources() -> None:
     if scripts != [expected]:
         msg = f"Installed wheel initialiser entry point differs from {expected}: {scripts}"
         raise RuntimeError(msg)
-    templates = importlib.resources.files("ryan_library.orchestrators.tuflow.initialiser").joinpath(
-        "resources", "tuflow_templates"
-    )
+    templates = importlib.resources.files("ryan_library.resources.tuflow_templates")
     for filename in (
         "model/BOUND_01.tbc",
         "model/EVENTS_01.tef",

@@ -6,11 +6,11 @@ from importlib.resources import files
 
 
 def test_initialiser_model_templates_are_packaged() -> None:
-    resource_root = files("ryan_library.orchestrators.tuflow.initialiser")
-    template = resource_root.joinpath("resources", "tuflow_templates", "model", "GEOM_01.tgc")
+    resource_root = files("ryan_library.resources.tuflow_templates")
+    template = resource_root.joinpath("model", "GEOM_01.tgc")
     assert template.is_file()
     assert "Cell Size" in template.read_text(encoding="utf-8")
-    run_template = resource_root.joinpath("resources", "tuflow_templates", "runs", "Create_Empties.tcf")
+    run_template = resource_root.joinpath("runs", "Create_Empties.tcf")
     assert run_template.is_file()
 
 

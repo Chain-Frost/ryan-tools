@@ -46,15 +46,6 @@ def test_initialiser_project_uses_shared_core_with_original_defaults(
     copy_utilities: bool,
 ) -> None:
     monkeypatch.setattr(shared_project_setup, "_run_tuflow_empty_generation", _fake_tuflow_generation)
-    templates = (
-        Path(__file__).resolve().parents[4]
-        / "ryan_library"
-        / "orchestrators"
-        / "tuflow"
-        / "initialiser"
-        / "resources"
-        / "tuflow_templates"
-    )
     prj = tmp_path / "MGA94_Zone_51.prj"
     prj.write_text(CRS.from_epsg(28351).to_wkt(), encoding="utf-8")
     tuflow_executable = tmp_path / "TUFLOW.exe"
@@ -72,7 +63,6 @@ def test_initialiser_project_uses_shared_core_with_original_defaults(
             scenario_name="EXG",
             prj_file=prj,
             tuflow_executable=tuflow_executable,
-            templates_dir=templates,
             copy_utilities=copy_utilities,
             utility_source_root=utility_root,
         )
@@ -88,6 +78,11 @@ def test_initialiser_project_uses_shared_core_with_original_defaults(
         (result.project_dir / "model" / "gis" / "rename_geopackage_layer_to_filename.py",) if copy_utilities else ()
     )
     assert result.copied_utilities == expected_utilities
+    boundary_text = (result.project_dir / "model" / "BOUND_01.tbc").read_text(encoding="utf-8")
+    assert "    ! Read GIS BC ==" in boundary_text
+    assert "<<BC_READ_COMMENT>>" not in boundary_text
+    events_text = (result.project_dir / "model" / "EVENTS_01.tef").read_text(encoding="utf-8")
+    assert "BC BC Event Source ==" not in events_text
     assert (result.project_dir / "runs" / "Example_01_~s2~_~s1~_~e1~_~e2~_~e4~_~e3~_~s4~.tcf").is_file()
     assert initialiser_setup.read_empty_schema(
         source_path=result.empty_dir / "2d_code_empty.gpkg",

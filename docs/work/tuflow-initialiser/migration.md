@@ -1,4 +1,4 @@
-> **Historical record from [tuflow-initialiser](https://github.com/Chain-Frost/tuflow-initialiser).** Pending or proposed work is tracked in ryan-tools migration PR #246 and issues #242–#245; old issue numbers below are retained for provenance.
+> **Historical source-repository documentation.** The text below records the former standalone package's origins. Current ryan-tools implementation and template ownership are described in [the migration status](README.md) and the [package README](../../../ryan_library/orchestrators/tuflow/initialiser/README.md).
 
 # Migration from ryan-tools
 

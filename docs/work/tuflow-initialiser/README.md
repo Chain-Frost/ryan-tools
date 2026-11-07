@@ -1,10 +1,11 @@
 # TUFLOW initialiser in ryan-tools
 
 The standalone [tuflow-initialiser repository](https://github.com/Chain-Frost/tuflow-initialiser)
-is being consolidated into `ryan-tools`. The implementation, hydrology/D8
-analysis, GRASS orchestration, TGC terrain reading, GIS outputs, tests and
-canonical model templates are now proposed under
-`ryan_library/orchestrators/tuflow/initialiser/`.
+is being consolidated into `ryan-tools`. The workflow orchestration is proposed under
+`ryan_library/orchestrators/tuflow/initialiser/`. Reusable D8/profile functions,
+DEM mosaics and affine coordinates live under `ryan_library/functions/`; the
+canonical TUFLOW model/run templates are shared under
+`ryan_library/resources/tuflow_templates/`.
 
 **Status:** migration [PR #246](https://github.com/Chain-Frost/ryan-tools/pull/246)
 is a draft stacked on [terrain cropping PR #204](https://github.com/Chain-Frost/ryan-tools/pull/204).
@@ -29,7 +30,10 @@ explicit terrain rasters or a PyTUFLOW-parsed TGC for catchments. Its `Read GIS
 Zpts` inputs are warned about but not rasterised into the hydrology DEM.
 
 Project creation now delegates to the maintained
-`ryan_library.orchestrators.tuflow.project_setup` implementation. The
+`ryan_library.orchestrators.tuflow.project_setup` implementation, using the
+same canonical templates as the existing project-setup wrapper. Profile-specific
+substitution comments out `Read GIS BC` only for the initialiser. The original
+shared template defects `BC BC Event Source` and `OutputRoot>>` are corrected. The
 initialiser retains its three-layer default, explicitly configured optional
 utility source, and no QML style copy. The existing project setup retains its
 four-layer default, automatic utility fallback, and QML style handling.
