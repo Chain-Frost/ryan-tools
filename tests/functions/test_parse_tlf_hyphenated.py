@@ -69,34 +69,29 @@ def test_defined_variables_still_warn_for_malformed_assignments() -> None:
 
 def test_hyphenated_variables_reach_processor_and_log_summary(tmp_path: Path) -> None:
     log = tmp_path / "M11_5m_001.tlf"
-    log.write_text(
-        "\n".join(
-            [
-                "Build: 2023-03-AF",
-                "Computer Name: TUFLOW-TEST",
-                "Simulation Started : 2026-Nov-07 10:00",
-                r"Input File: C:\Models\M11_5m_001.tcf",
-                "Specified Events:",
-                "E1 05p",
-                "",
-                "Specified Scenarios:",
-                "S1 EXIST",
-                "",
-                "Number of defined variables:",
-                "Set Variable IL-PEBBLE == 36.75",
-                "Set Variable IL-WEELI == 63",
-                "Set Variable CL-COONDINER == 2.889",
-                "",
-                "Final Times",
-                "Processor Time: [0.125 h]",
-                "Clock Time: [0.250 h]",
-                "Simulation FINISHED",
-                "Final Cumulative ME: -0.25%",
-            ]
-        )
-        + "\n",
-        encoding="utf-8",
-    )
+    log_lines = [
+        "Build: 2023-03-AF",
+        "Computer Name: TUFLOW-TEST",
+        "Simulation Started : 2026-Nov-07 10:00",
+        r"Input File: C:\Models\M11_5m_001.tcf",
+        "Specified Events:",
+        "E1 05p",
+        "",
+        "Specified Scenarios:",
+        "S1 EXIST",
+        "",
+        "Number of defined variables:",
+        "Set Variable IL-PEBBLE == 36.75",
+        "Set Variable IL-WEELI == 63",
+        "Set Variable CL-COONDINER == 2.889",
+        "",
+        "Final Times",
+        "Processor Time: [0.125 h]",
+        "Clock Time: [0.250 h]",
+        "Simulation FINISHED",
+        "Final Cumulative ME: -0.25%",
+    ]
+    log.write_text("\n".join(log_lines) + "\n", encoding="utf-8")
 
     with patch("ryan_library.functions.parse_tlf.logger.warning") as warning:
         processor = TLFProcessor(file_path=log)
