@@ -26,17 +26,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-28.1"
+WRAPPER_VERSION = "2026-11-07.1"
 
 # Editable defaults for normal double-click or IDE execution.
 INPUT_FILE: Path | None = None
 WORKING_DIR: Path = Path(__file__).absolute().parent
 CONSOLE_LOG_LEVEL = "INFO"
 PROFILE: RasterProfile = "tuflow"
-SOURCE_EXTENSIONS: tuple[str, ...] = ("flt", "asc", "rst", "xyz")
+SOURCE_EXTENSIONS: list[str] = ["flt", "asc", "rst", "xyz"]
 OUTPUT_DIRECTORY: Path | None = None
 OUTPUT_SUFFIX: str = ""
-OVERVIEW_LEVELS: tuple[int, ...] = (2, 4, 8, 16, 32)
+OVERVIEW_LEVELS: list[int] = [2, 4, 8, 16, 32]
 OVERVIEW_RESAMPLING: OverviewResampling = "nearest"
 WORKERS: int | None = None
 RECURSIVE = True
@@ -99,13 +99,13 @@ def main(
         try:
             outputs: list[Path] = convert_rasters(
                 directory=input_path,
-                extensions=extensions or SOURCE_EXTENSIONS,
+                extensions=tuple(extensions or SOURCE_EXTENSIONS),
                 output_directory=resolved_output_directory,
                 output_suffix=OUTPUT_SUFFIX if output_suffix is None else output_suffix,
                 recursive=RECURSIVE if recursive is None else recursive,
                 profile=profile or PROFILE,
                 build_overviews=BUILD_OVERVIEWS if build_overviews is None else build_overviews,
-                overview_levels=overview_levels or OVERVIEW_LEVELS,
+                overview_levels=tuple(overview_levels or OVERVIEW_LEVELS),
                 overview_resampling=overview_resampling or OVERVIEW_RESAMPLING,
                 workers=workers if workers is not None else WORKERS,
                 overwrite=OVERWRITE if overwrite is None else overwrite,

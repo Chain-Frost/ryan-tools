@@ -26,12 +26,12 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 # Wrapper identity and editable project settings (CLI options override these)
 # ---------------------------------------------------------------------------
-WRAPPER_VERSION = "2026-11-01.2"
+WRAPPER_VERSION = "2026-11-07.1"
 
-DEFAULT_INPUT_PATHS: tuple[Path, ...] = (Path.cwd(),)
+DEFAULT_INPUT_PATHS: list[Path] = [Path.cwd()]
 DEFAULT_WORKING_DIRECTORY: Path | None = None  # None = first input directory
-DEFAULT_EXCLUDE_FOLDERS: tuple[str, ...] = ("xf",)
-DEFAULT_EXCLUDE_EXTENSIONS: tuple[str, ...] = (".xf4", ".xmdf", ".2dm", ".dat", ".7z")
+DEFAULT_EXCLUDE_FOLDERS: list[str] = ["xf"]
+DEFAULT_EXCLUDE_EXTENSIONS: list[str] = [".xf4", ".xmdf", ".2dm", ".dat", ".7z"]
 
 DEFAULT_7ZIP_EXE: Path | None = None  # None = auto-discover 7z.exe
 DEFAULT_MAX_WORKERS: int | None = None  # None = CPU count, limited to folder count

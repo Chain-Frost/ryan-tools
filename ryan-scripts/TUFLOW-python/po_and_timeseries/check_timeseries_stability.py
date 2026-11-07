@@ -15,19 +15,20 @@ import os
 from pathlib import Path
 from typing import Literal
 
-WRAPPER_VERSION = "2026-08-31.1"
+WRAPPER_VERSION = "2026-11-07.1"
+PAUSE_ON_FINISH = True
 
 CONSOLE_LOG_LEVEL = "INFO"
 WORKING_DIR: Path = Path(__file__).absolute().parent
 # Optional explicit folder roots to scan. If left empty, the wrapper scans WORKING_DIR recursively.
-PATHS_TO_PROCESS: tuple[Path, ...] = ()
-RESULT_TYPES: tuple[str, ...] = ("PO", "Q")
+PATHS_TO_PROCESS: list[Path] = []
+RESULT_TYPES: list[str] = ["PO", "Q"]
 
-DATATYPE_INCLUDE: tuple[str, ...] = ("Flow", "Q")
+DATATYPE_INCLUDE: list[str] = ["Flow", "Q"]
 DATATYPE_CASE_SENSITIVE: bool = False
 
-LOCATION_INCLUDE: tuple[str, ...] = ()
-LOCATION_EXCLUDE: tuple[str, ...] = ()
+LOCATION_INCLUDE: list[str] = []
+LOCATION_EXCLUDE: list[str] = []
 LOCATION_CASE_SENSITIVE: bool = False
 
 FLAT_TOL: float = 1e-6
@@ -79,16 +80,23 @@ def main(
     """
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
 
-    script_directory: Path = working_directory or WORKING_DIR
+    script_directory: Path = (
+        Path(working_directory if working_directory is not None else WORKING_DIR).expanduser().absolute()
+    )
+    configured_paths = PATHS_TO_PROCESS if paths_to_process is None else paths_to_process
+    effective_paths_to_process = [
+        path.absolute() if path.is_absolute() else (script_directory / path).absolute()
+        for configured_path in (configured_paths or (script_directory,))
+        for path in (Path(configured_path).expanduser(),)
+    ]
     if not change_working_directory(target_dir=script_directory):
         return 1
 
     effective_console_log_level: str = console_log_level or CONSOLE_LOG_LEVEL
-    effective_data_types: tuple[str, ...] = include_data_types or DATATYPE_INCLUDE
-    effective_result_types: tuple[str, ...] = result_types or RESULT_TYPES
-    effective_locations: tuple[str, ...] | tuple[()] = locations_to_include or (LOCATION_INCLUDE or ())
+    effective_data_types: tuple[str, ...] = tuple(include_data_types or DATATYPE_INCLUDE)
+    effective_result_types: tuple[str, ...] = tuple(result_types or RESULT_TYPES)
+    effective_locations: tuple[str, ...] = tuple(locations_to_include or LOCATION_INCLUDE)
     effective_export_mode: Literal["excel", "parquet", "both"] = export_mode or EXPORT_MODE
-    effective_paths_to_process: list[Path] = list(paths_to_process or PATHS_TO_PROCESS or (script_directory,))
 
     main_processing(
         paths_to_process=effective_paths_to_process,
@@ -96,7 +104,7 @@ def main(
         datatype_include=effective_data_types,
         datatype_case_sensitive=DATATYPE_CASE_SENSITIVE,
         location_include=effective_locations,
-        location_exclude=LOCATION_EXCLUDE,
+        location_exclude=tuple(LOCATION_EXCLUDE),
         location_case_sensitive=LOCATION_CASE_SENSITIVE,
         flat_tol=FLAT_TOL,
         diff_rel_tol=DIFF_REL_TOL,
@@ -146,6 +154,7 @@ if __name__ == "__main__":
         wrapper_version=WRAPPER_VERSION,
         leading_blank_line=True,
     )
-    if not common_options.no_pause:
+    should_pause = PAUSE_ON_FINISH if common_options.pause_on_finish is None else common_options.pause_on_finish
+    if should_pause:
         pause_console()
     raise SystemExit(result)

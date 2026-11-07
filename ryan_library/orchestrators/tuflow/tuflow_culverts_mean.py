@@ -20,9 +20,10 @@ from loguru import logger
 from pandas.api.types import is_numeric_dtype
 
 from ryan_library.functions.excel_export import ExcelExporter
+from ryan_library.functions.live_dashboard import LiveWorkflowDashboard, WorkflowMetric
 from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.pandas.median_calc import upper_middle_row, upper_middle_value
-from ryan_library.functions.tuflow.tuflow_common import bulk_read_and_merge_tuflow_csv
+from ryan_library.functions.tuflow.tuflow_common import FileBatchProgress, bulk_read_and_merge_tuflow_csv
 from ryan_library.functions.tuflow.wrapper_helpers import normalize_data_types, warn_on_invalid_types
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 
@@ -34,22 +35,19 @@ StatisticName = Literal["mean", "median"]
 def run_culvert_mean_report(
     script_directory: Path | None = None,
     paths_to_process: Sequence[Path] | None = None,
-    log_level: str = "INFO",
+    log_level: str | None = None,
     include_data_types: Sequence[str] | None = None,
     locations_to_include: Collection[str] | None = None,
     export_raw: bool = True,
-) -> None:
-    """Generate AEP/Duration mean statistics for culvert results and export them to Excel.
-
-    Args:
-        script_directory: Output directory for exported files.
-        paths_to_process: Folder roots to search for culvert result files.
-        log_level: Console logging verbosity.
-        include_data_types: List of file types to include (e.g. "Nmx", "Chan").
-        locations_to_include: Filter for specific culvert IDs/locations.
-        export_raw: If True, includes the raw combined maximums in a separate Excel sheet.
-    """
-    _run_culvert_statistic_report(
+    *,
+    use_live_dashboard: bool = False,
+    live_refresh_per_second: float = 2.0,
+    live_max_rows: int = 25,
+    log_file: str | None = None,
+    file_log_level: str = "DEBUG",
+) -> bool:
+    """Generate AEP/Duration mean statistics and export the existing Excel report."""
+    return _run_culvert_statistic_report(
         statistic="mean",
         output_suffix="mean",
         script_directory=script_directory,
@@ -58,28 +56,30 @@ def run_culvert_mean_report(
         include_data_types=include_data_types,
         locations_to_include=locations_to_include,
         export_raw=export_raw,
+        use_live_dashboard=use_live_dashboard,
+        live_refresh_per_second=live_refresh_per_second,
+        live_max_rows=live_max_rows,
+        log_file=log_file,
+        file_log_level=file_log_level,
     )
 
 
 def run_culvert_median_report(
     script_directory: Path | None = None,
     paths_to_process: Sequence[Path] | None = None,
-    log_level: str = "INFO",
+    log_level: str | None = None,
     include_data_types: Sequence[str] | None = None,
     locations_to_include: Collection[str] | None = None,
     export_raw: bool = True,
-) -> None:
-    """Generate AEP/Duration median statistics for culvert results and export them to Excel.
-
-    Args:
-        script_directory: Output directory for exported files.
-        paths_to_process: Folder roots to search for culvert result files.
-        log_level: Console logging verbosity.
-        include_data_types: List of file types to include (e.g. "Nmx", "Chan").
-        locations_to_include: Filter for specific culvert IDs/locations.
-        export_raw: If True, includes the raw combined maximums in a separate Excel sheet.
-    """
-    _run_culvert_statistic_report(
+    *,
+    use_live_dashboard: bool = False,
+    live_refresh_per_second: float = 2.0,
+    live_max_rows: int = 25,
+    log_file: str | None = None,
+    file_log_level: str = "DEBUG",
+) -> bool:
+    """Generate upper-middle median statistics and export the existing Excel report."""
+    return _run_culvert_statistic_report(
         statistic="median",
         output_suffix="med",
         script_directory=script_directory,
@@ -88,6 +88,11 @@ def run_culvert_median_report(
         include_data_types=include_data_types,
         locations_to_include=locations_to_include,
         export_raw=export_raw,
+        use_live_dashboard=use_live_dashboard,
+        live_refresh_per_second=live_refresh_per_second,
+        live_max_rows=live_max_rows,
+        log_file=log_file,
+        file_log_level=file_log_level,
     )
 
 
@@ -97,12 +102,17 @@ def _run_culvert_statistic_report(
     output_suffix: str,
     script_directory: Path | None = None,
     paths_to_process: Sequence[Path] | None = None,
-    log_level: str = "INFO",
+    log_level: str | None = None,
     include_data_types: Sequence[str] | None = None,
     locations_to_include: Collection[str] | None = None,
     export_raw: bool = True,
-) -> None:
-    """Generate AEP/Duration culvert statistics and export them to Excel."""
+    use_live_dashboard: bool = False,
+    live_refresh_per_second: float = 2.0,
+    live_max_rows: int = 25,
+    log_file: str | None = None,
+    file_log_level: str = "DEBUG",
+) -> bool:
+    """Compute existing peak statistics while reporting the full export lifecycle."""
     if script_directory is None:
         script_directory = Path.cwd()
     effective_paths_to_process: list[Path] = list(paths_to_process or (script_directory,))
@@ -113,94 +123,138 @@ def _run_culvert_statistic_report(
         default=DEFAULT_DATA_TYPES,
         accepted=ACCEPTED_DATA_TYPES,
     )
+    dashboard = LiveWorkflowDashboard(
+        title=context,
+        enabled=use_live_dashboard,
+        refresh_per_second=live_refresh_per_second,
+        max_rows=live_max_rows,
+    )
+    progress = FileBatchProgress()
+    console_level = log_level if log_level is not None else ("SUCCESS" if use_live_dashboard else "INFO")
 
-    with setup_logger(console_log_level=log_level) as log_queue:
-        warn_on_invalid_types(
-            invalid_types=invalid_types,
-            accepted_types=ACCEPTED_DATA_TYPES,
-            context=context,
-        )
+    with setup_logger(
+        console_log_level=console_level,
+        log_file=log_file,
+        file_log_level=file_log_level,
+    ) as log_queue:
+        with dashboard:
+            try:
+                dashboard.set_phase("Discovering")
+                warn_on_invalid_types(
+                    invalid_types=invalid_types,
+                    accepted_types=ACCEPTED_DATA_TYPES,
+                    context=context,
+                )
+                collection: ProcessorCollection = bulk_read_and_merge_tuflow_csv(
+                    paths_to_process=effective_paths_to_process,
+                    include_data_types=data_types,
+                    log_queue=log_queue,
+                    console_log_level=console_level,
+                    dashboard=dashboard if use_live_dashboard else None,
+                    batch_progress=progress,
+                )
+                # Preserve existing collection-level filtering and the warning for
+                # nonempty but whitespace-only selections.
+                if locations_to_include:
+                    normalized_locations: frozenset[str] = collection.filter_locations(locations=locations_to_include)
+                    if not normalized_locations:
+                        logger.warning(
+                            "Location filter provided but no valid values found. Continuing without filtering."
+                        )
 
-        collection: ProcessorCollection = bulk_read_and_merge_tuflow_csv(
-            paths_to_process=effective_paths_to_process,
-            include_data_types=data_types,
-            log_queue=log_queue,
-            console_log_level=log_level,
-        )
+                if not collection.processors:
+                    warn_on_invalid_types(
+                        invalid_types=invalid_types,
+                        accepted_types=ACCEPTED_DATA_TYPES,
+                        context=f"{context} completed",
+                    )
+                    logger.warning("No culvert result files were processed. Skipping export.")
+                    dashboard.finish(outcome="FAILED" if progress.failed else "SKIPPED", detail="no inputs to export")
+                    return progress.failed == 0
 
-        if locations_to_include:
-            normalized_locations: frozenset[str] = collection.filter_locations(locations=locations_to_include)
-            if not normalized_locations:
-                logger.warning("Location filter provided but no valid values found. Continuing without filtering.")
+                dashboard.set_phase("Aggregating")
+                aggregated_df: pd.DataFrame = collection.combine_1d_maximums()
+                if aggregated_df.empty:
+                    warn_on_invalid_types(
+                        invalid_types=invalid_types,
+                        accepted_types=ACCEPTED_DATA_TYPES,
+                        context=f"{context} completed",
+                    )
+                    logger.warning("Combined culvert maximums DataFrame is empty. Skipping export.")
+                    dashboard.finish(outcome="FAILED" if progress.failed else "SKIPPED", detail="empty maximums")
+                    return progress.failed == 0
 
-        if not collection.processors:
-            warn_on_invalid_types(
-                invalid_types=invalid_types,
-                accepted_types=ACCEPTED_DATA_TYPES,
-                context=f"{context} completed",
-            )
-            logger.warning("No culvert result files were processed. Skipping export.")
-            return
+                aep_dur_stat: pd.DataFrame = _find_culvert_aep_dur_statistic(
+                    aggregated_df=aggregated_df,
+                    statistic=statistic,
+                )
+                dashboard.set_metrics(
+                    [
+                        WorkflowMetric("AEP-duration groups", len(aep_dur_stat), unit="groups"),
+                        WorkflowMetric("Files finished", progress.completed, total=progress.scheduled, unit="files"),
+                    ]
+                )
+                if aep_dur_stat.empty:
+                    warn_on_invalid_types(
+                        invalid_types=invalid_types,
+                        accepted_types=ACCEPTED_DATA_TYPES,
+                        context=f"{context} completed",
+                    )
+                    logger.warning("Unable to calculate AEP/Duration {} statistics. Skipping export.", statistic)
+                    dashboard.finish(outcome="FAILED" if progress.failed else "SKIPPED", detail="no statistic groups")
+                    return progress.failed == 0
 
-        aggregated_df: pd.DataFrame = collection.combine_1d_maximums()
-        if aggregated_df.empty:
-            warn_on_invalid_types(
-                invalid_types=invalid_types,
-                accepted_types=ACCEPTED_DATA_TYPES,
-                context=f"{context} completed",
-            )
-            logger.warning("Combined culvert maximums DataFrame is empty. Skipping export.")
-            return
+                aep_stat_max: pd.DataFrame = _find_culvert_aep_statistic_max(
+                    aep_dur_stat=aep_dur_stat,
+                    statistic=statistic,
+                )
+                dashboard.set_metrics(
+                    [
+                        WorkflowMetric("AEP-duration groups", len(aep_dur_stat), unit="groups"),
+                        WorkflowMetric("Critical groups", len(aep_stat_max), unit="groups"),
+                    ]
+                )
 
-        # Calculate statistics grouped by AEP and Duration.
-        aep_dur_stat: pd.DataFrame = _find_culvert_aep_dur_statistic(
-            aggregated_df=aggregated_df,
-            statistic=statistic,
-        )
-        if aep_dur_stat.empty:
-            warn_on_invalid_types(
-                invalid_types=invalid_types,
-                accepted_types=ACCEPTED_DATA_TYPES,
-                context=f"{context} completed",
-            )
-            logger.warning(f"Unable to calculate AEP/Duration {statistic} statistics. Skipping export.")
-            return
+                timestamp: str = datetime.now().strftime(format="%Y%m%d-%H%M")
+                output_name: str = f"{timestamp}_culvert_{output_suffix}_peaks.xlsx"
+                sheet_names: list[str] = [f"aep-dur-{output_suffix}", f"aep-{output_suffix}-max"]
+                sheet_frames: list[pd.DataFrame] = [aep_dur_stat, aep_stat_max]
+                if export_raw:
+                    sheet_names.append("culvert-maximums")
+                    sheet_frames.append(aggregated_df)
 
-        # Calculate the duration with the highest statistic for each AEP.
-        aep_stat_max: pd.DataFrame = _find_culvert_aep_statistic_max(
-            aep_dur_stat=aep_dur_stat,
-            statistic=statistic,
-        )
-
-        timestamp: str = datetime.now().strftime(format="%Y%m%d-%H%M")
-        output_name: str = f"{timestamp}_culvert_{output_suffix}_peaks.xlsx"
-        sheet_names: list[str] = [f"aep-dur-{output_suffix}", f"aep-{output_suffix}-max"]
-        sheet_frames: list[pd.DataFrame] = [aep_dur_stat, aep_stat_max]
-
-        if export_raw:
-            sheet_names.append("culvert-maximums")
-            sheet_frames.append(aggregated_df)
-
-        ExcelExporter().export_dataframes(
-            export_dict={
-                Path(output_name).stem: {
-                    "dataframes": sheet_frames,
-                    "sheets": sheet_names,
-                }
-            },
-            output_directory=script_directory,
-            file_name=output_name,
-            include_data_dictionary=True,
-            data_dictionary_metadata={"Workflow": f"Culvert {statistic} peak report"},
-        )
-
-        logger.info(f"Culvert {statistic} report exported to {script_directory / output_name}")
-
-        warn_on_invalid_types(
-            invalid_types=invalid_types,
-            accepted_types=ACCEPTED_DATA_TYPES,
-            context=f"{context} completed",
-        )
+                dashboard.set_phase("Exporting")
+                ExcelExporter().export_dataframes(
+                    export_dict={
+                        Path(output_name).stem: {
+                            "dataframes": sheet_frames,
+                            "sheets": sheet_names,
+                        }
+                    },
+                    output_directory=script_directory,
+                    file_name=output_name,
+                    include_data_dictionary=True,
+                    data_dictionary_metadata={"Workflow": f"Culvert {statistic} peak report"},
+                )
+                logger.info("Culvert {} report exported to {}", statistic, script_directory / output_name)
+                warn_on_invalid_types(
+                    invalid_types=invalid_types,
+                    accepted_types=ACCEPTED_DATA_TYPES,
+                    context=f"{context} completed",
+                )
+                dashboard.set_phase("Complete")
+                dashboard.finish(
+                    outcome="FAILED" if progress.failed else "SUCCESS",
+                    detail="exported with input failures" if progress.failed else "report exported",
+                )
+                return progress.failed == 0
+            except KeyboardInterrupt:
+                dashboard.finish(outcome="INTERRUPTED", detail="processing interrupted")
+                raise
+            except Exception:
+                logger.exception("Culvert {} report failed during processing or export.", statistic)
+                dashboard.finish(outcome="FAILED", detail="processing or export failed")
+                raise
 
 
 ADOPTED_SOURCE_COLUMNS: tuple[str, ...] = ("Q", "V", "DS_h", "US_h")

@@ -12,6 +12,7 @@ from collections.abc import Collection
 from pathlib import Path
 from typing import Literal
 
+from ryan_library.functions.live_dashboard import LiveWorkflowDashboard
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 
 from ._combination_workflow import (
@@ -29,9 +30,21 @@ def export_results(
     *,
     results: ProcessorCollection,
     export_mode: Literal["excel", "parquet", "both"] = "excel",
-) -> None:
-    """Export combined PO results through the shared combination exporter."""
-    _combine_and_export_results(
+    dashboard: LiveWorkflowDashboard | None = None,
+) -> bool:
+    """Export the PO results through the established public entry point."""
+    if dashboard is not None:
+        return _combine_and_export_results(
+            results=results,
+            export_mode=export_mode,
+            export_prefix="combined_PO",
+            export_sheet_name="combined_PO",
+            export_metadata={"Workflow": "PO combine"},
+            combine_callable=lambda collection: collection.po_combine(),
+            dashboard=dashboard,
+            row_metric_label="PO result rows",
+        )
+    return _combine_and_export_results(
         results=results,
         export_mode=export_mode,
         export_prefix="combined_PO",
@@ -44,24 +57,18 @@ def export_results(
 def main_processing(
     paths_to_process: list[Path],
     include_data_types: list[str] | None = None,
-    console_log_level: str = "INFO",
+    console_log_level: str | None = None,
     locations_to_include: Collection[str] | None = None,
     export_mode: Literal["excel", "parquet", "both"] = "excel",
-) -> None:
-    """Generate merged PO data and export the results.
-
-    This function orchestrates the finding, reading, processing, and combining of TUFLOW PO CSV files.
-    It supports filtering by specific locations and exporting the final combined dataset.
-
-    Args:
-        paths_to_process: A list of directory paths to search for PO files.
-        include_data_types: A list of data types to include (e.g., ["PO"]). Defaults to DEFAULT_DATA_TYPES.
-        console_log_level: logging level for the console output (e.g., "INFO", "DEBUG").
-        locations_to_include: A collection of location names (strings) to keep. If None, all locations are kept.
-                              Column matching is case-insensitive.
-        export_mode: The format for the output file(s): "excel", "parquet", or "both".
-    """
-    execute_combination_workflow(
+    *,
+    use_live_dashboard: bool = False,
+    live_refresh_per_second: float = 2.0,
+    live_max_rows: int = 25,
+    log_file: str | None = None,
+    file_log_level: str = "DEBUG",
+) -> bool:
+    """Combine and export PO results, preserving the public path."""
+    return execute_combination_workflow(
         paths_to_process=paths_to_process,
         include_data_types=include_data_types,
         default_data_types=DEFAULT_DATA_TYPES,
@@ -71,4 +78,9 @@ def main_processing(
         console_log_level=console_log_level,
         locations_to_include=locations_to_include,
         export_mode=export_mode,
+        use_live_dashboard=use_live_dashboard,
+        live_refresh_per_second=live_refresh_per_second,
+        live_max_rows=live_max_rows,
+        log_file=log_file,
+        file_log_level=file_log_level,
     )

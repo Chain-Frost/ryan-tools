@@ -6,10 +6,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-08-20.1"
+WRAPPER_VERSION = "2026-11-07.1"
 DEFAULT_INPUTS = [Path("input.tif")]
 DEFAULT_OUTPUT_DIR = Path("tiles")
-DEFAULT_TILE_SIZE = (5000, 5000)
+DEFAULT_TILE_SIZE: list[int] = [5000, 5000]
 DEFAULT_OVERLAP = 10
 DEFAULT_FORMAT = "GTiff"
 DEFAULT_RESAMPLING = "near"
@@ -28,7 +28,11 @@ from ryan_library.functions.wrapper_utils import pause_console, print_wrapper_ba
 def main(args: argparse.Namespace) -> int:
     input_values = args.inputs or DEFAULT_INPUTS
     output_value = args.output_dir if args.output_dir is not None else DEFAULT_OUTPUT_DIR
-    tile_size = tuple(args.tile_size) if args.tile_size is not None else DEFAULT_TILE_SIZE
+    configured_tile_size = args.tile_size if args.tile_size is not None else DEFAULT_TILE_SIZE
+    if len(configured_tile_size) != 2:
+        logger.error("Tile size must contain exactly two values: [width, height].")
+        return 2
+    tile_size: tuple[int, int] = (configured_tile_size[0], configured_tile_size[1])
     overlap = args.overlap if args.overlap is not None else DEFAULT_OVERLAP
     output_format = args.format if args.format is not None else DEFAULT_FORMAT
     resampling = args.resampling if args.resampling is not None else DEFAULT_RESAMPLING

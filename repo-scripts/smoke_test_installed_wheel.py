@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import csv
 import importlib.metadata
 import importlib.resources
@@ -14,11 +15,12 @@ import sys
 from contextlib import closing
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any
+from typing import Any, cast
 
 import culvert_solver
 import numpy as np
 import run_hy8
+from mcp.server.mcpserver.exceptions import ToolError
 
 import ryan_library
 import vendor
@@ -28,7 +30,7 @@ from ryan_library.functions.path_stuff import sanitize_windows_filename
 from ryan_library.mcp.installed_scripts import available_wrappers, copy_wrapper
 from ryan_library.mcp.registry import WorkflowRegistry
 from ryan_library.mcp.server import REGISTRY as SERVER_REGISTRY
-from ryan_library.mcp.server import list_workflows
+from ryan_library.mcp.server import list_workflows, mcp
 
 
 def _require_installed_below(module_file: str | None, expected_root: Path, package: str) -> None:
@@ -104,6 +106,45 @@ def _check_installed_keyword_discovery() -> None:
         msg = "Installed MCP overview did not return an empty page for unknown terms."
         raise RuntimeError(msg)
     print("Wheel-only MCP keyword search and domain overview passed.")
+
+
+async def _check_installed_overview_validation() -> None:
+    """Reject coercion at the actual installed tool's SDK validation boundary."""
+    if mcp is None:
+        msg = "Registered-tool wheel acceptance requires the optional MCP SDK."
+        raise RuntimeError(msg)
+    installed_server = cast("Any", mcp)
+    tools: list[Any] = await installed_server.list_tools()
+    tool = next(tool for tool in tools if tool.name == "list_workflows")
+    schema = tool.input_schema["properties"]["overview"]
+    if schema["type"] != "boolean" or schema["default"] is not False:
+        msg = f"Installed MCP overview schema changed: {schema}"
+        raise RuntimeError(msg)
+    for mode in ({}, {"overview": False}, {"overview": True}):
+        response = await installed_server.call_tool(
+            "list_workflows", {"domain": "gdal", "query": "crop", "include_unavailable": True, **mode}
+        )
+        result = response.structured_content
+        if mode.get("overview", False):
+            workflows = result["domain_overview"][0]["examples"]
+            valid_mode = result["overview"] is True and "workflows" not in result
+        else:
+            workflows = result["workflows"]
+            valid_mode = "overview" not in result
+        if not valid_mode or result["workflow_count"] != 1 or workflows[0]["id"] != "clip_rasters_to_polygon":
+            msg = "Installed MCP tool did not preserve normal and overview crop discovery."
+            raise RuntimeError(msg)
+    for invalid in (0, 1, "true", "false", None):
+        try:
+            await installed_server.call_tool("list_workflows", {"overview": invalid})
+        except ToolError as exc:
+            if "overview" not in str(exc):
+                msg = "Installed MCP tool failed outside overview argument validation."
+                raise RuntimeError(msg) from exc
+        else:
+            msg = f"Installed MCP tool accepted non-boolean overview: {invalid!r}"
+            raise RuntimeError(msg)
+    print("Wheel-only registered MCP overview boolean validation passed.")
 
 
 def _check_installed_wrapper_copy() -> None:
@@ -394,6 +435,7 @@ def main(argv: list[str] | None = None) -> int:
 
     _check_installed_scripts()
     _check_installed_keyword_discovery()
+    asyncio.run(_check_installed_overview_validation())
     _check_installed_wrapper_copy()
     if args.expected_root is not None:
         _check_installed_wrapper_behaviour(args.expected_root.resolve())

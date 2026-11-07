@@ -28,14 +28,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
-WRAPPER_VERSION = "2026-10-16.1"
+WRAPPER_VERSION = "2026-11-07.1"
 
 # Editable defaults for normal double-click or IDE execution.
 WORKING_DIR: Path = Path(__file__).absolute().parent
-PATHS_TO_PROCESS: tuple[Path, ...] = ()
+PATHS_TO_PROCESS: list[Path] = []
 CONSOLE_LOG_LEVEL = "INFO"
-CUTOFF_VALUES: tuple[float, ...] = (0.0,)
-FILE_PATTERNS: tuple[str, ...] = ("*_d_HR_Max.tif",)
+CUTOFF_VALUES: list[float] = [0.0]
+FILE_PATTERNS: list[str] = ["*_d_HR_Max.tif"]
 RECURSIVE = False
 INPUT_BAND = 1
 SIEVE_PIXELS: int | None = None
@@ -78,7 +78,7 @@ def main(
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     # Resolve every user path before chdir so relative paths retain their original meaning.
     target_directory: Path = (working_directory or WORKING_DIR).absolute()
-    configured_paths: tuple[Path, ...] | tuple[Path] = paths_to_process or PATHS_TO_PROCESS or (target_directory,)
+    configured_paths: tuple[Path, ...] = paths_to_process or tuple(PATHS_TO_PROCESS) or (target_directory,)
     effective_paths: tuple[Path, ...] = tuple(path.absolute() for path in configured_paths)
     if not change_working_directory(target_dir=target_directory):
         return 1
@@ -87,8 +87,8 @@ def main(
         outputs: list[Path] = main_processing(
             paths_to_process=list(effective_paths),
             console_log_level=console_log_level or CONSOLE_LOG_LEVEL,
-            cutoff_values=cutoff_values or CUTOFF_VALUES,
-            file_patterns=file_patterns or FILE_PATTERNS,
+            cutoff_values=tuple(cutoff_values or CUTOFF_VALUES),
+            file_patterns=tuple(file_patterns or FILE_PATTERNS),
             recursive=RECURSIVE if recursive is None else recursive,
             input_band=input_band or INPUT_BAND,
             sieve_pixels=SIEVE_PIXELS if sieve_pixels is None else sieve_pixels,

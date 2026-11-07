@@ -11,7 +11,7 @@ Edit the defaults below for ordinary use, or override them from a terminal::
 from pathlib import Path
 from typing import Literal
 
-WRAPPER_VERSION = "2026-08-20.3"
+WRAPPER_VERSION = "2026-11-07.1"
 
 # Project inputs currently used to validate the workflow.
 LINES_GPKG = Path(r"E:\Projects\profile-line_01.gpkg")
@@ -23,7 +23,7 @@ LINES_CRS_IF_MISSING: str | None = None
 
 TERRAIN_TIF = Path(r"E:\Projects\DTM_1m_GDA94MGAz51_AHD.tif")
 TUFLOW_RESULTS_DIR = Path(r"E:\Projects\max_of_means")
-TARGET_AEPS = ("01.00p", "20.00p")
+TARGET_AEPS: list[str] = ["01.00p", "20.00p"]
 TARGET_RESULT_TYPE = "h_HR_Max"
 
 OUTPUT_DIR = Path(r"E:\Projects")
@@ -120,7 +120,7 @@ def main(
         terrain_raster=terrain_raster or TERRAIN_TIF,
         tuflow_results_dir=results_directory or TUFLOW_RESULTS_DIR,
         output_dir=output_directory or OUTPUT_DIR,
-        target_aeps=target_aeps or TARGET_AEPS,
+        target_aeps=tuple(target_aeps or TARGET_AEPS),
         target_result_type=target_result_type or TARGET_RESULT_TYPE,
         spacing=spacing if spacing is not None else SPACING,
         sampling_method=sampling_method or SAMPLING_METHOD,

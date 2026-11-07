@@ -16,10 +16,13 @@ class CommonWrapperOptions:
 
     console_log_level: str | None = None
     data_types: tuple[str, ...] | None = None
+    file_log_level: str | None = None
+    log_file: Path | None = None
     live_max_rows: int | None = None
     live_refresh_per_second: float | None = None
     locations_to_include: tuple[str, ...] | None = None
     no_pause: bool = False
+    pause_on_finish: bool | None = None
     paths_to_process: tuple[Path, ...] | None = None
     use_live_dashboard: bool | None = None
     working_directory: Path | None = None
@@ -211,13 +214,17 @@ def parse_common_cli_arguments(args: Namespace) -> CommonWrapperOptions:
     """Map argparse results to :class:`CommonWrapperOptions`."""
     locations_argument = getattr(args, "locations", None)
     data_types_argument = getattr(args, "data_types", None)
+    raw_no_pause = getattr(args, "no_pause", None)
     return CommonWrapperOptions(
         console_log_level=getattr(args, "console_log_level", None),
         data_types=_coerce_sequence_argument(raw_values=data_types_argument),
+        file_log_level=getattr(args, "file_log_level", None),
+        log_file=getattr(args, "log_file", None),
         live_max_rows=getattr(args, "live_max_rows", None),
         live_refresh_per_second=getattr(args, "live_refresh_per_second", None),
         locations_to_include=_coerce_locations_argument(raw_locations=locations_argument),
-        no_pause=bool(getattr(args, "no_pause", False)),
+        no_pause=bool(raw_no_pause),
+        pause_on_finish=False if raw_no_pause else None,
         use_live_dashboard=getattr(args, "use_live_dashboard", None),
         working_directory=getattr(args, "working_directory", None),
     )

@@ -6,15 +6,15 @@ The input glob determines what each job aggregates; it need not vary by duration
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-08-20.1"
+WRAPPER_VERSION = "2026-11-07.1"
 
 WORKING_DIR: Path = Path(__file__).absolute().parent
 
 # Add, remove, or rename axes freely. One maximum job is created for every combination.
-TEMPLATE_AXES: dict[str, tuple[str, ...]] = {
-    "scenario": ("EXG", "DEV"),
-    "event": ("PMP",),
-    "result_type": ("d_HR_Max", "h_HR_Max", "V_Max"),
+TEMPLATE_AXES: dict[str, list[str]] = {
+    "scenario": ["EXG", "DEV"],
+    "event": ["PMP"],
+    "result_type": ["d_HR_Max", "h_HR_Max", "V_Max"],
 }
 INPUT_GLOB_TEMPLATE = "{scenario}/{event}/grids/*_{result_type}.tif"
 OUTPUT_FILENAME_TEMPLATE = "site_05_mineModel_{scenario}_{event}_Max_08M_{result_type}.tif"
