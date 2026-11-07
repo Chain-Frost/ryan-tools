@@ -19,8 +19,8 @@ from shapely.geometry import LineString
 
 mpl.use("Agg")
 
-from ryan_library.orchestrators.tuflow import water_level_profiles as profiles  # noqa: E402
-from ryan_library.orchestrators.tuflow.water_level_profiles import WaterLevelProfileConfig  # noqa: E402
+from ryan_library.orchestrators.tuflow import water_level_profiles as profiles
+from ryan_library.orchestrators.tuflow.water_level_profiles import WaterLevelProfileConfig
 
 
 def _profile_case(
@@ -139,7 +139,8 @@ def test_render_failure_preserves_original_png(tmp_path: Path, monkeypatch: pyte
 
     def fail_render(_self: Figure, file_object: Any, *_args: Any, **_kwargs: Any) -> None:
         file_object.write(b"partial")
-        raise OSError("render failed")
+        msg = "render failed"
+        raise OSError(msg)
 
     monkeypatch.setattr(Figure, "savefig", fail_render)
     with pytest.raises(OSError, match="render failed"):
@@ -159,7 +160,8 @@ def test_failed_publication_cleans_only_owned_staging(tmp_path: Path, monkeypatc
 
     def fail_publish(_stage: Path, _destination: Path, *, overwrite_existing: bool) -> None:
         assert overwrite_existing
-        raise OSError("publish failed")
+        msg = "publish failed"
+        raise OSError(msg)
 
     monkeypatch.setattr(profiles, "_publish_profile_png", fail_publish)
     with pytest.raises(OSError, match="publish failed"):
@@ -187,7 +189,8 @@ def test_later_failure_preserves_earlier_profile(tmp_path: Path, monkeypatch: py
 
     def fail_second(stage: Path, destination: Path, *, overwrite_existing: bool) -> None:
         if destination.name == "B_profile.png":
-            raise OSError("second profile failed")
+            msg = "second profile failed"
+            raise OSError(msg)
         original(stage, destination, overwrite_existing=overwrite_existing)
 
     monkeypatch.setattr(profiles, "_publish_profile_png", fail_second)
