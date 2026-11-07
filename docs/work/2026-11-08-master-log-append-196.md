@@ -37,7 +37,10 @@ processor outcome contract (WP04), discovery traversal (WP07) or closure statist
   leave original bytes untouched and remove the owned temporary file; diagnostic errors propagate.
 - The append intentionally updates an existing workbook, unlike the shared report export no-overwrite
   policy. No backup is automatically created. `.xlsm` and other extensions fail closed because this
-  path does not guarantee VBA preservation. Users should keep a separate backup before intentional append.
+  path does not guarantee VBA preservation. The selected workbook must be a regular file,
+  not a filename symlink or hard-linked inode; those are refused before mutation and
+  checked again before replace to avoid silently severing another path to the master.
+  Users should keep a separate backup before intentional append.
   Cross-process races **after** the final source check are not eliminated; Windows Excel locks,
   SMB behaviour, file ACL preservation, mapped shares and concurrent-writer arbitration require native review.
 

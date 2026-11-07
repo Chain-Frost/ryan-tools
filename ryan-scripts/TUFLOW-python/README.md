@@ -668,7 +668,10 @@ the successfully completed rows but still exits nonzero; check diagnostics.
 
 Saving uses a temporary sibling `.xlsx` and replaces the master only after
 successful writing. The master is intentionally modified, so keep a separate
-backup. The script refuses `.xlsm` rather than remove macros. External Excel
+backup. The script refuses `.xlsm` rather than remove macros. It also refuses
+symbolic- or hard-linked workbook files, rather than silently replacing the
+link with a detached workbook. Mapped drive and UNC parent directories are
+not rejected merely because they are mapped paths. External Excel
 locks, network shares and simultaneous workbook editors have not been qualified
 as native acceptance. `PAUSE_ON_FINISH` is editable; `--no-pause` prevents
 interactive waiting. For an unattended invocation:

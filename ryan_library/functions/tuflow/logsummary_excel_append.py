@@ -50,6 +50,7 @@ def load_existing_log_summary_rows(
         msg = f"Master workbook does not exist: {workbook_path}"
         raise FileNotFoundError(msg)
 
+    _require_unlinked_master_workbook(workbook_path=workbook_path)
     workbook: Workbook = load_workbook(filename=workbook_path, read_only=False, data_only=False)
     try:
         worksheet: Worksheet = _resolve_worksheet(workbook=workbook, sheet_name=sheet_name)
@@ -131,7 +132,7 @@ def append_dataframe_to_workbook_table(
 ) -> None:
     """Append dataframe rows to a worksheet table, extending the table range as needed."""
     _validate_master_workbook_type(workbook_path=workbook_path)
-    original_stat: os.stat_result = workbook_path.stat()
+    original_stat: os.stat_result = _require_unlinked_master_workbook(workbook_path=workbook_path)
     workbook: Workbook = load_workbook(filename=workbook_path, read_only=False, data_only=False)
     try:
         worksheet: Worksheet = _resolve_worksheet(workbook=workbook, sheet_name=sheet_name)
@@ -186,7 +187,7 @@ def append_dataframe_to_workbook_table(
         try:
             workbook.save(filename=staged_path)
             staged_path.chmod(stat.S_IMODE(original_stat.st_mode))
-            current_stat: os.stat_result = workbook_path.stat()
+            current_stat: os.stat_result = _require_unlinked_master_workbook(workbook_path=workbook_path)
             original_signature = (
                 original_stat.st_dev,
                 original_stat.st_ino,
@@ -217,6 +218,26 @@ def _validate_master_workbook_type(*, workbook_path: Path) -> None:
     if workbook_path.suffix.lower() != ".xlsx":
         msg = "Master log append supports .xlsx only; .xlsm and other formats are not modified."
         raise ValueError(msg)
+
+
+def _require_unlinked_master_workbook(*, workbook_path: Path) -> os.stat_result:
+    """Fail closed when replacing the path would sever a workbook link.
+
+    Path.stat follows links deliberately to inspect the existing file's
+    physical identity, but an explicit filename symlink is rejected first.
+    Mapped drives and UNC directory parents retain their supplied spelling.
+    """
+    if workbook_path.is_symlink():
+        msg = f"Master workbook must not be a symbolic link: {workbook_path}"
+        raise ValueError(msg)
+    existing = workbook_path.stat()
+    if not stat.S_ISREG(existing.st_mode):
+        msg = f"Master workbook must be a regular file: {workbook_path}"
+        raise ValueError(msg)
+    if existing.st_nlink != 1:
+        msg = f"Hard-linked master workbooks are unsupported: {workbook_path} (links={existing.st_nlink})"
+        raise ValueError(msg)
+    return existing
 
 
 def _resolve_worksheet(*, workbook: Workbook, sheet_name: str) -> Worksheet:

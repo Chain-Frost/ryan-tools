@@ -137,3 +137,74 @@ def test_macro_workbook_rejected_before_modification(tmp_path: Path) -> None:
             table_name=None,
         )
     assert workbook.read_bytes() == b"sentinel"
+
+
+def test_master_symlink_is_rejected_without_replacing_target(tmp_path: Path) -> None:
+    master = tmp_path / "original.xlsx"
+    alias = tmp_path / "alias.xlsx"
+    _workbook(master)
+    original = master.read_bytes()
+    try:
+        alias.symlink_to(master.name)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"File symlink creation unavailable: {exc}")
+    with pytest.raises(ValueError, match="symbolic link"):
+        excel_append.load_existing_log_summary_rows(workbook_path=alias, sheet_name="Log Summary", table_name=None)
+    with pytest.raises(ValueError, match="symbolic link"):
+        excel_append.append_dataframe_to_workbook_table(
+            data_frame=pd.DataFrame({"Runcode": ["new"]}),
+            workbook_path=alias,
+            sheet_name="Log Summary",
+            table_name=None,
+        )
+    assert alias.is_symlink()
+    assert master.read_bytes() == original
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["alias.xlsx", "original.xlsx"]
+
+
+def test_master_hardlink_is_rejected_without_severing_alias(tmp_path: Path) -> None:
+    master = tmp_path / "original.xlsx"
+    alias = tmp_path / "alias.xlsx"
+    _workbook(master)
+    original = master.read_bytes()
+    try:
+        alias.hardlink_to(master)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"File hardlink creation unavailable: {exc}")
+    with pytest.raises(ValueError, match="Hard-linked"):
+        excel_append.load_existing_log_summary_rows(workbook_path=master, sheet_name="Log Summary", table_name=None)
+    with pytest.raises(ValueError, match="Hard-linked"):
+        excel_append.append_dataframe_to_workbook_table(
+            data_frame=pd.DataFrame({"Runcode": ["new"]}),
+            workbook_path=master,
+            sheet_name="Log Summary",
+            table_name=None,
+        )
+    assert master.read_bytes() == original
+    assert alias.read_bytes() == original
+
+
+def test_hardlink_created_during_staging_prevents_publication(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    master = tmp_path / "original.xlsx"
+    alias = tmp_path / "alias.xlsx"
+    _workbook(master)
+    original = master.read_bytes()
+    original_save = Workbook.save
+
+    def create_alias_and_save(workbook: Workbook, filename: str | Path) -> None:
+        alias.hardlink_to(master)
+        original_save(workbook, filename)
+
+    monkeypatch.setattr(Workbook, "save", create_alias_and_save)
+    with pytest.raises(ValueError, match="Hard-linked"):
+        excel_append.append_dataframe_to_workbook_table(
+            data_frame=pd.DataFrame({"Runcode": ["new"]}),
+            workbook_path=master,
+            sheet_name="Log Summary",
+            table_name=None,
+        )
+    assert master.read_bytes() == original
+    assert alias.read_bytes() == original
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["alias.xlsx", "original.xlsx"]
