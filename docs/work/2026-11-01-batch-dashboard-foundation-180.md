@@ -11,7 +11,7 @@
 | Branch / base | `feat/batch-dashboard-foundation-180` -> `main` |
 | Issue | [#180](https://github.com/Chain-Frost/ryan-tools/issues/180), dashboard foundation and resumed wrapper/script audit |
 | Dependent work | [TUFLOW result dashboard adoption](2026-11-01-tuflow-result-dashboards-180.md) |
-| Delivery | #202 is retained at a56e0c6b; current main e317e4ef is integrated at 0b5a07cb; closure raw-output safety is implemented at 8878d42b. Fresh 26.11.7.1 wheel and copied-wrapper checks pass. Verify the new published head CI/Codex review and refresh Office #201. No main merge/release. |
+| Delivery | #202 is retained at a56e0c6b; current main e317e4ef is integrated at 0b5a07cb; closure raw-output safety is implemented at 8878d42b. Hosted review follow-up 26d6e223 fixes direct serial TUFLOW rendering. Fresh installed 26.11.7.1 verification passes; use the current PR checks/review for final-head acceptance and keep Office #201 on this parent. No main merge/release. |
 
 ## Outcome and scope
 
@@ -465,3 +465,39 @@ and 6d1178ce results do not establish current-head acceptance. Office #201 has
 passed local source, installed-package and inventory validation for its normal
 parent refresh; its hosted checks and review are also pending. Native Office fidelity and real UNC hard-link support
 remain separate acceptance. No main merge, auto-merge or release is performed.
+
+
+### 2026-11-07 — Hosted review follow-up
+
+The first published integration `ca788bf4` passed all six hosted checks:
+2,368 tests passed, 14 skipped and eight deselected; separate POSIX checks had
+25 passes and two skips. Policy, MCP and installed-package smoke checks passed.
+Office `811b936b` also passed all six checks (2,390 hosted passes, 14 skips, eight
+deselected) and its Codex review found no major issues. These results identify
+the earlier heads and do not replace acceptance of this subsequent correction.
+
+Fresh Codex review identified the separate TUFLOW serial adapter in
+`tuflow_common.py`: unlike the generic execution helper, it still used a
+throttled refresh before a blocking read. Commit `26d6e223` forces the RUNNING
+frame before each read and flushes final counters before returning to the outer
+dashboard. Both small batches and recoverable pool fallback use this adapter.
+Other direct task-start callers (the simulation runner and raster batch) already
+force their refreshes.
+
+Both new real-render regressions failed before the fix and pass afterward.
+The focused pipeline/common/coverage selection has 24 passes. Ruff 0.16.6,
+formatting, strict changed-file Pyright and independent review pass. The two
+new rendering cases also pass against the isolated installed wheel, with source
+checkout imports excluded. All six copied result-wrapper on/off, workbook parity,
+collision and writer-failure checks pass again.
+
+A no-bump verification rebuild retains version `26.11.7.1`; current verification
+wheel SHA-256 is
+`f114a3ba7e27349815407e9113cd9615e782b21f72c79c8fea6688e10dc2de72`.
+The earlier hash above belongs to the first integration build.
+
+Publication preserves normal ancestry and refreshes Office #201 from the corrected
+parent. The [current #183 checks and review](https://github.com/Chain-Frost/ryan-tools/pull/183)
+and [Office #201 checks and review](https://github.com/Chain-Frost/ryan-tools/pull/201)
+record hosted acceptance of the final published heads. No main merge, auto-merge
+or release is performed; native Office and real UNC acceptance remain separate.

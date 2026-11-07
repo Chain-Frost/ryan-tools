@@ -4,12 +4,17 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from io import StringIO
 from pathlib import Path
 from typing import cast
 from unittest.mock import Mock, patch
 
 import pandas as pd
+import pytest
+from rich.console import Console
+from rich.text import Text
 
+from ryan_library.functions import live_dashboard as ld
 from ryan_library.functions.live_dashboard import LiveWorkflowDashboard
 from ryan_library.functions.loguru_helpers import LogQueue
 from ryan_library.functions.tuflow import tuflow_common as common
@@ -49,6 +54,67 @@ def test_serial_dashboard_keeps_order_and_marks_skip_failure() -> None:
     assert [dashboard._tasks[index].status for index in range(1, 5)] == ["OK", "SKIP", "FAIL", "OK"]
     assert "Files finished" in dashboard._format_extra_metrics()
     assert "input size" not in dashboard._format_extra_metrics().lower()
+
+
+@pytest.mark.parametrize("pool_size", [pytest.param(1, id="small-batch"), pytest.param(2, id="pool-fallback")])
+def test_serial_dashboard_renders_each_file_and_final_counts_before_return(
+    monkeypatch: pytest.MonkeyPatch, pool_size: int
+) -> None:
+    """The direct TUFLOW adapter must render outside the ordinary refresh interval."""
+    paths = [Path("first.csv"), Path("second.csv")]
+    stream = StringIO()
+    monkeypatch.setenv("TERM", "xterm-256color")
+    dashboard = LiveWorkflowDashboard(title="TUFLOW processing")
+    dashboard.console = Console(file=stream, force_terminal=True, legacy_windows=False, width=120, height=30)
+    processed: list[Path] = []
+
+    with (
+        patch.object(ld.time, "monotonic", return_value=1.0),
+        patch.object(common, "calculate_pool_size", return_value=pool_size),
+        patch.object(common, "run_dashboard_workflow_report", side_effect=OSError("pool transport")) as pool_report,
+        dashboard,
+    ):
+        outer_live = dashboard._live
+        assert outer_live is not None
+        assert outer_live._refresh_thread is None
+        dashboard.set_phase("Processing")
+        before_work = stream.tell()
+
+        def process(file_path: Path, **_kwargs: object) -> BaseProcessor:
+            nonlocal before_work
+            rendered = Text.from_ansi(stream.getvalue()[before_work:]).plain
+            assert "RUNNING" in rendered
+            assert "active 1" in rendered
+            assert file_path.name in rendered
+            assert f"Files finished {len(processed)}/{len(paths)} files" in rendered
+            assert dashboard._live is outer_live
+            before_work = stream.tell()
+            processed.append(file_path)
+            return _processed(file_path.name)
+
+        with patch.object(common, "process_file", side_effect=process):
+            collection = common.process_files_in_parallel(
+                file_list=paths,
+                log_queue=cast("LogQueue", Mock()),
+                dashboard=dashboard,
+            )
+
+        assert processed == paths
+        assert [item.file_name for item in collection.processors] == [path.name for path in paths]
+        final_frame = Text.from_ansi(stream.getvalue()[before_work:]).plain
+        assert "finished 2/2" in final_frame
+        assert "Files finished 2/2 files" in final_frame
+        assert "active 0" in final_frame
+        assert "RUNNING" not in final_frame
+        assert dashboard._live is outer_live
+        if pool_size > 1:
+            pool_report.assert_called_once()
+        else:
+            pool_report.assert_not_called()
+        before_export = stream.tell()
+        dashboard.set_phase("Exporting")
+        assert "Exporting" in stream.getvalue()[before_export:]
+    assert dashboard._live is None
 
 
 def test_dashboard_transport_fallback_retries_original_files_once() -> None:

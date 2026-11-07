@@ -2,12 +2,12 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Needs review — parent refreshed; fresh hosted checks and review pending |
+| Status | Needs review — serial rendering parent refreshed; fresh hosted checks and review pending |
 | Owner | ChatGPT |
 | Created | 2026-11-04 |
 | Updated | 2026-11-07 |
 | Next review | 2026-11-14 |
-| Baseline | Published child 2c06d8d4; final parent ca788bf491146e647b3430b23c46ff911998c287, package 26.11.7.1 |
+| Baseline | Reviewed child 811b936bb8481f8c9ad0745732c42c7d78f49007; final parent f003a762b354c6f06126aed6bbae330b79f66fa4, package 26.11.7.1 |
 | Branch / base | fix/office-protection-safety-199 -> feat/batch-dashboard-foundation-180 |
 | Issue | [#199](https://github.com/Chain-Frost/ryan-tools/issues/199), AB-027 |
 
@@ -21,20 +21,19 @@ The [local guide](../../ryan-scripts/misc-python/README.md) owns the user contra
 
 ## Current state
 
-The refreshed Office tree adopts published #183 parent `ca788bf4`, including
+The refreshed Office tree adopts published #183 parent `f003a762`, including
 current-main integration `0b5a07cb`, the #202 export-safety squash and closure
-repair `8878d42b`, with package version 26.11.7.1. Local integration required
-conflict resolution only in the documentation index and work register. All
-current parent links and rows remain alongside the independent Office links
-and updated Office row. The Office script and its tests are unchanged from
-published child `2c06d8d4`.
+repair `8878d42b`, plus serial TUFLOW rendering correction `26d6e223`, with
+package version 26.11.7.1. This final parent merge is conflict-free. All current
+parent handoffs, links and register rows remain alongside the independent
+Office links and updated Office row. The Office script and its tests are
+unchanged from published child `2c06d8d4` and reviewed child `811b936b`.
 
-The normal merge retains published child `2c06d8d4` and final parent `ca788bf4`
+The normal merge retains reviewed child `811b936b` and final parent `f003a762`
 as its parents. Fresh hosted checks and review are pending on the refreshed
-child head; the validation below establishes local evidence. Publication changes
-commit references and delivery wording without changing tested source. Existing
-published history is preserved. No main merge or release is part of this
-continuation.
+child head. Earlier checks and review apply to the exact earlier head recorded
+below. Existing published history is preserved. No main merge or release is
+part of this continuation.
 
 ## Next action
 
@@ -42,7 +41,46 @@ Inspect the refreshed PR #201's new hosted checks and safety review. Native
 Office fidelity and live UNC acceptance remain separate;
 no new Windows, native Office or network-share acceptance is claimed here.
 
-## Validation and delivery — 2026-11-07
+## Serial rendering parent refresh — 2026-11-07
+
+The parent follow-up changes only direct serial TUFLOW dashboard rendering,
+its regression tests and the parent handoff/register. The Office implementation,
+tests, dependency pins and nine-file child scope are unchanged. The parent's
+same-version verification wheel is 26.11.7.1, SHA-256
+`f114a3ba7e27349815407e9113cd9615e782b21f72c79c8fea6688e10dc2de72`, installed at
+`/workspace/scratch/174af26f7506/wheel-install-final`. Its verification evidence
+is recorded in the [foundation handoff](2026-11-01-batch-dashboard-foundation-180.md).
+
+This narrow refresh rechecks documentation and the inventory index/ledger;
+the complete Office suite is not repeated locally. Fresh hosted CI and Codex
+review must cover the resulting child head. The earlier copied Office CLI run
+below used the preceding parent wheel and is retained as historical evidence.
+
+Validation in the same Linux/Python 3.14.10 environment:
+
+| Check | Result |
+| --- | --- |
+| `python -m pytest -q tests/test_script_inventory.py -k 'documentation_indexes_track_live_inventory_counts or individual_lifecycle_ledger_tracks_manifest_and_mcp_targets'` | 2 passed, 20 deselected; inventory remains 157 tracked, 83 selected, 74 excluded and 33 MCP paths. |
+| `python repo-scripts/check_documentation.py` | All seven default READMEs and central-index coverage passed. |
+| Explicit `check_documentation.py --links-only` for this record, the work register and foundation handoff | All three documents passed. |
+
+Git comparisons confirm the Office script/tests are unchanged from `811b936b`,
+the inherited package and dependency state match `f003a762`, and only the same
+nine Office files differ from that parent. Whitespace checks pass.
+
+## Earlier hosted validation — child 811b936b
+
+All six checks passed at `811b936bb8481f8c9ad0745732c42c7d78f49007` against
+parent `ca788bf4`: [Python CI](https://github.com/Chain-Frost/ryan-tools/actions/runs/42350876276)
+and [Fast PR checks](https://github.com/Chain-Frost/ryan-tools/actions/runs/42350876229).
+Hosted tests reported 2,390 passed, 14 skipped and 8 deselected; MCP checks
+reported 103 plus 73 passes; POSIX wrapper security reported 25 passes and
+2 skips. Package, Policy and Ruff/whitespace checks passed. The
+[Codex receipt](https://github.com/Chain-Frost/ryan-tools/pull/201#issuecomment-6703875022)
+reported no major issues on that exact head. These results do not establish
+acceptance of the subsequent refresh to `f003a762`.
+
+## Earlier local validation and delivery — 2026-11-07
 
 Validation used Linux/Python 3.14.10 at
 `/workspace/scratch/143a79d89a6a/gdal-runtime/bin/python3.14`, with

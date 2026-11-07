@@ -379,7 +379,9 @@ def _process_files_serially(
     coll = ProcessorCollection()
     for index, file_path in enumerate(file_list, start=1):
         if dashboard is not None:
-            dashboard.mark_running(index=index)
+            dashboard.mark_running(index=index, refresh=False)
+            # Live has no refresh thread, so render before the blocking read.
+            dashboard.refresh(force=True)
         proc: BaseProcessor | None = process_file(
             file_path=file_path,
             entity_filters=entity_filters,
@@ -391,6 +393,8 @@ def _process_files_serially(
             dashboard.mark_finished(index=index, status=status, detail=_dashboard_detail(proc))
         if proc and proc.processed:
             coll.add_processor(processor=proc)
+    if dashboard is not None:
+        dashboard.refresh(force=True)
     return coll
 
 
