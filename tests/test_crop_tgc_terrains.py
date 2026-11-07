@@ -185,3 +185,97 @@ def test_write_creates_new_rasters_manifest_and_patched_tgc(tmp_path: Path) -> N
             output_directory=output,
             write=True,
         )
+
+
+def test_sparse_high_priority_native_mask_preserves_base(tmp_path: Path) -> None:
+    """One high-priority native pixel per planning cell cannot replace a complete base."""
+    _write_raster(tmp_path / "lower.tif", np.full((10, 10), 10.0, dtype="float32"))
+    high = np.full((100, 100), -9999.0, dtype="float32")
+    high[::10, ::10] = 20.0
+    _write_raster(tmp_path / "higher.tif", high, transform=from_origin(0, 100, 1, 1))
+    tgc = tmp_path / "geometry.tgc"
+    tgc.write_text("Read Grid Zpts == lower.tif\nRead Grid Zpts == higher.tif\n", encoding="utf-8")
+
+    payload = MODULE.run(
+        tgc_path=tgc,
+        scenario="EXG",
+        bounds=MODULE.AnalysisBounds(0, 0, 100, 100),
+        crs="EPSG:28350",
+        seam_buffer=0,
+        planning_resolution=10,
+        output_directory=tmp_path / "cropped",
+        write=True,
+    )
+
+    low = payload["layers"][0]
+    assert low["active_planning_cells"] == 100
+    assert low["retained_planning_cells"] == 100
+    assert not low["omitted"]
+    with rasterio.open(low["output"]) as source:
+        assert np.all(source.read(1) == 10.0)
+
+
+def test_partially_clipped_higher_source_does_not_replace_whole_base_cell(tmp_path: Path) -> None:
+    """Rasterisation of TGC clips must not promote partial coverage to full coverage."""
+    from shapely.geometry import box, mapping
+
+    _write_raster(tmp_path / "lower.tif", np.full((10, 10), 10, dtype="float32"))
+    _write_raster(tmp_path / "higher.tif", np.full((10, 10), 20, dtype="float32"))
+    clip = tmp_path / "strip.gpkg"
+    with fiona.open(
+        clip,
+        "w",
+        driver="GPKG",
+        crs="EPSG:28350",
+        layer="mask",
+        schema={"geometry": "Polygon", "properties": {}},
+    ) as output:
+        output.write({"geometry": mapping(box(45, 0, 55, 100)), "properties": {}})
+    tgc = tmp_path / "geometry.tgc"
+    tgc.write_text(
+        "Read Grid Zpts == lower.tif\nRead Grid Zpts == higher.tif | strip.gpkg\n",
+        encoding="utf-8",
+    )
+    grid, planned = MODULE.build_plan(
+        MODULE.resolve_terrain_layers(tgc, "EXG"),
+        tmp_path / "cropped",
+        MODULE.AnalysisBounds(0, 0, 100, 100),
+        "EPSG:28350",
+        10,
+        0,
+    )
+    assert grid.shape == (10, 10)
+    assert planned[0].retained_cells == 100
+    assert not planned[0].omitted
+
+
+def test_detected_coverage_loss_fails_before_patched_tgc_is_published(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Retain diagnostic GeoPackage, but report failure and never publish unsafe TGC."""
+    _write_raster(tmp_path / "lower.tif", np.ones((10, 10), dtype="float32"))
+    tgc = tmp_path / "geometry.tgc"
+    tgc.write_text("Read Grid Zpts == lower.tif\n", encoding="utf-8")
+    writer = MODULE._write_coverage_qa
+
+    def report_loss(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        report = writer(*args, **kwargs)
+        report["lost_original_planning_cells"] = 1
+        return report
+
+    monkeypatch.setattr(MODULE, "_write_coverage_qa", report_loss)
+    output_dir = tmp_path / "cropped"
+    with pytest.raises(ValueError, match="Unsafe terrain crop"):
+        MODULE.run(
+            tgc_path=tgc,
+            scenario="EXG",
+            bounds=MODULE.AnalysisBounds(0, 0, 100, 100),
+            crs="EPSG:28350",
+            seam_buffer=0,
+            planning_resolution=10,
+            output_directory=output_dir,
+            write=True,
+        )
+    assert (output_dir / "terrain_coverage_qa.gpkg").is_file()
+    assert not (output_dir / "terrain_crop_manifest.json").exists()
+    assert not tgc.with_name("geometry_EXG_cropped.tgc").exists()
