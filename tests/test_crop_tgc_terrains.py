@@ -78,6 +78,29 @@ def test_pytuflow_selects_one_scenario_without_constructing_full_tgc(
     assert [item.line_number for item in selected] == [1, 3]
 
 
+@pytest.mark.parametrize("write", [False, True])
+def test_included_terrain_is_rejected_before_creating_outputs(tmp_path: Path, write: bool) -> None:
+    tgc = tmp_path / "geometry.tgc"
+    tgc.write_text("Read File == terrain.trd\n", encoding="utf-8")
+    (tmp_path / "terrain.trd").write_text("Read Grid Zpts == terrain.tif\n", encoding="utf-8")
+    output = tmp_path / "cropped"
+    before = set(tmp_path.iterdir())
+
+    with pytest.raises(ValueError, match="Terrain commands in Read File includes are not supported"):
+        MODULE.run(
+            tgc_path=tgc,
+            scenario="EXG",
+            bounds=MODULE.AnalysisBounds(0, 0, 100, 100),
+            crs="EPSG:28350",
+            seam_buffer=20,
+            planning_resolution=10,
+            output_directory=output,
+            write=write,
+        )
+
+    assert set(tmp_path.iterdir()) == before
+
+
 def test_retained_coverage_includes_requested_seam_buffer() -> None:
     lower = np.ones((15, 15), dtype=bool)
     higher = np.zeros((15, 15), dtype=bool)

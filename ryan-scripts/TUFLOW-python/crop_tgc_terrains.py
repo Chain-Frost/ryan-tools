@@ -23,7 +23,7 @@ from __future__ import annotations
 # pyright: reportCallIssue=false, reportGeneralTypeIssues=false
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-08.1"
+WRAPPER_VERSION = "2026-11-08.2"
 
 TGC = Path("model/GEOM_01.tgc")
 SCENARIO = "EXG"
@@ -181,6 +181,12 @@ def resolve_terrain_layers(tgc_path: Path, scenario: str) -> list[TerrainLayer]:
     for build_input in model.find_input(lhs="Read Grid Zpts", recursive=True):  # pyright: ignore[reportArgumentType]
         if not context.in_context_by_scope(build_input.scope):
             continue
+        if build_input.trd is not None:
+            message = (
+                f"Terrain commands in Read File includes are not supported: {build_input.trd}. "
+                "Move active Read Grid Zpts commands into the root TGC before cropping."
+            )
+            raise ValueError(message)
         run_input = build_input.context(context=context)
         references = cast(tuple[Any, ...], tuple(run_input.file_references))
         if not references:

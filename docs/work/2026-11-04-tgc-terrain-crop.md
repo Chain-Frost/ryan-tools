@@ -57,6 +57,18 @@ this work.
 
 ## Progress
 
+### 2026-11-08: included terrain review finding
+
+Reject active terrain reads owned by `Read File` includes during resolution,
+before coverage planning or output creation. This prevents applying child-file
+line numbers to the root TGC. Included terrain hierarchies remain unsupported;
+root-file terrain reads retain their existing behavior. Added plan-only and
+write-mode regressions proving no outputs are created. All nine terrain tests,
+Ruff lint/format and strict Pyright on both modified Python files pass.
+The initial test invocation emitted a native h5py loader diagnostic; rerunning
+with h5py preloaded passed cleanly. Commit/push and current-head hosted checks
+are pending; no merge authorized.
+
 ### 2026-11-07
 
 Restored `ryan-scripts/cad-python/cad_to_gpkg.py` from historical commit `f4c80be` at maintainer request, including its README usage section and lifecycle audit entry. This is a separate CAD utility, not part of terrain cropping; the QGIS submodule pointer already matches `main` and was not modified. Corrected the native-mask regression test's explicitly typed Affine transform and synchronised the stacked initialiser PR #246. All new changes require exact-head hosted CI; historical green checks do not establish acceptance at this head.

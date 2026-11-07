@@ -946,6 +946,10 @@ Verify first on a disposable copy of model results, particularly on network driv
 
 ## Crop an ordered TGC terrain stack
 
+Active `Read Grid Zpts` commands must be in the root TGC. Terrain commands
+loaded through `Read File` includes are rejected before planning or writing
+outputs; publishing patched include hierarchies is not supported.
+
 [`crop_tgc_terrains.py`](crop_tgc_terrains.py) creates smaller copies of the
 `Read Grid Zpts` rasters active for one scenario. PyTUFLOW evaluates the TGC's
 scenario scopes and preserves command order; the script does not implement a
