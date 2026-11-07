@@ -103,6 +103,7 @@ but they are not current architectural policy when they conflict with the canoni
 
 | Document | Scope and status |
 | --- | --- |
+| [WP06 owned-output publication](work/2026-11-08-wp06-publication.md) | Profile PNG staging, archive and GDAL output safety, validation and stacked PR delivery |
 | [Missing TLF ensemble inference](work/2026-11-07-missing-tlf-ensembles.md) | Folder inference implementation, local validation and delivery |
 | [WP08 POMM, PO QA and closure dashboard adoption](work/2026-11-08-po-qa-dashboard-198.md) | #198 implementation in stacked #265; QA per-file outcomes, POMM and closure workflow lifecycle, validation and unresolved native/partial-input gates |
 | [Dashboard defaults and background file properties](work/2026-11-07-dashboard-file-properties.md) | Shared presentation defaults, nonblocking file-size metadata and preserved legacy banner calls |
