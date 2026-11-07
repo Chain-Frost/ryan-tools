@@ -81,9 +81,6 @@ def main(
     use_hpc_companions = (
         INCLUDE_HPC_COMPANION_METRICS if include_hpc_companion_metrics is None else include_hpc_companion_metrics
     )
-    if not isinstance(use_hpc_companions, bool):
-        print("Invalid HPC companion setting: expected True or False.", file=sys.stderr)
-        return 1
     try:
         validate_dashboard_settings(refresh_per_second=effective_live_refresh, max_rows=effective_live_max_rows)
     except ValueError as exc:
