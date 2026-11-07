@@ -68,6 +68,8 @@ LOG_SUMMARY_SECOND_PRIORITY_COLUMNS: tuple[str, ...] = (
     "TLF_Checks_During",
     "HPC_Active_2D_Cells",
     "HPC_Sealed_Wall_Cells",
+    "HPC_Groundwater_Active_Cells",
+    "HPC_Groundwater_Sealed_Wall_Cells",
     "HPC_nWet_Observed_Max",
     "HPC_nWet_Sampled_Records",
     "HPC_Companion_Status",
