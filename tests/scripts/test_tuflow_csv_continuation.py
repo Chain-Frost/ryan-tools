@@ -12,6 +12,7 @@ from typing import Protocol, cast
 import pytest
 
 from ryan_library.functions.tuflow.command_plan import CommandPlan, PlannedRun
+from ryan_library.orchestrators.tuflow import simulation_workflow
 from ryan_library.orchestrators.tuflow.simulation_runner import BatchOutcome, RunnerSettings, RunOutcome
 
 
@@ -86,7 +87,7 @@ def test_copied_wrapper_resume_no_work_all_reset_and_follow_up(
     module = sys.modules["csv_runner_wrapper"]
     calls: list[list[int]] = []
     chained: list[Path] = []
-    monkeypatch.setattr(module, "launch_plan", _fake_successful_launch(calls))
+    monkeypatch.setattr(simulation_workflow, "launch_plan", _fake_successful_launch(calls))
     monkeypatch.setattr(module, "NEXT_RUN_FILE", Path("follow-up.py"))
 
     def fake_follow_up(path: Path, _base: Path) -> bool:
@@ -106,7 +107,7 @@ def test_copied_wrapper_resume_no_work_all_reset_and_follow_up(
     def forbid_no_work(*_args: object, **_kwargs: object) -> None:
         pytest.fail("No-work Resume launched")
 
-    monkeypatch.setattr(module, "launch_plan", forbid_no_work)
+    monkeypatch.setattr(simulation_workflow, "launch_plan", forbid_no_work)
     solver = Path(module.TUFLOW_EXE)
     solver.unlink()
     from ryan_library.functions.tuflow import gpu_occupancy
@@ -118,7 +119,7 @@ def test_copied_wrapper_resume_no_work_all_reset_and_follow_up(
     assert len(chained) == 2  # Chaining policy applies to successful no-work Resume.
 
     solver.write_bytes(b"synthetic solver placeholder")
-    monkeypatch.setattr(module, "launch_plan", _fake_successful_launch(calls))
+    monkeypatch.setattr(simulation_workflow, "launch_plan", _fake_successful_launch(calls))
     assert copied_wrapper.main(_args(tmp_path, "--run-mode", "all")) == 0
     assert calls == [[1, 2], [1, 2]]
     assert b",RESET," in log.read_bytes()
@@ -127,7 +128,7 @@ def test_copied_wrapper_resume_no_work_all_reset_and_follow_up(
     def forbid_post_all(*_args: object, **_kwargs: object) -> None:
         pytest.fail("Post-all Resume launched")
 
-    monkeypatch.setattr(module, "launch_plan", forbid_post_all)
+    monkeypatch.setattr(simulation_workflow, "launch_plan", forbid_post_all)
     assert copied_wrapper.main(_args(tmp_path)) == 0
     assert log.read_bytes() == after_all
 
@@ -138,7 +139,7 @@ def test_export_and_configuration_failures_do_not_change_csv(
 ) -> None:
     module = sys.modules["csv_runner_wrapper"]
     calls: list[list[int]] = []
-    monkeypatch.setattr(module, "launch_plan", _fake_successful_launch(calls))
+    monkeypatch.setattr(simulation_workflow, "launch_plan", _fake_successful_launch(calls))
     assert copied_wrapper.main(_args(tmp_path)) == 0
     path = Path(copied_wrapper.__file__).with_name("my_batch_runs.csv")
     history = path.read_bytes()
@@ -151,7 +152,7 @@ def test_export_and_configuration_failures_do_not_change_csv(
         raise FileExistsError(msg)
 
     monkeypatch.setattr(module, "EXPORT_COMMANDS", True)
-    monkeypatch.setattr(module, "export_batch_commands", refuse_export)
+    monkeypatch.setattr(simulation_workflow, "export_batch_commands", refuse_export)
     assert copied_wrapper.main(_args(tmp_path, "--run-mode", "all", "--export")) == 1
     assert path.read_bytes() == history
 
@@ -169,7 +170,6 @@ def test_export_and_configuration_failures_do_not_change_csv(
 def test_definitive_launch_failure_is_logged_and_requeued(
     tmp_path: Path, copied_wrapper: _Wrapper, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    module = sys.modules["csv_runner_wrapper"]
     observed: list[list[int]] = []
 
     def failed(
@@ -189,7 +189,7 @@ def test_definitive_launch_failure_is_logged_and_requeued(
             records.append(result)
         return BatchOutcome(plan.runs, tuple(records))
 
-    monkeypatch.setattr(module, "launch_plan", failed)
+    monkeypatch.setattr(simulation_workflow, "launch_plan", failed)
     assert copied_wrapper.main(_args(tmp_path)) == 1
     assert copied_wrapper.main(_args(tmp_path)) == 1
     assert observed == [[1, 2], [1, 2]]
@@ -201,7 +201,7 @@ def test_run_all_missing_python_solver_keeps_existing_history(
     tmp_path: Path, copied_wrapper: _Wrapper, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     module = sys.modules["csv_runner_wrapper"]
-    monkeypatch.setattr(module, "launch_plan", _fake_successful_launch([]))
+    monkeypatch.setattr(simulation_workflow, "launch_plan", _fake_successful_launch([]))
     assert copied_wrapper.main(_args(tmp_path)) == 0
     path = Path(copied_wrapper.__file__).with_name("my_batch_runs.csv")
     before = path.read_bytes()
@@ -210,6 +210,6 @@ def test_run_all_missing_python_solver_keeps_existing_history(
     def forbidden(*_args: object, **_kwargs: object) -> None:
         pytest.fail("Missing solver must block an All reset and launch")
 
-    monkeypatch.setattr(module, "launch_plan", forbidden)
+    monkeypatch.setattr(simulation_workflow, "launch_plan", forbidden)
     assert copied_wrapper.main(_args(tmp_path, "--run-mode", "all")) == 1
     assert path.read_bytes() == before

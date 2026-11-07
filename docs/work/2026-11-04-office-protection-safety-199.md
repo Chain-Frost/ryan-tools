@@ -2,12 +2,12 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Needs review — serial rendering parent refreshed; fresh hosted checks and review pending |
+| Status | Needs review — runner workflow parent refreshed |
 | Owner | ChatGPT |
 | Created | 2026-11-04 |
 | Updated | 2026-11-07 |
 | Next review | 2026-11-14 |
-| Baseline | Reviewed child 811b936bb8481f8c9ad0745732c42c7d78f49007; final parent f003a762b354c6f06126aed6bbae330b79f66fa4, package 26.11.7.1 |
+| Baseline | Reviewed child aa7f1f03d36a524b77f2e312c94bc3bfd8c27c64; parent 348b2e385cf4f706237a0b4b5ff6a48dc20bfc71, package 26.11.7.2 |
 | Branch / base | fix/office-protection-safety-199 -> feat/batch-dashboard-foundation-180 |
 | Issue | [#199](https://github.com/Chain-Frost/ryan-tools/issues/199), AB-027 |
 
@@ -21,25 +21,50 @@ The [local guide](../../ryan-scripts/misc-python/README.md) owns the user contra
 
 ## Current state
 
-The refreshed Office tree adopts published #183 parent `f003a762`, including
-current-main integration `0b5a07cb`, the #202 export-safety squash and closure
-repair `8878d42b`, plus serial TUFLOW rendering correction `26d6e223`, with
-package version 26.11.7.1. This final parent merge is conflict-free. All current
-parent handoffs, links and register rows remain alongside the independent
-Office links and updated Office row. The Office script and its tests are
-unchanged from published child `2c06d8d4` and reviewed child `811b936b`.
+The refreshed Office tree adopts published #183 parent `348b2e38`, including
+the requested TUFLOW runner session extraction. The copied wrapper is now
+408 lines; package 26.11.7.2 owns export/preflight dispatch, CSV continuation
+and advisory lifetime. Existing scheduling, progress, rendering, logging,
+current-main integration, export safety and serial corrections are retained.
+The merge is conflict-free. All current parent handoffs, links and register
+rows remain alongside the independent Office links and updated Office row.
+The Office implementation and tests are unchanged from reviewed child
+`aa7f1f03` and the original Office source delivery.
 
-The normal merge retains reviewed child `811b936b` and final parent `f003a762`
-as its parents. Fresh hosted checks and review are pending on the refreshed
-child head. Earlier checks and review apply to the exact earlier head recorded
-below. Existing published history is preserved. No main merge or release is
-part of this continuation.
+The normal merge retains reviewed child `aa7f1f03` and parent `348b2e38` as
+its parents. Current-head acceptance is recorded in the
+[PR #201 checks and review](https://github.com/Chain-Frost/ryan-tools/pull/201).
+Earlier checks below apply to their named commits. Existing published history
+is preserved; no main merge or release is part of this continuation.
 
 ## Next action
 
 Inspect the refreshed PR #201's new hosted checks and safety review. Native
 Office fidelity and live UNC acceptance remain separate;
 no new Windows, native Office or network-share acceptance is claimed here.
+
+## Runner workflow parent refresh — 2026-11-07
+
+The parent extraction preserves the accepted dashboard mechanisms and all
+editable runner controls while moving session coordination into
+`simulation_workflow.py`. Its focused checks passed 315 tests with 11 existing
+platform skips; independent review, strict typing and copied installed-wrapper
+acceptance passed. The current parent wheel is 26.11.7.2, SHA-256
+`2f7d25fd012bd9a56c440adf0153459885806058e2890e046718b0ce56f887da`.
+See the [foundation record](2026-11-01-batch-dashboard-foundation-180.md) for
+the extraction's implementation and validation evidence.
+
+The Office refresh changes no Office implementation or tests and retains the
+same nine-file child scope. On Python 3.14.9, both inventory index/ledger tests
+passed (20 unrelated deselections); all seven default README/index checks and
+three explicit work-record link checks passed. Git confirms the Office script
+and both test files are unchanged, and whitespace checks pass. Full Office
+tests are not repeated locally for this unrelated parent extraction. Hosted
+checks and fresh Codex review cover the published child head. The preceding
+child `aa7f1f03` passed all six hosted checks
+(2,392 tests, 14 skipped, eight deselected), with a
+[clean review](https://github.com/Chain-Frost/ryan-tools/pull/201#issuecomment-6703966822).
+That evidence remains historical to the preceding child.
 
 ## Serial rendering parent refresh — 2026-11-07
 
