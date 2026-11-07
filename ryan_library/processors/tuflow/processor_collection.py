@@ -4,14 +4,18 @@ from __future__ import annotations
 
 __lazy_modules__: list[str] = ["pandas"]
 import copy
+import hashlib
 import json
+import os
 import re
+import tempfile
+from datetime import datetime, timezone
 from collections.abc import Collection
 from pathlib import Path
 from typing import Any
 
 from loguru import logger
-from pandas import NA, DataFrame, HDFStore, Series, concat, to_numeric
+from pandas import NA, DataFrame, Series, concat, to_numeric
 
 from ryan_library.functions.dataframe_helpers import (
     reorder_columns,
@@ -775,120 +779,297 @@ class ProcessorCollection:
         )
         return filtered_collection
 
-    def to_hdf(self, file_path: Path | str) -> None:
-        """Save the collection to a single HDF5 file using pandas.HDFStore.
-
-        Args:
-            file_path: Destination HDF5 file path.
-        """
-        file_path = Path(file_path)
-        # Ensure parent exists
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-
-        metadata: list[dict[str, Any]] = []
-
-        # User requested blosc:zstd level 9
-        # complib type hint in pandas can be strict, but 'blosc:zstd' is valid at runtime.
-        with HDFStore(
-            str(file_path),
-            mode="w",
-            complevel=9,
-            complib="blosc:zstd",  # pyright: ignore[reportArgumentType]
-        ) as store:
-            for idx, proc in enumerate(self.processors):
-                # We need a unique key for each processor df
-                key = f"proc_{idx:04d}"
-
-                proc_meta = {
-                    "file_path": str(proc.file_path),
-                    "class_name": proc.__class__.__name__,
-                    "processor_module": proc.processor_module,
-                    "dataformat": proc.dataformat,
-                    "hdf_key": key,
-                    "data_type": proc.data_type,
-                    "applied_location_filter": (
-                        list(proc.applied_location_filter) if proc.applied_location_filter else None
-                    ),
-                    "applied_entity_filter": (list(proc.applied_entity_filter) if proc.applied_entity_filter else None),
-                }
-                metadata.append(proc_meta)
-
-                if not proc.df.empty:
-                    # Using fixed format for speed as "cache".
-                    # If querying is needed, 'table' is better but slower/larger.
-                    store.put(key, proc.df, format="fixed")
-
-            meta_df = DataFrame({"json": [json.dumps(metadata)]})
-            store.put("metadata", meta_df)
-
-        logger.info(f"Saved {len(self.processors)} processors to {file_path}")
+    @staticmethod
+    def _hdf_registry_digest() -> str:
+        """Fingerprint the processor schema used to interpret cached frames."""
+        registry = Path(__file__).parents[2] / "classes" / "tuflow_results_validation_and_datatypes.json"
+        return hashlib.sha256(registry.read_bytes()).hexdigest()
 
     @staticmethod
-    def from_hdf(file_path: Path | str, locations: Collection[str] | None = None) -> ProcessorCollection:
-        """Load a collection from a single HDF5 file.
+    def _hdf_source_signature(path: Path) -> dict[str, Any]:
+        """Record lightweight source identity; this is not a content hash."""
+        absolute = path.absolute()
+        stat = absolute.stat()
+        if not absolute.is_file():
+            msg = f"Processor source is not a file: {absolute}"
+            raise ValueError(msg)
+        signature: dict[str, Any] = {
+            "path": str(absolute),
+            "size": stat.st_size,
+            "mtime_ns": stat.st_mtime_ns,
+        }
+        # A GeoPackage's latest committed results may still be in its WAL.
+        if absolute.suffix.lower() == ".gpkg":
+            wal = absolute.with_name(absolute.name + "-wal")
+            if wal.exists():
+                wal_stat = wal.stat()
+                signature["wal"] = {"size": wal_stat.st_size, "mtime_ns": wal_stat.st_mtime_ns}
+            else:
+                signature["wal"] = None
+        return signature
 
-        Args:
-            file_path: Source HDF5 file.
-            locations: Optional location filter.
+    @staticmethod
+    def _hdf_frame_bytes(frame: DataFrame) -> bytes:
+        """Encode a pandas frame and its extension dtypes using Arrow IPC, not pickle."""
+        import pyarrow as pa
 
-        Returns:
-            ProcessorCollection: Rehydrated collection.
+        sink = pa.BufferOutputStream()
+        table = pa.Table.from_pandas(frame, preserve_index=True)
+        with pa.ipc.new_file(sink, table.schema) as writer:
+            writer.write_table(table)
+        return sink.getvalue().to_pybytes()
+
+    @staticmethod
+    def _hdf_frame_from_bytes(payload: bytes) -> DataFrame:
+        """Restore pandas/index metadata, including categories and nullable types."""
+        import pyarrow as pa
+
+        frame = pa.ipc.open_file(pa.BufferReader(payload)).read_all().to_pandas()
+        if not isinstance(frame, DataFrame):
+            msg = "Cached Arrow payload did not contain a DataFrame"
+            raise TypeError(msg)
+        return frame
+
+    @staticmethod
+    def _hdf_put_bytes(store: Any, name: str, payload: bytes, filters: Any) -> None:
+        """Write one named binary payload as a compressed HDF5 byte array."""
+        import numpy as np
+        import tables  # pyright: ignore[reportMissingTypeStubs]
+
+        data = np.frombuffer(payload, dtype=np.uint8)
+        node = store.create_carray(store.root, name, atom=tables.UInt8Atom(), shape=(len(data),), filters=filters)
+        node[:] = data
+
+    @staticmethod
+    def _hdf_get_bytes(store: Any, name: str) -> bytes:
+        """Reject a missing cache member rather than returning partial results."""
+        try:
+            node = store.get_node(f"/{name}")
+        except KeyError as exc:
+            msg = f"HDF5 cache missing required member {name!r}"
+            raise ValueError(msg) from exc
+        return bytes(node.read())
+
+    @staticmethod
+    def _hdf_require_storage() -> None:
+        """Report the optional PyTables dependency before mutating any cache paths."""
+        try:
+            import pyarrow  # noqa: F401
+            import tables  # pyright: ignore[reportMissingTypeStubs]  # noqa: F401
+        except ImportError as exc:
+            msg = "HDF5 processor caches require pyarrow and optional PyTables: pip install 'ryan-tools[cache]'"
+            raise RuntimeError(msg) from exc
+
+    def to_hdf(self, file_path: Path | str, *, overwrite: bool = False) -> None:
+        """Stage and atomically publish a versioned Arrow-in-HDF5 processor snapshot.
+
+        The default refuses an existing cache. Set overwrite=True to deliberately
+        replace it atomically. Source file metadata is captured for later freshness
+        checks; the processed rows themselves are a snapshot, not live result data.
         """
-        file_path = Path(file_path)
-        if not file_path.exists():
-            msg = f"HDF5 file not found: {file_path}"
+        import tables  # pyright: ignore[reportMissingTypeStubs]
+
+        self._hdf_require_storage()
+        destination = Path(file_path).absolute()
+        if destination.is_symlink():
+            msg = f"Refusing to publish through an HDF5 cache symlink: {destination}"
+            raise FileExistsError(msg)
+        if destination.exists() and not overwrite:
+            msg = f"HDF5 cache already exists (set overwrite=True to replace): {destination}"
+            raise FileExistsError(msg)
+        if destination.exists() and not destination.is_file():
+            msg = f"HDF5 cache destination is not a regular file: {destination}"
+            raise ValueError(msg)
+
+        for processor in self.processors:
+            if destination.exists() and processor.file_path.exists() and destination.samefile(processor.file_path):
+                msg = f"HDF5 cache destination aliases a processor source: {destination}"
+                raise ValueError(msg)
+
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        fd, temporary = tempfile.mkstemp(prefix=f".{destination.name}.", suffix=".part", dir=destination.parent)
+        os.close(fd)
+
+        try:
+            manifest: dict[str, Any] = {
+                "cache_version": 1,
+                "frame_codec": "arrow-ipc-file",
+                "registry_sha256": self._hdf_registry_digest(),
+                "created_at_utc": datetime.now(timezone.utc).isoformat(),
+                "processors": [],
+                "has_basic_info_lookup": self.basic_info_lookup is not None,
+            }
+            filters = tables.Filters(complevel=9, complib="blosc:zstd")
+            with tables.open_file(temporary, mode="w") as store:
+                for idx, processor in enumerate(self.processors):
+                    if not processor.processed or processor.df.empty:
+                        msg = f"Only non-empty successfully processed members may be cached: {processor.file_path}"
+                        raise ValueError(msg)
+
+                    name = f"proc_{idx:06d}"
+                    payload = self._hdf_frame_bytes(processor.df)
+                    self._hdf_put_bytes(store, name, payload, filters)
+                    manifest["processors"].append(
+                        {
+                            "hdf_key": name,
+                            "sha256": hashlib.sha256(payload).hexdigest(),
+                            "file_path": str(processor.file_path),
+                            "source": self._hdf_source_signature(processor.file_path),
+                            "class_name": processor.__class__.__name__,
+                            "class_module": processor.__class__.__module__,
+                            "processor_module": processor.processor_module,
+                            "dataformat": processor.dataformat,
+                            "data_type": processor.data_type,
+                            "raw_run_code": processor.name_parser.raw_run_code,
+                            "include_path_columns": processor.include_path_columns,
+                            "entity_filter": sorted(processor.entity_filter) if processor.entity_filter else [],
+                            "applied_location_filter": (
+                                sorted(processor.applied_location_filter) if processor.applied_location_filter else []
+                            ),
+                            "applied_entity_filter": (
+                                sorted(processor.applied_entity_filter) if processor.applied_entity_filter else []
+                            ),
+                        }
+                    )
+
+                if self.basic_info_lookup is not None:
+                    lookup_payload = self._hdf_frame_bytes(self.basic_info_lookup)
+                    self._hdf_put_bytes(store, "basic_info_lookup", lookup_payload, filters)
+                    manifest["basic_info_sha256"] = hashlib.sha256(lookup_payload).hexdigest()
+
+                manifest_payload = json.dumps(manifest, ensure_ascii=False, sort_keys=True).encode("utf-8")
+                self._hdf_put_bytes(store, "manifest", manifest_payload, filters)
+
+            # Re-open the complete staging file before replacing any prior cache.
+            with tables.open_file(temporary, mode="r") as store:
+                if self._hdf_get_bytes(store, "manifest") != manifest_payload:
+                    msg = "HDF5 cache staging verification failed"
+                    raise ValueError(msg)
+
+            if overwrite:
+                os.replace(temporary, destination)
+            elif os.name == "nt":
+                # On Windows rename is an atomic no-clobber operation.
+                os.rename(temporary, destination)
+            else:
+                # On POSIX rename replaces its target; hard-link is atomic no-clobber.
+                os.link(temporary, destination)
+                os.unlink(temporary)
+        finally:
+            Path(temporary).unlink(missing_ok=True)
+
+        logger.info("Saved {} processor snapshots to {}", len(self.processors), destination)
+
+    @staticmethod
+    def from_hdf(
+        file_path: Path | str,
+        locations: Collection[str] | None = None,
+        *,
+        verify_sources: bool = True,
+    ) -> ProcessorCollection:
+        """Restore the complete cache or fail, checking source freshness by default.
+
+        verify_sources=False explicitly treats the file as a historical snapshot
+        even if the original sources have moved or changed.
+        """
+        import tables  # pyright: ignore[reportMissingTypeStubs]
+
+        ProcessorCollection._hdf_require_storage()
+        path = Path(file_path)
+        if not path.is_file():
+            msg = f"HDF5 cache file not found: {path}"
             raise FileNotFoundError(msg)
 
         collection = ProcessorCollection()
+        with tables.open_file(str(path), mode="r") as store:
+            try:
+                manifest: Any = json.loads(ProcessorCollection._hdf_get_bytes(store, "manifest").decode("utf-8"))
+            except (UnicodeError, json.JSONDecodeError) as exc:
+                msg = f"HDF5 cache manifest is corrupt: {path}"
+                raise ValueError(msg) from exc
 
-        with HDFStore(str(file_path), mode="r") as store:
-            if "metadata" not in store:
-                msg = "HDF5 file missing 'metadata' key."
-                raise KeyError(msg)
+            if not isinstance(manifest, dict) or manifest.get("cache_version") != 1:
+                msg = f"Unsupported HDF5 processor cache version: {path}"
+                raise ValueError(msg)
+            if manifest.get("frame_codec") != "arrow-ipc-file":
+                msg = f"Unsupported HDF5 processor cache frame codec: {path}"
+                raise ValueError(msg)
+            if manifest.get("registry_sha256") != ProcessorCollection._hdf_registry_digest():
+                msg = f"HDF5 cache processor registry changed since snapshot: {path}"
+                raise ValueError(msg)
+            entries = manifest.get("processors")
+            if not isinstance(entries, list):
+                msg = f"HDF5 cache processor inventory is malformed: {path}"
+                raise ValueError(msg)
 
-            meta_df = store.get("metadata")
-            metadata: list[dict[str, Any]] = json.loads(meta_df.iloc[0]["json"])  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
+            for idx, entry in enumerate(entries):
+                if not isinstance(entry, dict) or entry.get("hdf_key") != f"proc_{idx:06d}":
+                    msg = f"HDF5 cache member inventory is malformed at index {idx}: {path}"
+                    raise ValueError(msg)
+                if verify_sources:
+                    recorded = entry.get("source")
+                    if not isinstance(recorded, dict) or recorded != ProcessorCollection._hdf_source_signature(
+                        Path(recorded["path"])
+                    ):
+                        msg = f"HDF5 cache source has changed since snapshot: {entry.get('file_path')}"
+                        raise ValueError(msg)
 
-            for item in metadata:
-                file_path_str = item["file_path"]
-                class_name = item["class_name"]
-                hdf_key = item["hdf_key"]
+                key = entry["hdf_key"]
+                payload = ProcessorCollection._hdf_get_bytes(store, key)
+                if hashlib.sha256(payload).hexdigest() != entry.get("sha256"):
+                    msg = f"HDF5 cache member checksum mismatch: {key}"
+                    raise ValueError(msg)
+                frame = ProcessorCollection._hdf_frame_from_bytes(payload)
+                if frame.empty:
+                    msg = f"HDF5 cache member has no processed rows: {key}"
+                    raise ValueError(msg)
 
+                processor_class = BaseProcessor.get_processor_class(
+                    class_name=entry["class_name"],
+                    processor_module=entry.get("processor_module"),
+                    dataformat=entry.get("dataformat"),
+                )
+                if processor_class.__module__ != entry.get("class_module"):
+                    msg = f"HDF5 cache processor class has changed for {entry['class_name']}"
+                    raise ValueError(msg)
+                processor = processor_class(
+                    file_path=Path(entry["file_path"]),
+                    entity_filter=entry.get("entity_filter"),
+                    include_path_columns=entry.get("include_path_columns", True),
+                )
+                if (
+                    processor.data_type != entry.get("data_type")
+                    or processor.dataformat != entry.get("dataformat")
+                    or processor.name_parser.raw_run_code != entry.get("raw_run_code")
+                ):
+                    msg = f"HDF5 processor configuration mismatches cached source {entry['file_path']}"
+                    raise ValueError(msg)
+
+                processor.df = frame
+                processor.applied_location_filter = frozenset(entry.get("applied_location_filter", []))
+                processor.applied_entity_filter = frozenset(entry.get("applied_entity_filter", []))
+                processor.processed = True
+                collection.add_processor(processor)
+
+            if manifest.get("has_basic_info_lookup"):
+                payload = ProcessorCollection._hdf_get_bytes(store, "basic_info_lookup")
+                if hashlib.sha256(payload).hexdigest() != manifest.get("basic_info_sha256"):
+                    msg = "HDF5 cache basic-info lookup checksum mismatch"
+                    raise ValueError(msg)
+                collection.basic_info_lookup = ProcessorCollection._hdf_frame_from_bytes(payload)
+            else:
                 try:
-                    proc_cls = BaseProcessor.get_processor_class(
-                        class_name=class_name,
-                        processor_module=item.get("processor_module"),
-                        dataformat=item.get("dataformat"),
-                    )
-
-                    proc = proc_cls(file_path=Path(file_path_str))
-
-                    if hdf_key in store:
-                        stored_frame = store.get(hdf_key)
-                        if not isinstance(stored_frame, DataFrame):
-                            msg = f"HDF5 key {hdf_key!r} did not contain a DataFrame."
-                            raise TypeError(msg)
-                        proc.df = stored_frame
-                        proc.processed = True
-                    else:
-                        proc.df = DataFrame()
-                        proc.processed = True
-
-                    if item.get("applied_location_filter"):
-                        proc.applied_location_filter = frozenset(item["applied_location_filter"])
-                    if item.get("applied_entity_filter"):
-                        proc.applied_entity_filter = frozenset(item["applied_entity_filter"])
-
-                    collection.add_processor(proc)
-
-                except Exception as e:
-                    logger.error(f"Failed to rehydrate processor for {file_path_str}: {e}")
-                    continue
+                    store.get_node("/basic_info_lookup")
+                except KeyError:
+                    pass
+                else:
+                    msg = "HDF5 cache has an unrecorded basic-info lookup"
+                    raise ValueError(msg)
 
         if locations:
             collection.filter_locations(locations)
 
-        logger.info(f"Loaded {len(collection.processors)} processors from HDF5: {file_path}")
+        logger.info("Restored {} processors from HDF5 snapshot {}", len(collection.processors), path)
         return collection
 
     def check_duplicates(self) -> dict[tuple[str, str], list[BaseProcessor]]:
