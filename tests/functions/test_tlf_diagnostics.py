@@ -96,7 +96,11 @@ def test_real_hpc_observation_values_and_public_opt_in(
     assert observed["HPC_Groundwater_Sealed_Wall_Cells"] == sealed_wall_cells
     assert observed["HPC_nWet_Sampled_Records"] == samples
     assert observed["HPC_nWet_Observed_Max"] == observed_max
-    assert observed["HPC_nWet_Observed_Max"] <= observed["HPC_Active_2D_Cells"]
+    sampled_max = observed["HPC_nWet_Observed_Max"]
+    active_cells_reported = observed["HPC_Active_2D_Cells"]
+    assert isinstance(sampled_max, int)
+    assert isinstance(active_cells_reported, int)
+    assert sampled_max <= active_cells_reported
     assert "HPC_Groundwater_Cells" not in observed
 
     standard = process_log_file(source)
