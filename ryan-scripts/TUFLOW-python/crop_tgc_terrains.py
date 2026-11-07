@@ -725,17 +725,14 @@ def run(
             if not item.omitted:
                 _write_layer(item, grid, bounds)
         qa = _write_coverage_qa(absolute_output, grid, bounds, plan)
-        if qa["lost_original_planning_cells"]:
-            print(
-                "WARNING: original valid terrain coverage was lost by the crop at the planning resolution; "
-                f"review {qa['gpkg']} before using the patched TGC.",
-                file=sys.stderr,
+        if qa["lost_original_planning_cells"] or qa["final_uncovered_planning_cells"]:
+            message = (
+                "Unsafe terrain crop: valid original coverage was lost or required coverage is missing "
+                f"(lost={qa['lost_original_planning_cells']}, "
+                f"uncovered={qa['final_uncovered_planning_cells']}). "
+                f"QA preserved at {qa['gpkg']}; patched TGC was not published."
             )
-        if qa["final_uncovered_planning_cells"]:
-            print(
-                f"WARNING: the required bounding box has uncovered terrain cells; review {qa['gpkg']}.",
-                file=sys.stderr,
-            )
+            raise ValueError(message)
         patched_tgc = _write_patched_tgc(absolute_tgc, scenario, plan)
         payload = _manifest_payload(absolute_tgc, patched_tgc, scenario, bounds, grid, seam_buffer, plan)
         payload["coverage_qa"] = qa
