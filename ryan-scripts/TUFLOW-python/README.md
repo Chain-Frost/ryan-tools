@@ -576,6 +576,20 @@ relative subfolder names; full paths are still used for file operations.
 Green denotes a successful layer rename, yellow a skipped file (already
 correct or multiple layers), and red a failed inspection or rename.
 
+## PO timeseries QA dashboards
+
+[check_po_timeseries_peaks.py](po_and_timeseries/check_po_timeseries_peaks.py) and
+[check_timeseries_stability.py](po_and_timeseries/check_timeseries_stability.py)
+support the shared Rich dashboard for interactive CSV batches, with editable
+`USE_LIVE_DASHBOARD`, `LIVE_REFRESH_PER_SECOND` and `LIVE_MAX_ROWS`
+and CLI overrides. `--no-live-dashboard` retains ordinary logging without
+changing file selection, result calculations or export formats.
+An empty selection or no matching data is a successful skip without output.
+Worker or exporter failures are logged, marked FAILED, and give nonzero exit
+without claiming a completed report. Existing output collisions remain protected
+by the shared exporter. Headless use adds `--no-pause`; do not confuse console
+pausing with live-render enablement.
+
 ## Culvert, PO and POMM result dashboards
 
 The six maintained result wrappers under `culvert_results` and `po_and_timeseries` use the

@@ -104,6 +104,7 @@ but they are not current architectural policy when they conflict with the canoni
 | Document | Scope and status |
 | --- | --- |
 | [Missing TLF ensemble inference](work/2026-11-07-missing-tlf-ensembles.md) | Folder inference implementation, local validation and delivery |
+| [PO QA dashboard and workflow outcomes](work/2026-11-08-po-qa-dashboard-198.md) | WP08 #198 peak/stability wrapper adoption, current draft validation and outstanding POMM/closure boundary |
 | [Dashboard defaults and background file properties](work/2026-11-07-dashboard-file-properties.md) | Shared presentation defaults, nonblocking file-size metadata and preserved legacy banner calls |
 | [Offline wrapper revision warnings](work/2026-11-07-wrapper-version-warnings.md) | Shared installed-package comparison, stable script identities and maintained-script rollout |
 | [Batch dashboard foundation](work/2026-11-01-batch-dashboard-foundation-180.md) | #180 stacked PR 1: shared batch display/diagnostics, optional workflow metrics, log-summary reference and concrete consumer handoff |
