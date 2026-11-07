@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import pandas as pd
 from loguru import logger
-from pandas import DataFrame, Index, Series
+from pandas import DataFrame, Series
 
 from ryan_library.classes.column_definitions import ColumnMetadataRegistry
 from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
@@ -593,12 +593,28 @@ def find_aep_dur_median(aggregated_df: DataFrame) -> DataFrame:
                     .transform(func="sum")
                     .astype(dtype="Int64")
                 )
+                median_df["_valid_duration"] = median_df["_count_numeric"].gt(0).astype("Int64")
                 median_df["count_duration"] = (
-                    median_df.groupby(by=count_group_cols, observed=True)["duration_text"]
-                    .transform(func="count")
+                    median_df.groupby(by=count_group_cols, observed=True)["_valid_duration"]
+                    .transform(func="sum")
                     .astype(dtype="Int64")
                 )
-                median_df = median_df.drop(columns=["_count_numeric"])
+                median_df["count_duration_unusable"] = (
+                    median_df.groupby(by=count_group_cols, observed=True)["_valid_duration"].transform("size")
+                    - median_df["count_duration"]
+                ).astype("Int64")
+                if "count_unusable_TP" in median_df.columns:
+                    median_df["_unusable_numeric"] = pd.to_numeric(
+                        arg=median_df["count_unusable_TP"], errors="coerce"
+                    ).fillna(value=0)
+                    median_df["count_unusable_TP_aep"] = (
+                        median_df.groupby(by=count_group_cols, observed=True)["_unusable_numeric"]
+                        .transform("sum")
+                        .astype("Int64")
+                    )
+                median_df = median_df.drop(
+                    columns=["_count_numeric", "_valid_duration", "_unusable_numeric"], errors="ignore"
+                )
 
             id_columns: list[str] = [
                 "aep_text",
@@ -620,8 +636,12 @@ def find_aep_dur_median(aggregated_df: DataFrame) -> DataFrame:
                 "low",
                 "high",
                 "count_TP",
+                "count_unusable_TP",
                 "count_TP_aep",
+                "count_unusable_TP_aep",
                 "count_duration",
+                "count_duration_unusable",
+                "tp_population_status",
                 "mean_storm_is_median_storm",
             ]
 
@@ -699,8 +719,12 @@ def find_aep_median_max(aep_dur_median: DataFrame) -> DataFrame:
                 "low",
                 "high",
                 "count_TP",
+                "count_unusable_TP",
                 "count_TP_aep",
+                "count_unusable_TP_aep",
                 "count_duration",
+                "count_duration_unusable",
+                "tp_population_status",
                 "mean_storm_is_median_storm",
             ]
 
@@ -821,8 +845,12 @@ def find_aep_mean_max(
                 "low",
                 "high",
                 "count_TP",
+                "count_unusable_TP",
                 "count_TP_aep",
+                "count_unusable_TP_aep",
                 "count_duration",
+                "count_duration_unusable",
+                "tp_population_status",
                 "mean_storm_is_median_storm",
             ]
 
