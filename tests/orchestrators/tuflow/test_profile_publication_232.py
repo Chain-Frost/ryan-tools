@@ -3,6 +3,7 @@
 # Rasterio and GeoPandas expose incomplete third-party typing.
 # pyright: reportUnknownArgumentType=false, reportUnknownMemberType=false, reportUnknownVariableType=false, reportPrivateUsage=false
 
+import os
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from threading import Barrier
@@ -95,8 +96,9 @@ def test_competing_publishers_only_one_wins(tmp_path: Path) -> None:
 
     assert sorted(results) == ["EXISTS", "PUBLISHED"]
     assert destination.read_bytes() in (b"first", b"second")
-    # Staging belongs to its caller; a losing invocation cannot remove the winner.
-    assert all(stage.exists() for stage in stages)
+    # Windows rename consumes the winning stage; POSIX hard-link creation does not.
+    # The failed caller's staged file remains under its own ownership.
+    assert sum(stage.exists() for stage in stages) == (1 if os.name == "nt" else 2)
 
 
 def test_destination_created_after_preflight_is_preserved(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
