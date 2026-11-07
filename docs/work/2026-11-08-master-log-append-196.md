@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Draft implementation; current-head hosted/strict checks under review |
+| Status | Code head validated in six GitHub CI jobs; draft review and native acceptance outstanding |
 | Owner | WP08 integration |
 | Created / updated | 2026-11-08 |
 | Next review | 2026-11-15 |
@@ -43,19 +43,37 @@ processor outcome contract (WP04), discovery traversal (WP07) or closure statist
 
 ## Validation and open gates
 
-The initial draft implementation was pushed as `a817ec3ff6e2`; Ruff found five deterministic
-issues and a follow-up lint repair was pushed as `aa05cded4f50`.
-Focused disposable tests cover normal/empty/partial/failed/missing per-log outcomes,
-saving and replacement failures, unexpected source modification, and macro refusal.
+The implementation has been committed and pushed to draft PR #255 with its
+focused disposable workbook regressions (completed/empty/partial/failed/missing
+per-log outcomes, staged save and replace failures, concurrent source edits,
+and `.xlsm` refusal). Ruff and strict Pyright issues from early iterations
+were corrected before full CI success.
 
-Hosted Python 3.14 checks on the **current head** must pass before reporting completion.
-A normal Python 3.14 source checkout, strict changed-file Pyright, installed wheel and
-copied-wrapper smoke are still to be confirmed; this session's container has Python 3.13
-and cannot resolve github.com for a Git clone. The GitHub connector can publish commits,
-but that does not substitute for a locally checked-out full repository worktree.
-No production workbook, licensed solver, native Excel lock or UNC share was exercised.
+**Validated code head:** `d72775a7ea1f74b4ffba14019f446614024c5984`.
+[Fast PR checks](https://github.com/Chain-Frost/ryan-tools/actions/runs/42391707881)
+and [Python CI](https://github.com/Chain-Frost/ryan-tools/actions/runs/42391707880)
+completed with all six jobs passing: Ruff and whitespace, POSIX wrapper security,
+MCP smoke, Python 3.14 hosted tests (**2,534 passed, 14 skipped, eight deselected**),
+Policy (strict changed-file Pyright **zero errors**, documentation check) and
+Package (built wheel, installed-wheel smoke, copied log-summary dashboard
+on/off/writer-failure and six existing result-wrapper smoke checks).
 
-**Next action:** resolve CI findings on PR #255; run/record exact-head validation including
-copied installed wrapper success, failure and no-new-data parity; maintain draft status.
-Then work on remaining dashboard adoption #198 in a separate reviewable PR, coordinating
-with the POMM/closure/processor pack owners. Do not merge or release.
+**Native acceptance outstanding:** current real Excel lock/replace behaviour,
+mapped or UNC/SMB concurrent writers, original Excel feature fidelity,
+symlink/hardlink policy, and copying the revised master-append wrapper into
+a user's installation. Mocked write failures are not equivalent to an actual
+locked Office workbook. No production workbook, licensed solver, or share
+was used, and no such acceptance is claimed. This environment had no usable
+GitHub DNS and no Python 3.14 interpreter, so the full repo could not be
+checked out into a local Git worktree; GitHub connector commits provided
+the isolated remote branch and hosted CI exercised the code. This missing
+local worktree is a handoff constraint, not a validated step.
+
+A documentation-only status refresh after `d72775a` will have a different
+head SHA. Validate that updated head's checks before review completion.
+
+**Next action:** review draft #255; seek native Excel/SMB/UNC acceptance and
+copied master-wrapper verification on an installed Python 3.14 wheel, without
+modifying production workbooks. Bounded QA adoption is in separate draft
+[#265](https://github.com/Chain-Frost/ryan-tools/pull/265) (#198).
+POMM/closure adoption remains coordinated with WP03/WP09. Do not merge or release.
