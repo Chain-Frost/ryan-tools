@@ -47,7 +47,7 @@ class Section:
 
     name: str
     columns: list[str]
-    rows: list[Record] = field(default_factory=list)
+    rows: list[Record] = field(default_factory=list[Record])
     valid: bool = True
     completeness: str = "unverified"
 
@@ -61,9 +61,9 @@ class RorbDocument:
     encoding: str
     sha256: str
     lines: tuple[str, ...]
-    metadata: Record = field(default_factory=dict)
-    sections: list[Section] = field(default_factory=list)
-    diagnostics: list[Diagnostic] = field(default_factory=list)
+    metadata: Record = field(default_factory=dict[str, Value])
+    sections: list[Section] = field(default_factory=list[Section])
+    diagnostics: list[Diagnostic] = field(default_factory=list[Diagnostic])
     fully_interpreted: bool = False
 
     @property

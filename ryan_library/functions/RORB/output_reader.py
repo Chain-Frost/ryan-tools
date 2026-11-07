@@ -1,6 +1,8 @@
 """Section-aware reading of observed standard RORB output, without rewriting time or rainfall."""
 
 import re
+from decimal import Decimal
+from math import isclose
 
 from .reader_types import Record, RorbDocument, Section, integer, number, validate_series
 from .result_readers import read_sites, report_metadata
@@ -36,6 +38,34 @@ def _numeric_table(doc: RorbDocument, start: int, columns: list[str], name: str)
             doc.issue("output_record", f"{name}: {exc}", i + 1, error=True)
     return table
 
+def _printed_time_resolution(token: str, step: float) -> float:
+    """Bound source time precision by the reported timestep, including D exponents."""
+    value = Decimal(token.replace("D", "E").replace("d", "e"))
+    precision = Decimal(1).scaleb(int(value.as_tuple().exponent))
+    return float(min(precision, Decimal(str(step))))
+
+
+def _validate_reported_time_increment(doc: RorbDocument, table: Section, step: float) -> None:
+    """Validate time differences against the declared increment without changing source times."""
+    for previous, current in zip(table.rows, table.rows[1:], strict=False):
+        previous_line = int(str(previous["line"]))
+        current_line = int(str(current["line"]))
+        previous_time = doc.lines[previous_line - 1].split()[1]
+        current_time = doc.lines[current_line - 1].split()[1]
+        printed_tolerance = (
+            _printed_time_resolution(previous_time, step) + _printed_time_resolution(current_time, step)
+        ) / 2
+        tolerance = min(step / 2, printed_tolerance)
+        observed = float(str(current["Time"])) - float(str(previous["Time"]))
+        if not isclose(observed, step, rel_tol=1e-9, abs_tol=tolerance):
+            doc.issue(
+                "time_increment_mismatch",
+                f"{table.name}: observed {observed:g} h between rows, expected {step:g} h.",
+                current_line,
+                error=True,
+            )
+            table.valid = False
+
 
 def read_output(doc: RorbDocument) -> None:  # noqa: C901 - preserve ordered format state and diagnostic scope
     """Read named hydrographs and supported rainfall tables; retain all other source lines."""
@@ -46,6 +76,7 @@ def read_output(doc: RorbDocument) -> None:  # noqa: C901 - preserve ordered for
     timestep: float | None = None
     expected_last: int | None = None
     hydrograph_count = 0
+    hydrograph_summaries: list[Section] = []
     rainfall_count = 0
     for i, line in enumerate(doc.lines):
         if re.search(r"\b(?:warning|error)\b", line, re.IGNORECASE):
@@ -78,6 +109,7 @@ def read_output(doc: RorbDocument) -> None:  # noqa: C901 - preserve ordered for
                 doc.issue("output_header", "Unsupported hydrograph summary header.", i + 1, error=True)
                 continue
             table = _numeric_table(doc, i + 1, tokens, f"hydrographs_{hydrograph_count}")
+            hydrograph_summaries.append(table)
             validate_series(doc, table, "Time")
             normalized = {f"Hyd{int(t[3:]):04d}" for t in tokens[2:]}
             if normalized != {r["id"] for r in sites.rows}:
@@ -118,6 +150,9 @@ def read_output(doc: RorbDocument) -> None:  # noqa: C901 - preserve ordered for
                     doc.metadata[f"rainfall_{rainfall_count}_meaning"] = line.strip()
                     continue
             doc.issue("unsupported_rainfall", "Rainfall header layout unsupported; raw block preserved.", i + 1)
+    if timestep is not None:
+        for table in hydrograph_summaries:
+            _validate_reported_time_increment(doc, table, timestep)
     if hydrograph_count == 0:
         doc.issue(
             "no_hydrograph_summary", "No supported numeric hydrograph summary; output detail or run mode may differ."

@@ -177,6 +177,50 @@ def test_output_rejects_truncated_and_malformed_summaries(tmp_path: Path, rows: 
     assert not doc.section("hydrographs_1").valid
 
 
+@pytest.mark.parametrize(
+    "rows",
+    [
+        "0 0 0\\n1 100 12\\n2 101 0\\n",
+        "0 0.000 0\\n1 0.320 12\\n2 0.667 0\\n",
+    ],
+)
+def test_output_rejects_time_spacing_inconsistent_with_report(tmp_path: Path, rows: str) -> None:
+    text = output_text(rows)
+    if "0.320" in rows:
+        text = text.replace("Time increment (hours)= 1", "Time increment (hours)= 0.333333")
+    document = read_rorb_file(write(tmp_path, text, "run.out"))
+    section = document.section("hydrographs_1")
+
+    assert document.status == "invalid"
+    assert not section.valid
+    assert section.completeness == "reported_increment_count"
+    assert any(
+        diagnostic.code == "time_increment_mismatch" and diagnostic.line == section.rows[1]["line"]
+        for diagnostic in document.diagnostics
+    )
+
+
+def test_output_accepts_rounding_to_reported_time_precision(tmp_path: Path) -> None:
+    rows = "0 0.000 0\\n1 0.333 12\\n2 0.667 0\\n"
+    text = output_text(rows).replace("Time increment (hours)= 1", "Time increment (hours)= 0.333333")
+    document = read_rorb_file(write(tmp_path, text, "run.out"))
+    section = document.section("hydrographs_1")
+
+    assert document.status == "partial"
+    assert section.valid
+    assert section.completeness == "reported_increment_count"
+    assert [row["Time"] for row in section.rows] == [0.0, 0.333, 0.667]
+    assert not any(diagnostic.code == "time_increment_mismatch" for diagnostic in document.diagnostics)
+
+
+def test_output_validates_increment_reported_after_summary(tmp_path: Path) -> None:
+    text = output_text("0 0 0\\n1 100 12\\n2 101 0\\n")
+    text = text.replace("Time increment (hours)= 1\\n", "") + "Time increment (hours)= 1\\n"
+    document = read_rorb_file(write(tmp_path, text, "run.out"))
+    assert document.status == "invalid"
+    assert any(diagnostic.code == "time_increment_mismatch" for diagnostic in document.diagnostics)
+
+
 def test_output_csv_time_discrepancy_is_not_repaired(tmp_path: Path) -> None:
     out_path = write(tmp_path, output_text(), "run.out")
     csv_path = write(tmp_path, csv_text("run"), "run.csv")
