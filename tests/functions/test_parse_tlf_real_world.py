@@ -132,8 +132,25 @@ def test_parse_tlf_real_world(regression_snapshot):
         assert not missing_keys, f"Missing keys in {filename}: {missing_keys}"
 
         # Check for extra keys (optional, but good for regression)
+        # #231 intentionally adds explicit, independently tested diagnostic counts.
+        # Retain strict snapshot parity for every pre-existing field.
+        diagnostic_fields = {
+            "TLF_1D_Negative_Depths",
+            "TLF_HPC_HCN_Repeated_Timesteps",
+            "TLF_HPC_NaN_Repeated_Timesteps",
+            "TLF_HPC_NaN_Warnings_2550",
+            "TLF_Warnings_Prior",
+            "TLF_Warnings_During",
+            "TLF_Checks_Prior",
+            "TLF_Checks_During",
+            "TLF_Quadtree_ZC_Cells",
+            "TLF_Quadtree_ZU_Faces",
+            "TLF_Quadtree_ZV_Faces",
+            "TLF_Quadtree_ZH_Corners",
+        }
         extra_keys = set(actual_data.keys()) - set(expected_data.keys())
-        assert not extra_keys, f"Extra keys in {filename}: {extra_keys}"
+        unexpected = extra_keys - diagnostic_fields
+        assert not unexpected, f"Unexpected extra keys in {filename}: {unexpected}"
 
         # Check values
         for key, expected_val in expected_data.items():
