@@ -333,9 +333,7 @@ def find_aep_dur_max(aggregated_df: DataFrame) -> DataFrame:
         selected = selected.merge(right=valid_counts, on=groups, how="left")
         selected = selected.merge(right=observed_counts, on=groups, how="left")
         selected["count_unusable_TP"] = selected["_observed_TP"] - selected["count_TP"]
-        selected["tp_population_status"] = selected["count_unusable_TP"].map(
-            lambda count: "PARTIAL" if count else "OK"
-        )
+        selected["tp_population_status"] = selected["count_unusable_TP"].map(lambda count: "PARTIAL" if count else "OK")
         for field in ("count_TP", "count_unusable_TP"):
             target = "count_TP_aep" if field == "count_TP" else "count_unusable_TP_aep"
             selected[target] = selected.groupby(by=aep_groups, observed=True)[field].transform("sum").astype("Int64")
@@ -349,9 +347,9 @@ def find_aep_dur_max(aggregated_df: DataFrame) -> DataFrame:
             .reset_index()
         )
         selected = selected.merge(right=duration_counts, on=aep_groups, how="left")
-        selected["count_duration_unusable"] = (
-            selected["_observed_durations"] - selected["count_duration"]
-        ).astype("Int64")
+        selected["count_duration_unusable"] = (selected["_observed_durations"] - selected["count_duration"]).astype(
+            "Int64"
+        )
         observed_aep = (
             observed_counts.groupby(by=aep_groups, observed=True)["_observed_TP"]
             .sum()
@@ -379,9 +377,7 @@ def find_aep_max(aep_dur_max: DataFrame) -> DataFrame:
         df = aep_dur_max.copy().reset_index(drop=True)
         if "count_TP_aep" not in df.columns:
             if "count_TP" in df.columns:
-                df["count_TP_aep"] = (
-                    df.groupby(by=groups, observed=True)["count_TP"].transform("sum").astype("Int64")
-                )
+                df["count_TP_aep"] = df.groupby(by=groups, observed=True)["count_TP"].transform("sum").astype("Int64")
             else:
                 df["count_TP_aep"] = pd.Series(pd.NA, index=df.index, dtype="Int64")
         if "count_duration" not in df.columns:
@@ -723,7 +719,9 @@ def find_aep_median_max(aep_dur_median: DataFrame) -> DataFrame:
             if "mean_PeakFlow" not in mean_df.columns:
                 return DataFrame()
             mean_df["_mean_peakflow_numeric"] = pd.to_numeric(arg=mean_df["mean_PeakFlow"], errors="coerce")
-            mean_df = mean_df[mean_df["_mean_peakflow_numeric"].notna() & mean_df["_mean_peakflow_numeric"].abs().ne(float("inf"))]
+            mean_df = mean_df[
+                mean_df["_mean_peakflow_numeric"].notna() & mean_df["_mean_peakflow_numeric"].abs().ne(float("inf"))
+            ]
             if not mean_df.empty:
                 # When the mean columns are present we track the rows that best represent
                 # the maximum mean independently from the median selection above.
