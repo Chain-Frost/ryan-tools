@@ -131,7 +131,6 @@ def test_association_unprefixed_and_ambiguous(tmp_path: Path) -> None:
     assert result.rows[0]["path"] is None
 
 
-
 @pytest.mark.parametrize(
     ("batch_peak", "csv_peak", "expected_status"),
     [
