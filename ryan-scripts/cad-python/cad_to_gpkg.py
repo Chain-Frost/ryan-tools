@@ -25,7 +25,11 @@ conversion is built and validated in a temporary file before publication.
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Sequence
+# OSGeo's generated Python GDAL/OGR bindings have incomplete static types; retain
+# strict checks on first-party logic without treating dynamic C APIs as Unknown errors.
+# pyright: reportMissingTypeStubs=false, reportUnknownArgumentType=false
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false
+from collections.abc import Generator, Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -119,7 +123,7 @@ class ConversionResult:
 
 
 @contextmanager
-def _gdal_config_option(name: str, value: str) -> Iterator[None]:
+def _gdal_config_option(name: str, value: str) -> Generator[None]:
     previous_value: str | None = gdal.GetConfigOption(name)
     gdal.SetConfigOption(name, value)
     try:
