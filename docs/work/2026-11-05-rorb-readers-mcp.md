@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Implemented: PR open for review; final-head CI underway |
+| Status | Implementation validated; open PR awaiting maintainer merge decision |
 | Owner | ChatGPT / maintainer |
 | Created | 2026-11-05 |
 | Updated | 2026-11-07 |
@@ -20,12 +20,15 @@ The excluded submodule was not inspected. Unrelated untracked `QGIS-TUFLOW-Plugi
 ## Current implementation
 
 2026-11-07 continuation: Standard-output hydrograph increments are validated against the reported step using exact
-source decimals and the printed precision of both the step and the time records. Regression tests cover contradictory,
-rounded and Fortran-exponent time values, including increment metadata following the summary. Both Codex review threads
-are resolved (`0cad1d9`, `d144148`). Current `main` has been merged without losing MCP registration or current package
-metadata; all six hosted checks passed at `680ecff`. Closure processing now raises on nonuniform or insufficient CSV
-time samples rather than silently omitting batch runs (`4074ee0`, `920ae7f`). Review current-head CI before merging;
-no engine runs, merge or release were performed.
+source decimals and the printed precision of both the step and the time records. Tests cover contradictory, rounded and
+Fortran-exponent time values, including increment metadata after a summary. Closure processing raises on nonuniform or
+insufficient CSV time steps instead of silently omitting ensemble members. CSV/batch peak corroboration now derives
+rounding tolerances from both printed source values, including scientific notation. The RORB 6.52 regression expects
+the deliberate fail-fast exception. All four Codex review threads are resolved; the final review of `f3752ca` returned
+no findings. Current `main` (`5ad632c`) was integrated without losing MCP registration or package metadata. All six
+GitHub checks passed at `f3752ca`, including 2,580 hosted tests passed, 14 skipped and 8 deselected. This validation
+covers the code head before this documentation-only handoff; confirm GitHub's latest-head checks before merging.
+No engine runs, merge or release were performed.
 
 The user authorized implementation after the audit and clarified that CMD parameter layouts and executable feature
 support can differ. Implemented source-preserving readers, structured diagnostics, strict DataFrame adapters, batch/CSV
@@ -207,7 +210,7 @@ Use synthetic distributable fixtures; keep proprietary models out of Git.
 
 ## Next action and completion criteria
 
-Review draft PR #233 and its final hosted checks before any merge or release. Preserve explicit partial/unsupported outcomes. Future semantic expansion of
+Review PR #233 and its latest-head checks before any merge or release. Preserve explicit partial/unsupported outcomes. Future semantic expansion of
 saved settings, other CMD variants, multi-block output and storm/catchment readers requires documented fixtures; it is
 not justified by a single pattern match or by successful parsing of the installed CMD example.
 
