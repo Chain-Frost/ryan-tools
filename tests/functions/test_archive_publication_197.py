@@ -13,11 +13,7 @@ from ryan_library.functions import archive_utils
 
 
 def _staged_archive(command: list[str]) -> Path:
-    return next(
-        Path(argument)
-        for argument in command
-        if ".staging-" in argument and argument.endswith(".7z")
-    )
+    return next(Path(argument) for argument in command if ".staging-" in argument and argument.endswith(".7z"))
 
 
 def _assert_no_private_artifacts(archive: Path) -> None:
@@ -34,9 +30,7 @@ def test_dotted_folder_names_remain_distinct(tmp_path: Path) -> None:
     assert archive_utils.archive_path_for_folder(first) != archive_utils.archive_path_for_folder(second)
 
 
-def test_staged_archive_publishes_bytes_without_clobber(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_staged_archive_publishes_bytes_without_clobber(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     archive = tmp_path / "output.7z"
 
     def fake_run(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
@@ -52,9 +46,7 @@ def test_staged_archive_publishes_bytes_without_clobber(
     _assert_no_private_artifacts(archive)
 
 
-def test_existing_case_alias_or_volume_is_preserved(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_existing_case_alias_or_volume_is_preserved(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     archive = tmp_path / "result[1].7z"
     existing = tmp_path / "RESULT[1].7Z.001"
     existing.write_bytes(b"untouched")
@@ -69,9 +61,7 @@ def test_existing_case_alias_or_volume_is_preserved(
     _assert_no_private_artifacts(archive)
 
 
-def test_creator_after_preflight_cannot_be_overwritten(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_creator_after_preflight_cannot_be_overwritten(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     archive = tmp_path / "target.7z"
 
     def fake_run(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
@@ -86,9 +76,7 @@ def test_creator_after_preflight_cannot_be_overwritten(
     _assert_no_private_artifacts(archive)
 
 
-def test_failure_cleans_owned_staging_but_not_source_or_output(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_failure_cleans_owned_staging_but_not_source_or_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     source = tmp_path / "source.bin"
     source.write_bytes(b"source")
     archive = tmp_path / "result.7z"
@@ -113,9 +101,7 @@ def test_failure_cleans_owned_staging_but_not_source_or_output(
     _assert_no_private_artifacts(archive)
 
 
-def test_keyboard_interrupt_cleans_only_owned_staging(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_keyboard_interrupt_cleans_only_owned_staging(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     archive = tmp_path / "interrupted.7z"
     sentinel = tmp_path / "unrelated.7z"
     sentinel.write_bytes(b"safe")
@@ -133,9 +119,7 @@ def test_keyboard_interrupt_cleans_only_owned_staging(
     _assert_no_private_artifacts(archive)
 
 
-def test_concurrent_creators_use_exclusive_claim(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_concurrent_creators_use_exclusive_claim(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     archive = tmp_path / "shared.7z"
     started, release = Event(), Event()
 
@@ -158,9 +142,7 @@ def test_concurrent_creators_use_exclusive_claim(
     _assert_no_private_artifacts(archive)
 
 
-def test_split_volume_failure_rolls_back_only_owned_parts(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_split_volume_failure_rolls_back_only_owned_parts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     archive = tmp_path / "split.7z"
     first = tmp_path / "split.7z.001"
     second = tmp_path / "split.7z.002"
@@ -193,9 +175,7 @@ def test_split_volume_failure_rolls_back_only_owned_parts(
     _assert_no_private_artifacts(archive)
 
 
-def test_split_volume_sequence_must_start_at_one(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_split_volume_sequence_must_start_at_one(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     archive = tmp_path / "split.7z"
 
     def missing_first(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
