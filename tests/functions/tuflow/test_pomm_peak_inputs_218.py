@@ -128,6 +128,7 @@ def test_rll_signed_peak_is_preserved_alongside_its_magnitude(
 ) -> None:
     """Qmax is a signed reported maximum, not a reconstructed POMM min/max."""
     rll = DataFrame({"Chan ID": ["C1"], "Q": [-7.0], "file": ["Model_RLL_Qmx.csv"]})
+
     def combine_fixture(*, paths: list[Path], **_options: object) -> DataFrame:
         assert paths == [tmp_path]
         return rll.copy()
