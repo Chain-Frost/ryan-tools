@@ -835,6 +835,7 @@ class ProcessorCollection:
     def _hdf_put_bytes(store: Any, name: str, payload: bytes, filters: Any) -> None:
         """Write one named binary payload as a compressed HDF5 byte array."""
         import numpy as np
+
         tables: Any = importlib.import_module("tables")
 
         data = np.frombuffer(payload, dtype=np.uint8)
