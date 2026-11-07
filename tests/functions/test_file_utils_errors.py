@@ -1,148 +1,102 @@
-"""Tests for error handling in file_utils.py."""
+"""Focused error-path regressions for recursive file discovery."""
 
+from collections.abc import Iterator
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ryan_library.functions import file_utils
+from ryan_library.functions.file_utils import find_files_parallel
+
+
+def _scan(root: Path) -> list[Path]:
+    return find_files_parallel(
+        root_dirs=[root],
+        patterns="*.txt",
+        report_level=None,
+        print_found_folder=False,
+    )
 
 
 class TestFindFilesParallelErrors:
-    @patch("ryan_library.functions.file_utils.logger")
-    @patch("ryan_library.functions.file_utils.Path.cwd")
-    def test_root_dir_not_found(self, mock_cwd, mock_logger):
-        """Test handling of non-existent root directory."""
-        mock_cwd.return_value = Path("/cwd")
+    def test_root_dir_not_found(self, tmp_path: Path) -> None:
+        with pytest.raises(OSError, match="Root directory does not exist"):
+            _scan(tmp_path / "missing")
 
-        non_existent = Path("non_existent_folder_12345")
-
-        with pytest.raises(OSError, match="File discovery incomplete"):
-            file_utils.find_files_parallel([non_existent], "*.txt")
-
-        # Verify logger.error was called with expected message
-        assert mock_logger.error.called
-        args, _ = mock_logger.error.call_args
-        assert "Root directory does not exist" in args[0]
-
-    @patch("ryan_library.functions.file_utils.logger")
-    @patch("ryan_library.functions.file_utils.Path.iterdir")
-    def test_iterdir_permission_error(self, mock_iterdir, mock_logger, tmp_path):
-        """Test PermissionError during directory iteration."""
+    def test_iterdir_permission_error(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         root = tmp_path / "root"
         root.mkdir()
+        original_iterdir = Path.iterdir
 
-        mock_root = MagicMock(spec=Path)
-        mock_root.expanduser.return_value = mock_root
-        mock_root.absolute.return_value = mock_root
-        mock_root.exists.return_value = True
-        mock_root.iterdir.side_effect = PermissionError("Access denied")
-        mock_root.__hash__.return_value = 1
-        mock_root.__eq__.side_effect = lambda x: x is mock_root
+        def unreadable(path: Path) -> Iterator[Path]:
+            if path == root:
+                message = "synthetic directory access denied"
+                raise PermissionError(message)
+            return original_iterdir(path)
 
-        with pytest.raises(OSError, match="File discovery incomplete"):
-            file_utils.find_files_parallel([mock_root], "*.txt")
+        monkeypatch.setattr(Path, "iterdir", unreadable)
+        with pytest.raises(OSError, match="Permission denied accessing directory"):
+            _scan(root)
 
-        assert mock_logger.error.called
-        # We might have multiple error calls, check if any match
-        found = any(
-            "Permission denied accessing directory" in call.args[0] for call in mock_logger.error.call_args_list
-        )
-        assert found
-
-    @patch("ryan_library.functions.file_utils.logger")
-    def test_worker_unexpected_error(self, mock_logger, tmp_path):
-        """Test unexpected error in worker."""
+    def test_worker_unexpected_error(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         root = tmp_path / "root"
         root.mkdir()
+        original_iterdir = Path.iterdir
 
-        mock_root = MagicMock(spec=Path)
-        mock_root.expanduser.return_value = mock_root
-        mock_root.absolute.return_value = mock_root
-        mock_root.exists.return_value = True
-        mock_root.iterdir.side_effect = Exception("Unexpected boom")
-        mock_root.__hash__.return_value = 1
+        def unexpected(path: Path) -> Iterator[Path]:
+            if path == root:
+                message = "synthetic unexpected directory error"
+                raise RuntimeError(message)
+            return original_iterdir(path)
 
-        with pytest.raises(OSError, match="File discovery incomplete"):
-            file_utils.find_files_parallel([mock_root], "*.txt")
+        monkeypatch.setattr(Path, "iterdir", unexpected)
+        with pytest.raises(OSError, match="Error accessing directory"):
+            _scan(root)
 
-        found = any("Error accessing directory" in call.args[0] for call in mock_logger.error.call_args_list)
-        assert found
+    def test_subdirectory_permission_error(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        root = tmp_path / "root"
+        subdir = root / "sub"
+        subdir.mkdir(parents=True)
+        original_absolute = Path.absolute
 
-    @patch("ryan_library.functions.file_utils.logger")
-    def test_subdirectory_permission_error(self, mock_logger, tmp_path):
-        """Test PermissionError when accessing subdirectory."""
+        def forbidden(path: Path) -> Path:
+            if path == subdir:
+                message = "synthetic subdirectory access denied"
+                raise PermissionError(message)
+            return original_absolute(path)
+
+        monkeypatch.setattr(Path, "absolute", forbidden)
+        with pytest.raises(OSError, match="Permission denied accessing subdirectory"):
+            _scan(root)
+
+    def test_file_permission_error(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         root = tmp_path / "root"
         root.mkdir()
+        target = root / "test.txt"
+        target.write_text("data", encoding="utf-8")
+        original_absolute = Path.absolute
 
-        mock_sub = MagicMock(spec=Path)
-        mock_sub.is_dir.return_value = True
-        mock_sub.absolute.side_effect = PermissionError("Sub access denied")
-        mock_sub.name = "sub"
+        def forbidden(path: Path) -> Path:
+            if path == target:
+                message = "synthetic file access denied"
+                raise PermissionError(message)
+            return original_absolute(path)
 
-        mock_root = MagicMock(spec=Path)
-        mock_root.expanduser.return_value = mock_root
-        mock_root.absolute.return_value = mock_root
-        mock_root.exists.return_value = True
-        mock_root.iterdir.return_value = iter([mock_sub])
-        mock_root.__hash__.return_value = 1
+        monkeypatch.setattr(Path, "absolute", forbidden)
+        with pytest.raises(OSError, match="Permission denied accessing file"):
+            _scan(root)
 
-        with pytest.raises(OSError, match="File discovery incomplete"):
-            file_utils.find_files_parallel([mock_root], "*.txt")
-
-        found = any(
-            "Permission denied accessing subdirectory" in call.args[0] for call in mock_logger.error.call_args_list
-        )
-        assert found
-
-    @patch("ryan_library.functions.file_utils.logger")
-    def test_file_permission_error(self, mock_logger, tmp_path):
-        """Test PermissionError when accessing file."""
+    def test_file_not_found_error(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         root = tmp_path / "root"
         root.mkdir()
+        target = root / "test.txt"
+        target.write_text("data", encoding="utf-8")
+        original_exists = Path.exists
 
-        mock_file = MagicMock(spec=Path)
-        mock_file.is_dir.return_value = False
-        mock_file.name = "test.txt"
-        mock_file.absolute.side_effect = PermissionError("File access denied")
+        def disappeared(path: Path, *, follow_symlinks: bool = True) -> bool:
+            if path == target:
+                return False
+            return original_exists(path, follow_symlinks=follow_symlinks)
 
-        mock_root = MagicMock(spec=Path)
-        mock_root.expanduser.return_value = mock_root
-        mock_root.absolute.return_value = mock_root
-        mock_root.exists.return_value = True
-        mock_root.iterdir.return_value = iter([mock_file])
-        mock_root.__hash__.return_value = 1
-
-        with pytest.raises(OSError, match="File discovery incomplete"):
-            file_utils.find_files_parallel([mock_root], "*.txt")
-
-        found = any("Permission denied accessing file" in call.args[0] for call in mock_logger.error.call_args_list)
-        assert found
-
-    @patch("ryan_library.functions.file_utils.logger")
-    def test_file_not_found_error(self, mock_logger, tmp_path):
-        """Test FileNotFoundError when accessing file (e.g. race condition)."""
-        root = tmp_path / "root"
-        root.mkdir()
-
-        mock_file = MagicMock(spec=Path)
-        mock_file.is_dir.return_value = False
-        mock_file.name = "test.txt"
-        mock_file.absolute.return_value = mock_file
-        mock_file.exists.return_value = False
-
-        mock_root = MagicMock(spec=Path)
-        mock_root.expanduser.return_value = mock_root
-        mock_root.absolute.return_value = mock_root
-        mock_root.exists.return_value = True
-        mock_root.iterdir.return_value = iter([mock_file])
-        mock_root.__hash__.return_value = 1
-
-        with pytest.raises(OSError, match="File discovery incomplete"):
-            file_utils.find_files_parallel([mock_root], "*.txt")
-
-        found = any(
-            "File does not exist" in call.args[0] or "might have been moved" in call.args[0]
-            for call in mock_logger.warning.call_args_list
-        )
-        assert found
+        monkeypatch.setattr(Path, "exists", disappeared)
+        with pytest.raises(OSError, match="Matched file disappeared"):
+            _scan(root)
