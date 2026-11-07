@@ -207,3 +207,12 @@ Loguru checks pass. Actionlint 1.7.12 passes with the workflow's pinned checksum
 The separate MCP utility command passes 73 tests. Built/verified wheel 26.11.7.10.
 The complete hosted test command and isolated package smokes are running locally;
 final results and pushed-head CI status will be recorded after completion.
+
+
+The complete local hosted run exposed an inherited Windows fixture defect in
+`tests/functions/test_qgis_project_tools.py`: SQLite was asked to create `aux.qgd`,
+which targets the reserved AUX device. A process stack dump confirmed the full
+run blocked in `_qgd`; isolated reproduction failed to open the database. Renamed
+the synthetic database to `auxiliary.qgd`; all 30 QGIS project-tool tests now pass.
+The original blocked run was terminated and the unchanged hosted selection is
+being rerun, with diagnostic stack dumps enabled for any further long-running test.
