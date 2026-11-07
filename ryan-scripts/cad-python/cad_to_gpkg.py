@@ -133,7 +133,7 @@ def _absolute_from(path: Path, base_directory: Path) -> Path:
     return candidate.absolute()
 
 
-def _validate_options(  # noqa: C901 - Keep related input and output safeguards together.
+def _validate_options(
     *,
     input_paths: Sequence[Path],
     output_directory: Path | None,
@@ -422,7 +422,7 @@ def _copy_attributes(
         output_feature.SetField(output_name, value)
 
 
-def _write_geopackage(  # noqa: C901 - Preserve transaction and geometry-handling logic.
+def _write_geopackage(
     source_dataset: gdal.Dataset,
     temporary_output: Path,
     *,
