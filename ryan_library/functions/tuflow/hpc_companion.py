@@ -15,9 +15,7 @@ from typing import Literal
 
 from loguru import logger
 
-CompanionStatus = Literal[
-    "missing", "observed", "incomplete", "changed_during_read", "multiple_domains", "unreadable"
-]
+CompanionStatus = Literal["missing", "observed", "incomplete", "changed_during_read", "multiple_domains", "unreadable"]
 
 _MAX_LINE_BYTES = 8192
 _STEP_TIME = re.compile(r"\d+:[0-5]\d:[0-5]\d(?:\.\d+)?")
@@ -94,9 +92,7 @@ def _complete_hpc_lines(path: Path, observation: _CompanionObservation) -> Itera
                 yield raw.decode("cp1252", errors="replace")
 
 
-def _observation_status(
-    observation: _CompanionObservation, *, changed: bool
-) -> CompanionStatus:
+def _observation_status(observation: _CompanionObservation, *, changed: bool) -> CompanionStatus:
     if observation.duplicated_count_fields:
         return "multiple_domains"
     if changed:
