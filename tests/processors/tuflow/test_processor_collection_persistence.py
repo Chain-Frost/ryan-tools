@@ -158,9 +158,7 @@ def test_hdf_missing_member_causes_explicit_failure(collection: ProcessorCollect
         ProcessorCollection.from_hdf(cache)
 
 
-def test_hdf_corrupt_manifest_and_stale_registry_are_rejected(
-    collection: ProcessorCollection, tmp_path: Path
-) -> None:
+def test_hdf_corrupt_manifest_and_stale_registry_are_rejected(collection: ProcessorCollection, tmp_path: Path) -> None:
     tables = pytest.importorskip("tables")
     cache = tmp_path / "bad-manifest.h5"
     collection.to_hdf(cache)
