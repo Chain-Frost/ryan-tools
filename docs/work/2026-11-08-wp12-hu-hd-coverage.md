@@ -2,7 +2,7 @@
 
 | Field | Current status |
 | --- | --- |
-| Status | Active — #237 investigation documented; runtime acceptance and #236 integration remain open |
+| Status | Needs review — HU/HD and selected RLP_H/Hmx code delivered with hosted CI passing; full #236/native acceptance open |
 | Owner | WP12; coordinate numerical, validity and export contracts with WP03, WP04, WP08, WP10 and WP11 |
 | Updated | 2026-11-08 |
 | Next review | 2026-11-15 or after #219's no-data contract is accepted |
@@ -53,7 +53,7 @@ The accompanying focused regression targets the real POProcessor/ProcessorCollec
 
 The original [WP12 child head `69e15789`](https://github.com/Chain-Frost/ryan-tools/pull/262) ran Windows Python 3.14.10 hosted CI. Four jobs passed (Ruff/whitespace, Package including wheel/copy checks, MCP smoke, POSIX wrapper security). Policy failed with **one** strict-Pyright finding: PyTuflow's `time_series()` method has partially unknown `*args/**kwargs` typing at the call site. Hosted tests reported **2,530 passed, 1 failed, 14 skipped, 8 deselected**: the sole failing test assumed the raw sentinel `-99999` was retained in TPC's public result, but the **actual TPC time_series() converts the first 44 sentinel samples to NaN**. This does not mean the ryan-tools PO/POMM readers already handle reserved values correctly; they still need #219. The failed checks were real and must not be called green.
 
-The WP12 test now binds only the explicitly exercised public TPC interface through a typed Protocol and checks 44 missing NaNs, 137 valid values, and the known levels/maxima with an explicit float32 tolerance. The source PO/POProcessor regression still checks that the legacy source keeps its 44 `-99999` values, documenting the present mismatch rather than masking it. Recheck exact-head hosted Policy and tests before marking this correction accepted. No upstream dependency change or main merge is authorised.
+The WP12 test now binds only the explicitly exercised public TPC interface through a typed Protocol and checks 44 missing NaNs, 137 valid values, and the known levels/maxima with an explicit float32 tolerance. The source PO/POProcessor regression still checks that the legacy source keeps its 44 `-99999` values, documenting the present mismatch rather than masking it. All six checks passed at the HU/HD refreshed head `db356814`; no upstream dependency change or main merge is authorised.
 
 ## 2026-11-08 second delivery — selected reporting-point results (#236)
 
@@ -70,7 +70,7 @@ The source headers and current automated fixture target are the `EG02_013`/`EG02
 
 **Run/report limitations:** The two families retain original run codes; history and source maxima are exported separately, not as two ensemble realisations. The new Python workflow is API-accessible and generic MCP inspection works via the registry; no new copied CLI wrapper or direct integration into the POMM mean/median reports is claimed. The new readers use explicit time/header/location validation but **do not replace WP04's shared #219 validity contract**, and they must not mask accepted cross-format/zero/missing correctness gates. Existing RLL_Qmx (#218), general lines/regions, SQ/SHmx, generic split H/Q/V, loss coefficients, mass balance and native NetCDF/GPKG remain staged or unsupported unless separately selected.
 
-**Validation:** Source-backed and synthetic regression tests are committed in #269, including factory, pre-read location projection, missing/negative/zero/filter/invalid inputs, collection and protected Excel/Parquet readback. Current-head hosted Ruff/strict Pyright, tests, installed-wheel/packaging and documentation checks are required before recording the slice as implemented/accepted. Native Windows/SMB and real large-file selected-read memory remain unverified; coordinate with #228/#229. The full #236 issue remains open.
+**Validation:** The selected reporting-point code/tests passed **all six GitHub checks** at [`0c917568`](https://github.com/Chain-Frost/ryan-tools/commit/0c91756885f0f00e30dd9e5cdf5126c7263010dd) in Windows Python **3.14.10**: **2,565 passed, 14 skipped, 8 deselected** (Hosted); Policy including strict Pyright; Ruff/whitespace; Package including installed-wheel/copied-wrapper smoke; MCP smoke; POSIX security. New focused assertions exercise the actual EG02 factory, pre-read location projection, signed/zero/NaN/invalid input outcomes, protected Excel/Parquet readback, generic MCP inspection and the public discovery→report workflow. **Native Windows/SMB and measured large-file selected-read memory remain unverified**, and neither the shared #219 validity contract nor all #236 formats are claimed delivered. These successes apply to the cited code head; documentation-only follow-up commits must still pass their current-head checks.
 
 ## #236 selected next: reporting-location point water levels (initial decision)
 
@@ -85,4 +85,4 @@ Acceptance before marking either suffix supported: real factory/dispatch, locati
 - **Executed in hosted Windows Python 3.14 CI on prior head `69e15789`:** Ruff/whitespace, Package (installed/copy smoke), MCP smoke and POSIX wrapper security passed; strict Pyright and one numerical TPC assertion failed as above. The corrected HU/HD head `9e375778` passed all six GitHub checks (including Hosted, strict Pyright, Package, Ruff and MCP). Validate the final commit again, and do not infer passing native Windows/SMB acceptance from ordinary CI.
 - **Not run / native:** Windows/SMB/UNC selected-read memory testing, licensed solver checks and any genuine network-output acceptance.
 
-Next action: verify final-head #269 hosted CI and real report readback, reconcile source-unit/precision and selected-memory evidence with WP11, and agree the #219 no-data contract with WP04 before declaring full consumer acceptance. #237 remains open until actual reader/consumer parity and required validity are accepted; broad #236 remains open. Do not merge, release or change the PyTuflow pin.
+Next action: review the #269 source and hosted code head, reconcile native Windows/SMB and selected-memory/precision evidence with WP11, and agree the #219 no-data contract with WP04 before declaring full HU/HD and reporting-point consumer acceptance. Keep the remaining #236 formats staged and separately allocated. #237 remains open until actual reader/consumer parity and required validity are accepted; broad #236 remains open. Do not merge, release or change the PyTuflow pin.
