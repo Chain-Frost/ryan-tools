@@ -584,6 +584,16 @@ relative subfolder names; full paths are still used for file operations.
 Green denotes a successful layer rename, yellow a skipped file (already
 correct or multiple layers), and red a failed inspection or rename.
 
+## Supported result naming and maximums
+
+Before combining results, give **each distinct simulation a unique full run code** with its intended
+scenario, AEP, duration and TP. Companion `Q`/`V`/`H`/`Cmx`/`Nmx`/`Chan`/`EOF` files from a
+single run intentionally share that code; `trim_runcode` groups an ensemble and must not identify distinct
+simulations. The four 1D culvert reports use culvert `.1`/`.2` end nodes, not arbitrary networks.
+Reported peak flow, velocity and upstream/downstream water levels are **independent maxima** and may occur
+at different simulation times. The precise filename example, supported assumptions and report-column
+interpretation are in the [processor contract](../../ryan_library/processors/tuflow/README.md#supported-run-identifiers-and-culvert-maximums).
+
 ## Culvert, PO and POMM result dashboards
 
 The six maintained result wrappers under `culvert_results` and `po_and_timeseries` use the
