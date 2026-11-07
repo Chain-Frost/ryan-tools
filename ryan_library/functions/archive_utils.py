@@ -72,6 +72,59 @@ def _publish_archive_part(staged: Path, destination: Path) -> None:
         os.link(staged, destination)
 
 
+def _run_7zip_to_stage(
+    *,
+    executable: Path,
+    staged_archive: Path,
+    inputs: Sequence[str | Path],
+    exclusions: Sequence[str],
+    max_part_size_gib: int | None,
+) -> None:
+    volume_switch = [] if max_part_size_gib is None else [f"-v{max_part_size_gib * 1024**3}b"]
+    command = [
+        str(executable),
+        "a",
+        "-mx=5",
+        "-mmt=1",
+        *volume_switch,
+        str(staged_archive),
+        *(str(value) for value in inputs),
+        *exclusions,
+    ]
+    result = subprocess.run(command, capture_output=True, text=True, check=False)
+    if result.returncode != 0:
+        diagnostic = result.stderr.strip() or result.stdout.strip()
+        msg = f"7z exit code {result.returncode}: {diagnostic}"
+        raise RuntimeError(msg)
+
+
+def _staged_archive_outputs(staged_archive: Path, *, split: bool, destination: Path) -> tuple[Path, ...]:
+    prefix = f"{staged_archive.name}."
+    outputs = (
+        tuple(
+            sorted(
+                (
+                    path
+                    for path in staged_archive.parent.iterdir()
+                    if path.name.startswith(prefix) and path.name[len(prefix) :].isdigit()
+                ),
+                key=lambda path: int(path.name[len(prefix) :]),
+            )
+        )
+        if split
+        else (staged_archive,)
+    )
+    if not outputs or any(not output.is_file() or output.stat().st_size == 0 for output in outputs):
+        msg = f"7-Zip did not create a non-empty archive: {destination}"
+        raise RuntimeError(msg)
+    if split:
+        numbers = [int(output.name[len(prefix) :]) for output in outputs]
+        if numbers != list(range(1, len(outputs) + 1)):
+            msg = f"7-Zip produced incomplete or non-sequential volume names: {destination}"
+            raise RuntimeError(msg)
+    return outputs
+
+
 def create_7zip_archive(
     *,
     executable: Path,
@@ -110,46 +163,18 @@ def create_7zip_archive(
             dir=output_archive.parent,
         ) as temp_directory:
             staged_archive = Path(temp_directory) / output_archive.name
-            volume_switch = [] if max_part_size_gib is None else [f"-v{max_part_size_gib * 1024**3}b"]
-            command = [
-                str(executable),
-                "a",
-                "-mx=5",
-                "-mmt=1",
-                *volume_switch,
-                str(staged_archive),
-                *(str(value) for value in inputs),
-                *exclusions,
-            ]
-            result = subprocess.run(command, capture_output=True, text=True, check=False)
-            if result.returncode != 0:
-                diagnostic = result.stderr.strip() or result.stdout.strip()
-                msg = f"7z exit code {result.returncode}: {diagnostic}"
-                raise RuntimeError(msg)
-
-            prefix = f"{staged_archive.name}."
-            stages = (
-                tuple(
-                    sorted(
-                        (
-                            path
-                            for path in staged_archive.parent.iterdir()
-                            if path.name.startswith(prefix) and path.name[len(prefix) :].isdigit()
-                        ),
-                        key=lambda path: int(path.name[len(prefix) :]),
-                    )
-                )
-                if max_part_size_gib is not None
-                else (staged_archive,)
+            _run_7zip_to_stage(
+                executable=executable,
+                staged_archive=staged_archive,
+                inputs=inputs,
+                exclusions=exclusions,
+                max_part_size_gib=max_part_size_gib,
             )
-            if not stages or any(not stage.is_file() or stage.stat().st_size == 0 for stage in stages):
-                msg = f"7-Zip did not create a non-empty archive: {output_archive}"
-                raise RuntimeError(msg)
-            if max_part_size_gib is not None:
-                numbers = [int(stage.name[len(prefix) :]) for stage in stages]
-                if numbers != list(range(1, len(stages) + 1)):
-                    msg = f"7-Zip produced incomplete or non-sequential volume names: {output_archive}"
-                    raise RuntimeError(msg)
+            stages = _staged_archive_outputs(
+                staged_archive,
+                split=max_part_size_gib is not None,
+                destination=output_archive,
+            )
 
             if existing := _existing_archive_artifact(output_archive):
                 msg = f"Output archive already exists: {existing}"
