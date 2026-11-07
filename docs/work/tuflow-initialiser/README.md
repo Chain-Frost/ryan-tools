@@ -25,13 +25,15 @@ tuflow-initialiser catchments --help
 ```
 
 Windows Python 3.14 is required. Model construction also requires separately
-installed TUFLOW and GRASS for the real workflows. The standalone CLI supports
+installed TUFLOW and GRASS for the real workflows. The installed CLI supports
 explicit terrain rasters or a PyTUFLOW-parsed TGC for catchments. Its `Read GIS
 Zpts` inputs are warned about but not rasterised into the hydrology DEM.
 
 Project creation now delegates to the maintained
 `ryan_library.orchestrators.tuflow.project_setup` implementation, using the
-same canonical templates as the existing project-setup wrapper. Profile-specific
+same canonical templates as the existing project-setup wrapper.
+The installed CLI has optional top-of-module list/path defaults; explicit command-line
+flags take precedence, including negative Boolean switches. Profile-specific
 substitution comments out `Read GIS BC` only for the initialiser. The original
 shared template defects `BC BC Event Source` and `OutputRoot>>` are corrected. The
 initialiser retains its three-layer default, explicitly configured optional
@@ -43,6 +45,19 @@ The `crop_tgc_terrains.py` script remains a separate terrain-preparation
 entry point managed by [PR #204](https://github.com/Chain-Frost/ryan-tools/pull/204),
 with opt-in raster writes and a planning-grid QA GeoPackage. It is **not** a
 replacement for the complete upstream DEM required by hydrological processing.
+
+## Architecture consolidation and verification
+
+The initialiser imports shared functions from `ryan_library/functions/hydrology/`,
+`ryan_library/functions/gdal/terrain_mosaic.py`,
+`ryan_library/functions/geometry/raster_coordinates.py`, and
+`ryan_library/functions/tuflow/tgc_terrain.py`. It does not retain duplicate
+algorithm, parser or template files.
+
+Hosted validation must be repeated at the exact final PR head. Commits made
+through the GitHub repository integration have not automatically started fresh
+Actions runs, so the earlier green hosted CI applies only to the previous head.
+Native Windows GRASS/TUFLOW raster/project parity is still required.
 
 ## Engineering verification and remaining tasks
 

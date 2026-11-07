@@ -103,3 +103,32 @@ def test_initialiser_requires_explicit_utility_root_before_writing(tmp_path: Pat
     with pytest.raises(ValueError, match="utility_source_root"):
         initialiser_setup.initialize_tuflow_project(config)
     assert not config.output_dir.exists()
+
+@pytest.mark.parametrize("include_bc", [False, True])
+def test_shared_templates_render_distinct_bc_profiles(tmp_path: Path, include_bc: bool) -> None:
+    """Check that both profiles use the same corrected source templates."""
+    config = shared_project_setup.TuflowProjectConfig(
+        output_dir=tmp_path / "unused",
+        project_name="Example",
+        scenario_name="EXG",
+        prj_file=tmp_path / "projection.prj",
+        tuflow_executable=tmp_path / "TUFLOW.exe",
+        templates_dir=initialiser_setup.DEFAULT_TEMPLATES_DIR,
+        copy_utilities=False,
+        include_2d_loc_style=False,
+        include_2d_bc_layer=include_bc,
+    )
+    project_dir = tmp_path / "generated"
+    shared_project_setup._copy_text_templates(config=config, project_dir=project_dir)
+    text = (project_dir / "model" / "BOUND_01.tbc").read_text(encoding="utf-8")
+    if include_bc:
+        assert "    Read GIS BC ==" in text
+        assert "    ! Read GIS BC ==" not in text
+    else:
+        assert "    ! Read GIS BC ==" in text
+    assert "<<BC_READ_COMMENT>>" not in text
+    events = (project_dir / "model" / "EVENTS_01.tef").read_text(encoding="utf-8")
+    assert "BC BC Event Source ==" not in events
+    tcf = next((project_dir / "runs").glob("Example_*.tcf")).read_text(encoding="utf-8")
+    assert "<<OutputRoot>>\\check\\" in tcf
+    assert "Write Check Files == " in tcf

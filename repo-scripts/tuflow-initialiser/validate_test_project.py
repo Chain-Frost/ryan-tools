@@ -41,7 +41,7 @@ def main() -> None:
         if actual != expected:
             msg = f"Shared fixture checksum mismatch: {name}"
             raise ValueError(msg)
-    output = args.output.resolve()
+    output = args.output.absolute()
     if output.exists():
         msg = f"Existing output is protected: {output}"
         raise FileExistsError(msg)
@@ -64,7 +64,7 @@ def main() -> None:
             name="RealDEM",
             scenario="EXG",
             prj=projection,
-            tuflow_executable=args.tuflow_exe.resolve(),
+            tuflow_executable=args.tuflow_exe.absolute(),
             rainfall_name="RF01",
             grass_executable=args.grass_exe,
             generate_catchments=True,
@@ -74,7 +74,7 @@ def main() -> None:
         **verify_project(output),
         "build_and_verification_seconds": time.perf_counter() - started,
         "fixture_sha256": manifest["sha256"],
-        "tools": {"grass_executable": args.grass_exe, "tuflow_executable": str(args.tuflow_exe.resolve())},
+        "tools": {"grass_executable": args.grass_exe, "tuflow_executable": str(args.tuflow_exe.absolute())},
     }
     (output / "qa.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(json.dumps(report, indent=2))
