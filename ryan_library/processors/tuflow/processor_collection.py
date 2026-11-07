@@ -812,10 +812,22 @@ class ProcessorCollection:
     @staticmethod
     def _hdf_frame_bytes(frame: DataFrame) -> bytes:
         """Encode a pandas frame and its extension dtypes using Arrow IPC, not pickle."""
+        import numpy as np
+
         pa: Any = importlib.import_module("pyarrow")
 
+        # POMM's promoted header can leave the column Index name as np.int64.
+        # Arrow's pandas metadata is JSON and rejects NumPy scalars in axis names.
+        # Normalise only the copied axis metadata; do not alter source frames.
+        portable = frame.copy(deep=False)
+        if isinstance(portable.columns, pd.MultiIndex):
+            names = [name.item() if isinstance(name, np.generic) else name for name in portable.columns.names]
+            portable.columns = portable.columns.set_names(names)
+        elif isinstance(portable.columns.name, np.generic):
+            portable.columns = portable.columns.rename(portable.columns.name.item())
+
         sink = pa.BufferOutputStream()
-        table = pa.Table.from_pandas(frame, preserve_index=True)
+        table = pa.Table.from_pandas(portable, preserve_index=True)
         with pa.ipc.new_file(sink, table.schema) as writer:
             writer.write_table(table)
         return bytes(sink.getvalue().to_pybytes())
