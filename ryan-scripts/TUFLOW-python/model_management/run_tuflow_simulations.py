@@ -82,8 +82,12 @@ from loguru import logger
 from ryan_library.functions.loguru_helpers import configure_serial_logging, forward_standard_logging, log_settings
 from ryan_library.functions.tuflow import runner_user_inputs
 from ryan_library.functions.wrapper_utils import add_execution_cli_arguments, pause_console, print_wrapper_banner
-from ryan_library.orchestrators.tuflow.simulation_runner import RunnerSettings, display_runner_path
-from ryan_library.orchestrators.tuflow.simulation_workflow import WorkflowControls, run_simulation_workflow
+from ryan_library.orchestrators.tuflow.simulation_runner import BatchOutcome, RunnerSettings, display_runner_path
+from ryan_library.orchestrators.tuflow.simulation_workflow import (
+    WorkflowControls,
+    WorkflowOutcome,
+    run_simulation_workflow,
+)
 
 
 def _settings(arguments: argparse.Namespace) -> RunnerSettings:
@@ -259,8 +263,8 @@ def main(argv: list[str] | None = None, *, _parsed_arguments: argparse.Namespace
         )
         follow_up = runner_user_inputs.path("NEXT_RUN_FILE", NEXT_RUN_FILE) if NEXT_RUN_FILE is not None else None
         log_settings(
-            "Run controls",
-            {
+            title="Run controls",
+            values={
                 "OPERATION": controls.operation.value,
                 "CONTINUATION_MODE": controls.continuation.value,
                 "EXPORT_COMMANDS": controls.exporting,
@@ -269,7 +273,7 @@ def main(argv: list[str] | None = None, *, _parsed_arguments: argparse.Namespace
                 "PAUSE_ON_FINISH": (arguments.pause or PAUSE_ON_FINISH is True) and not arguments.no_pause,
                 "NEXT_RUN_FILE": NEXT_RUN_FILE,
             },
-            {
+            defaults={
                 "OPERATION": "run",
                 "CONTINUATION_MODE": "resume",
                 "EXPORT_COMMANDS": True,
@@ -279,8 +283,10 @@ def main(argv: list[str] | None = None, *, _parsed_arguments: argparse.Namespace
                 "NEXT_RUN_FILE": None,
             },
         )
-        outcome = run_simulation_workflow(run_settings, controls, follow_up=follow_up, interruption=_interruption_flag)
-        result = outcome.batch
+        outcome: WorkflowOutcome = run_simulation_workflow(
+            run_settings, controls, follow_up=follow_up, interruption=_interruption_flag
+        )
+        result: BatchOutcome | None = outcome.batch
         if result is None:
             return outcome.exit_code
         if result.interrupted:
@@ -297,10 +303,12 @@ def main(argv: list[str] | None = None, *, _parsed_arguments: argparse.Namespace
             outcome.skipped,
             sum(not item.successful for item in result.outcomes),
         )
-        outcome_code = outcome.exit_code
+        outcome_code: int = outcome.exit_code
         # Preserve established chaining on normal batch termination, even when
         # one or more children failed; never hide their nonzero exit status.
-        if follow_up is not None and not _run_follow_up(follow_up, run_settings.working_directory):
+        if follow_up is not None and not _run_follow_up(
+            path=follow_up, working_directory=run_settings.working_directory
+        ):
             outcome_code = 1
         return outcome_code
     except (OSError, ValueError):
