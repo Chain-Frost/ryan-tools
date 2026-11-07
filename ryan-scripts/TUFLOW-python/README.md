@@ -723,8 +723,8 @@ Normal discovery still creates exactly one report row for each main TLF;
 HPC companions do not become standalone runs.
 
 When opted in, the report gives companion path/status, explicitly reported
-**active 2D**, **sealed-wall** and (only if available) **groundwater cell**
-counts, the number of sampled `iStep` records and
+**active 2D**, **sealed-wall** and separately labelled **groundwater active**
+and **groundwater sealed-wall** populations (when present), the number of sampled `iStep` records and
 `HPC_nWet_Observed_Max`. This is a **maximum over logged samples**, not a
 guaranteed whole-run/per-timestep maximum. A successful main TLF alone
 does not prove the companion history is complete. Companion status is
