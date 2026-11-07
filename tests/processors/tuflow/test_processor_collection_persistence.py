@@ -174,3 +174,39 @@ def test_hdf_corrupt_manifest_and_stale_registry_are_rejected(collection: Proces
 def test_hdf_alias_source_is_rejected(collection: ProcessorCollection) -> None:
     with pytest.raises(ValueError, match="aliases a processor source"):
         collection.to_hdf(collection.processors[0].file_path, overwrite=True)
+
+
+
+def test_hdf_source_identity_survives_working_directory_changes(
+    tmp_path: Path, change_cwd: Callable[[Path], AbstractContextManager[None]]
+) -> None:
+    """A relative input is always fingerprinted at its originally resolved path."""
+    pytest.importorskip("tables")
+    pytest.importorskip("pyarrow")
+    original = tmp_path / "original"
+    original.mkdir()
+    file_name = "Run_01.0p_0060m_TP01_1d_Q.csv"
+    source = original / file_name
+    source.write_text("Index,Time,Q C1 [run]\n1,0,1\n2,1,2\n", encoding="utf-8")
+
+    with change_cwd(original):
+        processor = BaseProcessor.from_file(Path(file_name))
+        processor.process()
+    assert processor.processed
+    assert processor.file_path == Path(file_name)
+    assert processor.resolved_file_path == source
+
+    collection = ProcessorCollection()
+    collection.add_processor(processor)
+
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    (elsewhere / file_name).write_text("unrelated,duplicate\n", encoding="utf-8")
+    cache = tmp_path / "stable-source.h5"
+    with change_cwd(elsewhere):
+        collection.to_hdf(cache)
+        restored = ProcessorCollection.from_hdf(cache)
+
+    assert restored.processors[0].file_path == source
+    assert restored.processors[0].resolved_file_path == source
+    pd.testing.assert_frame_equal(restored.processors[0].df, processor.df)
