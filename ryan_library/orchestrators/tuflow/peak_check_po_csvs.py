@@ -10,6 +10,7 @@ from __future__ import annotations
 __lazy_modules__: list[str] = ["pandas"]
 
 import concurrent.futures as cf
+from collections import Counter
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Literal
@@ -125,8 +126,7 @@ def main_processing(
                 logger.info("Processing {} PO CSV file(s) for peak checks.", len(files))
                 dashboard.set_phase("Processing")
                 all_rows: list[dict[str, object]] = []
-                failed_files = 0
-                accepted_files = 0
+                status_counts: Counter[WorkflowStatus] = Counter()
                 with cf.ProcessPoolExecutor(max_workers=max_workers) as executor:
                     rows_iter = iter(
                         executor.map(
@@ -140,10 +140,7 @@ def main_processing(
                         dashboard.mark_running(index=index)
                         rows = next(rows_iter)
                         status = _file_outcome(rows)
-                        if status == "FAIL":
-                            failed_files += 1
-                        elif status == "OK":
-                            accepted_files += 1
+                        status_counts[status] += 1
                         dashboard.mark_finished(
                             index=index,
                             status=status,
@@ -200,14 +197,14 @@ def main_processing(
                 )
                 logger.info("Peak summary export complete.")
 
-                if failed_files:
+                if status_counts["FAIL"]:
                     logger.error(
                         "{} input file(s) had malformed data; diagnostic rows were retained in the report.",
-                        failed_files,
+                        status_counts["FAIL"],
                     )
-                    dashboard.finish(outcome="FAILED", detail=f"{failed_files} malformed file(s); partial report exported")
+                    dashboard.finish(outcome="FAILED", detail=f"{status_counts['FAIL']} malformed file(s); partial report exported")
                     return False
-                if not accepted_files:
+                if not status_counts["OK"]:
                     dashboard.finish(outcome="SKIPPED", detail="diagnostic-only report exported")
                     return True
 

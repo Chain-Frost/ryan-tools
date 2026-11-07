@@ -283,6 +283,35 @@ def _qa_snapshot(work: Path) -> WorkbookSnapshot:
         workbook.close()
 
 
+def _run_qa(script: Path, work: Path, root: Path, *flags: str) -> subprocess.CompletedProcess[str]:
+    """QA wrappers scan their effective working directory recursively, without --paths-to-process."""
+    environment = os.environ.copy()
+    environment["PYTHONPATH"] = str(root)
+    environment["PYTHONNOUSERSITE"] = "1"
+    environment.pop("RYAN_TOOLS_REPOSITORY_ROOT", None)
+    return subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "--working-directory",
+            str(work),
+            "--no-pause",
+            "--locations",
+            "C01",
+            *flags,
+        ],
+        cwd=work.parent,
+        env=environment,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=120,
+        stdin=subprocess.DEVNULL,
+        check=False,
+    )
+
+
 def _one_qa_case(wrapper: str, root: Path, work: Path, *, dashboard: bool) -> WorkbookSnapshot:
     """Run a copied QA wrapper from an unrelated working directory against wheel imports."""
     work.mkdir(parents=True)
@@ -291,12 +320,12 @@ def _one_qa_case(wrapper: str, root: Path, work: Path, *, dashboard: bool) -> Wo
     if not script.is_file() or not script.absolute().is_relative_to(work):
         msg = f"PO QA wrapper was not copied into disposable work folder: {script}"
         raise RuntimeError(msg)
-    help_result = _run(script, work, root, "--help")
+    help_result = _run_qa(script, work, root, "--help")
     if help_result.returncode != 0 or "--no-live-dashboard" not in help_result.stdout:
         msg = f"Copied QA help failed for {wrapper}: {help_result.stdout[-600:]} {help_result.stderr[-600:]}"
         raise RuntimeError(msg)
 
-    result = _run(
+    result = _run_qa(
         script,
         work,
         root,
@@ -318,7 +347,7 @@ def _one_qa_case(wrapper: str, root: Path, work: Path, *, dashboard: bool) -> Wo
         raise RuntimeError(msg)
 
     snapshot = _qa_snapshot(work)
-    invalid = _run(script, work, root, "--live-max-rows", "0")
+    invalid = _run_qa(script, work, root, "--live-max-rows", "0")
     if invalid.returncode == 0 or "live_max_rows" not in invalid.stdout + invalid.stderr:
         msg = f"Copied QA wrapper accepted invalid dashboard settings: {wrapper}"
         raise RuntimeError(msg)
@@ -345,12 +374,12 @@ def main() -> None:
                 msg = f"Dashboard changed workbook values/headers for {case.wrapper}: {without!r} vs {with_dashboard!r}"
                 raise RuntimeError(msg)
 
-    for index, wrapper in enumerate(QA_WRAPPERS):
-        without = _one_qa_case(wrapper, root, base / f"qa_{index}_ordinary", dashboard=False)
-        with_dashboard = _one_qa_case(wrapper, root, base / f"qa_{index}_dashboard", dashboard=True)
-        if without != with_dashboard:
-            msg = f"PO QA dashboard changed copied-wheel workbook values: {wrapper}: {without!r} vs {with_dashboard!r}"
-            raise RuntimeError(msg)
+        for index, wrapper in enumerate(QA_WRAPPERS):
+            without = _one_qa_case(wrapper, root, base / f"qa_{index}_ordinary", dashboard=False)
+            with_dashboard = _one_qa_case(wrapper, root, base / f"qa_{index}_dashboard", dashboard=True)
+            if without != with_dashboard:
+                msg = f"PO QA dashboard changed copied-wheel workbook values: {wrapper}: {without!r} vs {with_dashboard!r}"
+                raise RuntimeError(msg)
 
     print(
         f"Six copied result wrappers and two PO QA wrappers passed installed-wheel smoke at {actual}: "
