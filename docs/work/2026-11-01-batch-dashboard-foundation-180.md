@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Needs review — editable collections use lists; runner extraction retained |
+| Status | Needs review — runner ordering and Cmx selection fixed; broader audit remains open |
 | Owner | ChatGPT (foundation recovery) |
 | Created | 2026-11-01 |
 | Updated | 2026-11-07 |
@@ -11,7 +11,7 @@
 | Branch / base | `feat/batch-dashboard-foundation-180` -> `main` |
 | Issue | [#180](https://github.com/Chain-Frost/ryan-tools/issues/180), dashboard foundation and resumed wrapper/script audit |
 | Dependent work | [TUFLOW result dashboard adoption](2026-11-01-tuflow-result-dashboards-180.md) |
-| Delivery | #202, current main, closure safety, serial rendering corrections and the 408-line runner extraction remain integrated. Office #201 is now merged into this parent at 93b59f29. Package 26.11.7.3 changes editable collections in 27 maintained entry points to lists, with internal normalization and retained empty/None semantics. Use current PR checks/review for published-head acceptance. No main merge/release. |
+| Delivery | Package 26.11.7.4 adds newest-first runner rows and correct processed-channel selection across the four culvert reports. The 27 list-based entry points, 408-line runner extraction, #202 export safety, accepted dashboard fixes and merged Office #201 remain included. Use current #183 checks/review for published-head acceptance. No main merge/release. |
 
 ## Outcome and scope
 
@@ -658,8 +658,8 @@ location-filter limitation in the unchanged culvert pipeline. Its post-read
 filter recognizes `Location`, while Cmx stores channel identifiers in `Chan ID`.
 Edited lists, old tuple defaults and equivalent CLI selections produced
 identical complete maximums rows retaining both channels. This predates the
-conversion and remains a separate audit follow-up; no Cmx filtering change is
-included here. The source trace is
+conversion and was left outside the list-input change. The user subsequently
+authorized its repair; the later ordering/Cmx section records that fix. The source trace is
 `ryan_library/orchestrators/tuflow/tuflow_culverts_merge.py` calling
 `BaseProcessor.filter_locations` in
 `ryan_library/processors/tuflow/base_processor.py`.
@@ -669,3 +669,88 @@ unchanged. List syntax is an editable-file convenience and needs no new MCP
 tool, entry or automation permission. Existing runner and Office acceptance
 boundaries remain in place. Current #183 checks and review record acceptance
 of the published commit; no main merge or auto-merge is authorized.
+
+
+### 2026-11-07 — runner row ordering and Cmx channel selection
+
+The user requested descending runner rows from the screenshot (running 604,
+then completed 603 through 595), followed by repair of the Cmx selection issue
+found during list-input acceptance. Both changes belong in the existing PR
+#183. The task baseline is published `5e916ef669f3cac587b7ebec84d7119ff00f5a21`;
+the ordering commit is `ef932195a7f2d7af3db9e91998ed38229e650dc4`, followed by
+the Cmx repair. No main merge, auto-merge or release is authorized.
+
+**Runner ordering.** `LiveWorkflowDashboard` has an opt-in `newest_first`
+setting, enabled by the maintained simulation runner. Existing active-first
+selection and row/height caps run before sorting the selected rows by descending
+run index. Completion order cannot move an older run above a newer one. An
+older active run remains selected, though a newer completed run may appear
+above it. Queued-only previews retain launch order; grouped panels remain
+intact, with descending rows within each panel and the newest selected group
+first. Other dashboard callers keep their default ordering. Scheduling, GPU
+ownership, progress calculations, history and callbacks are unchanged.
+
+**Cmx selection.** The shared processed-row filter still prefers `Location`,
+then falls back to the processor's supported identifiers, including `Chan ID`.
+Temporary string conversion/whitespace trimming only builds the comparison
+mask; retained identifiers, indexes, dtypes and numerical values are preserved.
+Filtering stays after successful processing, so Nmx node-to-channel reshaping
+and valid-but-unmatched versus malformed-input outcomes retain their meaning.
+All four culvert workflows already use this collection boundary, so maximums,
+timeseries, mean peaks and median peaks now honor the selected channels in
+formatted and raw worksheets without separate orchestration changes.
+
+Before collection selection, EOF abbreviations are aligned against the full
+available channel references. Already selected EOF processors retain that
+alignment during subsequent filtering and combination. Removing one possible
+match must not make an originally ambiguous abbreviation appear certain or
+attach its geometry to another channel. No new cache/schema or processing
+interface was introduced; existing PO/POMM filtering remains unchanged.
+
+Local validation uses Python 3.14.9, the recorded validation dependencies,
+`WP08_VALIDATION_SPAWN=1` and `MPLBACKEND=Agg`:
+
+| Selection | Result |
+| --- | --- |
+| Dashboard and simulation-runner tests | 160 passed, ten existing platform skips. Four new real-Rich cases cover the screenshot, out-of-order completions with older active work, queued preview and grouped height/alert behavior. |
+| Processor and result-pipeline selection | 94 passed, including 18 new Cmx/Nmx/Q/EOF selection cases, dtype/value preservation and unique/ambiguous EOF alignment through repeated filtering and both combination methods. |
+| Four culvert workflows, dashboard on/off | 24 passed. Every formatted/raw worksheet matches selected rows from an unfiltered reference, with independent expected numeric values and unchanged source bytes. Unmatched valid inputs skip with no output; malformed inputs fail. |
+| Regression sensitivity | Restoring the former renderer method only in memory fails three ordering cases; queued preview still passes. Restoring the former filter only in memory fails all four selected-channel export cases because C02 remains. |
+
+Changed Python files pass Ruff formatting/lint and strict Pyright targeting
+Windows with Python 3.14. Independent production and assertion review found no
+consequential issue. The processor changes also pass the Loguru formatting
+policy. Documentation and final diff checks are recorded with the published PR.
+
+Normal `repo-scripts/build_library.py --skip-pip` built and verified package
+`26.11.7.4`, SHA-256
+`9a4363be67f8bed3599d6ae87aecb5b991e50d6da87f9b05efea4f787dc6562b`.
+The wrapper remains 408 lines with revision `2026-11-07.2`; both behavior fixes
+live in the shared library. The strengthened installed-result smoke uses two
+channels, selects C01 in all six wrappers, checks every formatted/raw sheet and
+retains dashboard parity, collision and failed-writer cleanup assertions.
+
+The fresh wheel was installed into `wheel-install-order-cmx`. With the checkout
+absent from `sys.path`, user-site packages disabled and only that installation
+on `PYTHONPATH`, all six copied result-wrapper groups passed: 48 subprocess
+invocations covering 12 successful exports, 12 help checks, 12 invalid-settings
+checks, six output collisions and six writer failures. Channel membership and
+numeric/header parity passed across 22 formatted/raw worksheets (11 per mode).
+A separate outside-checkout run of unchanged copied test modules passed all
+four ordering regressions and all 18 processor regressions (22 passed). Both
+runs verified physical library import origins inside the installed target.
+
+All nine changed Python files compile, and all four changed production modules
+byte-match the final wheel. The seven default documentation checks, five
+explicit guide/work-record link checks and final diff check pass.
+
+These two follow-ups are delivered to the existing #183 branch in the requested
+order. Current #183 checks/review remain authoritative for the published head;
+older receipt counts above apply only to their named baselines. The broader
+audit remains open. Accepted native Windows/PyTuflow work was not replayed,
+and the excluded submodule remains outside this work.
+
+MCP discovery assessment: existing runner and result-wrapper catalogue entries
+already expose these workflows and selections. Their CLI and safety contracts
+are unchanged; these internal correctness fixes need no additional MCP tool
+or duplicate package entry point.

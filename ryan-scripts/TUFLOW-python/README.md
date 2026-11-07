@@ -611,13 +611,20 @@ Relative `PATHS_TO_PROCESS`, `--paths-to-process`, output and log paths use
 spellings are preserved by `Path.absolute()`; no `resolve()` is used merely
 for display. The four culvert wrappers expose editable
 `LOCATIONS_TO_INCLUDE`; PO/POMM continue to expose the same filter.
+For culvert results, use channel IDs such as
+`LOCATIONS_TO_INCLUDE: list[str] = ["C01", "C02"]`; an empty list includes every
+channel. The selection applies to processed channel rows in maximums, timeseries,
+mean and median reports, including their raw sheets. Nmx node IDs are reshaped
+before selection, and shortened EOF labels are aligned using all available
+channel references before any are removed. Ambiguous EOF labels are never
+reassigned merely because a filter removes one of their possible matches.
 The mean and median report output directory is the absolute effective
 working directory. Maximums and timeseries optionally expose
 `OUTPUT_DIR`/`--output-directory` while preserving the default output
 location. PO/POMM continue to export into the working directory.
 
 Output names, Excel sheets, gzip Parquet, mean/upper-median mathematics,
-EOF alignment, PO sorting and POMM raw-combine semantics are unchanged.
+PO sorting and POMM raw-combine semantics are unchanged.
 Use a copied wrapper with a matching installed `ryan-tools` wheel; a
 repository-root `PYTHONPATH` workaround is not supported. For a headless run:
 

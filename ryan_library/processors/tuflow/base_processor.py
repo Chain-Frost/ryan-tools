@@ -393,7 +393,7 @@ class BaseProcessor(ABC):
         return normalized_filter
 
     def filter_locations(self, locations: Collection[str] | None) -> frozenset[str]:
-        """Filter the processor DataFrame to include only the specified locations.
+        """Filter processed rows by Location, or by another supported entity ID.
 
         Args:
             locations: Collection of location identifiers to retain.
@@ -414,31 +414,38 @@ class BaseProcessor(ABC):
             self.applied_location_filter = normalized_locations
             return normalized_locations
 
-        if "Location" not in self.df.columns:
+        identifier_column: str | None = (
+            "Location"
+            if "Location" in self.df.columns
+            else next((column for column in self.get_entity_id_columns() if column in self.df.columns), None)
+        )
+        if identifier_column is None:
             logger.debug(
-                "{}: Location filter provided but DataFrame lacks 'Location' column; skipping filter.", self.file_name
+                "{}: Location filter provided but no supported identifier column is present; skipping filter.",
+                self.file_name,
             )
             self.applied_location_filter = normalized_locations
             return normalized_locations
 
         before_count: int = len(self.df)
-        location_series: Series[str] = self.df["Location"].astype(str).str.strip()
+        location_series: Series[str] = self.df[identifier_column].astype(str).str.strip()
         filtered_df: DataFrame = self.df.loc[location_series.isin(normalized_locations)].copy()
         after_count: int = len(filtered_df)
 
         log_method = logger.info if after_count != before_count else logger.debug
         log_method(
-            "{file_name}: Filtered rows to {after_count}/{before_count} using {location_count} locations.",
+            "{file_name}: Filtered rows to {after_count}/{before_count} using {location_count} locations on '{column}'.",
             file_name=self.file_name,
             after_count=after_count,
             before_count=before_count,
             location_count=len(normalized_locations),
+            column=identifier_column,
         )
 
         self.df = filtered_df
 
         if after_count == 0:
-            logger.warning(f"{self.file_name}: No rows remain after applying the Location filter.")
+            logger.warning("{}: No rows remain after filtering '{}'.", self.file_name, identifier_column)
 
         self.applied_location_filter = normalized_locations
         return normalized_locations

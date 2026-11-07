@@ -26,16 +26,32 @@ class Case:
     wrapper: str
     data_type: str
     sheet: str
+    additional_sheets: tuple[str, ...] = ()
+    flags: tuple[str, ...] = ()
 
 
 CASES = (
-    Case("TUFLOW-python/culvert_results/combine_culvert_maximums.py", "Cmx", "Maximums"),
+    Case("TUFLOW-python/culvert_results/combine_culvert_maximums.py", "Cmx", "Maximums", ("raw_data",)),
     Case("TUFLOW-python/culvert_results/combine_culvert_timeseries.py", "Q", "1d_timeseries_data"),
-    Case("TUFLOW-python/culvert_results/create_mean_culvert_peak_report.py", "Cmx", "aep-dur-mean"),
-    Case("TUFLOW-python/culvert_results/create_median_culvert_peak_report.py", "Cmx", "aep-dur-med"),
+    Case(
+        "TUFLOW-python/culvert_results/create_mean_culvert_peak_report.py",
+        "Cmx",
+        "aep-dur-mean",
+        ("aep-mean-max", "culvert-maximums"),
+        ("--export-raw",),
+    ),
+    Case(
+        "TUFLOW-python/culvert_results/create_median_culvert_peak_report.py",
+        "Cmx",
+        "aep-dur-med",
+        ("aep-med-max", "culvert-maximums"),
+        ("--export-raw",),
+    ),
     Case("TUFLOW-python/po_and_timeseries/combine_po_results.py", "PO", "combined_PO"),
     Case("TUFLOW-python/po_and_timeseries/combine_pomm_results.py", "POMM", "combined_POMM"),
 )
+
+type WorkbookSnapshot = dict[str, tuple[tuple[str, ...], tuple[tuple[float, ...], ...]]]
 
 
 def _write_inputs(folder: Path) -> None:
@@ -43,16 +59,28 @@ def _write_inputs(folder: Path) -> None:
     for tp, multiplier in ((1, 1.0), (2, 2.0)):
         run = f"Synthetic_01.00p_00120m_TP{tp:02d}"
         data = {
-            "_1d_Cmx.csv": (f"Chan ID,Time Qmax,Qmax,Vmax,Time Vmax\nC01,0.5,{5 * multiplier},1.5,0.5\n"),
-            "_1d_Q.csv": (f"Descriptor,Time,Q C01\nrow,0,{2 * multiplier}\nrow,1,{4 * multiplier}\n"),
-            "_PO.csv": (f"Descriptor,Time,Flow\nLocation,Time,C01\nrow,0,{2 * multiplier}\nrow,1,{4 * multiplier}\n"),
+            "_1d_Cmx.csv": (
+                "Chan ID,Time Qmax,Qmax,Vmax,Time Vmax\n"
+                f"C01,0.5,{5 * multiplier},1.5,0.5\n"
+                f"C02,0.5,{50 * multiplier},3.0,0.5\n"
+            ),
+            "_1d_Q.csv": (
+                "Descriptor,Time,Q C01,Q C02\n"
+                f"row,0,{2 * multiplier},{20 * multiplier}\n"
+                f"row,1,{4 * multiplier},{40 * multiplier}\n"
+            ),
+            "_PO.csv": (
+                "Descriptor,Time,Flow,Flow\nLocation,Time,C01,C02\n"
+                f"row,0,{2 * multiplier},{20 * multiplier}\n"
+                f"row,1,{4 * multiplier},{40 * multiplier}\n"
+            ),
             "_POMM.csv": (
-                f"{run},Location,Flow\n"
-                "value,Time,C01\n"
-                f"value,Maximum (Extracted from Time Series),{5 * multiplier}\n"
-                "value,Time of Maximum,0.5\n"
-                "value,Minimum (Extracted From Time Series),-1\n"
-                "value,Time of Minimum,0.0\n"
+                f"{run},Location,Flow,Flow\n"
+                "value,Time,C01,C02\n"
+                f"value,Maximum (Extracted from Time Series),{5 * multiplier},{50 * multiplier}\n"
+                "value,Time of Maximum,0.5,0.5\n"
+                "value,Minimum (Extracted From Time Series),-1,-2\n"
+                "value,Time of Minimum,0.0,0.0\n"
             ),
         }
         for suffix, content in data.items():
@@ -73,6 +101,8 @@ def _run(script: Path, work: Path, root: Path, *flags: str) -> subprocess.Comple
             "--no-pause",
             "--paths-to-process",
             "inputs",
+            "--locations",
+            "C01",
             *flags,
         ],
         cwd=work.parent,
@@ -87,35 +117,45 @@ def _run(script: Path, work: Path, root: Path, *flags: str) -> subprocess.Comple
     )
 
 
-def _snapshot(work: Path, sheet: str) -> tuple[tuple[str, ...], tuple[tuple[float, ...], ...]]:
+def _snapshot(work: Path, case: Case) -> WorkbookSnapshot:
     books = list(work.glob("*.xlsx"))
     if len(books) != 1:
-        msg = f"Expected one workbook for {sheet}, found {books}"
+        msg = f"Expected one workbook for {case.sheet}, found {books}"
         raise RuntimeError(msg)
     workbook = load_workbook(books[0], read_only=True, data_only=True)
     try:
-        if sheet not in workbook.sheetnames:
-            msg = f"Missing output sheet {sheet}: {workbook.sheetnames}"
-            raise RuntimeError(msg)
-        rows = list(workbook[sheet].values)
-        if len(rows) < 2:
-            msg = f"No data rows in {sheet}: {rows}"
-            raise RuntimeError(msg)
-        headers = tuple(str(item) for item in rows[0])
-        # Working-folder and path columns differ between the two disposable
-        # copies. Compare generated numeric report values in row order.
-        values = tuple(
-            tuple(float(value) for value in row if isinstance(value, (int, float)) and not isinstance(value, bool))
-            for row in rows[1:]
-        )
-        return headers, values
+        snapshot: WorkbookSnapshot = {}
+        for sheet in (case.sheet, *case.additional_sheets):
+            if sheet not in workbook.sheetnames:
+                msg = f"Missing output sheet {sheet}: {workbook.sheetnames}"
+                raise RuntimeError(msg)
+            rows = list(workbook[sheet].values)
+            if len(rows) < 2:
+                msg = f"No data rows in {sheet}: {rows}"
+                raise RuntimeError(msg)
+            headers = tuple(str(item) for item in rows[0])
+            identifier = next((name for name in ("Chan ID", "Location") if name in headers), None)
+            if identifier is None:
+                msg = f"Missing channel/location identifier in {sheet}: {headers}"
+                raise RuntimeError(msg)
+            channel_index = headers.index(identifier)
+            channels = {str(row[channel_index]) for row in rows[1:]}
+            if channels != {"C01"}:
+                msg = f"Channel selection was not retained in {sheet}: {channels}"
+                raise RuntimeError(msg)
+            # Working-folder and path columns differ between the two disposable
+            # copies. Compare every formatted/raw sheet's numeric values in row order.
+            values = tuple(
+                tuple(float(value) for value in row if isinstance(value, (int, float)) and not isinstance(value, bool))
+                for row in rows[1:]
+            )
+            snapshot[sheet] = headers, values
+        return snapshot
     finally:
         workbook.close()
 
 
-def _one_case(
-    case: Case, root: Path, work: Path, *, dashboard: bool
-) -> tuple[tuple[str, ...], tuple[tuple[float, ...], ...]]:
+def _one_case(case: Case, root: Path, work: Path, *, dashboard: bool) -> WorkbookSnapshot:
     work.mkdir(parents=True)
     _write_inputs(work / "inputs")
     script = copy_wrapper(case.wrapper, work)
@@ -132,6 +172,7 @@ def _one_case(
         root,
         "--data-types",
         case.data_type,
+        *case.flags,
         "--live-dashboard" if dashboard else "--no-live-dashboard",
         "--log-file",
         "detail.log",
@@ -153,7 +194,7 @@ def _one_case(
     if not (work / "detail.log").is_file():
         msg = f"Detailed file sink missing in {case.wrapper}"
         raise RuntimeError(msg)
-    output = _snapshot(work, sheet=case.sheet)
+    output = _snapshot(work, case)
     if dashboard:
         _export_failure_cases(case, root, work, script)
     invalid = _run(script, work, root, "--data-types", case.data_type, "--live-max-rows", "0")
@@ -177,7 +218,7 @@ def _export_failure_cases(case: Case, root: Path, work: Path, script: Path) -> N
         f"runpy.run_path({str(script)!r}, run_name='__main__')\n",
         encoding="utf-8",
     )
-    collision = _run(launcher, work, root, "--data-types", case.data_type, "--live-dashboard")
+    collision = _run(launcher, work, root, "--data-types", case.data_type, *case.flags, "--live-dashboard")
     if collision.returncode != 1 or ": FAILED" not in collision.stdout:
         msg = f"Existing-report collision did not fail {case.wrapper}: {collision.stdout[-1800:]}"
         raise RuntimeError(msg)
@@ -195,7 +236,7 @@ def _export_failure_cases(case: Case, root: Path, work: Path, script: Path) -> N
         f"runpy.run_path({str(script)!r}, run_name='__main__')\n",
         encoding="utf-8",
     )
-    failure = _run(launcher, failure_work, root, "--data-types", case.data_type, "--live-dashboard")
+    failure = _run(launcher, failure_work, root, "--data-types", case.data_type, *case.flags, "--live-dashboard")
     if failure.returncode != 1 or ": FAILED" not in failure.stdout:
         msg = f"Writer failure did not fail {case.wrapper}: {failure.stdout[-1800:]}"
         raise RuntimeError(msg)
@@ -224,7 +265,10 @@ def main() -> None:
                 msg = f"Dashboard changed workbook values/headers for {case.wrapper}: {without!r} vs {with_dashboard!r}"
                 raise RuntimeError(msg)
 
-    print(f"Six copied result wrappers passed installed-wheel smoke at {actual}: on/off workbook parity and settings.")
+    print(
+        f"Six copied result wrappers passed installed-wheel smoke at {actual}: "
+        "on/off workbook parity, channel selection and settings."
+    )
 
 
 if __name__ == "__main__":
