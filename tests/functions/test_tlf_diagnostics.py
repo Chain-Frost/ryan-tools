@@ -159,3 +159,19 @@ def test_truncated_companion_only_returns_complete_samples(tmp_path: Path) -> No
     assert observed["HPC_Active_2D_Cells"] == 100
     assert observed["HPC_nWet_Sampled_Records"] == 1
     assert observed["HPC_nWet_Observed_Max"] == 0
+def test_signed_model_clocks_contribute_to_sampled_wet_max(tmp_path: Path) -> None:
+    main = tmp_path / "S2.tlf"
+    companion = tmp_path / "S2.hpc.tlf"
+    companion.write_text(
+        "Number active cells = 100\n"
+        "iStep time maxNu maxNc maxNd nWet vol dt Eff\n"
+        "100 -0:00:57 0.1 0.3 0.2 90 100 1.2 99.1%\n"
+        "200 +0:00:01 0.1 0.3 0.2 25 100 1.2 99.1%\n"
+        "300 0:00:02.5 0.1 0.3 0.2 30 100 1.2 99.1%\n"
+        "400 -0:60:00 0.1 0.3 0.2 99 100 1.2 99.1%\n",
+        encoding="utf-8",
+    )
+    observed = read_hpc_companion_metrics(main)
+    assert observed["HPC_Companion_Status"] == "observed"
+    assert observed["HPC_nWet_Sampled_Records"] == 3
+    assert observed["HPC_nWet_Observed_Max"] == 90
