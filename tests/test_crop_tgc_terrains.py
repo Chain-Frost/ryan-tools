@@ -147,7 +147,7 @@ def test_write_creates_new_rasters_manifest_and_patched_tgc(tmp_path: Path) -> N
         assert len(layer) == 2
     with fiona.open(qa, layer="minimum_coverage_extent") as layer:
         assert len(layer) == 1
-        assert layer[0]["properties"]["area_m2"] == pytest.approx(10000.0)
+        assert next(iter(layer))["properties"]["area_m2"] == pytest.approx(10000.0)
     with fiona.open(qa, layer="coverage_gaps") as layer:
         assert len(layer) == 0
     with fiona.open(qa, layer="lost_valid_coverage") as layer:
