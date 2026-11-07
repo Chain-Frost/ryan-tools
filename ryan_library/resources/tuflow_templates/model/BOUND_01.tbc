@@ -2,7 +2,7 @@
 ! Boundary Conditions Control File for <<PROJECT_NAME>>
 
 if scenario == <<SCENARIO_NAME>>
-    <<BC_READ_COMMENT>>Read GIS BC ==         gis\<<SCENARIO_NAME>>\2d_bc_<<SCENARIO_NAME>>_01_L.gpkg
+    Read GIS BC ==         gis\<<SCENARIO_NAME>>\2d_bc_<<SCENARIO_NAME>>_01_L.gpkg
     Read GIS RF ==         gis\<<SCENARIO_NAME>>\2d_rf_<<SCENARIO_NAME>>_01_R.gpkg
 End if
 

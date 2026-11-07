@@ -8,13 +8,15 @@
 ! StormDuration    e2      Storm duration
 ! TP               e3      Temporal pattern
 ! Method           e4      Method/source, such as PMP, Nested, or EnsembleILCL
+! Climate Change   e5      Independent climate-change selection, such as CCNear
 ! GridSize         s4      Base grid size
 
 !**** Control Files ****
 	Set Variable Version ==		01
-	Set Variable OutputRoot ==	..\results\<<Version>>\<<~s4~>>_<<~e4~>>\<<~s2~>>_<<~s1~>>\<<~e1~>>
-	Log Folder ==				<<OutputRoot>>\Log
-	Output Folder ==			<<OutputRoot>>
+	Set Variable OutputBase ==	..
+	Set Variable OutputRoot ==	results\<<Version>>\<<~s4~>>_<<~e4~>>\<<~s2~>>_<<~s1~>>\<<~e1~>>\<<~e5~>>
+	Log Folder ==				<<OutputBase>>\<<OutputRoot>>\Log
+	Output Folder ==			<<OutputBase>>\<<OutputRoot>>
 	Set Variable OutInterval ==	60 ! seconds
 
 	Read File ==				..\runs\model_cell_sizes_01.trd ! Cell sizes
@@ -43,6 +45,8 @@
 		Set Variable InitialLoss ==	21
 		Set Variable ContLoss ==	3.21
 		BC Database ==				..\bc_dbase\ARR19\bc_dbase_CC.csv
+	Else
+		Pause == No rainfall input selected
 	End If
 
 	Set Variable IL_MAT ==	0
@@ -70,10 +74,12 @@
 	HRTIF Map Output Interval ==	0
 	Map Output Interval ==			60 ! seconds
 
+	Store Maximums and Minimums == ON MAXIMUMS ONLY
+
 	XF Files Include in Filename ==	<<~s1~>>_<<~s2~>>
 
 	Write Check Files INCLUDE ==	dem_Z
-	Write Check Files == 			<<OutputRoot>>\check\
+	Write Check Files == 			<<OutputBase>>\<<OutputRoot>>\check\
 
 !**** Solver & Miscellaneous ****
 	Solution Scheme ==				HPC

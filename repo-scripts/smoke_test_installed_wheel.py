@@ -340,7 +340,7 @@ def _check_installed_initialiser_resources() -> None:
         "model/Materials_01.csv",
         "model/Soil_01.tsoilf",
         "runs/Create_Empties.tcf",
-        "runs/__project___01_~s2~_~s1~_~e1~_~e2~_~e4~_~e3~_~s4~.tcf",
+        "runs/__project___01_~s2~_~s1~_~e1~_~e2~_~e4~_~e3~_~e5~_~s4~.tcf",
         "runs/empties.bat",
         "runs/model_cell_sizes_01.trd",
         "runs/run_times_01.trd",

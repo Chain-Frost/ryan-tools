@@ -7,6 +7,11 @@ Define Event ==  Nested
 End Define
 
 Define Event == EnsembleILCL
+    BC Event Source == ~EnsembleILCL~ | EnsembleILCL
+End Define
+
+! Climate selection is independent of rainfall method. Review against the BC database.
+Define Event == CCNear
     BC Event Source == ~CC~ | Near-term_SSP3-7.0 ! tpv-ignore
 End Define
 
@@ -67,10 +72,22 @@ Define Event == 63.2p
 	BC Event Source == ~AEP~ | 63.2p
 End Define
 
-! Duration events drive run_times_01.trd and provide both common BC database aliases.
+! Duration events accept four- or five-digit minute flags.
+! Existing five-digit substitutions are retained; short events use four-digit ~DUR~.
+! Match these substitutions to the project BC database before simulation.
+Define Event == 0015m
+	BC Event Source == ~StormDuration~ | 00015m
+	BC Event Source == ~DUR~ | 0015m
+End Define
+
 Define Event == 00015m
 	BC Event Source == ~StormDuration~ | 00015m
 	BC Event Source == ~DUR~ | 00015m
+End Define
+
+Define Event == 0030m
+	BC Event Source == ~StormDuration~ | 00030m
+	BC Event Source == ~DUR~ | 0030m
 End Define
 
 Define Event == 00030m
@@ -78,9 +95,19 @@ Define Event == 00030m
 	BC Event Source == ~DUR~ | 00030m
 End Define
 
+Define Event == 0045m
+	BC Event Source == ~StormDuration~ | 00045m
+	BC Event Source == ~DUR~ | 0045m
+End Define
+
 Define Event == 00045m
 	BC Event Source == ~StormDuration~ | 00045m
 	BC Event Source == ~DUR~ | 00045m
+End Define
+
+Define Event == 0060m
+	BC Event Source == ~StormDuration~ | 00060m
+	BC Event Source == ~DUR~ | 0060m
 End Define
 
 Define Event == 00060m
@@ -88,9 +115,19 @@ Define Event == 00060m
 	BC Event Source == ~DUR~ | 00060m
 End Define
 
+Define Event == 0090m
+	BC Event Source == ~StormDuration~ | 00090m
+	BC Event Source == ~DUR~ | 0090m
+End Define
+
 Define Event == 00090m
 	BC Event Source == ~StormDuration~ | 00090m
 	BC Event Source == ~DUR~ | 00090m
+End Define
+
+Define Event == 0120m
+	BC Event Source == ~StormDuration~ | 00120m
+	BC Event Source == ~DUR~ | 0120m
 End Define
 
 Define Event == 00120m
@@ -98,9 +135,19 @@ Define Event == 00120m
 	BC Event Source == ~DUR~ | 00120m
 End Define
 
+Define Event == 0150m
+	BC Event Source == ~StormDuration~ | 00150m
+	BC Event Source == ~DUR~ | 0150m
+End Define
+
 Define Event == 00150m
 	BC Event Source == ~StormDuration~ | 00150m
 	BC Event Source == ~DUR~ | 00150m
+End Define
+
+Define Event == 0180m
+	BC Event Source == ~StormDuration~ | 00180m
+	BC Event Source == ~DUR~ | 0180m
 End Define
 
 Define Event == 00180m
@@ -108,9 +155,19 @@ Define Event == 00180m
 	BC Event Source == ~DUR~ | 00180m
 End Define
 
+Define Event == 0240m
+	BC Event Source == ~StormDuration~ | 00240m
+	BC Event Source == ~DUR~ | 0240m
+End Define
+
 Define Event == 00240m
 	BC Event Source == ~StormDuration~ | 00240m
 	BC Event Source == ~DUR~ | 00240m
+End Define
+
+Define Event == 0270m
+	BC Event Source == ~StormDuration~ | 00270m
+	BC Event Source == ~DUR~ | 0270m
 End Define
 
 Define Event == 00270m
@@ -118,9 +175,19 @@ Define Event == 00270m
 	BC Event Source == ~DUR~ | 00270m
 End Define
 
+Define Event == 0300m
+	BC Event Source == ~StormDuration~ | 00300m
+	BC Event Source == ~DUR~ | 0300m
+End Define
+
 Define Event == 00300m
 	BC Event Source == ~StormDuration~ | 00300m
 	BC Event Source == ~DUR~ | 00300m
+End Define
+
+Define Event == 0360m
+	BC Event Source == ~StormDuration~ | 00360m
+	BC Event Source == ~DUR~ | 0360m
 End Define
 
 Define Event == 00360m
@@ -128,9 +195,29 @@ Define Event == 00360m
 	BC Event Source == ~DUR~ | 00360m
 End Define
 
+Define Event == 0540m
+	BC Event Source == ~StormDuration~ | 00540m
+	BC Event Source == ~DUR~ | 0540m
+End Define
+
+Define Event == 00540m
+	BC Event Source == ~StormDuration~ | 00540m
+	BC Event Source == ~DUR~ | 00540m
+End Define
+
+Define Event == 0720m
+	BC Event Source == ~StormDuration~ | 00720m
+	BC Event Source == ~DUR~ | 0720m
+End Define
+
 Define Event == 00720m
 	BC Event Source == ~StormDuration~ | 00720m
 	BC Event Source == ~DUR~ | 00720m
+End Define
+
+Define Event == 1080m
+	BC Event Source == ~StormDuration~ | 01080m
+	BC Event Source == ~DUR~ | 1080m
 End Define
 
 Define Event == 01080m
@@ -138,9 +225,19 @@ Define Event == 01080m
 	BC Event Source == ~DUR~ | 01080m
 End Define
 
+Define Event == 1440m
+	BC Event Source == ~StormDuration~ | 01440m
+	BC Event Source == ~DUR~ | 1440m
+End Define
+
 Define Event == 01440m
 	BC Event Source == ~StormDuration~ | 01440m
 	BC Event Source == ~DUR~ | 01440m
+End Define
+
+Define Event == 1800m
+	BC Event Source == ~StormDuration~ | 01800m
+	BC Event Source == ~DUR~ | 1800m
 End Define
 
 Define Event == 01800m
@@ -148,9 +245,19 @@ Define Event == 01800m
 	BC Event Source == ~DUR~ | 01800m
 End Define
 
+Define Event == 2160m
+	BC Event Source == ~StormDuration~ | 02160m
+	BC Event Source == ~DUR~ | 2160m
+End Define
+
 Define Event == 02160m
 	BC Event Source == ~StormDuration~ | 02160m
 	BC Event Source == ~DUR~ | 02160m
+End Define
+
+Define Event == 2880m
+	BC Event Source == ~StormDuration~ | 02880m
+	BC Event Source == ~DUR~ | 2880m
 End Define
 
 Define Event == 02880m
@@ -158,14 +265,29 @@ Define Event == 02880m
 	BC Event Source == ~DUR~ | 02880m
 End Define
 
+Define Event == 4320m
+	BC Event Source == ~StormDuration~ | 04320m
+	BC Event Source == ~DUR~ | 4320m
+End Define
+
 Define Event == 04320m
 	BC Event Source == ~StormDuration~ | 04320m
 	BC Event Source == ~DUR~ | 04320m
 End Define
 
+Define Event == 5760m
+	BC Event Source == ~StormDuration~ | 05760m
+	BC Event Source == ~DUR~ | 5760m
+End Define
+
 Define Event == 05760m
 	BC Event Source == ~StormDuration~ | 05760m
 	BC Event Source == ~DUR~ | 05760m
+End Define
+
+Define Event == 7200m
+	BC Event Source == ~StormDuration~ | 07200m
+	BC Event Source == ~DUR~ | 7200m
 End Define
 
 Define Event == 07200m

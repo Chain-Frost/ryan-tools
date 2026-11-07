@@ -52,6 +52,7 @@ class BuildConfig:
     stream_threshold_m2: float = 100_000.0
     fill_depressions: bool = False
     max_fill_depth_m: float = 2.0
+    copy_utilities: bool = True
     utility_source_root: Path | None = None
     generate_catchments: bool = False
 
@@ -243,7 +244,7 @@ def build(  # noqa: C901 - staged project generation validates GIS and raster ou
                         scenario_name=config.scenario,
                         prj_file=config.prj,
                         tuflow_executable=config.tuflow_executable,
-                        copy_utilities=config.utility_source_root is not None,
+                        copy_utilities=config.copy_utilities,
                         utility_source_root=config.utility_source_root,
                     )
                 )

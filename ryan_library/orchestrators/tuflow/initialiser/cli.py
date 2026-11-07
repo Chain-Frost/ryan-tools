@@ -20,7 +20,8 @@ PROJECT_NAME: str | None = None
 SCENARIO_NAME: str | None = None
 PROJECTION_FILE: Path | None = None
 TUFLOW_EXECUTABLE: Path | None = None
-UTILITY_SOURCE_ROOT: Path | None = None
+UTILITY_SOURCE_ROOT: Path | None = None  # None selects the shared bundled utilities.
+COPY_UTILITIES = True
 OVERWRITE = False
 
 TERRAIN_RASTERS: list[Path] = []  # Highest-priority terrain first.
@@ -71,6 +72,7 @@ def _parser() -> argparse.ArgumentParser:
     init.add_argument("--prj", type=Path, required=PROJECTION_FILE is None)
     init.add_argument("--tuflow-exe", type=Path, required=TUFLOW_EXECUTABLE is None)
     init.add_argument("--ryan-tools-scripts", type=Path)
+    init.add_argument("--copy-utilities", action=argparse.BooleanOptionalAction, default=None)
     init.add_argument("--overwrite", action=argparse.BooleanOptionalAction, default=None)
 
     make = commands.add_parser("build", help="Build a project from DEM/AOI via GRASS and canonical TUFLOW GIS")
@@ -98,6 +100,7 @@ def _parser() -> argparse.ArgumentParser:
     make.add_argument("--fill-depressions", action=argparse.BooleanOptionalAction, default=None)
     make.add_argument("--max-fill-depth-m", type=float)
     make.add_argument("--ryan-tools-scripts", type=Path)
+    make.add_argument("--copy-utilities", action=argparse.BooleanOptionalAction, default=None)
     make.add_argument("--catchments", action=argparse.BooleanOptionalAction, default=None)
 
     catchments = commands.add_parser("catchments", help="Write catchment GeoPackage only; no TUFLOW project")
@@ -131,7 +134,7 @@ def main() -> int:
                 scenario_name=_required_value(_configured(args.scenario, SCENARIO_NAME), "--scenario"),
                 prj_file=_required_value(_configured(args.prj, PROJECTION_FILE), "--prj"),
                 tuflow_executable=_required_value(_configured(args.tuflow_exe, TUFLOW_EXECUTABLE), "--tuflow-exe"),
-                copy_utilities=_configured(args.ryan_tools_scripts, UTILITY_SOURCE_ROOT) is not None,
+                copy_utilities=_configured(args.copy_utilities, COPY_UTILITIES),
                 utility_source_root=_configured(args.ryan_tools_scripts, UTILITY_SOURCE_ROOT),
                 overwrite=_configured(args.overwrite, OVERWRITE),
             )
@@ -157,6 +160,7 @@ def main() -> int:
                 fill_depressions=_configured(args.fill_depressions, FILL_DEPRESSIONS),
                 max_fill_depth_m=_configured(args.max_fill_depth_m, MAX_FILL_DEPTH_M),
                 utility_source_root=_configured(args.ryan_tools_scripts, UTILITY_SOURCE_ROOT),
+                copy_utilities=_configured(args.copy_utilities, COPY_UTILITIES),
                 generate_catchments=_configured(args.catchments, GENERATE_CATCHMENTS),
             )
         )

@@ -1,9 +1,4 @@
-"""Initialiser profile backed by the maintained shared TUFLOW project generator.
-
-The initialiser creates three working GIS layers, comments out the optional
-boundary-condition GIS read, copies no utilities by default and omits the
-2d_loc QML style. The existing standard profile retains its four layers.
-"""
+"""Use the shared starter project before adding initialiser-generated model data."""
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,16 +10,12 @@ from .gis_types import LayerSchema
 
 DEFAULT_TEMPLATES_DIR: Final[Path] = Path(__file__).absolute().parents[3] / "resources" / "tuflow_templates"
 
-DEFAULT_WORKING_LAYERS: Final[tuple[WorkingLayerSpec, ...]] = (
-    WorkingLayerSpec(empty_type="2d_code", geometry_suffix="R"),
-    WorkingLayerSpec(empty_type="2d_loc", geometry_suffix="R"),
-    WorkingLayerSpec(empty_type="2d_rf", geometry_suffix="R"),
-)
+DEFAULT_WORKING_LAYERS: Final[tuple[WorkingLayerSpec, ...]] = shared_project_setup.DEFAULT_WORKING_LAYERS
 
 
 @dataclass(frozen=True, slots=True)
 class TuflowProjectConfig:
-    """Inputs for the initialiser's project-generation profile."""
+    """Inputs for the shared starter project."""
 
     output_dir: Path
     project_name: str
@@ -32,7 +23,7 @@ class TuflowProjectConfig:
     prj_file: Path
     tuflow_executable: Path
     templates_dir: Path = DEFAULT_TEMPLATES_DIR
-    copy_utilities: bool = False
+    copy_utilities: bool = True
     utility_source_root: Path | None = None
     overwrite: bool = False
 
@@ -42,10 +33,7 @@ def initialize_tuflow_project(
     *,
     working_layers: tuple[WorkingLayerSpec, ...] = DEFAULT_WORKING_LAYERS,
 ) -> ProjectSetupResult:
-    """Create canonical TUFLOW empties with the initialiser's deliberate defaults."""
-    if config.copy_utilities and (config.utility_source_root is None or not config.utility_source_root.is_dir()):
-        msg = "copy_utilities requires a valid utility_source_root"
-        raise ValueError(msg)
+    """Create the same starter project as the standard setup entry point."""
     shared_config = shared_project_setup.TuflowProjectConfig(
         output_dir=config.output_dir,
         project_name=config.project_name,
@@ -56,8 +44,6 @@ def initialize_tuflow_project(
         copy_utilities=config.copy_utilities,
         overwrite=config.overwrite,
         utility_source_root=config.utility_source_root,
-        include_2d_loc_style=False,
-        include_2d_bc_layer=False,
     )
     return shared_project_setup.initialize_tuflow_project(shared_config, working_layers=working_layers)
 

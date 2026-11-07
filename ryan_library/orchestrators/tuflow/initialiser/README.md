@@ -9,7 +9,7 @@ This package coordinates multi-stage rainfall-on-grid TUFLOW initialisation and 
 - `catchments.py`, `subcatchments.py`, `geometry.py`: domain-specific catchment delineation and model-domain decisions.
 - `gis_writer.py`, `catchment_outputs.py`, `subcatchment_outputs.py`: GIS output and reporting.
 - `model_terrain.py`: insert TUFLOW terrain into generated projects. TGC terrain discovery, with active scenario selection, is a shared TUFLOW function.
-- `project_setup.py`: initialiser-specific profile adapter for the maintained shared project generator.
+- `project_setup.py`: adapter for the maintained shared project generator.
 - `verification.py`: reusable output-readback checks for real-system validation.
 - `cli.py`: installed process entry point. Library workflow modules do not parse command-line options, pause or terminate the interpreter. Edit the top-level list/path/selection constants to supply defaults; explicit CLI flags, including `--no-*` Boolean overrides, take precedence. Inputs are converted to tuples at the workflow boundary.
 
@@ -23,7 +23,7 @@ General-purpose algorithms and focused GIS helpers are maintained outside this o
 - `ryan_library/functions/tuflow/tgc_terrain.py`: extract active TGC terrain layers through PyTUFLOW.
 - `ryan_library/functions/geometry/raster_coordinates.py`: affine pixel-centre conversion.
 
-The shared TUFLOW text templates are maintained in `ryan_library/resources/tuflow_templates`. The initialiser's three-working-layer profile differs intentionally from the existing standard four-layer project setup.
+The shared TUFLOW text templates are maintained in `ryan_library/resources/tuflow_templates`. Both entry points create the same four starter working layers, active boundary read, QGIS style and default utilities. The full initialiser build then populates code, location and rainfall GIS and adds terrain and hydrology products; boundary GIS remains empty until configured.
 
 ## Entry points and acceptance
 

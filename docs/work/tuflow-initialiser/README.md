@@ -32,14 +32,17 @@ Zpts` inputs are warned about but not rasterised into the hydrology DEM.
 Project creation now delegates to the maintained
 `ryan_library.orchestrators.tuflow.project_setup` implementation, using the
 same canonical templates as the existing project-setup wrapper.
-The installed CLI has optional top-of-module list/path defaults; explicit command-line
-flags take precedence, including negative Boolean switches. Profile-specific
-substitution comments out `Read GIS BC` only for the initialiser. The original
-shared template defects `BC BC Event Source` and `OutputRoot>>` are corrected. The
-initialiser retains its three-layer default, explicitly configured optional
-utility source, and no QML style copy. The existing project setup retains its
-four-layer default, automatic utility fallback, and QML style handling.
-Regression tests cover both profiles without running TUFLOW.
+Both entry points now create the same starter project: four working layers
+(`2d_bc`, `2d_code`, `2d_loc`, `2d_rf`), an active boundary GIS read, the
+`2d_loc` QGIS style and automatic utility copying from the repository or wheel.
+The former `<<BC_READ_COMMENT>>` substitution and three-layer profile are removed.
+The full initialiser build populates code, location and rainfall GIS and adds
+terrain and hydrology products; it does not invent boundary features.
+The installed CLI has optional top-of-module list/path defaults; explicit CLI
+flags take precedence, including `--no-copy-utilities` for both `init` and `build`.
+`--ryan-tools-scripts` optionally overrides the shared utility source.
+The original shared template defects `BC BC Event Source` and `OutputRoot>>` are corrected.
+Regression tests exercise the shared starter project without running TUFLOW.
 
 The `crop_tgc_terrains.py` script remains a separate terrain-preparation
 entry point managed by [PR #204](https://github.com/Chain-Frost/ryan-tools/pull/204),
@@ -117,6 +120,45 @@ The fixture's redistribution permission, vertical datum and source provenance
 remain unverified. Keep those binaries in the original repository; do not
 transfer them to the published wheel or archive the original repository until
 fixture access and engineering acceptance are resolved.
+
+## Generic template extraction ? 2026-11-07
+
+Local work on `feature/migrate-tuflow-initialiser`, based on `fe9c4ef1659bec748c62eb6b2b4bd7814270364a`:
+
+- Extracted independent climate selection (`~e5~`, `CCNear`) from an updated local model;
+  separated it from the `EnsembleILCL` rainfall-method event. New launch commands require `-e5`.
+- Added four-digit duration aliases while retaining existing five-digit BC substitutions,
+  plus the 9-hour event and an editable starter end time of 18 hours.
+- Shared output, log and check paths now use `OutputBase` and a climate-specific `OutputRoot`.
+  Added explicit maximum-only map storage and an unknown-rainfall-method diagnostic.
+- Preserved existing solver, GIS/grid format and calibrated starter-loss settings. No model
+  names, identifying paths, network GIS or project-specific rainfall data were imported.
+- Updated generated-name checks, wheel smoke resource path and the
+  [project setup guide](../../../ryan-scripts/tuflow/PROJECT_SETUP.md).
+
+The user confirmed removal of the boundary-template marker and directed both entry
+points to create the same project, with the initialiser adding actual data. The earlier
+four profile-test failures are superseded by the shared four-layer configuration.
+Validation on Windows Python 3.14.6 (2026-11-07):
+
+- `python -m pytest tests/orchestrators/tuflow/test_project_setup.py tests/orchestrators/tuflow/initialiser -q`:
+  111 passed. A final rerun of the five affected project/template/CLI files passed all 43 tests,
+  including generated-file and GIS-schema equivalence for both entry points.
+- Ruff format/lint, strict Pyright on modified files (initialiser files with
+  `--project pyright-initialiser.json`), Loguru policy and documentation checks pass.
+- `python repo-scripts/build_library.py --skip-pip`: built and verified wheel 26.11.7.1,
+  SHA-256 `1ea59e4079b9fced8fe343d8b4c7fe7f5a8f901f31aefd8d9872d1ec9c16dfdb`.
+- Temporary-target installed-wheel resource/default/CLI checks and copied standard
+  wrapper `--help` passed. The normal Python environment was not replaced.
+- PyTUFLOW's optional h5py import emitted Windows DLL diagnostics during test collection;
+  tests still completed with exit 0. This does not establish native HDF5 capability.
+- No populated TUFLOW simulation or native GRASS parity run was performed.
+
+Delivery: scoped commits and pushes to the existing PR branch are now authorised.
+These changes are being committed and pushed; final-head hosted checks remain pending.
+`AGENTS.md` and work tracking permit scoped staging, commits and pushes, while merging
+requires explicit authorisation. Native engineering gates remain outstanding.
+Next review: 2026-11-08.
 
 ## Source and history
 
