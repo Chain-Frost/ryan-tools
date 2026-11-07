@@ -9,8 +9,8 @@ import sys
 from contextlib import closing
 from pathlib import Path
 from types import ModuleType
+from unittest.mock import MagicMock
 
-import ezdxf
 import pytest
 
 SCRIPT = Path(__file__).absolute().parents[1] / "ryan-scripts" / "cad-python" / "cad_to_gpkg.py"
@@ -28,6 +28,8 @@ def _run_converter(source: Path, *args: str) -> subprocess.CompletedProcess[str]
 
 def test_dxf_to_gpkg_keeps_geometry_layers_and_refuses_existing_output(tmp_path: Path) -> None:
     """Validate actual GDAL DXF conversion and non-destructive default reruns."""
+    import ezdxf
+
     source = tmp_path / "sample.dxf"
     drawing = ezdxf.new("R2010")  # pyright: ignore[reportPrivateImportUsage]
     space = drawing.modelspace()
@@ -61,7 +63,11 @@ def test_dxf_to_gpkg_keeps_geometry_layers_and_refuses_existing_output(tmp_path:
 
 
 @pytest.fixture
-def converter() -> ModuleType:
+def converter(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
+    if importlib.util.find_spec("osgeo") is None:
+        # Publication uses only stdlib SQLite. Stub unrelated CAD bindings so
+        # these regressions also run in the minimal Linux security job.
+        monkeypatch.setitem(sys.modules, "osgeo", MagicMock())
     specification = importlib.util.spec_from_file_location("cad_publication_tests", SCRIPT)
     assert specification is not None
     assert specification.loader is not None
