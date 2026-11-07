@@ -23,9 +23,7 @@ def test_reject_nonempty_staging(tmp_path: Path) -> None:
         process_terrain(dem, work_dir=work)
 
 
-def test_relative_grass_working_directory_uses_absolute_paths(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_relative_grass_working_directory_uses_absolute_paths(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """The child GRASS subprocess must not double-prefix a relative cwd."""
     monkeypatch.chdir(tmp_path)
     dem = Path("dem.tif")

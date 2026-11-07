@@ -119,19 +119,12 @@ def test_null_stream_geometry_is_rejected(tmp_path: Path) -> None:
 
 def test_windows_parity_runner_enables_catchment_outputs() -> None:
     """The parity verifier requires the outputs guarded by generate_catchments."""
-    source = (
-        Path(__file__).absolute().parents[4]
-        / "repo-scripts"
-        / "tuflow-initialiser"
-        / "validate_test_project.py"
-    )
+    source = Path(__file__).absolute().parents[4] / "repo-scripts" / "tuflow-initialiser" / "validate_test_project.py"
     tree = ast.parse(source.read_text(encoding="utf-8"))
     configs = (
         node
         for node in ast.walk(tree)
-        if isinstance(node, ast.Call)
-        and isinstance(node.func, ast.Name)
-        and node.func.id == "BuildConfig"
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "BuildConfig"
     )
     assert any(
         isinstance(keyword.value, ast.Constant) and keyword.value.value is True
