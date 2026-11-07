@@ -358,9 +358,7 @@ def find_aep_dur_max(aggregated_df: DataFrame) -> DataFrame:
         )
         selected = selected.merge(right=observed_aep, on=aep_groups, how="left")
         # Includes all-invalid duration bins which have no selected peak row.
-        selected["count_unusable_TP_aep"] = (
-            selected["_observed_TP_aep"] - selected["count_TP_aep"]
-        ).astype("Int64")
+        selected["count_unusable_TP_aep"] = (selected["_observed_TP_aep"] - selected["count_TP_aep"]).astype("Int64")
         selected = selected.drop(columns=["_observed_TP", "_observed_durations", "_observed_TP_aep"])
         if bool((~valid_mask).any()):
             logger.warning("Discarded {} unusable POMM peak records.", int((~valid_mask).sum()))
