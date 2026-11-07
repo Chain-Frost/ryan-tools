@@ -290,9 +290,14 @@ commands.
 The default is plan-only. `--write` creates new losslessly compressed rasters
 using the shared ryan-tools `tuflow` GeoTIFF profile: DEFLATE, predictor 2,
 conservative strips, GDAL threading and BigTIFF when safer. It also creates a
-new `_SCENARIO_cropped.tgc` beside the source TGC and a JSON manifest. It
-refuses to overwrite any destination and never edits the original TGC or
-rasters.
+new `_SCENARIO_cropped.tgc` beside the source TGC, a JSON manifest,
+and a `terrain_coverage_qa.gpkg` for review in QGIS. The QA GeoPackage
+contains original raster footprints, per-layer valid coverage within the
+analysis bounds, clipped-out portions, the requested minimum coverage extent,
+observed final clipped extent, remaining coverage gaps and any valid coverage
+lost during trimming. All valid-coverage comparisons use the **planning-grid
+resolution**, so they are not proof of exact native-resolution equivalence.
+It refuses to overwrite any destination and never edits original rasters or TGCs.
 
 ```powershell
 py -3.14 .\ryan-scripts\TUFLOW-python\crop_tgc_terrains.py `
