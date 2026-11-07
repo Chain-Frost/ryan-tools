@@ -2,10 +2,10 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Ready for review; PR #204 open and exact-head CI green |
+| Status | In review; CI rerunning after native coverage fix and CAD script restoration; native TUFLOW equivalence outstanding |
 | Owner | ChatGPT |
 | Created | 2026-11-04 |
-| Updated | 2026-11-04 |
+| Updated | 2026-11-07 |
 | Next review | 2026-11-11 |
 | Baseline | `main` at `ec873425`; branch `feat/tgc-terrain-crop`; unrelated local GDAL-script changes preserved |
 
@@ -23,8 +23,7 @@ Implementation, focused tests, user documentation and real plan-only model
 validation are complete. The script defaults to plan-only, writes only
 new destinations with explicit `--write`, preserves native grids and source
 values, and produces a patched TGC plus manifest. No production rasters or TGCs
-were changed during validation. PR #204 is open, mergeable and ready for
-maintainer review.
+were changed during validation. PR #204 remains open for review. Native-grid TUFLOW equivalence and final-head hosted validation remain required.
 
 ## Next action
 
@@ -57,6 +56,11 @@ this work.
 - Delivery: branch `feat/tgc-terrain-crop` pushed; PR #204 open and mergeable.
 
 ## Progress
+
+### 2026-11-07
+
+Restored `ryan-scripts/cad-python/cad_to_gpkg.py` from historical commit `f4c80be` at maintainer request, including its README usage section and lifecycle audit entry. This is a separate CAD utility, not part of terrain cropping; the QGIS submodule pointer already matches `main` and was not modified. Corrected the native-mask regression test's explicitly typed Affine transform and synchronised the stacked initialiser PR #246. All new changes require exact-head hosted CI; historical green checks do not establish acceptance at this head.
+
 
 ### 2026-11-04
 
