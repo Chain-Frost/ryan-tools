@@ -18,7 +18,7 @@ from .catchment_outputs import write_catchment_polygons, write_outlet_catchment_
 from .catchments import delineate_inflows, delineate_outlet_catchments
 from .geometry import check_dem
 from .grass_runner import process_terrain
-from .terrain import TerrainLayer, compose_terrain_layers
+from ....functions.gdal.terrain_mosaic import TerrainLayer, compose_terrain_layers
 from .tgc_terrain import read_tgc_terrain_stack
 
 

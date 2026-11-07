@@ -8,7 +8,7 @@ import rasterio
 from shapely.geometry import MultiPolygon, Polygon, mapping
 from shapely.geometry.base import BaseGeometry
 
-from .coordinates import pixel_centre
+from ....functions.geometry.raster_coordinates import pixel_centre
 from .gis_types import LayerSchema
 from .subcatchments import SubcatchmentResult
 

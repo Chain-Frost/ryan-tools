@@ -17,18 +17,18 @@ from shapely.ops import unary_union
 
 from .catchment_outputs import write_inflow_products, write_inflow_summary
 from .catchments import delineate_inflows
-from .coordinates import pixel_centre
-from .d8 import headwater_extensions, stream_mask
+from ....functions.geometry.raster_coordinates import pixel_centre
+from ....functions.hydrology.d8 import headwater_extensions, stream_mask
 from .geometry import Domain, check_dem, detailed_analysis_cells, make_domain, read_aoi, read_aoi_features
 from .gis_types import LayerSchema
 from .gis_writer import write_analysis, write_tuflow_layers
 from .grass_runner import process_terrain
 from .model_terrain import set_model_terrain
-from .profiles import equal_area_slope, stream_reaches
+from ....functions.hydrology.profiles import equal_area_slope, stream_reaches
 from .project_setup import TuflowProjectConfig, initialize_tuflow_project
 from .subcatchment_outputs import write_reach_subcatchment_summary, write_reach_subcatchments
 from .subcatchments import delineate_reach_subcatchments
-from .terrain import compose_terrain
+from ....functions.gdal.terrain_mosaic import compose_terrain
 
 
 @dataclass(frozen=True, slots=True)

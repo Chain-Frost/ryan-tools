@@ -9,7 +9,7 @@ from shapely.geometry import LineString, MultiPolygon, Polygon, mapping
 from shapely.geometry.base import BaseGeometry
 
 from .catchments import InflowCatchment, OutletCatchment
-from .coordinates import pixel_centre
+from ....functions.geometry.raster_coordinates import pixel_centre
 from .gis_types import LayerSchema
 
 

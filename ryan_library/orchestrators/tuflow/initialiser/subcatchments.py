@@ -18,8 +18,8 @@ from shapely.geometry import shape
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
-from .d8 import incoming, next_cell
-from .profiles import equal_area_slope, stream_reaches
+from ....functions.hydrology.d8 import incoming, next_cell
+from ....functions.hydrology.profiles import equal_area_slope, stream_reaches
 
 type Cell = tuple[int, int]
 

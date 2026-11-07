@@ -7,7 +7,7 @@ from typing import Protocol, cast
 
 from pytuflow import TGC
 
-from .terrain import TerrainLayer
+from ....functions.gdal.terrain_mosaic import TerrainLayer
 
 
 @dataclass(frozen=True, slots=True)

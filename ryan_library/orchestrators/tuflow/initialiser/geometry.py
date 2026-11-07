@@ -12,7 +12,7 @@ from shapely.geometry import Polygon, box, shape
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
-from .d8 import contributing_cells
+from ....functions.hydrology.d8 import contributing_cells
 
 
 @dataclass(frozen=True, slots=True)

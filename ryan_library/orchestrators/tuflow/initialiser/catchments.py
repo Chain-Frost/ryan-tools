@@ -21,8 +21,8 @@ from shapely.geometry import Point, box, shape
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
-from .d8 import OFFSETS, contributing_cells, next_cell
-from .profiles import equal_area_slope
+from ....functions.hydrology.d8 import OFFSETS, contributing_cells, next_cell
+from ....functions.hydrology.profiles import equal_area_slope
 
 type Cell = tuple[int, int]
 
