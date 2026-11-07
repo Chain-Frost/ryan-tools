@@ -362,22 +362,31 @@ def find_aep_dur_max(aggregated_df: DataFrame) -> DataFrame:
 
 
 def find_aep_max(aep_dur_max: DataFrame) -> DataFrame:
-    """Return peak rows for each AEP/Location/Type/RunCode group,
-    with a column giving the size of each original AEP group.
-    """
-    group_cols: list[str] = ["aep_text", "Location", "Type", "trim_runcode"]
+    """Select governing finite duration without replacing TP counts with bin counts."""
+    groups = ["aep_text", "Location", "Type", "trim_runcode"]
     try:
-        df: DataFrame = aep_dur_max.copy()
-        df["count_TP_aep"] = df.groupby(by=group_cols, observed=True)["AbsMax"].transform("size")
-        idx: Series = df.groupby(by=group_cols, observed=True)["AbsMax"].idxmax()
-        aep_max: DataFrame = df.loc[idx].reset_index(drop=True)
-        logger.info(
-            "Created 'aep_max' DataFrame with peak records and group_count for each AEP-Location-Type-RunCode group."
-        )
-    except KeyError as e:
-        logger.error("Missing expected columns for 'aep_max' grouping: {}", e)
-        aep_max = DataFrame()
-    return aep_max
+        df = aep_dur_max.copy().reset_index(drop=True)
+        if "count_TP_aep" not in df.columns:
+            if "count_TP" in df.columns:
+                df["count_TP_aep"] = (
+                    df.groupby(by=groups, observed=True)["count_TP"].transform("sum").astype("Int64")
+                )
+            else:
+                df["count_TP_aep"] = pd.Series(pd.NA, index=df.index, dtype="Int64")
+        if "count_duration" not in df.columns:
+            df["count_duration"] = (
+                df.groupby(by=groups, observed=True)["duration_text"].transform("nunique").astype("Int64")
+            )
+        valid = finite_sorted_rows(group=df, value_column="AbsMax")
+        if valid.empty:
+            return DataFrame()
+        idx: Series = valid.groupby(by=groups, observed=True)["AbsMax"].idxmax()
+        result = valid.loc[idx].reset_index(drop=True)
+        logger.info("Selected AEP maxima while retaining contributing event counts.")
+        return result
+    except KeyError as exc:
+        logger.error("Missing expected columns for AEP POMM maxima: {}", exc)
+        return DataFrame()
 
 
 def save_to_excel(
