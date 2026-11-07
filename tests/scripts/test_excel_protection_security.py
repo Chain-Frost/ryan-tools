@@ -247,6 +247,7 @@ def test_write_retains_debug_log_and_preview_does_not_create_it(
     workbook(tmp_path / "source.xlsx")
     log_path = tmp_path / "details.log"
     monkeypatch.setattr(script, "LOG_FILE", log_path)
+    monkeypatch.setattr(script, "FILE_LOG_LEVEL", "DEBUG")
     assert script.main(input_directories=tmp_path, write=False) == 0
     assert not log_path.exists()
     assert script.main(input_directories=tmp_path, use_live_dashboard=True) == 0

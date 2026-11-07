@@ -70,3 +70,16 @@ remain the discovery routes.
   installed import origin: **six passed**, including blocked stat/cancellation.
 - Hosted status remains independently visible at the PR checks link above;
   earlier green commits are not relabeled as current-head hosted evidence.
+
+
+## Hosted test expectations follow-up
+
+Hosted run `42378325342` at `43ada411` passed five jobs; Hosted tests reported
+2,501 passes, 14 skips, eight deselections and two stale test expectations.
+The Office diagnostic test now explicitly opts into DEBUG, preserving its
+existing detailed-log assertion under the requested INFO default. The QGIS
+repair CLI test compares output to the script's declared revision instead of
+hard-coding an older value. Production code and wheel contents are unchanged.
+Both affected files pass Ruff/strict Pyright and all **40 tests** pass locally.
+Together with the prior 461 affected passes, coverage is 501 passes/four
+privilege skips. Final-head hosted results remain at the PR checks link.

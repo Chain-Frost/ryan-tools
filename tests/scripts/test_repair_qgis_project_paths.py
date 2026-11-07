@@ -115,7 +115,7 @@ def test_repair_cli_version_and_help(capsys: pytest.CaptureFixture[str]) -> None
     assert "--write" in text
     assert "--no-write" in text
     assert "INPUT_repaired" in text
-    assert "2026-11-07.1" in text
+    assert cast(str, runpy.run_path(str(SCRIPT))["WRAPPER_VERSION"]) in text
 
 
 def test_repair_rejects_missing_project(tmp_path: Path) -> None:
