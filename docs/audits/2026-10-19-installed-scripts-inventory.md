@@ -1,7 +1,7 @@
 # Per-file installed-script inventory — evidence ledger (2026-10-19)
 
-**Status: incomplete review.** This ledger originated with 146 files at `1ac42c6` and now covers all **156** Git-tracked source files under `ryan-scripts/`, including five repository-only additions in PR #187. It excludes submodules. It does not enter or inspect the `unsorted` submodule.
-There are **83 selected wheel files**, **73 excluded source files** and
+**Status: incomplete review.** This ledger originated with 146 files at `1ac42c6` and now covers all **157** Git-tracked source files under `ryan-scripts/`, including five repository-only additions in PR #187. It excludes submodules. It does not enter or inspect the `unsorted` submodule.
+There are **83 selected wheel files**, **74 excluded source files** and
 **33 distinct existing MCP script paths**. These counts are inventory evidence,
 **not proof** that every source file is maintained, safe to import, or correctly excluded.
 
@@ -140,6 +140,7 @@ available in the repository but excluded from the wheel. MCP “Yes” denotes a
 | `hydrology-python/RFFE_Only_v6_standalone.py` | No | No | Source inspected; provisional repository-only alternative client; owner pending | Guarded argparse CLI; no-pause and errors not yet accepted | Standalone Requests/Pandas/Loguru variant; batch HTTP POST and CSV exports; confirm duplication and API security before lifecycle decision | Static inventory refreshed; excluded lifecycle retained |
 | `hydrology-python/aep_ari_conversions.py` | No | No | Source inspected; provisional repository-only pure helper; owner pending | No CLI or `__main__` (library-like); numerical round-trip/domain pytest covers functions, not installed execution | Only math dependency; AEP/ARI formula and invalid finite-domain behavior tested in `test_repository_only_hydrology.py`; hydrological design acceptance pending | Static inventory refreshed; excluded lifecycle retained |
 | `hydrology-python/combine_ifds_v2.py` | No | No | Source inspected; provisional repository-only legacy BOM CSV combiner; owner pending | Guarded `__main__`; no argparse/no-pause or tested exit contract | Reads script-adjacent IFD CSV variants; writes combined AEP lookup CSV; CSV schema and current BOM download parity unverified | Static inventory refreshed; excluded lifecycle retained |
+| `misc-python/README.md` | No | No | Maintained repository-only Office utility documentation | N/A documentation; commands and paths checked | No runtime effects; native Office and UNC acceptance documented separately | Added for #199 / #201 safety fix |
 | `misc-python/heic_to_jpeg.py` | No | No | Source inspected; provisional repository-only photo utility; owner pending | Guarded argparse CLI; optional dependency import can raise `SystemExit`; help not portable without `pillow-heif` | Pillow and pillow-heif, multiprocessing and filesystem copies/conversions; default placeholder P: paths; EXIF/GPS integrity and overwrite policy unverified | Static inventory refreshed; excluded lifecycle retained |
 | `misc-python/remove_excel_protection.py` | Yes | Yes | Selected standalone Excel ZIP/XML editor; source inspected; owner pending | Argparse/no-pause with separate unprotected output dir; input/output contract untested | Rewrites .xlsx/.xlsm ZIP XML protection flags; test macro/relationships/style preservation and no source overwrite | Compiled; guarded --help passed |
 | `other/PDFXChangeEditorSettings_250206.xces` | No | No | Binary application settings resource identified; repository-only | N/A executable; non-UTF-8 application settings; not interpreted by Python source scanner | PDF-XChange Editor configuration not UTF-8 readable via source fetch; do not parse/execute; retain out of wheel and require application review | Static inventory refreshed; excluded lifecycle retained |
@@ -397,3 +398,8 @@ points** (excluding package `__init__` resources), and successful guarded
 wheel. The other **8** have no statically recognised guarded argparse interface
 and were not executed. These are CLI/import checks, not processing acceptance.
 The full existing-script regression selection also passed **105 tests**.
+
+The #199 child adds `misc-python/README.md` as repository-only documentation
+(157 tracked entries after integrating current main; 83 selected files unchanged). It documents
+the existing Office entry point and is indexed centrally; no runtime acceptance
+is implied by the new resource.
