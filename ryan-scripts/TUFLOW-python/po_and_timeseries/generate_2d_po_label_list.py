@@ -11,6 +11,7 @@ import sys
 from collections.abc import Iterable, Sequence
 from contextlib import closing
 from dataclasses import dataclass
+from inspect import signature
 from pathlib import Path
 from typing import Any
 
@@ -21,7 +22,7 @@ from typing import Any
 # the file path below (either as a Path instance or a raw string). Leave it as
 # None to rely exclusively on argparse. When both a hardcoded path and a CLI
 # argument are supplied, the CLI argument wins.
-SCRIPT_VERSION = "2026-11-07.1"
+SCRIPT_VERSION = "2026-11-07.2"
 HARDCODED_GPKG_PATH: Path | str | None = None
 LAYER: str | None = None
 # The adjacent .txt is created exclusively; existing files are never overwritten.
@@ -42,6 +43,9 @@ except ModuleNotFoundError as exc:
     if exc.name not in {"ryan_library", "ryan_library.functions", "ryan_library.functions.wrapper_utils"}:
         raise
     print_wrapper_banner = None
+else:
+    if "wrapper_source" not in signature(print_wrapper_banner).parameters:
+        print_wrapper_banner = None
 
 
 def parse_and_resolve_options(argv: Sequence[str] | None = None) -> RuntimeOptions:

@@ -18,13 +18,14 @@ import shutil
 import sys
 import uuid
 from collections.abc import Iterator
+from inspect import signature
 from pathlib import Path
 
 import geopandas as gpd
 import pyogrio
 from colorama import Fore, Style, init
 
-SCRIPT_VERSION = "2026-11-07.1"
+SCRIPT_VERSION = "2026-11-07.2"
 
 # === Configuration ===
 # Toggle to search subfolders recursively underneath the Python file.
@@ -44,6 +45,9 @@ except ModuleNotFoundError as exc:
     if exc.name not in {"ryan_library", "ryan_library.functions", "ryan_library.functions.wrapper_utils"}:
         raise
     print_wrapper_banner = None
+else:
+    if "wrapper_source" not in signature(print_wrapper_banner).parameters:
+        print_wrapper_banner = None
 
 
 def press_any_key(prompt: str = "Press any key to exit...") -> None:

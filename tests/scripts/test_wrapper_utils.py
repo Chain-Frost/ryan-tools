@@ -225,3 +225,28 @@ def test_versioned_installed_scripts_keep_identity_after_renaming() -> None:
             identity = identities[0]
             assert isinstance(identity, ast.Constant), source
             assert identity.value == source, source
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "TUFLOW-python/gis_processing/rename_geopackage_layer_to_filename.py",
+        "TUFLOW-python/po_and_timeseries/generate_2d_po_label_list.py",
+        "docx-python/word_style_audit.py",
+        "RORB-python/hydrograph_extract_rorb_csv.py",
+    ],
+)
+def test_standalone_scripts_tolerate_an_older_installed_banner(source: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    import runpy
+    from types import ModuleType
+
+    older = ModuleType("ryan_library.functions.wrapper_utils")
+
+    def old_banner(*, wrapper_file: Path, wrapper_version: str) -> None:
+        pytest.fail(f"Standalone script called an incompatible older banner: {wrapper_file}, {wrapper_version}")
+
+    vars(older)["print_wrapper_banner"] = old_banner
+    monkeypatch.setitem(sys.modules, older.__name__, older)
+    script = Path(__file__).absolute().parents[2] / "ryan-scripts" / source
+    namespace = runpy.run_path(str(script))
+    assert namespace["print_wrapper_banner"] is None

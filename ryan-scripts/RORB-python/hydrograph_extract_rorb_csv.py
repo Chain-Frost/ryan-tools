@@ -18,6 +18,7 @@ import argparse
 import re
 import sys
 from datetime import datetime
+from inspect import signature
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -30,7 +31,7 @@ selected_hydrograph: str | None = "Calculated hydrograph:  Outlet"  # Example: "
 # --- End of User Configuration ---
 
 
-SCRIPT_VERSION = "2026-11-07.1"
+SCRIPT_VERSION = "2026-11-07.2"
 
 # Standalone use remains supported without installing ryan-tools.
 try:
@@ -39,6 +40,9 @@ except ModuleNotFoundError as exc:
     if exc.name not in {"ryan_library", "ryan_library.functions", "ryan_library.functions.wrapper_utils"}:
         raise
     print_wrapper_banner = None
+else:
+    if "wrapper_source" not in signature(print_wrapper_banner).parameters:
+        print_wrapper_banner = None
 
 
 def extract_metadata_from_filename(file_name: str) -> tuple[str | None, str | None, str | None, str | None]:

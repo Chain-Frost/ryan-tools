@@ -128,7 +128,8 @@ for maintained standalone scripts.
 
 Maintained standalone scripts use the same banner/check when `ryan-tools` is
 available, with an optional import and their own version banner as the fallback.
-They retain standalone operation when the package is absent. An installed
+They retain standalone operation when the package is absent or its banner
+helper predates the revision-comparison API. An installed
 reference is required for comparison; repository-only scripts without a bundled
 counterpart cannot be checked against the installed package. Do not retrofit
 legacy or experimental scripts solely to add this warning.

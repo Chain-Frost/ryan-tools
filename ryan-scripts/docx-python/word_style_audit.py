@@ -25,6 +25,7 @@ import sys
 import zipfile
 from collections import Counter, defaultdict
 from dataclasses import dataclass
+from inspect import signature
 from pathlib import Path
 from typing import cast
 from xml.etree import ElementTree as ET
@@ -38,7 +39,7 @@ HARDCODED_DOCX_PATH: Path | None = Path(
 )
 
 
-SCRIPT_VERSION = "2026-11-07.1"
+SCRIPT_VERSION = "2026-11-07.2"
 
 # Standalone use remains supported without installing ryan-tools.
 try:
@@ -47,6 +48,9 @@ except ModuleNotFoundError as exc:
     if exc.name not in {"ryan_library", "ryan_library.functions", "ryan_library.functions.wrapper_utils"}:
         raise
     print_wrapper_banner = None
+else:
+    if "wrapper_source" not in signature(print_wrapper_banner).parameters:
+        print_wrapper_banner = None
 
 
 def qn(tag: str) -> str:
