@@ -58,6 +58,9 @@ from rasterio.features import geometry_mask, shapes
 from rasterio.transform import array_bounds, from_origin
 from rasterio.windows import Window, from_bounds
 from scipy.ndimage import binary_dilation
+from shapely import box as vector_box
+from shapely import covers as covers_geometry
+from shapely import union_all
 from shapely.geometry import box, mapping, shape
 
 from ryan_library.functions.gdal.raster_processing import geotiff_creation_options
@@ -223,6 +226,107 @@ def _read_mask_geometries(mask_path: Path, destination_crs: str) -> list[dict[st
     return geometries
 
 
+
+def _native_mask_on_grid(
+    layer: TerrainLayer,
+    grid: PlanningGrid,
+    resampling: Resampling,
+) -> np.ndarray[Any, np.dtype[np.bool_]]:
+    """Aggregate real native validity masks in bounded windows, without lossy overviews.
+
+    MAX reports any source elevations for the inventory. MIN certifies every
+    contributing source pixel is valid; uncertain cells cannot erase lower terrain.
+    """
+    output = np.zeros(grid.shape, dtype=bool)
+    with rasterio.open(layer.source) as source:
+        scale = max(1.0, grid.resolution / source.res[0]) * max(1.0, grid.resolution / source.res[1])
+        block = max(1, min(256, int(math.sqrt(4_000_000 / scale))))
+        for row in range(0, grid.height, block):
+            for col in range(0, grid.width, block):
+                destination = Window(col, row, min(block, grid.width - col), min(block, grid.height - row))
+                tile_transform = rasterio.windows.transform(destination, grid.transform)
+                west, south, east, north = array_bounds(int(destination.height), int(destination.width), tile_transform)
+                if (
+                    east <= source.bounds.left
+                    or west >= source.bounds.right
+                    or north <= source.bounds.bottom
+                    or south >= source.bounds.top
+                ):
+                    continue
+                requested = from_bounds(west, south, east, north, source.transform)
+                c0 = max(0, math.floor(requested.col_off) - 1)
+                c1 = min(source.width, math.ceil(requested.col_off + requested.width) + 1)
+                r0 = max(0, math.floor(requested.row_off) - 1)
+                r1 = min(source.height, math.ceil(requested.row_off + requested.height) + 1)
+                if c0 >= c1 or r0 >= r1:
+                    continue
+                if (c1 - c0) * (r1 - r0) > 16_000_000:
+                    if resampling == Resampling.min:
+                        continue  # Cannot certify full native coverage; preserve lower-priority raster.
+                    message = f"Source mask window too large for native QA: {layer.source}; refine the planning grid"
+                    raise ValueError(message)
+                source_window = Window(c0, r0, c1 - c0, r1 - r0)
+                source_mask = source.read_masks(1, window=source_window)
+                sampled = np.zeros((int(destination.height), int(destination.width)), dtype=np.uint8)
+                rasterio.warp.reproject(
+                    source=source_mask,
+                    destination=sampled,
+                    src_transform=rasterio.windows.transform(source_window, source.transform),
+                    src_crs=source.crs,
+                    dst_transform=tile_transform,
+                    dst_crs=grid.crs,
+                    resampling=resampling,
+                )
+                valid = sampled > 0 if resampling == Resampling.max else sampled == 255
+                if resampling == Resampling.min:
+                    xs = west + np.arange(int(destination.width)) * grid.resolution
+                    ys = north - np.arange(int(destination.height)) * grid.resolution
+                    valid &= (
+                        (xs[None, :] >= source.bounds.left)
+                        & (xs[None, :] + grid.resolution <= source.bounds.right)
+                        & (ys[:, None] <= source.bounds.top)
+                        & (ys[:, None] - grid.resolution >= source.bounds.bottom)
+                    )
+                output[row : row + int(destination.height), col : col + int(destination.width)] = valid
+    return output
+
+
+def _confirmed_replacement(
+    layer: TerrainLayer,
+    grid: PlanningGrid,
+    bounds: AnalysisBounds,
+) -> np.ndarray[Any, np.dtype[np.bool_]]:
+    """Certify valid native pixels and complete polygon-clip coverage per cell."""
+    confirmed = _native_mask_on_grid(layer, grid, Resampling.min)
+    if not confirmed.any():
+        return confirmed
+    xs = grid.transform.c + np.arange(grid.width) * grid.resolution
+    ys = grid.transform.f - np.arange(grid.height) * grid.resolution
+    confirmed &= (
+        (xs[None, :] >= bounds.xmin)
+        & (xs[None, :] + grid.resolution <= bounds.xmax)
+        & (ys[:, None] <= bounds.ymax)
+        & (ys[:, None] - grid.resolution >= bounds.ymin)
+    )
+    if layer.mask is None or not confirmed.any():
+        return confirmed
+    polygon = union_all([shape(item) for item in _read_mask_geometries(layer.mask, grid.crs)])
+    if not polygon.is_valid:
+        message = f"Invalid TGC polygon clip: {layer.mask}"
+        raise ValueError(message)
+    for row in range(0, grid.height, 256):
+        for col in range(0, grid.width, 256):
+            tile = confirmed[row : row + 256, col : col + 256]
+            rows, cols = np.nonzero(tile)
+            if not rows.size:
+                continue
+            west = grid.transform.c + (col + cols) * grid.resolution
+            north = grid.transform.f - (row + rows) * grid.resolution
+            rectangles = vector_box(west, north - grid.resolution, west + grid.resolution, north)
+            tile[rows, cols] &= np.asarray(covers_geometry(polygon, rectangles), dtype=bool)
+    return confirmed
+
+
 def _coverage_mask(
     layer: TerrainLayer,
     grid: PlanningGrid,
@@ -247,18 +351,7 @@ def _coverage_mask(
         if not source.transform.is_rectilinear or source.transform.a <= 0 or source.transform.e >= 0:
             message = f"Terrain must use a north-up rectilinear grid: {layer.source}"
             raise ValueError(message)
-        west, south, east, north = array_bounds(grid.height, grid.width, grid.transform)
-        planning_window = from_bounds(west, south, east, north, source.transform)
-        coverage = (
-            source.read_masks(
-                1,
-                window=planning_window,
-                out_shape=grid.shape,
-                boundless=True,
-                resampling=Resampling.max,
-            )
-            > 0
-        )
+    coverage = _native_mask_on_grid(layer, grid, Resampling.max)
 
     analysis_geometry = mapping(box(bounds.xmin, bounds.ymin, bounds.xmax, bounds.ymax))
     coverage &= geometry_mask(
