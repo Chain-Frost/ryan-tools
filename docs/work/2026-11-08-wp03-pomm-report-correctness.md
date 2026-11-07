@@ -67,12 +67,14 @@ Preserve the upper-middle median and greatest nearest-mean representative-durati
 
 ## Next action
 
-1. Review exact-head #260 and #267 Windows hosted tests, Ruff and strict Pyright; resolve genuine
+1. Review exact-head #267 Windows hosted tests, Ruff and strict Pyright; resolve genuine
    regressions without broad refactoring, keeping each PR's individual fixes reviewable.
 2. Validate synthetic file→real processor→XLSX round trips on the final stack, and record outcomes.
 3. Run native real TUFLOW file/export parity, pandas 2.3.3 and installed copied-wrapper acceptance
    from a separate local Windows worktree; document measured pass/fail evidence and any gaps.
 4. Reconcile final PR stack and keep drafts unmerged until explicit approval. No main merge is authorized.
+   Add the four WP03 closing keywords to parent #251 only after the reviewed child is
+   actually incorporated; a stacked child's base is not the default branch.
 
 ## Progress
 
@@ -102,3 +104,19 @@ Treat #253/#260's previously passing CI as historical; run exact-head CI against
 #267 integration tree before claiming native or packaged acceptance. The parent #251 must
 integrate a reviewed WP03 child before the one eventual, explicitly approved squash
 merge to main. Native Windows project-file and installed/copied-wrapper parity remain pending.
+
+### 2026-11-08 — Exact-head CI follow-up
+
+Hosted Windows Python 3.14.10 CI on WP03 head `d6af50f1` completed:
+Package, Ruff/whitespace, MCP and POSIX security passed. Hosted tests ran
+2,547 selected tests: 2,546 passed and one failed when Pandas 3.1.1 raised
+`TypeError: boolean value of NA is ambiguous` in a `median_TP == mean_TP`
+comparison for an all-invalid hydraulic bin. Strict Policy/Pyright reported
+four errors: a retained but unused legacy metric selector, a malformed
+file-level Pyright directive, and two intended private-helper test uses.
+
+The follow-up WP03 commit converts TP comparisons to nullable string equality,
+calls the retained metric helper while requiring `Q` as the governing
+statistic, and fixes the test directive. CI on the follow-up exact head
+must be checked before acceptance. These findings do **not** establish native
+real-file, pandas 2.3.3, wheel/copy-wrapper, or Windows/UNC acceptance.

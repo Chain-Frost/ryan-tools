@@ -480,7 +480,11 @@ def find_aep_dur_median(aggregated_df: DataFrame) -> DataFrame:
                     TuflowStringParser.normalize_duration_value
                 )
                 duration_match: Series[bool] = median_duration_norm.eq(other=mean_duration_norm)
-                tp_match: Series[bool] = median_df["median_TP"].eq(other=median_df["mean_TP"])
+                # Pandas object columns containing pd.NA raise during direct
+                # equality; nullable strings preserve missing TP identifiers.
+                median_tp: Series = median_df["median_TP"].astype("string")
+                mean_tp: Series = median_df["mean_TP"].astype("string")
+                tp_match: Series[bool] = median_tp.eq(other=mean_tp).fillna(value=False).astype(bool)
                 mean_storm_matches = (duration_match & tp_match).fillna(value=False)
 
             median_df["mean_storm_is_median_storm"] = mean_storm_matches

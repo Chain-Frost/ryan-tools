@@ -439,9 +439,8 @@ def _find_culvert_aep_statistic_max(aep_dur_stat: pd.DataFrame, statistic: Stati
 
     # Discharge-based reports must not promote geometry or metadata to the
     # governing hydraulic statistic when Q is absent.
-    metric_name = f"{statistic}_Q"
-    metric_column: str | None = metric_name if metric_name in aep_dur_stat.columns else None
-    if metric_column is None:
+    metric_column = _preferred_metric_column(aep_dur_stat=aep_dur_stat, statistic=statistic)
+    if metric_column != f"{statistic}_Q":
         logger.warning("No discharge Q statistic found for culvert {}-max calculation.", statistic)
         return pd.DataFrame()
 

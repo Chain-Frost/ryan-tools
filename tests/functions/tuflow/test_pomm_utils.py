@@ -1,6 +1,7 @@
 """Tests for ryan_library.functions.tuflow.pomm_utils."""
 
-# pyright: reportPrivateUsage=false  # Focused tests intentionally cover private POMM helpers.
+# Focused tests intentionally cover private POMM helpers.
+# pyright: reportPrivateUsage=false
 
 from pathlib import Path
 from unittest.mock import MagicMock, patch
