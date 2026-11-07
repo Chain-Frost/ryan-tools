@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Callable
+from contextlib import AbstractContextManager
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -14,7 +16,7 @@ from ryan_library.processors.tuflow.processor_collection import ProcessorCollect
 
 
 @pytest.fixture
-def collection(tmp_path: Path, change_cwd) -> ProcessorCollection:
+def collection(tmp_path: Path, change_cwd: Callable[[Path], AbstractContextManager[None]]) -> ProcessorCollection:
     """Exercise the real Q, PO and POMM factories instead of mocked HDFStore."""
     pytest.importorskip("tables", reason="Install ryan-tools[cache] for HDF persistence tests")
     pytest.importorskip("pyarrow")
