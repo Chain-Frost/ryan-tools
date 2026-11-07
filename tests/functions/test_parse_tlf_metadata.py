@@ -61,7 +61,7 @@ def test_invalid_numeric_tokens_are_not_partially_accepted(line: str, field: str
         ("ESTRY Control File == EG14_001.ecf...redirecting input to this file", {"ECF": "EG14_001"}),
         (
             r"Trying to open (I) file ..\model\Storm.events.tef...OK.  File Unit: 30",
-            {"TEF": "Storm.events"},
+            {"TEF": "Storm.events.tef"},
         ),
     ],
 )
@@ -110,6 +110,8 @@ def _write_synthetic_tlf(path: Path, *, encoding: str, large: bool) -> None:
     ]
     footer = [
         r"Input File: C:\Modèle\My.Model.v2.tcf",
+        "Start Time (h): -2.0",
+        "End Time (h): 1.2E+02",
         "Final Times",
         "Processor Time: [+1.5E+00 h]",
         "Clock Time: [2.0E+00 h]",
