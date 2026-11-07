@@ -1,24 +1,24 @@
-# ryan-scripts\TUFLOW-python\log_processing\append_log_summary_to_master_workbook.py
-"""Wrapper Script: Append TUFLOW Log Summary rows to an existing master workbook.
+# ryan-scripts\\TUFLOW-python\\log_processing\\append_log_summary_to_master_workbook.py
+"""Append completed TUFLOW log-summary rows to an explicitly selected master workbook.
 
-This wrapper searches the configured results folder for TUFLOW log files, skips
-rows already present in the master workbook table, and appends only new rows.
+Edit MASTER_WORKBOOK or pass --master-workbook. This operation intentionally
+modifies an existing .xlsx file; use a backup for important workbooks.
 """
 
 from pathlib import Path
+import sys
 
-WRAPPER_VERSION = "2026-11-07.2"
+WRAPPER_VERSION = "2026-11-08.1"
 
 CONSOLE_LOG_LEVEL = "INFO"
-WORKING_DIR: Path = Path(
-    r"Q:\BGER\PER\RP20181.498 GD AND FORTESCUE RIVER GAP RAIL HYDROLOGY MDL - RTIO\TUFLOW_MLGD\results\v05"
-)
-MASTER_WORKBOOK: Path = WORKING_DIR / "Master_modelling_log.xlsx"
+WORKING_DIR: Path | None = None  # None: use the current directory.
+MASTER_WORKBOOK: Path | None = None  # Required: choose an existing .xlsx workbook.
 SHEET_NAME = "Log Summary"
-TABLE_NAME = "Table1"
+TABLE_NAME: str | None = None  # None: use the first table, or the used sheet range.
 USE_LIVE_DASHBOARD = True
 LIVE_REFRESH_PER_SECOND = 2.0
 LIVE_MAX_ROWS = 10
+PAUSE_ON_FINISH = True
 
 import argparse
 
@@ -50,29 +50,38 @@ def main(
         wrapper_file=Path(__file__),
         wrapper_version=WRAPPER_VERSION,
     )
-    script_directory: Path = working_directory or WORKING_DIR
-
-    if not change_working_directory(target_dir=script_directory):
+    effective_master_workbook = master_workbook if master_workbook is not None else MASTER_WORKBOOK
+    if effective_master_workbook is None:
+        print("ERROR: Select MASTER_WORKBOOK or provide --master-workbook <existing.xlsx>.", file=sys.stderr)
         return 1
 
-    effective_console_log_level: str = console_log_level or CONSOLE_LOG_LEVEL
-    effective_master_workbook: Path = master_workbook or MASTER_WORKBOOK
-    effective_sheet_name: str = sheet_name or SHEET_NAME
-    effective_table_name: str | None = table_name or TABLE_NAME
-    effective_live_max_rows: int = live_max_rows or LIVE_MAX_ROWS
-    effective_live_refresh_per_second: float = live_refresh_per_second or LIVE_REFRESH_PER_SECOND
-    effective_use_live_dashboard: bool = USE_LIVE_DASHBOARD if use_live_dashboard is None else use_live_dashboard
+    script_directory = working_directory if working_directory is not None else WORKING_DIR
+    if script_directory is not None and not change_working_directory(target_dir=script_directory):
+        return 1
 
-    append_to_master_log_summary(
-        master_workbook_path=effective_master_workbook,
-        console_log_level=effective_console_log_level,
-        sheet_name=effective_sheet_name,
-        table_name=effective_table_name,
-        use_live_dashboard=effective_use_live_dashboard,
-        live_refresh_per_second=effective_live_refresh_per_second,
-        live_max_rows=effective_live_max_rows,
+    effective_console_log_level = console_log_level if console_log_level is not None else CONSOLE_LOG_LEVEL
+    effective_sheet_name = sheet_name if sheet_name is not None else SHEET_NAME
+    effective_table_name = table_name if table_name is not None else TABLE_NAME
+    effective_live_max_rows = live_max_rows if live_max_rows is not None else LIVE_MAX_ROWS
+    effective_live_refresh_per_second = (
+        live_refresh_per_second if live_refresh_per_second is not None else LIVE_REFRESH_PER_SECOND
     )
-    return 0
+    effective_use_live_dashboard = USE_LIVE_DASHBOARD if use_live_dashboard is None else use_live_dashboard
+
+    try:
+        completed = append_to_master_log_summary(
+            master_workbook_path=effective_master_workbook,
+            console_log_level=effective_console_log_level,
+            sheet_name=effective_sheet_name,
+            table_name=effective_table_name,
+            use_live_dashboard=effective_use_live_dashboard,
+            live_refresh_per_second=effective_live_refresh_per_second,
+            live_max_rows=effective_live_max_rows,
+        )
+    except (Exception, KeyboardInterrupt) as exc:
+        print(f"ERROR: Master log append failed: {exc}", file=sys.stderr)
+        return 1
+    return 0 if completed else 1
 
 
 def _parse_cli_arguments() -> tuple[CommonWrapperOptions, Path | None, str | None, str | None]:
@@ -82,7 +91,7 @@ def _parse_cli_arguments() -> tuple[CommonWrapperOptions, Path | None, str | Non
     parser.add_argument(
         "--master-workbook",
         type=Path,
-        help="Existing .xlsx workbook to append to. Defaults to MASTER_WORKBOOK in this wrapper.",
+        help="Existing .xlsx workbook to modify. Required unless MASTER_WORKBOOK is configured.",
     )
     parser.add_argument(
         "--sheet-name",
@@ -90,7 +99,7 @@ def _parse_cli_arguments() -> tuple[CommonWrapperOptions, Path | None, str | Non
     )
     parser.add_argument(
         "--table-name",
-        help="Excel table to extend. Defaults to TABLE_NAME in this wrapper.",
+        help="Excel table to extend. None selects the first table or used worksheet range.",
     )
     args: argparse.Namespace = parser.parse_args()
     return (
@@ -119,6 +128,6 @@ if __name__ == "__main__":
         wrapper_version=WRAPPER_VERSION,
         leading_blank_line=True,
     )
-    if not common_options.no_pause:
+    if PAUSE_ON_FINISH and not common_options.no_pause:
         pause_console()
     raise SystemExit(result)

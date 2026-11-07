@@ -5,6 +5,9 @@ __lazy_modules__ = ["pandas"]
 
 
 import math
+import os
+import stat
+import tempfile
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
@@ -42,6 +45,7 @@ def load_existing_log_summary_rows(
     table_name: str | None,
 ) -> ExistingLogSummaryRows:
     """Read existing run-code and log-path keys from a log-summary workbook table."""
+    _validate_master_workbook_type(workbook_path=workbook_path)
     if not workbook_path.exists():
         msg = f"Master workbook does not exist: {workbook_path}"
         raise FileNotFoundError(msg)
@@ -126,6 +130,8 @@ def append_dataframe_to_workbook_table(
     table_name: str | None,
 ) -> None:
     """Append dataframe rows to a worksheet table, extending the table range as needed."""
+    _validate_master_workbook_type(workbook_path=workbook_path)
+    original_stat: os.stat_result = workbook_path.stat()
     workbook: Workbook = load_workbook(filename=workbook_path, read_only=False, data_only=False)
     try:
         worksheet: Worksheet = _resolve_worksheet(workbook=workbook, sheet_name=sheet_name)
@@ -170,13 +176,37 @@ def append_dataframe_to_workbook_table(
             if table.autoFilter is not None:
                 table.autoFilter.ref = table.ref
 
-        logger.info(f"Saving appended workbook {workbook_path}")
-        workbook.save(filename=workbook_path)
+        logger.info("Saving appended workbook {}", workbook_path)
+        # Write in the destination directory so publication is an atomic same-volume replace.
+        # The original workbook is never opened for writing, including on writer failure.
+        with tempfile.NamedTemporaryFile(
+            prefix=f".{workbook_path.stem}-", suffix=".xlsx", dir=workbook_path.parent, delete=False
+        ) as staged_file:
+            staged_path = Path(staged_file.name)
+        try:
+            workbook.save(filename=staged_path)
+            os.chmod(staged_path, stat.S_IMODE(original_stat.st_mode))
+            current_stat: os.stat_result = workbook_path.stat()
+            original_signature = (original_stat.st_dev, original_stat.st_ino, original_stat.st_size, original_stat.st_mtime_ns)
+            current_signature = (current_stat.st_dev, current_stat.st_ino, current_stat.st_size, current_stat.st_mtime_ns)
+            if original_signature != current_signature:
+                msg = f"Master workbook changed during append: {workbook_path}"
+                raise RuntimeError(msg)
+            os.replace(staged_path, workbook_path)
+        finally:
+            staged_path.unlink(missing_ok=True)
     except PermissionError:
         logger.error(f"Unable to save {workbook_path}. Close it in Excel and rerun the append script.")
         raise
     finally:
         workbook.close()
+
+
+def _validate_master_workbook_type(*, workbook_path: Path) -> None:
+    """Never silently strip VBA from macro-enabled workbooks."""
+    if workbook_path.suffix.lower() != ".xlsx":
+        msg = "Master log append supports .xlsx only; .xlsm and other formats are not modified."
+        raise ValueError(msg)
 
 
 def _resolve_worksheet(*, workbook: Workbook, sheet_name: str) -> Worksheet:
