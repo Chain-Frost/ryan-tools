@@ -108,7 +108,7 @@ def main(
     except KeyboardInterrupt:
         logger.warning("POMM mean peak report interrupted.")
         return 130
-    except Exception:  # noqa: BLE001 - process boundary returns nonzero on any workflow failure
+    except Exception:
         logger.exception("POMM mean peak report failed.")
         return 1
     return 1 if outcome is False else 0
