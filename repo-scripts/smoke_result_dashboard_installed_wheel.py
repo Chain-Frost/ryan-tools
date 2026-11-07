@@ -356,6 +356,84 @@ def _one_qa_case(wrapper: str, root: Path, work: Path, *, dashboard: bool) -> Wo
     return snapshot
 
 
+REMAINING_DASHBOARD_WRAPPERS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
+    ("TUFLOW-python/po_and_timeseries/create_pomm_mean_peak_report.py", ("aep-dur-mean", "aep-mean-max"), ("--data-types", "POMM")),
+    ("TUFLOW-python/po_and_timeseries/create_pomm_median_peak_report.py", ("aep-dur-max", "aep-max"), ("--data-types", "POMM")),
+    ("TUFLOW-python/po_and_timeseries/calculate_po_closure_durations.py", ("Summary",), ()),
+)
+
+
+def _remaining_snapshot(work: Path, required_sheets: tuple[str, ...]) -> WorkbookSnapshot:
+    """Read only the output table schema and values that survive a directory change."""
+    books = list(work.glob("*.xlsx"))
+    if len(books) != 1:
+        msg = f"Expected one POMM/closure workbook in {work}, found {books}"
+        raise RuntimeError(msg)
+    workbook = load_workbook(books[0], read_only=True, data_only=True)
+    try:
+        observed: WorkbookSnapshot = {}
+        for name in required_sheets:
+            if name not in workbook.sheetnames:
+                msg = f"Missing {name} from copied report: {workbook.sheetnames}"
+                raise RuntimeError(msg)
+            values = list(workbook[name].values)
+            if len(values) < 2:
+                msg = f"Copied report {name} has no data rows: {values}"
+                raise RuntimeError(msg)
+            headers = tuple(str(value) for value in values[0])
+            numbers = tuple(
+                tuple(float(value) for value in row if isinstance(value, (int, float)) and not isinstance(value, bool))
+                for row in values[1:]
+            )
+            observed[name] = headers, numbers
+        return observed
+    finally:
+        workbook.close()
+
+
+def _one_remaining_case(
+    wrapper: str,
+    sheets: tuple[str, ...],
+    extra_flags: tuple[str, ...],
+    root: Path,
+    work: Path,
+    *,
+    dashboard: bool,
+) -> WorkbookSnapshot:
+    work.mkdir(parents=True)
+    _write_inputs(work / "inputs")
+    script = copy_wrapper(wrapper, work)
+    if not script.is_file() or not script.absolute().is_relative_to(work):
+        msg = f"Remaining dashboard wrapper was not copied into disposable folder: {wrapper}"
+        raise RuntimeError(msg)
+    help_result = _run_qa(script, work, root, "--help")
+    if help_result.returncode != 0 or "--no-live-dashboard" not in help_result.stdout:
+        msg = f"Copied wrapper does not advertise dashboard controls: {wrapper}"
+        raise RuntimeError(msg)
+
+    result = _run_qa(
+        script, work, root, *extra_flags, "--live-dashboard" if dashboard else "--no-live-dashboard"
+    )
+    if result.returncode != 0:
+        msg = (
+            f"Copied {wrapper} (dashboard={dashboard}) exited {result.returncode}: "
+            f"stdout={result.stdout[-1800:]!r} stderr={result.stderr[-1500:]!r}"
+        )
+        raise RuntimeError(msg)
+    if dashboard and ": SUCCESS" not in result.stdout:
+        msg = f"Copied {wrapper} did not report final SUCCESS: {result.stdout[-1200:]}"
+        raise RuntimeError(msg)
+    if "\\x1b[" in result.stdout:
+        msg = f"Copied {wrapper} emitted terminal control sequences to redirected output"
+        raise RuntimeError(msg)
+    snapshot = _remaining_snapshot(work, sheets)
+    bad = _run_qa(script, work, root, "--live-max-rows", "0")
+    if bad.returncode == 0 or "live_max_rows" not in bad.stdout + bad.stderr:
+        msg = f"Copied {wrapper} accepted invalid dashboard row setting"
+        raise RuntimeError(msg)
+    return snapshot
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--expected-root", type=Path, required=True)
@@ -383,8 +461,19 @@ def main() -> None:
                 msg = f"PO QA dashboard changed copied-wheel workbook values: {wrapper}: {without!r} vs {with_dashboard!r}"
                 raise RuntimeError(msg)
 
+        for index, (wrapper, sheets, flags) in enumerate(REMAINING_DASHBOARD_WRAPPERS):
+            without = _one_remaining_case(
+                wrapper, sheets, flags, root, base / f"remaining_{index}_ordinary", dashboard=False
+            )
+            with_dashboard = _one_remaining_case(
+                wrapper, sheets, flags, root, base / f"remaining_{index}_dashboard", dashboard=True
+            )
+            if without != with_dashboard:
+                msg = f"Copied dashboard changed POMM/closure results in {wrapper}"
+                raise RuntimeError(msg)
+
     print(
-        f"Six copied result wrappers and two PO QA wrappers passed installed-wheel smoke at {actual}: "
+        f"Six result, two QA, two POMM and one closure copied wrappers passed installed-wheel smoke at {actual}: "
         "dashboard on/off workbook parity and settings."
     )
 
