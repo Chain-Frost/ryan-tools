@@ -101,17 +101,20 @@ SET_VARIABLE_PATTERN: re.Pattern[str] = re.compile(
 
 
 def _extract_control_file(line: str) -> tuple[str, str] | None:
-    """Extract a control-file basename (or the ECF/TEF stem) across path styles."""
+    """Extract a control-file name, preserving legacy source-specific TEF form."""
     match = CONTROL_FILE_PATTERN.match(line)
     if match:
         field = CONTROL_FILE_FIELDS[match.group("label").casefold()]
         raw_path = match.group("path")
+        as_stem = field in {"ECF", "TEF"}
     else:
         match = TEF_OPEN_PATTERN.search(line)
         if not match:
             return None
         field = "TEF"
         raw_path = match.group("path")
+        # The legacy opened-file metadata retains the .tef extension.
+        as_stem = False
 
     # Deliberate TUFLOW explanatory/redirection suffixes, not spaces or dots in filenames.
     path_text = re.split(r"\s+!\s+|\s+->\s+|\s+=>\s+|\s+\|\s+", raw_path, maxsplit=1)[0].strip().strip('"')
@@ -121,7 +124,7 @@ def _extract_control_file(line: str) -> tuple[str, str] | None:
     filename = PureWindowsPath(path_text.replace("/", "\\")).name
     if not filename:
         return None
-    return field, PureWindowsPath(filename).stem if field in {"ECF", "TEF"} else filename
+    return field, PureWindowsPath(filename).stem if as_stem else filename
 
 
 def _normalise_bcdbase_variable(variable: str) -> str:
