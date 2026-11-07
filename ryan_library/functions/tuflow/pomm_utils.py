@@ -784,6 +784,9 @@ def find_aep_dur_mean(aggregated_df: DataFrame) -> DataFrame:
     if "mean_internalName" in aep_dur_median.columns:
         aep_dur_median["internalName"] = aep_dur_median["mean_internalName"]
         aep_dur_median = aep_dur_median.drop(columns=["mean_internalName"], errors="ignore")
+    if "mean_file" in aep_dur_median.columns:
+        aep_dur_median["file"] = aep_dur_median["mean_file"]
+        aep_dur_median = aep_dur_median.drop(columns=["mean_file"], errors="ignore")
 
     id_columns: list[str] = [
         "aep_text",
@@ -842,19 +845,29 @@ def find_aep_mean_max(
         df["count_TP_aep"] = (
             df.groupby(by=group_cols, observed=True)["_count_numeric"].transform(func="sum").astype(dtype="Int64")
         )
+        df["_valid_duration"] = df["_count_numeric"].gt(0).astype("Int64")
         df["count_duration"] = (
-            df.groupby(by=group_cols, observed=True)["duration_text"].transform(func="count").astype(dtype="Int64")
-            if "duration_text" in df.columns
-            else pd.Series(data=0, index=df.index, dtype="Int64")
+            df.groupby(by=group_cols, observed=True)["_valid_duration"].transform("sum").astype("Int64")
         )
+        df["count_duration_unusable"] = (
+            df.groupby(by=group_cols, observed=True)["_valid_duration"].transform("size") - df["count_duration"]
+        ).astype("Int64")
+        if "count_unusable_TP" in df.columns:
+            df["count_unusable_TP_aep"] = (
+                df.groupby(by=group_cols, observed=True)["count_unusable_TP"].transform("sum").astype("Int64")
+            )
 
-        valid_df: DataFrame = df[df["_mean_peakflow_numeric"].notna()]
+        valid_df: DataFrame = df[
+            df["_mean_peakflow_numeric"].notna() & df["_mean_peakflow_numeric"].abs().ne(float("inf"))
+        ]
         if valid_df.empty:
             logger.warning("No valid mean peak flow values found. Returning empty DataFrame.")
             return DataFrame()
 
         idx: Series = valid_df.groupby(by=group_cols, observed=True)["_mean_peakflow_numeric"].idxmax()
-        aep_mean_max: DataFrame = df.loc[idx].drop(columns=["_mean_peakflow_numeric", "_count_numeric"])
+        aep_mean_max: DataFrame = df.loc[idx].drop(
+            columns=["_mean_peakflow_numeric", "_count_numeric", "_valid_duration"]
+        )
         aep_mean_max = aep_mean_max.reset_index(drop=True)
 
         if not aep_mean_max.empty:
