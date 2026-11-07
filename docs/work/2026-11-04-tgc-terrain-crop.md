@@ -177,3 +177,11 @@ QGIS read-back and approved anonymized real-terrain-window validation passed; th
 [initialiser record](tuflow-initialiser/README.md#2026-11-08---review-repairs-and-native-acceptance)
 owns detailed evidence and the remaining engineering gates. Validation/review and
 pushed-head CI are being refreshed. No main merge or publication is authorised.
+
+
+Final local hosted selection on the repaired runtime: 2,619 passed / 33 skipped /
+eight deselected. Both review findings are resolved. Linux SQLite publication
+coverage passes at `60ba250c`; remaining hosted jobs and fresh Codex review are
+still pending/running. The maintainer confirmed AHD71 and deferred representative
+mixed-horizontal-CRS testing to [#266](https://github.com/Chain-Frost/ryan-tools/issues/266).
+Other real-model engineering gates remain explicit in the initialiser record.

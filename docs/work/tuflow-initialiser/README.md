@@ -312,3 +312,30 @@ Focused CAD/terrain regressions and strict typing pass. The full hosted command
 reported 2,618 passes / 33 skips with one stale inventory-count assertion; that
 work-register count is corrected and all 22 inventory tests pass. Full final-head
 local/hosted validation, fresh review and pushed delivery are being refreshed.
+
+
+### Final validation and deferred mixed-CRS check
+
+The full local hosted selection passes: **2,619 passed, 33 skipped, 8 deselected**
+(201.58 s). The four SQLite publication cases also run in the Linux security job
+without GDAL/test-fixture dependencies; its `POSIX wrapper security` job passed
+at `60ba250c`. Existing review threads are all resolved. A fresh Codex review was
+requested and is running on runtime-fix commit `a0956b77`; `60ba250c` subsequently
+adds only test/CI coverage. Other final-head hosted jobs remain pending/running;
+no green conclusion is claimed for them.
+
+The maintainer confirms that the approved terrain is **AHD71** vertically, and
+has no different-horizontal-CRS representative dataset. This is user-confirmed
+source provenance; no height conversion was performed. Mixed horizontal CRS
+acceptance is deliberately deferred in
+[#266](https://github.com/Chain-Frost/ryan-tools/issues/266), linked to #244.
+That future check does not invalidate completed same-CRS parity/source-priority
+results. Real exclusion/interface engineering (#245), full TUFLOW DEM_Z and other
+unverified source-provenance/large-area acceptance remain separate follow-ups.
+
+Delivery: main refresh `c72a85d5`, review fixes/native evidence `a0956b77`, Linux
+publication coverage `60ba250c` pushed to the existing #204 branch. Documentation
+handoff is committed separately. No main merge, release, binary-fixture transfer,
+source-repository archival or changes to private model sources were performed.
+MCP assessment: no discovery changes; these repairs preserve the existing CLIs
+and safety boundaries rather than adding a new workflow interface.
