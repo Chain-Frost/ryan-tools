@@ -941,7 +941,11 @@ class ProcessorCollection:
             raise ValueError(msg)
 
         for processor in self.processors:
-            if destination.exists() and processor.resolved_file_path.exists() and destination.samefile(processor.resolved_file_path):
+            if (
+                destination.exists()
+                and processor.resolved_file_path.exists()
+                and destination.samefile(processor.resolved_file_path)
+            ):
                 msg = f"HDF5 cache destination aliases a processor source: {destination}"
                 raise ValueError(msg)
 
