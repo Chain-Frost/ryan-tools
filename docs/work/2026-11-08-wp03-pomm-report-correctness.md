@@ -60,15 +60,16 @@ Preserve the upper-middle median and greatest nearest-mean representative-durati
   hosted checks and an isolated installed-wheel copied-wrapper smoke, before WP03's changes.
   Do not attribute those passes to #253/#260/#267.
 - **Still required:** exact-head Windows/Python 3.14 CI for #260 and #267, strict Pyright/Ruff
-  and integrated XLSX tests; additional pandas 2.3.3 compatibility, installed copied-wrapper run
-  against the new wheel, and native real-file POMM/RLL/culvert export parity.
+  and integrated XLSX tests; the Windows pandas 2.3.3 focused compatibility and current 3.x
+  hosted tests have now passed (see evidence below). Native real-file POMM/RLL/culvert export parity,
+  POMM mean/median copied-wrapper execution and UNC/mapped-drive input remain outstanding.
   RLL `Qmax` provides no independent time-series negative minimum and is not equivalent to POMM
   signed absolute-maximum semantics.
 
 ## Next action
 
-1. Review exact-head #267 Windows hosted tests, Ruff and strict Pyright; resolve genuine
-   regressions without broad refactoring, keeping each PR's individual fixes reviewable.
+1. Keep all six exact-head CI gates green, including Windows Python 3.14 current-pandas
+   full-suite and pandas 2.3.3 focused POMM/culvert compatibility. Investigate only new failures.
 2. Validate synthetic file→real processor→XLSX round trips on the final stack, and record outcomes.
 3. Run native real TUFLOW file/export parity, pandas 2.3.3 and installed copied-wrapper acceptance
    from a separate local Windows worktree; document measured pass/fail evidence and any gaps.
@@ -120,3 +121,48 @@ calls the retained metric helper while requiring `Q` as the governing
 statistic, and fixes the test directive. CI on the follow-up exact head
 must be checked before acceptance. These findings do **not** establish native
 real-file, pandas 2.3.3, wheel/copy-wrapper, or Windows/UNC acceptance.
+
+### 2026-11-08 — pandas compatibility and cross-PR acceptance review
+
+**Code + CI head:** `5b52f4f5965b758acb6c4983e55f1f05c236e180`,
+[all six checks passed](https://github.com/Chain-Frost/ryan-tools/commit/5b52f4f5965b758acb6c4983e55f1f05c236e180/checks)
+on Windows Python 3.14.10 (2026-11-07 UTC).
+The current pandas **3.1.1** hosted suite reported **2,566 passed,
+14 skipped, 8 deselected** (147 warnings); after installing the
+Python 3.14-compatible pandas **2.3.3** and its `pytz` dependency,
+the focused POMM/culvert regression set reported **48 passed**
+(8 warnings). Policy strict Pyright 0 errors/0 warnings, Ruff/whitespace,
+Package, MCP and POSIX security all passed. The Package job built/verified
+an isolated wheel and exercised six copied TUFLOW result wrappers
+including synthetic workbook/dashboard parity; those six did **not**
+include dedicated POMM mean/median copied-wrapper real-file execution.
+The pandas 2.3.3 check was added to the established hosted CI without
+changing the runtime dependency range.
+
+**Cross-PR reconciliation:** Separate, still-open [#207](https://github.com/Chain-Frost/ryan-tools/pull/207)
+contains merged-in #238 POMM coverage warnings, its expected TP count and
+duration schedule, and coverage-settings metadata; no copy of that work
+has been merged into WP03 or parent #251.
+The [integration review](https://github.com/Chain-Frost/ryan-tools/pull/207#issuecomment-6710799402)
+records that #238's raw observed TP coverage must remain distinct from
+WP03's **finite contributing** `count_TP`, with known unusable counts
+reported separately. Preserve both implementations, the latest list-based
+wrapper settings and the union of column definitions; then test
+`test_pomm_coverage_findings.py` alongside WP03 regressions on
+the eventual integrated candidate. This is a **pending integration
+review**, not accepted combined behaviour.
+
+**Native handoff:** [Local Windows acceptance prompt](https://github.com/Chain-Frost/ryan-tools/pull/267#issuecomment-6710844466).
+Actual Windows project CSVs, UNC/mapped-drive input, source-file
+non-mutation, copied mean/median POMM wrappers and real POMM/RLL/culvert
+workbook parity are **NOT RUN/NOT VERIFIED**. Access to a normal
+Windows project environment and representative files is required.
+No Git installation, solver execution, production/share mutation or
+automatic merge is authorised or required.
+
+**Issue closure:** Draft child #267 contains `Fixes #227`, `Fixes #218`,
+`Fixes #216`, `Fixes #217`. Because the child does not target `main`
+and is not incorporated, all four issues stay open. Transfer these
+closing keywords to parent #251 only after the child is accepted and
+incorporated; do not close issues merely because an intermediate PR is
+stacked or CI is green.
