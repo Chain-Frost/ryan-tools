@@ -26,7 +26,6 @@ from ryan_library.functions.file_utils import find_files_parallel
 from ryan_library.functions.live_dashboard import LiveWorkflowDashboard, WorkflowColumn, WorkflowMetric, WorkflowStatus
 from ryan_library.functions.loguru_helpers import LogQueue, setup_logger
 from ryan_library.functions.multiprocessing_helpers import calculate_pool_size
-from ryan_library.functions.tuflow.hpc_companion import read_hpc_companion_metrics
 from ryan_library.functions.parse_tlf import (
     finalise_data,
     get_log_lines,
@@ -35,6 +34,7 @@ from ryan_library.functions.parse_tlf import (
     search_for_completion,
 )
 from ryan_library.functions.path_stuff import convert_to_relative_path
+from ryan_library.functions.tuflow.hpc_companion import read_hpc_companion_metrics
 
 LogSummaryStatus = Literal["OK", "SKIP", "FAIL"]
 
