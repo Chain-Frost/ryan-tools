@@ -37,8 +37,9 @@ unique-run semantics or the failure-state contract in #195/#223.
   prefixes. Do not equate absence of mass error with solver failure.
 - Preserve control filenames containing multiple dots, spaces, forward or
   back slashes, UNC/relative/bare paths, and explicit redirect suffixes.
-  ECF/TEF are stems without final extension; TGC/TBC/BC_dbase are basenames
-  with extension, as in the pre-existing dictionary.
+  ECF and BC Event File metadata remain stems, while TEF values from opened
+  .tef files retain the full basename and extension, matching the archived
+  source-specific contract. TGC/TBC/BC_dbase remain basenames with extension.
 - Accept abbreviated/numeric month timestamps and optional seconds.
 - Decode UTF-8/Windows-1252 per complete line, either side of the 10 MiB
   boundary. Large-log headers stream; the tail reads at most 30 KB/100 lines
