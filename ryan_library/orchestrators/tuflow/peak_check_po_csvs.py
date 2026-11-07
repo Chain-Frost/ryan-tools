@@ -202,7 +202,9 @@ def main_processing(
                         "{} input file(s) had malformed data; diagnostic rows were retained in the report.",
                         status_counts["FAIL"],
                     )
-                    dashboard.finish(outcome="FAILED", detail=f"{status_counts['FAIL']} malformed file(s); partial report exported")
+                    dashboard.finish(
+                        outcome="FAILED", detail=f"{status_counts['FAIL']} malformed file(s); partial report exported"
+                    )
                     return False
                 if not status_counts["OK"]:
                     dashboard.finish(outcome="SKIPPED", detail="diagnostic-only report exported")
