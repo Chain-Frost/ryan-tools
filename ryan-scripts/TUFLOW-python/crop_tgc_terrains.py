@@ -58,6 +58,9 @@ from rasterio.features import geometry_mask, shapes
 from rasterio.transform import array_bounds, from_origin
 from rasterio.windows import Window, from_bounds
 from scipy.ndimage import binary_dilation
+from shapely import box as vector_box
+from shapely import covers as covers_geometry
+from shapely import union_all
 from shapely.geometry import box, mapping, shape
 
 from ryan_library.functions.gdal.raster_processing import geotiff_creation_options
@@ -223,6 +226,106 @@ def _read_mask_geometries(mask_path: Path, destination_crs: str) -> list[dict[st
     return geometries
 
 
+def _native_mask_on_grid(
+    layer: TerrainLayer,
+    grid: PlanningGrid,
+    resampling: Resampling,
+) -> np.ndarray[Any, np.dtype[np.bool_]]:
+    """Aggregate real native validity masks in bounded windows, without lossy overviews.
+
+    MAX reports any source elevations for the inventory. MIN certifies every
+    contributing source pixel is valid; uncertain cells cannot erase lower terrain.
+    """
+    output = np.zeros(grid.shape, dtype=bool)
+    with rasterio.open(layer.source) as source:
+        scale = max(1.0, grid.resolution / source.res[0]) * max(1.0, grid.resolution / source.res[1])
+        block = max(1, min(256, int(math.sqrt(4_000_000 / scale))))
+        for row in range(0, grid.height, block):
+            for col in range(0, grid.width, block):
+                destination = Window(col, row, min(block, grid.width - col), min(block, grid.height - row))
+                tile_transform = rasterio.windows.transform(destination, grid.transform)
+                west, south, east, north = array_bounds(int(destination.height), int(destination.width), tile_transform)
+                if (
+                    east <= source.bounds.left
+                    or west >= source.bounds.right
+                    or north <= source.bounds.bottom
+                    or south >= source.bounds.top
+                ):
+                    continue
+                requested = from_bounds(west, south, east, north, source.transform)
+                c0 = max(0, math.floor(requested.col_off) - 1)
+                c1 = min(source.width, math.ceil(requested.col_off + requested.width) + 1)
+                r0 = max(0, math.floor(requested.row_off) - 1)
+                r1 = min(source.height, math.ceil(requested.row_off + requested.height) + 1)
+                if c0 >= c1 or r0 >= r1:
+                    continue
+                if (c1 - c0) * (r1 - r0) > 16_000_000:
+                    if resampling == Resampling.min:
+                        continue  # Cannot certify full native coverage; preserve lower-priority raster.
+                    message = f"Source mask window too large for native QA: {layer.source}; refine the planning grid"
+                    raise ValueError(message)
+                source_window = Window(c0, r0, c1 - c0, r1 - r0)
+                source_mask = source.read_masks(1, window=source_window)
+                sampled = np.zeros((int(destination.height), int(destination.width)), dtype=np.uint8)
+                rasterio.warp.reproject(
+                    source=source_mask,
+                    destination=sampled,
+                    src_transform=rasterio.windows.transform(source_window, source.transform),
+                    src_crs=source.crs,
+                    dst_transform=tile_transform,
+                    dst_crs=grid.crs,
+                    resampling=resampling,
+                )
+                valid = sampled > 0 if resampling == Resampling.max else sampled == 255
+                if resampling == Resampling.min:
+                    xs = west + np.arange(int(destination.width)) * grid.resolution
+                    ys = north - np.arange(int(destination.height)) * grid.resolution
+                    valid &= (
+                        (xs[None, :] >= source.bounds.left)
+                        & (xs[None, :] + grid.resolution <= source.bounds.right)
+                        & (ys[:, None] <= source.bounds.top)
+                        & (ys[:, None] - grid.resolution >= source.bounds.bottom)
+                    )
+                output[row : row + int(destination.height), col : col + int(destination.width)] = valid
+    return output
+
+
+def _confirmed_replacement(
+    layer: TerrainLayer,
+    grid: PlanningGrid,
+    bounds: AnalysisBounds,
+) -> np.ndarray[Any, np.dtype[np.bool_]]:
+    """Certify valid native pixels and complete polygon-clip coverage per cell."""
+    confirmed = _native_mask_on_grid(layer, grid, Resampling.min)
+    if not confirmed.any():
+        return confirmed
+    xs = grid.transform.c + np.arange(grid.width) * grid.resolution
+    ys = grid.transform.f - np.arange(grid.height) * grid.resolution
+    confirmed &= (
+        (xs[None, :] >= bounds.xmin)
+        & (xs[None, :] + grid.resolution <= bounds.xmax)
+        & (ys[:, None] <= bounds.ymax)
+        & (ys[:, None] - grid.resolution >= bounds.ymin)
+    )
+    if layer.mask is None or not confirmed.any():
+        return confirmed
+    polygon = union_all([shape(item) for item in _read_mask_geometries(layer.mask, grid.crs)])
+    if not polygon.is_valid:
+        message = f"Invalid TGC polygon clip: {layer.mask}"
+        raise ValueError(message)
+    for row in range(0, grid.height, 256):
+        for col in range(0, grid.width, 256):
+            tile = confirmed[row : row + 256, col : col + 256]
+            rows, cols = np.nonzero(tile)
+            if not rows.size:
+                continue
+            west = grid.transform.c + (col + cols) * grid.resolution
+            north = grid.transform.f - (row + rows) * grid.resolution
+            rectangles = vector_box(west, north - grid.resolution, west + grid.resolution, north)
+            tile[rows, cols] &= np.asarray(covers_geometry(polygon, rectangles), dtype=bool)
+    return confirmed
+
+
 def _coverage_mask(
     layer: TerrainLayer,
     grid: PlanningGrid,
@@ -247,18 +350,7 @@ def _coverage_mask(
         if not source.transform.is_rectilinear or source.transform.a <= 0 or source.transform.e >= 0:
             message = f"Terrain must use a north-up rectilinear grid: {layer.source}"
             raise ValueError(message)
-        west, south, east, north = array_bounds(grid.height, grid.width, grid.transform)
-        planning_window = from_bounds(west, south, east, north, source.transform)
-        coverage = (
-            source.read_masks(
-                1,
-                window=planning_window,
-                out_shape=grid.shape,
-                boundless=True,
-                resampling=Resampling.max,
-            )
-            > 0
-        )
+    coverage = _native_mask_on_grid(layer, grid, Resampling.max)
 
     analysis_geometry = mapping(box(bounds.xmin, bounds.ymin, bounds.xmax, bounds.ymax))
     coverage &= geometry_mask(
@@ -291,22 +383,27 @@ def _buffer_binary(mask: np.ndarray[Any, np.dtype[np.bool_]], cells: int) -> np.
 def allocate_retained_coverage(
     coverages: Sequence[np.ndarray[Any, np.dtype[np.bool_]]],
     buffer_cells: int,
+    replacements: Sequence[np.ndarray[Any, np.dtype[np.bool_]]] | None = None,
 ) -> list[tuple[np.ndarray[Any, np.dtype[np.bool_]], int]]:
-    """Allocate precedence in reverse order and buffer each unique responsibility area."""
+    """Remove lower-priority data only under conservatively certified coverage."""
     if not coverages:
         return []
     shape = coverages[0].shape
     if any(coverage.shape != shape for coverage in coverages):
         message = "All planning coverage masks must share one shape"
         raise ValueError(message)
+    confirmed = coverages if replacements is None else replacements
+    if len(confirmed) != len(coverages) or any(item.shape != shape for item in confirmed):
+        message = "Confirmed replacement masks must match source layers and grid"
+        raise ValueError(message)
 
-    later_coverage = np.zeros(shape, dtype=bool)
+    later_certified = np.zeros(shape, dtype=bool)
     retained_reversed: list[tuple[np.ndarray[Any, np.dtype[np.bool_]], int]] = []
-    for coverage in reversed(coverages):
-        responsibility = coverage & ~later_coverage
+    for coverage, replacement in reversed(tuple(zip(coverages, confirmed, strict=True))):
+        responsibility = coverage & ~later_certified
         retained = coverage & _buffer_binary(responsibility, buffer_cells)
         retained_reversed.append((retained, int(np.count_nonzero(responsibility))))
-        later_coverage |= coverage
+        later_certified |= replacement
     retained_reversed.reverse()
     return retained_reversed
 
@@ -330,11 +427,13 @@ def build_plan(
         raise ValueError(message)
     grid = _planning_grid(bounds, planning_resolution, crs)
     coverages: list[np.ndarray[Any, np.dtype[np.bool_]]] = []
+    replacements: list[np.ndarray[Any, np.dtype[np.bool_]]] = []
     for index, layer in enumerate(layers, start=1):
         print(f"Inspecting terrain coverage {index}/{len(layers)}: {layer.source}")
         coverages.append(_coverage_mask(layer, grid, bounds))
+        replacements.append(_confirmed_replacement(layer, grid, bounds))
     buffer_cells = math.ceil(seam_buffer / planning_resolution)
-    allocations = allocate_retained_coverage(coverages, buffer_cells)
+    allocations = allocate_retained_coverage(coverages, buffer_cells, replacements)
     destination = _absolute(output_directory)
     plan = [
         PlannedLayer(
@@ -725,17 +824,14 @@ def run(
             if not item.omitted:
                 _write_layer(item, grid, bounds)
         qa = _write_coverage_qa(absolute_output, grid, bounds, plan)
-        if qa["lost_original_planning_cells"]:
-            print(
-                "WARNING: original valid terrain coverage was lost by the crop at the planning resolution; "
-                f"review {qa['gpkg']} before using the patched TGC.",
-                file=sys.stderr,
+        if qa["lost_original_planning_cells"] or qa["final_uncovered_planning_cells"]:
+            message = (
+                "Unsafe terrain crop: valid original coverage was lost or required coverage is missing "
+                f"(lost={qa['lost_original_planning_cells']}, "
+                f"uncovered={qa['final_uncovered_planning_cells']}). "
+                f"QA preserved at {qa['gpkg']}; patched TGC was not published."
             )
-        if qa["final_uncovered_planning_cells"]:
-            print(
-                f"WARNING: the required bounding box has uncovered terrain cells; review {qa['gpkg']}.",
-                file=sys.stderr,
-            )
+            raise ValueError(message)
         patched_tgc = _write_patched_tgc(absolute_tgc, scenario, plan)
         payload = _manifest_payload(absolute_tgc, patched_tgc, scenario, bounds, grid, seam_buffer, plan)
         payload["coverage_qa"] = qa
