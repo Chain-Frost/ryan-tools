@@ -862,7 +862,8 @@ class ProcessorCollection:
             msg = "Cached Arrow payload did not contain a DataFrame"
             raise TypeError(msg)
 
-        extra = (table.schema.metadata or {}).get(b"ryan_tools:pd_na_positions")
+        schema_metadata = cast("dict[bytes, bytes] | None", table.schema.metadata)
+        extra = schema_metadata.get(b"ryan_tools:pd_na_positions") if schema_metadata is not None else None
         if extra is not None:
             raw_positions: Any = json.loads(extra.decode("utf-8"))
             if not isinstance(raw_positions, dict):
@@ -870,7 +871,7 @@ class ProcessorCollection:
                 raise ValueError(msg)
             positions_by_column = cast("dict[str, Any]", raw_positions)
             for column, raw_column_positions in positions_by_column.items():
-                if not isinstance(column, str) or not isinstance(raw_column_positions, list):
+                if not isinstance(raw_column_positions, list):
                     msg = "Cached Arrow missing-value metadata is malformed"
                     raise ValueError(msg)
                 positions = cast("list[Any]", raw_column_positions)
