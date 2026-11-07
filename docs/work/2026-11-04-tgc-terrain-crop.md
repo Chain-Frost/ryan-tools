@@ -66,7 +66,7 @@ root-file terrain reads retain their existing behavior. Added plan-only and
 write-mode regressions proving no outputs are created. All nine terrain tests,
 Ruff lint/format and strict Pyright on both modified Python files pass.
 The initial test invocation emitted a native h5py loader diagnostic; rerunning
-with h5py preloaded passed cleanly. Commit/push and current-head hosted checks
+with h5py preloaded passed cleanly. Fix pushed as `45452b0b`; review thread resolved. Current-head hosted checks
 are pending; no merge authorized.
 
 ### 2026-11-07
