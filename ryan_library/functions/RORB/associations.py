@@ -1,6 +1,8 @@
 """Bounded, explicit associations and comparisons; never search recursively or repair source times."""
 
+import csv
 import math
+from decimal import Decimal, InvalidOperation
 
 from .reader_types import Record, RorbDocument, Section
 from .readers import read_rorb_file
@@ -10,10 +12,23 @@ def _basename(reference: str) -> str:
     return reference.replace("\\", "/").rsplit("/", 1)[-1]
 
 
+def _printed_peak(token: str) -> tuple[Decimal, Decimal]:
+    """Return a finite source value and the decimal resolution of its printed token."""
+    value = Decimal(token.strip().replace("D", "E").replace("d", "e"))
+    if not value.is_finite():
+        msg = "A printed peak must be finite."
+        raise ValueError(msg)
+    resolution = Decimal(1).scaleb(int(value.as_tuple().exponent))
+    return value, resolution
+
+
 def _matches_peaks(batch: RorbDocument, row: Record, csv_doc: RorbDocument) -> bool:
     table = csv_doc.section("hydrographs")
     if not table.valid or not table.rows:
         return False
+
+    batch_columns = batch.section("runs").columns
+    batch_tokens = batch.lines[int(str(row["line"])) - 1].split()
     for site in batch.section("sites").rows:
         if site["role"] is None or site["name"] is None:
             return False
@@ -21,13 +36,28 @@ def _matches_peaks(batch: RorbDocument, row: Record, csv_doc: RorbDocument) -> b
         matches = [c for c in table.columns if " ".join(c.split()) == " ".join(label.split())]
         if len(matches) != 1:
             return False
-        peak = max(float(str(r[matches[0]])) for r in table.rows)
-        expected = float(str(row[str(site["id"])]))
-        # CSV has three decimal places; batch summaries can have fewer significant figures.
-        if not math.isclose(peak, expected, rel_tol=5e-5, abs_tol=0.00051):
+        site_id = str(site["id"])
+        peak_row = max(table.rows, key=lambda record: float(str(record[matches[0]])))
+        try:
+            # Run rows include a printed Unit token, so the source peak index
+            # equals its column index in the validated table (which adds "line").
+            batch_index = batch_columns.index(site_id)
+            expected, batch_resolution = _printed_peak(batch_tokens[batch_index])
+
+            # CSV source rows omit the provenance "line" column.
+            csv_index = table.columns.index(matches[0]) - 1
+            csv_line = csv_doc.lines[int(str(peak_row["line"])) - 1]
+            csv_tokens = next(csv.reader([csv_line], strict=True))
+            observed, csv_resolution = _printed_peak(csv_tokens[csv_index])
+        except (IndexError, ValueError, InvalidOperation, csv.Error, StopIteration):
+            return False
+
+        # Reject an unexpected mapping between source tokens and parsed records.
+        if float(expected) != float(str(row[site_id])) or float(observed) != float(str(peak_row[matches[0]])):
+            return False
+        if abs(observed - expected) > (batch_resolution + csv_resolution) / 2:
             return False
     return bool(batch.section("sites").rows)
-
 
 def associate_batch_csvs(batch: RorbDocument, *, max_runs: int = 500) -> Section:
     """Check only two observed filename conventions against signatures, references, sites and peaks.

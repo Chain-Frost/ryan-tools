@@ -131,6 +131,29 @@ def test_association_unprefixed_and_ambiguous(tmp_path: Path) -> None:
     assert result.rows[0]["path"] is None
 
 
+
+@pytest.mark.parametrize(
+    ("batch_peak", "csv_peak", "expected_status"),
+    [
+        ("55.3", "55.340", "corroborated"),
+        ("55.3", "55.351", "mismatch"),
+        ("55.3401", "55.340", "corroborated"),
+        ("55.3401", "55.341", "mismatch"),
+        ("5.53E1", "55.340", "corroborated"),
+    ],
+)
+def test_association_peak_rounding_uses_reported_source_precision(
+    tmp_path: Path, batch_peak: str, csv_peak: str, expected_status: str
+) -> None:
+    batch_path = write(tmp_path, batch_text(f"1 24 hour 20% 2 100 0.9 {batch_peak}"))
+    write(tmp_path, csv_text(values=f"0,1,0\\n1,2,{csv_peak}\\n2,3,0\\n"), " aep20_du24hourtp2.csv")
+
+    result = associate_batch_csvs(read_rorb_file(batch_path))
+
+    assert result.rows[0]["status"] == expected_status
+    assert result.valid is (expected_status == "corroborated")
+
+
 @pytest.mark.parametrize("content", [csv_text(values="0,1,0\n1,2,99\n"), csv_text("another_run"), "not a RORB file"])
 def test_association_rejects_wrong_values_references_and_signatures(tmp_path: Path, content: str) -> None:
     path = write(tmp_path, batch_text())

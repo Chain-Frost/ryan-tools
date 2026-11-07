@@ -56,16 +56,15 @@ def test_analyze_hydrograph_rejects_non_uniform_time_steps(tmp_path: Path) -> No
     hydrograph_path = tmp_path / "hydrograph.csv"
     _write_hydrograph(hydrograph_path, times="0.0,0.0\n1.0,10.0\n2.5,0.0")
 
-    result = analyze_hydrograph(
-        aep="1",
-        duration="12",
-        tp=1,
-        csv_path=hydrograph_path,
-        out_path=tmp_path / "batch.out",
-        thresholds=[5.0],
-    )
-
-    assert result.empty
+    with pytest.raises(ValueError, match="RORB hydrograph has non-uniform time steps"):
+        analyze_hydrograph(
+            aep="1",
+            duration="12",
+            tp=1,
+            csv_path=hydrograph_path,
+            out_path=tmp_path / "batch.out",
+            thresholds=[5.0],
+        )
 
 
 def test_parse_batch_output_handles_ey_aep_and_minutes(tmp_path: Path) -> None:
