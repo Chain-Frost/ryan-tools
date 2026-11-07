@@ -7,6 +7,7 @@ All data and outputs are synthetic and disposable; no solver or submodule is use
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import os
 import subprocess
 import sys
@@ -416,7 +417,7 @@ def _one_remaining_case(
     work: Path,
     *,
     dashboard: bool,
-) -> WorkbookSnapshot:
+) -> WorkbookSnapshot | None:
     work.mkdir(parents=True)
     _write_inputs(work / "inputs")
     script = copy_wrapper(wrapper, work)
@@ -429,6 +430,22 @@ def _one_remaining_case(
         raise RuntimeError(msg)
 
     result = _run_qa(script, work, root, *extra_flags, "--live-dashboard" if dashboard else "--no-live-dashboard")
+    missing_parquet_engine = (
+        wrapper.endswith("calculate_po_closure_durations.py")
+        and importlib.util.find_spec("pyarrow") is None
+        and importlib.util.find_spec("fastparquet") is None
+    )
+    if missing_parquet_engine:
+        # Closure raw sidecars require Parquet even when the formatted report mode is Excel.
+        # The isolated wheel smoke only installs minimal dependencies; verify failure
+        # propagation/preservation rather than claiming a successful native export.
+        if result.returncode != 1 or (dashboard and ": FAILED" not in result.stdout):
+            msg = f"Missing Parquet engine did not fail copied closure wrapper: {result.stdout[-1800:]}"
+            raise RuntimeError(msg)
+        if list(work.glob("*.xlsx")) or list(work.glob("*.csv")) or list(work.glob("*.parquet*")):
+            msg = f"Missing Parquet engine left incomplete closure output in {work}"
+            raise RuntimeError(msg)
+        return None
     if result.returncode != 0:
         msg = (
             f"Copied {wrapper} (dashboard={dashboard}) exited {result.returncode}: "
@@ -483,12 +500,16 @@ def main() -> None:
             with_dashboard = _one_remaining_case(
                 wrapper, sheets, flags, root, base / f"remaining_{index}_dashboard", dashboard=True
             )
-            if without != with_dashboard:
+            if without is None and with_dashboard is None:
+                print("Closure copied-wrapper missing-Parquet-engine failure preserved outputs (success not tested).")
+                continue
+            if without is None or with_dashboard is None or without != with_dashboard:
                 msg = f"Copied dashboard changed POMM/closure results in {wrapper}"
                 raise RuntimeError(msg)
 
     print(
-        f"Six result, two QA, two POMM and one closure copied wrappers passed installed-wheel smoke at {actual}: "
+        f"Six result, two QA and two POMM copied wrappers passed installed-wheel smoke at {actual}; "
+        "closure succeeded if a Parquet engine was installed, otherwise failed safely: "
         "dashboard on/off workbook parity and settings."
     )
 

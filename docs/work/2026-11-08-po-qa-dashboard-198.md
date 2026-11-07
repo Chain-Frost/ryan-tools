@@ -54,7 +54,10 @@ Do not claim #198 fully accepted until that contract is integrated and tested.
 - Installed/copied-wheel smoke in
   `repo-scripts/smoke_result_dashboard_installed_wheel.py` now covers PO QA,
   POMM mean/median and closure on/off report parity and invalid settings,
-  alongside the six accepted dashboard wrappers.
+  alongside the six accepted dashboard wrappers. In the minimal installed-wheel
+  environment with neither `pyarrow` nor `fastparquet`, the closure smoke
+  instead requires a nonzero/FAILED outcome and no partial artifacts;
+  successful copied closure export remains a separate optional-dependency gate.
 - The existing #194 copied-collision smoke now pins timestamps in both the
   Excel exporter and culvert report orchestrator to avoid the known
   minute-rollover race; output-preservation assertions remain unchanged.
