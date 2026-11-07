@@ -10,10 +10,10 @@ import json
 import os
 import re
 import tempfile
-from collections.abc import Collection
+from collections.abc import Collection, Hashable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from loguru import logger
 from pandas import NA, DataFrame, MultiIndex, Series, concat, to_numeric
@@ -821,12 +821,15 @@ class ProcessorCollection:
         # Normalise only the copied axis metadata; do not alter source frames.
         portable = frame.copy(deep=False)
         if isinstance(portable.columns, MultiIndex):
-            names = [name.item() if isinstance(name, np.generic) else name for name in portable.columns.names]
+            names: list[Hashable | None] = [
+                cast("Hashable | None", name.item()) if isinstance(name, np.generic) else name
+                for name in portable.columns.names
+            ]
             portable.columns = portable.columns.set_names(names)
         else:
             name = portable.columns.name
             if isinstance(name, np.generic):
-                portable.columns = portable.columns.rename(name.item())
+                portable.columns = portable.columns.rename(cast("Hashable | None", name.item()))
 
         sink = pa.BufferOutputStream()
         table = pa.Table.from_pandas(portable, preserve_index=True)
@@ -1007,10 +1010,13 @@ class ProcessorCollection:
                 msg = f"HDF5 cache manifest is corrupt: {path}"
                 raise ValueError(msg) from exc
 
-            if not isinstance(raw_manifest, dict) or raw_manifest.get("cache_version") != 1:
+            if not isinstance(raw_manifest, dict):
                 msg = f"Unsupported HDF5 processor cache version: {path}"
                 raise ValueError(msg)
-            manifest: dict[str, Any] = raw_manifest
+            manifest = cast("dict[str, Any]", raw_manifest)
+            if manifest.get("cache_version") != 1:
+                msg = f"Unsupported HDF5 processor cache version: {path}"
+                raise ValueError(msg)
             if manifest.get("frame_codec") != "arrow-ipc-file":
                 msg = f"Unsupported HDF5 processor cache frame codec: {path}"
                 raise ValueError(msg)
@@ -1022,18 +1028,19 @@ class ProcessorCollection:
                 msg = f"HDF5 cache processor inventory is malformed: {path}"
                 raise ValueError(msg)
 
-            entries: list[Any] = raw_entries
+            entries = cast("list[Any]", raw_entries)
             for idx, raw_entry in enumerate(entries):
                 if not isinstance(raw_entry, dict):
                     msg = f"HDF5 cache member inventory is malformed at index {idx}: {path}"
                     raise ValueError(msg)
-                entry: dict[str, Any] = raw_entry
+                entry = cast("dict[str, Any]", raw_entry)
                 if entry.get("hdf_key") != f"proc_{idx:06d}":
                     msg = f"HDF5 cache member inventory is malformed at index {idx}: {path}"
                     raise ValueError(msg)
                 if verify_sources:
                     recorded = entry.get("source")
-                    source_path = recorded.get("path") if isinstance(recorded, dict) else None
+                    recorded_dict = cast("dict[str, Any]", recorded) if isinstance(recorded, dict) else None
+                    source_path: Any = recorded_dict.get("path") if recorded_dict is not None else None
                     if not isinstance(source_path, str):
                         msg = f"HDF5 cache member lacks a valid source identity: {entry.get('file_path')}"
                         raise ValueError(msg)
