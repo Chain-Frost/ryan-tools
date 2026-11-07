@@ -111,6 +111,24 @@ applies to **both** standalone scripts and wrappers.
 Do not demote a maintained script to "legacy" merely because it remains
 self-contained. Validation is proportional to what the script actually does.
 
+## CAD drawing to GeoPackage
+
+`cad-python/cad_to_gpkg.py` converts each DXF or DWG to a same-named GeoPackage
+containing `areas`, `lines`, and `points` layers. DXF inputs use GDAL directly.
+For newer DWG versions, `--autocad-export` deliberately allows an installed
+AutoCAD or DWG TrueView console to make a temporary DXF; the source drawing is
+never changed. Existing outputs require `--overwrite` and are replaced only
+after the new GeoPackage validates.
+
+```powershell
+python .\ryan-scripts\cad-python\cad_to_gpkg.py "D:\CAD\services.dxf"
+python .\ryan-scripts\cad-python\cad_to_gpkg.py "D:\CAD\services.dwg" --autocad-export
+```
+
+CAD coordinates are preserved unchanged. Use `--crs EPSG:7850` only when the
+drawing's coordinate reference system is known; this assigns metadata and does
+not transform coordinates.
+
 ## QGIS project source audit (read-only)
 
 [`other/audit_qgis_projects.py`](other/audit_qgis_projects.py) checks QGS/QGZ
