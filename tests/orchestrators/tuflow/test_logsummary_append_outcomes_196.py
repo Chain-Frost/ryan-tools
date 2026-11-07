@@ -40,25 +40,38 @@ def _result(path: Path, status: LogSummaryStatus) -> LogFileProcessingResult:
     ],
 )
 def test_append_reports_truthful_outcome(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, statuses: list[LogSummaryStatus], expected_ok: bool, expected_append: bool
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    statuses: list[LogSummaryStatus],
+    expected_ok: bool,
+    expected_append: bool,
 ) -> None:
     master = tmp_path / "master.xlsx"
     _workbook(master)
     files = [tmp_path / f"run_{i}.tlf" for i in range(len(statuses))]
     monkeypatch.setattr(app, "discover_log_files", lambda **_: files)
     monkeypatch.setattr(app, "filter_new_log_files", lambda **_: files)
-    monkeypatch.setattr(app, "process_log_files", lambda **_: [_result(p, s) for p, s in zip(files, statuses, strict=True)])
-    with patch.object(app, "append_dataframe_to_workbook_table", wraps=excel_append.append_dataframe_to_workbook_table) as save:
-        assert app.append_to_master_log_summary(
-            master_workbook_path=master, sheet_name="Log Summary", table_name=None, use_live_dashboard=False
-        ) is expected_ok
+    monkeypatch.setattr(
+        app, "process_log_files", lambda **_: [_result(p, s) for p, s in zip(files, statuses, strict=True)]
+    )
+    with patch.object(
+        app, "append_dataframe_to_workbook_table", wraps=excel_append.append_dataframe_to_workbook_table
+    ) as save:
+        assert (
+            app.append_to_master_log_summary(
+                master_workbook_path=master, sheet_name="Log Summary", table_name=None, use_live_dashboard=False
+            )
+            is expected_ok
+        )
     assert save.called is expected_append
     result = load_workbook(master)
     assert result["Log Summary"].max_row == (2 + statuses.count("OK") if expected_append else 2)
     result.close()
 
 
-def test_missing_process_outcome_fails_without_modifying_workbook(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_missing_process_outcome_fails_without_modifying_workbook(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     master = tmp_path / "master.xlsx"
     _workbook(master)
     original = master.read_bytes()

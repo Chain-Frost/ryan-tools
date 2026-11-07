@@ -150,6 +150,7 @@ def append_to_master_log_summary(
                 dashboard.finish(outcome="FAILED", detail="processing or workbook save failed")
                 raise
 
+
 def _summarise_processing_outcomes(
     *, files: list[Path], processing_results: list[LogFileProcessingResult]
 ) -> tuple[list[LogFileProcessingResult], int, int]:
