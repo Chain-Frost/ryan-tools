@@ -1,5 +1,6 @@
 """Catchment-only workflow, independent of TUFLOW project generation."""
 
+import os
 import shutil
 import sqlite3
 import tempfile
@@ -88,6 +89,27 @@ def read_interest_features(path: Path) -> tuple[CRS, list[BaseGeometry]]:
         msg = "Interest vector has no usable point, line or polygon features"
         raise ValueError(msg)
     return crs, geometries
+
+
+def _publish_no_overwrite(staged: Path, destination: Path) -> None:
+    """Publish a completed file without replacing a concurrently created output.
+
+    On Windows (including SMB), rename rejects an existing destination. On
+    POSIX, hard-link creation is atomic and exclusive, unlike rename/replace.
+    Both paths keep the staged file on failure for the caller to clean up.
+    """
+    if destination.exists():
+        msg = f"Existing catchment output is protected: {destination}"
+        raise FileExistsError(msg)
+    try:
+        if os.name == "nt":
+            staged.rename(destination)
+        else:
+            os.link(staged, destination)
+            staged.unlink()
+    except FileExistsError as exc:
+        msg = f"Catchment output appeared during processing and was not replaced: {destination}"
+        raise FileExistsError(msg) from exc
 
 
 def build_catchments(  # noqa: C901 - staged catchment pipeline includes distinct point and AOI branches
@@ -191,10 +213,24 @@ def build_catchments(  # noqa: C901 - staged catchment pipeline includes distinc
                         valid_cells=valid,
                     )
                     write_catchment_polygons(staged, inflows, crs_wkt=config.target_crs.to_wkt())
-                publishing = config.output.with_suffix(config.output.suffix + ".tmp")
-                if publishing.exists():
-                    msg = f"Temporary catchment output already exists: {publishing}"
-                    raise FileExistsError(msg)
-                shutil.copy2(staged, publishing)
-                publishing.replace(config.output)
+                # Publish from the destination filesystem, using a unique staging
+                # name and exclusive final creation; never overwrite a racing result.
+                with tempfile.NamedTemporaryFile(
+                    mode="wb",
+                    prefix=f".{config.output.name}.",
+                    suffix=".tmp",
+                    dir=config.output.parent,
+                    delete=False,
+                ) as stage_stream:
+                    publishing = Path(stage_stream.name)
+                    try:
+                        with staged.open("rb") as source:
+                            shutil.copyfileobj(source, stage_stream)
+                    except BaseException:
+                        publishing.unlink(missing_ok=True)
+                        raise
+                try:
+                    _publish_no_overwrite(publishing, config.output)
+                finally:
+                    publishing.unlink(missing_ok=True)
     return config.output

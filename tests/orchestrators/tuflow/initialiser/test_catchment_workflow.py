@@ -12,6 +12,7 @@ from ryan_library.orchestrators.tuflow.initialiser.catchment_workflow import (
     CatchmentConfig,
     build_catchments,
     read_interest_features,
+    _publish_no_overwrite,
 )
 
 
@@ -67,3 +68,27 @@ def test_catchments_explicit_duplicate_rasters_rejected(tmp_path: Path) -> None:
     )
     with pytest.raises(ValueError, match="unique"):
         build_catchments(config)
+
+
+def test_catchment_publication_does_not_replace_racing_output(tmp_path: Path) -> None:
+    staged = tmp_path / "staged.gpkg.tmp"
+    destination = tmp_path / "catchments.gpkg"
+    staged.write_bytes(b"new complete result")
+    destination.write_bytes(b"other process result")
+
+    with pytest.raises(FileExistsError, match="protected"):
+        _publish_no_overwrite(staged, destination)
+
+    assert staged.read_bytes() == b"new complete result"
+    assert destination.read_bytes() == b"other process result"
+
+
+def test_catchment_publication_creates_new_output_exclusively(tmp_path: Path) -> None:
+    staged = tmp_path / "staged.gpkg.tmp"
+    destination = tmp_path / "catchments.gpkg"
+    staged.write_bytes(b"complete result")
+
+    _publish_no_overwrite(staged, destination)
+
+    assert not staged.exists()
+    assert destination.read_bytes() == b"complete result"
