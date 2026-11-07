@@ -280,9 +280,8 @@ def find_files_parallel(
             logger.info("Folder with matched files: {}", display_path)
 
     if discovery_errors:
-        raise OSError(
-            f"File discovery incomplete ({len(discovery_errors)} error(s)); first: {discovery_errors[0]}"
-        )
+        message = f"File discovery incomplete ({len(discovery_errors)} error(s)); first: {discovery_errors[0]}"
+        raise OSError(message)
 
     # Match paths are deduplicated by spelling, not by file identity: distinct
     # hardlinks / file symlinks remain separate; physical *directories* are unique.

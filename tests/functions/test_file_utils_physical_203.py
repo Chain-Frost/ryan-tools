@@ -2,6 +2,7 @@
 
 import os
 import subprocess
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -86,13 +87,14 @@ def test_directory_read_error_rejects_partial_scan(tmp_path: Path, monkeypatch: 
     (root / "good.csv").write_text("good", encoding="utf-8")
     original_iterdir = Path.iterdir
 
-    def fail_on_bad(path: Path):  # pyright: ignore[reportUnknownParameterType, reportMissingParameterType]
+    def fail_on_bad(path: Path) -> Iterator[Path]:
         if path == bad:
-            raise PermissionError("synthetic denial")
+            message = "synthetic denial"
+            raise PermissionError(message)
         return original_iterdir(path)
 
     monkeypatch.setattr(Path, "iterdir", fail_on_bad)
-    with pytest.raises(OSError, match="File discovery incomplete.*bad"):
+    with pytest.raises(OSError, match=r"File discovery incomplete.*bad"):
         _search([root])
 
 
@@ -109,8 +111,9 @@ def test_windows_junction_to_ancestor(tmp_path: Path) -> None:
     nested.mkdir(parents=True)
     (root / "sample.csv").write_text("data", encoding="utf-8")
     junction = nested / "junction"
+    cmd_exe = Path(os.environ["SystemRoot"]) / "System32" / "cmd.exe"
     result = subprocess.run(
-        ["cmd", "/c", "mklink", "/J", str(junction), str(root)],
+        [str(cmd_exe), "/c", "mklink", "/J", str(junction), str(root)],
         capture_output=True,
         text=True,
         check=False,
