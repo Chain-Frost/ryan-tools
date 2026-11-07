@@ -1,5 +1,7 @@
 """Tests for ryan_library.functions.tuflow.pomm_utils."""
 
+# pyright: reportPrivateUsage=false  # Focused tests intentionally cover private POMM helpers.
+
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -55,7 +57,7 @@ class TestAggregation:
         assert row1["count_duration"].iloc[0] == 2
 
     @patch("ryan_library.functions.tuflow.pomm_utils.median_calc")
-    def test_find_aep_dur_median(self, mock_median, sample_df):
+    def test_find_aep_dur_median(self, mock_median: MagicMock, sample_df: DataFrame) -> None:
         """Test finding median per AEP/Duration group."""
         # Mock median_calc return
         # It returns (stats_dict, thinned_df)
@@ -104,7 +106,7 @@ class TestHelpers:
         res: list[str] = pomm_utils._ordered_columns(df=df, column_groups=groups, info_columns=info)
         assert res == ["A", "C", "B", "D", "E"]
 
-    def test_remove_columns_containing(self):
+    def test_remove_columns_containing(self) -> None:
         """Test removing columns by substring."""
         df = pd.DataFrame({"Mean_A": [1], "Median_B": [2], "Other": [3]})
         res = pomm_utils._remove_columns_containing(df, ("mean",))
@@ -115,7 +117,7 @@ class TestHelpers:
 
 class TestReporting:
     @patch("ryan_library.functions.tuflow.pomm_utils.ExcelExporter")
-    def test_save_to_excel(self, mock_exporter, tmp_path):
+    def test_save_to_excel(self, mock_exporter: MagicMock, tmp_path: Path) -> None:
         """Test saving to Excel delegates to ExcelExporter."""
         df = pd.DataFrame({"A": [1]})
         pomm_utils.save_to_excel(aep_dur_max=df, aep_max=df, aggregated_df=df, output_path=tmp_path / "out.xlsx")
@@ -127,7 +129,7 @@ class TestReporting:
 class TestProcessing:
     @patch("ryan_library.functions.tuflow.pomm_utils.collect_files")
     @patch("ryan_library.functions.tuflow.pomm_utils.process_files_in_parallel")
-    def test_combine_processors_from_paths(self, mock_parallel, mock_collect):
+    def test_combine_processors_from_paths(self, mock_parallel: MagicMock, mock_collect: MagicMock) -> None:
         """Test combining processors from paths."""
         mock_collect.return_value = [Path("f1.csv")]
         mock_result_collection = MagicMock()
@@ -146,7 +148,7 @@ class TestProcessing:
         assert call_kwargs["entity_filters"] == frozenset(locations)
 
     @patch("ryan_library.functions.tuflow.pomm_utils.collect_files")
-    def test_combine_processors_no_files(self, mock_collect):
+    def test_combine_processors_no_files(self, mock_collect: MagicMock) -> None:
         """Test combine returns empty collection if no files found."""
         mock_collect.return_value = []
         res: pomm_utils.ProcessorCollection = pomm_utils.combine_processors_from_paths(paths_to_process=[Path("dir")])
@@ -179,7 +181,7 @@ class TestMeanAggregation:
         )
 
     @patch("ryan_library.functions.tuflow.pomm_utils.find_aep_dur_median")
-    def test_find_aep_dur_mean(self, mock_find_median, sample_median_df):
+    def test_find_aep_dur_mean(self, mock_find_median: MagicMock, sample_median_df: DataFrame) -> None:
         """Test extracting mean stats."""
         mock_find_median.return_value = sample_median_df
 
@@ -190,7 +192,7 @@ class TestMeanAggregation:
         # MedianAbsMax is still present at this stage, it's filtered out later by save_peak_report_mean
         assert "MedianAbsMax" in res.columns
 
-    def test_find_aep_mean_max(self, sample_median_df):
+    def test_find_aep_mean_max(self, sample_median_df: DataFrame) -> None:
         """Test finding max of means."""
         # 1% group: 12.0 (1h) and 18.0 (2h). Max mean is 18.0.
 
@@ -205,7 +207,7 @@ class TestReportWrappers:
     @patch("ryan_library.functions.tuflow.pomm_utils.save_to_excel")
     @patch("ryan_library.functions.tuflow.pomm_utils.find_aep_median_max")
     @patch("ryan_library.functions.tuflow.pomm_utils.find_aep_dur_median")
-    def test_save_peak_report_median(self, mock_dur, mock_max, mock_save, tmp_path):
+    def test_save_peak_report_median(self, mock_dur: MagicMock, mock_max: MagicMock, mock_save: MagicMock, tmp_path: Path) -> None:
         """Test median report wrapper."""
         mock_dur.return_value = pd.DataFrame({"MedianAbsMax": [10]})
         mock_max.return_value = pd.DataFrame({"MedianAbsMax": [10]})
@@ -217,7 +219,7 @@ class TestReportWrappers:
     @patch("ryan_library.functions.tuflow.pomm_utils.save_to_excel")
     @patch("ryan_library.functions.tuflow.pomm_utils.find_aep_mean_max")
     @patch("ryan_library.functions.tuflow.pomm_utils.find_aep_dur_mean")
-    def test_save_peak_report_mean(self, mock_dur, mock_max, mock_save, tmp_path):
+    def test_save_peak_report_mean(self, mock_dur: MagicMock, mock_max: MagicMock, mock_save: MagicMock, tmp_path: Path) -> None:
         """Test mean report wrapper."""
         mock_dur.return_value = pd.DataFrame({"mean_PeakFlow": [10]})
         mock_max.return_value = pd.DataFrame({"mean_PeakFlow": [10]})
@@ -229,7 +231,7 @@ class TestReportWrappers:
 
 class TestRLLQmxNormalization:
     @patch("ryan_library.functions.tuflow.pomm_utils.combine_df_from_paths")
-    def test_aggregated_from_paths_normalization(self, mock_combine) -> None:
+    def test_aggregated_from_paths_normalization(self, mock_combine: MagicMock) -> None:
         """Test normalization of RLLQmx columns."""
         # Simulate a combined DF with RLLQmx columns
         mock_combine.return_value = pd.DataFrame(
@@ -251,7 +253,7 @@ class TestRLLQmxNormalization:
         assert res["Type"].tolist() == ["Q", "Q"]
 
     @patch("ryan_library.functions.tuflow.pomm_utils.combine_df_from_paths")
-    def test_aggregated_from_paths_mixed(self, mock_combine) -> None:
+    def test_aggregated_from_paths_mixed(self, mock_combine: MagicMock) -> None:
         """Test normalization with mixed POMM and RLLQmx data."""
         # Simulate mixed DF
         mock_combine.return_value = pd.DataFrame(
