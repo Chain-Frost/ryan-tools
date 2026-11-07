@@ -864,14 +864,16 @@ class ProcessorCollection:
 
         extra = (table.schema.metadata or {}).get(b"ryan_tools:pd_na_positions")
         if extra is not None:
-            positions_by_column: Any = json.loads(extra.decode("utf-8"))
-            if not isinstance(positions_by_column, dict):
+            raw_positions: Any = json.loads(extra.decode("utf-8"))
+            if not isinstance(raw_positions, dict):
                 msg = "Cached Arrow missing-value metadata is malformed"
                 raise ValueError(msg)
-            for column, positions in positions_by_column.items():
-                if not isinstance(column, str) or not isinstance(positions, list):
+            positions_by_column = cast("dict[str, Any]", raw_positions)
+            for column, raw_column_positions in positions_by_column.items():
+                if not isinstance(column, str) or not isinstance(raw_column_positions, list):
                     msg = "Cached Arrow missing-value metadata is malformed"
                     raise ValueError(msg)
+                positions = cast("list[Any]", raw_column_positions)
                 col_idx = int(column)
                 if not 0 <= col_idx < frame.shape[1]:
                     msg = "Cached Arrow missing-value column index is invalid"
