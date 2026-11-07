@@ -1,0 +1,13 @@
+{
+  "include": [
+    "ryan_library/orchestrators/tuflow/initialiser",
+    "tests/orchestrators/tuflow/initialiser",
+    "repo-scripts/tuflow-initialiser"
+  ],
+  "extraPaths": [
+    "."
+  ],
+  "stubPath": "typings-initialiser",
+  "pythonVersion": "3.14",
+  "typeCheckingMode": "strict"
+}
