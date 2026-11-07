@@ -15,7 +15,7 @@ class GrassResults:
 
 
 def _run(args: list[str], *, directory: Path) -> None:
-    result = subprocess.run( - explicit executable/argv; no shell or command interpolation
+    result = subprocess.run(
         args, cwd=directory, capture_output=True, text=True, encoding="utf-8", errors="replace", check=False
     )
     if result.returncode:
