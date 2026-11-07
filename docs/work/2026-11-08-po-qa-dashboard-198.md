@@ -1,72 +1,89 @@
-# PO QA dashboard and truthful workflow outcomes — #198
+# WP08 — POMM, PO QA and closure dashboard adoption (#198)
 
 | Field | Value |
 | --- | --- |
-| Status | Draft implementation — focused hosted validation and review outstanding |
+| Status | Draft implementation; current integrated-head CI and native acceptance pending |
 | Owner | WP08 integration |
 | Created / updated | 2026-11-08 |
 | Next review | 2026-11-15 |
-| Baseline | `main@5ad632cc9a17b302ad3f4f2b55315a1e2e8d1d51` |
-| Delivery | Draft PR (created on handoff), `feat/po-qa-dashboard-outcomes-198` |
-| Issues | [#198](https://github.com/Chain-Frost/ryan-tools/issues/198), [#180](https://github.com/Chain-Frost/ryan-tools/issues/180), [#240](https://github.com/Chain-Frost/ryan-tools/issues/240) |
+| Baseline | `main@5ad632cc9a17b302ad3f4f2b55315a1e2e8d1d51`; stacked onto #251 |
+| Delivery | [Draft PR #265](https://github.com/Chain-Frost/ryan-tools/pull/265), `feat/po-qa-dashboard-outcomes-198` |
+| Issues | [#198](https://github.com/Chain-Frost/ryan-tools/issues/198), [#194](https://github.com/Chain-Frost/ryan-tools/issues/194), [#180](https://github.com/Chain-Frost/ryan-tools/issues/180), [#240](https://github.com/Chain-Frost/ryan-tools/issues/240) |
 
 ## Scope and ownership
 
-This is a bounded #198 adoption delivery for existing maintained PO QA workflows:
-`check_po_timeseries_peaks.py`, `check_timeseries_stability.py`, and their two
-existing orchestrators. It uses the shared `LiveWorkflowDashboard` lifecycle
-without changing peak/stability calculations, input filters, export file names,
-output schemas, the existing `ProcessPoolExecutor`/map execution, or interactive
-pausing. Data transformation remains in existing `po_timeseries_checks` helpers.
+Adopt the existing `LiveWorkflowDashboard` and terminal outcome conventions for
+four maintained workflow families: PO peak checks, PO/1D Q stability checks,
+POMM mean/median peak reports, and PO closure-duration summaries. Wrap their
+whole discovery/aggregation/export lifecycle, preserving format selection,
+file naming, established engineering calculations, location filtering,
+raw closure sidecars, historical wrappers and no-overwrite export policy.
 
-The master-log append is a separate first-delivery draft PR #255 (#196). The
-#183/#201/#202 integration is already merged in main. The #198 POMM mean/median
-report and closure-duration dashboard **remain outstanding**, because WP03 owns
-POMM aggregation/data semantics and WP09 owns closure durations. Coordinate
-a follow-on PR for display-only POMM/closure changes after those contracts settle.
+PO QA uses its existing ordered `ProcessPoolExecutor.map` results for
+per-file visible states. Parser diagnostic statuses such as
+`CSV_PARSE_FAIL` and `TIME_PARSE_FAIL` yield FAILED even when the
+other files produce a report; valid empty inputs yield SKIPPED.
+Engineering warnings (e.g. `WARN_1H`, `UNSTABLE`) remain result data,
+not execution failures.
 
-## Proposed behaviour
+POMM and closure orchestrators provide one truthful **workflow-level** task
+covering aggregation and publication, rather than fabricated per-file counts.
+When there are no reportable rows, they return SKIPPED (zero exit);
+a propagated processing/export exception is FAILED with nonzero wrapper exit;
+only a completed publication reports SUCCESS. The shared `pomm_utils.py`,
+closure calculation helpers, processor/discovery APIs, and public report formats
+are unchanged. Their internal **partial-input** outcome fidelity still depends
+on WP07 #195 and WP04 #219/#223, plus WP03 #216/#217 and WP09 #215;
+the current aggregate-only API cannot independently prove every input succeeded.
+Do not claim #198 fully accepted until that contract is integrated and tested.
 
-- One shared renderer per QA batch, from discovery through processing,
-  aggregation and export. Default enabled in both wrappers, configurable
-  `USE_LIVE_DASHBOARD`, `LIVE_REFRESH_PER_SECOND`, `LIVE_MAX_ROWS`,
-  overridden by the existing common CLI switches including `--no-live-dashboard`.
-- Per-input `OK`, valid-empty `SKIP` and malformed parser `FAIL` statuses.
-  An `UNSTABLE` or `WARN_1H` result remains an engineering finding,
-  not an execution failure. Diagnostic parse rows are retained in a partial
-  report, but malformed input yields overall `FAILED` and nonzero exit
-  even if some valid rows also export.
-- Explicit overall `SUCCESS` only after exporter completion. Empty discovery
-  or no matching series is `SKIPPED` (zero exit, no output); a diagnostic-only
-  no-data report may still be exported but is not claimed as SUCCESS.
-  A worker/exporter exception is `FAILED` and propagates to the wrapper.
-- Dashboard on/off does not alter selected rows, result ordering, export format,
-  or the existing processing engine. The pool's ordered `map` results supply
-  completion updates; a displayed `RUNNING` row denotes the coordinator's
-  current awaited result, not an authoritative all-worker utilisation view.
-  File stat metadata and ETA are not required.
-- Validate dashboard numeric settings before input scans. Preserve editable
-  list-based user filters; explicit empty CLI overrides are not silently ignored.
-- Existing `main_processing` callers remain valid because display arguments
-  are optional; the return value becomes `bool` for an explicit successful or
-  skipped workflow and exceptions continue to indicate failures.
+## Source implementation and tests
+
+- PO QA: two wrappers and orchestrators, with per-file status mapping and
+  synthetic malformed/empty/partial/export-failure regression tests.
+- POMM: `pomm_max_items.py` and both peak wrappers; reusable renderer tracks
+  no-data, aggregation/export exceptions and full publication without touching
+  WP03's `pomm_utils.py` or statistics.
+- Closure: `closure_durations.py` and maintained wrapper; dashboard persists
+  through the existing shared protected export batch without modifying
+  WP09's duration calculations or #194 raw-table publication.
+- Test files: `test_qa_dashboard_outcomes_198.py`,
+  `test_pomm_dashboard_outcomes_198.py` and
+  `test_closure_dashboard_outcomes_198.py`.
+- Installed/copied-wheel smoke in
+  `repo-scripts/smoke_result_dashboard_installed_wheel.py` now covers PO QA,
+  POMM mean/median and closure on/off report parity and invalid settings,
+  alongside the six accepted dashboard wrappers.
+- The existing #194 copied-collision smoke now pins timestamps in both the
+  Excel exporter and culvert report orchestrator to avoid the known
+  minute-rollover race; output-preservation assertions remain unchanged.
 
 ## Validation and native acceptance
 
-New disposable/mock regressions check dashboard on/off, no-input skips,
-worker failures, exporter failures, preservation of output-on-failure
-behaviour, and validation before discovery. Existing PO QA and wrapper
-smoke tests remain applicable. Actual Windows Python 3.14 hosted checks,
-changed-file Ruff and strict Pyright, installed wheel, copied wrapper
-and report parity are required before sign-off; no such result is claimed
-until those checks pass.
+The earlier **QA-only** head `391ade6e` passed all six GitHub CI jobs,
+including Windows Python 3.14 hosted tests, strict Pyright and installed-wheel
+checks. These are historical for the newly added POMM/closure scope and do
+not validate the current head. Focused current-head Ruff, strict Pyright,
+hosted tests, installed-wheel/copied-wrapper parity and failure outcomes
+must pass before marking code acceptance.
 
-No proprietary TUFLOW project, licensed solver, SMB/UNC share or locked Excel
-workbook has been exercised. Native mapped-drive and output-lock acceptance
-remains separately unverified. This agent's container could not clone GitHub
-(DNS unavailable), so this branch was isolated remotely through the GitHub
-Git APIs; a real local worktree and native copied-package run were not available.
+No live TUFLOW solver, proprietary project, production workbook, mapped/UNC
+SMB share or Office lock was exercised. Native Windows Excel/UNC no-overwrite
+publication and representative project POMM/closure report parity remain separate.
+WP03 #267 real POMM-only/RLL_Qmx/mixed and WP09 #215 dry-event/scenario
+correctness are separate prerequisites, not covered by dashboard tests.
 
-Next action: clear current-head hosted/strict checks and obtain review on this
-bounded QA draft. Coordinate POMM/closure adoption only after WP03/WP09
-ownership handoff. Do not merge to main, enable auto-merge or release.
+The GitHub connector provided isolated branches and hosted checks; the
+agent's container uses Python 3.13 and cannot resolve github.com for Git clone.
+A local Python 3.14 worktree and installed/copied-wrapper check on native
+project data remain unperformed; no claims of such validation are made.
+
+## Handoff
+
+Refresh this child through a normal merge from the current #251 parent;
+shared `docs/README.md`, `docs/work/README.md` and TUFLOW script
+documentation must preserve WP01/WP02/WP06 and other pack owners' changes.
+Review the current #265 head and integrate into #251 only after accepted
+validation. **No `Fixes #198`** until partial-input and native acceptance
+requirements are satisfied; use `Refs #198` for this child. No merge to
+`main`, auto-merge, release or unassigned numerical work.

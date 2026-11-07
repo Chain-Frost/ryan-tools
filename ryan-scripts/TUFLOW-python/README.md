@@ -600,6 +600,24 @@ without claiming a completed report. Existing output collisions remain protected
 by the shared exporter. Headless use adds `--no-pause`; do not confuse console
 pausing with live-render enablement.
 
+## POMM peak and closure-duration dashboards
+
+[create_pomm_mean_peak_report.py](po_and_timeseries/create_pomm_mean_peak_report.py),
+[create_pomm_median_peak_report.py](po_and_timeseries/create_pomm_median_peak_report.py)
+and [calculate_po_closure_durations.py](po_and_timeseries/calculate_po_closure_durations.py)
+also expose editable `USE_LIVE_DASHBOARD`, `LIVE_REFRESH_PER_SECOND`,
+`LIVE_MAX_ROWS` and standard `--live-dashboard` / `--no-live-dashboard`
+flags. The renderer remains active through aggregation and protected report
+publication. An empty report is SKIPPED (exit 0); a processing/export
+exception is FAILED (nonzero exit). Existing mean/median selection, closure
+duration mathematics, filenames and raw CSV/Parquet sidecars are unchanged.
+
+The POMM and closure workflows currently display **one overall task**, not
+unverified per-file success counts. Complete partial-input failure attribution
+awaits the shared processor/discovery outcome contracts in #195/#219/#223,
+and calculation correctness remains owned by #216/#217/#215. Do not interpret
+a workflow SUCCESS as independent native TUFLOW or project-data acceptance.
+
 ## Culvert, PO and POMM result dashboards
 
 The six maintained result wrappers under `culvert_results` and `po_and_timeseries` use the
