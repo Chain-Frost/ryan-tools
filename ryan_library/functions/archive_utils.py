@@ -48,17 +48,17 @@ def _same_file_identity(path: Path, original: os.stat_result) -> bool:
         current = path.lstat()
     except FileNotFoundError:
         return False
-    return bool(
-        original.st_ino
-        and current.st_ino == original.st_ino
-        and current.st_dev == original.st_dev
-    )
+    return bool(original.st_ino and current.st_ino == original.st_ino and current.st_dev == original.st_dev)
 
 
 def _publish_archive_part(staged: Path, destination: Path) -> None:
     """Publish without replacing a concurrent creator on the same filesystem."""
     existing = next(
-        (candidate for candidate in destination.parent.iterdir() if candidate.name.casefold() == destination.name.casefold()),
+        (
+            candidate
+            for candidate in destination.parent.iterdir()
+            if candidate.name.casefold() == destination.name.casefold()
+        ),
         None,
     )
     if existing is not None:
@@ -158,10 +158,13 @@ def create_7zip_archive(
     lock_identity = os.fstat(lock.fileno())
     published: list[tuple[Path, os.stat_result]] = []
     try:
-        with lock, tempfile.TemporaryDirectory(
-            prefix=f".{output_archive.name}.staging-",
-            dir=output_archive.parent,
-        ) as temp_directory:
+        with (
+            lock,
+            tempfile.TemporaryDirectory(
+                prefix=f".{output_archive.name}.staging-",
+                dir=output_archive.parent,
+            ) as temp_directory,
+        ):
             staged_archive = Path(temp_directory) / output_archive.name
             _run_7zip_to_stage(
                 executable=executable,
