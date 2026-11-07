@@ -148,7 +148,7 @@ def test_qa_rejects_bad_live_settings_before_discovery(tmp_path: Path, workflow:
 
 
 @pytest.mark.parametrize("workflow", ["peak", "stability"])
-@pytest.mark.parametrize("statuses", [["OK", "TIME_PARSE_FAIL"], ["CSV_PARSE_FAIL"]])
+@pytest.mark.parametrize("statuses", [["OK", "TIME_PARSE_FAIL"], ["CSV_PARSE_FAIL"], ["EMPTY_FILE"], ["NO_COLUMNS"]])
 def test_qa_malformed_input_never_claims_full_success(tmp_path: Path, workflow: str, statuses: list[str]) -> None:
     files = [tmp_path / f"run_{index}_PO.csv" for index in range(len(statuses))]
     diagnostic_rows = [

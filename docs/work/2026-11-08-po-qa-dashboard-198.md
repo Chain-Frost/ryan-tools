@@ -22,7 +22,8 @@ raw closure sidecars, historical wrappers and no-overwrite export policy.
 PO QA uses its existing ordered `ProcessPoolExecutor.map` results for
 per-file visible states. Parser diagnostic statuses such as
 `CSV_PARSE_FAIL` and `TIME_PARSE_FAIL` yield FAILED even when the
-other files produce a report; valid empty inputs yield SKIPPED.
+other files produce a report. Zero-byte and headerless CSVs (`EMPTY_FILE`,
+`NO_COLUMNS`) are malformed, not valid empty inputs; `NO_DATA` yields SKIPPED.
 Engineering warnings (e.g. `WARN_1H`, `UNSTABLE`) remain result data,
 not execution failures.
 

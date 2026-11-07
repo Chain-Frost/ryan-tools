@@ -48,9 +48,9 @@ def _analyze_stability_worker(path_str: str, result_type: str, config: Stability
 
 
 _MALFORMED_INPUT_STATUSES: frozenset[str] = frozenset(
-    {"DECODE_FAIL", "CSV_PARSE_FAIL", "BAD_HEADER", "TIME_PARSE_FAIL"}
+    {"EMPTY_FILE", "NO_COLUMNS", "DECODE_FAIL", "CSV_PARSE_FAIL", "BAD_HEADER", "TIME_PARSE_FAIL"}
 )
-_NO_DATA_STATUSES: frozenset[str] = frozenset({"EMPTY_FILE", "NO_COLUMNS", "NO_DATA"})
+_NO_DATA_STATUSES: frozenset[str] = frozenset({"NO_DATA"})
 
 
 def _file_outcome(rows: list[dict[str, object]]) -> WorkflowStatus:
