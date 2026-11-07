@@ -176,7 +176,6 @@ def test_hdf_alias_source_is_rejected(collection: ProcessorCollection) -> None:
         collection.to_hdf(collection.processors[0].file_path, overwrite=True)
 
 
-
 def test_hdf_source_identity_survives_working_directory_changes(
     tmp_path: Path, change_cwd: Callable[[Path], AbstractContextManager[None]]
 ) -> None:
