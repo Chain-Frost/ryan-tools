@@ -16,6 +16,7 @@ from pathlib import Path
 import pandas as pd
 from loguru import logger
 
+from ryan_library.functions.live_dashboard import LiveWorkflowDashboard
 from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.tuflow.pomm_utils import (
     aggregated_from_paths,
@@ -50,80 +51,94 @@ def run_peak_report_workflow(
     locations_to_include: Collection[str] | None = None,
     include_data_types: Collection[str] | None = None,
     exporter: Callable[..., None],
-) -> None:
-    """Coordinate loading peak data and exporting via a provided `exporter` function.
+    use_live_dashboard: bool = True,
+    live_refresh_per_second: float = 2.0,
+    live_max_rows: int = 10,
+) -> bool:
+    """Aggregate and export POMM peak data with a truthful whole-workflow outcome.
 
-    This is the core workflow function that:
-      1. Normalizes input arguments.
-      2. Agreggates data from multiple paths using `aggregated_from_paths`.
-      3. Invokes the callback `exporter` (e.g., save mean or median report) with the aggregated data.
-
-    Args:
-        script_directory: Output directory for the export. Defaults to CWD.
-        paths_to_process: Folder roots to search for files. Defaults to ``script_directory``.
-        log_level: Logging verbosity level ("INFO", "DEBUG").
-        include_pomm: Whether to include the full POMM sheet in the export.
-        locations_to_include: List of specific locations to filter by.
-        include_data_types: List of data types to include (e.g. "POMM").
-        exporter: A callback function that takes the aggregated DataFrame and handles the export logic.
+    The underlying aggregator owns input discovery and parsing. Until its shared
+    per-file outcome contract is available, the dashboard tracks this as one
+    workflow task rather than asserting unverified per-file successes.
     """
-    script_directory = script_directory or Path.cwd()
-    effective_paths_to_process: list[Path] = list(paths_to_process or (script_directory,))
+    script_directory = script_directory if script_directory is not None else Path.cwd()
+    effective_paths_to_process = list(paths_to_process or (script_directory,))
     resolved_data_types, invalid_types = normalize_data_types(
         requested=include_data_types,
         default=DEFAULT_DATA_TYPES,
         accepted=ACCEPTED_DATA_TYPES,
     )
-    normalized_locations: frozenset[str] = BaseProcessor.normalize_locations(locations=locations_to_include)
+    normalized_locations = BaseProcessor.normalize_locations(locations=locations_to_include)
     location_filter: frozenset[str] | None = normalized_locations or None
+    dashboard = LiveWorkflowDashboard(
+        title="TUFLOW POMM Peak Report",
+        subtitle=str(script_directory),
+        enabled=use_live_dashboard,
+        refresh_per_second=live_refresh_per_second,
+        max_rows=live_max_rows,
+    )
 
     with setup_logger(console_log_level=log_level) as log_queue:
-        logger.info(f"Current Working Directory: {Path.cwd()}")
+        with dashboard:
+            dashboard.set_tasks(labels=["POMM peak report"])
+            dashboard.mark_running(index=1)
+            try:
+                dashboard.set_phase("Processing")
+                logger.info("Current Working Directory: {}", Path.cwd())
+                warn_on_invalid_types(
+                    invalid_types=invalid_types,
+                    accepted_types=ACCEPTED_DATA_TYPES,
+                    context="POMM peak report",
+                )
+                if locations_to_include and not normalized_locations:
+                    logger.warning("Location filter provided but no valid values found. All locations will be included.")
 
-        warn_on_invalid_types(
-            invalid_types=invalid_types,
-            accepted_types=ACCEPTED_DATA_TYPES,
-            context="POMM peak report",
-        )
+                aggregated_df: pd.DataFrame = aggregated_from_paths(
+                    paths=effective_paths_to_process,
+                    locations_to_include=location_filter,
+                    include_data_types=resolved_data_types,
+                    log_queue=log_queue,
+                )
+                dashboard.set_phase("Aggregating")
+                if aggregated_df.empty:
+                    warn_on_invalid_types(
+                        invalid_types=invalid_types,
+                        accepted_types=ACCEPTED_DATA_TYPES,
+                        context="POMM peak report completed",
+                    )
+                    if location_filter:
+                        logger.warning("No rows remain after applying the Location filter. Exiting.")
+                    else:
+                        logger.warning("No POMM CSV files found. Exiting.")
+                    dashboard.mark_finished(index=1, status="SKIP", detail="no aggregated rows")
+                    dashboard.finish(outcome="SKIPPED", detail="no report generated")
+                    return True
 
-        if locations_to_include and not normalized_locations:
-            logger.warning("Location filter provided but no valid values found. All locations will be included.")
-
-        # Aggregate data from all found files in the directory
-        aggregated_df: pd.DataFrame = aggregated_from_paths(
-            paths=effective_paths_to_process,
-            locations_to_include=location_filter,
-            include_data_types=resolved_data_types,
-            log_queue=log_queue,
-        )
-
-        if aggregated_df.empty:
-            warn_on_invalid_types(
-                invalid_types=invalid_types,
-                accepted_types=ACCEPTED_DATA_TYPES,
-                context="POMM peak report completed",
-            )
-            if location_filter:
-                logger.warning("No rows remain after applying the Location filter. Exiting.")
-            else:
-                logger.warning("No POMM CSV files found. Exiting.")
-            return
-
-        timestamp: str = datetime.now().strftime(format="%Y%m%d-%H%M")
-
-        # Execute the export callback
-        exporter(
-            aggregated_df=aggregated_df,
-            script_directory=script_directory,
-            timestamp=timestamp,
-            include_pomm=include_pomm,
-        )
-
-        warn_on_invalid_types(
-            invalid_types=invalid_types,
-            accepted_types=ACCEPTED_DATA_TYPES,
-            context="POMM peak report completed",
-        )
+                timestamp = datetime.now().strftime(format="%Y%m%d-%H%M")
+                dashboard.set_phase("Exporting")
+                exporter(
+                    aggregated_df=aggregated_df,
+                    script_directory=script_directory,
+                    timestamp=timestamp,
+                    include_pomm=include_pomm,
+                )
+                warn_on_invalid_types(
+                    invalid_types=invalid_types,
+                    accepted_types=ACCEPTED_DATA_TYPES,
+                    context="POMM peak report completed",
+                )
+                dashboard.mark_finished(index=1, status="OK", detail=f"{len(aggregated_df)} aggregated row(s)")
+                dashboard.finish(outcome="SUCCESS", detail="peak report exported")
+                return True
+            except KeyboardInterrupt:
+                dashboard.mark_finished(index=1, status="FAIL", detail="interrupted")
+                dashboard.finish(outcome="INTERRUPTED", detail="processing interrupted")
+                raise
+            except Exception:
+                logger.exception("POMM peak report failed during aggregation or export.")
+                dashboard.mark_finished(index=1, status="FAIL", detail="processing or export failed")
+                dashboard.finish(outcome="FAILED", detail="processing or export failed")
+                raise
 
 
 def export_median_peak_report(
@@ -134,12 +149,15 @@ def export_median_peak_report(
     include_pomm: bool = True,
     locations_to_include: Collection[str] | None = None,
     include_data_types: Collection[str] | None = None,
-) -> None:
+    use_live_dashboard: bool = True,
+    live_refresh_per_second: float = 2.0,
+    live_max_rows: int = 10,
+) -> bool:
     """Locate and process POMM files and export **median-based** peak values.
 
     This function is a wrapper around `run_peak_report_workflow` injecting the `save_peak_report_median` exporter.
     """
-    run_peak_report_workflow(
+    return run_peak_report_workflow(
         script_directory=script_directory,
         paths_to_process=paths_to_process,
         log_level=log_level,
@@ -147,6 +165,9 @@ def export_median_peak_report(
         locations_to_include=locations_to_include,
         include_data_types=include_data_types,
         exporter=save_peak_report_median,
+        use_live_dashboard=use_live_dashboard,
+        live_refresh_per_second=live_refresh_per_second,
+        live_max_rows=live_max_rows,
     )
 
 
@@ -158,12 +179,15 @@ def export_mean_peak_report(
     include_pomm: bool = True,
     locations_to_include: Collection[str] | None = None,
     include_data_types: Collection[str] | None = None,
-) -> None:
+    use_live_dashboard: bool = True,
+    live_refresh_per_second: float = 2.0,
+    live_max_rows: int = 10,
+) -> bool:
     """Locate and process POMM files and export **mean-based** peak values.
 
     This function is a wrapper around `run_peak_report_workflow` injecting the `save_peak_report_mean` exporter.
     """
-    run_peak_report_workflow(
+    return run_peak_report_workflow(
         script_directory=script_directory,
         paths_to_process=paths_to_process,
         log_level=log_level,
@@ -171,6 +195,9 @@ def export_mean_peak_report(
         locations_to_include=locations_to_include,
         include_data_types=include_data_types,
         exporter=save_peak_report_mean,
+        use_live_dashboard=use_live_dashboard,
+        live_refresh_per_second=live_refresh_per_second,
+        live_max_rows=live_max_rows,
     )
 
 
