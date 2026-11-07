@@ -348,7 +348,9 @@ def test_cca_gpkg_partial_optional_fields_match_dbf_contract(tmp_path: Path) -> 
     with sqlite3.connect(path) as conn:
         conn.execute("CREATE TABLE gpkg_contents (table_name TEXT, data_type TEXT)")
         conn.execute("CREATE TABLE gpkg_geometry_columns (table_name TEXT, column_name TEXT)")
-        conn.execute('CREATE TABLE "partial_1d_ccA_L" (fid INTEGER PRIMARY KEY, geometry BLOB, Channel TEXT, pFull_Max REAL)')
+        conn.execute(
+            'CREATE TABLE "partial_1d_ccA_L" (fid INTEGER PRIMARY KEY, geometry BLOB, Channel TEXT, pFull_Max REAL)'
+        )
         conn.execute("INSERT INTO gpkg_contents VALUES ('partial_1d_ccA_L', 'features')")
         conn.execute("INSERT INTO gpkg_geometry_columns VALUES ('partial_1d_ccA_L', 'geometry')")
         conn.execute("INSERT INTO partial_1d_ccA_L VALUES (1, NULL, 'C1', 2.5)")
