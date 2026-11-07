@@ -1,6 +1,8 @@
 """Real and synthetic acceptance for the selected reporting-point CSV outputs (#236)."""
 
+from datetime import datetime
 from pathlib import Path
+from unittest.mock import patch
 from shutil import copy2
 
 import pandas as pd
@@ -97,7 +99,10 @@ def test_reporting_point_collection_and_protected_excel_parquet_export(
     assert set(collection.combine_raw()["Location"].astype(str)) == {"RL_01"}
 
     monkeypatch.chdir(tmp_path)
-    assert export_results(results=collection, export_mode="both")
+    frozen_time = datetime(2026, 11, 8, 12, 0)
+    with patch("ryan_library.functions.excel_export.datetime") as fixed_clock:
+        fixed_clock.now.return_value = frozen_time
+        assert export_results(results=collection, export_mode="both")
     workbooks = list(tmp_path.glob("*_reporting_points.xlsx"))
     assert len(workbooks) == 1
     source = pd.read_excel(workbooks[0], sheet_name="Source_Maxima")  # pyright: ignore[reportUnknownMemberType]
@@ -112,8 +117,11 @@ def test_reporting_point_collection_and_protected_excel_parquet_export(
     assert len(history_parquet) == len(maxima_parquet) == 1
     assert pd.read_parquet(history_parquet[0])["Value"].max() == pytest.approx(42.4816)
     assert pd.read_parquet(maxima_parquet[0])["Time Hmax"].iloc[0] == pytest.approx(1.2814)
-    with pytest.raises(FileExistsError):
-        export_results(results=collection, export_mode="both")
+    # Repeat with exactly the same minute-based filename, independent of elapsed test time.
+    with patch("ryan_library.functions.excel_export.datetime") as fixed_clock:
+        fixed_clock.now.return_value = frozen_time
+        with pytest.raises(FileExistsError):
+            export_results(results=collection, export_mode="both")
 
 
 def _make_history(directory: Path, *, up: list[str], down: list[str]) -> Path:
