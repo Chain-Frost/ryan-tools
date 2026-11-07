@@ -33,8 +33,5 @@ def test_list_inputs_are_editable_and_cli_overrides_instead_of_appending(
     parser = cli._parser()
     defaults = parser.parse_args(["build"])
     override = parser.parse_args(["build", "--terrain", "alternative.tif"])
-    assert cli._configured(defaults.terrain, cli.TERRAIN_RASTERS) == [
-        Path("lidar.tif"),
-        Path("srtm.tif"),
-    ]
+    assert cli._configured(defaults.terrain, cli.TERRAIN_RASTERS) == [Path("lidar.tif"), Path("srtm.tif")]
     assert cli._configured(override.terrain, cli.TERRAIN_RASTERS) == [Path("alternative.tif")]

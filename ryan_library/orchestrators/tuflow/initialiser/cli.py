@@ -10,6 +10,10 @@ from pathlib import Path
 
 from rasterio.crs import CRS
 
+from .catchment_workflow import CatchmentConfig, build_catchments
+from .project_setup import TuflowProjectConfig, initialize_tuflow_project
+from .workflow import BuildConfig, build
+
 # Editable process-level settings. Keep incomplete paths unset until configured.
 OUTPUT_PATH: Path | None = None
 PROJECT_NAME: str | None = None
@@ -42,14 +46,18 @@ ANALYSIS_CRS: str | None = None
 SNAP_DISTANCE_M = 0.0
 ALLOW_PARTIAL = False
 
-from .catchment_workflow import CatchmentConfig, build_catchments
-from .project_setup import TuflowProjectConfig, initialize_tuflow_project
-from .workflow import BuildConfig, build
-
 
 def _configured[T](cli_value: T | None, editable_value: T) -> T:
     """Return an explicit CLI override or the editable entry-point setting."""
     return editable_value if cli_value is None else cli_value
+
+
+def _required_value[T](value: T | None, option: str) -> T:
+    """Narrow required editable/CLI values after argparse processing."""
+    if value is None:
+        msg = f"Missing required initialiser option: {option}"
+        raise ValueError(msg)
+    return value
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -93,9 +101,7 @@ def _parser() -> argparse.ArgumentParser:
     make.add_argument("--catchments", action=argparse.BooleanOptionalAction, default=None)
 
     catchments = commands.add_parser("catchments", help="Write catchment GeoPackage only; no TUFLOW project")
-    terrain_source = catchments.add_mutually_exclusive_group(
-        required=not TERRAIN_RASTERS and TGC_FILE is None
-    )
+    terrain_source = catchments.add_mutually_exclusive_group(required=not TERRAIN_RASTERS and TGC_FILE is None)
     terrain_source.add_argument("--terrain", type=Path, action="append")
     terrain_source.add_argument("--tgc", type=Path, help="TGC parsed by PyTUFLOW for Read Grid Zpts")
     catchments.add_argument("--tgc-scenario", action="append", help="Active TGC scenario; repeatable")
@@ -104,9 +110,7 @@ def _parser() -> argparse.ArgumentParser:
     catchments.add_argument("--output", type=Path, required=OUTPUT_PATH is None)
     catchments.add_argument("--crs", required=ANALYSIS_CRS is None)
     catchments.add_argument("--analysis-resolution-m", type=float)
-    catchments.add_argument(
-        "--analysis-bounds", type=float, nargs=4, metavar=("WEST", "SOUTH", "EAST", "NORTH")
-    )
+    catchments.add_argument("--analysis-bounds", type=float, nargs=4, metavar=("WEST", "SOUTH", "EAST", "NORTH"))
     catchments.add_argument("--max-analysis-cells", type=int)
     catchments.add_argument("--snap-distance-m", type=float)
     catchments.add_argument("--allow-partial", action=argparse.BooleanOptionalAction, default=None)
@@ -122,11 +126,11 @@ def main() -> int:
     if args.command == "init":
         initialize_tuflow_project(
             TuflowProjectConfig(
-                output_dir=_configured(args.output, OUTPUT_PATH),
-                project_name=_configured(args.name, PROJECT_NAME),
-                scenario_name=_configured(args.scenario, SCENARIO_NAME),
-                prj_file=_configured(args.prj, PROJECTION_FILE),
-                tuflow_executable=_configured(args.tuflow_exe, TUFLOW_EXECUTABLE),
+                output_dir=_required_value(_configured(args.output, OUTPUT_PATH), "--output"),
+                project_name=_required_value(_configured(args.name, PROJECT_NAME), "--name"),
+                scenario_name=_required_value(_configured(args.scenario, SCENARIO_NAME), "--scenario"),
+                prj_file=_required_value(_configured(args.prj, PROJECTION_FILE), "--prj"),
+                tuflow_executable=_required_value(_configured(args.tuflow_exe, TUFLOW_EXECUTABLE), "--tuflow-exe"),
                 copy_utilities=_configured(args.ryan_tools_scripts, UTILITY_SOURCE_ROOT) is not None,
                 utility_source_root=_configured(args.ryan_tools_scripts, UTILITY_SOURCE_ROOT),
                 overwrite=_configured(args.overwrite, OVERWRITE),
@@ -136,17 +140,17 @@ def main() -> int:
         build(
             BuildConfig(
                 terrains=tuple(_configured(args.terrain, TERRAIN_RASTERS)),
-                aoi=_configured(args.aoi, AOI_FILE),
-                output=_configured(args.output, OUTPUT_PATH),
+                aoi=_required_value(_configured(args.aoi, AOI_FILE), "--aoi"),
+                output=_required_value(_configured(args.output, OUTPUT_PATH), "--output"),
                 exclusions=tuple(_configured(args.exclude, EXCLUSION_POLYGONS)),
                 analyse_exclusions=_configured(args.analyse_exclusions, ANALYSE_EXCLUSIONS),
                 analysis_resolution_m=_configured(args.analysis_resolution_m, ANALYSIS_RESOLUTION_M),
                 max_analysis_cells=_configured(args.max_analysis_cells, MAX_ANALYSIS_CELLS),
-                name=_configured(args.name, PROJECT_NAME),
-                scenario=_configured(args.scenario, SCENARIO_NAME),
-                prj=_configured(args.prj, PROJECTION_FILE),
-                tuflow_executable=_configured(args.tuflow_exe, TUFLOW_EXECUTABLE),
-                rainfall_name=_configured(args.rainfall_name, RAINFALL_NAME),
+                name=_required_value(_configured(args.name, PROJECT_NAME), "--name"),
+                scenario=_required_value(_configured(args.scenario, SCENARIO_NAME), "--scenario"),
+                prj=_required_value(_configured(args.prj, PROJECTION_FILE), "--prj"),
+                tuflow_executable=_required_value(_configured(args.tuflow_exe, TUFLOW_EXECUTABLE), "--tuflow-exe"),
+                rainfall_name=_required_value(_configured(args.rainfall_name, RAINFALL_NAME), "--rainfall-name"),
                 grass_executable=_configured(args.grass_exe, GRASS_EXECUTABLE),
                 buffer_m=_configured(args.buffer_m, BUFFER_M),
                 stream_threshold_m2=_configured(args.stream_area_m2, STREAM_AREA_M2),
@@ -171,9 +175,9 @@ def main() -> int:
         build_catchments(
             CatchmentConfig(
                 terrains=tuple(source_rasters),
-                interest=_configured(args.interest, INTEREST_FILE),
-                output=_configured(args.output, OUTPUT_PATH),
-                target_crs=CRS.from_string(_configured(args.crs, ANALYSIS_CRS)),
+                interest=_required_value(_configured(args.interest, INTEREST_FILE), "--interest"),
+                output=_required_value(_configured(args.output, OUTPUT_PATH), "--output"),
+                target_crs=CRS.from_string(_required_value(_configured(args.crs, ANALYSIS_CRS), "--crs")),
                 tgc=source_tgc,
                 tgc_scenarios=tuple(_configured(args.tgc_scenario, TGC_SCENARIOS)),
                 tgc_global_only=_configured(args.tgc_global_only, TGC_GLOBAL_ONLY),
