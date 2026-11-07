@@ -152,6 +152,11 @@ def _process_log_file_dataframe(logfile: Path) -> pd.DataFrame:
     # Preserve file order when scanning for completion markers.
 
     if not lines and not last_lines:
+        # get_log_lines currently logs and returns empty lists on I/O errors.
+        # A nonempty file without any readable lines is not an incomplete run.
+        if file_size:
+            message = f"Could not read nonempty TUFLOW log: {logfile_path}"
+            raise OSError(message)
         return pd.DataFrame()
 
     runcode: str = logfile_path.stem
@@ -195,10 +200,10 @@ def _process_log_file_dataframe(logfile: Path) -> pd.DataFrame:
             if not df.empty:
                 logger.debug(df.head())
                 return df
-            logger.warning("Finalization failed for {}, skipping", runcode)
-            return pd.DataFrame()
-        logger.warning("{} ({}) did not complete, skipping", runcode, success)
-        return pd.DataFrame()
+            message = f"Completed TUFLOW log failed report finalization: {logfile_path}"
+            raise ValueError(message)
+        message = f"Completed TUFLOW log has incomplete header metadata ({success}/4): {logfile_path}"
+        raise ValueError(message)
     logger.warning("{} did not complete, skipping", runcode)
     return pd.DataFrame()
 
@@ -246,11 +251,6 @@ def main_processing(
                 root_dir: Path = Path.cwd()
                 files: list[Path] = discover_log_files(root_dir=root_dir)
                 logger.info("Found {} log files.", len(files))
-                # A zero-byte input is malformed, not an incomplete simulation.
-                for logfile in files:
-                    if logfile.stat().st_size == 0:
-                        message = f"Empty TUFLOW log input: {logfile}"
-                        raise OSError(message)
 
                 processing_results: list[LogFileProcessingResult] = []
                 if not files:
@@ -314,13 +314,17 @@ def main_processing(
 
 
 def discover_log_files(*, root_dir: Path) -> list[Path]:
-    return list(
-        find_files_parallel(
-            root_dirs=[root_dir],
-            patterns="*.tlf",
-            excludes=["*.hpc.tlf", "*.gpu.tlf"],
-        )
+    files = find_files_parallel(
+        root_dirs=[root_dir],
+        patterns="*.tlf",
+        excludes=["*.hpc.tlf", "*.gpu.tlf"],
     )
+    # A zero-byte file matches the requested input format but cannot be parsed.
+    for logfile in files:
+        if logfile.stat().st_size == 0:
+            message = f"Empty TUFLOW log input: {logfile}"
+            raise OSError(message)
+    return files
 
 
 def process_log_files(
