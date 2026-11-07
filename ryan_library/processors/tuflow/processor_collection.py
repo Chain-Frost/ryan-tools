@@ -9,8 +9,8 @@ import json
 import os
 import re
 import tempfile
-from datetime import datetime, timezone
 from collections.abc import Collection
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -856,7 +856,7 @@ class ProcessorCollection:
     def _hdf_require_storage() -> None:
         """Report the optional PyTables dependency before mutating any cache paths."""
         try:
-            import pyarrow  # noqa: F401
+            import pyarrow as pa  # noqa: F401
             import tables  # pyright: ignore[reportMissingTypeStubs]  # noqa: F401
         except ImportError as exc:
             msg = "HDF5 processor caches require pyarrow and optional PyTables: pip install 'ryan-tools[cache]'"
@@ -897,7 +897,7 @@ class ProcessorCollection:
                 "cache_version": 1,
                 "frame_codec": "arrow-ipc-file",
                 "registry_sha256": self._hdf_registry_digest(),
-                "created_at_utc": datetime.now(timezone.utc).isoformat(),
+                "created_at_utc": datetime.now(UTC).isoformat(),
                 "processors": [],
                 "has_basic_info_lookup": self.basic_info_lookup is not None,
             }
@@ -949,14 +949,14 @@ class ProcessorCollection:
                     raise ValueError(msg)
 
             if overwrite:
-                os.replace(temporary, destination)
+                Path(temporary).replace(destination)
             elif os.name == "nt":
                 # On Windows rename is an atomic no-clobber operation.
-                os.rename(temporary, destination)
+                Path(temporary).rename(destination)
             else:
                 # On POSIX rename replaces its target; hard-link is atomic no-clobber.
                 os.link(temporary, destination)
-                os.unlink(temporary)
+                Path(temporary).unlink()
         finally:
             Path(temporary).unlink(missing_ok=True)
 
