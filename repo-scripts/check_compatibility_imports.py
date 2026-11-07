@@ -40,7 +40,8 @@ class BlockedImportFinder(importlib.abc.MetaPathFinder):
         if fullname.partition(".")[0] not in BLOCKED_ROOTS:
             return None
         self.attempts.append(fullname)
-        raise ModuleNotFoundError(f"Blocked eager import of {fullname}", name=fullname)
+        msg = f"Blocked eager import of {fullname}"
+        raise ModuleNotFoundError(msg, name=fullname)
 
 
 def verify_import_boundary(expected_root: Path) -> None:
@@ -48,7 +49,8 @@ def verify_import_boundary(expected_root: Path) -> None:
     root = expected_root.resolve(strict=True)
     loaded = sorted(name for name in sys.modules if name.partition(".")[0] in BLOCKED_ROOTS)
     if loaded:
-        raise RuntimeError(f"Optional/engine imports preloaded before probe: {loaded}")
+        msg = f"Optional/engine imports preloaded before probe: {loaded}"
+        raise RuntimeError(msg)
 
     finder = BlockedImportFinder()
     sys.meta_path.insert(0, finder)
@@ -57,20 +59,24 @@ def verify_import_boundary(expected_root: Path) -> None:
             module = importlib.import_module(module_name)
             source = module.__file__
             if source is None:
-                raise RuntimeError(f"Imported {module_name} has no file provenance")
+                msg = f"Imported {module_name} has no file provenance"
+                raise RuntimeError(msg)
             # This is an intentional physical-identity check, not a user path conversion.
             actual_file = Path(source).resolve(strict=True)
             expected_file = (root / relative_file).resolve(strict=True)
             if actual_file != expected_file:
-                raise RuntimeError(f"{module_name} came from {actual_file}; expected {expected_file}")
+                msg = f"{module_name} came from {actual_file}; expected {expected_file}"
+                raise RuntimeError(msg)
 
         # A downstream import could catch ModuleNotFoundError and hide the attempt.
         # Require that no blocked module was even requested during this probe.
         if finder.attempts:
-            raise RuntimeError(f"Unexpected eager optional/engine imports: {finder.attempts}")
+            msg = f"Unexpected eager optional/engine imports: {finder.attempts}"
+            raise RuntimeError(msg)
         loaded = sorted(name for name in sys.modules if name.partition(".")[0] in BLOCKED_ROOTS)
         if loaded:
-            raise RuntimeError(f"Unexpected optional/engine imports loaded: {loaded}")
+            msg = f"Unexpected optional/engine imports loaded: {loaded}"
+            raise RuntimeError(msg)
     finally:
         sys.meta_path.remove(finder)
 
