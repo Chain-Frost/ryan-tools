@@ -132,7 +132,9 @@ class ccAProcessor(BaseProcessor):
         wal = path.with_name(path.name + "-wal")
         shm = path.with_name(path.name + "-shm")
         if wal.exists() and not shm.exists():
-            logger.error("process_gpkg: WAL exists without its -shm index for {}; refusing a sidecar-creating read", path)
+            logger.error(
+                "process_gpkg: WAL exists without its -shm index for {}; refusing a sidecar-creating read", path
+            )
             return None
 
         for label, target in self._build_sqlite_connection_targets(path):
@@ -192,7 +194,9 @@ class ccAProcessor(BaseProcessor):
                 "SELECT column_name FROM gpkg_geometry_columns WHERE table_name = ?", (layer_name,)
             ).fetchall()
             if len(geometry_rows) != 1 or not isinstance(geometry_rows[0][0], str):
-                logger.error("process_gpkg: Missing or ambiguous geometry-column metadata for {} in {}", layer_name, path)
+                logger.error(
+                    "process_gpkg: Missing or ambiguous geometry-column metadata for {} in {}", layer_name, path
+                )
                 return pd.DataFrame()
             geometry_column: str = geometry_rows[0][0]
 
@@ -207,8 +211,7 @@ class ccAProcessor(BaseProcessor):
             value_cols: list[str] = [
                 row[1]
                 for row in table_info
-                if row[1] != geometry_column
-                and not (row[5] and str(row[2]).upper() == "INTEGER")
+                if row[1] != geometry_column and not (row[5] and str(row[2]).upper() == "INTEGER")
             ]
             if not value_cols:
                 logger.error("process_gpkg: No ccA attribute columns in {} ({})", path, layer_name)
