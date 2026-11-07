@@ -116,9 +116,7 @@ def test_real_mean_export_reports_partial_count_and_governing_duration(
     matches = list(tmp_path.glob("*_culvert_mean_peaks.xlsx"))
     assert len(matches) == 1
     with pd.ExcelFile(matches[0]) as workbook:
-        assert {"aep-dur-mean", "aep-mean-max", "culvert-maximums", "data-dictionary"}.issubset(
-            workbook.sheet_names
-        )
+        assert {"aep-dur-mean", "aep-mean-max", "culvert-maximums", "data-dictionary"}.issubset(workbook.sheet_names)
         per_duration = workbook.parse("aep-dur-mean")
         peak = workbook.parse("aep-mean-max")
         dictionary = workbook.parse("data-dictionary")
