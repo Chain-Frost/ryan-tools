@@ -225,5 +225,5 @@ reject the collision and preserve all existing workbook bytes. Ruff lint/format,
 strict Pyright for the modified smoke script, documentation/index checks and
 scoped link checks pass. No library/package source changed, so the existing wheel
 was reused without a version bump. The temporary install leaves normal Python
-unchanged. Repair and closeout records are being committed/pushed together;
+unchanged. Repair and reconciled records are pushed as `10d1ea93`;
 final-head hosted CI remains required. No merge into main is authorised.
