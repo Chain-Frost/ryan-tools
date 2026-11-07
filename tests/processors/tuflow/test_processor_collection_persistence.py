@@ -131,7 +131,7 @@ def test_hdf_existing_cache_survives_failed_overwrite(collection: ProcessorColle
     assert hashlib.sha256(path.read_bytes()).hexdigest() == before
     assert not list(tmp_path.glob(".existing.h5.*.part"))
 
-    collection.processors[0].df.iloc[0, collection.processors[0].df.columns.get_loc("Q")] = 123.0
+    collection.processors[0].df["Q"] = 123.0
     collection.to_hdf(path, overwrite=True)
     assert ProcessorCollection.from_hdf(path).processors[0].df.iloc[0]["Q"] == 123.0
 
