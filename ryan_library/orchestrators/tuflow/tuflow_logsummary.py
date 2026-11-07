@@ -121,7 +121,9 @@ def process_log_file(logfile: Path, *, include_hpc_companion_metrics: bool = Fal
     return _process_log_file_dataframe(logfile=logfile, include_hpc_companion_metrics=include_hpc_companion_metrics)
 
 
-def process_log_file_for_dashboard(logfile: Path, *, include_hpc_companion_metrics: bool = False) -> LogFileProcessingResult:
+def process_log_file_for_dashboard(
+    logfile: Path, *, include_hpc_companion_metrics: bool = False
+) -> LogFileProcessingResult:
     """Process one log file and return enough metadata to update a live dashboard."""
     try:
         data_frame: pd.DataFrame = _process_log_file_dataframe(
