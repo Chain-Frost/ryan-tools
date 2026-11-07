@@ -209,12 +209,23 @@ def _export_failure_cases(case: Case, root: Path, work: Path, script: Path) -> N
     before = {path: path.read_bytes() for path in work.glob("*.xlsx")}
     first = next(iter(before))
     timestamp = datetime.strptime(first.name.split("_", 1)[0], "%Y%m%d-%H%M")
+    # Culvert mean/median workflows generate their filename in tuflow_culverts_mean,
+    # not ExcelExporter. Freeze both clocks so a minute rollover cannot evade
+    # the intended existing-destination collision.
+    if case.wrapper.endswith(("create_mean_culvert_peak_report.py", "create_median_culvert_peak_report.py")):
+        peak_clock_patch = (
+            "from ryan_library.orchestrators.tuflow import tuflow_culverts_mean\n"
+            "tuflow_culverts_mean.datetime = excel_export.datetime\n"
+        )
+    else:
+        peak_clock_patch = ""
     launcher = work / "collision_probe.py"
     launcher.write_text(
         "from datetime import datetime\nfrom unittest.mock import Mock\nimport runpy\n"
         "from ryan_library.functions import excel_export\n"
         "excel_export.datetime = Mock(wraps=datetime)\n"
         f"excel_export.datetime.now.return_value = datetime.fromisoformat({timestamp.isoformat()!r})\n"
+        f"{peak_clock_patch}"
         f"runpy.run_path({str(script)!r}, run_name='__main__')\n",
         encoding="utf-8",
     )

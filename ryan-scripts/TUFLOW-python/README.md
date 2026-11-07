@@ -567,6 +567,14 @@ untagged, their source coordinates are assumed to already align.
 The default masked-bilinear sampler returns NoData only when the profile
 station's containing raster cell is NoData; adjacent NoData cells are excluded
 and the remaining interpolation weights are renormalised.
+Profile PNGs are rendered into unique, invocation-owned files in the destination
+directory, then published only after successful rendering. Set `OVERWRITE_EXISTING = False` or
+`--no-overwrite-existing` to prevent replacement even if an output appears
+after preflight. Existing case-only filename aliases are also rejected.
+Explicit overwrite replaces the requested output only after rendering.
+If atomic no-overwrite publication is unsupported by a filesystem, the operation
+fails without publishing a partial PNG. Profiles publish independently: if a
+later profile fails, earlier completed PNGs remain.
 
 Only the single-layer GeoPackage renamer,
 [`gis_processing/rename_geopackage_layer_to_filename.py`](gis_processing/rename_geopackage_layer_to_filename.py),
