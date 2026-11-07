@@ -25,7 +25,6 @@ from rasterio.warp import transform_bounds, transform_geom
 from rasterio.windows import Window
 
 
-
 class RasterProfile(TypedDict):
     """GeoTIFF output options used by the blockwise terrain mosaic."""
 

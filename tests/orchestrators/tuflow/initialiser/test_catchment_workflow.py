@@ -94,9 +94,7 @@ def test_catchment_publication_creates_new_output_exclusively(tmp_path: Path) ->
     assert destination.read_bytes() == b"complete result"
 
 
-def test_catchment_publication_rejects_race_after_precheck(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_catchment_publication_rejects_race_after_precheck(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     staged = tmp_path / "staged.gpkg.tmp"
     destination = tmp_path / "catchments.gpkg"
     staged.write_bytes(b"complete result")

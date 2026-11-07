@@ -33,7 +33,7 @@ from .subcatchments import delineate_reach_subcatchments
 
 @dataclass(frozen=True, slots=True)
 class BuildConfig:
-    """Explicit requirements: no hydraulic cell-size or ryan-tools dependency."""
+    """Explicit workflow settings without assigning a hydraulic cell size."""
 
     terrains: tuple[Path, ...]
     aoi: Path
