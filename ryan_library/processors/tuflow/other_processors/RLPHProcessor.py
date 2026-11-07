@@ -30,30 +30,7 @@ class RLPHProcessor(BaseProcessor):
         self.applied_entity_filter = None
 
         try:
-            with self.file_path.open(encoding="utf-8-sig", newline="") as handle:
-                header = next(csv.reader(handle))
-
-            if len(header) < 3 or header[1].strip() not in {"Time (h)", "Time(h)"}:
-                msg = f"{self.file_name}: Expected descriptor, Time (h) and reporting-point H columns."
-                raise ValueError(msg)
-            if not header[0].strip().startswith(f"{self.name_parser.raw_run_code} ["):
-                msg = f"{self.file_name}: Source descriptor disagrees with the filename run code."
-                raise ValueError(msg)
-
-            locations: list[tuple[str, str]] = []
-            seen: set[str] = set()
-            for source_column in header[2:]:
-                match = self._HEADER.fullmatch(source_column.strip())
-                if match is None or match.group("run") != self.name_parser.raw_run_code:
-                    msg = f"{self.file_name}: Unsupported reporting-point column {source_column!r}."
-                    raise ValueError(msg)
-                location = match.group("location").strip()
-                if not location or location in seen:
-                    msg = f"{self.file_name}: Empty or duplicate reporting-point identifier {location!r}."
-                    raise ValueError(msg)
-                locations.append((source_column, location))
-                seen.add(location)
-
+            time_column, locations = self._source_columns()
             selected = [
                 (source_column, location)
                 for source_column, location in locations
@@ -65,7 +42,7 @@ class RLPHProcessor(BaseProcessor):
                 return
 
             # usecols projects locations before converting or materialising long-form rows.
-            columns = [header[1], *(source for source, _ in selected)]
+            columns = [time_column, *(source for source, _ in selected)]
             raw = pd.read_csv(
                 self.file_path,
                 header=0,
@@ -79,7 +56,7 @@ class RLPHProcessor(BaseProcessor):
                 msg = f"{self.file_name}: Reporting-point history has no data rows."
                 raise ValueError(msg)
 
-            time = parse_reporting_numbers(raw[header[1]], column="Time (h)", allow_missing=False)
+            time = parse_reporting_numbers(raw[time_column], column="Time (h)", allow_missing=False)
             if not time.is_monotonic_increasing or time.duplicated().any():
                 msg = f"{self.file_name}: Reporting-point timestamps must increase strictly."
                 raise ValueError(msg)
@@ -110,3 +87,31 @@ class RLPHProcessor(BaseProcessor):
         except (OSError, StopIteration, TypeError, ValueError, pd.errors.ParserError) as exc:
             logger.error("{}: Failed to read reporting-point water levels: {}", self.file_name, exc)
             self.df = pd.DataFrame()
+
+    def _source_columns(self) -> tuple[str, list[tuple[str, str]]]:
+        """Validate input headers and retain the original locations and column labels."""
+        with self.file_path.open(encoding="utf-8-sig", newline="") as handle:
+            header = next(csv.reader(handle))
+
+        if len(header) < 3 or header[1].strip() not in {"Time (h)", "Time(h)"}:
+            msg = f"{self.file_name}: Expected descriptor, Time (h) and reporting-point H columns."
+            raise ValueError(msg)
+        if not header[0].strip().startswith(f"{self.name_parser.raw_run_code} ["):
+            msg = f"{self.file_name}: Source descriptor disagrees with the filename run code."
+            raise ValueError(msg)
+
+        locations: list[tuple[str, str]] = []
+        seen: set[str] = set()
+        for source_column in header[2:]:
+            match = self._HEADER.fullmatch(source_column.strip())
+            if match is None or match.group("run") != self.name_parser.raw_run_code:
+                msg = f"{self.file_name}: Unsupported reporting-point column {source_column!r}."
+                raise ValueError(msg)
+            location = match.group("location").strip()
+            if not location or location in seen:
+                msg = f"{self.file_name}: Empty or duplicate reporting-point identifier {location!r}."
+                raise ValueError(msg)
+            locations.append((source_column, location))
+            seen.add(location)
+        return header[1], locations
+

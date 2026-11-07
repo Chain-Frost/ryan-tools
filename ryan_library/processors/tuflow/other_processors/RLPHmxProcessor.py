@@ -27,29 +27,8 @@ class RLPHmxProcessor(BaseProcessor):
         self.applied_entity_filter = None
 
         try:
-            with self.file_path.open(encoding="utf-8-sig", newline="") as handle:
-                header = next(csv.reader(handle))
-
+            raw = self._source_maximum_table()
             required: list[str] = ["ID", "Hmax", "Time Hmax", "dHmax", "Time dHmax", "Q"]
-            if len(header) != len(required) + 1 or header[1:] != required:
-                msg = f"{self.file_name}: Unsupported reporting-point maximum header: {header[1:]!r}."
-                raise ValueError(msg)
-            if not header[0].strip().startswith(f"{self.name_parser.raw_run_code} ["):
-                msg = f"{self.file_name}: Source descriptor disagrees with the filename run code."
-                raise ValueError(msg)
-
-            raw = pd.read_csv(
-                self.file_path,
-                header=0,
-                usecols=required,
-                dtype=str,
-                keep_default_na=False,
-                skipinitialspace=True,
-                encoding="utf-8-sig",
-            )
-            if raw.empty:
-                msg = f"{self.file_name}: Reporting-point maximum file has no data rows."
-                raise ValueError(msg)
 
             locations = raw["ID"].astype("string").str.strip()
             if locations.isna().any() or locations.eq("").any() or locations.duplicated().any():
@@ -88,3 +67,31 @@ class RLPHmxProcessor(BaseProcessor):
         except (OSError, StopIteration, TypeError, ValueError, pd.errors.ParserError) as exc:
             logger.error("{}: Failed to read reporting-point maximums: {}", self.file_name, exc)
             self.df = pd.DataFrame()
+
+    def _source_maximum_table(self) -> pd.DataFrame:
+        """Read the known source schema without treating associations as extra maxima."""
+        with self.file_path.open(encoding="utf-8-sig", newline="") as handle:
+            header = next(csv.reader(handle))
+
+        required = ["ID", "Hmax", "Time Hmax", "dHmax", "Time dHmax", "Q"]
+        if len(header) != len(required) + 1 or header[1:] != required:
+            msg = f"{self.file_name}: Unsupported reporting-point maximum header: {header[1:]!r}."
+            raise ValueError(msg)
+        if not header[0].strip().startswith(f"{self.name_parser.raw_run_code} ["):
+            msg = f"{self.file_name}: Source descriptor disagrees with the filename run code."
+            raise ValueError(msg)
+
+        raw = pd.read_csv(
+            self.file_path,
+            header=0,
+            usecols=required,
+            dtype=str,
+            keep_default_na=False,
+            skipinitialspace=True,
+            encoding="utf-8-sig",
+        )
+        if raw.empty:
+            msg = f"{self.file_name}: Reporting-point maximum file has no data rows."
+            raise ValueError(msg)
+        return raw
+

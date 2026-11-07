@@ -7,8 +7,8 @@ import pytest
 
 from ryan_library.orchestrators.tuflow.reporting_points import export_results
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
-from ryan_library.processors.tuflow.other_processors.RLPHProcessor import RLPHProcessor
 from ryan_library.processors.tuflow.other_processors.RLPHmxProcessor import RLPHmxProcessor
+from ryan_library.processors.tuflow.other_processors.RLPHProcessor import RLPHProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 
 EG02: Path = Path(__file__).parents[3] / "test_data" / "tuflow" / "TUFLOW_Example_Model_Dataset" / "EG02"
@@ -127,7 +127,8 @@ def test_history_preserves_negative_levels_zero_and_selected_null_samples(tmp_pa
     processor = _processor(path, locations=["Up"])
     values = processor.df["Value"].tolist()
     assert values[:2] == [-2.5, 0.0]
-    assert pd.isna(values[2]) and pd.isna(values[3])
+    assert pd.isna(values[2])
+    assert pd.isna(values[3])
     assert processor.df["AbsValue"].iloc[0] == pytest.approx(2.5)
     assert len(processor.raw_df.columns) == 2
 

@@ -12,8 +12,8 @@ if TYPE_CHECKING:
         POMMProcessor,
         POProcessor,
         RLLQmxProcessor,
-        RLPHProcessor,
         RLPHmxProcessor,
+        RLPHProcessor,
     )
     from .timeseries_1d import CFProcessor, HProcessor, QProcessor, VProcessor
 
