@@ -184,9 +184,7 @@ def test_master_hardlink_is_rejected_without_severing_alias(tmp_path: Path) -> N
     assert alias.read_bytes() == original
 
 
-def test_hardlink_created_during_staging_prevents_publication(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_hardlink_created_during_staging_prevents_publication(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     master = tmp_path / "original.xlsx"
     alias = tmp_path / "alias.xlsx"
     _workbook(master)
