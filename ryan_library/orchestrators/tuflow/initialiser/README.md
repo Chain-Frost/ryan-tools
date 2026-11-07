@@ -11,7 +11,7 @@ This package coordinates multi-stage rainfall-on-grid TUFLOW initialisation and 
 - `tgc_terrain.py`, `model_terrain.py`: TUFLOW terrain command integration and active scenario selection.
 - `project_setup.py`: initialiser-specific profile adapter for the maintained shared project generator.
 - `verification.py`: reusable output-readback checks for real-system validation.
-- `cli.py`: installed process entry point. Library workflow modules do not parse command-line options, pause or terminate the interpreter.
+- `cli.py`: installed process entry point. Library workflow modules do not parse command-line options, pause or terminate the interpreter. Edit the top-level list/path/selection constants to supply defaults; explicit CLI flags, including `--no-*` Boolean overrides, take precedence. Inputs are converted to tuples at the workflow boundary.
 
 ## Shared processing functions
 
