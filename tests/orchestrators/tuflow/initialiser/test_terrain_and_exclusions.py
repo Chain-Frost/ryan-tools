@@ -14,8 +14,8 @@ from shapely.geometry import Polygon, box
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
-from ryan_library.orchestrators.tuflow.initialiser.geometry import Domain, detailed_analysis_cells, make_domain
 from ryan_library.functions.gdal.terrain_mosaic import compose_terrain
+from ryan_library.orchestrators.tuflow.initialiser.geometry import Domain, detailed_analysis_cells, make_domain
 
 
 def _raster(path: Path, pixels: np.ndarray, *, west: float, north: float) -> None:

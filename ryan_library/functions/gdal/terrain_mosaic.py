@@ -12,10 +12,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TypedDict
 
-from affine import Affine
 import fiona
 import numpy as np
 import rasterio
+from affine import Affine
 from rasterio.crs import CRS
 from rasterio.enums import Resampling
 from rasterio.features import rasterize
@@ -38,7 +38,6 @@ class RasterProfile(TypedDict):
     nodata: float
     compress: str
     BIGTIFF: str
-
 
 
 @dataclass(frozen=True, slots=True)

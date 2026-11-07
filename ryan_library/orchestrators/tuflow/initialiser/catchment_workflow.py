@@ -215,18 +215,21 @@ def build_catchments(  # noqa: C901 - staged catchment pipeline includes distinc
                     write_catchment_polygons(staged, inflows, crs_wkt=config.target_crs.to_wkt())
                 # Publish from the destination filesystem, using a unique staging
                 # name and exclusive final creation; never overwrite a racing result.
-                stage_stream = tempfile.NamedTemporaryFile(
-                    mode="wb",
-                    prefix=f".{config.output.name}.",
-                    suffix=".tmp",
-                    dir=config.output.parent,
-                    delete=False,
-                )
-                publishing = Path(stage_stream.name)
+                publishing: Path | None = None
                 try:
-                    with stage_stream, staged.open("rb") as source:
-                        shutil.copyfileobj(source, stage_stream)
+                    with tempfile.NamedTemporaryFile(
+                        mode="wb",
+                        prefix=f".{config.output.name}.",
+                        suffix=".tmp",
+                        dir=config.output.parent,
+                        delete=False,
+                    ) as stage_stream:
+                        publishing = Path(stage_stream.name)
+                        with staged.open("rb") as source:
+                            shutil.copyfileobj(source, stage_stream)
                     _publish_no_overwrite(publishing, config.output)
                 finally:
-                    publishing.unlink(missing_ok=True)
+                    if publishing is not None:
+                        publishing.unlink(missing_ok=True)
+
     return config.output

@@ -191,3 +191,19 @@ before any separately authorised main merge.
 The earlier h5py DLL diagnostic still appears during collection; it does not prevent
 these tests passing and does not establish native HDF5 capability. No merge of #204
 into main, engineering approval, release or publication is authorised by this integration.
+
+
+## CI reproduction and repair ? 2026-11-07
+
+Reproduced the hosted changed-file commands locally on #204. Repaired import order
+in the shared terrain helper and migrated test; moved temporary publication into a
+proper context manager while keeping close-before-publish and no-clobber cleanup.
+CI previously assigned migrated shared GIS modules to the default stubs, producing
+144 strict typing errors locally. Policy now derives that split from
+`pyright-initialiser.json`'s include list, preserving strict checking with the right
+GIS stubs. Tests that intentionally exercise the private publication helper declare
+that use explicitly. Both strict typing passes, changed-file Ruff and documentation/
+Loguru checks pass. Actionlint 1.7.12 passes with the workflow's pinned checksum.
+The separate MCP utility command passes 73 tests. Built/verified wheel 26.11.7.10.
+The complete hosted test command and isolated package smokes are running locally;
+final results and pushed-head CI status will be recorded after completion.

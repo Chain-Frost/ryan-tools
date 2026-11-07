@@ -77,7 +77,7 @@ def test_catchment_publication_does_not_replace_racing_output(tmp_path: Path) ->
     destination.write_bytes(b"other process result")
 
     with pytest.raises(FileExistsError, match="protected"):
-        catchment_workflow._publish_no_overwrite(staged, destination)
+        catchment_workflow._publish_no_overwrite(staged, destination)  # pyright: ignore[reportPrivateUsage]
 
     assert staged.read_bytes() == b"new complete result"
     assert destination.read_bytes() == b"other process result"
@@ -88,7 +88,7 @@ def test_catchment_publication_creates_new_output_exclusively(tmp_path: Path) ->
     destination = tmp_path / "catchments.gpkg"
     staged.write_bytes(b"complete result")
 
-    catchment_workflow._publish_no_overwrite(staged, destination)
+    catchment_workflow._publish_no_overwrite(staged, destination)  # pyright: ignore[reportPrivateUsage]
 
     assert not staged.exists()
     assert destination.read_bytes() == b"complete result"
@@ -109,7 +109,7 @@ def test_catchment_publication_rejects_race_after_precheck(tmp_path: Path, monke
 
     monkeypatch.setattr(Path, "exists", stale_precheck)
     with pytest.raises(FileExistsError, match="appeared during processing"):
-        catchment_workflow._publish_no_overwrite(staged, destination)
+        catchment_workflow._publish_no_overwrite(staged, destination)  # pyright: ignore[reportPrivateUsage]
 
     assert destination.read_bytes() == b"another process"
     assert staged.read_bytes() == b"complete result"

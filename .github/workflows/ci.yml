@@ -133,8 +133,14 @@ jobs:
           # The migrated initialiser keeps its own typed GIS stubs. Running
           # both type-checkers in strict mode avoids overriding ryan-tools'
           # existing, deliberately narrow rasterio stubs and PyTUFLOW API.
+          # Use the project's own include list so shared helpers moved out of
+          # the orchestrator retain the same strict GIS-stub environment.
+          $initialiserIncludes = @((Get-Content pyright-initialiser.json -Raw | ConvertFrom-Json).include)
           $initialiserFiles = @($pythonFiles | Where-Object {
-            $_ -match '^(ryan_library/orchestrators/tuflow/initialiser/|tests/orchestrators/tuflow/initialiser/|repo-scripts/tuflow-initialiser/)'
+            $file = $_
+            @($initialiserIncludes | Where-Object {
+              $file -eq $_ -or $file.StartsWith("$_/")
+            }).Count -gt 0
           })
           $sharedFiles = @($pythonFiles | Where-Object { $_ -notin $initialiserFiles })
           if ($sharedFiles.Count -gt 0) {
