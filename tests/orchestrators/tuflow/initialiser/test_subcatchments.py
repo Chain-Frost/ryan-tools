@@ -12,7 +12,7 @@ from rasterio.transform import from_origin
 from shapely.geometry import box
 from shapely.ops import unary_union
 
-from ryan_library.orchestrators.tuflow.initialiser.d8 import contributing_cells
+from ryan_library.functions.hydrology.d8 import contributing_cells
 from ryan_library.orchestrators.tuflow.initialiser.subcatchment_outputs import (
     write_reach_subcatchment_summary,
     write_reach_subcatchments,

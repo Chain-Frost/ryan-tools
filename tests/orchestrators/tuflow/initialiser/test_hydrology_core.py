@@ -3,8 +3,8 @@
 import numpy as np
 import pytest
 
-from ryan_library.orchestrators.tuflow.initialiser.d8 import contributing_cells, headwater_extensions, stream_mask
-from ryan_library.orchestrators.tuflow.initialiser.profiles import equal_area_slope, stream_reaches
+from ryan_library.functions.hydrology.d8 import contributing_cells, headwater_extensions, stream_mask
+from ryan_library.functions.hydrology.profiles import equal_area_slope, stream_reaches
 
 
 def test_all_aoi_cells_not_only_outlet() -> None:

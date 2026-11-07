@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from rasterio.transform import from_origin
 
-from ryan_library.orchestrators.tuflow.initialiser.coordinates import pixel_centre
+from ryan_library.functions.geometry.raster_coordinates import pixel_centre
 
 _TEMPLATE_ROOT = (
     Path(__file__).resolve().parents[4]

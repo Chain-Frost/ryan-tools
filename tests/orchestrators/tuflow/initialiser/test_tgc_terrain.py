@@ -10,7 +10,7 @@ from rasterio.crs import CRS
 from rasterio.transform import from_origin
 from shapely.geometry import box, mapping
 
-from ryan_library.orchestrators.tuflow.initialiser.terrain import TerrainLayer, compose_terrain, compose_terrain_layers
+from ryan_library.functions.gdal.terrain_mosaic import TerrainLayer, compose_terrain, compose_terrain_layers
 from ryan_library.orchestrators.tuflow.initialiser.tgc_terrain import read_tgc_terrain_stack
 
 

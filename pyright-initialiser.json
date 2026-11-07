@@ -1,5 +1,8 @@
 {
   "include": [
+    "ryan_library/functions/hydrology",
+    "ryan_library/functions/gdal/terrain_mosaic.py",
+    "ryan_library/functions/geometry/raster_coordinates.py",
     "ryan_library/orchestrators/tuflow/initialiser",
     "tests/orchestrators/tuflow/initialiser",
     "repo-scripts/tuflow-initialiser"
