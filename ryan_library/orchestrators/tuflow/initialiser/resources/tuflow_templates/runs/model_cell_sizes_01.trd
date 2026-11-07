@@ -1,0 +1,32 @@
+! Set VarCellSize from the grid-size scenario flag used as ~s4~ in the TCF name.
+If Scenario == 01M
+	Set Variable VarCellSize == 1
+Else If Scenario == 02M
+	Set Variable VarCellSize == 2
+Else If Scenario == 04M
+	Set Variable VarCellSize == 4
+Else If Scenario == 05M
+	Set Variable VarCellSize == 5
+Else If Scenario == 08M
+	Set Variable VarCellSize == 8
+Else If Scenario == 10M
+	Set Variable VarCellSize == 10
+Else If Scenario == 16M
+	Set Variable VarCellSize == 16
+Else If Scenario == 20M
+	Set Variable VarCellSize == 20
+Else If Scenario == 25M
+	Set Variable VarCellSize == 25
+Else If Scenario == 30M
+	Set Variable VarCellSize == 30
+Else If Scenario == 32M
+	Set Variable VarCellSize == 32
+Else If Scenario == 50M
+	Set Variable VarCellSize == 50
+Else If Scenario == 64M
+	Set Variable VarCellSize == 64
+Else If Scenario == 100M
+	Set Variable VarCellSize == 100
+Else
+	Pause == Invalid grid-size scenario flag: VarCellSize was not set.
+End If
