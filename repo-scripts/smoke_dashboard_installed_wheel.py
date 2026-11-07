@@ -176,13 +176,63 @@ def _master_workbook_rows(path: Path) -> tuple[tuple[str, ...], tuple[str, ...]]
         workbook.close()
 
 
+def _check_master_append_no_mutation(
+    script: Path, work: Path, root: Path, master: Path, mode: str, saved: bytes
+) -> None:
+    """Verify that duplicate, incomplete and invalid batches preserve the workbook."""
+    duplicate = _run(script, work, root, "--master-workbook", str(master), mode)
+    if duplicate.returncode != 0 or master.read_bytes() != saved:
+        msg = f"Duplicate log append modified workbook or failed: {duplicate.stdout[-1000:]}"
+        raise RuntimeError(msg)
+
+    (work / "Incomplete_Run.tlf").write_text(INCOMPLETE_LOG, encoding="utf-8")
+    incomplete = _run(script, work, root, "--master-workbook", str(master), mode)
+    if incomplete.returncode != 0 or master.read_bytes() != saved:
+        msg = f"Incomplete-only skip changed master: {incomplete.stdout[-1100:]}"
+        raise RuntimeError(msg)
+
+    invalid = _run(script, work, root, "--master-workbook", str(master), "--live-max-rows", "0")
+    if invalid.returncode != 1 or "live_max_rows" not in invalid.stdout + invalid.stderr:
+        msg = f"Invalid master dashboard setting not rejected: {invalid.stdout[-1000:]}"
+        raise RuntimeError(msg)
+    if master.read_bytes() != saved:
+        msg = "Invalid display settings modified the master workbook"
+        raise RuntimeError(msg)
+
+
+
+def _check_master_append_writer_failure(
+    script: Path, work: Path, root: Path, master: Path, mode: str, saved: bytes
+) -> None:
+    """Prove copied wrapper propagates a staged writer denial without mutation."""
+    (work / "New_Run.tlf").write_text(COMPLETE_LOG, encoding="utf-8")
+    launcher = work / "master_write_failure.py"
+    launcher.write_text(
+        "from openpyxl.workbook.workbook import Workbook\n"
+        "import runpy\n"
+        "def fail(*args, **kwargs):\n    raise PermissionError('synthetic append save denial')\n"
+        "Workbook.save = fail\n"
+        f"runpy.run_path({str(script)!r}, run_name='__main__')\n",
+        encoding="utf-8",
+    )
+    failure = _run(launcher, work, root, "--master-workbook", str(master), mode)
+    if failure.returncode != 1 or (dashboard_enabled and "TUFLOW Master Log Append: FAILED" not in failure.stdout):
+        msg = f"Copied master append write failure returned false success: {failure.stdout[-1600:]}"
+        raise RuntimeError(msg)
+    if master.read_bytes() != saved or list(work.glob(".master-*.xlsx")):
+        msg = "Failed copied master append damaged workbook or left owned staging"
+        raise RuntimeError(msg)
+
+
 def _check_master_append_one_mode(work: Path, root: Path, *, dashboard_enabled: bool) -> tuple[str, ...]:
     """Exercise copied master append with real disposable workbook and failure paths."""
     work.mkdir(parents=True)
     master = work / "master.xlsx"
     workbook = Workbook()
     sheet = workbook.active
-    assert sheet is not None
+    if sheet is None:
+        msg = "New workbook has no active worksheet"
+        raise RuntimeError(msg)
     sheet.title = "Log Summary"
     sheet.append(["Runcode", "orig_log_path"])
     sheet.append(["Existing_Run", "Existing_Run.tlf"])
@@ -212,42 +262,8 @@ def _check_master_append_one_mode(work: Path, root: Path, *, dashboard_enabled: 
 
     headers, _ = _master_workbook_rows(master)
     saved = master.read_bytes()
-    duplicate = _run(script, work, root, "--master-workbook", str(master), mode)
-    if duplicate.returncode != 0 or master.read_bytes() != saved:
-        msg = f"Duplicate log append modified workbook or failed: {duplicate.stdout[-1000:]}"
-        raise RuntimeError(msg)
-
-    (work / "Incomplete_Run.tlf").write_text(INCOMPLETE_LOG, encoding="utf-8")
-    incomplete = _run(script, work, root, "--master-workbook", str(master), mode)
-    if incomplete.returncode != 0 or master.read_bytes() != saved:
-        msg = f"Incomplete-only skip changed master: {incomplete.stdout[-1100:]}"
-        raise RuntimeError(msg)
-
-    invalid = _run(script, work, root, "--master-workbook", str(master), "--live-max-rows", "0")
-    if invalid.returncode != 1 or "live_max_rows" not in invalid.stdout + invalid.stderr:
-        msg = f"Invalid master dashboard setting not rejected: {invalid.stdout[-1000:]}"
-        raise RuntimeError(msg)
-    if master.read_bytes() != saved:
-        msg = "Invalid display settings modified the master workbook"
-        raise RuntimeError(msg)
-
-    (work / "New_Run.tlf").write_text(COMPLETE_LOG, encoding="utf-8")
-    launcher = work / "master_write_failure.py"
-    launcher.write_text(
-        "from openpyxl.workbook.workbook import Workbook\n"
-        "import runpy\n"
-        "def fail(*args, **kwargs):\n    raise PermissionError('synthetic append save denial')\n"
-        "Workbook.save = fail\n"
-        f"runpy.run_path({str(script)!r}, run_name='__main__')\n",
-        encoding="utf-8",
-    )
-    failure = _run(launcher, work, root, "--master-workbook", str(master), mode)
-    if failure.returncode != 1 or (dashboard_enabled and "TUFLOW Master Log Append: FAILED" not in failure.stdout):
-        msg = f"Copied master append write failure returned false success: {failure.stdout[-1600:]}"
-        raise RuntimeError(msg)
-    if master.read_bytes() != saved or list(work.glob(".master-*.xlsx")):
-        msg = "Failed copied master append damaged workbook or left owned staging"
-        raise RuntimeError(msg)
+    _check_master_append_no_mutation(script, work, root, master, mode, saved)
+    _check_master_append_writer_failure(script, work, root, master, mode, saved)
     return headers
 
 
