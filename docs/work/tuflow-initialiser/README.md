@@ -366,3 +366,13 @@ scoped link checks pass. No library/package source changed, so the existing whee
 was reused without a version bump. The temporary install leaves normal Python
 unchanged. Repair and reconciled records are pushed as `10d1ea93`;
 final-head hosted CI remains required. No merge into main is authorised.
+
+### Verified CI milestone
+
+All six checks pass on repair delivery `103373f0` (Python CI `42399228386`,
+fast checks `42399228368`), including installed Package smoke and Hosted tests
+(5m34s). This supersedes the historical Package failure and pending checks above.
+The handoff-only follow-up has its own final-head checks, recorded on PR #204
+and #247. Implementation and review/CI repairs are complete; engineering
+acceptance (#242?#245, #266) and retirement (#247) remain open.
+No automatic issue closure, auto-merge or main merge is authorised.

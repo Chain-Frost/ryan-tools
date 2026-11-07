@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Implementation and five review fixes delivered; Package smoke repair in progress; engineering acceptance open |
+| Status | Implementation and review/CI repair complete; engineering acceptance and retirement remain open |
 | Owner | ChatGPT |
 | Created | 2026-11-04 |
 | Updated | 2026-11-08 |
@@ -27,8 +27,8 @@ were changed during validation. PR #204 remains open. All five review threads ar
 
 ## Next action
 
-Repair the timestamp-sensitive installed-wrapper collision smoke and verify all
-checks on the final pushed head. Keep #242?#245, #266 and retirement tracker #247
+Review the remaining engineering acceptance and retirement tasks. Keep
+#242?#245, #266 and retirement tracker #247
 open for their remaining acceptance. No merge or release is authorised.
 
 ## Completion criteria
@@ -227,3 +227,18 @@ scoped link checks pass. No library/package source changed, so the existing whee
 was reused without a version bump. The temporary install leaves normal Python
 unchanged. Repair and reconciled records are pushed as `10d1ea93`;
 final-head hosted CI remains required. No merge into main is authorised.
+
+### Verified CI milestone
+
+All six hosted checks pass at `103373f07e364f3901be4f1f5cd69318136d5b7e`:
+Ruff/whitespace, POSIX security, Policy, Package, MCP smoke and Hosted tests.
+Python CI run `42399228386`; fast checks run `42399228368`. Hosted tests
+complete in 5m34s. This supersedes the historical failed/pending statuses above.
+The subsequent handoff-only commit changes no Python or package files; its
+current checks and final delivery state are recorded on
+[PR #204](https://github.com/Chain-Frost/ryan-tools/pull/204) and
+[retirement tracker #247](https://github.com/Chain-Frost/ryan-tools/issues/247).
+
+The implementation/review/CI repair is complete. Engineering acceptance and
+retirement remain open in #242?#245, #266 and #247; no automatic issue closures.
+The PR stays open with auto-merge disabled. No main merge is authorised.
