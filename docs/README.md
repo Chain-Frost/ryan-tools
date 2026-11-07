@@ -48,6 +48,7 @@ These documents stay near the code they describe so that browsing a target direc
 | --- | --- | --- |
 | Culvert analysis/design | [Culvert analysis and design workflow](CULVERT_WORKFLOW.md) | Project/scenario models, solver boundary, design search, rating curves, CLI and output contracts |
 | TUFLOW culvert engines | [Selectable TUFLOW culvert engines](TUFLOW_CULVERT_ENGINES.md) | TUFLOW Maximums/1d_nwk ingestion, HY-8 vs ryan-culverts dispatch, output and ownership boundaries |
+| TUFLOW initialiser | [Initialiser implementation](../ryan_library/orchestrators/tuflow/initialiser/README.md) | Hydrology function boundaries, TUFLOW project generation and Windows QA gates |
 | TUFLOW processors | [Processor development notes](../ryan_library/processors/tuflow/README.md) | Processor lifecycle, collections, combinations, filtering, caching and extension |
 | TUFLOW wrappers | [TUFLOW Python wrappers](../ryan-scripts/TUFLOW-python/README.md) | Maintained entry points, shared CLI behavior and wrapper selection |
 | TUFLOW run preflight | [Proposed-run input preflight](TUFLOW_INPUT_PREFLIGHT.md) | Check event/scenario-dependent input references, boundary source CSVs and GPKG layers before launching simulations |
@@ -111,6 +112,15 @@ but they are not current architectural policy when they conflict with the canoni
 | [TUFLOW runner model checks](work/2026-10-23-tuflow-runner-model-checks.md) | PR #159 current decisions, implementation, validation and delivery state |
 | [TUFLOW GPU availability alerts and CodeMeter validation](work/2026-11-03-tuflow-gpu-alerts-193.md) | PR #193 implementation, measured evidence, validation and delivery state |
 | [TGC terrain crop workflow](work/2026-11-04-tgc-terrain-crop.md) | PR #204 source precedence, native-grid clipping, polygon QA and acceptance limits |
+| [TUFLOW initialiser — README.md](work/tuflow-initialiser/README.md) | Migrated initialiser design, validation or user instructions; PR #246 |
+| [TUFLOW initialiser — aoi-entry-catchments.md](work/tuflow-initialiser/aoi-entry-catchments.md) | Migrated initialiser design, validation or user instructions; PR #246 |
+| [TUFLOW initialiser — architecture.md](work/tuflow-initialiser/architecture.md) | Migrated initialiser design, validation or user instructions; PR #246 |
+| [TUFLOW initialiser — base-workflow-validation.md](work/tuflow-initialiser/base-workflow-validation.md) | Migrated initialiser design, validation or user instructions; PR #246 |
+| [TUFLOW initialiser — future-work.md](work/tuflow-initialiser/future-work.md) | Migrated initialiser design, validation or user instructions; PR #246 |
+| [TUFLOW initialiser — issue-7-quality-validation.md](work/tuflow-initialiser/issue-7-quality-validation.md) | Migrated initialiser design, validation or user instructions; PR #246 |
+| [TUFLOW initialiser — migration.md](work/tuflow-initialiser/migration.md) | Migrated initialiser design, validation or user instructions; PR #246 |
+| [TUFLOW initialiser — validation.md](work/tuflow-initialiser/validation.md) | Migrated initialiser design, validation or user instructions; PR #246 |
+| [TUFLOW initialiser — windows-verification-handoff.md](work/tuflow-initialiser/windows-verification-handoff.md) | Migrated initialiser design, validation or user instructions; PR #246 |
 | [TUFLOW runner grouping and model progress](work/2026-11-04-tuflow-runner-progress.md) | New runner PR, PyTUFLOW filename prediction, bounded live-log observations and local acceptance |
 | [PyTuflow #63 and runner #235 local acceptance](work/2026-11-06-pytuflow-63-ryan-235-local-validation.md) | Current-model 390-run timing, native correctness, mapped/UNC safety, wrapper refresh and remaining hardware/policy gates |
 | [Live dashboard logging regression](work/2026-11-03-live-dashboard-logging.md) | Default stdout routing for older copied runners, regression evidence and PR delivery |

@@ -130,8 +130,21 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m ruff format --check $pythonFiles
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -m pyright $pythonFiles
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # The migrated initialiser keeps its own typed GIS stubs. Running
+          # both type-checkers in strict mode avoids overriding ryan-tools'
+          # existing, deliberately narrow rasterio stubs and PyTUFLOW API.
+          $initialiserFiles = @($pythonFiles | Where-Object {
+            $_ -match '^(ryan_library/orchestrators/tuflow/initialiser/|tests/orchestrators/tuflow/initialiser/|repo-scripts/tuflow-initialiser/)'
+          })
+          $sharedFiles = @($pythonFiles | Where-Object { $_ -notin $initialiserFiles })
+          if ($sharedFiles.Count -gt 0) {
+            python -m pyright $sharedFiles
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          if ($initialiserFiles.Count -gt 0) {
+            python -m pyright --project pyright-initialiser.json
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
 
       - name: Check documentation and logging policy
         shell: pwsh
