@@ -100,8 +100,8 @@ def test_reporting_point_collection_and_protected_excel_parquet_export(
     assert export_results(results=collection, export_mode="both")
     workbooks = list(tmp_path.glob("*_reporting_points.xlsx"))
     assert len(workbooks) == 1
-    source = pd.read_excel(workbooks[0], sheet_name="Source_Maxima")
-    history = pd.read_excel(workbooks[0], sheet_name="Water_Level_Series")
+    source = pd.read_excel(workbooks[0], sheet_name="Source_Maxima")  # pyright: ignore[reportUnknownMemberType]
+    history = pd.read_excel(workbooks[0], sheet_name="Water_Level_Series")  # pyright: ignore[reportUnknownMemberType]
     assert len(source) == 1
     assert len(history) == 181
     assert source["Hmax"].iloc[0] == pytest.approx(42.4817)
@@ -148,14 +148,14 @@ def test_history_rejects_all_missing_or_invalid_measurements(tmp_path: Path, up:
     processor.process()
     assert not processor.processed
     assert processor.df.empty
-    assert not processor.filtered_empty
+    assert not getattr(processor, "filtered_empty", False)
 
 
 def test_history_no_match_filter_is_not_a_parse_failure(tmp_path: Path) -> None:
     processor = BaseProcessor.from_file(_make_history(tmp_path, up=["1"], down=["2"]), entity_filter=["Absent"])
     processor.process()
     assert not processor.processed
-    assert processor.filtered_empty
+    assert getattr(processor, "filtered_empty", False)
     assert processor.df.empty
 
 
@@ -174,7 +174,7 @@ def test_summary_handles_source_negative_and_missing_values(tmp_path: Path) -> N
     missing.process()
     assert not missing.processed
     assert missing.df.empty
-    assert not missing.filtered_empty
+    assert not getattr(missing, "filtered_empty", False)
 
 
 def test_summary_rejects_duplicate_ids_and_unassociated_peak_time(tmp_path: Path) -> None:
