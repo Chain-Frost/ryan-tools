@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active — reconcile current main and the integrated exporter; refresh Office child #201 |
+| Status | Needs review — current main and #202 integrated; closure export gap repaired |
 | Owner | ChatGPT (foundation recovery) |
 | Created | 2026-11-01 |
 | Updated | 2026-11-07 |
@@ -11,7 +11,7 @@
 | Branch / base | `feat/batch-dashboard-foundation-180` -> `main` |
 | Issue | [#180](https://github.com/Chain-Frost/ryan-tools/issues/180), dashboard foundation and resumed wrapper/script audit |
 | Dependent work | [TUFLOW result dashboard adoption](2026-11-01-tuflow-result-dashboards-180.md) |
-| Delivery | #202 was squash-merged into this feature branch at a56e0c6b on 2026-11-07. Current main e317e4ef is being integrated normally; closure raw-output safety and Office #201 refresh follow. Prior green checks are historical until the updated heads are validated. No main merge/release. |
+| Delivery | #202 is retained at a56e0c6b; current main e317e4ef is integrated at 0b5a07cb; closure raw-output safety is implemented at 8878d42b. Fresh 26.11.7.1 wheel and copied-wrapper checks pass. Verify the new published head CI/Codex review and refresh Office #201. No main merge/release. |
 
 ## Outcome and scope
 
@@ -426,3 +426,42 @@ Next: complete the #194 closure raw-output batch, verify the installed wheel and
 updated hosted head, request a fresh Codex review, and refresh #201 from the
 settled parent. #196/#198 remain separate subsequent changes; broader audit #180
 stays open. The merge is local at this checkpoint; no main merge or release.
+
+
+### 2026-11-07 — Closure gap and installed-package acceptance
+
+Commit `8878d42b` adds typed raw-table sidecars to the existing shared exporter.
+The closure workflow completes its summary before preparing any outputs; raw
+CSV/gzip-Parquet and selected formatted reports then share one destination
+preflight, staging and publication batch. Existing names, values, Parquet index
+behavior and legacy raw outputs in all three modes are preserved. The wrapper,
+CLI help, exporter guide and MCP catalogue state that `export_mode` selects the
+formatted reports. Numerical closure-population issue #215 is unchanged.
+
+Validation in the same Python 3.14.10 task environment:
+
+- 99 exporter, closure, failure-propagation and result-wrapper tests pass on the
+  integrated tree. The closure implementation's separate focused selection also
+  passed 82 tests; these selections overlap and must not be added together.
+- 125 MCP discovery/catalogue/overview and inventory tests pass (one existing
+  pandas deprecation warning). Static inventory remains 156 tracked scripts,
+  with no audit issues.
+- Strict Pyright for all 47 changed Python files, targeting Windows: zero errors
+  or warnings. Ruff 0.16.6 format/lint, docs and Loguru checks pass.
+- Normal build selects `26.11.7.1`; wheel verification passes. SHA-256:
+  `0b98658cc90ec08b2a56126d0c12425bda85f726f575f901a0733eb7553a930e`.
+- The isolated installed wheel passes the copied log-summary check and all six
+  copied culvert/PO/POMM dashboard on/off, workbook-parity, collision and writer
+  failure checks. Source checkout imports are excluded.
+- Six additional installed closure-wrapper cases pass: Excel, Parquet and both
+  successes with raw value readback; raw collision, report collision and CSV
+  writer failure with exit 1, prior-file preservation and no staging residue.
+- Independent source review found no consequential closure-publication issue.
+  This is separate from the fresh hosted Codex review requested after pushing.
+
+The existing #183 branch carries the integrated source and validation records.
+Fresh hosted checks and review are pending on its new head; the older 94a63b89
+and 6d1178ce results do not establish current-head acceptance. Office #201 has
+passed local source, installed-package and inventory validation for its normal
+parent refresh; its hosted checks and review are also pending. Native Office fidelity and real UNC hard-link support
+remain separate acceptance. No main merge, auto-merge or release is performed.

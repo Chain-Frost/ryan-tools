@@ -2,11 +2,11 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Needs review - PR #202 published |
+| Status | Integrated into #183 — closure raw-output follow-up implemented |
 | Owner | ChatGPT |
 | Created | 2026-11-04 |
-| Updated | 2026-11-04 |
-| Next review | 2026-11-05 |
+| Updated | 2026-11-07 |
+| Next review | 2026-11-14 |
 | Baseline | `fix/result-export-safety-194`, stacked directly on #183 at `94a63b89`; clean starting worktree |
 
 ## Outcome and scope
@@ -56,13 +56,30 @@ Windows, normal Python 3.14.6, 2026-11-04:
 
 ## Next action and delivery
 
-[PR #202](https://github.com/Chain-Frost/ryan-tools/pull/202) is published,
-stacked on #183. Implementation `7d22927e` is committed and pushed. Review
-its safety policy and verify all current-head GitHub checks and review threads.
-The PR body and [checks tab](https://github.com/Chain-Frost/ryan-tools/pull/202/checks)
-record terminal hosted evidence after this publication milestone. No main merge
-or release is authorised.
+[PR #202](https://github.com/Chain-Frost/ryan-tools/pull/202) was squash-merged
+into the #183 feature branch as `a56e0c6b` on 2026-11-07. Its original Windows
+validation above remains historical evidence. Current-main integration and the
+remaining closure raw-output gap are delivered in #183, not a recreated child.
 
-Next shared audit front after this fix is #195 (invalid discovery inputs versus
-valid empty selections); #196/#198 dashboard adoption depends on truthful
-outcome contracts. Other overdue work-register fronts remain outside this scope.
+Commit `8878d42b` routes the legacy closure CSV/gzip-Parquet sidecars through the
+same typed export batch as formatted reports. Summary computation completes
+before any output is staged. All destinations are checked before writes; every
+writer completes before publication. Failed writers leave no published output,
+while a publication race preserves existing files and reports any prior successful
+publications. Names, raw Parquet index semantics and numerical results are retained.
+The mode contract is explicit: raw sidecars are always included; `export_mode`
+selects formatted report types.
+
+Validation on Linux Python 3.14.10 with Windows-style spawn selected in the task
+environment: 82 focused closure/exporter/helper tests pass; the integrated
+exporter/closure/result-wrapper selection has 99 passes (overlapping selections).
+Ruff 0.16.6, strict changed-file Pyright, docs, help and Loguru checks pass.
+The new 26.11.7.1 wheel verifies and passes all six existing copied result-wrapper
+checks plus six installed closure cases covering all modes, collision preservation
+and failed CSV writing. The [foundation record](2026-11-01-batch-dashboard-foundation-180.md)
+owns the current package hash, parent-integration evidence and hosted delivery state.
+
+Next: verify the updated #183 hosted checks and fresh Codex review. Actual mapped/UNC
+hard-link support remains native acceptance; no live share or licensed solver was
+used. #195 discovery outcomes and #196/#198 dashboard adoption remain separate
+follow-ups. No main merge or release is performed.
