@@ -21,7 +21,7 @@ from pandas.api.types import is_numeric_dtype
 
 from ryan_library.functions.excel_export import ExcelExporter
 from ryan_library.functions.loguru_helpers import setup_logger
-from ryan_library.functions.pandas.median_calc import upper_middle_row, upper_middle_value
+from ryan_library.functions.pandas.median_calc import finite_sorted_rows, upper_middle_row, upper_middle_value
 from ryan_library.functions.tuflow.tuflow_common import bulk_read_and_merge_tuflow_csv
 from ryan_library.functions.tuflow.wrapper_helpers import normalize_data_types, warn_on_invalid_types
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
@@ -240,16 +240,31 @@ def _find_culvert_aep_dur_statistic(aggregated_df: pd.DataFrame, statistic: Stat
         logger.error("Required grouping columns were not found in the aggregated culvert DataFrame.")
         return pd.DataFrame()
 
+    if "Q" not in aggregated_df.columns:
+        logger.warning("Discharge Q is required for culvert TP statistics; refusing geometry-only report.")
+        return pd.DataFrame()
+
+    q_values = pd.to_numeric(arg=aggregated_df["Q"], errors="coerce")
+    finite_q = q_values.notna() & q_values.abs().ne(float("inf"))
+    valid_df = aggregated_df.loc[finite_q].copy()
+    valid_df["Q"] = q_values.loc[finite_q]
+
     numeric_columns: list[str] = [
         col
-        for col in aggregated_df.columns
-        if col not in EXCLUDED_MEAN_NUMERIC_COLUMNS and is_numeric_dtype(arr_or_dtype=aggregated_df[col])
+        for col in valid_df.columns
+        if col not in EXCLUDED_MEAN_NUMERIC_COLUMNS and is_numeric_dtype(arr_or_dtype=valid_df[col])
     ]
     if not numeric_columns:
         logger.warning(f"No numeric columns available for culvert {statistic} calculations.")
         return pd.DataFrame()
 
-    grouped = aggregated_df.groupby(group_columns, observed=True)
+    # Keep only finite field values, and base the group population on finite Q.
+    # Other independent fields may still be unavailable for an otherwise valid TP.
+    for column in numeric_columns:
+        values = pd.to_numeric(arg=valid_df[column], errors="coerce")
+        valid_df[column] = values.where(values.abs().ne(float("inf")))
+
+    grouped = valid_df.groupby(group_columns, observed=True)
 
     # Calculate statistic values for all numeric columns.
     if statistic == "mean":
@@ -265,8 +280,21 @@ def _find_culvert_aep_dur_statistic(aggregated_df: pd.DataFrame, statistic: Stat
     rename_map: dict[str, str] = {column: f"{statistic}_{column}" for column in numeric_columns}
     statistic_df = statistic_df.rename(columns=rename_map)
 
-    count_df: pd.DataFrame = grouped.size().rename("count").reset_index()
-    count_df["count"] = count_df["count"].astype("Int64")
+    observed = aggregated_df.groupby(group_columns, observed=True).size().rename("count_total").reset_index()
+    contributing = grouped.size().rename("count").reset_index()
+    count_df: pd.DataFrame = observed.merge(right=contributing, on=group_columns, how="left")
+    count_df["count"] = count_df["count"].fillna(0).astype("Int64")
+    count_df["count_total"] = count_df["count_total"].astype("Int64")
+    count_df["count_unusable"] = count_df["count_total"] - count_df["count"]
+    count_df["tp_population_status"] = "OK"
+    count_df.loc[count_df["count_unusable"] > 0, "tp_population_status"] = "PARTIAL"
+    count_df.loc[count_df["count"] == 0, "tp_population_status"] = "UNUSABLE"
+    if bool((~finite_q).any()):
+        logger.warning(
+            "Excluded {} missing/nonfinite Q observations from culvert {} statistics.",
+            int((~finite_q).sum()),
+            statistic,
+        )
 
     # Determine min/max values for key columns
     range_columns: list[str] = [column for column in ADOPTED_SOURCE_COLUMNS if column in aggregated_df.columns]
@@ -292,13 +320,13 @@ def _find_culvert_aep_dur_statistic(aggregated_df: pd.DataFrame, statistic: Stat
             q_series: pd.Series | None = pd.to_numeric(group["Q"], errors="coerce") if "Q" in group.columns else None
             closest_row: pd.Series | None = None
             if q_series is not None and bool(q_series.notna().any()):
+                ordered = finite_sorted_rows(group=group, value_column="Q")
                 if statistic == "mean":
-                    target_q = q_series.mean()
-                    # Find index of value closest to the statistic.
-                    idx: Any = (q_series - target_q).abs().idxmin()
-                    closest_row = cast("pd.Series", group.loc[idx])
+                    target_q = float(ordered["Q"].mean())
+                    nearest = int((ordered["Q"] - target_q).abs().to_numpy().argmin())
+                    closest_row = ordered.iloc[nearest]
                 else:
-                    closest_row = upper_middle_row(group=group, value_column="Q")
+                    closest_row = upper_middle_row(group=ordered, value_column="Q")
 
             if closest_row is not None:
                 for column in range_columns:
@@ -328,7 +356,7 @@ def _find_culvert_aep_dur_statistic(aggregated_df: pd.DataFrame, statistic: Stat
     ordered_columns: list[str] = _ordered_columns(
         df=merged,
         lead=group_columns,
-        secondary=["count"],
+        secondary=["count", "count_total", "count_unusable", "tp_population_status"],
         value_prefixes=(f"{statistic}_", "adopted_", "min_", "max_"),
     )
     return merged.loc[:, ordered_columns]
