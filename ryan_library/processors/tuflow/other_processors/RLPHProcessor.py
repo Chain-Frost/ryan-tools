@@ -114,4 +114,3 @@ class RLPHProcessor(BaseProcessor):
             locations.append((source_column, location))
             seen.add(location)
         return header[1], locations
-

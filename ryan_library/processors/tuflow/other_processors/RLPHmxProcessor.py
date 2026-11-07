@@ -94,4 +94,3 @@ class RLPHmxProcessor(BaseProcessor):
             msg = f"{self.file_name}: Reporting-point maximum file has no data rows."
             raise ValueError(msg)
         return raw
-
