@@ -2,6 +2,7 @@
 
 __lazy_modules__: list[str] = ["pandas"]
 
+import math
 import re
 from datetime import datetime
 from pathlib import Path, PureWindowsPath
@@ -12,26 +13,25 @@ from loguru import logger
 
 from ..classes.tuflow_string_classes import TuflowStringParser
 
+# Match whole signed decimal/exponent tokens; float() alone accepts non-finite values.
+TLF_FLOAT_TOKEN: re.Pattern[str] = re.compile(r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[Ee][+-]?\d+)?")
+
 # Precompile regex patterns at the module level for efficiency and thread safety
 REGEX_PATTERNS: dict[str, re.Pattern[str]] = {
     # Looks for the literal heading ``Initialisation Times`` anywhere in the log.
     "initialisation_times": re.compile(r"Initialisation Times"),
     # Modern logs use ``Final Times``; 2016-era logs use ``SIMULATION SUMMARY``.
     "final_times": re.compile(r"(?:Final Times|SIMULATION SUMMARY)"),
-    # Capture Final Cumulative ME Percentage with optional minus sign and decimals.
-    # Example: ``Final Cumulative ME:   -0.45%`` -> stores ``-0.45``.
-    "final_me": re.compile(r"Final Cumulative ME:\s*(-?[\d.]+)%"),
+    # Preserve an entire percentage token and validate it before float conversion.
+    "final_me": re.compile(r"Final Cumulative ME:\s*(?P<value>\S+)\s*%"),
     # Flags the line ``Simulation FINISHED`` to indicate a successful run completion.
     "simulation_finished": re.compile(r"Simulation FINISHED"),
-    # Captures a number (integer or decimal) before ``h`` inside square brackets.
-    # Example: ``Clock Time: [1.25 h]`` -> ``1.25``.
-    "clock_time": re.compile(r"Clock Time:.*\[(?P<time>[-+]?\d*\.\d+|\d+)\s*h\]"),
-    # Modern logs use ``Processor Time``; 2016-era logs use ``CPU Time``.
-    "processor_time": re.compile(r"(?:Processor|CPU) Time:.*\[(?P<time>[-+]?\d*\.\d+|\d+)\s*h\]"),
-    # Grabs the numeric end time after ``End Time (h):`` such as ``End Time (h): 24``.
-    "model_end_time": re.compile(r"End Time \(h\):\s*(\d+\.?\d*)"),
-    # Grabs the numeric start time after ``Start Time (h):``.
-    "model_start_time": re.compile(r"Start Time \(h\):\s*(\d+\.?\d*)"),
+    # Capture the whole bracketed token; validation rejects partial and non-finite numbers.
+    "clock_time": re.compile(r"Clock Time:.*\[\s*(?P<time>\S+?)\s*h\]"),
+    # Modern logs use Processor Time; 2016-era logs use CPU Time.
+    "processor_time": re.compile(r"(?:Processor|CPU) Time:.*\[\s*(?P<time>\S+?)\s*h\]"),
+    "model_end_time": re.compile(r"End Time \(h\):\s*(?P<value>\S+)"),
+    "model_start_time": re.compile(r"Start Time \(h\):\s*(?P<value>\S+)"),
     # Captures the full path to the ``.tcf`` file reported as ``Input File: path/to/model.tcf``.
     "input_file": re.compile(r"Input File:\s*(.+\.tcf)"),
     # Captures any characters following ``Log File:`` so the log file path can be recorded.
@@ -48,6 +48,23 @@ REGEX_PATTERNS: dict[str, re.Pattern[str]] = {
         r"BC Event Source\s*==\s*(?P<variable>[^|]+?)\s*\|\s*(?P<value>.+)$",
         flags=re.IGNORECASE,
     ),
+}
+
+CONTROL_FILE_PATTERN: re.Pattern[str] = re.compile(
+    r"^\s*(?P<label>BC Database|Geometry Control File|BC Control File|ESTRY Control File|BC Event File)"
+    r"\s*==\s*(?P<path>.+?)\s*$",
+    flags=re.IGNORECASE,
+)
+TEF_OPEN_PATTERN: re.Pattern[str] = re.compile(
+    r"Trying to open \(I\) file\s+(?P<path>.+?\.tef)\.{3}OK\.\s+File Unit:",
+    flags=re.IGNORECASE,
+)
+CONTROL_FILE_FIELDS: dict[str, str] = {
+    "bc database": "BC_dbase",
+    "geometry control file": "TGC",
+    "bc control file": "TBC",
+    "estry control file": "ECF",
+    "bc event file": "TEF",
 }
 
 # Define excluded variable patterns globally for efficiency
@@ -81,6 +98,27 @@ SET_VARIABLE_PATTERN: re.Pattern[str] = re.compile(
 # ``SET_VARIABLE_PATTERN`` recognises configuration lines such as ``Set Variable ~E1~ == inflow.csv``
 # and stores the variable name (``~E1~``) plus the assigned value (``inflow.csv``).
 # User variable names may contain hyphen-separated words such as ``IL-PEBBLE``.
+
+
+def _extract_control_file(line: str) -> tuple[str, str] | None:
+    """Extract a control-file basename (or the ECF/TEF stem) across path styles."""
+    match = CONTROL_FILE_PATTERN.match(line)
+    if match:
+        field = CONTROL_FILE_FIELDS[match.group("label").casefold()]
+        raw_path = match.group("path")
+    else:
+        match = TEF_OPEN_PATTERN.search(line)
+        if not match:
+            return None
+        field = "TEF"
+        raw_path = match.group("path")
+
+    # Deliberate TUFLOW explanatory/redirection suffixes, not spaces or dots in filenames.
+    path_text = re.split(r"\s+!\s+|\s+->\s+|\s+=>\s+|\s+\|\s+", raw_path, maxsplit=1)[0].strip().strip('"')
+    filename = PureWindowsPath(path_text.replace("/", "\\")).name
+    if not filename:
+        return None
+    return field, PureWindowsPath(filename).stem if field in {"ECF", "TEF"} else filename
 
 
 def _normalise_bcdbase_variable(variable: str) -> str:
@@ -140,9 +178,9 @@ def _capture_legacy_initialisation_times(
         return candidate_cpu_time, candidate_clock_time
 
     if match := REGEX_PATTERNS["processor_time"].search(string=line):
-        candidate_cpu_time = float(match.group("time"))
+        candidate_cpu_time = _parse_finite_float(match.group("time"), label="CPU Time")
     elif match := REGEX_PATTERNS["clock_time"].search(string=line):
-        candidate_clock_time = float(match.group("time"))
+        candidate_clock_time = _parse_finite_float(match.group("time"), label="Clock Time")
     elif REGEX_PATTERNS["legacy_solver_start"].search(string=line):
         if candidate_cpu_time is not None:
             data_dict["Initialise_CPU_Time"] = candidate_cpu_time
@@ -152,21 +190,22 @@ def _capture_legacy_initialisation_times(
     return candidate_cpu_time, candidate_clock_time
 
 
+def _parse_finite_float(value: str, *, label: str) -> float | None:
+    """Accept only complete finite TLF numeric tokens, including signed exponents."""
+    if not TLF_FLOAT_TOKEN.fullmatch(value):
+        logger.warning("Invalid {} numeric token: {}", label, value)
+        return None
+    number = float(value)
+    if not math.isfinite(number):
+        logger.warning("Non-finite {} numeric token: {}", label, value)
+        return None
+    return number
+
+
 def extract_float(match: re.Match[str]) -> float | None:
-    """Extracts and converts the first captured group of a regex match to a float.
+    """Convert the first captured TLF numeric token without accepting a partial value."""
+    return _parse_finite_float(match.group(1), label="TLF")
 
-    Args:
-        match (re.Match): The regex match object.
-
-    Returns:
-        float | None: The extracted float if conversion is successful; otherwise, None.
-    """
-    if match:
-        try:
-            return float(match.group(1))
-        except ValueError:
-            logger.warning("Failed to convert '{}' to float.", match.group(1))
-    return None
 
 
 def search_for_completion(
@@ -198,11 +237,11 @@ def search_for_completion(
         orig_log_path: str = match.group(1).strip()
         data_dict["orig_log_path"] = orig_log_path
     elif match := REGEX_PATTERNS["model_end_time"].search(string=line):
-        model_end_time: float | None = extract_float(match=match)
+        model_end_time = _parse_finite_float(match.group("value"), label="End Time (h)")
         if model_end_time is not None:
             data_dict["Model_End_Time"] = model_end_time
     elif match := REGEX_PATTERNS["model_start_time"].search(string=line):
-        model_start_time: float | None = extract_float(match=match)
+        model_start_time = _parse_finite_float(match.group("value"), label="Start Time (h)")
         if model_start_time is not None:
             data_dict["Model_Start_Time"] = model_start_time
     elif match := REGEX_PATTERNS["initialisation_times"].search(string=line):
@@ -214,11 +253,13 @@ def search_for_completion(
         sim_complete = 1  # Simulation completed
         # We need to have found this item.
     elif match := REGEX_PATTERNS["final_me"].search(string=line):
-        final_me: float | None = extract_float(match=match)
+        final_me = _parse_finite_float(match.group("value"), label="Final Cumulative ME (%)")
         if final_me is not None:
             data_dict["Final_Cumulative_ME_pct"] = final_me
             if sim_complete == 1:
                 sim_complete = 2  # This is the last item we grab
+    elif "Final Cumulative ME:" in line:
+        logger.warning("Invalid Final Cumulative ME line: {}", line.strip())
     elif bcdbase_result := _extract_bcdbase_pair(line=line):
         key, value = bcdbase_result
         data_dict[key] = value
@@ -227,14 +268,16 @@ def search_for_completion(
     elif current_section:
         # Handle Clock Time
         if match := REGEX_PATTERNS["clock_time"].search(string=line):
-            clock_time = float(match.group("time"))
-            key = "Final_RunTime" if current_section == "final" else "Initialise_RunTime"
-            data_dict[key] = clock_time
+            clock_time = _parse_finite_float(match.group("time"), label="Clock Time")
+            if clock_time is not None:
+                key = "Final_RunTime" if current_section == "final" else "Initialise_RunTime"
+                data_dict[key] = clock_time
         # Handle Processor Time
         elif match := REGEX_PATTERNS["processor_time"].search(string=line):
-            processor_time = float(match.group("time"))
-            key = "Final_CPU_Time" if current_section == "final" else "Initialise_CPU_Time"
-            data_dict[key] = processor_time
+            processor_time = _parse_finite_float(match.group("time"), label="Processor Time")
+            if processor_time is not None:
+                key = "Final_CPU_Time" if current_section == "final" else "Initialise_CPU_Time"
+                data_dict[key] = processor_time
 
     return data_dict, sim_complete, current_section
 
@@ -268,10 +311,15 @@ def search_from_top(
         data_dict["Version_note"] = "! GPU Solver from 2016-03 Release or earlier invoked."
     elif match := re.match(r"Simulation Started\s*:\s*(.+)", line):
         dt_str: str = match.group(1).strip().rstrip(".")
-        try:
-            data_dict["StartDate"] = datetime.strptime(dt_str, "%Y-%b-%d %H:%M")
-            success += 1
-        except ValueError:
+        # TUFLOW releases use month abbreviations, with optional seconds; numeric ISO dates also occur.
+        for date_format in ("%Y-%b-%d %H:%M", "%Y-%b-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d %H:%M:%S"):
+            try:
+                data_dict["StartDate"] = datetime.strptime(dt_str, date_format)
+                success += 1
+                break
+            except ValueError:
+                continue
+        else:
             logger.warning("Failed to parse StartDate from line: {}", line)
     elif match := REGEX_PATTERNS["gpu_device_ids"].search(string=line):
         ids_str = match.group("ids").strip()
@@ -307,21 +355,9 @@ def search_from_top(
         spec_scen = True
     elif "No Specified Scenarios." in line or "No Specified Events." in line:
         success += 1
-    elif match := re.search(pattern=r"BC Database == .*\\([^\\]+)", string=line):
-        data_dict["BC_dbase"] = match.group(1).strip()
-    elif match := re.search(pattern=r"Geometry Control File == .*\\([^\\]+)", string=line):
-        data_dict["TGC"] = match.group(1).strip()
-    elif match := re.search(pattern=r"BC Control File == .*\\([^\\]+)", string=line):
-        data_dict["TBC"] = match.group(1).strip()
-    elif match := re.search(pattern=r"ESTRY Control File == .*\\([^\\.]+)", string=line):
-        data_dict["ECF"] = match.group(1).strip()
-    elif (match := re.search(pattern=r"BC Event File == .*\\([^\\.]+)", string=line)) or (
-        match := re.search(
-            pattern=r"Trying to open \(I\) file .*\\([^\\]+\.tef)\.\.\.OK\.  File Unit:",
-            string=line,
-        )
-    ):
-        data_dict["TEF"] = match.group(1).strip()
+    elif control_file := _extract_control_file(line):
+        field, name = control_file
+        data_dict[field] = name
     elif "Number of defined variables:" in line:
         spec_var = True
     elif spec_var:
@@ -361,6 +397,18 @@ def remove_e_s_from_runcode(runcode: str, data_dict: dict[str, Any], delimiters:
     return cleaned_runcode
 
 
+def _decode_tlf_line(raw_line: bytes) -> str:
+    """Decode each complete TLF line as UTF-8 or legacy Windows-1252.
+
+    Line-wise fallback avoids whole-file buffering and handles mixed-encoding logs
+    consistently on both sides of the 10 MiB threshold.
+    """
+    try:
+        return raw_line.decode("utf-8")
+    except UnicodeDecodeError:
+        return raw_line.decode("cp1252", errors="replace")
+
+
 def get_log_lines(logfile_path: Path, is_large_file: bool) -> tuple[list[str], list[str]]:
     """Reads the log file efficiently based on its size.
 
@@ -374,34 +422,24 @@ def get_log_lines(logfile_path: Path, is_large_file: bool) -> tuple[list[str], l
     """
     try:
         if is_large_file:
-            # Efficiently read only the tail of the file over the network using seek
-            chunk_size = 30000  # 30KB is more than enough for 100 lines
+            # Read only a bounded tail over the network; skip an initial partial line
+            # so UTF-8 multibyte sequences cannot begin in the middle of a codepoint.
+            chunk_size = 30000
+            with logfile_path.open("rb") as stream:
+                stream.seek(0, 2)
+                file_size = stream.tell()
+                start = max(0, file_size - chunk_size)
+                stream.seek(start)
+                tail_data = stream.read()
+            if start:
+                first_newline = tail_data.find(b"\n")
+                if first_newline != -1:
+                    tail_data = tail_data[first_newline + 1 :]
+            tail_lines = [_decode_tlf_line(raw) for raw in tail_data.splitlines()]
+            return [], tail_lines[-100:]
 
-            with logfile_path.open("rb") as f:
-                f.seek(0, 2)  # Seek to end
-                file_size: int = f.tell()
-
-                if file_size > chunk_size:
-                    f.seek(file_size - chunk_size)
-                else:
-                    f.seek(0)
-
-                tail_data: bytes = f.read()
-
-            # Completion markers are ASCII, so replacement is safe if the chunk starts within a multi-byte character
-            # or the legacy log contains Windows-1252 text.
-            tail_lines: list[str] = tail_data.decode("utf-8", errors="replace").splitlines()
-            last_lines: list[str] = tail_lines[-100:] if tail_lines else []
-            return [], last_lines
-        raw_log: bytes = logfile_path.read_bytes()
-        try:
-            log_text: str = raw_log.decode("utf-8")
-        except UnicodeDecodeError:
-            logger.debug("Reading legacy Windows-1252 TLF: {}", logfile_path)
-            log_text = raw_log.decode("cp1252", errors="replace")
-        lines: list[str] = log_text.splitlines()
-        last_lines = lines[-100:] if lines else []
-        return lines, last_lines
+        lines = [_decode_tlf_line(raw) for raw in logfile_path.read_bytes().splitlines()]
+        return lines, lines[-100:]
     except Exception as e:
         logger.error("Error reading {}: {}", logfile_path, e)
         return [], []
@@ -440,10 +478,11 @@ def process_top_lines(
     legacy_clock_time: float | None = None
     try:
         if is_large_file:
-            # Parsing relies on ASCII labels. Replacement keeps those labels readable in large legacy Windows-1252
-            # logs without loading the complete file into memory for encoding detection.
-            with logfile_path.open("r", encoding="utf-8", errors="replace") as lfile:
-                for counter, line in enumerate(lfile, 1):
+            # Binary streaming plus per-line decode preserves CP1252/UTF-8 metadata
+            # without loading the full >10 MiB log into memory.
+            with logfile_path.open("rb") as lfile:
+                for counter, raw_line in enumerate(lfile, 1):
+                    line = _decode_tlf_line(raw_line)
                     result: tuple[dict[str, Any], int, bool, bool, bool] = search_from_top(
                         line=line,
                         data_dict=data_dict,
