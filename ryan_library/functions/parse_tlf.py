@@ -67,6 +67,43 @@ CONTROL_FILE_FIELDS: dict[str, str] = {
     "bc event file": "TEF",
 }
 
+# Counts are taken from explicit final-summary labels, not unscoped warning
+# message lines or the repeated _messages header tables.
+TLF_MAIN_DIAGNOSTIC_LABELS: dict[str, str] = {
+    "TUFLOW 1D Negative Depths": "TLF_1D_Negative_Depths",
+    "HPC HCN Repeated Timesteps": "TLF_HPC_HCN_Repeated_Timesteps",
+    "HPC NaN Repeated Timesteps": "TLF_HPC_NaN_Repeated_Timesteps",
+    "HPC NaN WARNING 2550": "TLF_HPC_NaN_Warnings_2550",
+    "WARNINGs prior to simulation": "TLF_Warnings_Prior",
+    "WARNINGs during simulation": "TLF_Warnings_During",
+    "CHECKs prior to simulation": "TLF_Checks_Prior",
+    "CHECKs during simulation": "TLF_Checks_During",
+}
+TLF_MAIN_DIAGNOSTIC_PATTERNS: dict[str, re.Pattern[str]] = {
+    field: re.compile(rf"^\s*{re.escape(label)}:\s*(?P<count>\d+)(?=\s|$)", flags=re.IGNORECASE)
+    for label, field in TLF_MAIN_DIAGNOSTIC_LABELS.items()
+}
+TLF_MESH_LABELS: dict[str, str] = {
+    "cells (ZC)": "TLF_Quadtree_ZC_Cells",
+    "u-faces (ZU)": "TLF_Quadtree_ZU_Faces",
+    "v-faces (ZV)": "TLF_Quadtree_ZV_Faces",
+    "corners (ZH)": "TLF_Quadtree_ZH_Corners",
+}
+TLF_MESH_PATTERN: re.Pattern[str] = re.compile(
+    r"^\s*Quadtree Mesh number of (?P<kind>cells \(ZC\)|u-faces \(ZU\)|v-faces \(ZV\)|corners \(ZH\)):"
+    r"\s*(?P<count>[\d,]+)(?=\s|$)",
+    flags=re.IGNORECASE,
+)
+
+
+def _extract_final_diagnostic(line: str) -> tuple[str, int] | None:
+    """Return a scoped final-summary counter without treating absence as zero."""
+    for field, pattern in TLF_MAIN_DIAGNOSTIC_PATTERNS.items():
+        if match := pattern.match(line):
+            return field, int(match.group("count"))
+    return None
+
+
 # Define excluded variable patterns globally for efficiency
 EXCLUDED_VARIABLES: set[str] = {
     "~E~",
@@ -262,6 +299,9 @@ def search_for_completion(
     elif bcdbase_result := _extract_bcdbase_pair(line=line):
         key, value = bcdbase_result
         data_dict[key] = value
+    elif diagnostic := _extract_final_diagnostic(line):
+        field, count = diagnostic
+        data_dict[field] = count
 
     # within init/final sections capture times
     elif current_section:
@@ -299,7 +339,11 @@ def search_from_top(
     """Parses the top of the log file for build info, variables, file references, etc."""
     # The following ``re.match`` calls look for simple phrases like ``Build:``, ``Simulations Log Folder ==``
     # or ``Computer Name:`` so we can capture the descriptive text that follows each label.
-    if match := re.match(pattern=r"Build:\s*(.*)", string=line):
+    if match := TLF_MESH_PATTERN.match(line):
+        kind = match.group("kind").casefold()
+        field = next(field for label, field in TLF_MESH_LABELS.items() if label.casefold() == kind)
+        data_dict[field] = int(match.group("count").replace(",", ""))
+    elif match := re.match(pattern=r"Build:\s*(.*)", string=line):
         data_dict["TUFLOW_version"] = match.group(1).strip()
     elif username := _extract_log_username(line=line):
         data_dict["username"] = username
