@@ -208,6 +208,8 @@ def run_dashboard_workflow_report[TItem, TResult](
                     poll_interval=poll_interval,
                     on_outcome=on_outcome,
                 )
+        # Preserve the final counts even when the outer workflow stays open.
+        dashboard.refresh(force=True)
     if len(indexed_outcomes) != len(items):
         msg = f"Dashboard workflow lost {len(items) - len(indexed_outcomes)} item outcome(s); results are incomplete."
         raise RuntimeError(msg)
@@ -227,7 +229,9 @@ def _run_serial_dashboard_workflow[TItem, TResult](
 ) -> None:
     """Run work in-process, updating the dashboard around each call."""
     for index, item in enumerate(items, start=1):
-        dashboard.mark_running(index=index)
+        dashboard.mark_running(index=index, refresh=False)
+        # A serial item may block for minutes, with no polling to refresh it.
+        dashboard.refresh(force=True)
         try:
             result: TResult = process_item(item)
         except Exception as exc:

@@ -2,12 +2,12 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Needs review - published as stacked PR #201 |
+| Status | Needs review — parent refreshed; fresh hosted checks and review pending |
 | Owner | ChatGPT |
 | Created | 2026-11-04 |
-| Updated | 2026-11-04 |
-| Next review | 2026-11-05 |
-| Baseline | PR #183 audit commit 50cf9c6e |
+| Updated | 2026-11-07 |
+| Next review | 2026-11-14 |
+| Baseline | Published child 2c06d8d4; final parent ca788bf491146e647b3430b23c46ff911998c287, package 26.11.7.1 |
 | Branch / base | fix/office-protection-safety-199 -> feat/batch-dashboard-foundation-180 |
 | Issue | [#199](https://github.com/Chain-Frost/ryan-tools/issues/199), AB-027 |
 
@@ -19,7 +19,62 @@ and metadata, preflight batch collisions and publish owned staged archives witho
 replacing existing outputs. Add preview and consistent dashboard outcomes.
 The [local guide](../../ryan-scripts/misc-python/README.md) owns the user contract.
 
-## Validation and delivery
+## Current state
+
+The refreshed Office tree adopts published #183 parent `ca788bf4`, including
+current-main integration `0b5a07cb`, the #202 export-safety squash and closure
+repair `8878d42b`, with package version 26.11.7.1. Local integration required
+conflict resolution only in the documentation index and work register. All
+current parent links and rows remain alongside the independent Office links
+and updated Office row. The Office script and its tests are unchanged from
+published child `2c06d8d4`.
+
+The normal merge retains published child `2c06d8d4` and final parent `ca788bf4`
+as its parents. Fresh hosted checks and review are pending on the refreshed
+child head; the validation below establishes local evidence. Publication changes
+commit references and delivery wording without changing tested source. Existing
+published history is preserved. No main merge or release is part of this
+continuation.
+
+## Next action
+
+Inspect the refreshed PR #201's new hosted checks and safety review. Native
+Office fidelity and live UNC acceptance remain separate;
+no new Windows, native Office or network-share acceptance is claimed here.
+
+## Validation and delivery — 2026-11-07
+
+Validation used Linux/Python 3.14.10 at
+`/workspace/scratch/143a79d89a6a/gdal-runtime/bin/python3.14`, with
+`PYTHONUSERBASE=/workspace/scratch/174af26f7506/py-userbase` and
+`WP08_VALIDATION_SPAWN=1`. Commands ran from the isolated Office worktree at
+`/workspace/scratch/174af26f7506/office-worktree`.
+
+| Check | Result |
+| --- | --- |
+| `python -m pytest -q tests/scripts/test_excel_protection_security.py tests/scripts/test_promoted_utilities.py -k 'excel_protection and not copied_cli'` | 22 passed, 1 Windows junction test skipped, 8 deselected (copied CLI plus unrelated utilities). |
+| Full focused Office suite, including the copied CLI, using `-k excel_protection` | 23 passed, 1 Windows junction test skipped, 7 unrelated utilities deselected. Copied CLI preview, successful write and existing-output refusal passed against installed 26.11.7.1. |
+| `python -m pytest -q tests/test_script_inventory.py` | 22 passed. |
+| `python repo-scripts/audit_installed_scripts.py --check --output /workspace/scratch/174af26f7506/office-inventory-2026-11-07.json` | 157 tracked entries, 83 selected, 74 excluded, 33 MCP paths; no missing or unsafe selected entries. |
+| Ruff lint and format checks on the Office script and its two test files | Passed; all three files already formatted. |
+| Strict Pyright on the same three files, using the validation interpreter | 0 errors, 0 warnings. |
+| `python repo-scripts/check_documentation.py` | Passed all seven default READMEs and central-index coverage. |
+| Explicit `check_documentation.py --links-only` on the six Office index, work, audit and guide documents | Passed. |
+
+The installed-package run invoked the same interpreter from `/tmp`, passing
+absolute paths to the two test files, with
+`PYTHONPATH=/workspace/scratch/174af26f7506/wheel-install`,
+`PYTHONNOUSERSITE=1` and `WP08_VALIDATION_SPAWN=1`. An independent import from
+`/tmp` confirmed `ryan_library` comes from that installed target. The final
+parent merge changes closure/export code and metadata; it does not change the
+Office implementation, tests or shared dashboard/logging helpers validated by
+the Office run. Inventory and documentation checks were repeated after that
+merge. Only `tests/test_data` and `qgis-resources` were initialized, at the
+parent's pinned commits. No native Office application or live network share was
+exercised. The Windows-specific result below is historical, not a claim about
+this run.
+
+## Historical validation and delivery — 2026-11-04
 
 Windows Python 3.14.6: 22 focused tests pass (7 unrelated promoted-utility tests
 deselected), covering malicious paths/links, malformed XML/DTDs, macro/member
@@ -34,7 +89,7 @@ its PR checks from starting. Resolve those conflicts and merge the updated
 parent into this branch before opening the child PR. No main merge or release
 is authorized. This record will retain exact commit/CI delivery evidence.
 
-## Next action
+### Historical next action
 
 Finish parent reconciliation, validate the integrated child, publish the stacked
 PR and wait for terminal hosted checks. Then continue #197 archive safety and

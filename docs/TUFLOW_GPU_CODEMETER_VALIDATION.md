@@ -10,6 +10,51 @@ This guide separates physical GPU occupancy from licence availability. The simul
 `-puN` groups from local TUFLOW process command lines. CodeMeter observations are independent evidence that a licence
 was checked out; a GPU licence allocation does not identify a physical GPU.
 
+As of 2026-11-05, GPU occupancy checks run the CodeMeter licence-summary
+request (half-second socket timeout) and local TUFLOW process enumeration **concurrently**.
+The scan runs in a daemon thread inside an owned subprocess. The result is ignored
+without waiting when CodeMeter reports zero use, or when its response is unavailable,
+partial or ambiguous; only confirmed active licence use permits a scanned conflict
+to block scheduling. Scanning still starts on idle checks, but its result is not
+used. Enumeration reads command lines after executable-name filtering. No
+allocation-detail or event-history requests are made on this path. This assumes
+licensed runs; a zero-use shortcut does not protect licence-free/tutorial processes.
+The historical full-snapshot timings below do not measure this concurrent path.
+
+The current total optional check budget is **two seconds**. The owned hidden Python
+worker has a 1.9-second timeout and reserves 0.1 seconds for termination and
+reaping. The worker's daemon scan thread cannot outlive the subprocess. On timeout,
+partial results are discarded; the runner warns and continues.
+
+A successfully launched solver claims its configured GPU group for the remainder
+of the batch. A child exit does not remove this batch-level reservation:
+subsequent runs on the same GPU need no CodeMeter/GPU rescan. The scheduler
+continues inspecting only groups that have **never been claimed**, such as
+groups blocked by an external TUFLOW process at batch startup. Once all groups
+have been claimed, inspections stop and any stale inspection warning is cleared.
+This is a scheduler-level reservation rather than an OS-level GPU lock. The
+policy assumes third-party work does not claim one of these devices during a
+gap between the batch's own simulations.
+
+### 2026-11-05 bounded timing check
+
+Read-only measurements used the current source on the Windows workstation. CodeMeter
+reported zero TUFLOW licence usage. No solver was launched or licence allocated.
+The detailed branch was exercised by forcing an active-usage result inside the probe
+worker; process inspection itself remained real, with no synthetic process inventory.
+
+| Check | Three elapsed samples (seconds) | Result |
+| --- | --- | --- |
+| CodeMeter summary alone | 0.240229, 0.191726, 0.202196 | Complete zero-usage summaries. |
+| Full bounded idle check, including worker startup | 0.315859, 0.330644, 0.311939 | No process enumeration. |
+| Full bounded forced detailed check, including worker cleanup | 0.939249, 0.956447, 0.970314 | Timed out; each worker was verified exited. |
+
+The unbounded detailed inspection exceeded a three-second probe cutoff. A separate
+one-second probe also timed out (1.060247 seconds including cancellation/cleanup),
+which motivated reserving cleanup time rather than setting a one-second worker
+timeout. These are local timing observations, not cross-machine latency guarantees
+or licensed multi-GPU acceptance of the new deadline policy.
+
 For a future agent session on a suitable workstation, use the copy-ready
 [licensed two-GPU validation prompt](TUFLOW_GPU_HARDWARE_TEST_PROMPT.md).
 

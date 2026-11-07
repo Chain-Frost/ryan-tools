@@ -52,7 +52,7 @@ For an end user, double-click [install-from-pypi.bat](../install-from-pypi.bat)
 ```
 
 This installs the current published `ryan-tools[mcp]` package from PyPI,
-the upstream QGIS MCP Python bridge and the accepted PyTUFLOW PR17 archive in
+the upstream QGIS MCP Python bridge and the pinned PyTUFLOW PR #63 contributor-fork archive in
 [`repo-scripts/pytuflow-requirement.txt`](../repo-scripts/pytuflow-requirement.txt),
 using the highest installed Python 3 by default (overrideable with `RYAN_TOOLS_PYTHON`). Every pip install step includes `--ignore-requires-python`, allowing Python 3.13 installations to bypass package metadata checks. Dependency wheels and runtime imports may still be incompatible.
 Both normal installers bootstrap binary Fiona, Rasterio and GDAL, explicitly

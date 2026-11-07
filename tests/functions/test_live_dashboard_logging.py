@@ -1,17 +1,126 @@
 """Exercise logging configured before Rich takes ownership of the terminal."""
 
+# The refresh-owner regression checks the actual Rich worker lifecycle.
+# pyright: reportPrivateUsage=false
+
 from __future__ import annotations
 
+import logging
 import sys
 from io import StringIO
 from pathlib import Path
+from threading import Event, Thread, current_thread
 
 import pytest
 from loguru import logger
 from rich.console import Console
 from rich.live import Live
 
-from ryan_library.functions.loguru_helpers import configure_serial_logging
+from ryan_library.functions.live_dashboard import LiveWorkflowDashboard
+from ryan_library.functions.loguru_helpers import configure_serial_logging, forward_standard_logging
+
+
+def test_worker_log_render_finishes_before_coordinator_refresh(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A worker may render a live frame even when auto-refresh is disabled."""
+    stream = StringIO()
+    monkeypatch.setattr(sys, "stdout", stream)
+    monkeypatch.setenv("TERM", "xterm-256color")
+    monkeypatch.setenv("FORCE_COLOR", "1")
+    dashboard = LiveWorkflowDashboard(title="Concurrent render", group_by="model")
+    dashboard.console.width = 100
+    dashboard.console.height = 23
+    dashboard.set_tasks(["A", "B"], metadata=[{"model": "model.tcf"}, {"model": "model.tcf"}])
+    rendering = Event()
+    release = Event()
+    refreshing = Event()
+    refreshed = Event()
+    errors: list[BaseException] = []
+    write_buffer = dashboard.console._write_buffer
+
+    def paused_write() -> None:
+        if current_thread().name == "dashboard-test-worker":
+            rendering.set()
+            if not release.wait(5):
+                message = "Test did not release the worker frame"
+                raise TimeoutError(message)
+        write_buffer()
+
+    monkeypatch.setattr(dashboard.console, "_write_buffer", paused_write)
+
+    def worker_log() -> None:
+        try:
+            print("BACKGROUND_WARNING", flush=True)
+        except BaseException as exc:  # noqa: BLE001 - propagate worker failures to the test thread
+            errors.append(exc)
+
+    def refresh() -> None:
+        try:
+            refreshing.set()
+            dashboard.mark_running(index=1, refresh=False)
+            dashboard.refresh(force=True)
+            refreshed.set()
+        except BaseException as exc:  # noqa: BLE001 - propagate coordinator failures to the test thread
+            errors.append(exc)
+
+    with dashboard:
+        assert dashboard._live is not None
+        worker = Thread(target=worker_log, name="dashboard-test-worker", daemon=True)
+        coordinator = Thread(target=refresh, daemon=True)
+        worker.start()
+        try:
+            assert rendering.wait(3)
+            coordinator.start()
+            assert refreshing.wait(3)
+            # Without the console transaction, this refresh writes a new,
+            # shorter frame before the worker writes its stale cursor reset.
+            assert not refreshed.wait(0.1)
+        finally:
+            release.set()
+            worker.join(5)
+            if coordinator.ident is not None:
+                coordinator.join(5)
+        assert not worker.is_alive()
+        assert not coordinator.is_alive()
+        assert not errors
+        assert refreshed.is_set()
+    assert stream.getvalue().count("BACKGROUND_WARNING") == 1
+    assert "RUNNING" in stream.getvalue()
+    assert sys.stdout is stream
+
+
+def test_grouped_dashboard_uses_one_refresh_owner_and_keeps_log_messages(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stream = StringIO()
+    monkeypatch.setattr(sys, "stdout", stream)
+    monkeypatch.setenv("TERM", "xterm-256color")
+    dashboard = LiveWorkflowDashboard(title="Synthetic simulations", transient=False, group_by="model")
+    dashboard.console = Console(force_terminal=True, legacy_windows=False, width=151, height=23)
+    dashboard.set_tasks(["A", "B"], metadata=[{"model": "synthetic.tcf"}, {"model": "synthetic.tcf"}])
+    try:
+        configure_serial_logging(
+            console_sink=lambda message: print(message, end="", flush=True), console_format="{message}"
+        )
+        logger.enable(__name__)
+        with dashboard:
+            assert dashboard._live is not None
+            assert dashboard._live._refresh_thread is None
+            dashboard.mark_running(index=1)
+            for level, message in (("SUCCESS", "INPUT_CHECK_PASSED"), ("WARNING", "VISIBLE_WARNING")):
+                start = stream.tell()
+                logger.log(level, message)
+                output = stream.getvalue()[start:]
+                assert "\x1b[2K" in output.split(message, 1)[0]
+                assert output.index(message) < output.index("Synthetic simulations")
+                assert "synthetic.tcf" in output
+            dashboard.mark_finished(index=1, status="OK")
+            dashboard.mark_running(index=2)
+            dashboard.refresh(force=True)
+    finally:
+        logger.remove()
+    assert sys.stdout is stream
+    assert stream.getvalue().count("INPUT_CHECK_PASSED") == 1
+    assert stream.getvalue().count("VISIBLE_WARNING") == 1
 
 
 def test_default_serial_logs_clear_and_redraw_live_display(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -83,3 +192,48 @@ def test_explicit_serial_console_sink_remains_authoritative(monkeypatch: pytest.
         logger.remove()
     assert messages == ["CUSTOM_SINK\n"]
     assert stream.getvalue() == ""
+
+
+@pytest.mark.parametrize("existing_handler", [False, True])
+def test_dependency_logs_follow_live_stdout_and_restore_configuration(
+    monkeypatch: pytest.MonkeyPatch, existing_handler: bool
+) -> None:
+    stream = StringIO()
+    monkeypatch.setattr(sys, "stdout", stream)
+    monkeypatch.setenv("TERM", "xterm-256color")
+    dependency = logging.getLogger("synthetic_dashboard_dependency")
+    original = logging.StreamHandler(stream)
+    handlers = [original] if existing_handler else []
+    monkeypatch.setattr(dependency, "handlers", handlers)
+    monkeypatch.setattr(dependency, "level", logging.WARNING)
+    monkeypatch.setattr(dependency, "propagate", True)
+    root_handlers = logging.root.handlers[:]
+    console = Console(force_terminal=True, legacy_windows=False, width=100, height=30)
+    try:
+        configure_serial_logging(console_format="{message}")
+        with (  # noqa: PT012 - assert routing before exercising exceptional context exit
+            pytest.raises(RuntimeError, match="exercise restoration"),
+            forward_standard_logging(dependency.name),
+        ):
+            # Match a dependency that only installs its own default handler if
+            # none exists. This works before and after its first import.
+            assert dependency.hasHandlers()
+            assert not dependency.propagate
+            with Live("DEPENDENCY DASHBOARD", console=console, auto_refresh=False):
+                start = stream.tell()
+                worker = Thread(target=lambda: dependency.warning("DEPENDENCY_WARNING %s", "[literal]"))
+                worker.start()
+                worker.join(3)
+                assert not worker.is_alive()
+                output = stream.getvalue()[start:]
+                assert "\x1b[2K" in output.split("DEPENDENCY_WARNING", 1)[0]
+                assert output.index("DEPENDENCY_WARNING") < output.index("DEPENDENCY DASHBOARD")
+            message = "exercise restoration"
+            raise RuntimeError(message)
+    finally:
+        logger.remove()
+    assert dependency.handlers == handlers
+    assert dependency.level == logging.WARNING
+    assert dependency.propagate
+    assert logging.root.handlers == root_handlers
+    assert stream.getvalue().count("DEPENDENCY_WARNING [literal]") == 1

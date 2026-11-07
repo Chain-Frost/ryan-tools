@@ -4,12 +4,14 @@
 Update ``paths`` or ``thresholds`` below to customise processing.
 ``data_type`` defaults to ``"Flow"`` and ``allowed_locations`` can
 restrict which locations are loaded from the CSV files.
+``EXPORT_MODE`` selects formatted reports; the legacy raw CSV and gzip-Parquet
+tables are always included in the same protected output batch.
 """
 
 from pathlib import Path
 from typing import Literal
 
-WRAPPER_VERSION = "2026-11-04.1"
+WRAPPER_VERSION = "2026-11-07.1"
 PAUSE_ON_FINISH = True
 
 CONSOLE_LOG_LEVEL = "INFO"
@@ -74,7 +76,10 @@ def main(
 
 def _parse_cli_arguments() -> tuple[CommonWrapperOptions, Literal["excel", "parquet", "both"] | None]:
     parser = argparse.ArgumentParser(
-        description="Compute closure durations from PO files. Command-line options override the script defaults."
+        description=(
+            "Compute closure durations from PO files. Raw CSV and gzip-Parquet tables are always included; "
+            "--export-mode selects formatted reports. Command-line options override the script defaults."
+        )
     )
     add_common_cli_arguments(parser=parser)
     add_export_mode_cli_argument(parser=parser)

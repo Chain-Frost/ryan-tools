@@ -7,14 +7,18 @@ from __future__ import annotations
 import math
 import time
 from collections.abc import Callable
+from io import StringIO
 from multiprocessing import pool as multiprocessing_pool
 from multiprocessing.pool import ApplyResult
 from typing import cast
 from unittest.mock import patch
 
 import pytest
+from rich.console import Console
+from rich.text import Text
 
 from ryan_library.functions import dashboard_workflow as dw
+from ryan_library.functions import live_dashboard as ld
 from ryan_library.functions.dashboard_workflow import run_dashboard_workflow, run_dashboard_workflow_report
 from ryan_library.functions.live_dashboard import (
     LiveWorkflowDashboard,
@@ -99,7 +103,7 @@ def test_phase_transitions_force_refresh_while_metrics_remain_throttled() -> Non
 
 def test_bounded_history_and_plain_output(capsys: pytest.CaptureFixture[str]) -> None:
     d = LiveWorkflowDashboard(title="Batch", enabled=True, max_rows=4)
-    d.console = d.console.__class__(force_terminal=False)
+    d.console = Console(force_terminal=False)
     d.set_tasks([f"item {i}" for i in range(100)])
     with d:
         assert d._live is None
@@ -115,6 +119,66 @@ def test_bounded_history_and_plain_output(capsys: pytest.CaptureFixture[str]) ->
     assert "OK 100" in text
     assert "output written" in text
     assert "\x1b[" not in text
+
+
+def test_nested_serial_work_renders_running_before_blocking_and_keeps_outer_display(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A phase refresh must not hide serial work or close the export display."""
+    stream = StringIO()
+    monkeypatch.setenv("TERM", "xterm-256color")
+    dashboard = LiveWorkflowDashboard(title="Nested workflow", group_by="model")
+    dashboard.console = Console(file=stream, force_terminal=True, legacy_windows=False, width=120, height=30)
+    dashboard.set_tasks(["result.csv"], metadata=[{"model": "model.tcf"}])
+
+    with patch.object(ld.time, "monotonic", return_value=1.0), dashboard:
+        outer_live = dashboard._live
+        assert outer_live is not None
+        assert outer_live._refresh_thread is None
+        dashboard.set_phase("Processing")
+        before_work = stream.tell()
+        observed_frames: list[str] = []
+        reused_live: list[bool] = []
+
+        def process(item: int) -> int:
+            observed_frames.append(Text.from_ansi(stream.getvalue()[before_work:]).plain)
+            reused_live.append(dashboard._live is outer_live)
+            return item * 2
+
+        report = run_dashboard_workflow_report(
+            items=[3],
+            process_item=process,
+            dashboard=dashboard,
+            pool_size=1,
+            status_for_result=lambda _value: "OK",
+            detail_for_result=str,
+        )
+        assert report.results == [6]
+        assert "RUNNING" in observed_frames[0]
+        assert "active 1" in observed_frames[0]
+        assert "model.tcf" in observed_frames[0]
+        assert reused_live == [True]
+        assert dashboard._live is outer_live
+        assert "finished 1/1" in Text.from_ansi(stream.getvalue()[before_work:]).plain
+        before_export = stream.tell()
+        dashboard.set_phase("Exporting")
+        assert "Exporting" in stream.getvalue()[before_export:]
+    assert dashboard._live is None
+
+
+def test_task_only_consumers_do_not_display_an_unset_queued_phase() -> None:
+    """Existing runner/raster callers can rely on task states without phases."""
+    dashboard = LiveWorkflowDashboard(title="Task states", enabled=False)
+    dashboard.set_tasks(["model.tcf"])
+    dashboard.mark_running(index=1)
+    stream = StringIO()
+    console = Console(file=stream, force_terminal=False, width=120)
+    console.print(dashboard._render())
+    assert "RUNNING" in stream.getvalue()
+    assert "Queued" not in stream.getvalue()
+    dashboard.set_phase("Processing")
+    console.print(dashboard._render())
+    assert "Processing" in stream.getvalue()
 
 
 def test_report_distinguishes_fail_skip_and_returned_none() -> None:

@@ -170,6 +170,7 @@ def _print_preflight(
     print(f"  Runs checked      : {result.completed_runs} of {result.run_count}")
     print(f"  Unique input paths: {len(result.checked_paths)}")
     print(f"  Issues            : {len(result.issues)}")
+    print(f"  Advisory warnings : {len(result.warnings)}")
     print(f"  Affected runs     : {result.affected_runs}")
     print("  Timing:")
     if elapsed_seconds is not None:
@@ -204,6 +205,17 @@ def _print_preflight(
                 required = ", ".join(repr(column) for column in finding.csv_columns)
                 detail = f"{detail.rstrip('. ')}. Required CSV columns: {required}."
             print(f"     Detail   : {detail}")
+
+    if result.warnings:
+        _section("ADVISORY CRS WARNINGS")
+        for number, warning in enumerate(result.warnings, 1):
+            finding = warning.finding
+            tcf = _display_path(warning.run.tcf, base) if base is not None else str(warning.run.tcf)
+            reference = _display_path(finding.reference, base) if base is not None else finding.reference
+            print(f"  {number}. WARNING — {tcf} (run {warning.run.index}; {finding.kind or 'metadata'})")
+            print(f"     Reference: {reference}")
+            print(f"     Detail   : {finding.detail}")
+        print("  Advisory CRS warnings do not change the PASS/FAIL result.")
 
     _section("RESULT")
     if result.passed:

@@ -61,12 +61,15 @@ CHECK_INPUTS = True  # Enable BACKGROUND model-input checks while TUFLOW runs.
 USE_LIVE_DASHBOARD = True  # True shows the Rich live dashboard; False uses ordinary console logging.
 LIVE_REFRESH_PER_SECOND = 1.0
 LIVE_MAX_ROWS = 10  # Maximum task rows shown at once; all runs still execute and are tracked.
+MONITOR_PROGRESS = True  # Read model progress in the background when the live dashboard is enabled.
+PROGRESS_POLL_INTERVAL_SECONDS = 10.0  # Separate from display refresh; increase for slow network shares.
+SHOW_PROGRESS_DIAGNOSTICS = True  # Show the latest timestep and observed final mass error in Detail.
 CONSOLE_LOG_LEVEL: params.LogLevel = params.LOG.INFO
 WAIT_TIME_AFTER_RUN = 2.0  # Seconds between launches (>=0). Example: 0.5. Does not change GPU slots.
 PAUSE_ON_FINISH = True  # Pause interactively on finish; --no-pause forces False, --pause forces True.
-WRAPPER_VERSION = "2026-11-03.7"
+WRAPPER_VERSION = "2026-11-07.1"
 
-import argparse
+import argparse  # noqa: I001, RUF100
 import signal
 import subprocess
 import sys
@@ -76,7 +79,7 @@ from threading import Event
 
 from loguru import logger
 
-from ryan_library.functions.loguru_helpers import configure_serial_logging, log_settings
+from ryan_library.functions.loguru_helpers import configure_serial_logging, forward_standard_logging, log_settings
 from ryan_library.functions.tuflow import runner_user_inputs
 from ryan_library.functions.tuflow.command_plan import CommandPlan
 from ryan_library.functions.tuflow.execution_history import (
@@ -178,6 +181,21 @@ def _settings(arguments: argparse.Namespace) -> RunnerSettings:
         live_max_rows=runner_user_inputs.positive_integer(
             "LIVE_MAX_ROWS", arguments.live_max_rows if arguments.live_max_rows is not None else LIVE_MAX_ROWS
         ),
+        monitor_progress=runner_user_inputs.boolean(
+            "MONITOR_PROGRESS",
+            arguments.monitor_progress if arguments.monitor_progress is not None else MONITOR_PROGRESS,
+        ),
+        progress_poll_interval_seconds=runner_user_inputs.finite_number(
+            "PROGRESS_POLL_INTERVAL_SECONDS",
+            arguments.progress_poll_interval
+            if arguments.progress_poll_interval is not None
+            else PROGRESS_POLL_INTERVAL_SECONDS,
+            positive=True,
+        ),
+        show_progress_diagnostics=runner_user_inputs.boolean(
+            "SHOW_PROGRESS_DIAGNOSTICS",
+            arguments.progress_diagnostics if arguments.progress_diagnostics is not None else SHOW_PROGRESS_DIAGNOSTICS,
+        ),
     )
 
 
@@ -271,9 +289,10 @@ def _run_follow_up(path: Path, working_directory: Path) -> bool:
     return result.returncode == 0
 
 
-def main(argv: list[str] | None = None) -> int:
+@forward_standard_logging("pytuflow")
+def main(argv: list[str] | None = None, *, _parsed_arguments: argparse.Namespace | None = None) -> int:
     """Return 0 on success, 1 on planning/validation/processing failure."""
-    arguments = _arguments(argv)
+    arguments = _parsed_arguments if _parsed_arguments is not None else _arguments(argv)
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     try:
         log_level = arguments.console_log_level if arguments.console_log_level is not None else CONSOLE_LOG_LEVEL
@@ -283,8 +302,7 @@ def main(argv: list[str] | None = None) -> int:
             raise ValueError(message)
         configure_serial_logging(
             console_log_level=log_level.upper(),
-            # Look up stdout at emission time so Rich can print above its live display.
-            console_sink=lambda message: print(message, end="", flush=True),
+            # The default sink follows Rich's stdout and detects terminal colours.
             console_format="{time:HH:mm:ss} | <level>{level:<7}</level> | <level>{message}</level>",
         )
         run_settings = _settings(arguments)
@@ -426,7 +444,10 @@ def main(argv: list[str] | None = None) -> int:
                     if advisory is not None:
                         advisory.close()
         if result.interrupted:
-            logger.error("Interrupted batch; configured follow-up is not started.")
+            if NEXT_RUN_FILE is None:
+                logger.error("Batch interrupted.")
+            else:
+                logger.error("Batch interrupted; configured follow-up was not started.")
             return 1
         logger.log(
             "SUCCESS" if result.successful else "ERROR",
@@ -455,8 +476,6 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     finally:
         print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
-        if (arguments.pause or PAUSE_ON_FINISH is True) and not arguments.no_pause:
-            pause_console()
 
 
 def _arguments(argv: list[str] | None = None) -> argparse.Namespace:
@@ -498,6 +517,21 @@ def _arguments(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--live-refresh-per-second", type=float, help="Override dashboard refresh rate (>0).")
     parser.add_argument("--live-max-rows", type=int, help="Maximum dashboard task rows shown at once (>=1).")
+    parser.add_argument(
+        "--monitor-progress",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Read TLF/HPC model times in the background while the live dashboard is enabled.",
+    )
+    parser.add_argument(
+        "--progress-poll-interval", type=float, help="Seconds between progress log reads per active run (>0)."
+    )
+    parser.add_argument(
+        "--progress-diagnostics",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Show/hide the latest HPC timestep and observed final mass error in Detail; retain run phase.",
+    )
     parser.add_argument("--launch-delay", type=float, help="Seconds between launches (>=0).")
     parser.add_argument(
         "--wait-for-available-gpu",
@@ -515,5 +549,22 @@ def _arguments(argv: list[str] | None = None) -> argparse.Namespace:
     return parsed
 
 
+def _cli_main() -> int:
+    """Release wrapper resources before waiting for the final console keypress.
+
+    Parse once and pass the same arguments through to main(). Its decorated
+    logging context, execution-history lock and dashboard have all closed
+    before the prompt. Close Loguru's sinks as well, so they cannot defer
+    file flushing until Python interpreter shutdown.
+    """
+    arguments = _arguments()
+    try:
+        return main(_parsed_arguments=arguments)
+    finally:
+        logger.remove()
+        if (arguments.pause or PAUSE_ON_FINISH is True) and not arguments.no_pause:
+            pause_console()
+
+
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(_cli_main())
