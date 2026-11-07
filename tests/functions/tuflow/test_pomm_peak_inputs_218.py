@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 from pandas import DataFrame
 
+from ryan_library.functions.excel_export import DATA_DICTIONARY_SHEET_NAME
 from ryan_library.functions.tuflow import pomm_utils
 from ryan_library.orchestrators.tuflow.pomm_max_items import (
     export_mean_peak_report,
@@ -112,7 +113,7 @@ def test_real_csv_processors_reach_mean_and_median_workbooks(
         workbooks = list(tmp_path.glob(f"*{suffix}"))
         assert len(workbooks) == 1
         with pd.ExcelFile(workbooks[0]) as workbook:
-            assert {sheet_name, "POMM", "Data Dictionary"}.issubset(workbook.sheet_names)
+            assert {sheet_name, "POMM", DATA_DICTIONARY_SHEET_NAME}.issubset(workbook.sheet_names)
             reported = workbook.parse(sheet_name)
             raw = workbook.parse("POMM")
         assert set(raw["file"].astype(str)) == expected_filenames
