@@ -189,11 +189,10 @@ def test_summary_rejects_duplicate_ids_and_unassociated_peak_time(tmp_path: Path
     assert not processor.processed
     assert processor.df.empty
 
+
 def test_mcp_public_inspection_preserves_selected_reporting_point_identity() -> None:
     """The generic public inspection interface needs no new reporting-point endpoint."""
-    series = inspect_tuflow_result(
-        str(PLOT / f"{RUN}_RLP_H.csv"), locations=["RL_01"], minimum_time=2.0, sample_rows=2
-    )
+    series = inspect_tuflow_result(str(PLOT / f"{RUN}_RLP_H.csv"), locations=["RL_01"], minimum_time=2.0, sample_rows=2)
     assert series["data_type"] == "RLP_H"
     assert series["processed"]
     assert series["raw_run_code"] == RUN
