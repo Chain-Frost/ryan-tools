@@ -719,6 +719,38 @@ unreported negative minimum. Peak reports retain that measurement distinction;
 they must not be interpreted as proving the two input quantities have
 identical sampling semantics.
 
+### Finite TP populations, counts and source provenance
+
+POMM median and mean statistics rank only finite hydraulic values; valid zero
+values are retained. Each duration's `count_TP` is the number of finite
+contributing observations, not the size of the raw bin; `count_TP_aep` is
+their sum across durations, and `count_duration` is the number of duration
+bins with at least one finite observation. The separate unusable-TP/bin
+counts and `tp_population_status` (`OK`, `PARTIAL`, `UNUSABLE`) disclose
+observed invalid values. They do not infer unobserved runs or processing
+failures absent from the input inventory. All-invalid bins cannot govern a
+peak statistic.
+
+For ten finite TP records the median is the sixth sorted record (upper-middle
+rule), not the arithmetic midpoint of ranks five and six. The mean
+representative is the *observed* event closest to the arithmetic mean, and
+the final mean peak chooses the largest of these duration-level representative
+values. Mean-distance ties select the lower observed value; ties on the
+same value use increasing TP identifier, then run name/source filename.
+The selected `mean_TP`, `mean_Duration`, `mean_PeakFlow`,
+`mean_internalName` and `mean_file` all come from the same input row.
+Median `internalName` and `file` likewise refer to the upper-middle
+selected event. A final peak table preserves the contributing event count
+rather than overwriting it with the number of duration bins.
+
+Culvert discharge reports also require finite `Q`; a geometry-only
+`Height` field cannot become the governing peak metric. Duration-level
+culvert `count` represents finite-Q contributing observations,
+`count_total` the observed input rows and `count_unusable` their difference.
+The independent per-field maxima contract is unchanged: adopted flow,
+velocity and water levels are values from the selected representative run,
+not reconstructed coincident-timestep peak measurements.
+
 ### Mean peak coverage findings
 
 `po_and_timeseries/create_pomm_mean_peak_report.py` adds coverage findings to `aep-mean-max`,
