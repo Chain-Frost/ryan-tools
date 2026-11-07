@@ -317,15 +317,47 @@
       "value_type": "float"
     },
     "count_TP": {
-      "description": "Events (TPs) in this AEP-duration bin that contributed to the per-duration statistic.",
+      "description": "Number of finite hydraulic TP observations contributing to a duration-level statistic; valid zeroes count.",
+      "value_type": "int"
+    },
+    "count_unusable_TP": {
+      "description": "Number of processed TP rows in this duration excluded for missing, infinite or non-numeric hydraulic values; does not infer missing input files.",
       "value_type": "int"
     },
     "count_TP_aep": {
-      "description": "Sum of contributing events across all durations for this AEP/Location/Type/run.",
+      "description": "Sum of finite hydraulic TP observations across all valid durations for one AEP/Location/Type/run; never the number of duration bins.",
+      "value_type": "int"
+    },
+    "count_unusable_TP_aep": {
+      "description": "Sum of observed but unusable TP records over the available duration bins; excludes unobserved/missing files.",
       "value_type": "int"
     },
     "count_duration": {
-      "description": "Number of duration bins considered for the AEP/Location/Type/run statistic.",
+      "description": "Number of duration bins with at least one valid finite observation contributing to the AEP statistic.",
+      "value_type": "int"
+    },
+    "count_duration_unusable": {
+      "description": "Observed duration bins with no valid finite hydraulic observations for this AEP/Location/Type/run.",
+      "value_type": "int"
+    },
+    "tp_population_status": {
+      "description": "OK when every observed row is usable, PARTIAL if some observed rows are unusable, or UNUSABLE if none is valid; completeness relative to unobserved runs cannot be inferred.",
+      "value_type": "string"
+    },
+    "mean_internalName": {
+      "description": "Full source run code for the selected nearest-mean TP record, independent of any median representative.",
+      "value_type": "string"
+    },
+    "mean_file": {
+      "description": "Source file name for the selected nearest-mean TP record.",
+      "value_type": "string"
+    },
+    "count_total": {
+      "description": "Total processed rows available in a culvert duration group, including unusable hydraulic values.",
+      "value_type": "int"
+    },
+    "count_unusable": {
+      "description": "Processed culvert rows lacking a finite discharge Q, excluded from the contributing count.",
       "value_type": "int"
     },
     "mean_storm_is_median_storm": {
