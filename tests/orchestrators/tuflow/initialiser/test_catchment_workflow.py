@@ -8,11 +8,11 @@ import pytest
 from rasterio.crs import CRS
 from shapely.geometry import LineString, Point, mapping
 
+from ryan_library.orchestrators.tuflow.initialiser import catchment_workflow
 from ryan_library.orchestrators.tuflow.initialiser.catchment_workflow import (
     CatchmentConfig,
     build_catchments,
     read_interest_features,
-    _publish_no_overwrite,
 )
 
 
@@ -77,7 +77,7 @@ def test_catchment_publication_does_not_replace_racing_output(tmp_path: Path) ->
     destination.write_bytes(b"other process result")
 
     with pytest.raises(FileExistsError, match="protected"):
-        _publish_no_overwrite(staged, destination)
+        catchment_workflow._publish_no_overwrite(staged, destination)
 
     assert staged.read_bytes() == b"new complete result"
     assert destination.read_bytes() == b"other process result"
@@ -88,7 +88,30 @@ def test_catchment_publication_creates_new_output_exclusively(tmp_path: Path) ->
     destination = tmp_path / "catchments.gpkg"
     staged.write_bytes(b"complete result")
 
-    _publish_no_overwrite(staged, destination)
+    catchment_workflow._publish_no_overwrite(staged, destination)
 
     assert not staged.exists()
     assert destination.read_bytes() == b"complete result"
+
+
+def test_catchment_publication_rejects_race_after_precheck(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    staged = tmp_path / "staged.gpkg.tmp"
+    destination = tmp_path / "catchments.gpkg"
+    staged.write_bytes(b"complete result")
+    destination.write_bytes(b"another process")
+
+    original_exists = Path.exists
+
+    def stale_precheck(path: Path, *, follow_symlinks: bool = True) -> bool:
+        if path == destination:
+            return False
+        return original_exists(path, follow_symlinks=follow_symlinks)
+
+    monkeypatch.setattr(Path, "exists", stale_precheck)
+    with pytest.raises(FileExistsError, match="appeared during processing"):
+        catchment_workflow._publish_no_overwrite(staged, destination)
+
+    assert destination.read_bytes() == b"another process"
+    assert staged.read_bytes() == b"complete result"

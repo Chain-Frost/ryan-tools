@@ -11,7 +11,6 @@ from typing import Final, cast
 
 from .. import project_setup as shared_project_setup
 from ..project_setup import ProjectSetupResult, WorkingLayerSpec
-
 from .gis_types import LayerSchema
 
 DEFAULT_TEMPLATES_DIR: Final[Path] = Path(__file__).absolute().parents[3] / "resources" / "tuflow_templates"

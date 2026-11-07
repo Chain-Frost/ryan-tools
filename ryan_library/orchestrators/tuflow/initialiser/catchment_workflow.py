@@ -15,12 +15,12 @@ from rasterio.crs import CRS
 from shapely.geometry import shape
 from shapely.geometry.base import BaseGeometry
 
+from ....functions.gdal.terrain_mosaic import TerrainLayer, compose_terrain_layers
+from ....functions.tuflow.tgc_terrain import read_tgc_terrain_stack
 from .catchment_outputs import write_catchment_polygons, write_outlet_catchment_polygons
 from .catchments import delineate_inflows, delineate_outlet_catchments
 from .geometry import check_dem
 from .grass_runner import process_terrain
-from ....functions.gdal.terrain_mosaic import TerrainLayer, compose_terrain_layers
-from ....functions.tuflow.tgc_terrain import read_tgc_terrain_stack
 
 
 @dataclass(frozen=True, slots=True)
@@ -215,21 +215,17 @@ def build_catchments(  # noqa: C901 - staged catchment pipeline includes distinc
                     write_catchment_polygons(staged, inflows, crs_wkt=config.target_crs.to_wkt())
                 # Publish from the destination filesystem, using a unique staging
                 # name and exclusive final creation; never overwrite a racing result.
-                with tempfile.NamedTemporaryFile(
+                stage_stream = tempfile.NamedTemporaryFile(
                     mode="wb",
                     prefix=f".{config.output.name}.",
                     suffix=".tmp",
                     dir=config.output.parent,
                     delete=False,
-                ) as stage_stream:
-                    publishing = Path(stage_stream.name)
-                    try:
-                        with staged.open("rb") as source:
-                            shutil.copyfileobj(source, stage_stream)
-                    except BaseException:
-                        publishing.unlink(missing_ok=True)
-                        raise
+                )
+                publishing = Path(stage_stream.name)
                 try:
+                    with stage_stream, staged.open("rb") as source:
+                        shutil.copyfileobj(source, stage_stream)
                     _publish_no_overwrite(publishing, config.output)
                 finally:
                     publishing.unlink(missing_ok=True)
