@@ -90,7 +90,6 @@ def incoming(directions: NDArray[np.integer], row: int, col: int) -> list[tuple[
 
 
 def contributing_cells(  # noqa: C901 - bounded D8 reverse traversal and safety checks
-
     directions: NDArray[np.integer],
     aoi: NDArray[np.bool_],
     *,
@@ -160,7 +159,6 @@ def stream_mask(accumulation: NDArray[np.floating], *, cell_area_m2: float, min_
 
 
 def headwater_extensions(  # noqa: C901 - preserve D8 route semantics and path validation
-
     directions: NDArray[np.integer],
     stream: NDArray[np.bool_],
     accumulation: NDArray[np.floating],

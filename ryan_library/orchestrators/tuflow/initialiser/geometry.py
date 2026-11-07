@@ -94,7 +94,6 @@ def mask_to_polygon(mask: NDArray[np.bool_], transform: rasterio.Affine) -> Base
 
 
 def make_domain(  # noqa: C901 - domain mask validation and exclusions must remain coupled
-
     directions: NDArray[np.integer],
     *,
     aoi: BaseGeometry,

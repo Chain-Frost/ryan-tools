@@ -7,7 +7,15 @@ from rasterio.transform import from_origin
 
 from ryan_library.orchestrators.tuflow.initialiser.coordinates import pixel_centre
 
-_TEMPLATE_ROOT = Path(__file__).resolve().parents[4] / "ryan_library" / "orchestrators" / "tuflow" / "initialiser" / "resources" / "tuflow_templates"
+_TEMPLATE_ROOT = (
+    Path(__file__).resolve().parents[4]
+    / "ryan_library"
+    / "orchestrators"
+    / "tuflow"
+    / "initialiser"
+    / "resources"
+    / "tuflow_templates"
+)
 
 
 def test_ensemble_event_source_keyword_is_valid() -> None:

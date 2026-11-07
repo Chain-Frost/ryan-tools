@@ -194,7 +194,6 @@ def delineate_outlet_catchments(
 
 
 def _partition(  # noqa: C901 - D8 attribution and cycle protection are intentionally explicit
-
     directions: NDArray[np.integer],
     seeds: NDArray[np.bool_],
     contributing: NDArray[np.bool_],
@@ -325,7 +324,6 @@ def _longest_path(
 
 
 def delineate_inflows(  # noqa: C901 - spatial attribution and route generation share one audit boundary
-
     directions: NDArray[np.integer],
     elevations: NDArray[np.floating],
     aois: list[BaseGeometry],
