@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Callable
+from contextlib import AbstractContextManager
 from pathlib import Path
 from unittest.mock import patch
 
@@ -90,7 +92,7 @@ def _create_minimal_cca_gpkg(path: Path) -> None:
         conn.close()
 
 
-def test_cca_gpkg_read_is_read_only(tmp_path: Path, change_cwd) -> None:
+def test_cca_gpkg_read_is_read_only(tmp_path: Path, change_cwd: Callable[[Path], AbstractContextManager[None]]) -> None:
     """Processing ccA GeoPackages should not create WAL/SHM sidecar files."""
 
     with change_cwd(tmp_path):
@@ -112,7 +114,7 @@ def test_cca_gpkg_read_is_read_only(tmp_path: Path, change_cwd) -> None:
     assert not shm_path.exists()
 
 
-def test_cca_dbf_processing(tmp_path: Path, change_cwd) -> None:
+def test_cca_dbf_processing(tmp_path: Path, change_cwd: Callable[[Path], AbstractContextManager[None]]) -> None:
     """Test processing of a DBF file."""
     import shapefile
 
@@ -139,7 +141,7 @@ def test_cca_dbf_processing(tmp_path: Path, change_cwd) -> None:
     assert processor.df.iloc[0]["pFull_Max"] == 1.23
 
 
-def test_cca_processor_robustness(tmp_path: Path, change_cwd) -> None:
+def test_cca_processor_robustness(tmp_path: Path, change_cwd: Callable[[Path], AbstractContextManager[None]]) -> None:
     """Test robustness against invalid files."""
     with change_cwd(tmp_path):
         # Empty file
@@ -168,7 +170,7 @@ def test_cca_processor_robustness(tmp_path: Path, change_cwd) -> None:
             pass
 
 
-def test_process_gpkg_missing_file(tmp_path):
+def test_process_gpkg_missing_file(tmp_path: Path) -> None:
     """Test process_gpkg with missing file."""
     p = tmp_path / "Missing_Results1D.gpkg"
     processor = ccAProcessor(file_path=p)
@@ -176,7 +178,7 @@ def test_process_gpkg_missing_file(tmp_path):
     assert df.empty
 
 
-def test_process_gpkg_no_layer(tmp_path):
+def test_process_gpkg_no_layer(tmp_path: Path) -> None:
     """Test process_gpkg with no matching layer."""
     p = tmp_path / "NoLayer_Results1D.gpkg"
     conn = sqlite3.connect(p)
@@ -189,7 +191,7 @@ def test_process_gpkg_no_layer(tmp_path):
     assert df.empty
 
 
-def test_process_gpkg_missing_columns(tmp_path):
+def test_process_gpkg_missing_columns(tmp_path: Path) -> None:
     """Test process_gpkg with missing required columns."""
     p = tmp_path / "MissingCols_Results1D.gpkg"
     conn = sqlite3.connect(p)
@@ -207,7 +209,7 @@ def test_process_gpkg_missing_columns(tmp_path):
     assert df.empty
 
 
-def test_process_gpkg_sqlite_error(tmp_path):
+def test_process_gpkg_sqlite_error(tmp_path: Path) -> None:
     """Test process_gpkg handling sqlite error."""
     p = tmp_path / "Error_Results1D.gpkg"
     p.touch()  # Not a valid sqlite file
@@ -217,7 +219,7 @@ def test_process_gpkg_sqlite_error(tmp_path):
     assert df.empty
 
 
-def test_process_dbf_error(tmp_path):
+def test_process_dbf_error(tmp_path: Path) -> None:
     """Test process_dbf handling error."""
     p = tmp_path / "Error_1d_ccA_L.dbf"
     p.touch()  # Not a valid DBF
@@ -227,7 +229,7 @@ def test_process_dbf_error(tmp_path):
     assert df.empty
 
 
-def test_process_validation_failure(tmp_path):
+def test_process_validation_failure(tmp_path: Path) -> None:
     """Test process validation failure."""
     p = tmp_path / "Valid_1d_ccA_L.dbf"
     # Create valid DBF
@@ -247,7 +249,7 @@ def test_process_validation_failure(tmp_path):
         assert processor.df.empty
 
 
-def test_process_exception(tmp_path):
+def test_process_exception(tmp_path: Path) -> None:
     """Test process exception handling."""
     p = tmp_path / "Test_1d_ccA_L.dbf"
     p.touch()
@@ -259,7 +261,7 @@ def test_process_exception(tmp_path):
         assert processor.df.empty
 
 
-def test_cca_gpkg_reads_committed_wal_with_active_writer(tmp_path: Path, change_cwd) -> None:
+def test_cca_gpkg_reads_committed_wal_with_active_writer(tmp_path: Path, change_cwd: Callable[[Path], AbstractContextManager[None]]) -> None:
     """Uncheckpointed committed WAL values must take precedence over the base database."""
     gpkg_path = tmp_path / "Café #1_Results1D.gpkg"
     _create_minimal_cca_gpkg(gpkg_path)
@@ -379,7 +381,7 @@ def test_cca_gpkg_missing_shm_is_not_created(tmp_path: Path) -> None:
 def test_cca_gpkg_missing_or_replaced_input_is_never_created(tmp_path: Path) -> None:
     path = tmp_path / "Missing_Results1D.gpkg"
     processor = ccAProcessor(file_path=path)
-    assert processor._open_sqlite_connection(path) is None
+    assert processor.process_gpkg().empty
     assert not path.exists()
     _create_minimal_cca_gpkg(path)
     path.unlink()
