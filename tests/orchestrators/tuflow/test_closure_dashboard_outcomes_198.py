@@ -21,7 +21,9 @@ def test_closure_finishes_only_after_publication(tmp_path: Path, enabled: bool) 
     with (
         patch.object(closure, "bulk_read_and_merge_tuflow_csv", return_value=collection),
         patch.object(closure, "_collect_po_data", return_value=pd.DataFrame({"Value": [2.0]})),
-        patch.object(closure, "_calculate_threshold_durations", return_value=pd.DataFrame({"Duration_Exceeding": [1.0]})),
+        patch.object(
+            closure, "_calculate_threshold_durations", return_value=pd.DataFrame({"Duration_Exceeding": [1.0]})
+        ),
         patch.object(closure, "summarise_results", return_value=_summary()),
         patch.object(closure, "_export_closure_duration_artifacts") as exporter,
         patch.object(LiveWorkflowDashboard, "finish", autospec=True) as finish,
@@ -74,8 +76,9 @@ def test_closure_failure_never_finishes_as_success(tmp_path: Path, failure_at: s
 
 
 def test_closure_invalid_display_settings_fail_before_processing(tmp_path: Path) -> None:
-    with patch.object(closure, "bulk_read_and_merge_tuflow_csv") as read, pytest.raises(
-        ValueError, match="live_max_rows"
+    with (
+        patch.object(closure, "bulk_read_and_merge_tuflow_csv") as read,
+        pytest.raises(ValueError, match="live_max_rows"),
     ):
         closure.run_closure_durations(paths=[tmp_path], thresholds=[1.0], live_max_rows=0)
     read.assert_not_called()

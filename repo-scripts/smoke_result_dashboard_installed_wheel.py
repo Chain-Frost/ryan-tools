@@ -366,8 +366,16 @@ def _one_qa_case(wrapper: str, root: Path, work: Path, *, dashboard: bool) -> Wo
 
 
 REMAINING_DASHBOARD_WRAPPERS: tuple[tuple[str, tuple[str, ...], tuple[str, ...]], ...] = (
-    ("TUFLOW-python/po_and_timeseries/create_pomm_mean_peak_report.py", ("aep-dur-mean", "aep-mean-max"), ("--data-types", "POMM")),
-    ("TUFLOW-python/po_and_timeseries/create_pomm_median_peak_report.py", ("aep-dur-max", "aep-max"), ("--data-types", "POMM")),
+    (
+        "TUFLOW-python/po_and_timeseries/create_pomm_mean_peak_report.py",
+        ("aep-dur-mean", "aep-mean-max"),
+        ("--data-types", "POMM"),
+    ),
+    (
+        "TUFLOW-python/po_and_timeseries/create_pomm_median_peak_report.py",
+        ("aep-dur-max", "aep-max"),
+        ("--data-types", "POMM"),
+    ),
     ("TUFLOW-python/po_and_timeseries/calculate_po_closure_durations.py", ("Summary",), ()),
 )
 
@@ -420,9 +428,7 @@ def _one_remaining_case(
         msg = f"Copied wrapper does not advertise dashboard controls: {wrapper}"
         raise RuntimeError(msg)
 
-    result = _run_qa(
-        script, work, root, *extra_flags, "--live-dashboard" if dashboard else "--no-live-dashboard"
-    )
+    result = _run_qa(script, work, root, *extra_flags, "--live-dashboard" if dashboard else "--no-live-dashboard")
     if result.returncode != 0:
         msg = (
             f"Copied {wrapper} (dashboard={dashboard}) exited {result.returncode}: "

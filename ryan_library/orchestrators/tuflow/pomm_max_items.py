@@ -91,7 +91,9 @@ def run_peak_report_workflow(
                     context="POMM peak report",
                 )
                 if locations_to_include and not normalized_locations:
-                    logger.warning("Location filter provided but no valid values found. All locations will be included.")
+                    logger.warning(
+                        "Location filter provided but no valid values found. All locations will be included."
+                    )
 
                 aggregated_df: pd.DataFrame = aggregated_from_paths(
                     paths=effective_paths_to_process,

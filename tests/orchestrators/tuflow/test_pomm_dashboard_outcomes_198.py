@@ -58,8 +58,9 @@ def test_pomm_peak_writer_failure_marks_failed(kind: str, tmp_path: Path) -> Non
 
 
 def test_pomm_invalid_dashboard_settings_precede_aggregation(tmp_path: Path) -> None:
-    with patch.object(pomm_max_items, "aggregated_from_paths") as aggregate, pytest.raises(
-        ValueError, match="live_max_rows"
+    with (
+        patch.object(pomm_max_items, "aggregated_from_paths") as aggregate,
+        pytest.raises(ValueError, match="live_max_rows"),
     ):
         pomm_max_items.export_mean_peak_report(
             script_directory=tmp_path,

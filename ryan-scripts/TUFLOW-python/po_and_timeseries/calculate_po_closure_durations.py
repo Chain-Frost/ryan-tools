@@ -73,9 +73,9 @@ def main(
         return 1
 
     effective_console_log_level: str = CONSOLE_LOG_LEVEL if console_log_level is None else console_log_level
-    effective_locations: tuple[str, ...] | None = tuple(
-        LOCATIONS_TO_INCLUDE if locations_to_include is None else locations_to_include
-    ) or None
+    effective_locations: tuple[str, ...] | None = (
+        tuple(LOCATIONS_TO_INCLUDE if locations_to_include is None else locations_to_include) or None
+    )
     effective_export_mode: Literal["excel", "parquet", "both"] = export_mode or EXPORT_MODE
     try:
         outcome = run_closure_durations(
