@@ -695,6 +695,41 @@ py -3.14 .\log_processing\create_log_summary_report.py --working-directory "D:\M
 py -3.14 .\po_and_timeseries\combine_pomm_results.py --export-mode parquet --no-pause
 ```
 
+## TUFLOW log-summary diagnostic fields and optional HPC observations
+
+The maintained [log-summary wrapper](log_processing/create_log_summary_report.py) extracts
+typed final-summary warning/CHECK, 1D-negative-depth and HPC repeat/NaN counters
+from the **main TLF** by default. Quadtree ZC/ZU/ZV/ZH mesh counts are also
+reported when explicitly present. Missing source fields stay empty; quadtree
+ZC cells must not be interpreted as HPC active 2D cells.
+
+The wrapper constant `INCLUDE_HPC_COMPANION_METRICS = False` controls a
+separate, **opt-in** full read of conventional, same-folder
+`<run-code>.hpc.tlf` companions. Set it to `True` only when extra read
+traffic is acceptable for that dataset/network location. From Python use
+`process_log_file(path, include_hpc_companion_metrics=True)` or
+`TLFProcessor(file_path=path).process(include_hpc_companion_metrics=True)`.
+Normal discovery still creates exactly one report row for each main TLF;
+HPC companions do not become standalone runs.
+
+When opted in, the report gives companion path/status, explicitly reported
+**active 2D**, **sealed-wall** and (only if available) **groundwater cell**
+counts, the number of sampled `iStep` records and
+`HPC_nWet_Observed_Max`. This is a **maximum over logged samples**, not a
+guaranteed whole-run/per-timestep maximum. A successful main TLF alone
+does not prove the companion history is complete. Companion status is
+`missing`, `observed`, `incomplete`, `changed_during_read`,
+`multiple_domains` or `unreadable`; `observed` does not mean a
+complete timestep series. The reader uses bounded lines, skips partial
+last records, performs a non-exclusive read and checks for file changes.
+It never sums multiple-domain populations, invents zero-valued missing
+counts or touches unrelated `.hpc.dt.csv` or mass-balance files.
+
+Each field and its units are documented in the
+[data dictionary](../../ryan_library/classes/column_definitions.json).
+Windows/SMB active-writer I/O performance has not been benchmarked; the
+opt-in default must remain disabled until that acceptance is available.
+
 ## Check recent TUFLOW user activity
 
 [`log_processing/check_tuflow_user_activity.py`](log_processing/check_tuflow_user_activity.py) is a read-only,
