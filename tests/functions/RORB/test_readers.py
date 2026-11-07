@@ -146,7 +146,7 @@ def test_association_peak_rounding_uses_reported_source_precision(
     tmp_path: Path, batch_peak: str, csv_peak: str, expected_status: str
 ) -> None:
     batch_path = write(tmp_path, batch_text(f"1 24 hour 20% 2 100 0.9 {batch_peak}"))
-    write(tmp_path, csv_text(values=f"0,1,0\\n1,2,{csv_peak}\\n2,3,0\\n"), " aep20_du24hourtp2.csv")
+    write(tmp_path, csv_text(values=f"0,1,0\n1,2,{csv_peak}\n2,3,0\n"), " aep20_du24hourtp2.csv")
 
     result = associate_batch_csvs(read_rorb_file(batch_path))
 
