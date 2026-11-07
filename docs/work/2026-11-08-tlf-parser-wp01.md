@@ -59,8 +59,10 @@ unique-run semantics or the failure-state contract in #195/#223.
   explicit default **off** in the maintained log-summary wrapper; Python
   callers can opt in per call. Reads complete bounded lines without
   exclusive locks or a competing result/TPC reader.
-- Record explicitly labelled active-2D/sealed-wall/groundwater counts
-  independently. Do not sum duplicate/multiple-domain counts.
+- Record explicitly labelled active-2D/sealed-wall and groundwater
+  active/sealed-wall counts separately; groundwater-labelled HPC allocations do
+  not establish the number of cells with groundwater flow. Do not sum
+  duplicate/multiple-domain counts.
 - Label `HPC_nWet_Observed_Max` as the maximum **among sampled rows**,
   alongside sample count; it does not establish a full-solver timestep
   maximum. Include companion status and expected path for provenance,
