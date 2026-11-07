@@ -75,11 +75,12 @@ EXCLUDED_VARIABLES: set[str] = {
 }
 # Precompile regex patterns
 SET_VARIABLE_PATTERN: re.Pattern[str] = re.compile(
-    pattern=r"^Set Variable\s+(?P<var>~[ES]\d*~|\w+)\s*==\s*(?P<val>.+)$",
+    pattern=r"^Set Variable\s+(?P<var>~[ES]\d*~|\w+(?:-\w+)*)\s*==\s*(?P<val>.+)$",
     flags=re.IGNORECASE,
 )
 # ``SET_VARIABLE_PATTERN`` recognises configuration lines such as ``Set Variable ~E1~ == inflow.csv``
 # and stores the variable name (``~E1~``) plus the assigned value (``inflow.csv``).
+# User variable names may contain hyphen-separated words such as ``IL-PEBBLE``.
 
 
 def _normalise_bcdbase_variable(variable: str) -> str:

@@ -141,11 +141,13 @@ but they are not current architectural policy when they conflict with the canoni
 | [Floodway research](audits/2026-09-13-floodway-design-research.md) | Source baseline |
 | [Floodway calculation specification](audits/2026-09-14-floodway-calculation-specification.md) | Calculation contracts |
 | [Floodway validation vectors](audits/2026-09-14-floodway-validation-vectors.md) | Source regression targets |
+| [WP05 processor storage / ccA WAL delivery](work/2026-11-08-wp05-processor-storage.md) | #222 and #226 draft PRs, focused hosted checks, source fidelity and remaining native Windows/SMB acceptance |
 | [Work register](work/README.md) | Open work fronts, review dates, next actions and links to authoritative status records |
 | [Culvert uncertainty/sensitivity workflow](work/2026-10-06-culvert-uncertainty-91.md) | Issue #91 implementation; final package verification and authorized squash merge |
 | [Culvert workflow implementation](work/2026-09-13-culvert-workflow-80.md) | Active issue #80 implementation and validation/delivery status |
 | [Transactional package build and verification](work/2026-09-13-transactional-packaging.md) | Completed no-bump, verified and failure-safe wheel workflow implementation |
 | [TUFLOW statistic-then-maximum workflow](work/2026-09-09-tuflow-stat-then-maximum.md) | Completed generic mean/median raster workflow, provenance validation and delivery state |
+| [WP02 compatibility/lifecycle review](work/2026-11-08-wp02-compatibility-lifecycle.md) | Issue #98 current source-checkout, installed-wheel and optional import evidence; maintained HY-8 and missing-run boundaries |
 | [Compatibility policy and inventory](COMPATIBILITY_POLICY.md) | Compatibility namespaces, migration state and deprecation checklist |
 | [Repository improvement roadmap](REPOSITORY_IMPROVEMENT_ROADMAP.md) | Deferred repository-wide opportunity inventory; no active improvement front is selected |
 | [Unsorted upgrade roadmap](UNSORTED_UPGRADE_ROADMAP.md) | Incomplete migration inventory; currently deferred and not actively progressed |

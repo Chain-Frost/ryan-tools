@@ -2,13 +2,13 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Needs review |
+| Status | Complete — merged and subsequently published |
 | Owner | ChatGPT |
-| Updated | 2026-10-18 |
-| Next review | 2026-10-19 |
-| Branch | `feat/codex-mcp-bootstrap` / PR #120 |
-| Delivery | Uncommitted local changes; no push or publication |
-| Next action | Review uncommitted PR #120 changes, commit/push when authorised, and check hosted CI before releasing. |
+| Updated | 2026-11-08 |
+| Next review | — |
+| Branch | Historical `feat/codex-mcp-bootstrap`; [PR #120](https://github.com/Chain-Frost/ryan-tools/pull/120) merged |
+| Delivery | PR #120 merged 2026-10-18 as `274f09d7`; [v26.11.7.14](https://github.com/Chain-Frost/ryan-tools/releases/tag/v26.11.7.14) wheel published 2026-11-07 |
+| Next action | None for this completed delivery; [independent #137 distribution audit](https://github.com/Chain-Frost/ryan-tools/pull/137) retains its own gates. |
 
 ## Scope and decisions
 
@@ -169,3 +169,18 @@ existing installed clipping script. Filename parsing returned Q, AEP 01.00p, dur
 reading passed. All **37 focused MCP tests** passed as well.
 This tests a real stdio MCP process using the configured command, not attachment of new tools to this existing chat.
 Restart Codex to reload its edited configuration. No package installation, commit, push or publication performed.
+
+## 2026-11-08 — Post-merge evidence reconciliation
+
+This heading supersedes the historical pre-merge status at the top of this work record; earlier dated
+implementation entries are retained as evidence of what was or was not run **at that time**.
+[PR #120](https://github.com/Chain-Frost/ryan-tools/pull/120) merged on 18 October 2026.
+The current [main Windows CI](https://github.com/Chain-Frost/ryan-tools/actions/runs/42388182051)
+passes source-checkout and isolated installed-wheel jobs at `5ad632cc`: the Package job built and
+verified `ryan_tools-26.11.7.13-py3-none-any.whl`, checked wheel-root imports and exercised copied
+wrappers. A separate [v26.11.7.14 release](https://github.com/Chain-Frost/ryan-tools/releases/tag/v26.11.7.14)
+was published after that main build; it has not been separately import-smoke-tested in this WP02 review.
+No local Python environment, checkout, solver run, installation, release or code mutation was performed
+during this review. See the [current compatibility/lifecycle review](2026-11-08-wp02-compatibility-lifecycle.md)
+and [compatibility policy](../COMPATIBILITY_POLICY.md). The full script-selection and native-software
+acceptance process remains with [PR #137](https://github.com/Chain-Frost/ryan-tools/pull/137).
