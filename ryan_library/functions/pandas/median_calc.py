@@ -192,6 +192,10 @@ def calculate_median_statistics(
         if median_value is not None and median_value > tracking_median:
             max_stats_dict = stats_dict.copy()
             tracking_median = median_value
+        elif not max_stats_dict:
+            # Retain the first unusable bin's metadata if every bin lacks
+            # finite observations. A later valid bin still supersedes it.
+            max_stats_dict = stats_dict.copy()
 
         bin_stats_list.append(stats_dict)
         count_TP_aep += stats_dict.get("count_TP", 0)
