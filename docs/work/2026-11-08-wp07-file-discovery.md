@@ -7,11 +7,11 @@
 | Created | 2026-11-08 |
 | Updated | 2026-11-08 |
 | Next review | 2026-11-15 |
-| Baseline | `main@5ad632cc9a17`; WP01 PR #251 on `fix/tlf-hyphenated-variables-239`; WP07 PR #257 on `fix/wp07-physical-file-discovery-203` |
+| Baseline | `main@5ad632cc9a17`; WP01 PR #251 on `fix/tlf-hyphenated-variables-239`; WP07 #257 on `fix/wp07-physical-file-discovery-203`, child #268 on `fix/wp07-discovery-outcomes-195` |
 
 ## Outcome and scope
 
-Allocation [#240](https://github.com/Chain-Frost/ryan-tools/issues/240), [#203](https://github.com/Chain-Frost/ryan-tools/issues/203) and [#195](https://github.com/Chain-Frost/ryan-tools/issues/195). WP07 owns physical file discovery and truthful invalid/partial/empty/filtered inputs. The parent [#251](https://github.com/Chain-Frost/ryan-tools/pull/251) remains the integration branch: draft [#257](https://github.com/Chain-Frost/ryan-tools/pull/257) targets it, not main. Integration into WP01 and any final squash into main require maintainer review and explicit authorization. No solver runs or production storage scans.
+Allocation [#240](https://github.com/Chain-Frost/ryan-tools/issues/240), [#203](https://github.com/Chain-Frost/ryan-tools/issues/203) and [#195](https://github.com/Chain-Frost/ryan-tools/issues/195). WP07 owns physical file discovery and truthful invalid/partial/empty/filtered inputs. The parent [#251](https://github.com/Chain-Frost/ryan-tools/pull/251) remains the integration branch: draft [#257](https://github.com/Chain-Frost/ryan-tools/pull/257) targets it, while draft [#268](https://github.com/Chain-Frost/ryan-tools/pull/268) targets #257; neither child targets main. Integration into WP01 and any final squash into main require maintainer review and explicit authorization. No solver runs or production storage scans.
 
 ## Current state
 
@@ -44,4 +44,8 @@ Read #240, #203, #195, current AGENTS.md, DEVELOPMENT_GUIDE, register and existi
 
 ### 2026-11-08 — Second delivery (#195)
 
-Created isolated branch `fix/wp07-discovery-outcomes-195` from #257 and draft [#268](https://github.com/Chain-Frost/ryan-tools/pull/268), stacked on #257 → #251. Implemented strict shared discovery semantics, early orchestrator preflight, preserved explicit empty list overrides in six maintained wrappers, and made zero-byte/unreadable/malformed completed TLF inputs fail rather than skip. Added focused synthetic cases and updated stale empty-input expectations. No main merge or auto-merge authorised. Full current-head CI, native Windows/SMB active-writer checks and installed copied-wrapper acceptance are not yet recorded as passing.
+Created isolated branch `fix/wp07-discovery-outcomes-195` from #257 and draft [#268](https://github.com/Chain-Frost/ryan-tools/pull/268), stacked on #257 → #251. Implemented strict shared discovery semantics, early orchestrator preflight, preserved explicit empty list overrides in eight maintained wrappers, and made zero-byte/unreadable/malformed completed TLF inputs fail rather than skip. Added focused synthetic cases and updated stale empty-input expectations. No main merge or auto-merge authorised. Full current-head CI, native Windows/SMB active-writer checks and installed copied-wrapper acceptance are not yet recorded as passing.
+
+### 2026-11-08 — Hosted verification reconciliation
+
+At the first comprehensive #268 hosted test run, 2,553 passed with five failures caused by historical tests asserting that malformed inputs were returned as empty/invalid processor objects or that an unreadable nonempty TLF was an intentional skip. The assertions now check FAIL outcomes, retaining intentional location-filter skips. Strict typing of modified legacy mock tests and Ruff formatting were also corrected. Current-head checks on the later commit remain pending; earlier failed/cancelled CI runs must not be treated as final acceptance. The validated-empty culvert collection now uses an informational SKIPPED log rather than an ERROR log. No local worktree/native share acceptance is claimed.
