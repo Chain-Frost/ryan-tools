@@ -5,6 +5,7 @@ and the handoff template. The linked record owns detailed progress; this table i
 
 ## Open work
 
+| [WP06: owned output staging](2026-11-08-wp06-publication.md) | Active; #232 in draft PR #258 stacked onto #251, native checks pending | WP06 delivery agent | 2026-11-08 | 2026-11-15 | Review #258 exact-head CI; implement independent archive #197, then GDAL #200 only with native validation. No merge/release. |
 | Work front / status record | Status | Owner | Updated | Next review | Next action / dependency |
 | --- | --- | --- | --- | --- | --- |
 | [WP02 compatibility and import lifecycle review](2026-11-08-wp02-compatibility-lifecycle.md) | Needs review — existing main CI evidence, PR validation and optional-dependency absence probe pending | ChatGPT / maintainer | 2026-11-08 | 2026-11-20 | Review issue #98 draft PR and documentation checks. Source checkout and isolated wheel imports are separated; no new compatibility removals. Maintain existing #137 package-selection acceptance. |
