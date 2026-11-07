@@ -95,7 +95,7 @@ def test_po_hu_hd_survive_collection_filter_and_parquet_export(
         assert len(rows) == 181
         assert rows.loc[rows["Value"] != -99999, "Value"].max() == pytest.approx(maximum)
 
- 
+
 def test_pinned_pytuflow_tpc_returns_independent_hu_hd_source_levels() -> None:
     """Existing public TPC reader must return actual levels, not merely the expected shape."""
     from pytuflow import TPC  # Delayed import keeps the ordinary PO regression separate.
