@@ -8,7 +8,7 @@
 | Updated | 2026-11-08 |
 | Next review | 2026-11-15 |
 | Baseline | PR #207 `fix/tuflow-src-profile-cell-counts` at `c7d063502e43391560fdd877e117cc6bcd064faf`; #238 integrated into #207 as `8550b511` |
-| Git delivery | Draft [#253](https://github.com/Chain-Frost/ryan-tools/pull/253) and stacked draft [#260](https://github.com/Chain-Frost/ryan-tools/pull/260), committed to separate remote branches |
+| Git delivery | Draft [#253](https://github.com/Chain-Frost/ryan-tools/pull/253) → [#260](https://github.com/Chain-Frost/ryan-tools/pull/260) → [#267](https://github.com/Chain-Frost/ryan-tools/pull/267), committed to separate remote branches |
 
 ## Outcome and assigned boundaries
 
@@ -31,15 +31,21 @@ Preserve the upper-middle median and greatest nearest-mean representative-durati
   The real-project raster override acceptance belongs to #207, not WP03.
 - **#227:** Draft #253 changes the two POMM `Series.map(func=...)` calls to positional mappers
   without tightening the global pandas dependency; adds an actual grouped POMM statistics regression.
-  A hosted run passed tests, Package, POSIX security and MCP; format-only Ruff/Policy failures
-  were repaired at `39b8c777`. **Updated-head hosted checks pending.**
+  **All six exact-head Windows CI checks passed** at `39b8c777`, including hosted tests, Ruff, Policy,
+  Package, security and MCP. Native real-project validation is separate.
 - **#218:** Draft #260 uses `combine_raw()` for the already selected POMM/RLL inputs, normalizes
   RLL location and Q magnitude while keeping signed Q, source filename and distinct measurement type,
   and adds synthetic RLL-only/POMM-only/mixed file→real processor→workbook regressions.
-  Ruff's initial adjacent-literals formatting finding was repaired at `5f832fb8`.
-  **Updated-head hosted checks pending.**
-- **#216 and #217:** Numerical correctness, finite-population/count/provenance rules and their
-  linked regression coverage are **not delivered** by #253 or #260; a separate next stage is required.
+  Hosted Windows/Python 3.14.10 initial run at `5f33e497` passed 2,272 tests with one newly added
+  test fixture failing from a mismatched keyword (`paths` vs `paths_to_process`). Fixed at `4f3aa910`;
+  **six exact-head checks rerun/pending**. Previously passing Ruff, Policy, Package, security and MCP
+  checks cannot be attributed to the new head until rerun.
+- **#216 and #217:** Implemented in **draft #267** on a separate stacked branch. POMM/culvert
+  finite-value ranks, upper-middle/nearest-mean identities, deterministic tie ordering, finite and
+  unusable event/bin counts, Q-governed culvert peaks, and selected source-file metadata are included.
+  Synthetic numeric, input-order permutation and Excel readback regressions are committed.
+  **Exact-head Windows CI and independent native real-data verification remain pending**; do not
+  treat either issue as accepted/complete before these checks.
 
 ## Validation and limitations
 
@@ -51,28 +57,32 @@ Preserve the upper-middle median and greatest nearest-mean representative-durati
   yield `Location=[C1,C2]`, `Type=[Flow,Q]`, `AbsMax=[12,7]`, `SignedAbsMax=[12,-7]`.
 - **Historical native evidence:** PR #207 reports 117 focused tests, Python 3.14.10, six passing
   hosted checks and an isolated installed-wheel copied-wrapper smoke, before WP03's changes.
-  Do not attribute those passes to #253/#260.
-- **Not yet passed/required:** exact-head Windows/Python 3.14 hosted tests, Ruff, strict Pyright;
-  pandas 2.3.3 and current 3.x compatibility runs, full POMM/RLL factory and workbook tests,
-  installed copied-wrapper run against the new wheel, and native real-file export parity.
+  Do not attribute those passes to #253/#260/#267.
+- **Still required:** exact-head Windows/Python 3.14 CI for #260 and #267, strict Pyright/Ruff
+  and integrated XLSX tests; additional pandas 2.3.3 compatibility, installed copied-wrapper run
+  against the new wheel, and native real-file POMM/RLL/culvert export parity.
   RLL `Qmax` provides no independent time-series negative minimum and is not equivalent to POMM
   signed absolute-maximum semantics.
 
 ## Next action
 
-1. Review exact-head #253 and #260 hosted checks; resolve genuine failures without broad refactoring.
-2. Implement finite-event/count/provenance fixes for #216 and #217 in a new **reviewable stacked draft**;
-   add numerical regressions and workbook round trips before claiming these issues complete.
-3. Run focused Python 3.14 validation, build verified package with normal repository rules and
-   document installed/copy-wrapper and native acceptance gaps.
-4. Reconcile PR stack and update this record at the next handoff. No main merge is authorized.
+1. Review exact-head #260 and #267 Windows hosted tests, Ruff and strict Pyright; resolve genuine
+   regressions without broad refactoring, keeping each PR's individual fixes reviewable.
+2. Validate synthetic file→real processor→XLSX round trips on the final stack, and record outcomes.
+3. Run native real TUFLOW file/export parity, pandas 2.3.3 and installed copied-wrapper acceptance
+   from a separate local Windows worktree; document measured pass/fail evidence and any gaps.
+4. Reconcile final PR stack and keep drafts unmerged until explicit approval. No main merge is authorized.
 
 ## Progress
 
 ### 2026-11-08
 
 Reconciled integrated #238 with open parent #207 and current work records. Created and
-pushed #253/#260 as separate GitHub draft branches. Added real POMM aggregation and
+pushed #253/#260/#267 as separate GitHub draft branches. Added real POMM aggregation and
 synthetic RLL/POMM workbook regression tests; documented distinct source semantics.
 Checked hosted CI and repaired the reported formatting failures. No change to
 `pomm_combine()` public behaviour, shared suffix registry, or unrelated raster work.
+
+The #267 numerical stack changes `median_calc.py`, `pomm_utils.py` and culvert statistics, with
+finite TP/count/representative-source provenance regressions and updated column definitions.
+Its draft was opened, and #240 coordination was posted; exact-head checks remain authoritative.
