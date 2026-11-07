@@ -372,13 +372,14 @@ def _raster_crs_and_spacing(
         raise FileNotFoundError(msg)
 
     with rasterio.open(path) as source:
-        raster_crs = CRS.from_user_input(source.crs) if source.crs is not None else None
+        # Rasterio's Dataset typing lacks attributes exposed by its raster readers.
+        raster_crs = CRS.from_user_input(source.crs) if source.crs is not None else None  # pyright: ignore[reportAttributeAccessIssue]
         effective_spacing = (
             spacing
             if spacing is not None
             else min(
-                abs(float(source.res[0])),
-                abs(float(source.res[1])),
+                abs(float(source.res[0])),  # pyright: ignore[reportAttributeAccessIssue]
+                abs(float(source.res[1])),  # pyright: ignore[reportAttributeAccessIssue]
             )
             / 2.0
         )
@@ -393,7 +394,7 @@ def _read_water_raster_crs(
 
     for aep, path in water_rasters.items():
         with rasterio.open(path) as source:
-            water_crs[aep] = CRS.from_user_input(source.crs) if source.crs is not None else None
+            water_crs[aep] = CRS.from_user_input(source.crs) if source.crs is not None else None  # pyright: ignore[reportAttributeAccessIssue]
 
     return water_crs
 
