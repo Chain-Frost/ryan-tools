@@ -10,7 +10,7 @@ import fiona
 import pytest
 from shapely.geometry import LineString, mapping
 
-from scripts.verify_project import verify_project, verify_streams
+from ryan_library.orchestrators.tuflow.initialiser.verification import verify_project, verify_streams
 
 
 def test_validation_checks_survive_optimisation() -> None:
@@ -18,17 +18,17 @@ def test_validation_checks_survive_optimisation() -> None:
         sys.executable,
         "-O",
         "-c",
-        "from scripts.verify_project import _require; _require('invalid output', condition=False)",
+        "from ryan_library.orchestrators.tuflow.initialiser.verification import _require; _require('invalid output', condition=False)",
     ]
     env = dict(os.environ)
-    env["PYTHONPATH"] = str(Path(__file__).resolve().parents[1] / "src")
-    result = subprocess.run(  # noqa: S603 - fixed test code, current Python, no shell
+    env["PYTHONPATH"] = str(Path(__file__).resolve().parents[4] / "src")
+    result = subprocess.run(
         command,
         env=env,
         capture_output=True,
         text=True,
         check=False,
-        cwd=Path(__file__).resolve().parents[1],
+        cwd=Path(__file__).resolve().parents[4],
     )
     assert result.returncode != 0
     assert "ValueError: invalid output" in result.stderr
