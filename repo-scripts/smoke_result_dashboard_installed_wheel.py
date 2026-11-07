@@ -213,8 +213,12 @@ def _export_failure_cases(case: Case, root: Path, work: Path, script: Path) -> N
     launcher.write_text(
         "from datetime import datetime\nfrom unittest.mock import Mock\nimport runpy\n"
         "from ryan_library.functions import excel_export\n"
+        "from ryan_library.orchestrators.tuflow import tuflow_culverts_mean\n"
         "excel_export.datetime = Mock(wraps=datetime)\n"
         f"excel_export.datetime.now.return_value = datetime.fromisoformat({timestamp.isoformat()!r})\n"
+        # Mean/median reports choose an explicit filename before calling the exporter.
+        # Freeze both clocks so crossing a minute boundary still tests the same destination.
+        "tuflow_culverts_mean.datetime = excel_export.datetime\n"
         f"runpy.run_path({str(script)!r}, run_name='__main__')\n",
         encoding="utf-8",
     )

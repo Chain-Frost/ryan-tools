@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | In review; CI rerunning after native coverage fix and CAD script restoration; native TUFLOW equivalence outstanding |
+| Status | Implementation and five review fixes delivered; Package smoke repair in progress; engineering acceptance open |
 | Owner | ChatGPT |
 | Created | 2026-11-04 |
 | Updated | 2026-11-08 |
@@ -23,12 +23,13 @@ Implementation, focused tests, user documentation and real plan-only model
 validation are complete. The script defaults to plan-only, writes only
 new destinations with explicit `--write`, preserves native grids and source
 values, and produces a patched TGC plus manifest. No production rasters or TGCs
-were changed during validation. PR #204 remains open for review. Native-grid TUFLOW equivalence and final-head hosted validation remain required.
+were changed during validation. PR #204 remains open. All five review threads are resolved. Native-grid TUFLOW DEM_Z equivalence and final-head hosted validation remain required.
 
 ## Next action
 
-Obtain maintainer approval before merge. No merge or release is authorised by
-this work.
+Repair the timestamp-sensitive installed-wrapper collision smoke and verify all
+checks on the final pushed head. Keep #242?#245, #266 and retirement tracker #247
+open for their remaining acceptance. No merge or release is authorised.
 
 ## Completion criteria
 
@@ -197,3 +198,32 @@ coverage passes at `60ba250c`; remaining hosted jobs and fresh Codex review are
 still pending/running. The maintainer confirmed AHD71 and deferred representative
 mixed-horizontal-CRS testing to [#266](https://github.com/Chain-Frost/ryan-tools/issues/266).
 Other real-model engineering gates remain explicit in the initialiser record.
+
+## 2026-11-08 ? closeout reconciliation
+
+At head `5bda006d`, five hosted checks pass; Package fails in the installed
+mean/median report collision smoke. Its launcher freezes the exporter clock but
+the orchestrator independently chooses an explicit timestamped filename.
+Crossing a minute boundary therefore tests a new destination. Freeze both clocks;
+production export behavior and overwrite safeguards are unchanged.
+
+Issue #247 now reflects #246 already merged into #204, completed native source/wheel
+parity, shared templates and all five resolved review findings. It remains open
+for final CI, engineering disposition and source retirement. No automatic issue
+closure is appropriate for #242?#245, #266 or #247. Bounded checks do not close
+their outstanding engineering or archival requirements. Earlier conflicting/
+pending stack states above are historical and superseded by this section.
+Final smoke/CI evidence and delivery will be recorded after validation.
+No main merge, release, source archival or private-data mutation is authorised.
+
+### Collision smoke repair validation and delivery
+
+The repaired smoke passes all six copied result wrappers against isolated wheel
+26.11.8.1, with user-site and checkout imports excluded. Additional mean/median
+probes rename the baseline workbook to a year-2000 timestamp: both correctly
+reject the collision and preserve all existing workbook bytes. Ruff lint/format,
+strict Pyright for the modified smoke script, documentation/index checks and
+scoped link checks pass. No library/package source changed, so the existing wheel
+was reused without a version bump. The temporary install leaves normal Python
+unchanged. Repair and closeout records are being committed/pushed together;
+final-head hosted CI remains required. No merge into main is authorised.

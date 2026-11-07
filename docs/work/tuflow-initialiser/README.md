@@ -10,7 +10,8 @@ canonical TUFLOW model/run templates are shared under
 **Status:** migration [PR #246](https://github.com/Chain-Frost/ryan-tools/pull/246)
 is merged into [terrain cropping PR #204](https://github.com/Chain-Frost/ryan-tools/pull/204).
 Do not treat it as an installed release, or archive the source repository, until
-both PRs and their required validation are accepted.
+#204 and its required validation are accepted. #246 is already integrated; no
+retargeting is needed. Retirement is tracked separately in [#247](https://github.com/Chain-Frost/ryan-tools/issues/247).
 
 ## CLI
 
@@ -60,7 +61,8 @@ algorithm, parser or template files.
 Hosted validation must be repeated at the exact final PR head. Commits made
 through the GitHub repository integration have not automatically started fresh
 Actions runs, so the earlier green hosted CI applies only to the previous head.
-Native Windows GRASS/TUFLOW raster/project parity is still required.
+Native Windows source/wheel parity is completed in the dated evidence below;
+full terrain engineering acceptance remains separate.
 
 ## Engineering verification and remaining tasks
 
@@ -339,3 +341,28 @@ handoff is committed separately. No main merge, release, binary-fixture transfer
 source-repository archival or changes to private model sources were performed.
 MCP assessment: no discovery changes; these repairs preserve the existing CLIs
 and safety boundaries rather than adding a new workflow interface.
+
+## 2026-11-08 ? current closeout state
+
+All five #204 review threads are resolved. At head `5bda006d`, five hosted
+checks pass and Package fails in a timestamp-sensitive installed result-wrapper
+collision smoke; the test launcher is being repaired to freeze both filename
+clocks. These statements supersede earlier pending review/parity/stack notes.
+
+#247's checklist now records the completed child integration, shared templates
+and native source/wheel parity. It remains open for final CI, acceptance and
+source retirement. #242?#245 and #266 retain their own engineering gates; no
+automatic closing keywords are configured. Main merge, release and archival
+remain unauthorised.
+
+### Collision smoke repair validation and delivery
+
+The repaired smoke passes all six copied result wrappers against isolated wheel
+26.11.8.1, with user-site and checkout imports excluded. Additional mean/median
+probes rename the baseline workbook to a year-2000 timestamp: both correctly
+reject the collision and preserve all existing workbook bytes. Ruff lint/format,
+strict Pyright for the modified smoke script, documentation/index checks and
+scoped link checks pass. No library/package source changed, so the existing wheel
+was reused without a version bump. The temporary install leaves normal Python
+unchanged. Repair and closeout records are being committed/pushed together;
+final-head hosted CI remains required. No merge into main is authorised.
