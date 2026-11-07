@@ -5,6 +5,7 @@ from __future__ import annotations
 __lazy_modules__: list[str] = ["pandas"]
 import copy
 import hashlib
+import importlib
 import json
 import os
 import re
@@ -811,20 +812,20 @@ class ProcessorCollection:
     @staticmethod
     def _hdf_frame_bytes(frame: DataFrame) -> bytes:
         """Encode a pandas frame and its extension dtypes using Arrow IPC, not pickle."""
-        import pyarrow as pa
+        pa: Any = importlib.import_module("pyarrow")
 
         sink = pa.BufferOutputStream()
         table = pa.Table.from_pandas(frame, preserve_index=True)
         with pa.ipc.new_file(sink, table.schema) as writer:
             writer.write_table(table)
-        return sink.getvalue().to_pybytes()
+        return bytes(sink.getvalue().to_pybytes())
 
     @staticmethod
     def _hdf_frame_from_bytes(payload: bytes) -> DataFrame:
         """Restore pandas/index metadata, including categories and nullable types."""
-        import pyarrow as pa
+        pa: Any = importlib.import_module("pyarrow")
 
-        frame = pa.ipc.open_file(pa.BufferReader(payload)).read_all().to_pandas()
+        frame: Any = pa.ipc.open_file(pa.BufferReader(payload)).read_all().to_pandas()
         if not isinstance(frame, DataFrame):
             msg = "Cached Arrow payload did not contain a DataFrame"
             raise TypeError(msg)
@@ -834,7 +835,7 @@ class ProcessorCollection:
     def _hdf_put_bytes(store: Any, name: str, payload: bytes, filters: Any) -> None:
         """Write one named binary payload as a compressed HDF5 byte array."""
         import numpy as np
-        import tables  # pyright: ignore[reportMissingTypeStubs]
+        tables: Any = importlib.import_module("tables")
 
         data = np.frombuffer(payload, dtype=np.uint8)
         node = store.create_carray(store.root, name, atom=tables.UInt8Atom(), shape=(len(data),), filters=filters)
@@ -843,7 +844,7 @@ class ProcessorCollection:
     @staticmethod
     def _hdf_get_bytes(store: Any, name: str) -> bytes:
         """Reject a missing cache member rather than returning partial results."""
-        import tables  # pyright: ignore[reportMissingTypeStubs]
+        tables: Any = importlib.import_module("tables")
 
         try:
             node = store.get_node(f"/{name}")
@@ -856,8 +857,8 @@ class ProcessorCollection:
     def _hdf_require_storage() -> None:
         """Report the optional PyTables dependency before mutating any cache paths."""
         try:
-            import pyarrow as pa  # noqa: F401
-            import tables  # pyright: ignore[reportMissingTypeStubs]  # noqa: F401
+            importlib.import_module("pyarrow")
+            importlib.import_module("tables")
         except ImportError as exc:
             msg = "HDF5 processor caches require pyarrow and optional PyTables: pip install 'ryan-tools[cache]'"
             raise RuntimeError(msg) from exc
@@ -870,7 +871,7 @@ class ProcessorCollection:
         checks; the processed rows themselves are a snapshot, not live result data.
         """
         self._hdf_require_storage()
-        import tables  # pyright: ignore[reportMissingTypeStubs]
+        tables: Any = importlib.import_module("tables")
 
         destination = Path(file_path).absolute()
         if destination.is_symlink():
@@ -902,6 +903,7 @@ class ProcessorCollection:
                 "has_basic_info_lookup": self.basic_info_lookup is not None,
             }
             filters = tables.Filters(complevel=9, complib="blosc:zstd")
+            manifest_payload: bytes = b""
             with tables.open_file(temporary, mode="w") as store:
                 for idx, processor in enumerate(self.processors):
                     if not processor.processed or processor.df.empty:
@@ -975,7 +977,7 @@ class ProcessorCollection:
         even if the original sources have moved or changed.
         """
         ProcessorCollection._hdf_require_storage()
-        import tables  # pyright: ignore[reportMissingTypeStubs]
+        tables: Any = importlib.import_module("tables")
 
         path = Path(file_path)
         if not path.is_file():
@@ -985,27 +987,33 @@ class ProcessorCollection:
         collection = ProcessorCollection()
         with tables.open_file(str(path), mode="r") as store:
             try:
-                manifest: Any = json.loads(ProcessorCollection._hdf_get_bytes(store, "manifest").decode("utf-8"))
+                raw_manifest: Any = json.loads(ProcessorCollection._hdf_get_bytes(store, "manifest").decode("utf-8"))
             except (UnicodeError, json.JSONDecodeError) as exc:
                 msg = f"HDF5 cache manifest is corrupt: {path}"
                 raise ValueError(msg) from exc
 
-            if not isinstance(manifest, dict) or manifest.get("cache_version") != 1:
+            if not isinstance(raw_manifest, dict) or raw_manifest.get("cache_version") != 1:
                 msg = f"Unsupported HDF5 processor cache version: {path}"
                 raise ValueError(msg)
+            manifest: dict[str, Any] = raw_manifest
             if manifest.get("frame_codec") != "arrow-ipc-file":
                 msg = f"Unsupported HDF5 processor cache frame codec: {path}"
                 raise ValueError(msg)
             if manifest.get("registry_sha256") != ProcessorCollection._hdf_registry_digest():
                 msg = f"HDF5 cache processor registry changed since snapshot: {path}"
                 raise ValueError(msg)
-            entries = manifest.get("processors")
-            if not isinstance(entries, list):
+            raw_entries: Any = manifest.get("processors")
+            if not isinstance(raw_entries, list):
                 msg = f"HDF5 cache processor inventory is malformed: {path}"
                 raise ValueError(msg)
 
-            for idx, entry in enumerate(entries):
-                if not isinstance(entry, dict) or entry.get("hdf_key") != f"proc_{idx:06d}":
+            entries: list[Any] = raw_entries
+            for idx, raw_entry in enumerate(entries):
+                if not isinstance(raw_entry, dict):
+                    msg = f"HDF5 cache member inventory is malformed at index {idx}: {path}"
+                    raise ValueError(msg)
+                entry: dict[str, Any] = raw_entry
+                if entry.get("hdf_key") != f"proc_{idx:06d}":
                     msg = f"HDF5 cache member inventory is malformed at index {idx}: {path}"
                     raise ValueError(msg)
                 if verify_sources:
