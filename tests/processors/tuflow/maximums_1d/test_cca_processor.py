@@ -261,7 +261,9 @@ def test_process_exception(tmp_path: Path) -> None:
         assert processor.df.empty
 
 
-def test_cca_gpkg_reads_committed_wal_with_active_writer(tmp_path: Path, change_cwd: Callable[[Path], AbstractContextManager[None]]) -> None:
+def test_cca_gpkg_reads_committed_wal_with_active_writer(
+    tmp_path: Path, change_cwd: Callable[[Path], AbstractContextManager[None]]
+) -> None:
     """Uncheckpointed committed WAL values must take precedence over the base database."""
     gpkg_path = tmp_path / "Café #1_Results1D.gpkg"
     _create_minimal_cca_gpkg(gpkg_path)
