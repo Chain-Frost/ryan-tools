@@ -8,7 +8,7 @@ canonical TUFLOW model/run templates are shared under
 `ryan_library/resources/tuflow_templates/`.
 
 **Status:** migration [PR #246](https://github.com/Chain-Frost/ryan-tools/pull/246)
-is a draft stacked on [terrain cropping PR #204](https://github.com/Chain-Frost/ryan-tools/pull/204).
+is merged into [terrain cropping PR #204](https://github.com/Chain-Frost/ryan-tools/pull/204).
 Do not treat it as an installed release, or archive the source repository, until
 both PRs and their required validation are accepted.
 
@@ -182,8 +182,12 @@ Combined validation: 267 focused terrain/CAD/project/initialiser/runner tests pa
 with two Windows symlink-privilege skips. Documentation/link checks, runner strict
 Pyright and Ruff pass. The verification build produced wheel 26.11.7.9 (SHA-256
 `fcc7e928505d381a45e226e9158a48e3082b5d685d88313f0a75895dd8aac9a5`).
-The parent was pushed at `886be97c`; hosted checks started for that head. The child
-conflict-resolution commit is ready to push and merge into #204 after hosted checks.
+The parent was pushed at `886be97c`; hosted checks started for that head. The child conflict-resolution commit `8f92c9f6` was pushed and merged into #204
+as `e0522e96`; GitHub confirms #246 is closed/merged. The maintainer explicitly
+requested integration without waiting for CI. The child Ruff job failed (two import
+ordering findings and SIM115 on the temporary-file publication); other jobs were
+still running. These checks are not reported as green. Fix/recheck CI on #204
+before any separately authorised main merge.
 The earlier h5py DLL diagnostic still appears during collection; it does not prevent
 these tests passing and does not establish native HDF5 capability. No merge of #204
 into main, engineering approval, release or publication is authorised by this integration.

@@ -142,3 +142,12 @@ and 33 MCP targets; 76 files are excluded. Shared runner changes combined cleanl
 and strict Pyright/Ruff checks pass. Focused terrain/CAD/runner validation is recorded
 with the integration follow-up. The maintainer authorised merging child #246 into
 #204; merging #204 into `main` remains unauthorised. Native engineering gates remain.
+
+
+Child #246 merged into #204 as `e0522e96`, after conflict-resolution child
+`8f92c9f6`. GitHub confirms the child is closed/merged and #204 remains open.
+Combined local validation: 267 passes / two privilege skips; verified wheel 26.11.7.9.
+The maintainer requested no wait for CI. Child Ruff failed on two import-order
+findings and SIM115; other jobs remained running. Address these on #204 and
+obtain final-head CI/native engineering acceptance before an authorised main merge.
+No main merge or publication was performed.
