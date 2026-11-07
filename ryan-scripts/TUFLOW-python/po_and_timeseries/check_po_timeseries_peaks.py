@@ -132,7 +132,7 @@ def main(
             live_refresh_per_second=effective_live_refresh_per_second,
             live_max_rows=effective_live_max_rows,
         )
-    except Exception:
+    except Exception:  # noqa: BLE001 - wrapper boundary turns any failure into nonzero exit
         logger.exception("TUFLOW PO peak-check wrapper failed.")
         return 1
 
