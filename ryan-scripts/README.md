@@ -125,7 +125,9 @@ containing `areas`, `lines`, and `points` layers. DXF inputs use GDAL directly.
 For newer DWG versions, `--autocad-export` deliberately allows an installed
 AutoCAD or DWG TrueView console to make a temporary DXF; the source drawing is
 never changed. Existing outputs require `--overwrite` and are replaced only
-after the new GeoPackage validates.
+after the new GeoPackage validates. Overwrite refuses SQLite journals and active
+readers/writers. It copies through SQLite under an exclusive lock, preserving the
+destination file identity instead of replacing a potentially live database file.
 
 ```powershell
 python .\ryan-scripts\cad-python\cad_to_gpkg.py "D:\CAD\services.dxf"

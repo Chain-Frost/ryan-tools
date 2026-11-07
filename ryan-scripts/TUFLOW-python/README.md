@@ -970,7 +970,9 @@ analysis bounds, clipped-out portions, the requested minimum coverage extent,
 observed final clipped extent, remaining coverage gaps and any valid coverage
 lost during trimming. All valid-coverage comparisons use the **planning-grid
 resolution**, so they are not proof of exact native-resolution equivalence.
-It refuses to overwrite any destination and never edits original rasters or TGCs.
+Written-raster QA retains each original polygon clip, including where native
+pixels cross planning-cell boundaries. It refuses to overwrite any destination
+and never edits original rasters or TGCs.
 
 ```powershell
 py -3.14 .\ryan-scripts\TUFLOW-python\crop_tgc_terrains.py `

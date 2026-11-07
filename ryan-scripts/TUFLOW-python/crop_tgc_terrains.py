@@ -23,7 +23,7 @@ from __future__ import annotations
 # pyright: reportCallIssue=false, reportGeneralTypeIssues=false
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-04.1"
+WRAPPER_VERSION = "2026-11-08.1"
 
 TGC = Path("model/GEOM_01.tgc")
 SCENARIO = "EXG"
@@ -751,7 +751,7 @@ def _write_coverage_qa(
             )
         original = _coverage_mask(planned.layer, grid, bounds)
         final = (
-            _coverage_mask(replace(planned.layer, source=planned.output, mask=None), grid, bounds)
+            _coverage_mask(replace(planned.layer, source=planned.output), grid, bounds)
             if not planned.omitted
             else np.zeros(grid.shape, dtype=bool)
         )

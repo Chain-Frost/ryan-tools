@@ -245,3 +245,70 @@ The local-CI guidance and this validation record are a subsequent documentation-
 commit; its checks are separate from that successful code-head evidence. The checkout
 is on surviving branch `feat/tgc-terrain-crop`; #246 remains merged into #204, while
 #204 remains open. Native engineering gates and any main merge remain separate.
+
+
+## 2026-11-08 - review repairs and native acceptance
+
+Refreshed #204 with main `5ad632cc` at merge `c72a85d5`; retained current
+commit/push guidance and reconciled the live inventory to 160 files (83 selected,
+77 excluded). Fixed both unresolved review findings:
+
+- CAD overwrite rejects SQLite WAL/SHM/rollback journals and active readers/writers.
+  It holds SQLite exclusive locking mode across a transactional backup into the
+  existing destination, preserving file identity instead of replacing a live inode.
+  Publication tests cover active WAL/rollback writers, active readers, successful
+  overwrite and actual DXF conversion/overwrite.
+- Written terrain coverage QA preserves the original polygon clip. A 6 m native /
+  10 m planning-grid regression now detects the uncovered column and prevents
+  patched-TGC publication rather than reporting the spillover pixel as coverage.
+
+### Native migration baseline
+
+Built/verified wheel 26.11.8.1 and installed it into a temporary target. Both the
+immutable original source `33ac5fe90a1c92e775427bcfa02f50c14dcadc34` and the wheel
+ran the checksummed original fixture with GRASS 8.5 and TUFLOW 2026.3. The original
+validation harness omitted `generate_catchments=True` despite requiring its outputs;
+only the temporary archived harness was corrected to match the migrated settings.
+Original algorithm/source files and the source checkout were not edited.
+
+All five hydrology rasters have exact grid/CRS/pixel equality. All 107 paired
+GeoPackage layers (including canonical empty layers) have identical schema, CRS,
+feature attributes and geometry. Counts remain 805 streams, 535 subcatchments,
+111 inflow catchments and 111 longest paths. Intentional project differences are
+boundary GIS, QML, utility copying, projection filenames and the updated templates.
+Original build/read-back: 19.04 s; migrated: 18.42 s. These timings do not establish
+large-project performance or hydraulic simulation acceptance.
+
+QGIS 4.2.3, through OSGeo4W's initialized `python-qgis.bat`, reopened the eight
+working/hydrology layers: valid EPSG:28350 layers, no invalid/empty geometries.
+Subcatchment overlap area is numerical roundoff only (absolute 0.000013 m2).
+A native fixture crop preserves 10,000 valid elevations and resolution; its
+101-by-100 output has one NoData padding row from window rounding.
+
+### Approved private-model assessment
+
+The maintainer approved the previously supplied model for validation. Its identity,
+paths, coordinates and raw reports remain private, outside the repository. Read-only
+inventory found 12 active terrain rasters, one polygon clip, 1 m / 5 m resolutions,
+one horizontal CRS and no embedded vertical CRS. A bounded roughly 500 m square
+analysis contains 10,100 valid analysis cells: independent sequential source
+composition matches both elevations and source indices exactly. The highest-priority
+source supplies 36 cells; a lower source supplies the remaining 10,064. Their
+36-cell overlap differences range from -0.224 to +0.101 m (median -0.122 m);
+these are observed source differences, not proof of vertical-datum compatibility.
+Prepared-window validation retains two rasters, omits ten inactive-in-window rasters,
+and preserves every valid native elevation/CRS/resolution (250,000 and 786 cells).
+Source data was unchanged. Cropping took 11.59 s for this bounded case.
+
+Remaining engineering gates are explicit: no regional SRTM/different-CRS terrain
+was present in the selected stack; vertical datum/provenance was not established;
+no real exclusion polygons or signed-off missing-upstream-flow treatment were
+identified; full original/prepared TUFLOW DEM_Z and large-area performance remain
+unverified. Do not close #242-#245, archive the original repository or infer full
+hydraulic acceptance from these bounded checks. Synthetic exclusion regressions
+remain distinct from real-project engineering approval.
+
+Focused CAD/terrain regressions and strict typing pass. The full hosted command
+reported 2,618 passes / 33 skips with one stale inventory-count assertion; that
+work-register count is corrected and all 22 inventory tests pass. Full final-head
+local/hosted validation, fresh review and pushed delivery are being refreshed.

@@ -5,7 +5,7 @@
 | Status | In review; CI rerunning after native coverage fix and CAD script restoration; native TUFLOW equivalence outstanding |
 | Owner | ChatGPT |
 | Created | 2026-11-04 |
-| Updated | 2026-11-07 |
+| Updated | 2026-11-08 |
 | Next review | 2026-11-11 |
 | Baseline | `main` at `ec873425`; branch `feat/tgc-terrain-crop`; unrelated local GDAL-script changes preserved |
 
@@ -166,3 +166,14 @@ All six hosted checks pass at repair commit `914dcda5` (Python CI `42388174134`,
 Fast PR `42388174135`). Subsequent documentation-only delivery has separate checks.
 The [initialiser record](tuflow-initialiser/README.md) owns detailed reproduction and
 delivery evidence. Native engineering acceptance remains outstanding; no main merge.
+
+
+### 2026-11-08 - current-main conflicts and review findings
+
+Main refreshed at `c72a85d5`; live inventory is 160 files / 83 selected / 77 excluded.
+The CAD SQLite publication and clipped-raster final-QA review findings are repaired
+with executable regressions. Native original-versus-installed migration equality,
+QGIS read-back and approved anonymized real-terrain-window validation passed; the
+[initialiser record](tuflow-initialiser/README.md#2026-11-08---review-repairs-and-native-acceptance)
+owns detailed evidence and the remaining engineering gates. Validation/review and
+pushed-head CI are being refreshed. No main merge or publication is authorised.

@@ -33,7 +33,7 @@ from collections.abc import Generator, Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-SCRIPT_VERSION = "2026-11-04.1"
+SCRIPT_VERSION = "2026-11-08.1"
 
 # CLI arguments override these editable settings. Relative paths use the
 # current working directory. None for OUTPUT_DIRECTORY writes beside each CAD.
@@ -54,11 +54,12 @@ import hashlib
 import json
 import os
 import shutil
+import sqlite3
 import subprocess
 import sys
 import tempfile
 import uuid
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from typing import Any
 
 from osgeo import gdal, ogr, osr
@@ -550,9 +551,50 @@ def _copy_to_destination_staging(
         raise ConversionError(message)
 
 
+def _refuse_sqlite_journals(output: Path) -> None:
+    for suffix in ("-wal", "-shm", "-journal"):
+        if Path(f"{output}{suffix}").exists():
+            message = f"Cannot overwrite a journaled GeoPackage; close its users and checkpoint it first: {output}"
+            raise ConversionError(message)
+
+
+def _overwrite_geopackage(temporary_output: Path, output: Path) -> None:
+    """Copy through SQLite while holding its exclusive lock; never replace a live database inode."""
+    if output.is_symlink():
+        message = f"Cannot overwrite a linked GeoPackage: {output}"
+        raise ConversionError(message)
+    _refuse_sqlite_journals(output)
+    identity = output.stat()
+
+    def progress(status: int, _remaining: int, _total: int) -> None:
+        if status not in (sqlite3.SQLITE_OK, sqlite3.SQLITE_DONE):
+            message = f"GeoPackage became busy during overwrite: {output} (SQLite status {status})"
+            raise ConversionError(message)
+
+    try:
+        with (
+            closing(sqlite3.connect(f"{output.absolute().as_uri()}?mode=rw", uri=True, timeout=0)) as destination,
+            closing(sqlite3.connect(f"{temporary_output.absolute().as_uri()}?mode=ro", uri=True, timeout=0)) as source,
+        ):
+            destination.execute("PRAGMA locking_mode=EXCLUSIVE")
+            destination.execute("BEGIN EXCLUSIVE")
+            _refuse_sqlite_journals(output)
+            if not os.path.samestat(identity, output.stat()):
+                message = f"GeoPackage changed during overwrite preparation: {output}"
+                raise ConversionError(message)
+            # Exclusive locking mode retains the lock after rollback, without an
+            # active transaction (the backup API requires that transaction boundary).
+            destination.rollback()
+            source.backup(destination, pages=-1, progress=progress)
+    except sqlite3.Error as exc:
+        message = f"Could not safely overwrite GeoPackage (it may be in use): {output}: {exc}"
+        raise ConversionError(message) from exc
+    temporary_output.unlink()
+
+
 def _publish_temporary_output(temporary_output: Path, output: Path, *, overwrite: bool) -> None:
-    if overwrite:
-        temporary_output.replace(output)
+    if overwrite and output.exists():
+        _overwrite_geopackage(temporary_output, output)
         return
     if output.exists():
         message = f"Output appeared during conversion and was not replaced: {output}"

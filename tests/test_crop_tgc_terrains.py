@@ -279,3 +279,34 @@ def test_detected_coverage_loss_fails_before_patched_tgc_is_published(
     assert (output_dir / "terrain_coverage_qa.gpkg").is_file()
     assert not (output_dir / "terrain_crop_manifest.json").exists()
     assert not tgc.with_name("geometry_EXG_cropped.tgc").exists()
+
+
+def test_written_coverage_qa_retains_polygon_clip_on_misaligned_native_grid(tmp_path: Path) -> None:
+    """A retained native pixel crossing x=10 must not broaden a clip ending at x=9."""
+    from shapely.geometry import box, mapping, shape
+
+    _write_raster(tmp_path / "source.tif", np.ones((2, 4), dtype="float32"), transform=Affine(6, 0, 0, 0, -6, 12))
+    clip = tmp_path / "clip.gpkg"
+    with fiona.open(
+        clip, "w", driver="GPKG", crs="EPSG:28350", layer="clip", schema={"geometry": "Polygon", "properties": {}}
+    ) as output:
+        output.write({"geometry": mapping(box(0, 0, 9, 12)), "properties": {}})
+    tgc = tmp_path / "geometry.tgc"
+    tgc.write_text("Read Grid Zpts == source.tif | clip.gpkg\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="uncovered=1"):
+        MODULE.run(
+            tgc_path=tgc,
+            scenario="EXG",
+            bounds=MODULE.AnalysisBounds(0, 0, 20, 10),
+            crs="EPSG:28350",
+            seam_buffer=0,
+            planning_resolution=10,
+            output_directory=tmp_path / "cropped",
+            write=True,
+        )
+    with fiona.open(tmp_path / "cropped" / "terrain_coverage_qa.gpkg", layer="final_clipped_extent") as features:
+        geometries = [shape(feature.geometry) for feature in features]
+        assert geometries
+        assert max(geometry.bounds[2] for geometry in geometries) <= 10
+
+    assert not tgc.with_name("geometry_EXG_cropped.tgc").exists()
