@@ -1,6 +1,7 @@
 """Verify existing HU/HD PO consumers against independent EG02 source values (issue #237)."""
 
 from pathlib import Path
+from typing import Protocol, cast
 
 import numpy as np
 import pandas as pd
@@ -11,6 +12,12 @@ from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 
 EG02: Path = Path(__file__).parents[3] / "test_data" / "tuflow" / "TUFLOW_Example_Model_Dataset" / "EG02"
+
+
+class _TPCStructureReader(Protocol):
+    """The public subset of TPC needed for the numerical acceptance test."""
+
+    def time_series(self, locations: str, data_types: str) -> pd.DataFrame: ...
 
 
 @pytest.fixture(scope="module")
@@ -100,7 +107,8 @@ def test_pinned_pytuflow_tpc_returns_independent_hu_hd_source_levels() -> None:
     """Existing public TPC reader must return actual levels, not merely the expected shape."""
     from pytuflow import TPC  # Delayed import keeps the ordinary PO regression separate.
 
-    reader = TPC(EG02 / "plot" / "EG02_011.tpc")
+    # The upstream TPC method also exposes untyped *args/**kwargs; bind its tested public contract.
+    reader = cast("_TPCStructureReader", TPC(EG02 / "plot" / "EG02_011.tpc"))
     for data_type, first_wet, valid_max in (
         ("u-s structure water level", 38.6572, 40.7877),
         ("d-s structure water level", 38.3981, 40.6995),
@@ -108,6 +116,8 @@ def test_pinned_pytuflow_tpc_returns_independent_hu_hd_source_levels() -> None:
         frame = reader.time_series("Bridge", data_type)
         assert frame.shape == (181, 1)
         values = frame.iloc[:, 0]
-        assert (values.iloc[:44] == -99999).all()
+        # TPC normalises the first 44 source -99999 values to missing (unlike POProcessor).
+        assert values.iloc[:44].isna().all()
+        assert values.iloc[44:].notna().all()
         assert values.iloc[44] == pytest.approx(first_wet, abs=3e-6)
         assert values.iloc[44:].max() == pytest.approx(valid_max, abs=3e-6)
