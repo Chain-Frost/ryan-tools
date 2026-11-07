@@ -672,6 +672,82 @@
       "description": "Final cumulative mass error reported by TUFLOW, expressed as a percentage.",
       "value_type": "float"
     },
+    "TLF_1D_Negative_Depths": {
+      "description": "Total 1D negative depths explicitly reported in the main TLF final summary (count).",
+      "value_type": "int"
+    },
+    "TLF_HPC_HCN_Repeated_Timesteps": {
+      "description": "HPC repeated timesteps due to high control numbers in the main TLF final summary (count).",
+      "value_type": "int"
+    },
+    "TLF_HPC_NaN_Repeated_Timesteps": {
+      "description": "HPC repeated timesteps due to NaNs in the main TLF final summary (count).",
+      "value_type": "int"
+    },
+    "TLF_HPC_NaN_Warnings_2550": {
+      "description": "HPC NaN warning 2550 count reported in the main TLF final summary.",
+      "value_type": "int"
+    },
+    "TLF_Warnings_Prior": {
+      "description": "Warnings prior to simulation reported in the main TLF final summary (count).",
+      "value_type": "int"
+    },
+    "TLF_Warnings_During": {
+      "description": "Warnings during simulation reported in the main TLF final summary (count).",
+      "value_type": "int"
+    },
+    "TLF_Checks_Prior": {
+      "description": "CHECKs prior to simulation reported in the main TLF final summary (count).",
+      "value_type": "int"
+    },
+    "TLF_Checks_During": {
+      "description": "CHECKs during simulation reported in the main TLF final summary (count).",
+      "value_type": "int"
+    },
+    "TLF_Quadtree_ZC_Cells": {
+      "description": "Quadtree mesh ZC cell count from the main TLF header; distinct from HPC active 2D cells.",
+      "value_type": "int"
+    },
+    "TLF_Quadtree_ZU_Faces": {
+      "description": "Quadtree mesh ZU face count from the main TLF header.",
+      "value_type": "int"
+    },
+    "TLF_Quadtree_ZV_Faces": {
+      "description": "Quadtree mesh ZV face count from the main TLF header.",
+      "value_type": "int"
+    },
+    "TLF_Quadtree_ZH_Corners": {
+      "description": "Quadtree mesh ZH corner count from the main TLF header.",
+      "value_type": "int"
+    },
+    "HPC_Active_2D_Cells": {
+      "description": "Active 2D cell count from a conventional matching HPC companion; never summed across domains.",
+      "value_type": "int"
+    },
+    "HPC_Sealed_Wall_Cells": {
+      "description": "Sealed wall cell count from a matching HPC companion; separate from active and quadtree cells.",
+      "value_type": "int"
+    },
+    "HPC_Groundwater_Cells": {
+      "description": "Groundwater cell count only when explicitly reported in the HPC companion; layer count is not equivalent.",
+      "value_type": "int"
+    },
+    "HPC_nWet_Observed_Max": {
+      "description": "Maximum nWet among sampled HPC companion history rows; NOT a guaranteed all-timestep maximum (cells).",
+      "value_type": "int"
+    },
+    "HPC_nWet_Sampled_Records": {
+      "description": "Number of complete HPC companion timestep-history rows scanned (records); does not establish complete coverage.",
+      "value_type": "int"
+    },
+    "HPC_Companion_Path": {
+      "description": "Expected or read HPC companion path, paired by conventional main TLF run-code name.",
+      "value_type": "string"
+    },
+    "HPC_Companion_Status": {
+      "description": "Opt-in HPC companion evidence: missing, observed, incomplete, changed_during_read, multiple_domains or unreadable. Observed does not establish a completed full timestep history.",
+      "value_type": "string"
+    },
     "TGC": {
       "description": "TUFLOW geometry control filename reported in the log.",
       "value_type": "string"
