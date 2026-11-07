@@ -1,6 +1,6 @@
 # WP06 — owned staging in standalone output workflows
 
-**Status:** Active — #232 in draft PR #258 (stacked on #251); #197 in draft PR #264 (stacked on #258); #200 requires GDAL environment.
+**Status:** Partial implementation: #232 hosted checks pass on PR #258; #197 code/tests on PR #264 with strict-typing fix under CI; #200 not implemented. Both child PRs remain draft. No main merge.
 **Owner:** WP06 delivery agent.
 **Updated:** 2026-11-08 (Perth).
 **Next review:** 2026-11-15 or when current-head CI/native validation is available.
@@ -13,8 +13,8 @@
 - Profile PNGs now render through an exclusive unique same-directory staging file; publication is explicit overwrite or operating-system atomic no-replace. Casefold name collisions are rejected, and only the invocation's stage is cleaned.
 - Focused tests cover concurrent publishers, a late competing destination, case aliases, render/publish failures and independent per-profile publication. Raster sampling is mocked while GIS fixture and output files are real.
 - Existing sampling values, CRS handling and profile selection were not intentionally changed.
-- **Validation actually run:** isolated Python 3.13.5 filesystem-publication harness `python -m pytest -q test_profile_publish_harness.py`: **5 passed** on Linux. This is a standalone recreation of the publication helper, **not** the repository test suite or an installed wheel check.
-- **Not yet run/confirmed:** repository-focused Python 3.14 pytest, changed-file Ruff/strict Pyright, package build/copied-wrapper smoke, native Windows/SMB lock/case behaviour. Hosted CI was triggered by draft #258; follow its exact head/checks rather than treating an earlier commit as validated.
+- **Verified hosted acceptance:** Windows Python 3.14.10, PR #258 head `805c6e11`: **6/6 checks passed** (including Ruff, strict Pyright policy, packaging, MCP smoke, POSIX security, and 2,534 hosted pytest passes / 14 skips / 8 deselections). Focused profile publication tests were collected and passed. Previous notes of a separate five-test Python 3.13 harness have no retained run artifact and are not independently counted here.
+- **Still unverified:** Native Windows mapped-drive/SMB lock and concurrent publication acceptance, and a separate installed/copied-wrapper profile smoke. Hosted package/MCP checks are not automatically evidence of a copied-profile-wrapper run.
 - **Publication boundary:** output files are committed individually; if a later profile fails, already published PNGs remain. POSIX without hard-link support fails safely rather than falling back to a non-atomic copy.
 
 ## Second delivery — archive publication (#197)
@@ -24,7 +24,7 @@
 - Folder archiving now retains dotted source names: `model.v1` → `model.v1.7z`, distinct from `model.v2.7z`. The wrapper preflights physical destination aliases before dispatch, while preserving user-provided path spelling.
 - Existing single-volume, split-volume and individual-file consumers retain their public options. Split-volume publication consists of multiple file publishes, **not a filesystem-atomic set**; process/machine interruption can leave a partial set. An abandoned `.*.writing` claim requires inspection before manual removal.
 - Focused disposable regression cases added: case-insensitive/volume collisions, late output creation, active-worker contention, incomplete/failed 7-Zip outputs, staged interruptions, split rollback, dotted siblings and symlinked output-directory aliases.
-- **Validation status:** new tests committed; Python 3.14/Ruff/strict Pyright and hosted suite **not yet confirmed** for the archive change. Real Windows 7-Zip / SMB active-writer and split-volume checks remain native acceptance.
+- **Hosted tests before final typing fix:** PR #264 at `327f8411` had **5/6 green**: 2,545 hosted pytest passes / 14 skips / 8 deselections, Ruff, package, MCP, POSIX security all passed; Policy failed on one test-only strict Pyright `reportPrivateUsage`. Fix committed at `8ba5fc41`, with new exact-head CI running at this record update. No independent real 7-Zip integration was accepted: `tests/scripts/test_archive_compress.py` is excluded from the normal hosted suite. Real Windows 7-Zip split volumes and active SMB writer/lock acceptance remain required.
 
 ## Third delivery — cutline GDAL (#200)
 
@@ -34,4 +34,17 @@ Conditional on a suitable GDAL raster/cutline environment to validate CRS and sp
 
 The environment cannot resolve `github.com` over Git transport, so no remote clone/checkout or Git push was possible from the container. Work was staged on a dedicated remote branch using the connected GitHub API. A separate local Git worktree at `/mnt/data/wp06-profile-worktree` was used for an isolated filesystem harness only; it is **not** a checkout of the remote repository. No submodules or `unsorted` were traversed. No solver or production input was used. Branch integration is by non-force merge commits only; nothing was merged to main or released.
 
-**Next action:** confirm #258/stack exact-head CI and archive #197 focused hosted tests; repair check failures on the owning branches. Obtain Windows 7-Zip/SMB evidence for #197. Keep #200 as a native-GDAL gate until a valid environment is available.
+## Issue-closing and integration plan
+
+GitHub's closing keywords only create the automatic issue-closing relationship when the PR targets the repository default branch. PR #258 targets #251's branch, and PR #264 targets #258's branch; their current issue references are **not** configured to auto-close #232 or #197 on a child merge. Do not claim these issues closed.
+
+Once each approved child is incorporated into #251's branch and its acceptance is satisfied, add explicit `Closes #232` and `Closes #197` lines to the **main-targeting parent #251** before any separately authorised final squash merge. Do not add a closing keyword for #200 until its own scope and validation are delivered. No automatic closing keywords are set on #251 for the unintegrated WP06 issues yet.
+
+## Remaining acceptance
+
+1. Confirm PR #264's new exact-head CI, inspect any failing jobs and repair within its own draft branch.
+2. Obtain representative native Windows/SMB profile-output concurrency/lock evidence (#232) and native 7-Zip single/split volume, linked-path and SMB evidence (#197). Record accepted exceptions rather than asserting a native pass.
+3. Implement #200 in a separate reviewable delivery when a native GDAL environment permits real raster CRS/cutline spatial, collision and failure tests.
+4. Coordinate branch integration with #251's owner and other stacked packs; only after approved code and acceptance are in the main-targeting PR should its issue-closing lines be activated.
+
+**Next action:** check #264 latest CI and address any finding; do not merge any PR to `main`, enable auto-merge or release.
