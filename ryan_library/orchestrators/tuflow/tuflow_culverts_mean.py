@@ -13,7 +13,7 @@ __lazy_modules__ = ["pandas"]
 from collections.abc import Collection, Sequence
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Literal, cast
 
 import pandas as pd
 from loguru import logger
@@ -399,7 +399,7 @@ def _find_culvert_aep_statistic_max(aep_dur_stat: pd.DataFrame, statistic: Stati
     has_metric_column: str = f"_has_{statistic}_metric"
     bin_column: str = f"{statistic}_bin"
     df[metric_work_column] = pd.to_numeric(df[metric_column], errors="coerce")
-    df[has_metric_column] = df[metric_work_column].notna()
+    df[has_metric_column] = df[metric_work_column].notna() & df[metric_work_column].abs().ne(float("inf"))
 
     if not df[has_metric_column].any():
         logger.warning(f"{statistic.title()} metric column '{metric_column}' does not contain any numeric values.")
@@ -431,22 +431,9 @@ def _group_key_values(group_columns: list[str], key: object) -> dict[str, object
 
 
 def _preferred_metric_column(aep_dur_stat: pd.DataFrame, statistic: StatisticName) -> str | None:
-    """Return the preferred statistic column used to identify maximum durations (e.g. mean_Q)."""
-    prefix: str = f"{statistic}_"
-    candidate_columns: list[str] = [column for column in aep_dur_stat.columns if column.startswith(prefix)]
-    if not candidate_columns:
-        return None
-
-    preferred_order: tuple[str, ...] = (
-        f"{prefix}Q",
-        f"{prefix}V",
-        f"{prefix}DS_h",
-        f"{prefix}US_h",
-    )
-    for preferred in preferred_order:
-        if preferred in candidate_columns:
-            return preferred
-    return candidate_columns[0]
+    """Discharge reports require a Q statistic: never govern by geometry or metadata."""
+    preferred = f"{statistic}_Q"
+    return preferred if preferred in aep_dur_stat.columns else None
 
 
 def _group_columns(df: pd.DataFrame, include_duration: bool) -> list[str]:
