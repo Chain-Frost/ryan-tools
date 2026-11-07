@@ -22,6 +22,7 @@ from loguru import logger
 from pandas import DataFrame
 
 from ...functions.excel_export import ExcelExporter, ExportContent, RawTableExport
+from ...functions.live_dashboard import LiveWorkflowDashboard
 from ...functions.loguru_helpers import setup_logger
 from ...functions.tuflow.closure_durations_functions import (
     calculate_threshold_durations,
@@ -45,68 +46,95 @@ def run_closure_durations(
     allowed_locations: tuple[str, ...] | None = None,
     log_level: str = "INFO",
     export_mode: Literal["excel", "parquet", "both"] = "excel",
-) -> None:
-    """Process PO files under ``paths`` and report closure durations.
+    use_live_dashboard: bool = True,
+    live_refresh_per_second: float = 2.0,
+    live_max_rows: int = 10,
+) -> bool:
+    """Process PO closure durations with a dashboard that lasts through export.
 
-    Workflow:
-    - Discover and parse PO files via the processor pipeline.
-    - Filter by location (if provided).
-    - Compute exceedance durations for each threshold/location.
-    - Summarise results before staging any output.
-    - Export the raw CSV/gzip-Parquet tables and selected formatted reports as one batch.
-
-    ``export_mode`` selects the formatted report formats. The legacy raw tables
-    are retained in every mode, with the same no-overwrite policy as the reports.
+    The legacy raw tables and selected formatted reports remain one protected
+    publication batch. Per-file failures within the shared processor pipeline
+    require its separate validity/outcome contract and are not inferred here.
     """
     if paths is None:
         paths = [Path.cwd()]
     if thresholds is None:
         values: set[int] = set(list(range(1, 10)) + list(range(10, 100, 2)) + list(range(100, 2100, 10)))
         thresholds = [float(v) for v in values]
-    normalized_locations: frozenset[str] = BaseProcessor.normalize_locations(locations=allowed_locations)
+    normalized_locations = BaseProcessor.normalize_locations(locations=allowed_locations)
+    dashboard = LiveWorkflowDashboard(
+        title="TUFLOW Closure Durations",
+        subtitle=str(Path.cwd()),
+        enabled=use_live_dashboard,
+        refresh_per_second=live_refresh_per_second,
+        max_rows=live_max_rows,
+    )
 
     with setup_logger(console_log_level=log_level) as log_queue:
-        collection: ProcessorCollection = bulk_read_and_merge_tuflow_csv(
-            paths_to_process=list(paths),
-            include_data_types=["PO"],
-            log_queue=log_queue,
-        )
+        with dashboard:
+            dashboard.set_tasks(labels=["Closure-duration report"])
+            dashboard.mark_running(index=1)
+            try:
+                dashboard.set_phase("Processing")
+                collection: ProcessorCollection = bulk_read_and_merge_tuflow_csv(
+                    paths_to_process=list(paths),
+                    include_data_types=["PO"],
+                    log_queue=log_queue,
+                )
+                if normalized_locations:
+                    collection.filter_locations(locations=normalized_locations)
+                if not collection.processors:
+                    logger.warning("No PO CSV files were processed.")
+                    dashboard.mark_finished(index=1, status="SKIP", detail="no PO processors")
+                    dashboard.finish(outcome="SKIPPED", detail="no report generated")
+                    return True
 
-        if normalized_locations:
-            collection.filter_locations(locations=normalized_locations)
+                dashboard.set_phase("Aggregating")
+                po_df: DataFrame = _collect_po_data(collection=collection)
+                if po_df.empty:
+                    logger.warning("PO processors returned no data. Skipping export.")
+                    dashboard.mark_finished(index=1, status="SKIP", detail="no PO rows")
+                    dashboard.finish(outcome="SKIPPED", detail="no report generated")
+                    return True
 
-        if not collection.processors:
-            logger.warning("No PO CSV files were processed.")
-            return
+                result_df: DataFrame = _calculate_threshold_durations(
+                    po_df=po_df,
+                    thresholds=thresholds,
+                    measurement_type=data_type,
+                )
+                if result_df.empty:
+                    logger.warning("No hydrograph data processed.")
+                    dashboard.mark_finished(index=1, status="SKIP", detail="no exceedance rows")
+                    dashboard.finish(outcome="SKIPPED", detail="no report generated")
+                    return True
 
-        # Combine PO processor outputs; warns if nothing to work with.
-        po_df: DataFrame = _collect_po_data(collection=collection)
-        if po_df.empty:
-            logger.warning("PO processors returned no data. Skipping export.")
-            return
-
-        # Calculate exceedance durations per threshold/location.
-        result_df: DataFrame = _calculate_threshold_durations(
-            po_df=po_df,
-            thresholds=thresholds,
-            measurement_type=data_type,
-        )
-        if result_df.empty:
-            logger.warning("No hydrograph data processed.")
-            return
-
-        timestamp: str = datetime.now().strftime(format="%Y%m%d-%H%M")
-        summary_df: DataFrame = summarise_results(df=result_df)
-        summary_df["AEP_sort_key"] = summary_df["AEP"].str.extract(r"([0-9]*\.?[0-9]+)")[0].astype(dtype=float)
-        summary_df = summary_df.sort_values(by=["Path", "Location", "ThresholdFlow", "AEP_sort_key"], ignore_index=True)
-        summary_df = summary_df.drop(columns="AEP_sort_key")
-        _export_closure_duration_artifacts(
-            durations_df=result_df,
-            summary_df=summary_df,
-            timestamp=timestamp,
-            export_mode=export_mode,
-        )
-        logger.info("Closure duration export complete.")
+                timestamp: str = datetime.now().strftime(format="%Y%m%d-%H%M")
+                summary_df: DataFrame = summarise_results(df=result_df)
+                summary_df["AEP_sort_key"] = summary_df["AEP"].str.extract(r"([0-9]*\\.?[0-9]+)")[0].astype(dtype=float)
+                summary_df = summary_df.sort_values(
+                    by=["Path", "Location", "ThresholdFlow", "AEP_sort_key"], ignore_index=True
+                )
+                summary_df = summary_df.drop(columns="AEP_sort_key")
+                dashboard.set_phase("Exporting")
+                _export_closure_duration_artifacts(
+                    durations_df=result_df,
+                    summary_df=summary_df,
+                    timestamp=timestamp,
+                    export_mode=export_mode,
+                )
+                logger.info("Closure duration export complete.")
+                dashboard.mark_finished(index=1, status="OK", detail=f"{len(result_df)} duration row(s)")
+                dashboard.finish(outcome="SUCCESS", detail="closure report exported")
+                return True
+            except KeyboardInterrupt:
+                dashboard.mark_finished(index=1, status="FAIL", detail="interrupted")
+                dashboard.finish(outcome="INTERRUPTED", detail="processing interrupted")
+                raise
+            except Exception:
+                logger.exception("Closure duration workflow failed during processing or export.")
+                dashboard.mark_finished(index=1, status="FAIL", detail="processing or export failed")
+                dashboard.finish(outcome="FAILED", detail="processing or export failed")
+                raise
 
 
 def _export_closure_duration_artifacts(
