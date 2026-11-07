@@ -23,6 +23,10 @@ _COUNT_PATTERNS: dict[str, re.Pattern[str]] = {
     "HPC_Active_2D_Cells": re.compile(r"^\s*Number active cells\s*=\s*(\d+)\s*$", re.IGNORECASE),
     "HPC_Sealed_Wall_Cells": re.compile(r"^\s*Number sealed wall cells\s*=\s*(\d+)\s*$", re.IGNORECASE),
     "HPC_Groundwater_Cells": re.compile(r"^\s*Number groundwater cells\s*=\s*(\d+)\s*$", re.IGNORECASE),
+    "HPC_Groundwater_Active_Cells": re.compile(r"^\s*Number groundwater active cells\s*=\s*(\d+)\s*$", re.IGNORECASE),
+    "HPC_Groundwater_Sealed_Wall_Cells": re.compile(
+        r"^\s*Number groundwater sealed wall cells\s*=\s*(\d+)\s*$", re.IGNORECASE
+    ),
 }
 
 
