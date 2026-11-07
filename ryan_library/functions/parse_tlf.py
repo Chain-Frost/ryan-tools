@@ -115,6 +115,9 @@ def _extract_control_file(line: str) -> tuple[str, str] | None:
 
     # Deliberate TUFLOW explanatory/redirection suffixes, not spaces or dots in filenames.
     path_text = re.split(r"\s+!\s+|\s+->\s+|\s+=>\s+|\s+\|\s+", raw_path, maxsplit=1)[0].strip().strip('"')
+    # Existing TUFLOW ECF logs may append ...redirecting directly to the
+    # control-file extension. Only remove this explicit suffix, not valid dots.
+    path_text = re.sub(r"(\.(?:ecf|tef|tgc|tbc|csv))\.{3}redirecting\b.*$", r"\1", path_text, flags=re.IGNORECASE)
     filename = PureWindowsPath(path_text.replace("/", "\\")).name
     if not filename:
         return None
