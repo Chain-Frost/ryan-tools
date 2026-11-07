@@ -384,22 +384,27 @@ def _buffer_binary(mask: np.ndarray[Any, np.dtype[np.bool_]], cells: int) -> np.
 def allocate_retained_coverage(
     coverages: Sequence[np.ndarray[Any, np.dtype[np.bool_]]],
     buffer_cells: int,
+    replacements: Sequence[np.ndarray[Any, np.dtype[np.bool_]]] | None = None,
 ) -> list[tuple[np.ndarray[Any, np.dtype[np.bool_]], int]]:
-    """Allocate precedence in reverse order and buffer each unique responsibility area."""
+    """Remove lower-priority data only under conservatively certified coverage."""
     if not coverages:
         return []
     shape = coverages[0].shape
     if any(coverage.shape != shape for coverage in coverages):
         message = "All planning coverage masks must share one shape"
         raise ValueError(message)
+    confirmed = coverages if replacements is None else replacements
+    if len(confirmed) != len(coverages) or any(item.shape != shape for item in confirmed):
+        message = "Confirmed replacement masks must match source layers and grid"
+        raise ValueError(message)
 
-    later_coverage = np.zeros(shape, dtype=bool)
+    later_certified = np.zeros(shape, dtype=bool)
     retained_reversed: list[tuple[np.ndarray[Any, np.dtype[np.bool_]], int]] = []
-    for coverage in reversed(coverages):
-        responsibility = coverage & ~later_coverage
+    for coverage, replacement in reversed(tuple(zip(coverages, confirmed, strict=True))):
+        responsibility = coverage & ~later_certified
         retained = coverage & _buffer_binary(responsibility, buffer_cells)
         retained_reversed.append((retained, int(np.count_nonzero(responsibility))))
-        later_coverage |= coverage
+        later_certified |= replacement
     retained_reversed.reverse()
     return retained_reversed
 
@@ -423,11 +428,13 @@ def build_plan(
         raise ValueError(message)
     grid = _planning_grid(bounds, planning_resolution, crs)
     coverages: list[np.ndarray[Any, np.dtype[np.bool_]]] = []
+    replacements: list[np.ndarray[Any, np.dtype[np.bool_]]] = []
     for index, layer in enumerate(layers, start=1):
         print(f"Inspecting terrain coverage {index}/{len(layers)}: {layer.source}")
         coverages.append(_coverage_mask(layer, grid, bounds))
+        replacements.append(_confirmed_replacement(layer, grid, bounds))
     buffer_cells = math.ceil(seam_buffer / planning_resolution)
-    allocations = allocate_retained_coverage(coverages, buffer_cells)
+    allocations = allocate_retained_coverage(coverages, buffer_cells, replacements)
     destination = _absolute(output_directory)
     plan = [
         PlannedLayer(
