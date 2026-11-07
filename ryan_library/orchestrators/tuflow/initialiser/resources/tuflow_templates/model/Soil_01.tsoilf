@@ -1,0 +1,4 @@
+!ID, Method, IL             , CL          , Comment
+  1, ILCL  , 0.0            , 3.0         , ! IL 0  CL 3
+ 99, NONE  , 0.0            , 0.0         , ! No infiltration
+100, ILCL  , <<InitialLoss>>, <<ContLoss>>, ! Set in TCF
