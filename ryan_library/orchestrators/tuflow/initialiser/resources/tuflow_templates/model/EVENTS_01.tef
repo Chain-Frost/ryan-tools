@@ -18,11 +18,11 @@ Define Event ==  PMP
     BC Event Source == ~PMP~ | PMP
 End Define
 
-Define Event == ILCL 
+Define Event == ILCL
     BC Event Source == ~ROC~ | 1.0
 End Define
 
-Define Event == NestedILCL 
+Define Event == NestedILCL
     BC Event Source == ~ROC~ | 1.0
 End Define
 
