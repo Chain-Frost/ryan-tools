@@ -168,3 +168,22 @@ Next review: 2026-11-08.
 - [Original repository](https://github.com/Chain-Frost/tuflow-initialiser)
 - [Original main baseline after PR #11](https://github.com/Chain-Frost/tuflow-initialiser/commit/33ac5fe90a1c92e775427bcfa02f50c14dcadc34)
 - [Migration PR #246](https://github.com/Chain-Frost/ryan-tools/pull/246)
+
+
+## Stack integration ? 2026-11-07
+
+The maintainer authorised merging #246 into #204 only. Current `main` was integrated
+into #204 as `886be97c`; documentation conflicts retained both terrain/CAD additions
+and newer main guidance/audit evidence. Parent validation: 156 focused terrain/CAD/runner
+passes and two Windows symlink-privilege skips; strict runner typing and Ruff pass.
+The initialiser branch now incorporates that parent. Conflict resolution preserves
+scoped commit/push guidance, all work-register rows, and main's newer package version.
+Combined validation: 267 focused terrain/CAD/project/initialiser/runner tests passed,
+with two Windows symlink-privilege skips. Documentation/link checks, runner strict
+Pyright and Ruff pass. The verification build produced wheel 26.11.7.9 (SHA-256
+`fcc7e928505d381a45e226e9158a48e3082b5d685d88313f0a75895dd8aac9a5`).
+The parent was pushed at `886be97c`; hosted checks started for that head. The child
+conflict-resolution commit is ready to push and merge into #204 after hosted checks.
+The earlier h5py DLL diagnostic still appears during collection; it does not prevent
+these tests passing and does not establish native HDF5 capability. No merge of #204
+into main, engineering approval, release or publication is authorised by this integration.

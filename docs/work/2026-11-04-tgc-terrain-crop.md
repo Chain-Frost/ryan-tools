@@ -100,3 +100,45 @@ guarantees; those checks remain required under
 [tuflow-initialiser #6](https://github.com/Chain-Frost/tuflow-initialiser/issues/6)
 and [#9](https://github.com/Chain-Frost/tuflow-initialiser/issues/9).
 Plan-only runs remain read-only.
+
+
+## User-requested runner typing transfer (2026-11-07)
+
+At the user's explicit request, PR #204 also carries the previously uncommitted
+`simulation_runner.py` typing changes from the #183 checkout. The transfer is
+limited to annotations and a relative import inside TYPE_CHECKING; the newer
+#183 dashboard ordering/defaults and other dashboard work are not transferred.
+Use the existing `threading.Lock` class as the lock annotation and retain the
+already-declared progress snapshot type import. One redundant local `groups`
+annotation is omitted because its combination with the typed deque introduced
+Pyright unknown-type flow errors; the setting's existing tuple type is preserved.
+
+Ruff lint/format, strict Pyright and compilation pass. Focused simulation-runner
+and advisory-progress checks report **173 passed, two Windows symlink-privilege
+skips**. Normalized runtime AST matches #204's original module after removing
+annotation-only declarations and TYPE_CHECKING imports. A verification build
+with `--no-bump --skip-pip` preserves package `26.11.6.2` and verifies its wheel
+(SHA-256 `591e4ead0e7a920f83d5fb584ad701ba9eb1ed645a3d17c1f75e79ab5fddb77d`).
+The verification wheel is isolated; the user's installed dashboard package is
+not replaced. Final-head hosted checks remain authoritative at PR #204.
+No merge or publication is authorized.
+
+
+Typing implementation is pushed as `ae338782`. GitHub currently reports #204
+as conflicting with `main` (`DIRTY`); no workflow run was created for that head.
+Earlier passing runs belong to `becdc448` and are not validation of the typing
+transfer. Resolve the branch conflicts before collecting current-head PR CI.
+This transfer does not authorize merging or rebasing unrelated terrain work.
+The original checkout independently moved to clean `main` during the transfer;
+its changed state was detected before cleanup and left untouched.
+
+
+### 2026-11-07 ? stack conflict resolution
+
+Merged current `main` into the #204 branch to resolve documentation conflicts,
+preserving terrain/CAD guidance and the newer result-wrapper safety guidance and
+inventory recheck evidence. The static audit reports 159 tracked files, 83 selected
+and 33 MCP targets; 76 files are excluded. Shared runner changes combined cleanly
+and strict Pyright/Ruff checks pass. Focused terrain/CAD/runner validation is recorded
+with the integration follow-up. The maintainer authorised merging child #246 into
+#204; merging #204 into `main` remains unauthorised. Native engineering gates remain.

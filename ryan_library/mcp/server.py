@@ -9,14 +9,20 @@ from collections import Counter
 from collections.abc import Iterable
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-from typing import Any, Protocol, cast
+from typing import Annotated, Any, Protocol, cast
 
 from pandas import DataFrame, to_numeric
 
 try:
     from mcp.server import MCPServer
+    from pydantic import Strict
 except ImportError:
     MCPServer = None  # type: ignore[assignment, misc]
+    _overview_validation = None
+else:
+    # The optional MCP SDK supplies Pydantic. Reject coercion before the tool runs,
+    # while keeping direct Python helpers usable without the MCP extra.
+    _overview_validation = Strict()
 
 from ..classes.tuflow_string_classes import TuflowStringParser
 from ..processors.tuflow.base_processor import BaseProcessor
@@ -349,7 +355,7 @@ def list_workflows(
     query: str | None = None,
     limit: int = DEFAULT_WORKFLOW_LIMIT,
     offset: int = 0,
-    overview: bool = False,
+    overview: Annotated[bool, _overview_validation] = False,
 ) -> dict[str, Any]:
     """List workflows or domain overview (up to three examples/domain); paginate the selected rows."""
     if type(limit) is not int or not 1 <= limit <= MAX_WORKFLOW_LIMIT:

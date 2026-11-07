@@ -29,7 +29,7 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 # Embedded wrapper identity and editable user settings
 # ---------------------------------------------------------------------------
-WRAPPER_VERSION = "2026-10-16.3"
+WRAPPER_VERSION = "2026-11-07.1"
 ROOT_DIR = Path.cwd()
 TIF_ROOT_DIR: Path | None = None  # None means TIFs alongside FLT/ASC files
 DELETE_FILES = False  # Verification/proposal only unless set True or --delete
@@ -528,7 +528,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--no-progress", action="store_true", help="Disable live raster progress")
     parser.add_argument("--no-pause", action="store_true", help="Skip the interactive completion pause")
     args = parser.parse_args(argv)
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="TUFLOW-python/model_management/verify_converted_tuflow_rasters.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+    )
 
     root: Path = args.root.expanduser().absolute()
     tif_root: Path = args.tif_root.expanduser().absolute() if args.tif_root is not None else root
@@ -613,7 +617,12 @@ def main(argv: list[str] | None = None) -> int:
         proposal, errors, warnings = write_reports(results, root)
     except OSError as exc:
         print(f"Could not write reports; deletion cancelled: {exc}", file=sys.stderr)
-        print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+        print_wrapper_banner(
+            wrapper_source="TUFLOW-python/model_management/verify_converted_tuflow_rasters.py",
+            wrapper_file=Path(__file__),
+            wrapper_version=WRAPPER_VERSION,
+            leading_blank_line=True,
+        )
         return 2
     matched = sum(result.eligible for result in results)
     unverified_crs = sum(result.status == "MATCH_CRS_UNVERIFIED" for result in results)
@@ -628,7 +637,12 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Error report: {errors}")
     print(f"CRS warning report: {warnings}")
     exit_code = finish_deletion(results, len(sources), allow_delete=DELETE_FILES or args.delete)
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+    print_wrapper_banner(
+        wrapper_source="TUFLOW-python/model_management/verify_converted_tuflow_rasters.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        leading_blank_line=True,
+    )
     return exit_code
 
 

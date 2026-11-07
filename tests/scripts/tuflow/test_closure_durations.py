@@ -21,12 +21,12 @@ def _mock_df() -> MagicMock:
 @patch("ryan_library.orchestrators.tuflow.closure_durations.bulk_read_and_merge_tuflow_csv")
 @patch("ryan_library.orchestrators.tuflow.closure_durations.setup_logger")
 def test_run_closure_durations_success(
-    mock_logger,
-    mock_bulk,
-    mock_collect,
-    mock_calc,
-    mock_summary,
-    mock_export,
+    mock_logger: MagicMock,
+    mock_bulk: MagicMock,
+    mock_collect: MagicMock,
+    mock_calc: MagicMock,
+    mock_summary: MagicMock,
+    mock_export: MagicMock,
 ) -> None:
     mock_logger.return_value.__enter__.return_value = "log_queue"
 
@@ -56,13 +56,14 @@ def test_run_closure_durations_success(
     mock_bulk.assert_called_once()
     mock_collect.assert_called_once()
     mock_calc.assert_called_once()
-    result_df.to_parquet.assert_called_once()
+    result_df.to_parquet.assert_not_called()
+    result_df.to_csv.assert_not_called()
     mock_export.assert_called_once()
 
 
 @patch("ryan_library.orchestrators.tuflow.closure_durations.setup_logger")
 @patch("ryan_library.orchestrators.tuflow.closure_durations.bulk_read_and_merge_tuflow_csv")
-def test_run_closure_durations_no_processors(mock_bulk, mock_logger) -> None:
+def test_run_closure_durations_no_processors(mock_bulk: MagicMock, mock_logger: MagicMock) -> None:
     mock_logger.return_value.__enter__.return_value = "log_queue"
     collection = MagicMock()
     collection.processors = []

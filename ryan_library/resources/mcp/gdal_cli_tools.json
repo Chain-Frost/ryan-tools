@@ -1,17 +1,17 @@
 {
   "schema_version": "1.0",
   "catalogue": "Curated ryan-tools GDAL command-line wrappers",
-  "catalogue_updated": "2026-10-15",
+  "catalogue_updated": "2026-11-07",
   "selection_policy": "Stable, reusable workflows with recurring agent-facing value; basic and narrowly scoped wrappers remain available through normal script discovery.",
   "wrapper_versions": {
-    "gdal_translate_TIF_ovr.py": "2026-08-02.4",
-    "recompress_geotiffs.py": "2026-10-15.1",
-    "gdaladdo_tif_pyramids.py": "2026-08-02.4",
-    "gdal_raster_footprint.py": "2026-08-02.3",
-    "batch_vector_clip.py": "2026-08-20.1",
-    "gdal_stage_storage.py": "2026-08-20.2",
-    "gdalwarp_clip_to_polygon.py": "2026-08-20.1",
-    "split_vector_by_attribute.py": "2026-08-20.1"
+    "gdal_translate_TIF_ovr.py": "2026-11-07.2",
+    "recompress_geotiffs.py": "2026-11-07.1",
+    "gdaladdo_tif_pyramids.py": "2026-11-07.2",
+    "gdal_raster_footprint.py": "2026-11-07.1",
+    "batch_vector_clip.py": "2026-11-07.1",
+    "gdal_stage_storage.py": "2026-11-07.1",
+    "gdalwarp_clip_to_polygon.py": "2026-11-07.2",
+    "split_vector_by_attribute.py": "2026-11-07.1"
   },
   "repository_scripts_relative_to_root": "ryan-scripts/gdal-python",
   "agent_guidance": {

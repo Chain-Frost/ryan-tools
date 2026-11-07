@@ -7,7 +7,7 @@ rows already present in the master workbook table, and appends only new rows.
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-08-02.1"
+WRAPPER_VERSION = "2026-11-07.2"
 
 CONSOLE_LOG_LEVEL = "INFO"
 WORKING_DIR: Path = Path(
@@ -18,7 +18,7 @@ SHEET_NAME = "Log Summary"
 TABLE_NAME = "Table1"
 USE_LIVE_DASHBOARD = True
 LIVE_REFRESH_PER_SECOND = 2.0
-LIVE_MAX_ROWS = 25
+LIVE_MAX_ROWS = 10
 
 import argparse
 
@@ -45,7 +45,11 @@ def main(
     use_live_dashboard: bool | None = None,
 ) -> int:
     """Append new TUFLOW log-summary rows into the configured master workbook."""
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="TUFLOW-python/log_processing/append_log_summary_to_master_workbook.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+    )
     script_directory: Path = working_directory or WORKING_DIR
 
     if not change_working_directory(target_dir=script_directory):
@@ -110,6 +114,7 @@ if __name__ == "__main__":
         use_live_dashboard=common_options.use_live_dashboard,
     )
     print_wrapper_banner(
+        wrapper_source="TUFLOW-python/log_processing/append_log_summary_to_master_workbook.py",
         wrapper_file=Path(__file__),
         wrapper_version=WRAPPER_VERSION,
         leading_blank_line=True,
