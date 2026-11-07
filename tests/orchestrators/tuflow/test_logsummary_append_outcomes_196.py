@@ -15,6 +15,7 @@ from ryan_library.orchestrators.tuflow.tuflow_logsummary import LogFileProcessin
 def _workbook(path: Path) -> None:
     book = Workbook()
     sheet = book.active
+    assert sheet is not None
     sheet.title = "Log Summary"
     sheet.append(["Runcode", "orig_log_path"])
     sheet.append(["existing", "existing.tlf"])
@@ -41,7 +42,6 @@ def _result(path: Path, status: LogSummaryStatus) -> LogFileProcessingResult:
 )
 def test_append_reports_truthful_outcome(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
     statuses: list[LogSummaryStatus],
     expected_ok: bool,
     expected_append: bool,
@@ -49,14 +49,16 @@ def test_append_reports_truthful_outcome(
     master = tmp_path / "master.xlsx"
     _workbook(master)
     files = [tmp_path / f"run_{i}.tlf" for i in range(len(statuses))]
-    monkeypatch.setattr(app, "discover_log_files", lambda **_: files)
-    monkeypatch.setattr(app, "filter_new_log_files", lambda **_: files)
-    monkeypatch.setattr(
-        app, "process_log_files", lambda **_: [_result(p, s) for p, s in zip(files, statuses, strict=True)]
-    )
-    with patch.object(
-        app, "append_dataframe_to_workbook_table", wraps=excel_append.append_dataframe_to_workbook_table
-    ) as save:
+    with (
+        patch.object(app, "discover_log_files", return_value=files),
+        patch.object(app, "filter_new_log_files", return_value=files),
+        patch.object(
+            app,
+            "process_log_files",
+            return_value=[_result(p, s) for p, s in zip(files, statuses, strict=True)],
+        ),
+        patch.object(app, "append_dataframe_to_workbook_table", wraps=excel_append.append_dataframe_to_workbook_table) as save,
+    ):
         assert (
             app.append_to_master_log_summary(
                 master_workbook_path=master, sheet_name="Log Summary", table_name=None, use_live_dashboard=False
@@ -69,36 +71,36 @@ def test_append_reports_truthful_outcome(
     result.close()
 
 
-def test_missing_process_outcome_fails_without_modifying_workbook(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_missing_process_outcome_fails_without_modifying_workbook(tmp_path: Path) -> None:
     master = tmp_path / "master.xlsx"
     _workbook(master)
     original = master.read_bytes()
-    monkeypatch.setattr(app, "discover_log_files", lambda **_: [tmp_path / "new.tlf"])
-    monkeypatch.setattr(app, "filter_new_log_files", lambda **_: [tmp_path / "new.tlf"])
-    monkeypatch.setattr(app, "process_log_files", lambda **_: [])
-    with pytest.raises(RuntimeError, match="outcomes returned"):
+    with (
+        patch.object(app, "discover_log_files", return_value=[tmp_path / "new.tlf"]),
+        patch.object(app, "filter_new_log_files", return_value=[tmp_path / "new.tlf"]),
+        patch.object(app, "process_log_files", return_value=[]),
+        pytest.raises(RuntimeError, match="outcomes returned"),
+    ):
         app.append_to_master_log_summary(master_workbook_path=master, use_live_dashboard=False)
     assert master.read_bytes() == original
 
 
 @pytest.mark.parametrize("failure", ["save", "replace"])
-def test_failed_master_publication_preserves_workbook(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str
-) -> None:
+def test_failed_master_publication_preserves_workbook(tmp_path: Path, failure: str) -> None:
     master = tmp_path / "master.xlsx"
     _workbook(master)
     original = master.read_bytes()
     dataframe = pd.DataFrame({"Runcode": ["new"], "orig_log_path": ["new.tlf"]})
     if failure == "save":
-        monkeypatch.setattr(Workbook, "save", lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError("disk full")))
+        with patch.object(Workbook, "save", side_effect=OSError("disk full")), pytest.raises(OSError):
+            excel_append.append_dataframe_to_workbook_table(
+                data_frame=dataframe, workbook_path=master, sheet_name="Log Summary", table_name=None
+            )
     else:
-        monkeypatch.setattr(Path, "replace", lambda *_args: (_ for _ in ()).throw(PermissionError("locked")))
-    with pytest.raises(OSError):
-        excel_append.append_dataframe_to_workbook_table(
-            data_frame=dataframe, workbook_path=master, sheet_name="Log Summary", table_name=None
-        )
+        with patch.object(Path, "replace", side_effect=PermissionError("locked")), pytest.raises(OSError):
+            excel_append.append_dataframe_to_workbook_table(
+                data_frame=dataframe, workbook_path=master, sheet_name="Log Summary", table_name=None
+            )
     assert master.read_bytes() == original
     assert sorted(path.name for path in tmp_path.iterdir()) == ["master.xlsx"]
 
