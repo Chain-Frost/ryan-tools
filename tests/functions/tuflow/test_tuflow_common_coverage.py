@@ -76,7 +76,7 @@ class TestProcessFileExceptions:
         mock_from_file.return_value = mock_proc
 
         proc: BaseProcessor | None = tuflow_common.process_file(file_path=Path("test.csv"))
-        assert proc is mock_proc
+        assert proc is None
         assert mock_proc.discard_raw_dataframe.called
 
     @patch("ryan_library.functions.tuflow.tuflow_common.BaseProcessor.from_file")

@@ -221,10 +221,12 @@ def process_file(
         proc.process()
         if getattr(proc, "filtered_empty", False):
             logger.debug("{}: Valid input excluded by location filter.", proc.log_path)
-        elif proc.validate_data():
-            logger.debug("Processed {}", proc.log_path)
+        elif not proc.validate_data():
+            logger.warning("Validation failed {}", proc.log_path)
+            proc.discard_raw_dataframe()
+            return None
         else:
-            logger.warning(f"Validation failed {proc.log_path}")
+            logger.debug("Processed {}", proc.log_path)
         proc.discard_raw_dataframe()
         return proc
     except Exception:
