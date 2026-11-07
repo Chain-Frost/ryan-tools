@@ -732,6 +732,14 @@
       "description": "Groundwater cell count only when explicitly reported in the HPC companion; layer count is not equivalent.",
       "value_type": "int"
     },
+    "HPC_Groundwater_Active_Cells": {
+      "description": "Active groundwater-labelled cells explicitly reported in a matching HPC companion, distinct from overall active 2D cells and from sampled wet-cell counts.",
+      "value_type": "int"
+    },
+    "HPC_Groundwater_Sealed_Wall_Cells": {
+      "description": "Sealed-wall groundwater-labelled cells explicitly reported in a matching HPC companion; distinct from overall sealed-wall and groundwater active counts.",
+      "value_type": "int"
+    },
     "HPC_nWet_Observed_Max": {
       "description": "Maximum nWet among sampled HPC companion history rows; NOT a guaranteed all-timestep maximum (cells).",
       "value_type": "int"
