@@ -243,7 +243,6 @@ def build(  # noqa: C901 - staged project generation validates GIS and raster ou
                         scenario_name=config.scenario,
                         prj_file=config.prj,
                         tuflow_executable=config.tuflow_executable,
-                        templates_dir=Path(__file__).absolute().parent / "resources" / "tuflow_templates",
                         copy_utilities=config.utility_source_root is not None,
                         utility_source_root=config.utility_source_root,
                     )

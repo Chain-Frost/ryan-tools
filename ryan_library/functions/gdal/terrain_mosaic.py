@@ -12,8 +12,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TypedDict
 
-import fiona
 from affine import Affine
+import fiona
 import numpy as np
 import rasterio
 from rasterio.crs import CRS

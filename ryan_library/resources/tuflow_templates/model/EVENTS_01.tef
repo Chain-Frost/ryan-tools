@@ -7,7 +7,7 @@ Define Event ==  Nested
 End Define
 
 Define Event == EnsembleILCL
-    BC BC Event Source == ~CC~ | Near-term_SSP3-7.0 ! tpv-ignore
+    BC Event Source == ~CC~ | Near-term_SSP3-7.0 ! tpv-ignore
 End Define
 
 Define Event ==  PMF

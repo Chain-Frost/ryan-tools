@@ -57,6 +57,7 @@ class TuflowProjectConfig:
     overwrite: bool = False
     utility_source_root: Path | None = None
     include_2d_loc_style: bool = True
+    include_2d_bc_layer: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -205,6 +206,7 @@ def _copy_text_templates(*, config: TuflowProjectConfig, project_dir: Path) -> N
         "<<PROJECTION_NAME>>": f"projection_{config.prj_file.stem}",
         "<<DATE>>": dt.datetime.now().strftime("%B %Y"),
         "<<TUFLOW_EXE>>": str(config.tuflow_executable.absolute()),
+        "<<BC_READ_COMMENT>>": "" if config.include_2d_bc_layer else "! ",
     }
     for template_file in config.templates_dir.rglob("*"):
         if not template_file.is_file() or template_file.name == "__init__.py" or "__pycache__" in template_file.parts:

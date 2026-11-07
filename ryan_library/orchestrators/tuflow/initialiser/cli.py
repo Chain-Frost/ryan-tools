@@ -128,7 +128,6 @@ def main() -> int:
                 scenario_name=args.scenario,
                 prj_file=args.prj,
                 tuflow_executable=args.tuflow_exe,
-                templates_dir=Path(__file__).absolute().parent / "resources" / "tuflow_templates",
                 copy_utilities=args.ryan_tools_scripts is not None,
                 utility_source_root=args.ryan_tools_scripts,
                 overwrite=args.overwrite,

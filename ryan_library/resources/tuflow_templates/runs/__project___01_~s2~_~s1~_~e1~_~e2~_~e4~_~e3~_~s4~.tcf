@@ -73,7 +73,7 @@
 	XF Files Include in Filename ==	<<~s1~>>_<<~s2~>>
 
 	Write Check Files INCLUDE ==	dem_Z
-	Write Check Files == 			OutputRoot>>\check\
+	Write Check Files == 			<<OutputRoot>>\check\
 
 !**** Solver & Miscellaneous ****
 	Solution Scheme ==				HPC

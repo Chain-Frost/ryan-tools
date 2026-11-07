@@ -1,55 +1,41 @@
-"""Initialiser defaults backed by the maintained shared TUFLOW project generator.
+"""Initialiser profile backed by the maintained shared TUFLOW project generator.
 
-The initialiser creates three GIS working layers, does not copy utilities by
-default, and does not install a 2d_loc QML style. The legacy project setup
-continues to expose its four-layer and style/utility defaults.
+The initialiser creates three working GIS layers, comments out the optional
+boundary-condition GIS read, copies no utilities by default and omits the
+2d_loc QML style. The existing standard profile retains its four layers.
 """
 
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, cast
 
-from ryan_library.orchestrators.tuflow import project_setup as shared_project_setup
-from ryan_library.orchestrators.tuflow.project_setup import ProjectSetupResult, ProjectUtilitySpec, WorkingLayerSpec
+from .. import project_setup as shared_project_setup
+from ..project_setup import ProjectSetupResult, WorkingLayerSpec
 
 from .gis_types import LayerSchema
 
-__all__ = [
-    "DEFAULT_2D_LOC_STYLE_FILE",
-    "DEFAULT_UTILITY_SOURCE_ROOT",
-    "DEFAULT_WORKING_LAYERS",
-    "ProjectSetupResult",
-    "ProjectUtilitySpec",
-    "TuflowProjectConfig",
-    "WorkingLayerSpec",
-    "initialize_tuflow_project",
-    "read_empty_schema",
-]
-
-
-@dataclass(frozen=True, slots=True)
-class TuflowProjectConfig:
-    """Configuration for the original initialiser project profile."""
-
-    output_dir: Path
-    project_name: str
-    scenario_name: str
-    prj_file: Path
-    tuflow_executable: Path
-    templates_dir: Path
-    copy_utilities: bool = False
-    utility_source_root: Path | None = None
-    overwrite: bool = False
-
+DEFAULT_TEMPLATES_DIR: Final[Path] = Path(__file__).absolute().parents[3] / "resources" / "tuflow_templates"
 
 DEFAULT_WORKING_LAYERS: Final[tuple[WorkingLayerSpec, ...]] = (
     WorkingLayerSpec(empty_type="2d_code", geometry_suffix="R"),
     WorkingLayerSpec(empty_type="2d_loc", geometry_suffix="R"),
     WorkingLayerSpec(empty_type="2d_rf", geometry_suffix="R"),
 )
-DEFAULT_UTILITY_SOURCE_ROOT: Final[Path] = Path("__ryan_tools_not_configured__")
-DEFAULT_2D_LOC_STYLE_FILE: Final[Path] = Path(__file__).absolute().parent / "resources" / "2d_loc_qa_check.qml"
-_PACKAGED_2D_LOC_STYLE_FILE: Final[Path] = DEFAULT_2D_LOC_STYLE_FILE
+
+
+@dataclass(frozen=True, slots=True)
+class TuflowProjectConfig:
+    """Inputs for the initialiser's project-generation profile."""
+
+    output_dir: Path
+    project_name: str
+    scenario_name: str
+    prj_file: Path
+    tuflow_executable: Path
+    templates_dir: Path = DEFAULT_TEMPLATES_DIR
+    copy_utilities: bool = False
+    utility_source_root: Path | None = None
+    overwrite: bool = False
 
 
 def initialize_tuflow_project(
@@ -57,7 +43,7 @@ def initialize_tuflow_project(
     *,
     working_layers: tuple[WorkingLayerSpec, ...] = DEFAULT_WORKING_LAYERS,
 ) -> ProjectSetupResult:
-    """Create TUFLOW empties through the shared generator using initialiser defaults."""
+    """Create canonical TUFLOW empties with the initialiser's deliberate defaults."""
     if config.copy_utilities and (config.utility_source_root is None or not config.utility_source_root.is_dir()):
         msg = "copy_utilities requires a valid utility_source_root"
         raise ValueError(msg)
@@ -72,12 +58,13 @@ def initialize_tuflow_project(
         overwrite=config.overwrite,
         utility_source_root=config.utility_source_root,
         include_2d_loc_style=False,
+        include_2d_bc_layer=False,
     )
     return shared_project_setup.initialize_tuflow_project(shared_config, working_layers=working_layers)
 
 
 def read_empty_schema(*, source_path: Path, source_layer: str) -> LayerSchema:
-    """Read the shared TUFLOW empty-layer schema for the migrated verifier."""
+    """Read a canonical TUFLOW empty-layer schema for the migrated verifier."""
     return cast(
         "LayerSchema",
         shared_project_setup.read_empty_schema(source_path=source_path, source_layer=source_layer),
