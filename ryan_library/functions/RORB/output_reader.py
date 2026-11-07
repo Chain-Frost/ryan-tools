@@ -38,6 +38,7 @@ def _numeric_table(doc: RorbDocument, start: int, columns: list[str], name: str)
             doc.issue("output_record", f"{name}: {exc}", i + 1, error=True)
     return table
 
+
 def _printed_time_resolution(token: str, step: float) -> float:
     """Bound source time precision by the reported timestep, including D exponents."""
     value = Decimal(token.replace("D", "E").replace("d", "e"))
