@@ -20,6 +20,20 @@ from ryan_library.functions.live_dashboard import LiveWorkflowDashboard
 from ryan_library.functions.loguru_helpers import configure_serial_logging, forward_standard_logging
 
 
+def test_default_file_sink_keeps_info_and_filters_debug(tmp_path: Path) -> None:
+    log_file = tmp_path / "default-info.log"
+    try:
+        configure_serial_logging("WARNING", str(log_file))
+        logger.enable(__name__)
+        logger.debug("FILTERED_DEFAULT_DEBUG")
+        logger.info("RETAINED_DEFAULT_INFO")
+    finally:
+        logger.remove()
+    saved = log_file.read_text(encoding="utf-8")
+    assert "RETAINED_DEFAULT_INFO" in saved
+    assert "FILTERED_DEFAULT_DEBUG" not in saved
+
+
 def test_worker_log_render_finishes_before_coordinator_refresh(monkeypatch: pytest.MonkeyPatch) -> None:
     """A worker may render a live frame even when auto-refresh is disabled."""
     stream = StringIO()
@@ -131,7 +145,7 @@ def test_default_serial_logs_clear_and_redraw_live_display(monkeypatch: pytest.M
     log_file = tmp_path / "runner.log"
     try:
         # Copied runners configure logging before the dashboard exists.
-        configure_serial_logging("INFO", str(log_file), console_format="{message}")
+        configure_serial_logging("INFO", str(log_file), file_log_level="DEBUG", console_format="{message}")
         logger.enable(__name__)
         logger.info("BEFORE_LIVE")
         with Live("CURRENT DASHBOARD", console=console, auto_refresh=False):

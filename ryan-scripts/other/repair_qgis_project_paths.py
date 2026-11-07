@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-31.2"
+WRAPPER_VERSION = "2026-11-07.2"
 
 # All paths may be absolute or relative to DEFAULT_WORKING_DIR. Use raw Windows
 # strings such as Path(r"Q:\Project\GIS") or Path(r"\\server\share\GIS").
@@ -36,15 +36,15 @@ DEFAULT_PROJECT: Path | None = None
 # For example, set to Path(r"Q:\Previous_Project\GIS") after moving the QGS/QGZ.
 DEFAULT_OLD_PROJECT_DIRECTORY: Path | None = None
 
-# Optional (old data root, new data root) prefix substitution; None means no mapping.
-# For example, set to (Path(r"Q:\Old_Data"), Path(r"Q:\New_Data")).
+# Optional [old data root, new data root] prefix substitution; None means no mapping.
+# For example, set to [Path(r"Q:\Old_Data"), Path(r"Q:\New_Data")].
 # This only rewrites references; it never moves or opens the source datasets.
-DEFAULT_REPLACE_ROOT: tuple[Path, Path] | None = None
+DEFAULT_REPLACE_ROOT: list[Path] | None = None
 
 # Optional mapped-drive aliases for equivalent UNC network shares (Windows only).
-# Example: (("Q:", r"\\server\share"),) or (("Q:", r"\\server\share"), ("R:", r"\\other\gis")).
+# Example: [["Q:", r"\\server\share"], ["R:", r"\\other\gis"]].
 # This compares network paths lexically, without accessing their contents.
-DEFAULT_DRIVE_MAPPINGS: tuple[tuple[str, str], ...] = ()
+DEFAULT_DRIVE_MAPPINGS: list[list[str]] = []
 
 # False writes relative source paths from the output project's folder; True uses
 # absolute source paths (less portable). Example: True for fixed drive locations.
@@ -70,6 +70,7 @@ DEFAULT_NO_PAUSE = False
 
 import argparse
 import sys
+from collections.abc import Sequence
 from xml.etree import ElementTree as ET
 from zipfile import BadZipFile, LargeZipFile
 
@@ -94,11 +95,11 @@ def main(
     working_directory: Path | None = None,
     project_path: Path | None = DEFAULT_PROJECT,
     old_project_directory: Path | None = DEFAULT_OLD_PROJECT_DIRECTORY,
-    replace_root: tuple[Path, Path] | None = DEFAULT_REPLACE_ROOT,
+    replace_root: Sequence[Path] | None = None,
     absolute_paths: bool = DEFAULT_ABSOLUTE_PATHS,
     output_path: Path | None = DEFAULT_OUTPUT,
     write: bool = DEFAULT_WRITE,
-    drive_mappings: QgisDriveMappings = DEFAULT_DRIVE_MAPPINGS,
+    drive_mappings: Sequence[Sequence[str]] | None = None,
 ) -> int:
     """Create a separate repaired project by default, or preview with write=False."""
     directory = (working_directory if working_directory is not None else DEFAULT_WORKING_DIR).absolute()
@@ -112,20 +113,30 @@ def main(
         else project.with_name(f"{project.stem}_repaired{project.suffix}")
     )
     old_directory = (directory / old_project_directory).absolute() if old_project_directory is not None else None
+    selected_roots = DEFAULT_REPLACE_ROOT if replace_root is None else replace_root
+    if selected_roots is not None and (isinstance(selected_roots, (str, bytes)) or len(selected_roots) != 2):
+        logger.error("Root replacement requires exactly two paths: [old_root, new_root].")
+        return 1
     roots = (
-        ((directory / replace_root[0]).absolute(), (directory / replace_root[1]).absolute())
-        if replace_root is not None
+        ((directory / selected_roots[0]).absolute(), (directory / selected_roots[1]).absolute())
+        if selected_roots is not None
         else None
     )
     try:
-        validate_drive_mappings(drive_mappings)
+        selected_mappings = DEFAULT_DRIVE_MAPPINGS if drive_mappings is None else drive_mappings
+        mappings: QgisDriveMappings = tuple((drive, unc) for drive, unc in selected_mappings)
+        validate_drive_mappings(mappings)
     except ValueError as error:
         logger.error("Invalid drive-to-UNC mapping: {}", error)
         return 1
     if not change_working_directory(target_dir=directory):
         return 1
 
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="other/repair_qgis_project_paths.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+    )
     try:
         changes = plan_source_path_changes(
             project,
@@ -133,7 +144,7 @@ def main(
             replace_root=roots,
             relative=not absolute_paths,
             output_project_path=output,
-            drive_mappings=drive_mappings,
+            drive_mappings=mappings,
         )
         for change in changes:
             logger.info("Layer {}: {} -> {}", change.name or change.layer_id, change.old_uri, change.new_uri)
@@ -217,19 +228,18 @@ if __name__ == "__main__":
         old_project_directory=(
             args.old_project_directory if args.old_project_directory is not None else DEFAULT_OLD_PROJECT_DIRECTORY
         ),
-        replace_root=(
-            (args.replace_root[0], args.replace_root[1]) if args.replace_root is not None else DEFAULT_REPLACE_ROOT
-        ),
+        replace_root=args.replace_root if args.replace_root is not None else DEFAULT_REPLACE_ROOT,
         absolute_paths=args.absolute_paths if args.absolute_paths is not None else DEFAULT_ABSOLUTE_PATHS,
         output_path=args.output if args.output is not None else DEFAULT_OUTPUT,
         write=args.write if args.write is not None else DEFAULT_WRITE,
-        drive_mappings=(
-            tuple((drive, unc) for drive, unc in args.drive_map)
-            if args.drive_map is not None
-            else DEFAULT_DRIVE_MAPPINGS
-        ),
+        drive_mappings=args.drive_map if args.drive_map is not None else DEFAULT_DRIVE_MAPPINGS,
     )
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+    print_wrapper_banner(
+        wrapper_source="other/repair_qgis_project_paths.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        leading_blank_line=True,
+    )
     no_pause = args.no_pause if args.no_pause is not None else DEFAULT_NO_PAUSE
     if not no_pause:
         pause_console()

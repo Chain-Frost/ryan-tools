@@ -39,7 +39,7 @@ def entry() -> WrapperMain:
 def test_checker_exposes_concise_editable_settings_and_cli_overrides() -> None:
     namespace = runpy.run_path(str(WRAPPER))
     assert namespace["TCF"] is None
-    assert namespace["RUN_FILES"] == (WRAPPER.with_name("run_tuflow_simulations.txt"),)
+    assert namespace["RUN_FILES"] == [WRAPPER.with_name("run_tuflow_simulations.txt")]
     assert namespace["REPORT_CSV"] is None
     assert namespace["PLAN_ONLY"] is False
     assert namespace["INPUT_SYNTAX"] == "auto"

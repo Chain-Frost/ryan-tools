@@ -18,7 +18,7 @@ from typing import Literal
 
 _SCRIPT_STARTED_AT = perf_counter()
 
-WRAPPER_VERSION = "2026-11-02.5"
+WRAPPER_VERSION = "2026-11-07.2"
 
 # ------------------------ USER-EDITABLE SETTINGS -------------------------
 # CLI arguments override these settings. No naming prefix is required.
@@ -30,8 +30,8 @@ TCF: Path | None = None
 
 # BAT/CMD/TXT input files, parsed as data, not executed. Paths relative to
 # WORKING_DIR. The absolute shipped path reads the unrenamed runner's TXT
-# beside this wrapper. Example: (Path("runs.txt"), Path("extra.bat")).
-RUN_FILES: tuple[Path, ...] = (Path(__file__).absolute().with_name("run_tuflow_simulations.txt"),)
+# beside this wrapper. Example: [Path("runs.txt"), Path("extra.bat")].
+RUN_FILES: list[Path] = [Path(__file__).absolute().with_name("run_tuflow_simulations.txt")]
 
 # Initial directory for imported command paths: None uses the terminal cwd.
 # Example: Path(r"Q:\Project\TUFLOW") or Path(r"\\server\share\TUFLOW").
@@ -83,7 +83,7 @@ from collections import Counter
 from collections.abc import Sequence
 
 from ryan_library.functions.tuflow.command_plan import CommandPlan, read_command_plans
-from ryan_library.functions.wrapper_utils import add_no_pause_cli_argument, pause_console, print_library_version
+from ryan_library.functions.wrapper_utils import add_no_pause_cli_argument, pause_console, print_wrapper_banner
 from ryan_library.orchestrators.tuflow.command_preflight import CommandPreflightReport, check_command_plan
 
 
@@ -106,10 +106,13 @@ def _display_path(path: str | PurePath, base: Path) -> str:
 
 def _print_banner(*, display_base: Path, leading_blank_line: bool = False) -> None:
     """Show this wrapper using the same concise project-relative path style."""
-    if leading_blank_line:
-        print()
-    print(f"Wrapper: {_display_path(Path(__file__).absolute(), display_base)} (version {WRAPPER_VERSION})")
-    print_library_version()
+    print_wrapper_banner(
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        wrapper_source="TUFLOW-python/model_management/check_tuflow_inputs.py",
+        display_base=display_base,
+        leading_blank_line=leading_blank_line,
+    )
 
 
 def _print_plan(plan: CommandPlan, *, display_base: Path | None = None) -> None:
@@ -348,7 +351,7 @@ def _run_cli(options: argparse.Namespace) -> int:
     try:
         return main(
             tcf=tcf,
-            commands=tuple(options.runs) if options.runs is not None else RUN_FILES,
+            commands=tuple(options.runs if options.runs is not None else RUN_FILES),
             report=output_path(report),
             working_directory=work,
             configuration_directory=(

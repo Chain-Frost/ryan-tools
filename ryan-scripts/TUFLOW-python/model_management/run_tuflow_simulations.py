@@ -67,7 +67,7 @@ SHOW_PROGRESS_DIAGNOSTICS = True  # Show the latest timestep and observed final 
 CONSOLE_LOG_LEVEL: params.LogLevel = params.LOG.INFO
 WAIT_TIME_AFTER_RUN = 2.0  # Seconds between launches (>=0). Example: 0.5. Does not change GPU slots.
 PAUSE_ON_FINISH = True  # Pause interactively on finish; --no-pause forces False, --pause forces True.
-WRAPPER_VERSION = "2026-11-05.3"
+WRAPPER_VERSION = "2026-11-07.3"
 
 import argparse  # noqa: I001, RUF100
 import signal
@@ -81,24 +81,12 @@ from loguru import logger
 
 from ryan_library.functions.loguru_helpers import configure_serial_logging, forward_standard_logging, log_settings
 from ryan_library.functions.tuflow import runner_user_inputs
-from ryan_library.functions.tuflow.command_plan import CommandPlan
-from ryan_library.functions.tuflow.execution_history import (
-    CompletionSession,
-    CsvExecutionLog,
-    identify_runs,
-    select_pending,
-)
 from ryan_library.functions.wrapper_utils import add_execution_cli_arguments, pause_console, print_wrapper_banner
-from ryan_library.orchestrators.tuflow.simulation_runner import (
-    AdvisoryInputCheck,
-    BatchOutcome,
-    RunnerSettings,
-    check_plan_only,
-    display_runner_path,
-    export_batch_commands,
-    launch_plan,
-    prepare_plan,
-    validate_launch_executable,
+from ryan_library.orchestrators.tuflow.simulation_runner import BatchOutcome, RunnerSettings, display_runner_path
+from ryan_library.orchestrators.tuflow.simulation_workflow import (
+    WorkflowControls,
+    WorkflowOutcome,
+    run_simulation_workflow,
 )
 
 
@@ -215,63 +203,6 @@ def _interruption_flag() -> Generator[Event]:
         signal.signal(signal.SIGINT, previous)
 
 
-def _warn_optional_file_paths(plan: CommandPlan, run_settings: RunnerSettings) -> None:
-    """Warn about unavailable referenced files without blocking command export.
-
-    Missing imported or configured TCFs remain a solver/preflight concern.
-    The selected TUFLOW_EXE is independently required only when execution
-    needs a solver. A configured follow-up script may be optional until the
-    batch completes. Never change or dereference user-supplied path aliases.
-    """
-
-    def exists_as_file(candidate: Path) -> bool:
-        try:
-            return candidate.is_file()
-        except OSError:
-            return False
-
-    tcfs = sorted({Path(str(run.tcf)) for run in plan.runs}, key=str)
-    for tcf in tcfs:
-        if not exists_as_file(tcf):
-            logger.warning(
-                "TCF not found or not readable: {}. Plan/export will continue; "
-                "preflight or the solver may report missing model inputs.",
-                display_runner_path(tcf, run_settings.working_directory),
-            )
-
-    if run_settings.mode == "parameter_product":
-        for source in run_settings.input_files:
-            optional = source if source.is_absolute() else (run_settings.working_directory / source).absolute()
-            if not exists_as_file(optional):
-                logger.warning(
-                    "INPUT_FILES source not found: {}. This is ignored because MODE is "
-                    "'parameter_product'; switch MODE to params.SRC.TEXTFILES or params.SRC.BOTH to use it.",
-                    display_runner_path(optional, run_settings.working_directory),
-                )
-
-    executable = (
-        run_settings.executable
-        if run_settings.executable.is_absolute()
-        else (run_settings.working_directory / run_settings.executable).absolute()
-    )
-    if not exists_as_file(executable):
-        logger.warning(
-            "TUFLOW_EXE not found or not readable: {}. This is allowed without "
-            "a solver launch; any pending execution will require a valid executable.",
-            display_runner_path(executable, run_settings.working_directory),
-        )
-
-    if NEXT_RUN_FILE is not None:
-        follow_up = runner_user_inputs.path("NEXT_RUN_FILE", NEXT_RUN_FILE)
-        target = follow_up if follow_up.is_absolute() else (run_settings.working_directory / follow_up).absolute()
-        if not exists_as_file(target):
-            logger.warning(
-                "NEXT_RUN_FILE not found or not readable: {}. The follow-up will "
-                "fail if it is still missing after batch completion.",
-                display_runner_path(target, run_settings.working_directory),
-            )
-
-
 def _run_follow_up(path: Path, working_directory: Path) -> bool:
     target = path if path.is_absolute() else (working_directory / path).absolute()
     if not target.is_file():
@@ -293,7 +224,11 @@ def _run_follow_up(path: Path, working_directory: Path) -> bool:
 def main(argv: list[str] | None = None, *, _parsed_arguments: argparse.Namespace | None = None) -> int:
     """Return 0 on success, 1 on planning/validation/processing failure."""
     arguments = _parsed_arguments if _parsed_arguments is not None else _arguments(argv)
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        wrapper_source="TUFLOW-python/model_management/run_tuflow_simulations.py",
+    )
     try:
         log_level = arguments.console_log_level if arguments.console_log_level is not None else CONSOLE_LOG_LEVEL
         if not isinstance(log_level, str) or log_level.upper() not in params.LOG:
@@ -302,8 +237,7 @@ def main(argv: list[str] | None = None, *, _parsed_arguments: argparse.Namespace
             raise ValueError(message)
         configure_serial_logging(
             console_log_level=log_level.upper(),
-            # Look up stdout at emission time so Rich can print above its live display.
-            console_sink=lambda message: print(message, end="", flush=True),
+            # The default sink follows Rich's stdout and detects terminal colours.
             console_format="{time:HH:mm:ss} | <level>{level:<7}</level> | <level>{message}</level>",
         )
         run_settings = _settings(arguments)
@@ -321,43 +255,29 @@ def main(argv: list[str] | None = None, *, _parsed_arguments: argparse.Namespace
             arguments.run_mode if arguments.run_mode is not None else CONTINUATION_MODE,
             params.CONT,
         )
-        if not run_settings.working_directory.is_dir():
-            logger.error("Working directory does not exist: {}", run_settings.working_directory)
-            return 1
-        # All input sources and TCF conflicts must be checked before export,
-        # validation, runtime GPU inspection, process launch or scope-04 writes.
-        plan = prepare_plan(run_settings)
-        _warn_optional_file_paths(plan, run_settings)
-        requested_mode = selected_continuation.value
-        logger.info(
-            "Selected {} unique simulations ({} duplicates discarded; {} source files).",
-            len(plan.runs),
-            plan.duplicates_dropped,
-            len(plan.source_files),
+        controls = WorkflowControls(
+            operation=selected_operation,
+            continuation=selected_continuation,
+            export_commands=runner_user_inputs.boolean(
+                "EXPORT_COMMANDS", EXPORT_COMMANDS if arguments.export is None else arguments.export
+            ),
+            check_inputs=runner_user_inputs.boolean(
+                "CHECK_INPUTS", CHECK_INPUTS if arguments.preflight is None else arguments.preflight
+            ),
         )
-        operation = selected_operation.value
-        exporting = runner_user_inputs.boolean(
-            "EXPORT_COMMANDS", EXPORT_COMMANDS if arguments.export is None else arguments.export
-        )
-        if operation == "export_only":
-            exporting = True
-        effective_checks = CHECK_INPUTS if arguments.preflight is None else arguments.preflight
-        if operation == "preflight_only":
-            effective_checks = True
-        elif operation == "export_only":
-            effective_checks = False
+        follow_up = runner_user_inputs.path("NEXT_RUN_FILE", NEXT_RUN_FILE) if NEXT_RUN_FILE is not None else None
         log_settings(
-            "Run controls",
-            {
-                "OPERATION": operation,
-                "CONTINUATION_MODE": requested_mode,
-                "EXPORT_COMMANDS": exporting,
-                "CHECK_INPUTS": effective_checks,
+            title="Run controls",
+            values={
+                "OPERATION": controls.operation.value,
+                "CONTINUATION_MODE": controls.continuation.value,
+                "EXPORT_COMMANDS": controls.exporting,
+                "CHECK_INPUTS": controls.checking_inputs,
                 "CONSOLE_LOG_LEVEL": log_level.upper(),
                 "PAUSE_ON_FINISH": (arguments.pause or PAUSE_ON_FINISH is True) and not arguments.no_pause,
                 "NEXT_RUN_FILE": NEXT_RUN_FILE,
             },
-            {
+            defaults={
                 "OPERATION": "run",
                 "CONTINUATION_MODE": "resume",
                 "EXPORT_COMMANDS": True,
@@ -367,85 +287,14 @@ def main(argv: list[str] | None = None, *, _parsed_arguments: argparse.Namespace
                 "NEXT_RUN_FILE": None,
             },
         )
-        if exporting:
-            # Fixed TXT beside the copied wrapper, not an executable BAT file.
-            destination = export_batch_commands(plan, run_settings, Path(__file__).absolute().with_suffix(".txt"))
-            logger.success(
-                "Editable commands exported to {}", display_runner_path(destination, run_settings.working_directory)
-            )
-        if operation == "export_only":
-            logger.success("Export-only: no solver processes, GPU scan or input checking.")
-            return 0
-        if operation == "preflight_only":
-            return 0 if check_plan_only(plan) else 1
-        # Run all must verify the solver before resetting completed runs.
-        # A no-work Resume must not need an installed solver.
-        if requested_mode == "all":
-            validate_launch_executable(plan, run_settings)
-        # The supplying wrapper, not the installed orchestrator or model cwd,
-        # owns the single persistent history location.
-        wrapper_path = Path(__file__).absolute()
-        log_path = wrapper_path.with_name(f"{wrapper_path.stem}_runs.csv")
-        # With no history, every run is pending. Check the solver before
-        # creating a new CSV. An existing all-complete Resume still needs
-        # no solver installation, and may inspect its history first.
-        if requested_mode == "resume" and not log_path.exists():
-            validate_launch_executable(plan, run_settings)
-        identities = identify_runs(
-            plan, fallback_executable=run_settings.executable, base_directory=run_settings.working_directory
+        outcome: WorkflowOutcome = run_simulation_workflow(
+            run_settings, controls, follow_up=follow_up, interruption=_interruption_flag
         )
-        with CsvExecutionLog(log_path) as history:
-            if requested_mode == "all":
-                history.reset()
-                logger.info(
-                    "Run all: new CSV completion baseline recorded in {}.",
-                    display_runner_path(log_path, run_settings.working_directory),
-                )
-            pending = select_pending(plan, identities, history.successful_keys())
-            skipped = len(plan.runs) - len(pending.runs)
-            if not pending.runs:
-                logger.success(
-                    "Resume complete: all {} runs have observed successful finishes; no GPU scan or launch.", skipped
-                )
-                result = BatchOutcome((), ())
-            else:
-                if requested_mode == "resume":
-                    validate_launch_executable(pending, run_settings)
-                logger.info(
-                    "{}: {} pending, {} confirmed successful runs skipped. History: {}",
-                    requested_mode.capitalize(),
-                    len(pending.runs),
-                    skipped,
-                    display_runner_path(log_path, run_settings.working_directory),
-                )
-                session = CompletionSession(history, identities)
-                advisory = None
-                checks = runner_user_inputs.boolean(
-                    "CHECK_INPUTS", CHECK_INPUTS if arguments.preflight is None else arguments.preflight
-                )
-                if checks:
-                    advisory = AdvisoryInputCheck(pending)
-                    try:
-                        advisory.start()
-                    except RuntimeError as exc:
-                        logger.warning("Advisory input checking could not start: {}", exc)
-                        advisory = None
-                try:
-                    with _interruption_flag() as stopped:
-                        result = launch_plan(
-                            pending,
-                            run_settings,
-                            proposed_plan=plan,
-                            interrupted=stopped,
-                            advisory=advisory,
-                            on_before_launch=session.before_launch,
-                            on_observed_completion=session.observed_completion,
-                        )
-                finally:
-                    if advisory is not None:
-                        advisory.close()
+        result: BatchOutcome | None = outcome.batch
+        if result is None:
+            return outcome.exit_code
         if result.interrupted:
-            if NEXT_RUN_FILE is None:
+            if follow_up is None:
                 logger.error("Batch interrupted.")
             else:
                 logger.error("Batch interrupted; configured follow-up was not started.")
@@ -455,14 +304,14 @@ def main(argv: list[str] | None = None, *, _parsed_arguments: argparse.Namespace
             "Batch observed {}/{} pending completions; {} previously successful skipped; {} failures.",
             len(result.outcomes),
             len(result.selected),
-            skipped,
+            outcome.skipped,
             sum(not item.successful for item in result.outcomes),
         )
-        outcome_code = result.exit_code
+        outcome_code: int = outcome.exit_code
         # Preserve established chaining on normal batch termination, even when
         # one or more children failed; never hide their nonzero exit status.
-        if NEXT_RUN_FILE is not None and not _run_follow_up(
-            runner_user_inputs.path("NEXT_RUN_FILE", NEXT_RUN_FILE), run_settings.working_directory
+        if follow_up is not None and not _run_follow_up(
+            path=follow_up, working_directory=run_settings.working_directory
         ):
             outcome_code = 1
         return outcome_code
@@ -476,7 +325,12 @@ def main(argv: list[str] | None = None, *, _parsed_arguments: argparse.Namespace
         logger.exception("Unexpected runner failure.")
         return 1
     finally:
-        print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+        print_wrapper_banner(
+            wrapper_file=Path(__file__),
+            wrapper_version=WRAPPER_VERSION,
+            wrapper_source="TUFLOW-python/model_management/run_tuflow_simulations.py",
+            leading_blank_line=True,
+        )
 
 
 def _arguments(argv: list[str] | None = None) -> argparse.Namespace:

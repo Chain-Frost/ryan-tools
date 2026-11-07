@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-08-09.1"
+WRAPPER_VERSION = "2026-11-07.1"
 
 CONSOLE_LOG_LEVEL = "INFO"
 WORKING_DIR: Path = Path(__file__).absolute().parent
@@ -47,7 +47,9 @@ def main(
         console_log_level: Overrides the CONSOLE_LOG_LEVEL constant.
         working_directory: Overrides the default WORKING_DIR.
     """
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="tuflow/find_missing_tlf_runs.py", wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION
+    )
     script_directory: Path = working_directory or WORKING_DIR
 
     if not change_working_directory(target_dir=script_directory):
@@ -114,6 +116,7 @@ if __name__ == "__main__":
         working_directory=common_options.working_directory,
     )
     print_wrapper_banner(
+        wrapper_source="tuflow/find_missing_tlf_runs.py",
         wrapper_file=Path(__file__),
         wrapper_version=WRAPPER_VERSION,
         leading_blank_line=True,

@@ -3,6 +3,7 @@
 # These unit tests intentionally inspect internal rendering and task state.
 # pyright: reportPrivateUsage=false
 
+import re
 from io import StringIO
 
 from rich.console import Console
@@ -68,6 +69,94 @@ def test_dashboard_visible_tasks() -> None:
     assert len(visible) == 2
     assert visible[0].status == "OK"
     assert visible[1].status == "FAIL"
+
+
+def _rendered_selection_indexes(dashboard: ld.LiveWorkflowDashboard) -> tuple[str, list[int]]:
+    dashboard.console.print(dashboard._render())
+    rendered = dashboard.console.export_text(clear=True)
+    return rendered, [int(value) for value in re.findall(r"\bSelection (\d+)\b", rendered)]
+
+
+def test_newest_first_renders_running_604_then_history_603_through_595() -> None:
+    dashboard = ld.LiveWorkflowDashboard(title="Test", enabled=False, max_rows=10, newest_first=True)
+    dashboard.console = Console(file=StringIO(), record=True, width=100, height=40, color_system=None)
+    dashboard.set_tasks([f"Selection {index:03d}" for index in range(1, 606)])
+    for index in range(1, 604):
+        dashboard.mark_finished(index=index, status="OK")
+    dashboard.mark_running(index=604)
+
+    expected = list(range(604, 594, -1))
+    assert [task.index for task in dashboard._visible_tasks()] == expected
+    rendered, indexes = _rendered_selection_indexes(dashboard)
+    assert indexes == expected
+    assert rendered.count("RUNNING") == 1
+    assert "Selection 594" not in rendered
+    assert "Selection 605" not in rendered
+
+
+def test_newest_first_keeps_older_active_work_and_ignores_completion_order() -> None:
+    dashboard = ld.LiveWorkflowDashboard(title="Test", enabled=False, max_rows=5, newest_first=True)
+    dashboard.console = Console(file=StringIO(), record=True, width=100, height=40, color_system=None)
+    dashboard.set_tasks([f"Selection {index:03d}" for index in range(1, 11)])
+    for index in (1, 2, 3, 4, 8, 9):
+        dashboard.mark_running(index=index)
+    for index in (2, 8, 3):
+        dashboard.mark_finished(index=index, status="OK")
+
+    expected = [9, 8, 4, 3, 1]
+    visible = dashboard._visible_tasks()
+    assert [task.index for task in visible] == expected
+    assert [task.index for task in visible if task.status == "RUNNING"] == [9, 4, 1]
+    _, indexes = _rendered_selection_indexes(dashboard)
+    assert indexes == expected
+
+    # Completion order changes statuses, not the numeric order of the same
+    # selected rows. Older active work remains selected ahead of stale history.
+    for index in (9, 4, 1):
+        dashboard.mark_finished(index=index, status="OK")
+        assert [task.index for task in dashboard._visible_tasks()] == expected
+        _, indexes = _rendered_selection_indexes(dashboard)
+        assert indexes == expected
+
+
+def test_newest_first_keeps_queued_preview_in_plan_order() -> None:
+    dashboard = ld.LiveWorkflowDashboard(title="Test", enabled=False, max_rows=3, newest_first=True)
+    dashboard.console = Console(file=StringIO(), record=True, width=100, height=30, color_system=None)
+    dashboard.set_tasks([f"Selection {index:03d}" for index in range(1, 6)])
+
+    assert [task.index for task in dashboard._visible_tasks()] == [1, 2, 3]
+    rendered, indexes = _rendered_selection_indexes(dashboard)
+    assert indexes == [1, 2, 3]
+    assert rendered.count("QUEUED") == 3
+
+
+def test_newest_first_grouped_panels_keep_priority_and_fit_with_an_alert() -> None:
+    dashboard = ld.LiveWorkflowDashboard(title="Test", enabled=False, max_rows=4, group_by="model", newest_first=True)
+    dashboard.console = Console(file=StringIO(), record=True, width=100, height=26, color_system=None)
+    dashboard.set_tasks(
+        [f"Selection {index:03d}" for index in range(1, 6)],
+        metadata=[{"model": "A.tcf" if index % 2 else "B.tcf"} for index in range(1, 6)],
+    )
+    for index in range(1, 5):
+        dashboard.mark_running(index=index)
+
+    assert [task.index for task in dashboard._visible_tasks()] == [4, 3, 2, 1]
+    rendered, indexes = _rendered_selection_indexes(dashboard)
+    assert indexes == [4, 2, 3, 1]
+    assert rendered.index("B.tcf") < rendered.index("A.tcf")
+    assert len(rendered.splitlines()) <= dashboard.console.size.height
+
+    dashboard.set_alert(ld.WorkflowAlert(title="GPU warning", lines=("Waiting for GPU 0",)))
+    # Height pressure retains the original oldest-active selection priority,
+    # then reverses those selected rows and their visible group order.
+    assert [task.index for task in dashboard._visible_tasks()] == [3, 2, 1]
+    rendered, indexes = _rendered_selection_indexes(dashboard)
+    assert indexes == [3, 1, 2]
+    assert rendered.index("A.tcf") < rendered.index("B.tcf")
+    assert "Selection 004" not in rendered
+    assert "GPU warning" in rendered
+    assert "Waiting for GPU 0" in rendered
+    assert len(rendered.splitlines()) <= dashboard.console.size.height
 
 
 def test_dashboard_context_manager() -> None:

@@ -21,20 +21,20 @@ output cell remains NoData only when every contributing cell is NoData.
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-09-09.1"
+WRAPPER_VERSION = "2026-11-07.3"
 
 WORKING_DIR: Path = Path(__file__).absolute().parent
 OUTPUT_DIRECTORY_NAME = "ensemble_statistics"
 INPUT_GLOB = "*.tif"
-EXPECTED_TPS: frozenset[int] = frozenset(range(1, 11))
-SCENARIOS = ("EXG", "DEV")
-RESULT_TYPES = ("d_HR_Max", "h_HR_Max", "V_Max")
+EXPECTED_TPS: list[int] = list(range(1, 11))
+SCENARIOS: list[str] = ["EXG", "DEV"]
+RESULT_TYPES: list[str] = ["d_HR_Max", "h_HR_Max", "V_Max"]
 WORKERS: int | None = None
 STRICT_INCOMPLETE_GROUPS = False
 WRITE_SOURCE_RASTERS = False
 USE_LIVE_DASHBOARD = True
 LIVE_REFRESH_PER_SECOND = 2.0
-LIVE_MAX_ROWS = 25
+LIVE_MAX_ROWS = 10
 LIVE_USE_ALTERNATE_SCREEN = False
 
 import argparse
@@ -73,7 +73,11 @@ def main(
     live_use_alternate_screen: bool | None = None,
 ) -> int:
     """Resolve wrapper settings and run the median-then-maximum orchestrator."""
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="TUFLOW-python/raster_processing/run_asc_to_asc_median_then_maximum.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+    )
     search_root: Path = working_directory or WORKING_DIR
     if not change_working_directory(target_dir=search_root):
         return 1
@@ -83,9 +87,9 @@ def main(
         search_root=search_root,
         output_root=search_root / OUTPUT_DIRECTORY_NAME,
         input_glob=INPUT_GLOB,
-        expected_tps=EXPECTED_TPS,
-        scenarios=SCENARIOS,
-        result_types=RESULT_TYPES,
+        expected_tps=frozenset(EXPECTED_TPS),
+        scenarios=tuple(SCENARIOS),
+        result_types=tuple(RESULT_TYPES),
         workers=workers if workers is not None else WORKERS,
         dry_run=dry_run,
         strict=STRICT_INCOMPLETE_GROUPS if strict is None else strict,
@@ -142,6 +146,7 @@ if __name__ == "__main__":
         live_max_rows=cli_options.common.live_max_rows,
     )
     print_wrapper_banner(
+        wrapper_source="TUFLOW-python/raster_processing/run_asc_to_asc_median_then_maximum.py",
         wrapper_file=Path(__file__),
         wrapper_version=WRAPPER_VERSION,
         leading_blank_line=True,

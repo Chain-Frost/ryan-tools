@@ -10,9 +10,13 @@ from ..base_processor import BaseProcessor, ProcessorStatus
 class RLLQmxProcessor(BaseProcessor):
     """Processor for '_RLL_Qmx.csv' files produced by the Reporting Location Lines maximum export."""
 
+    # Only true for a valid reshaped source fully excluded by selected locations.
+    filtered_empty: bool = False
+
     def process(self) -> None:
         """Process the '_RLL_Qmx.csv' file and modify self.df in place."""
         logger.info(f"Starting processing of RLL Qmx file: {self.log_path}")
+        self.filtered_empty = False
         try:
             status: ProcessorStatus = self.read_maximums_csv()
             if status != ProcessorStatus.SUCCESS:
@@ -21,8 +25,16 @@ class RLLQmxProcessor(BaseProcessor):
                 return
 
             self._reshape_rll_qmx_data()
+            if self.df.empty:
+                # Missing required columns or invalid reshaping is a failure,
+                # not an intentional location-filter skip.
+                return
 
             self.apply_entity_filter()
+            if self.applied_entity_filter and self.df.empty:
+                self.filtered_empty = True
+                logger.info("{}: No requested RLL Qmx locations found; skipping file.", self.file_name)
+                return
             self.add_common_columns()
             self.apply_output_transformations()
 

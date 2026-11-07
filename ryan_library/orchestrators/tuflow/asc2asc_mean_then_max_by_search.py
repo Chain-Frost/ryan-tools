@@ -110,7 +110,7 @@ def run_mean_then_max_workflow(
     write_source: bool = False,
     use_live_dashboard: bool = True,
     live_refresh_per_second: float = 2.0,
-    live_max_rows: int = 25,
+    live_max_rows: int = 10,
     live_use_alternate_screen: bool = False,
 ) -> int:
     """Run mean then maximum; retained through 2026-12-31."""

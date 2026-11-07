@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import csv
 import importlib.metadata
 import importlib.resources
@@ -14,11 +15,12 @@ import sys
 from contextlib import closing
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any
+from typing import Any, cast
 
 import culvert_solver
 import numpy as np
 import run_hy8
+from mcp.server.mcpserver.exceptions import ToolError
 
 import ryan_library
 import vendor
@@ -28,7 +30,7 @@ from ryan_library.functions.path_stuff import sanitize_windows_filename
 from ryan_library.mcp.installed_scripts import available_wrappers, copy_wrapper
 from ryan_library.mcp.registry import WorkflowRegistry
 from ryan_library.mcp.server import REGISTRY as SERVER_REGISTRY
-from ryan_library.mcp.server import list_workflows
+from ryan_library.mcp.server import list_workflows, mcp
 
 
 def _require_installed_below(module_file: str | None, expected_root: Path, package: str) -> None:
@@ -106,6 +108,45 @@ def _check_installed_keyword_discovery() -> None:
     print("Wheel-only MCP keyword search and domain overview passed.")
 
 
+async def _check_installed_overview_validation() -> None:
+    """Reject coercion at the actual installed tool's SDK validation boundary."""
+    if mcp is None:
+        msg = "Registered-tool wheel acceptance requires the optional MCP SDK."
+        raise RuntimeError(msg)
+    installed_server = cast("Any", mcp)
+    tools: list[Any] = await installed_server.list_tools()
+    tool = next(tool for tool in tools if tool.name == "list_workflows")
+    schema = tool.input_schema["properties"]["overview"]
+    if schema["type"] != "boolean" or schema["default"] is not False:
+        msg = f"Installed MCP overview schema changed: {schema}"
+        raise RuntimeError(msg)
+    for mode in ({}, {"overview": False}, {"overview": True}):
+        response = await installed_server.call_tool(
+            "list_workflows", {"domain": "gdal", "query": "crop", "include_unavailable": True, **mode}
+        )
+        result = response.structured_content
+        if mode.get("overview", False):
+            workflows = result["domain_overview"][0]["examples"]
+            valid_mode = result["overview"] is True and "workflows" not in result
+        else:
+            workflows = result["workflows"]
+            valid_mode = "overview" not in result
+        if not valid_mode or result["workflow_count"] != 1 or workflows[0]["id"] != "clip_rasters_to_polygon":
+            msg = "Installed MCP tool did not preserve normal and overview crop discovery."
+            raise RuntimeError(msg)
+    for invalid in (0, 1, "true", "false", None):
+        try:
+            await installed_server.call_tool("list_workflows", {"overview": invalid})
+        except ToolError as exc:
+            if "overview" not in str(exc):
+                msg = "Installed MCP tool failed outside overview argument validation."
+                raise RuntimeError(msg) from exc
+        else:
+            msg = f"Installed MCP tool accepted non-boolean overview: {invalid!r}"
+            raise RuntimeError(msg)
+    print("Wheel-only registered MCP overview boolean validation passed.")
+
+
 def _check_installed_wrapper_copy() -> None:
     """Check wrapper discovery and a byte-for-byte copy from the installed wheel."""
     if "culvert.py" not in available_wrappers():
@@ -116,6 +157,24 @@ def _check_installed_wrapper_copy() -> None:
         source = Path(ryan_library.__file__).absolute().parent.parent / "ryan-scripts" / "culvert.py"
         if target.read_bytes() != source.read_bytes():
             msg = "Installed wrapper copy differs from the packaged source."
+            raise RuntimeError(msg)
+
+        from contextlib import redirect_stdout
+        from io import StringIO
+
+        from ryan_library.functions.wrapper_utils import print_wrapper_banner
+
+        renamed = target.with_name("my_project_culverts.py")
+        target.rename(renamed)
+        original_bytes = renamed.read_bytes()
+        output = StringIO()
+        with redirect_stdout(output):
+            print_wrapper_banner(wrapper_file=renamed, wrapper_version="2000-01-01.1", wrapper_source="culvert.py")
+        if "WARNING:" not in output.getvalue() or "culvert.py (" not in output.getvalue():
+            msg = "Installed wrapper banner did not warn about an older renamed copy."
+            raise RuntimeError(msg)
+        if renamed.read_bytes() != original_bytes:
+            msg = "Installed wrapper banner changed a user's copied script."
             raise RuntimeError(msg)
 
 
@@ -394,6 +453,7 @@ def main(argv: list[str] | None = None) -> int:
 
     _check_installed_scripts()
     _check_installed_keyword_discovery()
+    asyncio.run(_check_installed_overview_validation())
     _check_installed_wrapper_copy()
     if args.expected_root is not None:
         _check_installed_wrapper_behaviour(args.expected_root.resolve())

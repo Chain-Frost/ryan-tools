@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-16.1"
+WRAPPER_VERSION = "2026-11-07.1"
 DEFAULT_INPUT = Path("input.gpkg")
 DEFAULT_OUTPUT_DIR = Path("split_output")
 DEFAULT_ATTRIBUTE = "Layer"
@@ -190,14 +190,23 @@ def main(args: argparse.Namespace, *, working_directory: Path | None = None) -> 
 
 if __name__ == "__main__":
     args = _parse_cli_arguments()
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="gdal-python/split_vector_by_attribute.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+    )
     try:
         result = main(args)
     except Exception as e:
         logger.exception("Wrapper failed: {}", e)
         result = 1
     finally:
-        print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+        print_wrapper_banner(
+            wrapper_source="gdal-python/split_vector_by_attribute.py",
+            wrapper_file=Path(__file__),
+            wrapper_version=WRAPPER_VERSION,
+            leading_blank_line=True,
+        )
     if not args.no_pause:
         pause_console(collect_before_pause=True)
     sys.exit(result)
