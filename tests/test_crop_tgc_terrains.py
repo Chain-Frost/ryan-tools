@@ -192,7 +192,7 @@ def test_sparse_high_priority_native_mask_preserves_base(tmp_path: Path) -> None
     _write_raster(tmp_path / "lower.tif", np.full((10, 10), 10.0, dtype="float32"))
     high = np.full((100, 100), -9999.0, dtype="float32")
     high[::10, ::10] = 20.0
-    _write_raster(tmp_path / "higher.tif", high, transform=from_origin(0, 100, 1, 1))
+    _write_raster(tmp_path / "higher.tif", high, transform=Affine(1, 0, 0, 0, -1, 100))
     tgc = tmp_path / "geometry.tgc"
     tgc.write_text("Read Grid Zpts == lower.tif\nRead Grid Zpts == higher.tif\n", encoding="utf-8")
 
