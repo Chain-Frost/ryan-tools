@@ -7,11 +7,13 @@ from pathlib import Path
 import pandas as pd
 from loguru import logger
 
-from ryan_library.functions.tlf_missing_runs import summarize_for_cli
+from ...functions.tlf_missing_runs import summarize_for_cli
 
 
 def orchestrate_missing_runs_check(input_path: Path, sheet_name: str | int = 0) -> Path:
-    """Read run-tracking data, check for missing sets, log a summary, and export a CSV.
+    """Read run-tracking data, log missing sets, and exclusively create a summary CSV.
+
+    Existing summaries are never overwritten; FileExistsError propagates to callers.
 
     Args:
         input_path: Path to the tracking table (CSV or Excel).
@@ -31,13 +33,13 @@ def orchestrate_missing_runs_check(input_path: Path, sheet_name: str | int = 0) 
     # Log the summary text
     for line in text.splitlines():
         if line.strip():
-            logger.info(line)
+            logger.success("{}", line)
         else:
             logger.info("")
 
     base: str = input_str.rsplit(sep=".", maxsplit=1)[0]
     out_csv = Path(f"{base}__missing_runs_summary.csv")
-    table.to_csv(path_or_buf=out_csv, index=False)
+    table.to_csv(path_or_buf=out_csv, index=False, mode="x")
 
     logger.success("Wrote missing runs summary to: {}", out_csv)
     return out_csv

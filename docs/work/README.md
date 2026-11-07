@@ -40,6 +40,7 @@ fronts.
 
 | Work front / status record | Status | Owner | Updated | Next review | Outcome |
 | --- | --- | --- | --- | --- | --- |
+| [Missing TLF ensemble inference](2026-11-07-missing-tlf-ensembles.md) | Complete; local delivery | ChatGPT | 2026-11-07 | None | Folder inference and wrapper compliance follow-up complete; 19 focused tests, strict checks and installed 26.11.7.10 copied-wrapper checks pass, including protected table exports. Delivery branch: `feat/tlf-ensemble-inference`; GitHub push authorized; hosted CI unverified. |
 | [TUFLOW proposed-run input preflight](2026-10-21-tuflow-input-preflight.md) | Complete | ChatGPT | 2026-10-25 | None | #143 is merged into main as bcc8e5c2fee78c706e2b89feb051cded5cf8d2c2 from validated fa6ae1e, including #156. Preserve this closure when reconciling #158 documentation. |
 | [TUFLOW batch preflight optimisation](2026-10-22-tuflow-batch-preflight-optimisation.md) | Complete | ChatGPT | 2026-10-25 | None | Bounded #156/#143 integration delivered; parser baseline e162c04. Native graph diagnostic #158 is separately complete with delivery open; no repeat benchmark gate. |
 | [TUFLOW culvert engine migration](2026-10-08-tuflow-culvert-engines-99.md) | Complete | Unassigned | 2026-10-17 | None | PR #100 squash-merged as 6283a9c after all five checks passed at 8b386d8; final-review fixes included. Engineering follow-ups #102/#103 deferred. |
