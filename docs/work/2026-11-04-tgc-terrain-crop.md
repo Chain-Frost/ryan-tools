@@ -151,3 +151,18 @@ The maintainer requested no wait for CI. Child Ruff failed on two import-order
 findings and SIM115; other jobs remained running. Address these on #204 and
 obtain final-head CI/native engineering acceptance before an authorised main merge.
 No main merge or publication was performed.
+
+
+### 2026-11-07 - local CI repair completed
+
+On #204, repaired the migrated initialiser's Ruff findings and GIS strict-typing
+routing, and an inherited Windows reserved-AUX-name fixture. The full hosted test
+command passes locally: 2,594 passed / 33 skipped / eight deselected. Both strict
+Pyright groups, all 47 changed-file Ruff checks, Actionlint and documentation/logging
+policy pass. Additional MCP utility tests: 73 passed. Verified wheel 26.11.7.10 and
+all three isolated installed-wheel smoke scripts pass. Local stale obsolete bytecode
+was preserved outside the checkout; packaging tests and full rerun pass.
+All six hosted checks pass at repair commit `914dcda5` (Python CI `42388174134`,
+Fast PR `42388174135`). Subsequent documentation-only delivery has separate checks.
+The [initialiser record](tuflow-initialiser/README.md) owns detailed reproduction and
+delivery evidence. Native engineering acceptance remains outstanding; no main merge.

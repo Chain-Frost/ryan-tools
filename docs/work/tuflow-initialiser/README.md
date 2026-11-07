@@ -193,7 +193,7 @@ these tests passing and does not establish native HDF5 capability. No merge of #
 into main, engineering approval, release or publication is authorised by this integration.
 
 
-## CI reproduction and repair ? 2026-11-07
+## CI reproduction and repair - 2026-11-07
 
 Reproduced the hosted changed-file commands locally on #204. Repaired import order
 in the shared terrain helper and migrated test; moved temporary publication into a
@@ -216,3 +216,32 @@ run blocked in `_qgd`; isolated reproduction failed to open the database. Rename
 the synthetic database to `auxiliary.qgd`; all 30 QGIS project-tool tests now pass.
 The original blocked run was terminated and the unchanged hosted selection is
 being rerun, with diagnostic stack dumps enabled for any further long-running test.
+
+
+### Final local CI result and delivery
+
+On Windows/Python 3.14.6, the complete hosted command from `.github/workflows/ci.yml`
+(with the same ignores, markers and two floodway deselections, plus `-q` and a
+faulthandler diagnostic timeout) passed: **2,594 passed, 33 skipped, 8 deselected**,
+187.00 seconds. The skipped cases include Windows symlink privileges, POSIX-only
+semantics and opt-in native/share acceptance. All 47 changed Python files pass
+Ruff lint/format; both strict Pyright groups, Actionlint 1.7.12, documentation and
+Loguru policy pass. The additional MCP utility command passes 73 tests.
+
+All three isolated installed-wheel scripts pass: `smoke_test_installed_wheel.py`,
+`smoke_dashboard_installed_wheel.py` and `smoke_result_dashboard_installed_wheel.py`.
+Wheel 26.11.7.10 is verified (SHA-256
+`8bb4bdb7bae516abf9120fb5e3b31923345ecd49a08264c44aaa3059669b8896`).
+Temporary-target smoke dependencies were installed without replacing normal Python.
+
+An initial full-run packaging failure was local stale bytecode under the removed
+`ryan_library/scripts` namespace. Inspection found only `.pyc` caches; these were
+preserved outside the checkout. All 21 packaging tests and the clean full rerun pass.
+No obsolete package source was restored or test expectation weakened.
+
+Repairs are pushed as `ccc59b72` and `914dcda5`. All six hosted checks are terminal
+and successful on `914dcda5`: Python CI run `42388174134` and Fast PR run `42388174135`.
+The local-CI guidance and this validation record are a subsequent documentation-only
+commit; its checks are separate from that successful code-head evidence. The checkout
+is on surviving branch `feat/tgc-terrain-crop`; #246 remains merged into #204, while
+#204 remains open. Native engineering gates and any main merge remain separate.

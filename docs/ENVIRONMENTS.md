@@ -159,6 +159,14 @@ The enabled `.github/workflows/ci.yml` workflow runs on pull requests and pushes
 3.14, with a separate Python 3.14 `MCP smoke` job. The `main only` ruleset must replace its obsolete `Python 3.13 compatibility and MCP` requirement with `MCP smoke` before merging. Its independent jobs mean a policy failure does not hide
 runtime or packaging results.
 
+These checks can also run locally in the normal Python 3.14 installation. For a CI repair,
+use the commands and PR-base file selection in [`ci.yml`](../.github/workflows/ci.yml) and
+[`fast-pr.yml`](../.github/workflows/fast-pr.yml), including the complete hosted test command below.
+Changed-file lint and typing must cover the cumulative PR diff, rather than only the latest edits.
+Policy derives the strict GIS-stub group from `pyright-initialiser.json`; run that project separately
+from the remaining changed files. Installed-wheel smokes run outside the checkout with temporary
+installed dependencies. Linux-only security checks still need their Linux environment.
+
 The hosted test job initialises only `qgis-resources` and
 `tests/test_data`. The QGIS repository is used only as test/resource data; no QGIS application is launched. The job
 installs the repository's binary GIS dependency bootstrap, sets `MPLBACKEND=Agg`, and runs:
