@@ -25,7 +25,7 @@ from ryan_library.functions.excel_export import (
     build_data_dictionary,
 )
 from ryan_library.functions.loguru_helpers import setup_logger
-from ryan_library.functions.pandas.median_calc import median_calc
+from ryan_library.functions.pandas.median_calc import finite_sorted_rows, median_calc
 from ryan_library.functions.tuflow.tuflow_common import collect_files, process_files_in_parallel
 from ryan_library.functions.versioning import get_tools_version
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
@@ -167,26 +167,18 @@ def _ordered_columns(
 
 
 def _select_internal_names_for_group(group: DataFrame) -> tuple[object, object]:
-    """Return (median_internal_name, mean_internal_name) for a grouped DataFrame."""
+    """Compatibility helper returning the same deterministic finite event choices."""
     if "internalName" not in group.columns or "AbsMax" not in group.columns:
         return pd.NA, pd.NA
 
-    stat_series: Series = pd.to_numeric(group["AbsMax"], errors="coerce")
-    if not stat_series.notna().any():
+    ordered = finite_sorted_rows(group=group, value_column="AbsMax")
+    if ordered.empty:
         return pd.NA, pd.NA
 
-    sorted_idx: Index[Any] = stat_series.sort_values(ascending=True, na_position="first").index
-    median_pos = int(len(sorted_idx) / 2)
-    median_internal_name = group.loc[sorted_idx[median_pos], "internalName"]
-
-    mean_value = float(stat_series.mean())
-    if pd.isna(mean_value):
-        mean_internal_name = pd.NA
-    else:
-        closest_idx: int | str = (stat_series - mean_value).abs().idxmin()
-        mean_internal_name = group.loc[closest_idx, "internalName"]
-
-    return median_internal_name, mean_internal_name
+    median_position = len(ordered) // 2
+    mean_value = float(ordered["AbsMax"].mean())
+    mean_position = int((ordered["AbsMax"] - mean_value).abs().to_numpy().argmin())
+    return ordered["internalName"].iloc[median_position], ordered["internalName"].iloc[mean_position]
 
 
 def combine_processors_from_paths(
@@ -535,21 +527,29 @@ def find_aep_dur_median(aggregated_df: DataFrame) -> DataFrame:
                 tpcol="tp_text",
                 durcol="duration_text",
             )
-            median_internal_name, mean_internal_name = _select_internal_names_for_group(grp)
-            row = {
+            row: dict[str, Any] = {
                 "aep_text": grp["aep_text"].iloc[0],
                 "duration_text": grp["duration_text"].iloc[0],
                 "Location": grp["Location"].iloc[0],
                 "Type": grp["Type"].iloc[0],
                 "trim_runcode": grp["trim_runcode"].iloc[0],
             }
-            if "internalName" in grp.columns:
-                row["internalName"] = median_internal_name
-                row["mean_internalName"] = mean_internal_name
             row.update(stats_dict)
+            if "internalName" in grp.columns:
+                # Normal processing gets both identifiers directly from the
+                # same already-selected statistical records. The fallback is
+                # retained for old/custom median helpers returning no metadata.
+                if "median_internalName" in row and "mean_internalName" in row:
+                    row["internalName"] = row.pop("median_internalName")
+                else:
+                    median_name, mean_name = _select_internal_names_for_group(grp)
+                    row["internalName"] = median_name
+                    row["mean_internalName"] = mean_name
+            if "median_file" in row:
+                row["file"] = row.pop("median_file")
             row["MedianAbsMax"] = row.pop("median")
             rows.append(row)
-            median_df = DataFrame(rows)
+        median_df = DataFrame(rows)
         if not median_df.empty:
             # Normalise TP / duration text so the "mean storm equals median storm" flag is stable.
             def _normalize_tp(value: object) -> object:
