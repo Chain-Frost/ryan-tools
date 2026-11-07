@@ -185,14 +185,24 @@ def append_dataframe_to_workbook_table(
             staged_path = Path(staged_file.name)
         try:
             workbook.save(filename=staged_path)
-            os.chmod(staged_path, stat.S_IMODE(original_stat.st_mode))
+            staged_path.chmod(stat.S_IMODE(original_stat.st_mode))
             current_stat: os.stat_result = workbook_path.stat()
-            original_signature = (original_stat.st_dev, original_stat.st_ino, original_stat.st_size, original_stat.st_mtime_ns)
-            current_signature = (current_stat.st_dev, current_stat.st_ino, current_stat.st_size, current_stat.st_mtime_ns)
+            original_signature = (
+                original_stat.st_dev,
+                original_stat.st_ino,
+                original_stat.st_size,
+                original_stat.st_mtime_ns,
+            )
+            current_signature = (
+                current_stat.st_dev,
+                current_stat.st_ino,
+                current_stat.st_size,
+                current_stat.st_mtime_ns,
+            )
             if original_signature != current_signature:
                 msg = f"Master workbook changed during append: {workbook_path}"
                 raise RuntimeError(msg)
-            os.replace(staged_path, workbook_path)
+            staged_path.replace(workbook_path)
         finally:
             staged_path.unlink(missing_ok=True)
     except PermissionError:

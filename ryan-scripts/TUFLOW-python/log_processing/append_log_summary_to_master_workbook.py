@@ -5,8 +5,8 @@ Edit MASTER_WORKBOOK or pass --master-workbook. This operation intentionally
 modifies an existing .xlsx file; use a backup for important workbooks.
 """
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 WRAPPER_VERSION = "2026-11-08.1"
 
@@ -78,7 +78,10 @@ def main(
             live_refresh_per_second=effective_live_refresh_per_second,
             live_max_rows=effective_live_max_rows,
         )
-    except (Exception, KeyboardInterrupt) as exc:
+    except KeyboardInterrupt:
+        print("ERROR: Master log append interrupted.", file=sys.stderr)
+        return 130
+    except Exception as exc:  # noqa: BLE001 - process boundary must produce a nonzero exit on any failure
         print(f"ERROR: Master log append failed: {exc}", file=sys.stderr)
         return 1
     return 0 if completed else 1

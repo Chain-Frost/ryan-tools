@@ -98,16 +98,9 @@ def append_to_master_log_summary(
                     console_log_level=console_level,
                     dashboard=dashboard,
                 )
-                if len(processing_results) != len(files_to_process):
-                    msg = f"Only {len(processing_results)} of {len(files_to_process)} log processing outcomes returned."
-                    raise RuntimeError(msg)
-                if any(result.status not in {"OK", "SKIP", "FAIL"} for result in processing_results):
-                    msg = "Log processing returned an unsupported status."
-                    raise RuntimeError(msg)
-
-                completed = [result for result in processing_results if result.status == "OK"]
-                failed_count = sum(result.status == "FAIL" for result in processing_results)
-                skipped_count = sum(result.status == "SKIP" for result in processing_results)
+                completed, failed_count, skipped_count = _summarise_processing_outcomes(
+                    files=files_to_process, processing_results=processing_results
+                )
                 dashboard.set_phase("Aggregating")
                 merged_df: pd.DataFrame = (
                     build_log_summary_dataframe(files=files_to_process, processing_results=completed)
@@ -156,3 +149,18 @@ def append_to_master_log_summary(
                 logger.exception("Master log append failed; confirm workbook and output state.")
                 dashboard.finish(outcome="FAILED", detail="processing or workbook save failed")
                 raise
+
+def _summarise_processing_outcomes(
+    *, files: list[Path], processing_results: list[LogFileProcessingResult]
+) -> tuple[list[LogFileProcessingResult], int, int]:
+    """Do not lose failed or missing worker outcomes during aggregation."""
+    if len(processing_results) != len(files):
+        msg = f"Only {len(processing_results)} of {len(files)} log processing outcomes returned."
+        raise RuntimeError(msg)
+    if any(result.status not in {"OK", "SKIP", "FAIL"} for result in processing_results):
+        msg = "Log processing returned an unsupported status."
+        raise RuntimeError(msg)
+    completed = [result for result in processing_results if result.status == "OK"]
+    failed_count = sum(result.status == "FAIL" for result in processing_results)
+    skipped_count = sum(result.status == "SKIP" for result in processing_results)
+    return completed, failed_count, skipped_count

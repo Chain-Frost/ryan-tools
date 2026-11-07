@@ -81,7 +81,7 @@ def test_failed_master_publication_preserves_workbook(
     if failure == "save":
         monkeypatch.setattr(Workbook, "save", lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError("disk full")))
     else:
-        monkeypatch.setattr(excel_append.os, "replace", lambda *_args: (_ for _ in ()).throw(PermissionError("locked")))
+        monkeypatch.setattr(Path, "replace", lambda *_args: (_ for _ in ()).throw(PermissionError("locked")))
     with pytest.raises(OSError):
         excel_append.append_dataframe_to_workbook_table(
             data_frame=dataframe, workbook_path=master, sheet_name="Log Summary", table_name=None
