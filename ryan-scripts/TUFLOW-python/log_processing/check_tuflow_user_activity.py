@@ -17,7 +17,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-04.1"
+WRAPPER_VERSION = "2026-11-07.1"
 
 DEFAULT_LOG_ROOT = Path(os.environ.get("ProgramData", r"C:\ProgramData")) / "TUFLOW" / "log"
 DEFAULT_RECENT_HOURS = 24.0
@@ -90,7 +90,11 @@ def main(
     hyperlinks: bool | None = None,
 ) -> int:
     """Build and print the integrated read-only activity report."""
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="TUFLOW-python/log_processing/check_tuflow_user_activity.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+    )
     try:
         configure_serial_logging(console_log_level=console_log_level)
         report = build_activity_report(
@@ -182,6 +186,7 @@ if __name__ == "__main__":
         hyperlinks=options.hyperlinks,
     )
     print_wrapper_banner(
+        wrapper_source="TUFLOW-python/log_processing/check_tuflow_user_activity.py",
         wrapper_file=Path(__file__),
         wrapper_version=WRAPPER_VERSION,
         leading_blank_line=True,

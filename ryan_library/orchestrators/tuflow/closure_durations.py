@@ -21,16 +21,16 @@ from typing import Literal
 from loguru import logger
 from pandas import DataFrame
 
-from ryan_library.functions.excel_export import ExcelExporter, ExportContent
-from ryan_library.functions.loguru_helpers import setup_logger
-from ryan_library.functions.tuflow.closure_durations_functions import (
+from ...functions.excel_export import ExcelExporter, ExportContent, RawTableExport
+from ...functions.loguru_helpers import setup_logger
+from ...functions.tuflow.closure_durations_functions import (
     calculate_threshold_durations,
     collect_po_data,
     summarise_results,
 )
-from ryan_library.functions.tuflow.tuflow_common import bulk_read_and_merge_tuflow_csv
-from ryan_library.processors.tuflow.base_processor import BaseProcessor
-from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
+from ...functions.tuflow.tuflow_common import bulk_read_and_merge_tuflow_csv
+from ...processors.tuflow.base_processor import BaseProcessor
+from ...processors.tuflow.processor_collection import ProcessorCollection
 
 # Aliases used for testing/mocking
 _collect_po_data = collect_po_data
@@ -52,7 +52,11 @@ def run_closure_durations(
     - Discover and parse PO files via the processor pipeline.
     - Filter by location (if provided).
     - Compute exceedance durations for each threshold/location.
-    - Summarise results and export parquet/CSV/Excel artefacts.
+    - Summarise results before staging any output.
+    - Export the raw CSV/gzip-Parquet tables and selected formatted reports as one batch.
+
+    ``export_mode`` selects the formatted report formats. The legacy raw tables
+    are retained in every mode, with the same no-overwrite policy as the reports.
     """
     if paths is None:
         paths = [Path.cwd()]
@@ -92,9 +96,6 @@ def run_closure_durations(
             return
 
         timestamp: str = datetime.now().strftime(format="%Y%m%d-%H%M")
-        result_df.to_parquet(path=f"{timestamp}_durex.parquet.gzip", compression="gzip")
-        result_df.to_csv(path_or_buf=f"{timestamp}_durex.csv", index=False)
-
         summary_df: DataFrame = summarise_results(df=result_df)
         summary_df["AEP_sort_key"] = summary_df["AEP"].str.extract(r"([0-9]*\.?[0-9]+)")[0].astype(dtype=float)
         summary_df = summary_df.sort_values(by=["Path", "Location", "ThresholdFlow", "AEP_sort_key"], ignore_index=True)
@@ -115,7 +116,7 @@ def _export_closure_duration_artifacts(
     timestamp: str,
     export_mode: Literal["excel", "parquet", "both"],
 ) -> None:
-    """Export closure duration tables according to ``export_mode``."""
+    """Export legacy raw tables and selected reports in one protected batch."""
     frames: list[DataFrame] = []
     sheet_names: list[str] = []
     if not durations_df.empty:
@@ -131,6 +132,14 @@ def _export_closure_duration_artifacts(
 
     file_label: str = f"{timestamp}_closure_durations"
     export_dict: dict[str, ExportContent] = {file_label: {"dataframes": frames, "sheets": sheet_names}}
+    raw_exports = (
+        (
+            RawTableExport(f"{timestamp}_durex.parquet.gzip", durations_df, "parquet"),
+            RawTableExport(f"{timestamp}_durex.csv", durations_df, "csv"),
+        )
+        if not durations_df.empty
+        else ()
+    )
     ExcelExporter().export_dataframes(
         export_dict=export_dict,
         output_directory=Path.cwd(),
@@ -138,4 +147,5 @@ def _export_closure_duration_artifacts(
         parquet_compression="gzip",
         include_data_dictionary=True,
         data_dictionary_metadata={"Workflow": "Closure durations"},
+        raw_exports=raw_exports,
     )

@@ -54,6 +54,12 @@ to distinguish them. This is presentation grouping only: launch order is unchang
 `LIVE_MAX_ROWS` remains a global task-row limit across all boxes, and short terminals
 may show fewer rows to accommodate headings. Active runs take precedence over
 recent completed rows; queued runs remain counted in the batch summary.
+Visible runs appear newest first by run number within each TCF box: for example,
+active run 604 is followed by completed runs 603, 602, down to 595. Parallel runs
+keep this numeric order even when they finish out of order; an older active run
+remains selected and appears below newer visible runs. The box containing the
+newest visible run appears first. Before any run starts, the queued preview keeps
+the original launch order.
 Event/scenario values and details stay on one line and use ellipses in narrow
 terminals so wrapped cells cannot hide a lower model's active rows.
 The `GPU` column shows the group actually assigned at launch, such as `-pu0` or
@@ -213,6 +219,25 @@ Generated modes (`PARAMETER_PRODUCT` and `BOTH`) still require a Python
 Its operational constants can use concise names; the wrapper standard
 does not require a `DEFAULT_` prefix. CLI arguments override editable values
 when supplied.
+
+The wrapper keeps editable settings, CLI normalization, logging setup, signal
+handling, final reporting, Python follow-up execution and optional pause. The
+complete batch session is coordinated by
+[`simulation_workflow.py`](../../ryan_library/orchestrators/tuflow/simulation_workflow.py):
+planning, optional-file diagnostics, command export, strict preflight, CSV
+continuation and advisory-check cleanup. The existing
+[`simulation_runner.py`](../../ryan_library/orchestrators/tuflow/simulation_runner.py)
+still owns planning primitives, scheduling, GPU selection and dashboard/progress integration.
+
+Python callers can supply `RunnerSettings` and `WorkflowControls` to
+`run_simulation_workflow()` without importing a wrapper or constructing CLI
+arguments. Controls use the `OP` and `CONT` enums and boolean export/check
+settings. The returned `WorkflowOutcome` contains the export path, preflight
+result or completed batch, skipped count and exit code after owned resources
+are closed. TXT and CSV locations always derive from `RunnerSettings.wrapper_file`.
+The library does not install signal handlers; the wrapper supplies a context
+that handles Ctrl+C only during pending execution. Use wrapper version
+`2026-11-07.2` with the matching `ryan-tools` package for this workflow boundary.
 
 The startup settings print `RUN_VARIABLES` as a Python-style dictionary with
 one event/scenario entry per line, preserving input order and values. The
@@ -550,6 +575,64 @@ or an explicitly configured target directory). Nested files retain their
 relative subfolder names; full paths are still used for file operations.
 Green denotes a successful layer rename, yellow a skipped file (already
 correct or multiple layers), and red a failed inspection or rename.
+
+## Culvert, PO and POMM result dashboards
+
+The six maintained result wrappers under `culvert_results` and `po_and_timeseries` use the
+[shared dashboard standard](../../docs/DASHBOARDS.md) for substantial interactive batches:
+[combine_culvert_maximums.py](culvert_results/combine_culvert_maximums.py), [combine_culvert_timeseries.py](culvert_results/combine_culvert_timeseries.py),
+[create_mean_culvert_peak_report.py](culvert_results/create_mean_culvert_peak_report.py), [create_median_culvert_peak_report.py](culvert_results/create_median_culvert_peak_report.py),
+[combine_po_results.py](po_and_timeseries/combine_po_results.py) and [combine_pomm_results.py](po_and_timeseries/combine_pomm_results.py).
+
+Each has editable `USE_LIVE_DASHBOARD`, `LIVE_REFRESH_PER_SECOND`,
+`LIVE_MAX_ROWS`, `CONSOLE_LOG_LEVEL`, `PAUSE_ON_FINISH` and optional
+`LOG_FILE`/`FILE_LOG_LEVEL`. CLI switches override relevant values including
+`--live-dashboard`, `--no-live-dashboard` and `--no-pause`. Interactive pausing
+is enabled by the editable `PAUSE_ON_FINISH = True` default; `--no-pause` disables
+it, and redirected/headless runs do not wait. A separate `--pause` flag is not needed.
+A `CONSOLE_LOG_LEVEL` of `None` chooses SUCCESS for dashboard runs and INFO
+for ordinary logging; an explicit level is respected. Dashboards default to
+enabled with ten visible rows. File logging defaults to INFO; explicitly select
+DEBUG for detailed diagnostics independently of the concise console level.
+
+The dashboard follows discovery, processing, aggregation and export. Successful
+input parsing does not mean a workbook has been written; a processing failure
+or export exception cannot produce a successful final report state. Normal
+no-result cases are reported as skipped. The wrapper exits nonzero on processing
+failures; export errors retain an actionable exception and nonzero exit. The
+display uses optional file completion counts, timeseries/maximums rows, or
+AEP-duration and critical groups as appropriate. It does **not** show an
+estimated byte-read rate or label stat metadata as measured bytes read.
+The established full-list serial fallback for recoverable pool failures and
+the processor raw-DataFrame cleanup are unchanged.
+
+Relative `PATHS_TO_PROCESS`, `--paths-to-process`, output and log paths use
+`WORKING_DIR` (or the effective `--working-directory`) as their base,
+**before** the process changes directory. Mapped drive, UNC and symlink
+spellings are preserved by `Path.absolute()`; no `resolve()` is used merely
+for display. The four culvert wrappers expose editable
+`LOCATIONS_TO_INCLUDE`; PO/POMM continue to expose the same filter.
+For culvert results, use channel IDs such as
+`LOCATIONS_TO_INCLUDE: list[str] = ["C01", "C02"]`; an empty list includes every
+channel. The selection applies to processed channel rows in maximums, timeseries,
+mean and median reports, including their raw sheets. Nmx node IDs are reshaped
+before selection, and shortened EOF labels are aligned using all available
+channel references before any are removed. Ambiguous EOF labels are never
+reassigned merely because a filter removes one of their possible matches.
+The mean and median report output directory is the absolute effective
+working directory. Maximums and timeseries optionally expose
+`OUTPUT_DIR`/`--output-directory` while preserving the default output
+location. PO/POMM continue to export into the working directory.
+
+Output names, Excel sheets, gzip Parquet, mean/upper-median mathematics,
+PO sorting and POMM raw-combine semantics are unchanged.
+Use a copied wrapper with a matching installed `ryan-tools` wheel; a
+repository-root `PYTHONPATH` workaround is not supported. For a headless run:
+
+```powershell
+py -3.14 .\culvert_results\combine_culvert_maximums.py --working-directory "Q:\Model\results" --no-live-dashboard --no-pause
+py -3.14 .\po_and_timeseries\combine_pomm_results.py --working-directory "Q:\Model\results" --export-mode both --no-pause
+```
 
 ## Wrapper folders
 
@@ -903,3 +986,45 @@ py -3.14 .\ryan-scripts\TUFLOW-python\crop_tgc_terrains.py `
 The planning grid controls coverage-mask precision only; it does not change
 terrain resolution. Review the manifest and compare a TUFLOW `DEM_Z` check
 against the original stack before replacing a production TGC reference.
+
+## Result-wrapper path and label-output safety
+
+Result dashboard wrappers expand `~` before joining relative inputs, logs and
+output folders to `WORKING_DIR`. Invalid dashboard settings return exit 1 before
+changing directory. PO peak, stability and closure wrappers also make the working
+directory absolute before changing into it, so a relative `--working-directory`
+is applied only once. Their editable `PAUSE_ON_FINISH` is overridden by `--no-pause`.
+
+[`generate_2d_po_label_list.py`](po_and_timeseries/generate_2d_po_label_list.py)
+requires a GeoPackage CLI argument or an edited `HARDCODED_GPKG_PATH` (default
+`None`). `--layer` overrides editable `LAYER`; `--version` reports the script
+version. It opens SQLite read-only and creates the adjacent `.txt` exclusively.
+An existing text file is preserved and returns an error; move or rename it before
+requesting another export. It does not pause and needs no dashboard for this
+single-dataset operation.
+
+The [audit backlog](../../docs/audits/2026-10-22-script-remediation-backlog.md#issue-180-continuation--2026-11-04)
+tracks remaining shared exporter/discovery defects and dashboard adoption.
+The shared exporter fix addresses #194; discovery outcomes and the remaining
+dashboard adoption issues are tracked separately.
+
+## Report output protection
+
+Shared Excel/Parquet/CSV exports refuse existing report destinations, including
+same-minute generated filenames and sanitized sheet-name collisions. All files
+are staged before publication; writer failures produce no completed reports. A
+later publication failure retains and identifies any reports already published,
+and the wrapper returns failure. Choose another output directory/name or move
+previous reports before rerunning. Publication requires filesystem hard-link
+support; live mapped/UNC acceptance is separate. See the
+[shared output contract](../../ryan_library/functions/excel_export.md) and
+[#194 work record](../../docs/work/2026-11-04-result-export-safety-194.md).
+
+The closure-duration wrapper always retains its legacy raw
+`<timestamp>_durex.csv` and `<timestamp>_durex.parquet.gzip` tables.
+`EXPORT_MODE` / `--export-mode` chooses the formatted Excel/Parquet report
+formats; it does not disable those raw outputs. Summary calculation completes
+before any file is staged. Raw tables and formatted reports share one
+preflight and publication batch, so an existing raw or report filename stops
+the entire export before writing, and a writer failure publishes no new files.
+Existing formatted report names are unchanged.

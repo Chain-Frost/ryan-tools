@@ -10,7 +10,7 @@ Example:
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-17.1"
+WRAPPER_VERSION = "2026-11-07.1"
 
 import argparse
 import csv
@@ -425,7 +425,11 @@ def _workspace(
 
 
 def run(args: argparse.Namespace) -> int:
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="tuflow/tuflow_culvert_from_1d_nwk.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+    )
     engine = CulvertEngine(args.engine)
     _ensure_output_available(
         args.output_csv,
@@ -608,5 +612,10 @@ if __name__ == "__main__":
         print(f"Evaluation failed: {exc}")
         exit_code = 1
     finally:
-        print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+        print_wrapper_banner(
+            wrapper_source="tuflow/tuflow_culvert_from_1d_nwk.py",
+            wrapper_file=Path(__file__),
+            wrapper_version=WRAPPER_VERSION,
+            leading_blank_line=True,
+        )
     raise SystemExit(exit_code)

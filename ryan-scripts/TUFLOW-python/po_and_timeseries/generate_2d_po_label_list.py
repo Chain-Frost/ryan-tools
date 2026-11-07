@@ -7,8 +7,11 @@ Example:
 
 import argparse
 import sqlite3
+import sys
 from collections.abc import Iterable, Sequence
+from contextlib import closing
 from dataclasses import dataclass
+from inspect import signature
 from pathlib import Path
 from typing import Any
 
@@ -19,7 +22,10 @@ from typing import Any
 # the file path below (either as a Path instance or a raw string). Leave it as
 # None to rely exclusively on argparse. When both a hardcoded path and a CLI
 # argument are supplied, the CLI argument wins.
-HARDCODED_GPKG_PATH: Path | str | None = r"E:\Library\Automation\ryan-tools\2d_po_PilaruWest_01_L.gpkg"
+SCRIPT_VERSION = "2026-11-07.2"
+HARDCODED_GPKG_PATH: Path | str | None = None
+LAYER: str | None = None
+# The adjacent .txt is created exclusively; existing files are never overwritten.
 
 
 @dataclass(slots=True)
@@ -28,6 +34,18 @@ class RuntimeOptions:
 
     gpkg_path: Path
     layer: str | None
+
+
+# Standalone use remains supported without installing ryan-tools.
+try:
+    from ryan_library.functions.wrapper_utils import print_wrapper_banner
+except ModuleNotFoundError as exc:
+    if exc.name not in {"ryan_library", "ryan_library.functions", "ryan_library.functions.wrapper_utils"}:
+        raise
+    print_wrapper_banner = None
+else:
+    if "wrapper_source" not in signature(print_wrapper_banner).parameters:
+        print_wrapper_banner = None
 
 
 def parse_and_resolve_options(argv: Sequence[str] | None = None) -> RuntimeOptions:
@@ -49,6 +67,7 @@ def parse_and_resolve_options(argv: Sequence[str] | None = None) -> RuntimeOptio
             "Optional layer/table name inside the GeoPackage. If omitted the script auto-detects the first 2d_po layer."
         ),
     )
+    parser.add_argument("--version", action="version", version=SCRIPT_VERSION)
     args: argparse.Namespace = parser.parse_args(argv)
 
     gpkg_candidate: Path | str | None
@@ -58,11 +77,19 @@ def parse_and_resolve_options(argv: Sequence[str] | None = None) -> RuntimeOptio
         parser.error("No GeoPackage supplied. Provide a path argument or set HARDCODED_GPKG_PATH.")
 
     gpkg_path: Path = Path(gpkg_candidate).expanduser().absolute()
-    return RuntimeOptions(gpkg_path=gpkg_path, layer=args.layer)
+    return RuntimeOptions(gpkg_path=gpkg_path, layer=args.layer if args.layer is not None else LAYER)
 
 
 def main() -> None:
     """Entry point used by both CLI execution and IDE run configurations."""
+    if print_wrapper_banner is not None:
+        print_wrapper_banner(
+            wrapper_file=Path(__file__),
+            wrapper_version=SCRIPT_VERSION,
+            wrapper_source="TUFLOW-python/po_and_timeseries/generate_2d_po_label_list.py",
+        )
+    else:
+        print(f"Script: {Path(__file__).absolute()} (version {SCRIPT_VERSION})")
     options: RuntimeOptions = parse_and_resolve_options()
     if not options.gpkg_path.exists():
         msg = f"GeoPackage not found: {options.gpkg_path}"
@@ -72,20 +99,30 @@ def main() -> None:
         entries: list[tuple[str, str | None]] = load_label_entries(
             gpkg_path=options.gpkg_path, preferred_layer=options.layer
         )
-    except ValueError as exc:
+    except (ValueError, sqlite3.Error, OSError) as exc:
         raise SystemExit(str(exc)) from exc
 
     output: str = format_as_python_list(entries)
     output_path: Path = options.gpkg_path.with_suffix(".txt")
-    write_output_file(output_path=output_path, contents=output)
+    try:
+        write_output_file(output_path=output_path, contents=output)
+    except OSError as exc:
+        print(f"Cannot create label list {output_path}: {exc}", file=sys.stderr)
+        raise SystemExit(1) from exc
     print(output)
     print(f"\nList written to {output_path}")
 
 
 def load_label_entries(gpkg_path: Path, preferred_layer: str | None = None) -> list[tuple[str, str | None]]:
     """Open the GeoPackage, determine the relevant layer, and read label/comment pairs."""
-    # Connect directly to the GeoPackage; it's just a SQLite database under the hood.
-    with sqlite3.connect(database=gpkg_path.as_posix()) as connection:
+    # Read-only URI prevents SQLite from creating a missing input or modifying it.
+    uri = gpkg_path.absolute().as_uri()
+    # SQLite builds commonly reject non-local URI authorities. Four slashes
+    # keep a Windows UNC server/share in the path while retaining read-only mode.
+    if uri.startswith("file://") and not uri.startswith("file:///"):
+        uri = "file:////" + uri.removeprefix("file://")
+    uri += "?mode=ro"
+    with closing(sqlite3.connect(database=uri, uri=True)) as connection:
         cursor: sqlite3.Cursor = connection.cursor()
         table_name, column_lookup = resolve_table_and_columns(cursor=cursor, preferred_layer=preferred_layer)
 
@@ -195,7 +232,8 @@ def quote_identifier(identifier: str) -> str:
 
 def write_output_file(*, output_path: Path, contents: str) -> None:
     """Persist the rendered list next to the source GeoPackage for reuse."""
-    output_path.write_text(f"{contents}\n", encoding="utf-8")
+    with output_path.open("x", encoding="utf-8") as output:
+        output.write(f"{contents}\n")
 
 
 if __name__ == "__main__":

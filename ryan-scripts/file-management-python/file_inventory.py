@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-19.1"
+WRAPPER_VERSION = "2026-11-07.1"
 DEFAULT_INPUT_DIRECTORIES: list[Path] = [Path()]
 DEFAULT_PATTERNS: list[str] = ["*"]
 DEFAULT_OUTPUT_DIRECTORY = Path()
@@ -38,7 +38,11 @@ def main(args: argparse.Namespace) -> int:
     recursive: bool = DEFAULT_RECURSIVE if args.recursive is None else args.recursive
     sha256: bool = DEFAULT_INCLUDE_SHA256 if args.sha256 is None else args.sha256
     excel: bool = DEFAULT_CREATE_EXCEL if args.excel is None else args.excel
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="file-management-python/file_inventory.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+    )
     if not basename or Path(basename).name != basename or basename in {".", ".."}:
         logger.error("Output basename must be a simple filename stem.")
         return 2
@@ -85,7 +89,12 @@ def _parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
 if __name__ == "__main__":
     arguments = _parse_cli_arguments()
     status = main(arguments)
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+    print_wrapper_banner(
+        wrapper_source="file-management-python/file_inventory.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        leading_blank_line=True,
+    )
     if DEFAULT_PAUSE and not arguments.no_pause:
         pause_console()
     sys.exit(status)

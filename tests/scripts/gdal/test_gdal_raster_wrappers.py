@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import importlib.util
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -262,3 +263,61 @@ def test_flood_extent_wrapper_creates_raster_and_vector(
     assert result == 0
     assert copied.with_name(f"{copied.stem}_FE_005m.tif").is_file()
     assert copied.with_name(f"{copied.stem}_FE_005m.gpkg").is_file()
+
+
+@pytest.mark.parametrize("tile_size", [[], [100], [100, 200, 300]])
+def test_retile_wrapper_rejects_edited_tile_size_before_side_effects(
+    tile_size: list[int], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = _load_script("gdal_retile_wrapper.py")
+    source = tmp_path / "input.tif"
+    source.touch()
+    output = tmp_path / "tiles"
+    monkeypatch.setattr(module, "DEFAULT_INPUTS", [source])
+    monkeypatch.setattr(module, "DEFAULT_OUTPUT_DIR", output)
+    monkeypatch.setattr(module, "DEFAULT_TILE_SIZE", tile_size)
+    run_process = Mock()
+    monkeypatch.setattr(module.subprocess, "run", run_process)
+
+    result = module.main(module._parse_cli_arguments([]))
+
+    assert result == 2
+    assert not output.exists()
+    run_process.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("default_size", "cli_args", "expected_size"),
+    [
+        ([320, 640], [], ["320", "640"]),
+        ([320, 640], ["--tile-size", "100", "200"], ["100", "200"]),
+        ([100], ["--tile-size", "100", "200"], ["100", "200"]),
+    ],
+)
+def test_retile_wrapper_passes_selected_tile_size_to_command(
+    default_size: list[int],
+    cli_args: list[str],
+    expected_size: list[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_script("gdal_retile_wrapper.py")
+    source = tmp_path / "input.tif"
+    source.touch()
+    output = tmp_path / "tiles"
+    original_default = default_size.copy()
+    monkeypatch.setattr(module, "DEFAULT_INPUTS", [source])
+    monkeypatch.setattr(module, "DEFAULT_OUTPUT_DIR", output)
+    monkeypatch.setattr(module, "DEFAULT_TILE_SIZE", default_size)
+    run_process = Mock(return_value=subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr=""))
+    monkeypatch.setattr(module.subprocess, "run", run_process)
+
+    result = module.main(module._parse_cli_arguments(cli_args))
+
+    assert result == 0
+    assert output.is_dir()
+    run_process.assert_called_once()
+    command = run_process.call_args.args[0]
+    tile_size_index = command.index("-ps")
+    assert command[tile_size_index + 1 : tile_size_index + 3] == expected_size
+    assert original_default == module.DEFAULT_TILE_SIZE

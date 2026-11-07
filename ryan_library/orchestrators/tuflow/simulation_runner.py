@@ -1447,6 +1447,7 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
             transient=False,
             group_by="tcf_key",
             group_label_key="tcf_label",
+            newest_first=True,
             columns=(
                 WorkflowColumn("Run", "metadata", metadata_key="run_index", justify="right", no_wrap=True, min_width=3),
                 *(

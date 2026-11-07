@@ -17,7 +17,10 @@ Use the lowest-volume level that still suits the person or system reading the ou
 `SUCCESS` is the recommended low-context setting for an AI agent or MCP client. Loguru orders `SUCCESS` between
 `INFO` and `WARNING`, so it naturally removes routine progress without hiding completion or failure signals.
 
-Keep complete diagnostics outside the AI context by using independent console and file levels:
+File sinks default to `INFO` in shared helpers, supported workflows and maintained
+scripts. Select `DEBUG` explicitly for detailed diagnosis; console and file
+levels remain independent. For example, keep complete diagnostics outside the
+AI context with an explicitly enabled DEBUG file sink:
 
 ```python
 from loguru import logger
@@ -36,6 +39,24 @@ with setup_logger(
 
 Maintained wrappers that use the common CLI accept `--console-log-level SUCCESS`. This is preferable to truncating
 captured output after execution because warnings and final status remain visible.
+
+## Dashboard sink policy
+
+For substantial batches use the shared [dashboard contract](DASHBOARDS.md). The
+rendered dashboard is a **console presentation** decision, not a reason to
+discard worker records. Use `SUCCESS` for a concise dashboard console while
+retaining independently configured `DEBUG` file logs. Call
+`run_dashboard_workflow(..., worker_log_level=None)` (the default) so the
+existing Loguru queue captures the least restrictive level required by any sink.
+An explicit worker override that would discard records destined for a
+configured sink is invalid. Worker warnings/errors and serialized tracebacks
+remain visible through the logging listener. Keep routine per-item INFO
+out of the dashboard console; do not replay it after the live region closes.
+
+Disabling the dashboard restores the caller's chosen ordinary console logging
+level. A redirected terminal must not receive repeated Rich frames or ANSI
+cursor controls. Report the whole workflow through aggregation/export and
+emit one truthful final outcome, including failed/partial reports.
 
 ## Live dashboards and copied wrappers
 

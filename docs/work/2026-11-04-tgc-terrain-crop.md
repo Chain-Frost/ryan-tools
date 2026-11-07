@@ -131,3 +131,14 @@ transfer. Resolve the branch conflicts before collecting current-head PR CI.
 This transfer does not authorize merging or rebasing unrelated terrain work.
 The original checkout independently moved to clean `main` during the transfer;
 its changed state was detected before cleanup and left untouched.
+
+
+### 2026-11-07 ? stack conflict resolution
+
+Merged current `main` into the #204 branch to resolve documentation conflicts,
+preserving terrain/CAD guidance and the newer result-wrapper safety guidance and
+inventory recheck evidence. The static audit reports 159 tracked files, 83 selected
+and 33 MCP targets; 76 files are excluded. Shared runner changes combined cleanly
+and strict Pyright/Ruff checks pass. Focused terrain/CAD/runner validation is recorded
+with the integration follow-up. The maintainer authorised merging child #246 into
+#204; merging #204 into `main` remains unauthorised. Native engineering gates remain.
