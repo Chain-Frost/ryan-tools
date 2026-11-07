@@ -702,6 +702,23 @@ unattributable quantity rows are suppressed with a warning rather than reported 
 
 ## POMM peak wrapper migration
 
+### Supported peak inputs
+
+The mean and median POMM peak reports accept `POMM` and `RLL_Qmx` by default and
+retain both source types in the raw POMM worksheet. Reporting-location line
+maximums retain their source `file`, `Chan ID`, signed `Q` (`Qmax`) and
+`Type = Q`; the common `Location` field is derived from `Chan ID`.
+POMM `Type = Flow` remains distinct from RLL `Type = Q`, so the reporting
+groups are not silently merged.
+
+For RLL, `AbsMax = abs(Qmax)` and `SignedAbsMax = Qmax`. This is the magnitude
+of the **reported signed maximum**, not a reconstructed absolute extremum
+across the entire time series. Unlike POMM `AbsMax`, which uses both the
+reported time-series maximum and minimum, an RLL file cannot supply an
+unreported negative minimum. Peak reports retain that measurement distinction;
+they must not be interpreted as proving the two input quantities have
+identical sampling semantics.
+
 ### Mean peak coverage findings
 
 `po_and_timeseries/create_pomm_mean_peak_report.py` adds coverage findings to `aep-mean-max`,
