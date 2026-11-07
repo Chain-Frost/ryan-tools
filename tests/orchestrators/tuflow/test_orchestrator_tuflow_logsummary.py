@@ -180,6 +180,7 @@ def test_build_log_summary_dataframe() -> None:
     r2 = LogFileProcessingResult(f1, pd.DataFrame({"StartDate": [1]}), "OK", "")
 
     with patch("ryan_library.orchestrators.tuflow.tuflow_logsummary._reorder_log_summary_columns") as mock_reorder:
+
         def identity(data_frame: pd.DataFrame) -> pd.DataFrame:
             return data_frame
 
