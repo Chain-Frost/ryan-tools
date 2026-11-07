@@ -117,3 +117,23 @@ Recorded current import/lifecycle state, reconciled the merged #120 and subseque
 release, distinguished source from installed-wheel evidence, identified the remaining
 optional-dependency test limitation, and retained separately owned distribution and native
 software acceptance gates.
+
+### 2026-11-08 — Repeatable import-boundary validation added
+
+WP02 issue #98 now has a read-only, stdlib-based import-origin and optional-dependency
+probe in `repo-scripts/check_compatibility_imports.py`. A new hosted source-checkout
+test runs it with `PYTHONPATH` pointing at this repository, and the existing
+installed-wheel smoke invokes the same probe in a **fresh process** with
+`PYTHONPATH` restricted to the isolated wheel target. These separate contexts
+check physical package origin and block `osgeo`, `qgis`, `mcp`, `tkinter`,
+`run_hy8` and `culvert_solver` during lightweight package/utility imports.
+The two engine distributions are required dependencies, but remain unnecessary
+for those lightweight imports. The probe also records blocked attempts that
+an importing module may swallow internally.
+
+A synthetic local probe with Python 3.13 passed, and a deliberately swallowed
+`osgeo` import caused the expected failure. This **does not establish** the
+supported Python 3.14 source and installed-wheel checks: confirm both on the
+combined PR #251 head in hosted CI before updating this record to complete and
+adding an issue-closing keyword for #98. No licensed solver or native GIS
+runtime is exercised by this probe.
