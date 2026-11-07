@@ -25,11 +25,11 @@ def _run_converter(source: Path, *args: str) -> subprocess.CompletedProcess[str]
 def test_dxf_to_gpkg_keeps_geometry_layers_and_refuses_existing_output(tmp_path: Path) -> None:
     """Validate actual GDAL DXF conversion and non-destructive default reruns."""
     source = tmp_path / "sample.dxf"
-    drawing = ezdxf.new("R2010")
+    drawing = ezdxf.new("R2010")  # pyright: ignore[reportPrivateImportUsage]
     space = drawing.modelspace()
-    space.add_point((5.0, 6.0, 0.0))
-    space.add_line((0.0, 0.0, 0.0), (10.0, 0.0, 0.0))
-    drawing.saveas(source)
+    space.add_point((5.0, 6.0, 0.0))  # pyright: ignore[reportUnknownMemberType]
+    space.add_line((0.0, 0.0, 0.0), (10.0, 0.0, 0.0))  # pyright: ignore[reportUnknownMemberType]
+    drawing.saveas(source)  # pyright: ignore[reportUnknownMemberType]
 
     result = _run_converter(source, "--crs", "EPSG:28350")
     assert result.returncode == 0, result.stdout + result.stderr
