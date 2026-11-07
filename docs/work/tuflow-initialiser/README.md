@@ -155,7 +155,10 @@ Validation on Windows Python 3.14.6 (2026-11-07):
 - No populated TUFLOW simulation or native GRASS parity run was performed.
 
 Delivery: scoped commits and pushes to the existing PR branch are now authorised.
-These changes are being committed and pushed; final-head hosted checks remain pending.
+Implementation pushed as `df0cda09`; instruction update pushed as `5bd7098e`.
+The PR remains draft/open and unmerged. GitHub reports no checks on this head; the
+last green hosted evidence belongs to `f32cff0` and does not validate these changes.
+This delivery record is committed separately. Final-head hosted checks remain pending.
 `AGENTS.md` and work tracking permit scoped staging, commits and pushes, while merging
 requires explicit authorisation. Native engineering gates remain outstanding.
 Next review: 2026-11-08.
