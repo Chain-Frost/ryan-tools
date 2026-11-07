@@ -4,6 +4,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pandas as pd
+import pytest
 
 from ryan_library.orchestrators.tuflow.tuflow_logsummary import (
     LogFileProcessingResult,
@@ -47,9 +48,10 @@ def test_process_log_file_dataframe(
     log_path = tmp_path / "test.tlf"
     log_path.write_text("dummy")
 
-    # Empty log file -> return empty df
+    # A nonempty file whose reader supplies no lines is an input failure.
     mock_read.return_value = ([], [])
-    assert _process_log_file_dataframe(log_path).empty
+    with pytest.raises(OSError, match="Could not read nonempty TUFLOW log"):
+        _process_log_file_dataframe(log_path)
 
     # Has lines, incomplete run
     mock_read.return_value = (["line"], ["line"])
@@ -66,13 +68,15 @@ def test_process_log_file_dataframe(
     res = _process_log_file_dataframe(log_path)
     assert not res.empty
 
-    # Finalize fails (returns empty df)
+    # Completed logs with failed finalization are malformed, not skipped.
     mock_finalise.return_value = pd.DataFrame()
-    assert _process_log_file_dataframe(log_path).empty
+    with pytest.raises(ValueError, match="failed report finalization"):
+        _process_log_file_dataframe(log_path)
 
-    # Success != 4
+    # Completed logs lacking required header fields fail with path context.
     mock_process_top.return_value = ({"Runcode": "test"}, 3, False, False, False)
-    assert _process_log_file_dataframe(log_path).empty
+    with pytest.raises(ValueError, match="incomplete header metadata"):
+        _process_log_file_dataframe(log_path)
 
 
 @patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.discover_log_files")
@@ -107,7 +111,7 @@ def test_main_processing(mock_exporter, mock_build, mock_process, mock_discover,
 
 
 def test_discover_log_files(tmp_path: Path) -> None:
-    (tmp_path / "valid.tlf").touch()
+    (tmp_path / "valid.tlf").write_text("Simulation in progress", encoding="utf-8")
     (tmp_path / "valid.hpc.tlf").touch()  # Excluded
 
     res = discover_log_files(root_dir=tmp_path)

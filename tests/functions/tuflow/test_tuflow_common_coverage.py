@@ -75,6 +75,7 @@ class TestProcessFileExceptions:
     def test_process_file_validation_fails(self, mock_from_file: MagicMock) -> None:
         mock_proc = MagicMock()
         mock_proc.validate_data.return_value = False
+        mock_proc.filtered_empty = False
         mock_from_file.return_value = mock_proc
 
         proc: BaseProcessor | None = tuflow_common.process_file(file_path=Path("test.csv"))
