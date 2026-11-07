@@ -246,6 +246,11 @@ def main_processing(
                 root_dir: Path = Path.cwd()
                 files: list[Path] = discover_log_files(root_dir=root_dir)
                 logger.info("Found {} log files.", len(files))
+                # A zero-byte input is malformed, not an incomplete simulation.
+                for logfile in files:
+                    if logfile.stat().st_size == 0:
+                        message = f"Empty TUFLOW log input: {logfile}"
+                        raise OSError(message)
 
                 processing_results: list[LogFileProcessingResult] = []
                 if not files:
