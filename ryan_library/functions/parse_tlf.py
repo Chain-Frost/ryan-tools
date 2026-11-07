@@ -207,7 +207,6 @@ def extract_float(match: re.Match[str]) -> float | None:
     return _parse_finite_float(match.group(1), label="TLF")
 
 
-
 def search_for_completion(
     line: str,
     data_dict: dict[str, str | float],
