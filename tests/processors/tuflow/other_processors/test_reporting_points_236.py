@@ -1,11 +1,13 @@
 """Real and synthetic acceptance for the selected reporting-point CSV outputs (#236)."""
 
 from pathlib import Path
+from shutil import copy2
 
 import pandas as pd
 import pytest
 
-from ryan_library.orchestrators.tuflow.reporting_points import export_results
+from ryan_library.mcp.server import inspect_tuflow_result
+from ryan_library.orchestrators.tuflow.reporting_points import export_results, main_processing
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.other_processors.RLPHmxProcessor import RLPHmxProcessor
 from ryan_library.processors.tuflow.other_processors.RLPHProcessor import RLPHProcessor
@@ -141,9 +143,7 @@ def test_history_preserves_negative_levels_zero_and_selected_null_samples(tmp_pa
         (["1", "inf"], ["1", "2"]),
     ],
 )
-def test_history_rejects_all_missing_or_invalid_measurements(
-    tmp_path: Path, up: list[str], down: list[str]
-) -> None:
+def test_history_rejects_all_missing_or_invalid_measurements(tmp_path: Path, up: list[str], down: list[str]) -> None:
     processor = BaseProcessor.from_file(_make_history(tmp_path, up=up, down=down))
     processor.process()
     assert not processor.processed
@@ -188,3 +188,54 @@ def test_summary_rejects_duplicate_ids_and_unassociated_peak_time(tmp_path: Path
     processor.process()
     assert not processor.processed
     assert processor.df.empty
+
+def test_mcp_public_inspection_preserves_selected_reporting_point_identity() -> None:
+    """The generic public inspection interface needs no new reporting-point endpoint."""
+    series = inspect_tuflow_result(
+        str(PLOT / f"{RUN}_RLP_H.csv"), locations=["RL_01"], minimum_time=2.0, sample_rows=2
+    )
+    assert series["data_type"] == "RLP_H"
+    assert series["processed"]
+    assert series["raw_run_code"] == RUN
+    assert series["time_filter"]["applied"]
+    assert series["row_count"] > 0
+    assert series["sample_row_count"] == 2
+
+    maximum = inspect_tuflow_result(
+        str(PLOT / f"{RUN}_RLP_Hmx.csv"), locations=["RL_01"], minimum_time=2.0, sample_rows=1
+    )
+    assert maximum["data_type"] == "RLP_Hmx"
+    assert maximum["processed"]
+    assert maximum["row_count"] == 1
+    assert not maximum["time_filter"]["applied"]
+
+
+def test_reporting_point_workflow_discovers_sources_and_exports(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Exercise the public discovery→processor→report route using real data bytes."""
+    source_dir = tmp_path / "inputs"
+    output_dir = tmp_path / "outputs"
+    source_dir.mkdir()
+    output_dir.mkdir()
+    for suffix in ("RLP_H", "RLP_Hmx"):
+        copy2(PLOT / f"{RUN}_{suffix}.csv", source_dir / f"{RUN}_{suffix}.csv")
+
+    monkeypatch.chdir(output_dir)
+    assert main_processing(
+        paths_to_process=[source_dir],
+        locations_to_include=["RL_01"],
+        export_mode="parquet",
+        use_live_dashboard=False,
+    )
+
+    histories = list(output_dir.glob("*_reporting_points_Water_Level_Series.parquet.gzip"))
+    maxima = list(output_dir.glob("*_reporting_points_Source_Maxima.parquet.gzip"))
+    assert len(histories) == 1
+    assert len(maxima) == 1
+    history = pd.read_parquet(histories[0])
+    maximum = pd.read_parquet(maxima[0])
+    assert len(history) == 181
+    assert len(maximum) == 1
+    assert history["Value"].max() == pytest.approx(42.4816)
+    assert maximum["Hmax"].iloc[0] == pytest.approx(42.4817)
