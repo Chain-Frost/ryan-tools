@@ -1,3 +1,5 @@
+> **Current parser pin (7 November 2026):** ryan-tools uses upstream PyTuflow [PR #17](https://github.com/TUFLOW-Support/PyTuflow/pull/17) contribution commit [`887534ea8c15`](https://github.com/Chain-Frost/PyTuflow/commit/887534ea8c15b80d185a38a7ead1d42ab42a7167), built on upstream 1.3.0. The Windows validation completed for #63 is accepted for the tested implementation and will not be repeated solely for the 1.3.0 rebase; current-head hosted integration CI covers the changed package/pin. Historical #63/ryan-tools #235 SHAs below document prior acceptance and are not claimed as tests of the new commit.
+
 > **Update for consolidated PR #235 (2026-11-06):** Historical entries below
 > refer to the earlier PyTuflow #63 commit b1026d0cf72118ef68a0b6229610f427a7284e10.
 > The new accepted integration source is
@@ -6,7 +8,7 @@
 > directory-entry identity and implicit override fragment reuse.
 > See [ryan-tools #235](https://github.com/Chain-Frost/ryan-tools/pull/235)
 > and [PyTuflow #63](https://github.com/Chain-Frost/PyTuflow/pull/63).
-> The new pin requires Windows/QGIS/CodeMeter acceptance before release.
+> This was a historical #235 acceptance requirement, not an instruction to repeat the completed #63 Windows testing for PR #241.
 
 # TUFLOW runner grouping and live model progress
 

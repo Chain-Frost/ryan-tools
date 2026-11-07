@@ -29,7 +29,7 @@ cumulative mass error in `Detail`; ETA is deliberately outside this scope.
 Your task is to test this on Windows and fix demonstrated defects on this same
 branch, including any remaining implementation needed for these acceptance cases.
 
-Use Python 3.14 with the immutable PyTUFLOW PR #63 source specified by
+Use Python 3.14 with the immutable PyTUFLOW upstream PR #17 source specified by
 `repo-scripts/pytuflow-requirement.txt`. Do not change the global user
 installation solely to perform a test; use an isolated validation installation. Build a wheel
 with the repository's build helper and test a copied wrapper against that wheel
