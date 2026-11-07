@@ -11,6 +11,16 @@ from queue import Empty, Queue
 from loguru import logger
 
 
+def _physical_directory_identity(path: Path) -> tuple[int, int] | Path:
+    """Identify a directory across spelling aliases without rewriting its visible path."""
+    metadata = path.stat()  # Follow symlinks and Windows junctions for cycle detection.
+    if metadata.st_ino:
+        return metadata.st_dev, metadata.st_ino
+    # Some network filesystems supply no stable inode; canonicalise only the key,
+    # never the path shown to callers (mapped drives and UNC are preserved).
+    return path.resolve(strict=True)
+
+
 def find_files_parallel(
     root_dirs: list[Path],
     patterns: str | list[str],
@@ -40,8 +50,12 @@ def find_files_parallel(
             Defaults to True.
 
     Returns:
-        list[Path]: A list of file paths that match the specified patterns and do not
-            match any of the exclusion patterns.
+        list[Path]: Sorted matched paths, preserving the spelling of the first
+            visited physical directory. Distinct file hardlinks are not collapsed.
+
+    Raises:
+        OSError: If any root, directory or matched file could not be scanned;
+            a partial match list is never reported as a successful scan.
     """
 
     def _normalize_globs(globs: str | list[str] | None) -> list[str]:
@@ -87,7 +101,17 @@ def find_files_parallel(
 
     # Visited directories to prevent processing the same directory multiple times
     visited_lock = threading.Lock()
-    visited_dirs: set[Path] = set()
+    visited_dirs: set[tuple[int, int] | Path] = set()
+
+    # Files cannot be reported as a complete scan if a root, directory, or
+    # matched file was inaccessible. Workers accumulate failures for the caller.
+    discovery_errors_lock = threading.Lock()
+    discovery_errors: list[str] = []
+
+    def record_error(reason: str, path: Path, exc: Exception | None = None) -> None:
+        detail = f"{reason}: {path}" if exc is None else f"{reason}: {path}: {exc}"
+        with discovery_errors_lock:
+            discovery_errors.append(detail)
 
     # Queue for directories to process; the stop event lets workers exit once traversal finishes.
     dir_queue: Queue[tuple[Path, Path]] = Queue()
@@ -99,15 +123,23 @@ def find_files_parallel(
         try:
             abs_root: Path = root_dir.expanduser().absolute()
             if not abs_root.exists():
-                raise FileNotFoundError
+                raise FileNotFoundError(abs_root)
+            if not abs_root.is_dir():
+                raise NotADirectoryError(abs_root)
+            directory_key = _physical_directory_identity(abs_root)
             with visited_lock:
-                if abs_root not in visited_dirs:
-                    visited_dirs.add(abs_root)
+                if directory_key not in visited_dirs:
+                    visited_dirs.add(directory_key)
                     dir_queue.put((abs_root, abs_root))  # (current_path, root_dir)
-        except FileNotFoundError:
+        except FileNotFoundError as exc:
             logger.error("Root directory does not exist: {}", root_dir)
+            record_error("Root directory does not exist", root_dir, exc)
+        except NotADirectoryError as exc:
+            logger.error("Root path is not a directory: {}", root_dir)
+            record_error("Root path is not a directory", root_dir, exc)
         except Exception as exc:
             logger.error("Error resolving root directory {}: {}", root_dir, exc)
+            record_error("Error resolving root directory", root_dir, exc)
 
     def worker() -> None:
         """Continuously pull directories off the queue, scanning files and enqueueing child folders."""
@@ -123,11 +155,13 @@ def find_files_parallel(
 
                 try:
                     iterator: Generator[Path] = current_path.iterdir()
-                except PermissionError:
+                except PermissionError as exc:
                     logger.error("Permission denied accessing directory: {}", current_path)
+                    record_error("Permission denied accessing directory", current_path, exc)
                     continue
                 except Exception as exc:
                     logger.error("Error accessing directory {}: {}", current_path, exc)
+                    record_error("Error accessing directory", current_path, exc)
                     continue
 
                 for subpath in iterator:
@@ -153,21 +187,24 @@ def find_files_parallel(
                                     logger.warning(
                                         "Subdirectory does not exist (might be a broken symlink): {}", subpath
                                     )
+                                    record_error("Subdirectory disappeared during discovery", subpath)
                                     continue
-                            except PermissionError:
+                                directory_key = _physical_directory_identity(resolved_subpath)
+                            except PermissionError as exc:
                                 logger.error("Permission denied accessing subdirectory: {}", subpath)
+                                record_error("Permission denied accessing subdirectory", subpath, exc)
                                 continue
                             except Exception as exc:
                                 logger.error("Error resolving subdirectory {}: {}", subpath, exc)
+                                record_error("Error resolving subdirectory", subpath, exc)
                                 continue
 
-                            # Record directories we've seen so we do not process the same path twice
-                            # when multiple roots overlap or symlinks point back to an ancestor.
+                            # Stat follows links to prevent re-entering an ancestor through a
+                            # symlink/junction; keep the original lexical path in the queue.
                             with visited_lock:
-                                if resolved_subpath in visited_dirs:
+                                if directory_key in visited_dirs:
                                     continue
-                                visited_dirs.add(resolved_subpath)
-                            # Enqueue the resolved subdirectory for processing
+                                visited_dirs.add(directory_key)
                             dir_queue.put((resolved_subpath, root_dir))
                         continue
 
@@ -191,12 +228,15 @@ def find_files_parallel(
                             raise FileNotFoundError
                         local_matched.append(matched_file)
                         local_folders_with_matches.add(matched_file.parent)
-                    except FileNotFoundError:
+                    except FileNotFoundError as exc:
                         logger.warning("File does not exist (might have been moved): {}", subpath)
-                    except PermissionError:
+                        record_error("Matched file disappeared during discovery", subpath, exc)
+                    except PermissionError as exc:
                         logger.error("Permission denied accessing file: {}", subpath)
+                        record_error("Permission denied accessing file", subpath, exc)
                     except Exception as exc:
                         logger.error("Error resolving file {}: {}", subpath, exc)
+                        record_error("Error resolving file", subpath, exc)
 
                 # Safely update the global matched_files list
                 if local_matched:
@@ -211,6 +251,7 @@ def find_files_parallel(
                     logger.debug("Found {} files in {}", len(local_matched), current_path)
             except Exception as exc:
                 logger.error("Unexpected error processing {}: {}", current_path, exc)
+                record_error("Unexpected error processing directory", current_path, exc)
             finally:
                 dir_queue.task_done()
 
@@ -231,16 +272,23 @@ def find_files_parallel(
 
     # Log folders with matched files
     if print_found_folder:
-        for folder in folders_with_matches:
+        for folder in sorted(folders_with_matches, key=lambda p: (str(p).casefold(), str(p))):
             try:
                 display_path: Path = folder.relative_to(current_dir)
             except ValueError:
                 display_path = folder.absolute()
             logger.info("Folder with matched files: {}", display_path)
 
-    logger.info("Total files matched: {}", len(matched_files))
+    if discovery_errors:
+        raise OSError(
+            f"File discovery incomplete ({len(discovery_errors)} error(s)); first: {discovery_errors[0]}"
+        )
 
-    return matched_files
+    # Match paths are deduplicated by spelling, not by file identity: distinct
+    # hardlinks / file symlinks remain separate; physical *directories* are unique.
+    results = sorted(set(matched_files), key=lambda p: (str(p).casefold(), str(p)))
+    logger.info("Total files matched: {}", len(results))
+    return results
 
 
 def is_non_zero_file(fpath: Path | str) -> bool:

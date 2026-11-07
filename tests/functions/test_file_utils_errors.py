@@ -3,6 +3,8 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from ryan_library.functions import file_utils
 
 
@@ -15,7 +17,8 @@ class TestFindFilesParallelErrors:
 
         non_existent = Path("non_existent_folder_12345")
 
-        file_utils.find_files_parallel([non_existent], "*.txt")
+        with pytest.raises(OSError, match="File discovery incomplete"):
+            file_utils.find_files_parallel([non_existent], "*.txt")
 
         # Verify logger.error was called with expected message
         assert mock_logger.error.called
@@ -37,7 +40,8 @@ class TestFindFilesParallelErrors:
         mock_root.__hash__.return_value = 1
         mock_root.__eq__.side_effect = lambda x: x is mock_root
 
-        file_utils.find_files_parallel([mock_root], "*.txt")
+        with pytest.raises(OSError, match="File discovery incomplete"):
+            file_utils.find_files_parallel([mock_root], "*.txt")
 
         assert mock_logger.error.called
         # We might have multiple error calls, check if any match
@@ -59,7 +63,8 @@ class TestFindFilesParallelErrors:
         mock_root.iterdir.side_effect = Exception("Unexpected boom")
         mock_root.__hash__.return_value = 1
 
-        file_utils.find_files_parallel([mock_root], "*.txt")
+        with pytest.raises(OSError, match="File discovery incomplete"):
+            file_utils.find_files_parallel([mock_root], "*.txt")
 
         found = any("Error accessing directory" in call.args[0] for call in mock_logger.error.call_args_list)
         assert found
@@ -82,7 +87,8 @@ class TestFindFilesParallelErrors:
         mock_root.iterdir.return_value = iter([mock_sub])
         mock_root.__hash__.return_value = 1
 
-        file_utils.find_files_parallel([mock_root], "*.txt")
+        with pytest.raises(OSError, match="File discovery incomplete"):
+            file_utils.find_files_parallel([mock_root], "*.txt")
 
         found = any(
             "Permission denied accessing subdirectory" in call.args[0] for call in mock_logger.error.call_args_list
@@ -107,7 +113,8 @@ class TestFindFilesParallelErrors:
         mock_root.iterdir.return_value = iter([mock_file])
         mock_root.__hash__.return_value = 1
 
-        file_utils.find_files_parallel([mock_root], "*.txt")
+        with pytest.raises(OSError, match="File discovery incomplete"):
+            file_utils.find_files_parallel([mock_root], "*.txt")
 
         found = any("Permission denied accessing file" in call.args[0] for call in mock_logger.error.call_args_list)
         assert found
@@ -131,7 +138,8 @@ class TestFindFilesParallelErrors:
         mock_root.iterdir.return_value = iter([mock_file])
         mock_root.__hash__.return_value = 1
 
-        file_utils.find_files_parallel([mock_root], "*.txt")
+        with pytest.raises(OSError, match="File discovery incomplete"):
+            file_utils.find_files_parallel([mock_root], "*.txt")
 
         found = any(
             "File does not exist" in call.args[0] or "might have been moved" in call.args[0]
