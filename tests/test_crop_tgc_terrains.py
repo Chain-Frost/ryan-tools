@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import fiona
 import numpy as np
 import pytest
 import rasterio
@@ -119,6 +120,38 @@ def test_write_creates_new_rasters_manifest_and_patched_tgc(tmp_path: Path) -> N
     outputs = [Path(item["output"]) for item in payload["layers"]]
     assert all(path.is_file() for path in outputs)
     assert (output / "terrain_crop_manifest.json").is_file()
+    qa = output / "terrain_coverage_qa.gpkg"
+    assert qa.is_file()
+    assert payload["coverage_qa"]["gpkg"] == str(qa)
+    assert payload["coverage_qa"]["original_uncovered_planning_cells"] == 0
+    assert payload["coverage_qa"]["final_uncovered_planning_cells"] == 0
+    assert payload["coverage_qa"]["lost_original_planning_cells"] == 0
+    assert set(fiona.listlayers(qa)) == {
+        "original_raster_footprints",
+        "original_valid_coverage",
+        "clipped_out",
+        "minimum_coverage_extent",
+        "final_clipped_extent",
+        "coverage_gaps",
+        "lost_valid_coverage",
+    }
+    with fiona.open(qa, layer="original_raster_footprints") as layer:
+        assert len(layer) == 2
+    with fiona.open(qa, layer="original_valid_coverage") as layer:
+        assert len(layer) == 2
+    with fiona.open(qa, layer="clipped_out") as layer:
+        removed = list(layer)
+        assert removed
+        assert {record["properties"]["layer_order"] for record in removed} == {1}
+    with fiona.open(qa, layer="final_clipped_extent") as layer:
+        assert len(layer) == 2
+    with fiona.open(qa, layer="minimum_coverage_extent") as layer:
+        assert len(layer) == 1
+        assert layer[0]["properties"]["area_m2"] == pytest.approx(10000.0)
+    with fiona.open(qa, layer="coverage_gaps") as layer:
+        assert len(layer) == 0
+    with fiona.open(qa, layer="lost_valid_coverage") as layer:
+        assert len(layer) == 0
     patched = Path(payload["patched_tgc"])
     assert patched.is_file()
     patched_text = patched.read_text(encoding="utf-8")

@@ -43,9 +43,10 @@ import os
 import re
 import sys
 from collections.abc import Sequence
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from typing import Any, cast
 
+import fiona
 import geopandas as gpd
 import numpy as np
 import rasterio
@@ -53,11 +54,11 @@ import rasterio.warp
 from pytuflow import TGC as PyTuflowTGC
 from pytuflow import Context
 from rasterio.enums import Resampling
-from rasterio.features import geometry_mask
+from rasterio.features import geometry_mask, shapes
 from rasterio.transform import array_bounds, from_origin
 from rasterio.windows import Window, from_bounds
 from scipy.ndimage import binary_dilation
-from shapely.geometry import box, mapping
+from shapely.geometry import box, mapping, shape
 
 from ryan_library.functions.gdal.raster_processing import geotiff_creation_options
 
@@ -544,12 +545,151 @@ def _manifest_payload(
     }
 
 
+def _qa_properties(planned: PlannedLayer | None, area_m2: float, method: str) -> dict[str, Any]:
+    """Common attributes preserve source identity and TGC precedence in QGIS."""
+    return {
+        "layer_order": planned.layer.order if planned is not None else 0,
+        "tgc_line": planned.layer.line_number if planned is not None else 0,
+        "source": str(planned.layer.source) if planned is not None else "",
+        "clip": str(planned.layer.mask) if planned is not None and planned.layer.mask else "",
+        "output": str(planned.output) if planned is not None and not planned.omitted else "",
+        "area_m2": area_m2,
+        "method": method,
+    }
+
+
+def _qa_add_geometry(
+    path: Path,
+    layer: str,
+    geometry: dict[str, Any],
+    planned: PlannedLayer | None,
+    method: str,
+) -> None:
+    with fiona.open(path, mode="a", layer=layer) as output:
+        output.write(
+            {
+                "geometry": geometry,
+                "properties": _qa_properties(planned, float(shape(geometry).area), method),
+            }
+        )
+
+
+def _qa_add_mask(
+    path: Path,
+    layer: str,
+    mask: np.ndarray[Any, np.dtype[np.bool_]],
+    grid: PlanningGrid,
+    planned: PlannedLayer | None,
+    method: str,
+) -> None:
+    if not mask.any():
+        return
+    with fiona.open(path, mode="a", layer=layer) as output:
+        for geometry, value in shapes(mask.astype("uint8"), mask=mask, transform=grid.transform):
+            if value == 1:
+                output.write(
+                    {
+                        "geometry": geometry,
+                        "properties": _qa_properties(planned, float(shape(geometry).area), method),
+                    }
+                )
+
+
+def _write_coverage_qa(
+    output_directory: Path,
+    grid: PlanningGrid,
+    bounds: AnalysisBounds,
+    plan: Sequence[PlannedLayer],
+) -> dict[str, Any]:
+    """Publish an auditable QGIS GPKG of source and final coverage at planning resolution.
+
+    Source footprints are full rectangular raster bounds. All other per-layer
+    polygonised coverage uses valid-data masks after any supplied TGC polygon
+    clip, restricted to the requested bounding box. This is not native-cell
+    coverage verification and must not replace TUFLOW equivalence testing.
+    """
+    path = output_directory / "terrain_coverage_qa.gpkg"
+    if path.exists():
+        message = f"Refusing to overwrite existing terrain coverage QA: {path}"
+        raise FileExistsError(message)
+    schema = {
+        "geometry": "Polygon",
+        "properties": {
+            "layer_order": "int",
+            "tgc_line": "int",
+            "source": "str",
+            "clip": "str",
+            "output": "str",
+            "area_m2": "float",
+            "method": "str",
+        },
+    }
+    names = (
+        "original_raster_footprints",
+        "original_valid_coverage",
+        "clipped_out",
+        "minimum_coverage_extent",
+        "final_clipped_extent",
+        "coverage_gaps",
+        "lost_valid_coverage",
+    )
+    for name in names:
+        with fiona.open(path, mode="w", driver="GPKG", layer=name, crs=grid.crs, schema=schema):
+            pass
+
+    requested_geometry = mapping(box(bounds.xmin, bounds.ymin, bounds.xmax, bounds.ymax))
+    _qa_add_geometry(path, "minimum_coverage_extent", requested_geometry, None, "requested_exact_bounds")
+    original_union = np.zeros(grid.shape, dtype=bool)
+    final_union = np.zeros(grid.shape, dtype=bool)
+    for planned in plan:
+        with rasterio.open(planned.layer.source) as source:
+            _qa_add_geometry(
+                path,
+                "original_raster_footprints",
+                mapping(box(*source.bounds)),
+                planned,
+                "full_raster_bounds_including_nodata",
+            )
+        original = _coverage_mask(planned.layer, grid, bounds)
+        final = (
+            _coverage_mask(replace(planned.layer, source=planned.output, mask=None), grid, bounds)
+            if not planned.omitted
+            else np.zeros(grid.shape, dtype=bool)
+        )
+        _qa_add_mask(path, "original_valid_coverage", original, grid, planned, "original_planning_valid")
+        _qa_add_mask(path, "clipped_out", original & ~final, grid, planned, "removed_planning_valid")
+        _qa_add_mask(path, "final_clipped_extent", final, grid, planned, "written_raster_planning_valid")
+        original_union |= original
+        final_union |= final
+
+    required = geometry_mask(
+        [requested_geometry],
+        out_shape=grid.shape,
+        transform=grid.transform,
+        invert=True,
+        all_touched=True,
+    )
+    gap = required & ~final_union
+    lost = original_union & ~final_union
+    _qa_add_mask(path, "coverage_gaps", gap, grid, None, "uncovered_required_planning_cells")
+    _qa_add_mask(path, "lost_valid_coverage", lost, grid, None, "valid_original_missing_after_crop")
+    return {
+        "gpkg": str(path),
+        "planning_resolution_m": grid.resolution,
+        "original_uncovered_planning_cells": int(np.count_nonzero(required & ~original_union)),
+        "final_uncovered_planning_cells": int(np.count_nonzero(gap)),
+        "lost_original_planning_cells": int(np.count_nonzero(lost)),
+        "method": "overview_aware_planning_masks_not_native_resolution_verification",
+    }
+
+
 def _check_write_targets(tgc_path: Path, scenario: str, output_directory: Path, plan: Sequence[PlannedLayer]) -> None:
     targets = [item.output for item in plan if not item.omitted]
     targets.extend(
         (
             _patched_tgc_path(tgc_path, scenario),
             output_directory / "terrain_crop_manifest.json",
+            output_directory / "terrain_coverage_qa.gpkg",
         )
     )
     existing = [path for path in targets if path.exists()]
@@ -584,13 +724,28 @@ def run(
         for item in plan:
             if not item.omitted:
                 _write_layer(item, grid, bounds)
+        qa = _write_coverage_qa(absolute_output, grid, bounds, plan)
+        if qa["lost_original_planning_cells"]:
+            print(
+                "WARNING: original valid terrain coverage was lost by the crop at the planning resolution; "
+                f"review {qa['gpkg']} before using the patched TGC.",
+                file=sys.stderr,
+            )
+        if qa["final_uncovered_planning_cells"]:
+            print(
+                f"WARNING: the required bounding box has uncovered terrain cells; review {qa['gpkg']}.",
+                file=sys.stderr,
+            )
         patched_tgc = _write_patched_tgc(absolute_tgc, scenario, plan)
         payload = _manifest_payload(absolute_tgc, patched_tgc, scenario, bounds, grid, seam_buffer, plan)
+        payload["coverage_qa"] = qa
         manifest = absolute_output / "terrain_crop_manifest.json"
         with manifest.open("x", encoding="utf-8") as output:
             output.write(json.dumps(payload, indent=2))
         return payload
-    return _manifest_payload(absolute_tgc, None, scenario, bounds, grid, seam_buffer, plan)
+    payload = _manifest_payload(absolute_tgc, None, scenario, bounds, grid, seam_buffer, plan)
+    payload["coverage_qa"] = None
+    return payload
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -671,6 +826,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     if payload["patched_tgc"]:
         print(f"Patched TGC: {payload['patched_tgc']}")
+    if payload["coverage_qa"] is not None:
+        print(f"Terrain coverage QA: {payload['coverage_qa']['gpkg']}")
     _pause(pause)
     return 0
 

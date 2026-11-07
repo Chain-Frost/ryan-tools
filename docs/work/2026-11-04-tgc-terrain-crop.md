@@ -65,3 +65,34 @@ coverage reads, reverse-precedence allocation, a 50 m buffered seam, native-grid
 lossless outputs, a non-overwriting patched TGC and JSON audit manifest. Replaced
 an initial virtual-warp mask scan after real-data evidence showed excessive time
 and memory; the final overview-aware window path bounded memory and completed.
+
+## Coverage QA GeoPackage
+
+A `--write` run now creates `terrain_coverage_qa.gpkg` alongside the
+prepared rasters and JSON manifest. The GeoPackage provides directly loadable
+QGIS polygon layers:
+
+- `original_raster_footprints`: the **full bounding footprint** of each
+  original raster, including areas of NoData (not proof of valid coverage)
+- `original_valid_coverage`: valid source coverage within `--bounds` and
+  any supplied TGC polygon mask, evaluated at the planning resolution
+- `clipped_out`: source-valid cells removed by the crop within `--bounds`
+- `minimum_coverage_extent`: exact user-requested `--bounds` polygon
+- `final_clipped_extent`: valid coverage read back from the cropped output,
+  evaluated at the same planning resolution
+- `coverage_gaps`: cells of the requested minimum extent not covered by
+  the final prepared rasters
+- `lost_valid_coverage`: originally covered cells lost from the prepared stack
+
+Per-source records include original raster path, TGC command order and line,
+optional clip path, output path, area and processing method. QA cell counts
+and the GPKG path are recorded in `terrain_crop_manifest.json`.
+
+These polygons are **planning-grid approximations**, not an exact assessment
+at the native raster resolution. The source footprint layer deliberately
+includes NoData. This output helps locate and review clipping errors in QGIS
+but does not establish hydraulic equivalence or native-resolution coverage
+guarantees; those checks remain required under
+[tuflow-initialiser #6](https://github.com/Chain-Frost/tuflow-initialiser/issues/6)
+and [#9](https://github.com/Chain-Frost/tuflow-initialiser/issues/9).
+Plan-only runs remain read-only.
