@@ -19,7 +19,7 @@ from .catchments import delineate_inflows, delineate_outlet_catchments
 from .geometry import check_dem
 from .grass_runner import process_terrain
 from ....functions.gdal.terrain_mosaic import TerrainLayer, compose_terrain_layers
-from .tgc_terrain import read_tgc_terrain_stack
+from ....functions.tuflow.tgc_terrain import read_tgc_terrain_stack
 
 
 @dataclass(frozen=True, slots=True)

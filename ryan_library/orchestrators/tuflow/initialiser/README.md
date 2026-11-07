@@ -8,7 +8,7 @@ This package coordinates multi-stage rainfall-on-grid TUFLOW initialisation and 
 - `grass_runner.py`: run external GRASS hydrology and verify raster outputs.
 - `catchments.py`, `subcatchments.py`, `geometry.py`: domain-specific catchment delineation and model-domain decisions.
 - `gis_writer.py`, `catchment_outputs.py`, `subcatchment_outputs.py`: GIS output and reporting.
-- `tgc_terrain.py`, `model_terrain.py`: TUFLOW terrain command integration and active scenario selection.
+- `model_terrain.py`: insert TUFLOW terrain into generated projects. TGC terrain discovery, with active scenario selection, is a shared TUFLOW function.
 - `project_setup.py`: initialiser-specific profile adapter for the maintained shared project generator.
 - `verification.py`: reusable output-readback checks for real-system validation.
 - `cli.py`: installed process entry point. Library workflow modules do not parse command-line options, pause or terminate the interpreter. Edit the top-level list/path/selection constants to supply defaults; explicit CLI flags, including `--no-*` Boolean overrides, take precedence. Inputs are converted to tuples at the workflow boundary.
@@ -20,6 +20,7 @@ General-purpose algorithms and focused GIS helpers are maintained outside this o
 - `ryan_library/functions/hydrology/d8.py`: GRASS-convention D8 routing, catchment traversals and headwater tracing.
 - `ryan_library/functions/hydrology/profiles.py`: stream-reach decomposition and equal-area slope calculations.
 - `ryan_library/functions/gdal/terrain_mosaic.py`: priority-ordered DEM mosaics, valid-data masks, optional polygon clips and source provenance.
+- `ryan_library/functions/tuflow/tgc_terrain.py`: extract active TGC terrain layers through PyTUFLOW.
 - `ryan_library/functions/geometry/raster_coordinates.py`: affine pixel-centre conversion.
 
 The shared TUFLOW text templates are maintained in `ryan_library/resources/tuflow_templates`. The initialiser's three-working-layer profile differs intentionally from the existing standard four-layer project setup.

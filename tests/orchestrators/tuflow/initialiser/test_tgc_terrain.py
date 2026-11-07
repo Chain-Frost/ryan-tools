@@ -11,7 +11,7 @@ from rasterio.transform import from_origin
 from shapely.geometry import box, mapping
 
 from ryan_library.functions.gdal.terrain_mosaic import TerrainLayer, compose_terrain, compose_terrain_layers
-from ryan_library.orchestrators.tuflow.initialiser.tgc_terrain import read_tgc_terrain_stack
+from ryan_library.functions.tuflow.tgc_terrain import read_tgc_terrain_stack
 
 
 def _raster(path: Path, value: float) -> None:
