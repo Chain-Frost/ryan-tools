@@ -39,9 +39,7 @@ def test_dxf_to_gpkg_keeps_geometry_layers_and_refuses_existing_output(tmp_path:
     with sqlite3.connect(gpkg) as connection:
         layers = {
             str(row[0]): int(row[1])
-            for row in connection.execute(
-                "SELECT table_name, srs_id FROM gpkg_contents WHERE data_type = 'features'"
-            )
+            for row in connection.execute("SELECT table_name, srs_id FROM gpkg_contents WHERE data_type = 'features'")
         }
         assert layers == {"areas": 28350, "lines": 28350, "points": 28350}
         assert connection.execute('SELECT COUNT(*) FROM "lines"').fetchone()[0] >= 1
