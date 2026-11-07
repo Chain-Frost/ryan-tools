@@ -215,7 +215,9 @@ def _check_master_append_writer_failure(
         encoding="utf-8",
     )
     failure = _run(launcher, work, root, "--master-workbook", str(master), mode)
-    if failure.returncode != 1 or (mode == "--live-dashboard" and "TUFLOW Master Log Append: FAILED" not in failure.stdout):
+    if failure.returncode != 1 or (
+        mode == "--live-dashboard" and "TUFLOW Master Log Append: FAILED" not in failure.stdout
+    ):
         msg = f"Copied master append write failure returned false success: {failure.stdout[-1600:]}"
         raise RuntimeError(msg)
     if master.read_bytes() != saved or list(work.glob(".master-*.xlsx")):
