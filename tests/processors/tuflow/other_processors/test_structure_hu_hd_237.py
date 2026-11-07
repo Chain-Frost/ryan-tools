@@ -94,3 +94,20 @@ def test_po_hu_hd_survive_collection_filter_and_parquet_export(
         rows = output.loc[output["Type"] == measurement]
         assert len(rows) == 181
         assert rows.loc[rows["Value"] != -99999, "Value"].max() == pytest.approx(maximum)
+
+ 
+def test_pinned_pytuflow_tpc_returns_independent_hu_hd_source_levels() -> None:
+    """Existing public TPC reader must return actual levels, not merely the expected shape."""
+    from pytuflow import TPC  # Delayed import keeps the ordinary PO regression separate.
+
+    reader = TPC(EG02 / "plot" / "EG02_011.tpc")
+    for data_type, first_wet, valid_max in (
+        ("u-s structure water level", 38.6572, 40.7877),
+        ("d-s structure water level", 38.3981, 40.6995),
+    ):
+        frame = reader.time_series("Bridge", data_type)
+        assert frame.shape == (181, 1)
+        values = frame.iloc[:, 0]
+        assert (values.iloc[:44] == -99999).all()
+        assert values.iloc[44] == pytest.approx(first_wet, abs=3e-6)
+        assert values.iloc[44:].max() == pytest.approx(valid_max, abs=3e-6)
