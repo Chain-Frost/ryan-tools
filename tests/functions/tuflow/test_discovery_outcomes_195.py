@@ -48,14 +48,14 @@ def test_mixed_valid_missing_root_never_returns_a_partial_batch(tmp_path: Path) 
 
 def test_matched_zero_byte_input_is_invalid_not_excluded(tmp_path: Path) -> None:
     (tmp_path / "empty_PO.csv").touch()
-    with pytest.raises(OSError, match="empty_PO.csv"):
+    with pytest.raises(OSError, match=r"empty_PO\.csv"):
         _collect(tmp_path)
 
 
 def test_mixed_zero_byte_and_populated_inputs_fail_as_one_batch(tmp_path: Path) -> None:
     (tmp_path / "good_PO.csv").write_text("data", encoding="utf-8")
     (tmp_path / "empty_PO.csv").touch()
-    with pytest.raises(OSError, match="empty_PO.csv"):
+    with pytest.raises(OSError, match=r"empty_PO\.csv"):
         _collect(tmp_path)
 
 
@@ -70,7 +70,7 @@ def test_missing_or_unreadable_matched_input_is_not_a_valid_skip(tmp_path: Path)
     source = tmp_path / "sample_PO.csv"
     source.write_text("data", encoding="utf-8")
     with patch("ryan_library.functions.tuflow.tuflow_common.is_non_zero_file", return_value=False):
-        with pytest.raises(OSError, match="sample_PO.csv"):
+        with pytest.raises(OSError, match=r"sample_PO\.csv"):
             _collect(tmp_path)
 
 

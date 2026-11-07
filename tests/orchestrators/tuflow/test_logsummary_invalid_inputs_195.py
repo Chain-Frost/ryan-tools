@@ -59,7 +59,7 @@ def test_incomplete_tlf_is_still_an_intentional_skip(tmp_path: Path) -> None:
 
 def test_log_discovery_rejects_empty_matched_tlf(tmp_path: Path) -> None:
     (tmp_path / "bad.tlf").touch()
-    with pytest.raises(OSError, match="bad.tlf"):
+    with pytest.raises(OSError, match=r"bad\.tlf"):
         summary.discover_log_files(root_dir=tmp_path)
 
 
