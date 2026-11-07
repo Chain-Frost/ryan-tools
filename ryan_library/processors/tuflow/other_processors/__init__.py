@@ -6,6 +6,8 @@ from .EOFProcessor import EOFProcessor
 from .POMMProcessor import POMMProcessor
 from .POProcessor import POProcessor
 from .RLLQmxProcessor import RLLQmxProcessor
+from .RLPHProcessor import RLPHProcessor
+from .RLPHmxProcessor import RLPHmxProcessor
 from .TLFProcessor import TLFProcessor
 
 __all__: list[str] = [
@@ -14,5 +16,7 @@ __all__: list[str] = [
     "POMMProcessor",
     "POProcessor",
     "RLLQmxProcessor",
+    "RLPHProcessor",
+    "RLPHmxProcessor",
     "TLFProcessor",
 ]
