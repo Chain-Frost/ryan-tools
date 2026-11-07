@@ -58,6 +58,7 @@ def test_invalid_numeric_tokens_are_not_partially_accepted(line: str, field: str
         (r"ESTRY Control File == C:\Modèle\My.Model.v2.ecf", {"ECF": "My.Model.v2"}),
         ("BC Event File == ../model/Storm.events.tef ! event mapping", {"TEF": "Storm.events"}),
         ("BC Event File == local.tef", {"TEF": "local"}),
+        ("ESTRY Control File == EG14_001.ecf...redirecting input to this file", {"ECF": "EG14_001"}),
         (
             r"Trying to open (I) file ..\model\Storm.events.tef...OK.  File Unit: 30",
             {"TEF": "Storm.events"},
@@ -108,6 +109,7 @@ def _write_synthetic_tlf(path: Path, *, encoding: str, large: bool) -> None:
         "End Time (h): 1.2E+02",
     ]
     footer = [
+        r"Input File: C:\\Modèle\\My.Model.v2.tcf",
         "Final Times",
         "Processor Time: [+1.5E+00 h]",
         "Clock Time: [2.0E+00 h]",
