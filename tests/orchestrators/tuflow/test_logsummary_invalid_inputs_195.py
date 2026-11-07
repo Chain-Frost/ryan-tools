@@ -57,6 +57,14 @@ def test_incomplete_tlf_is_still_an_intentional_skip(tmp_path: Path) -> None:
     assert outcome.detail == "no completed run data"
 
 
+def test_zero_byte_tlf_is_failed_by_direct_reader(tmp_path: Path) -> None:
+    logfile = tmp_path / "empty.tlf"
+    logfile.touch()
+    outcome = summary.process_log_file_for_dashboard(logfile)
+    assert outcome.status == "FAIL"
+    assert "empty.tlf" in outcome.detail
+
+
 def test_log_discovery_rejects_empty_matched_tlf(tmp_path: Path) -> None:
     (tmp_path / "bad.tlf").touch()
     with pytest.raises(OSError, match=r"bad\.tlf"):

@@ -141,6 +141,9 @@ def _process_log_file_dataframe(logfile: Path) -> pd.DataFrame:
     current_section = None
 
     file_size: int = logfile_path.stat().st_size
+    if file_size == 0:
+        message = f"Empty TUFLOW log input: {logfile_path}"
+        raise ValueError(message)
     is_large_file: bool = file_size > 10 * 1024 * 1024  # 10 MB
 
     lines, last_lines = get_log_lines(
