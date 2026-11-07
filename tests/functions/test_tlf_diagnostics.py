@@ -62,9 +62,7 @@ def test_main_diagnostics_omit_missing_values() -> None:
         ("EG01_007.tlf", "TLF_HPC_HCN_Repeated_Timesteps", 0),
     ],
 )
-def test_real_main_tlf_diagnostics_in_processor_and_report(
-    filename: str, field: str, expected: int
-) -> None:
+def test_real_main_tlf_diagnostics_in_processor_and_report(filename: str, field: str, expected: int) -> None:
     source = EXAMPLE_LOG / filename
     if not source.is_file():
         pytest.skip("Retained TUFLOW test-data submodule not checked out")
