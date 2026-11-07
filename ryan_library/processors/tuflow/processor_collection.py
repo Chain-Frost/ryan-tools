@@ -831,8 +831,22 @@ class ProcessorCollection:
             if isinstance(name, np.generic):
                 portable.columns = portable.columns.rename(cast("Hashable | None", name.item()))
 
+        # Arrow encodes object-typed pd.NA as a null and normally restores
+        # it as None, which changes the processed DataFrame's value contract.
+        # Preserve the exact pandas missing sentinel alongside Arrow metadata.
+        na_positions: dict[str, list[int]] = {}
+        for col_idx in range(frame.shape[1]):
+            if frame.dtypes.iloc[col_idx] == object:
+                positions = [row_idx for row_idx, value in enumerate(frame.iloc[:, col_idx]) if value is pd.NA]
+                if positions:
+                    na_positions[str(col_idx)] = positions
+
         sink = pa.BufferOutputStream()
         table = pa.Table.from_pandas(portable, preserve_index=True)
+        if na_positions:
+            schema_metadata: dict[bytes, bytes] = dict(table.schema.metadata or {})
+            schema_metadata[b"ryan_tools:pd_na_positions"] = json.dumps(na_positions, sort_keys=True).encode("utf-8")
+            table = table.replace_schema_metadata(schema_metadata)
         with pa.ipc.new_file(sink, table.schema) as writer:
             writer.write_table(table)
         return bytes(sink.getvalue().to_pybytes())
@@ -842,10 +856,31 @@ class ProcessorCollection:
         """Restore pandas/index metadata, including categories and nullable types."""
         pa: Any = importlib.import_module("pyarrow")
 
-        frame: Any = pa.ipc.open_file(pa.BufferReader(payload)).read_all().to_pandas()
+        table = pa.ipc.open_file(pa.BufferReader(payload)).read_all()
+        frame: Any = table.to_pandas()
         if not isinstance(frame, DataFrame):
             msg = "Cached Arrow payload did not contain a DataFrame"
             raise TypeError(msg)
+
+        extra = (table.schema.metadata or {}).get(b"ryan_tools:pd_na_positions")
+        if extra is not None:
+            positions_by_column: Any = json.loads(extra.decode("utf-8"))
+            if not isinstance(positions_by_column, dict):
+                msg = "Cached Arrow missing-value metadata is malformed"
+                raise ValueError(msg)
+            for column, positions in positions_by_column.items():
+                if not isinstance(column, str) or not isinstance(positions, list):
+                    msg = "Cached Arrow missing-value metadata is malformed"
+                    raise ValueError(msg)
+                col_idx = int(column)
+                if not 0 <= col_idx < frame.shape[1]:
+                    msg = "Cached Arrow missing-value column index is invalid"
+                    raise ValueError(msg)
+                for row_idx in positions:
+                    if not isinstance(row_idx, int) or not 0 <= row_idx < len(frame):
+                        msg = "Cached Arrow missing-value row index is invalid"
+                        raise ValueError(msg)
+                    frame.iat[row_idx, col_idx] = NA
         return frame
 
     @staticmethod
