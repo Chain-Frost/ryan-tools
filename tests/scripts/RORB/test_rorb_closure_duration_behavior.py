@@ -121,5 +121,5 @@ def test_closure_workflow_rejects_invalid_csv_time_axis(tmp_path: Path, invalid_
             "Path": ["batch.out", "batch.out"],
         }
     )
-    with pytest.raises(ValueError, match="RORB hydrograph has .*time steps"):
+    with pytest.raises(ValueError, match=r"RORB hydrograph has .*time steps"):
         _process_hydrographs(batch, [5.0], pool_size=1)
