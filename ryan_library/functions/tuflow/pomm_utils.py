@@ -313,45 +313,52 @@ def aggregated_from_paths(
 
 
 def find_aep_dur_max(aggregated_df: DataFrame) -> DataFrame:
-    """Return peak rows for each AEP/Duration/Location/Type/RunCode group,
-    with a column giving the size of each original group.
-    """
-    group_cols: list[str] = [
-        "aep_text",
-        "duration_text",
-        "Location",
-        "Type",
-        "trim_runcode",
-    ]
+    """Select finite duration peaks and count contributing events, not repeated group sizes."""
+    groups = ["aep_text", "duration_text", "Location", "Type", "trim_runcode"]
+    aep_groups = ["aep_text", "Location", "Type", "trim_runcode"]
     try:
-        # copy so we don't clobber the caller's DataFrame
-        df: DataFrame = aggregated_df.copy()
-        # compute size of each group
-        df["count_TP"] = df.groupby(by=group_cols, observed=True)["AbsMax"].transform("size")
-        count_group_cols: list[str] = [
-            col for col in ("aep_text", "Location", "Type", "trim_runcode") if col in df.columns
-        ]
-        if count_group_cols:
-            count_numeric: Series = pd.to_numeric(arg=df["count_TP"], errors="coerce")
-            df["count_TP"] = count_numeric.astype(dtype="Int64")
-            df["_count_numeric"] = count_numeric.fillna(value=0)
-            df["count_TP_aep"] = (
-                df.groupby(by=count_group_cols, observed=True)["_count_numeric"].transform("sum").astype("Int64")
-            )
-            df["count_duration"] = (
-                df.groupby(by=count_group_cols, observed=True)["duration_text"].transform("count").astype("Int64")
-            )
-        # find index of the max in each group
-        idx: Series = df.groupby(by=group_cols, observed=True)["AbsMax"].idxmax()
-        # select those rows (they already carry a group_count column)
-        aep_dur_max: DataFrame = df.loc[idx].reset_index(drop=True).drop(columns=["_count_numeric"], errors="ignore")
-        logger.info(
-            "Created 'aep_dur_max' DataFrame with peak records and group_count for each AEP-Duration-Location-Type-RunCode group."
+        df = aggregated_df.copy().reset_index(drop=True)
+        numeric = pd.to_numeric(arg=df["AbsMax"], errors="coerce")
+        valid_mask = numeric.notna() & numeric.abs().ne(float("inf"))
+        observed_counts = df.groupby(by=groups, observed=True).size().rename("_observed_TP").reset_index()
+        valid = df.loc[valid_mask].copy()
+        if valid.empty:
+            logger.warning("No finite POMM observations found for duration peak selection.")
+            return DataFrame()
+        valid["AbsMax"] = numeric.loc[valid_mask]
+        valid = finite_sorted_rows(group=valid, value_column="AbsMax")
+        valid_counts = valid.groupby(by=groups, observed=True).size().rename("count_TP").reset_index()
+        idx: Series = valid.groupby(by=groups, observed=True)["AbsMax"].idxmax()
+        selected = valid.loc[idx].reset_index(drop=True)
+        selected = selected.merge(right=valid_counts, on=groups, how="left")
+        selected = selected.merge(right=observed_counts, on=groups, how="left")
+        selected["count_unusable_TP"] = selected["_observed_TP"] - selected["count_TP"]
+        selected["tp_population_status"] = selected["count_unusable_TP"].map(
+            lambda count: "PARTIAL" if count else "OK"
         )
-    except KeyError as e:
-        logger.error("Missing expected columns for 'aep_dur_max' grouping: {}", e)
-        aep_dur_max = DataFrame()
-    return aep_dur_max
+        for field in ("count_TP", "count_unusable_TP"):
+            target = "count_TP_aep" if field == "count_TP" else "count_unusable_TP_aep"
+            selected[target] = selected.groupby(by=aep_groups, observed=True)[field].transform("sum").astype("Int64")
+        selected["count_duration"] = (
+            selected.groupby(by=aep_groups, observed=True)["duration_text"].transform("nunique").astype("Int64")
+        )
+        duration_counts = (
+            observed_counts.groupby(by=aep_groups, observed=True)["duration_text"]
+            .nunique()
+            .rename("_observed_durations")
+            .reset_index()
+        )
+        selected = selected.merge(right=duration_counts, on=aep_groups, how="left")
+        selected["count_duration_unusable"] = (
+            selected["_observed_durations"] - selected["count_duration"]
+        ).astype("Int64")
+        selected = selected.drop(columns=["_observed_TP", "_observed_durations"])
+        if bool((~valid_mask).any()):
+            logger.warning("Discarded {} unusable POMM peak records.", int((~valid_mask).sum()))
+        return selected
+    except KeyError as exc:
+        logger.error("Missing expected columns for AEP-duration POMM maxima: {}", exc)
+        return DataFrame()
 
 
 def find_aep_max(aep_dur_max: DataFrame) -> DataFrame:
