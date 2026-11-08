@@ -42,7 +42,13 @@ _LOOKUP = "basic_info_lookup.parquet"
 _VERSIONS = ".versions"
 _MAX_MANIFEST_SIZE = 16 * 1024 * 1024
 _CHUNK_SIZE = 1024 * 1024
-_GENERATION_RE = re.compile(r"\.versions/[0-9a-f]{32}\Z")
+_GENERATION_RE = re.compile(r"\\.versions/[0-9a-f]{32}\\Z")
+_NATIVE_INVENTORY_COLUMNS: dict[str, str] = {
+    "source_locations": "Location",
+    "usable_source_locations": "Location",
+    "source_channels": "Chan ID",
+    "usable_source_channels": "Chan ID",
+}
 
 
 def _registry_digest() -> str:
@@ -322,6 +328,65 @@ def _entity_evidence(processor: BaseProcessor) -> tuple[dict[str, list[str]], di
     return ({key: sorted(values) for key, values in source_values.items()}, frame_values)
 
 
+def _native_inventories(processor: BaseProcessor) -> dict[str, list[str]]:
+    """Persist WP04's original source and usable IDs, independently of filtered rows."""
+    result: dict[str, list[str]] = {}
+    for attribute in _NATIVE_INVENTORY_COLUMNS:
+        observed: object = getattr(processor, attribute, None)
+        if observed is None:
+            continue
+        if not isinstance(observed, (set, frozenset)):
+            message = f"Invalid native processor inventory {attribute}"
+            raise ValueError(message)
+        values = cast("set[object] | frozenset[object]", observed)
+        if any(not isinstance(item, str) or not item.strip() or item != item.strip() for item in values):
+            message = f"Invalid native processor inventory identifiers: {attribute}"
+            raise ValueError(message)
+        result[attribute] = sorted(cast("set[str] | frozenset[str]", observed))
+    return result
+
+
+def _restore_native_inventories(processor: BaseProcessor, entry: dict[str, Any]) -> None:
+    """Restore only known native WP04 ID inventories; reject fabricated usability."""
+    raw: object = entry.get("native_inventories")
+    if not isinstance(raw, dict):
+        message = "Parquet directory native inventories metadata is invalid"
+        raise ValueError(message)
+    inventories = cast("dict[object, object]", raw)
+    source_entities = _entity_index(entry, "source_entities")
+    parsed: dict[str, list[str]] = {}
+    for attribute, raw_values in inventories.items():
+        if not isinstance(attribute, str) or attribute not in _NATIVE_INVENTORY_COLUMNS:
+            message = "Parquet directory native inventory attribute is invalid"
+            raise ValueError(message)
+        if not hasattr(processor, attribute):
+            message = f"Parquet directory unexpected native inventory: {attribute}"
+            raise ValueError(message)
+        values = _string_list(raw_values, f"native inventory {attribute}")
+        if (
+            values != sorted(set(values))
+            or any(not value or value != value.strip() for value in values)
+            or not set(values).issubset(set(source_entities.get(_NATIVE_INVENTORY_COLUMNS[attribute], [])))
+        ):
+            message = f"Parquet directory native inventory identifiers are invalid: {attribute}"
+            raise ValueError(message)
+        parsed[attribute] = values
+
+    for source_name, usable_name in (
+        ("source_locations", "usable_source_locations"),
+        ("source_channels", "usable_source_channels"),
+    ):
+        if (source_name in parsed) != (usable_name in parsed):
+            message = f"Parquet directory incomplete native inventory: {source_name}"
+            raise ValueError(message)
+        if source_name in parsed and not set(parsed[usable_name]).issubset(set(parsed[source_name])):
+            message = f"Parquet directory unusable native inventory: {usable_name}"
+            raise ValueError(message)
+
+    for attribute, values in parsed.items():
+        setattr(processor, attribute, frozenset(values))
+
+
 def _source_entry(processor: BaseProcessor, index: int) -> dict[str, Any]:
     captured = processor.source_at_processing
     if captured is None or not isinstance(captured.get("path"), str):
@@ -344,6 +409,7 @@ def _source_entry(processor: BaseProcessor, index: int) -> dict[str, Any]:
         "applied_entity_filter": sorted(processor.applied_entity_filter or ()),
         "source_entities": source_entities,
         "frame_entities": frame_entities,
+        "native_inventories": _native_inventories(processor),
         "frame": _frame_contract(processor.df),
         "health": {
             "input_health": str(getattr(processor, "input_health", "OK")),
@@ -671,7 +737,10 @@ def _entity_index(entry: dict[str, Any], key: str) -> dict[str, list[str]]:
 def _check_frame(frame: DataFrame, entry: dict[str, Any]) -> None:
     actual = _frame_contract(frame)
     expected: object = entry.get("frame")
-    if frame.empty or actual != expected:
+    health_raw: object = entry.get("health")
+    health = cast("dict[str, object]", health_raw) if isinstance(health_raw, dict) else {}
+    selected_invalid = health.get("input_health") == "INVALID" and health.get("selected_unusable") is True
+    if (frame.empty and not selected_invalid) or actual != expected:
         message = (
             f"Parquet directory processed DataFrame schema mismatch: {entry.get('member')}: "
             f"expected {expected!r}, got {actual!r}"
@@ -746,6 +815,7 @@ def _restore_processor(directory: Path, entry: dict[str, Any], *, verify_sources
     processor.filtered_empty = cast("bool", health["filtered_empty"])
     processor.selected_unusable = cast("bool", health["selected_unusable"])
     processor.source_entity_presence = _entity_index(entry, "source_entities")
+    _restore_native_inventories(processor, entry)
     # The factory may have sampled a different source now. Restore the exact
     # processing-time identity, including for explicit offline/historical reads.
     processor.source_at_processing = source

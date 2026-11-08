@@ -333,6 +333,88 @@ def test_wp04_selected_unusable_processor_and_source_locations_round_trip(tmp_pa
     assert absent.parquet_selection_diagnostics[0]["status"] == "ABSENT"
 
 
+@pytest.mark.parametrize(
+    ("suffix", "source_text", "source_attribute", "usable_attribute", "identifier_column"),
+    [
+        (
+            "_PO.csv",
+            "Dummy,Time,Q,Q\nDummy,Time,Dry,Wet\nrow,0,inf,1\nrow,1,inf,2\n",
+            "source_locations",
+            "usable_source_locations",
+            "Location",
+        ),
+        (
+            "_1d_Q.csv",
+            "Index,Time,Q Dry [run],Q Wet [run]\n1,0,inf,1\n2,1,inf,2\n",
+            "source_channels",
+            "usable_source_channels",
+            "Chan ID",
+        ),
+    ],
+)
+def test_wp04_native_inventory_survives_full_restore_and_later_selection(
+    tmp_path: Path,
+    suffix: str,
+    source_text: str,
+    source_attribute: str,
+    usable_attribute: str,
+    identifier_column: str,
+) -> None:
+    source = tmp_path / f"Run_01.0p_0060m_TP01{suffix}"
+    source.write_text(source_text, encoding="utf-8")
+    processor = BaseProcessor.from_file(source)
+    processor.process()
+    assert processor.processed
+    assert getattr(processor, source_attribute) == frozenset({"Dry", "Wet"})
+    assert getattr(processor, usable_attribute) == frozenset({"Wet"})
+
+    collection = ProcessorCollection()
+    collection.add_processor(processor)
+    directory = tmp_path / f"{suffix.lstrip('_')}.parquetdir"
+    collection.to_parquet(directory)
+    rehydrated = ProcessorCollection.from_parquet(directory)
+    result = rehydrated.processors[0]
+    assert getattr(result, source_attribute) == frozenset({"Dry", "Wet"})
+    assert getattr(result, usable_attribute) == frozenset({"Wet"})
+    assert "Dry" in result.source_entity_presence[identifier_column]
+
+    invalid = ProcessorCollection.from_parquet(directory)
+    invalid.filter_locations(["Dry"])
+    assert len(invalid.processors) == 1
+    assert invalid.processors[0].df.empty
+    assert invalid.processors[0].selected_unusable
+    assert invalid.processors[0].input_health == "INVALID"
+
+    absent = ProcessorCollection.from_parquet(directory)
+    absent.filter_locations(["Absent"])
+    assert not absent.processors
+
+    wet = ProcessorCollection.from_parquet(directory)
+    wet.filter_locations(["Wet"])
+    assert len(wet.processors) == 1
+    assert not wet.processors[0].df.empty
+    assert not wet.processors[0].selected_unusable
+
+
+def test_wp04_native_inventory_rejects_fabricated_usable_source(tmp_path: Path) -> None:
+    source = tmp_path / "Run_01.0p_0060m_TP01_PO.csv"
+    source.write_text(
+        "Dummy,Time,Q,Q\nDummy,Time,Dry,Wet\nrow,0,inf,1\nrow,1,inf,2\n",
+        encoding="utf-8",
+    )
+    processor = BaseProcessor.from_file(source)
+    processor.process()
+    collection = ProcessorCollection()
+    collection.add_processor(processor)
+    directory = tmp_path / "inventories.parquetdir"
+    collection.to_parquet(directory)
+    manifest = _manifest(directory)
+    manifest["processors"][0]["native_inventories"]["usable_source_locations"] = ["Absent"]
+    (directory / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(ValueError, match="native inventory"):
+        ProcessorCollection.from_parquet(directory)
+
+
 def test_wp04_reprocessing_refreshes_source_signature_and_entity_evidence(
     collection: ProcessorCollection,
 ) -> None:

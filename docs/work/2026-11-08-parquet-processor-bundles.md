@@ -174,3 +174,7 @@ The combined tree starts from draft #251 `feae324a`, preserving its CI and WP04 
 ### Corrected focused CI finding
 
 Hosted CI at `9fa26311` reported that the original destination validator rejected a processed-empty WP04 `selected_unusable=True`, `input_health=INVALID` frame. This guard now permits only the explicit source-present invalid case; unprocessed or other empty processors still fail closed, with a negative regression. Hosted and source/installed-wheel acceptance on this correction are pending, as are native mapped/UNC/SMB checks and independent final review.
+
+### Independent WP04 post-restoration review (9 November 2026)
+
+The exact-parent Codex review identified two P2 integration issues. The empty-invalid export gate was fixed first; the import frame contract now accepts only the explicit `selected_unusable=True` and `input_health=INVALID` outcome, subject to exact schema/hash checks. The Parquet manifest also retains native WP04 `source_locations` / `usable_source_locations` and Q/H `source_channels` / `usable_source_channels`, so filtering **after complete restoration** has the original source-presence and unusable-sample context. Restore validates the allowlisted inventories, source subsets and usable-subset invariants before assigning them; new round-trip and malformed-inventory regressions cover the change. Fresh exact-head tests and review remain required.
