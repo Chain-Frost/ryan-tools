@@ -136,39 +136,34 @@ class ccAProcessor(BaseProcessor):
         return stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns
 
     def _prepare_gpkg_read_source(self, path: Path, owned: ExitStack) -> Path | None:
-        """Keep WAL-mode SQLite opens on owned local copies, never on source sidecars.
+        """Read SQLite from owned local scratch, never through a source-side SQLite connection.
 
-        A WAL writer's final checkpoint can remove -wal/-shm after any existence
-        check. SQLite mode=ro can then recreate those files in a writable source
-        directory. Copy only WAL-mode sources to local scratch so SQLite's own
-        sidecar/lock operations stay invocation-owned. Never use immutable=1:
-        it can silently miss committed frames from an active writer.
+        A writer can enter WAL mode after any header preflight, or shut down
+        between WAL sidecar inspection and a read-only SQLite open. Stage both
+        rollback and WAL sources to prevent reader-created source sidecars.
+        SQLite recreates any needed -shm only in scratch. Do not use immutable=1,
+        which can silently miss committed frames from an active WAL writer.
         """
         try:
-            with path.open("rb") as database_file:
-                header = database_file.read(20)
-            if not (header.startswith(b"SQLite format 3\x00") and header[18:20] == b"\x02\x02"):
-                return path
-
             wal = path.with_name(path.name + "-wal")
             shm = path.with_name(path.name + "-shm")
             source_paths = (path, wal, shm)
             before = tuple(self._source_signature(item) for item in source_paths)
-            if (before[1] is None) != (before[2] is None):
-                logger.error("process_gpkg: Incomplete WAL/SHM sidecars for {}; refusing read", path)
+            if before[0] is None or (before[1] is None) != (before[2] is None):
+                logger.error("process_gpkg: Missing database or incomplete WAL/SHM sidecars for {}", path)
                 return None
 
-            scratch = Path(owned.enter_context(tempfile.TemporaryDirectory(prefix="ryan-cca-wal-")))
+            scratch = Path(owned.enter_context(tempfile.TemporaryDirectory(prefix="ryan-cca-sqlite-")))
             staged_path = scratch / path.name
             shutil.copyfile(path, staged_path)
-            # SQLite reconstructs -shm in scratch; copying a live shared index is
-            # unnecessary and may fail on Windows when the writer holds its lock.
+            # Do not copy the live shared-memory index: SQLite can rebuild it
+            # from copied WAL frames without accessing the source directory.
             if before[1] is not None:
                 shutil.copyfile(wal, scratch / wal.name)
             if tuple(self._source_signature(item) for item in source_paths) != before:
-                logger.error("process_gpkg: Source changed while copying WAL snapshot of {}; refusing read", path)
+                logger.error("process_gpkg: Source changed while copying SQLite snapshot of {}; refusing read", path)
                 return None
-            logger.debug("process_gpkg: Reading WAL-mode {} from owned local snapshot", path)
+            logger.debug("process_gpkg: Reading {} from owned local snapshot", path)
             return staged_path
         except OSError as exc:
             logger.error("process_gpkg: Could not prepare read-only snapshot of {}: {}", path, exc)

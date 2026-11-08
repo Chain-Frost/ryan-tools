@@ -147,7 +147,8 @@ def test_cca_gpkg_writer_shutdown_between_preflight_and_read(tmp_path: Path) -> 
     writer.commit()
     wal = path.with_name(path.name + "-wal")
     shm = path.with_name(path.name + "-shm")
-    assert wal.is_file() and shm.is_file()
+    assert wal.is_file()
+    assert shm.is_file()
 
     opening = ccAProcessor._open_sqlite_connection  # pyright: ignore[reportPrivateUsage]
     bytes_after_writer_close: bytes | None = None
@@ -156,7 +157,8 @@ def test_cca_gpkg_writer_shutdown_between_preflight_and_read(tmp_path: Path) -> 
         nonlocal bytes_after_writer_close
         writer.close()
         bytes_after_writer_close = path.read_bytes()
-        assert not wal.exists() and not shm.exists()
+        assert not wal.exists()
+        assert not shm.exists()
         return opening(processor, target)
 
     try:
@@ -168,7 +170,41 @@ def test_cca_gpkg_writer_shutdown_between_preflight_and_read(tmp_path: Path) -> 
     assert data.loc[0, "pFull_Max"] == 99
     assert bytes_after_writer_close is not None
     assert path.read_bytes() == bytes_after_writer_close
-    assert not wal.exists() and not shm.exists()
+    assert not wal.exists()
+    assert not shm.exists()
+
+
+def test_cca_gpkg_rollback_to_wal_transition_never_creates_reader_sidecars(tmp_path: Path) -> None:
+    """Writer can enable WAL after reader planning without inducing source writes."""
+    path = tmp_path / "WALTransition_Results1D.gpkg"
+    _create_minimal_cca_gpkg(path)
+    wal = path.with_name(path.name + "-wal")
+    shm = path.with_name(path.name + "-shm")
+    original = path.read_bytes()
+    opening = ccAProcessor._open_sqlite_connection  # pyright: ignore[reportPrivateUsage]
+    observed: bytes | None = None
+
+    def enable_wal_before_open(processor: ccAProcessor, target: Path) -> sqlite3.Connection | None:
+        nonlocal observed
+        with sqlite3.connect(path) as writer:
+            assert writer.execute("PRAGMA journal_mode=WAL").fetchone()[0] == "wal"
+            writer.execute("UPDATE cc_results_1d_ccA_L SET pFull_Max=99")
+            writer.commit()
+        observed = path.read_bytes()
+        assert not wal.exists()
+        assert not shm.exists()
+        return opening(processor, target)
+
+    with patch.object(ccAProcessor, "_open_sqlite_connection", enable_wal_before_open):
+        data = ccAProcessor(file_path=path).process_gpkg()
+
+    # The local owned snapshot predates the new writer's transaction.
+    assert data.loc[0, "pFull_Max"] == 1.0
+    assert observed is not None
+    assert path.read_bytes() == observed
+    assert path.read_bytes() != original
+    assert not wal.exists()
+    assert not shm.exists()
 
 
 def test_cca_dbf_processing(tmp_path: Path, change_cwd: Callable[[Path], AbstractContextManager[None]]) -> None:
