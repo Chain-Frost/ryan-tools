@@ -4,6 +4,26 @@ These scripts measure candidate implementation choices and regressions; they are
 repeatable performance claims. Record the command, Python and package versions, data source, storage location and result
 when using their output to support a decision.
 
+## Windows Policy dependencies
+
+`benchmark_policy_dependencies.py` implements the bounded experiment in
+[issue #299](https://github.com/Chain-Frost/ryan-tools/issues/299). It compares the canonical Policy profile with a
+scratch candidate omitting only `build`, `ruff` and `pytest-cov` from the current development extra. It preserves
+runtime/MCP requirements and the accepted parser wheel; it does not change production installation profiles.
+
+The dedicated branch-scoped workflow runs Windows/Python 3.14.10 and fixes pip 26.3, package artifact identities and
+build inputs. Eight clean environments cover both profiles, empty and populated pip download caches, and a
+reversed-order repeat. The same strict file manifest and capability checks run in every environment. Fresh temporary
+environments are specific to this isolated experiment; normal repository setup remains unchanged. The command needs
+separate output and scratch directories and does not initialise any submodule.
+
+Use `--plan-only` to inspect the metadata-derived profile and manifest without installing dependencies or running
+the benchmark. Executed measurements require Windows and the fixed Python version. Preserve the JSON reports and
+logs, and distinguish preparation, cache seeding, environment creation, GIS bootstrap, profile setup and typing
+durations. A populated download cache is not an already-installed environment. Results go in #299; a smaller download
+alone does not justify adopting a new profile. The workflow is scoped to `ci/policy-dependency-benchmark-299` and has
+no schedule or pull-request trigger.
+
 ## WP11 PO workload baseline
 
 The new benchmark_po_workload.py generates correctly named synthetic TUFLOW PO runs, then measures the real processor,

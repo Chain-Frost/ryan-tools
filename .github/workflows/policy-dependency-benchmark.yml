@@ -1,0 +1,58 @@
+name: Windows Policy dependency benchmark (issue 299)
+
+on:
+  push:
+    branches: [ci/policy-dependency-benchmark-299]
+    paths:
+      - .github/workflows/policy-dependency-benchmark.yml
+      - repo-scripts/benchmarks/benchmark_policy_dependencies.py
+
+permissions:
+  contents: read
+
+concurrency:
+  group: policy-dependency-benchmark-299-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    name: Bounded Windows Policy comparison
+    if: github.ref == 'refs/heads/ci/policy-dependency-benchmark-299'
+    runs-on: windows-latest
+    timeout-minutes: 40
+    env:
+      POLICY_SOURCE_SHA: 92351854625dae81001c033306969f73eff4a7f7
+      PYTHONUNBUFFERED: "1"
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+      MPLBACKEND: Agg
+    steps:
+      - name: Checkout the isolated experiment and its source parent
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+          submodules: false
+          lfs: false
+
+      - name: Set up the fixed Windows Python version
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14.10"
+          # Each sample has its own controlled pip cache; no shared Actions cache.
+
+      - name: Compare eight clean Policy environments
+        shell: pwsh
+        run: |
+          python repo-scripts/benchmarks/benchmark_policy_dependencies.py `
+            --output "$env:RUNNER_TEMP/policy-benchmark-299/evidence" `
+            --scratch "$env:RUNNER_TEMP/policy-benchmark-299/scratch"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Preserve measurements and failure diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: policy-dependency-benchmark-299
+          path: ${{ runner.temp }}/policy-benchmark-299/evidence
+          if-no-files-found: warn
+          retention-days: 14

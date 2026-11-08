@@ -2,12 +2,13 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Needs review: early Windows helper group; broad dependency reductions not justified |
+| Status | Active: optional Windows Policy benchmark [#299](https://github.com/Chain-Frost/ryan-tools/issues/299); production profiles retained |
 | Owner | ChatGPT / maintainer review |
 | Created | 2026-11-08 |
 | Updated | 2026-11-09 |
 | Next review | 2026-11-16 |
-| Current candidate baseline | Draft #251 at `63c7da77676b9ad44e20e7f1729b738985d400cc`, which already contains main `585e5d06dd599e68b1c470420481b5b9a3c79333` |
+| Current benchmark baseline | PR #251 at `92351854625dae81001c033306969f73eff4a7f7`, containing main `585e5d06dd599e68b1c470420481b5b9a3c79333` |
+| Helper delivery | [#295](https://github.com/Chain-Frost/ryan-tools/pull/295) merged into draft #251 as `feae324a`; all nine integrated checks passed at `9235185` |
 | Delivery | [PR #274](https://github.com/Chain-Frost/ryan-tools/pull/274) integrated into [PR #272](https://github.com/Chain-Frost/ryan-tools/pull/272); merged to main as `8c03dc961455c124fe4e0996ee15f50813cf5682` |
 | Historical predecessor | Initial PR #272 head `7f45110b37eb143f9b785001fe5d04af526ab339` |
 | Timing baseline | Previous PR #272 head `1ae1235c2369950c287c4fafe24ef23848880fe0` |
@@ -23,11 +24,11 @@ Child #274 was integrated into #272 as `05939c936282aedfce5f090a2434fbd49e6d7d10
 #272 was merged into main as `8c03dc961455c124fe4e0996ee15f50813cf5682` at 08:51 UTC. Both PRs are closed.
 Do not continue the old child branch or rebuild the accepted wheel as unfinished work.
 
-The selected follow-up moves the CI-scope contracts into a pytest-only phase at the start of the existing Windows
-Hosted job. The full runtime/MCP and Policy environments remain intact. This record owns that dependency boundary,
-the completed assessment of further reductions and eventual retirement of the temporary parser pin. No separate
-non-GIS/GIS jobs are adopted. See the [CI resource record](2026-11-08-ci-resource-efficiency.md) for validation and
-active-stack delivery.
+The CI-scope contracts now run in a pytest-only phase at the start of the existing Windows Hosted job, delivered by
+#295. The full runtime/MCP and Policy environments remain intact. The selected follow-up is the bounded Policy
+dependency benchmark in #299. This record owns that dependency boundary, the assessment of further reductions and
+eventual retirement of the temporary parser pin. No separate non-GIS/GIS jobs are adopted. See the
+[CI resource record](2026-11-08-ci-resource-efficiency.md) for the preceding delivery history.
 
 ## Completed delivery: accepted PyTuflow wheel
 
@@ -165,10 +166,26 @@ environment and package installation, not the sole installed-package check.
 
 ## Next action
 
-Validate the new Windows helper phase against the accepted #251 source, then reconcile the early and broad JUnit
-node sets and skip reasons. The child starts from `63c7da77`, already synchronized with current main; do not create
-an empty sync commit or repeat the documentation preflight already delivered by #292. Publish one checked batch
-on `ci/early-windows-helper-checks-20261109`, targeting #251. Record hosted results in the PR description.
+Run the [issue #299](https://github.com/Chain-Frost/ryan-tools/issues/299) experiment from the isolated
+`ci/policy-dependency-benchmark-299` branch. Its dedicated push-only Windows workflow compares eight fresh Policy
+environments on fixed Python 3.14.10/pip 26.3: canonical versus three-tool omission, empty versus populated download
+caches, and a reversed-order repeat. The benchmark derives the candidate from current metadata, fixes remote wheel
+identities and isolated build inputs, replays the same strict file manifest and checks dependency/runtime/MCP parity.
+It uses the current shared root Pyright configuration, including initialiser files; the old separate initialiser
+configuration has been retired on #251. See the [benchmark guide](../../repo-scripts/benchmarks/README.md).
+
+Keep production profiles and normal workflows unchanged during the experiment. Record the run, measurements,
+limitations and adopt/retain decision in the issue without status-only source pushes. A negligible or inconsistent
+saving is a valid result: retain the canonical development extra and close the issue with evidence. This experiment
+does not block #251 and does not repeat the broad Hosted/native acceptance campaign.
+
+### Completed helper-stage evidence
+
+#295's reviewed source `9fa11c9` passed all six Python CI jobs with an exact 3,241-node union. After its integration
+and the independent WP04 additions, `9235185` passed all nine checks: 57 early passes, 3,174 broad passes and the same
+14 skips, plus ten profiling and 64 pandas compatibility passes. All original nodes remain, with exactly four new
+WP04 cases. See the [final acceptance and timing receipt](https://github.com/Chain-Frost/ryan-tools/pull/295).
+Successful-run savings were not demonstrated; the established benefit is earlier scope-failure detection.
 
 The feature baseline contains **57** real-Git CI-scope cases, including the three dependency/version cases added
 after main's 54-case checkpoint. They stay on Windows. The early phase uses `--confcutdir=tests/repo_scripts` and
@@ -178,12 +195,12 @@ installation. Main/manual runs and PR reruns retain the remaining broad diagnost
 using the helper step's original outcome. The required MCP gate rejects the failed Hosted job. Independent Policy
 and Package jobs retain their existing scheduling.
 
-The dependency audit at #251/package `26.11.9.1` found 29 declared runtime requirements and 13 development entries.
+The dependency audit at #251/package `26.11.9.2` retains 29 declared runtime requirements and 13 development entries.
 Hosted already omits the development extra. Policy still needs the runtime import environment and typing support;
 `distributed`, `pillow_heif` and `docx` have actual first-party imports. The only evidenced optional Policy removals
 are `build`, `ruff` and `pytest-cov`. Their timing benefit has not been demonstrated, so this change keeps the
 canonical development extra rather than adding a custom installer or a copied requirement list that can drift.
-The focused prompt below defines a bounded experiment if that remaining optimization is selected later.
+The focused prompt below defines the bounded experiment now selected in #299.
 
 If further dependency reduction is worthwhile after measuring the consolidated jobs, investigate these stages in
 a separate reviewable change:
