@@ -2,11 +2,11 @@
 
 | Field | Current status |
 | --- | --- |
-| Status | Needs review — HU/HD and selected RLP_H/Hmx code delivered with hosted CI passing; full #236/native acceptance open |
+| Status | Needs review — native NTFS/UNC/mapped happy paths passed; partial-companion warning fix under CI; other acceptance gates open |
 | Owner | WP12; coordinate numerical, validity and export contracts with WP03, WP04, WP08, WP10 and WP11 |
 | Updated | 2026-11-08 |
 | Next review | 2026-11-15 or after #219's no-data contract is accepted |
-| Delivery | HU/HD draft [#262](https://github.com/Chain-Frost/ryan-tools/pull/262) based on [#251](https://github.com/Chain-Frost/ryan-tools/pull/251); reporting-point child draft [#269](https://github.com/Chain-Frost/ryan-tools/pull/269) based on #262; no main merge |
+| Delivery | Draft stack: [#251](https://github.com/Chain-Frost/ryan-tools/pull/251) → [#262](https://github.com/Chain-Frost/ryan-tools/pull/262) → [#269](https://github.com/Chain-Frost/ryan-tools/pull/269) → [#270](https://github.com/Chain-Frost/ryan-tools/pull/270); all unmerged to main |
 | Tracking | [#237](https://github.com/Chain-Frost/ryan-tools/issues/237), [#236](https://github.com/Chain-Frost/ryan-tools/issues/236), [#240](https://github.com/Chain-Frost/ryan-tools/issues/240), [#212](https://github.com/Chain-Frost/ryan-tools/issues/212) |
 
 ## Decision from the first-delivery investigation
@@ -72,6 +72,81 @@ The source headers and current automated fixture target are the `EG02_013`/`EG02
 
 **Validation:** The selected reporting-point code/tests passed **all six GitHub checks** at [`0c917568`](https://github.com/Chain-Frost/ryan-tools/commit/0c91756885f0f00e30dd9e5cdf5126c7263010dd) in Windows Python **3.14.10**: **2,565 passed, 14 skipped, 8 deselected** (Hosted); Policy including strict Pyright; Ruff/whitespace; Package including installed-wheel/copied-wrapper smoke; MCP smoke; POSIX security. New focused assertions exercise the actual EG02 factory, pre-read location projection, signed/zero/NaN/invalid input outcomes, protected Excel/Parquet readback, generic MCP inspection and the public discovery→report workflow. **Native Windows/SMB and measured large-file selected-read memory remain unverified**, and neither the shared #219 validity contract nor all #236 formats are claimed delivered. These successes apply to the cited code head; documentation-only follow-up commits must still pass their current-head checks.
 
+## 2026-11-08 third delivery — complete selected reporting-location histories and summaries (#236)
+
+[WP12 draft #270](https://github.com/Chain-Frost/ryan-tools/pull/270) extends the
+approved reporting-point path with the **source-provided reporting-line and region families**.
+It is based on [#269](https://github.com/Chain-Frost/ryan-tools/pull/269), itself stacked on
+[#262](https://github.com/Chain-Frost/ryan-tools/pull/262) and [#251](https://github.com/Chain-Frost/ryan-tools/pull/251).
+No branch has been integrated into `main`.
+
+| Source suffix | Reader / consumer | Value and source meaning |
+| --- | --- | --- |
+| `_RLL_Q.csv` | `RLLQProcessor`, `reporting_lines` Python workflow | `Time` (simulation hours), reporting **line** ID `Location`, `Type=Reporting Line Flow`, signed `Value` and nullable `AbsValue` in the source flow units (m³/s for metric EG02); selected labels are read as columns before long-form expansion |
+| `_RLL_Qmx.csv` | **Existing** `RLLQmxProcessor` (no implementation changes) | `Chan ID` retains the reporting-line identifier, `Q` and `Time` mean source Qmax and Time Qmax, with separate `dQ`, `Time dQ` and `H` fields; the source `H=-99999` remains a #219 validity limitation |
+| `_RLR_Vol.csv` | `RLRVolProcessor`, `reporting_regions` Python workflow | `Time`, reporting **region** ID, `Type=Reporting Region Volume` and source volumes in model units (m³ for metric EG02) |
+| `_RLR_Volmx.csv` | `RLRVolmxProcessor`, `reporting_regions` Python workflow | Source `Vol max`, `Time Vol max`, `dVolmax`, `Time dVolmax`, `H` retained with their independent associations |
+
+Point, line and region histories share a single specialised wide-CSV reader;
+point and region source maxima share a specialised source-summary reader.
+They retain the previously accepted point output schema and missing-value treatment,
+and they do not add a competing TPC parser or modify the upstream PyTuflow pin.
+The protected reporting exporters share an internal publication helper.
+The three workflow entry points have **separate output names and sheets** so that
+a reporting point and reporting line with the same source identifier cannot be
+silently combined as identical measurements or counted as separate events.
+None of these are automatically added to the existing PO/POMM ensemble calculations.
+
+**Archived numerical values (pinned EG02):** `EG02_013` reporting line `RL_03` has
+181 sampled flows and a sampled maximum **96.812**, but source `RLL_Qmx`
+reports **96.842** at **0.9741 h**. Reporting region `RL_06` has
+181 sampled volumes with a printed maximum **8773.318**, while `RLR_Volmx`
+reports **8773.601** at **1.2697 h**. These are true source-product
+differences (sample time vs maximum event) and must not be rounded away,
+overwritten or reconstructed into coincident hydraulic states.
+Legitimate negative values and zeros remain; the selected new readers map
+`-99999`, `**********` and empty numeric cells to missing.
+
+**Verified code-head acceptance:** Windows Python **3.14.10** CI passed **all six checks** at [`da7fb3ac`](https://github.com/Chain-Frost/ryan-tools/commit/da7fb3ac39adfc796174bb01e3d4e4648d355531) (Hosted **2,590 passed, 14 skipped, 8 deselected**, Policy including strict Pyright, Ruff/whitespace, Package with installed-wheel/copied-wrapper smoke, MCP smoke and POSIX security). Genuine-fixture and synthetic regressions exercised the factory, early-column selection, maximum/time associations, signed/zero/missing cases, invalid inputs, geometry-name identity, optional companions, collection, public MCP and protected Excel/Parquet workflow. Codex identified a P1 list/tuple header comparison in the shared summary reader; it was corrected on this head and its review thread is resolved. **Native Windows/SMB/UNC, real batch memory/precision benchmarking, shared no-data acceptance and remaining #236 formats are not established by these CI passes.** WP04 owns
+common `#219` validity; WP11 owns `#228` fixture matrix and `#229`
+selected-read memory/precision measurement. Structure `_SQ/_SHmx`, split
+2D formats, loss/MB, network and native container extensions remain under the
+broader staged #236 backlog; this delivery does not close #236 or #237.
+
+## 2026-11-08 native Windows report and follow-up correction
+
+The independent [native Windows validation report on draft #270](https://github.com/Chain-Frost/ryan-tools/pull/270#issuecomment-6717962107) tested the
+**exact source commit `fe475d43`**, with pinned test-data `d2dae3ec` and PyTuflow 1.3.0 at
+`887534ea`; the source branch was unchanged during those tests. The local agent did not run an
+installed-wheel validation or a licensed solver.
+
+| Acceptance case | Observed result |
+| --- | --- |
+| Focused Python 3.14.6 tests | **44 passed** in 4.10 seconds; one warning. Pinned PyTuflow was isolated in scratch storage |
+| Native local NTFS, real SMB UNC and mapped drive | **PASS** on all three reporting-point, line and region workflows; separate source and output scratch folders |
+| Excel and Parquet | **PASS**: each workflow read back 181 series rows and one source-summary row; source maxima remained independent |
+| Input immutability and no-clobber | **PASS**: source hashes/mtimes unchanged; a fixed export timestamp and identical existing paths raised `FileExistsError` without modification |
+| Selected-column reads | **PASS on small fixtures only**: 12 source CSVs totalling 67,108 bytes, 1,092 selected vs 2,184 all rows; process peak working sets approximately 114–115 MB without meaningful improvement |
+| Missing optional product diagnostics | **FAIL on tested `fe475d43`**: history-only `RLL_Q.csv` exported successfully with no warning for absent `RLL_Qmx.csv` |
+| Native exclusive write locks, permissions and large/project-sized memory | **NOT RUN**; cannot claim these behaviors are accepted |
+| Optional HDF dependency health and installed-wheel native acceptance | **UNRESOLVED / NOT RUN**: optional `h5py` DLL diagnostic `0xc0000139` appeared; CSV/Excel/Parquet paths did not use it |
+
+**Action taken after the local report:** A focused correction on this same WP12 child PR adds
+per-run warnings when one reporting-location product is not available in the selected processed
+collection, identifying the absent `*_RLP_Hmx.csv`, `*_RLL_Qmx.csv`, `*_RLR_Volmx.csv` or
+history counterpart by filename suffix. It preserves successful, read-only partial reporting
+and existing export/no-clobber semantics. Tests now cover the reported history-only case with
+`console_log_level="SUCCESS"` and an INFO log file, summary-only cases, a mixed complete/incomplete
+multi-run collection, and a fully matched pair without spurious warnings. This **code change has
+not itself been retested on native UNC/SMB**; check its exact-head hosted CI and request fresh
+independent review before any acceptance or integration decision.
+
+The native happy-path evidence is recorded; full #236/#237 acceptance remains open for
+WP04/#219 shared missing-value behavior, WP11/#228 fixture matrix and #229 realistic memory,
+optional binary/HDF environment health, native exclusive locks and permissions, and other
+still-unimplemented source families such as `_SQ.csv` and `_SHmx.csv`. No merge to `main`,
+automatic issue closure or release is authorised.
+
 ## #236 selected next: reporting-location point water levels (initial decision)
 
 Select the reporting-location family next, starting with **_RLP_H.csv** (point water-level series) and **_RLP_Hmx.csv** (source-provided maximum and associated fields) using the existing PO-style report consumer. These have genuine EG02_013 source files, and TPC already has reporting-location readers. Reporting point/line/region types and measurement units must stay distinct even if their labels coincide; dHmax, Q and time columns must retain their source associations rather than all becoming independent maxima.
@@ -83,6 +158,6 @@ Acceptance before marking either suffix supported: real factory/dispatch, locati
 - **Passed source-level review:** current pin, registry, PO/POMM, collection/export, QA/plot and TPC source/API inspection; source-file pair comparisons and independent maxima/sentinel/precision calculations above.
 - **Local authoring limitation:** The changes were made through GitHub's connector on a dedicated branch, not in an actual local Git worktree. No independently verified local Python 3.13 compile is claimed. Windows Python 3.14 hosted compilation/test evidence is tracked separately above.
 - **Executed in hosted Windows Python 3.14 CI on prior head `69e15789`:** Ruff/whitespace, Package (installed/copy smoke), MCP smoke and POSIX wrapper security passed; strict Pyright and one numerical TPC assertion failed as above. The corrected HU/HD head `9e375778` passed all six GitHub checks (including Hosted, strict Pyright, Package, Ruff and MCP). Validate the final commit again, and do not infer passing native Windows/SMB acceptance from ordinary CI.
-- **Not run / native:** Windows/SMB/UNC selected-read memory testing, licensed solver checks and any genuine network-output acceptance.
+- **Historical authoring-phase limit:** No local native Windows test was performed in the GitHub-connector authoring environment. The later exact-source native NTFS/UNC/mapped happy-path tests and outstanding scale/lock/HDF gaps are documented above; no licensed solver was run.
 
-Next action: review the #269 source and hosted code head, reconcile native Windows/SMB and selected-memory/precision evidence with WP11, and agree the #219 no-data contract with WP04 before declaring full HU/HD and reporting-point consumer acceptance. Keep the remaining #236 formats staged and separately allocated. #237 remains open until actual reader/consumer parity and required validity are accepted; broad #236 remains open. Do not merge, release or change the PyTuflow pin.
+Next action: validate the current-head companion-warning fix in CI, obtain fresh independent review and native spot-check of the changed diagnostic, then reconcile remaining scale/precision with WP11 and the shared #219 no-data contract with WP04. The next separate ready #236 candidate is `_SQ.csv` / `_SHmx.csv` structure outputs (state at maximum upstream level), not a re-interpretation of independent maxima. Keep remaining formats staged and separately allocated. #237 remains open until actual reader/consumer parity and required validity are accepted; broad #236 remains open. Do not merge, release or change the PyTuflow pin.

@@ -1,4 +1,4 @@
-"""Numeric conversion shared by the selected reporting-point CSV processors."""
+"""Numeric conversion shared by the selected reporting-location CSV processors."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ def parse_reporting_numbers(values: pd.Series, *, column: str, allow_missing: bo
     parsed = pd.to_numeric(raw.where(~missing), errors="coerce").astype("float64")
     invalid = ~missing & ~np.isfinite(parsed)
     if invalid.any():
-        msg = f"Invalid or nonfinite numeric values in reporting-point column {column!r}."
+        msg = f"Invalid or nonfinite numeric values in reporting-location column {column!r}."
         raise ValueError(msg)
 
     parsed = parsed.mask(parsed.eq(-99999.0))
