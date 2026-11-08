@@ -34,8 +34,7 @@ def _cmx(folder: Path) -> Path:
     return _file(
         folder,
         "_1d_Cmx.csv",
-        "Chan ID,Time Qmax,Qmax,Vmax,Time Vmax\n"
-        "C1,0.5,5.0,1.5,0.75\nC2,0.5,-4.0,2.0,0.75\n",
+        "Chan ID,Time Qmax,Qmax,Vmax,Time Vmax\nC1,0.5,5.0,1.5,0.75\nC2,0.5,-4.0,2.0,0.75\n",
     )
 
 
@@ -171,8 +170,7 @@ def test_po_mask_sentinel_before_absolute_values_with_valid_zero_and_negative(tm
     path = _file(
         tmp_path,
         "_PO.csv",
-        "Dummy,Time,HU,Flow\nDummy,Time,Bridge,Bridge\n"
-        "row,0,40.9482,-5\nrow,1,-99999,0\nrow,2,40.0,2\n",
+        "Dummy,Time,HU,Flow\nDummy,Time,Bridge,Bridge\nrow,0,40.9482,-5\nrow,1,-99999,0\nrow,2,40.0,2\n",
     )
     processor = POProcessor(file_path=path)
     processor.process()
@@ -284,8 +282,7 @@ def test_qa_partial_hu_sentinel_preserves_actual_range_and_hydraulic_status(tmp_
     path = _file(
         tmp_path,
         "_PO.csv",
-        "Dummy,Time,HU,Q\n,(h),Bridge,Bridge\n"
-        "0,0,40,-5\n1,1,-99999,0\n2,2,41,1\n",
+        "Dummy,Time,HU,Q\n,(h),Bridge,Bridge\n0,0,40,-5\n1,1,-99999,0\n2,2,41,1\n",
     )
     level = next(result for result in analyze_stability_csv(path, _stability_config()) if result.datatype == "HU")
     assert level.status == "PARTIAL_DATA"

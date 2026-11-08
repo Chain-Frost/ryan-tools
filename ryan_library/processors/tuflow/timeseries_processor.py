@@ -120,9 +120,7 @@ class TimeSeriesProcessor(BaseProcessor):
             if data_type in {"Q", "V", "H"}:
                 value_columns = ("US_H", "DS_H") if data_type == "H" else (data_type,)
                 for value_column in value_columns:
-                    numeric, rejected = clean_hydraulic_samples(
-                        self.df[value_column], measurement=value_column
-                    )
+                    numeric, rejected = clean_hydraulic_samples(self.df[value_column], measurement=value_column)
                     self.df[value_column] = numeric
                     self.record_rejections(rejected)
             self._apply_final_transformations(data_type=data_type)

@@ -41,9 +41,7 @@ class POMMProcessor(BaseProcessor):
 
     def _remove_invalid_extrema(self) -> None:
         """Mask dry-level sentinels and discard rows without an actual numeric extreme."""
-        level_rows = self.df["Type"].astype("string").map(
-            lambda name: is_water_level_measurement(str(name))
-        )
+        level_rows = self.df["Type"].astype("string").map(lambda name: is_water_level_measurement(str(name)))
         for column in ("Max", "Min"):
             numeric, rejected = clean_hydraulic_samples(self.df[column], measurement="")
             no_data = level_rows & numeric.eq(-99999).fillna(False)
