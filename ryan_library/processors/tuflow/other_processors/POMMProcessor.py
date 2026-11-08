@@ -69,6 +69,11 @@ class POMMProcessor(BaseProcessor):
             if all_missing.all():
                 self.input_health = "INVALID"
 
+    def _classify_selected_extrema(self) -> None:
+        """An existing selection without usable extrema is an invalid input, not a skip."""
+        if not self.df["AbsMax"].notna().any():
+            self.input_health = "INVALID"
+
     def process(self) -> None:
         """Read the raw POMM CSV, transpose + promote row 1 to header,
         rename the key columns, calculate AbsMax and SignedAbsMax,
@@ -159,8 +164,7 @@ class POMMProcessor(BaseProcessor):
                 self.filtered_empty = True
                 logger.info("{}: No requested POMM locations found; skipping file.", self.file_name)
                 return
-            if not self.df["AbsMax"].notna().any():
-                self.input_health = "INVALID"
+            self._classify_selected_extrema()
             self.add_common_columns()
             self.apply_output_transformations()
             if not self.validate_data():

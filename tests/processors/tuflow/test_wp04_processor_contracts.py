@@ -7,7 +7,6 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
-from ryan_library.mcp.server import inspect_tuflow_collection, inspect_tuflow_result
 from ryan_library.functions.tuflow.po_timeseries_checks import (
     PeakCheckConfig,
     StabilityCheckConfig,
@@ -17,6 +16,7 @@ from ryan_library.functions.tuflow.po_timeseries_checks import (
 )
 from ryan_library.functions.tuflow.pomm_utils import find_aep_dur_max
 from ryan_library.functions.tuflow.tuflow_common import _result_status  # pyright: ignore[reportPrivateUsage]
+from ryan_library.mcp.server import inspect_tuflow_collection, inspect_tuflow_result
 from ryan_library.orchestrators.tuflow.peak_check_po_csvs import (
     _file_outcome as _peak_file_outcome,  # pyright: ignore[reportPrivateUsage]
 )
