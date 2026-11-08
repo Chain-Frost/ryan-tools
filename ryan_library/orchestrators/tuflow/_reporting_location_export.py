@@ -48,6 +48,25 @@ def export_reporting_location_results(
         logger.warning("No {} rows to export.", workflow_name)
         return False
 
+    # A result family may be present for one run and missing for another.
+    # Diagnose each incomplete run, not just missing products across the full batch.
+    requested_types = {data_type for data_type, _ in products}
+    available_by_run: dict[str, set[str]] = {}
+    for processor in results.processors:
+        if processor.data_type in requested_types and not processor.df.empty:
+            available_by_run.setdefault(processor.name_parser.raw_run_code, set()).add(processor.data_type)
+    for run_code, available in sorted(available_by_run.items()):
+        missing = sorted(requested_types - available)
+        if missing:
+            logger.warning(
+                "{}: run '{}' has no usable optional companion(s) {} (available: {}); "
+                "publishing available reporting products only. Missing input may be absent, invalid, or filtered.",
+                workflow_name,
+                run_code,
+                ", ".join(f"*_{data_type}.csv" for data_type in missing),
+                ", ".join(sorted(available)),
+            )
+
     if dashboard is not None:
         dashboard.set_metrics([WorkflowMetric(metric_label, value=sum(len(frame) for frame in frames), unit="rows")])
         dashboard.set_phase("Exporting")

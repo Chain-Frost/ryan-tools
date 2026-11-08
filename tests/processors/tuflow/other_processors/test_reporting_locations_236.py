@@ -376,3 +376,105 @@ def test_summary_only_source_is_supported_without_series_companion(
 
     products = list(tmp_path.glob(f"*_{output_key}_{summary_sheet}.parquet.gzip"))
     assert len(products) == 1
+
+def test_history_only_line_workflow_logs_missing_qmx_without_failing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Reproduce native PR #270 report: partial output is valid but needs an explicit warning."""
+    sources = tmp_path / "inputs"
+    reports = tmp_path / "outputs"
+    sources.mkdir()
+    reports.mkdir()
+    copy2(CSV_DIR / f"{RUN}_RLL_Q.csv", sources / f"{RUN}_RLL_Q.csv")
+    log_path = tmp_path / "reporting-line.log"
+
+    monkeypatch.chdir(reports)
+    assert run_lines(
+        paths_to_process=[sources],
+        locations_to_include=["RL_03"],
+        export_mode="parquet",
+        use_live_dashboard=False,
+        console_log_level="SUCCESS",
+        log_file=str(log_path),
+    )
+    log_text = log_path.read_text(encoding="utf-8")
+    assert RUN in log_text
+    assert "RLL_Qmx.csv" in log_text
+    assert "optional companion" in log_text
+    assert "publishing available reporting products only" in log_text
+
+    histories = list(reports.glob("*_reporting_lines_Line_Flow_Series.parquet.gzip"))
+    assert len(histories) == 1
+    assert not list(reports.glob("*_reporting_lines_Source_Flow_Maxima.parquet.gzip"))
+    assert pd.read_parquet(histories[0])["Value"].max() == pytest.approx(96.812)
+
+
+@pytest.mark.parametrize(
+    ("suffix", "exporter", "missing"),
+    [
+        ("RLL_Qmx", export_lines, "RLL_Q.csv"),
+        ("RLR_Volmx", export_regions, "RLR_Vol.csv"),
+    ],
+)
+def test_summary_only_reports_missing_history_without_changing_partial_success(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    suffix: str,
+    exporter: object,
+    missing: str,
+) -> None:
+    """A single valid summary is publishable, with an explicit missing-series diagnostic."""
+    collection = ProcessorCollection()
+    collection.add_processor(_processed(suffix))
+    monkeypatch.chdir(tmp_path)
+    with (
+        patch("ryan_library.orchestrators.tuflow._reporting_location_export.logger.warning") as warning,
+        patch("ryan_library.orchestrators.tuflow._reporting_location_export.ExcelExporter.export_dataframes"),
+    ):
+        if suffix == "RLL_Qmx":
+            assert export_lines(results=collection, export_mode="parquet")
+        else:
+            assert export_regions(results=collection, export_mode="parquet")
+
+    assert warning.call_count == 1
+    args, _ = warning.call_args
+    assert args[1] == RUN
+    assert missing in args[2]
+
+
+def test_multiple_runs_report_only_the_missing_run_not_global_product_presence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A complete run must not hide a missing companion in another run."""
+    collection = ProcessorCollection()
+    collection.add_processor(_processed("RLL_Q", run="EG02_013", locations=["RL_03"]))
+    collection.add_processor(_processed("RLL_Qmx", run="EG02_013", locations=["RL_03"]))
+    collection.add_processor(_processed("RLL_Q", run="EG02_014", locations=["RL_03"]))
+    monkeypatch.chdir(tmp_path)
+    with (
+        patch("ryan_library.orchestrators.tuflow._reporting_location_export.logger.warning") as warning,
+        patch("ryan_library.orchestrators.tuflow._reporting_location_export.ExcelExporter.export_dataframes"),
+    ):
+        assert export_lines(results=collection, export_mode="parquet")
+
+    assert warning.call_count == 1
+    args, _ = warning.call_args
+    assert args[1] == "EG02_014"
+    assert "*_RLL_Qmx.csv" in args[2]
+
+
+def test_complete_line_pair_does_not_emit_optional_companion_warning(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Both source products present: do not mislabel a complete report as partial."""
+    collection = ProcessorCollection()
+    collection.add_processor(_processed("RLL_Q", locations=["RL_03"]))
+    collection.add_processor(_processed("RLL_Qmx", locations=["RL_03"]))
+    monkeypatch.chdir(tmp_path)
+    with (
+        patch("ryan_library.orchestrators.tuflow._reporting_location_export.logger.warning") as warning,
+        patch("ryan_library.orchestrators.tuflow._reporting_location_export.ExcelExporter.export_dataframes"),
+    ):
+        assert export_lines(results=collection, export_mode="parquet")
+
+    warning.assert_not_called()
