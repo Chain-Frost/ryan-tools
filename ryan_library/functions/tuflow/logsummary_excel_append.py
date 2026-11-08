@@ -40,7 +40,7 @@ class ExistingLogSummaryRows:
 
 
 @contextmanager
-def master_workbook_claim(*, workbook_path: Path) -> Generator[None, None, None]:
+def master_workbook_claim(*, workbook_path: Path) -> Generator[None]:
     """Prevent cooperating writers from using one master workbook concurrently.
 
     The claim covers the entire discovery/read/processing/replace workflow.
