@@ -1,5 +1,8 @@
 """Unit tests for ryan_library.classes.suffixes_and_dtypes."""
 
+# Unit tests intentionally exercise the implementation helpers under test.
+# pyright: reportPrivateUsage=false
+
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -61,7 +64,7 @@ class TestConfig:
         Config._instance = None
 
     @patch("ryan_library.classes.suffixes_and_dtypes.ConfigLoader")
-    def test_load(self, mock_loader_cls):
+    def test_load(self, mock_loader_cls: MagicMock):
         """Test loading configuration."""
         mock_loader = mock_loader_cls.return_value
         mock_loader.get_data_types.return_value = {

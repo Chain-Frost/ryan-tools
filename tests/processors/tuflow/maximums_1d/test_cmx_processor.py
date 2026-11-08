@@ -1,3 +1,6 @@
+# Unit tests intentionally exercise implementation helpers.
+# pyright: reportPrivateUsage=false
+
 """Unit tests for ryan_library.processors.tuflow.maximums_1d.CmxProcessor."""
 
 from pathlib import Path
@@ -52,7 +55,7 @@ class TestCmxProcessor:
             }
         )
 
-        mock_processor._reshape_cmx_data()  # pyright: ignore[reportPrivateUsage]
+        mock_processor._reshape_cmx_data()
 
         assert len(mock_processor.df) == 4  # 2 rows * 2 (Q and V)
         assert "Q" in mock_processor.df.columns
@@ -80,7 +83,7 @@ class TestCmxProcessor:
             }
         )
 
-        mock_processor._reshape_cmx_data()  # pyright: ignore[reportPrivateUsage]
+        mock_processor._reshape_cmx_data()
         assert mock_processor.df.empty
 
     def test_handle_malformed_data(self, mock_processor: CmxProcessor) -> None:
@@ -89,7 +92,7 @@ class TestCmxProcessor:
             {"Chan ID": ["C1", None], "Time": [1.0, None], "Q": [10.0, None], "V": [None, None]}
         )
 
-        mock_processor._handle_malformed_data()  # pyright: ignore[reportPrivateUsage]
+        mock_processor._handle_malformed_data()
 
         assert len(mock_processor.df) == 1
         assert mock_processor.df.iloc[0]["Chan ID"] == "C1"

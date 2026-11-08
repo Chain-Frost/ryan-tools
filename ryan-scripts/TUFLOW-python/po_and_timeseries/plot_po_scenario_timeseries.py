@@ -11,12 +11,14 @@ Confirm the internal-name filter and scenario-column mapping before interpreting
 the comparison.
 """
 
+# External optional keyword signatures are incomplete; exceptions stay on individual calls.
+
 from __future__ import annotations
 
 import os
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
@@ -83,9 +85,7 @@ def filter_internal_name(df: pd.DataFrame) -> pd.DataFrame:
     if not INTERNAL_NAME_FILTER or "internalName" not in df.columns:
         return df
     mask: Series[bool] = (
-        df["internalName"]
-        .fillna(value="")  # pyright: ignore[reportUnknownMemberType]
-        .str.contains(pat=INTERNAL_NAME_FILTER, case=False, na=False)
+        df["internalName"].fillna(value="").str.contains(pat=INTERNAL_NAME_FILTER, case=False, na=False)
     )
     filtered: DataFrame = df.loc[mask].copy()
     if filtered.empty:
@@ -171,10 +171,11 @@ def build_scenario_labels(df: pd.DataFrame, dimension_columns: dict[str, str] | 
         scenario_components.append(component)
 
     scenario_frame: DataFrame = pd.concat(scenario_components, axis=1)
-    return scenario_frame.apply(
-        lambda row: " | ".join(f"{column}={row[column]}" for column in scenario_frame.columns),
-        axis=1,
-    )
+
+    def label_row(row: Series) -> str:
+        return " | ".join(f"{column}={row[column]}" for column in scenario_frame.columns)
+
+    return scenario_frame.apply(label_row, axis=1)
 
 
 def _numeric_dimension_column(df: pd.DataFrame, dimension_name: str) -> str | None:
@@ -206,7 +207,7 @@ def create_aep_colorizer(
             cmap = plt.get_cmap("viridis")
 
             def colorize(value: Any) -> Any:
-                numeric_value = pd.to_numeric(value, errors="coerce")
+                numeric_value = cast("float", pd.to_numeric(value, errors="coerce"))
                 if pd.isna(numeric_value):
                     return "black"
                 return cmap(norm(float(numeric_value)))
@@ -266,24 +267,24 @@ def plot_timeseries(df: pd.DataFrame) -> None:
         scenario_handles: dict[str, Any] = {}
         for scenario_label, scenario_group in location_subset.groupby("scenario_label"):
             sorted_group = scenario_group.sort_values("Time")
-            aep_value = scenario_group[color_meta["column"]].iloc[0]
+            aep_value = scenario_group[cast("str", color_meta["column"])].iloc[0]
             color = colorize_aep(aep_value)
-            (line,) = ax.plot(
+            (line,) = ax.plot(  # pyright: ignore[reportUnknownMemberType]
                 sorted_group["Time"],
                 sorted_group["Value"],
                 label=scenario_label,
                 color=color,
             )
-            scenario_handles.setdefault(scenario_label, line)
+            scenario_handles.setdefault(cast("str", scenario_label), line)
 
-        ax.set_title(label=f"PO timeseries - {location}")
-        ax.set_ylabel(ylabel="Q (Value)")
-        ax.set_xlabel(xlabel="Time")
-        ax.grid(visible=True)
+        ax.set_title(label=f"PO timeseries - {location}")  # pyright: ignore[reportUnknownMemberType]
+        ax.set_ylabel(ylabel="Q (Value)")  # pyright: ignore[reportUnknownMemberType]
+        ax.set_xlabel(xlabel="Time")  # pyright: ignore[reportUnknownMemberType]
+        ax.grid(visible=True)  # pyright: ignore[reportUnknownMemberType]
         fig.autofmt_xdate()
 
         legend_labels: list[str] = sorted(scenario_handles.keys())
-        scenario_legend = ax.legend(
+        scenario_legend = ax.legend(  # pyright: ignore[reportUnknownMemberType]
             handles=[scenario_handles[label] for label in legend_labels],
             labels=legend_labels,
             title=SCENARIO_LEGEND_TITLE,
@@ -295,13 +296,13 @@ def plot_timeseries(df: pd.DataFrame) -> None:
         if color_meta["type"] == "numeric":
             scalar_mappable = ScalarMappable(norm=color_meta["norm"], cmap=color_meta["cmap"])
             scalar_mappable.set_array([])
-            colorbar = fig.colorbar(scalar_mappable, ax=ax, fraction=0.046, pad=0.01)
-            colorbar.set_label(color_meta.get("label", COLORBAR_LABEL))
+            colorbar = fig.colorbar(scalar_mappable, ax=ax, fraction=0.046, pad=0.01)  # pyright: ignore[reportUnknownMemberType]
+            colorbar.set_label(color_meta.get("label", COLORBAR_LABEL))  # pyright: ignore[reportUnknownMemberType]
         else:
             aep_handles = [
                 mpatches.Patch(color=colorize_aep(value), label=str(value)) for value in color_meta["values"]
             ]
-            aep_legend = ax.legend(
+            aep_legend = ax.legend(  # pyright: ignore[reportUnknownMemberType]
                 handles=aep_handles,
                 title=f"{COLORBAR_LABEL} colours",
                 loc="lower left",
@@ -309,7 +310,7 @@ def plot_timeseries(df: pd.DataFrame) -> None:
             )
             ax.add_artist(aep_legend)
 
-        plt.show()
+        plt.show()  # pyright: ignore[reportUnknownMemberType]
 
 
 def main() -> None:

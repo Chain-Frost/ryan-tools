@@ -426,7 +426,7 @@ def _collect_finished_dashboard_results[TResult](
             continue
         try:
             result: TResult = async_result.get()
-        except (MaybeEncodingError, OSError):
+        except MaybeEncodingError, OSError:
             # Pool transport/serialization faults must reach the caller's
             # existing retry/fallback policy, including in the report API.
             raise

@@ -1,5 +1,6 @@
 import json
 import sys
+from datetime import date, datetime
 from pathlib import Path
 
 import pytest
@@ -17,7 +18,7 @@ from ryan_library.functions.parse_tlf import (
 
 
 # Helper function to parse a single TLF file (same logic as in generate_tlf_snapshot.py)
-def parse_tlf_file(logfile_path: Path) -> dict:
+def parse_tlf_file(logfile_path: Path) -> dict[str, object]:
     """Parses a single TLF file and returns the result as a dictionary."""
     sim_complete = 0
     success = 0
@@ -74,10 +75,10 @@ def parse_tlf_file(logfile_path: Path) -> dict:
                 logfile_path=logfile_path,
             )
             if not df.empty:
-                result = df.to_dict(orient="records")[0]
+                result: dict[str, object] = {str(key): value for key, value in df.to_dict(orient="records")[0].items()}
                 # Convert datetime objects to strings for comparison
                 for key, value in result.items():
-                    if hasattr(value, "isoformat"):
+                    if isinstance(value, (date, datetime)):
                         result[key] = value.isoformat()
                 return result
 
@@ -85,7 +86,7 @@ def parse_tlf_file(logfile_path: Path) -> dict:
 
 
 @pytest.fixture(scope="module")
-def regression_snapshot():
+def regression_snapshot() -> dict[str, dict[str, object]]:
     snapshot_path = Path(__file__).parent.parent / "test_data" / "tlf_regression_snapshot.json"
     if not snapshot_path.exists():
         pytest.fail(f"Snapshot file not found: {snapshot_path}. Run tests/generate_tlf_snapshot.py to generate it.")
@@ -94,7 +95,7 @@ def regression_snapshot():
         return json.load(f)
 
 
-def test_parse_tlf_real_world(regression_snapshot):
+def test_parse_tlf_real_world(regression_snapshot: dict[str, dict[str, object]]) -> None:
     base_dir = Path(__file__).parent.parent / "test_data" / "tuflow" / "TUFLOW_Example_Model_Dataset" / "log"
     tlf_files = sorted(
         [f for f in base_dir.glob("*.tlf") if not f.name.endswith(".hpc.tlf") and not f.name.endswith(".gpu.tlf")]

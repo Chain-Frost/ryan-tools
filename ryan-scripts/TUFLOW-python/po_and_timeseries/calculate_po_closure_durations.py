@@ -111,7 +111,7 @@ def _parse_cli_arguments() -> tuple[CommonWrapperOptions, Literal["excel", "parq
     add_export_mode_cli_argument(parser=parser)
     args: argparse.Namespace = parser.parse_args()
     common: CommonWrapperOptions = parse_common_cli_arguments(args=args)
-    export_mode: Literal["excel", "parquet", "both"] | None = args.export_mode  # type: ignore[attr-defined]
+    export_mode: Literal["excel", "parquet", "both"] | None = args.export_mode
     return common, export_mode
 
 

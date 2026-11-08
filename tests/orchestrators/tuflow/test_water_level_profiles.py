@@ -10,9 +10,9 @@ import geopandas as gpd
 import matplotlib as mpl
 import numpy as np
 import pytest
-import rasterio  # pyright: ignore[reportMissingTypeStubs]
+import rasterio
 from matplotlib.axes import Axes
-from rasterio.transform import from_origin  # pyright: ignore[reportMissingTypeStubs]
+from rasterio.transform import from_origin
 from shapely.geometry import LineString, MultiLineString
 
 mpl.use("Agg")

@@ -1,3 +1,6 @@
+# Unit tests intentionally exercise implementation helpers.
+# pyright: reportPrivateUsage=false
+
 """Unit tests for ryan_library.processors.tuflow.maximums_1d.NmxProcessor."""
 
 from pathlib import Path
@@ -49,7 +52,7 @@ class TestNmxProcessor:
             }
         )
 
-        mock_processor._extract_and_transform_nmx_data()  # pyright: ignore[reportPrivateUsage]
+        mock_processor._extract_and_transform_nmx_data()
 
         assert len(mock_processor.df) == 2  # 2 channels
         assert "US_h" in mock_processor.df.columns
@@ -70,7 +73,7 @@ class TestNmxProcessor:
             }
         )
 
-        mock_processor._extract_and_transform_nmx_data()  # pyright: ignore[reportPrivateUsage]
+        mock_processor._extract_and_transform_nmx_data()
 
         # Should have C1 with US_h and DS_h. C1.3 is filtered out.
 
@@ -88,7 +91,7 @@ class TestNmxProcessor:
             }
         )
 
-        mock_processor._extract_and_transform_nmx_data()  # pyright: ignore[reportPrivateUsage]
+        mock_processor._extract_and_transform_nmx_data()
         assert mock_processor.df.empty
 
     def test_extract_and_transform_nmx_data_missing_pivot_columns(self, mock_processor: NmxProcessor) -> None:
@@ -101,7 +104,7 @@ class TestNmxProcessor:
             }
         )
 
-        mock_processor._extract_and_transform_nmx_data()  # pyright: ignore[reportPrivateUsage]
+        mock_processor._extract_and_transform_nmx_data()
         assert mock_processor.df.empty
 
     @patch("ryan_library.processors.tuflow.maximums_1d.NmxProcessor.NmxProcessor.read_maximums_csv")

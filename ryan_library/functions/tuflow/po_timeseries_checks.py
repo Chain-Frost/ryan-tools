@@ -630,7 +630,7 @@ def analyze_peak_csv(path: Path, config: PeakCheckConfig) -> list[PeakCheckResul
         abs_rel: Series = values_rel.abs()
         try:
             peak_idx = int(cast("int | float | str", abs_rel.idxmax(skipna=True)))
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             peak_idx = int(np.nanargmax(abs_rel.to_numpy()))
 
         peak_rel = values_rel.iloc[peak_idx]

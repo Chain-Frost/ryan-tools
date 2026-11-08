@@ -46,7 +46,7 @@ def _changed_paths(root: Path, base_sha: str, head_sha: str) -> list[str] | None
     try:
         # Renames must include the deleted path: source.py -> notes.md is code work.
         output = _git(root, "diff", "--no-renames", "--name-only", "-z", base_sha, head_sha, "--")
-    except (OSError, subprocess.SubprocessError):
+    except OSError, subprocess.SubprocessError:
         return None
     return [path for path in output.split("\0") if path]
 
@@ -126,7 +126,7 @@ def _is_statically_neutral_pyproject_change(root: Path, path: str, base_sha: str
                 return False
             documents.append(document)
             versions.append(version)
-    except (OSError, UnicodeError, subprocess.SubprocessError, tomllib.TOMLDecodeError):
+    except OSError, UnicodeError, subprocess.SubprocessError, tomllib.TOMLDecodeError:
         return False
     if versions[0] == versions[1]:
         return False

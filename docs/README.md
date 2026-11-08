@@ -161,6 +161,8 @@ but they are not current architectural policy when they conflict with the canoni
 | [Floodway calculation specification](audits/2026-09-14-floodway-calculation-specification.md) | Calculation contracts |
 | [Floodway validation vectors](audits/2026-09-14-floodway-validation-vectors.md) | Source regression targets |
 | [WP05 processor storage / ccA WAL delivery](work/2026-11-08-wp05-processor-storage.md) | #222/#226 staged implementation; source-preserving WAL snapshot correction is under hosted/native review |
+| [Repository Python lint and typing cleanup](work/2026-11-08-python-static-cleanup.md) | Full Windows/static audit correction and shared typing standard |
+| [Shared dependency type stubs](../typings/README.md) | Strict typing support shared by all maintained code, including the initialiser |
 | [Work register](work/README.md) | Open work fronts, review dates, next actions and links to authoritative status records |
 | [Culvert uncertainty/sensitivity workflow](work/2026-10-06-culvert-uncertainty-91.md) | Issue #91 implementation; final package verification and authorized squash merge |
 | [Culvert workflow implementation](work/2026-09-13-culvert-workflow-80.md) | Active issue #80 implementation and validation/delivery status |

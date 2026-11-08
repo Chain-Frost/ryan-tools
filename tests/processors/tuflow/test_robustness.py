@@ -26,7 +26,7 @@ def tuflow_test_data() -> Path:
 def get_processable_files(root_dir: Path) -> list[Path]:
     """Recursively find all files that have a registered processor."""
     suffixes_config = SuffixesConfig.get_instance()
-    processable_files = []
+    processable_files: list[Path] = []
 
     # We only care about files that map to a known data type
     suffix_map = suffixes_config.invert_suffix_to_type()
@@ -45,8 +45,8 @@ def test_smoke_process_all_files(tuflow_test_data: Path) -> None:
     files = get_processable_files(tuflow_test_data)
     assert files, "No processable files found in test data directory"
 
-    failures = []
-    warnings = []
+    failures: list[str] = []
+    warnings: list[str] = []
 
     # Files known to fail processing due to malformed data or missing columns
     # We hardcode these to ensure they continue to fail gracefully (processed=False)
@@ -126,7 +126,7 @@ def test_integration_collection_timeseries(tuflow_test_data: Path) -> None:
     # Find specific timeseries files for this run
     # We look for _1d_H.csv, _1d_Q.csv, _1d_V.csv which are common timeseries
     patterns = [f"{run_id}*_1d_H.csv", f"{run_id}*_1d_Q.csv", f"{run_id}*_1d_V.csv"]
-    files = []
+    files: list[Path] = []
     for pattern in patterns:
         files.extend(list(search_dir.rglob(pattern)))
 
@@ -163,7 +163,7 @@ def test_integration_collection_maximums(tuflow_test_data: Path) -> None:
     # Find specific maximums files
     # _1d_Cmx.csv (Conduits Max), _1d_Nmx.csv (Nodes Max)
     patterns = [f"{run_id}*_1d_Cmx.csv", f"{run_id}*_1d_Nmx.csv"]
-    files = []
+    files: list[Path] = []
     for pattern in patterns:
         files.extend(list(search_dir.rglob(pattern)))
 
