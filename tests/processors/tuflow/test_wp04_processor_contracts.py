@@ -1,6 +1,7 @@
 """WP04: independent processor lifecycle, canonical selection and sentinel regressions."""
 
 from pathlib import Path
+from typing import cast
 from unittest.mock import patch
 
 import pandas as pd
@@ -14,9 +15,9 @@ from ryan_library.functions.tuflow.po_timeseries_checks import (
     analyze_stability_q_csv,
 )
 from ryan_library.functions.tuflow.pomm_utils import find_aep_dur_max
-from ryan_library.functions.tuflow.tuflow_common import _result_status
-from ryan_library.orchestrators.tuflow.peak_check_po_csvs import _file_outcome as _peak_file_outcome
-from ryan_library.orchestrators.tuflow.tuflow_timeseries_stability import _file_outcome as _stability_file_outcome
+from ryan_library.functions.tuflow.tuflow_common import _result_status  # pyright: ignore[reportPrivateUsage]  # Exercise existing workflow classifier.
+from ryan_library.orchestrators.tuflow.peak_check_po_csvs import _file_outcome as _peak_file_outcome  # pyright: ignore[reportPrivateUsage]  # Verify established failure reporting.
+from ryan_library.orchestrators.tuflow.tuflow_timeseries_stability import _file_outcome as _stability_file_outcome  # pyright: ignore[reportPrivateUsage]  # Verify established failure reporting.
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.maximums_1d.NmxProcessor import NmxProcessor
 from ryan_library.processors.tuflow.other_processors.POMMProcessor import POMMProcessor
@@ -143,13 +144,13 @@ def test_pomm_sentinel_does_not_govern_extrema_and_negative_flow_is_retained(tmp
     upstream = results.loc["U/S Structure Water Level"]
     downstream = results.loc["D/S Structure Water Level"]
     flow = results.loc["Flow"]
-    assert upstream["AbsMax"] == pytest.approx(40.9482)
-    assert upstream["SignedAbsMax"] == pytest.approx(40.9482)
-    assert pd.isna(upstream["Min"])
-    assert downstream["AbsMax"] == pytest.approx(40.7525)
-    assert downstream["SignedAbsMax"] == pytest.approx(40.7525)
-    assert flow["AbsMax"] == 5.0
-    assert flow["SignedAbsMax"] == -5.0
+    assert cast("float", upstream["AbsMax"]) == pytest.approx(40.9482)
+    assert cast("float", upstream["SignedAbsMax"]) == pytest.approx(40.9482)
+    assert bool(pd.isna(upstream["Min"]))
+    assert cast("float", downstream["AbsMax"]) == pytest.approx(40.7525)
+    assert cast("float", downstream["SignedAbsMax"]) == pytest.approx(40.7525)
+    assert cast("float", flow["AbsMax"]) == 5.0
+    assert cast("float", flow["SignedAbsMax"]) == -5.0
 
 
 def test_pomm_all_missing_extrema_not_accepted_as_success(tmp_path: Path) -> None:

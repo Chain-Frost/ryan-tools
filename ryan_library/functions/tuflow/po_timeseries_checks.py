@@ -524,7 +524,7 @@ def _evaluate_stability_series(
     result.rejection_reasons = _rejection_summary(rejected)
     if result.rejected_samples:
         result.input_health = "PARTIAL" if result.points else "INVALID"
-        if result.points:
+        if result.points and result.status in {"OK", "FLAT"}:
             result.status = "PARTIAL_DATA"
     return result
 

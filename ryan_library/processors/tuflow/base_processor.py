@@ -76,7 +76,7 @@ class BaseProcessor(ABC):
     filtered_empty: bool = field(default=False, init=False)
     input_health: str = field(default="OK", init=False)
     rejected_samples: int = field(default=0, init=False)
-    rejection_reasons: dict[str, int] = field(default_factory=dict, init=False)
+    rejection_reasons: dict[str, int] = field(default_factory=lambda: cast("dict[str, int]", {}), init=False)
     include_path_columns: bool = field(default=True, repr=False)
     applied_location_filter: frozenset[str] | None = field(default=None, init=False, repr=False)
     applied_entity_filter: frozenset[str] | None = field(default=None, init=False, repr=False)

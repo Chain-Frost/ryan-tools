@@ -27,7 +27,7 @@ class TestChanProcessor:
     """Tests for ChanProcessor class."""
 
     @pytest.fixture
-    def mock_processor(self):
+    def mock_processor(self) -> ChanProcessor:
         """Create a mock ChanProcessor with minimal setup."""
         with patch("ryan_library.processors.tuflow.base_processor.BaseProcessor.__post_init__"):
             processor = ChanProcessor(Path("test_1d_Chan.csv"))
@@ -43,7 +43,14 @@ class TestChanProcessor:
     @patch("ryan_library.processors.tuflow.other_processors.ChanProcessor.ChanProcessor.add_common_columns")
     @patch("ryan_library.processors.tuflow.other_processors.ChanProcessor.ChanProcessor.apply_output_transformations")
     @patch("ryan_library.processors.tuflow.other_processors.ChanProcessor.ChanProcessor.validate_data")
-    def test_process_success(self, mock_validate, mock_apply, mock_add, mock_read, mock_processor):
+    def test_process_success(
+        self,
+        mock_validate: MagicMock,
+        mock_apply: MagicMock,
+        mock_add: MagicMock,
+        mock_read: MagicMock,
+        mock_processor: ChanProcessor,
+    ) -> None:
         """Test successful processing with all required columns."""
         mock_read.return_value = ProcessorStatus.SUCCESS
         mock_validate.return_value = True
@@ -66,7 +73,7 @@ class TestChanProcessor:
         assert mock_processor.df.iloc[0]["Height"] == 5.0  # 10.0 - 5.0
 
     @patch("ryan_library.processors.tuflow.other_processors.ChanProcessor.ChanProcessor.read_maximums_csv")
-    def test_process_read_failure(self, mock_read, mock_processor):
+    def test_process_read_failure(self, mock_read: MagicMock, mock_processor: ChanProcessor) -> None:
         """Test process aborts when read fails."""
         mock_read.return_value = ProcessorStatus.FAILURE
 
@@ -76,7 +83,7 @@ class TestChanProcessor:
         assert mock_processor.df.empty
 
     @patch("ryan_library.processors.tuflow.other_processors.ChanProcessor.ChanProcessor.read_maximums_csv")
-    def test_process_missing_height_columns(self, mock_read, mock_processor):
+    def test_process_missing_height_columns(self, mock_read: MagicMock, mock_processor: ChanProcessor) -> None:
         """Test failure when columns for Height calculation are missing."""
         mock_read.return_value = ProcessorStatus.SUCCESS
 
@@ -94,7 +101,7 @@ class TestChanProcessor:
         assert mock_processor.processed is False
 
     @patch("ryan_library.processors.tuflow.other_processors.ChanProcessor.ChanProcessor.read_maximums_csv")
-    def test_process_missing_channel_column(self, mock_read, mock_processor):
+    def test_process_missing_channel_column(self, mock_read: MagicMock, mock_processor: ChanProcessor) -> None:
         """Test failure when Channel column is missing."""
         mock_read.return_value = ProcessorStatus.SUCCESS
 
@@ -115,7 +122,14 @@ class TestChanProcessor:
     @patch("ryan_library.processors.tuflow.other_processors.ChanProcessor.ChanProcessor.add_common_columns")
     @patch("ryan_library.processors.tuflow.other_processors.ChanProcessor.ChanProcessor.apply_output_transformations")
     @patch("ryan_library.processors.tuflow.other_processors.ChanProcessor.ChanProcessor.validate_data")
-    def test_process_validation_failure(self, mock_validate, mock_apply, mock_add, mock_read, mock_processor):
+    def test_process_validation_failure(
+        self,
+        mock_validate: MagicMock,
+        mock_apply: MagicMock,
+        mock_add: MagicMock,
+        mock_read: MagicMock,
+        mock_processor: ChanProcessor,
+    ) -> None:
         """Test process aborts when validation fails."""
         mock_read.return_value = ProcessorStatus.SUCCESS
         mock_validate.return_value = False
@@ -128,7 +142,7 @@ class TestChanProcessor:
         assert mock_processor.df.empty
 
     @patch("ryan_library.processors.tuflow.other_processors.ChanProcessor.ChanProcessor.read_maximums_csv")
-    def test_process_exception(self, mock_read, mock_processor):
+    def test_process_exception(self, mock_read: MagicMock, mock_processor: ChanProcessor) -> None:
         """Test process handles exceptions."""
         mock_read.side_effect = Exception("Test Error")
 
