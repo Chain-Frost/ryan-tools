@@ -2,11 +2,11 @@
 
 | Field | Current status |
 | --- | --- |
-| Status | Needs review — HU/HD and selected RLP_H/Hmx code delivered with hosted CI passing; full #236/native acceptance open |
+| Status | Needs review — HU/HD and first-priority reporting locations delivered with hosted CI passing; #236/native acceptance open |
 | Owner | WP12; coordinate numerical, validity and export contracts with WP03, WP04, WP08, WP10 and WP11 |
 | Updated | 2026-11-08 |
 | Next review | 2026-11-15 or after #219's no-data contract is accepted |
-| Delivery | HU/HD draft [#262](https://github.com/Chain-Frost/ryan-tools/pull/262) based on [#251](https://github.com/Chain-Frost/ryan-tools/pull/251); reporting-point child draft [#269](https://github.com/Chain-Frost/ryan-tools/pull/269) based on #262; no main merge |
+| Delivery | Draft stack: [#251](https://github.com/Chain-Frost/ryan-tools/pull/251) → [#262](https://github.com/Chain-Frost/ryan-tools/pull/262) → [#269](https://github.com/Chain-Frost/ryan-tools/pull/269) → [#270](https://github.com/Chain-Frost/ryan-tools/pull/270); all unmerged to main |
 | Tracking | [#237](https://github.com/Chain-Frost/ryan-tools/issues/237), [#236](https://github.com/Chain-Frost/ryan-tools/issues/236), [#240](https://github.com/Chain-Frost/ryan-tools/issues/240), [#212](https://github.com/Chain-Frost/ryan-tools/issues/212) |
 
 ## Decision from the first-delivery investigation
@@ -74,7 +74,7 @@ The source headers and current automated fixture target are the `EG02_013`/`EG02
 
 ## 2026-11-08 third delivery — complete selected reporting-location histories and summaries (#236)
 
-The next bounded [WP12 child draft](https://github.com/Chain-Frost/ryan-tools/issues/236) extends the
+[WP12 draft #270](https://github.com/Chain-Frost/ryan-tools/pull/270) extends the
 approved reporting-point path with the **source-provided reporting-line and region families**.
 It is based on [#269](https://github.com/Chain-Frost/ryan-tools/pull/269), itself stacked on
 [#262](https://github.com/Chain-Frost/ryan-tools/pull/262) and [#251](https://github.com/Chain-Frost/ryan-tools/pull/251).
@@ -107,12 +107,7 @@ overwritten or reconstructed into coincident hydraulic states.
 Legitimate negative values and zeros remain; the selected new readers map
 `-99999`, `**********` and empty numeric cells to missing.
 
-**Evidence and boundaries:** Genuine-fixture and synthetic tests now exercise
-factory, selected-reader materialisation, source relationships, signed values,
-partial/all missing, missing point IDs, time validation, public MCP inspection
-and protected Excel/Parquet report publication. Normal CI, source/installed-wheel,
-native Windows/SMB/UNC, optional-companion and memory benchmarking evidence
-must remain distinguished until actual checks are complete. WP04 owns
+**Verified code-head acceptance:** Windows Python **3.14.10** CI passed **all six checks** at [`da7fb3ac`](https://github.com/Chain-Frost/ryan-tools/commit/da7fb3ac39adfc796174bb01e3d4e4648d355531) (Hosted **2,590 passed, 14 skipped, 8 deselected**, Policy including strict Pyright, Ruff/whitespace, Package with installed-wheel/copied-wrapper smoke, MCP smoke and POSIX security). Genuine-fixture and synthetic regressions exercised the factory, early-column selection, maximum/time associations, signed/zero/missing cases, invalid inputs, geometry-name identity, optional companions, collection, public MCP and protected Excel/Parquet workflow. Codex identified a P1 list/tuple header comparison in the shared summary reader; it was corrected on this head and its review thread is resolved. **Native Windows/SMB/UNC, real batch memory/precision benchmarking, shared no-data acceptance and remaining #236 formats are not established by these CI passes.** WP04 owns
 common `#219` validity; WP11 owns `#228` fixture matrix and `#229`
 selected-read memory/precision measurement. Structure `_SQ/_SHmx`, split
 2D formats, loss/MB, network and native container extensions remain under the
@@ -131,4 +126,4 @@ Acceptance before marking either suffix supported: real factory/dispatch, locati
 - **Executed in hosted Windows Python 3.14 CI on prior head `69e15789`:** Ruff/whitespace, Package (installed/copy smoke), MCP smoke and POSIX wrapper security passed; strict Pyright and one numerical TPC assertion failed as above. The corrected HU/HD head `9e375778` passed all six GitHub checks (including Hosted, strict Pyright, Package, Ruff and MCP). Validate the final commit again, and do not infer passing native Windows/SMB acceptance from ordinary CI.
 - **Not run / native:** Windows/SMB/UNC selected-read memory testing, licensed solver checks and any genuine network-output acceptance.
 
-Next action: review the #269 source and hosted code head, reconcile native Windows/SMB and selected-memory/precision evidence with WP11, and agree the #219 no-data contract with WP04 before declaring full HU/HD and reporting-point consumer acceptance. Keep the remaining #236 formats staged and separately allocated. #237 remains open until actual reader/consumer parity and required validity are accepted; broad #236 remains open. Do not merge, release or change the PyTuflow pin.
+Next action: obtain independent review of #270, reconcile native Windows/SMB and selected-memory/precision evidence with WP11, and agree the shared #219 no-data contract with WP04. The next separate ready #236 candidate is `_SQ.csv` / `_SHmx.csv` structure outputs (state at maximum upstream level), not a re-interpretation of independent maxima. Keep remaining formats staged and separately allocated. #237 remains open until actual reader/consumer parity and required validity are accepted; broad #236 remains open. Do not merge, release or change the PyTuflow pin.
