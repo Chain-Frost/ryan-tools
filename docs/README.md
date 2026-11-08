@@ -114,6 +114,7 @@ but they are not current architectural policy when they conflict with the canoni
 | [WP08 POMM, PO QA and closure dashboard adoption](work/2026-11-08-po-qa-dashboard-198.md) | #198 implementation in stacked #265; QA per-file outcomes, POMM and closure workflow lifecycle, validation and unresolved native/partial-input gates |
 | [WP09 PO closure population and scenario identity](work/2026-11-08-wp09-closure-populations.md) | #215 valid zero-duration TP retention, scenario-specific grouping, invalid-population contracts and review and independent Windows 10 source/wheel/wrapper acceptance (56/56 tests; 6/6 hosted CI) |
 | [WP10 PO scenario plotting fidelity](work/2026-11-08-wp10-po-scenario-plotting.md) | #225 scenario identity / Q-H plotting, source-provenance Parquet cache, safe NTFS PNG/cache writes; 17 native passes and genuine source/wheel parity |
+| [WP11 fixture contracts and measured PO scalability](work/2026-11-08-wp11-fixture-benchmarks.md) | #228 strict pinned TLF/PO fixture contracts and #229 resource-guarded scaled benchmark; 18 native tests and 32 source/installed scaled cases passed |
 | [Dashboard defaults and background file properties](work/2026-11-07-dashboard-file-properties.md) | Shared presentation defaults, nonblocking file-size metadata and preserved legacy banner calls |
 | [Offline wrapper revision warnings](work/2026-11-07-wrapper-version-warnings.md) | Shared installed-package comparison, stable script identities and maintained-script rollout |
 | [Batch dashboard foundation](work/2026-11-01-batch-dashboard-foundation-180.md) | #180 stacked PR 1: shared batch display/diagnostics, optional workflow metrics, log-summary reference and concrete consumer handoff |
@@ -164,6 +165,7 @@ but they are not current architectural policy when they conflict with the canoni
 | [Floodway calculation specification](audits/2026-09-14-floodway-calculation-specification.md) | Calculation contracts |
 | [Floodway validation vectors](audits/2026-09-14-floodway-validation-vectors.md) | Source regression targets |
 | [WP05 processor storage / ccA WAL delivery](work/2026-11-08-wp05-processor-storage.md) | #222/#226 staged implementation; source-preserving WAL snapshot correction is under hosted/native review |
+| [HDF5 retirement and Parquet-only processor storage](work/2026-11-08-hdf5-retirement.md) | Breaking change: unpublished HDF5 backend retired, PyPI 26.11.8.3 migration notice retained through 31 March 2027; native ryan-tools readers retained |
 | [Repository Python lint and typing cleanup](work/2026-11-08-python-static-cleanup.md) | Full Windows/static audit correction and shared typing standard |
 | [Shared dependency type stubs](../typings/README.md) | Strict typing support shared by all maintained code, including the initialiser |
 | [Work register](work/README.md) | Open work fronts, review dates, next actions and links to authoritative status records |

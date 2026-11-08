@@ -37,6 +37,10 @@ jobs:
           cache: pip
           cache-dependency-path: pyproject.toml
 
+      - name: Check script inventory documentation counts before expensive CI
+        # Standard library plus Git only; run before dependency setup and hosted pytest.
+        run: python repo-scripts/audit_installed_scripts.py --check-docs
+
       - name: Verify accepted PyTuflow wheel before expensive native work
         run: python repo-scripts/vendor_pytuflow_wheel.py
 
@@ -307,9 +311,6 @@ jobs:
         shell: pwsh
         run: |
           python -m pip install -r repo-scripts/ci-test-requirements.txt
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          # A broken/missing optional backend must fail rather than skip HDF acceptance.
-          python -c "import tables; print('Processor cache backend:', tables.__version__)"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Verify installed parser wheel origin and SHA-256

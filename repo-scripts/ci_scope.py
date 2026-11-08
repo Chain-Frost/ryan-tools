@@ -92,11 +92,9 @@ def _same_toml_values(before: object, after: object) -> bool:
 
 
 def _is_statically_neutral_pyproject_change(root: Path, path: str, base_sha: str, head_sha: str) -> bool:
-    """Exempt numeric version changes and the exact accepted HDF-cache backend addition.
+    """Exempt only numeric version changes with otherwise identical project metadata.
 
-    Unknown metadata, tool settings and dependency changes still expand static
-    checks. The narrow PyTables addition is exercised by the hosted HDF suite.
-    This does not generalise dependency-only changes into unverified exemptions.
+    Any dependency, metadata or tooling change expands static checking.
     """
     documents: list[dict[str, object]] = []
     versions: list[str] = []
@@ -130,40 +128,6 @@ def _is_statically_neutral_pyproject_change(root: Path, path: str, base_sha: str
         return False
     if versions[0] == versions[1]:
         return False
-    return _same_toml_values(documents[0], documents[1]) or _is_exact_hdf_cache_backend_addition(documents)
-
-
-def _is_exact_hdf_cache_backend_addition(documents: list[dict[str, object]]) -> bool:
-    """Accept only the known PyTables cache extra without hiding other changes."""
-    # WP05 adds exactly one optional HDF backend, not a Ruff/Pyright rule or
-    # runtime dependency. The HDF tests require its actual installation.
-    before_project = documents[0].get("project")
-    after_project = documents[1].get("project")
-    if not isinstance(before_project, dict) or not isinstance(after_project, dict):
-        return False
-    before_extras = cast(dict[str, object], before_project).get("optional-dependencies")
-    after_extras = cast(dict[str, object], after_project).get("optional-dependencies")
-    if not isinstance(before_extras, dict) or not isinstance(after_extras, dict):
-        return False
-    before_options = cast(dict[str, object], before_extras)
-    after_options = cast(dict[str, object], after_extras)
-    before_dev = before_options.get("dev")
-    after_dev = after_options.get("dev")
-    if not isinstance(before_dev, list) or not isinstance(after_dev, list):
-        return False
-    before_items = cast(list[object], before_dev)
-    after_items = cast(list[object], after_dev)
-
-    backend = "tables>=3.11.1"
-    if (
-        "cache" in before_options
-        or after_options.get("cache") != [backend]
-        or before_items.count(backend) != 0
-        or after_items.count(backend) != 1
-    ):
-        return False
-    after_options.pop("cache")
-    after_items.remove(backend)
     return _same_toml_values(documents[0], documents[1])
 
 

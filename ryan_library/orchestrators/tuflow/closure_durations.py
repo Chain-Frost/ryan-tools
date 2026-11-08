@@ -29,7 +29,7 @@ from ...functions.tuflow.closure_durations_functions import (
     collect_po_data,
     summarise_results,
 )
-from ...functions.tuflow.tuflow_common import bulk_read_and_merge_tuflow_csv
+from ...functions.tuflow.tuflow_common import FileBatchProgress, bulk_read_and_merge_tuflow_csv
 from ...processors.tuflow.base_processor import BaseProcessor
 from ...processors.tuflow.processor_collection import ProcessorCollection
 
@@ -53,8 +53,8 @@ def run_closure_durations(
     """Process PO closure durations with a dashboard that lasts through export.
 
     The legacy raw tables and selected formatted reports remain one protected
-    publication batch. Per-file failures within the shared processor pipeline
-    require its separate validity/outcome contract and are not inferred here.
+    publication batch. Shared per-file outcomes prevent publication of a partial
+    input population; hydraulic validity is owned by the processor contract.
     """
     if paths is None:
         paths = [Path.cwd()]
@@ -62,6 +62,7 @@ def run_closure_durations(
         values: set[int] = set(list(range(1, 10)) + list(range(10, 100, 2)) + list(range(100, 2100, 10)))
         thresholds = [float(v) for v in values]
     normalized_locations = BaseProcessor.normalize_locations(locations=allowed_locations)
+    batch_progress = FileBatchProgress()
     dashboard = LiveWorkflowDashboard(
         title="TUFLOW Closure Durations",
         subtitle=str(Path.cwd()),
@@ -80,7 +81,14 @@ def run_closure_durations(
                     paths_to_process=list(paths),
                     include_data_types=["PO"],
                     log_queue=log_queue,
+                    batch_progress=batch_progress,
                 )
+                if batch_progress.failed or batch_progress.completed != batch_progress.scheduled:
+                    msg = (
+                        f"Closure-duration report: {batch_progress.failed}/{batch_progress.scheduled} input(s) failed; "
+                        f"{batch_progress.completed} completed; report not exported"
+                    )
+                    raise RuntimeError(msg)
                 if normalized_locations:
                     collection.filter_locations(locations=normalized_locations)
                 if not collection.processors:

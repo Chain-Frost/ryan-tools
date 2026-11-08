@@ -1,3 +1,12 @@
+> **Maintainer decision — 8 November 2026 (supersedes HDF acceptance below):**
+> Unused HDF5 `ProcessorCollection` snapshots are retired as a breaking change.
+> Remove their serializer, PyTables dependency and hosted HDF tests; retain
+> fail-fast `to_hdf()`/`from_hdf()` PyPI migration notices through **31 March 2027**.
+> The last published historical HDF API is [`ryan-tools==26.11.8.3`](https://pypi.org/project/ryan-tools/26.11.8.3/),
+> which has known dtype limitations. Use Parquet for processed tabular results.
+> The native `ryan-tools` TUFLOW processors remain the readers (not PyTuflow).
+> **WAL/ccA functionality is retained.** Previous HDF validation below is historical.
+>
 # WP05 — TUFLOW processor persistence and ccA WAL safety
 
 | Field | Value |
