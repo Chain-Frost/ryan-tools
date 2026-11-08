@@ -1,6 +1,6 @@
 # WP06 — owned staging in standalone output workflows
 
-**Status:** WP06 #232/#197/#200 changes are integrated into draft parent PR #251; #271 was squash-merged into the feature branch at `24241d7` after six green child checks and fresh Codex review with no remaining findings. Native Windows/SMB/7-Zip/GDAL evidence is recorded below; one **new GCP-specific native test remains unrun**, and documented environment/crash-recovery limits remain. Parent exact-head checks and other work-pack integration are separate gates. No `main` merge or issue closure.
+**Status:** WP06 #232/#197/#200 changes are integrated into draft parent PR #251; #271 was squash-merged into the feature branch at `24241d7` after six green child checks and fresh Codex review with no remaining findings. Native Windows/SMB/7-Zip/GDAL evidence is recorded below; the **final GCP-specific native follow-up passed on parent `57642ede`**, and documented environment/crash-recovery limits remain. Parent exact-head checks and other work-pack integration are separate gates. No `main` merge or issue closure.
 **Owner:** WP06 local validation / maintainer review.
 **Updated:** 2026-11-08 (Perth).
 **Next review:** 2026-11-15 or when current-head CI/native validation is available.
@@ -81,7 +81,7 @@ The parent PR description carries `Closes #232` and `Closes #197` as **condition
 - Post a **SHA-specific acceptance summary** to PR #251 and update this canonical WP06 record: OS/Python, package and 7-Zip/GDAL versions, drive/share path type, exact commands, pass/fail/skip, artifacts and remaining exceptions. Include #200's PR if/when delivered.
 - Do **not** merge into `main`, enable auto-merge, release, close issues manually or silently convert unverified native checks into passes. Any final squash merge requires separate explicit maintainer authorisation.
 
-**Next action:** Run the newly added GCP-only raster native regression on Windows/GDAL; verify the updated parent-head CI and review other stacked packs and main conflicts. No main merge, auto-merge, release or manual issue closure is authorised.
+**Next action:** Review the final native GCP evidence below and its documentation delivery; verify current parent-head CI and review other stacked packs. The GCP-specific native gate is satisfied at `57642ede`. No main merge, auto-merge, release or manual issue closure is authorised.
 
 ## 2026-11-08 local Windows acceptance
 
@@ -189,14 +189,57 @@ The final wrapper revision is **2026-11-08.2**. Additional real regressions reje
 
 Codex identified a P2 input-compatibility omission in [PR #271's GDAL CRS guard](https://github.com/Chain-Frost/ryan-tools/pull/271#discussion_r4505150571): rasters georeferenced with ground control points can have an empty `GetProjectionRef()` but a valid `GetGCPProjection()`. The script now accepts either form before allowing GDAL to infer the source CRS, without overriding it by default. A real GCP-only GeoTIFF and cutline regression was added to `tests/scripts/gdal/test_cutline_publication_200.py`.
 
-**Native GCP test remains to be rerun:** the GitHub-connector environment does not provide `osgeo.gdal`. The prior 118-pass native validation covers the earlier affine-CRS version and **must not** be presented as a run of the newly added GCP case. The local Windows/GDAL agent should rerun `python -m pytest -q -rs tests/scripts/gdal/test_cutline_publication_200.py` at the amended child or integrated parent SHA, verify the GCP output projection/nonempty pixels and original raster hash, and record the result before a future `main` merge. Hosted CI separately checks Python 3.14 lint/type/package and the non-native test suite. No production data, release, auto-merge or `main` merge is authorised.
+**Historical handoff (satisfied by the final native run below):** the GitHub-connector environment does not provide `osgeo.gdal`. The prior 118-pass native validation covers the earlier affine-CRS version and **must not** be presented as a run of the newly added GCP case. The local Windows/GDAL agent should rerun `python -m pytest -q -rs tests/scripts/gdal/test_cutline_publication_200.py` at the amended child or integrated parent SHA, verify the GCP output projection/nonempty pixels and original raster hash, and record the result before a future `main` merge. Hosted CI separately checks Python 3.14 lint/type/package and the non-native test suite. No production data, release, auto-merge or `main` merge is authorised.
 
 ## Integration disposition — 2026-11-08
 
 - [x] Integrated #232 and #197 via earlier reviewed child PRs #258/#264; integrated #200 and #232 SMB follow-up via [#271](https://github.com/Chain-Frost/ryan-tools/pull/271) at parent feature-branch commit [`24241d7`](https://github.com/Chain-Frost/ryan-tools/commit/24241d721bb06c75ab56756c144d44bc6973eb21).
 - [x] Final amended child head `d0064a80` passed all **six hosted checks**, 2,548 tests passed/14 skipped/8 deselected. [Fresh Codex review](https://github.com/Chain-Frost/ryan-tools/pull/271#issuecomment-6717786508) found no further issues; its earlier [P2 GCP review thread](https://github.com/Chain-Frost/ryan-tools/pull/271#discussion_r4505150571) is resolved. Native Windows/SMB, real 7-Zip split archives, copied wrappers and GDAL/QGIS results for the prior affine-CRS head remain recorded above (118 focused passes/one skip).
 - [x] Accepted the **documented environmental limitations for feature-branch integration** only: unavailable directory-symlink privilege; SMB server cannot host junctions; sudden power-loss/forced-process-crash recovery untested. These are limitations, **not passing tests**. The earlier WP02 source import-probe environment failure remains WP02-owned and documented.
-- [ ] **Native GCP regression:** run `python -m pytest -q -rs tests/scripts/gdal/test_cutline_publication_200.py` with GDAL 3.13.3 and Python 3.14 against the *current integrated parent SHA*. Confirm `test_source_crs_from_ground_control_points` passes, output projection/values are valid and source bytes unchanged; post version, path type, evidence and exact SHA. Hosted CI does **not** collect this native test. Do not conflate this new test with the earlier 118 accepted focused cases.
+- [x] **Native GCP regression:** completed at parent `57642ede` (18 local passes; one UNC GCP pass; independent OSGeo4W readback). Original acceptance command: run `python -m pytest -q -rs tests/scripts/gdal/test_cutline_publication_200.py` with GDAL 3.13.3 and Python 3.14 against the *current integrated parent SHA*. Confirm `test_source_crs_from_ground_control_points` passes, output projection/values are valid and source bytes unchanged; post version, path type, evidence and exact SHA. Hosted CI does **not** collect this native test. Do not conflate this new test with the earlier 118 accepted focused cases.
 - [ ] Check new parent-head CI after its documentation update and reconcile all other stacked work packs. Resolve current parent versus `main` conflicts when integration owner approves. Conduct final review before a separately **explicitly authorised future squash merge to `main`**.
 
 The parent PR description uses conditional issue closers for #232, #197 and **#200**. No issue has been manually closed. Neither #271's parent integration nor this record is authorisation to merge or release.
+
+## Final native GCP acceptance - 2026-11-08
+
+### Exact source and environment
+
+- Tested latest parent PR #251 head **`57642ede731b2d4c07a124edcf937df9d67b1d2a`**, verified before and after execution. This is the integrated parent, not the old #271 child. The isolated validation/documentation branch is `docs/wp06-final-gcp-acceptance-20261108`.
+- Windows **10 build 19045**, normal Python **3.14.6**, GDAL **3.13.3** (Iowa City, 2026-08-13). Imported `ryan_library` comes from the isolated parent checkout. No installations, administrator privileges or virtual environment were required.
+- Independent readback uses existing `C:/OSGeo4W/bin/python-qgis.bat`: Python **3.12.15**, GDAL **3.13.3**. It supplements, rather than substitutes for, the required Python 3.14 test execution.
+- Only disposable local data and a unique child under the previously authorised SMB `temp` folder were used. Internal server/share paths and raw logs remain in private local evidence. No production inputs, other native campaigns, licensed solver, or `unsorted` inspection.
+
+### Commands and results
+
+From the exact-head source root:
+
+```powershell
+py -3.14 -m pytest -q -rs tests/scripts/gdal/test_cutline_publication_200.py
+py -3.14 -m pytest -q -rs tests/scripts/gdal/test_cutline_publication_200.py::test_source_crs_from_ground_control_points --basetemp $owned_unc_temp
+```
+
+`$owned_unc_temp` is a fresh UUID-named child on the authorised real SMB share, not an existing directory (pytest owns its temporary directory).
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| Required complete cutline test file, local NTFS | PASS | **18 passed in 0.73 s**, exit 0; no failures, warnings or skips |
+| GCP-only regression, genuine UNC/SMB | PASS | **1 passed in 0.36 s**, exit 0; no failures or skips |
+| Valid GCP CRS with empty ordinary projection | PASS | Both paths: empty `GetProjectionRef()`, nonempty `GetGCPProjection()`, four GCPs; no source-CRS override |
+| Exact output spatial grid and pixel values | PASS | Both paths: 6 by 6, EPSG:4326, transform `(115.02, 0.01, 0, -31.02, 0, -0.01)` within 1e-10, every Float32 pixel exactly 7 |
+| Source byte preservation | PASS | Regression compares full before/after bytes on both paths; further readback preserves SHA256 |
+| Genuinely untagged source | PASS | Required file's regression rejects absent CRS without output and succeeds with explicit EPSG:4326 correction |
+| Independent OSGeo4W reopen | PASS | Local and UNC output grid/CRS/pixels and source/output hashes verified; exit 0 |
+
+Local and UNC source SHA256: `854c525c1f79d96524a13d1520269b25a5bc91e6e02633ecc641a471cad1b6cc`.
+Local and UNC clipped output SHA256: `f0e072e1219db6a5af2003751adb88750ca931ecaf2e176b1ddbd7918ec2f8d8`.
+
+The additional independent verification harness initially compared a default authority-axis-order EPSG object with GDAL's traditional GIS-order raster object; `IsSame` rejected the differing axis mappings. Matching the fixture's explicit `OAMS_TRADITIONAL_GIS_ORDER` fixed this **harness assertion**, without changing CRS/pixel expectations, repository tests or implementation. The original required pytest runs passed unchanged. OSGeo4W emitted only the existing OSR future-default exception-mode warning; no native GDAL limitation or implementation/test-fixture defect was found.
+
+Private local artifacts: `E:/Github/wp06-gcp-evidence-20261108` contains `local-pytest.log`, `unc-pytest.log`, `grid-verification.log`, `gcp-details-private.json`, `osgeo-readback.log` and both small readback harnesses. Absolute internal network paths are intentionally not committed. Test data/preflight manifests in the isolated worktree are disposable copies; no submodule state was changed.
+
+### Delivery and remaining boundary
+
+The final GCP-specific native gate is **satisfied at the exact parent SHA above**. This does not re-certify every earlier native campaign against later parent changes. Existing symlink/junction privilege, server-junction and sudden-crash limitations remain as previously documented; the WP02 import-probe exception and other work-pack acceptance remain separate.
+
+Only this canonical record and its register row are changed on the documentation branch; no Python, metadata or expected-result changes and no rebuild required. The branch is delivered as a separate reviewable documentation PR against #251, not a push to main. Parent exact-head hosted CI is separate from native evidence; at the first closeout check two jobs passed and four were still running. Keep #251 draft, no auto-merge, main merge, release or manual issue closure. Next action is review/integration of the documentation update and the parent integration owner's remaining gates; next review **2026-11-15**.
