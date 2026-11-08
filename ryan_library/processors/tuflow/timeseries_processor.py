@@ -31,6 +31,7 @@ class TimeSeriesProcessor(BaseProcessor):
 
     def _process_timeseries_pipeline(self, data_type: str) -> None:
         """Run the shared processing pipeline for a timeseries dataset."""
+        self.reset_processing_state()
         logger.info(f"Starting processing of {data_type} file: {self.log_path}")
 
         try:
@@ -49,6 +50,10 @@ class TimeSeriesProcessor(BaseProcessor):
                 return
 
             self.apply_entity_filter()
+            if self.applied_entity_filter and self.df.empty:
+                self.filtered_empty = True
+                logger.info("{}: No requested timeseries entities found; skipping file.", self.file_name)
+                return
             self.add_common_columns()
             self.apply_output_transformations()
 
@@ -107,7 +112,6 @@ class TimeSeriesProcessor(BaseProcessor):
 
             self.df = df_melted
             self._apply_final_transformations(data_type=data_type)
-            self.processed = True  # Mark as processed once the shared pipeline completes
             logger.info(f"{self.file_name}: Timeseries CSV processed successfully.")
             return ProcessorStatus.SUCCESS
         except (ProcessorError, DataValidationError) as exc:

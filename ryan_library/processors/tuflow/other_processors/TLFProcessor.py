@@ -30,6 +30,7 @@ class TLFProcessor(BaseProcessor):
         to extract build info, start time, variables, and scenario/event
         combinations.
         """
+        self.reset_processing_state()
         sim_complete: int = 0
         success: int = 0
         spec_events: bool = False

@@ -43,7 +43,7 @@ class POMMProcessor(BaseProcessor):
         rename the key columns, calculate AbsMax and SignedAbsMax,
         extract TP, Duration, AEP, and finally add all 'common' columns.
         """
-        self.filtered_empty = False
+        self.reset_processing_state()
         try:
             # 1) Load the CSV without headers (header=None)
             raw_df: pd.DataFrame = pd.read_csv(filepath_or_buffer=self.file_path, header=None)

@@ -26,7 +26,7 @@ class POProcessor(BaseProcessor):
     def process(self) -> None:
         """Parse the CSV, reshape it to long format, and add common columns."""
         logger.info(f"Starting processing of PO file: {self.log_path}")
-        self.filtered_empty = False
+        self.reset_processing_state()
 
         try:
             raw_df: DataFrame = pd.read_csv(self.file_path, header=None, dtype=str)

@@ -73,6 +73,10 @@ class BaseProcessor(ABC):
     df: pd.DataFrame = field(default_factory=pd.DataFrame)
     raw_df: pd.DataFrame = field(default_factory=pd.DataFrame)
     processed: bool = field(default=False)
+    filtered_empty: bool = field(default=False, init=False)
+    input_health: str = field(default="OK", init=False)
+    rejected_samples: int = field(default=0, init=False)
+    rejection_reasons: dict[str, int] = field(default_factory=dict, init=False)
     include_path_columns: bool = field(default=True, repr=False)
     applied_location_filter: frozenset[str] | None = field(default=None, init=False, repr=False)
     applied_entity_filter: frozenset[str] | None = field(default=None, init=False, repr=False)
@@ -324,6 +328,27 @@ class BaseProcessor(ABC):
         apply any bespoke transformations.
         """
 
+    def reset_processing_state(self) -> None:
+        """Clear outputs, outcomes and cached filters before a new processing attempt."""
+        self.df = pd.DataFrame()
+        self.raw_df = pd.DataFrame()
+        self.processed = False
+        self.filtered_empty = False
+        self.applied_entity_filter = None
+        self.applied_location_filter = None
+        self.input_health = "OK"
+        self.rejected_samples = 0
+        self.rejection_reasons = {}
+
+    def record_rejections(self, reasons: dict[str, int]) -> None:
+        """Retain input-health evidence independently from hydraulic calculations."""
+        for reason, count in reasons.items():
+            if count > 0:
+                self.rejected_samples += count
+                self.rejection_reasons[reason] = self.rejection_reasons.get(reason, 0) + count
+        if self.rejected_samples:
+            self.input_health = "PARTIAL"
+
     def reorder_long_text_columns(self) -> None:
         """Move large width column names to the right side."""
         self.df = reorder_long_columns(df=self.df)
@@ -333,9 +358,6 @@ class BaseProcessor(ABC):
         """Return a normalized frozenset of non-empty locations."""
         if not locations:
             return frozenset()
-
-        if isinstance(locations, frozenset):
-            return locations
 
         normalized: set[str] = {str(location).strip() for location in locations if str(location).strip()}
         return frozenset(normalized)
@@ -356,8 +378,7 @@ class BaseProcessor(ABC):
 
         if self.df.empty:
             logger.debug("{}: DataFrame empty before entity filtering; skipping.", self.file_name)
-            self.applied_entity_filter = normalized_filter
-            return normalized_filter
+            return None
 
         candidate_column: str | None = next(
             (col for col in self.get_entity_id_columns() if col in self.df.columns), None
@@ -368,8 +389,7 @@ class BaseProcessor(ABC):
                 self.file_name,
                 self.get_entity_id_columns(),
             )
-            self.applied_entity_filter = normalized_filter
-            return normalized_filter
+            return None
 
         before_count: int = len(self.df)
         id_series: Series[str] = self.df[candidate_column].astype(str).str.strip()
@@ -411,7 +431,6 @@ class BaseProcessor(ABC):
 
         if self.df.empty:
             logger.debug("{}: DataFrame empty before location filtering; skipping.", self.file_name)
-            self.applied_location_filter = normalized_locations
             return normalized_locations
 
         identifier_column: str | None = (
@@ -424,7 +443,6 @@ class BaseProcessor(ABC):
                 "{}: Location filter provided but no supported identifier column is present; skipping filter.",
                 self.file_name,
             )
-            self.applied_location_filter = normalized_locations
             return normalized_locations
 
         before_count: int = len(self.df)
@@ -594,6 +612,9 @@ class BaseProcessor(ABC):
         """
         if self.df.empty:
             logger.warning(f"{self.file_name}: DataFrame is empty for file: {self.log_path}")
+            return False
+        if self.entity_filter and self.applied_entity_filter != self.normalize_locations(self.entity_filter):
+            logger.error("{}: Requested entity filter has not been applied to canonical IDs.", self.file_name)
             return False
         return True
 
