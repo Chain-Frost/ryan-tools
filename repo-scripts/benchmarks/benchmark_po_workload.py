@@ -139,7 +139,7 @@ def _peak_rows(frame: pd.DataFrame) -> pd.DataFrame:
     This is a benchmark reduction, NOT a replacement for TP/closure statistics.
     """
     indices = frame.groupby(["internalName", "Location", "Type"], observed=True)["AbsValue"].idxmax()
-    selected: pd.DataFrame = frame.loc[indices.to_numpy()]
+    selected = cast("pd.DataFrame", frame.loc[indices.to_numpy()])
     return selected.copy()
 
 

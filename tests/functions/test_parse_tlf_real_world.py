@@ -45,7 +45,7 @@ def test_parse_tlf_real_world(regression_snapshot: dict[str, dict[str, Any]]) ->
         expected = regression_snapshot[log_path.name]
         assert processor.processed, f"Supported log rejected: {log_path.name}"
         assert len(processor.df) == 1, f"Unexpected TLF row count: {log_path.name}"
-        actual = {key: _json_value(value) for key, value in processor.df.iloc[0].to_dict().items()}
+        actual: dict[str, Any] = {str(key): _json_value(value) for key, value in processor.df.iloc[0].to_dict().items()}
         # WP01 #231 adds explicit diagnostics not present in the pinned legacy snapshot.
         # Every pre-existing expected value and all fixture inventory membership stay strict.
         missing = set(expected) - set(actual)
