@@ -217,3 +217,15 @@ public collection filtering.
 No new dependency, output format or merge authorisation. Exact-head
 Ruff, strict Pyright, Windows hosted tests, fresh Codex and native
 Module04/EG02 installed-wheel fidelity are independent acceptance gates.
+
+## 2026-11-08 — one-sided H level dtype correction
+
+After classifying H source samples before pivoting, a new Codex P2 found
+that a completely absent upstream/downstream pivot column was reconstructed
+as object-typed `pd.NA` and failed the downstream `float64` conversion.
+The pivot helper now creates missing endpoint columns using numeric
+`float("nan")` without changing original rejection counts. Focused
+processor regressions cover wholly absent upstream and downstream readings
+with valid data on the other end, PARTIAL health, exact rejection counts
+and preserved usable levels. Existing original H sample cleaning remains
+before the pivot; no extra post-pivot rejection accounting.

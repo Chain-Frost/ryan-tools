@@ -371,6 +371,31 @@ def test_h_selection_distinguishes_blank_present_channel_from_absent(tmp_path: P
     assert usable.df["DS_H"].tolist() == [9.0, 10.0]
 
 
+@pytest.mark.parametrize(
+    ("missing_end", "rows", "expected"),
+    [
+        ("DS_H", "row,0,10,\nrow,1,11,\n", [10.0, 11.0]),
+        ("US_H", "row,0,,9\nrow,1,,8\n", [9.0, 8.0]),
+    ],
+)
+def test_h_one_sided_valid_levels_remain_numeric_after_pivot(
+    tmp_path: Path, missing_end: str, rows: str, expected: list[float]
+) -> None:
+    path = _file(tmp_path, "_1d_H.csv", "Descriptor,Time,H C1.1,H C1.2\n" + rows)
+    processor = HProcessor(file_path=path)
+    processor.process()
+
+    assert processor.processed
+    assert processor.input_health == "PARTIAL"
+    assert processor.rejected_samples == 2
+    assert processor.rejection_reasons == {"missing": 2}
+    assert processor.df[missing_end].dtype == "float64"
+    assert processor.df[missing_end].isna().all()
+    present_end = "US_H" if missing_end == "DS_H" else "DS_H"
+    assert processor.df[present_end].tolist() == expected
+    assert _result_status(processor) == "OK"
+
+
 def test_po_mask_sentinel_before_absolute_values_with_valid_zero_and_negative(tmp_path: Path) -> None:
     path = _file(
         tmp_path,
