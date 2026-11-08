@@ -103,7 +103,8 @@ def _require_plot_columns(df: pd.DataFrame) -> None:
     required = {"Time", "Value", "Location", "Type", "internalName"}
     missing = sorted(required.difference(df.columns))
     if missing:
-        raise KeyError(f"PO data missing required plotting column(s): {', '.join(missing)}")
+        msg = f"PO data missing required plotting column(s): {', '.join(missing)}"
+        raise KeyError(msg)
     resolve_dimension_columns(df)
 
 
@@ -112,7 +113,8 @@ def filter_internal_name(df: pd.DataFrame) -> pd.DataFrame:
     if not INTERNAL_NAME_FILTER:
         return df
     if "internalName" not in df.columns:
-        raise KeyError("INTERNAL_NAME_FILTER requires the internalName run-identity column.")
+        msg = "INTERNAL_NAME_FILTER requires the internalName run-identity column."
+        raise KeyError(msg)
     mask: Series[bool] = (
         df["internalName"]
         .astype("string")
@@ -120,7 +122,8 @@ def filter_internal_name(df: pd.DataFrame) -> pd.DataFrame:
     )
     filtered: DataFrame = df.loc[mask].copy()
     if filtered.empty:
-        raise ValueError(f"INTERNAL_NAME_FILTER={INTERNAL_NAME_FILTER!r} matched no PO run identities.")
+        msg = f"INTERNAL_NAME_FILTER={INTERNAL_NAME_FILTER!r} matched no PO run identities."
+        raise ValueError(msg)
     return filtered
 
 
@@ -130,10 +133,12 @@ def filter_locations(df: pd.DataFrame) -> pd.DataFrame:
     if not locations:
         return df
     if "Location" not in df.columns:
-        raise KeyError("LOCATION_FILTER requires the Location column.")
+        msg = "LOCATION_FILTER requires the Location column."
+        raise KeyError(msg)
     filtered: DataFrame = df.loc[df["Location"].astype("string").str.strip().isin(locations)].copy()
     if filtered.empty:
-        raise ValueError(f"LOCATION_FILTER matched no PO locations: {sorted(locations)!r}")
+        msg = f"LOCATION_FILTER matched no PO locations: {sorted(locations)!r}"
+        raise ValueError(msg)
     return filtered
 
 
@@ -145,7 +150,8 @@ def select_po_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 def _source_manifest(files: list[Path]) -> str:
     """Keep cache provenance in the same atomic Parquet file, not a racy sidecar."""
     if not files:
-        raise ValueError("No source PO CSV files are available to validate the cache.")
+        msg = "No source PO CSV files are available to validate the cache."
+        raise ValueError(msg)
     try:
         library_version = version("ryan-tools")
     except PackageNotFoundError:
@@ -176,14 +182,16 @@ def _source_manifest(files: list[Path]) -> str:
 def _publish_staged_file(staged: Path, target: Path, *, overwrite: bool) -> None:
     """Publish only a completed file. Exclusive hardlinks fail closed on unsupported shares."""
     if overwrite:
-        os.replace(staged, target)
+        staged.replace(target)
         return
     try:
         os.link(staged, target)
     except FileExistsError as exc:
-        raise FileExistsError(f"Output already exists; explicit overwrite is required: {target}") from exc
+        msg = f"Output already exists; explicit overwrite is required: {target}"
+        raise FileExistsError(msg) from exc
     except OSError as exc:
-        raise OSError(f"Cannot safely create {target} without overwrite; hardlink publication unavailable.") from exc
+        msg = f"Cannot safely create {target} without overwrite; hardlink publication unavailable."
+        raise OSError(msg) from exc
     staged.unlink()
 
 
@@ -197,9 +205,11 @@ def _new_staged_path(target: Path) -> Path:
 def _write_parquet_cache(df: pd.DataFrame, manifest: str) -> None:
     target = PARQUET_PATH.absolute()
     if target.exists() and not REPLACE_PARQUET_CACHE:
-        raise FileExistsError(f"Cache already exists; set REPLACE_PARQUET_CACHE=True to replace: {target}")
+        msg = f"Cache already exists; set REPLACE_PARQUET_CACHE=True to replace: {target}"
+        raise FileExistsError(msg)
     if CACHE_MANIFEST_COLUMN in df.columns:
-        raise ValueError(f"Source PO data uses reserved cache column: {CACHE_MANIFEST_COLUMN}")
+        msg = f"Source PO data uses reserved cache column: {CACHE_MANIFEST_COLUMN}"
+        raise ValueError(msg)
     staged = _new_staged_path(target)
     try:
         cached = df.assign(**{CACHE_MANIFEST_COLUMN: manifest})
@@ -212,25 +222,28 @@ def _write_parquet_cache(df: pd.DataFrame, manifest: str) -> None:
 
 def _read_parquet_cache(files: list[Path]) -> pd.DataFrame:
     if not PARQUET_PATH.is_file():
-        raise FileNotFoundError(f"PO plot cache not found: {PARQUET_PATH}")
+        msg = f"PO plot cache not found: {PARQUET_PATH}"
+        raise FileNotFoundError(msg)
     frame: DataFrame = pd.read_parquet(PARQUET_PATH)
     if (
         frame.empty
         or CACHE_MANIFEST_COLUMN not in frame.columns
         or bool(frame[CACHE_MANIFEST_COLUMN].isna().any())
-        or frame[CACHE_MANIFEST_COLUMN].nunique(dropna=False) != 1
+        or not bool(frame[CACHE_MANIFEST_COLUMN].eq(frame[CACHE_MANIFEST_COLUMN].iloc[0]).all())
     ):
-        raise ValueError(
+        msg = (
             f"PO plot cache has no valid provenance manifest: {PARQUET_PATH}; "
             "reprocess CSV with LOAD_FROM_PARQUET=False and explicit replacement."
         )
+        raise ValueError(msg)
     expected = _source_manifest(files)
     recorded = str(frame[CACHE_MANIFEST_COLUMN].iloc[0])
     if recorded != expected:
-        raise ValueError(
+        msg = (
             f"PO plot cache is stale or its input/config/parser provenance differs: {PARQUET_PATH}; "
             "reprocess CSV with LOAD_FROM_PARQUET=False and REPLACE_PARQUET_CACHE=True."
         )
+        raise ValueError(msg)
     output = frame.drop(columns=[CACHE_MANIFEST_COLUMN])
     _require_plot_columns(output)
     return output
@@ -239,7 +252,8 @@ def _read_parquet_cache(files: list[Path]) -> pd.DataFrame:
 def load_po_dataframe() -> pd.DataFrame:
     files = find_po_files(TUFLOW_RESULTS_ROOT)
     if not files:
-        raise RuntimeError(f"No PO source files matched FILE_PATTERN={FILE_PATTERN!r}.")
+        msg = f"No PO source files matched FILE_PATTERN={FILE_PATTERN!r}."
+        raise RuntimeError(msg)
 
     manifest_before = _source_manifest(files)
     if LOAD_FROM_PARQUET:
@@ -247,22 +261,27 @@ def load_po_dataframe() -> pd.DataFrame:
         return select_po_dataframe(_read_parquet_cache(files))
 
     if PARQUET_PATH.exists() and not REPLACE_PARQUET_CACHE:
-        raise FileExistsError(
+        msg = (
             f"PO plot cache already exists at {PARQUET_PATH}; "
             "set REPLACE_PARQUET_CACHE=True to replace it explicitly."
         )
+        raise FileExistsError(msg)
     logger.info("Sequentially processing {} PO file(s).", len(files))
     collection = process_files_sequentially(files)
     if not collection.processors:
-        raise RuntimeError("No PO processors produced data; check LOCATION_FILTER and CSV validity.")
+        msg = "No PO processors produced data; check LOCATION_FILTER and CSV validity."
+        raise RuntimeError(msg)
     combined: DataFrame = collection.po_combine()
     if combined.empty:
-        raise RuntimeError("Combined PO DataFrame is empty.")
+        msg = "Combined PO DataFrame is empty."
+        raise RuntimeError(msg)
     selected = select_po_dataframe(combined)
     if selected.empty:
-        raise RuntimeError("No PO samples remain after selection.")
+        msg = "No PO samples remain after selection."
+        raise RuntimeError(msg)
     if _source_manifest(files) != manifest_before:
-        raise RuntimeError("Source PO CSV metadata changed during processing; cache publication cancelled.")
+        msg = "Source PO CSV metadata changed during processing; cache publication cancelled."
+        raise RuntimeError(msg)
     _write_parquet_cache(selected, manifest_before)
     return selected
 
@@ -274,14 +293,17 @@ def prepare_plot_df(df: pd.DataFrame) -> pd.DataFrame:
     for column in ("Location", "Type", "internalName"):
         text = plot_df[column].astype("string").str.strip()
         if bool(text.isna().any()) or bool(text.eq("").fillna(False).any()):
-            raise ValueError(f"PO plotting requires nonempty {column} values.")
+            msg = f"PO plotting requires nonempty {column} values."
+            raise ValueError(msg)
         plot_df[column] = text
     for column in ("Time", "Value"):
         numeric = pd.to_numeric(plot_df[column], errors="coerce").astype("float64")
         if not bool(np.isfinite(numeric.to_numpy(dtype=float)).all()):
-            raise ValueError(f"PO {column} must contain finite numeric values; Time is simulation hours.")
+            msg = f"PO {column} must contain finite numeric values; Time is simulation hours."
+            raise ValueError(msg)
         plot_df[column] = numeric
     return plot_df
+
 
 def resolve_dimension_columns(df: pd.DataFrame) -> dict[str, str]:
     resolved_columns: dict[str, str] = {}
@@ -396,7 +418,8 @@ def _png_path(location: str, measurement: str) -> Path:
 def _save_plot(fig: Figure, location: str, measurement: str) -> None:
     target = _png_path(location, measurement).absolute()
     if target.exists() and not OVERWRITE_PNG:
-        raise FileExistsError(f"Plot already exists; set OVERWRITE_PNG=True to replace: {target}")
+        msg = f"Plot already exists; set OVERWRITE_PNG=True to replace: {target}"
+        raise FileExistsError(msg)
     staged = _new_staged_path(target)
     try:
         fig.savefig(staged, dpi=160)
@@ -406,20 +429,83 @@ def _save_plot(fig: Figure, location: str, measurement: str) -> None:
     logger.success("Saved PO plot to {}", target)
 
 
+def _draw_measurement_plot(
+    measured: pd.DataFrame,
+    location: str,
+    measurement: str,
+    colorize_aep: Callable[[Any], Any],
+    color_meta: dict[str, Any],
+) -> None:
+    fig, ax = plt.subplots(figsize=(12, 5))
+    try:
+        fig.subplots_adjust(left=0.067, bottom=0.133, right=0.717, top=0.91)
+        series_handles: dict[str, Any] = {}
+        for (scenario, run_code), series in measured.groupby(
+            ["scenario_label", "internalName"], observed=True, sort=True
+        ):
+            ordered = series.sort_values("Time")
+            label = f"{scenario} | Run={run_code} | Type={measurement}"
+            color = colorize_aep(series[color_meta["column"]].iloc[0])
+            (line,) = ax.plot(ordered["Time"], ordered["Value"], label=label, color=color)
+            series_handles[label] = line
+
+        ax.set_title(f"PO timeseries - {location} - {measurement}")
+        ax.set_ylabel(_measurement_ylabel(str(measurement)))
+        ax.set_xlabel("Simulation time (h)")
+        ax.grid(visible=True)
+
+        labels = sorted(series_handles)
+        legend = ax.legend(
+            handles=[series_handles[label] for label in labels],
+            labels=labels,
+            title=SCENARIO_LEGEND_TITLE + " | Run | Type",
+            loc="upper left",
+            bbox_to_anchor=(1.02, 1),
+        )
+        ax.add_artist(legend)
+
+        if color_meta["type"] == "numeric":
+            scalar_mappable = ScalarMappable(norm=color_meta["norm"], cmap=color_meta["cmap"])
+            scalar_mappable.set_array([])
+            colorbar = fig.colorbar(scalar_mappable, ax=ax, fraction=0.046, pad=0.01)
+            colorbar.set_label(color_meta.get("label", COLORBAR_LABEL))
+        else:
+            aep_handles = [
+                mpatches.Patch(color=colorize_aep(value), label=str(value)) for value in color_meta["values"]
+            ]
+            aep_legend = ax.legend(
+                handles=aep_handles,
+                title=f"{COLORBAR_LABEL} colours",
+                loc="lower left",
+                bbox_to_anchor=(1.02, 0),
+            )
+            ax.add_artist(aep_legend)
+
+        if EXPORT_PNG:
+            _save_plot(fig, str(location), str(measurement))
+        if SHOW_PLOTS:
+            plt.show()
+    finally:
+        plt.close(fig)
+
+
 def plot_timeseries(df: pd.DataFrame) -> None:
     plot_df: DataFrame = prepare_plot_df(df)
     if plot_df.empty:
-        raise RuntimeError("No PO data to plot after preparation.")
+        msg = "No PO data to plot after preparation."
+        raise RuntimeError(msg)
 
     if MEASUREMENT_TYPES:
         plot_df = plot_df.loc[plot_df["Type"].isin(MEASUREMENT_TYPES)].copy()
         if plot_df.empty:
-            raise ValueError(f"MEASUREMENT_TYPES matched no PO types: {MEASUREMENT_TYPES!r}")
+            msg = f"MEASUREMENT_TYPES matched no PO types: {MEASUREMENT_TYPES!r}"
+            raise ValueError(msg)
 
     if PLOT_LOCATIONS:
         available = [loc for loc in PLOT_LOCATIONS if loc in plot_df["Location"].unique()]
         if not available:
-            raise ValueError(f"PLOT_LOCATIONS matched no PO locations: {PLOT_LOCATIONS!r}")
+            msg = f"PLOT_LOCATIONS matched no PO locations: {PLOT_LOCATIONS!r}"
+            raise ValueError(msg)
     else:
         available = sorted(plot_df["Location"].unique().tolist())
 
@@ -435,57 +521,7 @@ def plot_timeseries(df: pd.DataFrame) -> None:
             continue
         for measurement in sorted(location_subset["Type"].unique()):
             measured = location_subset.loc[location_subset["Type"] == measurement]
-            fig, ax = plt.subplots(figsize=(12, 5))
-            try:
-                fig.subplots_adjust(left=0.067, bottom=0.133, right=0.717, top=0.91)
-                series_handles: dict[str, Any] = {}
-                for (scenario, run_code), series in measured.groupby(
-                    ["scenario_label", "internalName"], observed=True, sort=True
-                ):
-                    ordered = series.sort_values("Time")
-                    label = f"{scenario} | Run={run_code} | Type={measurement}"
-                    color = colorize_aep(series[color_meta["column"]].iloc[0])
-                    (line,) = ax.plot(ordered["Time"], ordered["Value"], label=label, color=color)
-                    series_handles[label] = line
-
-                ax.set_title(f"PO timeseries - {location} - {measurement}")
-                ax.set_ylabel(_measurement_ylabel(str(measurement)))
-                ax.set_xlabel("Simulation time (h)")
-                ax.grid(visible=True)
-
-                labels = sorted(series_handles)
-                legend = ax.legend(
-                    handles=[series_handles[label] for label in labels],
-                    labels=labels,
-                    title=SCENARIO_LEGEND_TITLE + " | Run | Type",
-                    loc="upper left",
-                    bbox_to_anchor=(1.02, 1),
-                )
-                ax.add_artist(legend)
-
-                if color_meta["type"] == "numeric":
-                    scalar_mappable = ScalarMappable(norm=color_meta["norm"], cmap=color_meta["cmap"])
-                    scalar_mappable.set_array([])
-                    colorbar = fig.colorbar(scalar_mappable, ax=ax, fraction=0.046, pad=0.01)
-                    colorbar.set_label(color_meta.get("label", COLORBAR_LABEL))
-                else:
-                    aep_handles = [
-                        mpatches.Patch(color=colorize_aep(value), label=str(value)) for value in color_meta["values"]
-                    ]
-                    aep_legend = ax.legend(
-                        handles=aep_handles,
-                        title=f"{COLORBAR_LABEL} colours",
-                        loc="lower left",
-                        bbox_to_anchor=(1.02, 0),
-                    )
-                    ax.add_artist(aep_legend)
-
-                if EXPORT_PNG:
-                    _save_plot(fig, str(location), str(measurement))
-                if SHOW_PLOTS:
-                    plt.show()
-            finally:
-                plt.close(fig)
+            _draw_measurement_plot(measured, str(location), str(measurement), colorize_aep, color_meta)
 
 
 def main() -> None:

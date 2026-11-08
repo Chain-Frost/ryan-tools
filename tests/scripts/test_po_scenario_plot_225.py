@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+from typing import ClassVar
 from types import ModuleType
 from typing import Any
 
-import matplotlib
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import pandas as pd
 import pytest
@@ -20,9 +21,10 @@ SCRIPT = (
 
 @pytest.fixture
 def plotter(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
-    matplotlib.use("Agg", force=True)
+    mpl.use("Agg", force=True)
     spec = importlib.util.spec_from_file_location("wp10_po_plot", SCRIPT)
-    assert spec is not None and spec.loader is not None
+    assert spec is not None
+    assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     monkeypatch.setattr(module, "SHOW_PLOTS", False)
@@ -94,7 +96,7 @@ def test_filter_is_literal_and_does_not_restore_nonmatching_rows(
     monkeypatch.setattr(plotter, "INTERNAL_NAME_FILTER", "A.1")
     assert set(plotter.filter_internal_name(frame)["internalName"]) == {"A.1"}
     monkeypatch.setattr(plotter, "INTERNAL_NAME_FILTER", "missing")
-    with pytest.raises(ValueError, match="INTERNAL_NAME_FILTER.*matched no"):
+    with pytest.raises(ValueError, match=r"INTERNAL_NAME_FILTER.*matched no"):
         plotter.filter_internal_name(frame)
 
 
@@ -156,12 +158,12 @@ def cache_environment(
     monkeypatch.setattr(plotter, "REPLACE_PARQUET_CACHE", False)
 
     class Collection:
-        processors = [object()]
+        processors: ClassVar[list[object]] = [object()]
 
         def po_combine(self) -> pd.DataFrame:
             return df.copy()
 
-    monkeypatch.setattr(plotter, "process_files_sequentially", lambda files: Collection())
+    monkeypatch.setattr(plotter, "process_files_sequentially", lambda _files: Collection())
     return source
 
 
@@ -221,9 +223,10 @@ def test_cache_requires_explicit_overwrite_and_preserves_on_write_failure(
     assert plotter.PARQUET_PATH.read_bytes() == original_cache
     plotter.REPLACE_PARQUET_CACHE = True
 
-    def failed_write(df: pd.DataFrame, path: Path, **kwargs: Any) -> None:
+    def failed_write(_df: pd.DataFrame, path: Path, **_kwargs: Any) -> None:
         path.write_bytes(b"incomplete parquet")
-        raise OSError("simulated interrupted parquet write")
+        msg = "simulated interrupted parquet write"
+        raise OSError(msg)
 
     monkeypatch.setattr(pd.DataFrame, "to_parquet", failed_write)
     with pytest.raises(OSError, match="interrupted"):
