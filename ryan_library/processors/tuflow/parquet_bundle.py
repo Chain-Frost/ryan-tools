@@ -347,10 +347,11 @@ def _validate_inventory(  # noqa: C901
             raise ValueError(message)
         entries.append(cast("dict[str, Any]", typed_entry))
     raw_lookup: object = payload.get("basic_info_lookup")
-    if raw_lookup is not None:
-        if not isinstance(raw_lookup, dict) or cast("dict[str, object]", raw_lookup).get("member") != _LOOKUP:
-            message = "Invalid Parquet directory lookup member path"
-            raise ValueError(message)
+    if raw_lookup is not None and (
+        not isinstance(raw_lookup, dict) or cast("dict[str, object]", raw_lookup).get("member") != _LOOKUP
+    ):
+        message = "Invalid Parquet directory lookup member path"
+        raise ValueError(message)
     lookup = cast("dict[str, Any] | None", raw_lookup)
     for entry in [*entries, *([lookup] if lookup is not None else [])]:
         sha, size = entry.get("sha256"), entry.get("size")
