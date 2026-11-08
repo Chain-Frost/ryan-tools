@@ -102,3 +102,25 @@ WP04/HDF tests pass**, zero skips with PyTables 3.11.1 and the accepted parser w
 No-bump 26.11.8.4 wheel build/verification passes. This is a narrow CI correction,
 not acceptance of every native WP04 case. Source/installed parity and other review
 requirements stay attached to their own evidence. No parent/main merge or release.
+
+
+## 2026-11-08 EG02 derived no-data regression contract
+
+After the preflight correction at 0e1be2bb, hosted run 42477372985 reached tests
+and found the PO golden comparison still expected AbsValue=99999 for dry level
+samples. A complete focused EG02 run reproduced PO and POMM failures only
+(11 passes / 2 failures). This is not dependency/download infrastructure.
+
+The WP04 implementation deliberately retains raw -99999 provenance while masking
+its derived numeric effect, as specified above. The regression now explicitly
+amends only the legacy snapshot's 88 upstream/downstream structure-level PO
+AbsValue cells and the two POMM rows whose dry Min previously dominated a valid
+Max. The fixture Parquet files are unchanged. Exact-count assertions prevent
+scope expansion. Every raw Value/Max/Min, valid sample, non-structure type,
+column/dtype and remaining cell still uses the strict frozen comparison. No
+processor calculation was weakened or changed to recover the old sentinel bug.
+
+Windows focused acceptance: **46 passes / zero skips** across all 13 EG02 cases,
+WP04 contracts and HDF persistence. Strict modified-test Pyright, Ruff and format
+pass. Confirm fresh hosted CI and review on the resulting child head before
+integration. No main/parent merge, release or issue closure.
