@@ -19,8 +19,20 @@ class SHmxProcessor(BaseProcessor):
 
     filtered_empty: bool = False
     SOURCE_FIELDS: ClassVar[tuple[str, ...]] = (
-        "ID (Lowest)", "Q Below", "Q Above", "Q Total", "A Below", "A Above",
-        "A Total", "V Below", "V Above", "V Combined", "h U/S", "h D/S", "dh", "Time",
+        "ID (Lowest)",
+        "Q Below",
+        "Q Above",
+        "Q Total",
+        "A Below",
+        "A Above",
+        "A Total",
+        "V Below",
+        "V Above",
+        "V Combined",
+        "h U/S",
+        "h D/S",
+        "dh",
+        "Time",
     )
     MEASUREMENT_TYPE: ClassVar[str] = "Structure State at Maximum Upstream Water Level"
 

@@ -16,8 +16,20 @@ from ryan_library.processors.tuflow.processor_collection import ProcessorCollect
 RUN = "EG02_013"
 SAMPLES = Path(__file__).parents[3] / "test_data" / "tuflow" / "TUFLOW_Example_Model_Dataset" / "EG02" / "plot" / "csv"
 FIELDS = (
-    "ID (Lowest)", "Q Below", "Q Above", "Q Total", "A Below", "A Above", "A Total",
-    "V Below", "V Above", "V Combined", "h U/S", "h D/S", "dh", "Time",
+   "ID (Lowest)",
+        "Q Below",
+        "Q Above",
+        "Q Total",
+        "A Below",
+        "A Above",
+        "A Total",
+        "V Below",
+        "V Above",
+        "V Combined",
+        "h U/S",
+        "h D/S",
+        "dh",
+        "Time",
 )
 
 
@@ -52,10 +64,19 @@ def test_real_source_shmx_keeps_all_component_values_not_independent_maxima() ->
     assert row["Location"] == "FC01.1_R"
     assert "Maximum Upstream Water Level" in str(row["Type"])
     for field, value in {
-        "Q Below": 53.0, "Q Above": 12.6, "Q Total": 65.6, "A Below": 5.8,
-        "A Above": 10.6, "A Total": 16.5, "V Below": 9.092,
-        "V Above": 1.180, "V Combined": 3.982, "h U/S": 49.893,
-        "h D/S": 47.129, "dh": 2.764, "Time": 0.959,
+        "Q Below": 53.0,
+        "Q Above": 12.6,
+        "Q Total": 65.6,
+        "A Below": 5.8,
+        "A Above": 10.6,
+        "A Total": 16.5,
+        "V Below": 9.092,
+        "V Above": 1.180,
+        "V Combined": 3.982,
+        "h U/S": 49.893,
+        "h D/S": 47.129,
+        "dh": 2.764,
+        "Time": 0.959,
     }.items():
         assert row[field] == pytest.approx(value)
     # Source-rounded A Total is 16.5, NOT the reconstructed 5.8 + 10.6.
@@ -99,7 +120,8 @@ def test_source_signed_zero_and_missing_values_are_not_fake_peaks(tmp_path: Path
     path = tmp_path / f"{RUN}_SHmx.csv"
     head = f'"{RUN} [model.tcf]",' + ",".join(f'"{item}"' for item in FIELDS) + "\n"
     path.write_text(
-        head + '1,"Negative",-3,0,-3,**********,1,1,0,0,0,4,5,-1,0.25\n'
+        head
+        + '1,"Negative",-3,0,-3,**********,1,1,0,0,0,4,5,-1,0.25\n'
         + '2,"Missing",-99999,0,0,0,0,0,0,0,0,-99999,3,**********,0\n',
         encoding="utf-8",
     )
