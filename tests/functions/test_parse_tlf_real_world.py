@@ -31,9 +31,7 @@ def _json_value(value: Any) -> Any:
 
 def test_parse_tlf_real_world(regression_snapshot: dict[str, dict[str, Any]]) -> None:
     log_dir = Path(__file__).parents[1] / "test_data" / "tuflow" / "TUFLOW_Example_Model_Dataset" / "log"
-    tlf_files = sorted(
-        path for path in log_dir.glob("*.tlf") if not path.name.endswith((".hpc.tlf", ".gpu.tlf"))
-    )
+    tlf_files = sorted(path for path in log_dir.glob("*.tlf") if not path.name.endswith((".hpc.tlf", ".gpu.tlf")))
     assert tlf_files, "No pinned TUFLOW main logs found"
     observed = {path.name for path in tlf_files}
     assert observed == set(regression_snapshot), (

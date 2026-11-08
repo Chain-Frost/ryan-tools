@@ -74,9 +74,7 @@ def _write_small_po(path: Path, q_offset: float) -> None:
         writer.writerow(["", "Time", "H", "Q", "V", "H", "Q", "V"])
         writer.writerow(["", "Time", "L001", "L001", "L001", "L002", "L002", "L002"])
         for minute, q in enumerate((-1.0, 0.0, 2.0)):
-            writer.writerow(
-                ["", minute / 60, 10 + minute, q + q_offset, 0.1 + minute * 0.1, 20 + minute, 1.0, 0.5]
-            )
+            writer.writerow(["", minute / 60, 10 + minute, q + q_offset, 0.1 + minute * 0.1, 20 + minute, 1.0, 0.5])
 
 
 def test_synthetic_public_po_collection_and_export_roundtrip(tmp_path: Path) -> None:
