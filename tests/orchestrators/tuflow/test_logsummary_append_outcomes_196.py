@@ -29,17 +29,6 @@ def _result(path: Path, status: LogSummaryStatus) -> LogFileProcessingResult:
     return LogFileProcessingResult(logfile=path, data_frame=df, status=status, detail=status)
 
 
-@pytest.mark.parametrize(
-    ("statuses", "expected_ok", "expected_append"),
-    [
-        ([], True, False),
-        (["SKIP"], True, False),
-        (["FAIL"], False, False),
-        (["OK"], True, True),
-        (["OK", "FAIL"], False, True),
-        (["OK", "SKIP"], False, True),
-    ],
-)
 def test_master_claim_is_held_before_workbook_discovery(tmp_path: Path) -> None:
     master = tmp_path / "master.xlsx"
     _workbook(master)
@@ -62,6 +51,17 @@ def test_master_claim_is_held_before_workbook_discovery(tmp_path: Path) -> None:
     assert not claim.exists()
 
 
+@pytest.mark.parametrize(
+    ("statuses", "expected_ok", "expected_append"),
+    [
+        ([], True, False),
+        (["SKIP"], True, False),
+        (["FAIL"], False, False),
+        (["OK"], True, True),
+        (["OK", "FAIL"], False, True),
+        (["OK", "SKIP"], False, True),
+    ],
+)
 def test_append_reports_truthful_outcome(
     tmp_path: Path,
     statuses: list[LogSummaryStatus],
