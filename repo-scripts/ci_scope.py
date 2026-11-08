@@ -130,9 +130,11 @@ def _is_statically_neutral_pyproject_change(root: Path, path: str, base_sha: str
         return False
     if versions[0] == versions[1]:
         return False
-    if _same_toml_values(documents[0], documents[1]):
-        return True
+    return _same_toml_values(documents[0], documents[1]) or _is_exact_hdf_cache_backend_addition(documents)
 
+
+def _is_exact_hdf_cache_backend_addition(documents: list[dict[str, object]]) -> bool:
+    """Accept only the known PyTables cache extra without hiding other changes."""
     # WP05 adds exactly one optional HDF backend, not a Ruff/Pyright rule or
     # runtime dependency. The HDF tests require its actual installation.
     before_project = documents[0].get("project")
@@ -161,7 +163,6 @@ def _is_statically_neutral_pyproject_change(root: Path, path: str, base_sha: str
     after_options.pop("cache")
     after_dev.remove(backend)
     return _same_toml_values(documents[0], documents[1])
-
 
 def determine_scope(root: Path, *, event_name: str, base_sha: str, head_sha: str = "HEAD") -> CIScope:
     """Fail open to full CI; broaden static checks when the comparison is unknown."""
