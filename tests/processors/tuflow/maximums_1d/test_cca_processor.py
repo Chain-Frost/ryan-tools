@@ -186,10 +186,13 @@ def test_cca_gpkg_rollback_to_wal_transition_never_creates_reader_sidecars(tmp_p
 
     def enable_wal_before_open(processor: ccAProcessor, target: Path) -> sqlite3.Connection | None:
         nonlocal observed
-        with sqlite3.connect(path) as writer:
+        writer = sqlite3.connect(path)
+        try:
             assert writer.execute("PRAGMA journal_mode=WAL").fetchone()[0] == "wal"
             writer.execute("UPDATE cc_results_1d_ccA_L SET pFull_Max=99")
             writer.commit()
+        finally:
+            writer.close()
         observed = path.read_bytes()
         assert not wal.exists()
         assert not shm.exists()

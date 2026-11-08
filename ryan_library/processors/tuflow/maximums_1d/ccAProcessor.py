@@ -147,10 +147,17 @@ class ccAProcessor(BaseProcessor):
         try:
             wal = path.with_name(path.name + "-wal")
             shm = path.with_name(path.name + "-shm")
-            source_paths = (path, wal, shm)
+            journal = path.with_name(path.name + "-journal")
+            source_paths = (path, wal, shm, journal)
             before = tuple(self._source_signature(item) for item in source_paths)
             if before[0] is None or (before[1] is None) != (before[2] is None):
                 logger.error("process_gpkg: Missing database or incomplete WAL/SHM sidecars for {}", path)
+                return None
+            if before[3] is not None:
+                # An exclusive rollback-journal writer may have changed pages
+                # in the main file before commit. Copying it as a standalone
+                # snapshot could expose uncommitted values; fail closed.
+                logger.error("process_gpkg: Rollback journal is present for {}; refusing unsafe snapshot", path)
                 return None
 
             scratch = Path(owned.enter_context(tempfile.TemporaryDirectory(prefix="ryan-cca-sqlite-")))
