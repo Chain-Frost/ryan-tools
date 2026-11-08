@@ -105,7 +105,7 @@ but they are not current architectural policy when they conflict with the canoni
 | Document | Scope and status |
 | --- | --- |
 | [WP06 owned-output publication](work/2026-11-08-wp06-publication.md) | Profile PNG staging, archive and GDAL output safety, validation and stacked PR delivery |
-| [WP07 file discovery and input outcomes](work/2026-11-08-wp07-file-discovery.md) | #203 finder cycle protection, #195 outcome integration, stacked PR #257 validation and handoff |
+| [WP07 file discovery and input outcomes](work/2026-11-08-wp07-file-discovery.md) | #203 finder cycle protection and #195 truthful input outcomes accepted with Windows 10/SMB limits; integrated into draft #251 via #257/#268 |
 | [Missing TLF ensemble inference](work/2026-11-07-missing-tlf-ensembles.md) | Folder inference implementation, local validation and delivery |
 | [Dashboard defaults and background file properties](work/2026-11-07-dashboard-file-properties.md) | Shared presentation defaults, nonblocking file-size metadata and preserved legacy banner calls |
 | [Offline wrapper revision warnings](work/2026-11-07-wrapper-version-warnings.md) | Shared installed-package comparison, stable script identities and maintained-script rollout |

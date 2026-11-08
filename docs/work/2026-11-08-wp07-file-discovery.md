@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Ready for reviewed parent integration — Windows 10 accepted with documented native limits; all current-head CI green |
+| Status | Integrated into draft PR #251 — Windows 10/SMB native acceptance recorded; parent-to-main approval outstanding |
 | Owner | WP07 agent / maintainer |
 | Created | 2026-11-08 |
 | Updated | 2026-11-08 |
@@ -11,7 +11,7 @@
 
 ## Outcome and scope
 
-Allocation [#240](https://github.com/Chain-Frost/ryan-tools/issues/240), [#203](https://github.com/Chain-Frost/ryan-tools/issues/203) and [#195](https://github.com/Chain-Frost/ryan-tools/issues/195). WP07 owns physical file discovery and truthful invalid/partial/empty/filtered inputs. The parent [#251](https://github.com/Chain-Frost/ryan-tools/pull/251) remains the integration branch: draft [#257](https://github.com/Chain-Frost/ryan-tools/pull/257) targets it, while draft [#268](https://github.com/Chain-Frost/ryan-tools/pull/268) targets #257; neither child targets main. Integration into WP01 and any final squash into main require maintainer review and explicit authorization. No solver runs or production storage scans.
+Allocation [#240](https://github.com/Chain-Frost/ryan-tools/issues/240), [#203](https://github.com/Chain-Frost/ryan-tools/issues/203) and [#195](https://github.com/Chain-Frost/ryan-tools/issues/195). WP07 owns physical file discovery and truthful invalid/partial/empty/filtered inputs. Both child reviews are now closed as **merged into their feature branches**: [#268](https://github.com/Chain-Frost/ryan-tools/pull/268) was squash-incorporated into [#257](https://github.com/Chain-Frost/ryan-tools/pull/257), and #257 squash-incorporated into the draft WP01 parent [#251](https://github.com/Chain-Frost/ryan-tools/pull/251). No child or parent was merged into main; final main squash requires a distinct express authorisation. No solver runs or production storage scans.
 
 ## Current state
 
@@ -24,7 +24,7 @@ Allocation [#240](https://github.com/Chain-Frost/ryan-tools/issues/240), [#203](
 
 ## Next action
 
-The maintainer accepted **Windows 10 Pro / Python 3.14.6 as sufficient**; Windows 11 is **not** a required native acceptance gate. The [local report](https://github.com/Chain-Frost/ryan-tools/pull/268#issuecomment-6717640488) is PASS WITH NATIVE LIMITATIONS. Four privileged-symlink tests were skipped and real ACL-denied-directory traversal was not observed; keep those gaps visible without blocking reviewed integration. Codex's POMM filter review finding was repaired and resolved, with exact-head CI passing. The stack #268 → #257 → #251 is ready for **reviewed incorporation only after explicit merge authorisation**, preserving WP01 parser read/path diagnostics and WP08 outcome parity; rerun affected validation on an integrated head. Add `Fixes #203` and `Fixes #195` to #251 only after actual integration. No merge to `main` or auto-merge is authorised.
+WP07's #203 and #195 code is now incorporated in the draft #251 feature branch. **No further Windows 11 testing is needed**: Windows 10 Pro/Python 3.14.6 and the 25/25 authorised SMB cases are accepted with the previously documented privileged-symlink and real ACL-denied-directory limitations. The Codex POMM filtered-empty review thread is resolved; exact reconciled WP07 CI passed. Verify the **new parent-head** CI after this integration, preserve WP01 metadata/path handling and WP03 finite TP statistics, and coordinate outcome parity when WP08 is incorporated. #251 contains conditional `Fixes #203` and `Fixes #195` references, effective only following an expressly authorised later squash merge to `main`. No `main` merge or auto-merge is authorised.
 
 ## Completion criteria
 
@@ -73,4 +73,8 @@ Windows 10 Pro/Python 3.14.6 is expressly sufficient for WP07. The 47 focused pa
 
 Codex review identified a valid POMM location exclusion misclassified as FAIL. The narrow `POMMProcessor.filtered_empty` correction preserves SKIP for structurally valid, location-filtered empty POMM inputs while retaining FAIL for malformed files. Five added POMM regressions cover matching/excluded/malformed inputs and mixed batches with dashboard on/off; the review thread is resolved. **Exact-head code SHA `3b1d76b2` passed six hosted CI jobs:** [Python CI](https://github.com/Chain-Frost/ryan-tools/actions/runs/42451959391) (2,563 passed, 14 skipped, eight deselected) and [Fast PR checks](https://github.com/Chain-Frost/ryan-tools/actions/runs/42451959385), including strict Pyright, Ruff, packaging, installed-wheel smoke, MCP and POSIX checks.
 
-No additional native solver testing is needed for WP07; the original local report remains tied to `292b5047` (the newer POMM fix has hosted Windows regression evidence). **Both WP07 PRs remain draft/stacked.** Neither child is incorporated into parent #251 or `main`. Await explicit authorisation for reviewed parent integration; issue closing keywords on #251 remain future actions.
+No additional native solver testing is needed for WP07; the original local report remains tied to `292b5047` (the newer POMM fix has hosted Windows regression evidence). **Superseded by the integration milestone below:** both WP07 children have since been squash-integrated into their respective feature parents; no merge to `main` occurred. Parent closing references are recorded as conditional.
+
+### 2026-11-08 — Reviewed parent integration completed
+
+The #268 review thread for valid POMM location-filter skips was resolved; [#268](https://github.com/Chain-Frost/ryan-tools/pull/268) was **squash-merged into #257** at `dc5c8594`. To incorporate the latest WP01/WP03/WP06 work without force-pushing, parent `9a03e48e` was merged into the WP07 branch at `e9e1ca0c`, resolving five overlapping files while retaining current WP03 TP statistics, duration schedules and WP06 register updates. The resulting #257 comparison contained **32 WP07-only files**, with no unresolved review threads. [Fast checks](https://github.com/Chain-Frost/ryan-tools/actions/runs/42456159304) and [Python CI](https://github.com/Chain-Frost/ryan-tools/actions/runs/42456159305) passed all six jobs, including **2,734 tests passed, 14 skipped, eight deselected** under Python 3.14. [#257](https://github.com/Chain-Frost/ryan-tools/pull/257) was then **squash-merged into draft parent #251**, producing feature-branch commit `f6a6cc38`. Issues #203 and #195 remain open until the eventual separately authorised `main` merge; they have conditional closing references in the parent. The current parent-head checks after documentation reconciliation remain a separate gate. There was **no `main` merge, auto-merge, release or forced push**.
