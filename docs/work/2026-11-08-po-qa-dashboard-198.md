@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Code implementation hosted-CI green; native and partial-input acceptance pending |
+| Status | Bounded native/installed/partial-input checks pass; WP04/WP09 and project/Excel/ACL gates open |
 | Owner | WP08 integration |
 | Created / updated | 2026-11-08 |
 | Next review | 2026-11-15 |
@@ -105,3 +105,30 @@ Review the current #265 head and integrate into #251 only after accepted
 validation. **No `Fixes #198`** until partial-input and native acceptance
 requirements are satisfied; use `Refs #198` for this child. No merge to
 `main`, auto-merge, release or unassigned numerical work.
+
+## 2026-11-08 native installed-wheel acceptance - bounded checks PASS, broader gates open
+
+Refreshed the existing child through a normal merge from latest parent #251 **`d61925675dffd86811ae9277b9ca53615e172f1f`**, retaining branch/PR identity. Tested integrated code **`ff2b4ad4`**. Conflict resolution retained both the child's dashboard options and the parent's explicit-empty discovery semantics, configurable ARR duration schedule, expected TP count and mean-report coverage metadata. Parent `pomm_utils.py` and numerical closure helpers remain unchanged. No force-push or incorporation into #251.
+
+Windows 10 build 19045; Python 3.14.6; pandas 3.0.5, openpyxl 3.1.5, pyarrow **24.0.0**; pinned PyTuflow **1.3.0 / 887534ea8c15b80d185a38a7ead1d42ab42a7167**. No-bump build verified wheel 26.11.8.2; installed into scratch target with origin verification. Maintained wrappers copied outside checkout; subprocesses use the target wheel plus normal user dependencies, rather than CI's minimal environment. No production input, solver, global environment change or unsorted inspection.
+
+| Check | Outcome | Evidence |
+| --- | --- | --- |
+| Focused #198 source outcomes | PASS | 39 passed: QA, POMM and closure dashboard tests |
+| Parent numerical/discovery and export safety regressions | PASS | 55 passed: POMM filtered outcomes, coverage, #218 inputs, finite population, closure exporter safety and closure calculations |
+| Strict modified-file Pyright / Ruff / logging | PASS | Zero Pyright findings; three conflict-resolved files lint/format clean; Loguru policy passes |
+| Copied installed wrappers, dashboard on/off | PASS | Both PO QA, POMM mean/median and closure: successful local and genuine UNC execution; selected workbook schema/numerical parity |
+| Successful closure Parquet export/readback | PASS | Working pyarrow: required raw durex CSV/gzip-Parquet agree, local and UNC, both dashboard modes |
+| Mapped closure export-mode both | PASS | Excel, both formatted Parquet products and raw CSV/Parquet reopen; source hashes/mtime unchanged |
+| Input outcomes | PASS | 20 copied-wrapper cases: each of five wrappers with empty/filtered -> SKIPPED/0 and invalid/partial corrupt -> FAILED/1; source hashes/mtime unchanged |
+| Forced export errors / identical-name no-clobber | PASS | Ten copied-wrapper checks across all five wrappers; forced PermissionError -> FAILED/nonzero, no partial output; fixed timestamps make repeat filenames identical, all previous output hashes retained |
+| Mapped batch no-clobber | PASS | Closure export-mode both repeated at pinned timestamp: FAILED/nonzero, entire existing output set/hash/mtime unchanged, no owned stages |
+| Synthetic engineering values and TP provenance | PASS (bounded) | POMM peaks 5/10 yield mean 7.5 with mean_TP TP01; accepted upper-median event 10/TP02; count_TP 2. Parent WP03 functions/coverage preserved |
+| Actual locked Excel report, real ACL denial, representative private project data | NOT RUN | No production data or permission changes; injected permission error is not a real ACL test |
+| Full WP04 #219/#223 and WP09 #215 acceptance | BLOCKED / separate prerequisite | These native dashboard checks do not accept all shared validity or dry-event/scenario closure semantics |
+
+Closure parity is bounded to synthetic wet-event inputs and current parent baseline. No claim that independent WP09 hydraulic semantics are accepted. Missing/invalid/filtered outcomes are verified above, but this is not blanket cross-format #219/#223 validity acceptance. The workbook numerical snapshot ignores path/time metadata that naturally differs by output folder; raw file hashes are recorded per run and are not expected to be byte-equal across independent workbooks.
+
+Commands: `py -3.14 installed_acceptance.py 198 <fresh-local-or-UNC> <result>`, `py -3.14 outcomes198.py`, `py -3.14 export198.py`, `py -3.14 verify_products.py`, `py -3.14 mapped_closure.py`, from private `E:/Github/wp08-native-20261108` with PYTHONPATH set to installed198. Full source pytest commands and per-wrapper commands/exits/output SHA256 are retained in adjacent logs/JSON; internal network paths remain private. Scratch harness adjustments corrected an initial expectation of two raw closure Parquet files (the maintained contract requires one raw durex product; formatted products are separately verified with export-mode both), without changing repository expectations or implementation.
+
+**Disposition:** bounded installed/native success, partial-input outcome, failure and no-clobber checks pass. Broad #198 acceptance stays open for real-project/locked-workbook/ACL coverage and the explicitly separate WP04/WP09 prerequisites. No conditional Fixes #198, parent incorporation, main merge, auto-merge, release or issue closure. Existing draft PR receives the refresh/evidence and fresh review request; next review 2026-11-15.
