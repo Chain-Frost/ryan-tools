@@ -97,6 +97,53 @@ def test_exclusive_master_claim_blocks_competing_publication(tmp_path: Path) -> 
     assert not claim.exists()
 
 
+def test_windows_link_enumeration_calibrates_single_and_alias_names(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "master.xlsx"
+    create_dummy_workbook(path)
+    initial = path.read_bytes()
+    monkeypatch.setattr(lsea, "_windows_hardlink_count", lambda *, path: path.stat().st_nlink)
+
+    lsea._verify_windows_hardlinks(workbook_path=path)
+
+    assert path.read_bytes() == initial
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["master.xlsx"]
+
+
+def test_windows_link_enumeration_fails_closed_for_misleading_smb_count(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "master.xlsx"
+    create_dummy_workbook(path)
+    initial = path.read_bytes()
+    # Model an SMB server/API that reports one link even for two real names.
+    monkeypatch.setattr(lsea, "_windows_hardlink_count", lambda *, path: 1)
+
+    with pytest.raises(ValueError, match="unreliable"):
+        lsea._verify_windows_hardlinks(workbook_path=path)
+
+    assert path.read_bytes() == initial
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["master.xlsx"]
+
+
+def test_windows_link_enumeration_refuses_linked_master_after_valid_probe(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "master.xlsx"
+    create_dummy_workbook(path)
+    alias = tmp_path / "alias.xlsx"
+    alias.hardlink_to(path)
+    initial = path.read_bytes()
+    monkeypatch.setattr(lsea, "_windows_hardlink_count", lambda *, path: path.stat().st_nlink)
+
+    with pytest.raises(ValueError, match="Hard-linked master"):
+        lsea._verify_windows_hardlinks(workbook_path=path)
+
+    assert path.read_bytes() == alias.read_bytes() == initial
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["alias.xlsx", "master.xlsx"]
+
+
 class TestAppendDataframe:
     def test_append_dataframe_to_workbook_table(self, tmp_path: Path) -> None:
         wb_path = tmp_path / "append_test.xlsx"

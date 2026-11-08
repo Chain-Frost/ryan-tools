@@ -275,6 +275,81 @@ def _validate_master_workbook_type(*, workbook_path: Path) -> None:
         raise ValueError(msg)
 
 
+def _windows_hardlink_count(*, path: Path) -> int:
+    """Count Windows hardlink names (up to two), never trusting SMB st_nlink."""
+    import ctypes
+    from ctypes import wintypes
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    find_first = kernel32.FindFirstFileNameW
+    find_first.argtypes = [
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        ctypes.POINTER(wintypes.DWORD),
+        wintypes.LPWSTR,
+    ]
+    find_first.restype = wintypes.HANDLE
+    find_next = kernel32.FindNextFileNameW
+    find_next.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD), wintypes.LPWSTR]
+    find_next.restype = wintypes.BOOL
+    find_close = kernel32.FindClose
+    find_close.argtypes = [wintypes.HANDLE]
+    find_close.restype = wintypes.BOOL
+
+    # Windows maximum extended-length path buffer, so more-data is a failure.
+    buffer = ctypes.create_unicode_buffer(32768)
+    length = wintypes.DWORD(len(buffer))
+    handle = find_first(str(path), 0, ctypes.byref(length), buffer)
+    if handle == ctypes.c_void_p(-1).value:
+        raise OSError(ctypes.get_last_error(), f"Cannot enumerate hardlinks for {path}")
+    try:
+        count = 1
+        while True:
+            length.value = len(buffer)
+            if find_next(handle, ctypes.byref(length), buffer):
+                count += 1
+                if count > 1:
+                    return count
+                continue
+            error = ctypes.get_last_error()
+            if error != 38:  # ERROR_HANDLE_EOF
+                raise OSError(error, f"Incomplete hardlink enumeration for {path}")
+            return count
+    finally:
+        find_close(handle)
+
+
+def _verify_windows_hardlinks(*, workbook_path: Path) -> None:
+    """Fail closed if a share cannot prove it distinguishes hardlink aliases.
+
+    Some SMB servers report st_nlink == 1 for genuine aliases. Calibrate
+    the Windows API using owned one- and two-name files in the SAME directory.
+    Never infer a safe workbook from an unsupported or misleading API.
+    """
+    with tempfile.NamedTemporaryFile(
+        prefix=f".{workbook_path.stem}-link-check-", suffix=".tmp", dir=workbook_path.parent, delete=False
+    ) as probe_file:
+        probe_path = Path(probe_file.name)
+    alias_path = probe_path.with_name(f"{probe_path.name}.alias")
+    alias_owned = False
+    try:
+        if _windows_hardlink_count(path=probe_path) != 1:
+            raise ValueError(f"Cannot verify single-link identity on the master filesystem: {workbook_path}")
+        try:
+            os.link(probe_path, alias_path)
+            alias_owned = True
+            if _windows_hardlink_count(path=probe_path) != 2 or _windows_hardlink_count(path=alias_path) != 2:
+                raise ValueError(f"Hardlink enumeration is unreliable on the master filesystem: {workbook_path}")
+            if _windows_hardlink_count(path=workbook_path) != 1:
+                raise ValueError(f"Hard-linked master workbooks are unsupported: {workbook_path}")
+        except OSError as exc:
+            raise ValueError(f"Cannot verify safe hardlink replacement on this filesystem: {workbook_path}") from exc
+    finally:
+        if alias_owned:
+            alias_path.unlink(missing_ok=True)
+        probe_path.unlink(missing_ok=True)
+
+
 def _require_unlinked_master_workbook(*, workbook_path: Path) -> os.stat_result:
     """Fail closed when replacing the path would sever a workbook link.
 
@@ -292,6 +367,9 @@ def _require_unlinked_master_workbook(*, workbook_path: Path) -> os.stat_result:
     if existing.st_nlink != 1:
         msg = f"Hard-linked master workbooks are unsupported: {workbook_path} (links={existing.st_nlink})"
         raise ValueError(msg)
+    if os.name == "nt":
+        # SMB can report st_nlink == 1 even when other names point at the same file.
+        _verify_windows_hardlinks(workbook_path=workbook_path)
     return existing
 
 
