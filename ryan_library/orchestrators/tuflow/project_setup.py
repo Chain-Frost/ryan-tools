@@ -21,6 +21,7 @@ import fiona  # pyright: ignore[reportMissingTypeStubs]
 import numpy as np
 import rasterio  # pyright: ignore[reportMissingTypeStubs]
 from loguru import logger
+from pyproj import CRS
 from rasterio.transform import from_origin  # pyright: ignore[reportMissingTypeStubs, reportUnknownVariableType]
 
 GeometrySuffix = Literal["P", "L", "R"]
@@ -291,6 +292,12 @@ def _copy_2d_loc_style(*, working_layer: Path, overwrite: bool) -> Path:
 
 def _create_projection_files(*, prj_file: Path, gis_dir: Path, overwrite: bool) -> None:
     wkt: str = prj_file.read_text(encoding="utf-8-sig")
+    # ESRI WKT can otherwise serialize as a user-defined TIFF/GPKG CRS.
+    # Only canonicalise exact authority matches; preserve genuine local grids.
+    source_crs = CRS.from_wkt(wkt)
+    epsg = source_crs.to_epsg(min_confidence=100)
+    output_crs = CRS.from_epsg(epsg) if epsg is not None else source_crs
+    output_wkt = output_crs.to_wkt(version="WKT1_GDAL") if epsg is not None else wkt
     projection_name: str = f"projection_{prj_file.stem}"
     projection_prj: Path = gis_dir / f"{projection_name}.prj"
     projection_gpkg: Path = gis_dir / f"{projection_name}.gpkg"
@@ -310,7 +317,7 @@ def _create_projection_files(*, prj_file: Path, gis_dir: Path, overwrite: bool) 
         driver="GPKG",
         layer=projection_name,
         schema=projection_schema,
-        crs_wkt=wkt,
+        crs_wkt=output_wkt,
         encoding="UTF-8",
     ):
         pass
@@ -324,7 +331,7 @@ def _create_projection_files(*, prj_file: Path, gis_dir: Path, overwrite: bool) 
         height=1,
         count=1,
         dtype="float32",
-        crs=wkt,
+        crs=f"EPSG:{epsg}" if epsg is not None else wkt,
         transform=transform,
         nodata=-999.0,
         compress="deflate",
