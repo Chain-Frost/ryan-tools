@@ -78,6 +78,21 @@ class TimeSeriesProcessor(BaseProcessor):
         logger.info("{}: No requested timeseries entities were present in source headers.", self.file_name)
         return True
 
+    def _finish_failed_step(self, *, data_type: str, stage: str, status: ProcessorStatus) -> None:
+        """Keep absent selection distinct from failed source processing."""
+        no_usable_rows = self._empty_after_reshape if stage == "read" else status is ProcessorStatus.EMPTY_DATAFRAME
+        if no_usable_rows and self._mark_absent_source_selection():
+            self.df = pd.DataFrame()
+            return
+        if stage == "read":
+            logger.error(
+                f"Processing aborted for file: {self.log_path} while reading and reshaping {data_type} data."
+            )
+        else:
+            logger.error(f"Processing aborted for file: {self.log_path} during {data_type} post-processing step.")
+        self.input_health = "INVALID"
+        self.df = pd.DataFrame()
+
     def process(self) -> None:
         """Execute the standard timeseries processing pipeline."""
         return self._process_timeseries_pipeline(data_type=self.data_type)
@@ -95,14 +110,7 @@ class TimeSeriesProcessor(BaseProcessor):
         try:
             status: ProcessorStatus = self.read_and_process_timeseries_csv(data_type=data_type)
             if status is not ProcessorStatus.SUCCESS:
-                if self._empty_after_reshape and self._mark_absent_source_selection():
-                    self.df = pd.DataFrame()
-                    return
-                logger.error(
-                    f"Processing aborted for file: {self.log_path} while reading and reshaping {data_type} data."
-                )
-                self.input_health = "INVALID"
-                self.df = pd.DataFrame()
+                self._finish_failed_step(data_type=data_type, stage="read", status=status)
                 return
 
             # Retain entity existence before subclass normalisation drops invalid
@@ -120,12 +128,7 @@ class TimeSeriesProcessor(BaseProcessor):
 
             status = self.process_timeseries_raw_dataframe()
             if status is not ProcessorStatus.SUCCESS:
-                if status is ProcessorStatus.EMPTY_DATAFRAME and self._mark_absent_source_selection():
-                    self.df = pd.DataFrame()
-                    return
-                logger.error(f"Processing aborted for file: {self.log_path} during {data_type} post-processing step.")
-                self.input_health = "INVALID"
-                self.df = pd.DataFrame()
+                self._finish_failed_step(data_type=data_type, stage="normalise", status=status)
                 return
 
             # Record actual usable channels before a user selection discards

@@ -657,7 +657,6 @@ def test_po_repeated_selection_distinguishes_valid_exclusion_from_rejection(tmp_
     assert _result_status(direct) == "SKIP"
 
 
-
 @pytest.mark.parametrize(
     ("suffix", "content"),
     [
@@ -672,9 +671,7 @@ def test_po_repeated_selection_distinguishes_valid_exclusion_from_rejection(tmp_
         ),
     ],
 )
-def test_all_invalid_timeseries_still_skips_absent_direct_selection(
-    tmp_path: Path, suffix: str, content: str
-) -> None:
+def test_all_invalid_timeseries_still_skips_absent_direct_selection(tmp_path: Path, suffix: str, content: str) -> None:
     path = _file(tmp_path, suffix, content)
 
     absent = BaseProcessor.from_file(path, entity_filter=["Absent"])
