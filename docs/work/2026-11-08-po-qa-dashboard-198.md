@@ -144,3 +144,36 @@ This is an additional review blocker, assigned to the dashboard implementation o
 Codex [P2 review](https://github.com/Chain-Frost/ryan-tools/pull/265#discussion_r4505507621) found that ordered `ProcessPoolExecutor.map` result iteration blocks the UI coordinator and leaves the Rich dashboard frozen while a slow CSV is being processed. This fix retains `map`'s ordered results and user-provided `chunksize`, but consumes its blocking `next()` calls in one owned helper thread. The coordinating thread waits on that future with a timeout set by `live_refresh_per_second` and forces a dashboard refresh between timeouts. Each file is marked running and immediately refreshed before waiting; only the coordinator updates the dashboard.
 
 A deterministic test blocks the mock ordered iterator until the coordinator has forced two in-wait refreshes, covering both peak-check and stability workflows without a timing-sensitive sleep. This is a **hosted code/test fix**, not evidence of interactive terminal performance or native Windows/SMB acceptance. Current-head CI, code review and any actual live-dashboard responsiveness acceptance remain to be confirmed. Whole-workflow outcome and numerical aggregation semantics are unchanged. No parent/main integration or release is authorised.
+
+
+## 2026-11-08 — partial input accounting follow-up (stacked on current #251)
+
+WP08's dashboard adoption was integrated into #251, but POMM and closure were
+still consuming only successful processors. The existing
+`FileBatchProgress` classifier in `tuflow_common` already distinguishes
+completed, filtered-empty and failed file outcomes (including missing
+processor results); the two whole-report orchestrators were not consuming
+that accounting. A mixed successful/failed batch could therefore publish
+an incomplete workbook with a SUCCESS status.
+
+The bounded #198 follow-up passes optional `batch_progress` through the
+POMM discovery/aggregation helpers and uses it in both peak-report wrappers;
+closure uses the same existing counter when reading PO inputs. When any file
+failed or when the scheduled outcome count is incomplete, the workflow
+raises an actionable exception, marks its dashboard FAILED and refuses export.
+Successful, valid empty, filtered-empty, interrupted and exporter-failure
+contracts are unchanged. The calculation functions, mean/median selection,
+closure-duration populations, public report layouts and shared processor
+worker implementation are untouched. Synthetic regressions exercise
+dashboard on/off, both mean/median paths, failed or missing outcomes, no
+partial export, counter forwarding and counter reset on valid empty scans.
+
+**Stack base:** latest #251 at the time of delivery, including its
+repository-wide strict typing repairs and 26.11.8.8 dependency/stub updates.
+This is an independent follow-up PR, not a merge to `main`.
+**Validation required:** final-head Windows Python 3.14 Ruff, strict Pyright,
+focused POMM/closure tests, hosted package/copied-wheel checks and real
+PO/POMM/closure sample parity after WP04 #284 and WP09 #281 settle.
+Those separate hydraulic source-validity and dry-event/scenario-identity
+contracts are not accepted by this dashboard-only change. Do not add
+`Fixes #198` or close that issue until cross-pack and native acceptance pass.
