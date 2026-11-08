@@ -2,12 +2,13 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active: operational recovery and stack adoption; CI implementation merged |
+| Status | Active: stack adoption; main CI recovery verified |
 | Owner | ChatGPT / maintainer |
 | Created | 2026-11-08 |
 | Updated | 2026-11-08 |
 | Next review | 2026-11-15 |
 | Delivery | [PR #272](https://github.com/Chain-Frost/ryan-tools/pull/272), including [#274](https://github.com/Chain-Frost/ryan-tools/pull/274), merged to main as `8c03dc961455c124fe4e0996ee15f50813cf5682` |
+| Recovery | [PR #277](https://github.com/Chain-Frost/ryan-tools/pull/277) merged as `c1a66970c8ed228ab94404b4f747a40c755847cd`; all six post-merge jobs passed |
 | Historical timing baseline | `1ae1235c2369950c287c4fafe24ef23848880fe0` |
 
 ## Scope and decisions
@@ -33,6 +34,9 @@ is deferred in the [dependency record](2026-11-08-ci-dependency-groups.md).
   Nonempty, entirely Markdown PR changes can skip runtime jobs; main and manual runs request full validation.
 - Scope manifests avoid Windows environment-variable limits. Policy recomputes the same complete-PR inputs locally
   and bounds Pyright command length. Lint/type configuration changes expand the appropriate static-check selection.
+  A numeric `project.version` string replacement alone retains changed-file checks when both committed TOML
+  documents otherwise match in values and types. Runtime/package checks still run. Other metadata or dependency
+  changes, nested project configuration and unreadable/invalid comparisons keep full static expansion.
 - Hosted tests use the new test profile: all 29 runtime requirements, the MCP extra, pytest and pinned PyTUFLOW.
   Unused development tools and the independent QGIS MCP bridge are omitted only from this CI installation.
 - The old MCP environment is removed. Its overlapping source tests remain in Hosted tests; explicit profiling,
@@ -117,21 +121,47 @@ again with full dependency resolution; a verified download or `--no-deps` pre-in
 Normal developer installers and declared dependencies remain unchanged. Final-head validation and merge evidence
 belong in the recovery PR description, avoiding another source push solely to record its CI outcome.
 
+Recovery [PR #277](https://github.com/Chain-Frost/ryan-tools/pull/277) passed all nine candidate checks and merged
+as `c1a66970c8ed228ab94404b4f747a40c755847cd`, with the reviewed tree unchanged. All six
+[post-merge jobs](https://github.com/Chain-Frost/ryan-tools/actions/runs/42468485543) passed. Hosted reported
+2,721 passes, 14 skips and eight deselections; explicit profiling passed all ten tests and strict Pyright had no
+diagnostics. The original GIS dependency resolver succeeded after verified Fiona/GDAL API recovery. Existing
+release opt-outs were respected by the release, publisher and asset jobs; no package was published.
+
+### Stack adoption and version-only metadata
+
+The #251 owner integrated WP08 [#265](https://github.com/Chain-Frost/ryan-tools/pull/265) into the feature branch
+at `e8dba9797f0a4df01a32eb62d17f1e5dd4df4352`, then merged repaired main into it at
+`0e7b8ca50a14e560866b20697c31fc494907199d`. Both engineering and CI parents are retained. This supersedes the
+earlier plan to update `d6192567`; do not publish an adoption candidate prepared against that stale head.
+
+That revision's [preflight](https://github.com/Chain-Frost/ryan-tools/actions/runs/42468936313) failed in 14 seconds.
+Policy explicitly failed and Hosted, Package, MCP and POSIX skipped, so no heavy Windows setup began. The only
+project-metadata difference from main was version `26.11.8.1` to `26.11.8.2`, but the classifier selected every
+first-party Python file and exposed 23 existing findings in 14 unchanged files. An unchanged rerun cannot fix this.
+
+The narrow classifier correction compares the committed before/after TOML rather than ignoring metadata paths.
+Only a numeric release-version string replacement is exempt from broad static selection. It preserves
+changed-Python checks, complete-PR scope, full runtime/package validation and conservative handling of every other
+metadata/configuration change, including nested `pyproject.toml` files. Real-Git regression cases cover the
+exception and its failure boundaries. Final exact-head Windows outcomes belong in the correction PR and #251
+descriptions, without a notes-only source push.
+
 ## Acceptance and next action
 
-1. Finish the bounded recovery's review and Windows acceptance before propagating its resulting main revision.
-   Keep the two failed attempts on `8c03dc9` as historical evidence; a changed recovery source needs its own checks.
-   Record final results in the recovery PR/run evidence, and avoid repeatedly retrying the known failing URL.
-2. Adopt current main once into stack root [#251](https://github.com/Chain-Frost/ryan-tools/pull/251) as a coherent,
-   locally checked branch update. The inspected source heads are main `8c03dc961455c124fe4e0996ee15f50813cf5682`
-   and #251 `d61925675dffd86811ae9277b9ca53615e172f1f`. Re-read both refs immediately before publishing; if either
-   changes, refresh the candidate and preserve the owner's new work. After recovery reaches main, regenerate the
-   candidate against that revision so it inherits the fix and these records. Do not force-update a stale candidate.
-3. Retain #251's native cutline-test exclusion and its pandas 2.3.3 POMM/culvert compatibility step when resolving
-   the CI conflict. Run the pandas compatibility override after the default-environment MCP profiling/export
+1. Review exact-head CI on stack root [#251](https://github.com/Chain-Frost/ryan-tools/pull/251) after its owner-led
+   main adoption and the narrow version-scope correction. Main recovery is complete; the two failures on
+   `8c03dc9` and deterministic version-scope failure on `0e7b8ca` remain historical evidence. Do not rerun those
+   unchanged revisions or rebuild the accepted parser wheel merely to refresh status notes.
+2. Re-read main and the feature ref before any further integration; owners are changing the same stack. Merge
+   the latest accepted CI correction in one locally checked batch, retaining concurrent engineering work and
+   the updated WP08 acceptance record. Never force-update a candidate prepared against an older feature head.
+3. Retain #251's native cutline-test exclusion and pandas 2.3.3 POMM/culvert compatibility step. Run that
+   compatibility override after the default-environment MCP profiling/export
    checks; a failure still fails Hosted and its downstream required MCP gate.
 4. Dependent owners should fetch their updated immediate parent at their next coherent update: #254, #255, #259
-   and #265 follow #251; #261 follows #254 and #263 follows #259 after those parents adopt #251.
+   follow #251; #261 follows #254 and #263 follows #259 after those parents adopt #251. WP08 #265 is already
+   integrated and must not be treated as an outstanding child.
    Re-read each child's current head before integration,
    preserve concurrent engineering changes, and push one checked batch per owner milestone. Do not automatically
    update every child or merge these engineering PRs into main as part of this CI adoption.
