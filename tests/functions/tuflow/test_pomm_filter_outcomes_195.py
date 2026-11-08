@@ -6,9 +6,8 @@ from pathlib import Path
 from typing import cast
 from unittest.mock import Mock, patch
 
-import pytest
-
 import pandas as pd
+import pytest
 
 from ryan_library.functions.live_dashboard import LiveWorkflowDashboard
 from ryan_library.functions.loguru_helpers import LogQueue
