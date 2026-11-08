@@ -17,6 +17,7 @@ from typing import Literal
 from loguru import logger
 from pandas import DataFrame
 
+from ryan_library.functions.dashboard_workflow import await_future_with_dashboard_refresh
 from ryan_library.functions.excel_export import ExcelExporter
 from ryan_library.functions.live_dashboard import LiveWorkflowDashboard, WorkflowStatus
 from ryan_library.functions.loguru_helpers import setup_logger
@@ -181,13 +182,11 @@ def main_processing(
                         dashboard.mark_running(index=index)
                         dashboard.refresh(force=True)
                         pending = waiter.submit(next, rows_iter)
-                        while True:
-                            try:
-                                rows = pending.result(timeout=1.0 / live_refresh_per_second)
-                            except cf.TimeoutError:
-                                dashboard.refresh(force=True)
-                            else:
-                                break
+                        rows = await_future_with_dashboard_refresh(
+                            future=pending,
+                            dashboard=dashboard,
+                            refresh_per_second=live_refresh_per_second,
+                        )
                         status = _file_outcome(rows)
                         status_counts[status] += 1
                         dashboard.mark_finished(

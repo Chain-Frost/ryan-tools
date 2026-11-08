@@ -1,5 +1,7 @@
 """Dashboard lifecycle and export-failure regressions for PO QA workflows (#198)."""
 
+from __future__ import annotations
+
 from pathlib import Path
 from threading import Event
 from unittest.mock import patch
@@ -12,9 +14,7 @@ from ryan_library.orchestrators.tuflow import tuflow_timeseries_stability as sta
 
 
 @pytest.mark.parametrize("workflow", ["peak", "stability"])
-def test_qa_dashboard_refreshes_during_slow_ordered_worker(
-    tmp_path: Path, workflow: str
-) -> None:
+def test_qa_dashboard_refreshes_during_slow_ordered_worker(tmp_path: Path, workflow: str) -> None:
     """The coordinator must refresh while the next pool result is blocked."""
     started = Event()
     release = Event()
