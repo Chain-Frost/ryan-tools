@@ -688,6 +688,41 @@ py -3.14 .\culvert_results\combine_culvert_maximums.py --working-directory "Q:\M
 py -3.14 .\po_and_timeseries\combine_pomm_results.py --working-directory "Q:\Model\results" --export-mode both --no-pause
 ```
 
+## Append to an existing master TUFLOW log workbook
+
+[append_log_summary_to_master_workbook.py](log_processing/append_log_summary_to_master_workbook.py)
+requires an explicitly selected, existing `.xlsx` workbook: edit `MASTER_WORKBOOK`
+or supply `--master-workbook`. The default `WORKING_DIR = None` searches the
+current directory. Select `--working-directory` to scan a different result root;
+relative workbook paths use that effective working directory.
+
+The script skips rows already represented in the master, retains the dashboard
+through workbook publication and returns a nonzero exit for failed parsing,
+partial batches and failed saving. An incomplete-only batch with no completed
+new logs is SKIPPED without changing the workbook. A partial batch can append
+the successfully completed rows but still exits nonzero; check diagnostics.
+
+Saving uses a temporary sibling `.xlsx` and replaces the master only after
+successful writing. The master is intentionally modified, so keep a separate
+backup. The script refuses `.xlsm` rather than remove macros. It also refuses
+symbolic- or hard-linked workbook files, rather than silently replacing the
+link with a detached workbook. Mapped drive and UNC parent directories are
+not rejected merely because they are mapped paths. On Windows, a disposable
+same-directory calibration must distinguish genuine one-name and two-name
+hardlinks before the master can be replaced. Shares that cannot enumerate
+hardlinks reliably are **unsupported for master append** and fail before
+publication, even if ordinary file IDs or link counts appear valid. The tested
+SMB server has this limitation; use an unlinked local NTFS workbook instead.
+An exclusive `.master.xlsx.writing` claim covers discovery through publication
+and prevents cooperating writers losing rows. A crash can leave the claim;
+check its owner before removing it manually. External editors do not honor
+this claim; close Excel before appending. `PAUSE_ON_FINISH` is editable; `--no-pause` prevents
+interactive waiting. For an unattended invocation:
+
+```powershell
+py -3.14 .\log_processing\append_log_summary_to_master_workbook.py --master-workbook "D:\Hydraulics\master.xlsx" --working-directory "D:\Hydraulics\results" --no-live-dashboard --no-pause
+```
+
 ## Wrapper folders
 
 | Folder | Purpose |

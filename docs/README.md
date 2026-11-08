@@ -108,6 +108,7 @@ but they are not current architectural policy when they conflict with the canoni
 | [WP06 owned-output publication](work/2026-11-08-wp06-publication.md) | Profile PNG staging, archive and GDAL output safety, validation and stacked PR delivery |
 | [WP07 file discovery and input outcomes](work/2026-11-08-wp07-file-discovery.md) | #203 finder cycle protection and #195 truthful input outcomes accepted with Windows 10/SMB limits; integrated into draft #251 via #257/#268 |
 | [Missing TLF ensemble inference](work/2026-11-07-missing-tlf-ensembles.md) | Folder inference implementation, local validation and delivery |
+| [Master log append outcomes and safe workbook publication](work/2026-11-08-master-log-append-196.md) | WP08 #196: supported-filesystem append, safe SMB refusal, whole-workflow failure reporting and native acceptance |
 | [WP04 TUFLOW processor data health and lifecycle](work/2026-11-08-wp04-processor-validity.md) | #219/#220/#223 staged implementation, Codex review and outstanding Windows 3.14 numerical acceptance |
 | [WP08 POMM, PO QA and closure dashboard adoption](work/2026-11-08-po-qa-dashboard-198.md) | #198 implementation in stacked #265; QA per-file outcomes, POMM and closure workflow lifecycle, validation and unresolved native/partial-input gates |
 | [Dashboard defaults and background file properties](work/2026-11-07-dashboard-file-properties.md) | Shared presentation defaults, nonblocking file-size metadata and preserved legacy banner calls |

@@ -8,6 +8,7 @@
 [#220](https://github.com/Chain-Frost/ryan-tools/issues/220) culvert filters.
 **Parent:** draft [#251](https://github.com/Chain-Frost/ryan-tools/pull/251), not `main`.
 **Parent base at start:** `dc6d74455e092d3611b975f0fc3975a977578ecc`.
+**Parent integration reconciliations:** `e62e19b47c0e1f1185170d5d378ea851eb8fc8b9`, `47e360d97c37704a5d929a7660d25107ba878341`, and `741803bc58c03e01e549bb217ed884fe55f01eea` (active work packs and shared indexes retained; no #251/main merge).
 
 ## Delivered implementation under review
 
