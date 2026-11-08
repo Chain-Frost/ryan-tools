@@ -219,7 +219,7 @@ checks, not replacements for the expected user environment.
 
 | Profile | Installation after the Windows binary GIS bootstrap | Scope |
 | --- | --- | --- |
-| Hosted tests | `python -m pip install -r repo-scripts/ci-test-requirements.txt` | All declared runtime dependencies, MCP extra, pytest and the immutable accepted PyTuflow wheel; omits unused development tools and the separate QGIS MCP bridge |
+| Hosted tests | `python -m pip install -r repo-scripts/ci-test-requirements.txt` | All declared runtime dependencies, MCP and cache extras, pytest and the immutable accepted PyTuflow wheel; omits unused development tools and the separate QGIS MCP bridge |
 | Strict typing | `python -m pip install -r repo-scripts/ci-policy-requirements.txt` | Runtime, development and MCP extras plus immutable accepted PyTuflow wheel; omits the separate QGIS MCP bridge |
 | Package smoke | Existing `repo-scripts/wheel-smoke-requirements.txt` workflow | Focused isolated wheel dependencies; real build and copied-wrapper checks remain |
 
