@@ -840,6 +840,30 @@ The independent per-field maxima contract is unchanged: adopted flow,
 velocity and water levels are values from the selected representative run,
 not reconstructed coincident-timestep peak measurements.
 
+### Mean peak coverage findings
+
+`po_and_timeseries/create_pomm_mean_peak_report.py` adds coverage findings to `aep-mean-max`,
+independently for each AEP, PO location, result type and run/scenario. Existing peak selection is unchanged.
+The new columns show the minimum and maximum tested duration in minutes, the sampled duration list,
+missing intermediate durations, and separate warnings for:
+
+- A selected peak sourced from the shortest or longest tested duration (both when only one was tested).
+- Any duration bin with a sampled input count (finite contributors **plus** known non-finite samples) other than `EXPECTED_TP_COUNT` records (default 10), including non-winning bins.
+- Any duration bin with known non-finite samples, reported separately in `hydraulic_population_warning`; complete sampled input coverage does not imply complete valid hydraulic observations.
+- Missing standard durations between the tested bounds, unrecognised duration labels or non-standard durations.
+
+`findings_status` is `WARNING` if any check fires, otherwise `OK`. These are coverage findings, not a
+model-validity assessment. The expected TP coverage check counts observed records, while `count_TP` in the statistic tables counts only **finite contributing values**. The separate unusable counts and warning keep invalid values visible. Neither count proves that all temporal-pattern identities are distinct.
+For example, sampling 30, 60 and 120 minutes reports gaps at 45 and 90 minutes. Durations outside the
+sampled bounds are not labelled missing; the boundary warning identifies a potentially truncated peak search.
+
+The editable `STANDARD_DURATIONS_MINUTES` uses the
+[ARR Storm Generator duration sequence](https://help-innovyze.atlassian.net/wiki/spaces/arr2016/pages/14614606/Editing+the+Properties+of+ARR+Storms).
+Some listed durations are optional in downloaded ARR datasets: adopt the study's intended sequence explicitly
+when it differs. The effective schedule and expected ensemble size are recorded in the workbook data dictionary.
+Library callers can pass `standard_durations` and `expected_tp_count` to `export_mean_peak_report`,
+`save_peak_report_mean` or `find_aep_mean_max`. Updated wrappers require the matching updated library package.
+
 The maintained mean and median POMM peak wrappers use
 `ryan_library.orchestrators.tuflow.pomm_max_items` directly. The deprecated
 `PommPeakWrapperDefaults`, `PeakReportExporter` and `run_pomm_peak_report_wrapper`
