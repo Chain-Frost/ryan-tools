@@ -2,8 +2,8 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Implementation handoff: vendored wheel and further grouping not implemented |
-| Owner | Unassigned / next implementation agent |
+| Status | Exact accepted wheel delivered; final Windows integration and dependency audit pending |
+| Owner | ChatGPT / maintainer review |
 | Created | 2026-11-08 |
 | Updated | 2026-11-08 |
 | Next review | 2026-11-15 |
@@ -17,15 +17,16 @@ use. Small POSIX checks retain their specific portability and filesystem-safety 
 published package dependencies, native engineering acceptance and release behaviour are separate contracts.
 
 This record owns the dependency audit and any later split into narrower Windows test groups. The profiles below are
-implemented in parent PR #272, together with workflow routing and cancellation. This child handoff changes only
-documentation. Continue its stacked branch after reviewing the parent's current diff and hosted CI; refresh and
-record the predecessor SHA if it changes. See the [parent work record](2026-11-08-ci-resource-efficiency.md).
+implemented in parent PR #272, together with workflow routing and cancellation. The stacked child PR #274 now contains the checked-in binary, provenance and installer/CI
+integration. Parent #272 remains at the recorded SHA with its passing Windows CI.
+Its parent is not merged into main; preserve that integration boundary. See the [parent work record](2026-11-08-ci-resource-efficiency.md).
 
 ## First delivery: vendor the accepted PyTuflow wheel
 
-The user proposes retaining a prebuilt PyTuflow wheel in this repository until an upstream release supplies the
-required fixes. Implement this bounded distribution change before attempting a broader test-dependency split.
-Normal user dependencies and accepted engineering coverage remain intact. No wheel has been added by this handoff.
+A temporary PyTuflow wheel is stored in ordinary Git until a released upstream version supplies
+the required fixes. The exact Windows/Python 3.14.10 wheel was reproduced on the child branch and
+matched the accepted 976,447-byte SHA-256. Only the dependency distribution route changes; no
+runtime, normal developer or published project dependencies are removed.
 
 ### Exact candidate and existing Windows evidence
 
@@ -46,8 +47,9 @@ Three passing jobs independently generated that identical wheel hash:
 [public API, 107 passing tests](https://github.com/Chain-Frost/ryan-tools/actions/runs/42453824703/job/128648480823),
 [Hosted tests, 2,666 passes](https://github.com/Chain-Frost/ryan-tools/actions/runs/42453824693/job/128648567535), and
 [161-TCF regression](https://github.com/Chain-Frost/ryan-tools/actions/runs/42453824703/job/128648861058).
-Their retained artifacts do not contain the PyTuflow wheel; pip wrote it to temporary caches. Recover a verified
-copy or build once from this exact source with dependency installation disabled. The Hatchling build hook reads
+Their retained artifacts did not contain the PyTuflow wheel; pip wrote it to temporary caches. The exact
+candidate was reproduced in [Windows bootstrap run 42458022422](https://github.com/Chain-Frost/ryan-tools/actions/runs/42458022422)
+and committed to #274 (source and hash unchanged). The build disabled runtime dependency installation. The Hatchling build hook reads
 the version without importing the GIS runtime. If rebuilt ZIP bytes differ, investigate content and tool-version
 differences before accepting a new hash; do not silently substitute another source or relabel old acceptance.
 
@@ -159,9 +161,10 @@ environment and package installation, not the sole installed-package check.
 ## Next action
 
 Parent #272's recorded head passed Windows acceptance with every baseline selected node retained, exactly 26 new
-scope-helper tests, unchanged 14 skip identities/reasons and unchanged eight deselections. Confirm the parent has
-not changed, then implement the vendored-wheel delivery above. Continue comparing collection and capabilities after
-distribution or dependency changes; a faster green job alone is insufficient evidence of retained coverage.
+scope-helper tests, unchanged 14 skip identities/reasons and unchanged eight deselections. The exact accepted
+PyTuflow wheel has now been committed. Review PR #274's final-head Windows Policy, Hosted, Package, MCP and
+161-TCF consumer acceptance; compare collection, skip identities and install timing against the parent.
+Do not split more dependency profiles without same-source parity evidence and a reduction in total runner usage.
 
 If further dependency reduction is worthwhile after measuring the consolidated jobs, investigate these stages in
 a separate reviewable change:
@@ -196,12 +199,42 @@ not an account-wide cost projection or a controlled benchmark.
 The initial audit used Linux/Python 3.12.14, followed by focused checks on Linux/Python 3.14.9. Inspection covered
 package metadata, pytest configuration, installer/setup tests and the hosted/MCP/package commands. Scope/setup/
 installer contracts pass without the QGIS MCP bridge; native Windows collection and runtime acceptance remain
-hosted checks. Parent PR #272 records its actual current-head results. This documentation handoff neither changes
-dependencies nor claims that the proposed further split has passed Windows acceptance.
+hosted checks. Parent PR #272 records its passing current-head results. The child now changes the parser's
+distribution route to a verified local wheel; no narrower Windows groups have been adopted.
 
 Local validation passed: `python repo-scripts/check_documentation.py --links-only
 docs/work/2026-11-08-ci-dependency-groups.md`; profile include/extra resolution and pytest configuration assertions
 also passed. Both profiles continue to resolve all 29 declared runtime requirements through package metadata.
+
+### Vendored-wheel implementation checkpoint (2026-11-08)
+
+- **Source and identity:** fork source `887534ea8c15b80d185a38a7ead1d42ab42a7167`;
+  `pytuflow-1.3.0-py3-none-any.whl`; **976,447 bytes**;
+  SHA-256 `4bfcd24734349f9e0dcf60776ee06a2e17953ac342f40e3611b0e2aae33b30e3`.
+  The original accepted Windows three-job digest was reproduced exactly in
+  [run 42458022422](https://github.com/Chain-Frost/ryan-tools/actions/runs/42458022422).
+  Wheel, provenance manifest and README are checked into ordinary Git in `repo-scripts/wheels/pytuflow/`.
+- **Build provenance:** Windows CPython 3.14.10, pip 26.3, Hatchling 1.33.0;
+  source download, wheel build, no runtime dependency install. Original wheel bytes were reproduced, not
+  taken from the separate #65 fork build. The one-time bootstrap workflow was removed after successful
+  artifact delivery to avoid repeated wheel builds.
+- **Integrity:** `vendor_pytuflow_wheel.py` verifies SHA-256, size, ZIP checksums, metadata, licensing,
+  CLI entry points, `py.typed`, required runtime JSON resources and provenance manifest;
+  `--installed` also requires matching pip-installed wheel archive URL and SHA-256.
+  The two existing installers retain parser-only force reinstall, full dependency resolution,
+  `pip check` and public capability verification. Requirements are root-relative for normal
+  repository commands; installers use absolute paths independent of current directory.
+- **Validation routing:** the cheap preflight checks wheel integrity before native setup.
+  Windows Hosted, Policy and TUFLOW caches include binary/provenance inputs.
+  The TUFLOW workflow reacts to a wheel-only change and retains incompatible-parser rejection
+  and the 161-TCF/174-run replay. The ryan-tools wheel verifier rejects nested dependency wheels.
+- **Contracts retained:** declared normal/dev/runtime PyPI dependencies unchanged, including
+  `pytuflow>=1.2,<2` metadata; plain `pip install ryan-tools` cannot discover a checked-in
+  sidecar wheel. Reuse accepted native/private engineering evidence for identical wheel bytes.
+  Windows current-head source/installer/CI acceptance is separate and must pass before integration.
+- **Further grouping:** no additional GIS/non-GIS test split is adopted. Existing Windows collection
+  parity and skipped capabilities must be preserved before trialing any new dependency profile.
+  No controlled total-runner-minute or installation saving is yet claimed.
 
 ## Focused follow-up prompt
 

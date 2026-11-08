@@ -1,1 +1,1 @@
-pytuflow @ https://github.com/Chain-Frost/PyTuflow/archive/887534ea8c15b80d185a38a7ead1d42ab42a7167.zip
+repo-scripts/wheels/pytuflow/887534ea8c15b80d185a38a7ead1d42ab42a7167/pytuflow-1.3.0-py3-none-any.whl

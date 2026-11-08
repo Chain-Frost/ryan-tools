@@ -6,6 +6,7 @@ not hydraulic acceptance or an eager/deferred comparator.
 
 import csv
 import hashlib
+from importlib import metadata
 import json
 import os
 import sys
@@ -14,6 +15,8 @@ from collections import Counter
 from dataclasses import asdict, replace
 from pathlib import Path
 from typing import cast
+from urllib.parse import urlsplit
+from urllib.request import url2pathname
 
 import pytest
 
@@ -122,8 +125,28 @@ def test_example_batch_inventory(example_plan: CommandPlan) -> None:
 def test_all_example_models_public_validation(example_plan: CommandPlan, tmp_path: Path) -> None:
     """Require clean preflight for all public example models with the updated validator."""
     diagnostic = require_validation_api().diagnostic
-    expected_source = REQUIREMENT.read_text(encoding="utf-8").strip().split("@", 1)[1].strip()
-    assert expected_source in diagnostic.source, diagnostic.message
+    # A local wheel must retain its installed archive URL AND accepted digest.
+    # Version equality or matching public methods alone cannot identify the fork.
+    relative_wheel = REQUIREMENT.read_text(encoding="utf-8").strip()
+    expected_wheel = (REQUIREMENT.parent.parent / relative_wheel).absolute()
+    assert expected_wheel.is_file()
+    raw_direct_url = metadata.distribution("pytuflow").read_text("direct_url.json")
+    assert raw_direct_url is not None, diagnostic.message
+    direct_url = cast(dict[str, object], json.loads(raw_direct_url))
+    source_url = direct_url.get("url")
+    assert isinstance(source_url, str), diagnostic.message
+    parts = urlsplit(source_url)
+    assert parts.scheme == "file", diagnostic.message
+    # Resolve deliberately to compare physical installed source with the checked wheel.
+    assert Path(url2pathname(parts.path)).resolve() == expected_wheel.resolve(), diagnostic.message
+    archive_info = direct_url.get("archive_info")
+    assert isinstance(archive_info, dict), diagnostic.message
+    source_info = cast(dict[str, object], archive_info)
+    hashes = source_info.get("hashes")
+    sha = cast(dict[str, object], hashes).get("sha256") if isinstance(hashes, dict) else None
+    accepted_sha = "4bfcd24734349f9e0dcf60776ee06a2e17953ac342f40e3611b0e2aae33b30e3"
+    assert sha == accepted_sha or source_info.get("hash") == f"sha256={accepted_sha}", diagnostic.message
+    assert expected_wheel.name in diagnostic.source, diagnostic.message
     output = Path(os.environ.get("TUFLOW_EXAMPLE_REPORT_DIR", str(tmp_path))).absolute()
     output.mkdir(parents=True, exist_ok=True)
     groups: dict[Path, list[PlannedRun]] = {}

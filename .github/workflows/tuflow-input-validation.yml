@@ -7,6 +7,9 @@ on:
       - "repo-scripts/pytuflow-requirement.txt"
       - "requirements.txt"
       - "repo-scripts/install_latest_wheel.py"
+      - "repo-scripts/vendor_pytuflow_wheel.py"
+      - "repo-scripts/wheels/pytuflow/**"
+      - "tests/repo_scripts/test_vendor_pytuflow_wheel.py"
       - "ryan_library/orchestrators/tuflow/command_preflight.py"
       - "ryan_library/functions/tuflow/pytuflow_compatibility.py"
       - "ryan_library/orchestrators/tuflow/input_preflight.py"
@@ -43,9 +46,14 @@ jobs:
           cache-dependency-path: |
             pyproject.toml
             repo-scripts/pytuflow-requirement.txt
+            repo-scripts/vendor_pytuflow_wheel.py
+            repo-scripts/wheels/pytuflow/**/provenance.json
+            repo-scripts/wheels/pytuflow/**/*.whl
       - name: Initialise maintained test fixtures (not unrelated submodules)
         run: git submodule update --init tests/test_data
-      - name: Install immutable pinned PyTUFLOW PR63 source
+      - name: Verify immutable accepted PyTuflow wheel
+        run: python repo-scripts/vendor_pytuflow_wheel.py
+      - name: Install accepted local PyTuflow wheel
         run: |
           python -m pip install -r repo-scripts/pytuflow-requirement.txt
       - name: Install consumer without optional full GIS project extras
@@ -64,6 +72,7 @@ jobs:
           tests/functions/tuflow/test_run_progress.py
           tests/orchestrators/tuflow/test_input_preflight.py
           tests/repo_scripts/test_install_latest_wheel.py
+          tests/repo_scripts/test_vendor_pytuflow_wheel.py
 
   # All 161 example TCFs / 174 run contexts must pass after PR63's fixes.
   # Regressions or incomplete validation fail CI. Preserve per-model reports.
@@ -83,9 +92,14 @@ jobs:
           cache-dependency-path: |
             pyproject.toml
             repo-scripts/pytuflow-requirement.txt
+            repo-scripts/vendor_pytuflow_wheel.py
+            repo-scripts/wheels/pytuflow/**/provenance.json
+            repo-scripts/wheels/pytuflow/**/*.whl
             repo-scripts/install_latest_wheel.py
       - name: Initialise maintained test fixtures
         run: git submodule update --init tests/test_data
+      - name: Verify accepted PyTuflow wheel before native installs
+        run: python repo-scripts/vendor_pytuflow_wheel.py
       - name: Install native GIS readers and pinned parser
         run: |
           python repo-scripts/install_latest_wheel.py --dependencies-only

@@ -39,6 +39,8 @@ def _stage(command: list[str]) -> str:
         return "capabilities"
     if command[-2:] == ["pip", "check"]:
         return "dependencies"
+    if command[-1] == "--installed" and Path(command[-2]).name == "vendor_pytuflow_wheel.py":
+        return "provenance"
     if "ryan-tools[mcp]" in command:
         return "package"
     if "--force-reinstall" in command and "--no-deps" in command:
@@ -67,18 +69,26 @@ def test_pypi_route_verifies_before_codex_setup(
     monkeypatch.setattr(subprocess, "run", successful_command)
     monkeypatch.setattr(installer, "_configure_codex", configure_codex)
     assert installer.main(["--skip-qgis-mcp"]) == 0
-    assert stages == ["bootstrap", "parser", "package", "dependencies", "capabilities", "codex"]
+    assert stages == ["bootstrap", "parser", "package", "dependencies", "provenance", "capabilities", "codex"]
     assert all(command[0] == sys.executable for command in calls)
     assert all("--ignore-requires-python" in command for command in calls if "install" in command)
     assert [_stage(command) for command in calls if "--no-deps" in command] == ["parser"]
     assert installer.__file__ is not None
     requirement = Path(installer.__file__).with_name("pytuflow-requirement.txt").read_text(encoding="utf-8").strip()
-    assert calls[1][-3:] == ["--force-reinstall", "--no-deps", requirement]
-    assert calls[2][-2:] == ["ryan-tools[mcp]", requirement]
+    wheel_path = str((Path(installer.__file__).absolute().parents[1] / requirement).absolute())
+    assert calls[1][-3:] == ["--force-reinstall", "--no-deps", wheel_path]
+    assert calls[2][-2:] == ["ryan-tools[mcp]", wheel_path]
+    assert wheel_path.endswith("pytuflow-1.3.0-py3-none-any.whl")
+    # The PyPI route may use the explicitly accepted parser wheel, never a local ryan-tools wheel.
+    assert not any(
+        arg.casefold().endswith(".whl") and Path(arg).name.startswith("ryan_tools-")
+        for command in calls
+        for arg in command
+    )
     assert "public PyTUFLOW capabilities verified" in capsys.readouterr().out
 
 
-@pytest.mark.parametrize("failed_stage", ["bootstrap", "parser", "package", "dependencies", "capabilities"])
+@pytest.mark.parametrize("failed_stage", ["bootstrap", "parser", "package", "dependencies", "provenance", "capabilities"])
 def test_pypi_route_stops_on_install_or_verification_failure(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], failed_stage: str
 ) -> None:
