@@ -2,14 +2,71 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Review candidate: documentation aligned with the owner-confirmed RUN default and intentional generated-value trimming; upstream allowance removal tracked in #181 |
+| Status | #181 strict PyTuflow archive acceptance verified; dated runner investigation below retained as historical evidence |
 | Owner | ChatGPT |
-| Created / Updated | 2026-10-23 / 2026-11-01 |
-| Next review | Current-head CI and merge review / 2026-11-07 |
-| Pull request | [ryan-tools #159](https://github.com/Chain-Frost/ryan-tools/pull/159), open and non-draft when checked |
-| Branch / delivery base | `feat/tuflow-runner-model-checks`; documentation alignment based on `f37d817a100bf6172214c7c7b94dc3502afe2066`, containing `main` at `6e2d0f1d64be46d3c704e895fd0138583ac1dc31`; prior delivery evidence retained below |
-| Delivery | Regression and CI publication on #159, upstream fix in PyTUFLOW #60; no main merge, parser repin or release |
-| Next action | Review final-head CI, merge PR #159 independently of upstream when approved; issue #181 removes the allowance and requires 161/161 clean after adopting the reviewed fix. |
+| Created / Updated | 2026-10-23 / 2026-11-08 |
+| Next review | 2026-11-15: WP14 documentation review and #181 issue disposition |
+| Pull request | [ryan-tools #159](https://github.com/Chain-Frost/ryan-tools/pull/159), merged; WP14 documentation stacked on [#251](https://github.com/Chain-Frost/ryan-tools/pull/251) |
+| Branch / delivery base | Historical #159 runner branch documented below; WP14 evidence checked against validated PR #277, main `8de77a67`, and #251 parent `dc6d7445` |
+| Delivery | Existing #159/#211/#235 parser corrections and #272/#274 verified wheel already delivered; #181 archive acceptance verified without a new parser change |
+| Next action | Review WP14 documentation evidence, then decide #181 closure; do not repeat the unchanged Windows archive campaign or repin the accepted parser. |
+
+## WP14 — accepted PyTuflow archive evidence (8 November 2026)
+
+This is the **current #181 disposition**. The dated October/early-November
+investigations below describe older parser revisions and historical temporary
+allowances; they are not current installation instructions or acceptance status.
+
+- **Existing implementation:** PRs [#159](https://github.com/Chain-Frost/ryan-tools/pull/159),
+  [#211](https://github.com/Chain-Frost/ryan-tools/pull/211) and
+  [#235](https://github.com/Chain-Frost/ryan-tools/pull/235) delivered the
+  consumer and upstream boundary fixes. [#274](https://github.com/Chain-Frost/ryan-tools/pull/274)
+  and [#272](https://github.com/Chain-Frost/ryan-tools/pull/272) delivered the
+  verified local PyTuflow 1.3.0 dependency wheel into `main`. The current
+  [requirement](../../repo-scripts/pytuflow-requirement.txt) selects source
+  `887534ea8c15b80d185a38a7ead1d42ab42a7167`; the wheel is 976,447 bytes,
+  SHA-256 `4bfcd24734349f9e0dcf60776ee06a2e17953ac342f40e3611b0e2aae33b30e3`.
+  Plain `pip install ryan-tools` alone does not locate this repository-local
+  dependency. Use the documented repository installer and provenance guard.
+- **Actual native evidence:** [Windows Python 3.14 TUFLOW validation run
+  42467929379](https://github.com/Chain-Frost/ryan-tools/actions/runs/42467929379)
+  succeeded for PR #277 source head
+  `9ea1ee5b931630f1cd383c50fd1e18d557f66677`. Its retained
+  `tuflow-example-public-validation` artifact (GitHub artifact ID
+  `13612373076`) contains `results.json`, **161 per-TCF issue CSVs** and
+  JUnit XML. The report's `consumer_revision`
+  `07b6e071445307dec4d25112a4f038b101a242e5` is GitHub's tested synthetic
+  PR merge checkout, rather than the PR branch head.
+- **Result accounting:** **161/161 TCFs and 174/174 BAT-derived contexts passed**;
+  all 174 runs completed; zero blocking findings, zero unexpected failures.
+  Both pytest cases passed with **0 failures, 0 errors and 0 skips**. The
+  archive SHA-256 is
+  `e374c8e072679fc6c4dc11e63b270caa1101b6aebb84d70060872cdd1b0aa7d6`;
+  the fixture verifies 1,464 member sizes and hashes, 22 BAT files (21 simulation
+  BATs) and the exact per-TCF baseline. Three **non-blocking** missing-CRS
+  advisories remain in `EG03_011.tcf`, `EG06_002.tcf` and `EG15_006.tcf`.
+  They are reported, not silently discarded or classified as blocking failures.
+- **Installed origin and reuse:** the native job checked the vendored wheel
+  integrity and installed `direct_url.json` path/digest; the JSON diagnostic
+  identifies the installed site-packages PyTuflow 1.3.0 and local accepted wheel.
+  On 8 November the test code, requirement, provenance manifest and consumer
+  `input_preflight.py` had **identical Git blob SHAs** on validated
+  `9ea1ee5b`, observed `main` `8de77a67`, and observed consolidation
+  [#251](https://github.com/Chain-Frost/ryan-tools/pull/251) head `dc6d7445`.
+  This supports reusing the native result for the unchanged dependency/validator
+  pair, without another costly archive replay.
+- **Boundaries:** the prior `_EXPECTED_VALIDATOR_GAPS` allowlist is absent and
+  [the live test](../../tests/orchestrators/tuflow/test_example_models_real.py)
+  requires all models and contexts to pass. Regular Hosted pytest intentionally
+  excludes the `gdal` replay; the dedicated Windows job explicitly runs it.
+  This is read-only dependency/input-validation acceptance, **not** licensed
+  TUFLOW solver, hydraulic, production-network, interactive GPU or independent
+  raster-pixel engineering acceptance. The documentation-only WP14 reconciliation
+  does not rerun native tests, Ruff or Pyright against unchanged Python sources.
+  Existing strict typing, package/copied-wrapper and earlier reviewed-wheel
+  acceptance are recorded in [#274](https://github.com/Chain-Frost/ryan-tools/pull/274).
+  Keep #181 open until this evidence closeout is reviewed; no merge into `main`
+  or additional solver run is authorised.
 
 ## Current scope and decisions
 
