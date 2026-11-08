@@ -46,11 +46,15 @@ license = "SUL-1.0"
 name = "ryan-tools"
 readme = "README.md"
 requires-python = ">=3.14"
-version = "26.11.8.2"
+version = "26.11.8.4"
 
 [project.optional-dependencies]
+cache = [
+  "tables>=3.11.1",
+]
 dev = [
   "build",
+  "tables>=3.11.1",
   "pandas-stubs",
   "pyright",
   "pytest",
