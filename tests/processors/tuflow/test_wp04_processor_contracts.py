@@ -735,7 +735,6 @@ def test_po_all_rejected_source_skips_only_absent_direct_selection(tmp_path: Pat
     assert _result_status(malformed) == "FAIL"
 
 
-
 @pytest.mark.parametrize(
     ("suffix", "content"),
     [
@@ -744,9 +743,7 @@ def test_po_all_rejected_source_skips_only_absent_direct_selection(tmp_path: Pat
         ("_PO.csv", "Dummy,Time,Q\nDummy,Time,C1\nrow,0\nrow,1\n"),
     ],
 )
-def test_truncated_records_cannot_be_treated_as_absent_selection(
-    tmp_path: Path, suffix: str, content: str
-) -> None:
+def test_truncated_records_cannot_be_treated_as_absent_selection(tmp_path: Path, suffix: str, content: str) -> None:
     path = _file(tmp_path, suffix, content)
     processor = BaseProcessor.from_file(path, entity_filter=["Absent"])
     processor.process()

@@ -42,6 +42,7 @@ def clean_hydraulic_samples(values: Series, *, measurement: str) -> tuple[Series
     }
     return numbers, {reason: count for reason, count in reasons.items() if count}
 
+
 def has_consistent_csv_widths(path: Path) -> bool:
     """Check original CSV row widths before treating an empty selection as absent.
 
@@ -60,5 +61,5 @@ def has_consistent_csv_widths(path: Path) -> bool:
                 elif len(row) != expected:
                     return False
             return expected is not None
-    except (OSError, UnicodeError, csv.Error):
+    except OSError, UnicodeError, csv.Error:
         return False
