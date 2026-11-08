@@ -98,15 +98,12 @@ def _pyproject_static_changes(root: Path, *, base_sha: str, head_sha: str) -> tu
         return tuple(sorted(item for item in requirements if item.startswith(prefixes)))
 
     python_changed = before_project.get("requires-python") != after_project.get("requires-python")
-    ruff_changed = (
-        before_tools.get("ruff") != after_tools.get("ruff")
-        or relevant(before_dev, ("ruff",)) != relevant(after_dev, ("ruff",))
+    ruff_changed = before_tools.get("ruff") != after_tools.get("ruff") or relevant(before_dev, ("ruff",)) != relevant(
+        after_dev, ("ruff",)
     )
-    typing_changed = (
-        before_tools.get("pyright") != after_tools.get("pyright")
-        or relevant(before_dev, ("pyright", "pandas-stubs"))
-        != relevant(after_dev, ("pyright", "pandas-stubs"))
-    )
+    typing_changed = before_tools.get("pyright") != after_tools.get("pyright") or relevant(
+        before_dev, ("pyright", "pandas-stubs")
+    ) != relevant(after_dev, ("pyright", "pandas-stubs"))
     return python_changed or ruff_changed, python_changed or typing_changed
 
 
@@ -123,8 +120,10 @@ def determine_scope(root: Path, *, event_name: str, base_sha: str, head_sha: str
     pyproject_types = False
     if "pyproject.toml" in owned_changes:
         pyproject_lint, pyproject_types = _pyproject_static_changes(root, base_sha=base_sha, head_sha=head_sha)
-    all_lint = changed is None or pyproject_lint or any(
-        PurePosixPath(path).name in RUFF_CONFIG_NAMES for path in owned_changes
+    all_lint = (
+        changed is None
+        or pyproject_lint
+        or any(PurePosixPath(path).name in RUFF_CONFIG_NAMES for path in owned_changes)
     )
     all_types = changed is None or pyproject_types or any(_is_type_config(path) for path in owned_changes)
     tracked: list[str] = []

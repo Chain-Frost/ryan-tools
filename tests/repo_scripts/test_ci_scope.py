@@ -243,7 +243,11 @@ def test_configuration_changes_expand_the_affected_static_checks(
     [
         ('[project]\nversion = "2"\n[tool.ruff]\nline-length = 120\n', False, False),
         ('[project]\nversion = "1"\n[tool.ruff]\nline-length = 100\n', True, False),
-        ('[project]\nversion = "1"\n[tool.ruff]\nline-length = 120\n[tool.pyright]\ntypeCheckingMode = "strict"\n', False, True),
+        (
+            '[project]\nversion = "1"\n[tool.ruff]\nline-length = 120\n[tool.pyright]\ntypeCheckingMode = "strict"\n',
+            False,
+            True,
+        ),
         ('[project]\nversion = "1"\nrequires-python = ">=3.15"\n[tool.ruff]\nline-length = 120\n', True, True),
     ],
 )
