@@ -131,6 +131,9 @@ Use the change-type matrix in [`docs/DEVELOPMENT_GUIDE.md`](docs/DEVELOPMENT_GUI
   that batch. Record subsequent CI results in the PR description when no source correction is needed.
 - Continue the assigned PR branch. With GitHub APIs, create one tree and commit for the related changes, then update
   the branch once; avoid one Contents API commit per file.
+- Before editing shared CI workflows or helpers, inspect current main and open CI-maintenance PRs for an existing
+  fix. Use a linked PR stack to share an in-flight fix across simultaneous work fronts, and record that dependency
+  in the handoff. Re-read the relevant remote heads immediately before publishing the checked batch.
 - For a diagnosed transient CI failure, rerun the failed jobs on the same revision. Do not create empty commits or
   repeatedly rerun already successful jobs. For complete test diagnostics, rerun all jobs on the same PR revision;
   first-attempt early stopping is disabled on subsequent attempts.
