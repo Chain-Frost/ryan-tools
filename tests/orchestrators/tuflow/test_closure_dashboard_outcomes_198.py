@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 
 from ryan_library.functions.live_dashboard import LiveWorkflowDashboard
+from ryan_library.functions.tuflow.tuflow_common import FileBatchProgress
 from ryan_library.orchestrators.tuflow import closure_durations as closure
 
 
@@ -84,3 +85,34 @@ def test_closure_invalid_display_settings_fail_before_processing(tmp_path: Path)
     ):
         closure.run_closure_durations(paths=[tmp_path], thresholds=[1.0], live_max_rows=0)
     read.assert_not_called()
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+@pytest.mark.parametrize("incomplete", [False, True])
+def test_closure_partial_processor_batch_never_publishes(tmp_path: Path, enabled: bool, incomplete: bool) -> None:
+    """Missing and failed PO inputs fail the entire export, not just a row."""
+    collection = MagicMock()
+    collection.processors = [MagicMock()]
+
+    def read(**kwargs: object) -> MagicMock:
+        progress = kwargs["batch_progress"]
+        assert isinstance(progress, FileBatchProgress)
+        progress.reset(scheduled=2)
+        progress.observe("OK")
+        if not incomplete:
+            progress.observe("FAIL")
+        return collection
+
+    with (
+        patch.object(closure, "bulk_read_and_merge_tuflow_csv", side_effect=read),
+        patch.object(closure, "_collect_po_data") as aggregate,
+        patch.object(closure, "_export_closure_duration_artifacts") as exporter,
+        patch.object(LiveWorkflowDashboard, "finish", autospec=True) as finish,
+        pytest.raises(RuntimeError, match=r"input\(s\) failed"),
+    ):
+        closure.run_closure_durations(paths=[tmp_path], thresholds=[1.0], use_live_dashboard=enabled)
+
+    aggregate.assert_not_called()
+    exporter.assert_not_called()
+    assert finish.call_args is not None
+    assert finish.call_args.kwargs["outcome"] == "FAILED"

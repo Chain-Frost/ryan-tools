@@ -25,6 +25,7 @@ from ryan_library.functions.tuflow.pomm_utils import (
     save_peak_report_mean,
     save_peak_report_median,
 )
+from ryan_library.functions.tuflow.tuflow_common import FileBatchProgress
 from ryan_library.functions.tuflow.wrapper_helpers import (
     normalize_data_types,
     validate_discovery_settings,
@@ -63,9 +64,9 @@ def run_peak_report_workflow(
 ) -> bool:
     """Aggregate and export POMM peak data with a truthful whole-workflow outcome.
 
-    The underlying aggregator owns input discovery and parsing. Until its shared
-    per-file outcome contract is available, the dashboard tracks this as one
-    workflow task rather than asserting unverified per-file successes.
+    The underlying aggregator owns discovery and parsing; the dashboard tracks
+    the report as one workflow task rather than asserting per-file UI success.
+    Shared file outcomes prohibit exporting an incomplete input batch.
     """
     script_directory = script_directory or Path.cwd()
     effective_paths_to_process: list[Path] = list((script_directory,) if paths_to_process is None else paths_to_process)
@@ -82,6 +83,7 @@ def run_peak_report_workflow(
     )
     normalized_locations: frozenset[str] = BaseProcessor.normalize_locations(locations=locations_to_include)
     location_filter: frozenset[str] | None = normalized_locations or None
+    batch_progress = FileBatchProgress()
     dashboard = LiveWorkflowDashboard(
         title="TUFLOW POMM Peak Report",
         subtitle=str(script_directory),
@@ -112,8 +114,15 @@ def run_peak_report_workflow(
                     locations_to_include=location_filter,
                     include_data_types=resolved_data_types,
                     log_queue=log_queue,
+                    batch_progress=batch_progress,
                 )
                 dashboard.set_phase("Aggregating")
+                if batch_progress.failed or batch_progress.completed != batch_progress.scheduled:
+                    msg = (
+                        f"POMM peak report: {batch_progress.failed}/{batch_progress.scheduled} input(s) failed; "
+                        f"{batch_progress.completed} completed; report not exported"
+                    )
+                    raise RuntimeError(msg)
                 if aggregated_df.empty:
                     warn_on_invalid_types(
                         invalid_types=invalid_types,

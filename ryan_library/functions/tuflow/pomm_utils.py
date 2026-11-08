@@ -26,7 +26,7 @@ from ryan_library.functions.excel_export import (
 )
 from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.pandas.median_calc import finite_sorted_rows, median_calc
-from ryan_library.functions.tuflow.tuflow_common import collect_files, process_files_in_parallel
+from ryan_library.functions.tuflow.tuflow_common import FileBatchProgress, collect_files, process_files_in_parallel
 from ryan_library.functions.versioning import get_tools_version
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
@@ -206,6 +206,8 @@ def combine_processors_from_paths(
     console_log_level: str = "INFO",
     locations_to_include: Collection[str] | None = None,
     log_queue: LogQueue | None = None,
+    *,
+    batch_progress: FileBatchProgress | None = None,
 ) -> ProcessorCollection:
     """Return a :class:`ProcessorCollection` for the provided directories."""
     if include_data_types is None:
@@ -225,6 +227,8 @@ def combine_processors_from_paths(
             suffixes_config=SuffixesConfig.get_instance(),
         )
         if not csv_file_list:
+            if batch_progress is not None:
+                batch_progress.reset(scheduled=0)
             logger.info("No valid files found to process.")
             return ProcessorCollection()
         logger.info("Found {} CSV file(s) to process.", len(csv_file_list))
@@ -237,6 +241,7 @@ def combine_processors_from_paths(
             log_queue=queue,
             log_level=console_log_level,
             entity_filters=normalized_locations or None,
+            batch_progress=batch_progress,
         )
         processed_count: int = len(results_set_local.processors)
         combined_rows: int = sum(len(processor.df) for processor in results_set_local.processors)
@@ -258,6 +263,8 @@ def combine_df_from_paths(
     console_log_level: str = "INFO",
     locations_to_include: Collection[str] | None = None,
     log_queue: LogQueue | None = None,
+    *,
+    batch_progress: FileBatchProgress | None = None,
 ) -> DataFrame:
     """Return an aggregated DataFrame for the given directories."""
     results_set: ProcessorCollection = combine_processors_from_paths(
@@ -266,6 +273,7 @@ def combine_df_from_paths(
         console_log_level=console_log_level,
         locations_to_include=locations_to_include,
         log_queue=log_queue,
+        batch_progress=batch_progress,
     )
 
     if not results_set.processors:
@@ -283,6 +291,8 @@ def aggregated_from_paths(
     locations_to_include: frozenset[str] | None = None,
     include_data_types: Collection[str] | None = None,
     log_queue: LogQueue | None = None,
+    *,
+    batch_progress: FileBatchProgress | None = None,
 ) -> DataFrame:
     """Process directories and return a combined POMM DataFrame."""
     df: DataFrame = combine_df_from_paths(
@@ -290,6 +300,7 @@ def aggregated_from_paths(
         locations_to_include=locations_to_include,
         include_data_types=include_data_types,
         log_queue=log_queue,
+        batch_progress=batch_progress,
     )
 
     if df.empty:
