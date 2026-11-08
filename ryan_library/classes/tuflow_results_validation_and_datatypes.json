@@ -619,6 +619,23 @@
       "module": "other_processors"
     }
   },
+  "MB_Node": {
+    "processor": "MBNodeProcessor",
+    "suffixes": [
+      "_1d_MB.csv"
+    ],
+    "output_columns": {
+      "Location": "string",
+      "Type": "string",
+      "Cum %ME": "float",
+      "Cum VE": "float",
+      "Cum VQ": "float"
+    },
+    "processingParts": {
+      "dataformat": "NodeMassBalanceSummary",
+      "module": "other_processors"
+    }
+  },
   "MB": {
     "processor": "MBHistoryProcessor",
     "suffixes": [
@@ -664,23 +681,6 @@
     },
     "processingParts": {
       "dataformat": "ModelMassBalanceHistory",
-      "module": "other_processors"
-    }
-  },
-  "MB_Node": {
-    "processor": "MBNodeProcessor",
-    "suffixes": [
-      "_1d_MB.csv"
-    ],
-    "output_columns": {
-      "Location": "string",
-      "Type": "string",
-      "Cum %ME": "float",
-      "Cum VE": "float",
-      "Cum VQ": "float"
-    },
-    "processingParts": {
-      "dataformat": "NodeMassBalanceSummary",
       "module": "other_processors"
     }
   }

@@ -51,6 +51,14 @@ def test_signed_mass_error_is_not_absolute_or_cross_domain_relabelled() -> None:
     assert "Cum ME (%)" in set(result.df["Type"].astype(str))
 
 
+def test_longest_node_summary_suffix_is_dispatched_before_global_mb() -> None:
+    model = BaseProcessor.from_file(ROOT / f"{RUN}_MB.csv")
+    node = BaseProcessor.from_file(ROOT / f"{RUN}_1d_MB.csv")
+    assert model.data_type == "MB"
+    assert node.data_type == "MB_Node"
+    assert type(model) is not type(node)
+
+
 def test_node_mass_balance_summary_preserves_three_cumulative_fields() -> None:
     summary = processed(ROOT / f"{RUN}_1d_MB.csv", ["ds1.1"])
     assert summary.data_type == "MB_Node"
