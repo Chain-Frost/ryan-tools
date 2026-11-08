@@ -373,7 +373,7 @@ def test_qa_all_invalid_level_samples_fail_not_skip(tmp_path: Path) -> None:
     path = _file(
         tmp_path,
         "_PO.csv",
-        "Dummy,Time,HU\\nDummy,Time,Bridge\\n0,0,-99999\\n1,1,**********\\n",
+        "Dummy,Time,HU\nDummy,Time,Bridge\n0,0,-99999\n1,1,**********\n",
     )
     peaks = analyze_peak_csv(path, _peak_config())
     stability = analyze_stability_csv(path, _stability_config())
