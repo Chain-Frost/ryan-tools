@@ -1,6 +1,6 @@
 # WP06 — owned staging in standalone output workflows
 
-**Status:** Needs review ? #200 is implemented on the isolated native-acceptance branch; Windows/local/SMB acceptance found and fixed a #232 collision-error regression. #232/#197 code remains integrated only in parent #251. Native evidence and review disposition are recorded below; no main merge or issue closure.
+**Status:** Needs review: #200 is implemented on the isolated native-acceptance branch; Windows/local/SMB acceptance found and fixed a #232 collision-error regression. #232/#197 code remains integrated only in parent #251. Native evidence and review disposition are recorded below; no main merge or issue closure.
 **Owner:** WP06 local validation / maintainer review.
 **Updated:** 2026-11-08 (Perth).
 **Next review:** 2026-11-15 or when current-head CI/native validation is available.
@@ -90,7 +90,7 @@ fresh independent review. No main merge, auto-merge, release or manual issue clo
 ### Source and delivery boundary
 
 - Started from the live parent head `63a36d487e7d34961fedf95452f8f83611b9a71b`, not a child head.
-- Isolated branch `fix/wp06-native-acceptance-20261108`; source/code commit and child PR are recorded at delivery.
+- Isolated branch `fix/wp06-native-acceptance-20261108`; code commit `081c84ab6ac943b5ac0a908f07d4818273beda79`, pushed as draft [PR #271](https://github.com/Chain-Frost/ryan-tools/pull/271) against #251. Subsequent handoff/CI-only commits retain that tested implementation.
   The shared main checkout and unrelated submodules were preserved. Only `tests/test_data` and `qgis-resources`
   were explicitly initialised to satisfy validation/build requirements; `unsorted` was never inspected.
 - Restored #251 to draft because its live state contradicted the review's draft requirement. Parent/main conflicts
@@ -128,8 +128,9 @@ late/concurrent creators, Windows sharing locks, case aliases, sidecars, dry run
 | Copied folder archive wrapper | Real 7-Zip on local, mapped SMB and UNC: dotted sibling names remain distinct, exclusions work, `7z t` and extraction pass, existing archive hashes remain unchanged. |
 | Real native archive races | Local, mapped SMB and UNC: exclusive active claim rejects a second creator; first archive passes `7z t`; a late independent output survives real compression; an unowned writing claim is preserved for inspection. |
 | Genuine split-volume archive | Real `create_7zip_archive(..., max_part_size_gib=1)` on **1,082,130,432 random bytes** produces **two parts: 1,073,741,824 and 8,455,705 bytes**. `7z t`, extraction SHA-256, source preservation and existing-volume preservation pass. Injected second-part interruption rolls back owned published parts and staging. |
-| Copied cutline wrapper | Local, mapped SMB and UNC: dry-run creates no output; differing raster/cutline CRS yields 6?6 EPSG:4326 output with values 7/-9999 and NoData -9999; default no-overwrite and explicit overwrite behave correctly; source hash unchanged. Wrapper 2026-11-08.1 / library 26.11.8.1. |
-| OSGeo4W/QGIS read-back | Independently opens local and UNC clipped outputs as valid EPSG:4326, 6?6 rasters; extent 115.02,-31.08 to 115.08,-31.02 and decoded values/NoData match. |
+| Native two-part publication on SMB | The genuine locally generated volumes are copied into invocation-owned SMB staging, published through the archive helper, tested with `7z t` and extracted on the share. Both parts retain their sizes; extracted SHA-256 matches the random input. Compression itself was local, not repeated on SMB. |
+| Copied cutline wrapper | Local, mapped SMB and UNC: dry-run creates no output; differing raster/cutline CRS yields 6 by 6 EPSG:4326 output with values 7/-9999 and NoData -9999; default no-overwrite and explicit overwrite behave correctly; source hash unchanged. Wrapper 2026-11-08.1 / library 26.11.8.1. |
+| OSGeo4W/QGIS read-back | Independently opens local and UNC clipped outputs as valid EPSG:4326, 6 by 6 rasters; extent 115.02,-31.08 to 115.08,-31.02 and decoded values/NoData match. |
 
 The parent wheel's SHA-256 is `94680d87d89948f12dc1bcdd4ccd314eae8089913ee8aec22b23d9ab2b5995d3`.
 The initial candidate wheel's SHA-256 is `acdca51c3df639489b88eab49839896fc0d0a8fcdcf29c7b75d74f871d3d8784`.
@@ -177,7 +178,10 @@ No normal/user Python package was replaced. `smoke_test_installed_wheel.py --exp
   skipped. Directory junction rejection is verified locally; this SMB server cannot host junctions.
 - Several-file split publication remains non-atomic across a process/machine crash. Injected in-process
   interruption/rollback passed; no power-loss or forced-process-kill recovery acceptance is claimed.
+- Hosted CI deliberately excludes the new native GDAL file before collection, matching the existing native GDAL test boundary; its real local/SMB results above are separate evidence.
 - Hosted checks and fresh independent review for the new child are recorded separately at delivery. After
   approved child integration, rerun the latest **parent** SHA; this child evidence cannot certify a later parent.
 - Maintainer acceptance of these limits, approved integration, final-head review and any main merge remain
   explicit separate steps. #200 remains open and has no issue-closing keyword.
+
+**Delivery checkpoint:** Draft child #271 is pushed. Hosted checks are pending; no fresh independent review has been obtained. Parent #251 remains draft at the recorded baseline and has main merge conflicts owned by integration. The canonical record is updated in the child without directly editing the parent branch.
