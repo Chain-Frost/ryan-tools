@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-import pytest
 import pandas as pd
+import pytest
 from openpyxl import Workbook
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
