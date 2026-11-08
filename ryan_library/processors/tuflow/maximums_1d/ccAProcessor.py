@@ -1,8 +1,11 @@
 # ryan_library/processors/tuflow/maximums_1d/ccAProcessor.py
 
 __lazy_modules__ = ["pandas"]
+import shutil
 import sqlite3
+import tempfile
 import urllib.parse
+from contextlib import ExitStack
 from pathlib import Path
 from typing import ClassVar
 
@@ -123,42 +126,57 @@ class ccAProcessor(BaseProcessor):
 
         return targets
 
-    def _open_sqlite_connection(self, path: Path) -> sqlite3.Connection | None:
-        """Open without file creation or immutable snapshots; bound waits for active writers."""
-        errors: list[str] = []
-
-        # A WAL without its shared-memory index can cause SQLite to create a new -shm
-        # file even for mode=ro. An inaccessible WAL snapshot must fail explicitly.
-        wal = path.with_name(path.name + "-wal")
-        shm = path.with_name(path.name + "-shm")
-        if wal.exists() and not shm.exists():
-            logger.error(
-                "process_gpkg: WAL exists without its -shm index for {}; refusing a sidecar-creating read", path
-            )
+    @staticmethod
+    def _source_signature(path: Path) -> tuple[int, int, int, int] | None:
+        """Return physical identity and content-change metadata without writing."""
+        try:
+            stat = path.stat()
+        except FileNotFoundError:
             return None
+        return stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns
 
-        # A cleanly checkpointed WAL-mode database retains the WAL journal
-        # marker in its SQLite header after the writer removes both sidecars.
-        # SQLite mode=ro can recreate -wal/-shm in a writable directory. Fail
-        # closed rather than using immutable=1, which could ignore a new writer.
+    def _prepare_gpkg_read_source(self, path: Path, owned: ExitStack) -> Path | None:
+        """Keep WAL-mode SQLite opens on owned local copies, never on source sidecars.
+
+        A WAL writer's final checkpoint can remove -wal/-shm after any existence
+        check. SQLite mode=ro can then recreate those files in a writable source
+        directory. Copy only WAL-mode sources to local scratch so SQLite's own
+        sidecar/lock operations stay invocation-owned. Never use immutable=1:
+        it can silently miss committed frames from an active writer.
+        """
         try:
             with path.open("rb") as database_file:
                 header = database_file.read(20)
+            if not (header.startswith(b"SQLite format 3\x00") and header[18:20] == b"\x02\x02"):
+                return path
+
+            wal = path.with_name(path.name + "-wal")
+            shm = path.with_name(path.name + "-shm")
+            source_paths = (path, wal, shm)
+            before = tuple(self._source_signature(item) for item in source_paths)
+            if (before[1] is None) != (before[2] is None):
+                logger.error("process_gpkg: Incomplete WAL/SHM sidecars for {}; refusing read", path)
+                return None
+
+            scratch = Path(owned.enter_context(tempfile.TemporaryDirectory(prefix="ryan-cca-wal-")))
+            staged_path = scratch / path.name
+            shutil.copyfile(path, staged_path)
+            # SQLite reconstructs -shm in scratch; copying a live shared index is
+            # unnecessary and may fail on Windows when the writer holds its lock.
+            if before[1] is not None:
+                shutil.copyfile(wal, scratch / wal.name)
+            if tuple(self._source_signature(item) for item in source_paths) != before:
+                logger.error("process_gpkg: Source changed while copying WAL snapshot of {}; refusing read", path)
+                return None
+            logger.debug("process_gpkg: Reading WAL-mode {} from owned local snapshot", path)
+            return staged_path
         except OSError as exc:
-            logger.error("process_gpkg: Unable to inspect SQLite header for {}: {}", path, exc)
-            return None
-        if (
-            header.startswith(b"SQLite format 3\x00")
-            and header[18:20] == b"\x02\x02"
-            and (not wal.exists() or not shm.exists())
-        ):
-            logger.error(
-                "process_gpkg: WAL-mode database {} lacks its active -wal/-shm sidecars; "
-                "refusing read that could create sidecar files",
-                path,
-            )
+            logger.error("process_gpkg: Could not prepare read-only snapshot of {}: {}", path, exc)
             return None
 
+    def _open_sqlite_connection(self, path: Path) -> sqlite3.Connection | None:
+        """Open a rollback-mode source or owned WAL snapshot, without write fallback."""
+        errors: list[str] = []
         for label, target in self._build_sqlite_connection_targets(path):
             conn: sqlite3.Connection | None = None
             try:
@@ -186,8 +204,14 @@ class ccAProcessor(BaseProcessor):
             logger.error("process_gpkg: GeoPackage does not exist or is not a file: {}", path)
             return pd.DataFrame()
 
-        conn = self._open_sqlite_connection(path)
+        owned = ExitStack()
+        read_path = self._prepare_gpkg_read_source(path, owned)
+        if read_path is None:
+            owned.close()
+            return pd.DataFrame()
+        conn = self._open_sqlite_connection(read_path)
         if conn is None:
+            owned.close()
             return pd.DataFrame()
 
         try:
@@ -248,6 +272,7 @@ class ccAProcessor(BaseProcessor):
             return pd.DataFrame()
         finally:
             conn.close()
+            owned.close()
 
         cca_data = self._normalize_column_names(cca_data)
         if "Chan ID" not in cca_data.columns:

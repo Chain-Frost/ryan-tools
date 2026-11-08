@@ -115,7 +115,7 @@ def test_cca_gpkg_read_is_read_only(tmp_path: Path, change_cwd: Callable[[Path],
 
 
 def test_cca_gpkg_closed_wal_mode_does_not_create_sidecars(tmp_path: Path) -> None:
-    """Fail closed if SQLite would recreate WAL/SHM for a checkpointed WAL-mode source."""
+    """Read a closed WAL database from owned staging without creating source sidecars."""
     path = tmp_path / "ClosedWAL_Results1D.gpkg"
     _create_minimal_cca_gpkg(path)
     with sqlite3.connect(path) as writer:
@@ -129,10 +129,46 @@ def test_cca_gpkg_closed_wal_mode_does_not_create_sidecars(tmp_path: Path) -> No
     original = path.read_bytes()
 
     processor = ccAProcessor(file_path=path)
-    assert processor.process_gpkg().empty
+    data = processor.process_gpkg()
+    assert data.loc[0, "Chan ID"] == "CULV1"
+    assert data.loc[0, "pFull_Max"] == 1.0
     assert path.read_bytes() == original
     assert not wal.exists()
     assert not shm.exists()
+
+
+def test_cca_gpkg_writer_shutdown_between_preflight_and_read(tmp_path: Path) -> None:
+    """Closing the writer during a WAL read must not recreate source sidecars."""
+    path = tmp_path / "WriterShutdown_Results1D.gpkg"
+    _create_minimal_cca_gpkg(path)
+    writer = sqlite3.connect(path)
+    assert writer.execute("PRAGMA journal_mode=WAL").fetchone()[0] == "wal"
+    writer.execute("UPDATE cc_results_1d_ccA_L SET pFull_Max = 99")
+    writer.commit()
+    wal = path.with_name(path.name + "-wal")
+    shm = path.with_name(path.name + "-shm")
+    assert wal.is_file() and shm.is_file()
+
+    opening = ccAProcessor._open_sqlite_connection
+    bytes_after_writer_close: bytes | None = None
+
+    def shutdown_before_open(processor: ccAProcessor, target: Path) -> sqlite3.Connection | None:
+        nonlocal bytes_after_writer_close
+        writer.close()
+        bytes_after_writer_close = path.read_bytes()
+        assert not wal.exists() and not shm.exists()
+        return opening(processor, target)
+
+    try:
+        with patch.object(ccAProcessor, "_open_sqlite_connection", shutdown_before_open):
+            data = ccAProcessor(file_path=path).process_gpkg()
+    finally:
+        writer.close()
+
+    assert data.loc[0, "pFull_Max"] == 99
+    assert bytes_after_writer_close is not None
+    assert path.read_bytes() == bytes_after_writer_close
+    assert not wal.exists() and not shm.exists()
 
 
 def test_cca_dbf_processing(tmp_path: Path, change_cwd: Callable[[Path], AbstractContextManager[None]]) -> None:
