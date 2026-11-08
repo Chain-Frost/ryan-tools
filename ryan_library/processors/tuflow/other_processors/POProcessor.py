@@ -23,15 +23,32 @@ class POProcessor(BaseProcessor):
     # A valid parsed file can be excluded entirely by a location filter.
     # Keep this separate from processing failures and from exported processors.
     filtered_empty: bool = False
+    # Source header IDs, including locations whose samples are all rejected.
+    source_locations: frozenset[str] = frozenset()
 
     VALUE_COLUMNS: ClassVar[list[str]] = ["Time", "Location", "Type", "Value"]
 
     def filter_locations(self, locations: Collection[str] | None) -> frozenset[str]:
-        """Reclassify PO sample usability after collection or HDF selection."""
+        """Preserve known, wholly rejected locations through public selection."""
         selected = super().filter_locations(locations)
+        if not selected:
+            return selected
+        if self.df.empty:
+            self.applied_location_filter = selected
+            if selected & self.source_locations:
+                # Invalid samples were dropped during parsing, but the source
+                # contained the location: INVALID/FAIL, not absent/SKIP.
+                self.selected_unusable = True
+                self.filtered_empty = False
+                self.input_health = "INVALID"
+            else:
+                self.selected_unusable = False
+                self.filtered_empty = True
+            return selected
+
+        self.selected_unusable = False
         if (
             self.applied_location_filter == selected
-            and not self.df.empty
             and "AbsValue" in self.df.columns
             and not self.df["AbsValue"].notna().any()
         ):
@@ -43,6 +60,7 @@ class POProcessor(BaseProcessor):
         logger.info(f"Starting processing of PO file: {self.log_path}")
         self.reset_processing_state()
         self._selected_source_present = False
+        self.source_locations = frozenset()
 
         try:
             raw_df: DataFrame = pd.read_csv(self.file_path, header=None, dtype=str)
@@ -128,6 +146,7 @@ class POProcessor(BaseProcessor):
         time_values = time_values.astype("float64")
 
         tidy_frames: list[pd.DataFrame] = []
+        source_locations: set[str] = set()
         for idx, (measurement, location) in enumerate(zip(measurement_row, location_row, strict=True)):
             measurement_text: str = str(measurement).strip()
             location_text: str = str(location).strip()
@@ -137,6 +156,7 @@ class POProcessor(BaseProcessor):
             if not measurement_text or not location_text:
                 continue
 
+            source_locations.add(location_text)
             if self.entity_filter and location_text in self.entity_filter:
                 self._selected_source_present = True
 
@@ -174,6 +194,7 @@ class POProcessor(BaseProcessor):
 
             tidy_frames.append(frame)
 
+        self.source_locations = frozenset(source_locations)
         if not tidy_frames:
             logger.warning(f"{self.file_name}: No measurement columns were parsed from the CSV.")
             return pd.DataFrame(columns=self.VALUE_COLUMNS)

@@ -65,7 +65,9 @@ class POMMProcessor(BaseProcessor):
 
         all_missing = self._valid_extrema().isna().all(axis=1)
         if all_missing.any():
-            self.record_rejections({"all_missing_extrema": int(all_missing.sum())})
+            # This is a derived unusable-row diagnostic, not another
+            # rejected source measurement.
+            self.rejection_reasons["all_missing_extrema"] = int(all_missing.sum())
             # Preserve unusable event rows with NaN maxima for TP population
             # accounting in pomm_utils; they must never govern a peak.
             if all_missing.all():
@@ -77,7 +79,7 @@ class POMMProcessor(BaseProcessor):
             self.input_health = "INVALID"
 
     def filter_locations(self, locations: Collection[str] | None) -> frozenset[str]:
-        """Recheck usable extrema after collection or HDF location selection."""
+        """Recheck usable extrema after public collection location selection."""
         selected = super().filter_locations(locations)
         if self.applied_location_filter == selected and not self.df.empty:
             self._classify_selected_extrema()

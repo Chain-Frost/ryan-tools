@@ -316,7 +316,7 @@ def test_mcp_exposes_invalid_health_without_losing_raw_population(tmp_path: Path
     assert single["processed"] is True
     assert single["workflow_status"] == "FAIL"
     assert single["input_health"] == "INVALID"
-    assert single["rejected_samples"] == 3
+    assert single["rejected_samples"] == 2
     assert single["rejection_reasons"]["no_data"] == 2
     assert single["rejection_reasons"]["all_missing_extrema"] == 1
     collection = inspect_tuflow_collection(file_paths=[str(path)], locations=["Dry"])
@@ -473,6 +473,73 @@ def test_po_public_filter_and_hdf_reclassify_dry_only_location(tmp_path: Path) -
     assert len(usable.processors) == 1
     assert _result_status(usable.processors[0]) == "OK"
     assert usable.processors[0].df["AbsValue"].tolist() == [39.0, 41.0]
+
+
+def test_po_public_filter_preserves_rejected_source_location(tmp_path: Path) -> None:
+    path = _file(
+        tmp_path,
+        "_PO.csv",
+        "Dummy,Time,Q,Q\nDummy,Time,Dry,Wet\nrow,0,inf,1\nrow,1,inf,2\n",
+    )
+    original = POProcessor(file_path=path)
+    original.process()
+    assert original.processed
+    assert original.input_health == "PARTIAL"
+    assert original.source_locations == frozenset({"Dry", "Wet"})
+    assert original.df["Location"].astype(str).tolist() == ["Wet", "Wet"]
+
+    collection = ProcessorCollection()
+    collection.add_processor(original)
+    selected = collection.copy()
+    selected.filter_locations(["Dry"])
+    assert len(selected.processors) == 1
+    invalid = selected.processors[0]
+    assert invalid.processed
+    assert invalid.df.empty
+    assert invalid.selected_unusable
+    assert not invalid.filtered_empty
+    assert invalid.input_health == "INVALID"
+    assert invalid.rejection_reasons["nonfinite"] == 2
+    assert _result_status(invalid) == "FAIL"
+
+    by_type = selected.get_processors_by_data_type("PO")
+    assert len(by_type.processors) == 1
+    assert _result_status(by_type.processors[0]) == "FAIL"
+
+    absent = collection.copy()
+    absent.filter_locations(["Absent"])
+    assert not absent.processors
+
+    wet = collection.copy()
+    wet.filter_locations(["Wet"])
+    assert len(wet.processors) == 1
+    assert _result_status(wet.processors[0]) == "OK"
+    assert wet.processors[0].df["Value"].tolist() == [1.0, 2.0]
+
+    mixed = collection.copy()
+    mixed.filter_locations(["Dry", "Wet"])
+    assert len(mixed.processors) == 1
+    assert _result_status(mixed.processors[0]) == "OK"
+
+
+def test_po_source_location_evidence_resets_when_file_reprocessed(tmp_path: Path) -> None:
+    path = _file(
+        tmp_path,
+        "_PO.csv",
+        "Dummy,Time,Q,Q\nDummy,Time,Dry,Wet\nrow,0,inf,1\nrow,1,inf,2\n",
+    )
+    processor = POProcessor(file_path=path)
+    processor.process()
+    assert processor.source_locations == frozenset({"Dry", "Wet"})
+
+    path.write_text("Dummy,Time,Q\nDummy,Time,Wet\nrow,0,3\nrow,1,4\n", encoding="utf-8")
+    processor.process()
+    assert processor.processed
+    assert processor.source_locations == frozenset({"Wet"})
+    assert processor.input_health == "OK"
+    processor.filter_locations(["Dry"])
+    assert processor.filtered_empty
+    assert not processor.selected_unusable
 
 
 def test_tlf_retry_does_not_expose_previous_finished_status(tmp_path: Path) -> None:

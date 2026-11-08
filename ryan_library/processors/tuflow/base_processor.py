@@ -74,6 +74,7 @@ class BaseProcessor(ABC):
     raw_df: pd.DataFrame = field(default_factory=pd.DataFrame)
     processed: bool = field(default=False)
     filtered_empty: bool = field(default=False, init=False)
+    selected_unusable: bool = field(default=False, init=False)
     input_health: str = field(default="OK", init=False)
     rejected_samples: int = field(default=0, init=False)
     rejection_reasons: dict[str, int] = field(default_factory=lambda: cast("dict[str, int]", {}), init=False)
@@ -334,6 +335,7 @@ class BaseProcessor(ABC):
         self.raw_df = pd.DataFrame()
         self.processed = False
         self.filtered_empty = False
+        self.selected_unusable = False
         self.applied_entity_filter = None
         self.applied_location_filter = None
         self.input_health = "OK"
