@@ -703,9 +703,16 @@ successful writing. The master is intentionally modified, so keep a separate
 backup. The script refuses `.xlsm` rather than remove macros. It also refuses
 symbolic- or hard-linked workbook files, rather than silently replacing the
 link with a detached workbook. Mapped drive and UNC parent directories are
-not rejected merely because they are mapped paths. External Excel
-locks, network shares and simultaneous workbook editors have not been qualified
-as native acceptance. `PAUSE_ON_FINISH` is editable; `--no-pause` prevents
+not rejected merely because they are mapped paths. On Windows, a disposable
+same-directory calibration must distinguish genuine one-name and two-name
+hardlinks before the master can be replaced. Shares that cannot enumerate
+hardlinks reliably are **unsupported for master append** and fail before
+publication, even if ordinary file IDs or link counts appear valid. The tested
+SMB server has this limitation; use an unlinked local NTFS workbook instead.
+An exclusive `.master.xlsx.writing` claim covers discovery through publication
+and prevents cooperating writers losing rows. A crash can leave the claim;
+check its owner before removing it manually. External editors do not honor
+this claim; close Excel before appending. `PAUSE_ON_FINISH` is editable; `--no-pause` prevents
 interactive waiting. For an unattended invocation:
 
 ```powershell

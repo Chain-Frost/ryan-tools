@@ -333,7 +333,15 @@ def _verify_windows_hardlinks(*, workbook_path: Path) -> None:
     alias_path = probe_path.with_name(f"{probe_path.name}.alias")
     alias_owned = False
     try:
-        if _windows_hardlink_count(path=probe_path) != 1:
+        try:
+            single_count = _windows_hardlink_count(path=probe_path)
+        except OSError as exc:
+            msg = (
+                "Master workbook append is unsupported on this filesystem: reliable hardlink "
+                f"enumeration is unavailable. Use an unlinked workbook on a supported filesystem: {workbook_path}"
+            )
+            raise ValueError(msg) from exc
+        if single_count != 1:
             msg = f"Cannot verify single-link identity on the master filesystem: {workbook_path}"
             raise ValueError(msg)
         try:

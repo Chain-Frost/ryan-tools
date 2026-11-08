@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Native validation failed: SMB hardlink guard and concurrent-writer lost update; review required |
+| Status | Local append and safe SMB refusal validated; current-head hosted CI/review pending |
 | Owner | WP08 integration |
 | Created / updated | 2026-11-08 |
 | Next review | 2026-11-15 |
@@ -126,3 +126,53 @@ The native test on [#255](https://github.com/Chain-Frost/ryan-tools/pull/255#iss
 **Remaining native blocker:** The SMB server reports hard-link count 1 even for genuine aliases, so `st_nlink` does not establish the safety of replacement. This code change **does not** solve that case; the [reported SMB alias severing](https://github.com/Chain-Frost/ryan-tools/pull/255#issuecomment-6719032302) remains an acceptance failure. Before supporting master replacements on this share, independently probe Windows `FindFirstFileNameW` hard-link enumeration (documented for SMB 3.0, but dependent on server capabilities); when multiplicity cannot be established, **fail closed** or obtain explicit maintainer acceptance of a narrower local-filesystem-only contract. Do not assume the link-count flag is accurate across SMB servers.
 
 The new exclusive claim requires **native Windows/Excel/SMB concurrent-writer validation** after this code change; hosted regression results are not enough. No code or data were merged into #251 or `main`. #196 remains open and the PR remains draft.
+
+## 2026-11-08 outstanding completion: supported filesystem boundary
+
+Refreshed the existing #255 branch from immediate parent #251 at
+`dc6d74455e092d3611b975f0fc3975a977578ecc` by normal merge `cdb83ad9`.
+Shared docs/register conflicts retain both owners' rows and all new parent CI,
+PyTuflow wheel and accepted work. The exclusive claim and calibrated hardlink
+guard are unchanged. Unsupported enumeration now produces a clear ValueError
+explaining that master append is unsupported on that filesystem, with the native
+OSError retained as its cause. The maintained script README documents the boundary,
+claim cleanup and local NTFS alternative. No unsafe fallback is introduced.
+
+Native alternative-API investigation (owned genuine hardlinks, Windows 10,
+Python 3.14.6, local/mapped/UNC): GetFileInformationByHandleEx FileStandardInfo
+reports **1 then 2 links on NTFS**, but **1 then 1 on both SMB spellings** despite
+samefile=True. NtQueryInformationFile FileStandardLinkInformation returns **1/2
+correctly locally**, but **STATUS_NOT_SUPPORTED (0xc00000bb) on SMB**. FileIdInfo
+works locally but returns **ERROR_INVALID_PARAMETER (87) on SMB**. Earlier
+FindFirstFileNameW ERROR_NOT_SUPPORTED (50) remains decisive. A unique file ID
+alone cannot establish absence of other names; probing additional APIs does not
+justify weakening the calibrated guard. Hardlinks are supported by the server;
+reliable enumeration/multiplicity is not. Ordinary master append is therefore
+**unsupported on this tested SMB server**. No claim that SMB in general cannot
+support it is made.
+
+Windows source focused tests: **23 PASS / 1 symlink privilege SKIP**. Strict
+modified-file Pyright, Ruff and formatting pass. Native direct follow-up:
+**12 PASS** (ordinary append or explicit share refusal, genuine hardlink refusal,
+held claim and abandoned claim across NTFS/mapped/UNC); **the same 12 PASS on an
+isolated installed wheel**. Refusals preserve workbook/alias bytes; no owned
+staging or calibration files remain. Local successful append preserves table,
+formula, font and other sheet. The historical two-real-process native test at
+`f6db94f7` remains valid for the unchanged claim implementation: OK/BUSY on NTFS,
+REFUSED/BUSY on this SMB server. Do not relabel it as a new-head process run.
+Unaffected accepted Excel-lock tests were not repeated. SMB successful publication
+and broader Office features/ACL preservation remain NOT RUN/unsupported.
+
+Built/verified 26.11.8.3 wheel SHA256
+`c5466e9a1dd63f04bf90b7022306b23ed4c638444d7843df2777e14e40eca272`;
+installed with --no-deps --target outside checkout. Global packages untouched.
+Private evidence/harnesses: `E:/Github/wp0508-completion-20261108`.
+Earlier native failure section is retained as historical and superseded by the
+claim correction already reviewed at f6db94f7 plus this explicit boundary.
+MCP assessment: existing maintained master append workflow remains sufficient;
+no new endpoint is needed for this diagnostic correction.
+
+Next: exact-head current CI and fresh Codex review. #196's dashboard/failure/safe
+local append acceptance is implemented, subject to final checks; unrestricted
+SMB master publication is explicitly not offered. Keep #255 draft pending review,
+no parent incorporation, issue closure, auto-merge or release. Next review 2026-11-15.

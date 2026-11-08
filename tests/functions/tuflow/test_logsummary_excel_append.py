@@ -1,5 +1,7 @@
 """Tests for ryan_library.functions.tuflow.logsummary_excel_append."""
 
+# pyright: reportPrivateUsage=false
+
 from pathlib import Path
 
 import pandas as pd
@@ -8,6 +10,14 @@ from openpyxl import Workbook
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
 from ryan_library.functions.tuflow import logsummary_excel_append as lsea
+
+
+def _link_count(*, path: Path) -> int:
+    return path.stat().st_nlink
+
+
+def _misleading_link_count(*, path: Path) -> int:
+    return int(path.exists())
 
 
 def create_dummy_workbook(path: Path, with_table: bool = True) -> None:
@@ -103,11 +113,30 @@ def test_windows_link_enumeration_calibrates_single_and_alias_names(
     path = tmp_path / "master.xlsx"
     create_dummy_workbook(path)
     initial = path.read_bytes()
-    monkeypatch.setattr(lsea, "_windows_hardlink_count", lambda *, path: path.stat().st_nlink)
+    monkeypatch.setattr(lsea, "_windows_hardlink_count", _link_count)
 
     lsea._verify_windows_hardlinks(workbook_path=path)
 
     assert path.read_bytes() == initial
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["master.xlsx"]
+
+
+def test_windows_link_enumeration_refusal_explains_unsupported_filesystem(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "master.xlsx"
+    create_dummy_workbook(path)
+    original = path.read_bytes()
+
+    def unsupported(*, path: Path) -> int:
+        del path
+        raise OSError(50, "Enumeration unsupported")
+
+    monkeypatch.setattr(lsea, "_windows_hardlink_count", unsupported)
+    with pytest.raises(ValueError, match="unsupported on this filesystem") as failure:
+        lsea._verify_windows_hardlinks(workbook_path=path)
+    assert isinstance(failure.value.__cause__, OSError)
+    assert path.read_bytes() == original
     assert sorted(p.name for p in tmp_path.iterdir()) == ["master.xlsx"]
 
 
@@ -118,7 +147,7 @@ def test_windows_link_enumeration_fails_closed_for_misleading_smb_count(
     create_dummy_workbook(path)
     initial = path.read_bytes()
     # Model an SMB server/API that reports one link even for two real names.
-    monkeypatch.setattr(lsea, "_windows_hardlink_count", lambda *, path: int(path.exists()))
+    monkeypatch.setattr(lsea, "_windows_hardlink_count", _misleading_link_count)
 
     with pytest.raises(ValueError, match="unreliable"):
         lsea._verify_windows_hardlinks(workbook_path=path)
@@ -135,7 +164,7 @@ def test_windows_link_enumeration_refuses_linked_master_after_valid_probe(
     alias = tmp_path / "alias.xlsx"
     alias.hardlink_to(path)
     initial = path.read_bytes()
-    monkeypatch.setattr(lsea, "_windows_hardlink_count", lambda *, path: path.stat().st_nlink)
+    monkeypatch.setattr(lsea, "_windows_hardlink_count", _link_count)
 
     with pytest.raises(ValueError, match="Hard-linked master"):
         lsea._verify_windows_hardlinks(workbook_path=path)
