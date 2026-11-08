@@ -377,6 +377,7 @@ def test_summary_only_source_is_supported_without_series_companion(
     products = list(tmp_path.glob(f"*_{output_key}_{summary_sheet}.parquet.gzip"))
     assert len(products) == 1
 
+
 def test_history_only_line_workflow_logs_missing_qmx_without_failing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -267,7 +267,11 @@ report_regions(
 
 Each maintained Python workflow uses the existing discovery/processor/collection pipeline and
 protected exporter, with separate history and source-summary sheets and matching Parquet
-products. They do **not** insert the line/region output into POMM extrema or the PO
+products. When a paired history or source-summary product is missing for a processed
+run, the exporter emits a per-run **WARNING** naming its expected CSV suffix and
+still publishes the available data; missing, invalid or location-filtered
+companions must not be silently reported as a complete pair.
+They do **not** insert the line/region output into POMM extrema or the PO
 median/mean ensemble, and there is no implied coincident maximum-flow state.
 The generic read-only MCP inspection interfaces work through the shared registry.
 See [WP12's record](../../../docs/work/2026-11-08-wp12-hu-hd-coverage.md) for native acceptance and unsupported formats.
