@@ -147,7 +147,7 @@ Validation on Windows Python 3.14.6 (2026-11-07):
   111 passed. A final rerun of the five affected project/template/CLI files passed all 43 tests,
   including generated-file and GIS-schema equivalence for both entry points.
 - Ruff format/lint, strict Pyright on modified files (initialiser files with
-  `--project pyright-initialiser.json`), Loguru policy and documentation checks pass.
+  the then-separate initialiser project configuration), Loguru policy and documentation checks pass.
 - `python repo-scripts/build_library.py --skip-pip`: built and verified wheel 26.11.7.1,
   SHA-256 `1ea59e4079b9fced8fe343d8b4c7fe7f5a8f901f31aefd8d9872d1ec9c16dfdb`.
 - Temporary-target installed-wheel resource/default/CLI checks and copied standard
@@ -202,7 +202,7 @@ in the shared terrain helper and migrated test; moved temporary publication into
 proper context manager while keeping close-before-publish and no-clobber cleanup.
 CI previously assigned migrated shared GIS modules to the default stubs, producing
 144 strict typing errors locally. Policy now derives that split from
-`pyright-initialiser.json`'s include list, preserving strict checking with the right
+the then-separate initialiser configuration's include list, preserving strict checking with the right
 GIS stubs. Tests that intentionally exercise the private publication helper declare
 that use explicitly. Both strict typing passes, changed-file Ruff and documentation/
 Loguru checks pass. Actionlint 1.7.12 passes with the workflow's pinned checksum.
@@ -466,3 +466,11 @@ are published. Hosted CI's upstream wheel-host failure remains separate (#276).
 This documentation-only delivery does not change the validated runtime source;
 its final hosted checks must be assessed separately. No merge or release.
 Next review: 2026-11-15, for PR review/CI and the remaining engineering gates.
+
+
+### 2026-11-08 shared typing standard
+
+The initialiser now uses the same strict Pyright configuration and shared dependency
+stubs as the rest of the repository. The former separate project configuration
+and duplicate stub tree are retired. Earlier split-profile results above remain
+historical evidence; they do not define a different maintained-code standard.

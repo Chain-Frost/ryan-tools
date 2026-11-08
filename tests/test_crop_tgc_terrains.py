@@ -328,7 +328,7 @@ def test_written_coverage_qa_retains_polygon_clip_on_misaligned_native_grid(tmp_
             write=True,
         )
     with fiona.open(tmp_path / "cropped" / "terrain_coverage_qa.gpkg", layer="final_clipped_extent") as features:
-        geometries = [shape(feature.geometry) for feature in features]
+        geometries = [shape(feature.geometry) for feature in features if feature.geometry is not None]
         assert geometries
         assert max(geometry.bounds[2] for geometry in geometries) <= 10
 

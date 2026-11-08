@@ -17,7 +17,8 @@ import geopandas as gpd
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import rasterio  # pyright: ignore[reportMissingTypeStubs]
+import rasterio
+import rasterio.crs
 from geopandas import GeoDataFrame
 from loguru import logger
 from matplotlib.axes import Axes
@@ -373,13 +374,15 @@ def _raster_crs_and_spacing(
 
     with rasterio.open(path) as source:
         # Rasterio's Dataset typing lacks attributes exposed by its raster readers.
-        raster_crs = CRS.from_user_input(source.crs) if source.crs is not None else None  # pyright: ignore[reportAttributeAccessIssue]
+        raster_crs = (
+            CRS.from_user_input(source.crs) if cast("rasterio.crs.CRS | None", source.crs) is not None else None
+        )
         effective_spacing = (
             spacing
             if spacing is not None
             else min(
-                abs(float(source.res[0])),  # pyright: ignore[reportAttributeAccessIssue]
-                abs(float(source.res[1])),  # pyright: ignore[reportAttributeAccessIssue]
+                abs(float(source.res[0])),
+                abs(float(source.res[1])),
             )
             / 2.0
         )
@@ -394,7 +397,9 @@ def _read_water_raster_crs(
 
     for aep, path in water_rasters.items():
         with rasterio.open(path) as source:
-            water_crs[aep] = CRS.from_user_input(source.crs) if source.crs is not None else None  # pyright: ignore[reportAttributeAccessIssue]
+            water_crs[aep] = (
+                CRS.from_user_input(source.crs) if cast("rasterio.crs.CRS | None", source.crs) is not None else None
+            )
 
     return water_crs
 
@@ -705,7 +710,7 @@ def run_water_level_profile_workflow(
             )
 
             if config.formation_label is not None:
-                formation = sample_line_z(line, distances)
+                formation: FloatArray = sample_line_z(line, distances)
                 axes.plot(
                     chainages,
                     formation,
@@ -728,11 +733,11 @@ def run_water_level_profile_workflow(
                     msg = f"Sampling stations differ between terrain and {aep} raster."
                     raise RuntimeError(msg)
 
-                water = interpolate_short_nan_gaps(
+                water: FloatArray = interpolate_short_nan_gaps(
                     water,
                     max_gap=config.max_interpolation_gap,
                 )
-                water_plot = water.copy()
+                water_plot: FloatArray = water.copy()
 
                 dry = np.isnan(water) | np.isnan(terrain) | (water <= terrain)
 
@@ -741,7 +746,7 @@ def run_water_level_profile_workflow(
                 else:
                     water_plot[dry] = np.nan
 
-                color = config.colors.get(aep, "blue")
+                color: str = config.colors.get(aep, "blue")
 
                 axes.plot(
                     chainages,

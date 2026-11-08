@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import ClassVar
 
 import pandas as pd
-import shapefile  # pyright: ignore[reportMissingTypeStubs]
+import shapefile
 from loguru import logger
 from pandas import DataFrame
 

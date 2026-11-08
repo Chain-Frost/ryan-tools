@@ -13,7 +13,7 @@ from types import ModuleType
 from unittest.mock import Mock
 
 import pytest
-import rasterio  # pyright: ignore[reportMissingTypeStubs]
+import rasterio
 
 SCRIPTS_DIRECTORY = Path(__file__).parents[3] / "ryan-scripts" / "gdal-python"
 

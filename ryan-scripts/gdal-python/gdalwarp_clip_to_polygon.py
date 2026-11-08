@@ -42,7 +42,7 @@ from loguru import logger
 from osgeo import gdal  # type: ignore
 
 # Enable GDAL exceptions so errors are raised as Python exceptions
-gdal.UseExceptions()  # type: ignore
+gdal.UseExceptions()
 
 from ryan_library.functions.gdal.raster_processing import geotiff_creation_options
 from ryan_library.functions.loguru_helpers import setup_logger
@@ -276,7 +276,7 @@ def main(
         )
         logger.success("Clipped {}/{} rasters", succeeded, len(plans))
         return 0 if succeeded == len(plans) else 1
-    except (OSError, ValueError):
+    except OSError, ValueError:
         logger.exception("Cutline batch preflight failed")
         return 1
 

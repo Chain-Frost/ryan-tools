@@ -17,7 +17,7 @@ try:
     from mcp.server import MCPServer
     from pydantic import Strict
 except ImportError:
-    MCPServer = None  # type: ignore[assignment, misc]
+    MCPServer = None
     _overview_validation = None
 else:
     # The optional MCP SDK supplies Pydantic. Reject coercion before the tool runs,

@@ -134,13 +134,13 @@ class ParquetBatchWriter:
         self.path = path
         self.schema = schema
         self.batch_size = batch_size
-        self.rows: dict[str, list[object]] = {field.name: [] for field in schema}
+        self.rows: dict[str, list[object]] = {name: [] for name in schema.names}
         self.writer: pq.ParquetWriter | None = None
         self.row_count = 0
 
     def append(self, row: dict[str, object]) -> None:
-        for field in self.schema:
-            self.rows[field.name].append(row[field.name])
+        for name in self.schema.names:
+            self.rows[name].append(row[name])
         self.row_count += 1
 
         if len(next(iter(self.rows.values()))) >= self.batch_size:
@@ -159,8 +159,8 @@ class ParquetBatchWriter:
                 use_dictionary=True,
                 write_statistics=True,
             )
-        self.writer.write_table(table)  # pyright: ignore[reportUnknownMemberType]
-        self.rows = {field.name: [] for field in self.schema}
+        self.writer.write_table(table)
+        self.rows = {name: [] for name in self.schema.names}
 
     def close(self) -> None:
         self.flush()

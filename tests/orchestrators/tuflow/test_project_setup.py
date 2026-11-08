@@ -5,14 +5,13 @@ import struct
 from collections.abc import Mapping
 from contextlib import closing
 from pathlib import Path
-from typing import cast
 from unittest.mock import MagicMock
 
-import fiona  # pyright: ignore[reportMissingTypeStubs]
+import fiona
 import pytest
-import rasterio  # pyright: ignore[reportMissingTypeStubs]
+import rasterio
 from pyproj import CRS as ProjCRS
-from rasterio.crs import CRS  # pyright: ignore[reportMissingTypeStubs, reportUnknownVariableType]
+from rasterio.crs import CRS
 
 from ryan_library.orchestrators.tuflow import project_setup
 from ryan_library.orchestrators.tuflow.project_setup import (
@@ -31,7 +30,7 @@ def _write_source_empty(
     feature_geometry: Mapping[str, object] | None = None,
 ) -> None:
     schema: dict[str, object] = {"geometry": geometry, "properties": properties}
-    with fiona.open(  # pyright: ignore[reportUnknownMemberType]
+    with fiona.open(
         path,
         mode="w",
         driver="GPKG",
@@ -44,9 +43,7 @@ def _write_source_empty(
                 name: 1 if field_type == "int" else 1.0 if field_type == "float" else "x"
                 for name, field_type in properties.items()
             }
-            collection.write(  # pyright: ignore[reportUnknownMemberType]
-                {"geometry": feature_geometry, "properties": values}
-            )
+            collection.write({"geometry": feature_geometry, "properties": values})
 
 
 def _fake_tuflow_generation(*, control_file: Path, expected_empty_dir: Path, **_kwargs: object) -> None:
@@ -117,7 +114,7 @@ def test_project_layers_are_empty_derivatives_of_tuflow_empties(
 ) -> None:
     templates_dir = Path(project_setup.__file__).parents[2] / "resources" / "tuflow_templates"
     prj_file = tmp_path / "MGA94_Zone_51.prj"
-    projection_wkt = cast("str", CRS.from_epsg(28351).to_wkt())  # pyright: ignore[reportUnknownMemberType]
+    projection_wkt = CRS.from_epsg(28351).to_wkt()
     prj_file.write_text(projection_wkt, encoding="utf-8")
     tuflow_executable = tmp_path / "TUFLOW_iSP_w64.exe"
     tuflow_executable.touch()
@@ -359,8 +356,9 @@ def test_projection_files_preserve_authority_or_custom_grid(tmp_path: Path, epsg
             assert row[:2] == ("EPSG", epsg)
         assert ProjCRS.from_wkt(row[2]).equals(source, ignore_axis_order=True)
     tif = tmp_path / "projection_input.tif"
-    with rasterio.open(tif) as dataset:  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
-        assert ProjCRS.from_wkt(dataset.crs.to_wkt()).equals(source, ignore_axis_order=True)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType, reportAttributeAccessIssue]
+    with rasterio.open(tif) as dataset:
+        assert dataset.crs is not None
+        assert ProjCRS.from_wkt(dataset.crs.to_wkt()).equals(source, ignore_axis_order=True)
     # Read the actual GeoKeyDirectory instead of letting GDAL infer an EPSG code.
     with tif.open("rb") as stream:
         header = stream.read(8)

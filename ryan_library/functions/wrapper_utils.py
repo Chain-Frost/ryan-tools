@@ -199,7 +199,7 @@ def _warn_if_wrapper_is_older(*, wrapper_file: Path, wrapper_version: str, wrapp
                 f"WARNING: This wrapper ({wrapper_version}) is older than the installed package's "
                 f"{source} ({latest_text}). Copy the newer script and transfer your settings before using it."
             )
-    except (OSError, UnicodeError, ValueError, SyntaxError, RecursionError):
+    except OSError, UnicodeError, ValueError, SyntaxError, RecursionError:
         # A best-effort banner check must not prevent the wrapper from running.
         return
 
