@@ -15,10 +15,12 @@ import json
 import os
 import re
 import shutil
+import stat
 import sys
 import tempfile
 import uuid
-from collections.abc import Collection
+from collections.abc import Collection, Iterator
+from contextlib import ExitStack, contextmanager, suppress
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
@@ -537,8 +539,210 @@ def _restore_processor(directory: Path, entry: dict[str, Any], *, verify_sources
     return processor
 
 
-def _lock_publication(path: Path) -> int:
-    return os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+def _lock_publication(path: Path, directory_fd: int | None = None) -> int:
+    flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
+    if directory_fd is not None:
+        return os.open(".publish.lock", flags, 0o600, dir_fd=directory_fd)
+    return os.open(path, flags, 0o600)
+
+
+def _windows_directory_handle(path: Path) -> int:
+    """Pin a real directory without FILE_SHARE_DELETE, preventing rename/swap."""
+    kernel: Any = ctypes.WinDLL("kernel32", use_last_error=True)
+    create: Any = kernel.CreateFileW
+    create.argtypes = [
+        ctypes.c_wchar_p,
+        ctypes.c_uint32,
+        ctypes.c_uint32,
+        ctypes.c_void_p,
+        ctypes.c_uint32,
+        ctypes.c_uint32,
+        ctypes.c_void_p,
+    ]
+    create.restype = ctypes.c_void_p
+    handle: int | None = create(
+        str(path),
+        0x80,  # FILE_READ_ATTRIBUTES
+        0x01 | 0x02,  # FILE_SHARE_READ | FILE_SHARE_WRITE; deny FILE_SHARE_DELETE
+        None,
+        3,  # OPEN_EXISTING
+        0x02000000 | 0x00200000,  # BACKUP_SEMANTICS | OPEN_REPARSE_POINT
+        None,
+    )
+    if handle is None or handle == ctypes.c_void_p(-1).value:
+        error = ctypes.get_last_error()
+        raise OSError(error, os.strerror(error), str(path))
+    return handle
+
+
+def _close_windows_directory_handle(handle: int) -> None:
+    kernel: Any = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel.CloseHandle(ctypes.c_void_p(handle))
+
+
+@contextmanager
+def _guard_publication_directory(destination: Path) -> Iterator[int | None]:
+    """Hold stable directory identities while publishing, not only at preflight."""
+    if os.name == "nt":
+        with ExitStack() as stack:
+            # Pin every ancestor, so a reparse-point replacement of a parent
+            # cannot redirect path-based Windows rename/replace operations.
+            paths = [*reversed(destination.parents), destination]
+            for path in paths:
+                if _unsafe_link(path):
+                    message = f"Linked Parquet publication ancestor: {path}"
+                    raise ValueError(message)
+                handle = _windows_directory_handle(path)
+                stack.callback(_close_windows_directory_handle, handle)
+            yield None
+        return
+    if sys.platform != "linux":
+        raise OSError(errno.ENOTSUP, "Safe overwrite directory handles unavailable on this OS")
+    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(destination, flags)
+    try:
+        yield fd
+    finally:
+        os.close(fd)
+
+
+def _assert_pinned_directory(destination: Path, directory_fd: int | None) -> None:
+    """Detect path relocation; POSIX mutations use the pinned fd regardless."""
+    if _unsafe_link(destination):
+        message = f"Linked Parquet publication target: {destination}"
+        raise ValueError(message)
+    if directory_fd is None:
+        if not destination.is_dir():
+            message = f"Parquet publication directory disappeared: {destination}"
+            raise ValueError(message)
+        return
+    original = os.fstat(directory_fd)
+    current = os.stat(destination, follow_symlinks=False)  # noqa: PTH113
+    if (
+        not stat.S_ISDIR(current.st_mode)
+        or (original.st_dev, original.st_ino) != (current.st_dev, current.st_ino)
+    ):
+        message = f"Parquet publication directory identity changed: {destination}"
+        raise ValueError(message)
+
+
+def _publish_directory_in_fd(stage: Path, versions_fd: int, name: str) -> None:
+    """Linux RENAME_NOREPLACE relative to an already-pinned versions directory."""
+    if sys.platform != "linux":
+        raise OSError(errno.ENOTSUP, "Directory-handle rename is unsupported on this OS")
+    renameat2: Any = getattr(ctypes.CDLL(None, use_errno=True), "renameat2", None)
+    if renameat2 is None:
+        raise OSError(errno.ENOTSUP, "Atomic no-clobber directory rename is unavailable")
+    renameat2.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
+    renameat2.restype = ctypes.c_int
+    if renameat2(-100, os.fsencode(stage), versions_fd, os.fsencode(name), 1) != 0:
+        error = ctypes.get_errno()
+        raise OSError(error, os.strerror(error), name)
+
+
+def _write_manifest_in_fd(name: str, contents: bytes, directory_fd: int) -> None:
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(name, flags, 0o600, dir_fd=directory_fd)
+    with os.fdopen(fd, "wb") as output:
+        output.write(contents)
+        output.flush()
+        os.fsync(output.fileno())
+
+
+def _publish_manifest(tmp_path: Path, target: Path, directory_fd: int | None) -> None:
+    if directory_fd is None:
+        tmp_path.replace(target)
+    else:
+        os.replace(tmp_path.name, target.name, src_dir_fd=directory_fd, dst_dir_fd=directory_fd)  # noqa: PTH105
+
+
+def _overwrite_collection(  # noqa: C901
+    *,
+    destination: Path,
+    stage: Path,
+    entries: list[dict[str, Any]],
+    lookup: dict[str, Any] | None,
+    verify_sources: bool,
+) -> None:
+    """Publish a new immutable generation; always release lock and owned temporaries."""
+    lock_path = destination / ".publish.lock"
+    with _guard_publication_directory(destination) as directory_fd:
+        _assert_pinned_directory(destination, directory_fd)
+        locked = False
+        versions_fd: int | None = None
+        versions_guard = ExitStack()
+        moved_name: str | None = None
+        temp_path: Path | None = None
+        published = False
+        try:
+            lock_fd = _lock_publication(lock_path, directory_fd)
+            locked = True
+            os.close(lock_fd)
+            _assert_pinned_directory(destination, directory_fd)
+            _checked_manifest(destination)
+            _assert_pinned_directory(destination, directory_fd)
+            versions = destination / _VERSIONS
+            if directory_fd is not None:
+                with suppress(FileExistsError):
+                    os.mkdir(_VERSIONS, dir_fd=directory_fd)  # noqa: PTH102
+                flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+                versions_fd = os.open(_VERSIONS, flags, dir_fd=directory_fd)
+            else:
+                if _unsafe_link(versions):
+                    message = "Linked Parquet directory generation folder"
+                    raise ValueError(message)
+                versions.mkdir(exist_ok=True)
+                versions_guard.enter_context(_guard_publication_directory(versions))
+            token = uuid.uuid4().hex
+            generation = f"{_VERSIONS}/{token}"
+            encoded = _manifest_bytes(entries, lookup, generation, verified=verify_sources)
+            _assert_pinned_directory(destination, directory_fd)
+            if directory_fd is not None:
+                if versions_fd is None:
+                    message = "Parquet directory generation handle is unavailable"
+                    raise OSError(errno.ENOTSUP, message)
+                _publish_directory_in_fd(stage, versions_fd, token)
+            else:
+                _publish_new_directory(stage, versions / token)
+            moved_name = token  # Only owned after a successful atomic no-clobber rename.
+            temp_path = destination / f".manifest-{uuid.uuid4().hex}.tmp"
+            if directory_fd is not None:
+                _write_manifest_in_fd(temp_path.name, encoded, directory_fd)
+            else:
+                _write_durable(temp_path, encoded)
+            if verify_sources:
+                _all_sources_unchanged(entries)
+            _assert_pinned_directory(destination, directory_fd)
+            _publish_manifest(temp_path, destination / _MANIFEST, directory_fd)
+            temp_path = None
+            published = True
+        finally:
+            try:
+                if temp_path is not None:
+                    if directory_fd is not None:
+                        with suppress(FileNotFoundError):
+                            os.unlink(temp_path.name, dir_fd=directory_fd)  # noqa: PTH108
+                    else:
+                        temp_path.unlink(missing_ok=True)
+                if moved_name is not None and not published:
+                    if versions_fd is not None:
+                        shutil.rmtree(moved_name, ignore_errors=True, dir_fd=versions_fd)
+                    else:
+                        shutil.rmtree(versions / moved_name, ignore_errors=True)
+            finally:
+                try:
+                    if versions_fd is not None:
+                        os.close(versions_fd)
+                finally:
+                    try:
+                        versions_guard.close()
+                    finally:
+                        if locked:
+                            if directory_fd is not None:
+                                with suppress(FileNotFoundError):
+                                    os.unlink(".publish.lock", dir_fd=directory_fd)  # noqa: PTH108
+                            else:
+                                lock_path.unlink(missing_ok=True)
 
 
 def _recheck_staged(stage: Path, entries: list[dict[str, Any]], lookup: dict[str, Any] | None) -> None:
@@ -547,14 +751,14 @@ def _recheck_staged(stage: Path, entries: list[dict[str, Any]], lookup: dict[str
         _verify_member(stage, entry)
 
 
-def write_collection_bundle(  # noqa: C901
+def write_collection_bundle(
     collection: ProcessorCollection,
     directory: Path | str,
     *,
     overwrite: bool = False,
     verify_sources: bool = True,
 ) -> None:
-    """Write a complete Parquet dataset directory, preserving the prior generation on failure."""
+    """Write a complete Parquet dataset directory, preserving the previous snapshot."""
     destination = Path(directory).absolute()
     _validate_destination(collection, destination, overwrite=overwrite)
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -563,10 +767,6 @@ def write_collection_bundle(  # noqa: C901
         _all_sources_unchanged(entries)
     stage = Path(tempfile.mkdtemp(prefix=f".{destination.name}.", suffix=".staging", dir=destination.parent))
     published = False
-    moved_generation: Path | None = None
-    lock_path = destination / ".publish.lock"
-    locked = False
-    temporary_manifest: Path | None = None
     try:
         lookup = _stage_tables(collection, stage, entries)
         _recheck_staged(stage, entries, lookup)
@@ -577,45 +777,22 @@ def write_collection_bundle(  # noqa: C901
             _write_durable(stage / _MANIFEST, encoded)
             if verify_sources:
                 _all_sources_unchanged(entries)
-            _publish_new_directory(stage, destination)
-            published = True
+            _publish_new_directory(stage, destination)  # Atomic no-clobber, even if another writer races.
         else:
-            # Concurrent writers are serialised by a small O_EXCL lock. The
-            # old manifest/data remain intact until os.replace commits the new
-            # pointer, and old generations remain available to existing readers.
-            lock_fd = _lock_publication(lock_path)
-            locked = True
-            os.close(lock_fd)
-            _checked_manifest(destination)
-            versions = destination / _VERSIONS
-            if _unsafe_link(versions):
-                message = "Linked Parquet directory generation folder"
-                raise ValueError(message)
-            versions.mkdir(exist_ok=True)
-            token = uuid.uuid4().hex
-            generation = f"{_VERSIONS}/{token}"
-            encoded = _manifest_bytes(entries, lookup, generation, verified=verify_sources)
-            moved_generation = destination / generation
-            _publish_new_directory(stage, moved_generation)
-            tmp_name = f".manifest-{uuid.uuid4().hex}.tmp"
-            temporary_manifest = destination / tmp_name
-            _write_durable(temporary_manifest, encoded)
-            if verify_sources:
-                _all_sources_unchanged(entries)
-            temporary_manifest.replace(destination / _MANIFEST)
-            temporary_manifest = None
-            published = True
+            if not overwrite:
+                message = f"Parquet directory already exists (set overwrite=True): {destination}"
+                raise FileExistsError(message)
+            _overwrite_collection(
+                destination=destination,
+                stage=stage,
+                entries=entries,
+                lookup=lookup,
+                verify_sources=verify_sources,
+            )
+        published = True
     finally:
-        # Only remove paths this invocation created. Never touch previous
-        # generations or manifest; interrupted writes leave the old readable.
-        if temporary_manifest is not None:
-            temporary_manifest.unlink(missing_ok=True)
-        if moved_generation is not None and not published:
-            shutil.rmtree(moved_generation)
         if not published:
             shutil.rmtree(stage, ignore_errors=True)
-        if locked:
-            lock_path.unlink(missing_ok=True)
 
 
 def read_collection_bundle(  # noqa: C901

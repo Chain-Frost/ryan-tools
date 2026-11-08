@@ -51,6 +51,13 @@ POSIX rename semantics fail closed. Existing targets are never overwritten
 implicitly. On `overwrite=True` the writer publishes an immutable generation
 under `.versions/<uuid>/` and atomically replaces only `manifest.json`,
 preserving the prior generation for readers who have already opened it.
+Linux pins directory descriptors for the entire publication window and uses
+atomic RENAME_NOREPLACE into a pinned versions directory and descriptor-relative
+manifest replacement. Windows holds non-reparse-point CreateFileW handles with
+FILE_SHARE_DELETE denied on the destination, its ancestors and versions folder
+through cleanup, preventing path swaps. If these protections are unavailable
+the overwrite fails closed. Overwrite consent is rechecked after staging, so a
+concurrent initial writer cannot be replaced without explicit consent.
 Readers resolve member paths relative to the generation recorded in the
 manifest. Old generations are intentionally **not automatically deleted**.
 The writer cleans only its owned temporary files/directories on failure,

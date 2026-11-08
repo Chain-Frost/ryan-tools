@@ -195,7 +195,12 @@ generation under `.versions/<generation>/` and atomically replaces only the
 root **manifest.json**. Previous generations stay available to readers and
 are not automatically deleted. Interrupted writes preserve the preceding
 snapshot. Unsupported atomic filesystem operations fail closed; native
-NTFS, UNC and mapped-SMB acceptance is still required.
+NTFS, UNC and mapped-SMB acceptance is still required. Linux pins
+directory handles for generation publication and manifest updates; Windows
+holds non-reparse-point directory handles without FILE_SHARE_DELETE, including
+ancestors and the versions directory, to prevent a linked path swap.
+Overwrite consent is rechecked after staging, and failed generation renames
+release locks and clean only this invocation's owned staging files.
 
 Source size/mtime_ns and optional GeoPackage WAL state are captured **before**
 processing, never first at export. Freshness is checked before writing and

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -185,11 +187,11 @@ def test_interrupted_overwrite_leaves_original_readable(
     collection.to_parquet(path)
     original = (path / "manifest.json").read_bytes()
 
-    def interrupted(_source: Path, _destination: Path) -> None:
+    def interrupted(_source: Path, _destination: Path, _dir_fd: int | None) -> None:
         message = "simulated interrupted manifest replacement"
         raise OSError(message)
 
-    monkeypatch.setattr(Path, "replace", interrupted)
+    monkeypatch.setattr(parquet_bundle, "_publish_manifest", interrupted)
     with pytest.raises(OSError, match="simulated"):
         collection.to_parquet(path, overwrite=True)
     assert (path / "manifest.json").read_bytes() == original
@@ -316,3 +318,90 @@ def test_missing_member_and_missing_source_fail_closed(collection: ProcessorColl
     with pytest.raises(ValueError, match="missing or unexpected members"):
         ProcessorCollection.from_parquet(dest)
     assert original_source.read_bytes() == original_bytes
+
+
+def test_competing_writer_cannot_bypass_default_no_clobber(
+    collection: ProcessorCollection, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dest = tmp_path / "competing.parquetdir"
+    original_stage = parquet_bundle._stage_tables
+
+    def race(
+        selected: ProcessorCollection, stage: Path, entries: list[dict[str, Any]]
+    ) -> dict[str, Any] | None:
+        result = original_stage(selected, stage, entries)
+        with monkeypatch.context() as patcher:
+            patcher.setattr(parquet_bundle, "_stage_tables", original_stage)
+            selected.to_parquet(dest)
+        return result
+
+    monkeypatch.setattr(parquet_bundle, "_stage_tables", race)
+    with pytest.raises(FileExistsError, match="already exists"):
+        collection.to_parquet(dest)
+    assert len(ProcessorCollection.from_parquet(dest).processors) == 3
+    assert _manifest(dest)["active_generation"] == "."
+    assert not list(tmp_path.glob(".competing.parquetdir.*.staging"))
+
+
+def test_failed_generation_rename_does_not_mask_error_or_leak_lock(
+    collection: ProcessorCollection, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dest = tmp_path / "rename.parquetdir"
+    collection.to_parquet(dest)
+    old_manifest = (dest / "manifest.json").read_bytes()
+
+    def blocked(*_args: object, **_kwargs: object) -> None:
+        message = "atomic rename refused"
+        raise OSError(message)
+
+    rename_symbol = "_publish_new_directory" if os.name == "nt" else "_publish_directory_in_fd"
+    monkeypatch.setattr(parquet_bundle, rename_symbol, blocked)
+    with pytest.raises(OSError, match="atomic rename refused"):
+        collection.to_parquet(dest, overwrite=True)
+    assert (dest / "manifest.json").read_bytes() == old_manifest
+    assert not (dest / ".publish.lock").exists()
+    assert not list(tmp_path.glob(".rename.parquetdir.*.staging"))
+    assert not list((dest / ".versions").glob("*"))
+    assert len(ProcessorCollection.from_parquet(dest).processors) == 3
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="directory-handle rename guard is Linux-specific")
+def test_destination_swap_during_overwrite_cannot_mutate_other_dataset(
+    collection: ProcessorCollection, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dest = tmp_path / "victim.parquetdir"
+    other = tmp_path / "other.parquetdir"
+    backup = tmp_path / "original-victim.parquetdir"
+    collection.to_parquet(dest)
+    collection.to_parquet(other)
+    victim_before = (dest / "manifest.json").read_bytes()
+    other_before = (other / "manifest.json").read_bytes()
+    original_manifest = parquet_bundle._manifest_bytes
+
+    def swap(*args: Any, **kwargs: Any) -> bytes:
+        result = original_manifest(*args, **kwargs)
+        dest.rename(backup)
+        dest.symlink_to(other, target_is_directory=True)
+        return result
+
+    monkeypatch.setattr(parquet_bundle, "_manifest_bytes", swap)
+    with pytest.raises(ValueError, match="Linked Parquet publication target"):
+        collection.to_parquet(dest, overwrite=True)
+    assert (backup / "manifest.json").read_bytes() == victim_before
+    assert (other / "manifest.json").read_bytes() == other_before
+    assert not (backup / ".publish.lock").exists()
+    assert not list(tmp_path.glob(".victim.parquetdir.*.staging"))
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows directory SHARE_DELETE semantics only")
+def test_windows_publication_guard_blocks_directory_swap(
+    collection: ProcessorCollection, tmp_path: Path
+) -> None:
+    dest = tmp_path / "held.parquetdir"
+    collection.to_parquet(dest)
+    backup = tmp_path / "moved.parquetdir"
+    with parquet_bundle._guard_publication_directory(dest):
+        with pytest.raises(OSError):
+            dest.rename(backup)
+    assert dest.is_dir()
+    assert not backup.exists()
