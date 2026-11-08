@@ -469,7 +469,9 @@ def _validate_destination(collection: ProcessorCollection, destination: Path, *,
         # WP04 retains source-present wholly rejected, processed-empty selections.
         valid_empty_invalid = processor.selected_unusable and processor.input_health == "INVALID"
         if not processor.processed or (processor.df.empty and not valid_empty_invalid):
-            message = f"Only processed nonempty or selected-invalid processors can be snapshotted: {processor.file_path}"
+            message = (
+                f"Only processed nonempty or selected-invalid processors can be snapshotted: {processor.file_path}"
+            )
             raise ValueError(message)
         if processor.source_at_processing is None:
             message = f"Missing original processing source signature: {processor.file_path}"
