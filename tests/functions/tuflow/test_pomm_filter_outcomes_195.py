@@ -1,3 +1,5 @@
+# pyright: reportPrivateUsage=false
+# Exercises workflow classifier internals after processing a real POMM input.
 """WP07 #195: a valid POMM location miss must not become a failed input."""
 
 from pathlib import Path
@@ -57,9 +59,7 @@ def test_valid_pomm_excluded_by_locations_remains_skip(tmp_path: Path) -> None:
 def test_malformed_pomm_with_filter_remains_failure(tmp_path: Path) -> None:
     path = tmp_path / "Run_POMM.csv"
     # Missing mandatory transposed columns, not a valid location exclusion.
-    pd.DataFrame({0: ["run", "Location"], 1: ["run", "IncludedLocation"]}).to_csv(
-        path, header=False, index=False
-    )
+    pd.DataFrame({0: ["run", "Location"], 1: ["run", "IncludedLocation"]}).to_csv(path, header=False, index=False)
     processor = POMMProcessor(file_path=path, entity_filter=frozenset({"OtherLocation"}))
     with patch.object(BaseProcessor, "from_file", return_value=processor):
         actual = process_file(path, entity_filters=("OtherLocation",))
