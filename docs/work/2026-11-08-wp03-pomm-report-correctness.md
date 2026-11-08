@@ -2,13 +2,13 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active; native acceptance partial, real RLL/mixed inputs required |
+| Status | Integrated into draft parent #251; native authentic RLL TP/duration provenance accepted as unverified limitation |
 | Owner | WP03 allocation agent |
 | Created | 2026-11-08 |
 | Updated | 2026-11-08 |
 | Next review | 2026-11-15 |
 | Baseline | WP01 parent PR #251 `fix/tlf-hyphenated-variables-239` at `3a6dc23622b062f7d20467025e6e72d7f34addfe`; earlier WP03 work derived from separate PR #207 |
-| Git delivery | Single draft [WP03 #267](https://github.com/Chain-Frost/ryan-tools/pull/267) stacked on [WP01 parent #251](https://github.com/Chain-Frost/ryan-tools/pull/251); #253/#260 retained as superseded review records |
+| Git delivery | [WP03 #267](https://github.com/Chain-Frost/ryan-tools/pull/267) squash-merged into unmerged, draft [parent #251](https://github.com/Chain-Frost/ryan-tools/pull/251) as `9f38d971812d87981b0a94c154b96c5c51608dfc`; #253/#260 closed as superseded review records; `main` unchanged by this integration |
 
 ## Outcome and assigned boundaries
 
@@ -24,7 +24,7 @@ Do not merge main, auto-merge, release, or expand into another pack. Coordinate 
 Proper unique run naming is the model author's responsibility (#234); duplicate-name repair is out of scope.
 Preserve the upper-middle median and greatest nearest-mean representative-duration rule.
 
-## Current state
+## Historical implementation milestones (superseded by the integration update below)
 
 - **#238 separation:** Existing PR #238 remains integrated into separate, unmerged #207.
   The accepted coverage warnings, raster defaults and historical native evidence remain on #207,
@@ -66,7 +66,7 @@ Preserve the upper-middle median and greatest nearest-mean representative-durati
   RLL `Qmax` provides no independent time-series negative minimum and is not equivalent to POMM
   signed absolute-maximum semantics.
 
-## Next action
+## Historical next actions (superseded by the integration update below)
 
 1. Keep all six exact-head CI gates green, including Windows Python 3.14 current-pandas
    full-suite and pandas 2.3.3 focused POMM/culvert compatibility. Investigate only new failures.
@@ -184,3 +184,55 @@ Next action: maintainer supplies suitable real RLL/mixed ensembles; run copied w
 The maintainer identified `tests/test_data/tuflow` as the intended data source. Its four RLL_Qmx files lack TP naming tokens; Module 11 POMM files contain no hydraulic columns. Byte-identical local copies of two Module 11 RLL files and Module 09 POMM files were given explicitly synthetic filename metadata, preserving every original hydraulic value. Both copied installed-wheel wrappers passed 98 independent CSV-to-XLSX comparisons for RLL-only/mixed reporting, statistics, source names, assigned TP, finite counts and governing duration. RLL mean 108.059, nearest actual event 106.803, upper-middle median 109.315 matched exactly. Originals and copies retained matching SHA-256 values. Commands: `python run_followup.py` and `python check_followup.py` from existing private scratch.
 
 [Detailed follow-up evidence](https://github.com/Chain-Frost/ryan-tools/pull/267#issuecomment-6717348747). This proves real-value compatibility under synthetic labels, not authentic RLL TP/duration provenance. Native acceptance remains incomplete at that boundary; the register's open status and 2026-11-15 review date remain appropriate. The current tested wheel stays anchored to dcbec3ae; 1ef7e255 changed only two work-tracking Markdown files and had no returned Actions run/artifact at recheck. This follow-up changes documentation only; do not relabel earlier CI as current-head evidence. No implementation change, merge or release.
+
+### 2026-11-08 — WP03 incorporated into parent #251; bounded RLL exception
+
+**Current authoritative delivery state:** The maintainer directed no further
+authentic real TP/duration-named RLL_Qmx testing. Those original RLL input
+files have no authentic TP/duration tokens. Numerical processing of genuine
+RLL hydraulic values in RLL-only and mixed copied-wrapper XLSX reports
+**passed under explicitly synthetic filename metadata** (98 independent
+comparisons). **Authentic original RLL TP/duration provenance remains
+unverified**, with that gap expressly accepted for integration; it is **not**
+a passing native test. The historical requests above to locate further RLL
+ensembles and repeat that acceptance are superseded by this decision.
+[Native test details](https://github.com/Chain-Frost/ryan-tools/pull/267#issuecomment-6711270903)
+· [RLL follow-up](https://github.com/Chain-Frost/ryan-tools/pull/267#issuecomment-6717348747)
+· [maintainer exception](https://github.com/Chain-Frost/ryan-tools/pull/267#issuecomment-6717796253).
+
+**#207/#238 reconciliation:** Original POMM mean-peak coverage warnings,
+custom sampled-duration/expected TP settings and workbook metadata were
+integrated into WP03 while excluding unrelated #207 raster work. The
+reported **observed sampled TP population** is finite hydraulic
+contributors **plus known unusable observations**; the finite `count_TP`
+and separately reported `hydraulic_population_warning` retain validity
+and partial/unusable semantics. Original #207 coverage regression tests
+and new invalid/zero/partial-bin regressions were added to the WP03
+suite. #207's future raster integration must not restore the previous
+POMM implementation. [Ownership note](https://github.com/Chain-Frost/ryan-tools/pull/207#issuecomment-6717887972).
+
+**Exact WP03 child validation:** Commit
+`815f6cf1ee548c58797422d8842ce2181252913d` passed all six hosted
+Windows Python 3.14 checks. The full suite had **2,580 passed,
+14 skipped, 8 deselected**; the pandas 2.3.3 focused POMM/culvert
+check passed **64 tests**. Ruff, strict Pyright/Policy, Package and
+isolated installed-wheel/copied-wrapper smoke, MCP and security were green.
+[Exact child checks](https://github.com/Chain-Frost/ryan-tools/commit/815f6cf1ee548c58797422d8842ce2181252913d/checks).
+Earlier real POMM/Cmx/UNC installed-wheel validation remains grounded
+in its originally tested wheel/head; it is not a new native run of the
+integrated parent head.
+
+**Git delivery:** [PR #267](https://github.com/Chain-Frost/ryan-tools/pull/267)
+was **squash-merged only into the #251 feature branch** at
+[`9f38d971`](https://github.com/Chain-Frost/ryan-tools/commit/9f38d971812d87981b0a94c154b96c5c51608dfc).
+[#251](https://github.com/Chain-Frost/ryan-tools/pull/251) remains
+**draft, open, unmerged into main**, with other work packs and native
+requirements still outstanding. The parent carries conditional
+`Fixes #227`, `Fixes #218`, `Fixes #216`, `Fixes #217` references,
+effective only upon a **separately authorised** future default-branch merge.
+No issue was manually closed, no auto-merge/release was enabled.
+
+**Next action:** Validate the exact integrated-parent CI and coordinate
+remaining parent work packs/known merge conflicts with main; no further RLL
+TP/duration testing is planned or required for this accepted bounded gap.
+No authorisation exists to merge #251 to main.
