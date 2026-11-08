@@ -986,6 +986,9 @@ class ProcessorCollection:
                             "data_type": processor.data_type,
                             "raw_run_code": processor.name_parser.raw_run_code,
                             "include_path_columns": processor.include_path_columns,
+                            "input_health": processor.input_health,
+                            "rejected_samples": processor.rejected_samples,
+                            "rejection_reasons": dict(processor.rejection_reasons),
                             "entity_filter": sorted(processor.entity_filter) if processor.entity_filter else [],
                             "applied_location_filter": (
                                 sorted(processor.applied_location_filter) if processor.applied_location_filter else []
@@ -1126,7 +1129,31 @@ class ProcessorCollection:
                     msg = f"HDF5 processor configuration mismatches cached source {entry['file_path']}"
                     raise ValueError(msg)
 
+                # Newer snapshots include explicit sample-health evidence; absent
+                # keys in historical version-1 caches retain the legacy OK default.
+                health: Any = entry.get("input_health", "OK")
+                rejection_count: Any = entry.get("rejected_samples", 0)
+                raw_rejections: Any = entry.get("rejection_reasons", {})
+                valid_health = isinstance(health, str) and health in {
+                    "OK", "PARTIAL", "INVALID", "IO_FAILURE", "INCOMPLETE"
+                }
+                valid_count = type(rejection_count) is int and rejection_count >= 0
+                valid_reasons = isinstance(raw_rejections, dict) and all(
+                    isinstance(key, str) and type(value) is int and value >= 0
+                    for key, value in raw_rejections.items()
+                )
+                if not valid_health or not valid_count or not valid_reasons:
+                    msg = f"HDF5 cache member has invalid sample-health metadata: {key}"
+                    raise ValueError(msg)
+                reasons = cast("dict[str, int]", raw_rejections)
+                if sum(reasons.values()) != rejection_count:
+                    msg = f"HDF5 cache member has inconsistent sample rejection counts: {key}"
+                    raise ValueError(msg)
+
                 processor.df = frame
+                processor.input_health = cast("str", health)
+                processor.rejected_samples = cast("int", rejection_count)
+                processor.rejection_reasons = reasons.copy()
                 processor.applied_location_filter = frozenset(entry.get("applied_location_filter", []))
                 processor.applied_entity_filter = frozenset(entry.get("applied_entity_filter", []))
                 processor.processed = True
