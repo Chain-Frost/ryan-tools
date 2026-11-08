@@ -115,9 +115,7 @@ class ProcessorCollection:
         self.basic_info_lookup = lookup_df
         return lookup_df
 
-    def align_eof_channel_ids(
-        self, reference_channel_ids: Mapping[str, Collection[str]] | None = None
-    ) -> int:
+    def align_eof_channel_ids(self, reference_channel_ids: Mapping[str, Collection[str]] | None = None) -> int:
         """Replace shortened EOF channel IDs with full IDs from matching run outputs.
 
         TUFLOW EOF reports can truncate long channel IDs when writing the text
