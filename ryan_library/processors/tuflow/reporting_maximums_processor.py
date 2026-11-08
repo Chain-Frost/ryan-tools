@@ -83,7 +83,7 @@ class ReportingLocationMaximumsProcessor(BaseProcessor):
         if not self._PRIMARY_VALUE or not self._PRIMARY_TIME or not self._MEASUREMENT_TYPE:
             msg = "A reporting-location maximum measurement contract is required."
             raise ValueError(msg)
-        if len(header) != len(required) + 1 or header[1:] != required:
+        if len(header) != len(required) + 1 or tuple(header[1:]) != required:
             msg = f"{self.file_name}: Unsupported {self._LOCATION_KIND} maximum header: {header[1:]!r}."
             raise ValueError(msg)
         if not header[0].strip().startswith(f"{self.name_parser.raw_run_code} ["):
