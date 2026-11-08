@@ -90,7 +90,7 @@ fresh independent review. No main merge, auto-merge, release or manual issue clo
 ### Source and delivery boundary
 
 - Started from the live parent head `63a36d487e7d34961fedf95452f8f83611b9a71b`, not a child head.
-- Isolated branch `fix/wp06-native-acceptance-20261108`; code commit `081c84ab6ac943b5ac0a908f07d4818273beda79`, pushed as draft [PR #271](https://github.com/Chain-Frost/ryan-tools/pull/271) against #251. Subsequent handoff/CI-only commits retain that tested implementation.
+- Isolated branch `fix/wp06-native-acceptance-20261108`; initial implementation `081c84ab6ac943b5ac0a908f07d4818273beda79`, final code **`ea118c6e`**, pushed as draft [PR #271](https://github.com/Chain-Frost/ryan-tools/pull/271) against #251. Subsequent handoff/CI-only commits retain that tested implementation.
   The shared main checkout and unrelated submodules were preserved. Only `tests/test_data` and `qgis-resources`
   were explicitly initialised to satisfy validation/build requirements; `unsorted` was never inspected.
 - Restored #251 to draft because its live state contradicted the review's draft requirement. Parent/main conflicts
@@ -184,6 +184,6 @@ No normal/user Python package was replaced. `smoke_test_installed_wheel.py --exp
 - Maintainer acceptance of these limits, approved integration, final-head review and any main merge remain
   explicit separate steps. #200 remains open and has no issue-closing keyword.
 
-**Delivery checkpoint:** Draft child #271 is pushed. Hosted checks are pending; no fresh independent review has been obtained. Parent #251 remains draft at the recorded baseline and has main merge conflicts owned by integration. The canonical record is updated in the child without directly editing the parent branch.
+**Delivery checkpoint:** Draft child #271 is pushed. Current-head hosted status is separate from the local evidence: see [child checks](https://github.com/Chain-Frost/ryan-tools/pull/271/checks) and the SHA-specific delivery comments on #271/#251. No fresh independent review has been obtained. Parent #251 remains draft at the recorded baseline and has main merge conflicts owned by integration. The canonical record is updated in the child without directly editing the parent branch.
 
 The final wrapper revision is **2026-11-08.2**. Additional real regressions reject untagged rasters unless a source CRS is explicitly supplied and reject hard-linked existing batch outputs before mutation. The final mapped-to-UNC source identity probe also refuses the physical source alias and preserves its bytes. All final package/copied-wrapper checks are repeated with **26.11.8.2**.
