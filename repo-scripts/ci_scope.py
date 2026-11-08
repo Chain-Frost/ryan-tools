@@ -4,13 +4,14 @@ import json
 import os
 import subprocess
 import sys
+import tomllib
 from dataclasses import asdict, dataclass
 from pathlib import Path, PurePosixPath
 
 EXCLUDED_ROOTS = ("vendor", "tests/test_data", "unsorted", "qgis-resources", "excel-resources")
 PYTHON_SUFFIXES = frozenset({".py", ".pyi"})
 MARKDOWN_SUFFIXES = frozenset({".md", ".markdown"})
-RUFF_CONFIG_NAMES = frozenset({"ruff.toml", ".ruff.toml", "pyproject.toml"})
+RUFF_CONFIG_NAMES = frozenset({"ruff.toml", ".ruff.toml"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,9 +69,45 @@ def _existing_files(root: Path, paths: list[str], suffixes: frozenset[str]) -> t
 
 
 def _is_type_config(path: str) -> bool:
-    """Recognise project metadata and every named Pyright project configuration."""
+    """Recognise every named Pyright project configuration."""
     name = PurePosixPath(path).name
-    return name == "pyproject.toml" or (name.startswith("pyright") and name.endswith(".json"))
+    return name.startswith("pyright") and name.endswith(".json")
+
+
+def _pyproject_static_changes(root: Path, *, base_sha: str, head_sha: str) -> tuple[bool, bool]:
+    """Widen static checks for effective tool configuration, not package metadata.
+
+    A version bump, package extra or entry point does not alter Ruff/Pyright
+    rules. If the before/after TOML cannot be read or parsed, fail open to
+    broad lint and typing rather than silently assuming unchanged rules.
+    """
+    try:
+        before = tomllib.loads(_git(root, "show", f"{base_sha}:pyproject.toml"))
+        after = tomllib.loads(_git(root, "show", f"{head_sha}:pyproject.toml"))
+    except (OSError, subprocess.SubprocessError, tomllib.TOMLDecodeError):
+        return True, True
+
+    before_tools = before.get("tool", {})
+    after_tools = after.get("tool", {})
+    before_project = before.get("project", {})
+    after_project = after.get("project", {})
+    before_dev = before_project.get("optional-dependencies", {}).get("dev", [])
+    after_dev = after_project.get("optional-dependencies", {}).get("dev", [])
+
+    def relevant(requirements: list[str], prefixes: tuple[str, ...]) -> tuple[str, ...]:
+        return tuple(sorted(item for item in requirements if item.startswith(prefixes)))
+
+    python_changed = before_project.get("requires-python") != after_project.get("requires-python")
+    ruff_changed = (
+        before_tools.get("ruff") != after_tools.get("ruff")
+        or relevant(before_dev, ("ruff",)) != relevant(after_dev, ("ruff",))
+    )
+    typing_changed = (
+        before_tools.get("pyright") != after_tools.get("pyright")
+        or relevant(before_dev, ("pyright", "pandas-stubs"))
+        != relevant(after_dev, ("pyright", "pandas-stubs"))
+    )
+    return python_changed or ruff_changed, python_changed or typing_changed
 
 
 def determine_scope(root: Path, *, event_name: str, base_sha: str, head_sha: str = "HEAD") -> CIScope:
@@ -82,8 +119,14 @@ def determine_scope(root: Path, *, event_name: str, base_sha: str, head_sha: str
     full = event_name != "pull_request" or not markdown_only
 
     owned_changes = [path for path in changed or [] if _is_first_party(path)]
-    all_lint = changed is None or any(PurePosixPath(path).name in RUFF_CONFIG_NAMES for path in owned_changes)
-    all_types = changed is None or any(_is_type_config(path) for path in owned_changes)
+    pyproject_lint = False
+    pyproject_types = False
+    if "pyproject.toml" in owned_changes:
+        pyproject_lint, pyproject_types = _pyproject_static_changes(root, base_sha=base_sha, head_sha=head_sha)
+    all_lint = changed is None or pyproject_lint or any(
+        PurePosixPath(path).name in RUFF_CONFIG_NAMES for path in owned_changes
+    )
+    all_types = changed is None or pyproject_types or any(_is_type_config(path) for path in owned_changes)
     tracked: list[str] = []
     if all_lint or all_types:
         # Without --recurse-submodules, ls-files lists gitlinks, not their contents.

@@ -238,6 +238,43 @@ def test_configuration_changes_expand_the_affected_static_checks(
     assert result["type_files"] == (all_python if type_all else [])
 
 
+@pytest.mark.parametrize(
+    ("project_content", "lint_all", "type_all"),
+    [
+        ('[project]\nversion = "2"\n[tool.ruff]\nline-length = 120\n', False, False),
+        ('[project]\nversion = "1"\n[tool.ruff]\nline-length = 100\n', True, False),
+        ('[project]\nversion = "1"\n[tool.ruff]\nline-length = 120\n[tool.pyright]\ntypeCheckingMode = "strict"\n', False, True),
+        ('[project]\nversion = "1"\nrequires-python = ">=3.15"\n[tool.ruff]\nline-length = 120\n', True, True),
+    ],
+)
+def test_pyproject_metadata_and_tool_configuration_have_distinct_scopes(
+    repository: Path, project_content: str, *, lint_all: bool, type_all: bool
+) -> None:
+    _write(repository, "typings/types.pyi", "value: int\n")
+    _write(repository, "pyproject.toml", '[project]\nversion = "1"\n[tool.ruff]\nline-length = 120\n')
+    base = _commit(repository)
+    _write(repository, "pyproject.toml", project_content)
+    _commit(repository)
+
+    result = _scope(repository, base)
+    all_python = ["source.py", "typings/types.pyi"]
+    assert result["full"]
+    assert result["lint_files"] == (all_python if lint_all else [])
+    assert result["type_files"] == (all_python if type_all else [])
+
+
+def test_malformed_pyproject_fails_open_to_static_checks(repository: Path) -> None:
+    _write(repository, "pyproject.toml", '[project]\nversion = "1"\n')
+    base = _commit(repository)
+    _write(repository, "pyproject.toml", "[project\nversion = invalid\n")
+    _commit(repository)
+
+    result = _scope(repository, base)
+    assert result["full"]
+    assert result["lint_files"] == ["source.py"]
+    assert result["type_files"] == ["source.py"]
+
+
 def test_changed_python_and_stubs_preserve_spaces_and_unicode(repository: Path) -> None:
     base = _git(repository, "rev-parse", "HEAD")
     paths = ["source with spaces.py", "typings/測試 é.pyi"]
