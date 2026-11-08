@@ -111,29 +111,29 @@ translates that permission error only when a destination has actually appeared; 
 without a destination remains `PermissionError`. Two regression cases prove that distinction.
 
 #200 adds real spatial and publication regressions for source metadata, differing cutline CRS, independent target
-CRS, explicit source override, source hard links, cross-input aliases, batch collisions, failed native warps,
-late/concurrent creators, Windows sharing locks, case aliases, sidecars, dry runs and directory junctions.
+CRS, explicit source override, rejection of untagged sources without an explicit correction, source hard links, cross-input aliases, batch collisions, failed native warps,
+late/concurrent creators, Windows sharing locks, case aliases, hard-linked batch outputs, sidecars, dry runs and directory junctions.
 
 ### Validation matrix
 
 | Check | Result and limits |
 | --- | --- |
 | Focused #232/#197 tests on modified source | **41 passed / one skip**, both mapped SMB and UNC; local final aggregate includes these tests. The skip is the pre-existing directory-symlink privilege case. |
-| Real GDAL #200 regressions | **15 passed locally**; **14 passed / one skip on UNC**. The SMB server cannot create a directory junction (WinError 4390); local junction rejection passes. |
-| Combined focused Python 3.14 suite | **116 passed / one skip**: profile, archive (including hosted-excluded native script tests), cutline, promoted utilities, TLF hyphens and MCP registry/overview tests. |
+| Real GDAL #200 regressions | **17 passed locally**; **16 passed / one skip on UNC**. The SMB server cannot create a directory junction (WinError 4390); local junction rejection passes. |
+| Combined focused Python 3.14 suite | **118 passed / one skip**: profile, archive (including hosted-excluded native script tests), cutline, promoted utilities, TLF hyphens and MCP registry/overview tests. |
 | Ruff/strict Pyright | All 13 parent-diff Python files pass; all newly changed Python files also pass. Compilation, CLI help and Loguru policy pass. |
 | Parent package verification | Rebuilt parent version **26.11.7.13** with `--no-bump --skip-pip`; wheel verification and isolated installed-wheel smoke pass. |
-| Candidate package verification | Built/verified **26.11.8.1** with `--skip-pip`; installed-wheel smoke and all six copied result-wrapper checks pass. |
-| Copied profile wrapper | Real tiny GPKG/TIF inputs on local, mapped SMB and UNC; no-overwrite preserves bytes, explicit overwrite rerenders identical PNG bytes, all input hashes unchanged. Wrapper 2026-11-07.2 uses candidate library 26.11.8.1. |
+| Candidate package verification | Built/verified **26.11.8.2** with `--skip-pip`; installed-wheel smoke and all six copied result-wrapper checks pass. |
+| Copied profile wrapper | Real tiny GPKG/TIF inputs on local, mapped SMB and UNC; no-overwrite preserves bytes, explicit overwrite rerenders identical PNG bytes, all input hashes unchanged. Wrapper 2026-11-07.2 uses candidate library 26.11.8.2. |
 | Copied folder archive wrapper | Real 7-Zip on local, mapped SMB and UNC: dotted sibling names remain distinct, exclusions work, `7z t` and extraction pass, existing archive hashes remain unchanged. |
 | Real native archive races | Local, mapped SMB and UNC: exclusive active claim rejects a second creator; first archive passes `7z t`; a late independent output survives real compression; an unowned writing claim is preserved for inspection. |
 | Genuine split-volume archive | Real `create_7zip_archive(..., max_part_size_gib=1)` on **1,082,130,432 random bytes** produces **two parts: 1,073,741,824 and 8,455,705 bytes**. `7z t`, extraction SHA-256, source preservation and existing-volume preservation pass. Injected second-part interruption rolls back owned published parts and staging. |
 | Native two-part publication on SMB | The genuine locally generated volumes are copied into invocation-owned SMB staging, published through the archive helper, tested with `7z t` and extracted on the share. Both parts retain their sizes; extracted SHA-256 matches the random input. Compression itself was local, not repeated on SMB. |
-| Copied cutline wrapper | Local, mapped SMB and UNC: dry-run creates no output; differing raster/cutline CRS yields 6 by 6 EPSG:4326 output with values 7/-9999 and NoData -9999; default no-overwrite and explicit overwrite behave correctly; source hash unchanged. Wrapper 2026-11-08.1 / library 26.11.8.1. |
+| Copied cutline wrapper | Local, mapped SMB and UNC: dry-run creates no output; differing raster/cutline CRS yields 6 by 6 EPSG:4326 output with values 7/-9999 and NoData -9999; default no-overwrite and explicit overwrite behave correctly; source hash unchanged. Wrapper 2026-11-08.2 / library 26.11.8.2. |
 | OSGeo4W/QGIS read-back | Independently opens local and UNC clipped outputs as valid EPSG:4326, 6 by 6 rasters; extent 115.02,-31.08 to 115.08,-31.02 and decoded values/NoData match. |
 
 The parent wheel's SHA-256 is `94680d87d89948f12dc1bcdd4ccd314eae8089913ee8aec22b23d9ab2b5995d3`.
-The initial candidate wheel's SHA-256 is `acdca51c3df639489b88eab49839896fc0d0a8fcdcf29c7b75d74f871d3d8784`.
+The final 26.11.8.2 candidate wheel's SHA-256 is `848e19d2adfcdf6645cb798616c4c03fbe09c96abcd891702e759e437f9ad285`.
 The copied PNG SHA-256 is `34754ce68eb73568c48d6fc15da703e1a878393badc1a31d638a4147807b0a0a` on all
 three path types. The split input and extracted output both hash to
 `fccc021febf135c355f6247d786adc830ffd28e30a544d3a151a6da546dfdfc3`.
@@ -185,3 +185,5 @@ No normal/user Python package was replaced. `smoke_test_installed_wheel.py --exp
   explicit separate steps. #200 remains open and has no issue-closing keyword.
 
 **Delivery checkpoint:** Draft child #271 is pushed. Hosted checks are pending; no fresh independent review has been obtained. Parent #251 remains draft at the recorded baseline and has main merge conflicts owned by integration. The canonical record is updated in the child without directly editing the parent branch.
+
+The final wrapper revision is **2026-11-08.2**. Additional real regressions reject untagged rasters unless a source CRS is explicitly supplied and reject hard-linked existing batch outputs before mutation. The final mapped-to-UNC source identity probe also refuses the physical source alias and preserves its bytes. All final package/copied-wrapper checks are repeated with **26.11.8.2**.

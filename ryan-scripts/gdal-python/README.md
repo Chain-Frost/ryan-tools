@@ -124,7 +124,7 @@ either a file or a directory, and `--working-directory` retains directory discov
 `gdalwarp_clip_to_polygon.py` clips `.tif` files using each raster's source CRS
 metadata. `--target-crs` independently selects the output CRS (default
 `EPSG:28350`). Use `--source-crs` only to correct missing or incorrect source
-metadata; it does not select the output CRS.
+metadata; untagged rasters require this explicit correction. It does not select the output CRS.
 
 ```powershell
 python gdalwarp_clip_to_polygon.py -i "D:\Rasters" --cutline "D:\Boundary\clip.gpkg" --target-crs EPSG:7850 --dry-run --no-pause

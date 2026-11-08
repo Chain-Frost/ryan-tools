@@ -271,3 +271,29 @@ def test_locked_output_is_preserved(tmp_path: Path) -> None:
     finally:
         close(handle)
     assert not list(tmp_path.glob(".out.tif.staging-*"))
+
+
+def test_untagged_source_requires_explicit_correction(tmp_path: Path) -> None:
+    script = _script()
+    source, cutline = _case(tmp_path)
+    with gdal.Open(str(source), gdal.GA_Update) as ds:
+        ds.SetProjection("")
+    output = tmp_path / "out.tif"
+    assert not script.run_gdalwarp(source, output, cutline, "boundary", "EPSG:4326")
+    assert not output.exists()
+    assert script.run_gdalwarp(source, output, cutline, "boundary", "EPSG:4326", source_crs="EPSG:4326")
+
+
+def test_hardlinked_existing_batch_outputs_fail_before_mutation(tmp_path: Path) -> None:
+    script = _script()
+    source, cutline = _case(tmp_path / "input")
+    other = source.with_name("other.tif")
+    other.write_bytes(source.read_bytes())
+    output = tmp_path / "output"
+    output.mkdir()
+    first = output / "source_clipped.tif"
+    first.write_bytes(b"original output owner")
+    second = output / "other_clipped.tif"
+    os.link(first, second)
+    assert script.main(input_directories=source.parent, cutline=cutline, output_directory=output, overwrite=True) == 1
+    assert first.read_bytes() == second.read_bytes() == b"original output owner"

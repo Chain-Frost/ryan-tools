@@ -16,7 +16,7 @@ from pathlib import Path
 
 # ==============================================================================
 # WRAPPER IDENTITY
-WRAPPER_VERSION = "2026-11-08.1"
+WRAPPER_VERSION = "2026-11-08.2"
 
 # EDITABLE DEFAULTS
 DEFAULT_INPUT_DIR = Path()
@@ -145,6 +145,10 @@ def run_gdalwarp(
         _reject_links(input_file)
         _reject_links(cutline_path)
         _validate_destination(output_file, protected, overwrite=overwrite)
+        with gdal.Open(str(input_file)) as source:  # type: ignore
+            if source is None or (source_crs is None and not source.GetProjectionRef()):  # type: ignore
+                msg = "Source raster needs CRS metadata or an explicit --source-crs correction"
+                raise ValueError(msg)
         output_file.parent.mkdir(parents=True, exist_ok=True)
         warp_options = gdal.WarpOptions(  # type: ignore
             format="GTiff",
@@ -234,13 +238,17 @@ def main(
             raise ValueError(msg)
         protected = (shapefile, *seen_sources)
         destinations: set[str] = set()
+        output_paths: list[Path] = []
         for _source, output in plans:
             _validate_destination(output, protected, overwrite=replace)
             key = _identity(output)
-            if key in destinations:
+            if key in destinations or any(
+                output.exists() and previous.exists() and output.samefile(previous) for previous in output_paths
+            ):
                 msg = f"Batch output collision: {output}"
                 raise ValueError(msg)
             destinations.add(key)
+            output_paths.append(output)
         layer = select_cutline_layer(shapefile)
         if layer is None:
             return 1
