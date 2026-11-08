@@ -10,6 +10,7 @@ unit-tested independently of the orchestration layer.
 
 __lazy_modules__ = ["pandas"]
 
+from math import isfinite
 from typing import cast
 
 import pandas as pd
@@ -30,12 +31,14 @@ def first_value(series: pd.Series) -> str:
 
 
 def timestep_from_series(time_values: pd.Series) -> float | None:
-    """Return the timestep using the first two numeric time values."""
-    numeric = pd.to_numeric(time_values, errors="coerce").dropna().unique()
-    if len(numeric) < 2:
+    """Return the timestep using the first two finite, distinct time values."""
+    numeric = pd.to_numeric(time_values, errors="coerce")
+    finite_times = numeric[numeric.notna() & numeric.abs().ne(float("inf"))].unique()
+    if len(finite_times) < 2:
         return None
-    sorted_times: pd.Series = pd.Series(numeric).sort_values(ignore_index=True)
-    return float(sorted_times.iloc[1] - sorted_times.iloc[0])
+    sorted_times: pd.Series = pd.Series(finite_times).sort_values(ignore_index=True)
+    timestep = float(sorted_times.iloc[1] - sorted_times.iloc[0])
+    return timestep if isfinite(timestep) and timestep > 0 else None
 
 
 def collect_po_data(collection: ProcessorCollection) -> DataFrame:
@@ -49,7 +52,12 @@ def calculate_threshold_durations(
     thresholds: list[float],
     measurement_type: str,
 ) -> DataFrame:
-    """Return a DataFrame of duration exceedances for the requested measurement type."""
+    """Return one closure observation for every observed event and threshold.
+
+    Zero exceedances are a valid closure of zero hours. Invalid samples or an
+    unusable timestep make the event unusable, not a dry event: its duration is
+    NaN and it remains visible in the raw population and summary counts.
+    """
     if po_df.empty:
         return DataFrame()
 
@@ -57,7 +65,7 @@ def calculate_threshold_durations(
     filtered["Type"] = filtered["Type"].astype(str).str.strip()
     filtered = filtered[filtered["Type"].str.lower() == measurement_type.lower()]
     if filtered.empty:
-        logger.warning(f"No PO rows found for measurement type '{measurement_type}'. Skipping.")
+        logger.warning("No PO rows found for measurement type '{}'. Skipping.", measurement_type)
         return DataFrame()
 
     group_keys: list[str] = [
@@ -75,15 +83,22 @@ def calculate_threshold_durations(
 
     filtered["Time"] = pd.to_numeric(filtered["Time"], errors="coerce")
     filtered["Value"] = pd.to_numeric(filtered["Value"], errors="coerce")
-    filtered = filtered.dropna(subset=["Time", "Value", "Location"])
+    filtered = filtered.dropna(subset=["Location"])
 
     records: list[dict[str, object]] = []
     for _, group in filtered.groupby(available_keys, dropna=False, observed=False):
-        timestep: float | None = timestep_from_series(time_values=group["Time"])
-        if timestep is None:
-            location_label: str = first_value(group["Location"])
-            logger.warning(f"Unable to determine timestep for group with Location '{location_label}'. Skipping.")
-            continue
+        timestep = timestep_from_series(time_values=group["Time"])
+        # -99999 is TUFLOW's documented no-data marker; negative flows and
+        # ordinary zeroes remain legitimate hydraulic observations.
+        valid_time = group["Time"].notna() & group["Time"].abs().ne(float("inf")) & group["Time"].ne(-99999.0)
+        valid_value = group["Value"].notna() & group["Value"].abs().ne(float("inf")) & group["Value"].ne(-99999.0)
+        valid_event = timestep is not None and bool((valid_time & valid_value).all())
+        if not valid_event:
+            logger.warning(
+                "Unusable PO event at location '{}': missing/nonfinite sample, no-data marker or timestep; "
+                "closure will not be reported as zero.",
+                first_value(group["Location"]),
+            )
 
         out_path: str = first_value(series=group["directory_path"]) if "directory_path" in group.columns else ""
         trim_runcode: str = first_value(series=group["trim_runcode"]) if "trim_runcode" in group.columns else ""
@@ -93,9 +108,11 @@ def calculate_threshold_durations(
         location: str = first_value(series=group["Location"])
 
         for threshold in thresholds:
-            exceed_count: int = int((group["Value"] > threshold).sum())
-            if exceed_count == 0:
-                continue
+            closure_hours = (
+                float((group["Value"] > threshold).sum()) * timestep
+                if valid_event and timestep is not None
+                else float("nan")
+            )
             records.append(
                 {
                     "AEP": aep,
@@ -103,9 +120,10 @@ def calculate_threshold_durations(
                     "TP": tp,
                     "Location": location,
                     "ThresholdFlow": float(threshold),
-                    "Duration_Exceeding": float(exceed_count) * timestep,
+                    "Duration_Exceeding": closure_hours,
                     "out_path": out_path,
                     "trim_runcode": trim_runcode,
+                    "Event_Status": "OK" if valid_event else "UNUSABLE",
                 }
             )
 
@@ -113,11 +131,12 @@ def calculate_threshold_durations(
 
 
 def summarise_results(df: DataFrame) -> DataFrame:
-    """Summarise closure duration results."""
+    """Summarise each observed scenario without manufacturing missing closures."""
     from ..pandas.median_calc import median_stats as median_stats_func
 
     final_columns: list[str] = [
         "Path",
+        "trim_runcode",
         "Location",
         "ThresholdFlow",
         "AEP",
@@ -129,37 +148,31 @@ def summarise_results(df: DataFrame) -> DataFrame:
         "Average_Value",
         "Closest_Tpcrit",
         "Closest_Value",
+        "count_TP_aep",
+        "count_unusable_TP_aep",
+        "count_duration",
+        "count_duration_unusable",
+        "tp_population_status",
     ]
-    # Capture the full set of (Duration, TP) combinations for each location/AEP so that
-    # thresholds which do not exceed for a given combination can still contribute zeros
-    # to the summary statistics.  Without this we would discard zeros entirely and the
-    # medians could erroneously increase as the threshold increased.
-    scenario_keys: list[str] = ["Duration", "TP"]
-    if "trim_runcode" in df.columns:
-        scenario_keys.insert(0, "trim_runcode")
-    combo_columns: list[str] = ["out_path", "Location", "AEP", *scenario_keys]
-    combo_lookup: dict[tuple[str, str, str], DataFrame] = {}
-    for key, combo_group in df.loc[:, combo_columns].drop_duplicates().groupby(["out_path", "Location", "AEP"]):
-        combo_key: tuple[str, str, str] = cast("tuple[str, str, str]", key)
-        combo_lookup[combo_key] = combo_group.loc[:, scenario_keys].drop_duplicates().reset_index(drop=True)
+    if df.empty:
+        return DataFrame(columns=final_columns)
 
-    grouped = df.groupby(["out_path", "Location", "ThresholdFlow", "AEP"])
+    observations = df.copy()
+    if "trim_runcode" not in observations.columns:
+        observations["trim_runcode"] = ""
+
+    grouped = observations.groupby(["out_path", "trim_runcode", "Location", "ThresholdFlow", "AEP"], dropna=False)
     records: list[dict[str, object]] = []
     for name, group in grouped:
-        path, location, threshold, aep = cast("tuple[str, str, float, str]", name)
-        combos: DataFrame | None = combo_lookup.get((path, location, aep))
-        if combos is not None:
-            expanded_group = combos.merge(right=group, on=scenario_keys, how="left")
-            expanded_group["AEP"] = expanded_group["AEP"].fillna(aep)
-            expanded_group["out_path"] = expanded_group["out_path"].fillna(path)
-            expanded_group["Location"] = expanded_group["Location"].fillna(location)
-            expanded_group["ThresholdFlow"] = expanded_group["ThresholdFlow"].fillna(threshold)
-            expanded_group["Duration_Exceeding"] = expanded_group["Duration_Exceeding"].fillna(0.0)
-        else:
-            expanded_group = group
-
-        stats, _ = median_stats_func(expanded_group, "Duration_Exceeding", "TP", "Duration")
-        row: list[object] = [path, location, threshold, aep]
+        path, run_code, location, threshold, aep = cast("tuple[str, str, str, float, str]", name)
+        # Existing TP/source tie-breaking in median_stats is deterministic
+        # when tp_text is present; raw closure observations use the TP column.
+        group_for_stats = group.assign(tp_text=group["TP"].astype("string"))
+        stats, _ = median_stats_func(group_for_stats, "Duration_Exceeding", "TP", "Duration")
+        count_valid = stats.get("count_TP_aep", 0)
+        count_unusable = stats.get("count_unusable_TP_aep", 0)
+        population_status = "UNUSABLE" if count_valid == 0 else ("PARTIAL" if count_unusable else "OK")
+        row: list[object] = [path, run_code, location, threshold, aep]
         row.extend(
             [
                 stats.get("median"),
@@ -170,6 +183,11 @@ def summarise_results(df: DataFrame) -> DataFrame:
                 stats.get("mean_including_zeroes"),
                 stats.get("median_TP"),
                 stats.get("median"),
+                count_valid,
+                count_unusable,
+                stats.get("count_duration", 0),
+                stats.get("count_duration_unusable", 0),
+                population_status,
             ]
         )
         records.append(dict(zip(final_columns, row, strict=True)))
