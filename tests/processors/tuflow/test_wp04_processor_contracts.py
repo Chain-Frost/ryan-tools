@@ -6,6 +6,7 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
+from ryan_library.functions.tuflow.pomm_utils import find_aep_dur_max
 from ryan_library.functions.tuflow.po_timeseries_checks import (
     PeakCheckConfig,
     StabilityCheckConfig,
@@ -13,6 +14,9 @@ from ryan_library.functions.tuflow.po_timeseries_checks import (
     analyze_stability_csv,
     analyze_stability_q_csv,
 )
+from ryan_library.functions.tuflow.tuflow_common import _result_status
+from ryan_library.orchestrators.tuflow.peak_check_po_csvs import _file_outcome as _peak_file_outcome
+from ryan_library.orchestrators.tuflow.tuflow_timeseries_stability import _file_outcome as _stability_file_outcome
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.maximums_1d.NmxProcessor import NmxProcessor
 from ryan_library.processors.tuflow.other_processors.POMMProcessor import POMMProcessor
@@ -104,7 +108,9 @@ def test_q_success_failure_recovery_and_invalid_time_axes(tmp_path: Path) -> Non
     assert processor.df["Q"].tolist() == [0.0, 7.0]
 
 
-def _pomm_path(folder: Path, *, upstream_max: str = "40.9482", upstream_min: str = "-99999") -> Path:
+def _pomm_path(
+    folder: Path, *, upstream_max: str = "40.9482", upstream_min: str = "-99999", run_code: str = RUN
+) -> Path:
     headings = [
         "Location",
         "Time",
@@ -115,14 +121,14 @@ def _pomm_path(folder: Path, *, upstream_max: str = "40.9482", upstream_min: str
     ]
     raw = pd.DataFrame(
         {
-            0: [RUN] * 6,
+            0: [run_code] * 6,
             1: headings,
             2: ["U/S Structure Water Level", "Bridge", upstream_max, "1", upstream_min, "2"],
             3: ["D/S Structure Water Level", "Bridge", "40.7525", "1", "-99999", "2"],
             4: ["Flow", "Bridge", "-5", "1", "0", "2"],
         }
     )
-    path = folder / f"{RUN}_POMM.csv"
+    path = folder / f"{run_code}_POMM.csv"
     raw.to_csv(path, index=False, header=False)
     return path
 
@@ -151,8 +157,9 @@ def test_pomm_all_missing_extrema_not_accepted_as_success(tmp_path: Path) -> Non
     processor = POMMProcessor(file_path=path)
     processor.process()
     assert processor.processed  # The other level and flow remain valid.
-    assert len(processor.df) == 2
+    assert len(processor.df) == 3
     assert processor.input_health == "PARTIAL"
+    assert processor.df.loc[processor.df["Type"] == "U/S Structure Water Level", "AbsMax"].isna().all()
 
     raw = pd.read_csv(path, header=None)
     for column in (2, 3, 4):
@@ -162,8 +169,41 @@ def test_pomm_all_missing_extrema_not_accepted_as_success(tmp_path: Path) -> Non
     raw.iloc[4, 4] = "**********"
     raw.to_csv(path, index=False, header=False)
     processor.process()
-    assert not processor.processed
-    assert processor.df.empty
+    # Structurally readable observations remain in the collection for
+    # all-invalid event population counts, but the file is a FAIL, not OK.
+    assert processor.processed
+    assert processor.input_health == "INVALID"
+    assert _result_status(processor) == "FAIL"
+    assert processor.df["AbsMax"].isna().all()
+
+
+def test_pomm_keeps_unusable_tp_provenance_for_population_counts(tmp_path: Path) -> None:
+    valid = POMMProcessor(file_path=_pomm_path(tmp_path))
+    invalid = POMMProcessor(
+        file_path=_pomm_path(
+            tmp_path,
+            run_code=RUN.replace("TP01", "TP02"),
+            upstream_max="-99999",
+            upstream_min="-99999",
+        )
+    )
+    valid.process()
+    invalid.process()
+    assert valid.processed and invalid.processed
+    collection = ProcessorCollection()
+    collection.add_processor(valid)
+    collection.add_processor(invalid)
+
+    raw = collection.pomm_combine()
+    upstream = raw.loc[raw["Type"] == "U/S Structure Water Level"]
+    assert len(upstream) == 2
+    assert upstream["AbsMax"].notna().sum() == 1
+    selected = find_aep_dur_max(raw)
+    winning = selected.loc[selected["Type"] == "U/S Structure Water Level"].iloc[0]
+    assert winning["AbsMax"] == pytest.approx(40.9482)
+    assert winning["count_TP"] == 1
+    assert winning["count_unusable_TP"] == 1
+    assert winning["tp_population_status"] == "PARTIAL"
 
 
 def test_po_mask_sentinel_before_absolute_values_with_valid_zero_and_negative(tmp_path: Path) -> None:
@@ -315,6 +355,9 @@ def test_qa_rejects_bad_po_time_and_row_width(tmp_path: Path, csv_data: str, exp
     result = analyze_stability_csv(path, _stability_config())
     assert len(result) == 1
     assert result[0].status == expected
+    assert result[0].input_health == "INVALID"
+    assert _peak_file_outcome([{"status": expected, "input_health": "INVALID"}]) == "FAIL"
+    assert _stability_file_outcome([{"status": expected, "input_health": "INVALID"}]) == "FAIL"
 
 
 def test_q_qa_rejects_nonmonotonic_and_malformed_input(tmp_path: Path) -> None:
@@ -322,6 +365,7 @@ def test_q_qa_rejects_nonmonotonic_and_malformed_input(tmp_path: Path) -> None:
     result = analyze_stability_q_csv(path, _stability_config())
     assert len(result) == 1
     assert result[0].status == "INVALID_TIME_AXIS"
+    assert result[0].input_health == "INVALID"
 
 
 def test_qa_rejects_invalid_tolerance_configuration(tmp_path: Path) -> None:

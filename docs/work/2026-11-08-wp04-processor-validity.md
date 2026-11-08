@@ -26,6 +26,10 @@
   recognised structure water levels before PO `AbsValue`, POMM
   `AbsMax`/`SignedAbsMax`, timeseries H and PO QA. Usable POMM maxima
   survive a missing minimum; wholly unusable extrema do not rank as zero.
+  Unusable POMM rows retain NaN extrema and event/TP provenance for
+  `pomm_utils` population counts. All-invalid POMM files can remain
+  structurally processed for aggregation but are classified as workflow FAIL
+  by `input_health="INVALID"`.
   Negative discharge, negative level datums and real zero remain valid.
 - QA: report rejected-sample counts/reasons, partial/invalid input health and
   separate hydraulic heuristic status. Reject malformed-width CSV records,
