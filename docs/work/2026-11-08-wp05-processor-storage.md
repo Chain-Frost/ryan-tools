@@ -107,3 +107,30 @@ A fresh [review finding](https://github.com/Chain-Frost/ryan-tools/pull/254#disc
 The first fully refreshed #254 Windows hosted run at `2243d6a5` passed Ruff/Policy/Package/MCP/security but found **two real regressions** among 2,791 passing tests. The rollback→WAL test used a `with sqlite3.connect(...)` context that commits but does **not close** the SQLite connection; it now closes explicitly before asserting that the last writer removed both WAL sidecars. More importantly, the owned source copy bypassed SQLite's exclusive rollback-journal lock and could read an uncommitted database snapshot. The source preflight now includes the rollback `-journal` in its before/after file signatures and **fails closed whenever a journal is present**, rather than returning uncommitted values. The existing exclusive-writer test must remain a refusal. The acceptance boundary for nonstandard `journal_mode=OFF` or unsupported network locks is not expanded. Confirm exact-head hosted and Windows/UNC/SMB behaviour before accepting this work pack.
 
 The actual [Codex P2 rollback-to-WAL transition finding](https://github.com/Chain-Frost/ryan-tools/pull/254#discussion_r4505510849) is addressed by staging all source modes instead of opening the source directly; previous stored drafts incorrectly used a provisional comment ID.
+
+
+### Native follow-up: leave ccA styling to the TUFLOW QGIS plugin
+
+The maintained `apply_qgis_styles_to_results.py` wrapper no longer selects
+`Results1D` shapefiles/GeoPackages for ccA styling. Standalone `1d_ccA_L`
+files were already absent from the default mapping. The TUFLOW QGIS plugin
+now provides the built-in ccA style, so this script leaves both forms alone.
+Existing result files and QML sidecars are preserved; raster mappings remain.
+The wrapper revision is `2026-11-08.1`.
+
+Validation on Windows 10/Python 3.14.6: seven existing styling tests pass;
+Ruff lint/format, strict modified-file Pyright, compilation and documentation
+links pass. Disposable source and extracted-wheel probes verify zero SQLite
+opens, unchanged hashes for ccA/Results1D inputs and existing QML sidecars,
+and successful depth-raster QML creation in root and nested folders. Copied
+wrapper `--help` succeeds against source and wheel. This mapping removal
+requires no new MCP exposure; the existing public workflow remains the same.
+
+The no-bump build retains package version `26.11.8.2`; wheel SHA256 is
+`59ad1ed511ae7633e796db9f43744ba357054e55fa88f642a3e5d15cc5a63f5b`.
+The wheel is a local ignored build artifact, not a published release or a
+global installation. The existing source checkout and submodules remain untouched.
+Delivery is on the existing draft #254; current-head hosted checks remain to
+be reviewed. This styling change does not clear WAL/share shutdown acceptance
+or the missing-PyTables HDF gate. Native reports remain under #254/#261.
+Next review: 2026-11-15. No parent/main merge, release or issue closure.

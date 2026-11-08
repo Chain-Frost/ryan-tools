@@ -9,6 +9,10 @@ script need not be migrated into a wrapper or an orchestrator merely to remain
 maintained; historical/versioned snapshots retain their intentional behaviour.
 The TUFLOW runner and its command TXT exports target Windows.
 
+The `gis_processing/apply_qgis_styles_to_results.py` wrapper leaves `1d_ccA`
+layers, including those inside `Results1D.gpkg`, to the built-in styling in
+the TUFLOW QGIS plugin. It does not style these layers by default.
+
 ## Input checker reports
 
 The simulation runner reports input findings with the run number, TCF and
