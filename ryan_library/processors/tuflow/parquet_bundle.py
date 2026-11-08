@@ -311,9 +311,9 @@ def _checked_members(directory: Path, entries: list[dict[str, Any]], lookup: dic
         raise ValueError(message)
 
 
-def _validate_inventory(
+def _validate_inventory(  # noqa: C901
     payload: dict[str, Any],
-) -> tuple[list[dict[str, Any]], dict[str, Any] | None, str]:  # noqa: C901
+) -> tuple[list[dict[str, Any]], dict[str, Any] | None, str]:
     if payload.get("format") != _FORMAT or payload.get("version") != _FORMAT_VERSION:
         message = "Unsupported Parquet directory format or version"
         raise ValueError(message)
@@ -355,9 +355,9 @@ def _validate_inventory(
     return entries, lookup, generation
 
 
-def _checked_manifest(
+def _checked_manifest(  # noqa: C901
     path: Path,
-) -> tuple[dict[str, Any], Path, list[dict[str, Any]], dict[str, Any] | None]:  # noqa: C901
+) -> tuple[dict[str, Any], Path, list[dict[str, Any]], dict[str, Any] | None]:
     if not path.is_dir() or _unsafe_link(path):
         message = f"Parquet collection path must be a real directory: {path}"
         raise ValueError(message)
@@ -522,13 +522,13 @@ def _recheck_staged(stage: Path, entries: list[dict[str, Any]], lookup: dict[str
         _verify_member(stage, entry)
 
 
-def write_collection_bundle(
+def write_collection_bundle(  # noqa: C901
     collection: ProcessorCollection,
     directory: Path | str,
     *,
     overwrite: bool = False,
     verify_sources: bool = True,
-) -> None:  # noqa: C901
+) -> None:
     """Write a complete Parquet dataset directory, preserving the prior generation on failure."""
     destination = Path(directory).absolute()
     _validate_destination(collection, destination, overwrite=overwrite)
@@ -593,13 +593,13 @@ def write_collection_bundle(
             lock_path.unlink(missing_ok=True)
 
 
-def read_collection_bundle(
+def read_collection_bundle(  # noqa: C901
     directory: Path | str,
     locations: Collection[str] | None = None,
     *,
     data_types: Collection[str] | None = None,
     verify_sources: bool = True,
-) -> ProcessorCollection:  # noqa: C901
+) -> ProcessorCollection:
     """Restore selected trusted native processors without reading unrelated Parquet tables.
 
     With verify_sources=False, only source freshness is skipped; schema,
