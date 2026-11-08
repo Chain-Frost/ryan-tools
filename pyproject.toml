@@ -37,7 +37,7 @@ dependencies = [
   "cryptography>=3.1",
   "ezdxf",
   "rich",
-  "pytuflow>=1.2,<2",
+  "pytuflow>=1.2",
   "run-hy8>=2026.10.16.1",
   'ryan-culverts>=26.10.16.1',
 ]
@@ -84,9 +84,6 @@ Repository = "https://github.com/Chain-Frost/ryan-tools"
 include-package-data = true
 
 [tool.setuptools.package-data]
-"vendor" = ["README.md"]
-"vendor.PyHMA" = ["README.md", "LICENSE"]
-"vendor.simil" = ["README.md", "LICENSE"]
 "ryan_library.classes" = ["*.json"]
 "ryan_library.resources.mcp" = ["*.json"]
 "ryan_library.resources.qgis.tuflow" = ["*.qml"]
@@ -101,6 +98,9 @@ include-package-data = true
   "runs/*.tcf",
   "runs/*.trd",
 ]
+"vendor" = ["README.md"]
+"vendor.PyHMA" = ["README.md", "LICENSE"]
+"vendor.simil" = ["README.md", "LICENSE"]
 
 [tool.setuptools.packages.find]
 exclude = [
@@ -135,15 +135,14 @@ where = [".", "ryan-scripts/TUFLOW-python"]
 extraPaths = ["vendor"]
 include = ["ryan_library", "ryan-scripts"]
 pythonVersion = "3.14"
-typeCheckingMode = "strict"
 reportUnnecessaryTypeIgnoreComment = "error"
+typeCheckingMode = "strict"
 
 [[tool.pyright.executionEnvironments]]
-root = "repo-scripts"
 extraPaths = ["repo-scripts", ".", "vendor"]
+root = "repo-scripts"
 
 [[tool.pyright.executionEnvironments]]
-root = "tests/scripts/promoted_scripts"
 extraPaths = [
   ".",
   "vendor",
@@ -155,7 +154,8 @@ extraPaths = [
   "ryan-scripts/hydrology-python",
   "ryan-scripts/other",
 ]
+root = "tests/scripts/promoted_scripts"
 
 [[tool.pyright.executionEnvironments]]
-root = "."
 extraPaths = ["vendor"]
+root = "."
