@@ -1135,7 +1135,11 @@ class ProcessorCollection:
                 rejection_count: Any = entry.get("rejected_samples", 0)
                 raw_rejections: Any = entry.get("rejection_reasons", {})
                 valid_health = isinstance(health, str) and health in {
-                    "OK", "PARTIAL", "INVALID", "IO_FAILURE", "INCOMPLETE"
+                    "OK",
+                    "PARTIAL",
+                    "INVALID",
+                    "IO_FAILURE",
+                    "INCOMPLETE",
                 }
                 valid_count = type(rejection_count) is int and rejection_count >= 0
                 valid_reasons = isinstance(raw_rejections, dict) and all(
