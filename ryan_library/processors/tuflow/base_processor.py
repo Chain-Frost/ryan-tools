@@ -75,6 +75,11 @@ class BaseProcessor(ABC):
     df: pd.DataFrame = field(default_factory=pd.DataFrame)
     raw_df: pd.DataFrame = field(default_factory=pd.DataFrame)
     processed: bool = field(default=False)
+    # Snapshot-compatible health fields; native WP04 processors populate these during parsing.
+    filtered_empty: bool = field(default=False, init=False)
+    input_health: str = field(default="OK", init=False)
+    rejected_samples: int = field(default=0, init=False)
+    rejection_reasons: dict[str, int] = field(default_factory=dict, init=False)
     # An immutable input fingerprint captured before processing, not when exporting.
     source_at_processing: dict[str, object] | None = field(default=None, init=False, repr=False)
     source_entity_presence: dict[str, list[str]] = field(default_factory=dict, init=False, repr=False)

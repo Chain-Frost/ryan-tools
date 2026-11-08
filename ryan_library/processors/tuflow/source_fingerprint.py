@@ -14,7 +14,8 @@ def source_signature(source: Path) -> dict[str, object]:
     """Record the source file's path, size, nanosecond mtime and GPKG WAL state."""
     path = source.absolute()
     if not path.is_file():
-        raise FileNotFoundError(f"Processor source is missing or not a file: {path}")
+        message = f"Processor source is missing or not a file: {path}"
+        raise FileNotFoundError(message)
     stat = path.stat()
     result: dict[str, object] = {
         "path": str(path),

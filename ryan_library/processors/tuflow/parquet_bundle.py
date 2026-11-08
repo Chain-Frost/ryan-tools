@@ -145,7 +145,8 @@ def _entity_evidence(processor: BaseProcessor) -> tuple[dict[str, list[str]], di
 def _source_entry(processor: BaseProcessor, index: int) -> dict[str, Any]:
     captured = processor.source_at_processing
     if captured is None or not isinstance(captured.get("path"), str):
-        raise ValueError(f"Processor has no pre-processing source fingerprint: {processor.file_path}")
+        message = f"Processor has no pre-processing source fingerprint: {processor.file_path}"
+        raise ValueError(message)
     source_entities, frame_entities = _entity_evidence(processor)
     raw_rejections: object = getattr(processor, "rejection_reasons", {})
     rejections = dict(raw_rejections) if isinstance(raw_rejections, dict) else {}
@@ -187,10 +188,12 @@ def _sha_file(path: Path) -> dict[str, Any]:
 def _check_source(entry: dict[str, Any]) -> None:
     source = entry["source"]
     if not isinstance(source, dict) or not isinstance(source.get("path"), str):
-        raise ValueError("Parquet directory has invalid source identity")
+        message = "Parquet directory has invalid source identity"
+        raise ValueError(message)
     path = Path(source["path"])
     if _source_signature(path) != source:
-        raise ValueError(f"Parquet directory source has changed: {path}")
+        message = f"Parquet directory source has changed: {path}"
+        raise ValueError(message)
 
 
 def _all_sources_unchanged(entries: list[dict[str, Any]]) -> None:
@@ -200,20 +203,27 @@ def _all_sources_unchanged(entries: list[dict[str, Any]]) -> None:
 
 def _validate_destination(collection: ProcessorCollection, destination: Path, *, overwrite: bool) -> None:
     if destination.suffix.casefold() in {".parquet", ".rtparquet"}:
-        raise ValueError("Collection snapshots require a directory (e.g. results.parquetdir), not a Parquet file")
+        message = "Collection snapshots require a directory (e.g. results.parquetdir), not a Parquet file"
+        raise ValueError(message)
     if destination.is_symlink() or (hasattr(destination, "is_junction") and destination.is_junction()):
-        raise ValueError(f"Refusing linked Parquet directory destination: {destination}")
+        message = f"Refusing linked Parquet directory destination: {destination}"
+        raise ValueError(message)
     if destination.exists() and not destination.is_dir():
-        raise ValueError(f"Refusing non-directory Parquet destination: {destination}")
+        message = f"Refusing non-directory Parquet destination: {destination}"
+        raise ValueError(message)
     if destination.exists() and not overwrite:
-        raise FileExistsError(f"Parquet directory already exists (set overwrite=True): {destination}")
+        message = f"Parquet directory already exists (set overwrite=True): {destination}"
+        raise FileExistsError(message)
     for processor in collection.processors:
         if not processor.processed or processor.df.empty:
-            raise ValueError(f"Only processed nonempty processors can be snapshotted: {processor.file_path}")
+            message = f"Only processed nonempty processors can be snapshotted: {processor.file_path}"
+            raise ValueError(message)
         if processor.source_at_processing is None:
-            raise ValueError(f"Missing original processing source signature: {processor.file_path}")
+            message = f"Missing original processing source signature: {processor.file_path}"
+            raise ValueError(message)
         if destination == processor.resolved_file_path or destination in processor.resolved_file_path.parents:
-            raise ValueError(f"Parquet directory aliases a source path: {destination}")
+            message = f"Parquet directory aliases a source path: {destination}"
+            raise ValueError(message)
 
 
 def _stage_tables(collection: ProcessorCollection, stage: Path, entries: list[dict[str, Any]]) -> dict[str, Any] | None:
@@ -248,7 +258,8 @@ def _manifest_bytes(
     }
     encoded = json.dumps(manifest, ensure_ascii=False, sort_keys=True, allow_nan=False).encode("utf-8")
     if len(encoded) > _MAX_MANIFEST_SIZE:
-        raise ValueError("Parquet directory manifest exceeds supported size")
+        message = "Parquet directory manifest exceeds supported size"
+        raise ValueError(message)
     return encoded
 
 
@@ -288,36 +299,48 @@ def _checked_members(directory: Path, entries: list[dict[str, Any]], lookup: dic
     actual: set[str] = set()
     for file in directory.rglob("*"):
         if _unsafe_link(file):
-            raise ValueError("Parquet directory contains a linked member")
+            message = "Parquet directory contains a linked member"
+            raise ValueError(message)
         if file.is_file():
             actual.add(file.relative_to(directory).as_posix())
         elif not file.is_dir():
-            raise ValueError("Parquet directory contains an unsupported member")
+            message = "Parquet directory contains an unsupported member"
+            raise ValueError(message)
     if actual != expected:
-        raise ValueError("Parquet directory contains missing or unexpected members")
+        message = "Parquet directory contains missing or unexpected members"
+        raise ValueError(message)
 
 
-def _validate_inventory(payload: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, Any] | None, str]:
+def _validate_inventory(
+    payload: dict[str, Any],
+) -> tuple[list[dict[str, Any]], dict[str, Any] | None, str]:  # noqa: C901
     if payload.get("format") != _FORMAT or payload.get("version") != _FORMAT_VERSION:
-        raise ValueError("Unsupported Parquet directory format or version")
+        message = "Unsupported Parquet directory format or version"
+        raise ValueError(message)
     if payload.get("processor_registry_sha256") != _registry_digest():
-        raise ValueError("Parquet directory registry differs from installed processor registry")
+        message = "Parquet directory registry differs from installed processor registry"
+        raise ValueError(message)
     if payload.get("processing_semantics_sha256") != _semantics_digest():
-        raise ValueError("Parquet directory processing semantics have changed")
+        message = "Parquet directory processing semantics have changed"
+        raise ValueError(message)
     generation = payload.get("active_generation")
     if not isinstance(generation, str) or (generation != "." and not _GENERATION_RE.fullmatch(generation)):
-        raise ValueError("Invalid Parquet directory generation path")
+        message = "Invalid Parquet directory generation path"
+        raise ValueError(message)
     raw_entries: object = payload.get("processors")
     if not isinstance(raw_entries, list):
-        raise ValueError("Parquet directory processor inventory is invalid")
+        message = "Parquet directory processor inventory is invalid"
+        raise ValueError(message)
     entries: list[dict[str, Any]] = []
     for index, raw_entry in enumerate(raw_entries):
         if not isinstance(raw_entry, dict) or raw_entry.get("member") != f"processors/{index:06d}.parquet":
-            raise ValueError("Invalid or duplicate Parquet directory processor member path")
+            message = "Invalid or duplicate Parquet directory processor member path"
+            raise ValueError(message)
         entries.append(cast("dict[str, Any]", raw_entry))
     raw_lookup: object = payload.get("basic_info_lookup")
     if raw_lookup is not None and (not isinstance(raw_lookup, dict) or raw_lookup.get("member") != _LOOKUP):
-        raise ValueError("Invalid Parquet directory lookup member path")
+        message = "Invalid Parquet directory lookup member path"
+        raise ValueError(message)
     lookup = cast("dict[str, Any] | None", raw_lookup)
     for entry in [*entries, *([lookup] if lookup is not None else [])]:
         sha, size = entry.get("sha256"), entry.get("size")
@@ -327,31 +350,40 @@ def _validate_inventory(payload: dict[str, Any]) -> tuple[list[dict[str, Any]], 
             or type(size) is not int
             or size < 0
         ):
-            raise ValueError("Parquet directory member hash/size metadata is invalid")
+            message = "Parquet directory member hash/size metadata is invalid"
+            raise ValueError(message)
     return entries, lookup, generation
 
 
-def _checked_manifest(path: Path) -> tuple[dict[str, Any], Path, list[dict[str, Any]], dict[str, Any] | None]:
+def _checked_manifest(
+    path: Path,
+) -> tuple[dict[str, Any], Path, list[dict[str, Any]], dict[str, Any] | None]:  # noqa: C901
     if not path.is_dir() or _unsafe_link(path):
-        raise ValueError(f"Parquet collection path must be a real directory: {path}")
+        message = f"Parquet collection path must be a real directory: {path}"
+        raise ValueError(message)
     manifest_path = path / _MANIFEST
     if not manifest_path.is_file() or _unsafe_link(manifest_path):
-        raise ValueError("Parquet directory has no regular manifest.json")
+        message = "Parquet directory has no regular manifest.json"
+        raise ValueError(message)
     if manifest_path.stat().st_size > _MAX_MANIFEST_SIZE:
-        raise ValueError("Parquet directory manifest is too large")
+        message = "Parquet directory manifest is too large"
+        raise ValueError(message)
     try:
         payload: object = json.loads(manifest_path.read_text(encoding="utf-8"))
     except (UnicodeError, json.JSONDecodeError) as exc:
-        raise ValueError("Parquet directory manifest is corrupt") from exc
+        message = "Parquet directory manifest is corrupt"
+        raise ValueError(message) from exc
     if not isinstance(payload, dict):
-        raise ValueError("Parquet directory manifest must be an object")
+        message = "Parquet directory manifest must be an object"
+        raise ValueError(message)
     manifest = cast("dict[str, Any]", payload)
     entries, lookup, generation = _validate_inventory(manifest)
     if generation == ".":
         allowed = {_MANIFEST, "processors", _LOOKUP, _VERSIONS, ".publish.lock"}
         for child in path.iterdir():
             if child.name not in allowed and not re.fullmatch(r"\.manifest-[0-9a-f]{32}\.tmp", child.name):
-                raise ValueError("Parquet directory contains unexpected root members")
+                message = "Parquet directory contains unexpected root members"
+                raise ValueError(message)
         directory = path
         # In this initial generation, ignore only the version history and manifest.
         expected = {cast("str", entry["member"]) for entry in entries}
@@ -359,18 +391,22 @@ def _checked_manifest(path: Path) -> tuple[dict[str, Any], Path, list[dict[str, 
             expected.add(_LOOKUP)
         processor_dir = path / "processors"
         if not processor_dir.is_dir() or _unsafe_link(processor_dir):
-            raise ValueError("Parquet directory processors folder is invalid")
+            message = "Parquet directory processors folder is invalid"
+            raise ValueError(message)
         actual = {f"processors/{file.name}" for file in processor_dir.iterdir() if file.is_file()}
         if any(_unsafe_link(file) or not file.is_file() for file in processor_dir.iterdir()):
-            raise ValueError("Parquet directory has invalid processor members")
+            message = "Parquet directory has invalid processor members"
+            raise ValueError(message)
         if (path / _LOOKUP).is_file():
             actual.add(_LOOKUP)
         if actual != expected:
-            raise ValueError("Parquet directory contains missing or unexpected members")
+            message = "Parquet directory contains missing or unexpected members"
+            raise ValueError(message)
     else:
         directory = path / generation
         if not directory.is_dir() or _unsafe_link(path / _VERSIONS) or _unsafe_link(directory):
-            raise ValueError("Parquet directory generation does not exist or is linked")
+            message = "Parquet directory generation does not exist or is linked"
+            raise ValueError(message)
         _checked_members(directory, entries, lookup)
     return manifest, directory, entries, lookup
 
@@ -378,44 +414,52 @@ def _checked_manifest(path: Path) -> tuple[dict[str, Any], Path, list[dict[str, 
 def _verify_member(directory: Path, entry: dict[str, Any]) -> Path:
     member = directory / cast("str", entry["member"])
     if _unsafe_link(member) or not member.is_file():
-        raise ValueError(f"Parquet directory member is missing or linked: {member}")
+        message = f"Parquet directory member is missing or linked: {member}"
+        raise ValueError(message)
     if _sha_file(member) != {"sha256": entry["sha256"], "size": entry["size"]}:
-        raise ValueError(f"Parquet directory member checksum mismatch: {entry['member']}")
+        message = f"Parquet directory member checksum mismatch: {entry['member']}"
+        raise ValueError(message)
     return member
 
 
 def _string_list(value: object, label: str) -> list[str]:
     if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
-        raise ValueError(f"Parquet directory {label} must be a string list")
+        message = f"Parquet directory {label} must be a string list"
+        raise ValueError(message)
     return cast("list[str]", value)
 
 
 def _entity_index(entry: dict[str, Any], key: str) -> dict[str, list[str]]:
     raw: object = entry.get(key)
     if not isinstance(raw, dict):
-        raise ValueError(f"Parquet directory {key} metadata is missing")
+        message = f"Parquet directory {key} metadata is missing"
+        raise ValueError(message)
     result: dict[str, list[str]] = {}
     for column, values in raw.items():
         if not isinstance(column, str) or column not in BaseProcessor.ENTITY_ID_COLUMNS:
-            raise ValueError(f"Invalid {key} identifier column")
+            message = f"Invalid {key} identifier column"
+            raise ValueError(message)
         result[column] = _string_list(values, key)
     return result
 
 
 def _check_frame(frame: DataFrame, entry: dict[str, Any]) -> None:
     if frame.empty or _frame_contract(frame) != entry.get("frame"):
-        raise ValueError(f"Parquet directory processed DataFrame schema mismatch: {entry.get('member')}")
+        message = f"Parquet directory processed DataFrame schema mismatch: {entry.get('member')}"
+        raise ValueError(message)
 
 
 def _restore_processor(directory: Path, entry: dict[str, Any], *, verify_sources: bool) -> BaseProcessor:
     source = entry.get("source")
     if not isinstance(source, dict) or not isinstance(source.get("path"), str):
-        raise ValueError("Parquet directory source identity is invalid")
+        message = "Parquet directory source identity is invalid"
+        raise ValueError(message)
     if verify_sources:
         _check_source(entry)
     include_paths: object = entry.get("include_path_columns")
     if not isinstance(include_paths, bool):
-        raise ValueError("Parquet directory include_path_columns is invalid")
+        message = "Parquet directory include_path_columns is invalid"
+        raise ValueError(message)
     processor = BaseProcessor.from_file(
         Path(source["path"]),
         entity_filter=_string_list(entry.get("entity_filter"), "entity_filter"),
@@ -429,7 +473,8 @@ def _restore_processor(directory: Path, entry: dict[str, Any], *, verify_sources
         or processor.name_parser.raw_run_code != entry.get("raw_run_code")
         or _run_components(processor) != entry.get("run_components")
     ):
-        raise ValueError(f"Parquet directory trusted processor factory mismatch: {source['path']}")
+        message = f"Parquet directory trusted processor factory mismatch: {source['path']}"
+        raise ValueError(message)
     processor.df = pd.read_parquet(_verify_member(directory, entry), engine="pyarrow")
     _check_frame(processor.df, entry)
     processor.applied_location_filter = frozenset(
@@ -440,7 +485,8 @@ def _restore_processor(directory: Path, entry: dict[str, Any], *, verify_sources
     )
     health = entry.get("health")
     if not isinstance(health, dict):
-        raise ValueError("Parquet directory processor health metadata is missing")
+        message = "Parquet directory processor health metadata is missing"
+        raise ValueError(message)
     input_health = health.get("input_health")
     rejected = health.get("rejected_samples")
     reasons = health.get("rejection_reasons")
@@ -452,11 +498,12 @@ def _restore_processor(directory: Path, entry: dict[str, Any], *, verify_sources
         or any(not isinstance(key, str) or type(value) is not int or value < 0 for key, value in reasons.items())
         or not isinstance(health.get("filtered_empty"), bool)
     ):
-        raise ValueError("Parquet directory processor health metadata is invalid")
-    setattr(processor, "input_health", input_health)
-    setattr(processor, "rejected_samples", rejected)
-    setattr(processor, "rejection_reasons", cast("dict[str, int]", reasons))
-    setattr(processor, "filtered_empty", health["filtered_empty"])
+        message = "Parquet directory processor health metadata is invalid"
+        raise ValueError(message)
+    processor.input_health = input_health
+    processor.rejected_samples = rejected
+    processor.rejection_reasons = cast("dict[str, int]", reasons)
+    processor.filtered_empty = health["filtered_empty"]
     processor.source_entity_presence = _entity_index(entry, "source_entities")
     # The factory may have sampled a different source now. Restore the exact
     # processing-time identity, including for explicit offline/historical reads.
@@ -481,7 +528,7 @@ def write_collection_bundle(
     *,
     overwrite: bool = False,
     verify_sources: bool = True,
-) -> None:
+) -> None:  # noqa: C901
     """Write a complete Parquet dataset directory, preserving the prior generation on failure."""
     destination = Path(directory).absolute()
     _validate_destination(collection, destination, overwrite=overwrite)
@@ -517,7 +564,8 @@ def write_collection_bundle(
             _checked_manifest(destination)
             versions = destination / _VERSIONS
             if _unsafe_link(versions):
-                raise ValueError("Linked Parquet directory generation folder")
+                message = "Linked Parquet directory generation folder"
+                raise ValueError(message)
             versions.mkdir(exist_ok=True)
             token = uuid.uuid4().hex
             generation = f"{_VERSIONS}/{token}"
@@ -529,7 +577,7 @@ def write_collection_bundle(
             _write_durable(temporary_manifest, encoded)
             if verify_sources:
                 _all_sources_unchanged(entries)
-            os.replace(temporary_manifest, destination / _MANIFEST)
+            temporary_manifest.replace(destination / _MANIFEST)
             temporary_manifest = None
             published = True
     finally:
@@ -551,7 +599,7 @@ def read_collection_bundle(
     *,
     data_types: Collection[str] | None = None,
     verify_sources: bool = True,
-) -> ProcessorCollection:
+) -> ProcessorCollection:  # noqa: C901
     """Restore selected trusted native processors without reading unrelated Parquet tables.
 
     With verify_sources=False, only source freshness is skipped; schema,
@@ -561,7 +609,8 @@ def read_collection_bundle(
 
     path = Path(directory).absolute()
     if path.suffix.casefold() in {".parquet", ".rtparquet"}:
-        raise ValueError("ProcessorCollection.from_parquet requires a dataset directory, not a Parquet file")
+        message = "ProcessorCollection.from_parquet requires a dataset directory, not a Parquet file"
+        raise ValueError(message)
     _manifest, active, entries, lookup = _checked_manifest(path)
     desired_types = set(data_types) if data_types is not None else None
     desired_locations = BaseProcessor.normalize_locations(locations)
@@ -570,7 +619,8 @@ def read_collection_bundle(
     for entry in entries:
         data_type = entry.get("data_type")
         if not isinstance(data_type, str):
-            raise ValueError("Parquet directory data_type is invalid")
+            message = "Parquet directory data_type is invalid"
+            raise ValueError(message)
         source_entities = _entity_index(entry, "source_entities")
         frame_entities = _entity_index(entry, "frame_entities")
         if desired_types is not None and data_type not in desired_types:
@@ -594,7 +644,8 @@ def read_collection_bundle(
     if lookup is not None:
         result = pd.read_parquet(_verify_member(active, lookup), engine="pyarrow")
         if _frame_contract(result) != lookup.get("frame"):
-            raise ValueError("Parquet directory basic-info lookup schema mismatch")
+            message = "Parquet directory basic-info lookup schema mismatch"
+            raise ValueError(message)
         collection.basic_info_lookup = result
     if desired_locations:
         collection.filter_locations(desired_locations)

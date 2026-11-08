@@ -192,9 +192,12 @@ def test_interrupted_overwrite_leaves_original_readable(
     path = tmp_path / "safe.parquetdir"
     collection.to_parquet(path)
     original = (path / "manifest.json").read_bytes()
+
     def interrupted(_source: Path, _destination: Path) -> None:
-        raise OSError("simulated interrupted manifest replacement")
-    monkeypatch.setattr(parquet_bundle.os, "replace", interrupted)
+        message = "simulated interrupted manifest replacement"
+        raise OSError(message)
+
+    monkeypatch.setattr(Path, "replace", interrupted)
     with pytest.raises(OSError, match="simulated"):
         collection.to_parquet(path, overwrite=True)
     assert (path / "manifest.json").read_bytes() == original
@@ -289,17 +292,17 @@ def test_hydraulic_health_and_source_presence_survive_rehydration(
     collection: ProcessorCollection, tmp_path: Path
 ) -> None:
     processor = collection.processors[1]
-    setattr(processor, "input_health", "PARTIAL")
-    setattr(processor, "rejected_samples", 4)
-    setattr(processor, "rejection_reasons", {"no_data": 4})
+    processor.input_health = "PARTIAL"
+    processor.rejected_samples = 4
+    processor.rejection_reasons = {"no_data": 4}
     collection.discard_raw_dataframes()
     dest = tmp_path / "health.parquetdir"
     collection.to_parquet(dest)
     restored = ProcessorCollection.from_parquet(dest)
     selected = restored.processors[1]
-    assert getattr(selected, "input_health") == "PARTIAL"
-    assert getattr(selected, "rejected_samples") == 4
-    assert getattr(selected, "rejection_reasons") == {"no_data": 4}
+    assert selected.input_health == "PARTIAL"
+    assert selected.rejected_samples == 4
+    assert selected.rejection_reasons == {"no_data": 4}
     assert selected.source_at_processing == processor.source_at_processing
     assert selected.source_entity_presence["Location"] == ["Loc1"]
 
