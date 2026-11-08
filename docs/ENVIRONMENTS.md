@@ -192,7 +192,11 @@ execution failure fails required preflight rather than reporting a successful em
 Changed-file typing uses the cumulative PR diff. Policy derives the strict GIS-stub group from
 `pyright-initialiser.json` and checks that project separately from the remaining files. Scope lists use a JSON
 manifest rather than large Windows environment variables; large Pyright argument lists are checked in bounded
-batches. Changes to lint/type configuration expand the corresponding static-check scope.
+batches. Changes to lint/type configuration expand the corresponding static-check scope. A committed
+`pyproject.toml` change can retain changed-file static checks only when both TOML documents are readable, the
+numeric release-version strings differ and every other parsed value and value type is identical. This exception
+does not skip runtime or package validation. Dependency, tool, Python-target and other metadata changes still
+expand static checks; nested project files and unavailable or invalid comparisons keep the conservative behaviour.
 
 PR concurrency cancels superseded runs. Every main push keeps its own release-validation run. On the first PR
 attempt, ordinary hosted pytest stops at the first failure; rerunning the same revision retains complete diagnostics.

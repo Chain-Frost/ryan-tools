@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import subprocess
 import sys
 import tomllib
@@ -26,18 +27,16 @@ class CIScope:
     markdown_files: tuple[str, ...]
 
 
-def _git(root: Path, *arguments: str) -> str:
+def _git(root: Path, *arguments: str, errors: str = "surrogateescape") -> str:
     """Read Git metadata without shell expansion or submodule traversal."""
     result = subprocess.run(
         ["git", "-C", str(root), *arguments],  # noqa: S607 - Git is supplied by the CI runner.
         check=True,
         capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="surrogateescape",
         timeout=30,
     )
-    return result.stdout
+    # Decode here: Windows subprocess reader threads do not propagate decode errors.
+    return result.stdout.decode("utf-8", errors=errors)
 
 
 def _changed_paths(root: Path, base_sha: str, head_sha: str) -> list[str] | None:
@@ -75,47 +74,81 @@ def _is_type_config(path: str) -> bool:
     return name == "pyproject.toml" or (name.startswith("pyright") and name.endswith(".json"))
 
 
-def _is_version_only_pyproject_change(root: Path, base_sha: str, head_sha: str) -> bool:
-    """Exclude a package version stamp from unrelated static configuration checks."""
-    try:
-        before: dict[str, object] = tomllib.loads(_git(root, "show", f"{base_sha}:pyproject.toml"))
-        after: dict[str, object] = tomllib.loads(_git(root, "show", f"{head_sha}:pyproject.toml"))
-    except (OSError, subprocess.SubprocessError, tomllib.TOMLDecodeError):
-        # Unknown or malformed metadata must retain the conservative full static scope.
+def _same_toml_values(before: object, after: object) -> bool:
+    """Compare parsed values without conflating TOML integers, floats and booleans."""
+    if type(before) is not type(after):
         return False
-
-    before_raw = before.get("project")
-    after_raw = after.get("project")
-    if not isinstance(before_raw, dict) or not isinstance(after_raw, dict):
-        return False
-    before_project = cast(dict[str, object], before_raw)
-    after_project = cast(dict[str, object], after_raw)
-    before_version = before_project.get("version")
-    after_version = after_project.get("version")
-    if not isinstance(before_version, str) or not isinstance(after_version, str) or before_version == after_version:
-        return False
-
-    before["project"] = {key: value for key, value in before_project.items() if key != "version"}
-    after["project"] = {key: value for key, value in after_project.items() if key != "version"}
+    if isinstance(before, dict) and isinstance(after, dict):
+        left = cast(dict[str, object], before)
+        right = cast(dict[str, object], after)
+        return left.keys() == right.keys() and all(_same_toml_values(value, right[key]) for key, value in left.items())
+    if isinstance(before, list) and isinstance(after, list):
+        left_items = cast(list[object], before)
+        right_items = cast(list[object], after)
+        return len(left_items) == len(right_items) and all(
+            _same_toml_values(left, right) for left, right in zip(left_items, right_items, strict=True)
+        )
     return before == after
+
+
+def _is_version_only_pyproject_change(root: Path, path: str, base_sha: str, head_sha: str) -> bool:
+    """Exempt only committed numeric release-version replacements from static expansion.
+
+    The repository uses dotted numeric date-based versions. Other version forms,
+    dynamic versions and uncertain metadata conservatively retain full checks;
+    this is not a general package-metadata or PEP 440 validator.
+    """
+    documents: list[dict[str, object]] = []
+    versions: list[str] = []
+    previous_mode: str | None = None
+    try:
+        for revision in (base_sha, head_sha):
+            entry = _git(root, "--literal-pathspecs", "ls-tree", "-z", revision, "--", path)
+            fields = entry.partition("\t")[0].split()
+            if len(fields) != 3 or fields[0] not in {"100644", "100755"} or fields[1] != "blob":
+                return False
+            if previous_mode is not None and fields[0] != previous_mode:
+                return False
+            previous_mode = fields[0]
+            document: dict[str, object] = tomllib.loads(_git(root, "show", f"{revision}:{path}", errors="strict"))
+            project = document.get("project")
+            if not isinstance(project, dict):
+                return False
+            project_fields = cast(dict[str, object], project)
+            version = project_fields.pop("version", None)
+            if not isinstance(version, str) or re.fullmatch(r"[0-9]+(?:\.[0-9]+)*", version) is None:
+                return False
+            dynamic = project_fields.get("dynamic", [])
+            if not isinstance(dynamic, list):
+                return False
+            dynamic_fields = cast(list[object], dynamic)
+            if any(not isinstance(field, str) for field in dynamic_fields) or "version" in dynamic_fields:
+                return False
+            documents.append(document)
+            versions.append(version)
+    except (OSError, UnicodeError, subprocess.SubprocessError, tomllib.TOMLDecodeError):
+        return False
+    return versions[0] != versions[1] and _same_toml_values(documents[0], documents[1])
 
 
 def determine_scope(root: Path, *, event_name: str, base_sha: str, head_sha: str = "HEAD") -> CIScope:
     """Fail open to full CI; broaden static checks when the comparison is unknown."""
-    changed = _changed_paths(root, base_sha, head_sha or "HEAD")
+    comparison_head = head_sha or "HEAD"
+    changed = _changed_paths(root, base_sha, comparison_head)
     markdown_only = bool(changed) and all(
         PurePosixPath(path).suffix.casefold() in MARKDOWN_SUFFIXES for path in changed or []
     )
     full = event_name != "pull_request" or not markdown_only
 
     owned_changes = [path for path in changed or [] if _is_first_party(path)]
-    config_changes = owned_changes
-    if "pyproject.toml" in owned_changes and _is_version_only_pyproject_change(root, base_sha, head_sha or "HEAD"):
-        # A packaging version stamp changes neither Ruff nor Pyright configuration.
-        # Full runtime/package CI still runs; changed Python remains in both static scopes.
-        config_changes = [path for path in owned_changes if path != "pyproject.toml"]
-    all_lint = changed is None or any(PurePosixPath(path).name in RUFF_CONFIG_NAMES for path in config_changes)
-    all_types = changed is None or any(_is_type_config(path) for path in config_changes)
+    configuration_changes = [
+        path
+        for path in owned_changes
+        if PurePosixPath(path).name != "pyproject.toml"
+        or not _is_version_only_pyproject_change(root, path, base_sha, comparison_head)
+    ]
+    all_lint = changed is None or any(PurePosixPath(path).name in RUFF_CONFIG_NAMES for path in configuration_changes)
+    all_types = changed is None or any(_is_type_config(path) for path in configuration_changes)
     tracked: list[str] = []
     if all_lint or all_types:
         # Without --recurse-submodules, ls-files lists gitlinks, not their contents.
