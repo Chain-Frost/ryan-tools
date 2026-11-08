@@ -376,3 +376,20 @@ The handoff-only follow-up has its own final-head checks, recorded on PR #204
 and #247. Implementation and review/CI repairs are complete; engineering
 acceptance (#242?#245, #266) and retirement (#247) remain open.
 No automatic issue closure, auto-merge or main merge is authorised.
+
+
+## Projection template authority encoding
+
+Project setup now normalises an input PRJ to its EPSG definition only when PROJ
+identifies an exact match (confidence 100). Both the standard project-setup entry
+point and the initialiser use this shared writer. GeoTIFF templates store the
+projected EPSG GeoKey directly and GeoPackages register the EPSG authority.
+Custom grids retain their supplied WKT and the copied PRJ remains unchanged.
+This avoids user-defined TIFF encoding that TUFLOW native output handling can
+fail to preserve. Existing projects and result rasters are not rewritten.
+
+Validation covers ESRI WKT for GDA94/GDA2020 MGA zones 49-56 and a custom grid,
+including raw TIFF GeoKeys and GeoPackage authority records. The 29 focused
+project-setup/shared-entry tests pass, as do Ruff and strict Pyright. Package
+26.11.8.2 builds and passes wheel verification. Native TUFLOW output read-back
+with these newly generated templates remains unverified.
