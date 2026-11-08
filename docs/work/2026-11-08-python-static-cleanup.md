@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Needs review; whole-repository static and full Windows acceptance pass, existing-branch delivery |
+| Status | Needs review; upstream typing adoption and clean-CI dependency repair pass local acceptance |
 | Owner | ChatGPT / maintainer |
 | Created / updated | 2026-11-08 |
 | Next review | 2026-11-15 |
@@ -109,3 +109,78 @@ Private evidence: `full-suite-accepted.xml`, `full-suite-accepted.log`,
 `build-delivery.log`, `wheel-final-results.json` and native runtime receipts under
 the campaign directory above. Historical failed runs remain retained, not
 relabeled as passing evidence.
+
+## Official Rasterio typing and clean-CI environment correction
+
+At ab9bad42, [run 42480983322](https://github.com/Chain-Frost/ryan-tools/actions/runs/42480983322)
+passed Ruff, hosted tests, package, MCP and POSIX checks; Policy exposed missing
+declared development dependencies. Local PyArrow 24 supplied a placeholder stub,
+whereas CI's PyArrow 26 did not. The Word-document utility also requires
+`python-docx`, present locally but absent in CI. Add maintained `pyarrow-stubs`
+and `python-docx` to the shared development extra and verify against CI's newer
+NumPy/pandas/Arrow/Matplotlib versions instead of accepting the earlier local
+environment as clean-CI proof.
+
+Following the user's correction, Rasterio now uses official typeshed
+`types-rasterio>=1.5.2.20261029`. Affine 3.0+ publishes its own typing. Remove all
+twelve local Rasterio/affine stub files so they cannot shadow these declarations;
+the first-party inventory is consequently **662 files**, not a narrowed source
+scope. That complete inventory passes strict Pyright with redundant-ignore
+checking and Ruff lint/format. Add explicit Rasterio submodule imports, preserve
+real missing-CRS validation through narrow casts, and state masked-array return
+types at the calls where upstream declarations are incomplete. No initialiser
+profile or area-specific reduction in strictness is introduced.
+
+The native Rasterio metadata calls pass their existing default band index
+explicitly; Parquet buffers enumerate the same ordered schema names using the
+typed public property. Formulae, grids, masks, raw inputs, publication ownership
+and overwrite rules are unchanged. Existing focused/full coverage and installed
+wheel smokes are being rerun for this checkpoint.
+
+Rebuilt/verified 26.11.8.7, SHA256
+e99fbf94e22954da7742f7021e6f1a7be68d917e8ff3ce1d493443836cb7f1f8.
+This source/metadata correction requires a new checked push; the failing Policy
+job is not a transient rerun candidate. Final local and hosted outcomes follow.
+
+### Upstream support verification and final acceptance
+
+Pillow-HEIF 1.8.1 includes native typing; remove its local stub and require the
+development extra's 1.8.0+ public-export fix. Its registration function still
+has untyped optional kwargs, handled by one import diagnostic exception rather
+than a replacement stub. A native synthetic HEIC-to-JPEG conversion passes
+with unchanged source bytes and verified JPEG pixels/dimensions.
+
+PyShp is already 3.x (normal installation 3.1.0, CI 3.1.7). Tested the official
+`pyshp[stubs]` extra: pyshp-stubs 0.0.2 installs only an empty
+`shapefile-stubs/py.typed`. Pyright 1.1.414 still reports missing stubs and the
+writer context-manager base type lacks writer methods. Restore/retain the
+existing narrow shapefile stub until that upstream integration works. No PyShp
+major upgrade or runtime dependency constraint change is made. Fiona and LAS
+also retain verified bounded fallbacks; no `types-fiona` or `types-laspy`
+distribution was available from the package index.
+
+Final first-party inventory: **661 Python/stub files**, zero Ruff/format and
+strict Pyright findings, including redundant-ignore checking. The thirteen-file
+reduction from 674 is removal of twelve Rasterio/affine files and one HEIF stub;
+no source scope is excluded. Existing legacy dependency exceptions remain;
+this change does not introduce broad unknown-type suppression.
+
+Complete Windows suite with NumPy 2.5.4, pandas 3.1.1, Arrow 26.0.1,
+Matplotlib 3.11.2, affine 3.0.1 and Rasterio 1.5.2: **3,078 passed / 41 skipped /
+176 warnings**, 307.98 seconds. All 3,119 tests considered, no exclusions or
+deselections. The larger warning count includes affine 3's deprecation of
+matrix `*`; numerical results remain accepted. The final PyShp 3.1.7/DBF and LAS
+selection adds **30 focused passes**. The Parquet buffer's ordered schema-name
+iteration preserves exact output bytes and rows against the original code.
+
+The final declared rebuild is **26.11.8.8**, SHA256
+39828617c3df4f0e0613eea47d42847a70d046ca6253aa2cd750cc3925d19554.
+Installed-wheel core/MCP and copied log/result-wrapper smokes all pass against
+that exact artifact before the checked push. The previous 26.11.8.7 receipt is
+historical. This correction is delivered on the existing #251 branch; latest
+hosted results are recorded in its description, with no main merge/publication.
+
+Evidence adds `full-suite-official.xml/log`, `pyright-upstream-final-results.json`,
+`ruff-final-upstream.log`, `build-upstream-final.log`, `native-heif.log`, the
+26.11.8.8 installed smoke logs, and updated native parity receipts in the same
+private campaign directory. No raw model data is published.

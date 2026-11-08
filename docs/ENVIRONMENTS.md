@@ -190,7 +190,8 @@ selects all first-party static inputs and full validation; patch whitespace is r
 execution failure fails required preflight rather than reporting a successful empty scope.
 
 Changed-file typing uses the cumulative PR diff. All maintained code, including the TUFLOW initialiser,
-uses the shared strict configuration in `pyproject.toml` and GIS stubs in `typings`.
+uses the shared strict configuration in `pyproject.toml`, maintained dependency
+typing (including official `types-rasterio`) and the remaining narrow fallbacks in `typings`.
 Scope lists use a JSON
 manifest rather than large Windows environment variables; large Pyright argument lists are checked in bounded
 batches. Changes to lint/type configuration expand the corresponding static-check scope. A committed

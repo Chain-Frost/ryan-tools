@@ -234,7 +234,7 @@ class ParquetBatchWriter:
         table = pa.Table.from_pylist(rows, schema=self.schema)
         if self.writer is None:
             self.writer = pq.ParquetWriter(self.path, self.schema, compression="zstd")
-        self.writer.write_table(table)  # pyright: ignore[reportUnknownMemberType]
+        self.writer.write_table(table)
 
 
 def collect_unique_vertices(modelspace: Iterable[DXFGraphic], precision: int) -> dict[Vec3, Vec3]:

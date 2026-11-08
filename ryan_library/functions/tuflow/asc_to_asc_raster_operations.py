@@ -22,7 +22,7 @@ import time
 from collections.abc import Iterable
 from contextlib import ExitStack, closing
 from pathlib import Path
-from typing import Literal, Protocol, cast
+from typing import Any, Literal, Protocol, cast
 from uuid import uuid4
 
 import numpy as np
@@ -68,7 +68,7 @@ def _open_raster(path: Path, mode: str = "r", profile: dict[str, object] | None 
         rasterio.open(
             path,
             mode,
-            **profile,
+            **cast("dict[str, Any]", profile),
         ),
     )
 

@@ -157,7 +157,7 @@ def bench_pyarrow(frames: list[pd.DataFrame]) -> list[BenchmarkResult]:
 
     try:
         start = _now()
-        pandas_df = combined.to_pandas()
+        pandas_df = combined.to_pandas()  # pyright: ignore[reportUnknownMemberType] - unused external categories parameter is untyped
         elapsed = _now() - start
         results.append(BenchmarkResult("pyarrow->pd", "to_pandas", elapsed, len(pandas_df), pandas_df.shape[1]))
     except Exception:  # noqa: S110 - optional conversion must not invalidate other benchmark results

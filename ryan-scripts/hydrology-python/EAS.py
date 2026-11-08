@@ -29,7 +29,7 @@ import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 from scipy.interpolate import interp1d
-from scipy.optimize import brentq  # pyright: ignore[reportUnknownVariableType] - backend boolean overload is partial
+from scipy.optimize import brentq
 from shapely.geometry import Polygon
 
 type Intersection = tuple[float, float] | tuple[None, None]

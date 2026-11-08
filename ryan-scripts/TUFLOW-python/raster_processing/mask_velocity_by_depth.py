@@ -18,12 +18,13 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 import rasterio
+import rasterio.io
 from loguru import logger
 from rasterio.enums import Resampling
+from rasterio.profiles import Profile
 from rasterio.warp import reproject
 
 from ryan_library.classes.tuflow_string_classes import TuflowStringParser
@@ -113,7 +114,7 @@ def build_aligned_mask(
 def mask_velocity_data(
     velocity_dataset: rasterio.io.DatasetReader,
     mask: np.ndarray,
-) -> tuple[np.ndarray, dict[str, Any]]:
+) -> tuple[np.ndarray, Profile]:
     profile = velocity_dataset.profile.copy()
     dtype = np.dtype(profile["dtype"])
     nodata = profile.get("nodata")

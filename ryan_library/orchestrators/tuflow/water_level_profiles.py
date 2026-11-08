@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import rasterio
+import rasterio.crs
 from geopandas import GeoDataFrame
 from loguru import logger
 from matplotlib.axes import Axes
@@ -373,7 +374,9 @@ def _raster_crs_and_spacing(
 
     with rasterio.open(path) as source:
         # Rasterio's Dataset typing lacks attributes exposed by its raster readers.
-        raster_crs = CRS.from_user_input(source.crs) if source.crs is not None else None
+        raster_crs = (
+            CRS.from_user_input(source.crs) if cast("rasterio.crs.CRS | None", source.crs) is not None else None
+        )
         effective_spacing = (
             spacing
             if spacing is not None
@@ -394,7 +397,9 @@ def _read_water_raster_crs(
 
     for aep, path in water_rasters.items():
         with rasterio.open(path) as source:
-            water_crs[aep] = CRS.from_user_input(source.crs) if source.crs is not None else None
+            water_crs[aep] = (
+                CRS.from_user_input(source.crs) if cast("rasterio.crs.CRS | None", source.crs) is not None else None
+            )
 
     return water_crs
 

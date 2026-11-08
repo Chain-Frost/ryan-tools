@@ -104,9 +104,6 @@ ignore = [
 ]
 
 [lint.per-file-ignores]
-"typings/rasterio/__init__.pyi" = [
-    "A001", # the stub must expose rasterio.open under its actual public API name
-]
 "typings/shapefile/__init__.pyi" = [
     "N802", # external pyshp method names must retain their published spelling
     "N803", # external pyshp parameter names are part of its keyword-call contract

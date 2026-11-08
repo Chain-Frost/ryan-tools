@@ -11,7 +11,9 @@ from pathlib import Path
 
 try:
     from PIL import Image, ImageOps
-    from pillow_heif import register_heif_opener
+    from pillow_heif import (
+        register_heif_opener,  # pyright: ignore[reportUnknownVariableType] - upstream optional kwargs are untyped
+    )
 except ImportError as exc:
     msg = "The selected Python environment needs Pillow and pillow-heif."
     raise SystemExit(msg) from exc

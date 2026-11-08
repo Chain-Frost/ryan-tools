@@ -50,7 +50,9 @@ import fiona
 import geopandas as gpd
 import numpy as np
 import rasterio
+import rasterio.crs
 import rasterio.warp
+import rasterio.windows
 from pytuflow import TGC as PyTuflowTGC
 from pytuflow import Context
 from rasterio.enums import Resampling
@@ -344,7 +346,7 @@ def _coverage_mask(
         if source.count != 1:
             message = f"Terrain must contain exactly one band: {layer.source} has {source.count}"
             raise ValueError(message)
-        if source.crs is None:
+        if cast("rasterio.crs.CRS | None", source.crs) is None:
             message = f"Terrain has no CRS: {layer.source}"
             raise ValueError(message)
         if source.crs != rasterio.crs.CRS.from_string(grid.crs):
@@ -541,7 +543,7 @@ def _write_layer(planned: PlannedLayer, grid: PlanningGrid, bounds: AnalysisBoun
         complete = False
         try:
             with rasterio.open(planned.output, "w", **profile) as destination:
-                destination.update_tags(**source.tags())
+                destination.update_tags(0, **source.tags())
                 destination.update_tags(1, **source.tags(1))
                 for _, destination_window in destination.block_windows(1):
                     read_window = Window(

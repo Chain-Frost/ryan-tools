@@ -46,7 +46,7 @@ license = "SUL-1.0"
 name = "ryan-tools"
 readme = "README.md"
 requires-python = ">=3.14"
-version = "26.11.8.6"
+version = "26.11.8.8"
 
 [project.optional-dependencies]
 cache = [
@@ -56,10 +56,13 @@ dev = [
   "build",
   "tables>=3.11.1",
   "pandas-stubs>=3.1.0.261029",
+  "pyarrow-stubs",
   "types-psutil",
+  "types-rasterio>=1.5.2.20261029",
   "scipy-stubs",
   "distributed",
-  "pillow-heif",
+  "pillow-heif>=1.8.0",
+  "python-docx",
   "pyright>=1.1.414",
   "pytest",
   "pytest-cov",
