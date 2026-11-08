@@ -425,7 +425,8 @@ def _eof_alias_snapshot(tmp_path: Path, *, ambiguous: bool) -> Path:
     for source in (cmx_file, eof_file):
         processor = BaseProcessor.from_file(source)
         processor.process()
-        assert processor.processed and not processor.df.empty
+        assert processor.processed
+        assert not processor.df.empty
         collection.add_processor(processor)
     destination = tmp_path / "eof-alias.parquetdir"
     collection.to_parquet(destination)
