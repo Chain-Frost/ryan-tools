@@ -16,7 +16,7 @@ from ryan_library.processors.tuflow.processor_collection import ProcessorCollect
 RUN = "EG02_013"
 SAMPLES = Path(__file__).parents[3] / "test_data" / "tuflow" / "TUFLOW_Example_Model_Dataset" / "EG02" / "plot" / "csv"
 FIELDS = (
-   "ID (Lowest)",
+    "ID (Lowest)",
     "Q Below",
     "Q Above",
     "Q Total",
