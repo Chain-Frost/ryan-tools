@@ -148,6 +148,39 @@ def test_hdf_cache_detects_changed_source(collection: ProcessorCollection, tmp_p
     assert len(historical.processors) == 3
 
 
+def test_hdf_missing_source_is_rejected(collection: ProcessorCollection, tmp_path: Path) -> None:
+    cache = tmp_path / "missing-source.h5"
+    collection.to_hdf(cache)
+    collection.processors[0].resolved_file_path.unlink()
+    with pytest.raises((ValueError, FileNotFoundError)):
+        ProcessorCollection.from_hdf(cache)
+    assert len(ProcessorCollection.from_hdf(cache, verify_sources=False).processors) == 3
+
+
+def test_hdf_member_checksum_detects_tampering(collection: ProcessorCollection, tmp_path: Path) -> None:
+    tables = pytest.importorskip("tables")
+    cache = tmp_path / "changed-member.h5"
+    collection.to_hdf(cache)
+    with tables.open_file(cache, mode="a") as store:
+        member = store.get_node("/proc_000000")
+        member[0] = int(member[0]) ^ 1
+    with pytest.raises(ValueError, match="member checksum mismatch"):
+        ProcessorCollection.from_hdf(cache)
+
+
+def test_hdf_load_applies_location_selection(collection: ProcessorCollection, tmp_path: Path) -> None:
+    cache = tmp_path / "filtered.h5"
+    collection.to_hdf(cache)
+    expected = collection.copy()
+    expected.filter_locations(["Loc1"])
+    actual = ProcessorCollection.from_hdf(cache, locations=["Loc1"])
+    assert len(actual.processors) == len(expected.processors) == 2
+    for loaded, selected in zip(actual.processors, expected.processors, strict=True):
+        assert type(loaded) is type(selected)
+        assert loaded.applied_location_filter == selected.applied_location_filter
+        pd.testing.assert_frame_equal(loaded.df, selected.df)
+
+
 def test_hdf_missing_member_causes_explicit_failure(collection: ProcessorCollection, tmp_path: Path) -> None:
     tables = pytest.importorskip("tables")
     cache = tmp_path / "missing-member.h5"

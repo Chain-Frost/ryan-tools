@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Bounded WAL retry passes native source/wheel checks; final CI/review pending; HDF remains separate |
+| Status | WAL and HDF native source/wheel acceptance pass; final current-head CI and review pending |
 | Owner | WP05 delivery agent / maintainer |
 | Created | 2026-11-08 |
 | Updated | 2026-11-08 |
@@ -191,3 +191,53 @@ cross-host WAL concurrency and same-metadata rewrites are NOT RUN/unsupported.
 MCP assessment: existing generic processor inspection remains appropriate; the
 retry does not warrant a new tool. Next: exact-head hosted CI and fresh Codex
 review, then refresh/test #261. No issue closure or integration is claimed yet.
+
+### 2026-11-08 HDF completion: real optional backend, source and installed wheel
+
+Merged #254 `b25a7d5c88b08417078650597ebe2d15ebeecec7` into the existing
+#261 branch without force-push (`e9a66601`). Preserved both prior WP05 histories,
+styling, current #251 consolidated CI and vendored wheel. No implementation was
+recreated; the existing optional `ryan-tools[cache]` remains separate from the PO
+plotting Parquet cache. Added direct missing-source, altered-member checksum and
+load-time location-filter regressions to complete the requested matrix.
+
+Windows 10/Python 3.14.6: PyTables 3.11.1, numexpr 2.14.2, blosc2 4.14.1,
+ndindex 1.10.1 and msgpack 1.2.4 installed only into disposable `cache-deps`;
+existing numpy/pandas 3.0.5/pyarrow 24.0.0 used. No global packages or developer
+requirements changed. **12 focused tests PASS, zero skips**. Direct native source
+matrix: **33 PASS** (11 HDF cases each on NTFS, mapped, UNC). Isolated installed
+wheel matrix: **33 PASS, zero skips**, verified processor_collection import origin
+under disposable installed261 target. Each case creates real HDF5 files.
+
+The cases prove actual Q/PO/POMM class/run/path/dtype roundtrips (ordered
+categorical, nullable integer/real/boolean, string, numeric); filter state and
+load-time selection; compact metadata lookup; relative source identity after CWD
+changes; changed/missing source rejection; missing members, checksum tampering,
+corrupt manifest and registry mismatch rejection; no-clobber, successful overwrite
+and original-cache preservation/owned-stage cleanup on serialization failure.
+Source alias output is refused. Filtered-out Q warnings are expected diagnostics,
+not test failures. Missing-dependency historical report `a2bc74bb` (1 pass/8 skips)
+is superseded for these bounded synthetic native cases, not relabeled as success.
+
+Built/verified package 26.11.8.4, wheel SHA256
+`86ad4cf85541cc196b67807305ddfe538437b531ee0c45d0a7991a902c96ee04`.
+Private harness/evidence: `E:/Github/wp0508-completion-20261108/native261.py`,
+source/wheel JSON and logs. Retained ignored wheel; no global installation/release.
+Ruff/format and strict modified-test Pyright pass. No new storage code was needed.
+
+Hosted profile now includes the existing cache extra and explicitly imports its
+backend after installation, so current hosted HDF acceptance cannot be based on
+optional-dependency skips. This adds cache coverage without a second full suite,
+a new workflow, dev tools or changing declared user/developer dependencies.
+Local collected persistence count rises from historical nine (eight skipped) to
+12 (all pass, including three new regressions); no selected test is removed.
+Existing generic processor/API guidance remains the right MCP exposure.
+
+Remaining boundaries: synthetic fixtures are not licensed/private real-result
+acceptance or a production-scale performance benchmark. HDF source fingerprints
+are metadata, not full content digests. A snapshot of a processed object is not
+live source reprocessing. Concurrent overwrites by independent writers are not
+serialized; overwrite=False remains the safe publication default. Keep the
+separate ccA same-metadata/cross-host WAL limitations. Next: verify final-head CI
+and fresh review; do not integrate either child into #251 or close #226 before
+review. Next review 2026-11-15.
