@@ -5,7 +5,7 @@ and the handoff template. The linked record owns detailed progress; this table i
 
 ## Open work
 
-| [WP09 closure populations and scenario identity](2026-11-08-wp09-closure-populations.md) | Implementation staged in draft child; Python 3.14/CI/Codex pending | WP09 agent | 2026-11-08 | 2026-11-15 | Issue #215: preserve zero-duration TPs, valid/invalid counts and trim_runcode in summaries. Review hosted numerical/export tests and coordinate #219 parser missingness with WP04; #92 deferred, no main merge. |
+| [WP09 closure populations and scenario identity](2026-11-08-wp09-closure-populations.md) | Code review passed; hosted numerical regression passed; test-only Pyright fix awaiting final CI | WP09 agent | 2026-11-08 | 2026-11-15 | Issue #215: preserve zero-duration TPs, valid/invalid counts and trim_runcode in summaries. Review hosted numerical/export tests and coordinate #219 parser missingness with WP04; #92 deferred, no main merge. |
 | Work front / status record | Status | Owner | Updated | Next review | Next action / dependency |
 | --- | --- | --- | --- | --- | --- |
 | [WP08 POMM, PO QA and closure dashboards](2026-11-08-po-qa-dashboard-198.md) | Selected #265 dashboard code integrated into draft #251; native interactive refresh PASS; broader #198 open | WP08 / maintainer | 2026-11-08 | 2026-11-15 | #265 squash-integrated as e8dba979; six reviewed child CI jobs and native interactive Rich refresh, ordered export parity, failure/Ctrl+C accepted. Partial-input hydraulics #219/#223 and closure #215 remain independently open; no Fixes #198, no main merge. |

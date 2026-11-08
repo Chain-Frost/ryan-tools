@@ -1,3 +1,4 @@
+# pyright: reportPrivateUsage=false
 """Regressions for dry closure events, unusable values and scenario identity (#215)."""
 
 from itertools import permutations

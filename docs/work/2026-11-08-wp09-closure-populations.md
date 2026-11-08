@@ -50,7 +50,16 @@ Issue #92 (interval/interpolation/AATOC and broader closure semantics) is assign
 On 2026-11-08, an isolated Python 3.13.5 / pandas 2.2.3 pytest harness ran the new cases:
 **13 passed; 1 skipped** (real export requires pyarrow); zero failures. Python compile checks passed.
 This is component evidence, not full source-tree, Windows or installed-wheel acceptance.
-Ruff 0.16.6 and strict Pyright are unavailable in this environment; hosted checks and review remain pending.
+Ruff 0.16.6 and strict Pyright cannot run in the isolated local harness. The exact repo's first
+Windows Python 3.14 hosted checkpoint at `f1514fdd2e8b88e6940145af68c02eceafe3402e` completed:
+**2,924 passed, 14 skipped, 8 deselected** in Hosted tests, including **14/14 new WP09 tests**
+(the real Parquet/CSV/Excel readback executed); a separate pandas 2.3.3 check passed **64** tests.
+Ruff/format/documentation, Package, POSIX wrapper security, and MCP smoke passed.
+Policy found **one** strict Pyright private-helper warning in the new export test; the following
+WP09 commit adds the same file-level test allowance already used by existing export tests.
+No production-code defect was reported by that check. Final-head CI is required.
+Codex reviewed the functional code commit `dabf1be2a34c7ecf2be00ceaae8dd81614dad47f` and
+reported no findings; the index and test-annotation changes are nonfunctional.
 Do not report skipped or unexecuted tests as passes. No merges, releases or issue closures performed.
 
 ## Next action
