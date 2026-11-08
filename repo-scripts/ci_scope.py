@@ -164,6 +164,7 @@ def _is_exact_hdf_cache_backend_addition(documents: list[dict[str, object]]) -> 
     after_dev.remove(backend)
     return _same_toml_values(documents[0], documents[1])
 
+
 def determine_scope(root: Path, *, event_name: str, base_sha: str, head_sha: str = "HEAD") -> CIScope:
     """Fail open to full CI; broaden static checks when the comparison is unknown."""
     comparison_head = head_sha or "HEAD"
