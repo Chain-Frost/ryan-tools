@@ -4,8 +4,10 @@ import json
 import os
 import subprocess
 import sys
+import tomllib
 from dataclasses import asdict, dataclass
 from pathlib import Path, PurePosixPath
+from typing import cast
 
 EXCLUDED_ROOTS = ("vendor", "tests/test_data", "unsorted", "qgis-resources", "excel-resources")
 PYTHON_SUFFIXES = frozenset({".py", ".pyi"})
@@ -73,6 +75,31 @@ def _is_type_config(path: str) -> bool:
     return name == "pyproject.toml" or (name.startswith("pyright") and name.endswith(".json"))
 
 
+def _is_version_only_pyproject_change(root: Path, base_sha: str, head_sha: str) -> bool:
+    """Exclude a package version stamp from unrelated static configuration checks."""
+    try:
+        before: dict[str, object] = tomllib.loads(_git(root, "show", f"{base_sha}:pyproject.toml"))
+        after: dict[str, object] = tomllib.loads(_git(root, "show", f"{head_sha}:pyproject.toml"))
+    except (OSError, subprocess.SubprocessError, tomllib.TOMLDecodeError):
+        # Unknown or malformed metadata must retain the conservative full static scope.
+        return False
+
+    before_raw = before.get("project")
+    after_raw = after.get("project")
+    if not isinstance(before_raw, dict) or not isinstance(after_raw, dict):
+        return False
+    before_project = cast(dict[str, object], before_raw)
+    after_project = cast(dict[str, object], after_raw)
+    before_version = before_project.get("version")
+    after_version = after_project.get("version")
+    if not isinstance(before_version, str) or not isinstance(after_version, str) or before_version == after_version:
+        return False
+
+    before["project"] = {key: value for key, value in before_project.items() if key != "version"}
+    after["project"] = {key: value for key, value in after_project.items() if key != "version"}
+    return before == after
+
+
 def determine_scope(root: Path, *, event_name: str, base_sha: str, head_sha: str = "HEAD") -> CIScope:
     """Fail open to full CI; broaden static checks when the comparison is unknown."""
     changed = _changed_paths(root, base_sha, head_sha or "HEAD")
@@ -82,8 +109,13 @@ def determine_scope(root: Path, *, event_name: str, base_sha: str, head_sha: str
     full = event_name != "pull_request" or not markdown_only
 
     owned_changes = [path for path in changed or [] if _is_first_party(path)]
-    all_lint = changed is None or any(PurePosixPath(path).name in RUFF_CONFIG_NAMES for path in owned_changes)
-    all_types = changed is None or any(_is_type_config(path) for path in owned_changes)
+    config_changes = owned_changes
+    if "pyproject.toml" in owned_changes and _is_version_only_pyproject_change(root, base_sha, head_sha or "HEAD"):
+        # A packaging version stamp changes neither Ruff nor Pyright configuration.
+        # Full runtime/package CI still runs; changed Python remains in both static scopes.
+        config_changes = [path for path in owned_changes if path != "pyproject.toml"]
+    all_lint = changed is None or any(PurePosixPath(path).name in RUFF_CONFIG_NAMES for path in config_changes)
+    all_types = changed is None or any(_is_type_config(path) for path in config_changes)
     tracked: list[str] = []
     if all_lint or all_types:
         # Without --recurse-submodules, ls-files lists gitlinks, not their contents.

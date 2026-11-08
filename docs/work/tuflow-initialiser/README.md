@@ -396,3 +396,15 @@ including raw TIFF GeoKeys and GeoPackage authority records. The 29 focused
 project-setup/shared-entry tests pass, as do Ruff and strict Pyright. Package
 26.11.8.2 builds and passes wheel verification. Native TUFLOW output read-back
 with these newly generated templates remains unverified.
+
+### Version-only CI scope regression
+
+The first hosted run on #275 (`42465992518`) failed Ruff preflight because
+the version bump selected all 639 first-party Python files. It exposed 23
+pre-existing lint failures in unrelated files and blocked downstream jobs.
+The PR now distinguishes version-only `pyproject.toml` changes from other
+configuration edits. Focused CI-scope regressions verify narrow static
+checks for version bumps, and preserve broad static checks for dependency
+and tool configuration edits. Runtime/package jobs remain required.
+Verify final-head CI before integration; native TUFLOW output read-back
+remains a separate acceptance gap.
