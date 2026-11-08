@@ -1,6 +1,7 @@
 """Focused tests for the TUFLOW project setup workflow."""
 
 import sqlite3
+import struct
 from collections.abc import Mapping
 from contextlib import closing
 from pathlib import Path
@@ -9,6 +10,8 @@ from unittest.mock import MagicMock
 
 import fiona  # pyright: ignore[reportMissingTypeStubs]
 import pytest
+import rasterio  # pyright: ignore[reportMissingTypeStubs]
+from pyproj import CRS as ProjCRS
 from rasterio.crs import CRS  # pyright: ignore[reportMissingTypeStubs, reportUnknownVariableType]
 
 from ryan_library.orchestrators.tuflow import project_setup
@@ -329,3 +332,44 @@ def test_populated_empty_source_is_rejected(tmp_path: Path) -> None:
         )
 
     assert not (scenario_dir / "2d_bc_baseModel_01_L.gpkg").exists()
+
+
+@pytest.mark.parametrize("epsg", [*range(28349, 28357), *range(7849, 7857), None])
+def test_projection_files_preserve_authority_or_custom_grid(tmp_path: Path, epsg: int | None) -> None:
+    """Inspect stored authority codes: CRS equivalence alone missed this regression."""
+    source = (
+        ProjCRS.from_epsg(epsg)
+        if epsg is not None
+        else ProjCRS.from_proj4(
+            "+proj=tmerc +lat_0=0 +lon_0=117.123 +k=0.9996 +x_0=500000 +y_0=10000000 +ellps=GRS80 +units=m"
+        )
+    )
+    prj = tmp_path / "input.prj"
+    original = source.to_wkt(version="WKT1_ESRI")
+    prj.write_text(original, encoding="utf-8")
+    project_setup._create_projection_files(prj_file=prj, gis_dir=tmp_path, overwrite=False)  # pyright: ignore[reportPrivateUsage]
+    assert (tmp_path / "projection_input.prj").read_bytes() == prj.read_bytes()
+    with closing(sqlite3.connect(tmp_path / "projection_input.gpkg")) as connection:
+        row = connection.execute(
+            "SELECT s.organization, s.organization_coordsys_id, s.definition "
+            "FROM gpkg_geometry_columns g JOIN gpkg_spatial_ref_sys s ON g.srs_id=s.srs_id"
+        ).fetchone()
+        assert row is not None
+        if epsg is not None:
+            assert row[:2] == ("EPSG", epsg)
+        assert ProjCRS.from_wkt(row[2]).equals(source, ignore_axis_order=True)
+    tif = tmp_path / "projection_input.tif"
+    with rasterio.open(tif) as dataset:  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+        assert ProjCRS.from_wkt(dataset.crs.to_wkt()).equals(source, ignore_axis_order=True)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType, reportAttributeAccessIssue]
+    # Read the actual GeoKeyDirectory instead of letting GDAL infer an EPSG code.
+    with tif.open("rb") as stream:
+        header = stream.read(8)
+        endian = "<" if header[:2] == b"II" else ">"
+        stream.seek(struct.unpack(endian + "I", header[4:])[0])
+        count = struct.unpack(endian + "H", stream.read(2))[0]
+        entries = [struct.unpack(endian + "HHII", stream.read(12)) for _ in range(count)]
+        key_entry = next(entry for entry in entries if entry[0] == 34735)
+        stream.seek(key_entry[3])
+        values = struct.unpack(endian + str(key_entry[2]) + "H", stream.read(key_entry[2] * 2))
+        keys = {values[i]: values[i + 3] for i in range(4, len(values), 4)}
+        assert keys[3072] == (epsg if epsg is not None else 32767)

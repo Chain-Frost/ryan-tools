@@ -376,3 +376,93 @@ The handoff-only follow-up has its own final-head checks, recorded on PR #204
 and #247. Implementation and review/CI repairs are complete; engineering
 acceptance (#242?#245, #266) and retirement (#247) remain open.
 No automatic issue closure, auto-merge or main merge is authorised.
+
+
+## Projection template authority encoding
+
+Fix proposed in [PR #275](https://github.com/Chain-Frost/ryan-tools/pull/275);
+source commit `24b4f259` pushed, hosted checks pending. No merge performed.
+
+Project setup now normalises an input PRJ to its EPSG definition only when PROJ
+identifies an exact match (confidence 100). Both the standard project-setup entry
+point and the initialiser use this shared writer. GeoTIFF templates store the
+projected EPSG GeoKey directly and GeoPackages register the EPSG authority.
+Custom grids retain their supplied WKT and the copied PRJ remains unchanged.
+This avoids user-defined TIFF encoding that TUFLOW native output handling can
+fail to preserve. Existing projects and result rasters are not rewritten.
+
+Validation covers ESRI WKT for GDA94/GDA2020 MGA zones 49-56 and a custom grid,
+including raw TIFF GeoKeys and GeoPackage authority records. The 29 focused
+project-setup/shared-entry tests pass, as do Ruff and strict Pyright. Package
+26.11.8.2 builds and passes wheel verification. Native TUFLOW output read-back
+with these newly generated templates remains unverified.
+
+### Version-only CI scope regression
+
+The first hosted run on #275 (`42465992518`) failed Ruff preflight because
+the version bump selected all 639 first-party Python files. It exposed 23
+pre-existing lint failures in unrelated files and blocked downstream jobs.
+The PR now distinguishes version-only `pyproject.toml` changes from other
+configuration edits. Focused CI-scope regressions verify narrow static
+checks for version bumps, and preserve broad static checks for dependency
+and tool configuration edits. Runtime/package jobs remain required.
+Verify final-head CI before integration; native TUFLOW output read-back
+remains a separate acceptance gap.
+
+
+## 2026-11-08 - PR #275 native projection acceptance PASS
+
+Validated immutable PR head `1e7505eaeb3f9020f2f9109c889e79467c96cc94` in
+`E:/Github/ryan-tools-pr275-native`, a separate detached worktree. GitHub head
+was checked before and after execution and was unchanged. Windows 10 build 19045,
+Python 3.14.6, Rasterio 1.5.2 and native TUFLOW `2026.3.0-iSP-w64` were used.
+
+Both shared standard project setup and the migrated initialiser adapter generated
+projects from ESRI WKT1 PRJs for EPSG:28350, EPSG:7850 and a synthetic custom
+Transverse Mercator grid (central meridian 117.123 degrees, GRS80 ellipsoid).
+Repeated all six creations through isolated installed wheel 26.11.8.2. All 12
+copied PRJs remain byte-identical. Raw TIFF GeoKey 3072 stores 28350/7850;
+GeoPackage geometry SRS registrations are EPSG/28350 and EPSG/7850. Custom TIFFs
+retain user-defined 32767, GeoPackages retain NONE/100000, and stored CRS definitions
+remain equivalent to the supplied local grid. No unrelated EPSG was assigned.
+
+Eight disposable native Classic demo simulations (two CRSs, two entry points,
+source/wheel) completed with exit 0 and no warnings. Each is a 100 m square,
+10 m hydraulic grid, flat bed 0 m, initial still water 1 m, Manning n 0.03,
+closed boundary file, 0.5 s timestep and 0.001 h end time. Native TIF h/d output
+uses a 5 m raster grid and one-second map interval. All 88 output TIFFs reopen
+independently through Rasterio; raw GeoKeyDirectory parsing confirms 3072 is the
+correct EPSG code, 1024=1, 1025=1 and 3076=9001. Every raster is 20 by 20 with
+400 valid pixels and GDAL geotransform (500000, 5, 0, 6500100, 0, -5).
+Depth/level values remain within 0.00001 m of 1 m; time-of-maximum values are
+within the simulated period. All 66 paired source/entry-point/wheel comparisons
+have exactly equal pixels, CRS and grids. Essential CRS-key loss does not reproduce.
+
+Commands and retained local evidence (outside the repository):
+
+```powershell
+python repo-scripts/build_library.py --no-bump --skip-pip
+python -m pip install --no-deps --target F:/Temp/CodexValidation/PR275_20261108/wheel_install dist/ryan_tools-26.11.8.2-py3-none-any.whl
+python F:/Temp/CodexValidation/PR275_20261108/accept.py E:/Github/ryan-tools-pr275-native source
+python F:/Temp/CodexValidation/PR275_20261108/accept.py F:/Temp/CodexValidation/PR275_20261108/wheel_install wheel
+python F:/Temp/CodexValidation/PR275_20261108/native.py
+```
+
+The project-generation harness precedes native.py. Its first native attempts
+could not obtain a licence; early disposable-model attempts also lacked materials
+and boundary configuration. These setup failures are preserved in local logs;
+only the eight final `native_verified` runs establish acceptance. Native command:
+`C:/TUFLOW/tuflow-2026.3/TUFLOW_iSP_w64.exe -b -nmb <native_verified/native.tcf>`,
+with `Demo Model == ON`. Reports: `report_source.json`, `report_wheel.json`,
+`native_report.json`; per-case control files, stdout and raster outputs are retained
+under `F:/Temp/CodexValidation/PR275_20261108`. Rebuilt wheel SHA-256:
+`7724ceeadf220d08e5630bd819bee75cb92a15eade934326badf8e8277edb90b`.
+The normal installed Python package was not replaced; no version bump was made.
+
+Scope is small synthetic Classic output acceptance. No custom-grid simulation,
+HPC/GPU acceptance, full initialiser/GRASS replay or real-model engineering approval
+is claimed. No private inputs were accessed or modified, and no binary datasets
+are published. Hosted CI's upstream wheel-host failure remains separate (#276).
+This documentation-only delivery does not change the validated runtime source;
+its final hosted checks must be assessed separately. No merge or release.
+Next review: 2026-11-15, for PR review/CI and the remaining engineering gates.
