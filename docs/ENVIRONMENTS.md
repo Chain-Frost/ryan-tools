@@ -189,8 +189,9 @@ runtime/package/POSIX jobs. Main pushes and manual runs always request full vali
 selects all first-party static inputs and full validation; patch whitespace is reported as unavailable. A helper
 execution failure fails required preflight rather than reporting a successful empty scope.
 
-Changed-file typing uses the cumulative PR diff. Policy derives the strict GIS-stub group from
-`pyright-initialiser.json` and checks that project separately from the remaining files. Scope lists use a JSON
+Changed-file typing uses the cumulative PR diff. All maintained code, including the TUFLOW initialiser,
+uses the shared strict configuration in `pyproject.toml` and GIS stubs in `typings`.
+Scope lists use a JSON
 manifest rather than large Windows environment variables; large Pyright argument lists are checked in bounded
 batches. Changes to lint/type configuration expand the corresponding static-check scope. A committed
 `pyproject.toml` change can retain changed-file static checks only when both TOML documents are readable, the

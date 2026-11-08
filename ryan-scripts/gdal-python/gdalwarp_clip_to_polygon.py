@@ -276,7 +276,7 @@ def main(
         )
         logger.success("Clipped {}/{} rasters", succeeded, len(plans))
         return 0 if succeeded == len(plans) else 1
-    except (OSError, ValueError):
+    except OSError, ValueError:
         logger.exception("Cutline batch preflight failed")
         return 1
 

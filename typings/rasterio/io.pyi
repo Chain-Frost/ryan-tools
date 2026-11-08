@@ -1,5 +1,5 @@
 from types import TracebackType
-from typing import Literal, NamedTuple, Protocol, Self, overload
+from typing import Any, Literal, NamedTuple, Self, overload
 
 import numpy as np
 from affine import Affine
@@ -14,8 +14,7 @@ class BoundingBox(NamedTuple):
     right: float
     top: float
 
-class MaskedBand(Protocol):
-    def filled(self, fill_value: float) -> NDArray[np.number]: ...
+type MaskedBand = np.ma.MaskedArray[Any, np.dtype[np.number[Any]]]
 
 class DatasetReader:
     name: str
@@ -28,12 +27,23 @@ class DatasetReader:
     res: tuple[float, float]
     shape: tuple[int, int]
     nodata: float | None
+    subdatasets: tuple[str, ...]
+    dtypes: tuple[str, ...]
+    profile: dict[str, Any]
     @overload
     def read(
-        self, indexes: int = ..., *, masked: Literal[False] = ..., window: Window | None = ...
-    ) -> NDArray[np.number]: ...
+        self,
+        indexes: int | None = ...,
+        *,
+        masked: Literal[False] = ...,
+        window: Window | None = ...,
+        boundless: bool = ...,
+    ) -> NDArray[np.number[Any]]: ...
     @overload
-    def read(self, indexes: int = ..., *, masked: Literal[True], window: Window | None = ...) -> MaskedBand: ...
+    def read(
+        self, indexes: int | None = ..., *, masked: Literal[True], window: Window | None = ..., boundless: bool = ...
+    ) -> MaskedBand: ...
+    def window_transform(self, window: Window) -> Affine: ...
     def read_masks(self, indexes: int) -> NDArray[np.uint8]: ...
     def __enter__(self) -> Self: ...
     def __exit__(
@@ -41,4 +51,6 @@ class DatasetReader:
     ) -> None: ...
 
 class DatasetWriter(DatasetReader):
-    def write(self, arr: NDArray[np.number], indexes: int | None = ..., *, window: Window | None = ...) -> None: ...
+    def write(
+        self, arr: NDArray[np.number[Any]], indexes: int | None = ..., *, window: Window | None = ...
+    ) -> None: ...
