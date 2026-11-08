@@ -89,7 +89,10 @@ def _scope(
         "GITHUB_OUTPUT": str(output),
         "CI_SCOPE_PATH": str(manifest) if manifest else "",
     }
-    subprocess.run([sys.executable, str(SCRIPT)], cwd=root, env=env, check=True, capture_output=True, timeout=30)
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT)], cwd=root, env=env, check=False, capture_output=True, timeout=30
+    )
+    assert result.returncode == 0, result.stderr.decode("utf-8", errors="replace")
     lines = output.read_text(encoding="utf-8").splitlines()
     assert len(lines) == 5
     values = dict(line.split("=", maxsplit=1) for line in lines)

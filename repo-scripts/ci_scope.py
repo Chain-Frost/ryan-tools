@@ -33,12 +33,10 @@ def _git(root: Path, *arguments: str, errors: str = "surrogateescape") -> str:
         ["git", "-C", str(root), *arguments],  # noqa: S607 - Git is supplied by the CI runner.
         check=True,
         capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors=errors,
         timeout=30,
     )
-    return result.stdout
+    # Decode here: Windows subprocess reader threads do not propagate decode errors.
+    return result.stdout.decode("utf-8", errors=errors)
 
 
 def _changed_paths(root: Path, base_sha: str, head_sha: str) -> list[str] | None:
