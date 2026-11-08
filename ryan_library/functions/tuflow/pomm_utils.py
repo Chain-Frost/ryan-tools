@@ -99,9 +99,7 @@ def _mean_coverage_findings(
         unexpected = [value for value in tested if value not in standards]
         # #238 checks the observed TP/file population, whereas WP03's
         # count_TP explicitly counts only finite hydraulic contributors.
-        finite_counts = pd.to_numeric(
-            group.get("count_TP", Series(index=group.index, dtype="float")), errors="coerce"
-        )
+        finite_counts = pd.to_numeric(group.get("count_TP", Series(index=group.index, dtype="float")), errors="coerce")
         unusable_counts = pd.to_numeric(
             group.get("count_unusable_TP", Series(data=0, index=group.index, dtype="int64")),
             errors="coerce",
@@ -169,7 +167,6 @@ def _mean_coverage_findings(
         "Duration coverage rule": "Check missing standard durations strictly between each group's sampled bounds.",
     }
     return result
-
 
 
 def _ordered_columns(
