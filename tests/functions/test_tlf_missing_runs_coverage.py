@@ -26,7 +26,7 @@ class TestTLFMissingRunsCoverage:
         # 4. A cell missing >= 6 TPs
         # 5. A cell missing < 6 TPs
 
-        rows = []
+        rows: list[dict[str, str]] = []
 
         # Complete set (to bypass no_sets)
         for tp in EXPECTED_TPS:

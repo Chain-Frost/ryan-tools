@@ -161,20 +161,43 @@ discarded_count = collection.discard_raw_dataframes()
 
 ## Cache a collection with HDF5
 
-`to_hdf()` writes each processed DataFrame and enough processor metadata to one HDF5 cache. `from_hdf()` reconstructs
-the concrete processor classes and can apply an optional location filter while loading:
+Install the optional HDF cache backend alongside the normal package:
+
+```powershell
+python -m pip install "ryan-tools[cache]"
+```
+
+`to_hdf()` saves a **versioned, read-only processor snapshot**. It keeps the concrete processor class, full source
+path/run identity, entity and location filter state, actual processed DataFrame extension dtypes (categorical, nullable,
+string and numeric) and any `compact_basic_info_columns()` lookup table. Frames are stored as Arrow IPC byte arrays
+inside a compressed HDF5 file. The file is **not** a reusable live database or a stable interchange format.
 
 ```python
 from pathlib import Path
 
+from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
+
 cache_path = Path("cache/tuflow-results.h5")
-collection.to_hdf(cache_path)
+collection.to_hdf(cache_path)  # Refuses to replace any existing cache.
+collection.to_hdf(cache_path, overwrite=True)  # Explicit, atomic replacement.
 
 restored = ProcessorCollection.from_hdf(cache_path, locations=["Culvert_01"])
 ```
 
-Treat this as a processing cache rather than a stable interchange format. Rehydration depends on the configured
-processor classes remaining importable and compatible with the stored metadata.
+Writing uses an invocation-owned temporary file in the destination folder, verifies its manifest and only then
+publishes it. If writing fails, an earlier cache is preserved. Existing destinations require `overwrite=True`.
+Do not share a destination with an input file or rely on a symlinked cache destination.
+
+Loading validates every member, cache schema version, configured processor registry and lightweight source fingerprint
+(absolute path, size, modification time; WAL size/time for GeoPackage sources). A missing or changed input fails closed
+rather than returning an incomplete collection. This fingerprint is not a cryptographic verification of source contents
+and is not a substitute for rerunning processing when underlying data or settings change. For an explicitly historical
+snapshot with changed or unavailable sources, use `from_hdf(cache_path, verify_sources=False)`; this still checks
+member hashes, schema compatibility and processor classes. Old fixed-format caches are incompatible and must be
+regenerated.
+
+Do not use this HDF processor cache as a substitute for the separate PO-plot Parquet cache or as a source for live
+TUFLOW/WAL results. Native Windows/SMB active-writer acceptance for ccA GeoPackages is a separate test gate.
 
 ## MCP inspection and advanced queries
 
@@ -275,6 +298,30 @@ They do **not** insert the line/region output into POMM extrema or the PO
 median/mean ensemble, and there is no implied coincident maximum-flow state.
 The generic read-only MCP inspection interfaces work through the shared registry.
 See [WP12's record](../../../docs/work/2026-11-08-wp12-hu-hd-coverage.md) for native acceptance and unsupported formats.
+
+## ccA SQLite source safety and copy costs
+
+ccA GeoPackage reads copy the database and any applicable WAL to invocation-owned
+local scratch before opening SQLite. The source is never opened with SQLite;
+SQLite may create its index/sidecars only in scratch. A rollback journal,
+incomplete WAL/SHM pair, unavailable source or unstable copy is refused.
+
+Detected source changes allow up to **three fresh copy attempts** with 50 ms and
+100 ms delays. Every attempt repeats the unchanged source identity, size, mtime
+and journal checks. Rejected copies are deleted before the next attempt. This
+bounds copying to three attempts, not wall-clock time on an unresponsive share.
+A continuously changing source still fails explicitly; close/checkpoint its
+writer and retry after it stabilises. No immutable or writable-source fallback
+is used. A successful copy can predate later committed writes.
+
+Scratch needs at least database plus WAL bytes, with additional space for SQLite
+runtime sidecars. Retries can transfer up to three times that volume. The earlier
+synthetic native probe copied 67,637,904 bytes in 0.026-0.057 seconds; this is not a
+multi-GB production benchmark. Stat signatures are not distributed locks or content
+checksums: same-metadata rewrites, unsupported network locking and SQLite
+journal_mode=OFF are outside this acceptance. Cross-host concurrent SQLite WAL
+use on a network filesystem is not qualified. See the
+[WP05 record](../../../docs/work/2026-11-08-wp05-processor-storage.md) for evidence.
 
 ## Add a processor-backed data type
 

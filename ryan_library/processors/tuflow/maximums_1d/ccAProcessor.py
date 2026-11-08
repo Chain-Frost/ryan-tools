@@ -1,14 +1,17 @@
 # ryan_library/processors/tuflow/maximums_1d/ccAProcessor.py
 
 __lazy_modules__ = ["pandas"]
-import os
+import shutil
 import sqlite3
+import tempfile
+import time
 import urllib.parse
+from contextlib import ExitStack
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import ClassVar
 
 import pandas as pd
-import shapefile  # pyright: ignore[reportMissingTypeStubs]
+import shapefile
 from loguru import logger
 from pandas import DataFrame
 
@@ -44,6 +47,11 @@ class ccAProcessor(BaseProcessor):
 
             if cca_data.empty:
                 logger.error(f"No data read from CCA file: {self.log_path}")
+                self.df = pd.DataFrame()
+                return
+
+            if "Chan ID" not in cca_data.columns:
+                logger.error("{}: ccA data is missing the required channel identifier", self.file_name)
                 self.df = pd.DataFrame()
                 return
 
@@ -106,185 +114,199 @@ class ccAProcessor(BaseProcessor):
             return pd.DataFrame()
 
     @staticmethod
-    def _build_sqlite_connection_targets(path: Path) -> list[tuple[str, str, bool]]:
-        """Build SQLite connection candidates in a robust fallback order."""
-        path_posix: str = path.as_posix()
-        is_unc_path: bool = path_posix.startswith("//")
-        targets: list[tuple[str, str, bool]] = []
+    def _build_sqlite_connection_targets(path: Path) -> list[tuple[str, str]]:
+        """Construct read-only URI alternatives, including UNC paths, without a writable fallback."""
+        posix_path = path.absolute().as_posix()
+        encoded_path = urllib.parse.quote(posix_path, safe="/:")
+        targets = [("uri_standard", f"file:{encoded_path}?mode=ro")]
 
-        # Standard URI path: local drives keep `q:/...`; UNC keeps `//server/share/...`.
-        standard_uri_path: str = urllib.parse.quote(path_posix, safe="/:")
-        targets.append(("uri_standard", f"file:{standard_uri_path}?mode=ro&immutable=1", True))
+        if posix_path.startswith("//"):
+            # SQLite rejects remote URI authorities on some Windows builds. The four-slash
+            # form retains the UNC double-leading-slash path rather than changing its target.
+            targets.append(("uri_unc_path", f"file://{encoded_path}?mode=ro"))
 
-        if is_unc_path:
-            # Some SQLite builds reject a URI authority for UNC paths; retry without authority.
-            unc_without_authority: str = "/" + path_posix.lstrip("/")
-            unc_uri_path: str = urllib.parse.quote(unc_without_authority, safe="/:")
-            targets.append(("uri_unc_without_authority", f"file:{unc_uri_path}?mode=ro&immutable=1", True))
-
-        # Last resort: raw path open. We switch SQLite to query-only immediately after connecting.
-        targets.append(("direct_path", str(path), False))
         return targets
 
-    def _open_sqlite_connection(self, path: Path) -> sqlite3.Connection | None:
-        """Try opening a SQLite connection with multiple path/URI strategies."""
-        attempt_errors: list[str] = []
+    @staticmethod
+    def _source_signature(path: Path) -> tuple[int, int, int, int] | None:
+        """Return physical identity and content-change metadata without writing."""
+        try:
+            stat = path.stat()
+        except FileNotFoundError:
+            return None
+        return stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns
 
-        for label, database_target, use_uri in self._build_sqlite_connection_targets(path=path):
-            logger.debug(
-                "process_gpkg: Trying SQLite open strategy={!r}, target={!r}, uri={!r}",
-                label,
-                database_target,
-                use_uri,
-            )
-            try:
-                conn: sqlite3.Connection = sqlite3.connect(database=database_target, uri=use_uri)
-                conn.execute("PRAGMA query_only=ON;")
-                logger.debug("process_gpkg: SQLite open succeeded using strategy={!r}", label)
-                return conn
-            except sqlite3.Error as exc:
-                attempt_errors.append(f"{label}: {exc}")
-                logger.debug("process_gpkg: SQLite open failed using strategy={!r} with error={!r}", label, exc)
+    def _prepare_gpkg_read_source(self, path: Path, owned: ExitStack) -> Path | None:
+        """Read SQLite from owned local scratch, never through a source-side SQLite connection.
 
-        logger.error(
-            f"process_gpkg: SQLite connection failed for {str(path)!r}. "
-            f"Attempted strategies: {' | '.join(attempt_errors)}"
-        )
+        A writer can enter WAL mode after any header preflight, or shut down
+        between WAL sidecar inspection and a read-only SQLite open. Stage both
+        rollback and WAL sources to prevent reader-created source sidecars.
+        SQLite recreates any needed -shm only in scratch. Do not use immutable=1,
+        which can silently miss committed frames from an active WAL writer.
+        """
+        try:
+            wal = path.with_name(path.name + "-wal")
+            shm = path.with_name(path.name + "-shm")
+            journal = path.with_name(path.name + "-journal")
+            source_paths = (path, wal, shm, journal)
+            return self._copy_stable_gpkg(path, source_paths, owned)
+        except OSError as exc:
+            logger.error("Could not prepare read-only SQLite snapshot of {}: {}", path, exc)
+            return None
+
+    def _copy_stable_gpkg(self, path: Path, source_paths: tuple[Path, ...], owned: ExitStack) -> Path | None:
+        """Try at most three complete copies; discard every changed attempt before retrying.
+
+        The attempt count bounds I/O, not elapsed time on an unresponsive share.
+        Each attempt retains the full existing source-signature and journal guards.
+        """
+        wal = source_paths[1]
+        for attempt in range(3):
+            if attempt:
+                time.sleep(0.05 * attempt)
+            before = tuple(self._source_signature(item) for item in source_paths)
+            if before[0] is None or (before[1] is None) != (before[2] is None):
+                logger.error("process_gpkg: Missing database or incomplete WAL/SHM sidecars for {}", path)
+                return None
+            if before[3] is not None:
+                # An exclusive rollback-journal writer may have changed pages
+                # in the main file before commit. Copying it as a standalone
+                # snapshot could expose uncommitted values; fail closed.
+                logger.error("process_gpkg: Rollback journal is present for {}; refusing unsafe snapshot", path)
+                return None
+
+            with ExitStack() as attempt_owned:
+                scratch = Path(attempt_owned.enter_context(tempfile.TemporaryDirectory(prefix="ryan-cca-sqlite-")))
+                staged_path = scratch / path.name
+                try:
+                    shutil.copyfile(path, staged_path)
+                    # Rebuild SHM only in scratch from the copied WAL.
+                    if before[1] is not None:
+                        shutil.copyfile(wal, scratch / wal.name)
+                except OSError:
+                    if tuple(self._source_signature(item) for item in source_paths) == before:
+                        raise
+                    # A shutdown/checkpoint can remove WAL while it is copied.
+                    # Only an observed source change permits another attempt.
+                    continue
+                if tuple(self._source_signature(item) for item in source_paths) != before:
+                    logger.debug("SQLite source changed during copy of {} (attempt {}/3)", path, attempt + 1)
+                    continue
+                owned.enter_context(attempt_owned.pop_all())
+                logger.debug("Reading {} from owned local SQLite snapshot", path)
+                return staged_path
+        logger.error("SQLite source changed during all three snapshot attempts for {}; refusing read", path)
         return None
 
+    def _open_sqlite_connection(self, path: Path) -> sqlite3.Connection | None:
+        """Open a rollback-mode source or owned WAL snapshot, without write fallback."""
+        errors: list[str] = []
+        for label, target in self._build_sqlite_connection_targets(path):
+            conn: sqlite3.Connection | None = None
+            try:
+                conn = sqlite3.connect(database=target, uri=True, timeout=0.5)
+                conn.execute("PRAGMA query_only=ON")
+                logger.debug("process_gpkg: Opened {} using read-only strategy {}", path, label)
+                return conn
+            except sqlite3.Error as exc:
+                if conn is not None:
+                    conn.close()
+                errors.append(f"{label}: {exc}")
+
+        logger.error("process_gpkg: Unable to open {} read-only: {}", path, " | ".join(errors))
+        return None
+
+    @staticmethod
+    def _quote_identifier(value: str) -> str:
+        """Quote a schema-provided SQLite identifier, including embedded quotes."""
+        return '"' + value.replace('"', '""') + '"'
+
     def process_gpkg(self) -> pd.DataFrame:
-        """Process a GeoPackage CCA file in read-only mode, using sqlite only (no Fiona)."""
-        path = Path(self.file_path)
+        """Read one unambiguous ccA layer from a consistent committed, read-only SQLite snapshot."""
+        path = self.file_path
+        if not path.is_file():
+            logger.error("process_gpkg: GeoPackage does not exist or is not a file: {}", path)
+            return pd.DataFrame()
 
-        # Start / file checks
-        msg: str = (
-            "process_gpkg: Starting. "
-            f"file_path={str(path)!r}, "
-            f"exists={path.exists()}, "
-            f"is_file={path.is_file()}, "
-            f"readable={os.access(path, os.R_OK)}"
-        )
-        logger.debug(msg)
-
-        if not path.exists():
-            logger.error(f"process_gpkg: File does not exist: {str(path)!r}")
+        owned = ExitStack()
+        read_path = self._prepare_gpkg_read_source(path, owned)
+        if read_path is None:
+            owned.close()
+            return pd.DataFrame()
+        conn = self._open_sqlite_connection(read_path)
+        if conn is None:
+            owned.close()
             return pd.DataFrame()
 
         try:
-            conn: sqlite3.Connection | None = None
-            try:
-                conn = self._open_sqlite_connection(path=path)
-                if conn is None:
-                    return pd.DataFrame()
-
-                cur: sqlite3.Cursor = conn.cursor()
-
-                try:
-                    # 1. Find our ccA layer in gpkg_contents
-                    logger.debug("process_gpkg: Executing layer discovery query against gpkg_contents")
-                    cur.execute("""
-                        SELECT table_name
-                        FROM gpkg_contents
-                        WHERE data_type = 'features';
-                        """)
-                    rows: list[Any] = cur.fetchall()
-                    layers: list[str] = [row[0] for row in rows]
-                    logger.debug("process_gpkg: Feature layers in gpkg_contents: {!r}", layers)
-
-                    # 2. Find our CCA layer by suffix
-                    desired_suffix = "1d_ccA_L"
-                    layer_name: str | None = next(
-                        (
-                            lyr
-                            for lyr in layers
-                            if isinstance(lyr, str)  # pyright: ignore[reportUnnecessaryIsInstance]
-                            and lyr.endswith(desired_suffix)
-                        ),
-                        None,
-                    )
-                    logger.debug(
-                        "process_gpkg: Desired suffix={!r}, selected layer_name={!r}", desired_suffix, layer_name
-                    )
-
-                    if layer_name is None:
-                        logger.error(
-                            "process_gpkg: No layer ending with "
-                            f"{desired_suffix!r} found in {str(path)!r}; treating datasource as malformed"
-                        )
-                        return pd.DataFrame()
-
-                    # 2b. Inspect actual table columns via PRAGMA
-                    cur.execute(f"PRAGMA table_info('{layer_name}')")
-                    table_info = cur.fetchall()
-                    cols_in_table = [row[1] for row in table_info]
-                    logger.debug("process_gpkg: PRAGMA table_info for layer {!r}: {!r}", layer_name, table_info)
-                    logger.debug("process_gpkg: Columns in table {!r}: {!r}", layer_name, cols_in_table)
-
-                    # Exclude fid + geometry BLOB column (here named 'geom')
-                    excluded: set[str] = {"fid", "geom"}
-                    value_cols = [c for c in cols_in_table if c not in excluded]
-                    if not value_cols:
-                        logger.error(
-                            "process_gpkg: No non-geometry columns found in table "
-                            f"{layer_name!r}; treating datasource as malformed"
-                        )
-                        return pd.DataFrame()
-
-                    col_list_sql: str = ", ".join(f'"{c}"' for c in value_cols)
-                    select_sql: str = f'SELECT {col_list_sql} FROM "{layer_name}"'  # noqa: S608
-                    logger.debug("process_gpkg: Running attribute SELECT on table {!r}: {}", layer_name, select_sql)
-
-                    # 3. Load attributes into DataFrame
-                    # We use manual fetchall to avoid pandas holding references to the connection
-                    cur.execute(select_sql)
-                    data_rows = cur.fetchall()
-                    cols = [description[0] for description in cur.description]
-                    cca_data = pd.DataFrame(data_rows, columns=cols)
-                finally:
-                    cur.close()
-            except sqlite3.Error as e:
-                logger.error(f"process_gpkg: SQLite error: {e}")
-                return pd.DataFrame()
-            finally:
-                if conn:
-                    conn.close()
-
-            logger.debug(
-                "process_gpkg: Raw attribute DataFrame loaded with shape={}, columns={}",
-                cca_data.shape,
-                list(cca_data.columns),
-            )
-
-            # 4. Normalise column names to align with CSV/DBF output
-            logger.debug("process_gpkg: Normalising column names via _normalize_column_names()")
-            cca_data = self._normalize_column_names(df=cca_data)
-            logger.debug(
-                "process_gpkg: After normalisation, shape={}, columns={!r}", cca_data.shape, list(cca_data.columns)
-            )
-
-            # TODO - it looks like shapefile processor does not do this.
-            # could we make it a shared function as they both should be validating in some way
-            # some other functions use apply_final_transformations, but it doesn't seem to be
-            # regularly applied - likely many functions need updating or checking their workflow logic.
-            #
-            # 5. Validate required CCA columns against the configured schema
-            required_cols: list[str] = list(self.output_columns.keys())
-            missing: list[str] = [c for c in required_cols if c not in cca_data.columns]
-            if missing:
+            # A deferred read transaction pins one committed snapshot across the layer,
+            # geometry and attribute queries, including commits still held in the WAL.
+            conn.execute("BEGIN")
+            layers = [
+                row[0]
+                for row in conn.execute(
+                    "SELECT table_name FROM gpkg_contents "
+                    "WHERE data_type = 'features' ORDER BY table_name COLLATE BINARY"
+                ).fetchall()
+            ]
+            matches = [name for name in layers if isinstance(name, str) and name.endswith("1d_ccA_L")]
+            if len(matches) != 1:
                 logger.error(
-                    f"process_gpkg: CCA table {layer_name!r} in file {str(path)!r} is missing required columns: {missing!r}. Treating datasource as malformed.",
+                    "process_gpkg: Expected exactly one ccA feature layer in {}, found {}: {}",
+                    path,
+                    len(matches),
+                    matches,
                 )
                 return pd.DataFrame()
+            layer_name = matches[0]
 
-            logger.debug(
-                "process_gpkg: Final CCA DataFrame ready to return. shape={}, columns={}",
-                cca_data.shape,
-                list(cca_data.columns),
-            )
-            logger.debug("process_gpkg: Completed successfully for file_path={}", str(path))
+            geometry_rows = conn.execute(
+                "SELECT column_name FROM gpkg_geometry_columns WHERE table_name = ?", (layer_name,)
+            ).fetchall()
+            if len(geometry_rows) != 1 or not isinstance(geometry_rows[0][0], str):
+                logger.error(
+                    "process_gpkg: Missing or ambiguous geometry-column metadata for {} in {}", layer_name, path
+                )
+                return pd.DataFrame()
+            geometry_column: str = geometry_rows[0][0]
 
-            return cca_data
+            table_info = conn.execute(f"PRAGMA table_info({self._quote_identifier(layer_name)})").fetchall()
+            if not table_info or geometry_column not in {row[1] for row in table_info}:
+                logger.error("process_gpkg: Invalid geometry-column metadata for {} in {}", layer_name, path)
+                return pd.DataFrame()
 
-        except Exception as e:
-            logger.error(f"process_gpkg: Error while processing GeoPackage file {str(path)!r}: {e}")
+            # Only SQLite's INTEGER PRIMARY KEY is a row identifier. Keep other primary
+            # keys and ordinary fields (including any column named 'geom') unless they
+            # are actually the registered GeoPackage geometry column.
+            value_cols: list[str] = [
+                row[1]
+                for row in table_info
+                if row[1] != geometry_column and not (row[5] and str(row[2]).upper() == "INTEGER")
+            ]
+            if not value_cols:
+                logger.error("process_gpkg: No ccA attribute columns in {} ({})", path, layer_name)
+                return pd.DataFrame()
+
+            columns_sql = ", ".join(self._quote_identifier(col) for col in value_cols)
+            select_sql = f"SELECT {columns_sql} FROM {self._quote_identifier(layer_name)}"  # noqa: S608
+            cur = conn.execute(select_sql)
+            cca_data = pd.DataFrame(cur.fetchall(), columns=[column[0] for column in cur.description])
+        except sqlite3.Error as exc:
+            logger.error("process_gpkg: Unable to read consistent ccA snapshot from {}: {}", path, exc)
             return pd.DataFrame()
+        finally:
+            try:
+                conn.close()
+            finally:
+                owned.close()
+
+        cca_data = self._normalize_column_names(cca_data)
+        if "Chan ID" not in cca_data.columns:
+            logger.error("process_gpkg: ccA layer {} in {} lacks required channel identifier", layer_name, path)
+            return pd.DataFrame()
+
+        # The other output_columns are optional, just as for the DBF path: the
+        # configured dtype conversion applies to whatever attributes are present.
+        logger.debug("process_gpkg: Read {} ccA records from {}", len(cca_data), path)
+        return cca_data

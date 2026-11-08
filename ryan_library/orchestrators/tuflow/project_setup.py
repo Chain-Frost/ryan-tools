@@ -15,13 +15,14 @@ import subprocess
 from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final, Literal, cast
+from typing import Final, Literal
 
-import fiona  # pyright: ignore[reportMissingTypeStubs]
+import fiona
 import numpy as np
-import rasterio  # pyright: ignore[reportMissingTypeStubs]
+import rasterio
 from loguru import logger
-from rasterio.transform import from_origin  # pyright: ignore[reportMissingTypeStubs, reportUnknownVariableType]
+from pyproj import CRS
+from rasterio.transform import from_origin
 
 GeometrySuffix = Literal["P", "L", "R"]
 UtilityDestination = Literal[".", "model/gis", "results"]
@@ -291,6 +292,12 @@ def _copy_2d_loc_style(*, working_layer: Path, overwrite: bool) -> Path:
 
 def _create_projection_files(*, prj_file: Path, gis_dir: Path, overwrite: bool) -> None:
     wkt: str = prj_file.read_text(encoding="utf-8-sig")
+    # ESRI WKT can otherwise serialize as a user-defined TIFF/GPKG CRS.
+    # Only canonicalise exact authority matches; preserve genuine local grids.
+    source_crs = CRS.from_wkt(wkt)
+    epsg = source_crs.to_epsg(min_confidence=100)
+    output_crs = CRS.from_epsg(epsg) if epsg is not None else source_crs
+    output_wkt = output_crs.to_wkt(version="WKT1_GDAL") if epsg is not None else wkt
     projection_name: str = f"projection_{prj_file.stem}"
     projection_prj: Path = gis_dir / f"{projection_name}.prj"
     projection_gpkg: Path = gis_dir / f"{projection_name}.gpkg"
@@ -304,19 +311,19 @@ def _create_projection_files(*, prj_file: Path, gis_dir: Path, overwrite: bool) 
 
     shutil.copy2(src=prj_file, dst=projection_prj)
     projection_schema: dict[str, object] = {"geometry": "Point", "properties": {"id": "str"}}
-    with fiona.open(  # pyright: ignore[reportUnknownMemberType]
+    with fiona.open(
         projection_gpkg,
         mode="w",
         driver="GPKG",
         layer=projection_name,
         schema=projection_schema,
-        crs_wkt=wkt,
+        crs_wkt=output_wkt,
         encoding="UTF-8",
     ):
         pass
 
-    transform = from_origin(west=-0.5, north=0.5, xsize=1.0, ysize=1.0)  # pyright: ignore[reportUnknownVariableType]
-    with rasterio.open(  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+    transform = from_origin(west=-0.5, north=0.5, xsize=1.0, ysize=1.0)
+    with rasterio.open(
         fp=projection_tif,
         mode="w",
         driver="GTiff",
@@ -324,12 +331,12 @@ def _create_projection_files(*, prj_file: Path, gis_dir: Path, overwrite: bool) 
         height=1,
         count=1,
         dtype="float32",
-        crs=wkt,
+        crs=f"EPSG:{epsg}" if epsg is not None else wkt,
         transform=transform,
         nodata=-999.0,
         compress="deflate",
-    ) as dataset:  # pyright: ignore[reportUnknownVariableType]
-        dataset.write(np.zeros((1, 1, 1), dtype=np.float32))  # pyright: ignore[reportUnknownMemberType]
+    ) as dataset:
+        dataset.write(np.zeros((1, 1, 1), dtype=np.float32))
     logger.info("Created projection files in {}", gis_dir)
 
 
@@ -379,13 +386,13 @@ def _create_working_layer_from_empty(
         target_path.unlink()
 
     schema: dict[str, object] = _read_fiona_schema(source_path=source_path, source_layer=source_layer)
-    with fiona.open(  # pyright: ignore[reportUnknownMemberType]
+    with fiona.open(
         fp=source_path,
         layer=source_layer,
     ) as source:
-        crs_wkt: str | None = cast("str | None", source.crs_wkt)  # pyright: ignore[reportUnknownMemberType]
+        crs_wkt: str | None = source.crs_wkt
 
-    with fiona.open(  # pyright: ignore[reportUnknownMemberType]
+    with fiona.open(
         fp=target_path,
         mode="w",
         driver="GPKG",

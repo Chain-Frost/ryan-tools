@@ -213,20 +213,11 @@ jobs:
           python repo-scripts/vendor_pytuflow_wheel.py --installed
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           # Ruff, workflow syntax, documentation and logging already passed preflight.
-          # Preserve the initialiser's distinct strict GIS stub configuration.
-          $initialiserIncludes = @((Get-Content pyright-initialiser.json -Raw | ConvertFrom-Json).include)
-          $initialiserFiles = @($pythonFiles | Where-Object {
-            $file = $_
-            @($initialiserIncludes | Where-Object {
-              $file -eq $_ -or $file.StartsWith("$_/")
-            }).Count -gt 0
-          })
-          $sharedFiles = @($pythonFiles | Where-Object { $_ -notin $initialiserFiles })
           # Large configuration changes can select every file. Bound command-line
           # length as well as avoiding Windows' environment-variable length limit.
           $batch = @()
           $characters = 0
-          foreach ($file in $sharedFiles) {
+          foreach ($file in $pythonFiles) {
             if ($characters + $file.Length + 3 -gt 12000) {
               python -m pyright @batch
               if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -238,10 +229,6 @@ jobs:
           }
           if ($batch.Count -gt 0) {
             python -m pyright @batch
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          }
-          if ($initialiserFiles.Count -gt 0) {
-            python -m pyright --project pyright-initialiser.json
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
 
@@ -321,6 +308,9 @@ jobs:
         run: |
           python -m pip install -r repo-scripts/ci-test-requirements.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # A broken/missing optional backend must fail rather than skip HDF acceptance.
+          python -c "import tables; print('Processor cache backend:', tables.__version__)"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Verify installed parser wheel origin and SHA-256
         shell: pwsh
@@ -348,9 +338,24 @@ jobs:
             --junitxml=test-results/hosted-tests.xml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Preserve the focused profiling regression excluded by the broad GIS boundary
+        shell: pwsh
+        run: python -m pytest -q tests/functions/gdal/test_profiling.py -m "not gui and not external" --junitxml=test-results/mcp-profiling.xml
+
+      - name: Verify Windows MCP module import and tool exports
+        id: mcp-contracts
+        shell: pwsh
+        env:
+          RYAN_MCP_PROFILE: create
+          RYAN_TOOLS_REPOSITORY_ROOT: ${{ github.workspace }}
+        run: |
+          python -B -c "import ryan_library.mcp.server as server; assert server.mcp is not None; assert all(callable(getattr(server, name)) for name in ('parse_tuflow_filename', 'inspect_tuflow_result', 'inspect_tuflow_collection', 'inspect_raster_metadata', 'check_repo_health', 'list_workflows', 'get_workflow'))"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "passed=true" >> $env:GITHUB_OUTPUT
+
       # #227: a second pandas major series must preserve POMM/culvert
       # numeric values, representative-event identity and XLSX schemas.
-      # Keep the current-pandas full-suite run above as the primary gate.
+      # Keep the default-environment suite and MCP acceptance above as the primary gates.
       - name: Run focused POMM compatibility tests with pandas 2.3.3
         shell: pwsh
         run: |
@@ -368,21 +373,6 @@ jobs:
             tests/orchestrators/tuflow/test_tuflow_culverts_finite_216.py `
             tests/orchestrators/tuflow/test_tuflow_culverts_mean.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Preserve the focused profiling regression excluded by the broad GIS boundary
-        shell: pwsh
-        run: python -m pytest -q tests/functions/gdal/test_profiling.py -m "not gui and not external" --junitxml=test-results/mcp-profiling.xml
-
-      - name: Verify Windows MCP module import and tool exports
-        id: mcp-contracts
-        shell: pwsh
-        env:
-          RYAN_MCP_PROFILE: create
-          RYAN_TOOLS_REPOSITORY_ROOT: ${{ github.workspace }}
-        run: |
-          python -B -c "import ryan_library.mcp.server as server; assert server.mcp is not None; assert all(callable(getattr(server, name)) for name in ('parse_tuflow_filename', 'inspect_tuflow_result', 'inspect_tuflow_collection', 'inspect_raster_metadata', 'check_repo_health', 'list_workflows', 'get_workflow'))"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          "passed=true" >> $env:GITHUB_OUTPUT
 
       - name: Upload test report
         if: always()

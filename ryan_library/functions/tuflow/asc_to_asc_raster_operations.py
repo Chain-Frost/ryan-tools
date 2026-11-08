@@ -22,14 +22,14 @@ import time
 from collections.abc import Iterable
 from contextlib import ExitStack, closing
 from pathlib import Path
-from typing import Literal, Protocol, cast
+from typing import Any, Literal, Protocol, cast
 from uuid import uuid4
 
 import numpy as np
 import numpy.typing as npt
-import rasterio  # pyright: ignore[reportMissingTypeStubs]
+import rasterio
 from numpy._typing._array_like import NDArray
-from rasterio.windows import Window  # pyright: ignore[reportMissingTypeStubs]
+from rasterio.windows import Window
 
 from ryan_library.functions.gdal.raster_processing import geotiff_creation_options
 
@@ -61,14 +61,14 @@ def _open_raster(path: Path, mode: str = "r", profile: dict[str, object] | None 
     if profile is None:
         return cast(
             "_RasterDataset",
-            rasterio.open(path, mode),  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+            rasterio.open(path, mode),
         )
     return cast(
         "_RasterDataset",
-        rasterio.open(  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType, reportArgumentType]
+        rasterio.open(
             path,
             mode,
-            **profile,  # pyright: ignore[reportArgumentType]
+            **cast("dict[str, Any]", profile),
         ),
     )
 
@@ -322,7 +322,7 @@ def _chunk_windows(
     for row_off in range(0, height, chunk_rows):
         row_count: int = min(chunk_rows, height - row_off)
         # Yield a dummy index (0, row_off) to match the signature of block_windows
-        yield ((0, row_off), Window(0, row_off, width, row_count))  # pyright: ignore[reportCallIssue]
+        yield ((0, row_off), Window(0, row_off, width, row_count))
 
 
 def compute_max(input_files: list[str], output_file: str, extra_args: list[str] | None = None) -> None:

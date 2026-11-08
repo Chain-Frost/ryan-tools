@@ -6,10 +6,13 @@ import shutil
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, cast
 
 import fiona
 import numpy as np
 import rasterio
+import rasterio.crs
+import rasterio.io
 from numpy.typing import NDArray
 from rasterio.features import rasterize
 from shapely.geometry import LineString, mapping
@@ -29,6 +32,9 @@ from .model_terrain import set_model_terrain
 from .project_setup import TuflowProjectConfig, initialize_tuflow_project
 from .subcatchment_outputs import write_reach_subcatchment_summary, write_reach_subcatchments
 from .subcatchments import delineate_reach_subcatchments
+
+# Rasterio masked=True returns a MaskedArray; upstream currently declares ndarray.
+type MaskedBand = np.ma.MaskedArray[Any, np.dtype[np.number[Any]]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -171,7 +177,7 @@ def build(  # noqa: C901 - staged project generation validates GIS and raster ou
         )
         with rasterio.open(mosaic.dem) as terrain:
             check_dem(terrain)
-            terrain_crs = terrain.crs
+            terrain_crs = cast("rasterio.crs.CRS | None", terrain.crs)
             if terrain_crs is None:
                 msg = "Analysis terrain has no CRS"
                 raise ValueError(msg)
@@ -204,10 +210,10 @@ def build(  # noqa: C901 - staged project generation validates GIS and raster ou
                     & (hydro_ds.read_masks(1) > 0)
                     & (terrain.read_masks(1) > 0)
                 )
-                directions = direction_ds.read(1, masked=True).filled(0).astype(np.int16)
-                accum = acc_ds.read(1, masked=True).filled(0).astype(np.float64)
-                conditioned = hydro_ds.read(1, masked=True).filled(np.nan).astype(np.float64)
-                original = terrain.read(1, masked=True).filled(np.nan).astype(np.float64)
+                directions = cast("MaskedBand", direction_ds.read(1, masked=True)).filled(0).astype(np.int16)
+                accum = cast("MaskedBand", acc_ds.read(1, masked=True)).filled(0).astype(np.float64)
+                conditioned = cast("MaskedBand", hydro_ds.read(1, masked=True)).filled(np.nan).astype(np.float64)
+                original = cast("MaskedBand", terrain.read(1, masked=True)).filled(np.nan).astype(np.float64)
                 valid_cells &= np.isfinite(conditioned) & np.isfinite(original) & np.isfinite(accum)
                 domain: Domain = make_domain(
                     directions,

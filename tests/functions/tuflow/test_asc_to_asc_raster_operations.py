@@ -9,8 +9,8 @@ from typing import Protocol, cast
 import numpy as np
 import numpy.typing as npt
 import pytest
-import rasterio  # pyright: ignore[reportMissingTypeStubs]
-from rasterio.transform import from_origin  # pyright: ignore[reportMissingTypeStubs, reportUnknownVariableType]
+import rasterio
+from rasterio.transform import from_origin
 
 from ryan_library.functions.tuflow.asc_to_asc_raster_operations import compute_stat, flatten_nested_source_provenance
 from ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search import (
@@ -44,7 +44,7 @@ def _write_raster(path: Path, values: list[float]) -> None:
     data = np.asarray([values], dtype=np.float32)
     destination = cast(
         "_RasterWriter",
-        rasterio.open(  # pyright: ignore[reportUnknownMemberType]
+        rasterio.open(
             path,
             "w",
             driver="GTiff",
@@ -63,7 +63,7 @@ def _write_raster(path: Path, values: list[float]) -> None:
 
 
 def _read_raster(path: Path) -> npt.NDArray[np.float32]:
-    source = cast("_RasterReader", rasterio.open(path))  # pyright: ignore[reportUnknownMemberType]
+    source = cast("_RasterReader", rasterio.open(path))
     try:
         return source.read(1)
     finally:
@@ -71,7 +71,7 @@ def _read_raster(path: Path) -> npt.NDArray[np.float32]:
 
 
 def _compression(path: Path) -> str | None:
-    source = cast("_RasterReader", rasterio.open(path))  # pyright: ignore[reportUnknownMemberType]
+    source = cast("_RasterReader", rasterio.open(path))
     try:
         return None if source.compression is None else source.compression.name
     finally:

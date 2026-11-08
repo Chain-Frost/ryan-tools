@@ -2,16 +2,18 @@
 
 import json
 import os
+import re
 import subprocess
 import sys
 import tomllib
 from dataclasses import asdict, dataclass
 from pathlib import Path, PurePosixPath
+from typing import cast
 
 EXCLUDED_ROOTS = ("vendor", "tests/test_data", "unsorted", "qgis-resources", "excel-resources")
 PYTHON_SUFFIXES = frozenset({".py", ".pyi"})
 MARKDOWN_SUFFIXES = frozenset({".md", ".markdown"})
-RUFF_CONFIG_NAMES = frozenset({"ruff.toml", ".ruff.toml"})
+RUFF_CONFIG_NAMES = frozenset({"ruff.toml", ".ruff.toml", "pyproject.toml"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,18 +27,16 @@ class CIScope:
     markdown_files: tuple[str, ...]
 
 
-def _git(root: Path, *arguments: str) -> str:
+def _git(root: Path, *arguments: str, errors: str = "surrogateescape") -> str:
     """Read Git metadata without shell expansion or submodule traversal."""
     result = subprocess.run(
         ["git", "-C", str(root), *arguments],  # noqa: S607 - Git is supplied by the CI runner.
         check=True,
         capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="surrogateescape",
         timeout=30,
     )
-    return result.stdout
+    # Decode here: Windows subprocess reader threads do not propagate decode errors.
+    return result.stdout.decode("utf-8", errors=errors)
 
 
 def _changed_paths(root: Path, base_sha: str, head_sha: str) -> list[str] | None:
@@ -46,7 +46,7 @@ def _changed_paths(root: Path, base_sha: str, head_sha: str) -> list[str] | None
     try:
         # Renames must include the deleted path: source.py -> notes.md is code work.
         output = _git(root, "diff", "--no-renames", "--name-only", "-z", base_sha, head_sha, "--")
-    except (OSError, subprocess.SubprocessError):
+    except OSError, subprocess.SubprocessError:
         return None
     return [path for path in output.split("\0") if path]
 
@@ -69,63 +69,122 @@ def _existing_files(root: Path, paths: list[str], suffixes: frozenset[str]) -> t
 
 
 def _is_type_config(path: str) -> bool:
-    """Recognise every named Pyright project configuration."""
+    """Recognise project metadata and every named Pyright project configuration."""
     name = PurePosixPath(path).name
-    return name.startswith("pyright") and name.endswith(".json")
+    return name == "pyproject.toml" or (name.startswith("pyright") and name.endswith(".json"))
 
 
-def _pyproject_static_changes(root: Path, *, base_sha: str, head_sha: str) -> tuple[bool, bool]:
-    """Widen static checks for effective tool configuration, not package metadata.
+def _same_toml_values(before: object, after: object) -> bool:
+    """Compare parsed values without conflating TOML integers, floats and booleans."""
+    if type(before) is not type(after):
+        return False
+    if isinstance(before, dict) and isinstance(after, dict):
+        left = cast(dict[str, object], before)
+        right = cast(dict[str, object], after)
+        return left.keys() == right.keys() and all(_same_toml_values(value, right[key]) for key, value in left.items())
+    if isinstance(before, list) and isinstance(after, list):
+        left_items = cast(list[object], before)
+        right_items = cast(list[object], after)
+        return len(left_items) == len(right_items) and all(
+            _same_toml_values(left, right) for left, right in zip(left_items, right_items, strict=True)
+        )
+    return before == after
 
-    A version bump, package extra or entry point does not alter Ruff/Pyright
-    rules. If the before/after TOML cannot be read or parsed, fail open to
-    broad lint and typing rather than silently assuming unchanged rules.
+
+def _is_statically_neutral_pyproject_change(root: Path, path: str, base_sha: str, head_sha: str) -> bool:
+    """Exempt numeric version changes and the exact accepted HDF-cache backend addition.
+
+    Unknown metadata, tool settings and dependency changes still expand static
+    checks. The narrow PyTables addition is exercised by the hosted HDF suite.
+    This does not generalise dependency-only changes into unverified exemptions.
     """
+    documents: list[dict[str, object]] = []
+    versions: list[str] = []
+    previous_mode: str | None = None
     try:
-        before = tomllib.loads(_git(root, "show", f"{base_sha}:pyproject.toml"))
-        after = tomllib.loads(_git(root, "show", f"{head_sha}:pyproject.toml"))
-    except (OSError, subprocess.SubprocessError, tomllib.TOMLDecodeError):
-        return True, True
+        for revision in (base_sha, head_sha):
+            entry = _git(root, "--literal-pathspecs", "ls-tree", "-z", revision, "--", path)
+            fields = entry.partition("\t")[0].split()
+            if len(fields) != 3 or fields[0] not in {"100644", "100755"} or fields[1] != "blob":
+                return False
+            if previous_mode is not None and fields[0] != previous_mode:
+                return False
+            previous_mode = fields[0]
+            document: dict[str, object] = tomllib.loads(_git(root, "show", f"{revision}:{path}", errors="strict"))
+            project = document.get("project")
+            if not isinstance(project, dict):
+                return False
+            project_fields = cast(dict[str, object], project)
+            version = project_fields.pop("version", None)
+            if not isinstance(version, str) or re.fullmatch(r"[0-9]+(?:\.[0-9]+)*", version) is None:
+                return False
+            dynamic = project_fields.get("dynamic", [])
+            if not isinstance(dynamic, list):
+                return False
+            dynamic_fields = cast(list[object], dynamic)
+            if any(not isinstance(field, str) for field in dynamic_fields) or "version" in dynamic_fields:
+                return False
+            documents.append(document)
+            versions.append(version)
+    except OSError, UnicodeError, subprocess.SubprocessError, tomllib.TOMLDecodeError:
+        return False
+    if versions[0] == versions[1]:
+        return False
+    return _same_toml_values(documents[0], documents[1]) or _is_exact_hdf_cache_backend_addition(documents)
 
-    before_tools = before.get("tool", {})
-    after_tools = after.get("tool", {})
-    before_project = before.get("project", {})
-    after_project = after.get("project", {})
-    before_dev = before_project.get("optional-dependencies", {}).get("dev", [])
-    after_dev = after_project.get("optional-dependencies", {}).get("dev", [])
 
-    def relevant(requirements: list[str], prefixes: tuple[str, ...]) -> tuple[str, ...]:
-        return tuple(sorted(item for item in requirements if item.startswith(prefixes)))
+def _is_exact_hdf_cache_backend_addition(documents: list[dict[str, object]]) -> bool:
+    """Accept only the known PyTables cache extra without hiding other changes."""
+    # WP05 adds exactly one optional HDF backend, not a Ruff/Pyright rule or
+    # runtime dependency. The HDF tests require its actual installation.
+    before_project = documents[0].get("project")
+    after_project = documents[1].get("project")
+    if not isinstance(before_project, dict) or not isinstance(after_project, dict):
+        return False
+    before_extras = cast(dict[str, object], before_project).get("optional-dependencies")
+    after_extras = cast(dict[str, object], after_project).get("optional-dependencies")
+    if not isinstance(before_extras, dict) or not isinstance(after_extras, dict):
+        return False
+    before_options = cast(dict[str, object], before_extras)
+    after_options = cast(dict[str, object], after_extras)
+    before_dev = before_options.get("dev")
+    after_dev = after_options.get("dev")
+    if not isinstance(before_dev, list) or not isinstance(after_dev, list):
+        return False
+    before_items = cast(list[object], before_dev)
+    after_items = cast(list[object], after_dev)
 
-    python_changed = before_project.get("requires-python") != after_project.get("requires-python")
-    ruff_changed = before_tools.get("ruff") != after_tools.get("ruff") or relevant(before_dev, ("ruff",)) != relevant(
-        after_dev, ("ruff",)
-    )
-    typing_changed = before_tools.get("pyright") != after_tools.get("pyright") or relevant(
-        before_dev, ("pyright", "pandas-stubs")
-    ) != relevant(after_dev, ("pyright", "pandas-stubs"))
-    return python_changed or ruff_changed, python_changed or typing_changed
+    backend = "tables>=3.11.1"
+    if (
+        "cache" in before_options
+        or after_options.get("cache") != [backend]
+        or before_items.count(backend) != 0
+        or after_items.count(backend) != 1
+    ):
+        return False
+    after_options.pop("cache")
+    after_items.remove(backend)
+    return _same_toml_values(documents[0], documents[1])
 
 
 def determine_scope(root: Path, *, event_name: str, base_sha: str, head_sha: str = "HEAD") -> CIScope:
     """Fail open to full CI; broaden static checks when the comparison is unknown."""
-    changed = _changed_paths(root, base_sha, head_sha or "HEAD")
+    comparison_head = head_sha or "HEAD"
+    changed = _changed_paths(root, base_sha, comparison_head)
     markdown_only = bool(changed) and all(
         PurePosixPath(path).suffix.casefold() in MARKDOWN_SUFFIXES for path in changed or []
     )
     full = event_name != "pull_request" or not markdown_only
 
     owned_changes = [path for path in changed or [] if _is_first_party(path)]
-    pyproject_lint = False
-    pyproject_types = False
-    if "pyproject.toml" in owned_changes:
-        pyproject_lint, pyproject_types = _pyproject_static_changes(root, base_sha=base_sha, head_sha=head_sha)
-    all_lint = (
-        changed is None
-        or pyproject_lint
-        or any(PurePosixPath(path).name in RUFF_CONFIG_NAMES for path in owned_changes)
-    )
-    all_types = changed is None or pyproject_types or any(_is_type_config(path) for path in owned_changes)
+    configuration_changes = [
+        path
+        for path in owned_changes
+        if PurePosixPath(path).name != "pyproject.toml"
+        or not _is_statically_neutral_pyproject_change(root, path, base_sha, comparison_head)
+    ]
+    all_lint = changed is None or any(PurePosixPath(path).name in RUFF_CONFIG_NAMES for path in configuration_changes)
+    all_types = changed is None or any(_is_type_config(path) for path in configuration_changes)
     tracked: list[str] = []
     if all_lint or all_types:
         # Without --recurse-submodules, ls-files lists gitlinks, not their contents.

@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | In validation; draft child implementation, not integrated |
+| Status | Scoped implementation complete; Windows 10 native acceptance PASS; draft parent integration tracked by PR #281 |
 | Owner | WP09 agent |
 | Created | 2026-11-08 |
 | Updated | 2026-11-08 |
@@ -41,9 +41,9 @@ Issue #92 (interval/interpolation/AATOC and broader closure semantics) is assign
   some partially corrupt source series can no longer be identified here. Coordinate source validity and failed-file
   outcomes with WP04 #219/#223; do not silently describe this pack as full source-to-report missingness acceptance.
 - No solver, network filesystem, production project data, source parser rewrite or #92 engineering semantics.
-- This environment cannot clone the repository for a true worktree or perform Windows/Python 3.14,
-  installed-wheel and copied-wrapper testing. The isolated harness recreates the relevant finite-statistics
-  helper from the parent; exact checkout validation remains mandatory.
+- The initial isolated authoring environment could not clone the repository or perform native Windows/Python 3.14
+  checks. Independent exact-head Windows, installed-wheel and copied-wrapper acceptance was subsequently completed
+  and is documented below. No real solver or authentic-project PO run is claimed.
 
 ## Validation and delivery
 
@@ -62,15 +62,39 @@ No production-code defect was reported by that check. On final **functional and 
 subsequently passed **all 6 jobs**: strict Policy/Pyright, hosted source-tree tests (**2,964 passed,
 14 skipped, 8 deselected**), Package, Ruff/whitespace/docs, POSIX wrapper security and MCP smoke.
 All **14 WP09 tests executed and passed**, including real CSV/Parquet/Excel output readback;
-additional pandas 2.3.3 compatibility: **64 passed**. This documentation-only closeout requires
-its own final-head check; the PR description owns live CI status to avoid repeated status commits.
+additional pandas 2.3.3 compatibility: **64 passed**. The documentation-only final child head `74a51cf802a84f20d6ea855ba2832eeb47f127f2`
+subsequently passed all six hosted CI checks in [run 42473813581](https://github.com/Chain-Frost/ryan-tools/actions/runs/42473813581).
+The PR description and independent acceptance comment record this evidence without a status-only code commit.
 Codex reviewed the functional code commit `dabf1be2a34c7ecf2be00ceaae8dd81614dad47f` and
 reported no findings; the index and test-annotation changes are nonfunctional.
-Do not report skipped or unexecuted tests as passes. No merges, releases or issue closures performed.
+Do not report skipped or unexecuted tests as passes. The native acceptance did not merge, release or close issues.
+
+## Independent Windows 10 native acceptance — 2026-11-08
+
+[Exact-head acceptance report on PR #281](https://github.com/Chain-Frost/ryan-tools/pull/281#issuecomment-6722034671)
+documents independent testing of `74a51cf802a84f20d6ea855ba2832eeb47f127f2` on
+Windows 10 (19045), Python 3.14.6, pandas 3.0.5, PyArrow 24.0.0 and openpyxl 3.1.5.
+
+- **56 focused tests passed, zero failures or skips**, including all 14 new WP09 regressions and
+  CSV/Parquet/Excel readback. Ruff, Ruff format, strict Pyright (zero errors/warnings), documentation
+  link and Loguru formatting checks passed. Exact child-head hosted CI: **6/6 green**.
+- A version-preserving wheel (`ryan_tools-26.11.8.2-py3-none-any.whl`, SHA256
+  `fbffcb55ba035aacb599f3998bee3359bc7052f1dafc118367d328401e37e0bc`)
+  was built and installed into an isolated target without overwriting the global 26.11.8.8 package.
+  Module import paths proved source and installed-wheel testing were separate.
+- Six disposable NTFS PO CSV fixtures used the existing production two-row PO header contract and
+  real POProcessor. Correctly named Existing/Proposed 3-TP runs remained separate. Source, wheel
+  and unchanged copied closure wrapper produced equal event summaries: **0/0/1 h**, upper-middle
+  median **0 h**, arithmetic mean **1/3 h**, count **3** per scenario. CSV, gzip-Parquet and Excel
+  outputs were read back independently; all six source hashes stayed unchanged.
+- No authentic project PO, licensed solver, arbitrary SMB, absent-run manifest or upstream
+  partial-row failure was accepted. Those upstream validity contracts remain WP04 #219/#223;
+  broader closure interval/interpolation remains deferred #92.
+- This report validates the original child head, not a future parent-reconciled tree. Integrated
+  revision hosted CI and review remain separate gates.
 
 ## Next action
 
-Confirm final CI on this documentation-only closeout, then obtain independent Windows 10 Python 3.14
-installed-wheel/copied-wrapper verification of real PO source-to-report values and source-file preservation.
-Coordinate missingness limitations with WP04 #219/#223 before requesting integration into #251.
-Do not integrate without authorisation and do not merge #251 to main.
+Reconcile this scoped accepted delivery with the advancing draft parent #251, validate the exact
+integration head, and keep issue #215 open until separately authorised default-branch integration.
+No merge to `main`, release, auto-merge or closure of coordination issues is authorised.

@@ -29,28 +29,34 @@ _PHASES: tuple[RunPhase, ...] = ("initialising", "solving", "writing_results")
 _WINDOW_BYTES = 64 * 1024
 _NUMBER = r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eEdD][+-]?\d+)?"
 _CLOCK = r"[+-]?\d+:[0-5]\d:[0-5]\d(?:\.\d+)?"
-_PLACEHOLDER = re.compile(r"~([es]\d?)~", re.IGNORECASE)
-_UNRESOLVED = re.compile(r"<<|>>|~[es]\d?~|[*?]", re.IGNORECASE)
-_STARTED = re.compile(
-    r"^\s*Simulation Started:\s*(\d{4})-([A-Za-z]{3})-(\d{1,2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*$",
-    re.MULTILINE,
+_PLACEHOLDER: re.Pattern[str] = re.compile(pattern=r"~([es]\d?)~", flags=re.IGNORECASE)
+_UNRESOLVED: re.Pattern[str] = re.compile(pattern=r"<<|>>|~[es]\d?~|[*?]", flags=re.IGNORECASE)
+_STARTED: re.Pattern[str] = re.compile(
+    pattern=r"^\s*Simulation Started:\s*(\d{4})-([A-Za-z]{3})-(\d{1,2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*$",
+    flags=re.MULTILINE,
 )
-_LIMIT = re.compile(
-    rf"^\s*(Start|End|Finish) Time\s*\(h\)\s*(==|:)\s*(?:\.{{2,}}\s*)?({_NUMBER})(?=\s|$)",
-    re.IGNORECASE,
+_LIMIT: re.Pattern[str] = re.compile(
+    pattern=rf"^\s*(Start|End|Finish) Time\s*\(h\)\s*(==|:)\s*(?:\.{{2,}}\s*)?({_NUMBER})(?=\s|$)",
+    flags=re.IGNORECASE,
 )
-_MAIN_TIME = re.compile(rf"^\s*(?:SIM:|Writing HPC Output at:)\s*({_CLOCK})(?=\s|$)", re.IGNORECASE)
-_HPC_START = re.compile(rf"^\s*Start Time\s*={{1,2}}\s*({_CLOCK})(?=\s|$)", re.IGNORECASE)
-_HPC_TABLE = re.compile(r"^\s*iStep\s+time\s+", re.IGNORECASE)
-_INITIALISING = re.compile(r"^\s*Initiali[sz]ing\s+", re.IGNORECASE)
-_WRITING_RESULTS = re.compile(
-    r"^\s*(?:Finished (?:HPC|Quadtree) Solution\.|Run Finished\s+\.{2,}|Writing maximums\.{2,}|"
+_MAIN_TIME: re.Pattern[str] = re.compile(
+    pattern=rf"^\s*(?:SIM:|Writing HPC Output at:)\s*({_CLOCK})(?=\s|$)", flags=re.IGNORECASE
+)
+_HPC_START: re.Pattern[str] = re.compile(
+    pattern=rf"^\s*Start Time\s*={{1,2}}\s*({_CLOCK})(?=\s|$)", flags=re.IGNORECASE
+)
+_HPC_TABLE: re.Pattern[str] = re.compile(pattern=r"^\s*iStep\s+time\s+", flags=re.IGNORECASE)
+_INITIALISING: re.Pattern[str] = re.compile(pattern=r"^\s*Initiali[sz]ing\s+", flags=re.IGNORECASE)
+_WRITING_RESULTS: re.Pattern[str] = re.compile(
+    pattern=r"^\s*(?:Finished (?:HPC|Quadtree) Solution\.|Run Finished\s+\.{2,}|Writing maximums\.{2,}|"
     r"Closing map output files\.{2,}|Writing TUFLOW 1D output\.{2,}|"
     r"Writing any PO output\.{2,}|SIMULATION SUMMARY\s*$|Simulation FINISHED\s*$)",
-    re.IGNORECASE,
+    flags=re.IGNORECASE,
 )
-_FINAL_MASS_ERROR = re.compile(rf"^\s*Final Cumulative ME:\s*({_NUMBER})\s*%\s*$", re.IGNORECASE)
-_MONTHS = ("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec")
+_FINAL_MASS_ERROR: re.Pattern[str] = re.compile(
+    pattern=rf"^\s*Final Cumulative ME:\s*({_NUMBER})\s*%\s*$", flags=re.IGNORECASE
+)
+_MONTHS: tuple[str, ...] = ("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec")
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,7 +122,7 @@ def _validated_context(tcf_name: str, supplied: Mapping[str, str]) -> dict[str, 
     """
     values: dict[str, str] = {}
     for supplied_key, value in supplied.items():
-        key = supplied_key.lstrip("-").casefold()
+        key: str = supplied_key.lstrip("-").casefold()
         if re.fullmatch(r"[es][1-9]?", key) is None:
             message = f"Unsupported progress flag: {supplied_key}"
             raise ValueError(message)
@@ -143,7 +149,7 @@ def _model_hours(run: _RunContext, label: str) -> float | None:
     # stay unknown; the actual log will supply the effective solver timing.
     result: float | None = None
     for command in inputs:
-        value = _finite_number(command.value)
+        value: float | None = _finite_number(command.value)
         if value is None or (result is not None and result != value):
             return None
         result = value
@@ -330,33 +336,33 @@ def _open_shared_binary(path: Path) -> FileIO:
 
 
 def _launch_time(text: str) -> float | None:
-    match = _STARTED.search(text)
+    match: re.Match[str] | None = _STARTED.search(text)
     if match is None:
         return None
     try:
         month = _MONTHS.index(match.group(2).casefold()) + 1
         value = datetime(
-            int(match.group(1)),
-            month,
-            int(match.group(3)),
-            int(match.group(4)),
-            int(match.group(5)),
-            int(match.group(6) or 0),
+            year=int(match.group(1)),
+            month=month,
+            day=int(match.group(3)),
+            hour=int(match.group(4)),
+            minute=int(match.group(5)),
+            second=int(match.group(6) or 0),
         )
         # TUFLOW and its runner use the same computer's local time; converting
         # here also accounts for the machine's timezone/DST rules.
         return value.timestamp()
-    except (ValueError, OverflowError, OSError):
+    except ValueError, OverflowError, OSError:
         return None
 
 
 def _clock_hours(value: str) -> float | None:
     try:
-        negative = value.startswith("-")
-        parts = value.lstrip("+-").split(":")
-        result = int(parts[0]) + int(parts[1]) / 60 + float(parts[2]) / 3600
+        negative: bool = value.startswith("-")
+        parts: list[str] = value.lstrip("+-").split(":")
+        result: float = int(parts[0]) + int(parts[1]) / 60 + float(parts[2]) / 3600
         return _finite_number(-result if negative else result)
-    except (ValueError, OverflowError):
+    except ValueError, OverflowError:
         return None
 
 
