@@ -29,9 +29,11 @@ From the repository root, install the checkout and development requirements into
 ```powershell
 py -3.14 -m pip install --upgrade pip
 py -3.14 repo-scripts\install_latest_wheel.py --dependencies-only
+py -3.14 repo-scripts\vendor_pytuflow_wheel.py
 py -3.14 -m pip install --force-reinstall --no-deps -r repo-scripts\pytuflow-requirement.txt
 py -3.14 -m pip install -r requirements.txt
 py -3.14 -m pip check
+py -3.14 repo-scripts\vendor_pytuflow_wheel.py --installed
 py -3.14 -c "from ryan_library.functions.tuflow.pytuflow_compatibility import require_validation_api; print(require_validation_api().diagnostic.message)"
 ```
 
@@ -52,15 +54,15 @@ For an end user, double-click [install-from-pypi.bat](../install-from-pypi.bat)
 ```
 
 This installs the current published `ryan-tools[mcp]` package from PyPI,
-the upstream QGIS MCP Python bridge and the pinned PyTUFLOW PR #63 contributor-fork archive in
-[`repo-scripts/pytuflow-requirement.txt`](../repo-scripts/pytuflow-requirement.txt),
+the upstream QGIS MCP Python bridge and the [verified, local PyTuflow wheel](../repo-scripts/pytuflow-requirement.txt),
+built from exact contributor commit `887534ea8c15` for upstream PR #17,
 using the highest installed Python 3 by default (overrideable with `RYAN_TOOLS_PYTHON`). Every pip install step includes `--ignore-requires-python`, allowing Python 3.13 installations to bypass package metadata checks. Dependency wheels and runtime imports may still be incompatible.
 Both normal installers bootstrap binary Fiona, Rasterio and GDAL, explicitly
-reinstall only the accepted PyTUFLOW source, then resolve `ryan-tools` and the
+reinstall only the accepted PyTuflow wheel, then resolve `ryan-tools` and the
 pinned parser together with their dependencies. This replaces an incompatible
 official parser even when its package version matches, without forcing a
-reinstall of the GIS dependencies. Installation succeeds only after `pip check` and the public PyTUFLOW
-capability guard pass; a failure stops before Codex registration. Dry runs print
+reinstall of the GIS dependencies. Installation succeeds only after `pip check`,
+installed wheel-origin/digest verification and the public PyTUFLOW capability guard pass; a failure stops before Codex registration. Dry runs print
 these checks without claiming that they passed.
 If Codex or its VS Code extension is installed,
 the script safely configures its QGIS and ryan-tools MCP entries in the shared user-level Codex config. Without Codex,
@@ -80,6 +82,14 @@ For developers working from the checkout, keep the local verified-wheel workflow
 The first builds and installs the latest local wheel; the second installs an
 existing wheel without rebuilding. These commands do not replace developer
 editable installs (`pip install -r requirements.txt`).
+
+The vendored dependency wheel is checked into ordinary Git under
+[`repo-scripts/wheels/pytuflow/`](../repo-scripts/wheels/pytuflow/887534ea8c15b80d185a38a7ead1d42ab42a7167/README.md).
+Run the repository requirements from the repository root, including if the checkout path contains spaces.
+A missing or corrupt wheel fails verification; installation never silently falls back to source code.
+Plain `pip install ryan-tools` resolves the published `pytuflow>=1.2,<2` version range through PyPI.
+It does **not** automatically discover the wheel stored beside these repository scripts.
+That normal PyPI contract is unchanged; use the repository installer to require the accepted fork.
 
 ## Disable Python bytecode for the Windows user
 
@@ -197,8 +207,8 @@ checks, not replacements for the expected user environment.
 
 | Profile | Installation after the Windows binary GIS bootstrap | Scope |
 | --- | --- | --- |
-| Hosted tests | `python -m pip install -r repo-scripts/ci-test-requirements.txt` | All declared runtime dependencies, MCP extra, pytest and the immutable PyTUFLOW source; omits unused development tools and the separate QGIS MCP bridge |
-| Strict typing | `python -m pip install -r repo-scripts/ci-policy-requirements.txt` | Runtime, development and MCP extras plus immutable PyTUFLOW source; omits the separate QGIS MCP bridge |
+| Hosted tests | `python -m pip install -r repo-scripts/ci-test-requirements.txt` | All declared runtime dependencies, MCP extra, pytest and the immutable accepted PyTuflow wheel; omits unused development tools and the separate QGIS MCP bridge |
+| Strict typing | `python -m pip install -r repo-scripts/ci-policy-requirements.txt` | Runtime, development and MCP extras plus immutable accepted PyTuflow wheel; omits the separate QGIS MCP bridge |
 | Package smoke | Existing `repo-scripts/wheel-smoke-requirements.txt` workflow | Focused isolated wheel dependencies; real build and copied-wrapper checks remain |
 
 Run these commands from the repository root. The hosted command does not invoke Ruff, Pyright, pandas-stubs,

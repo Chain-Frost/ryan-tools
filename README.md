@@ -84,6 +84,7 @@ assume that users know how to create or activate a virtual environment:
 ```powershell
 py -3.14 -m pip install --upgrade pip
 py -3.14 repo-scripts\install_latest_wheel.py --dependencies-only
+py -3.14 repo-scripts\vendor_pytuflow_wheel.py
 py -3.14 -m pip install --force-reinstall --no-deps -r repo-scripts\pytuflow-requirement.txt
 py -3.14 -m pip install -r requirements.txt
 ```
@@ -127,12 +128,15 @@ Windows convenience entry points are:
 ```
 
 `install-ryan-tools.bat` installs the latest published `ryan-tools[mcp]` release
-directly from PyPI, along with upstream QGIS MCP and the pinned PyTUFLOW PR #63
-contributor-fork source (based on upstream PR #17) referenced in [`repo-scripts/pytuflow-requirement.txt`](repo-scripts/pytuflow-requirement.txt).
+directly from PyPI, along with upstream QGIS MCP and the [locally vendored PyTuflow dependency wheel](repo-scripts/pytuflow-requirement.txt)
+built from exact contributor commit `887534ea8c15` proposed in upstream PR #17. The verified
+dependency wheel is distinct from the built `ryan-tools` wheel.
 It keeps the binary GIS bootstrap, replaces incompatible same-version PyTUFLOW
 builds, and checks installed dependencies and the public validation API before
 reporting success. The local-wheel installer uses the same dependency setup and
-verification. If Codex is detected, the PyPI installer
+verification, including the installed parser wheel's source path and SHA-256. Plain `pip install ryan-tools`
+does **not** discover the wheel stored alongside these repository scripts: use the supplied installer or
+the repository requirements when the accepted fork is needed. If Codex is detected, the PyPI installer
 configures the QGIS and ryan-tools MCP servers only as needed, preserving other
 settings and backing up any changed Codex configuration. `install-from-pypi.bat` is the explicit PyPI entry point;
 `install-ryan-tools.bat` forwards to it.

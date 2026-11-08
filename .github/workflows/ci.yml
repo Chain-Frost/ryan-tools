@@ -37,6 +37,9 @@ jobs:
           cache: pip
           cache-dependency-path: pyproject.toml
 
+      - name: Verify accepted PyTuflow wheel before expensive native work
+        run: python repo-scripts/vendor_pytuflow_wheel.py
+
       - name: Determine complete PR scope and static-check inputs
         id: scope
         env:
@@ -182,6 +185,9 @@ jobs:
             pyproject.toml
             repo-scripts/ci-policy-requirements.txt
             repo-scripts/pytuflow-requirement.txt
+            repo-scripts/vendor_pytuflow_wheel.py
+            repo-scripts/wheels/pytuflow/**/provenance.json
+            repo-scripts/wheels/pytuflow/**/*.whl
 
       - name: Recompute static inputs without large environment variables
         if: needs.fast-checks.outputs.has_types == 'true'
@@ -201,6 +207,8 @@ jobs:
           python repo-scripts/install_latest_wheel.py --dependencies-only
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m pip install -r repo-scripts/ci-policy-requirements.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python repo-scripts/vendor_pytuflow_wheel.py --installed
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           # Ruff, workflow syntax, documentation and logging already passed preflight.
           # Preserve the initialiser's distinct strict GIS stub configuration.
@@ -290,6 +298,9 @@ jobs:
             pyproject.toml
             repo-scripts/ci-test-requirements.txt
             repo-scripts/pytuflow-requirement.txt
+            repo-scripts/vendor_pytuflow_wheel.py
+            repo-scripts/wheels/pytuflow/**/provenance.json
+            repo-scripts/wheels/pytuflow/**/*.whl
 
       - name: Compile supported Windows Python sources before installing dependencies
         shell: pwsh
@@ -305,6 +316,12 @@ jobs:
         shell: pwsh
         run: |
           python -m pip install -r repo-scripts/ci-test-requirements.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Verify installed parser wheel origin and SHA-256
+        shell: pwsh
+        run: |
+          python repo-scripts/vendor_pytuflow_wheel.py --installed
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Run hosted test boundary

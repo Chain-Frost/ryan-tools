@@ -61,11 +61,11 @@ class CompatibilityStatus:
             return f"PyTUFLOW public batch validation available. {details}"
         return (
             f"PyTUFLOW input validation unavailable: {self.problem}. {details}. "
-            "Install the accepted pinned PyTUFLOW source using "
+            "Install the accepted repository wheel using "
             "'python repo-scripts/install_latest_wheel.py' (normal mode), or "
-            "'python -m pip install --upgrade --force-reinstall "
-            '"pytuflow @ https://github.com/Chain-Frost/PyTuflow/archive/'
-            "887534ea8c15b80d185a38a7ead1d42ab42a7167.zip\"'."
+            "'python -m pip install --force-reinstall --no-deps "
+            "-r repo-scripts/pytuflow-requirement.txt' from the repository root. "
+            "Do not substitute a same-version official build."
         )
 
 
