@@ -1,6 +1,6 @@
 # WP04 — TUFLOW processor input health, lifecycle and culvert selection
 
-**Status:** Implementation staged for draft child review; exact-head CI and native Windows acceptance not yet verified.
+**Status:** WP04 code integrated into draft #251 as `ff9e0ed3`; combined-head CI and native Windows acceptance are tracked separately.
 **Updated:** 2026-11-08. **Next review:** 2026-11-15.
 **Allocation:** [#240](https://github.com/Chain-Frost/ryan-tools/issues/240).
 **Original issues:** [#219](https://github.com/Chain-Frost/ryan-tools/issues/219) input health;
@@ -229,3 +229,12 @@ processor regressions cover wholly absent upstream and downstream readings
 with valid data on the other end, PARTIAL health, exact rejection counts
 and preserved usable levels. Existing original H sample cleaning remains
 before the pivot; no extra post-pivot rejection accounting.
+
+## 9 November 2026 — feature integration and model-scope filter regression
+
+Reviewed WP04 PR #284 was squash-integrated into draft #251 at `ff9e0ed323fc7bf397e0015967c813e694dbdb27`, without touching `main`.
+The child `4a8cd631` passed six exact-head hosted checks (3,208 Windows tests), strict Pyright and no-findings Codex review; all 18 review threads were resolved.
+
+Combined-head Codex identified that the new canonical-filter validation required `MBHistoryProcessor` to record a matching model/domain scope as an applied entity filter before `validate_data()`. The local correction invokes `apply_entity_filter()` on the canonical `Location` column for matched scopes, preserving an unmatched scope as `filtered_empty`/SKIP; both MB history and MB node readers now use the shared per-invocation reset. Added real EG02 regression cases for MB/MB1D/MB_HPC matching scopes, unmatched scope and protected model report export.
+
+The combined-head CI and review of this correction remain independent gates. The original #219/#220/#223 engineering acceptance (Windows source/wheel, Module04/EG02, genuine ten-TP provenance and live UNC/SMB) is not represented as passed by the hosted suite. Do not merge #251 into `main`, release or close those issues based on this feature-branch integration.

@@ -26,11 +26,7 @@ class MBHistoryProcessor(BaseProcessor):
 
     def process(self) -> None:
         """Read source fields without inventing engineering mass-balance thresholds."""
-        self.processed = False
-        self.filtered_empty = False
-        self.df = pd.DataFrame()
-        self.raw_df = pd.DataFrame()
-        self.applied_entity_filter = None
+        self.reset_processing_state()
 
         try:
             scope = self._SCOPES[self.data_type]
@@ -67,6 +63,9 @@ class MBHistoryProcessor(BaseProcessor):
                 message = "All model/domain mass-balance measurements are missing."
                 raise ValueError(message)
 
+            # The scope is already known and present; register its canonical
+            # selection before BaseProcessor.validate_data checks filter coverage.
+            self.apply_entity_filter()
             self.add_common_columns()
             self.apply_output_transformations()
             if not self.validate_data():

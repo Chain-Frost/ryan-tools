@@ -42,6 +42,52 @@ def test_real_model_domain_mass_balance_first_sample(suffix: str, scope: str, me
     assert "AbsMax" not in result.df.columns
 
 
+@pytest.mark.parametrize(
+    ("suffix", "scope"),
+    [
+        ("MB", "1D and 2D Model"),
+        ("MB1D", "All 1D Domains"),
+        ("MB_HPC", "HPC Model"),
+    ],
+)
+def test_matching_model_scope_filter_survives_wp04_validation(suffix: str, scope: str) -> None:
+    """A source-confirmed domain scope must not fail the WP04 canonical-filter guard."""
+    result = processed(ROOT / f"{RUN}_{suffix}.csv", [scope])
+    assert result.applied_entity_filter == frozenset({scope})
+    assert set(result.df["Location"].astype(str)) == {scope}
+    assert result.input_health == "OK"
+
+
+def test_unmatched_model_scope_remains_a_visible_skip() -> None:
+    result = BaseProcessor.from_file(ROOT / f"{RUN}_MB.csv", entity_filter=["Not A Model Scope"])
+    result.process()
+    assert not result.processed
+    assert result.filtered_empty
+    assert result.df.empty
+
+
+def test_model_export_with_matching_scope_filter(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    source, output = tmp_path / "source", tmp_path / "output"
+    source.mkdir()
+    output.mkdir()
+    input_file = source / f"{RUN}_MB.csv"
+    copy2(ROOT / input_file.name, input_file)
+    original = input_file.read_bytes()
+    monkeypatch.chdir(output)
+
+    assert export_model(
+        paths_to_process=[source],
+        include_data_types=["MB"],
+        locations_to_include=["1D and 2D Model"],
+        export_mode="parquet",
+        use_live_dashboard=False,
+    )
+    outputs = list(output.glob("*_model_mass_balance_Global_MB.parquet.gzip"))
+    assert len(outputs) == 1
+    assert set(pd.read_parquet(outputs[0])["Location"].astype(str)) == {"1D and 2D Model"}
+    assert input_file.read_bytes() == original
+
+
 def test_signed_mass_error_is_not_absolute_or_cross_domain_relabelled() -> None:
     result = processed(ROOT / f"{RUN}_MB.csv")
     row = result.df.loc[result.df["Type"].eq("Vol Err") & result.df["Time"].eq(0.033)]

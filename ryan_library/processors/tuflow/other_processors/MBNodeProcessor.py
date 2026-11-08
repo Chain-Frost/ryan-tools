@@ -22,11 +22,7 @@ class MBNodeProcessor(BaseProcessor):
 
     def process(self) -> None:
         """Read only fixed source summary rows, filtering node IDs before expansion."""
-        self.processed = False
-        self.filtered_empty = False
-        self.df = pd.DataFrame()
-        self.raw_df = pd.DataFrame()
-        self.applied_entity_filter = None
+        self.reset_processing_state()
         try:
             nodes, source_values = self._source_summary()
             selected = [
