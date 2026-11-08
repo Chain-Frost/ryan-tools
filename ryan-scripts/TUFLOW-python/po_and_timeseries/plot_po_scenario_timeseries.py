@@ -18,19 +18,22 @@ from __future__ import annotations
 import hashlib
 import inspect
 import json
+import math
 import os
 import re
 import tempfile
 from collections.abc import Callable
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from loguru import logger
+from matplotlib.axes import Axes
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.cm import ScalarMappable
 from matplotlib.colors import Normalize
 from matplotlib.figure import Figure
@@ -276,7 +279,7 @@ def load_po_dataframe() -> pd.DataFrame:
     if selected.empty:
         msg = "No PO samples remain after selection."
         raise RuntimeError(msg)
-    if _source_manifest(files) != manifest_before:
+    if _source_manifest(find_po_files(TUFLOW_RESULTS_ROOT)) != manifest_before:
         msg = "Source PO CSV metadata changed during processing; cache publication cancelled."
         raise RuntimeError(msg)
     _write_parquet_cache(selected, manifest_before)
@@ -326,17 +329,16 @@ def resolve_dimension_columns(df: pd.DataFrame) -> dict[str, str]:
 def build_scenario_labels(df: pd.DataFrame, dimension_columns: dict[str, str] | None = None) -> pd.Series:
     resolved_columns: dict[str, str] = dimension_columns or resolve_dimension_columns(df)
 
-    scenario_components: list[Series] = []
+    labels: Series | None = None
     for display_name, _ in SCENARIO_DIMENSIONS:
         column_name: str = resolved_columns[display_name]
-        component: Series = df[column_name].fillna(SCENARIO_VALUE_PLACEHOLDER).astype(str).rename(display_name)
-        scenario_components.append(component)
-
-    scenario_frame: DataFrame = pd.concat(scenario_components, axis=1)
-    return scenario_frame.apply(
-        lambda row: " | ".join(f"{column}={row[column]}" for column in scenario_frame.columns),
-        axis=1,
-    )
+        values: Series = df[column_name].fillna(SCENARIO_VALUE_PLACEHOLDER).astype(str)
+        component: Series = display_name + "=" + values
+        labels = component if labels is None else labels + " | " + component
+    if labels is None:
+        msg = "At least one scenario dimension must be configured."
+        raise ValueError(msg)
+    return labels
 
 
 def _numeric_dimension_column(df: pd.DataFrame, dimension_name: str) -> str | None:
@@ -368,10 +370,13 @@ def create_aep_colorizer(
             cmap = plt.get_cmap("viridis")
 
             def colorize(value: Any) -> Any:
-                numeric_value = pd.to_numeric(value, errors="coerce")
-                if pd.isna(numeric_value):
+                try:
+                    numeric_value: float = float(value)
+                except (TypeError, ValueError):
                     return "black"
-                return cmap(norm(float(numeric_value)))
+                if not math.isfinite(numeric_value):
+                    return "black"
+                return cmap(norm(numeric_value))
 
             meta = {"type": "numeric", "norm": norm, "cmap": cmap, "column": source_column, "label": COLORBAR_LABEL}
             return colorize, meta
@@ -420,11 +425,21 @@ def _save_plot(fig: Figure, location: str, measurement: str) -> None:
         raise FileExistsError(msg)
     staged = _new_staged_path(target)
     try:
-        fig.savefig(staged, dpi=160)
+        fig.savefig(staged, dpi=160, bbox_inches="tight")  # pyright: ignore[reportUnknownMemberType]
         _publish_staged_file(staged, target, overwrite=OVERWRITE_PNG)
     finally:
         staged.unlink(missing_ok=True)
     logger.success("Saved PO plot to {}", target)
+
+
+def _new_plot_figure() -> tuple[Figure, Axes]:
+    """Create Agg-backed headless figures without requiring a desktop display."""
+    if SHOW_PLOTS:
+        return cast("tuple[Figure, Axes]", plt.subplots(figsize=(12, 5)))
+    fig = Figure(figsize=(12, 5))
+    FigureCanvasAgg(fig)
+    ax = cast("Axes", fig.add_subplot(111))  # pyright: ignore[reportUnknownMemberType]
+    return fig, ax
 
 
 def _draw_measurement_plot(
@@ -434,7 +449,7 @@ def _draw_measurement_plot(
     colorize_aep: Callable[[Any], Any],
     color_meta: dict[str, Any],
 ) -> None:
-    fig, ax = plt.subplots(figsize=(12, 5))
+    fig, ax = _new_plot_figure()
     try:
         fig.subplots_adjust(left=0.067, bottom=0.133, right=0.717, top=0.91)
         series_handles: dict[str, Any] = {}
@@ -443,17 +458,20 @@ def _draw_measurement_plot(
         ):
             ordered = series.sort_values("Time")
             label = f"{scenario} | Run={run_code} | Type={measurement}"
-            color = colorize_aep(series[color_meta["column"]].iloc[0])
-            (line,) = ax.plot(ordered["Time"], ordered["Value"], label=label, color=color)
+            aep_value: Any = series[str(color_meta["column"])].iloc[0]  # pyright: ignore[reportUnknownMemberType]
+            color = colorize_aep(aep_value)
+            (line,) = ax.plot(  # pyright: ignore[reportUnknownMemberType]
+                ordered["Time"], ordered["Value"], label=label, color=color
+            )
             series_handles[label] = line
 
-        ax.set_title(f"PO timeseries - {location} - {measurement}")
-        ax.set_ylabel(_measurement_ylabel(str(measurement)))
-        ax.set_xlabel("Simulation time (h)")
-        ax.grid(visible=True)
+        ax.set_title(f"PO timeseries - {location} - {measurement}")  # pyright: ignore[reportUnknownMemberType]
+        ax.set_ylabel(_measurement_ylabel(str(measurement)))  # pyright: ignore[reportUnknownMemberType]
+        ax.set_xlabel("Simulation time (h)")  # pyright: ignore[reportUnknownMemberType]
+        ax.grid(visible=True)  # pyright: ignore[reportUnknownMemberType]
 
         labels = sorted(series_handles)
-        legend = ax.legend(
+        legend = ax.legend(  # pyright: ignore[reportUnknownMemberType]
             handles=[series_handles[label] for label in labels],
             labels=labels,
             title=SCENARIO_LEGEND_TITLE + " | Run | Type",
@@ -465,13 +483,15 @@ def _draw_measurement_plot(
         if color_meta["type"] == "numeric":
             scalar_mappable = ScalarMappable(norm=color_meta["norm"], cmap=color_meta["cmap"])
             scalar_mappable.set_array([])
-            colorbar = fig.colorbar(scalar_mappable, ax=ax, fraction=0.046, pad=0.01)
-            colorbar.set_label(color_meta.get("label", COLORBAR_LABEL))
+            colorbar = fig.colorbar(  # pyright: ignore[reportUnknownMemberType]
+                scalar_mappable, ax=ax, fraction=0.046, pad=0.01
+            )
+            colorbar.set_label(color_meta.get("label", COLORBAR_LABEL))  # pyright: ignore[reportUnknownMemberType]
         else:
             aep_handles = [
                 mpatches.Patch(color=colorize_aep(value), label=str(value)) for value in color_meta["values"]
             ]
-            aep_legend = ax.legend(
+            aep_legend = ax.legend(  # pyright: ignore[reportUnknownMemberType]
                 handles=aep_handles,
                 title=f"{COLORBAR_LABEL} colours",
                 loc="lower left",
@@ -482,7 +502,7 @@ def _draw_measurement_plot(
         if EXPORT_PNG:
             _save_plot(fig, str(location), str(measurement))
         if SHOW_PLOTS:
-            plt.show()
+            plt.show()  # pyright: ignore[reportUnknownMemberType]
     finally:
         plt.close(fig)
 
@@ -518,7 +538,7 @@ def plot_timeseries(df: pd.DataFrame) -> None:
             logger.warning("Configured location {} has no data.", location)
             continue
         for measurement in sorted(location_subset["Type"].unique()):
-            measured = location_subset.loc[location_subset["Type"] == measurement]
+            measured: DataFrame = location_subset.loc[location_subset["Type"] == measurement]
             _draw_measurement_plot(measured, str(location), str(measurement), colorize_aep, color_meta)
 
 

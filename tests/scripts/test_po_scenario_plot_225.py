@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import importlib.util
+from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
-import matplotlib as mpl
-import matplotlib.pyplot as plt
 import pandas as pd
 import pytest
+from matplotlib.axes import Axes
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.figure import Figure
 
 SCRIPT = (
     Path(__file__).absolute().parents[2] / "ryan-scripts/TUFLOW-python/po_and_timeseries/plot_po_scenario_timeseries.py"
@@ -19,7 +21,6 @@ SCRIPT = (
 
 @pytest.fixture
 def plotter(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
-    mpl.use("Agg", force=True)
     spec = importlib.util.spec_from_file_location("wp10_po_plot", SCRIPT)
     assert spec is not None
     assert spec.loader is not None
@@ -58,17 +59,18 @@ def sample_frame() -> pd.DataFrame:
 def test_headless_series_preserve_measurement_and_full_run_id(
     plotter: ModuleType, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    drawn: list[tuple[Any, Any]] = []
-    original = plt.subplots
+    drawn: list[tuple[Figure, Axes]] = []
+    original = cast("Callable[[], tuple[Figure, Axes]]", plotter._new_plot_figure)
 
-    def capture(*args: Any, **kwargs: Any) -> tuple[Any, Any]:
-        fig, ax = original(*args, **kwargs)
+    def capture() -> tuple[Figure, Axes]:
+        fig, ax = original()
         drawn.append((fig, ax))
         return fig, ax
 
-    monkeypatch.setattr(plotter.plt, "subplots", capture)
+    monkeypatch.setattr(plotter, "_new_plot_figure", capture)
     plotter.plot_timeseries(sample_frame())
     assert len(drawn) == 2
+    assert all(isinstance(fig.canvas, FigureCanvasAgg) for fig, _ in drawn)
 
     results = {ax.get_ylabel(): ax for _, ax in drawn}
     assert set(results) == {"Flow (m³/s)", "Water level (m)"}
@@ -101,21 +103,21 @@ def test_filter_is_literal_and_does_not_restore_nonmatching_rows(
 def test_missing_filter_column_is_an_error(plotter: ModuleType) -> None:
     with pytest.raises(KeyError, match="internalName"):
         plotter.filter_internal_name(sample_frame().drop(columns=["internalName"]))
-    plotter.LOCATION_FILTER = {"L1"}
+    setattr(plotter, "LOCATION_FILTER", {"L1"})
     with pytest.raises(KeyError, match="Location"):
         plotter.filter_locations(sample_frame().drop(columns=["Location"]))
 
 
 def test_unmatched_locations_and_measurements_fail(plotter: ModuleType) -> None:
-    plotter.LOCATION_FILTER = {"not-here"}
+    setattr(plotter, "LOCATION_FILTER", {"not-here"})
     with pytest.raises(ValueError, match="LOCATION_FILTER"):
         plotter.select_po_dataframe(sample_frame())
-    plotter.LOCATION_FILTER = None
-    plotter.MEASUREMENT_TYPES = ["Velocity"]
+    setattr(plotter, "LOCATION_FILTER", None)
+    setattr(plotter, "MEASUREMENT_TYPES", ["Velocity"])
     with pytest.raises(ValueError, match="MEASUREMENT_TYPES"):
         plotter.plot_timeseries(sample_frame())
-    plotter.MEASUREMENT_TYPES = None
-    plotter.PLOT_LOCATIONS = ["not-here"]
+    setattr(plotter, "MEASUREMENT_TYPES", None)
+    setattr(plotter, "PLOT_LOCATIONS", ["not-here"])
     with pytest.raises(ValueError, match="PLOT_LOCATIONS"):
         plotter.plot_timeseries(sample_frame())
 
@@ -133,7 +135,7 @@ def test_time_numeric_strings_are_hours_not_dates(plotter: ModuleType) -> None:
 @pytest.mark.parametrize("invalid", ["bad", "NaN", "inf", None])
 def test_bad_time_fails_with_actionable_error(plotter: ModuleType, invalid: object) -> None:
     frame = sample_frame()
-    frame.loc[0, "Time"] = invalid
+    frame.loc[0, "Time"] = cast("Any", invalid)
     with pytest.raises(ValueError, match="Time must contain finite numeric"):
         plotter.prepare_plot_df(frame)
 
@@ -159,7 +161,10 @@ def cache_environment(plotter: ModuleType, tmp_path: Path, monkeypatch: pytest.M
         def po_combine(self) -> pd.DataFrame:
             return df.copy()
 
-    monkeypatch.setattr(plotter, "process_files_sequentially", lambda _files: Collection())
+    def fake_processing(_files: list[Path]) -> Collection:
+        return Collection()
+
+    monkeypatch.setattr(plotter, "process_files_sequentially", fake_processing)
     return source
 
 
@@ -171,7 +176,7 @@ def test_csv_and_verified_cache_select_the_same_rows(
     cache_environment(plotter, tmp_path, monkeypatch, df)
     uncached = plotter.load_po_dataframe()
     assert len(uncached) == len(sample_frame())
-    plotter.LOAD_FROM_PARQUET = True
+    setattr(plotter, "LOAD_FROM_PARQUET", True)
     cached = plotter.load_po_dataframe()
     pd.testing.assert_frame_equal(uncached.reset_index(drop=True), cached.reset_index(drop=True), check_dtype=False)
 
@@ -182,7 +187,7 @@ def test_cache_rejects_old_schema_and_missing_provenance(
     pytest.importorskip("pyarrow")
     cache_environment(plotter, tmp_path, monkeypatch, sample_frame())
     sample_frame().to_parquet(plotter.PARQUET_PATH, index=False)
-    plotter.LOAD_FROM_PARQUET = True
+    setattr(plotter, "LOAD_FROM_PARQUET", True)
     with pytest.raises(ValueError, match="provenance"):
         plotter.load_po_dataframe()
 
@@ -194,12 +199,12 @@ def test_cache_rejects_changed_source_and_ingest_config(
     source = cache_environment(plotter, tmp_path, monkeypatch, sample_frame())
     plotter.load_po_dataframe()
     original_cache = plotter.PARQUET_PATH.read_bytes()
-    plotter.LOAD_FROM_PARQUET = True
+    setattr(plotter, "LOAD_FROM_PARQUET", True)
     source.write_text("source changed\n", encoding="utf-8")
     with pytest.raises(ValueError, match="stale"):
         plotter.load_po_dataframe()
     source.write_text("source\n", encoding="utf-8")
-    plotter.LOCATION_FILTER = {"L2"}
+    setattr(plotter, "LOCATION_FILTER", {"L2"})
     with pytest.raises(ValueError, match="stale"):
         plotter.load_po_dataframe()
     assert plotter.PARQUET_PATH.read_bytes() == original_cache
@@ -215,7 +220,7 @@ def test_cache_requires_explicit_overwrite_and_preserves_on_write_failure(
     with pytest.raises(FileExistsError, match="REPLACE_PARQUET_CACHE"):
         plotter.load_po_dataframe()
     assert plotter.PARQUET_PATH.read_bytes() == original_cache
-    plotter.REPLACE_PARQUET_CACHE = True
+    setattr(plotter, "REPLACE_PARQUET_CACHE", True)
 
     def failed_write(_df: pd.DataFrame, path: Path, **_kwargs: Any) -> None:
         path.write_bytes(b"incomplete parquet")
@@ -242,3 +247,43 @@ def test_headless_png_is_bounded_and_no_clobber(
     with pytest.raises(FileExistsError, match="OVERWRITE_PNG"):
         plotter.plot_timeseries(sample_frame())
     assert files[0].read_bytes() == original
+def test_source_inventory_addition_during_processing_cancels_cache(
+    plotter: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cache_environment(plotter, tmp_path, monkeypatch, sample_frame())
+    process = cast("Callable[[list[Path]], Any]", plotter.process_files_sequentially)
+
+    def add_source_during_processing(files: list[Path]) -> Any:
+        (tmp_path / "R_B_PO.csv").write_text("new source\n", encoding="utf-8")
+        return process(files)
+
+    monkeypatch.setattr(plotter, "process_files_sequentially", add_source_during_processing)
+    with pytest.raises(RuntimeError, match="metadata changed"):
+        plotter.load_po_dataframe()
+    assert not (tmp_path / "cache.parquet").exists()
+
+
+def test_headless_png_preserves_full_legend_bounds(
+    plotter: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(plotter, "EXPORT_PNG", True)
+    monkeypatch.setattr(plotter, "MEASUREMENT_TYPES", ["Flow"])
+    monkeypatch.setattr(plotter, "PNG_OUTPUT_DIR", tmp_path)
+    source = sample_frame()
+    source["internalName"] = source["internalName"].replace(
+        {"R_A": "R_A_" + "longrun" * 40, "R_B": "R_B_" + "longrun" * 40}
+    )
+
+    original = Figure.savefig  # pyright: ignore[reportUnknownMemberType]
+    saved_bounds: list[object] = []
+
+    def capture_savefig(self: Figure, *args: Any, **kwargs: Any) -> None:
+        saved_bounds.append(kwargs.get("bbox_inches"))
+        original(self, *args, **kwargs)  # pyright: ignore[reportUnknownMemberType]
+
+    monkeypatch.setattr(Figure, "savefig", capture_savefig)
+    plotter.plot_timeseries(source)
+    assert saved_bounds == ["tight"]
+    images = list(tmp_path.glob("*.png"))
+    assert len(images) == 1
+    assert images[0].read_bytes().startswith(b"\x89PNG")

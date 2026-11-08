@@ -43,6 +43,10 @@ still be validated against an installed wheel on Windows.
   A write failure leaves the previous target unchanged.
 - Optional per-measurement PNG export uses deterministic bounded names and the
   same protected publication policy, controlled by OVERWRITE_PNG=False.
+  A standalone Agg-backed figure requires no interactive GUI in headless mode,
+  and tight saved bounds retain the full external run-identification legend.
+- CSV source files are rediscovered before publication to reject a newly added
+  matching run during processing, as well as changed/deleted source files.
 
 The manifest uses filesystem size/mtime rather than hashing entire source CSVs;
 externally altered files that preserve both metadata fields cannot be detected.
@@ -54,8 +58,9 @@ files without the embedded manifest require explicit reprocessing.
 Focused regressions: tests/scripts/test_po_scenario_plot_225.py. Assertions
 cover actual Matplotlib line values, separate measurements and run labels,
 numeric-string hours, literal/no-match/missing-column selections, CSV/cache
-location parity, stale/incompatible manifests, no-clobber and interrupted
-Parquet publication, and headless PNG bytes.
+location parity, stale/incompatible manifests, a newly discovered matching PO
+CSV, no-clobber and interrupted Parquet publication, Agg-only headless figure
+construction, tight-legend PNG bounds and PNG bytes.
 
 Validation status at first delivery: GitHub authoring connector cannot access
 a local repository worktree, Windows Python 3.14, SMB shares or installed wheel.
@@ -85,3 +90,16 @@ Inspect the exact-head CI results and Codex review; correct actionable failures
 without expanding into WP04/WP05/WP08. Complete the Windows local-agent
 acceptance with real representative PO inputs and an installed/copied wrapper.
 Retain this status open until reviewed and accepted.
+
+### 2026-11-08 — Review corrections
+
+At source head `435a84ef`, Ruff/whitespace, POSIX wrapper security
+and package checks passed; Policy/strict Pyright failed 38 source/test
+typing diagnostics. Hosted tests failed during the Fiona wheel download
+(remote GitHub timeout), so functional tests were **not run** in that job.
+MCP smoke was blocked by the failed Windows acceptance prerequisite,
+not an independent MCP test failure. Codex raised three actionable P2
+issues: headless display backend, clipped full-code legends and a
+new source appearing during ingestion. The next implementation revision
+addresses these along with the type checks. The final SHA/recheck
+status belong in PR #280; earlier CI remains historical.
