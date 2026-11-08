@@ -1,7 +1,7 @@
 # WP06 — owned staging in standalone output workflows
 
-**Status:** Active — #232 and #197 implemented, validated by all six hosted checks on their final child heads, and integrated into draft parent PR #251 at `66dece4`; native acceptance remains outstanding. #200 is not implemented. No main merge.
-**Owner:** WP06 delivery agent.
+**Status:** Needs review: #200 is implemented on the isolated native-acceptance branch; Windows/local/SMB acceptance found and fixed a #232 collision-error regression. #232/#197 code remains integrated only in parent #251. Native evidence and review disposition are recorded below; no main merge or issue closure.
+**Owner:** WP06 local validation / maintainer review.
 **Updated:** 2026-11-08 (Perth).
 **Next review:** 2026-11-15 or when current-head CI/native validation is available.
 **Allocation:** [#240](https://github.com/Chain-Frost/ryan-tools/issues/240).
@@ -28,9 +28,15 @@
 
 ## Third delivery — cutline GDAL (#200)
 
-Conditional on a suitable GDAL raster/cutline environment to validate CRS and spatial results. No GDAL change is claimed yet. These fixes share a publication principle, not a required common framework.
+Implemented in the separate native-acceptance branch described below, pending child-PR review/integration.
+The maintained script retains its processing locally; no new orchestrator or compatibility layer is introduced.
+Source CRS comes from raster metadata unless explicitly corrected with `--source-crs`; `--target-crs`
+independently controls the destination. The complete batch is checked for physical/case aliases and output
+collisions before output creation. Unique owned staging, closed/reopened TIFF validation, default atomic
+no-replace publication and explicit overwrite protect previous outputs and source rasters. Linked paths and
+output sidecars fail closed. CLI/defaults, wrapper revision and the existing MCP catalogue are updated.
 
-## Handoff and constraints
+## Historical connector handoff and constraints
 
 The environment cannot resolve `github.com` over Git transport, so no remote clone/checkout or Git push was possible from the container. Work was staged on a dedicated remote branch using the connected GitHub API. A separate local Git worktree at `/mnt/data/wp06-profile-worktree` was used for an isolated filesystem harness only; it is **not** a checkout of the remote repository. No submodules or `unsorted` were traversed. No solver or production input was used. Branch integration is by non-force merge commits only; nothing was merged to main or released.
 
@@ -38,7 +44,7 @@ The environment cannot resolve `github.com` over Git transport, so no remote clo
 
 The reviewed #232/#197 implementation is now included in [main-targeting parent PR #251](https://github.com/Chain-Frost/ryan-tools/pull/251) via **merge commit `66dece4` on its feature branch**. Child PRs #258 and #264 closed as merged into the parent, with their review history retained. The parent remains draft, and **no commit was merged to `main`**.
 
-The parent PR description carries `Closes #232` and `Closes #197` as **conditional closing links**. These cannot close issues until an expressly authorised final parent merge to the default branch. The parent must remain unmerged pending unresolved native acceptance and the other work pack owners' approvals. Do not close #200; it has no completed implementation.
+The parent PR description carries `Closes #232` and `Closes #197` as **conditional closing links**. These cannot close issues until an expressly authorised final parent merge to the default branch. The parent must remain unmerged pending unresolved native acceptance and the other work pack owners' approvals. Keep #200 open: its new implementation still requires review and approved integration.
 
 ## Local agent acceptance and completion handoff
 
@@ -75,4 +81,115 @@ The parent PR description carries `Closes #232` and `Closes #197` as **condition
 - Post a **SHA-specific acceptance summary** to PR #251 and update this canonical WP06 record: OS/Python, package and 7-Zip/GDAL versions, drive/share path type, exact commands, pass/fail/skip, artifacts and remaining exceptions. Include #200's PR if/when delivered.
 - Do **not** merge into `main`, enable auto-merge, release, close issues manually or silently convert unverified native checks into passes. Any final squash merge requires separate explicit maintainer authorisation.
 
-**Next action:** WP06 local agent completes #232/#197 native evidence and #200's GDAL implementation/acceptance. PR #251 integration owners separately reconcile all other stacked packs, final-head CI and closing links before any main merge.
+**Next action:** Review the separate native-acceptance child PR, reconcile any remaining exceptions, then explicitly
+approve integration into #251. Repeat final-parent-head checks after all approved packs are integrated and obtain
+fresh independent review. No main merge, auto-merge, release or manual issue closure is authorised.
+
+## 2026-11-08 local Windows acceptance
+
+### Source and delivery boundary
+
+- Started from the live parent head `63a36d487e7d34961fedf95452f8f83611b9a71b`, not a child head.
+- Isolated branch `fix/wp06-native-acceptance-20261108`; initial implementation `081c84ab6ac943b5ac0a908f07d4818273beda79`, final code **`ea118c6e`**, pushed as draft [PR #271](https://github.com/Chain-Frost/ryan-tools/pull/271) against #251. Subsequent handoff/CI-only commits retain that tested implementation.
+  The shared main checkout and unrelated submodules were preserved. Only `tests/test_data` and `qgis-resources`
+  were explicitly initialised to satisfy validation/build requirements; `unsorted` was never inspected.
+- Restored #251 to draft because its live state contradicted the review's draft requirement. Parent/main conflicts
+  and the other work packs remain the integration owners' responsibility.
+- Tests use Windows 10 build 19045, normal Python **3.14.6**, native **7-Zip 22.01 x64**, and Python 3.14 GDAL
+  **3.13.3**. Independent read-back uses OSGeo4W `python-qgis.bat`: Python 3.12.15, GDAL 3.13.3, QGIS 4.2.3.
+  The application runtime validates outputs; it is not substituted for the required Python 3.14 source tests.
+- The maintainer explicitly approved a disposable `T:\temp` folder. Tests use a unique owned child directory
+  through both the mapped drive and its SMB/UNC spelling. Server/share identifiers and raw transcripts are kept
+  in private local evidence, not published. No production data or licensed solver was used.
+
+### Findings and fixes
+
+The original integrated source passed **39 tests / one privilege skip** locally. Its SMB run returned **one failure,
+38 passes / one skip**: when two PNG publishers raced, the server returned Windows `ACCESS_DENIED` for the loser
+rather than `FILE_EXISTS`. Output bytes remained safe, but the public collision exception differed. The fix
+translates that permission error only when a destination has actually appeared; a real permission/lock failure
+without a destination remains `PermissionError`. Two regression cases prove that distinction.
+
+#200 adds real spatial and publication regressions for source metadata, differing cutline CRS, independent target
+CRS, explicit source override, rejection of untagged sources without an explicit correction, source hard links, cross-input aliases, batch collisions, failed native warps,
+late/concurrent creators, Windows sharing locks, case aliases, hard-linked batch outputs, sidecars, dry runs and directory junctions.
+
+### Validation matrix
+
+| Check | Result and limits |
+| --- | --- |
+| Focused #232/#197 tests on modified source | **41 passed / one skip**, both mapped SMB and UNC; local final aggregate includes these tests. The skip is the pre-existing directory-symlink privilege case. |
+| Real GDAL #200 regressions | **17 passed locally**; **16 passed / one skip on UNC**. The SMB server cannot create a directory junction (WinError 4390); local junction rejection passes. |
+| Combined focused Python 3.14 suite | **118 passed / one skip**: profile, archive (including hosted-excluded native script tests), cutline, promoted utilities, TLF hyphens and MCP registry/overview tests. |
+| Ruff/strict Pyright | All 13 parent-diff Python files pass; all newly changed Python files also pass. Compilation, CLI help and Loguru policy pass. |
+| Parent package verification | Rebuilt parent version **26.11.7.13** with `--no-bump --skip-pip`; wheel verification and isolated installed-wheel smoke pass. |
+| Candidate package verification | Built/verified **26.11.8.2** with `--skip-pip`; installed-wheel smoke and all six copied result-wrapper checks pass. |
+| Copied profile wrapper | Real tiny GPKG/TIF inputs on local, mapped SMB and UNC; no-overwrite preserves bytes, explicit overwrite rerenders identical PNG bytes, all input hashes unchanged. Wrapper 2026-11-07.2 uses candidate library 26.11.8.2. |
+| Copied folder archive wrapper | Real 7-Zip on local, mapped SMB and UNC: dotted sibling names remain distinct, exclusions work, `7z t` and extraction pass, existing archive hashes remain unchanged. |
+| Real native archive races | Local, mapped SMB and UNC: exclusive active claim rejects a second creator; first archive passes `7z t`; a late independent output survives real compression; an unowned writing claim is preserved for inspection. |
+| Genuine split-volume archive | Real `create_7zip_archive(..., max_part_size_gib=1)` on **1,082,130,432 random bytes** produces **two parts: 1,073,741,824 and 8,455,705 bytes**. `7z t`, extraction SHA-256, source preservation and existing-volume preservation pass. Injected second-part interruption rolls back owned published parts and staging. |
+| Native two-part publication on SMB | The genuine locally generated volumes are copied into invocation-owned SMB staging, published through the archive helper, tested with `7z t` and extracted on the share. Both parts retain their sizes; extracted SHA-256 matches the random input. Compression itself was local, not repeated on SMB. |
+| Copied cutline wrapper | Local, mapped SMB and UNC: dry-run creates no output; differing raster/cutline CRS yields 6 by 6 EPSG:4326 output with values 7/-9999 and NoData -9999; default no-overwrite and explicit overwrite behave correctly; source hash unchanged. Wrapper 2026-11-08.2 / library 26.11.8.2. |
+| OSGeo4W/QGIS read-back | Independently opens local and UNC clipped outputs as valid EPSG:4326, 6 by 6 rasters; extent 115.02,-31.08 to 115.08,-31.02 and decoded values/NoData match. |
+
+The parent wheel's SHA-256 is `94680d87d89948f12dc1bcdd4ccd314eae8089913ee8aec22b23d9ab2b5995d3`.
+The final 26.11.8.2 candidate wheel's SHA-256 is `848e19d2adfcdf6645cb798616c4c03fbe09c96abcd891702e759e437f9ad285`.
+The copied PNG SHA-256 is `34754ce68eb73568c48d6fc15da703e1a878393badc1a31d638a4147807b0a0a` on all
+three path types. The split input and extracted output both hash to
+`fccc021febf135c355f6247d786adc830ffd28e30a544d3a151a6da546dfdfc3`.
+
+### Commands and reproducibility
+
+Run from the isolated source root using normal Python 3.14:
+
+```powershell
+python -m pytest -q -rs tests/orchestrators/tuflow/test_profile_publication_232.py tests/orchestrators/tuflow/test_water_level_profiles.py tests/functions/test_archive_publication_197.py tests/scripts/test_archive_compress_folder_wrapper.py tests/scripts/test_archive_compress.py
+python -m pytest -q -rs tests/scripts/gdal/test_cutline_publication_200.py
+python -m pytest -q tests/scripts/test_promoted_utilities.py tests/functions/test_parse_tlf_hyphenated.py tests/mcp/test_registry.py tests/mcp/test_overview_validation.py
+# Repeat the first two commands with --basetemp <unique-owned-SMB-test-directory>.
+python -m ruff check <changed-Python-files>
+python -m ruff format --check <changed-Python-files>
+python -m pyright <changed-Python-files>
+python -m py_compile ryan-scripts/gdal-python/gdalwarp_clip_to_polygon.py
+python ryan-scripts/gdal-python/gdalwarp_clip_to_polygon.py --help
+python repo-scripts/check_loguru_formatting.py
+python repo-scripts/build_library.py --no-bump --skip-pip  # parent verification
+python repo-scripts/build_library.py --skip-pip            # candidate version/build
+python repo-scripts/verify_wheel.py
+```
+
+The private evidence directory retains `native_split.py`, `native_share_split.py`, `native_wrappers.py`,
+`native_archive_races.py`, `native_cutline_wrapper.py`, `qgis_readback.py`, dependency versions, summaries,
+per-wrapper logs and archive hashes. The harnesses run outside the checkout with `PYTHONPATH` pointing only to
+the separate wheel installation; copied wrapper subprocesses also set `PYTHONNOUSERSITE=1` and clear
+`RYAN_TOOLS_REPOSITORY_ROOT`. Dependencies are exact file snapshots of the user's existing installed
+distributions, because generic dependency installation cannot build Fiona against this Windows GDAL setup.
+No normal/user Python package was replaced. `smoke_test_installed_wheel.py --expected-root <installation>` and
+`smoke_result_dashboard_installed_wheel.py --expected-root <installation>` run outside the checkout.
+
+### Remaining exceptions and acceptance
+
+- One broader parent test, `tests/test_compatibility_import_isolation.py`, initially fails locally because it
+  deliberately disables the user site containing Loguru and discards external dependency paths. This is an
+  environment limitation in the WP02 probe, not a changed WP06 regression. The same source probe passes with
+  a private dependency root explicitly provided, and the installed-wheel import-isolation check passes.
+  Do not relabel the original test failure as a pass or weaken its assertions.
+- Directory-symlink creation requires privileges unavailable here; the existing archive alias test remains
+  skipped. Directory junction rejection is verified locally; this SMB server cannot host junctions.
+- Several-file split publication remains non-atomic across a process/machine crash. Injected in-process
+  interruption/rollback passed; no power-loss or forced-process-kill recovery acceptance is claimed.
+- Hosted CI deliberately excludes the new native GDAL file before collection, matching the existing native GDAL test boundary; its real local/SMB results above are separate evidence.
+- Hosted checks and fresh independent review for the new child are recorded separately at delivery. After
+  approved child integration, rerun the latest **parent** SHA; this child evidence cannot certify a later parent.
+- Maintainer acceptance of these limits, approved integration, final-head review and any main merge remain
+  explicit separate steps. #200 remains open and has no issue-closing keyword.
+
+**Delivery checkpoint:** Draft child #271 is pushed. Current-head hosted status is separate from the local evidence: see [child checks](https://github.com/Chain-Frost/ryan-tools/pull/271/checks) and the SHA-specific delivery comments on #271/#251. No fresh independent review has been obtained. Parent #251 remains draft at the recorded baseline and has main merge conflicts owned by integration. The canonical record is updated in the child without directly editing the parent branch.
+
+The final wrapper revision is **2026-11-08.2**. Additional real regressions reject untagged rasters unless a source CRS is explicitly supplied and reject hard-linked existing batch outputs before mutation. The final mapped-to-UNC source identity probe also refuses the physical source alias and preserves its bytes. All final package/copied-wrapper checks are repeated with **26.11.8.2**.
+
+## Independent review follow-up — GCP CRS metadata (2026-11-08)
+
+Codex identified a P2 input-compatibility omission in [PR #271's GDAL CRS guard](https://github.com/Chain-Frost/ryan-tools/pull/271#discussion_r4505150571): rasters georeferenced with ground control points can have an empty `GetProjectionRef()` but a valid `GetGCPProjection()`. The script now accepts either form before allowing GDAL to infer the source CRS, without overriding it by default. A real GCP-only GeoTIFF and cutline regression was added to `tests/scripts/gdal/test_cutline_publication_200.py`.
+
+**Native GCP test remains to be rerun:** the GitHub-connector environment does not provide `osgeo.gdal`. The prior 118-pass native validation covers the earlier affine-CRS version and **must not** be presented as a run of the newly added GCP case. The local Windows/GDAL agent should rerun `python -m pytest -q -rs tests/scripts/gdal/test_cutline_publication_200.py` at the amended child or integrated parent SHA, verify the GCP output projection/nonempty pixels and original raster hash, and record the result before a future `main` merge. Hosted CI separately checks Python 3.14 lint/type/package and the non-native test suite. No production data, release, auto-merge or `main` merge is authorised.
