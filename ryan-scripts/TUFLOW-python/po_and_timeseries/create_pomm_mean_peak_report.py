@@ -16,7 +16,37 @@ Examples:
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-07.2"
+WRAPPER_VERSION = "2026-11-08.1"
+
+EXPECTED_TP_COUNT: int = 10
+# Check missing durations only within each group's sampled range.
+# Edit this list to match the study's adopted ARR duration schedule (minutes).
+STANDARD_DURATIONS_MINUTES: list[int] = [
+    10,
+    15,
+    20,
+    25,
+    30,
+    45,
+    60,
+    90,
+    120,
+    180,
+    270,
+    360,
+    540,
+    720,
+    1080,
+    1440,
+    1800,
+    2160,
+    2880,
+    4320,
+    5760,
+    7200,
+    8640,
+    10080,
+]
 
 CONSOLE_LOG_LEVEL = "INFO"  # or "DEBUG"
 # Toggle to include the combined POMM sheet in the Excel export.
@@ -87,11 +117,13 @@ def main(
     try:
         export_mean_peak_report(
             script_directory=target_directory,
-            paths_to_process=effective_paths or None,
+            paths_to_process=effective_paths if paths_to_process is not None or PATHS_TO_PROCESS else None,
             log_level=console_log_level or CONSOLE_LOG_LEVEL,
             include_pomm=INCLUDE_POMM,
             locations_to_include=effective_locations or None,
-            include_data_types=effective_data_types or None,
+            include_data_types=effective_data_types,
+            standard_durations=STANDARD_DURATIONS_MINUTES,
+            expected_tp_count=EXPECTED_TP_COUNT,
         )
     except Exception:
         logger.exception("POMM mean peak report failed.")

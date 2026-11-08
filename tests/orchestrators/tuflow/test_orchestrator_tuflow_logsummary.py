@@ -1,9 +1,12 @@
+# pyright: reportPrivateUsage=false
+# Focused regression checks deliberately inspect private TLF summary helpers.
 """Unit tests for ryan_library.orchestrators.tuflow.tuflow_logsummary."""
 
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
+import pytest
 
 from ryan_library.orchestrators.tuflow.tuflow_logsummary import (
     LogFileProcessingResult,
@@ -17,7 +20,7 @@ from ryan_library.orchestrators.tuflow.tuflow_logsummary import (
 
 
 @patch("ryan_library.orchestrators.tuflow.tuflow_logsummary._process_log_file_dataframe")
-def test_process_log_file_for_dashboard(mock_process, tmp_path: Path) -> None:
+def test_process_log_file_for_dashboard(mock_process: MagicMock, tmp_path: Path) -> None:
     # 1. OK case
     mock_process.return_value = pd.DataFrame({"A": [1]})
     res = process_log_file_for_dashboard(tmp_path / "1.tlf")
@@ -42,14 +45,20 @@ def test_process_log_file_for_dashboard(mock_process, tmp_path: Path) -> None:
 @patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.process_top_lines")
 @patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.finalise_data")
 def test_process_log_file_dataframe(
-    mock_finalise, mock_process_top, mock_is_complete, mock_search, mock_read, tmp_path: Path
+    mock_finalise: MagicMock,
+    mock_process_top: MagicMock,
+    mock_is_complete: MagicMock,
+    mock_search: MagicMock,
+    mock_read: MagicMock,
+    tmp_path: Path,
 ) -> None:
     log_path = tmp_path / "test.tlf"
     log_path.write_text("dummy")
 
-    # Empty log file -> return empty df
+    # A nonempty file whose reader supplies no lines is an input failure.
     mock_read.return_value = ([], [])
-    assert _process_log_file_dataframe(log_path).empty
+    with pytest.raises(OSError, match="Could not read nonempty TUFLOW log"):
+        _process_log_file_dataframe(log_path)
 
     # Has lines, incomplete run
     mock_read.return_value = (["line"], ["line"])
@@ -66,20 +75,28 @@ def test_process_log_file_dataframe(
     res = _process_log_file_dataframe(log_path)
     assert not res.empty
 
-    # Finalize fails (returns empty df)
+    # Completed logs with failed finalization are malformed, not skipped.
     mock_finalise.return_value = pd.DataFrame()
-    assert _process_log_file_dataframe(log_path).empty
+    with pytest.raises(ValueError, match="failed report finalization"):
+        _process_log_file_dataframe(log_path)
 
-    # Success != 4
+    # Completed logs lacking required header fields fail with path context.
     mock_process_top.return_value = ({"Runcode": "test"}, 3, False, False, False)
-    assert _process_log_file_dataframe(log_path).empty
+    with pytest.raises(ValueError, match="incomplete header metadata"):
+        _process_log_file_dataframe(log_path)
 
 
 @patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.discover_log_files")
 @patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.process_log_files")
 @patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.build_log_summary_dataframe")
 @patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.ExcelExporter")
-def test_main_processing(mock_exporter, mock_build, mock_process, mock_discover, tmp_path: Path) -> None:
+def test_main_processing(
+    mock_exporter: MagicMock,
+    mock_build: MagicMock,
+    mock_process: MagicMock,
+    mock_discover: MagicMock,
+    tmp_path: Path,
+) -> None:
     mock_save = mock_exporter.return_value.save_to_excel
     # No files
     mock_discover.return_value = []
@@ -107,7 +124,7 @@ def test_main_processing(mock_exporter, mock_build, mock_process, mock_discover,
 
 
 def test_discover_log_files(tmp_path: Path) -> None:
-    (tmp_path / "valid.tlf").touch()
+    (tmp_path / "valid.tlf").write_text("Simulation in progress", encoding="utf-8")
     (tmp_path / "valid.hpc.tlf").touch()  # Excluded
 
     res = discover_log_files(root_dir=tmp_path)
@@ -133,7 +150,7 @@ def test_process_log_file() -> None:
 
 @patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.run_dashboard_workflow")
 @patch("ryan_library.orchestrators.tuflow.tuflow_logsummary._log_processing_results")
-def test_process_log_files(mock_log, mock_run, tmp_path: Path) -> None:
+def test_process_log_files(mock_log: MagicMock, mock_run: MagicMock, tmp_path: Path) -> None:
     from ryan_library.orchestrators.tuflow.tuflow_logsummary import process_log_files
 
     mock_run.return_value = []
@@ -163,7 +180,11 @@ def test_build_log_summary_dataframe() -> None:
     r2 = LogFileProcessingResult(f1, pd.DataFrame({"StartDate": [1]}), "OK", "")
 
     with patch("ryan_library.orchestrators.tuflow.tuflow_logsummary._reorder_log_summary_columns") as mock_reorder:
-        mock_reorder.side_effect = lambda data_frame: data_frame
+
+        def identity(data_frame: pd.DataFrame) -> pd.DataFrame:
+            return data_frame
+
+        mock_reorder.side_effect = identity
 
         df = build_log_summary_dataframe(files=[f1, f2], processing_results=[r1, r2])
         assert len(df) == 2

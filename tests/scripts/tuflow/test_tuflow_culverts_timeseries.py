@@ -22,7 +22,7 @@ def test_main_processing_success() -> None:
             mock_bulk.return_value = mock_collection
 
             tuflow_culverts_timeseries.main_processing(
-                paths_to_process=[Path()], include_data_types=["type"], output_dir=Path("out")
+                paths_to_process=[Path()], include_data_types=["Q"], output_dir=Path("out")
             )
 
             mock_bulk.assert_called_once()
@@ -43,7 +43,7 @@ def test_main_processing_parquet() -> None:
             mock_bulk.return_value = mock_collection
 
             tuflow_culverts_timeseries.main_processing(
-                paths_to_process=[Path()], include_data_types=["type"], export_mode="both"
+                paths_to_process=[Path()], include_data_types=["Q"], export_mode="both"
             )
 
             _, kwargs = mock_exporter.return_value.export_dataframes.call_args
