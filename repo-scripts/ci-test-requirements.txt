@@ -2,8 +2,8 @@
 # Preserve every declared runtime dependency and the MCP SDK, but avoid the
 # development-only lint/type/build/coverage tools in the hosted test job.
 -r pytuflow-requirement.txt
+-r ci-helper-requirements.txt
 # HDF5 processor snapshots retired; no PyTables backend is installed.
 -e .[mcp]
-pytest
 # The external interactive qgis-mcp bridge remains in requirements.txt for
 # developer installations; hosted tests do not import or launch that bridge.
