@@ -81,6 +81,38 @@ def test_metadata_source_crs_and_differing_cutline_crs(tmp_path: Path) -> None:
     assert source.read_bytes() == original
 
 
+def test_source_crs_from_ground_control_points(tmp_path: Path) -> None:
+    """A GCP-georeferenced raster need not have an ordinary projection."""
+    script = _script()
+    _affine_source, cutline = _case(tmp_path)
+    source = tmp_path / "gcp_source.tif"
+    ds = gdal.GetDriverByName("GTiff").Create(str(source), 10, 10, 1, gdal.GDT_Float32)
+    ds.SetGCPs(
+        [
+            gdal.GCP(115.0, -31.0, 0.0, 0.0, 0.0),
+            gdal.GCP(115.1, -31.0, 0.0, 10.0, 0.0),
+            gdal.GCP(115.0, -31.1, 0.0, 0.0, 10.0),
+            gdal.GCP(115.1, -31.1, 0.0, 10.0, 10.0),
+        ],
+        _crs(4326).ExportToWkt(),
+    )
+    ds.GetRasterBand(1).Fill(7.0)
+    ds = None
+    with gdal.Open(str(source)) as ds:
+        assert not ds.GetProjectionRef()
+        assert ds.GetGCPProjection()
+        assert ds.GetGCPCount() == 4
+    original = source.read_bytes()
+    output = tmp_path / "gcp_clipped.tif"
+    assert script.run_gdalwarp(source, output, cutline, "boundary", "EPSG:4326")
+    with gdal.Open(str(output)) as ds:
+        assert ds.GetSpatialRef().IsSame(_crs(4326))
+        assert ds.RasterXSize > 0
+        assert ds.RasterYSize > 0
+        assert np.any(ds.ReadAsArray() == 7.0)
+    assert source.read_bytes() == original
+
+
 def test_independent_target_crs_and_explicit_source_override(tmp_path: Path) -> None:
     script = _script()
     source, cutline = _case(tmp_path, raster_crs=3857)

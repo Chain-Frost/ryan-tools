@@ -146,7 +146,10 @@ def run_gdalwarp(
         _reject_links(cutline_path)
         _validate_destination(output_file, protected, overwrite=overwrite)
         with gdal.Open(str(input_file)) as source:  # type: ignore
-            if source is None or (source_crs is None and not source.GetProjectionRef()):  # type: ignore
+            # GCP-georeferenced rasters can have no ordinary projection but a valid
+            # ground-control-point CRS; let GDAL infer either metadata form.
+            has_source_crs = source is not None and bool(source.GetProjectionRef() or source.GetGCPProjection())  # type: ignore
+            if source is None or (source_crs is None and not has_source_crs):
                 msg = "Source raster needs CRS metadata or an explicit --source-crs correction"
                 raise ValueError(msg)
         output_file.parent.mkdir(parents=True, exist_ok=True)
