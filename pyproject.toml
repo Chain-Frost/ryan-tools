@@ -78,6 +78,7 @@ include-package-data = true
 "vendor.simil" = ["README.md", "LICENSE"]
 "ryan_library.classes" = ["*.json"]
 "ryan_library.resources.mcp" = ["*.json"]
+"ryan_library.functions.RORB" = ["README.md"]
 "ryan_library.resources.qgis.tuflow" = ["*.qml"]
 "ryan_library.resources.tuflow_templates" = [
   ".gitignore",
