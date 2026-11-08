@@ -24,7 +24,11 @@ from ryan_library.functions.live_dashboard import LiveWorkflowDashboard, Workflo
 from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.pandas.median_calc import finite_sorted_rows, upper_middle_row, upper_middle_value
 from ryan_library.functions.tuflow.tuflow_common import FileBatchProgress, bulk_read_and_merge_tuflow_csv
-from ryan_library.functions.tuflow.wrapper_helpers import normalize_data_types, warn_on_invalid_types
+from ryan_library.functions.tuflow.wrapper_helpers import (
+    normalize_data_types,
+    validate_discovery_settings,
+    warn_on_invalid_types,
+)
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 
 DEFAULT_DATA_TYPES: tuple[str, ...] = ("Nmx", "Cmx", "Chan", "ccA", "RLL_Qmx", "EOF")
@@ -115,13 +119,19 @@ def _run_culvert_statistic_report(
     """Compute existing peak statistics while reporting the full export lifecycle."""
     if script_directory is None:
         script_directory = Path.cwd()
-    effective_paths_to_process: list[Path] = list(paths_to_process or (script_directory,))
+    effective_paths_to_process: list[Path] = list((script_directory,) if paths_to_process is None else paths_to_process)
     context: str = f"Culvert {statistic} report"
 
     data_types, invalid_types = normalize_data_types(
         requested=include_data_types,
         default=DEFAULT_DATA_TYPES,
         accepted=ACCEPTED_DATA_TYPES,
+    )
+    validate_discovery_settings(
+        paths_to_process=effective_paths_to_process,
+        selected_data_types=data_types,
+        accepted_data_types=ACCEPTED_DATA_TYPES,
+        context=context,
     )
     dashboard = LiveWorkflowDashboard(
         title=context,

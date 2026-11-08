@@ -117,11 +117,11 @@ def main(
     try:
         export_mean_peak_report(
             script_directory=target_directory,
-            paths_to_process=effective_paths or None,
+            paths_to_process=effective_paths if paths_to_process is not None or PATHS_TO_PROCESS else None,
             log_level=console_log_level or CONSOLE_LOG_LEVEL,
             include_pomm=INCLUDE_POMM,
             locations_to_include=effective_locations or None,
-            include_data_types=effective_data_types or None,
+            include_data_types=effective_data_types,
             standard_durations=STANDARD_DURATIONS_MINUTES,
             expected_tp_count=EXPECTED_TP_COUNT,
         )
