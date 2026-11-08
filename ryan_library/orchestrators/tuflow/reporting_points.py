@@ -8,13 +8,10 @@ from collections.abc import Collection
 from pathlib import Path
 from typing import Literal
 
-import pandas as pd
-from loguru import logger
-
-from ...functions.excel_export import ExcelExporter, ExportContent
-from ...functions.live_dashboard import LiveWorkflowDashboard, WorkflowMetric
+from ...functions.live_dashboard import LiveWorkflowDashboard
 from ...processors.tuflow.processor_collection import ProcessorCollection
 from ._combination_workflow import execute_combination_workflow
+from ._reporting_location_export import export_reporting_location_results
 
 DEFAULT_DATA_TYPES: tuple[str, ...] = ("RLP_H", "RLP_Hmx")
 ACCEPTED_DATA_TYPES: frozenset[str] = frozenset(DEFAULT_DATA_TYPES)
@@ -26,44 +23,17 @@ def export_results(
     export_mode: Literal["excel", "parquet", "both"] = "excel",
     dashboard: LiveWorkflowDashboard | None = None,
 ) -> bool:
-    """Keep time-series samples and TUFLOW-supplied maxima on separate report sheets."""
-    if dashboard is not None:
-        dashboard.set_phase("Aggregating")
-    if not results.processors:
-        logger.warning("No reporting-point results to export.")
-        return False
-
-    frames: list[pd.DataFrame] = []
-    sheets: list[str] = []
-    for data_type, sheet in (("RLP_H", "Water_Level_Series"), ("RLP_Hmx", "Source_Maxima")):
-        combined = results.get_processors_by_data_type(data_type).combine_raw()
-        if not combined.empty:
-            frames.append(combined)
-            sheets.append(sheet)
-
-    if not frames:
-        logger.warning("No reporting-point rows to export.")
-        return False
-
-    if dashboard is not None:
-        dashboard.set_metrics([WorkflowMetric("Reporting-point rows", value=sum(map(len, frames)), unit="rows")])
-        dashboard.set_phase("Exporting")
-
-    export: ExportContent = {"dataframes": frames, "sheets": sheets}
-    ExcelExporter().export_dataframes(
-        export_dict={"reporting_points": export},
-        output_directory=Path.cwd(),
+    """Keep sampled point levels separate from supplied Hmax/time and dHmax/time."""
+    return export_reporting_location_results(
+        results=results,
+        products=(("RLP_H", "Water_Level_Series"), ("RLP_Hmx", "Source_Maxima")),
+        export_key="reporting_points",
+        workflow_name="Reporting-location point water levels",
+        metric_label="Reporting-point rows",
+        measurement_notes="Source model units; Hmax and dHmax keep their own source times",
         export_mode=export_mode,
-        parquet_compression="gzip",
-        include_data_dictionary=True,
-        data_dictionary_metadata={
-            "Workflow": "Reporting-location point water levels",
-            "Times": "Simulation hours",
-            "Measurements": "Source model units; Hmax and dHmax keep their own source times",
-        },
+        dashboard=dashboard,
     )
-    return True
-
 
 def main_processing(
     paths_to_process: list[Path],
