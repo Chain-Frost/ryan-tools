@@ -42,5 +42,5 @@ def test_retired_hdf_write_preserves_existing_file(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize("verify_sources", [False, True])
 def test_retired_hdf_read_raises_before_opening_file(*, verify_sources: bool) -> None:
-    with pytest.raises(NotImplementedError, match="pypi.org/project/ryan-tools/26"):
+    with pytest.raises(NotImplementedError, match="ryan-tools==26"):
         ProcessorCollection.from_hdf("nonexistent.h5", locations=["C1"], verify_sources=verify_sources)
