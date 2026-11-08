@@ -210,6 +210,59 @@ def test_invalid_head_also_falls_back_to_full_tracked_scope(repository: Path) ->
     assert result["type_files"] == ["source.py"]
 
 
+@pytest.mark.parametrize("event", ["pull_request", "push"])
+def test_version_only_pyproject_change_does_not_expand_static_checks(repository: Path, event: str) -> None:
+    template = '[project]\nname = "example"\nversion = "1.0.0"\n\n[tool.pyright]\ntypeCheckingMode = "strict"\n'
+    _write(repository, "pyproject.toml", template)
+    _write(repository, "typings/types.pyi", "value: int\n")
+    base = _commit(repository)
+
+    _write(repository, "pyproject.toml", template.replace('version = "1.0.0"', 'version = "1.0.1"'))
+    _write(repository, "source.py", "value = 2\n")
+    _commit(repository)
+
+    result = _scope(repository, base, event=event)
+
+    assert result["full"]
+    assert result["comparison_available"]
+    assert result["lint_files"] == ["source.py"]
+    assert result["type_files"] == ["source.py"]
+
+
+def test_version_only_pyproject_change_still_requires_package_validation(repository: Path) -> None:
+    _write(repository, "pyproject.toml", '[project]\nname = "example"\nversion = "1.0.0"\n')
+    base = _commit(repository)
+    _write(repository, "pyproject.toml", '[project]\nname = "example"\nversion = "1.0.1"\n')
+    _commit(repository)
+
+    result = _scope(repository, base)
+
+    assert result["full"]
+    assert result["lint_files"] == []
+    assert result["type_files"] == []
+
+
+@pytest.mark.parametrize(
+    "extra_change",
+    [
+        'dependencies = ["numpy"]\n',
+        '\n[tool.pyright]\ntypeCheckingMode = "strict"\n',
+    ],
+)
+def test_version_and_other_pyproject_changes_still_expand_static_checks(repository: Path, extra_change: str) -> None:
+    _write(repository, "pyproject.toml", '[project]\nname = "example"\nversion = "1.0.0"\n')
+    _write(repository, "typings/types.pyi", "value: int\n")
+    base = _commit(repository)
+    _write(repository, "pyproject.toml", '[project]\nname = "example"\nversion = "1.0.1"\n' + extra_change)
+    _commit(repository)
+
+    result = _scope(repository, base)
+
+    assert result["full"]
+    assert result["lint_files"] == ["source.py", "typings/types.pyi"]
+    assert result["type_files"] == ["source.py", "typings/types.pyi"]
+
+
 @pytest.mark.parametrize(
     ("config", "lint_all", "type_all"),
     [
