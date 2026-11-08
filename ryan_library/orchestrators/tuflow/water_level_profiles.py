@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import os
 import re
+import tempfile
 
 # Rasterio, GeoPandas, PyProj, and Matplotlib expose incomplete third-party typing.
 # pyright: reportUnknownArgumentType=false, reportUnknownMemberType=false, reportUnknownVariableType=false
@@ -370,13 +372,14 @@ def _raster_crs_and_spacing(
         raise FileNotFoundError(msg)
 
     with rasterio.open(path) as source:
-        raster_crs = CRS.from_user_input(source.crs) if source.crs is not None else None
+        # Rasterio's Dataset typing lacks attributes exposed by its raster readers.
+        raster_crs = CRS.from_user_input(source.crs) if source.crs is not None else None  # pyright: ignore[reportAttributeAccessIssue]
         effective_spacing = (
             spacing
             if spacing is not None
             else min(
-                abs(float(source.res[0])),
-                abs(float(source.res[1])),
+                abs(float(source.res[0])),  # pyright: ignore[reportAttributeAccessIssue]
+                abs(float(source.res[1])),  # pyright: ignore[reportAttributeAccessIssue]
             )
             / 2.0
         )
@@ -391,7 +394,7 @@ def _read_water_raster_crs(
 
     for aep, path in water_rasters.items():
         with rasterio.open(path) as source:
-            water_crs[aep] = CRS.from_user_input(source.crs) if source.crs is not None else None
+            water_crs[aep] = CRS.from_user_input(source.crs) if source.crs is not None else None  # pyright: ignore[reportAttributeAccessIssue]
 
     return water_crs
 
@@ -508,10 +511,39 @@ def _configure_profile_grid(
     )
 
 
+def _existing_profile_output(path: Path) -> Path | None:
+    """Find exact or case-insensitive output collisions, including dangling symlinks."""
+    if not path.parent.is_dir():
+        return None
+    return next((entry for entry in path.parent.iterdir() if entry.name.casefold() == path.name.casefold()), None)
+
+
+def _publish_profile_png(staged: Path, destination: Path, *, overwrite_existing: bool) -> None:
+    """Publish a complete PNG without a preflight-to-publication overwrite race.
+
+    Windows rename cannot replace an existing path; POSIX link creation also
+    fails atomically on collision. Unsupported POSIX hard links fail safely
+    instead of copying a partially written image into the destination.
+    """
+    collision = _existing_profile_output(destination)
+    if collision is not None and (not overwrite_existing or collision.name != destination.name):
+        msg = f"Profile output already exists: {collision}"
+        raise FileExistsError(msg)
+
+    if overwrite_existing:
+        staged.replace(destination)
+    elif os.name == "nt":
+        # Windows rename rejects a destination created after the collision check.
+        staged.rename(destination)
+    else:
+        # POSIX rename/replace would silently overwrite a concurrent creator.
+        os.link(staged, destination)
+
+
 def run_water_level_profile_workflow(
     config: WaterLevelProfileConfig,
 ) -> tuple[Path, ...]:
-    """Create one terrain/water-level profile plot per connected input line."""
+    """Create plots; a later failure does not roll back previously published PNGs."""
     if config.max_interpolation_gap < 0:
         msg = "max_interpolation_gap must be non-negative."
         raise ValueError(msg)
@@ -624,8 +656,9 @@ def run_water_level_profile_workflow(
 
             reserved_names.add(normalized_output)
 
-            if output_path.exists() and not config.overwrite_existing:
-                msg = f"Profile output already exists: {output_path}"
+            collision = _existing_profile_output(output_path)
+            if collision is not None and (not config.overwrite_existing or collision.name != output_path.name):
+                msg = f"Profile output already exists: {collision}"
                 raise FileExistsError(msg)
 
             profile_jobs.append((display_name, line, output_path))
@@ -642,7 +675,7 @@ def run_water_level_profile_workflow(
                 config.plot_height_cm / 2.54,
             )
         )
-        temporary_output = output_path.with_name(f".{output_path.stem}.tmp{output_path.suffix}")
+        temporary_output: Path | None = None
 
         try:
             distances, terrain = sample_raster_along_line(
@@ -722,12 +755,24 @@ def run_water_level_profile_workflow(
 
             axes.legend()
             figure.tight_layout()
-            figure.savefig(temporary_output, dpi=300)
-            temporary_output.replace(output_path)
+            # Exclusive same-directory staging avoids shared names and symlinks.
+            # Render through the open file to retain ownership until completion.
+            with tempfile.NamedTemporaryFile(
+                mode="w+b",
+                prefix=f".{output_path.stem}.",
+                suffix=f".staged{output_path.suffix}",
+                dir=output_path.parent,
+                delete=False,
+            ) as temporary_file:
+                temporary_output = Path(temporary_file.name)
+                figure.savefig(temporary_file, format="png", dpi=300)
+
+            _publish_profile_png(temporary_output, output_path, overwrite_existing=config.overwrite_existing)
 
         finally:
             plt.close(figure)
-            temporary_output.unlink(missing_ok=True)
+            if temporary_output is not None:
+                temporary_output.unlink(missing_ok=True)
 
         output_paths.append(output_path)
         logger.success("Saved profile plot to {}", output_path)
