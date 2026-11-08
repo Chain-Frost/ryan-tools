@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Evidence first delivery complete; numerical implementation blocked on published native package and source inputs |
+| Status | Bounded native ellipse implemented and locally validated; source-model/HY-8 acceptance blocked |
 | Owner | WP15 allocation agent / maintainer |
 | Created / updated | 2026-11-08 |
 | Next review | 2026-11-15 or earlier if blockers resolve |
@@ -13,9 +13,9 @@
 
 ## Scope decision
 
-This is the **first required evidence delivery**, not approval of ellipse numerical support or closure of the three issues. The accepted circular-only migration [PR #100](https://github.com/Chain-Frost/ryan-tools/pull/100), its [validation record](2026-10-08-tuflow-culvert-engines-99.md) and historical [AB-023](../audits/2026-10-22-script-remediation-backlog.md) remain intact. No solver, public API, TUFLOW wrapper, production source or dependency pin is modified by this assessment.
+This is the **first required evidence delivery**, not approval of ellipse numerical support or closure of the three issues. The accepted circular-only migration [PR #100](https://github.com/Chain-Frost/ryan-tools/pull/100), its [validation record](2026-10-08-tuflow-culvert-engines-99.md) and historical [AB-023](../audits/2026-10-22-script-remediation-backlog.md) remain intact. The initial assessment changed documentation only. The Windows continuation below adds a bounded native project API and updates the published dependency minimum; TUFLOW wrappers and production sources remain unchanged.
 
-Merged upstream source does **not** establish published installed-package availability. [run-hy8 PR #7](https://github.com/Chain-Frost/run-hy8/pull/7) merged; verified published [run-hy8 `2026.10.18.2`](https://pypi.org/project/run-hy8/2026.10.18.2/) supports its bounded HY-8 8.0.1.2 ellipse catalogue. [ryan-culverts PR #29](https://github.com/Chain-Frost/ryan-culverts/pull/29) merged on 18 October, but latest verified [ryan-culverts `26.10.16.1`](https://pypi.org/project/ryan-culverts/) was published **15 October**, before that merge. Current `ryan-tools` bounds (`run-hy8>=2026.10.16.1`, `ryan-culverts>=26.10.16.1`) do not guarantee the new native ellipse API is installed. Do not import unpublished symbols or silently substitute a source checkout/`PYTHONPATH` for supported installed-wheel operation.
+**Historical initial package assessment (superseded by the Windows verification below):** merged upstream source does **not** establish published installed-package availability. [run-hy8 PR #7](https://github.com/Chain-Frost/run-hy8/pull/7) merged; verified published [run-hy8 `2026.10.18.2`](https://pypi.org/project/run-hy8/2026.10.18.2/) supports its bounded HY-8 8.0.1.2 ellipse catalogue. [ryan-culverts PR #29](https://github.com/Chain-Frost/ryan-culverts/pull/29) merged on 18 October, but latest verified [ryan-culverts `26.10.16.1`](https://pypi.org/project/ryan-culverts/) was published **15 October**, before that merge. Current `ryan-tools` bounds (`run-hy8>=2026.10.16.1`, `ryan-culverts>=26.10.16.1`) do not guarantee the new native ellipse API is installed. Do not import unpublished symbols or silently substitute a source checkout/`PYTHONPATH` for supported installed-wheel operation.
 
 ## Retained hydraulic evidence (not rerun here)
 
@@ -68,9 +68,87 @@ Use only a permitted licensed HY-8 Windows host and an **authorised, disposable*
 - [x] Physical matrix, published-version blocker, source-model fixture requirements and exact Windows-agent handoff.
 - [ ] #102 actual source-backed mixed `1d_nwk` and installed HY-8 same-model multi-scenario verification.
 - [ ] #103 actual TUFLOW event/blockage/matrix/EOF provenance, verified inlet/outlet-control-dependent ELM/RAM treatment and no-double-application evidence.
-- [ ] #101 published native ellipse wheel; project-defined concrete ellipse implementation/tests; bounded optional HY-8 comparison.
+- [x] #101 published native ellipse wheel and bounded project-defined horizontal concrete ellipse implementation/tests. Optional equivalent-geometry HY-8 comparison remains unexecuted.
 - [ ] Codex review, final exact-head hosted checks and separate approval for any child integration into #251.
 
-**Validation 2026-11-08:** GitHub repository/source-path and upstream API inspection, PyPI version/provenance page verification and TUFLOW 2026.3 documentation review. Newly authored relative links verified using GitHub file lookups. No model data or executable available. **Functional pytest: not run (0 passed, 0 failed, 0 skipped); Ruff/Pyright: not run (no Python changes); Windows HY-8/installed-wheel: not run.** The canonical `python repo-scripts/check_documentation.py` is not run because the execution environment has no network-accessible Git checkout; hosted CI/Codex are separately pending. Changes committed only to the WP15 child branch.
+**Historical initial assessment validation 2026-11-08:** GitHub repository/source-path and upstream API inspection, PyPI version/provenance page verification and TUFLOW 2026.3 documentation review. Newly authored relative links verified using GitHub file lookups. No model data or executable available. **Functional pytest: not run (0 passed, 0 failed, 0 skipped); Ruff/Pyright: not run (no Python changes); Windows HY-8/installed-wheel: not run.** The canonical `python repo-scripts/check_documentation.py` is not run because the execution environment has no network-accessible Git checkout; hosted CI/Codex are separately pending. Changes committed only to the WP15 child branch.
 
-**Next action:** secure a published native solver ellipse release and actual matched TUFLOW source/event fixtures; then implement the smallest #101 case and separately run only remaining #102/#103 native acceptance. Review by 2026-11-15 or on unblock.
+**Next action:** review the bounded native integration and obtain authorised matched source/event fixtures, explicit HY-8 execution permission and independently agreed engineering tolerances for remaining #102/#103 acceptance. Review by 2026-11-15 or on unblock.
+
+
+## Windows continuation ? 2026-11-08
+
+Separate worktree `E:/Github/ryan-tools-wp15-282` starts at the verified expected
+PR #282 head `9a5f4725599f6c210b914e242a88354f30f796ba` on the existing draft branch.
+Read allocation #240 and original #101/#102/#103; no new issue closure or merge is authorised.
+Unrelated register entries with review dates before 2026-11-08 remain due; no unrelated work resumed.
+
+### Published and installed dependencies
+
+Windows Python **3.14.6**, `C:/Program Files/Python314/python.exe`. Initial installed
+`run-hy8==2026.10.18.2` and `ryan-culverts==26.10.18.3` have no direct-source URL override.
+Both import from the normal Python314 user `site-packages`, outside any repository.
+The old native wheel lacks the public ellipse exports. Live PyPI now supplies
+[ryan-culverts 26.10.19.1](https://pypi.org/project/ryan-culverts/26.10.19.1/).
+Downloaded wheel SHA-256 **9fed3f0bf529ffc8250034bb0c0b2c349c88833efffabcd201b9ae09ddb67bfd**
+matches PyPI metadata. Installed that published wheel using `python -m pip install
+--no-deps ryan-culverts==26.10.19.1`; verified public horizontal/vertical ellipse,
+concrete oval, shape-specific inlet and entrance-loss exports. No private checkout,
+PYTHONPATH override or copied solver equations. Raised the project minimum to that version.
+
+### Completed native slice
+
+`HorizontalEllipseBarrelDefinition` requires finite positive span > rise, concrete
+pipe material and explicit `physical_inlet="square_edge_headwall"`. Adapter uses
+public `HorizontalEllipseGeometry`, HDS-5 Table A.2 Chart 29 Scale 1 inlet and Table
+C.2 entrance loss. JSON/TOML parsing, project JSON export and crossing audit records
+preserve axes and physical inlet. Existing result JSON preserves sources and warnings;
+summary CSV retains scalar/warning fields and must accompany project/detailed JSON.
+HW/D assessment uses rise. Existing circular and box dispatch is preserved.
+Vertical, steel/aluminum, HDPE, other inlets and HY-8 oval project integration remain
+unsupported. TUFLOW demos remain circular-only. Existing MCP project CLI discovery
+is sufficient; no additional tool is warranted.
+
+Fourteen new tests cover independent ellipse area, published coefficient/source
+values, independent HDS-5 A.3 SI submerged headwater, warning preservation, rise-based
+HW/D rejection, native forward/inverse, project round-trip and unsupported/missing
+configuration. The 1 m3/s headwater regression is 1.556387336974289 m; inverse Q
+returns 1 m3/s within 1e-6. Numerical regression tolerances are **not** agreed HY-8
+engineering parity tolerances.
+
+### Native executable and source acceptance ? unexecuted
+
+Read-only installed executable inspection: `C:/Program Files/HY-8 8.00/HY864.exe`,
+file/product version **8.0.1.2**, SHA-256
+**0b1c5e7fb6b48be9c675b5486ae9a84346f436c5c649aa5ed09a1552267ee806**.
+It was **not launched**: explicit execution permission and authorised matched
+same-model input paths were requested and remain pending. No new model sources were
+supplied. No model search beyond the selected repository sources, production edits,
+new forward/inverse HY-8 results or blockage acceptance is claimed. The ELM outlet
+control versus RAM inlet-control fallback matrix above remains the required contract.
+
+### Local checks and delivery checkpoint
+
+- **Passed:** focused `python -m pytest tests/culvert tests/scripts/test_tuflow_culvert_wrappers.py -q`:
+  **175 passed, 2 skipped**. Skips are existing Windows symlink privilege checks.
+- **Passed:** Ruff lint/format and strict Pyright on the six changed Python files.
+- **Passed:** documentation checker default README set and changed prose with `--links-only`;
+  plain prose-path mode flags existing generated-output filenames and a branch name,
+  so those are not represented as broken links.
+- **Passed:** `python repo-scripts/build_library.py --skip-pip`, verified retained wheel
+  **26.11.8.3**, SHA-256 **3b03107d07919542f8fe26163e99faf62d77ec7a5603d1bf5ec6dc0aca2a17d2**.
+  Initial build failed for absent QGIS styles; initialised only required qgis-resources
+  (plus tests/test_data for pytest), then build passed. No unsorted access.
+- **Passed:** installed retained wheel with `--no-deps --force-reinstall`, ran
+  `repo-scripts/smoke_test_installed_wheel.py` outside checkout. Existing vendor/simil
+  ComplexWarning is retained; smoke exits zero.
+- **Passed:** copied `ryan-scripts/culvert.py` outside checkout, installed site-packages
+  import verified, synthetic horizontal ellipse solve exits zero with CSV/JSON/Markdown.
+  Raw input/output/stdout/stderr retained privately under local temp directory
+  `wp15-copied-wrapper-ty81q8gj`. Wrapper 2026-11-07.1 / library 26.11.8.3.
+- **Failed, corrected:** initial new test API assumptions (area property, inverse float,
+  fixed-tailwater normalization and crossing depth access); final focused run above passes.
+- **Unexecuted:** real model provenance, HY-8 numerical acceptance, engineering tolerances,
+  ELM/RAM blockage cases. No Python checks are counted as those acceptance gates.
+- **Delivery:** one locally validated batch on existing draft #282; hosted final-head
+  CI and fresh Codex review are recorded in the PR after push. No merge or release.

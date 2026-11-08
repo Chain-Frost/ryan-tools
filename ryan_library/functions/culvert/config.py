@@ -26,6 +26,7 @@ from ...classes.culvert.crossing import (
     CrossingDefinition,
     CulvertGroupDefinition,
     CulvertMaterialName,
+    HorizontalEllipseBarrelDefinition,
     RectangularBarrelDefinition,
     RoadwayCrestPointDefinition,
     RoadwayDefinition,
@@ -105,7 +106,9 @@ def _metadata(data: dict[str, object]) -> tuple[str | None, str]:
     return source, notes
 
 
-def _parse_barrel(value: object) -> RectangularBarrelDefinition | CircularBarrelDefinition:
+def _parse_barrel(
+    value: object,
+) -> RectangularBarrelDefinition | CircularBarrelDefinition | HorizontalEllipseBarrelDefinition:
     data = _mapping(value, "barrel")
     common = {
         "shape",
@@ -119,10 +122,12 @@ def _parse_barrel(value: object) -> RectangularBarrelDefinition | CircularBarrel
     shape = _text(data, "shape")
     if shape == "rectangular":
         dimensions = {"span_mm", "rise_mm"}
+    elif shape == "horizontal_ellipse":
+        dimensions = {"span_mm", "rise_mm", "physical_inlet"}
     elif shape == "circular":
         dimensions = {"diameter_mm"}
     else:
-        msg = "barrel shape must be 'rectangular' or 'circular'."
+        msg = "barrel shape must be 'rectangular', 'circular' or 'horizontal_ellipse'."
         raise ValueError(msg)
     _reject_unknown(data, common | dimensions, "barrel")
     label = data.get("label", "")
@@ -135,6 +140,18 @@ def _parse_barrel(value: object) -> RectangularBarrelDefinition | CircularBarrel
     outlet_invert = _number(data, "outlet_invert_elevation_m")
     roughness = _number(data, "roughness_manning_n")
 
+    if shape == "horizontal_ellipse":
+        return HorizontalEllipseBarrelDefinition(
+            span_mm=_number(data, "span_mm"),
+            rise_mm=_number(data, "rise_mm"),
+            physical_inlet=_text(data, "physical_inlet"),
+            length=length,
+            inlet_invert=inlet_invert,
+            outlet_invert=outlet_invert,
+            roughness=roughness,
+            material=material,
+            label=label,
+        )
     if shape == "rectangular":
         return RectangularBarrelDefinition(
             span_mm=_number(data, "span_mm"),
@@ -647,6 +664,13 @@ def _crossing_record(crossing: CrossingDefinition) -> dict[str, object]:
             record["label"] = barrel.label
         if isinstance(barrel, CircularBarrelDefinition):
             record.update(shape="circular", diameter_mm=barrel.diameter_mm)
+        elif isinstance(barrel, HorizontalEllipseBarrelDefinition):
+            record.update(
+                shape="horizontal_ellipse",
+                span_mm=barrel.span_mm,
+                rise_mm=barrel.rise_mm,
+                physical_inlet=barrel.physical_inlet,
+            )
         else:
             record.update(shape="rectangular", span_mm=barrel.span_mm, rise_mm=barrel.rise_mm)
         groups.append({"name": group.name, "quantity": group.quantity, "barrel": record})
