@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Code and copied-wrapper CI green; native Excel/UNC acceptance outstanding |
+| Status | Native validation failed: SMB hardlink guard and concurrent-writer lost update; review required |
 | Owner | WP08 integration |
 | Created / updated | 2026-11-08 |
 | Next review | 2026-11-15 |
@@ -89,3 +89,32 @@ covers QA, POMM and closure dashboard adoption separately, with partial-input
 and native acceptance tracked under #198. The child PR carries proposed
 `Fixes #196`; the consolidation parent #251 must not carry an issue-closing
 keyword until this child is reviewed and actually incorporated.
+
+## 2026-11-08 native Windows/Excel/SMB acceptance - FAILED / needs correction
+
+Refreshed the existing child branch by normal merge of latest parent #251 `d61925675dffd86811ae9277b9ca53615e172f1f`; no force-push or child integration into parent. Tested code **`217638ce`**. Only the shared work-register conflict required resolution, retaining both owners' rows. This record update does not alter that tested implementation.
+
+Windows 10 build 19045, Python 3.14.6, pandas 3.0.5, openpyxl 3.1.5, native Excel **16.0**, PyTuflow 1.3.0 at pinned `887534ea8c15b80d185a38a7ead1d42ab42a7167`. A no-bump build verified package 26.11.8.2, installed using `pip --no-deps --target` into disposable storage. Copied wrappers executed outside checkout, with wheel origin checked; ordinary user-site dependencies were retained. No global package installation, production input, solver or unsorted access.
+
+| Check | Outcome | Evidence |
+| --- | --- | --- |
+| Focused source tests | PASS / one skip | `py -3.14 -m pytest -q -rs tests/orchestrators/tuflow/test_logsummary_append_outcomes_196.py`: 13 passed, one symlink privilege skip; `tests/functions/tuflow/test_logsummary_excel_append.py`: 4 passed |
+| Independent installed wheel/copied wrapper, local + UNC | PASS | Dashboard on/off; completed append, duplicate/incomplete skip, injected writer error, invalid settings; original skip/failure bytes and owned-stage cleanup checked |
+| Partial completed/incomplete batch | PASS | Copied wrapper appends completed row but returns exit 1 / FAILED |
+| Existing table and workbook fidelity | PASS (bounded) | Local, UNC and mapped: Logs table expands A1:B2 to A1:B3; original row, formula, existing font/style, core title, freeze pane and second sheet retained |
+| Actual Excel workbook lock | PASS | Owned invisible Excel 16.0 instance opens disposable workbook; append raises PermissionError; SHA256 unchanged; owned workbook/application closed |
+| Windows sharing lock | PASS | Real CreateFileW deny-delete/write sharing handle, local/UNC/mapped: source preserved and owned stage cleaned |
+| Save/replace failures and competing modification | PASS | Injected save/replace errors preserve bytes/listing; competitor modification during staged save is detected and retained |
+| Local hardlink rejection | PASS | No mutation or staging residue |
+| SMB/UNC and mapped hardlink rejection | **FAIL** | Both Python stat and Windows GetFileInformationByHandle report link count 1 despite samefile=True and equal inode for two existing hardlinks. The guard permits append, replaces the selected path and leaves the alias with old content |
+| Concurrent writers | **FAIL** | Controlled overlap after both final identity checks, with ordered native replacements: both calls return OK but only writer2 survives. Reproduced local, UNC and mapped |
+| Filename symlink | SKIPPED | Windows privilege unavailable; do not treat as passing native evidence |
+| ACL preservation/denial, macros/charts/pivots/external links and private project workbooks | NOT RUN | No ACL changes or production files; bounded xlsx features above only |
+
+The SMB hardlink failure is at `logsummary_excel_append.py`'s `_require_unlinked_master_workbook` link-count guard: a successful query cannot establish multiplicity on this server. Independent `samefile` and file IDs confirmed this was a real hardlink, not an ordinary copy. Do not claim supported rejection on this share. A safe correction needs a validated identity/link strategy or an explicit fail-closed supported-filesystem boundary; do not silently weaken protection.
+
+The concurrent-writer reproduction coordinates only the gap between the existing signature check and `Path.replace`, without mocking the replacement itself. Both staged workbooks were built from the old master; both pass the check; writer1 replaces, then writer2 replaces. The final rows are old + writer2, with writer1 lost. This is the documented arbitration gap, now a measured native acceptance failure, not permission to accept it. The next owner should add whole-transaction writer arbitration or agree an explicitly narrower contract and obtain review before integration.
+
+Commands/harnesses: `py -3.14 installed_acceptance.py 196 <fresh-local-or-UNC> <result>`, `py -3.14 native_workbook.py <fresh-local-UNC-or-mapped> <result>`, `py -3.14 partial196.py`, `py -3.14 excel_lock.py`, from private `E:/Github/wp08-native-20261108` with PYTHONPATH set to its installed196 wheel target. JSON evidence records output hashes, destination listings and row outcomes; raw logs and internal share paths stay private. Main and unrelated worktrees were preserved.
+
+**Disposition:** native acceptance is incomplete and **must not be signed off**. No implementation fix was attempted as part of validation; the server identity limitation and writer-arbitration policy need scoped review. Keep #255 draft; no parent incorporation or conditional Fixes #196, main merge, release or issue closure. Next action: owner review of the two reproductions and a narrowly scoped safety correction; next review 2026-11-15.
