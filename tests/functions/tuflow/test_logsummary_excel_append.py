@@ -118,7 +118,7 @@ def test_windows_link_enumeration_fails_closed_for_misleading_smb_count(
     create_dummy_workbook(path)
     initial = path.read_bytes()
     # Model an SMB server/API that reports one link even for two real names.
-    monkeypatch.setattr(lsea, "_windows_hardlink_count", lambda *, path: 1)
+    monkeypatch.setattr(lsea, "_windows_hardlink_count", lambda *, path: int(path.exists()))
 
     with pytest.raises(ValueError, match="unreliable"):
         lsea._verify_windows_hardlinks(workbook_path=path)

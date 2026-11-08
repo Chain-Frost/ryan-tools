@@ -334,16 +334,20 @@ def _verify_windows_hardlinks(*, workbook_path: Path) -> None:
     alias_owned = False
     try:
         if _windows_hardlink_count(path=probe_path) != 1:
-            raise ValueError(f"Cannot verify single-link identity on the master filesystem: {workbook_path}")
+            msg = f"Cannot verify single-link identity on the master filesystem: {workbook_path}"
+            raise ValueError(msg)
         try:
             os.link(probe_path, alias_path)
             alias_owned = True
             if _windows_hardlink_count(path=probe_path) != 2 or _windows_hardlink_count(path=alias_path) != 2:
-                raise ValueError(f"Hardlink enumeration is unreliable on the master filesystem: {workbook_path}")
+                msg = f"Hardlink enumeration is unreliable on the master filesystem: {workbook_path}"
+                raise ValueError(msg)
             if _windows_hardlink_count(path=workbook_path) != 1:
-                raise ValueError(f"Hard-linked master workbooks are unsupported: {workbook_path}")
+                msg = f"Hard-linked master workbooks are unsupported: {workbook_path}"
+                raise ValueError(msg)
         except OSError as exc:
-            raise ValueError(f"Cannot verify safe hardlink replacement on this filesystem: {workbook_path}") from exc
+            msg = f"Cannot verify safe hardlink replacement on this filesystem: {workbook_path}"
+            raise ValueError(msg) from exc
     finally:
         if alias_owned:
             alias_path.unlink(missing_ok=True)
