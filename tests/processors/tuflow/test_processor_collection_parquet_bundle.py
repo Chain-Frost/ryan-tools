@@ -142,8 +142,9 @@ def test_parquet_bundle_atomic_failure_preserves_existing(
     collection.to_parquet(path)
     original = path.read_bytes()
 
-    def failing_signature(source: Path) -> dict[str, object]:
-        raise OSError("simulated interrupted write")
+    def failing_signature(_source: Path) -> dict[str, object]:
+        message = "simulated interrupted write"
+        raise OSError(message)
 
     from ryan_library.processors.tuflow import parquet_bundle
 
@@ -180,7 +181,7 @@ def test_parquet_bundle_corrupt_manifest_member_and_extra_entry(
 
 
 def test_parquet_bundle_invalid_extension_and_path(collection: ProcessorCollection, tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match=".rtparquet"):
+    with pytest.raises(ValueError, match="rtparquet"):
         collection.to_parquet(tmp_path / "data.parquet")
-    with pytest.raises(ValueError, match=".rtparquet"):
+    with pytest.raises(ValueError, match="rtparquet"):
         ProcessorCollection.from_parquet(tmp_path / "data.parquet")

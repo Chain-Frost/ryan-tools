@@ -110,14 +110,9 @@ def _publish(staged: Path, destination: Path, *, overwrite: bool) -> None:
         staged.unlink()
 
 
-def write_collection_bundle(
-    collection: ProcessorCollection,
-    file_path: Path | str,
-    *,
-    overwrite: bool = False,
+def _validate_export_destination(
+    collection: ProcessorCollection, destination: Path, *, overwrite: bool
 ) -> None:
-    """Store heterogeneous processed frames in one portable .rtparquet archive."""
-    destination = Path(file_path).absolute()
     if destination.suffix.casefold() != ".rtparquet":
         msg = "ProcessorCollection Parquet bundles require the .rtparquet extension (ZIP of Parquet files)"
         raise ValueError(msg)
@@ -135,6 +130,17 @@ def write_collection_bundle(
             msg = f"Parquet bundle destination aliases a processor source: {destination}"
             raise ValueError(msg)
 
+
+
+def write_collection_bundle(
+    collection: ProcessorCollection,
+    file_path: Path | str,
+    *,
+    overwrite: bool = False,
+) -> None:
+    """Store heterogeneous processed frames in one portable .rtparquet archive."""
+    destination = Path(file_path).absolute()
+    _validate_export_destination(collection, destination, overwrite=overwrite)
     destination.parent.mkdir(parents=True, exist_ok=True)
     fd, temporary = tempfile.mkstemp(prefix=f".{destination.name}.", suffix=".part", dir=destination.parent)
     os.close(fd)
@@ -180,6 +186,28 @@ def write_collection_bundle(
         staged.unlink(missing_ok=True)
 
 
+def _validate_manifest_members(manifest: dict[str, Any], names: set[str]) -> None:
+    entries: object = manifest.get("processors")
+    if not isinstance(entries, list):
+        msg = "Parquet bundle processor inventory is malformed"
+        raise ValueError(msg)
+    expected = {_MANIFEST}
+    for index, entry in enumerate(entries):
+        if not isinstance(entry, dict) or entry.get("member") != f"processors/{index:06d}.parquet":
+            msg = "Parquet bundle processor member name is invalid"
+            raise ValueError(msg)
+        expected.add(entry["member"])
+    lookup: object = manifest.get("basic_info_lookup")
+    if lookup is not None:
+        if not isinstance(lookup, dict) or lookup.get("member") != _LOOKUP:
+            msg = "Parquet bundle lookup member is invalid"
+            raise ValueError(msg)
+        expected.add(_LOOKUP)
+    if names != expected:
+        msg = "Parquet bundle inventory contains missing or unexpected members"
+        raise ValueError(msg)
+
+
 def _checked_manifest(archive: zipfile.ZipFile) -> dict[str, Any]:
     members = archive.infolist()
     names = [member.filename for member in members]
@@ -207,25 +235,7 @@ def _checked_manifest(archive: zipfile.ZipFile) -> dict[str, Any]:
     if manifest.get("processor_registry_sha256") != _registry_digest():
         msg = "Parquet bundle processor registry differs from current configuration"
         raise ValueError(msg)
-    entries: object = manifest.get("processors")
-    if not isinstance(entries, list):
-        msg = "Parquet bundle processor inventory is malformed"
-        raise ValueError(msg)
-    expected = {_MANIFEST}
-    for index, entry in enumerate(entries):
-        if not isinstance(entry, dict) or entry.get("member") != f"processors/{index:06d}.parquet":
-            msg = "Parquet bundle processor member name is invalid"
-            raise ValueError(msg)
-        expected.add(entry["member"])
-    lookup: object = manifest.get("basic_info_lookup")
-    if lookup is not None:
-        if not isinstance(lookup, dict) or lookup.get("member") != _LOOKUP:
-            msg = "Parquet bundle lookup member is invalid"
-            raise ValueError(msg)
-        expected.add(_LOOKUP)
-    if set(names) != expected:
-        msg = "Parquet bundle inventory contains missing or unexpected members"
-        raise ValueError(msg)
+    _validate_manifest_members(manifest, set(names))
     return manifest
 
 
@@ -268,6 +278,51 @@ def _read_member(
     return result
 
 
+def _restore_processor(
+    archive: zipfile.ZipFile, entry: dict[str, Any], temporary_dir: Path, *, verify_sources: bool
+) -> BaseProcessor:
+    source: object = entry.get("source")
+    if not isinstance(source, dict) or not isinstance(source.get("path"), str):
+        msg = "Parquet bundle is missing a valid source identity"
+        raise ValueError(msg)
+    source_info = cast("dict[str, Any]", source)
+    source_path = Path(source_info["path"])
+    if verify_sources and _source_signature(source_path) != source_info:
+        msg = f"Parquet bundle source has changed: {source_path}"
+        raise ValueError(msg)
+    entity_filter = _string_list(entry.get("entity_filter"), "entity_filter")
+    include_paths: object = entry.get("include_path_columns")
+    if not isinstance(include_paths, bool):
+        msg = "Parquet bundle include_path_columns must be a boolean"
+        raise ValueError(msg)
+    processor = BaseProcessor.from_file(
+        source_path,
+        entity_filter=entity_filter,
+        include_path_columns=include_paths,
+    )
+    if (
+        processor.__class__.__name__ != entry.get("class_name")
+        or processor.__class__.__module__ != entry.get("class_module")
+        or processor.data_type != data_type
+        or processor.dataformat != entry.get("dataformat")
+        or processor.name_parser.raw_run_code != entry.get("raw_run_code")
+    ):
+        msg = f"Parquet bundle processor configuration mismatches {source_path}"
+        raise ValueError(msg)
+    processor.df = _read_member(archive, entry, temporary_dir)
+    if processor.df.empty:
+        msg = f"Parquet bundle member has no processed rows: {source_path}"
+        raise ValueError(msg)
+    processor.applied_location_filter = frozenset(
+        _string_list(entry.get("applied_location_filter"), "applied_location_filter")
+    )
+    processor.applied_entity_filter = frozenset(
+        _string_list(entry.get("applied_entity_filter"), "applied_entity_filter")
+    )
+    processor.processed = True
+    return processor
+
+
 def read_collection_bundle(
     file_path: Path | str,
     locations: Collection[str] | None = None,
@@ -301,46 +356,9 @@ def read_collection_bundle(
                         raise ValueError(msg)
                     if wanted is not None and data_type not in wanted:
                         continue
-                    source: object = entry.get("source")
-                    if not isinstance(source, dict) or not isinstance(source.get("path"), str):
-                        msg = "Parquet bundle is missing a valid source identity"
-                        raise ValueError(msg)
-                    source_info = cast("dict[str, Any]", source)
-                    source_path = Path(source_info["path"])
-                    if verify_sources and _source_signature(source_path) != source_info:
-                        msg = f"Parquet bundle source has changed: {source_path}"
-                        raise ValueError(msg)
-                    entity_filter = _string_list(entry.get("entity_filter"), "entity_filter")
-                    include_paths: object = entry.get("include_path_columns")
-                    if not isinstance(include_paths, bool):
-                        msg = "Parquet bundle include_path_columns must be a boolean"
-                        raise ValueError(msg)
-                    processor = BaseProcessor.from_file(
-                        source_path,
-                        entity_filter=entity_filter,
-                        include_path_columns=include_paths,
+                    collection.add_processor(
+                        _restore_processor(archive, entry, temporary_dir, verify_sources=verify_sources)
                     )
-                    if (
-                        processor.__class__.__name__ != entry.get("class_name")
-                        or processor.__class__.__module__ != entry.get("class_module")
-                        or processor.data_type != data_type
-                        or processor.dataformat != entry.get("dataformat")
-                        or processor.name_parser.raw_run_code != entry.get("raw_run_code")
-                    ):
-                        msg = f"Parquet bundle processor configuration mismatches {source_path}"
-                        raise ValueError(msg)
-                    processor.df = _read_member(archive, entry, temporary_dir)
-                    if processor.df.empty:
-                        msg = f"Parquet bundle member has no processed rows: {source_path}"
-                        raise ValueError(msg)
-                    processor.applied_location_filter = frozenset(
-                        _string_list(entry.get("applied_location_filter"), "applied_location_filter")
-                    )
-                    processor.applied_entity_filter = frozenset(
-                        _string_list(entry.get("applied_entity_filter"), "applied_entity_filter")
-                    )
-                    processor.processed = True
-                    collection.add_processor(processor)
                 lookup: dict[str, Any] | None = manifest["basic_info_lookup"]
                 if lookup is not None:
                     collection.basic_info_lookup = _read_member(archive, lookup, temporary_dir)
