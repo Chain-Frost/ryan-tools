@@ -4,9 +4,8 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
-from typing import ClassVar
 from types import ModuleType
-from typing import Any
+from typing import Any, ClassVar
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -177,9 +176,7 @@ def test_csv_and_verified_cache_select_the_same_rows(
     assert len(uncached) == len(sample_frame())
     plotter.LOAD_FROM_PARQUET = True
     cached = plotter.load_po_dataframe()
-    pd.testing.assert_frame_equal(
-        uncached.reset_index(drop=True), cached.reset_index(drop=True), check_dtype=False
-    )
+    pd.testing.assert_frame_equal(uncached.reset_index(drop=True), cached.reset_index(drop=True), check_dtype=False)
 
 
 def test_cache_rejects_old_schema_and_missing_provenance(
