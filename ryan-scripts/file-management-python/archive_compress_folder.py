@@ -4,8 +4,13 @@
 the source directory, excluding configured folder names and file extensions
 with native 7-Zip `-xr!` arguments. Existing archives are skipped (never
 overwritten). Input folders are not deleted.
+Dotted source names retain their entire name: `model.v1` becomes
+`model.v1.7z`, rather than colliding with `model.v2.7z`.
+Archives are staged beside their destination and no output is overwritten.
+Split-volume publication is not a multi-file atomic transaction; an abrupt
+process/machine failure can leave a partial volume set to inspect.
 Use ``--max-part-size-gib 5`` for upload-sized volumes or ``--dry-run`` to
-preview the outputs without invoking 7-Zip.
+preview outputs without invoking 7-Zip.
 
 The default target is the current working directory. Edit the settings below
 or override them on the command line. Progress reports completed *folders*,
@@ -26,7 +31,7 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 # Wrapper identity and editable project settings (CLI options override these)
 # ---------------------------------------------------------------------------
-WRAPPER_VERSION = "2026-11-07.3"
+WRAPPER_VERSION = "2026-11-08.1"
 
 DEFAULT_INPUT_PATHS: list[Path] = [Path.cwd()]
 DEFAULT_WORKING_DIRECTORY: Path | None = None  # None = first input directory
@@ -53,7 +58,12 @@ from loguru import logger
 from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn, TimeElapsedColumn
 
-from ryan_library.functions.archive_utils import FolderCompressionJob, compress_folder_7zip, find_7zip
+from ryan_library.functions.archive_utils import (
+    FolderCompressionJob,
+    archive_path_for_folder,
+    compress_folder_7zip,
+    find_7zip,
+)
 from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.path_stuff import PathOrList, to_path_list
 from ryan_library.functions.wrapper_utils import change_working_directory, pause_console, print_wrapper_banner
@@ -117,6 +127,22 @@ def main(
         logger.error("No valid input folders to compress.")
         return 1
 
+    # Follow links only here to detect equivalent output directories (UNC,
+    # mapped-drive aliases or junctions). Displayed paths remain user-supplied.
+    destinations: dict[tuple[str, str], Path] = {}
+    for folder in folders:
+        destination = archive_path_for_folder(folder)
+        identity = (str(destination.parent.resolve()).casefold(), destination.name.casefold())
+        if previous := destinations.get(identity):
+            logger.error(
+                "Multiple selected folders would publish to the same archive: {} and {} -> {}",
+                previous,
+                folder,
+                destination,
+            )
+            return 1
+        destinations[identity] = folder
+
     worker_count = min(requested_workers or multiprocessing.cpu_count(), len(folders))
     exclusions_folders = tuple(exclude_folders if exclude_folders is not None else DEFAULT_EXCLUDE_FOLDERS)
     exclusions_extensions = tuple(exclude_extensions if exclude_extensions is not None else DEFAULT_EXCLUDE_EXTENSIONS)
@@ -127,7 +153,7 @@ def main(
         console.print(f"Dry run | folders: {len(folders)} | workers: {worker_count}", markup=False)
         console.print(f"Archive splitting: {split_description}", markup=False)
         for folder in folders:
-            console.print(f"Would create: {folder.with_suffix('.7z')} from {folder}", markup=False)
+            console.print(f"Would create: {archive_path_for_folder(folder)} from {folder}", markup=False)
         if exe is None or not exe.is_file():
             logger.warning("7-Zip is not currently available; it is required for a real run.")
         return 1 if invalid_count else 0
@@ -153,7 +179,7 @@ def main(
     console.print(f"Archive splitting: {split_description}", markup=False)
     if len(jobs) == 1:
         console.print(f"Processing: {jobs[0].folder}", markup=False)
-        console.print(f"Output: {jobs[0].folder.with_suffix('.7z')}", markup=False)
+        console.print(f"Output: {archive_path_for_folder(jobs[0].folder)}", markup=False)
 
     counts: dict[str, int] = {"SUCCESS": 0, "SKIPPED": 0, "ERROR": 0}
     with Progress(
