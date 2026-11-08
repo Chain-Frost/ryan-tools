@@ -437,8 +437,8 @@ def test_summary_only_reports_missing_history_without_changing_partial_success(
 
     assert warning.call_count == 1
     args, _ = warning.call_args
-    assert args[1] == RUN
-    assert missing in args[2]
+    assert args[2] == RUN
+    assert missing in args[3]
 
 
 def test_multiple_runs_report_only_the_missing_run_not_global_product_presence(
@@ -458,8 +458,8 @@ def test_multiple_runs_report_only_the_missing_run_not_global_product_presence(
 
     assert warning.call_count == 1
     args, _ = warning.call_args
-    assert args[1] == "EG02_014"
-    assert "*_RLL_Qmx.csv" in args[2]
+    assert args[2] == "EG02_014"
+    assert "*_RLL_Qmx.csv" in args[3]
 
 
 def test_complete_line_pair_does_not_emit_optional_companion_warning(
