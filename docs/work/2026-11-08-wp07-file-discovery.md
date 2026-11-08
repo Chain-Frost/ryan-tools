@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Needs review — #203 and #195 implementations hosted validated; native acceptance and parent integration outstanding |
+| Status | Needs review — PASS WITH NATIVE LIMITATIONS; Windows 10 local/SMB acceptance recorded, parent integration outstanding |
 | Owner | WP07 agent / maintainer |
 | Created | 2026-11-08 |
 | Updated | 2026-11-08 |
@@ -15,6 +15,7 @@ Allocation [#240](https://github.com/Chain-Frost/ryan-tools/issues/240), [#203](
 
 ## Current state
 
+- **Latest acceptance:** [2026-11-08 native report](https://github.com/Chain-Frost/ryan-tools/pull/268#issuecomment-6717640488) records PASS WITH NATIVE LIMITATIONS at source `292b5047` / code `065d807a`, installed verified wheel 26.11.7.13. Local junctions, copied-wrapper outcomes/exports and 25 authorised mapped/UNC/SMB cases passed. Windows 11, privileged symlinks and real ACL-denied-directory traversal remain unverified. Earlier connector-only limitations below are historical, superseded only by the explicitly recorded cases.
 - **#203 implemented, not yet accepted.** The finder tracks stat-derived physical directory keys across symlinks, junctions and overlapping roots, retaining user path spelling; inaccessible or missing roots and incomplete directory traversals now raise rather than return partial success. Returned paths are sorted and deduplicated by spelling; file hardlinks and symlink aliases intentionally remain separate.
 - Focused tests cover self/ancestor directory symlinks, root aliases, overlapping roots, nonrecursive selection, lexical path preservation, matched-file symlink policy, unreadable subdirectory and explicit empty versus missing roots; Windows `mklink /J` is included.
 - **#195 implementation in [draft #268](https://github.com/Chain-Frost/ryan-tools/pull/268), stacked on #257, not yet accepted.** The shared collector and orchestrators reject invalid/empty type selections, missing or non-directory roots, matched empty/unavailable files and partial scans. Explicit wrapper overrides remain explicit. Log-summary input discovery rejects zero-byte TLFs; the existing parser's swallowed read failures are detected as FAIL for nonempty unreadable logs, and completed logs with malformed headers fail while genuinely incomplete runs skip.
@@ -23,7 +24,7 @@ Allocation [#240](https://github.com/Chain-Frost/ryan-tools/issues/240), [#203](
 
 ## Next action
 
-Review the validated #268 diff and integration dependencies with WP01/WP08; verify new/copied wrapper headless success/failure behavior beyond the package CI smoke as needed. Reconcile native Windows junction/mapped-drive/UNC/SMB acceptance separately; do not claim it from synthetic hosted tests. Keep both children stacked and unmerged until reviewed for integration into #251, and add closure references to the parent only after incorporation.
+Review the [native acceptance report](https://github.com/Chain-Frost/ryan-tools/pull/268#issuecomment-6717640488) and accept or schedule the remaining Windows 11/symlink/ACL-directory limits. Incorporate through #268 → #257 → #251 only after review, preserving WP01 parser read/path diagnostics and WP08 outcome parity; rerun affected validation on the integrated head. Closing references `Fixes #203` and `Fixes #195` belong on #251 only after actual incorporation. No merge or auto-merge is authorised.
 
 ## Completion criteria
 
@@ -53,3 +54,15 @@ At the first comprehensive #268 hosted test run, 2,553 passed with five failures
 ### 2026-11-08 — Hosted acceptance milestone
 
 Latest WP07 #195 code and register were validated together at `065d807a`: all six GitHub Actions jobs green on Windows/Python 3.14, with 2,558 hosted tests passed, 14 skipped and eight deselected. Earlier five assertion failures and legacy strict-typing diagnostics were repaired before this passing head. The updated status record is a documentation-only handoff after the validated code SHA, not evidence of a new local worktree or native share acceptance. A valid empty collection now logs an informational SKIP. No additional implementation scope was authorized. The remaining native gate is real mapped-drive/UNC/SMB path, permission, lock and active-writer behavior; WP01 must retain precise parser/read-failure diagnostics, and WP08 must preserve outcome parity when integrating its report wrappers. Issue closure on #251 is not configured until reviewed child changes are actually incorporated there.
+
+### 2026-11-08 — Native Windows and authorised SMB acceptance
+
+[Full acceptance report](https://github.com/Chain-Frost/ryan-tools/pull/268#issuecomment-6717640488). Actual host is Windows 10 Pro 10.0.19045 with Python 3.14.6, not the requested Windows 11. Downloaded exact #268 source `292b5047cbb8adb9ec1cc4838bae0ece2fc5fa04` and verified artifact 13584589094 from code `065d807ac2d511e1cb911fc1deece09e0b4e7e8d`; installed wheel 26.11.7.13 into a disposable `--target` without altering existing packages. All 193 library Python files match the source byte for byte. No Git CLI or solver used, no main or existing checkout changes, no submodule inspection.
+
+The exact requested pytest command was blocked at session startup by absent ZIP test-data resources. The same six synthetic files with `--noconftest -q -rs` produced **47 passed, 0 failed, 4 symlink-privilege skips** (WinError 1314). Native self/ancestor junctions, reversed alias/overlap roots, deterministic ordering and hardlink spelling passed; junction cleanup was nonrecursive. A coordinated real disappearing-directory scan raised incomplete with path/OS context. Nine copied wrappers exercised empty/invalid inputs; positive synthetic exports passed across eight result wrappers, with reopened supplemental workbooks and preserved inputs/output sentinels. Corrected real exclusive-handle CSV/TLF cases exit 1 with path context on both dashboard paths; shareable reads exit 0. Incomplete active-writer TLF reads skip rather than fail.
+
+The user authorised a unique disposable child of `T:\\temp`; **25 SMB cases passed** using mapped and equivalent UNC roots: spelling, physical alias deduplication in both orders, missing/empty distinction, 16 exclusive/shareable held-file wrapper cases, active mapped writer/UNC reader (20 SKIPs), and a real directory removed through the alternate spelling before enumeration. Server/share identifiers and raw evidence remain private. No production data, permissions or mappings changed.
+
+Recommendation **PASS WITH NATIVE LIMITATIONS**; no WP07 defect reproduced or correction proposed. Windows 11, privileged symlinks, real ACL-denied directories, other SMB configurations and interactive dashboard visuals remain outside established acceptance. POMM peak root tests use copied `main` because no roots CLI is exposed; those two workflows have no dashboard execution parameter. Initial harness setup errors are disclosed in the report and superseded by corrected cases.
+
+Private evidence: `C:\\Users\\Ryan\\.codex\\reports\\wp07-acceptance-2026-11-08-0c82a229` (report, scripts, JSON, JUnit and logs). Source head was rechecked unchanged at testing completion. Delivery consists of the PR comment and documentation-only record/register updates on #268; no implementation change, parent closing keywords, merge or publication. Earlier hosted CI evidence remains tied to `065d807a`; documentation-update CI is separate. Next review remains 2026-11-15.
