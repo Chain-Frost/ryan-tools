@@ -159,45 +159,31 @@ To release retained raw input tables across the collection, call:
 discarded_count = collection.discard_raw_dataframes()
 ```
 
-## Cache a collection with HDF5
+## Processed data storage and retired HDF5 snapshot API
 
-Install the optional HDF cache backend alongside the normal package:
+**Breaking change (8 November 2026):** `ProcessorCollection.to_hdf()` and
+`ProcessorCollection.from_hdf()` no longer read or write HDF5. They raise
+`NotImplementedError`. The error-raising migration notices remain **through
+31 March 2027** and may be removed from **1 April 2027**. The optional
+`ryan-tools[cache]` extra and PyTables dependency are removed.
+
+The last **published PyPI release containing these HDF5 methods** is
+[`ryan-tools==26.11.8.3`](https://pypi.org/project/ryan-tools/26.11.8.3/). To use that historical API in a
+separate environment:
 
 ```powershell
-python -m pip install "ryan-tools[cache]"
+python -m pip install "ryan-tools==26.11.8.3"
 ```
 
-`to_hdf()` saves a **versioned, read-only processor snapshot**. It keeps the concrete processor class, full source
-path/run identity, entity and location filter state, actual processed DataFrame extension dtypes (categorical, nullable,
-string and numeric) and any `compact_basic_info_columns()` lookup table. Frames are stored as Arrow IPC byte arrays
-inside a compressed HDF5 file. The file is **not** a reusable live database or a stable interchange format.
+The older HDF5 implementation has known categorical/nullable DataFrame
+round-trip limitations; its availability does not guarantee that every
+historical snapshot can be restored.
 
-```python
-from pathlib import Path
-
-from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
-
-cache_path = Path("cache/tuflow-results.h5")
-collection.to_hdf(cache_path)  # Refuses to replace any existing cache.
-collection.to_hdf(cache_path, overwrite=True)  # Explicit, atomic replacement.
-
-restored = ProcessorCollection.from_hdf(cache_path, locations=["Culvert_01"])
-```
-
-Writing uses an invocation-owned temporary file in the destination folder, verifies its manifest and only then
-publishes it. If writing fails, an earlier cache is preserved. Existing destinations require `overwrite=True`.
-Do not share a destination with an input file or rely on a symlinked cache destination.
-
-Loading validates every member, cache schema version, configured processor registry and lightweight source fingerprint
-(absolute path, size, modification time; WAL size/time for GeoPackage sources). A missing or changed input fails closed
-rather than returning an incomplete collection. This fingerprint is not a cryptographic verification of source contents
-and is not a substitute for rerunning processing when underlying data or settings change. For an explicitly historical
-snapshot with changed or unavailable sources, use `from_hdf(cache_path, verify_sources=False)`; this still checks
-member hashes, schema compatibility and processor classes. Old fixed-format caches are incompatible and must be
-regenerated.
-
-Do not use this HDF processor cache as a substitute for the separate PO-plot Parquet cache or as a source for live
-TUFLOW/WAL results. Native Windows/SMB active-writer acceptance for ccA GeoPackages is a separate test gate.
+**Use Parquet for current processed tabular results.** The existing
+`ryan-tools` TUFLOW processors remain the result readers. Export combined
+DataFrames using `to_parquet()` and load tables using `pandas.read_parquet()`.
+Parquet does not currently restore complete `ProcessorCollection` objects:
+the unused HDF snapshot feature was removed, not silently converted.
 
 ## MCP inspection and advanced queries
 
