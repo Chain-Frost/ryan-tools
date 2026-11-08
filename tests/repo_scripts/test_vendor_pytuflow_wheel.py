@@ -62,7 +62,10 @@ def test_installed_provenance_requires_matching_archive_url_and_hash(monkeypatch
                 }
             )
 
-    monkeypatch.setattr(vendor.metadata, "distribution", lambda _name: FakeDistribution())
+    def accepted_distribution(_name: str) -> FakeDistribution:
+        return FakeDistribution()
+
+    monkeypatch.setattr(vendor.metadata, "distribution", accepted_distribution)
     vendor.verify_installed()
 
     class WrongDistribution(FakeDistribution):
@@ -74,6 +77,9 @@ def test_installed_provenance_requires_matching_archive_url_and_hash(monkeypatch
                 }
             )
 
-    monkeypatch.setattr(vendor.metadata, "distribution", lambda _name: WrongDistribution())
+    def incorrect_distribution(_name: str) -> WrongDistribution:
+        return WrongDistribution()
+
+    monkeypatch.setattr(vendor.metadata, "distribution", incorrect_distribution)
     with pytest.raises(ValueError, match="digest"):
         vendor.verify_installed()

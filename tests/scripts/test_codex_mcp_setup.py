@@ -422,8 +422,10 @@ def test_pypi_installer_migrates_automatically_after_resolution(monkeypatch: pyt
     assert main_fn(["--skip-codex", "--skip-qgis-mcp"]) == 0
     assert "--dry-run" in calls[0]
     assert "--force-reinstall" in calls[0]
-    assert calls[-4][-3:] == ["uninstall", "--yes", "ryan_functions"]
-    assert "ryan-tools[mcp]" in calls[-3]
-    assert "--force-reinstall" in calls[-3]
-    assert calls[-2][-2:] == ["pip", "check"]
+    assert calls[-5][-3:] == ["uninstall", "--yes", "ryan_functions"]
+    assert "ryan-tools[mcp]" in calls[-4]
+    assert "--force-reinstall" in calls[-4]
+    assert calls[-3][-2:] == ["pip", "check"]
+    assert Path(calls[-2][-2]).name == "vendor_pytuflow_wheel.py"
+    assert calls[-2][-1] == "--installed"
     assert "require_validation_api" in calls[-1][-1]
