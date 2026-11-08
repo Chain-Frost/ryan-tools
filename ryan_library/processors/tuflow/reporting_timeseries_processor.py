@@ -67,9 +67,7 @@ class ReportingLocationTimeSeriesProcessor(BaseProcessor):
             for source_column, location in selected:
                 values = parse_reporting_numbers(raw[source_column], column=source_column)
                 frames.append(
-                    pd.DataFrame(
-                        {"Time": time, "Location": location, "Type": self._MEASUREMENT_TYPE, "Value": values}
-                    )
+                    pd.DataFrame({"Time": time, "Location": location, "Type": self._MEASUREMENT_TYPE, "Value": values})
                 )
             self.raw_df = raw
             self.df = pd.concat(frames, ignore_index=True)

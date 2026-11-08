@@ -60,9 +60,9 @@ class ReportingLocationMaximumsProcessor(BaseProcessor):
                 raise ValueError(msg)
 
             self.raw_df = raw
-            self.df = pd.DataFrame(
-                {"Location": locations, "Type": self._MEASUREMENT_TYPE, **numeric}
-            ).reset_index(drop=True)
+            self.df = pd.DataFrame({"Location": locations, "Type": self._MEASUREMENT_TYPE, **numeric}).reset_index(
+                drop=True
+            )
             self.apply_entity_filter()
             self.add_common_columns()
             self.apply_output_transformations()
