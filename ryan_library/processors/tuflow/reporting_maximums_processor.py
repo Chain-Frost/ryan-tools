@@ -10,8 +10,8 @@ from typing import ClassVar
 import pandas as pd
 from loguru import logger
 
-from ..base_processor import BaseProcessor
-from ..reporting_location_helpers import parse_reporting_numbers
+from .base_processor import BaseProcessor
+from .reporting_location_helpers import parse_reporting_numbers
 
 
 class ReportingLocationMaximumsProcessor(BaseProcessor):
