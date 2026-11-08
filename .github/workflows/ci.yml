@@ -37,6 +37,10 @@ jobs:
           cache: pip
           cache-dependency-path: pyproject.toml
 
+      - name: Check script inventory documentation counts before expensive CI
+        # Standard library plus Git only; run before dependency setup and hosted pytest.
+        run: python repo-scripts/audit_installed_scripts.py --check-docs
+
       - name: Verify accepted PyTuflow wheel before expensive native work
         run: python repo-scripts/vendor_pytuflow_wheel.py
 

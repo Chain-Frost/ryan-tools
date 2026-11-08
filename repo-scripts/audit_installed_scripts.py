@@ -354,6 +354,26 @@ def audit_repository(root: Path) -> dict[str, Any]:
     }
 
 
+def documentation_index_findings(root: Path, report: dict[str, Any]) -> list[str]:
+    """Check script inventory documentation counts without pytest or GIS imports."""
+    tracked = report["tracked_file_count"]
+    selected = report["selected_file_count"]
+    expected = (
+        (Path("docs/README.md"), f"All {tracked} source paths; {selected} selected and {tracked - selected} excluded"),
+        (Path("docs/work/README.md"), f"{tracked}-file lifecycle audit"),
+    )
+    findings: list[str] = []
+    for relative, phrase in expected:
+        try:
+            content = (root / relative).read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as error:
+            findings.append(f"{relative}: cannot read documentation: {error}")
+            continue
+        if phrase not in content:
+            findings.append(f"{relative}: expected inventory text {phrase!r}")
+    return findings
+
+
 def _markdown_row(entry: dict[str, Any]) -> str:
     """Format one statically inspected script without implying runtime approval."""
     path = str(entry["path"]).replace("|", "\\|").replace("`", "")
@@ -447,8 +467,22 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--check", action="store_true", help="Fail on missing wheel/MCP paths or unsafe selected Python entry points."
     )
+    parser.add_argument(
+        "--check-docs", action="store_true", help="Check script inventory counts in documentation before hosted tests."
+    )
     args = parser.parse_args(argv)
     report = audit_repository(args.root.absolute())
+    if args.check_docs:
+        findings = documentation_index_findings(args.root.absolute(), report)
+        for finding in findings:
+            print(f"::error::{finding}")
+        if findings:
+            return 1
+        print(
+            f"Script inventory documentation matches {report['tracked_file_count']} tracked, "
+            f"{report['selected_file_count']} selected files."
+        )
+        return 0
     payload = (
         render_markdown(report)
         if args.format == "markdown"
