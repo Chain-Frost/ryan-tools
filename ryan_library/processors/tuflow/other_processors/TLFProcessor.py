@@ -1,6 +1,8 @@
 # ryan_library/processors/tuflow/other_processors/TLFProcessor.py
 
 from pathlib import Path
+
+from loguru import logger
 from typing import Any
 
 from ryan_library.functions.parse_tlf import (
@@ -39,20 +41,23 @@ class TLFProcessor(BaseProcessor):
         data_dict: dict[str, Any] = {}
         current_section: str | None = None
 
-        file_size: int = self.file_path.stat().st_size
-        is_large_file: bool = file_size > 10 * 1024 * 1024  # 10 MB
-
-        # get_log_lines returns the entire file for small files (lines),
-        # and only the tail (last_lines) for large files to avoid memory/network spikes.
-        lines: list[str]
-        last_lines: list[str]
-        lines, last_lines = get_log_lines(
-            logfile_path=self.file_path,
-            is_large_file=is_large_file,
-        )
+        try:
+            file_size: int = self.file_path.stat().st_size
+            is_large_file: bool = file_size > 10 * 1024 * 1024  # 10 MB
+            # Small logs are read whole; large logs use the bounded tail.
+            lines: list[str]
+            last_lines: list[str]
+            lines, last_lines = get_log_lines(
+                logfile_path=self.file_path,
+                is_large_file=is_large_file,
+            )
+        except OSError as exc:
+            self.input_health = "IO_FAILURE"
+            logger.error("{}: Failed to read log: {}", self.file_name, exc)
+            return
 
         if not lines and not last_lines:
-            self.processed = False
+            self.input_health = "INCOMPLETE"
             return
 
         runcode: str = self.file_path.stem
@@ -95,3 +100,5 @@ class TLFProcessor(BaseProcessor):
                 )
                 if not self.df.empty:
                     self.processed = True
+                else:
+                    self.input_health = "INVALID"
