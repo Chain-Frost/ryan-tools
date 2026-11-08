@@ -5,6 +5,7 @@ __lazy_modules__ = ["pandas"]
 import pandas as pd
 from loguru import logger
 
+from ....functions.tuflow.sample_validity import clean_hydraulic_samples, is_water_level_measurement
 from ..base_processor import BaseProcessor, DataValidationError
 
 POMM_RENAME_COLUMNS: dict[str, str] = {
@@ -35,7 +36,7 @@ class POMMProcessor(BaseProcessor):
         absolute_values = self.df[["Max", "Min"]].abs()
         self.df["AbsMax"] = absolute_values.max(axis=1)
 
-        use_max = absolute_values["Max"] >= absolute_values["Min"]
+        use_max = (absolute_values["Max"] >= absolute_values["Min"]) | absolute_values["Min"].isna()
         self.df["SignedAbsMax"] = self.df["Max"].where(use_max, self.df["Min"])
 
     def process(self) -> None:
@@ -99,6 +100,28 @@ class POMMProcessor(BaseProcessor):
 
             self.df = transposed
 
+            # Exclude documented level sentinels before numerical casts or ranking.
+            level_rows = self.df["Type"].astype("string").map(
+                lambda name: is_water_level_measurement(str(name))
+            )
+            for column in ("Max", "Min"):
+                numeric, rejected = clean_hydraulic_samples(self.df[column], measurement="")
+                no_data = level_rows & numeric.eq(-99999).fillna(False)
+                count = int(no_data.sum())
+                if count:
+                    numeric = numeric.mask(no_data)
+                    rejected["no_data"] = rejected.get("no_data", 0) + count
+                self.df[column] = numeric
+                self.record_rejections(rejected)
+
+            all_missing = self.df[["Max", "Min"]].isna().all(axis=1)
+            if all_missing.any():
+                self.record_rejections({"all_missing_extrema": int(all_missing.sum())})
+                self.df = self.df.loc[~all_missing].copy()
+            if self.df.empty:
+                self.input_health = "INVALID"
+                return
+
             # Rename columns and cast to appropriate data types
             base_dtype_map: dict[str, str] = {
                 column: self.output_columns[column] for column in ordered_columns if column in self.output_columns
@@ -125,11 +148,16 @@ class POMMProcessor(BaseProcessor):
                 return
             self.add_common_columns()
             self.apply_output_transformations()
+            if not self.validate_data():
+                self.input_health = "INVALID"
+                self.df = pd.DataFrame()
+                return
             # Mark success
             self.processed = True
             logger.info(f"{self.log_path}: POMM processed successfully.")
 
         except Exception:
             logger.exception(f"{self.log_path}: Failed in POMMProcessor.process()")
+            self.input_health = "INVALID"
             self.df = pd.DataFrame()
             return
