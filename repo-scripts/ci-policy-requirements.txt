@@ -1,0 +1,7 @@
+# Install from the repository root after the Windows binary GIS bootstrap.
+# Strict checking of arbitrary changed modules still needs the full runtime
+# import environment and the repository's canonical development/MCP extras.
+-r pytuflow-requirement.txt
+-e .[dev,mcp]
+# The separately installed qgis-mcp desktop bridge is not used by Policy.
+# Keep requirements.txt and normal user/developer installation behaviour intact.
