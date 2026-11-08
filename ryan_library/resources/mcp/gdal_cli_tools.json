@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "catalogue": "Curated ryan-tools GDAL command-line wrappers",
-  "catalogue_updated": "2026-11-07",
+  "catalogue_updated": "2026-11-08",
   "selection_policy": "Stable, reusable workflows with recurring agent-facing value; basic and narrowly scoped wrappers remain available through normal script discovery.",
   "wrapper_versions": {
     "gdal_translate_TIF_ovr.py": "2026-11-07.2",
@@ -10,7 +10,7 @@
     "gdal_raster_footprint.py": "2026-11-07.1",
     "batch_vector_clip.py": "2026-11-07.1",
     "gdal_stage_storage.py": "2026-11-07.1",
-    "gdalwarp_clip_to_polygon.py": "2026-11-07.2",
+    "gdalwarp_clip_to_polygon.py": "2026-11-08.2",
     "split_vector_by_attribute.py": "2026-11-07.1"
   },
   "repository_scripts_relative_to_root": "ryan-scripts/gdal-python",
@@ -223,9 +223,9 @@
       "id": "clip_rasters_to_polygon",
       "keywords": ["crop", "cropping"],
       "script": "gdalwarp_clip_to_polygon.py",
-      "purpose": "Clip TIFF rasters to an unambiguous vector cutline layer.",
+      "purpose": "Clip TIFF rasters using source CRS metadata, an independent target CRS and owned no-clobber staging. Preflight all batch destinations; overwrite is explicit.",
       "mutation": "creates_outputs",
-      "defaults": {"output_directory": "clipped"},
+      "defaults": {"output_directory": "clipped", "target_crs": "EPSG:28350", "source_crs": null, "overwrite": false, "dry_run": false},
       "help_arguments": ["gdalwarp_clip_to_polygon.py", "--help"]
     },
     {

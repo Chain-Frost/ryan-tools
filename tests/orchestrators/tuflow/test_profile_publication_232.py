@@ -101,6 +101,29 @@ def test_competing_publishers_only_one_wins(tmp_path: Path) -> None:
     assert sum(stage.exists() for stage in stages) == (1 if os.name == "nt" else 2)
 
 
+@pytest.mark.skipif(os.name != "nt", reason="Windows SMB rename status handling")
+@pytest.mark.parametrize("competing_destination", [False, True])
+def test_smb_access_denied_keeps_permission_errors_distinct(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, competing_destination: bool
+) -> None:
+    stage, destination = tmp_path / "owned.png", tmp_path / "output.png"
+    stage.write_bytes(b"ours")
+
+    def denied_rename(self: Path, target: Path) -> Path:
+        del self
+        if competing_destination:
+            target.write_bytes(b"competitor")
+        raise PermissionError(5, "SMB access denied")
+
+    monkeypatch.setattr(Path, "rename", denied_rename)
+    expected = FileExistsError if competing_destination else PermissionError
+    with pytest.raises(expected):
+        profiles._publish_profile_png(stage, destination, overwrite_existing=False)
+    assert stage.read_bytes() == b"ours"
+    if competing_destination:
+        assert destination.read_bytes() == b"competitor"
+
+
 def test_destination_created_after_preflight_is_preserved(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     config = _profile_case(tmp_path, monkeypatch)
     original = profiles._publish_profile_png

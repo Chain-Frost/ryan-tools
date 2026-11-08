@@ -534,7 +534,15 @@ def _publish_profile_png(staged: Path, destination: Path, *, overwrite_existing:
         staged.replace(destination)
     elif os.name == "nt":
         # Windows rename rejects a destination created after the collision check.
-        staged.rename(destination)
+        try:
+            staged.rename(destination)
+        except PermissionError as exc:
+            # Some SMB servers return ACCESS_DENIED for a concurrent destination.
+            # Preserve genuine permission/lock failures when no destination appeared.
+            if _existing_profile_output(destination) is None:
+                raise
+            msg = f"Profile output already exists: {destination}"
+            raise FileExistsError(msg) from exc
     else:
         # POSIX rename/replace would silently overwrite a concurrent creator.
         os.link(staged, destination)
