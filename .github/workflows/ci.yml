@@ -73,7 +73,8 @@ jobs:
 
   posix-wrapper-security:
     needs: [scope]
-    if: needs.scope.outputs.full == 'true'
+    # A failed or unavailable classifier must not bypass required acceptance jobs.
+    if: ${{ !cancelled() && needs.scope.outputs.full != 'false' }}
     name: POSIX wrapper security
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -228,7 +229,8 @@ jobs:
 
   mcp-smoke:
     needs: [scope]
-    if: needs.scope.outputs.full == 'true'
+    # A failed or unavailable classifier must not bypass required acceptance jobs.
+    if: ${{ !cancelled() && needs.scope.outputs.full != 'false' }}
     # Python 3.14 is the minimum supported runtime. Preserve focused MCP
     # coverage without claiming Python 3.13 compatibility.
     name: MCP smoke
@@ -305,7 +307,8 @@ jobs:
 
   hosted-tests:
     needs: [scope]
-    if: needs.scope.outputs.full == 'true'
+    # A failed or unavailable classifier must not bypass required acceptance jobs.
+    if: ${{ !cancelled() && needs.scope.outputs.full != 'false' }}
     name: Hosted tests
     runs-on: windows-latest
     timeout-minutes: 35
@@ -382,7 +385,8 @@ jobs:
 
   package:
     needs: [scope]
-    if: needs.scope.outputs.full == 'true'
+    # A failed or unavailable classifier must not bypass required acceptance jobs.
+    if: ${{ !cancelled() && needs.scope.outputs.full != 'false' }}
     name: Package
     runs-on: windows-latest
     timeout-minutes: 25
