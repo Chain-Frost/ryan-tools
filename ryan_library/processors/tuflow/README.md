@@ -63,8 +63,22 @@ if processor.processed:
 ```
 
 A successful processor must expose its processed rows through `processor.df` and set `processor.processed = True`.
-`processor.raw_df` may retain an intermediate input table for diagnostics; call `discard_raw_dataframe()` after it is
-no longer needed.
+Each maintained processor invocation clears its previous `df`, `raw_df`, success flag, filter caches and sample-health
+diagnostics; do not treat a former success as evidence about an overwritten or truncated file. For failed/incomplete
+inputs, `processed` stays false and previously processed rows cannot be reused. A **valid no-match** selection
+sets `filtered_empty` and leaves `processed` false, allowing the workflow outcome layer to report SKIP
+instead of FAIL. `processor.raw_df` may retain an intermediate input table for diagnostics; call
+`discard_raw_dataframe()` after it is no longer needed.
+
+`input_health`, `rejected_samples` and `rejection_reasons` report data quality separately from numerical
+extrema: `OK` means no rejected samples, `PARTIAL` means a usable subset with excluded samples, and
+`INVALID`/`IO_FAILURE`/`INCOMPLETE` describe failed processing. The documented `-99999` dry structure
+water-level value and `**********` numeric null marker do not become extrema; valid zero, negative
+discharge and negative water-level datums remain measurements. This is measurement-specific; no blanket
+negative-value rejection is applied. Filtered outputs preserve the original entity labels and numeric
+results, and filters are applied only after Nmx endpoints and Chan identifiers have canonical channel IDs.
+The QA stability calculation counts significant direction changes over the **entire series**, not a rolling
+time window. Its hydraulic heuristic and input-health outcome must be interpreted separately.
 
 `ProcessorCollection.add_processor()` adds a processor only when it is marked processed **and** its processed
 DataFrame is non-empty. A processed-but-empty result is logged and skipped, as is an unprocessed object.

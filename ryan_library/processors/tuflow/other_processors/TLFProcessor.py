@@ -102,3 +102,6 @@ class TLFProcessor(BaseProcessor):
                     self.processed = True
                 else:
                     self.input_health = "INVALID"
+
+        if not self.processed and self.input_health == "OK":
+            self.input_health = "INCOMPLETE"
