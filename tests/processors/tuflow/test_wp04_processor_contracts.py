@@ -384,9 +384,10 @@ def test_qa_all_invalid_level_samples_fail_not_skip(tmp_path: Path) -> None:
     assert stability[0].status == "NO_DATA"
     assert stability[0].input_health == "INVALID"
     assert _peak_file_outcome([{"status": peaks[0].status, "input_health": peaks[0].input_health}]) == "FAIL"
-    assert _stability_file_outcome(
+    stability_outcome = _stability_file_outcome(
         [{"status": stability[0].status, "input_health": stability[0].input_health}]
-    ) == "FAIL"
+    )
+    assert stability_outcome == "FAIL"
 
 
 def test_qa_rejects_invalid_tolerance_configuration(tmp_path: Path) -> None:
