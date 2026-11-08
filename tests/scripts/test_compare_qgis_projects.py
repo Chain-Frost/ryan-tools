@@ -61,7 +61,9 @@ def test_json_report_is_parseable_read_only_and_reports_actual_values(
     assert set(tmp_path.iterdir()) == {before, after}
 
 
-def test_identical_and_invalid_inputs_have_distinct_statuses(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_identical_and_invalid_inputs_have_distinct_statuses(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     project = tmp_path / "existing.qgs"
     project.write_bytes(_project_xml("Same"))
     main = _main()
@@ -72,7 +74,9 @@ def test_identical_and_invalid_inputs_have_distinct_statuses(tmp_path: Path, cap
     assert not (tmp_path / "missing.qgs").exists()
 
 
-def test_text_reports_provider_classification_without_guessing_uri(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_text_reports_provider_classification_without_guessing_uri(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     original = tmp_path / "original.qgs"
     updated = tmp_path / "updated.qgs"
     original.write_bytes(_project_xml("One", provider="ogr"))
