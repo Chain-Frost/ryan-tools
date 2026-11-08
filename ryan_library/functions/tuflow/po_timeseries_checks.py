@@ -362,7 +362,7 @@ def _build_empty_stability_result(
     )
 
 
-def _evaluate_stability_series(
+def _evaluate_stability_series_unchecked(
     *,
     path: Path,
     run_code: str,
@@ -490,7 +490,41 @@ def _evaluate_stability_series(
     )
 
 
+def _evaluate_stability_series(
+    *,
+    path: Path,
+    run_code: str,
+    run_meta: dict[str, str],
+    datatype: str,
+    location: str,
+    values_raw: Series,
+    time_hours: Series,
+    config: StabilityCheckConfig,
+) -> StabilityCheckResult:
+    """Keep input integrity separate from the whole-record sign-change heuristic."""
+    clean, rejected = clean_hydraulic_samples(values_raw, measurement=datatype)
+    result = _evaluate_stability_series_unchecked(
+        path=path,
+        run_code=run_code,
+        run_meta=run_meta,
+        datatype=datatype,
+        location=location,
+        values_raw=clean,
+        time_hours=time_hours,
+        config=config,
+    )
+    result.hydraulic_status = result.status
+    result.rejected_samples = sum(rejected.values())
+    result.rejection_reasons = _rejection_summary(rejected)
+    if result.rejected_samples:
+        result.input_health = "PARTIAL" if result.points else "INVALID"
+        if result.points:
+            result.status = "PARTIAL_DATA"
+    return result
+
+
 def analyze_peak_csv(path: Path, config: PeakCheckConfig) -> list[PeakCheckResult]:
+    _check_peak_config(config)
     results: list[PeakCheckResult] = []
 
     run_meta: dict[str, str] = parse_run_meta_from_filename(path)
@@ -550,7 +584,8 @@ def analyze_peak_csv(path: Path, config: PeakCheckConfig) -> list[PeakCheckResul
         ):
             continue
 
-        values_raw: Series = pd.to_numeric(df.iloc[:, j], errors="coerce")
+        values_raw, rejected = clean_hydraulic_samples(df.iloc[:, j], measurement=dtype_str)
+        rejected_count = sum(rejected.values())
         if values_raw.notna().sum() == 0:
             results.append(
                 PeakCheckResult(
@@ -570,6 +605,9 @@ def analyze_peak_csv(path: Path, config: PeakCheckConfig) -> list[PeakCheckResul
                     peak_above_start=None,
                     end_pct_of_peak=None,
                     status="NO_DATA",
+                    input_health="INVALID" if rejected_count else "OK",
+                    rejected_samples=rejected_count,
+                    rejection_reasons=_rejection_summary(rejected),
                 )
             )
             continue
@@ -640,7 +678,11 @@ def analyze_peak_csv(path: Path, config: PeakCheckConfig) -> list[PeakCheckResul
                 end_minus_start=end_minus_start,
                 peak_above_start=peak_above_start,
                 end_pct_of_peak=end_pct_of_peak,
-                status=peak_status,
+                status="PARTIAL_DATA" if rejected_count else peak_status,
+                input_health="PARTIAL" if rejected_count else "OK",
+                rejected_samples=rejected_count,
+                rejection_reasons=_rejection_summary(rejected),
+                hydraulic_status=peak_status,
             )
         )
 
@@ -648,6 +690,7 @@ def analyze_peak_csv(path: Path, config: PeakCheckConfig) -> list[PeakCheckResul
 
 
 def analyze_stability_csv(path: Path, config: StabilityCheckConfig) -> list[StabilityCheckResult]:
+    _check_stability_config(config)
     results: list[StabilityCheckResult] = []
 
     run_meta: dict[str, str] = parse_run_meta_from_filename(path)
@@ -704,6 +747,7 @@ def analyze_stability_csv(path: Path, config: StabilityCheckConfig) -> list[Stab
 
 
 def analyze_stability_q_csv(path: Path, config: StabilityCheckConfig) -> list[StabilityCheckResult]:
+    _check_stability_config(config)
     results: list[StabilityCheckResult] = []
 
     run_meta: dict[str, str] = parse_run_meta_from_filename(path)
