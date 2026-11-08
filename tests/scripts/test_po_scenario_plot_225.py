@@ -79,6 +79,7 @@ def test_headless_series_preserve_measurement_and_full_run_id(
     level = results["Water level (m)"]
     assert flow.get_xlabel() == "Simulation time (h)"
     assert len(flow.lines) == len(level.lines) == 2
+
     def series_values(ax: Axes) -> dict[str, list[float]]:
         values: dict[str, list[float]] = {}
         for line in ax.lines:
