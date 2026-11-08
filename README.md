@@ -60,14 +60,18 @@ The repository uses Git submodules and Git LFS for optional workbook resources. 
 ```powershell
 git clone https://github.com/Chain-Frost/ryan-tools.git
 cd ryan-tools
-git submodule update --init tests/test_data qgis-resources excel-resources
 ```
 
-For an existing checkout, initialise only the missing submodules needed for the current work:
+Source review, documentation and static checks need no submodules. Initialise the maintained fixtures only when the
+selected test or build needs them. The hosted test suite uses:
 
 ```powershell
-git submodule update --init tests/test_data qgis-resources excel-resources
+git submodule update --init tests/test_data qgis-resources
 ```
+
+Initialise `excel-resources` separately when working with its workbook resources. For source-only automation where Git
+LFS is installed, set `GIT_LFS_SKIP_SMUDGE=1` for checkout and submodule commands, then restore the prior environment
+setting afterwards. This leaves LFS pointers available without downloading optional binaries.
 
 Git LFS binary downloads are **not required for routine source and CI checks**. Install Git LFS when you need an LFS-tracked workbook, then retrieve only the resources required for that task (for example, `git -C excel-resources lfs pull --include="*.xlsx"`). Avoid unconditional `git lfs pull` in every checkout: repeated downloads consume the account's LFS bandwidth allowance.
 

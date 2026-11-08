@@ -16,65 +16,101 @@ concurrency:
   cancel-in-progress: ${{ github.event_name != 'push' || github.ref != 'refs/heads/main' }}
 
 jobs:
-  scope:
-    name: Determine PR CI scope
+  fast-checks:
+    # Keep the existing required-check name while making it a real prerequisite.
+    name: Ruff and whitespace
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     outputs:
-      full: ${{ steps.classify.outputs.full }}
+      full: ${{ steps.scope.outputs.full }}
+      has_types: ${{ steps.scope.outputs.type_files != '[]' }}
     steps:
-      - name: Checkout PR merge revision
-        if: github.event_name == 'pull_request'
+      - name: Checkout repository with comparison history
         uses: actions/checkout@v6
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
-      - name: Require full validation except for Markdown-only PRs
-        id: classify
-        shell: bash
+      - name: Set up Python 3.14 for inexpensive checks
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Determine complete PR scope and static-check inputs
+        id: scope
         env:
           EVENT_NAME: ${{ github.event_name }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before || format('{0}^', github.sha) }}
+          CI_SCOPE_PATH: ${{ runner.temp }}/ci-scope.json
+        run: python repo-scripts/ci_scope.py
+
+      - name: Check patch whitespace
+        if: steps.scope.outputs.comparison_available == 'true'
+        shell: pwsh
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before || format('{0}^', github.sha) }}
         run: |
-          # Full checks remain mandatory on every main push and manual run:
-          # release automation is triggered by successful post-merge Python CI.
-          if [[ "$EVENT_NAME" != "pull_request" || -z "$BASE_SHA" ]]; then
-            echo "full=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          # A missing comparison base must never cause heavy tests to be skipped.
-          if ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
-            if ! git fetch --no-tags --depth=1 origin "$BASE_SHA"; then
-              echo "full=true" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-          fi
-          if ! git diff --name-only -z "$BASE_SHA" "$GITHUB_SHA" > "$RUNNER_TEMP/ci-changed-paths.nul"; then
-            echo "full=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          # Empty/ambiguous changes fail open to all checks.
-          if [[ ! -s "$RUNNER_TEMP/ci-changed-paths.nul" ]]; then
-            echo "full=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          while IFS= read -r -d '' changed; do
-            case "$changed" in
-              *.md|*.MD|*.markdown|*.MARKDOWN) ;;
-              *)
-                echo "full=true" >> "$GITHUB_OUTPUT"
-                echo "Full CI required by: $changed"
-                exit 0
-                ;;
-            esac
-          done < "$RUNNER_TEMP/ci-changed-paths.nul"
-          echo "full=false" >> "$GITHUB_OUTPUT"
-          echo "Markdown-only PR: Windows test/package and POSIX regression jobs are skipped."
+          git diff --check "$env:BASE_SHA" "$env:GITHUB_SHA"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Explain full-validation fallback
+        if: steps.scope.outputs.comparison_available != 'true'
+        run: echo "::warning::Change comparison unavailable; checking all first-party static inputs and running full validation. Patch whitespace cannot be compared."
+
+      - name: Install only the repository-pinned Ruff
+        if: steps.scope.outputs.lint_files != '[]'
+        shell: pwsh
+        run: |
+          $requirement = python -c "import tomllib; print(next(x for x in tomllib.load(open('pyproject.toml', 'rb'))['project']['optional-dependencies']['dev'] if x.startswith('ruff==')))"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pip install $requirement
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Ruff lint and formatting before native installations
+        if: steps.scope.outputs.lint_files != '[]'
+        shell: pwsh
+        run: |
+          $scope = Get-Content (Join-Path $env:RUNNER_TEMP 'ci-scope.json') -Raw | ConvertFrom-Json
+          $pythonFiles = @($scope.lint_files)
+          python -m ruff check -- $pythonFiles
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m ruff format --check -- $pythonFiles
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Check GitHub Actions workflows
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          directory="$RUNNER_TEMP/actionlint"
+          mkdir -p "$directory"
+          gh release download v1.7.12 --repo rhysd/actionlint --pattern 'actionlint_1.7.12_linux_amd64.tar.gz' --dir "$directory"
+          archive="$directory/actionlint_1.7.12_linux_amd64.tar.gz"
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  $archive" | sha256sum --check
+          tar -xzf "$archive" -C "$directory" actionlint
+          "$directory/actionlint" -ignore 'unexpected key "queue" for "concurrency" section'
+
+      - name: Check documentation and logging policy
+        shell: pwsh
+        run: |
+          python repo-scripts/check_documentation.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python repo-scripts/check_documentation.py --links-only docs/MCP_SETUP.md docs/mcp-handoff/README.md docs/work/README.md docs/work/2026-11-01-mcp-workflow-discovery-136.md
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $scope = Get-Content (Join-Path $env:RUNNER_TEMP 'ci-scope.json') -Raw | ConvertFrom-Json
+          $markdownFiles = @($scope.markdown_files)
+          if ($markdownFiles.Count -gt 0) {
+            python repo-scripts/check_documentation.py --links-only $markdownFiles
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          python repo-scripts/check_loguru_formatting.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
   posix-wrapper-security:
-    needs: [scope]
-    # A failed or unavailable classifier must not bypass required acceptance jobs.
-    if: ${{ !cancelled() && needs.scope.outputs.full != 'false' }}
+    needs: [fast-checks]
+    # Unknown scope requests full validation; a failed required preflight blocks merging.
+    if: ${{ !cancelled() && needs.fast-checks.result == 'success' && needs.fast-checks.outputs.full != 'false' }}
     name: POSIX wrapper security
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -117,87 +153,57 @@ jobs:
         run: python -m pytest -q tests/mcp/test_installed_scripts.py --confcutdir=tests/mcp
 
   policy:
+    needs: [fast-checks]
+    if: ${{ !cancelled() }}
     name: Policy
-    runs-on: windows-latest
+    # Native imports/types use Windows; documentation-only acknowledgement is cheap.
+    runs-on: ${{ needs.fast-checks.result == 'success' && needs.fast-checks.outputs.has_types == 'true' && 'windows-latest' || 'ubuntu-latest' }}
     timeout-minutes: 20
-
     steps:
+      - name: Require successful preflight
+        shell: bash
+        env:
+          PREFLIGHT_RESULT: ${{ needs.fast-checks.result }}
+        run: test "$PREFLIGHT_RESULT" = success
+
       - name: Checkout repository
+        if: needs.fast-checks.outputs.has_types == 'true'
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Set up Python 3.14
+        if: needs.fast-checks.outputs.has_types == 'true'
         uses: actions/setup-python@v6
         with:
           python-version: "3.14"
           cache: pip
           cache-dependency-path: |
-            requirements.txt
             pyproject.toml
+            repo-scripts/ci-policy-requirements.txt
+            repo-scripts/pytuflow-requirement.txt
 
-      - name: Check GitHub Actions workflows
-        shell: pwsh
+      - name: Recompute static inputs without large environment variables
+        if: needs.fast-checks.outputs.has_types == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          $directory = Join-Path $env:RUNNER_TEMP 'actionlint'
-          New-Item -ItemType Directory -Force -Path $directory | Out-Null
-          gh release download v1.7.12 --repo rhysd/actionlint --pattern 'actionlint_1.7.12_windows_amd64.zip' --dir $directory
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $archive = Join-Path $directory 'actionlint_1.7.12_windows_amd64.zip'
-          if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ne '6E7241B51E6817EA6A047693D8E6FED13B31819C9A0DD6C5A726E1592D22F6E9') {
-            throw 'Actionlint archive checksum mismatch.'
-          }
-          Expand-Archive -LiteralPath $archive -DestinationPath $directory
-          & (Join-Path $directory 'actionlint.exe') -ignore 'unexpected key "queue" for "concurrency" section'
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before || format('{0}^', github.sha) }}
+          CI_SCOPE_PATH: ${{ runner.temp }}/ci-scope.json
+        run: python repo-scripts/ci_scope.py
 
-      - name: Check changed Python files
+      - name: Check changed Python types in the Windows import environment
+        if: needs.fast-checks.outputs.has_types == 'true'
         shell: pwsh
-        env:
-          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
         run: |
-          $base = $env:BASE_SHA
-          if (-not $base -or $base -match '^0+$') {
-            $base = git rev-parse "$env:GITHUB_SHA^"
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          }
-
-          $pythonFiles = @(
-            git diff --name-only --diff-filter=ACMR "$base...$env:GITHUB_SHA" -- "*.py" |
-              Where-Object {
-                $_ -and
-                $_ -notmatch '^(vendor|tests/test_data|unsorted|qgis-resources|excel-resources)/'
-              }
-          )
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-          if ($pythonFiles.Count -eq 0) {
-            Write-Host "No changed first-party Python files."
-            exit 0
-          }
-
-          # Only Python changes need the full import environment for strict Pyright.
+          $scope = Get-Content (Join-Path $env:RUNNER_TEMP 'ci-scope.json') -Raw | ConvertFrom-Json
+          $pythonFiles = @($scope.type_files)
+          if ($pythonFiles.Count -eq 0) { throw 'Expected Python inputs from successful preflight.' }
           python repo-scripts/install_latest_wheel.py --dependencies-only
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -m pip install -r requirements.txt
+          python -m pip install -r repo-scripts/ci-policy-requirements.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-          Write-Host "Type-checking changed Python files:"
-          $pythonFiles | ForEach-Object { Write-Host " - $_" }
-
-          # Retain the established CI lint gate for branch protection and release automation.
-          # Fast PR checks run the same lightweight validations sooner, independently.
-          python -m ruff check $pythonFiles
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -m ruff format --check $pythonFiles
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          # The migrated initialiser keeps its own typed GIS stubs. Running
-          # both type-checkers in strict mode avoids overriding ryan-tools'
-          # existing, deliberately narrow rasterio stubs and PyTUFLOW API.
-          # Use the project's own include list so shared helpers moved out of
-          # the orchestrator retain the same strict GIS-stub environment.
+          # Ruff, workflow syntax, documentation and logging already passed preflight.
+          # Preserve the initialiser's distinct strict GIS stub configuration.
           $initialiserIncludes = @((Get-Content pyright-initialiser.json -Raw | ConvertFrom-Json).include)
           $initialiserFiles = @($pythonFiles | Where-Object {
             $file = $_
@@ -206,8 +212,22 @@ jobs:
             }).Count -gt 0
           })
           $sharedFiles = @($pythonFiles | Where-Object { $_ -notin $initialiserFiles })
-          if ($sharedFiles.Count -gt 0) {
-            python -m pyright $sharedFiles
+          # Large configuration changes can select every file. Bound command-line
+          # length as well as avoiding Windows' environment-variable length limit.
+          $batch = @()
+          $characters = 0
+          foreach ($file in $sharedFiles) {
+            if ($characters + $file.Length + 3 -gt 12000) {
+              python -m pyright @batch
+              if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+              $batch = @()
+              $characters = 0
+            }
+            $batch += $file
+            $characters += $file.Length + 3
+          }
+          if ($batch.Count -gt 0) {
+            python -m pyright @batch
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
           if ($initialiserFiles.Count -gt 0) {
@@ -215,105 +235,39 @@ jobs:
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
 
-      - name: Check documentation and logging policy
-        shell: pwsh
-        run: |
-          python repo-scripts/check_documentation.py
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python repo-scripts/check_documentation.py --links-only docs/MCP_SETUP.md docs/mcp-handoff/README.md docs/work/README.md docs/work/2026-11-01-mcp-workflow-discovery-136.md
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python repo-scripts/check_loguru_formatting.py
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          git diff --check
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Confirm the required preflight policy result
+        run: echo "Ruff, workflow, documentation and logging checks passed before this job."
 
   mcp-smoke:
-    needs: [scope]
-    # A failed or unavailable classifier must not bypass required acceptance jobs.
-    if: ${{ !cancelled() && needs.scope.outputs.full != 'false' }}
-    # Python 3.14 is the minimum supported runtime. Preserve focused MCP
-    # coverage without claiming Python 3.13 compatibility.
     name: MCP smoke
-    runs-on: windows-latest
-    timeout-minutes: 20
-
+    needs: [fast-checks, hosted-tests]
+    if: ${{ !cancelled() && needs.fast-checks.result == 'success' && needs.fast-checks.outputs.full != 'false' }}
+    # MCP executes on Windows in Hosted tests. This cheap job preserves the required
+    # check and rejects a failed/skipped Windows job or missing explicit evidence.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Initialise QGIS style resource submodule
-        shell: pwsh
-        run: |
-          git submodule sync -- qgis-resources tests/test_data
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          git submodule update --init qgis-resources tests/test_data
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Set up Python 3.14 (MCP acceptance)
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.14"
-          cache: pip
-          cache-dependency-path: pyproject.toml
-
-      - name: Compile Python 3.14 sources
-        shell: pwsh
-        run: |
-          python -m compileall -q ryan_library
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Install binary GIS dependencies and MCP package
-        shell: pwsh
-        run: |
-          # Python 3.14 Windows cannot build Fiona from source without GDAL headers.
-          # Reuse the proven binary GIS bootstrap used by Policy and Hosted tests.
-          python repo-scripts/install_latest_wheel.py --dependencies-only
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -m pip install ".[mcp]" pytest
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Test MCP workflow discovery and safety contracts
-        shell: pwsh
+      - name: Require successful Windows MCP and utility acceptance
         env:
-          MPLBACKEND: Agg
+          HOSTED_RESULT: ${{ needs.hosted-tests.result }}
+          MCP_CONTRACTS: ${{ needs.hosted-tests.outputs.mcp_contracts }}
         run: |
-          python -m pytest -q tests/mcp/test_registry.py tests/mcp/test_server.py tests/mcp/test_catalogue_contracts.py tests/mcp/test_overview_validation.py
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Run Python 3.14 focused utility regression tests
-        shell: pwsh
-        env:
-          MPLBACKEND: Agg
-        run: |
-          # Retain a separate focused MCP/utility job alongside the hosted suite.
-          python -m pytest `
-            tests/functions/RORB/test_read_rorb_files.py `
-            tests/functions/gdal/test_profiling.py `
-            tests/functions/test_process_12D_culverts.py `
-            tests/functions/tuflow/test_logsummary_excel_append.py `
-            tests/functions/tuflow/test_notebook_helpers.py `
-            tests/functions/tuflow/test_po_timeseries_checks.py `
-            -m "not gui and not external"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Verify MCP module import and tool exports
-        shell: pwsh
-        env:
-          RYAN_MCP_PROFILE: create
-          RYAN_TOOLS_REPOSITORY_ROOT: ${{ github.workspace }}
-        run: |
-          python -B -c "import ryan_library.mcp.server as server; assert server.mcp is not None; assert all(callable(getattr(server, name)) for name in ('parse_tuflow_filename', 'inspect_tuflow_result', 'inspect_tuflow_collection', 'inspect_raster_metadata', 'check_repo_health', 'list_workflows', 'get_workflow'))"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          test "$HOSTED_RESULT" = success
+          test "$MCP_CONTRACTS" = true
 
   hosted-tests:
-    needs: [scope]
-    # A failed or unavailable classifier must not bypass required acceptance jobs.
-    if: ${{ !cancelled() && needs.scope.outputs.full != 'false' }}
+    needs: [fast-checks]
+    # Unknown scope requests full validation; a failed required preflight blocks merging.
+    if: ${{ !cancelled() && needs.fast-checks.result == 'success' && needs.fast-checks.outputs.full != 'false' }}
     name: Hosted tests
+    outputs:
+      mcp_contracts: ${{ steps.mcp-contracts.outputs.passed }}
     runs-on: windows-latest
     timeout-minutes: 35
     env:
       MPLBACKEND: Agg
+      # A rerun of the same PR revision keeps complete diagnostics without a new push.
+      PYTEST_ADDOPTS: ${{ github.event_name == 'pull_request' && github.run_attempt == 1 && '--maxfail=1' || '' }}
 
     steps:
       - name: Checkout repository
@@ -333,15 +287,13 @@ jobs:
           python-version: "3.14"
           cache: pip
           cache-dependency-path: |
-            requirements.txt
             pyproject.toml
+            repo-scripts/ci-test-requirements.txt
+            repo-scripts/pytuflow-requirement.txt
 
-      # Keep the existing installation sequence but time its components independently.
-      - name: Upgrade pip
+      - name: Compile supported Windows Python sources before installing dependencies
         shell: pwsh
-        run: |
-          python -m pip install --upgrade pip
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        run: python -m compileall -q ryan_library
 
       - name: Install binary GIS dependencies
         shell: pwsh
@@ -349,10 +301,10 @@ jobs:
           python repo-scripts/install_latest_wheel.py --dependencies-only
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Install development package and test dependencies
+      - name: Install runtime, MCP and hosted-test dependencies
         shell: pwsh
         run: |
-          python -m pip install -r requirements.txt
+          python -m pip install -r repo-scripts/ci-test-requirements.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Run hosted test boundary
@@ -374,19 +326,34 @@ jobs:
             --junitxml=test-results/hosted-tests.xml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Preserve the focused profiling regression excluded by the broad GIS boundary
+        shell: pwsh
+        run: python -m pytest -q tests/functions/gdal/test_profiling.py -m "not gui and not external" --junitxml=test-results/mcp-profiling.xml
+
+      - name: Verify Windows MCP module import and tool exports
+        id: mcp-contracts
+        shell: pwsh
+        env:
+          RYAN_MCP_PROFILE: create
+          RYAN_TOOLS_REPOSITORY_ROOT: ${{ github.workspace }}
+        run: |
+          python -B -c "import ryan_library.mcp.server as server; assert server.mcp is not None; assert all(callable(getattr(server, name)) for name in ('parse_tuflow_filename', 'inspect_tuflow_result', 'inspect_tuflow_collection', 'inspect_raster_metadata', 'check_repo_health', 'list_workflows', 'get_workflow'))"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "passed=true" >> $env:GITHUB_OUTPUT
+
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: hosted-test-report
           retention-days: 7
-          path: test-results/hosted-tests.xml
+          path: test-results/*.xml
           if-no-files-found: warn
 
   package:
-    needs: [scope]
-    # A failed or unavailable classifier must not bypass required acceptance jobs.
-    if: ${{ !cancelled() && needs.scope.outputs.full != 'false' }}
+    needs: [fast-checks]
+    # Unknown scope requests full validation; a failed required preflight blocks merging.
+    if: ${{ !cancelled() && needs.fast-checks.result == 'success' && needs.fast-checks.outputs.full != 'false' }}
     name: Package
     runs-on: windows-latest
     timeout-minutes: 25
@@ -409,8 +376,8 @@ jobs:
           python-version: "3.14"
           cache: pip
           cache-dependency-path: |
-            requirements.txt
             pyproject.toml
+            repo-scripts/wheel-smoke-requirements.txt
 
       - name: Install packaging and smoke-test dependencies
         shell: pwsh
