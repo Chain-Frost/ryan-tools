@@ -128,3 +128,37 @@ snapshot to make it pass**. Do not run the multi-GB full profile or native UNC/S
 3. With separate approval, collect representative full/selected native storage measurements; compare bounded pandas/
    partitioned Parquet with the baseline before deciding if Dask adds value. Coordinate PO validity with WP04, TP
    statistics with WP09, HDF with WP05, plot cache with WP10 and native PyTuflow data with WP12.
+
+
+## Independent Windows acceptance — 2026-11-08
+
+Original child head `6faa6a53cc272c3d9020a54056e5c8bf42f26604`; separate detached worktree.
+Windows 10 19045, normal Python 3.14.6, pandas 3.0.5, NumPy 2.5.3, psutil 7.2.2, PyArrow 24.0.0;
+NTFS. Only tests/test_data initialised, pinned d2dae3ecf9a7ed306e1340de54a8d12ca9f53f58.
+Accepted PyTuflow 1.3.0 wheel from immutable source 887534ea8c15b80d185a38a7ead1d42ab42a7167
+verified with repo-scripts/vendor_pytuflow_wheel.py, SHA256
+4bfcd24734349f9e0dcf60776ee06a2e17953ac342f40e3611b0e2aae33b30e3; installed into an external
+temporary target for these checks, without replacing the global environment.
+
+Requested focused pytest: 18 passed, zero skips, including genuine fixtures and exact TLF snapshot
+membership/values. No expectations or snapshots changed. Initial lint/format/Pyright failures were
+confined to new benchmark/test code. Removed unnecessary pandas casts, typed the test observations,
+narrowed PyArrow's incompletely typed batch boundary, expressed damaged-time test as a scalar update,
+used yield from, formatted one assignment, and documented narrow complexity allowances to keep timed
+stage guards and the independent validation pass together. Ruff and strict Pyright now pass.
+
+Default invocation first used installed wheel 26.11.8.8 (its manifest reports that origin accurately).
+Separate source-tree runs explicitly import this worktree, with accepted PyTuflow target, and copied
+benchmark runs import installed 26.11.8.8 from site-packages outside checkout. Both CSV and Parquet:
+eight cases each, all fidelity PASS (32 cases total across source and installed comparisons).
+Two runs, six/all or two/selected locations, three variables, 121 timestamps; series counts
+4,356/all and 1,452/selected; per-run peak counts 36/all and 12/selected. Actual generated input
+54,082 bytes per run set; source independently checked values and exact peak times outside timing.
+Manifests contain per-case output bytes, timing components and 50 ms sampled RSS. No speedup,
+read-I/O reduction, true high-water RSS or controlled cold-cache claim is made. The full grid is
+NOT RUN; full-grid dimension tests do not generate that workload. No native UNC/SMB campaign.
+
+Evidence, copied runner and source/installed CSV/Parquet manifests: E:/Github/wp11-native-evidence/.
+Publish scoped repairs and this record together, then verify final-head CI/review. #228/#229 remain
+open and broader support/scalability acceptance remains incomplete. No solver, dependency-policy
+change, snapshot rebaseline, parent/main merge or release.

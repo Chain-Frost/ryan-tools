@@ -139,7 +139,7 @@ def _peak_rows(frame: pd.DataFrame) -> pd.DataFrame:
     This is a benchmark reduction, NOT a replacement for TP/closure statistics.
     """
     indices = frame.groupby(["internalName", "Location", "Type"], observed=True)["AbsValue"].idxmax()
-    selected: pd.DataFrame = cast(pd.DataFrame, frame.loc[indices.to_numpy()])
+    selected: pd.DataFrame = frame.loc[indices.to_numpy()]
     return selected.copy()
 
 
@@ -216,7 +216,7 @@ def _export(frame: pd.DataFrame, target: Path, file_format: Literal["csv", "parq
         frame.to_parquet(target, index=False)
 
 
-def run_case(
+def run_case(  # noqa: C901 - Keep measured stages and their resource guards together.
     files: list[Path],
     spec: Workload,
     *,
@@ -332,7 +332,7 @@ class SourceReference:
     sample_minutes: frozenset[int]
 
 
-def _source_reference(files: list[Path], spec: Workload) -> SourceReference:
+def _source_reference(files: list[Path], spec: Workload) -> SourceReference:  # noqa: C901 - Independent source oracle.
     """Read actual generated CSVs to derive a separate value and peak-time oracle."""
     sample_indices = {0, spec.selected_locations - 1, spec.locations // 2, spec.locations - 1}
     sample_minutes = frozenset({0, min(SOURCE_SAMPLE_MINUTE, spec.final_minute), spec.final_minute})
@@ -405,20 +405,20 @@ def _disk_reservation_bytes(spec: Workload, max_numeric_gib: float) -> int:
 def _export_chunks(path: Path) -> Iterator[pd.DataFrame]:
     """Stream readback instead of retaining another giant exported DataFrame."""
     if path.suffix == ".csv":
-        for chunk in pd.read_csv(path, chunksize=100_000):
-            yield chunk
+        yield from pd.read_csv(path, chunksize=100_000)
     elif path.suffix == ".parquet":
         import pyarrow.parquet as pq
 
         parquet = pq.ParquetFile(path)
-        for batch in parquet.iter_batches(batch_size=100_000):
-            yield batch.to_pandas()
+        # PyArrow's batch iterator is incompletely typed; narrow its pandas result at this I/O boundary.
+        for batch in cast(Any, parquet).iter_batches(batch_size=100_000):
+            yield cast(pd.DataFrame, batch.to_pandas())
     else:
         message = f"Unsupported benchmark readback: {path.suffix}"
         raise ValueError(message)
 
 
-def _validate_export(
+def _validate_export(  # noqa: C901 - Keep independent readback assertions in one validation pass.
     target: Path,
     reference: SourceReference,
     spec: Workload,
@@ -443,15 +443,13 @@ def _validate_export(
         if not summary_only:
             minutes = (chunk["Time"].astype(float) * 60).round().astype(int)
             mask = chunk["Location"].isin(reference.sample_locations) & minutes.isin(reference.sample_minutes)
-            chosen = cast(pd.DataFrame, chunk.loc[mask])
+            chosen = chunk.loc[mask]
         for run, loc, kind, hours, raw_value, abs_value in chosen[
             ["internalName", "Location", "Type", "Time", "Value", "AbsValue"]
         ].itertuples(index=False, name=None):
             minute = round(float(hours) * 60)
             key = (str(run), str(loc), str(kind))
-            full_key: tuple[str, str, str, int] | tuple[str, str, str] = (
-                key if summary_only else (*key, minute)
-            )
+            full_key: tuple[str, str, str, int] | tuple[str, str, str] = key if summary_only else (*key, minute)
             if full_key in observed_keys:
                 message = f"Duplicate exported source sample: {full_key}"
                 raise AssertionError(message)

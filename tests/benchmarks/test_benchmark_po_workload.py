@@ -100,7 +100,7 @@ def test_export_readback_matches_source_values_and_exact_peak_times(tmp_path: Pa
     spec = BENCH.Workload(["01p"], [60], [1], 2, 120, 1)
     sources = BENCH.make_fixture(tmp_path / "source", spec)
     reference = BENCH._source_reference(sources, spec)
-    observations = []
+    observations: list[dict[str, str | float]] = []
     with sources[0].open(newline="", encoding="utf-8") as stream:
         for minute, row in enumerate(list(csv.reader(stream))[2:]):
             for location in range(2):
@@ -135,7 +135,8 @@ def test_export_readback_matches_source_values_and_exact_peak_times(tmp_path: Pa
     valid_summary = BENCH._validate_export(summary_file, reference, spec, selected=False, summary_only=True)
     assert valid_summary["validated_rows"] == 6
     damaged_peak = summary.copy()
-    damaged_peak.iloc[0, damaged_peak.columns.get_loc("Time")] += 1 / 60
+    damaged_peak["Time"] = damaged_peak["Time"].astype(float)
+    damaged_peak.loc[damaged_peak.index[0], "Time"] = float(damaged_peak["Time"].iloc[0]) + 1 / 60
     damaged_peak.to_csv(summary_file, index=False)
     with pytest.raises(AssertionError, match="peak/sample time"):
         BENCH._validate_export(summary_file, reference, spec, selected=False, summary_only=True)
