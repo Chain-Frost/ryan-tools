@@ -5,6 +5,7 @@ from __future__ import annotations
 
 __lazy_modules__: list[str] = ["numpy", "pandas"]
 
+from collections.abc import Collection
 from typing import ClassVar
 
 import numpy as np
@@ -24,6 +25,14 @@ class POProcessor(BaseProcessor):
     filtered_empty: bool = False
 
     VALUE_COLUMNS: ClassVar[list[str]] = ["Time", "Location", "Type", "Value"]
+
+    def filter_locations(self, locations: Collection[str] | None) -> frozenset[str]:
+        """Reclassify PO sample usability after collection or HDF selection."""
+        selected = super().filter_locations(locations)
+        if self.applied_location_filter == selected and not self.df.empty and "AbsValue" in self.df.columns:
+            if not self.df["AbsValue"].notna().any():
+                self.input_health = "INVALID"
+        return selected
 
     def process(self) -> None:
         """Parse the CSV, reshape it to long format, and add common columns."""

@@ -424,6 +424,57 @@ def test_po_selection_distinguishes_rejected_location_from_absent(tmp_path: Path
     assert usable.df["Value"].tolist() == [1.0, 2.0]
 
 
+def test_po_public_filter_and_hdf_reclassify_dry_only_location(tmp_path: Path) -> None:
+    pytest.importorskip("tables")
+    pytest.importorskip("pyarrow")
+    path = _file(
+        tmp_path,
+        "_PO.csv",
+        "Dummy,Time,HU,HU\nDummy,Time,Dry,Wet\nrow,0,-99999,39\nrow,1,-99999,41\n",
+    )
+    unfiltered = POProcessor(file_path=path)
+    unfiltered.process()
+    assert unfiltered.processed
+    assert unfiltered.input_health == "PARTIAL"
+    assert unfiltered.df["Value"].eq(-99999).sum() == 2
+    assert unfiltered.df["AbsValue"].notna().sum() == 2
+
+    direct = POProcessor(file_path=path, entity_filter=frozenset({"Dry"}))
+    direct.process()
+    assert direct.processed
+    assert direct.input_health == "INVALID"
+    assert _result_status(direct) == "FAIL"
+    assert direct.df["Value"].tolist() == [-99999.0, -99999.0]
+
+    collection = ProcessorCollection()
+    collection.add_processor(unfiltered)
+    selected = collection.copy()
+    selected.filter_locations(["Dry"])
+    assert len(selected.processors) == 1
+    invalid = selected.processors[0]
+    assert invalid.processed
+    assert invalid.input_health == "INVALID"
+    assert _result_status(invalid) == "FAIL"
+    assert invalid.df["Value"].tolist() == [-99999.0, -99999.0]
+    assert invalid.df["AbsValue"].isna().all()
+
+    cache = tmp_path / "mixed-po-health.h5"
+    collection.to_hdf(cache)
+    restored = ProcessorCollection.from_hdf(cache, locations=["Dry"])
+    assert len(restored.processors) == 1
+    invalid_restored = restored.processors[0]
+    assert invalid_restored.processed
+    assert invalid_restored.input_health == "INVALID"
+    assert _result_status(invalid_restored) == "FAIL"
+    assert invalid_restored.df["AbsValue"].isna().all()
+    assert invalid_restored.df["Value"].tolist() == [-99999.0, -99999.0]
+
+    usable = ProcessorCollection.from_hdf(cache, locations=["Wet"])
+    assert len(usable.processors) == 1
+    assert _result_status(usable.processors[0]) == "OK"
+    assert usable.processors[0].df["AbsValue"].tolist() == [39.0, 41.0]
+
+
 def test_tlf_retry_does_not_expose_previous_finished_status(tmp_path: Path) -> None:
     path = _file(tmp_path, ".tlf", "placeholder\n")
     processor = TLFProcessor(file_path=path)
