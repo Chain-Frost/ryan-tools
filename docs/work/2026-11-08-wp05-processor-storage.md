@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Bounded WAL retry passes native source/wheel checks; final CI/review pending; HDF remains separate |
+| Status | WAL and HDF native source/wheel acceptance pass; final current-head CI and review pending |
 | Owner | WP05 delivery agent / maintainer |
 | Created | 2026-11-08 |
 | Updated | 2026-11-08 |
@@ -108,6 +108,25 @@ The first fully refreshed #254 Windows hosted run at `2243d6a5` passed Ruff/Poli
 
 The actual [Codex P2 rollback-to-WAL transition finding](https://github.com/Chain-Frost/ryan-tools/pull/254#discussion_r4505510849) is addressed by staging all source modes instead of opening the source directly; previous stored drafts incorrectly used a provisional comment ID.
 
+### Historical #261 native gate audit (superseded prerequisite)
+
+The following audit was accurate at the earlier parent SHA, but is **superseded** by reviewed #254 owned-copy correction. It is retained as dated evidence; no HDF native tests ran in that audit.
+
+### 2026-11-08 local-agent gate audit - HDF acceptance not run
+
+Read native handoff https://github.com/Chain-Frost/ryan-tools/pull/261#issuecomment-6718682286 and verified live #254 at `f70e69519499dc071d03863c6d0b9233f0536653`, with the writer-shutdown race thread https://github.com/Chain-Frost/ryan-tools/pull/254#discussion_r4505393356 still unresolved. Both the original closed-WAL review and shutdown-race review remain unresolved; the parent canonical WP05 record explicitly marks the P1 correction partial/unaccepted.
+
+#254 subsequently advanced during the session to `bfb03ff5b45775b2b63480d835b7340440e65f5f` (local-staging correction), but the two review threads remained unresolved at the closeout check; the required corrected-and-reviewed prerequisite is still not established. The PR #261 blocker report is https://github.com/Chain-Frost/ryan-tools/pull/261#issuecomment-6719028831.
+
+#261 remains at code `7df8202eef2c50b8af5aecb0378bfd18be75d030`, draft, stacked on #254. **BLOCKED:** the handoff explicitly requires correction and review of #254 before refreshing the HDF branch and running native acceptance. Therefore no HDF source/native/installed-wheel/cache/mapped/UNC tests, build or dependency changes were performed, and no source-immutability claim is made. This documentation-only gate audit does not refresh implementation or incorporate the child anywhere.
+
+Next action: #254 owner corrects the no-create WAL contract and obtains review; then refresh this existing branch without force-push and execute the stated Q/PO/POMM HDF acceptance matrix on its new exact SHA. Next review 2026-11-15. No merge, auto-merge, release, issue closure, production operation or unsorted inspection.
+
+
+### HDF branch reconciliation after the #254 owned-copy review
+
+[#254](https://github.com/Chain-Frost/ryan-tools/pull/254) at `cd6fdb28` uses invocation-owned SQLite snapshots, has **six hosted CI passes** and a [Codex review without findings](https://github.com/Chain-Frost/ryan-tools/pull/254#issuecomment-6719253134); earlier review threads are resolved. Native Windows/SMB/large-file acceptance is **NOT RUN**. The #261 HDF code is refreshed as a two-parent, non-force branch merge with that parent, preserving #251/WP12 and newer package metadata. HDF source, wheel and native Q/PO/POMM cache roundtrip checks remain **NOT RUN on this reconciled SHA**, pending fresh hosted and local tests. Neither child is incorporated into #251 or main. No issue closures or release.
+
 
 ### Native follow-up: leave ccA styling to the TUFLOW QGIS plugin
 
@@ -172,3 +191,53 @@ cross-host WAL concurrency and same-metadata rewrites are NOT RUN/unsupported.
 MCP assessment: existing generic processor inspection remains appropriate; the
 retry does not warrant a new tool. Next: exact-head hosted CI and fresh Codex
 review, then refresh/test #261. No issue closure or integration is claimed yet.
+
+### 2026-11-08 HDF completion: real optional backend, source and installed wheel
+
+Merged #254 `b25a7d5c88b08417078650597ebe2d15ebeecec7` into the existing
+#261 branch without force-push (`e9a66601`). Preserved both prior WP05 histories,
+styling, current #251 consolidated CI and vendored wheel. No implementation was
+recreated; the existing optional `ryan-tools[cache]` remains separate from the PO
+plotting Parquet cache. Added direct missing-source, altered-member checksum and
+load-time location-filter regressions to complete the requested matrix.
+
+Windows 10/Python 3.14.6: PyTables 3.11.1, numexpr 2.14.2, blosc2 4.14.1,
+ndindex 1.10.1 and msgpack 1.2.4 installed only into disposable `cache-deps`;
+existing numpy/pandas 3.0.5/pyarrow 24.0.0 used. No global packages or developer
+requirements changed. **12 focused tests PASS, zero skips**. Direct native source
+matrix: **33 PASS** (11 HDF cases each on NTFS, mapped, UNC). Isolated installed
+wheel matrix: **33 PASS, zero skips**, verified processor_collection import origin
+under disposable installed261 target. Each case creates real HDF5 files.
+
+The cases prove actual Q/PO/POMM class/run/path/dtype roundtrips (ordered
+categorical, nullable integer/real/boolean, string, numeric); filter state and
+load-time selection; compact metadata lookup; relative source identity after CWD
+changes; changed/missing source rejection; missing members, checksum tampering,
+corrupt manifest and registry mismatch rejection; no-clobber, successful overwrite
+and original-cache preservation/owned-stage cleanup on serialization failure.
+Source alias output is refused. Filtered-out Q warnings are expected diagnostics,
+not test failures. Missing-dependency historical report `a2bc74bb` (1 pass/8 skips)
+is superseded for these bounded synthetic native cases, not relabeled as success.
+
+Built/verified package 26.11.8.4, wheel SHA256
+`86ad4cf85541cc196b67807305ddfe538437b531ee0c45d0a7991a902c96ee04`.
+Private harness/evidence: `E:/Github/wp0508-completion-20261108/native261.py`,
+source/wheel JSON and logs. Retained ignored wheel; no global installation/release.
+Ruff/format and strict modified-test Pyright pass. No new storage code was needed.
+
+Hosted profile now includes the existing cache extra and explicitly imports its
+backend after installation, so current hosted HDF acceptance cannot be based on
+optional-dependency skips. This adds cache coverage without a second full suite,
+a new workflow, dev tools or changing declared user/developer dependencies.
+Local collected persistence count rises from historical nine (eight skipped) to
+12 (all pass, including three new regressions); no selected test is removed.
+Existing generic processor/API guidance remains the right MCP exposure.
+
+Remaining boundaries: synthetic fixtures are not licensed/private real-result
+acceptance or a production-scale performance benchmark. HDF source fingerprints
+are metadata, not full content digests. A snapshot of a processed object is not
+live source reprocessing. Concurrent overwrites by independent writers are not
+serialized; overwrite=False remains the safe publication default. Keep the
+separate ccA same-metadata/cross-host WAL limitations. Next: verify final-head CI
+and fresh review; do not integrate either child into #251 or close #226 before
+review. Next review 2026-11-15.

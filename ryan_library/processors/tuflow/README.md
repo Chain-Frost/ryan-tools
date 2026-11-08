@@ -161,20 +161,43 @@ discarded_count = collection.discard_raw_dataframes()
 
 ## Cache a collection with HDF5
 
-`to_hdf()` writes each processed DataFrame and enough processor metadata to one HDF5 cache. `from_hdf()` reconstructs
-the concrete processor classes and can apply an optional location filter while loading:
+Install the optional HDF cache backend alongside the normal package:
+
+```powershell
+python -m pip install "ryan-tools[cache]"
+```
+
+`to_hdf()` saves a **versioned, read-only processor snapshot**. It keeps the concrete processor class, full source
+path/run identity, entity and location filter state, actual processed DataFrame extension dtypes (categorical, nullable,
+string and numeric) and any `compact_basic_info_columns()` lookup table. Frames are stored as Arrow IPC byte arrays
+inside a compressed HDF5 file. The file is **not** a reusable live database or a stable interchange format.
 
 ```python
 from pathlib import Path
 
+from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
+
 cache_path = Path("cache/tuflow-results.h5")
-collection.to_hdf(cache_path)
+collection.to_hdf(cache_path)  # Refuses to replace any existing cache.
+collection.to_hdf(cache_path, overwrite=True)  # Explicit, atomic replacement.
 
 restored = ProcessorCollection.from_hdf(cache_path, locations=["Culvert_01"])
 ```
 
-Treat this as a processing cache rather than a stable interchange format. Rehydration depends on the configured
-processor classes remaining importable and compatible with the stored metadata.
+Writing uses an invocation-owned temporary file in the destination folder, verifies its manifest and only then
+publishes it. If writing fails, an earlier cache is preserved. Existing destinations require `overwrite=True`.
+Do not share a destination with an input file or rely on a symlinked cache destination.
+
+Loading validates every member, cache schema version, configured processor registry and lightweight source fingerprint
+(absolute path, size, modification time; WAL size/time for GeoPackage sources). A missing or changed input fails closed
+rather than returning an incomplete collection. This fingerprint is not a cryptographic verification of source contents
+and is not a substitute for rerunning processing when underlying data or settings change. For an explicitly historical
+snapshot with changed or unavailable sources, use `from_hdf(cache_path, verify_sources=False)`; this still checks
+member hashes, schema compatibility and processor classes. Old fixed-format caches are incompatible and must be
+regenerated.
+
+Do not use this HDF processor cache as a substitute for the separate PO-plot Parquet cache or as a source for live
+TUFLOW/WAL results. Native Windows/SMB active-writer acceptance for ccA GeoPackages is a separate test gate.
 
 ## MCP inspection and advanced queries
 
