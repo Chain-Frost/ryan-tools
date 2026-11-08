@@ -2,12 +2,12 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Bounded native/installed/partial-input checks pass; WP04/WP09 and project/Excel/ACL gates open |
+| Status | PR #286 exact-candidate Windows source/installed fail-closed acceptance PASS; final documentation CI and WP04/WP09/project gates remain |
 | Owner | WP08 integration |
 | Created / updated | 2026-11-08 |
 | Next review | 2026-11-15 |
 | Baseline | `main@5ad632cc9a17b302ad3f4f2b55315a1e2e8d1d51`; stacked onto #251 |
-| Delivery | [Draft PR #265](https://github.com/Chain-Frost/ryan-tools/pull/265), `feat/po-qa-dashboard-outcomes-198` |
+| Delivery | [Draft follow-up #286](https://github.com/Chain-Frost/ryan-tools/pull/286), `fix/wp08-partial-batch-outcomes-198`; prior #265 integrated into #251 |
 | Issues | [#198](https://github.com/Chain-Frost/ryan-tools/issues/198), [#194](https://github.com/Chain-Frost/ryan-tools/issues/194), [#180](https://github.com/Chain-Frost/ryan-tools/issues/180), [#240](https://github.com/Chain-Frost/ryan-tools/issues/240) |
 
 ## Scope and ownership
@@ -177,3 +177,79 @@ PO/POMM/closure sample parity after WP04 #284 and WP09 #281 settle.
 Those separate hydraulic source-validity and dry-event/scenario-identity
 contracts are not accepted by this dashboard-only change. Do not add
 `Fixes #198` or close that issue until cross-pack and native acceptance pass.
+
+## 2026-11-08 - PR #286 exact-candidate Windows acceptance PASS
+
+Tested **`2dc0afa2df9b14948a6ad037cd91a08672024db4`**, parent baseline
+`b9da0c9a36eb8455a168a3c9cf3ffea74d42f766`, in a separate detached Windows 10
+build 19045 worktree with Python 3.14.6. Rechecked candidate before and after
+execution. Remote parent had advanced to `2a2530dd18f5d8e3146a911ab2ac2d9be01b401f`;
+these results do not accept that newer parent or authorise integration.
+
+| Acceptance | Actual result |
+| --- | --- |
+| Source focused + surrounding regressions | **141 passed**, zero failures/skips; POMM/closure #198, POMM/PO processors, shared outcome/discovery, POMM calculations and protected closure export |
+| Changed-file Ruff lint / format / strict Pyright | All pass; **0 errors / 0 warnings** |
+| No-bump build | Verified **26.11.8.8** wheel; metadata unchanged |
+| Real discovery/processor/copied-wrapper matrix | **50 source + 50 installed-wheel cases pass**; mean, median, closure; dashboard on/off |
+| Direct missing processor result | **6 source + 6 installed cases pass**; real classifier/counters: scheduled 2, completed 2, succeeded 1, failed 1; wrapper FAILED/1, no report |
+| Partial malformed inputs | Valid pair plus malformed third input: scheduled 3, completed 3, failed 1; FAILED/1; no workbook, raw CSV or Parquet publication |
+| Valid and empty/filtered | Valid SUCCESS/0; empty scan and filtered-empty SKIPPED/0; no skip output |
+| RLL paths | Mean and median valid-only SUCCESS and malformed mixed batch FAILED, both modes/runtimes |
+| Forced exporter denial and repeat-name collision | FAILED/1; existing output SHA-256/mtime preserved; no additional report or owned staging debris |
+| On/off report parity | Ten full-row/schema comparisons pass, with working-directory text normalised; numeric values also independently compared |
+| Closure raw products | Required CSV and gzip-Parquet reopen and agree in all columns/values in both modes/runtimes |
+| Hosted candidate CI | [All six jobs passed](https://github.com/Chain-Frost/ryan-tools/actions/runs/42485041843) on the tested candidate; later documentation-head checks are separate |
+
+Installed runtime uses a scratch `pip --target` installation of the freshly built
+wheel, normal user-site runtime dependencies, **no new venv** and no global package
+replacement. Every wrapper subprocess verifies physical origins of shared source
+processing, POMM and closure modules under the selected source root or wheel target.
+Installed example: `F:/Temp/CodexValidation/WP08-286-20261108/installed/ryan_library/orchestrators/tuflow/pomm_max_items.py`.
+Dependencies observed: pandas **3.0.5**, openpyxl **3.1.5**, pyarrow **24.0.0**.
+Wheel SHA-256: `38d2ee8aed6af3333c08d0228be5b9df1b1a1c632272efda1af832dbdce5fa87`.
+
+The 100-case matrix runs actual copied wrappers and source discovery/processing;
+it observes real progress and dashboard finish methods without replacing counters
+or successful processing. Datetimes are fixed solely for reproducible output-name
+collisions. Export denial is injected at the shared exporter boundary. The twelve
+missing-result cases deliberately substitute `None` for one processor result using
+the serial executor and leave the classifier/accounting unchanged; this proves
+missing-result handling, not recovery from an actual killed OS worker.
+The broader focused exporter regressions also exercise staging writer failures.
+
+Synthetic inputs reuse the maintained installed-wheel smoke POMM/PO fixture layout
+and #218 RLL layout, with malformed disposable CSV variants. Source SHA-256/mtime
+snapshots and existing-output SHA-256/mtime snapshots match before/after every case.
+Mean synthetic peaks 5/10 preserve mean 7.5 and the median path's upper event 10;
+engineering rows, identifiers and schema agree on/off. Fixtures and outputs are
+local disposable files, with no production workbooks, shares or solver execution.
+
+Exact commands and all exits are retained in local `checks.json`,
+`acceptance-results.json` and `missing-results.json` under
+`F:/Temp/CodexValidation/WP08-286-20261108/`, alongside per-case stdout/stderr,
+module origins, dependency versions, source/output hashes, readback evidence and
+reproducible `checks.py`, `acceptance.py`, `runner.py`, `missing.py`,
+`missing_runner.py` and `parity.py` harnesses. Run with normal `python -X utf8`;
+the harness supplies either source root or installed target to subprocesses.
+Initial harness-only corrections removed an unsupported POMM CLI flag and reset
+data-type flags between test iterations; neither required a product change.
+
+Source/build commands (all exit 0):
+
+```text
+"C:\Program Files\Python314\python.exe" -m ruff check ryan_library/functions/tuflow/pomm_utils.py ryan_library/orchestrators/tuflow/closure_durations.py ryan_library/orchestrators/tuflow/pomm_max_items.py tests/orchestrators/tuflow/test_closure_dashboard_outcomes_198.py tests/orchestrators/tuflow/test_pomm_dashboard_outcomes_198.py
+"C:\Program Files\Python314\python.exe" -m ruff format --check ryan_library/functions/tuflow/pomm_utils.py ryan_library/orchestrators/tuflow/closure_durations.py ryan_library/orchestrators/tuflow/pomm_max_items.py tests/orchestrators/tuflow/test_closure_dashboard_outcomes_198.py tests/orchestrators/tuflow/test_pomm_dashboard_outcomes_198.py
+"C:\Program Files\Python314\python.exe" -m pyright ryan_library/functions/tuflow/pomm_utils.py ryan_library/orchestrators/tuflow/closure_durations.py ryan_library/orchestrators/tuflow/pomm_max_items.py tests/orchestrators/tuflow/test_closure_dashboard_outcomes_198.py tests/orchestrators/tuflow/test_pomm_dashboard_outcomes_198.py
+"C:\Program Files\Python314\python.exe" -m pytest -q tests/orchestrators/tuflow/test_pomm_dashboard_outcomes_198.py tests/orchestrators/tuflow/test_closure_dashboard_outcomes_198.py tests/functions/tuflow/test_pomm_filter_outcomes_195.py tests/functions/tuflow/test_discovery_outcomes_195.py tests/functions/tuflow/test_pomm_utils.py tests/functions/tuflow/test_pomm_utils_coverage.py tests/functions/tuflow/test_pomm_peak_inputs_218.py tests/functions/tuflow/test_pomm_finite_populations_216_217.py tests/processors/tuflow/other_processors/test_pomm_processor.py tests/processors/tuflow/other_processors/test_po_processor.py tests/processors/tuflow/other_processors/test_po_processor_coverage.py tests/orchestrators/tuflow/test_closure_export_safety_194.py tests/functions/tuflow/test_tuflow_common.py tests/functions/tuflow/test_tuflow_common_coverage.py
+"C:\Program Files\Python314\python.exe" repo-scripts/build_library.py --no-bump --skip-pip
+```
+
+**Disposition:** bounded #286 fail-closed acceptance PASS; no product repair needed.
+The record/register update is documentation-only on the existing #286 branch.
+Review final documentation-head CI and current parent before any authorised
+integration. Broader #198 stays open for independent WP04 #219/#223, WP09 #215,
+representative project/Excel-lock/ACL acceptance. Live dashboard flags were tested
+with captured output; this is not a new interactive responsiveness measurement.
+No new SMB/UNC, actual Office-lock, ACL or licensed-solver claim. No main merge,
+release, auto-merge or issue closure. Next review **2026-11-15**.
