@@ -435,10 +435,10 @@ def _save_plot(fig: Figure, location: str, measurement: str) -> None:
 def _new_plot_figure() -> tuple[Figure, Axes]:
     """Create Agg-backed headless figures without requiring a desktop display."""
     if SHOW_PLOTS:
-        return cast("tuple[Figure, Axes]", plt.subplots(figsize=(12, 5)))
+        return plt.subplots(figsize=(12, 5))
     fig = Figure(figsize=(12, 5))
     FigureCanvasAgg(fig)
-    ax = cast("Axes", fig.add_subplot(111))  # pyright: ignore[reportUnknownMemberType]
+    ax = fig.add_subplot(111)
     return fig, ax
 
 
@@ -538,7 +538,7 @@ def plot_timeseries(df: pd.DataFrame) -> None:
             logger.warning("Configured location {} has no data.", location)
             continue
         for measurement in sorted(location_subset["Type"].unique()):
-            measured: DataFrame = location_subset.loc[location_subset["Type"] == measurement]
+            measured: DataFrame = cast("DataFrame", location_subset.loc[location_subset["Type"] == measurement])
             _draw_measurement_plot(measured, str(location), str(measurement), colorize_aep, color_meta)
 
 

@@ -8,6 +8,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any, ClassVar, cast
 
+import numpy as np
 import pandas as pd
 import pytest
 from matplotlib.axes import Axes
@@ -78,15 +79,21 @@ def test_headless_series_preserve_measurement_and_full_run_id(
     level = results["Water level (m)"]
     assert flow.get_xlabel() == "Simulation time (h)"
     assert len(flow.lines) == len(level.lines) == 2
-    flow_values = {line.get_label().split("Run=")[1].split(" | ")[0]: list(line.get_ydata()) for line in flow.lines}
-    assert flow_values == {"R_A": [0, 10], "R_B": [20, 30]}
-    level_values = {line.get_label().split("Run=")[1].split(" | ")[0]: list(line.get_ydata()) for line in level.lines}
-    assert level_values == {"R_A": [100, 101], "R_B": [110, 111]}
+    def series_values(ax: Axes) -> dict[str, list[float]]:
+        values: dict[str, list[float]] = {}
+        for line in ax.lines:
+            label = str(line.get_label())
+            run_code = label.split("Run=", 1)[1].split(" | ", 1)[0]
+            values[run_code] = [float(value) for value in np.asarray(line.get_ydata(), dtype=float)]
+        return values
+
+    assert series_values(flow) == {"R_A": [0, 10], "R_B": [20, 30]}
+    assert series_values(level) == {"R_A": [100, 101], "R_B": [110, 111]}
     for _, ax in drawn:
         for line in ax.lines:
-            assert list(line.get_xdata()) == [0.0, 1.0]
-            assert "AEP=1%" in line.get_label()
-            assert "Type=" in line.get_label()
+            assert [float(value) for value in np.asarray(line.get_xdata(), dtype=float)] == [0.0, 1.0]
+            assert "AEP=1%" in str(line.get_label())
+            assert "Type=" in str(line.get_label())
 
 
 def test_filter_is_literal_and_does_not_restore_nonmatching_rows(
@@ -276,7 +283,7 @@ def test_headless_png_preserves_full_legend_bounds(
         {"R_A": "R_A_" + "longrun" * 40, "R_B": "R_B_" + "longrun" * 40}
     )
 
-    original = Figure.savefig  # pyright: ignore[reportUnknownMemberType]
+    original = cast("Callable[..., None]", Figure.savefig)
     saved_bounds: list[object] = []
 
     def capture_savefig(self: Figure, *args: Any, **kwargs: Any) -> None:
