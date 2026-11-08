@@ -120,7 +120,7 @@ def test_filtered_empty_and_invalid_sq_are_distinct(tmp_path: Path) -> None:
     absent = BaseProcessor.from_file(path, entity_filter=["Absent"])
     absent.process()
     assert not absent.processed
-    assert absent.filtered_empty
+    assert getattr(absent, "filtered_empty", False)
     path.write_text(f'"{RUN} [model.tcf]","Time (h)","SQ One [{RUN}]"\n1,0,nan\n', encoding="utf-8")
     invalid = BaseProcessor.from_file(path)
     invalid.process()
