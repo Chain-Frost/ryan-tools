@@ -583,14 +583,13 @@ def test_timeseries_source_channel_evidence_resets_on_reprocess(tmp_path: Path) 
     assert not processor.selected_unusable
 
 
-
 @pytest.mark.parametrize(
     ("suffix", "content"),
     [
-        ("_1d_Q.csv", "Descriptor,Time,Q C1,Q C2\\nrow,0,0,1\\nrow,1,-3,2\\n"),
+        ("_1d_Q.csv", "Descriptor,Time,Q C1,Q C2\nrow,0,0,1\nrow,1,-3,2\n"),
         (
             "_1d_H.csv",
-            "Descriptor,Time,H C1.1,H C1.2,H C2.1,H C2.2\\nrow,0,8,7,10,9\\nrow,1,9,8,11,10\\n",
+            "Descriptor,Time,H C1.1,H C1.2,H C2.1,H C2.2\nrow,0,8,7,10,9\nrow,1,9,8,11,10\n",
         ),
     ],
 )
@@ -629,7 +628,7 @@ def test_po_repeated_selection_distinguishes_valid_exclusion_from_rejection(tmp_
     path = _file(
         tmp_path,
         "_PO.csv",
-        "Dummy,Time,HU,HU\\nDummy,Time,Dry,Wet\\nrow,0,0,30\\nrow,1,-2,32\\n",
+        "Dummy,Time,HU,HU\nDummy,Time,Dry,Wet\nrow,0,0,30\nrow,1,-2,32\n",
     )
     original = POProcessor(file_path=path)
     original.process()
