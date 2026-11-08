@@ -49,7 +49,16 @@ def _analyze_stability_worker(path_str: str, result_type: str, config: Stability
 
 
 _MALFORMED_INPUT_STATUSES: frozenset[str] = frozenset(
-    {"EMPTY_FILE", "NO_COLUMNS", "DECODE_FAIL", "CSV_PARSE_FAIL", "BAD_HEADER", "TIME_PARSE_FAIL"}
+    {
+        "EMPTY_FILE",
+        "NO_COLUMNS",
+        "DECODE_FAIL",
+        "CSV_PARSE_FAIL",
+        "BAD_HEADER",
+        "TIME_PARSE_FAIL",
+        "MALFORMED_ROW",
+        "INVALID_TIME_AXIS",
+    }
 )
 _NO_DATA_STATUSES: frozenset[str] = frozenset({"NO_DATA"})
 
@@ -58,6 +67,8 @@ def _file_outcome(rows: list[dict[str, object]]) -> WorkflowStatus:
     """Separate parser failures from successful QA findings and valid empty inputs."""
     if not rows:
         return "SKIP"
+    if any(row.get("input_health") == "INVALID" for row in rows):
+        return "FAIL"
     statuses = {str(row.get("status", "")) for row in rows}
     if statuses & _MALFORMED_INPUT_STATUSES:
         return "FAIL"

@@ -297,6 +297,67 @@ def test_hydraulic_health_and_source_presence_survive_rehydration(
     assert selected.source_entity_presence["Location"] == ["Loc1"]
 
 
+def test_wp04_selected_unusable_processor_and_source_locations_round_trip(tmp_path: Path) -> None:
+    source = tmp_path / "Run_01.0p_0060m_TP01_PO.csv"
+    source.write_text(
+        "Dummy,Time,H,H\nDummy,Time,Dry,Wet\nDummy,0,**********,10\nDummy,1,**********,11\n",
+        encoding="utf-8",
+    )
+    processor = BaseProcessor.from_file(source)
+    processor.process()
+    assert processor.processed
+    collection = ProcessorCollection()
+    collection.add_processor(processor)
+    collection.filter_locations(["Dry"])
+    assert len(collection.processors) == 1
+    assert processor.df.empty
+    assert processor.selected_unusable
+    assert processor.input_health == "INVALID"
+    collection.discard_raw_dataframes()
+
+    directory = tmp_path / "wp04-invalid.parquetdir"
+    collection.to_parquet(directory)
+    restored = ProcessorCollection.from_parquet(directory, locations=["Dry"])
+    assert len(restored.processors) == 1
+    invalid = restored.processors[0]
+    assert invalid.df.empty
+    assert invalid.processed
+    assert invalid.selected_unusable
+    assert invalid.input_health == "INVALID"
+    assert "Dry" in invalid.source_entity_presence["Location"]
+    assert restored.parquet_selection_diagnostics[0]["status"] == "INVALID"
+    assert len(restored.get_processors_by_data_type("PO").processors) == 1
+
+    absent = ProcessorCollection.from_parquet(directory, locations=["Absent"])
+    assert not absent.processors
+    assert absent.parquet_selection_diagnostics[0]["status"] == "ABSENT"
+
+
+def test_wp04_reprocessing_refreshes_source_signature_and_entity_evidence(
+    collection: ProcessorCollection,
+) -> None:
+    processor = collection.processors[0]
+    previous = processor.source_at_processing
+    assert previous is not None
+    processor.source_entity_presence = {"Chan ID": ["stale-channel"]}
+    source = processor.resolved_file_path
+    source.write_text(source.read_text(encoding="utf-8") + "3,2,3\n", encoding="utf-8")
+    processor.process()
+    assert processor.processed
+    assert processor.source_at_processing != previous
+    assert "stale-channel" not in processor.source_entity_presence.get("Chan ID", [])
+
+
+def test_wp04_selected_unusable_health_type_is_validated(collection: ProcessorCollection, tmp_path: Path) -> None:
+    directory = tmp_path / "invalid-health.parquetdir"
+    collection.to_parquet(directory)
+    manifest = _manifest(directory)
+    manifest["processors"][0]["health"]["selected_unusable"] = "false"
+    (directory / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(ValueError, match="health metadata"):
+        ProcessorCollection.from_parquet(directory)
+
+
 def test_orphan_staging_is_not_published(collection: ProcessorCollection, tmp_path: Path) -> None:
     dest = tmp_path / "stable.parquetdir"
     collection.to_parquet(dest)

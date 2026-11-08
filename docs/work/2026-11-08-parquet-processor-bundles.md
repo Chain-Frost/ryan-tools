@@ -1,8 +1,8 @@
 # Parquet-directory snapshots for native TUFLOW processor collections
 
-**Decision:** 8 November 2026. **Status:** Windows source/installed-wheel repairs validated; final pushed-head CI and independent review pending. **Next review:** 15 November 2026.
+**Decision:** 8 November 2026. **Status:** WP04-integrated parent reconciliation staged; combined-head CI, independent review and mapped/UNC native acceptance pending. **Next review:** 15 November 2026.
 
-**Scope:** [PR #293](https://github.com/Chain-Frost/ryan-tools/pull/293) stacked on draft [#251](https://github.com/Chain-Frost/ryan-tools/pull/251). [WP04 #284](https://github.com/Chain-Frost/ryan-tools/pull/284) remains a separate prerequisite; do not modify or merge it from this work front.
+**Scope:** [PR #293](https://github.com/Chain-Frost/ryan-tools/pull/293) stacked on draft [#251](https://github.com/Chain-Frost/ryan-tools/pull/251). WP04 #284 has been incorporated into the parent #251; retain its native validity, lifecycle and source-selection contracts.
 
 ## Revised architectural decision
 
@@ -166,3 +166,7 @@ Review-thread resolutions link these fixes and the existing RangeIndex,
 no-clobber, pinned-directory/generation, cleanup and EOF regressions. Linux-only
 identity tests and UNC/SMB acceptance are not relabelled as Windows passes.
 Final-head hosted validation and an independent fresh review remain separate.
+
+### 9 November 2026 — WP04 reconciliation
+
+The combined tree starts from draft #251 `feae324a`, preserving its CI and WP04 changes while incorporating #293 as the first commit parent without force pushing. Parquet now records `selected_unusable` and canonical native source identifiers, retains empty-invalid selections on restore, and renews original source signatures when a processor reprocesses a changed file. Three regression tests cover these contracts. New combined-head hosted CI, fresh independent Codex review and mapped/UNC/SMB native acceptance remain outstanding; no integration into #251 or main.

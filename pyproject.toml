@@ -39,7 +39,7 @@ dependencies = [
   "rich",
   "pytuflow>=1.2",
   "run-hy8>=2026.10.16.1",
-  'ryan-culverts>=26.10.16.1',
+  'ryan-culverts>=26.10.19.1',
 ]
 description = "Collection of TUFLOW and data processing functions."
 license = "SUL-1.0"

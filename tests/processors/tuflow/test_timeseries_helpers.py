@@ -82,3 +82,4 @@ def test_reshape_h_timeseries_mixed_suffixes():
     assert len(reshaped) == 1
     assert reshaped.iloc[0]["US_H"] == 10.0
     assert pd.isna(reshaped.iloc[0]["DS_H"])
+    assert reshaped["DS_H"].dtype == "float64"

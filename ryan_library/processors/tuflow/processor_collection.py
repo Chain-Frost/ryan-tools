@@ -262,7 +262,9 @@ class ProcessorCollection:
             processor.filter_locations(normalized_locations)
 
         filtered_processors: list[BaseProcessor] = [
-            processor for processor in self.processors if not processor.df.empty
+            processor
+            for processor in self.processors
+            if not processor.df.empty or (processor.selected_unusable and processor.input_health == "INVALID")
         ]
         removed_processors: int = len(self.processors) - len(filtered_processors)
         self.processors = filtered_processors
@@ -762,7 +764,10 @@ class ProcessorCollection:
         filtered_collection = ProcessorCollection()
         for processor in self.processors:
             if processor.data_type in data_types:
-                filtered_collection.add_processor(processor)
+                if processor.selected_unusable and processor.input_health == "INVALID":
+                    filtered_collection.processors.append(processor)
+                else:
+                    filtered_collection.add_processor(processor)
 
         logger.debug(
             "Filtered ProcessorCollection created with {} processors matching data types {}.",

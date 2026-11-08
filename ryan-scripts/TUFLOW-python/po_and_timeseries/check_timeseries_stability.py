@@ -1,8 +1,9 @@
 """Run configurable stability checks on TUFLOW PO and 1D Q time-series CSVs.
 
 Review the editable configuration for search roots/glob, result and datatype
-filters, locations, flatness/difference tolerances, rolling windows, output
-paths, and dashboard settings. Run
+filters, locations, flatness/difference tolerances, whole-record significant
+sign-change counts, output paths, and dashboard settings. The algorithm does not
+implement a rolling time window. Run
 ``python check_timeseries_stability.py --help`` to select export mode or limit
 result types at the command line.
 
@@ -15,7 +16,7 @@ import os
 from pathlib import Path
 from typing import Literal
 
-WRAPPER_VERSION = "2026-11-08.1"
+WRAPPER_VERSION = "2026-11-08.2"
 PAUSE_ON_FINISH = True
 
 CONSOLE_LOG_LEVEL = "INFO"

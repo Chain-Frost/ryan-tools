@@ -63,6 +63,23 @@ if processor.processed:
 ```
 
 A successful processor must expose its processed rows through `processor.df` and set `processor.processed = True`.
+Each maintained WP04 processor invocation resets old processed/raw frames,
+success and filter state, and rejected-sample diagnostics. A valid no-match
+selection reports SKIP; an existing PO location with wholly rejected
+readings reports INVALID/FAIL even when its selected processed table
+becomes empty. The source-header location evidence is retained through
+collection filtering and copying, without fabricating a hydraulic value.
+
+`input_health`, `rejected_samples` and `rejection_reasons` report
+input validity separately from hydraulic significance. The documented
+dry-level `-99999` and `**********` markers are excluded from
+derived peaks while real zeros, signed flow/velocity and negative
+level datums remain valid. `rejected_samples` counts rejected source
+readings; POMM `all_missing_extrema` in `rejection_reasons` is a
+separate derived unusable-row count and not another source sample.
+The QA stability heuristic counts significant changes over the whole
+record, not a rolling time interval.
+
 `processor.raw_df` may retain an intermediate input table for diagnostics; call `discard_raw_dataframe()` after it is
 no longer needed.
 
@@ -478,3 +495,39 @@ IDs and timestamps; it is **not** a replacement for node summary
 All readers retain source float64 precision, signed and zero values and
 reserved no-data as missing; the protected exporters use separate
 workbooks/Parquet files and do not modify input results.
+
+## Model/domain and cumulative node mass balance (#236)
+
+The `_MB.csv`, `_MB1D.csv` and `_MB_HPC.csv` formats use **separate**
+model/domain histories and keep their original named metrics in `Type`,
+original simulation hours in `Time` and their source scope in `Location`.
+For example, `Q ME (%)` and `Cum ME (%)` are source percentage fields,
+not hydraulic flows; `nRS_NaNs`, `iStep` and `dtTarget` are retained as
+HPC diagnostic fields where present. No automatic engineering acceptance
+threshold is invented. Call `model_mass_balance.main_processing` on the
+model result directory. Discovery distinguishes the canonical registry suffix
+`_1d_MB.csv` from `_MB.csv` before input availability checks; an
+unrequested node summary cannot invalidate a model-only export.
+
+The node `_1d_MB.csv` prelude is **not** an ordinary wide time-series
+header. `MBNodeProcessor` explicitly reads its source-provided
+`Cum %ME`, `Cum VE`, `Cum VQ` summary rows and node identifiers
+without treating the subsequent source `Time` rows as part of that
+summary. Call `node_mass_balance_summary.main_processing`. The existing
+`_1d_TSMB.csv` adapter is a distinct node history in
+`node_mass_balance_history.main_processing`.
+
+## Optional native time-series containers: held for parity validation
+
+Native TUFLOW time-series NetCDF and dedicated GPKG have **not** been
+registered as generic `BaseProcessor` readers. The pinned PyTuflow public
+TPC interface has CSV/NetCDF/GPKG dispatch and genuine [NetCDF fixtures](https://github.com/Chain-Frost/PyTuflow/tree/b1026d0cf72118ef68a0b6229610f427a7284e10/tests/nc_ts)
+and [GPKG fixtures](https://github.com/Chain-Frost/PyTuflow/tree/b1026d0cf72118ef68a0b6229610f427a7284e10/tests/tpc_gpkg), whereas the selected ryan-tools example
+corpus has CSV-only TPC inventories. Native adoption must preserve TPC
+association, location and measurement selection before materialisation,
+float precision, no-data, model units/reference time, and exact
+CSV-native numerical/report parity. Dedicated GPKG is not the legacy
+`*_Results.gpkg` TS layer (which can be time-thinned); structure-group
+support must not be inferred. Benchmark selected reads and RSS/disk I/O
+under #229 before claiming a performance benefit. No dependency repin,
+new TPC parser or unsupported native format claim is made here.

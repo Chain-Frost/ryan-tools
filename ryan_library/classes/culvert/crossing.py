@@ -110,7 +110,43 @@ class CircularBarrelDefinition:
         object.__setattr__(self, "label", self.label.strip())
 
 
-type BarrelDefinition = RectangularBarrelDefinition | CircularBarrelDefinition
+@dataclass(frozen=True, slots=True)
+class HorizontalEllipseBarrelDefinition:
+    """Project-defined mathematical concrete ellipse; dimensions in millimetres."""
+
+    span_mm: float
+    rise_mm: float
+    length: float
+    inlet_invert: float
+    outlet_invert: float
+    roughness: float
+    physical_inlet: str
+    material: CulvertMaterialName = CulvertMaterialName.CONCRETE_PIPE
+    label: str = ""
+
+    def __post_init__(self) -> None:
+        if self.material is not CulvertMaterialName.CONCRETE_PIPE:
+            msg = "Horizontal ellipses require material='concrete_pipe'."
+            raise ValueError(msg)
+        if self.physical_inlet != "square_edge_headwall":
+            msg = "Horizontal ellipses require explicit physical_inlet='square_edge_headwall'."
+            raise ValueError(msg)
+        for name in ("span_mm", "rise_mm", "length", "roughness"):
+            object.__setattr__(self, name, _positive(getattr(self, name), name))
+        if self.span_mm <= self.rise_mm:
+            msg = "Horizontal ellipses require span_mm > rise_mm; axes are never rotated."
+            raise ValueError(msg)
+        inlet = _finite(self.inlet_invert, "inlet_invert")
+        outlet = _finite(self.outlet_invert, "outlet_invert")
+        if outlet > inlet:
+            msg = "outlet_invert must not exceed inlet_invert."
+            raise ValueError(msg)
+        object.__setattr__(self, "inlet_invert", inlet)
+        object.__setattr__(self, "outlet_invert", outlet)
+        object.__setattr__(self, "label", self.label.strip())
+
+
+type BarrelDefinition = RectangularBarrelDefinition | CircularBarrelDefinition | HorizontalEllipseBarrelDefinition
 
 
 @dataclass(frozen=True, slots=True)

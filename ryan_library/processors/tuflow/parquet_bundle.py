@@ -291,6 +291,15 @@ def _identifier_values(frame: DataFrame, name: str) -> set[str]:
 def _entity_evidence(processor: BaseProcessor) -> tuple[dict[str, list[str]], dict[str, list[str]]]:
     frame_values: dict[str, list[str]] = {}
     source_values: dict[str, set[str]] = {key: set(values) for key, values in processor.source_entity_presence.items()}
+    # WP04 preserves canonical source identifiers even for wholly rejected locations.
+    for attribute, column in (("source_locations", "Location"), ("source_channels", "Chan ID")):
+        observed: object = getattr(processor, attribute, None)
+        if isinstance(observed, (set, frozenset)):
+            values = source_values.setdefault(column, set())
+            for item in cast("set[object] | frozenset[object]", observed):
+                identifier = str(item).strip()
+                if identifier:
+                    values.add(identifier)
     for name in dict.fromkeys(("Location", *processor.get_entity_id_columns())):
         if name in processor.df.columns:
             values = _identifier_values(processor.df, name)
@@ -340,7 +349,8 @@ def _source_entry(processor: BaseProcessor, index: int) -> dict[str, Any]:
             "input_health": str(getattr(processor, "input_health", "OK")),
             "rejected_samples": int(getattr(processor, "rejected_samples", 0)),
             "rejection_reasons": rejections,
-            "filtered_empty": bool(getattr(processor, "filtered_empty", False)),
+            "filtered_empty": bool(processor.filtered_empty),
+            "selected_unusable": bool(processor.selected_unusable),
         },
     }
 
@@ -724,6 +734,7 @@ def _restore_processor(directory: Path, entry: dict[str, Any], *, verify_sources
             for key, value in cast("dict[object, object]", reasons).items()
         )
         or not isinstance(health.get("filtered_empty"), bool)
+        or not isinstance(health.get("selected_unusable"), bool)
     ):
         message = "Parquet directory processor health metadata is invalid"
         raise ValueError(message)
@@ -731,6 +742,7 @@ def _restore_processor(directory: Path, entry: dict[str, Any], *, verify_sources
     processor.rejected_samples = rejected
     processor.rejection_reasons = cast("dict[str, int]", reasons)
     processor.filtered_empty = cast("bool", health["filtered_empty"])
+    processor.selected_unusable = cast("bool", health["selected_unusable"])
     processor.source_entity_presence = _entity_index(entry, "source_entities")
     # The factory may have sampled a different source now. Restore the exact
     # processing-time identity, including for explicit offline/historical reads.
@@ -1074,7 +1086,11 @@ def read_collection_bundle(  # noqa: C901
             )
             continue
         restored = _restore_processor(active, entry, verify_sources=verify_sources)
-        collection.add_processor(restored)
+        # WP04 intentionally retains processed empty-invalid selections.
+        if restored.selected_unusable and restored.input_health == "INVALID":
+            collection.processors.append(restored)
+        else:
+            collection.add_processor(restored)
         selected.append((entry, restored, source_hit))
     if lookup is not None:
         result = _rehydrate_categories(_read_verified_frame(active, lookup), lookup.get("frame"))

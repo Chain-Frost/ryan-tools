@@ -113,6 +113,7 @@ but they are not current architectural policy when they conflict with the canoni
 | [Master log append outcomes and safe workbook publication](work/2026-11-08-master-log-append-196.md) | WP08 #196: supported-filesystem append, safe SMB refusal, whole-workflow failure reporting and native acceptance |
 | [WP08 POMM, PO QA and closure dashboard adoption](work/2026-11-08-po-qa-dashboard-198.md) | #198 implementation in stacked #265; QA per-file outcomes, POMM and closure workflow lifecycle, validation and unresolved native/partial-input gates |
 | [WP09 PO closure population and scenario identity](work/2026-11-08-wp09-closure-populations.md) | #215 valid zero-duration TP retention, scenario-specific grouping, invalid-population contracts and review and independent Windows 10 source/wheel/wrapper acceptance (56/56 tests; 6/6 hosted CI) |
+| [WP04 processor health, canonical selection and lifecycle](work/2026-11-08-wp04-processor-validity.md) | #219/#220/#223 valid/invalid-source outcomes, culvert filters and lifecycle regressions |
 | [WP10 PO scenario plotting fidelity](work/2026-11-08-wp10-po-scenario-plotting.md) | #225 scenario identity / Q-H plotting, source-provenance Parquet cache, safe NTFS PNG/cache writes; 17 native passes and genuine source/wheel parity |
 | [WP11 fixture contracts and measured PO scalability](work/2026-11-08-wp11-fixture-benchmarks.md) | #228 strict pinned TLF/PO fixture contracts and #229 resource-guarded scaled benchmark; 18 native tests and 32 source/installed scaled cases passed |
 | [Dashboard defaults and background file properties](work/2026-11-07-dashboard-file-properties.md) | Shared presentation defaults, nonblocking file-size metadata and preserved legacy banner calls |
@@ -154,6 +155,7 @@ but they are not current architectural policy when they conflict with the canoni
 | [Fast PR checks and hosted timing](work/2026-10-17-fast-pr-checks-129.md) | Historical PR #129 independent workflow implementation and timing evidence |
 | [Mapped-drive-safe filesystem paths and raster progress](work/2026-10-16-absolute-path-policy.md) | PR #128 path policy, multiline raster progress, retained-wheel rebuild blocker and validation handoff |
 | [GitHub CI implementation handoff](work/2026-10-07-github-ci.md) | Implemented hosted checks, external-software boundaries and validation record |
+| [WP15 culvert/HY-8 engineering evidence](work/2026-11-08-wp15-culvert-engineering-evidence.md) | #101–#103 current physical source/API matrix, upstream evidence, native package and blockage-data gates, Windows validation handoff |
 | [TUFLOW culvert engine validation](work/2026-10-08-tuflow-culvert-engines-99.md) | PR #100 retained-wheel repair, numerical evidence and outstanding source-data acceptance |
 | [PyPI release automation](work/2026-10-15-release-automation.md) | Merge-only release policy, release opt-outs, validation and historical publication evidence |
 | [CI validation efficiency](work/2026-10-15-ci-validation.md) | Actionlint enforcement, focused dependencies and publication-wheel smoke validation |
