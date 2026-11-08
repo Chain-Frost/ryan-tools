@@ -16,7 +16,64 @@ concurrency:
   cancel-in-progress: ${{ github.event_name != 'push' || github.ref != 'refs/heads/main' }}
 
 jobs:
+  scope:
+    name: Determine PR CI scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      full: ${{ steps.classify.outputs.full }}
+    steps:
+      - name: Checkout PR merge revision
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
+
+      - name: Require full validation except for Markdown-only PRs
+        id: classify
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          # Full checks remain mandatory on every main push and manual run:
+          # release automation is triggered by successful post-merge Python CI.
+          if [[ "$EVENT_NAME" != "pull_request" || -z "$BASE_SHA" ]]; then
+            echo "full=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # A missing comparison base must never cause heavy tests to be skipped.
+          if ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+            if ! git fetch --no-tags --depth=1 origin "$BASE_SHA"; then
+              echo "full=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+          if ! git diff --name-only -z "$BASE_SHA" "$GITHUB_SHA" > "$RUNNER_TEMP/ci-changed-paths.nul"; then
+            echo "full=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Empty/ambiguous changes fail open to all checks.
+          if [[ ! -s "$RUNNER_TEMP/ci-changed-paths.nul" ]]; then
+            echo "full=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          while IFS= read -r -d '' changed; do
+            case "$changed" in
+              *.md|*.MD|*.markdown|*.MARKDOWN) ;;
+              *)
+                echo "full=true" >> "$GITHUB_OUTPUT"
+                echo "Full CI required by: $changed"
+                exit 0
+                ;;
+            esac
+          done < "$RUNNER_TEMP/ci-changed-paths.nul"
+          echo "full=false" >> "$GITHUB_OUTPUT"
+          echo "Markdown-only PR: Windows test/package and POSIX regression jobs are skipped."
+
   posix-wrapper-security:
+    needs: [scope]
+    if: needs.scope.outputs.full == 'true'
     name: POSIX wrapper security
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -42,6 +99,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: installed-script-audit
+          retention-days: 7
           path: |
             ${{ runner.temp }}/installed-scripts-audit.json
             ${{ runner.temp }}/installed-scripts-audit.md
@@ -169,6 +227,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
   mcp-smoke:
+    needs: [scope]
+    if: needs.scope.outputs.full == 'true'
     # Python 3.14 is the minimum supported runtime. Preserve focused MCP
     # coverage without claiming Python 3.13 compatibility.
     name: MCP smoke
@@ -244,6 +304,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
   hosted-tests:
+    needs: [scope]
+    if: needs.scope.outputs.full == 'true'
     name: Hosted tests
     runs-on: windows-latest
     timeout-minutes: 35
@@ -314,10 +376,13 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: hosted-test-report
+          retention-days: 7
           path: test-results/hosted-tests.xml
           if-no-files-found: warn
 
   package:
+    needs: [scope]
+    if: needs.scope.outputs.full == 'true'
     name: Package
     runs-on: windows-latest
     timeout-minutes: 25
@@ -427,5 +492,6 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: verified-ryan-tools-wheel
+          retention-days: 14
           path: dist/ryan_tools-*.whl
           if-no-files-found: error

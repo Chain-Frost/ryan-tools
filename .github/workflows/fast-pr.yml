@@ -1,8 +1,7 @@
 name: Fast PR checks
 
 on:
-  push:
-    branches: [main]
+  # Main pushes are already linted by the release-gating Python CI workflow.
   pull_request:
   workflow_dispatch:
 
@@ -17,7 +16,7 @@ concurrency:
 jobs:
   fast-checks:
     name: Ruff and whitespace
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     timeout-minutes: 10
 
     # Independent of Python CI: do not delay full tests with a 'needs' dependency.

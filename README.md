@@ -55,25 +55,21 @@ ryan-tools/
 
 ## Set up the repository
 
-This repository uses Git submodules and Git LFS for workbook resources. Install Git LFS, then clone recursively:
+The repository uses Git submodules and Git LFS for optional workbook resources. **Do not use recursive submodule checkout**: the `unsorted` submodule is excluded from all automated work. Initialise only the required, maintained submodules.
 
 ```powershell
-git lfs install
-git clone --recurse-submodules https://github.com/Chain-Frost/ryan-tools.git
+git clone https://github.com/Chain-Frost/ryan-tools.git
 cd ryan-tools
-git lfs pull
-git -C qgis-resources lfs pull
-git -C excel-resources lfs pull
+git submodule update --init tests/test_data qgis-resources excel-resources
 ```
 
-For an existing clone:
+For an existing checkout, initialise only the missing submodules needed for the current work:
 
 ```powershell
-git submodule update --init --recursive
-git lfs pull
-git -C qgis-resources lfs pull
-git -C excel-resources lfs pull
+git submodule update --init tests/test_data qgis-resources excel-resources
 ```
+
+Git LFS binary downloads are **not required for routine source and CI checks**. Install Git LFS when you need an LFS-tracked workbook, then retrieve only the resources required for that task (for example, `git -C excel-resources lfs pull --include="*.xlsx"`). Avoid unconditional `git lfs pull` in every checkout: repeated downloads consume the account's LFS bandwidth allowance.
 
 The test suite requires `tests/test_data`; it does not download or substitute those fixtures automatically. Because
 `run_hy8` and `culvert_solver` are independent PyPI dependencies (`run-hy8` and `ryan-culverts`), not Git submodules or bundled code. Install `ryan-tools` with pip to resolve supported dependencies automatically. Python 3.14 or newer is the supported runtime for `ryan-tools` and its published dependencies; bypassing `Requires-Python` during installation does not make older interpreters compatible.
