@@ -7,6 +7,7 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
+from ryan_library.mcp.server import inspect_tuflow_collection, inspect_tuflow_result
 from ryan_library.functions.tuflow.po_timeseries_checks import (
     PeakCheckConfig,
     StabilityCheckConfig,
@@ -150,7 +151,7 @@ def test_pomm_sentinel_does_not_govern_extrema_and_negative_flow_is_retained(tmp
     flow = results.loc["Flow"]
     assert cast("float", upstream["AbsMax"]) == pytest.approx(40.9482)
     assert cast("float", upstream["SignedAbsMax"]) == pytest.approx(40.9482)
-    assert bool(pd.isna(upstream["Min"]))
+    assert cast("float", upstream["Min"]) == -99999
     assert cast("float", downstream["AbsMax"]) == pytest.approx(40.7525)
     assert cast("float", downstream["SignedAbsMax"]) == pytest.approx(40.7525)
     assert cast("float", flow["AbsMax"]) == 5.0
@@ -212,6 +213,109 @@ def test_pomm_keeps_unusable_tp_provenance_for_population_counts(tmp_path: Path)
     assert winning["tp_population_status"] == "PARTIAL"
 
 
+
+def _pomm_two_location_path(folder: Path) -> Path:
+    """One wholly unusable and one usable level at distinct POMM locations."""
+    path = folder / f"{RUN}_POMM.csv"
+    pd.DataFrame(
+        {
+            0: [RUN] * 6,
+            1: [
+                "Location",
+                "Time",
+                "Maximum (Extracted from Time Series)",
+                "Time of Maximum",
+                "Minimum (Extracted From Time Series)",
+                "Time of Minimum",
+            ],
+            2: ["U/S Structure Water Level", "Dry", "-99999", "1", "-99999", "2"],
+            3: ["U/S Structure Water Level", "Wet", "41", "1", "40", "2"],
+        }
+    ).to_csv(path, index=False, header=False)
+    return path
+
+
+def test_pomm_selection_reclassifies_only_unusable_locations(tmp_path: Path) -> None:
+    path = _pomm_two_location_path(tmp_path)
+    selected = POMMProcessor(file_path=path, entity_filter=frozenset({"Dry"}))
+    selected.process()
+    assert selected.processed
+    assert selected.input_health == "INVALID"
+    assert _result_status(selected) == "FAIL"
+    assert selected.df["AbsMax"].isna().all()
+    assert len(selected.df) == 1
+
+    missing = POMMProcessor(file_path=path, entity_filter=frozenset({"Absent"}))
+    missing.process()
+    assert not missing.processed
+    assert missing.filtered_empty
+    assert _result_status(missing) == "SKIP"
+
+
+def test_hdf_roundtrip_retains_invalid_processor_health_and_tp_evidence(tmp_path: Path) -> None:
+    pytest.importorskip("tables")
+    pytest.importorskip("pyarrow")
+    path = _pomm_two_location_path(tmp_path)
+    selected = POMMProcessor(file_path=path, entity_filter=frozenset({"Dry"}))
+    selected.process()
+    assert selected.processed
+    assert _result_status(selected) == "FAIL"
+    source = ProcessorCollection()
+    source.add_processor(selected)
+    cache = tmp_path / "invalid-health.h5"
+    source.to_hdf(cache)
+    loaded = ProcessorCollection.from_hdf(cache)
+    assert len(loaded.processors) == 1
+    restored = loaded.processors[0]
+    assert restored.processed
+    assert restored.input_health == "INVALID"
+    assert restored.rejected_samples == selected.rejected_samples
+    assert restored.rejection_reasons == selected.rejection_reasons
+    assert restored.df["AbsMax"].isna().all()
+    assert _result_status(restored) == "FAIL"
+
+
+def test_mcp_exposes_invalid_health_without_losing_raw_population(tmp_path: Path) -> None:
+    path = _pomm_two_location_path(tmp_path)
+    single = inspect_tuflow_result(file_path=str(path), locations=["Dry"])
+    assert single["processed"] is True
+    assert single["workflow_status"] == "FAIL"
+    assert single["input_health"] == "INVALID"
+    assert single["rejected_samples"] == 2
+    assert single["rejection_reasons"]["no_data"] == 2
+    collection = inspect_tuflow_collection(file_paths=[str(path)], locations=["Dry"])
+    assert len(collection["processors"]) == 1
+    report = collection["processors"][0]
+    assert report["processed"] is True
+    assert report["workflow_status"] == "FAIL"
+    assert report["rejected_samples"] == single["rejected_samples"]
+
+
+def test_selected_wholly_invalid_q_is_fail_not_absent_entity_skip(tmp_path: Path) -> None:
+    path = _file(
+        tmp_path,
+        "_1d_Q.csv",
+        "Descriptor,Time,Q C1,Q C2\nrow,0,inf,1\nrow,1,inf,2\n",
+    )
+    existing = QProcessor(file_path=path, entity_filter=frozenset({"C1"}))
+    existing.process()
+    assert not existing.processed
+    assert not existing.filtered_empty
+    assert existing.input_health == "INVALID"
+    assert _result_status(existing) == "FAIL"
+    assert existing.rejection_reasons["nonfinite"] == 2
+
+    absent = QProcessor(file_path=path, entity_filter=frozenset({"C3"}))
+    absent.process()
+    assert not absent.processed
+    assert absent.filtered_empty
+    assert _result_status(absent) == "SKIP"
+
+    valid = QProcessor(file_path=path, entity_filter=frozenset({"C2"}))
+    valid.process()
+    assert valid.processed
+    assert valid.df["Q"].tolist() == [1.0, 2.0]
+
 def test_po_mask_sentinel_before_absolute_values_with_valid_zero_and_negative(tmp_path: Path) -> None:
     path = _file(
         tmp_path,
@@ -224,7 +328,8 @@ def test_po_mask_sentinel_before_absolute_values_with_valid_zero_and_negative(tm
     assert processor.input_health == "PARTIAL"
     assert processor.rejection_reasons["no_data"] == 1
     levels = processor.df[processor.df["Type"] == "HU"]
-    assert levels["AbsValue"].tolist() == [40.9482, 40.0]
+    assert levels["Value"].tolist() == [40.9482, -99999.0, 40.0]
+    assert levels["AbsValue"].dropna().tolist() == [40.9482, 40.0]
     flows = processor.df[processor.df["Type"] == "Flow"]
     assert flows["Value"].tolist() == [-5.0, 0.0, 2.0]
     assert flows["AbsValue"].tolist() == [5.0, 0.0, 2.0]

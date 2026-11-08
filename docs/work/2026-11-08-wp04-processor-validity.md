@@ -25,7 +25,10 @@
 - Hydraulic values: shared sample classifier rejects missing/nonfinite/non-numeric
   values and explicitly handles `**********`. TUFLOW's `-99999` is masked for
   recognised structure water levels before PO `AbsValue`, POMM
-  `AbsMax`/`SignedAbsMax`, timeseries H and PO QA. Usable POMM maxima
+  `AbsMax`/`SignedAbsMax`, timeseries H and PO QA.
+  Raw PO `Value` and POMM `Max`/`Min` retain source dry-level sentinel
+  rows/values for EG02 provenance, while derived `AbsValue`,
+  `AbsMax`/`SignedAbsMax` explicitly mask their invalid numerical effects. Usable POMM maxima
   survive a missing minimum; wholly unusable extrema do not rank as zero.
   Unusable POMM rows retain NaN extrema and event/TP provenance for
   `pomm_utils` population counts. All-invalid POMM files can remain
