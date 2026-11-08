@@ -133,8 +133,7 @@ class TimeSeriesProcessor(BaseProcessor):
                 # Keep canonical .1/.2 channel presence before pivot_table
                 # removes rows whose upstream/downstream samples are all blank.
                 self._selected_h_source_present = any(
-                    label.endswith((".1", ".2")) and label[:-2].strip() in selected_filter
-                    for label in df_clean.columns
+                    label.endswith((".1", ".2")) and label[:-2].strip() in selected_filter for label in df_clean.columns
                 )
 
             df_melted: pd.DataFrame = self._reshape_timeseries_df(df=df_clean, data_type=data_type)
