@@ -263,6 +263,34 @@ def test_version_only_pyproject_change_still_requires_package_validation(reposit
 
 
 @pytest.mark.parametrize(
+    ("backend", "broad"),
+    [("tables>=3.11.1", False), ("tables>=3.11.2", True), ("h5py>=3", True)],
+)
+def test_hdf_cache_backend_and_version_change_scope(repository: Path, backend: str, *, broad: bool) -> None:
+    before = PROJECT_METADATA.replace(
+        "[tool.ruff]",
+        '[project.optional-dependencies]\ndev = ["build", "ruff==0.16.6", "pyright"]\n\n[tool.ruff]',
+    )
+    _write(repository, "pyproject.toml", before)
+    _write(repository, "typings/types.pyi", "value: int\n")
+    base = _commit(repository)
+    after = before.replace('version = "26.11.8.1"', 'version = "26.11.8.4"').replace(
+        'dev = ["build", "ruff==0.16.6", "pyright"]',
+        f'cache = ["{backend}"]\ndev = ["build", "{backend}", "ruff==0.16.6", "pyright"]',
+    )
+    _write(repository, "pyproject.toml", after)
+    _write(repository, "source.py", "value = 2\n")
+    _commit(repository)
+
+    scope = _scope(repository, base)
+
+    assert scope["full"]
+    expected = ["source.py", "typings/types.pyi"] if broad else ["source.py"]
+    assert scope["lint_files"] == expected
+    assert scope["type_files"] == expected
+
+
+@pytest.mark.parametrize(
     "extra_change",
     [
         'dependencies = ["numpy"]\n',
