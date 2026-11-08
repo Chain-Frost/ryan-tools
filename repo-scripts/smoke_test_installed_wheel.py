@@ -405,6 +405,37 @@ def _check_vendored_similarity() -> None:
         raise RuntimeError(msg)
 
 
+def _check_installed_initialiser_resources() -> None:
+    """Require the migrated CLI registration and all canonical templates in the wheel."""
+    distribution = importlib.metadata.distribution("ryan-tools")
+    scripts = [
+        entry.value
+        for entry in distribution.entry_points
+        if entry.group == "console_scripts" and entry.name == "tuflow-initialiser"
+    ]
+    expected = "ryan_library.orchestrators.tuflow.initialiser.cli:main"
+    if scripts != [expected]:
+        msg = f"Installed wheel initialiser entry point differs from {expected}: {scripts}"
+        raise RuntimeError(msg)
+    templates = importlib.resources.files("ryan_library.resources.tuflow_templates")
+    for filename in (
+        "model/BOUND_01.tbc",
+        "model/EVENTS_01.tef",
+        "model/GEOM_01.tgc",
+        "model/Materials_01.csv",
+        "model/Soil_01.tsoilf",
+        "runs/Create_Empties.tcf",
+        "runs/__project___01_~s2~_~s1~_~e1~_~e2~_~e4~_~e3~_~e5~_~s4~.tcf",
+        "runs/empties.bat",
+        "runs/model_cell_sizes_01.trd",
+        "runs/run_times_01.trd",
+    ):
+        if not templates.joinpath(filename).is_file():
+            msg = f"Installed wheel is missing initialiser template {filename}"
+            raise RuntimeError(msg)
+    print("Installed initialiser entry point and canonical TUFLOW templates verified.")
+
+
 def _check_installed_script_help() -> None:
     """Run only help for representative installed CLI wrappers, without a checkout."""
     if importlib.util.find_spec("geopandas") is None:
@@ -479,6 +510,7 @@ def main(argv: list[str] | None = None) -> int:
         msg = "Installed run_hy8 public API is incomplete."
         raise RuntimeError(msg)
 
+    _check_installed_initialiser_resources()
     _check_installed_scripts()
     _check_installed_keyword_discovery()
     asyncio.run(_check_installed_overview_validation())

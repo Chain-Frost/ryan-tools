@@ -48,6 +48,7 @@ def _gdalwarp_fails(
     cutline_path: Path,
     cutline_layer: str,
     crs: str,
+    **_kwargs: object,
 ) -> bool:
     del input_file, output_file, cutline_path, cutline_layer, crs
     return False

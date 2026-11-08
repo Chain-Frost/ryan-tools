@@ -18,6 +18,36 @@ from pathlib import Path
 
 WRAPPER_VERSION = "2026-11-08.1"
 
+EXPECTED_TP_COUNT: int = 10
+# Check missing durations only within each group's sampled range.
+# Edit this list to match the study's adopted ARR duration schedule (minutes).
+STANDARD_DURATIONS_MINUTES: list[int] = [
+    10,
+    15,
+    20,
+    25,
+    30,
+    45,
+    60,
+    90,
+    120,
+    180,
+    270,
+    360,
+    540,
+    720,
+    1080,
+    1440,
+    1800,
+    2160,
+    2880,
+    4320,
+    5760,
+    7200,
+    8640,
+    10080,
+]
+
 CONSOLE_LOG_LEVEL = "INFO"  # or "DEBUG"
 USE_LIVE_DASHBOARD = True
 LIVE_REFRESH_PER_SECOND = 2.0
@@ -94,16 +124,18 @@ def main(
     try:
         outcome = export_mean_peak_report(
             script_directory=target_directory,
-            paths_to_process=effective_paths or None,
+            paths_to_process=effective_paths if paths_to_process is not None or PATHS_TO_PROCESS else None,
             log_level=CONSOLE_LOG_LEVEL if console_log_level is None else console_log_level,
             include_pomm=INCLUDE_POMM,
             locations_to_include=effective_locations or None,
-            include_data_types=effective_data_types or None,
+            include_data_types=effective_data_types,
             use_live_dashboard=USE_LIVE_DASHBOARD if use_live_dashboard is None else use_live_dashboard,
             live_refresh_per_second=(
                 LIVE_REFRESH_PER_SECOND if live_refresh_per_second is None else live_refresh_per_second
             ),
             live_max_rows=LIVE_MAX_ROWS if live_max_rows is None else live_max_rows,
+            standard_durations=STANDARD_DURATIONS_MINUTES,
+            expected_tp_count=EXPECTED_TP_COUNT,
         )
     except KeyboardInterrupt:
         logger.warning("POMM mean peak report interrupted.")

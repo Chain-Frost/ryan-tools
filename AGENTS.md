@@ -129,8 +129,8 @@ dependency is already installed. In an environment that cannot save binary artif
 supported and state that a maintainer must rebuild the wheel locally. Use `--no-bump` for a verification rebuild of the
 current declared version; it must not modify `pyproject.toml`.
 
-After a local build, inspect Git status for version, wheel and index changes. Preserve working-tree changes and do not
-leave files staged unless they are part of an intentional task-related staging or commit operation.
+After a local build, inspect Git status for version, wheel and index changes. Preserve unrelated working-tree and
+index changes; staging and committing the requested work and its build artifacts are permitted.
 
 ## Environment notes
 
@@ -203,8 +203,7 @@ nearest local README or workflow document when it defines a more specific contra
   Keep one authoritative status record per work front, normally a dated file under `docs/work/`, and register it.
 - Before handing back unfinished work, and at milestones, blockers or completion, update the record and register row
   with current status, next action, validation evidence, Git delivery state and next review date. Preserve unrelated
-  records and staged changes. Commit task-related handoff updates when appropriate; merge only when explicitly
-  instructed by the user.
+  records and staged changes. Scoped staging and commits may include handoff updates; preserve unrelated work.
 - Link new records directly from [`docs/README.md`](docs/README.md). Local READMEs and the repository roadmap should
   point to the record where useful, rather than duplicate its session history. Small completed fixes need no new file.
 

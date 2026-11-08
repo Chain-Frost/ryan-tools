@@ -49,6 +49,7 @@ These documents stay near the code they describe so that browsing a target direc
 | Missing TUFLOW runs | [Filename ensemble inference](../ryan-scripts/tuflow/MISSING_RUNS.md) | Folder scanning, inferred scenario/event permutations and reporting limits |
 | Culvert analysis/design | [Culvert analysis and design workflow](CULVERT_WORKFLOW.md) | Project/scenario models, solver boundary, design search, rating curves, CLI and output contracts |
 | TUFLOW culvert engines | [Selectable TUFLOW culvert engines](TUFLOW_CULVERT_ENGINES.md) | TUFLOW Maximums/1d_nwk ingestion, HY-8 vs ryan-culverts dispatch, output and ownership boundaries |
+| TUFLOW initialiser | [Initialiser implementation](../ryan_library/orchestrators/tuflow/initialiser/README.md) | Hydrology function boundaries, TUFLOW project generation and Windows QA gates |
 | TUFLOW processors | [Processor development notes](../ryan_library/processors/tuflow/README.md) | Processor lifecycle, collections, combinations, filtering, caching and extension |
 | TUFLOW wrappers | [TUFLOW Python wrappers](../ryan-scripts/TUFLOW-python/README.md) | Maintained entry points, shared CLI behavior and wrapper selection |
 | TUFLOW run preflight | [Proposed-run input preflight](TUFLOW_INPUT_PREFLIGHT.md) | Check event/scenario-dependent input references, boundary source CSVs and GPKG layers before launching simulations |
@@ -104,6 +105,7 @@ but they are not current architectural policy when they conflict with the canoni
 | Document | Scope and status |
 | --- | --- |
 | [WP06 owned-output publication](work/2026-11-08-wp06-publication.md) | Profile PNG staging, archive and GDAL output safety, validation and stacked PR delivery |
+| [WP07 file discovery and input outcomes](work/2026-11-08-wp07-file-discovery.md) | #203 finder cycle protection and #195 truthful input outcomes accepted with Windows 10/SMB limits; integrated into draft #251 via #257/#268 |
 | [Missing TLF ensemble inference](work/2026-11-07-missing-tlf-ensembles.md) | Folder inference implementation, local validation and delivery |
 | [WP08 POMM, PO QA and closure dashboard adoption](work/2026-11-08-po-qa-dashboard-198.md) | #198 implementation in stacked #265; QA per-file outcomes, POMM and closure workflow lifecycle, validation and unresolved native/partial-input gates |
 | [Dashboard defaults and background file properties](work/2026-11-07-dashboard-file-properties.md) | Shared presentation defaults, nonblocking file-size metadata and preserved legacy banner calls |
@@ -114,6 +116,16 @@ but they are not current architectural policy when they conflict with the canoni
 | [TUFLOW batch preflight optimisation](work/2026-10-22-tuflow-batch-preflight-optimisation.md) | Stacked draft against PR #143: consume PyTUFLOW batch API, share GIS/filesystem inspection, preserve parity and benchmark 500-run workloads |
 | [TUFLOW runner model checks](work/2026-10-23-tuflow-runner-model-checks.md) | PR #159 current decisions, implementation, validation and delivery state |
 | [TUFLOW GPU availability alerts and CodeMeter validation](work/2026-11-03-tuflow-gpu-alerts-193.md) | PR #193 implementation, measured evidence, validation and delivery state |
+| [TGC terrain crop workflow](work/2026-11-04-tgc-terrain-crop.md) | PR #204 source precedence, native-grid clipping, polygon QA and acceptance limits |
+| [TUFLOW initialiser — README.md](work/tuflow-initialiser/README.md) | Migrated initialiser design, validation or user instructions; PR #246 |
+| [TUFLOW initialiser — aoi-entry-catchments.md](work/tuflow-initialiser/aoi-entry-catchments.md) | Migrated initialiser design, validation or user instructions; PR #246 |
+| [TUFLOW initialiser — architecture.md](work/tuflow-initialiser/architecture.md) | Migrated initialiser design, validation or user instructions; PR #246 |
+| [TUFLOW initialiser — base-workflow-validation.md](work/tuflow-initialiser/base-workflow-validation.md) | Migrated initialiser design, validation or user instructions; PR #246 |
+| [TUFLOW initialiser — future-work.md](work/tuflow-initialiser/future-work.md) | Migrated initialiser design, validation or user instructions; PR #246 |
+| [TUFLOW initialiser — issue-7-quality-validation.md](work/tuflow-initialiser/issue-7-quality-validation.md) | Migrated initialiser design, validation or user instructions; PR #246 |
+| [TUFLOW initialiser — migration.md](work/tuflow-initialiser/migration.md) | Migrated initialiser design, validation or user instructions; PR #246 |
+| [TUFLOW initialiser — validation.md](work/tuflow-initialiser/validation.md) | Migrated initialiser design, validation or user instructions; PR #246 |
+| [TUFLOW initialiser — windows-verification-handoff.md](work/tuflow-initialiser/windows-verification-handoff.md) | Migrated initialiser design, validation or user instructions; PR #246 |
 | [TUFLOW runner grouping and model progress](work/2026-11-04-tuflow-runner-progress.md) | New runner PR, PyTUFLOW filename prediction, bounded live-log observations and local acceptance |
 | [PyTuflow #63 and runner #235 local acceptance](work/2026-11-06-pytuflow-63-ryan-235-local-validation.md) | Current-model 390-run timing, native correctness, mapped/UNC safety, wrapper refresh and remaining hardware/policy gates |
 | [Live dashboard logging regression](work/2026-11-03-live-dashboard-logging.md) | Default stdout routing for older copied runners, regression evidence and PR delivery |
@@ -128,7 +140,7 @@ but they are not current architectural policy when they conflict with the canoni
 | [Installed scripts and distribution rename](work/2026-10-18-installed-scripts.md) | PR #120 wheel scripts, automatic MCP resolution, removed import shim and PyPI name migration |
 | [Installed scripts and MCP requirements](work/2026-10-17-installed-scripts-mcp-pip-distribution.md) | PR #130/#137: corrected wrapper copying, provisional packaging and outstanding engineering acceptance |
 | [Original script distribution requirements](audits/2026-10-17-installed-scripts-original-requirements.md) | Preserved original A–F requirements |
-| [Installed script inventory](audits/2026-10-19-installed-scripts-inventory.md) | All 158 source paths; 83 selected and 75 excluded; lifecycle sign-off outstanding |
+| [Installed script inventory](audits/2026-10-19-installed-scripts-inventory.md) | All 160 source paths; 83 selected and 77 excluded; lifecycle sign-off outstanding |
 | [Script remediation backlog](audits/2026-10-22-script-remediation-backlog.md) | 47 AB items: open/deferred work plus accepted-closed HY-8 evidence (AB-023); triaged safety, engineering and lifecycle tasks |
 | [Fast PR checks and hosted timing](work/2026-10-17-fast-pr-checks-129.md) | PR #129 implementation, exact-head hosted validation, timing evidence and remaining Python-change exercise |
 | [Mapped-drive-safe filesystem paths and raster progress](work/2026-10-16-absolute-path-policy.md) | PR #128 path policy, multiline raster progress, retained-wheel rebuild blocker and validation handoff |
@@ -149,6 +161,8 @@ but they are not current architectural policy when they conflict with the canoni
 | [Transactional package build and verification](work/2026-09-13-transactional-packaging.md) | Completed no-bump, verified and failure-safe wheel workflow implementation |
 | [TUFLOW statistic-then-maximum workflow](work/2026-09-09-tuflow-stat-then-maximum.md) | Completed generic mean/median raster workflow, provenance validation and delivery state |
 | [WP02 compatibility/lifecycle review](work/2026-11-08-wp02-compatibility-lifecycle.md) | Issue #98 current source-checkout, installed-wheel and optional import evidence; maintained HY-8 and missing-run boundaries |
+| [WP12 HU/HD capability and result-format review](work/2026-11-08-wp12-hu-hd-coverage.md) | #237 existing PO/POMM/PyTuflow consumer matrix, independent EG02 HU/HD values, precision/memory limits and #236 reporting-location next stage |
+| [WP03 POMM/TP report correctness](work/2026-11-08-wp03-pomm-report-correctness.md) | #227/#218/#216/#217 and #238 POMM coverage integrated into draft #251 at `9f38d971`; tested code/accepted unverified RLL metadata limitation; no main merge |
 | [Compatibility policy and inventory](COMPATIBILITY_POLICY.md) | Compatibility namespaces, migration state and deprecation checklist |
 | [Repository improvement roadmap](REPOSITORY_IMPROVEMENT_ROADMAP.md) | Deferred repository-wide opportunity inventory; no active improvement front is selected |
 | [Unsorted upgrade roadmap](UNSORTED_UPGRADE_ROADMAP.md) | Incomplete migration inventory; currently deferred and not actively progressed |

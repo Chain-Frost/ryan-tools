@@ -234,7 +234,7 @@ def test_malformed_po_with_filter_remains_a_failure() -> None:
     ):
         actual = common.process_file(Path("malformed_PO.csv"), entity_filters=("SelectedLocation",))
 
-    assert actual is processor
+    assert actual is None
     assert not processor.processed
     assert not processor.filtered_empty
     assert common._result_status(processor) == "FAIL"
@@ -294,7 +294,7 @@ def test_malformed_rll_qmx_with_filter_remains_failure() -> None:
         patch.object(processor, "read_maximums_csv", return_value=ProcessorStatus.SUCCESS),
     ):
         actual = common.process_file(Path("malformed_RLL_Qmx.csv"), entity_filters=("SelectedLocation",))
-    assert actual is processor
+    assert actual is None
     assert not processor.filtered_empty
     assert not processor.processed
     assert processor.df.empty

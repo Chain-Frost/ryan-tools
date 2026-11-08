@@ -95,11 +95,11 @@ def main(
     try:
         outcome = export_median_peak_report(
             script_directory=target_directory,
-            paths_to_process=effective_paths or None,
+            paths_to_process=effective_paths if paths_to_process is not None or PATHS_TO_PROCESS else None,
             log_level=CONSOLE_LOG_LEVEL if console_log_level is None else console_log_level,
             include_pomm=INCLUDE_POMM,
             locations_to_include=effective_locations or None,
-            include_data_types=effective_data_types or None,
+            include_data_types=effective_data_types,
             use_live_dashboard=USE_LIVE_DASHBOARD if use_live_dashboard is None else use_live_dashboard,
             live_refresh_per_second=(
                 LIVE_REFRESH_PER_SECOND if live_refresh_per_second is None else live_refresh_per_second

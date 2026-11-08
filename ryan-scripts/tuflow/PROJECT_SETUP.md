@@ -8,6 +8,11 @@ Create a reusable script and template set so that a new TUFLOW project can be in
 
 ## Implemented workflow
 
+The standard wrapper and `tuflow-initialiser init` generate the same starter project.
+`tuflow-initialiser build` starts with that project, then populates model GIS and adds terrain and hydrology data.
+Both include four working layers, an active boundary read, the location style and default utilities.
+The boundary layer remains empty until project-specific boundary features are supplied.
+
 The maintained wrapper is [`init_tuflow_project.py`](init_tuflow_project.py). Reusable setup logic is in [`project_setup.py`](../../ryan_library/orchestrators/tuflow/project_setup.py), and text templates are under [`tuflow_templates/`](../../ryan_library/resources/tuflow_templates/).
 
 The GeoPackage workflow deliberately follows TUFLOW's own QGIS plugin contract:
@@ -35,12 +40,21 @@ The generated `2d_loc` GeoPackage also receives a same-stem `.qml` sidecar copie
 The generated main control file follows the example project flag convention:
 
 ```text
-<project>_01_~s2~_~s1~_~e1~_~e2~_~e4~_~e3~_~s4~.tcf
+<project>_01_~s2~_~s1~_~e1~_~e2~_~e4~_~e3~_~e5~_~s4~.tcf
 ```
 
 It reads `runs/run_times_01.trd` for duration-dependent end times and `runs/model_cell_sizes_01.trd` for `VarCellSize`.
-The starter `EVENTS_01.tef` defines the matching 21 duration events, including both `~StormDuration~` and `~DUR~`
-aliases, plus starter AEP, temporal-pattern, and rainfall-method events. The TCF contains a example project rainfall
+The starter `EVENTS_01.tef` defines the matching 22 durations with four- and five-digit event flags, including both `~StormDuration~` and `~DUR~`
+aliases, plus starter AEP, temporal-pattern, rainfall-method and climate events.
+Five-digit duration events retain their existing five-digit substitutions; four-digit events use a four-digit `~DUR~`
+and a five-digit `~StormDuration~`. Review the BC database naming before choosing flags. The 9-hour event
+(`00540m` or `0540m`) has an editable starter end time of 18 hours. All end times require project-specific review.
+Climate selection uses `~e5~` independently of the rainfall method (`~e4~`); `CCNear` supplies the starter `~CC~`
+substitution, which must be reviewed against the rainfall database. `EnsembleILCL` no longer implicitly selects climate.
+Existing generated projects and launch commands are not migrated automatically: new projects must supply `-e5`.
+`OutputBase` defaults to `..`, while `OutputRoot` contains the relative results hierarchy including the climate flag;
+output, log and check folders share that base. Map output explicitly stores maximums only.
+An unrecognised rainfall method stops through a TUFLOW `Pause` diagnostic. The TCF contains a example project rainfall
 method block for selecting the BC database and `InitialLoss`/`ContLoss`; its database paths and loss values are
 explicitly project-specific and must be reviewed before running a model.
 
