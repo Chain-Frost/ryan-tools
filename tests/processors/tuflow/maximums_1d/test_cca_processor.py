@@ -149,7 +149,7 @@ def test_cca_gpkg_writer_shutdown_between_preflight_and_read(tmp_path: Path) -> 
     shm = path.with_name(path.name + "-shm")
     assert wal.is_file() and shm.is_file()
 
-    opening = ccAProcessor._open_sqlite_connection
+    opening = ccAProcessor._open_sqlite_connection  # pyright: ignore[reportPrivateUsage]
     bytes_after_writer_close: bytes | None = None
 
     def shutdown_before_open(processor: ccAProcessor, target: Path) -> sqlite3.Connection | None:

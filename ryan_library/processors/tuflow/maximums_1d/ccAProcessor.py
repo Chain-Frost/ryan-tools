@@ -271,8 +271,10 @@ class ccAProcessor(BaseProcessor):
             logger.error("process_gpkg: Unable to read consistent ccA snapshot from {}: {}", path, exc)
             return pd.DataFrame()
         finally:
-            conn.close()
-            owned.close()
+            try:
+                conn.close()
+            finally:
+                owned.close()
 
         cca_data = self._normalize_column_names(cca_data)
         if "Chan ID" not in cca_data.columns:
