@@ -373,7 +373,7 @@ def create_aep_colorizer(
             def colorize(value: Any) -> Any:
                 try:
                     numeric_value: float = float(value)
-                except (TypeError, ValueError):
+                except TypeError, ValueError:
                     return "black"
                 if not math.isfinite(numeric_value):
                     return "black"
