@@ -533,5 +533,90 @@
     "processingParts": {
       "dataformat": "Raster"
     }
+  },
+  "2d_H": {
+    "processor": "Split2dHProcessor",
+    "suffixes": [
+      "_2d_H.csv"
+    ],
+    "output_columns": {
+      "Time": "float",
+      "Location": "string",
+      "Type": "string",
+      "Value": "float",
+      "AbsValue": "float"
+    },
+    "processingParts": {
+      "dataformat": "SplitPO",
+      "module": "other_processors"
+    }
+  },
+  "2d_Q": {
+    "processor": "Split2dQProcessor",
+    "suffixes": [
+      "_2d_Q.csv"
+    ],
+    "output_columns": {
+      "Time": "float",
+      "Location": "string",
+      "Type": "string",
+      "Value": "float",
+      "AbsValue": "float"
+    },
+    "processingParts": {
+      "dataformat": "SplitPO",
+      "module": "other_processors"
+    }
+  },
+  "2d_V": {
+    "processor": "Split2dVProcessor",
+    "suffixes": [
+      "_2d_V.csv"
+    ],
+    "output_columns": {
+      "Time": "float",
+      "Location": "string",
+      "Type": "string",
+      "Value": "float",
+      "AbsValue": "float"
+    },
+    "processingParts": {
+      "dataformat": "SplitPO",
+      "module": "other_processors"
+    }
+  },
+  "L": {
+    "processor": "LProcessor",
+    "suffixes": [
+      "_1d_L.csv"
+    ],
+    "output_columns": {
+      "Time": "float",
+      "Location": "string",
+      "Type": "string",
+      "Value": "float",
+      "AbsValue": "float"
+    },
+    "processingParts": {
+      "dataformat": "LossCoefficient",
+      "module": "other_processors"
+    }
+  },
+  "TSMB": {
+    "processor": "TSMBProcessor",
+    "suffixes": [
+      "_1d_TSMB.csv"
+    ],
+    "output_columns": {
+      "Time": "float",
+      "Location": "string",
+      "Type": "string",
+      "Value": "float",
+      "AbsValue": "float"
+    },
+    "processingParts": {
+      "dataformat": "NodeMassBalanceHistory",
+      "module": "other_processors"
+    }
   }
 }
