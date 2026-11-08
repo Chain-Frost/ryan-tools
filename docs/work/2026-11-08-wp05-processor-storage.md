@@ -76,6 +76,8 @@ native acceptance remain distinct gates.
 
 Read native handoff https://github.com/Chain-Frost/ryan-tools/pull/261#issuecomment-6718682286 and verified live #254 at `f70e69519499dc071d03863c6d0b9233f0536653`, with the writer-shutdown race thread https://github.com/Chain-Frost/ryan-tools/pull/254#discussion_r4505393356 still unresolved. Both the original closed-WAL review and shutdown-race review remain unresolved; the parent canonical WP05 record explicitly marks the P1 correction partial/unaccepted.
 
+#254 subsequently advanced during the session to `bfb03ff5b45775b2b63480d835b7340440e65f5f` (local-staging correction), but the two review threads remained unresolved at the closeout check; the required corrected-and-reviewed prerequisite is still not established. The PR #261 blocker report is https://github.com/Chain-Frost/ryan-tools/pull/261#issuecomment-6719028831.
+
 #261 remains at code `7df8202eef2c50b8af5aecb0378bfd18be75d030`, draft, stacked on #254. **BLOCKED:** the handoff explicitly requires correction and review of #254 before refreshing the HDF branch and running native acceptance. Therefore no HDF source/native/installed-wheel/cache/mapped/UNC tests, build or dependency changes were performed, and no source-immutability claim is made. This documentation-only gate audit does not refresh implementation or incorporate the child anywhere.
 
 Next action: #254 owner corrects the no-create WAL contract and obtains review; then refresh this existing branch without force-push and execute the stated Q/PO/POMM HDF acceptance matrix on its new exact SHA. Next review 2026-11-15. No merge, auto-merge, release, issue closure, production operation or unsorted inspection.
