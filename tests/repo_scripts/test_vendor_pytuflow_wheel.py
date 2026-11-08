@@ -13,7 +13,8 @@ import pytest
 def _vendor() -> ModuleType:
     path = Path(__file__).absolute().parents[2] / "repo-scripts" / "vendor_pytuflow_wheel.py"
     spec = importlib.util.spec_from_file_location("vendor_pytuflow_for_test", path)
-    assert spec is not None and spec.loader is not None
+    assert spec is not None
+    assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

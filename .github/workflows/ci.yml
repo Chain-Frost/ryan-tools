@@ -208,6 +208,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m pip install -r repo-scripts/ci-policy-requirements.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python repo-scripts/vendor_pytuflow_wheel.py --installed
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           # Ruff, workflow syntax, documentation and logging already passed preflight.
           # Preserve the initialiser's distinct strict GIS stub configuration.
           $initialiserIncludes = @((Get-Content pyright-initialiser.json -Raw | ConvertFrom-Json).include)
@@ -314,6 +316,12 @@ jobs:
         shell: pwsh
         run: |
           python -m pip install -r repo-scripts/ci-test-requirements.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Verify installed parser wheel origin and SHA-256
+        shell: pwsh
+        run: |
+          python repo-scripts/vendor_pytuflow_wheel.py --installed
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Run hosted test boundary

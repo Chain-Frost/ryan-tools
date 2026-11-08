@@ -6,13 +6,13 @@ not hydraulic acceptance or an eager/deferred comparator.
 
 import csv
 import hashlib
-from importlib import metadata
 import json
 import os
 import sys
 import zipfile
 from collections import Counter
 from dataclasses import asdict, replace
+from importlib import metadata
 from pathlib import Path
 from typing import cast
 from urllib.parse import urlsplit
