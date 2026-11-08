@@ -663,7 +663,7 @@ class BaseProcessor(ABC):
                 filepath_or_buffer=self.file_path,
                 usecols=usecols,
                 header=0,
-                dtype=dtype,  # pyright: ignore[reportArgumentType]
+                dtype=dtype,
                 skipinitialspace=True,
             )
             logger.debug("CSV file '{}' read successfully with {} rows.", self.file_name, len(df))

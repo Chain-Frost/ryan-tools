@@ -26,7 +26,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
-import pandas as pd  # pyright: ignore[reportMissingTypeStubs]
+import pandas as pd
 from run_hy8 import CulvertCrossing, Hy8FileWriter, Hy8Project
 
 from ryan_library.functions.hy8 import (
@@ -75,7 +75,7 @@ def convert_culverts(
     conversion_options: Hy8CulvertOptions = options or Hy8CulvertOptions()
     rows = cast(
         "list[dict[str, Any]]",
-        maximums.to_dict(orient="records"),  # pyright: ignore[reportUnknownMemberType]
+        maximums.to_dict(orient="records"),
     )
     converted: list[ConvertedCulvert] = []
 

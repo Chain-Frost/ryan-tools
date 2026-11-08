@@ -10,9 +10,11 @@ import math
 from collections import deque
 from dataclasses import dataclass
 from itertools import pairwise
+from typing import cast
 
 import numpy as np
 import rasterio
+import rasterio.windows
 from numpy.typing import NDArray
 from rasterio.features import rasterize, shapes
 from rasterio.transform import rowcol
@@ -72,7 +74,8 @@ def _snapped_cell(
     transform: rasterio.Affine,
     snap_distance_m: float,
 ) -> tuple[Cell, float]:
-    row_value, col_value = rowcol(transform, point.x, point.y)
+    # Scalar coordinates select scalar indices, rather than the vector overload.
+    row_value, col_value = cast("tuple[int, int]", rowcol(transform, point.x, point.y))
     row, col = int(row_value), int(col_value)
     height, width = valid_cells.shape
     if not (0 <= row < height and 0 <= col < width):

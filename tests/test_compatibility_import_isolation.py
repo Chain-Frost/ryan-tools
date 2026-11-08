@@ -14,7 +14,10 @@ PROBE = PROJECT_ROOT / "repo-scripts" / "check_compatibility_imports.py"
 def test_source_checkout_imports_do_not_require_optional_modules(tmp_path: Path) -> None:
     environment = os.environ.copy()
     environment["PYTHONPATH"] = str(PROJECT_ROOT)
-    environment["PYTHONNOUSERSITE"] = "1"
+    # Required dependencies (for example Loguru) may be installed in user-site.
+    # The probe independently blocks every forbidden optional import and checks
+    # physical module origins, so user-site visibility does not weaken isolation.
+    environment.pop("PYTHONNOUSERSITE", None)
     environment.pop("RYAN_TOOLS_REPOSITORY_ROOT", None)
 
     result = subprocess.run(

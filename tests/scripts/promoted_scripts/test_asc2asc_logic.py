@@ -6,8 +6,8 @@ from typing import Protocol, cast
 import numpy as np
 import numpy.typing as npt
 import pytest
-import rasterio  # pyright: ignore[reportMissingTypeStubs]
-from rasterio.transform import from_origin  # pyright: ignore[reportMissingTypeStubs, reportUnknownVariableType]
+import rasterio
+from rasterio.transform import from_origin
 from run_python_raster_calculations import (
     DEFAULT_INPUT_FILES,
     DEFAULT_OUTPUT_FILE,
@@ -33,7 +33,7 @@ class _RasterReader(Protocol):
 def _write_raster(path: Path, data: npt.NDArray[np.float32]) -> None:
     destination = cast(
         "_RasterWriter",
-        rasterio.open(  # pyright: ignore[reportUnknownMemberType]
+        rasterio.open(
             path,
             "w",
             driver="GTiff",
@@ -53,7 +53,7 @@ def _write_raster(path: Path, data: npt.NDArray[np.float32]) -> None:
 
 
 def _read_raster(path: Path) -> npt.NDArray[np.float32]:
-    source = cast("_RasterReader", rasterio.open(path))  # pyright: ignore[reportUnknownMemberType]
+    source = cast("_RasterReader", rasterio.open(path))
     try:
         return source.read(1).astype(np.float32)
     finally:

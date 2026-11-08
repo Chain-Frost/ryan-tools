@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active — implementation prepared; CI and native acceptance pending |
+| Status | Native Windows source/installed-wheel acceptance passed; current parent-reconciled head pending exact-head CI/review |
 | Owner | WP10 implementation agent / maintainer |
 | Created | 2026-11-08 |
 | Updated | 2026-11-08 |
@@ -62,11 +62,11 @@ location parity, stale/incompatible manifests, a newly discovered matching PO
 CSV, no-clobber and interrupted Parquet publication, Agg-only headless figure
 construction, tight-legend PNG bounds and PNG bytes.
 
-Validation status at first delivery: GitHub authoring connector cannot access
+Historical validation status at **first delivery only**, before the independent Windows acceptance below: GitHub authoring connector could not access
 a local repository worktree, Windows Python 3.14, SMB shares or installed wheel.
-**No local pytest, Ruff, Pyright, Windows/SMB or copied-wrapper execution has
-been claimed.** Exact-head hosted CI must be checked after the PR push; do not
-replace this statement with historical parent passes.
+**No local pytest, Ruff, Pyright, Windows/SMB or copied-wrapper execution had then
+been claimed.** Subsequent native tests are documented below. The parent-reconciled
+head must separately pass exact-head hosted CI; earlier native evidence is retained.
 
 ## Dependencies and remaining gates
 
@@ -138,3 +138,18 @@ Artifacts, comparison scripts and genuine-result.json: E:/Github/wp10-native-evi
 No solver, production/share mutation, merge or issue closure. Keep #225 open; WP04 #219 owns
 sentinel validity. Publish the test-only repair plus this record together; verify final-head CI
 before integration. Earlier overdue register reviews remain unrelated and were not resumed.
+
+## Parent reconciliation and identity regression — 2026-11-08
+
+The accepted local implementation at `56150c0afed3e2dc7a5a8071e3ac0fa83c8b44c4` is reconciled with draft #251 parent `2a2530dd18f5d8e3146a911ab2ac2d9be01b401f`.
+Parent changes in the same plotter were strict-typing refinements to the superseded plotting implementation;
+the new independently typed plotting functions remain the authoritative WP10 code. Parent documentation
+index rows are preserved, rather than replaced with stale child copies. The maintained
+`SCRIPT_VERSION` script now calls `print_wrapper_banner` with its literal original `wrapper_source`
+and copied-script path, preserving the global versioned-installed-entry-point contract checked by
+`tests/scripts/test_wrapper_utils.py::test_versioned_installed_scripts_keep_identity_after_renaming`.
+This integration-only correction changes only the startup banner, not plotting/PO cache results;
+the prior 17/17 native source and copied tests therefore do not claim to have executed this new head.
+
+New-head Windows CI and fresh review are required before integration into #251. Live SMB is not
+accepted and sentinel semantics remain WP04 #219. No change to `main` or release.

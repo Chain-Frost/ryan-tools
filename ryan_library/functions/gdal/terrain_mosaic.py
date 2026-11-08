@@ -10,11 +10,13 @@ from collections.abc import Sequence
 from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TypedDict
+from typing import Any, TypedDict, cast
 
 import fiona
 import numpy as np
 import rasterio
+import rasterio.io
+import rasterio.windows
 from affine import Affine
 from rasterio.crs import CRS
 from rasterio.enums import Resampling
@@ -197,8 +199,8 @@ def compose_terrain_layers(  # noqa: C901 - staged raster composition is intenti
         }
         provenance_profile: RasterProfile = {**profile, "dtype": "uint16", "nodata": 0}
         with (
-            rasterio.open(target, "w", **profile) as dem_output,
-            rasterio.open(provenance, "w", **provenance_profile) as provenance_output,
+            rasterio.open(target, "w", **cast("dict[str, Any]", profile)) as dem_output,
+            rasterio.open(provenance, "w", **cast("dict[str, Any]", provenance_profile)) as provenance_output,
         ):
             for row in range(0, height, 512):
                 for col in range(0, width, 512):
@@ -228,9 +230,9 @@ def compose_terrain_layers(  # noqa: C901 - staged raster composition is intenti
     return TerrainMosaic(target, provenance, float(resolution_m))
 
 
-def _clip_geometries(path: Path, target_crs: CRS) -> list[dict[str, object]]:
+def _clip_geometries(path: Path, target_crs: CRS) -> list[dict[str, Any]]:
     """Load polygon clip geometries and transform them to the analysis CRS."""
-    geometries: list[dict[str, object]] = []
+    geometries: list[dict[str, Any]] = []
     with fiona.open(path) as source:
         if not source.crs_wkt:
             msg = f"Terrain clip has no CRS: {path}"
@@ -241,7 +243,7 @@ def _clip_geometries(path: Path, target_crs: CRS) -> list[dict[str, object]]:
                 continue
             geometry = feature.geometry.__geo_interface__
             if source_crs != target_crs:
-                geometry = transform_geom(source_crs, target_crs, geometry)
+                geometry = cast("dict[str, Any]", transform_geom(source_crs, target_crs, geometry))
             if geometry.get("type") not in {"Polygon", "MultiPolygon"}:
                 msg = f"Terrain clip must be polygonal: {path}"
                 raise ValueError(msg)

@@ -15,14 +15,14 @@ import subprocess
 from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final, Literal, cast
+from typing import Final, Literal
 
-import fiona  # pyright: ignore[reportMissingTypeStubs]
+import fiona
 import numpy as np
-import rasterio  # pyright: ignore[reportMissingTypeStubs]
+import rasterio
 from loguru import logger
 from pyproj import CRS
-from rasterio.transform import from_origin  # pyright: ignore[reportMissingTypeStubs, reportUnknownVariableType]
+from rasterio.transform import from_origin
 
 GeometrySuffix = Literal["P", "L", "R"]
 UtilityDestination = Literal[".", "model/gis", "results"]
@@ -311,7 +311,7 @@ def _create_projection_files(*, prj_file: Path, gis_dir: Path, overwrite: bool) 
 
     shutil.copy2(src=prj_file, dst=projection_prj)
     projection_schema: dict[str, object] = {"geometry": "Point", "properties": {"id": "str"}}
-    with fiona.open(  # pyright: ignore[reportUnknownMemberType]
+    with fiona.open(
         projection_gpkg,
         mode="w",
         driver="GPKG",
@@ -322,8 +322,8 @@ def _create_projection_files(*, prj_file: Path, gis_dir: Path, overwrite: bool) 
     ):
         pass
 
-    transform = from_origin(west=-0.5, north=0.5, xsize=1.0, ysize=1.0)  # pyright: ignore[reportUnknownVariableType]
-    with rasterio.open(  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+    transform = from_origin(west=-0.5, north=0.5, xsize=1.0, ysize=1.0)
+    with rasterio.open(
         fp=projection_tif,
         mode="w",
         driver="GTiff",
@@ -335,8 +335,8 @@ def _create_projection_files(*, prj_file: Path, gis_dir: Path, overwrite: bool) 
         transform=transform,
         nodata=-999.0,
         compress="deflate",
-    ) as dataset:  # pyright: ignore[reportUnknownVariableType]
-        dataset.write(np.zeros((1, 1, 1), dtype=np.float32))  # pyright: ignore[reportUnknownMemberType]
+    ) as dataset:
+        dataset.write(np.zeros((1, 1, 1), dtype=np.float32))
     logger.info("Created projection files in {}", gis_dir)
 
 
@@ -386,13 +386,13 @@ def _create_working_layer_from_empty(
         target_path.unlink()
 
     schema: dict[str, object] = _read_fiona_schema(source_path=source_path, source_layer=source_layer)
-    with fiona.open(  # pyright: ignore[reportUnknownMemberType]
+    with fiona.open(
         fp=source_path,
         layer=source_layer,
     ) as source:
-        crs_wkt: str | None = cast("str | None", source.crs_wkt)  # pyright: ignore[reportUnknownMemberType]
+        crs_wkt: str | None = source.crs_wkt
 
-    with fiona.open(  # pyright: ignore[reportUnknownMemberType]
+    with fiona.open(
         fp=target_path,
         mode="w",
         driver="GPKG",

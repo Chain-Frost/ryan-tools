@@ -48,7 +48,7 @@ def mock_processor():
             return processor
 
 
-def test_read_maximums_csv_success(mock_processor):
+def test_read_maximums_csv_success(mock_processor: ConcreteMaxDataProcessor):
     with patch("pandas.read_csv") as mock_read_csv:
         mock_read_csv.return_value = pd.DataFrame({"Col1": [1.0], "Col2": ["Test"]})
 
@@ -60,7 +60,7 @@ def test_read_maximums_csv_success(mock_processor):
         mock_read_csv.assert_called_once()
 
 
-def test_read_maximums_csv_empty(mock_processor):
+def test_read_maximums_csv_empty(mock_processor: ConcreteMaxDataProcessor):
     with patch("pandas.read_csv") as mock_read_csv:
         mock_read_csv.return_value = pd.DataFrame()
 
@@ -70,7 +70,7 @@ def test_read_maximums_csv_empty(mock_processor):
         assert mock_processor.df.empty
 
 
-def test_read_maximums_csv_header_mismatch(mock_processor):
+def test_read_maximums_csv_header_mismatch(mock_processor: ConcreteMaxDataProcessor):
     # Mock df with wrong columns
     with patch("pandas.read_csv") as mock_read_csv:
         mock_read_csv.return_value = pd.DataFrame({"WrongCol": [1.0]})
@@ -80,7 +80,7 @@ def test_read_maximums_csv_header_mismatch(mock_processor):
         assert status == ProcessorStatus.HEADER_MISMATCH
 
 
-def test_read_maximums_csv_failure(mock_processor):
+def test_read_maximums_csv_failure(mock_processor: ConcreteMaxDataProcessor):
     with patch("pandas.read_csv") as mock_read_csv:
         mock_read_csv.side_effect = Exception("Read error")
 

@@ -1,5 +1,8 @@
 """Unit tests for ryan_library.orchestrators.tuflow.peak_check_po_csvs."""
 
+# Unit tests intentionally exercise the implementation helpers under test.
+# pyright: reportPrivateUsage=false
+
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -32,7 +35,7 @@ def test_collect_files(tmp_path: Path) -> None:
 
 @patch("ryan_library.orchestrators.tuflow.peak_check_po_csvs.flatten_peak_results")
 @patch("ryan_library.orchestrators.tuflow.peak_check_po_csvs.analyze_peak_csv")
-def test_analyze_peak_worker(mock_analyze, mock_flatten) -> None:
+def test_analyze_peak_worker(mock_analyze: MagicMock, mock_flatten: MagicMock) -> None:
     config = MagicMock(spec=PeakCheckConfig)
     mock_analyze.return_value = ["dummy_result"]
     mock_flatten.return_value = [{"col": "val"}]
@@ -45,7 +48,7 @@ def test_analyze_peak_worker(mock_analyze, mock_flatten) -> None:
 
 
 @patch("ryan_library.orchestrators.tuflow.peak_check_po_csvs.collect_po_csv_files")
-def test_main_processing_no_files(mock_collect, tmp_path: Path) -> None:
+def test_main_processing_no_files(mock_collect: MagicMock, tmp_path: Path) -> None:
     mock_collect.return_value = []
 
     # Should exit early, not raise error
@@ -56,7 +59,9 @@ def test_main_processing_no_files(mock_collect, tmp_path: Path) -> None:
 @patch("ryan_library.orchestrators.tuflow.peak_check_po_csvs.ExcelExporter")
 @patch("ryan_library.orchestrators.tuflow.peak_check_po_csvs.cf.ProcessPoolExecutor")
 @patch("ryan_library.orchestrators.tuflow.peak_check_po_csvs.collect_po_csv_files")
-def test_main_processing_no_rows(mock_collect, mock_pool, mock_export, tmp_path: Path) -> None:
+def test_main_processing_no_rows(
+    mock_collect: MagicMock, mock_pool: MagicMock, mock_export: MagicMock, tmp_path: Path
+) -> None:
     mock_collect.return_value = [Path("test_PO.csv")]
 
     mock_executor = MagicMock()
@@ -73,7 +78,9 @@ def test_main_processing_no_rows(mock_collect, mock_pool, mock_export, tmp_path:
 @patch("ryan_library.orchestrators.tuflow.peak_check_po_csvs.ExcelExporter")
 @patch("ryan_library.orchestrators.tuflow.peak_check_po_csvs.cf.ProcessPoolExecutor")
 @patch("ryan_library.orchestrators.tuflow.peak_check_po_csvs.collect_po_csv_files")
-def test_main_processing_with_rows(mock_collect, mock_pool, mock_export, tmp_path: Path) -> None:
+def test_main_processing_with_rows(
+    mock_collect: MagicMock, mock_pool: MagicMock, mock_export: MagicMock, tmp_path: Path
+) -> None:
     mock_collect.return_value = [Path("test_PO.csv")]
 
     mock_executor = MagicMock()

@@ -106,9 +106,13 @@ but they are not current architectural policy when they conflict with the canoni
 | Document | Scope and status |
 | --- | --- |
 | [WP06 owned-output publication](work/2026-11-08-wp06-publication.md) | Profile PNG staging, archive and GDAL output safety, validation and stacked PR delivery |
+| [WP01 TLF parser metadata reliability](work/2026-11-08-tlf-parser-wp01.md) | Staged #239/#224/#231 implementation, linked PRs and acceptance record |
 | [WP07 file discovery and input outcomes](work/2026-11-08-wp07-file-discovery.md) | #203 finder cycle protection and #195 truthful input outcomes accepted with Windows 10/SMB limits; integrated into draft #251 via #257/#268 |
 | [Missing TLF ensemble inference](work/2026-11-07-missing-tlf-ensembles.md) | Folder inference implementation, local validation and delivery |
+| [Master log append outcomes and safe workbook publication](work/2026-11-08-master-log-append-196.md) | WP08 #196: supported-filesystem append, safe SMB refusal, whole-workflow failure reporting and native acceptance |
 | [WP08 POMM, PO QA and closure dashboard adoption](work/2026-11-08-po-qa-dashboard-198.md) | #198 implementation in stacked #265; QA per-file outcomes, POMM and closure workflow lifecycle, validation and unresolved native/partial-input gates |
+| [WP09 PO closure population and scenario identity](work/2026-11-08-wp09-closure-populations.md) | #215 valid zero-duration TP retention, scenario-specific grouping, invalid-population contracts and review and independent Windows 10 source/wheel/wrapper acceptance (56/56 tests; 6/6 hosted CI) |
+| #225 scenario identities, Q/H plotting, provenance-aware Parquet cache, protected PNG/NTFS publication; genuine Windows source/installed parity accepted |
 | [Dashboard defaults and background file properties](work/2026-11-07-dashboard-file-properties.md) | Shared presentation defaults, nonblocking file-size metadata and preserved legacy banner calls |
 | [Offline wrapper revision warnings](work/2026-11-07-wrapper-version-warnings.md) | Shared installed-package comparison, stable script identities and maintained-script rollout |
 | [Batch dashboard foundation](work/2026-11-01-batch-dashboard-foundation-180.md) | #180 stacked PR 1: shared batch display/diagnostics, optional workflow metrics, log-summary reference and concrete consumer handoff |
@@ -159,13 +163,14 @@ but they are not current architectural policy when they conflict with the canoni
 | [Floodway calculation specification](audits/2026-09-14-floodway-calculation-specification.md) | Calculation contracts |
 | [Floodway validation vectors](audits/2026-09-14-floodway-validation-vectors.md) | Source regression targets |
 | [WP05 processor storage / ccA WAL delivery](work/2026-11-08-wp05-processor-storage.md) | #222/#226 staged implementation; source-preserving WAL snapshot correction is under hosted/native review |
+| [Repository Python lint and typing cleanup](work/2026-11-08-python-static-cleanup.md) | Full Windows/static audit correction and shared typing standard |
+| [Shared dependency type stubs](../typings/README.md) | Strict typing support shared by all maintained code, including the initialiser |
 | [Work register](work/README.md) | Open work fronts, review dates, next actions and links to authoritative status records |
 | [Culvert uncertainty/sensitivity workflow](work/2026-10-06-culvert-uncertainty-91.md) | Issue #91 implementation; final package verification and authorized squash merge |
 | [Culvert workflow implementation](work/2026-09-13-culvert-workflow-80.md) | Active issue #80 implementation and validation/delivery status |
 | [Transactional package build and verification](work/2026-09-13-transactional-packaging.md) | Completed no-bump, verified and failure-safe wheel workflow implementation |
 | [TUFLOW statistic-then-maximum workflow](work/2026-09-09-tuflow-stat-then-maximum.md) | Completed generic mean/median raster workflow, provenance validation and delivery state |
 | [WP02 compatibility/lifecycle review](work/2026-11-08-wp02-compatibility-lifecycle.md) | Issue #98 current source-checkout, installed-wheel and optional import evidence; maintained HY-8 and missing-run boundaries |
-| [WP10 PO scenario plotting fidelity](work/2026-11-08-wp10-po-scenario-plotting.md) | #225 literal selections, run/measurement grouping, numeric hours, standalone lifecycle, protected provenance-verified plot cache and headless export |
 | [WP12 HU/HD capability and result-format review](work/2026-11-08-wp12-hu-hd-coverage.md) | #237 existing PO/POMM/PyTuflow consumer matrix, independent EG02 HU/HD values, precision/memory limits and #236 reporting-location next stage |
 | [WP03 POMM/TP report correctness](work/2026-11-08-wp03-pomm-report-correctness.md) | #227/#218/#216/#217 and #238 POMM coverage integrated into draft #251 at `9f38d971`; tested code/accepted unverified RLL metadata limitation; no main merge |
 | [Compatibility policy and inventory](COMPATIBILITY_POLICY.md) | Compatibility namespaces, migration state and deprecation checklist |

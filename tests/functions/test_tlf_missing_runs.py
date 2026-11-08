@@ -1,5 +1,8 @@
 """Tests for ryan_library.functions.tlf_missing_runs."""
 
+# Unit tests intentionally exercise the implementation helpers under test.
+# pyright: reportPrivateUsage=false
+
 import pandas as pd
 import pytest
 

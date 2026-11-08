@@ -39,6 +39,7 @@ from matplotlib.colors import Normalize
 from matplotlib.figure import Figure
 from pandas import DataFrame, Series
 
+from ryan_library.functions.wrapper_utils import print_wrapper_banner
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.other_processors.POProcessor import POProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
@@ -543,6 +544,12 @@ def plot_timeseries(df: pd.DataFrame) -> None:
 
 
 def main() -> None:
+    # Maintain the original packaged identity even if this script is copied or renamed.
+    print_wrapper_banner(
+        wrapper_file=Path(__file__),
+        wrapper_version=SCRIPT_VERSION,
+        wrapper_source="TUFLOW-python/po_and_timeseries/plot_po_scenario_timeseries.py",
+    )
     logger.info("PO scenario plot script version {}", SCRIPT_VERSION)
     df: DataFrame = load_po_dataframe()
     logger.info("Selected {:,} PO rows with {} columns.", len(df), len(df.columns))
