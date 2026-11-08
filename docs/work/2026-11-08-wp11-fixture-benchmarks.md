@@ -177,3 +177,19 @@ The work indexes use entries distinct from the independent WP10 insertion to avo
 concurrent plotter documentation. Exact parent-reconciled head CI and review remain required.
 The complete 300-run profile, cold-cache I/O, OS peak RSS, optional Dask, partitioned data and
 SMB/UNC acceptance are **NOT RUN**. Both #228 and #229 remain open pending broader scoped work.
+
+## WP10 parent adoption — 2026-11-08
+
+The first-stage WP11 fixture and scaled benchmark implementation was rebased by a
+non-force two-parent reconciliation from child `47e6bd31bcfab592a01aab6ebfff4aa2bf38c690` against draft
+feature-parent #251 after accepted WP10 integration at `9e75568cf5ad09c50317043468fc5ea942ea172c`.
+The parent contains reviewed WP09 closure and WP10 source-provenance plotting
+changes, which are preserved exactly. WP11 edits only the existing nine
+fixture/benchmark/documentation files; the two documentation indexes retain
+all new WP09 and WP10 rows.
+
+The independent Windows 10 native evidence applies to earlier WP11 functional
+content; the reconciled head requires its own hosted Windows Python 3.14
+CI and review before it is merged into draft #251. Neither the full 300-run
+workload nor live SMB, peak-RSS, cold-cache, Dask or partitioned-output
+engineering acceptance is claimed. #228/#229 remain open.
