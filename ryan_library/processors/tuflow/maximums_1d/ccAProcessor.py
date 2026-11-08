@@ -137,6 +137,28 @@ class ccAProcessor(BaseProcessor):
             )
             return None
 
+        # A cleanly checkpointed WAL-mode database retains the WAL journal
+        # marker in its SQLite header after the writer removes both sidecars.
+        # SQLite mode=ro can recreate -wal/-shm in a writable directory. Fail
+        # closed rather than using immutable=1, which could ignore a new writer.
+        try:
+            with path.open("rb") as database_file:
+                header = database_file.read(20)
+        except OSError as exc:
+            logger.error("process_gpkg: Unable to inspect SQLite header for {}: {}", path, exc)
+            return None
+        if (
+            header.startswith(b"SQLite format 3\x00")
+            and header[18:20] == b"\x02\x02"
+            and (not wal.exists() or not shm.exists())
+        ):
+            logger.error(
+                "process_gpkg: WAL-mode database {} lacks its active -wal/-shm sidecars; "
+                "refusing read that could create sidecar files",
+                path,
+            )
+            return None
+
         for label, target in self._build_sqlite_connection_targets(path):
             conn: sqlite3.Connection | None = None
             try:

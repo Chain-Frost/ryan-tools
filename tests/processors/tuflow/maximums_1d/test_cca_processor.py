@@ -114,6 +114,27 @@ def test_cca_gpkg_read_is_read_only(tmp_path: Path, change_cwd: Callable[[Path],
     assert not shm_path.exists()
 
 
+def test_cca_gpkg_closed_wal_mode_does_not_create_sidecars(tmp_path: Path) -> None:
+    """Fail closed if SQLite would recreate WAL/SHM for a checkpointed WAL-mode source."""
+    path = tmp_path / "ClosedWAL_Results1D.gpkg"
+    _create_minimal_cca_gpkg(path)
+    with sqlite3.connect(path) as writer:
+        assert writer.execute("PRAGMA journal_mode=WAL").fetchone()[0] == "wal"
+
+    wal = path.with_name(path.name + "-wal")
+    shm = path.with_name(path.name + "-shm")
+    assert path.read_bytes()[18:20] == b"\x02\x02"
+    assert not wal.exists()
+    assert not shm.exists()
+    original = path.read_bytes()
+
+    processor = ccAProcessor(file_path=path)
+    assert processor.process_gpkg().empty
+    assert path.read_bytes() == original
+    assert not wal.exists()
+    assert not shm.exists()
+
+
 def test_cca_dbf_processing(tmp_path: Path, change_cwd: Callable[[Path], AbstractContextManager[None]]) -> None:
     """Test processing of a DBF file."""
     import shapefile

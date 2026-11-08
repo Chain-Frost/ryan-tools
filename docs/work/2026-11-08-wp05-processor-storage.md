@@ -71,3 +71,11 @@ PRs #254 and #261. Added regressions and explicit source/file mutation contracts
 merged the #251 branch into #254 and #254 into #261 without force-push, retargeted both child PRs,
 and revised their names and #251's consolidated title; no merge to main. Automated validation and
 native acceptance remain distinct gates.
+
+### P1 review correction: closed WAL mode without sidecars
+
+Codex's [#254 P1 review finding](https://github.com/Chain-Frost/ryan-tools/pull/254#discussion_r4502825951) identified that SQLite `mode=ro` can create new `-wal` and `-shm` files for a **closed, checkpointed WAL-mode** GeoPackage even when both sidecars are initially absent. Unlike a rollback-journal database, that case is not safe to open in a writable result directory.
+
+The processor now reads the fixed SQLite database-header journal markers **before opening SQLite**. If the header denotes WAL mode but the pair of existing `-wal`/`-shm` sidecars is incomplete or absent, it **fails explicitly without opening a connection or creating files**. An active WAL writer with both sidecars remains supported and its committed snapshot is read with `mode=ro`. No unsafe `immutable=1` bypass or writable fallback is added; closed WAL-mode results lacking sidecars must be changed to a rollback journal by their producer or otherwise processed under a separately validated read-only strategy.
+
+A disposable SQLite regression reproduces the closed-WAL case and verifies source bytes and no sidecars after failed read. Source header bytes, actual WAL lifecycle and results are tested without a licensed solver. Exact-head Windows/Python 3.14 CI and native Windows/SMB acceptance remain separate, pending results; **the P1 must not be marked fully accepted from static changes alone**.
