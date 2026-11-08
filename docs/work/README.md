@@ -5,6 +5,7 @@ and the handoff template. The linked record owns detailed progress; this table i
 
 ## Open work
 
+| [WP13 QGIS project structural comparison](2026-11-08-wp13-qgis-project-comparison.md) | Needs review; isolated 7-test smoke passed, Windows/CI pending | WP13 agent | 2026-11-08 | 2026-11-15 | Review WP13 draft child on #251; verify 3.14/Ruff/Pyright, package and Windows copied wrapper; #169 remains open for unselected backlog. |
 | Work front / status record | Status | Owner | Updated | Next review | Next action / dependency |
 | --- | --- | --- | --- | --- | --- |
 | [WP08 POMM, PO QA and closure dashboards](2026-11-08-po-qa-dashboard-198.md) | Selected #265 dashboard code integrated into draft #251; native interactive refresh PASS; broader #198 open | WP08 / maintainer | 2026-11-08 | 2026-11-15 | #265 squash-integrated as e8dba979; six reviewed child CI jobs and native interactive Rich refresh, ordered export parity, failure/Ctrl+C accepted. Partial-input hydraulics #219/#223 and closure #215 remain independently open; no Fixes #198, no main merge. |
