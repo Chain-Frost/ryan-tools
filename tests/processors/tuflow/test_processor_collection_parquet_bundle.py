@@ -140,9 +140,7 @@ def test_source_modified_after_processing_is_not_exported_as_fresh(
     assert collection.processors[0].source_at_processing == old_signature
 
 
-def test_historical_reexport_keeps_original_signature(
-    collection: ProcessorCollection, tmp_path: Path
-) -> None:
+def test_historical_reexport_keeps_original_signature(collection: ProcessorCollection, tmp_path: Path) -> None:
     path = tmp_path / "source.parquetdir"
     collection.to_parquet(path)
     recorded = _manifest(path)["processors"][0]["source"]
@@ -236,9 +234,7 @@ def test_directory_validation_rejects_bad_and_duplicate_paths(
         ProcessorCollection.from_parquet(path)
 
 
-def test_directory_rejects_semantics_mismatch(
-    collection: ProcessorCollection, tmp_path: Path
-) -> None:
+def test_directory_rejects_semantics_mismatch(collection: ProcessorCollection, tmp_path: Path) -> None:
     path = tmp_path / "semantics.parquetdir"
     collection.to_parquet(path)
     manifest = _manifest(path)
@@ -272,9 +268,7 @@ def test_invalid_source_entity_is_not_misreported_as_absent(tmp_path: Path) -> N
     assert wet.parquet_selection_diagnostics[0]["status"] == "SELECTED"
 
 
-def test_directory_requires_directory_not_single_parquet(
-    collection: ProcessorCollection, tmp_path: Path
-) -> None:
+def test_directory_requires_directory_not_single_parquet(collection: ProcessorCollection, tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="directory"):
         collection.to_parquet(tmp_path / "results.parquet")
     with pytest.raises(ValueError, match="directory"):
@@ -307,9 +301,7 @@ def test_hydraulic_health_and_source_presence_survive_rehydration(
     assert selected.source_entity_presence["Location"] == ["Loc1"]
 
 
-def test_orphan_staging_is_not_published(
-    collection: ProcessorCollection, tmp_path: Path
-) -> None:
+def test_orphan_staging_is_not_published(collection: ProcessorCollection, tmp_path: Path) -> None:
     dest = tmp_path / "stable.parquetdir"
     collection.to_parquet(dest)
     leftover = tmp_path / ".stable.parquetdir.crashed.staging"
@@ -321,9 +313,7 @@ def test_orphan_staging_is_not_published(
     assert (leftover / "partial").read_text(encoding="utf-8") == "incomplete"
 
 
-def test_missing_member_and_missing_source_fail_closed(
-    collection: ProcessorCollection, tmp_path: Path
-) -> None:
+def test_missing_member_and_missing_source_fail_closed(collection: ProcessorCollection, tmp_path: Path) -> None:
     dest = tmp_path / "missing.parquetdir"
     collection.to_parquet(dest)
     original_source = collection.processors[0].resolved_file_path

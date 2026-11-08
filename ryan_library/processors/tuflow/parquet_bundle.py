@@ -117,9 +117,7 @@ def _identifier_values(frame: DataFrame, name: str) -> set[str]:
 
 def _entity_evidence(processor: BaseProcessor) -> tuple[dict[str, list[str]], dict[str, list[str]]]:
     frame_values: dict[str, list[str]] = {}
-    source_values: dict[str, set[str]] = {
-        key: set(values) for key, values in processor.source_entity_presence.items()
-    }
+    source_values: dict[str, set[str]] = {key: set(values) for key, values in processor.source_entity_presence.items()}
     for name in dict.fromkeys(("Location", *processor.get_entity_id_columns())):
         if name in processor.df.columns:
             values = _identifier_values(processor.df, name)
@@ -344,12 +342,7 @@ def _validate_inventory(  # noqa: C901
     lookup = cast("dict[str, Any] | None", raw_lookup)
     for entry in [*entries, *([lookup] if lookup is not None else [])]:
         sha, size = entry.get("sha256"), entry.get("size")
-        if (
-            not isinstance(sha, str)
-            or re.fullmatch(r"[0-9a-f]{64}", sha) is None
-            or type(size) is not int
-            or size < 0
-        ):
+        if not isinstance(sha, str) or re.fullmatch(r"[0-9a-f]{64}", sha) is None or type(size) is not int or size < 0:
             message = "Parquet directory member hash/size metadata is invalid"
             raise ValueError(message)
     return entries, lookup, generation
