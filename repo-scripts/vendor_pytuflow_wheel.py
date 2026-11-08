@@ -60,7 +60,7 @@ def verify_wheel(path: Path = WHEEL_PATH, *, manifest: bool = True) -> None:
             raise ValueError(f"PyTuflow wheel lacks required files: {sorted(missing)}")
         if not any(name.startswith(dist) and "license" in name.casefold() for name in names):
             raise ValueError("PyTuflow wheel lacks its license notice")
-        for resource_dir in ("pytuflow/_tmf/tmf/data/", "pytuflow/project/data/"):
+        for resource_dir in ("pytuflow/_outputs/data/", "pytuflow/project/data/"):
             if not any(name.startswith(resource_dir) and name.endswith(".json") for name in names):
                 raise ValueError(f"PyTuflow wheel lacks runtime JSON resources: {resource_dir}")
         dist_metadata = archive.read(dist + "METADATA").decode("utf-8")
