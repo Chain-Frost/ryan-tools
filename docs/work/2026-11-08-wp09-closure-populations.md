@@ -57,15 +57,20 @@ Windows Python 3.14 hosted checkpoint at `f1514fdd2e8b88e6940145af68c02eceafe340
 Ruff/format/documentation, Package, POSIX wrapper security, and MCP smoke passed.
 Policy found **one** strict Pyright private-helper warning in the new export test; the following
 WP09 commit adds the same file-level test allowance already used by existing export tests.
-No production-code defect was reported by that check. Final-head CI is required.
+No production-code defect was reported by that check. On final **functional and test head**
+`ac9f0c90cfdd58456202bf3f9d27ba3ea114ef5e`, [GitHub Python CI](https://github.com/Chain-Frost/ryan-tools/actions/runs/42473097916)
+subsequently passed **all 6 jobs**: strict Policy/Pyright, hosted source-tree tests (**2,964 passed,
+14 skipped, 8 deselected**), Package, Ruff/whitespace/docs, POSIX wrapper security and MCP smoke.
+All **14 WP09 tests executed and passed**, including real CSV/Parquet/Excel output readback;
+additional pandas 2.3.3 compatibility: **64 passed**. This documentation-only closeout requires
+its own final-head check; the PR description owns live CI status to avoid repeated status commits.
 Codex reviewed the functional code commit `dabf1be2a34c7ecf2be00ceaae8dd81614dad47f` and
 reported no findings; the index and test-annotation changes are nonfunctional.
 Do not report skipped or unexecuted tests as passes. No merges, releases or issue closures performed.
 
 ## Next action
 
-Check the draft WP09 PR's exact-head Windows hosted CI (focused and package tests, lint, formatting, strict
-Pyright and actual exporter readback); correct actionable Codex findings; then obtain independent Windows 10
-Python 3.14 installed-wheel/copied-wrapper verification for zero durations and scenario identity.
-Confirm native record parity and PO missingness limitations with WP04 before requesting integration into #251.
+Confirm final CI on this documentation-only closeout, then obtain independent Windows 10 Python 3.14
+installed-wheel/copied-wrapper verification of real PO source-to-report values and source-file preservation.
+Coordinate missingness limitations with WP04 #219/#223 before requesting integration into #251.
 Do not integrate without authorisation and do not merge #251 to main.
