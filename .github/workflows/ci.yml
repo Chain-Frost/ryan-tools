@@ -321,6 +321,9 @@ jobs:
         run: |
           python -m pip install -r repo-scripts/ci-test-requirements.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # A broken/missing optional backend must fail rather than skip HDF acceptance.
+          python -c "import tables; print('Processor cache backend:', tables.__version__)"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Verify installed parser wheel origin and SHA-256
         shell: pwsh
