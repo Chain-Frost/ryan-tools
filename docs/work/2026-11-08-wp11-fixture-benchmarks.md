@@ -60,22 +60,33 @@ selection. It generates real PO-style CSVs with deterministic values, zeros and 
 compares full versus selected and retained-series versus summary products for serial and process-pool execution. Summaries
 retain one exact per-run absolute-peak row per location/variable, not an ensemble/closure statistic. The serial retained
 series calls ProcessorCollection.po_combine; other cases are explicitly identified as pandas concat or DataFrame IPC.
-The manifest records environment and pandas versions, actual generated/export bytes, fixture-generation plus
-processing/aggregation/export/total wall time, row counts, and optionally 50ms **sampled** parent/worker/combined RSS.
+The manifest records environment/pandas and the installed ryan-tools distribution identity, physical processor
+import paths and source Git revision where available, actual generated/export bytes, planned retained-output disk
+reservation, fixture-generation plus processing/aggregation/export/total wall time, row counts, and optionally 50ms
+**sampled** parent/worker/combined RSS. After each measured export, the benchmark independently reads the generated
+source CSV (not the POProcessor DataFrame), compares exact per-run/location/type absolute-peak values and timestamps
+for summaries, selected keyed signed-value/time samples for retained series, and streams the CSV/Parquet export back
+to check row counts, missing columns, duplicate keys and numerics. Validation time is recorded **outside** the measured
+parse/aggregation/export stages, with an explicit per-case fidelity PASS or failure.
 These samples are **not** OS-confirmed peak or working-set maxima. No controlled cold filesystem cache, UNC/SMB I/O
 counter, selected-reader byte reduction, partitioned-memory baseline, optional Dask, exact peak-time parity or solver
 run is claimed.
 
-The full 300-run profile requires **both** PROFILE="full" and ALLOW_FULL_WORKLOAD=True and available disk. Full-series
-cases whose three-column numeric lower bound exceeds MAX_FULL_SERIES_NUMERIC_GIB are explicitly **NOT RUN**. The generated
+The full 300-run profile requires **both** PROFILE="full" and ALLOW_FULL_WORKLOAD=True and available disk. Before
+generating fixtures, an intentionally conservative allocation includes wide input files and every enabled retained
+summary/series export for both serial and parallel cases (512 estimated bytes per long row, plus safety factor).
+Another free-space guard runs immediately before each individual export. Estimates do **not** guarantee actual
+filesystem capacity; actual sizes and safe failure are still audited. Full-series cases whose three-column numeric
+lower bound exceeds MAX_FULL_SERIES_NUMERIC_GIB are explicitly **NOT RUN**. The generated
 source and report destinations are new and never silently overwritten. Full workload generation still requires an
 independently approved RAM/disk/time budget; do not run it by default.
 
 ## Validation and delivery (2026-11-08)
 
 Isolated Linux scratch worktree (Python 3.13.5, **not** the supported Windows 3.14 environment):
-- PASS: pytest -q tests/benchmarks/test_benchmark_po_workload.py — **5 passed** (exact 300-grid dimensions, inclusive
-  timestep count, source values/time and zero/negative discharge, unique names, overwrite refusal and RAM gate).
+- PASS: pytest -q tests/benchmarks/test_benchmark_po_workload.py — **7 passed** (exact 300-grid dimensions,
+  inclusive timesteps, source values, zero/negative discharge, unique names, overwrite refusal, RAM gate, source-key
+  export/peak-time validation with deliberately corrupted values/time, header drift and full retained-output disk budget).
 - PASS: Python compilation of new script and tests, and JSON syntax validation of the fixture manifest.
 - NOT RUN: pinned large-test-data-dependent real processor tests; live processor/collection/export benchmark; Ruff,
   strict Pyright, repository documentation checker, installed wheel, real Windows/SMB and CI. The container has no

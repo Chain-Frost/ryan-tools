@@ -7,9 +7,11 @@ when using their output to support a decision.
 ## WP11 PO workload baseline
 
 The new benchmark_po_workload.py generates correctly named synthetic TUFLOW PO runs, then measures the real processor,
-location selection, per-run peak reduction, collection/concatenation and CSV or optional Parquet export. It records actual
-input/export bytes, dependency versions, wall time and 50 ms **sampled** parent/worker RSS (when psutil is installed).
-These are not high-water marks and cold/warm-cache behavior is not controlled.
+location selection, per-run peak reduction, collection/concatenation and CSV or optional Parquet export. It records actual input/export bytes, dependency and imported-processor identities/source SHA, wall time and 50 ms
+**sampled** parent/worker RSS (when psutil is installed). After recording timings it checks exported
+CSV/Parquet against independent generated-source values and peak times, outside the timed stages; it also reserves disk
+space for every enabled retained export. These RSS samples are not high-water marks, and cold/warm-cache behavior
+is not controlled.
 
 ~~~powershell
 py -3.14 repo-scripts\benchmarks\benchmark_po_workload.py

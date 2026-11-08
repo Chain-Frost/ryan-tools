@@ -113,7 +113,7 @@ def test_synthetic_public_po_collection_and_export_roundtrip(tmp_path: Path) -> 
     )
     workbook = tmp_path / "wp11_source_values.xlsx"
     assert workbook.is_file()
-    excel = pd.read_excel(workbook, sheet_name="PO")
+    excel: pd.DataFrame = pd.read_excel(workbook, sheet_name="PO")  # pyright: ignore[reportUnknownMemberType]
     assert len(excel) == len(combined)
     assert excel["Value"].astype(float).tolist() == pytest.approx(combined["Value"].astype(float).tolist())
     assert excel["Time"].astype(float).tolist() == pytest.approx(combined["Time"].astype(float).tolist())

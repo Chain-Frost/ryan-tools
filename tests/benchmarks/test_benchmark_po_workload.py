@@ -91,3 +91,67 @@ def test_selection_is_20_of_100_in_full_workload() -> None:
     assert BENCH.value_at(0, 0, 100, "Q") == 0
     with pytest.raises(ValueError, match="Unsupported"):
         BENCH.value_at(0, 0, 0, "Qx")
+
+
+def test_export_readback_matches_source_values_and_exact_peak_times(tmp_path: Path) -> None:
+    """Exercise the offline validator independently of the installed PO processor."""
+    import pandas as pd
+
+    spec = BENCH.Workload(["01p"], [60], [1], 2, 120, 1)
+    sources = BENCH.make_fixture(tmp_path / "source", spec)
+    reference = BENCH._source_reference(sources, spec)
+    observations = []
+    with sources[0].open(newline="", encoding="utf-8") as stream:
+        for minute, row in enumerate(list(csv.reader(stream))[2:]):
+            for location in range(2):
+                for index, kind in enumerate(BENCH.VARIABLES):
+                    value = float(row[2 + location * 3 + index])
+                    observations.append(
+                        {
+                            "internalName": spec.run_codes[0],
+                            "Location": f"L{location + 1:03d}",
+                            "Type": kind,
+                            "Time": minute / 60,
+                            "Value": value,
+                            "AbsValue": abs(value),
+                        }
+                    )
+    frame = pd.DataFrame(observations)
+    series_file = tmp_path / "series.csv"
+    frame.to_csv(series_file, index=False)
+    valid = BENCH._validate_export(series_file, reference, spec, selected=False, summary_only=False)
+    assert valid["status"] == "PASS"
+    assert valid["source_keys_checked"] > 0
+
+    damaged = frame.copy()
+    damaged.loc[0, "Value"] = 99.0
+    damaged.to_csv(series_file, index=False)
+    with pytest.raises(AssertionError, match="source Value"):
+        BENCH._validate_export(series_file, reference, spec, selected=False, summary_only=False)
+
+    summary = frame.loc[frame.groupby(["internalName", "Location", "Type"])["AbsValue"].idxmax()].copy()
+    summary_file = tmp_path / "summary.csv"
+    summary.to_csv(summary_file, index=False)
+    valid_summary = BENCH._validate_export(summary_file, reference, spec, selected=False, summary_only=True)
+    assert valid_summary["validated_rows"] == 6
+    damaged_peak = summary.copy()
+    damaged_peak.iloc[0, damaged_peak.columns.get_loc("Time")] += 1 / 60
+    damaged_peak.to_csv(summary_file, index=False)
+    with pytest.raises(AssertionError, match="peak/sample time"):
+        BENCH._validate_export(summary_file, reference, spec, selected=False, summary_only=True)
+
+
+def test_source_oracle_rejects_changed_headers_and_reserves_all_enabled_outputs(tmp_path: Path) -> None:
+    spec = BENCH.Workload(["01p"], [60], [1], 2, 8, 1)
+    sources = BENCH.make_fixture(tmp_path / "input", spec)
+    original = sources[0].read_text(encoding="utf-8")
+    sources[0].write_text(original.replace(",H,Q,V,", ",Q,H,V,", 1), encoding="utf-8")
+    with pytest.raises(ValueError, match="header drift"):
+        BENCH._source_reference(sources, spec)
+
+    full = BENCH.workload("full")
+    input_only = full.observations(False) * 21
+    small_budget = BENCH._disk_reservation_bytes(full, 1.0)
+    generous_budget = BENCH._disk_reservation_bytes(full, 64.0)
+    assert small_budget > input_only
+    assert generous_budget > small_budget
