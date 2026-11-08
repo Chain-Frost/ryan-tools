@@ -4,6 +4,7 @@ __lazy_modules__ = ["pandas"]
 import shutil
 import sqlite3
 import tempfile
+import time
 import urllib.parse
 from contextlib import ExitStack
 from pathlib import Path
@@ -149,6 +150,21 @@ class ccAProcessor(BaseProcessor):
             shm = path.with_name(path.name + "-shm")
             journal = path.with_name(path.name + "-journal")
             source_paths = (path, wal, shm, journal)
+            return self._copy_stable_gpkg(path, source_paths, owned)
+        except OSError as exc:
+            logger.error("Could not prepare read-only SQLite snapshot of {}: {}", path, exc)
+            return None
+
+    def _copy_stable_gpkg(self, path: Path, source_paths: tuple[Path, ...], owned: ExitStack) -> Path | None:
+        """Try at most three complete copies; discard every changed attempt before retrying.
+
+        The attempt count bounds I/O, not elapsed time on an unresponsive share.
+        Each attempt retains the full existing source-signature and journal guards.
+        """
+        wal = source_paths[1]
+        for attempt in range(3):
+            if attempt:
+                time.sleep(0.05 * attempt)
             before = tuple(self._source_signature(item) for item in source_paths)
             if before[0] is None or (before[1] is None) != (before[2] is None):
                 logger.error("process_gpkg: Missing database or incomplete WAL/SHM sidecars for {}", path)
@@ -160,21 +176,28 @@ class ccAProcessor(BaseProcessor):
                 logger.error("process_gpkg: Rollback journal is present for {}; refusing unsafe snapshot", path)
                 return None
 
-            scratch = Path(owned.enter_context(tempfile.TemporaryDirectory(prefix="ryan-cca-sqlite-")))
-            staged_path = scratch / path.name
-            shutil.copyfile(path, staged_path)
-            # Do not copy the live shared-memory index: SQLite can rebuild it
-            # from copied WAL frames without accessing the source directory.
-            if before[1] is not None:
-                shutil.copyfile(wal, scratch / wal.name)
-            if tuple(self._source_signature(item) for item in source_paths) != before:
-                logger.error("process_gpkg: Source changed while copying SQLite snapshot of {}; refusing read", path)
-                return None
-            logger.debug("process_gpkg: Reading {} from owned local snapshot", path)
-            return staged_path
-        except OSError as exc:
-            logger.error("process_gpkg: Could not prepare read-only snapshot of {}: {}", path, exc)
-            return None
+            with ExitStack() as attempt_owned:
+                scratch = Path(attempt_owned.enter_context(tempfile.TemporaryDirectory(prefix="ryan-cca-sqlite-")))
+                staged_path = scratch / path.name
+                try:
+                    shutil.copyfile(path, staged_path)
+                    # Rebuild SHM only in scratch from the copied WAL.
+                    if before[1] is not None:
+                        shutil.copyfile(wal, scratch / wal.name)
+                except OSError:
+                    if tuple(self._source_signature(item) for item in source_paths) == before:
+                        raise
+                    # A shutdown/checkpoint can remove WAL while it is copied.
+                    # Only an observed source change permits another attempt.
+                    continue
+                if tuple(self._source_signature(item) for item in source_paths) != before:
+                    logger.debug("SQLite source changed during copy of {} (attempt {}/3)", path, attempt + 1)
+                    continue
+                owned.enter_context(attempt_owned.pop_all())
+                logger.debug("Reading {} from owned local SQLite snapshot", path)
+                return staged_path
+        logger.error("SQLite source changed during all three snapshot attempts for {}; refusing read", path)
+        return None
 
     def _open_sqlite_connection(self, path: Path) -> sqlite3.Connection | None:
         """Open a rollback-mode source or owned WAL snapshot, without write fallback."""
