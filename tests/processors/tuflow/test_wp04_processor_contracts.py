@@ -369,6 +369,26 @@ def test_q_qa_rejects_nonmonotonic_and_malformed_input(tmp_path: Path) -> None:
     assert result[0].input_health == "INVALID"
 
 
+def test_qa_all_invalid_level_samples_fail_not_skip(tmp_path: Path) -> None:
+    path = _file(
+        tmp_path,
+        "_PO.csv",
+        "Dummy,Time,HU\\nDummy,Time,Bridge\\n0,0,-99999\\n1,1,**********\\n",
+    )
+    peaks = analyze_peak_csv(path, _peak_config())
+    stability = analyze_stability_csv(path, _stability_config())
+    assert len(peaks) == 1
+    assert len(stability) == 1
+    assert peaks[0].status == "NO_DATA"
+    assert peaks[0].input_health == "INVALID"
+    assert stability[0].status == "NO_DATA"
+    assert stability[0].input_health == "INVALID"
+    assert _peak_file_outcome([{"status": peaks[0].status, "input_health": peaks[0].input_health}]) == "FAIL"
+    assert _stability_file_outcome(
+        [{"status": stability[0].status, "input_health": stability[0].input_health}]
+    ) == "FAIL"
+
+
 def test_qa_rejects_invalid_tolerance_configuration(tmp_path: Path) -> None:
     path = _file(tmp_path, "_PO.csv", "Dummy,Time,Q\n,(h),C1\n0,0,1\n1,1,2\n")
     config = _stability_config()
