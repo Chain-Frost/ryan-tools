@@ -348,9 +348,24 @@ jobs:
             --junitxml=test-results/hosted-tests.xml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Preserve the focused profiling regression excluded by the broad GIS boundary
+        shell: pwsh
+        run: python -m pytest -q tests/functions/gdal/test_profiling.py -m "not gui and not external" --junitxml=test-results/mcp-profiling.xml
+
+      - name: Verify Windows MCP module import and tool exports
+        id: mcp-contracts
+        shell: pwsh
+        env:
+          RYAN_MCP_PROFILE: create
+          RYAN_TOOLS_REPOSITORY_ROOT: ${{ github.workspace }}
+        run: |
+          python -B -c "import ryan_library.mcp.server as server; assert server.mcp is not None; assert all(callable(getattr(server, name)) for name in ('parse_tuflow_filename', 'inspect_tuflow_result', 'inspect_tuflow_collection', 'inspect_raster_metadata', 'check_repo_health', 'list_workflows', 'get_workflow'))"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "passed=true" >> $env:GITHUB_OUTPUT
+
       # #227: a second pandas major series must preserve POMM/culvert
       # numeric values, representative-event identity and XLSX schemas.
-      # Keep the current-pandas full-suite run above as the primary gate.
+      # Keep the default-environment suite and MCP acceptance above as the primary gates.
       - name: Run focused POMM compatibility tests with pandas 2.3.3
         shell: pwsh
         run: |
@@ -368,21 +383,6 @@ jobs:
             tests/orchestrators/tuflow/test_tuflow_culverts_finite_216.py `
             tests/orchestrators/tuflow/test_tuflow_culverts_mean.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-      - name: Preserve the focused profiling regression excluded by the broad GIS boundary
-        shell: pwsh
-        run: python -m pytest -q tests/functions/gdal/test_profiling.py -m "not gui and not external" --junitxml=test-results/mcp-profiling.xml
-
-      - name: Verify Windows MCP module import and tool exports
-        id: mcp-contracts
-        shell: pwsh
-        env:
-          RYAN_MCP_PROFILE: create
-          RYAN_TOOLS_REPOSITORY_ROOT: ${{ github.workspace }}
-        run: |
-          python -B -c "import ryan_library.mcp.server as server; assert server.mcp is not None; assert all(callable(getattr(server, name)) for name in ('parse_tuflow_filename', 'inspect_tuflow_result', 'inspect_tuflow_collection', 'inspect_raster_metadata', 'check_repo_health', 'list_workflows', 'get_workflow'))"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          "passed=true" >> $env:GITHUB_OUTPUT
 
       - name: Upload test report
         if: always()
