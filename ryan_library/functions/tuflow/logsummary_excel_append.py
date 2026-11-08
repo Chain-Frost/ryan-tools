@@ -5,7 +5,11 @@ __lazy_modules__ = ["pandas"]
 
 
 import math
-from collections.abc import Iterable
+import os
+import stat
+import tempfile
+from collections.abc import Generator, Iterable
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
@@ -35,6 +39,39 @@ class ExistingLogSummaryRows:
     log_filenames: frozenset[str]
 
 
+@contextmanager
+def master_workbook_claim(*, workbook_path: Path) -> Generator[None]:
+    """Prevent cooperating writers from using one master workbook concurrently.
+
+    The claim covers the entire discovery/read/processing/replace workflow.
+    Creation is exclusive on the workbook's filesystem (including SMB).
+    A crash can leave a claim behind: inspect ownership before manual removal.
+    """
+    claim_path = workbook_path.with_name(f".{workbook_path.name}.writing")
+    try:
+        claim_file = claim_path.open("x+b")
+    except FileExistsError as exc:
+        msg = f"Master workbook is already being updated: {workbook_path} (claim: {claim_path})"
+        raise FileExistsError(msg) from exc
+
+    owned_stat: os.stat_result | None = None
+    try:
+        owned_stat = os.fstat(claim_file.fileno())
+        claim_file.write(f"pid={os.getpid()}\n".encode("ascii"))
+        claim_file.flush()
+        yield
+    finally:
+        claim_file.close()
+        if owned_stat is not None:
+            try:
+                current = claim_path.lstat()
+            except FileNotFoundError:
+                pass
+            else:
+                if (current.st_dev, current.st_ino) == (owned_stat.st_dev, owned_stat.st_ino):
+                    claim_path.unlink()
+
+
 def load_existing_log_summary_rows(
     *,
     workbook_path: Path,
@@ -42,10 +79,12 @@ def load_existing_log_summary_rows(
     table_name: str | None,
 ) -> ExistingLogSummaryRows:
     """Read existing run-code and log-path keys from a log-summary workbook table."""
+    _validate_master_workbook_type(workbook_path=workbook_path)
     if not workbook_path.exists():
         msg = f"Master workbook does not exist: {workbook_path}"
         raise FileNotFoundError(msg)
 
+    _require_unlinked_master_workbook(workbook_path=workbook_path)
     workbook: Workbook = load_workbook(filename=workbook_path, read_only=False, data_only=False)
     try:
         worksheet: Worksheet = _resolve_worksheet(workbook=workbook, sheet_name=sheet_name)
@@ -124,8 +163,31 @@ def append_dataframe_to_workbook_table(
     workbook_path: Path,
     sheet_name: str,
     table_name: str | None,
+    _claim_is_held: bool = False,
 ) -> None:
-    """Append dataframe rows to a worksheet table, extending the table range as needed."""
+    """Append rows under an exclusive claim; coordinators may hold it already."""
+    _validate_master_workbook_type(workbook_path=workbook_path)
+    if _claim_is_held:
+        _append_dataframe_to_workbook_table_claimed(
+            data_frame=data_frame, workbook_path=workbook_path, sheet_name=sheet_name, table_name=table_name
+        )
+        return
+    with master_workbook_claim(workbook_path=workbook_path):
+        _append_dataframe_to_workbook_table_claimed(
+            data_frame=data_frame, workbook_path=workbook_path, sheet_name=sheet_name, table_name=table_name
+        )
+
+
+def _append_dataframe_to_workbook_table_claimed(
+    *,
+    data_frame: pd.DataFrame,
+    workbook_path: Path,
+    sheet_name: str,
+    table_name: str | None,
+) -> None:
+    """Write a staged workbook while the caller holds the exclusive claim."""
+    _validate_master_workbook_type(workbook_path=workbook_path)
+    original_stat: os.stat_result = _require_unlinked_master_workbook(workbook_path=workbook_path)
     workbook: Workbook = load_workbook(filename=workbook_path, read_only=False, data_only=False)
     try:
         worksheet: Worksheet = _resolve_worksheet(workbook=workbook, sheet_name=sheet_name)
@@ -170,13 +232,157 @@ def append_dataframe_to_workbook_table(
             if table.autoFilter is not None:
                 table.autoFilter.ref = table.ref
 
-        logger.info(f"Saving appended workbook {workbook_path}")
-        workbook.save(filename=workbook_path)
+        logger.info("Saving appended workbook {}", workbook_path)
+        # Write in the destination directory so publication is an atomic same-volume replace.
+        # The original workbook is never opened for writing, including on writer failure.
+        with tempfile.NamedTemporaryFile(
+            prefix=f".{workbook_path.stem}-", suffix=".xlsx", dir=workbook_path.parent, delete=False
+        ) as staged_file:
+            staged_path = Path(staged_file.name)
+        try:
+            workbook.save(filename=staged_path)
+            staged_path.chmod(stat.S_IMODE(original_stat.st_mode))
+            current_stat: os.stat_result = _require_unlinked_master_workbook(workbook_path=workbook_path)
+            original_signature = (
+                original_stat.st_dev,
+                original_stat.st_ino,
+                original_stat.st_size,
+                original_stat.st_mtime_ns,
+            )
+            current_signature = (
+                current_stat.st_dev,
+                current_stat.st_ino,
+                current_stat.st_size,
+                current_stat.st_mtime_ns,
+            )
+            if original_signature != current_signature:
+                msg = f"Master workbook changed during append: {workbook_path}"
+                raise RuntimeError(msg)
+            staged_path.replace(workbook_path)
+        finally:
+            staged_path.unlink(missing_ok=True)
     except PermissionError:
         logger.error(f"Unable to save {workbook_path}. Close it in Excel and rerun the append script.")
         raise
     finally:
         workbook.close()
+
+
+def _validate_master_workbook_type(*, workbook_path: Path) -> None:
+    """Never silently strip VBA from macro-enabled workbooks."""
+    if workbook_path.suffix.lower() != ".xlsx":
+        msg = "Master log append supports .xlsx only; .xlsm and other formats are not modified."
+        raise ValueError(msg)
+
+
+def _windows_hardlink_count(*, path: Path) -> int:
+    """Count Windows hardlink names (up to two), never trusting SMB st_nlink."""
+    import ctypes
+    from ctypes import wintypes
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    find_first = kernel32.FindFirstFileNameW
+    find_first.argtypes = [
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        ctypes.POINTER(wintypes.DWORD),
+        wintypes.LPWSTR,
+    ]
+    find_first.restype = wintypes.HANDLE
+    find_next = kernel32.FindNextFileNameW
+    find_next.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD), wintypes.LPWSTR]
+    find_next.restype = wintypes.BOOL
+    find_close = kernel32.FindClose
+    find_close.argtypes = [wintypes.HANDLE]
+    find_close.restype = wintypes.BOOL
+
+    # Windows maximum extended-length path buffer, so more-data is a failure.
+    buffer = ctypes.create_unicode_buffer(32768)
+    length = wintypes.DWORD(len(buffer))
+    handle = find_first(str(path), 0, ctypes.byref(length), buffer)
+    if handle == ctypes.c_void_p(-1).value:
+        raise OSError(ctypes.get_last_error(), f"Cannot enumerate hardlinks for {path}")
+    try:
+        count = 1
+        while True:
+            length.value = len(buffer)
+            if find_next(handle, ctypes.byref(length), buffer):
+                count += 1
+                if count > 1:
+                    return count
+                continue
+            error = ctypes.get_last_error()
+            if error != 38:  # ERROR_HANDLE_EOF
+                raise OSError(error, f"Incomplete hardlink enumeration for {path}")
+            return count
+    finally:
+        find_close(handle)
+
+
+def _verify_windows_hardlinks(*, workbook_path: Path) -> None:
+    """Fail closed if a share cannot prove it distinguishes hardlink aliases.
+
+    Some SMB servers report st_nlink == 1 for genuine aliases. Calibrate
+    the Windows API using owned one- and two-name files in the SAME directory.
+    Never infer a safe workbook from an unsupported or misleading API.
+    """
+    with tempfile.NamedTemporaryFile(
+        prefix=f".{workbook_path.stem}-link-check-", suffix=".tmp", dir=workbook_path.parent, delete=False
+    ) as probe_file:
+        probe_path = Path(probe_file.name)
+    alias_path = probe_path.with_name(f"{probe_path.name}.alias")
+    alias_owned = False
+    try:
+        try:
+            single_count = _windows_hardlink_count(path=probe_path)
+        except OSError as exc:
+            msg = (
+                "Master workbook append is unsupported on this filesystem: reliable hardlink "
+                f"enumeration is unavailable. Use an unlinked workbook on a supported filesystem: {workbook_path}"
+            )
+            raise ValueError(msg) from exc
+        if single_count != 1:
+            msg = f"Cannot verify single-link identity on the master filesystem: {workbook_path}"
+            raise ValueError(msg)
+        try:
+            os.link(probe_path, alias_path)
+            alias_owned = True
+            if _windows_hardlink_count(path=probe_path) != 2 or _windows_hardlink_count(path=alias_path) != 2:
+                msg = f"Hardlink enumeration is unreliable on the master filesystem: {workbook_path}"
+                raise ValueError(msg)
+            if _windows_hardlink_count(path=workbook_path) != 1:
+                msg = f"Hard-linked master workbooks are unsupported: {workbook_path}"
+                raise ValueError(msg)
+        except OSError as exc:
+            msg = f"Cannot verify safe hardlink replacement on this filesystem: {workbook_path}"
+            raise ValueError(msg) from exc
+    finally:
+        if alias_owned:
+            alias_path.unlink(missing_ok=True)
+        probe_path.unlink(missing_ok=True)
+
+
+def _require_unlinked_master_workbook(*, workbook_path: Path) -> os.stat_result:
+    """Fail closed when replacing the path would sever a workbook link.
+
+    Path.stat follows links deliberately to inspect the existing file's
+    physical identity, but an explicit filename symlink is rejected first.
+    Mapped drives and UNC directory parents retain their supplied spelling.
+    """
+    if workbook_path.is_symlink():
+        msg = f"Master workbook must not be a symbolic link: {workbook_path}"
+        raise ValueError(msg)
+    existing = workbook_path.stat()
+    if not stat.S_ISREG(existing.st_mode):
+        msg = f"Master workbook must be a regular file: {workbook_path}"
+        raise ValueError(msg)
+    if existing.st_nlink != 1:
+        msg = f"Hard-linked master workbooks are unsupported: {workbook_path} (links={existing.st_nlink})"
+        raise ValueError(msg)
+    if os.name == "nt":
+        # SMB can report st_nlink == 1 even when other names point at the same file.
+        _verify_windows_hardlinks(workbook_path=workbook_path)
+    return existing
 
 
 def _resolve_worksheet(*, workbook: Workbook, sheet_name: str) -> Worksheet:
