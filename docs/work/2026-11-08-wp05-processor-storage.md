@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active; stacked PRs awaiting integrated-head CI and native acceptance |
+| Status | Blocked on #254 P2 SQLite WAL writer-shutdown/sidecar race; #261 native HDF acceptance pending |
 | Owner | WP05 delivery agent / maintainer |
 | Created | 2026-11-08 |
 | Updated | 2026-11-08 |
@@ -79,3 +79,9 @@ Codex's [#254 P1 review finding](https://github.com/Chain-Frost/ryan-tools/pull/
 The processor now reads the fixed SQLite database-header journal markers **before opening SQLite**. If the header denotes WAL mode but the pair of existing `-wal`/`-shm` sidecars is incomplete or absent, it **fails explicitly without opening a connection or creating files**. An active WAL writer with both sidecars remains supported and its committed snapshot is read with `mode=ro`. No unsafe `immutable=1` bypass or writable fallback is added; closed WAL-mode results lacking sidecars must be changed to a rollback journal by their producer or otherwise processed under a separately validated read-only strategy.
 
 A disposable SQLite regression reproduces the closed-WAL case and verifies source bytes and no sidecars after failed read. Source header bytes, actual WAL lifecycle and results are tested without a licensed solver. Exact-head Windows/Python 3.14 CI and native Windows/SMB acceptance remain separate, pending results; **the P1 must not be marked fully accepted from static changes alone**.
+
+### Follow-up review finding — writer shutdown between preflight and SQLite open
+
+[Codex P2 on #254](https://github.com/Chain-Frost/ryan-tools/pull/254#discussion_r4505393356) identifies a **remaining TOCTOU source-mutation risk**. The new header check in `3394578f` prevents WAL/SHM creation if a closed WAL-mode database has no sidecars *at preflight*. However, if an active writer closes/checkpoints **after** the sidecar check but **before** the read-only SQLite connection opens, SQLite can create its own WAL/SHM sidecars. The earlier P1 fix is therefore **partial and unaccepted**, not a full solution to #222's no-source-mutation requirement.
+
+**Required resolution:** demonstrate a portable no-create read contract that preserves committed active WAL data without unsafe `immutable=1` stale reads, or explicitly document and agree to a narrower unsupported/failed-read case. Add deterministic shutdown-between-check-and-open regression, check original bytes and all sidecars, then obtain Windows/SMB validation and exact-head CI. The P2 must be resolved before #254/#261 feature-branch integration. Both children have been returned to **draft** pending this gate. The [blocking comment on #254](https://github.com/Chain-Frost/ryan-tools/pull/254#issuecomment-6718649064) records the handoff. Do not close #222 or #226 or merge into `main`.
