@@ -856,6 +856,42 @@
       }
     },
     "aep-mean-max": {
+      "min_duration_tested_minutes": {
+        "description": "Shortest recognised duration sampled for this AEP/location/type/run group, in minutes.",
+        "value_type": "float"
+      },
+      "max_duration_tested_minutes": {
+        "description": "Longest recognised duration sampled for this AEP/location/type/run group, in minutes.",
+        "value_type": "float"
+      },
+      "durations_tested_minutes": {
+        "description": "Sorted distinct recognised durations sampled in this group, in minutes.",
+        "value_type": "string"
+      },
+      "missing_durations_minutes": {
+        "description": "Configured standard durations absent strictly between the group's tested bounds, in minutes.",
+        "value_type": "string"
+      },
+      "peak_duration_warning": {
+        "description": "Warning when the selected peak duration equals either tested bound (both for a single duration), or cannot be recognised.",
+        "value_type": "string"
+      },
+      "tp_bin_warning": {
+        "description": "Lists every duration bin whose observed input count (finite plus unusable hydraulic records) differs from the expected ensemble size (default 10). Counts are records, not proof of distinct temporal patterns.",
+        "value_type": "string"
+      },
+      "duration_coverage_warning": {
+        "description": "Warnings for missing intermediate standard durations, non-standard durations or unrecognised duration labels.",
+        "value_type": "string"
+      },
+      "findings_status": {
+        "description": "WARNING when any coverage finding is present; otherwise OK. OK does not establish model validity.",
+        "value_type": "string"
+      },
+      "hydraulic_population_warning": {
+        "description": "Warnings for duration bins with observed but non-finite hydraulic events. Independent of raw sampled-TP coverage; a complete sampled bin can still have invalid contributors.",
+        "value_type": "string"
+      },
       "mean_PeakFlow": {
         "description": "Largest duration-level mean_PeakFlow representative-event value for this AEP/location/type/run group.",
         "value_type": "float"
