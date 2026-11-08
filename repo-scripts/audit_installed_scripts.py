@@ -367,10 +367,10 @@ def documentation_index_findings(root: Path, report: dict[str, Any]) -> list[str
         try:
             content = (root / relative).read_text(encoding="utf-8")
         except (OSError, UnicodeError) as error:
-            findings.append(f"{relative}: cannot read documentation: {error}")
+            findings.append(f"{relative.as_posix()}: cannot read documentation: {error}")
             continue
         if phrase not in content:
-            findings.append(f"{relative}: expected inventory text {phrase!r}")
+            findings.append(f"{relative.as_posix()}: expected inventory text {phrase!r}")
     return findings
 
 
