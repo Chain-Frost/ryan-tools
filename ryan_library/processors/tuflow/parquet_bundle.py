@@ -42,7 +42,7 @@ _LOOKUP = "basic_info_lookup.parquet"
 _VERSIONS = ".versions"
 _MAX_MANIFEST_SIZE = 16 * 1024 * 1024
 _CHUNK_SIZE = 1024 * 1024
-_GENERATION_RE = re.compile(r"\\.versions/[0-9a-f]{32}\\Z")
+_GENERATION_RE = re.compile(r"\.versions/[0-9a-f]{32}\Z")
 _NATIVE_INVENTORY_COLUMNS: dict[str, str] = {
     "source_locations": "Location",
     "usable_source_locations": "Location",
