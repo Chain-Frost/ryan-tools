@@ -36,6 +36,77 @@ from ryan_library.processors.tuflow.timeseries_processor import TimeSeriesProces
 RUN = "Selection_01.00p_00120m_TP01"
 
 
+def test_real_cca_no_match_and_success_failure_recovery(tmp_path: Path) -> None:
+    source = Path("tests/test_data/tuflow/TUFLOW_Example_Model_Dataset/EG02/EG02_013_1d_ccA_L.dbf")
+    original = source.read_bytes()
+    path = tmp_path / source.name
+    path.write_bytes(original)
+    processor = BaseProcessor.from_file(path, entity_filter=["ABSENT"])
+    processor.process()
+    assert processor.filtered_empty
+    assert _result_status(processor) == "SKIP"
+
+    processor.entity_filter = None
+    processor.process()
+    assert processor.processed
+    assert not processor.filtered_empty
+    expected = processor.df.copy()
+    path.write_bytes(b"")
+    processor.process()
+    assert not processor.processed
+    assert processor.df.empty
+    assert processor.raw_df.empty
+    assert processor.applied_entity_filter is None
+    assert not processor.filtered_empty
+    assert _result_status(processor) == "FAIL"
+
+    path.write_bytes(original)
+    processor.process()
+    assert processor.processed
+    pd.testing.assert_frame_equal(processor.df, expected)
+
+
+@pytest.mark.parametrize(
+    ("suffix", "header"),
+    [
+        ("_1d_Q.csv", "Descriptor,Time,Q C1\n"),
+        ("_PO.csv", "Descriptor,Time,Q\nDescriptor,Time,C1\n"),
+    ],
+)
+def test_partially_truncated_csv_fails_and_recovers_without_rejecting_explicit_blanks(
+    tmp_path: Path, suffix: str, header: str
+) -> None:
+    path = _file(tmp_path, suffix, header + "row,0,2\nrow,1,3\n")
+    processor = BaseProcessor.from_file(path)
+    processor.process()
+    assert processor.processed
+
+    path.write_text(header + "row,0,2\nrow,1\n", encoding="utf-8")
+    processor.process()
+    assert not processor.processed
+    assert processor.df.empty
+    assert processor.raw_df.empty
+    assert processor.input_health == "INVALID"
+    assert _result_status(processor) == "FAIL"
+    assert not processor.filtered_empty
+
+    # A complete record with an explicitly empty sample is partial data,
+    # unlike a shortened record whose missing field was padded by pandas.
+    path.write_text(header + "row,0,2\nrow,1,\n", encoding="utf-8")
+    processor.process()
+    assert processor.processed
+    assert processor.input_health == "PARTIAL"
+    assert processor.rejected_samples == 1
+    assert processor.rejection_reasons == {"missing": 1}
+
+    path.write_text(header + "row,0,0\nrow,1,-3\n", encoding="utf-8")
+    processor.process()
+    assert processor.processed
+    assert processor.input_health == "OK"
+    assert processor.rejected_samples == 0
+    assert processor.rejection_reasons == {}
+
+
 def _file(folder: Path, suffix: str, content: str) -> Path:
     path = folder / f"{RUN}{suffix}"
     path.write_text(content, encoding="utf-8")
