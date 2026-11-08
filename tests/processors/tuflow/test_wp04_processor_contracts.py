@@ -281,8 +281,9 @@ def test_mcp_exposes_invalid_health_without_losing_raw_population(tmp_path: Path
     assert single["processed"] is True
     assert single["workflow_status"] == "FAIL"
     assert single["input_health"] == "INVALID"
-    assert single["rejected_samples"] == 2
+    assert single["rejected_samples"] == 3
     assert single["rejection_reasons"]["no_data"] == 2
+    assert single["rejection_reasons"]["all_missing_extrema"] == 1
     collection = inspect_tuflow_collection(file_paths=[str(path)], locations=["Dry"])
     assert len(collection["processors"]) == 1
     report = collection["processors"][0]
