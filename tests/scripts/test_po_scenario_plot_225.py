@@ -284,7 +284,7 @@ def test_headless_png_preserves_full_legend_bounds(
         {"R_A": "R_A_" + "longrun" * 40, "R_B": "R_B_" + "longrun" * 40}
     )
 
-    original = cast("Callable[..., None]", Figure.savefig)
+    original = cast("Callable[..., None]", Figure.savefig)  # pyright: ignore[reportUnknownMemberType]
     saved_bounds: list[object] = []
 
     def capture_savefig(self: Figure, *args: Any, **kwargs: Any) -> None:

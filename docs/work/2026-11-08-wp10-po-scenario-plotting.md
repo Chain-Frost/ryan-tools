@@ -103,3 +103,38 @@ issues: headless display backend, clipped full-code legends and a
 new source appearing during ingestion. The next implementation revision
 addresses these along with the type checks. The final SHA/recheck
 status belong in PR #280; earlier CI remains historical.
+
+
+## Independent Windows acceptance — 2026-11-08
+
+Validated original head `a59d528e4c732aa6740068ac7fff96ebe1ada50c` in a separate detached worktree.
+Windows 10 19045 / normal Python 3.14.6; pandas 3.0.5, NumPy 2.5.3, PyArrow 24.0.0.
+Focused source tests: 17 passed, no skips. Ruff, formatting, Loguru and documentation checks pass.
+Strict Pyright initially flagged the test's reference to incompletely typed Matplotlib savefig;
+added a narrow member-type allowance at that boundary, matching the existing adjacent allowance.
+Strict Pyright then passed with zero errors/warnings. No plotter implementation change.
+
+Copied plotter outside checkout, imported installed wheel 26.11.8.8 from the normal site-packages
+(wheel SHA256 2b64ffc4bf82722eb38e40efddcb919bc292866f7bb10b42743d7f281a696e64).
+All 17 copied-script regressions passed. Independently read genuine pinned test-data CSVs
+`M09_5m_01p_1hr_001_PO.csv` and `M09_5m_02p_1hr_001_PO.csv`, submodule
+`d2dae3ecf9a7ed306e1340de54a8d12ca9f53f58`, tutorial Module_09/results.
+Only disposable NTFS copies were processed. Both runs share Flow location Loc1_L and water-level
+location Loc1_P; all four plotted series match all 181 source x/y samples over 0–3 hours.
+Flow maxima: 88.4452 / 70.0862; water-level maxima: 43.1789 / 43.0983.
+Distinct measurement figures retain both complete run codes and correct units. These genuine
+filenames contain AEP/duration but no TP: configured SCENARIO_DIMENSIONS to those actual dimensions;
+default mandatory-TP configuration correctly rejects them. No TP label or renamed source was invented.
+
+CSV/cache selected-row/value parity: 1,086 rows, exact values. Parquet restores duration_numeric
+as int64 rather than ordered categorical; comparison explicitly permits that dtype change while
+requiring exact values. Input SHA256 remains unchanged for both originals and copies.
+NTFS cache/PNG no-clobber, explicit replacement and interrupted-write preservation passed.
+Existing tests cover literal/no-match filters, invalid time, missing columns, stale provenance and
+source additions; long-legend test checks tight PNG bounds. An unavailable hardlink was simulated
+and failed closed; live SMB was NOT RUN because no disposable share was selected.
+Artifacts, comparison scripts and genuine-result.json: E:/Github/wp10-native-evidence/.
+
+No solver, production/share mutation, merge or issue closure. Keep #225 open; WP04 #219 owns
+sentinel validity. Publish the test-only repair plus this record together; verify final-head CI
+before integration. Earlier overdue register reviews remain unrelated and were not resumed.
