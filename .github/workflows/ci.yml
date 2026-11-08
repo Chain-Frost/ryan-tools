@@ -276,6 +276,7 @@ jobs:
             --ignore=tests/functions/gdal `
             --ignore=tests/orchestrators/gdal `
             --ignore=tests/scripts/gdal/test_gdal_flood_extent.py `
+            --ignore=tests/scripts/gdal/test_cutline_publication_200.py `
             --ignore=tests/scripts/test_promoted_utilities.py `
             --ignore=tests/scripts/test_archive_compress.py `
             -m "not gdal and not gui and not external" `
