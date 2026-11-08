@@ -13,7 +13,6 @@ import pytest
 from ryan_library.functions.excel_export import ExcelExporter
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
-
 from tests.processors.tuflow.fixture_contract_assertions import assert_declared_outcome
 
 CONTRACT = Path(__file__).with_name("fixture_contract_wp11.json")

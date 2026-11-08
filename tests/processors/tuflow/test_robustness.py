@@ -11,7 +11,6 @@ import pytest
 from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
-
 from tests.processors.tuflow.fixture_contract_assertions import assert_declared_outcome, load_declared_cases
 
 
@@ -42,6 +41,22 @@ def get_processable_files(root_dir: Path) -> list[Path]:
             processable_files.append(path)
 
     return processable_files
+
+
+def _unclassified_file_result(
+    file_path: Path, processor: BaseProcessor, known_problematic: dict[str, str]
+) -> tuple[str | None, str | None]:
+    """Keep legacy unknown-format diagnostics outside the strict manifest gate."""
+    if file_path.name in known_problematic:
+        if processor.processed:
+            return f"{file_path.name}: Expected failure but was processed successfully", None
+        return None, None
+    if not processor.processed and file_path.stat().st_size:
+        warning = f"{file_path.name}: Processor.processed is False (Size: {file_path.stat().st_size} bytes)"
+        return None, warning
+    # Unclassified zero-byte or processed-empty inputs remain historical
+    # diagnostic-only cases until their outcome is explicitly classified.
+    return None, None
 
 
 def test_smoke_process_all_files(tuflow_test_data: Path) -> None:
@@ -101,27 +116,11 @@ def test_smoke_process_all_files(tuflow_test_data: Path) -> None:
                     failures.append(f"{file_path.name}: {exc}")
                 continue
 
-            if file_path.name in KNOWN_PROBLEMATIC_FILES:
-                if processor.processed:
-                    failures.append(f"{file_path.name}: Expected failure but was processed successfully")
-                continue
-
-            if not processor.processed:
-                # If not processed, check if it's an empty file
-                if file_path.stat().st_size == 0:
-                    # Empty file, expected to not be processed
-                    continue
-
-                # If not empty but not processed, it might be a header mismatch or other validation issue
-                # We log this as a warning but don't fail the test as per user request
-                warnings.append(
-                    f"{file_path.name}: Processor.processed is False (Size: {file_path.stat().st_size} bytes)"
-                )
-                continue
-
-            if processor.df.empty:
-                # DataFrame empty is allowed (e.g. filtered out data)
-                continue
+            failure, warning = _unclassified_file_result(file_path, processor, KNOWN_PROBLEMATIC_FILES)
+            if failure is not None:
+                failures.append(failure)
+            if warning is not None:
+                warnings.append(warning)
 
         except Exception as e:
             failures.append(f"{file_path.name}: Raised exception {e}")
@@ -138,7 +137,6 @@ def test_smoke_process_all_files(tuflow_test_data: Path) -> None:
     assert not failures, f"Failures occurred in {len(failures)} files:\n" + "\n".join(failures[:10])
 
 
-
 @pytest.mark.parametrize(
     ("processed", "has_data", "message"),
     [
@@ -147,9 +145,7 @@ def test_smoke_process_all_files(tuflow_test_data: Path) -> None:
         (True, True, "Runcode"),
     ],
 )
-def test_supported_manifest_case_rejects_false_success(
-    processed: bool, has_data: bool, message: str
-) -> None:
+def test_supported_manifest_case_rejects_false_success(processed: bool, has_data: bool, message: str) -> None:
     """EG01_007 must fail its contract when it is dropped, empty or misidentified."""
     processor = MagicMock(spec=BaseProcessor)
     processor.processed = processed
