@@ -358,6 +358,15 @@ def test_wp04_selected_unusable_health_type_is_validated(collection: ProcessorCo
         ProcessorCollection.from_parquet(directory)
 
 
+def test_empty_processor_without_wp04_invalid_evidence_is_rejected(
+    collection: ProcessorCollection, tmp_path: Path
+) -> None:
+    collection.processors[0].df = pd.DataFrame()
+    collection.processors[0].selected_unusable = False
+    with pytest.raises(ValueError, match="Only processed"):
+        collection.to_parquet(tmp_path / "unproven-empty.parquetdir")
+
+
 def test_orphan_staging_is_not_published(collection: ProcessorCollection, tmp_path: Path) -> None:
     dest = tmp_path / "stable.parquetdir"
     collection.to_parquet(dest)

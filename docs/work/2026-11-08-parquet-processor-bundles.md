@@ -170,3 +170,7 @@ Final-head hosted validation and an independent fresh review remain separate.
 ### 9 November 2026 — WP04 reconciliation
 
 The combined tree starts from draft #251 `feae324a`, preserving its CI and WP04 changes while incorporating #293 as the first commit parent without force pushing. Parquet now records `selected_unusable` and canonical native source identifiers, retains empty-invalid selections on restore, and renews original source signatures when a processor reprocesses a changed file. Three regression tests cover these contracts. New combined-head hosted CI, fresh independent Codex review and mapped/UNC/SMB native acceptance remain outstanding; no integration into #251 or main.
+
+### Corrected focused CI finding
+
+Hosted CI at `9fa26311` reported that the original destination validator rejected a processed-empty WP04 `selected_unusable=True`, `input_health=INVALID` frame. This guard now permits only the explicit source-present invalid case; unprocessed or other empty processors still fail closed, with a negative regression. Hosted and source/installed-wheel acceptance on this correction are pending, as are native mapped/UNC/SMB checks and independent final review.
