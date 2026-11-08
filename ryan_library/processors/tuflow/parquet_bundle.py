@@ -86,7 +86,7 @@ def _portable_frame(frame: DataFrame) -> DataFrame:
     return portable
 
 
-def _encode_category(value: object) -> dict[str, object]:
+def _encode_category(value: object) -> dict[str, object]:  # noqa: C901
     """JSON-safe, explicitly typed category scalar; reject unsupported lossy values."""
     if isinstance(value, bool):
         return {"type": "bool", "value": value}
@@ -113,7 +113,7 @@ def _encode_category(value: object) -> dict[str, object]:
     raise ValueError(message)
 
 
-def _decode_category(raw: object) -> object:
+def _decode_category(raw: object) -> object:  # noqa: C901
     if not isinstance(raw, dict):
         message = "Invalid Parquet directory categorical scalar"
         raise ValueError(message)
@@ -159,7 +159,7 @@ def _category_contract(dtype: object) -> dict[str, object] | None:
     }
 
 
-def _rehydrate_categories(frame: DataFrame, contract: object) -> DataFrame:
+def _rehydrate_categories(frame: DataFrame, contract: object) -> DataFrame:  # noqa: C901
     """Reinstate categorical dtype and unused categories lost by Arrow conversions."""
     if not isinstance(contract, dict):
         message = "Invalid Parquet directory DataFrame contract"
@@ -760,6 +760,20 @@ def _publish_directory_in_fd(stage: Path, versions_fd: int, name: str) -> None:
         raise OSError(error, os.strerror(error), name)
 
 
+def _assert_pinned_versions(directory_fd: int, versions_fd: int) -> None:
+    """Ensure .versions still resolves to the pinned destination generation directory."""
+    flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+    current_fd = os.open(_VERSIONS, flags, dir_fd=directory_fd)
+    try:
+        current = os.fstat(current_fd)
+        original = os.fstat(versions_fd)
+        if (original.st_dev, original.st_ino) != (current.st_dev, current.st_ino):
+            message = "Parquet directory version folder identity changed during overwrite"
+            raise ValueError(message)
+    finally:
+        os.close(current_fd)
+
+
 def _write_manifest_in_fd(name: str, contents: bytes, directory_fd: int) -> None:
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
     fd = os.open(name, flags, 0o600, dir_fd=directory_fd)
@@ -821,6 +835,7 @@ def _overwrite_collection(  # noqa: C901
                 if versions_fd is None:
                     message = "Parquet directory generation handle is unavailable"
                     raise OSError(errno.ENOTSUP, message)
+                _assert_pinned_versions(directory_fd, versions_fd)
                 _publish_directory_in_fd(stage, versions_fd, token)
             else:
                 _publish_new_directory(stage, versions / token)
@@ -833,6 +848,8 @@ def _overwrite_collection(  # noqa: C901
             if verify_sources:
                 _all_sources_unchanged(entries)
             _assert_pinned_directory(destination, directory_fd)
+            if directory_fd is not None and versions_fd is not None:
+                _assert_pinned_versions(directory_fd, versions_fd)
             _publish_manifest(temp_path, destination / _MANIFEST, directory_fd)
             temp_path = None
             published = True
@@ -936,6 +953,17 @@ def read_collection_bundle(  # noqa: C901
     _manifest, active, entries, lookup = _checked_manifest(path)
     desired_types = set(data_types) if data_types is not None else None
     desired_locations = BaseProcessor.normalize_locations(locations)
+    # EOF aliases must be resolved against ALL original full channel IDs,
+    # including unrelated tables that selection will not materialise.
+    eof_references: dict[str, set[str]] = {}
+    if desired_locations:
+        for item in entries:
+            if item.get("data_type") == "EOF":
+                continue
+            run_code = item.get("raw_run_code")
+            if isinstance(run_code, str):
+                source_ids = _entity_index(item, "frame_entities").get("Chan ID", [])
+                eof_references.setdefault(run_code, set()).update(source_ids)
     collection = ProcessorCollection()
     selected: list[tuple[dict[str, Any], BaseProcessor, bool]] = []
     for entry in entries:
@@ -950,12 +978,20 @@ def read_collection_bundle(  # noqa: C901
         sources = {value for values in source_entities.values() for value in values}
         frame_values = {value for values in frame_entities.values() for value in values}
         source_hit = bool(desired_locations & sources)
-        if desired_locations and sources and not source_hit:
+        # EOF may have a deliberately truncated identifier. Load candidate EOF
+        # frames before aligning from the full manifest reference inventory.
+        if desired_locations and sources and not source_hit and data_type != "EOF":
             collection.parquet_selection_diagnostics.append(
                 {"data_type": data_type, "source": entry["source"]["path"], "status": "ABSENT"}
             )
             continue
-        if desired_locations and source_hit and frame_values and not (desired_locations & frame_values):
+        if (
+            desired_locations
+            and source_hit
+            and frame_values
+            and not (desired_locations & frame_values)
+            and data_type != "EOF"
+        ):
             collection.parquet_selection_diagnostics.append(
                 {"data_type": data_type, "source": entry["source"]["path"], "status": "INVALID"}
             )
@@ -972,7 +1008,7 @@ def read_collection_bundle(  # noqa: C901
             raise ValueError(message)
         collection.basic_info_lookup = result
     if desired_locations:
-        collection.filter_locations(desired_locations)
+        collection.filter_locations(desired_locations, eof_reference_channel_ids=eof_references)
         present = {id(processor) for processor in collection.processors}
         for entry, processor, source_hit in selected:
             if id(processor) in present:

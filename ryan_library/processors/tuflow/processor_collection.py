@@ -5,7 +5,7 @@ from __future__ import annotations
 __lazy_modules__: list[str] = ["pandas"]
 import copy
 import re
-from collections.abc import Collection
+from collections.abc import Collection, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -115,7 +115,9 @@ class ProcessorCollection:
         self.basic_info_lookup = lookup_df
         return lookup_df
 
-    def align_eof_channel_ids(self) -> int:
+    def align_eof_channel_ids(
+        self, reference_channel_ids: Mapping[str, Collection[str]] | None = None
+    ) -> int:
         """Replace shortened EOF channel IDs with full IDs from matching run outputs.
 
         TUFLOW EOF reports can truncate long channel IDs when writing the text
@@ -128,27 +130,30 @@ class ProcessorCollection:
         source_maps: dict[str, dict[str, str]] = {}
         ambiguous_keys: dict[str, set[str]] = {}
 
-        # First pass: build a per-run lookup from "what the EOF report would
-        # print" to the full channel ID seen in non-EOF result files. If two
-        # different full IDs collapse to the same printed key, leave that key
-        # unresolved rather than guessing.
-        for processor in self.processors:
-            if processor.data_type == "EOF" or "Chan ID" not in processor.df.columns:
-                continue
+        # First pass: use every original full channel identifier. A Parquet
+        # restore supplies this complete inventory from the manifest, even
+        # when unrelated data tables were skipped by location preselection.
+        # This retains conflict/ambiguity decisions across filtered restores.
+        if reference_channel_ids is None:
+            references: dict[str, set[str]] = {}
+            for processor in self.processors:
+                if processor.data_type == "EOF" or "Chan ID" not in processor.df.columns:
+                    continue
+                values = references.setdefault(processor.name_parser.raw_run_code, set())
+                for raw_value in processor.df["Chan ID"].to_numpy(dtype=object):
+                    if raw_value is not None and raw_value is not NA:
+                        values.add(str(raw_value))
+        else:
+            references = {run: set(values) for run, values in reference_channel_ids.items()}
 
-            run_code: str = processor.name_parser.raw_run_code
+        for run_code, labels in references.items():
             run_map: dict[str, str] = source_maps.setdefault(run_code, {})
             run_ambiguous: set[str] = ambiguous_keys.setdefault(run_code, set())
 
-            seen_values: set[str] = set()
-            for raw_value in processor.df["Chan ID"].to_numpy(dtype=object):
-                if raw_value is None or raw_value is NA:
+            for raw_value in labels:
+                value = raw_value.strip()
+                if not value:
                     continue
-                value = str(raw_value).strip()
-                if not value or value in seen_values:
-                    continue
-                seen_values.add(value)
-
                 key: str | None = self._channel_match_key(value=value)
                 if key is None or key in run_ambiguous:
                     continue
@@ -228,7 +233,12 @@ class ProcessorCollection:
             discarded += 1
         return discarded
 
-    def filter_locations(self, locations: Collection[str] | None) -> frozenset[str]:
+    def filter_locations(
+        self,
+        locations: Collection[str] | None,
+        *,
+        eof_reference_channel_ids: Mapping[str, Collection[str]] | None = None,
+    ) -> frozenset[str]:
         """Apply a location filter to all processors in the collection.
 
         Args:
@@ -244,7 +254,7 @@ class ProcessorCollection:
         if any(processor.data_type == "EOF" for processor in self.processors):
             # Resolve shortened labels against all available channel IDs before
             # removing rows, while ambiguity information is still complete.
-            self.align_eof_channel_ids()
+            self.align_eof_channel_ids(reference_channel_ids=eof_reference_channel_ids)
 
         total_before: int = sum(len(processor.df) for processor in self.processors)
 

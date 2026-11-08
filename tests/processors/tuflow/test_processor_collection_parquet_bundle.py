@@ -401,3 +401,78 @@ def test_windows_publication_guard_blocks_directory_swap(collection: ProcessorCo
             dest.rename(backup)
     assert dest.is_dir()
     assert not backup.exists()
+
+
+def _eof_alias_snapshot(tmp_path: Path, *, ambiguous: bool) -> Path:
+    stem = "Selection_01.00p_00120m_TP01"
+    full_ids = ["Bridge 159.975", "Bridge 159.979"] if ambiguous else ["Bridge 159.975"]
+    cmx_file = tmp_path / f"{stem}_1d_Cmx.csv"
+    cmx_file.write_text(
+        "Chan ID,Time Qmax,Qmax,Vmax,Time Vmax\n"
+        + "".join(f"{label},0.5,{index * 5.0},1.5,0.75\n" for index, label in enumerate(full_ids, 1)),
+        encoding="utf-8",
+    )
+    eof_file = tmp_path / f"{stem}.eof"
+    eof_file.write_text(
+        "CULVERT AND PIPE DATA\n"
+        "Channel  Type  Num_barrels  US_Invert  DS_Invert  US_Obvert  DS_Obvert  Length  Slope  "
+        "Mannings_n  Diam_Width  Height  Inlet_Height  Inlet_Width  "
+        "Entry Loss  Exit Loss  Fixed Loss  Ent/Exit Losses\n"
+        "Bridge 159.97  C  1  10  9  12  11  100  0.01  0.013  2  2  2  2  0.5  1  0  1.5\n\n",
+        encoding="utf-8",
+    )
+    collection = ProcessorCollection()
+    for source in (cmx_file, eof_file):
+        processor = BaseProcessor.from_file(source)
+        processor.process()
+        assert processor.processed and not processor.df.empty
+        collection.add_processor(processor)
+    destination = tmp_path / "eof-alias.parquetdir"
+    collection.to_parquet(destination)
+    return destination
+
+
+def test_eof_alias_uses_unloaded_full_reference_inventory(tmp_path: Path) -> None:
+    dataset = _eof_alias_snapshot(tmp_path, ambiguous=False)
+    selected = ProcessorCollection.from_parquet(dataset, data_types=["EOF"], locations=["Bridge 159.975"])
+    assert len(selected.processors) == 1
+    eof = selected.processors[0]
+    assert eof.data_type == "EOF"
+    assert eof.df["Chan ID"].astype(str).tolist() == ["Bridge 159.975"]
+    assert eof.df["Height"].tolist() == [2.0]
+
+
+def test_eof_alias_ambiguity_retained_with_selective_restore(tmp_path: Path) -> None:
+    dataset = _eof_alias_snapshot(tmp_path, ambiguous=True)
+    selected = ProcessorCollection.from_parquet(dataset, data_types=["EOF"], locations=["Bridge 159.975"])
+    assert not selected.processors
+    assert selected.parquet_selection_diagnostics[-1]["status"] == "ABSENT"
+    full = ProcessorCollection.from_parquet(dataset, locations=["Bridge 159.975"])
+    assert len(full.processors) == 1
+    assert full.processors[0].data_type == "Cmx"
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="POSIX generation identity check only")
+def test_replaced_versions_directory_never_publishes_broken_manifest(
+    collection: ProcessorCollection, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    destination = tmp_path / "versions.parquetdir"
+    collection.to_parquet(destination)
+    original = (destination / "manifest.json").read_bytes()
+    replaced = destination / ".versions-moved"
+    actual_manifest = parquet_bundle._manifest_bytes  # pyright: ignore[reportPrivateUsage]
+
+    def swapped(*args: Any, **kwargs: Any) -> bytes:
+        encoded = actual_manifest(*args, **kwargs)
+        (destination / ".versions").rename(replaced)
+        (destination / ".versions").mkdir()
+        return encoded
+
+    monkeypatch.setattr(parquet_bundle, "_manifest_bytes", swapped)
+    with pytest.raises(ValueError, match="version folder identity changed"):
+        collection.to_parquet(destination, overwrite=True)
+    assert (destination / "manifest.json").read_bytes() == original
+    assert not (destination / ".publish.lock").exists()
+    (destination / ".versions").rmdir()
+    replaced.rename(destination / ".versions")
+    assert len(ProcessorCollection.from_parquet(destination).processors) == 3
