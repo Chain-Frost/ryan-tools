@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from .other_processors import (
         ChanProcessor,
         EOFProcessor,
+        LProcessor,
         POMMProcessor,
         POProcessor,
         RLLQmxProcessor,
@@ -18,7 +19,11 @@ if TYPE_CHECKING:
         RLRVolmxProcessor,
         RLRVolProcessor,
         SHmxProcessor,
+        Split2dHProcessor,
+        Split2dQProcessor,
+        Split2dVProcessor,
         SQProcessor,
+        TSMBProcessor,
     )
     from .timeseries_1d import CFProcessor, HProcessor, QProcessor, VProcessor
 
@@ -37,6 +42,11 @@ _PROCESSORS = {
     "RLLQmxProcessor": ".other_processors",
     "SHmxProcessor": ".other_processors",
     "SQProcessor": ".other_processors",
+    "TSMBProcessor": ".other_processors",
+    "Split2dVProcessor": ".other_processors",
+    "Split2dQProcessor": ".other_processors",
+    "Split2dHProcessor": ".other_processors",
+    "LProcessor": ".other_processors",
     "RLRVolmxProcessor": ".other_processors",
     "RLRVolProcessor": ".other_processors",
     "RLLQProcessor": ".other_processors",
@@ -50,6 +60,7 @@ __all__ = [
     "CmxProcessor",
     "EOFProcessor",
     "HProcessor",
+    "LProcessor",
     "NmxProcessor",
     "POMMProcessor",
     "POProcessor",
@@ -62,6 +73,10 @@ __all__ = [
     "RLRVolmxProcessor",
     "SHmxProcessor",
     "SQProcessor",
+    "Split2dHProcessor",
+    "Split2dQProcessor",
+    "Split2dVProcessor",
+    "TSMBProcessor",
     "VProcessor",
     "ccAProcessor",
 ]
