@@ -17,19 +17,19 @@ RUN = "EG02_013"
 SAMPLES = Path(__file__).parents[3] / "test_data" / "tuflow" / "TUFLOW_Example_Model_Dataset" / "EG02" / "plot" / "csv"
 FIELDS = (
    "ID (Lowest)",
-        "Q Below",
-        "Q Above",
-        "Q Total",
-        "A Below",
-        "A Above",
-        "A Total",
-        "V Below",
-        "V Above",
-        "V Combined",
-        "h U/S",
-        "h D/S",
-        "dh",
-        "Time",
+    "Q Below",
+    "Q Above",
+    "Q Total",
+    "A Below",
+    "A Above",
+    "A Total",
+    "V Below",
+    "V Above",
+    "V Combined",
+    "h U/S",
+    "h D/S",
+    "dh",
+    "Time",
 )
 
 
