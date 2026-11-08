@@ -164,7 +164,7 @@ discarded_count = collection.discard_raw_dataframes()
 A `ProcessorCollection` contains heterogeneous native TUFLOW processor
 DataFrames; a normal one-table `.parquet` does not preserve their object state.
 The **directory** dataset API writes independent standard Parquet files plus a
-versioned `manifest.json`. The unpublished `.rtparquet` ZIP proposal is
+versioned **manifest.json**. The unpublished `.rtparquet` ZIP proposal is
 superseded, not a supported file format.
 
 ```python
@@ -179,7 +179,7 @@ selected = ProcessorCollection.from_parquet(
 )
 ```
 
-A fresh directory contains `manifest.json`, `processors/000000.parquet`,
+A fresh directory contains **manifest.json**, `processors/000000.parquet`,
 etc., and optional `basic_info_lookup.parquet`. All data tables use normal
 PyArrow/ZSTD Parquet. The manifest records member SHA-256/size, schema/index
 and categorical/nullable fidelity, registry and processing-code digests,
@@ -192,7 +192,7 @@ while complete collection loading remains RAM-resident.
 **Publication:** a new dataset is staged and published with an atomic
 directory no-clobber rename. `overwrite=True` instead writes an immutable
 generation under `.versions/<generation>/` and atomically replaces only the
-root `manifest.json`. Previous generations stay available to readers and
+root **manifest.json**. Previous generations stay available to readers and
 are not automatically deleted. Interrupted writes preserve the preceding
 snapshot. Unsupported atomic filesystem operations fail closed; native
 NTFS, UNC and mapped-SMB acceptance is still required.
