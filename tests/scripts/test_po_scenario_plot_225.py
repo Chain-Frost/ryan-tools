@@ -100,24 +100,24 @@ def test_filter_is_literal_and_does_not_restore_nonmatching_rows(
         plotter.filter_internal_name(frame)
 
 
-def test_missing_filter_column_is_an_error(plotter: ModuleType) -> None:
+def test_missing_filter_column_is_an_error(plotter: ModuleType, monkeypatch: pytest.MonkeyPatch) -> None:
     with pytest.raises(KeyError, match="internalName"):
         plotter.filter_internal_name(sample_frame().drop(columns=["internalName"]))
-    setattr(plotter, "LOCATION_FILTER", {"L1"})
+    monkeypatch.setattr(plotter, "LOCATION_FILTER", {"L1"})
     with pytest.raises(KeyError, match="Location"):
         plotter.filter_locations(sample_frame().drop(columns=["Location"]))
 
 
-def test_unmatched_locations_and_measurements_fail(plotter: ModuleType) -> None:
-    setattr(plotter, "LOCATION_FILTER", {"not-here"})
+def test_unmatched_locations_and_measurements_fail(plotter: ModuleType, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(plotter, "LOCATION_FILTER", {"not-here"})
     with pytest.raises(ValueError, match="LOCATION_FILTER"):
         plotter.select_po_dataframe(sample_frame())
-    setattr(plotter, "LOCATION_FILTER", None)
-    setattr(plotter, "MEASUREMENT_TYPES", ["Velocity"])
+    monkeypatch.setattr(plotter, "LOCATION_FILTER", None)
+    monkeypatch.setattr(plotter, "MEASUREMENT_TYPES", ["Velocity"])
     with pytest.raises(ValueError, match="MEASUREMENT_TYPES"):
         plotter.plot_timeseries(sample_frame())
-    setattr(plotter, "MEASUREMENT_TYPES", None)
-    setattr(plotter, "PLOT_LOCATIONS", ["not-here"])
+    monkeypatch.setattr(plotter, "MEASUREMENT_TYPES", None)
+    monkeypatch.setattr(plotter, "PLOT_LOCATIONS", ["not-here"])
     with pytest.raises(ValueError, match="PLOT_LOCATIONS"):
         plotter.plot_timeseries(sample_frame())
 
@@ -176,7 +176,7 @@ def test_csv_and_verified_cache_select_the_same_rows(
     cache_environment(plotter, tmp_path, monkeypatch, df)
     uncached = plotter.load_po_dataframe()
     assert len(uncached) == len(sample_frame())
-    setattr(plotter, "LOAD_FROM_PARQUET", True)
+    monkeypatch.setattr(plotter, "LOAD_FROM_PARQUET", True)
     cached = plotter.load_po_dataframe()
     pd.testing.assert_frame_equal(uncached.reset_index(drop=True), cached.reset_index(drop=True), check_dtype=False)
 
@@ -187,7 +187,7 @@ def test_cache_rejects_old_schema_and_missing_provenance(
     pytest.importorskip("pyarrow")
     cache_environment(plotter, tmp_path, monkeypatch, sample_frame())
     sample_frame().to_parquet(plotter.PARQUET_PATH, index=False)
-    setattr(plotter, "LOAD_FROM_PARQUET", True)
+    monkeypatch.setattr(plotter, "LOAD_FROM_PARQUET", True)
     with pytest.raises(ValueError, match="provenance"):
         plotter.load_po_dataframe()
 
@@ -199,12 +199,12 @@ def test_cache_rejects_changed_source_and_ingest_config(
     source = cache_environment(plotter, tmp_path, monkeypatch, sample_frame())
     plotter.load_po_dataframe()
     original_cache = plotter.PARQUET_PATH.read_bytes()
-    setattr(plotter, "LOAD_FROM_PARQUET", True)
+    monkeypatch.setattr(plotter, "LOAD_FROM_PARQUET", True)
     source.write_text("source changed\n", encoding="utf-8")
     with pytest.raises(ValueError, match="stale"):
         plotter.load_po_dataframe()
     source.write_text("source\n", encoding="utf-8")
-    setattr(plotter, "LOCATION_FILTER", {"L2"})
+    monkeypatch.setattr(plotter, "LOCATION_FILTER", {"L2"})
     with pytest.raises(ValueError, match="stale"):
         plotter.load_po_dataframe()
     assert plotter.PARQUET_PATH.read_bytes() == original_cache
@@ -220,7 +220,7 @@ def test_cache_requires_explicit_overwrite_and_preserves_on_write_failure(
     with pytest.raises(FileExistsError, match="REPLACE_PARQUET_CACHE"):
         plotter.load_po_dataframe()
     assert plotter.PARQUET_PATH.read_bytes() == original_cache
-    setattr(plotter, "REPLACE_PARQUET_CACHE", True)
+    monkeypatch.setattr(plotter, "REPLACE_PARQUET_CACHE", True)
 
     def failed_write(_df: pd.DataFrame, path: Path, **_kwargs: Any) -> None:
         path.write_bytes(b"incomplete parquet")
