@@ -410,17 +410,16 @@ def test_history_only_line_workflow_logs_missing_qmx_without_failing(
 
 
 @pytest.mark.parametrize(
-    ("suffix", "exporter", "missing"),
+    ("suffix", "missing"),
     [
-        ("RLL_Qmx", export_lines, "RLL_Q.csv"),
-        ("RLR_Volmx", export_regions, "RLR_Vol.csv"),
+        ("RLL_Qmx", "RLL_Q.csv"),
+        ("RLR_Volmx", "RLR_Vol.csv"),
     ],
 )
 def test_summary_only_reports_missing_history_without_changing_partial_success(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     suffix: str,
-    exporter: object,
     missing: str,
 ) -> None:
     """A single valid summary is publishable, with an explicit missing-series diagnostic."""
