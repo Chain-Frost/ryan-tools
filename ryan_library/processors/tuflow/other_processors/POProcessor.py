@@ -92,9 +92,7 @@ class POProcessor(BaseProcessor):
         # Determine usability before direct/collection selection. A valid
         # location removed by an earlier filter is not rejected source data.
         usable_labels: list[object] = self.df.loc[self.df["AbsValue"].notna(), "Location"].tolist()
-        self.usable_source_locations = frozenset(
-            str(label).strip() for label in usable_labels if str(label).strip()
-        )
+        self.usable_source_locations = frozenset(str(label).strip() for label in usable_labels if str(label).strip())
 
         self.apply_entity_filter()
         if self.applied_entity_filter and self.df.empty:
