@@ -3,14 +3,16 @@
 
 from __future__ import annotations
 
-__lazy_modules__: list[str] = ["pandas"]
+__lazy_modules__: list[str] = ["numpy", "pandas"]
 
 from typing import ClassVar
 
+import numpy as np
 import pandas as pd
 from loguru import logger
 from pandas import DataFrame, Series
 
+from ....functions.tuflow.sample_validity import clean_hydraulic_samples
 from ..base_processor import BaseProcessor
 
 
@@ -33,12 +35,14 @@ class POProcessor(BaseProcessor):
             self.raw_df = raw_df.copy()
         except Exception as exc:  # pragma: no cover - IO errors handled here
             logger.exception(f"{self.file_name}: Failed to read CSV file: {exc}")
+            self.input_health = "IO_FAILURE"
             self.df = pd.DataFrame()
             return
 
         tidy_df: DataFrame = self._parse_point_output(raw_df=raw_df)
         if tidy_df.empty:
             logger.warning(f"{self.file_name}: No point output values found after processing.")
+            self.input_health = "INVALID"
             self.df = tidy_df
             return
 
@@ -57,6 +61,8 @@ class POProcessor(BaseProcessor):
 
         if not self.validate_data():
             logger.error(f"{self.file_name}: Data validation failed.")
+            self.input_health = "INVALID"
+            self.df = pd.DataFrame()
             return
 
         self.processed = True
@@ -81,22 +87,21 @@ class POProcessor(BaseProcessor):
             logger.error(f"{self.file_name}: Missing measurement or location headers.")
             return pd.DataFrame(columns=self.VALUE_COLUMNS)
 
-        numeric_data: DataFrame = data_rows.apply(pd.to_numeric, errors="coerce")
-        numeric_data = numeric_data.reset_index(drop=True)
+        data_rows = data_rows.reset_index(drop=True)
 
         time_idx: int | None = self._locate_time_column(measurement_row=measurement_row, location_row=location_row)
         if time_idx is None:
             logger.error(f"{self.file_name}: Unable to locate a time column in the CSV header.")
             return pd.DataFrame(columns=self.VALUE_COLUMNS)
 
-        time_values = numeric_data.iloc[:, time_idx]
-        valid_mask: Series[bool] = ~time_values.isna()
-        if not valid_mask.any():
-            logger.error(f"{self.file_name}: Time column does not contain any numeric values.")
+        time_values = pd.to_numeric(data_rows.iloc[:, time_idx], errors="coerce")
+        if not np.isfinite(time_values.to_numpy(dtype="float64", na_value=np.nan)).all():
+            logger.error("{}: PO timestamps contain invalid or nonfinite values.", self.file_name)
             return pd.DataFrame(columns=self.VALUE_COLUMNS)
-
-        numeric_data = numeric_data.loc[valid_mask].reset_index(drop=True)
-        time_values = numeric_data.iloc[:, time_idx].astype("float64")
+        if (time_values.diff().iloc[1:] <= 0).any():
+            logger.error("{}: PO timestamps must increase strictly without duplicates.", self.file_name)
+            return pd.DataFrame(columns=self.VALUE_COLUMNS)
+        time_values = time_values.astype("float64")
 
         tidy_frames: list[pd.DataFrame] = []
         for idx, (measurement, location) in enumerate(zip(measurement_row, location_row, strict=True)):
@@ -108,7 +113,8 @@ class POProcessor(BaseProcessor):
             if not measurement_text or not location_text:
                 continue
 
-            values: Series[float] = numeric_data.iloc[:, idx].astype("float64")
+            values, rejected = clean_hydraulic_samples(data_rows.iloc[:, idx], measurement=measurement_text)
+            self.record_rejections(rejected)
             if values.isna().all():
                 logger.debug(
                     "Skipping column '%s'/'%s' because it contains only NaN values.",
