@@ -526,8 +526,7 @@ def test_po_source_location_evidence_resets_when_file_reprocessed(tmp_path: Path
         ),
         (
             "_1d_H.csv",
-            "Descriptor,Time,H C1.1,H C1.2,H C2.1,H C2.2\n"
-            "row,0,inf,inf,10,9\nrow,1,inf,inf,11,10\n",
+            "Descriptor,Time,H C1.1,H C1.2,H C2.1,H C2.2\nrow,0,inf,inf,10,9\nrow,1,inf,inf,11,10\n",
         ),
     ],
 )
