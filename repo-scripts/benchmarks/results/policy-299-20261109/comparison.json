@@ -1,0 +1,914 @@
+{
+  "artifact": {
+    "archive_download_url": "https://api.github.com/repos/Chain-Frost/ryan-tools/actions/artifacts/13631789164/zip",
+    "created_at": "2026-11-08T20:01:14Z",
+    "digest": "sha256:05b75a298a4d9794cb2bef7ae827666e3fc18ed6504c36b31de75898a21a581b",
+    "expired": false,
+    "expires_at": "2026-11-22T20:01:12Z",
+    "id": 13631789164,
+    "name": "policy-dependency-benchmark-299",
+    "node_id": "MDg6QXJ0aWZhY3QxMzYzMTc4OTE2NA==",
+    "size_in_bytes": 5719318,
+    "updated_at": "2026-11-08T20:01:14Z",
+    "url": "https://api.github.com/repos/Chain-Frost/ryan-tools/actions/artifacts/13631789164",
+    "workflow_run": {
+      "head_branch": "ci/policy-dependency-benchmark-299",
+      "head_repository_id": 875576372,
+      "head_sha": "33c9c650a6df719b5cb7369b869c28ce26f5cd74",
+      "id": 42516847229,
+      "repository_id": 875576372
+    }
+  },
+  "benchmark_step_seconds": 771.0,
+  "build_artifact_count": 3,
+  "cache_log_evidence": [
+    {
+      "gis": {
+        "downloading_lines": 11,
+        "using_cached_lines": 0
+      },
+      "profile": {
+        "downloading_lines": 128,
+        "using_cached_lines": 11
+      },
+      "sample": "r1-canonical-cold"
+    },
+    {
+      "gis": {
+        "downloading_lines": 11,
+        "using_cached_lines": 0
+      },
+      "profile": {
+        "downloading_lines": 123,
+        "using_cached_lines": 11
+      },
+      "sample": "r1-candidate-cold"
+    },
+    {
+      "gis": {
+        "download_wheel_names": [
+          "fiona-1.10.1-cp314-cp314-win_amd64.whl",
+          "gdal-3.13.3-cp314-cp314-win_amd64.whl"
+        ],
+        "downloading_lines": 2,
+        "using_cached_lines": 9
+      },
+      "profile": {
+        "download_wheel_names": [],
+        "downloading_lines": 0,
+        "using_cached_lines": 139
+      },
+      "sample": "r1-canonical-warm"
+    },
+    {
+      "gis": {
+        "download_wheel_names": [
+          "fiona-1.10.1-cp314-cp314-win_amd64.whl",
+          "gdal-3.13.3-cp314-cp314-win_amd64.whl"
+        ],
+        "downloading_lines": 2,
+        "using_cached_lines": 9
+      },
+      "profile": {
+        "download_wheel_names": [],
+        "downloading_lines": 0,
+        "using_cached_lines": 134
+      },
+      "sample": "r1-candidate-warm"
+    },
+    {
+      "gis": {
+        "downloading_lines": 11,
+        "using_cached_lines": 0
+      },
+      "profile": {
+        "downloading_lines": 124,
+        "using_cached_lines": 10
+      },
+      "sample": "r2-candidate-cold"
+    },
+    {
+      "gis": {
+        "downloading_lines": 11,
+        "using_cached_lines": 0
+      },
+      "profile": {
+        "downloading_lines": 128,
+        "using_cached_lines": 11
+      },
+      "sample": "r2-canonical-cold"
+    },
+    {
+      "gis": {
+        "download_wheel_names": [
+          "fiona-1.10.1-cp314-cp314-win_amd64.whl",
+          "gdal-3.13.3-cp314-cp314-win_amd64.whl"
+        ],
+        "downloading_lines": 2,
+        "using_cached_lines": 9
+      },
+      "profile": {
+        "download_wheel_names": [],
+        "downloading_lines": 0,
+        "using_cached_lines": 134
+      },
+      "sample": "r2-candidate-warm"
+    },
+    {
+      "gis": {
+        "download_wheel_names": [
+          "fiona-1.10.1-cp314-cp314-win_amd64.whl",
+          "gdal-3.13.3-cp314-cp314-win_amd64.whl"
+        ],
+        "downloading_lines": 2,
+        "using_cached_lines": 9
+      },
+      "profile": {
+        "download_wheel_names": [
+          "fiona-1.10.1-cp314-cp314-win_amd64.whl"
+        ],
+        "downloading_lines": 1,
+        "using_cached_lines": 138
+      },
+      "sample": "r2-canonical-warm"
+    }
+  ],
+  "candidate_versions": {
+    "affine": "3.0.1",
+    "annotated-doc": "0.0.5",
+    "annotated-types": "0.8.0",
+    "anyio": "4.16.0",
+    "attrs": "26.1.0",
+    "bottleneck": "1.6.0",
+    "certifi": "2026.10.23",
+    "cffi": "2.1.1",
+    "cftime": "1.6.6.1",
+    "charset-normalizer": "3.5.2",
+    "click": "8.5.1",
+    "click-plugins": "1.1.1.2",
+    "cligj": "0.7.2",
+    "cloudpickle": "3.1.2",
+    "colorama": "0.4.6",
+    "contourpy": "1.4.0",
+    "cramjam": "2.14.0",
+    "cryptography": "50.0.2",
+    "cycler": "0.12.1",
+    "cyclopts": "5.4.0",
+    "dask": "2026.8.0",
+    "dataclasses-json": "0.6.7",
+    "dbfread": "2.0.7",
+    "deprecated": "3.0.1",
+    "distributed": "2026.8.0",
+    "docstring-parser": "0.18.0",
+    "et-xmlfile": "2.0.0",
+    "ezdxf": "1.4.5",
+    "fastparquet": "2026.9.0",
+    "fiona": "1.10.1",
+    "fonttools": "4.68.0",
+    "fsspec": "2026.9.0",
+    "gdal": "3.13.3",
+    "geopandas": "1.2.0",
+    "h11": "0.16.0",
+    "h5py": "3.16.0",
+    "httpcore2": "2.16.0",
+    "httpx2": "2.16.0",
+    "idna": "3.20",
+    "iniconfig": "2.3.1",
+    "jinja2": "3.1.6",
+    "jsonschema": "4.26.0",
+    "jsonschema-specifications": "2025.9.1",
+    "kiwisolver": "1.5.1",
+    "laspy": "2.7.0",
+    "lazrs": "0.8.2",
+    "locket": "1.0.0",
+    "loguru": "0.7.3",
+    "lxml": "6.1.3",
+    "markdown-it-py": "4.2.0",
+    "markupsafe": "3.0.4",
+    "marshmallow": "3.26.2",
+    "matplotlib": "3.11.2",
+    "mcp": "2.3.0",
+    "mcp-types": "2.3.0",
+    "mdurl": "0.1.2",
+    "msgpack": "1.2.4",
+    "mypy-extensions": "1.2.0",
+    "netcdf4": "1.7.5.1.post1",
+    "nodeenv": "1.12.0",
+    "numpy": "2.5.4",
+    "numpy-typing-compat": "20260602.2.5",
+    "openpyxl": "3.1.5",
+    "opentelemetry-api": "1.45.2",
+    "optype": "0.19.0",
+    "packaging": "26.3",
+    "pandas": "3.1.1",
+    "pandas-stubs": "3.1.0.261029",
+    "partd": "1.4.2",
+    "pillow": "13.0.0",
+    "pillow-heif": "1.8.1",
+    "pip": "26.3",
+    "platformdirs": "4.14.5",
+    "pluggy": "1.7.0",
+    "pooch": "1.9.0",
+    "psutil": "7.2.2",
+    "pyarrow": "26.0.1",
+    "pyarrow-stubs": "20.0.0.20260819",
+    "pycparser": "3.12",
+    "pydantic": "2.14.3",
+    "pydantic-core": "2.50.4",
+    "pygltflib": "1.16.5",
+    "pygments": "2.21.0",
+    "pyjwt": "2.15.1",
+    "pyogrio": "0.13.0",
+    "pyparsing": "3.3.3",
+    "pypdf": "7.0.0",
+    "pyproj": "3.8.0",
+    "pyright": "1.1.414",
+    "pyshp": "3.1.7",
+    "pytest": "9.2.0",
+    "python-dateutil": "4.0.0",
+    "python-docx": "1.2.0",
+    "python-dotenv": "1.2.4",
+    "python-multipart": "0.0.33",
+    "pytuflow": "1.3.0",
+    "pyvista": "0.49.2",
+    "pyvista-validation": "0.2.2",
+    "pywin32": "312",
+    "pyyaml": "6.0.3",
+    "rasterio": "1.5.2",
+    "referencing": "0.37.0",
+    "requests": "2.34.2",
+    "rich": "15.0.0",
+    "rich-rst": "2.2.0",
+    "rpds-py": "2026.9.1",
+    "run-hy8": "2026.10.18.2",
+    "ryan-culverts": "26.10.19.1",
+    "ryan-tools": "26.11.9.2",
+    "scipy": "1.18.1",
+    "scipy-stubs": "1.18.1.1",
+    "scooby": "0.12.1",
+    "seaborn": "0.13.2",
+    "shapely": "2.2.0",
+    "shellingham": "1.5.4",
+    "sortedcontainers": "2.4.0",
+    "sse-starlette": "3.7.0",
+    "starlette": "1.10.0",
+    "tabulate": "0.10.0",
+    "tblib": "3.2.2",
+    "toolz": "1.2.0",
+    "tornado": "6.6",
+    "tqdm": "4.70.1",
+    "truststore": "0.10.5",
+    "typer": "0.28.0",
+    "types-psutil": "7.2.2.20260906",
+    "types-rasterio": "1.5.2.20261029",
+    "typing-extensions": "4.16.0",
+    "typing-inspect": "0.9.0",
+    "typing-inspection": "0.4.5",
+    "tzdata": "2026.6",
+    "urllib3": "2.8.0",
+    "uvicorn": "0.54.0",
+    "vtk": "9.7.2",
+    "win32-setctime": "1.2.1",
+    "wrapt": "2.5.2",
+    "xlsxwriter": "3.3.1",
+    "zict": "3.0.0"
+  },
+  "canonical_pytest_plugins": [
+    {
+      "distribution": "anyio",
+      "name": "anyio",
+      "value": "anyio.pytest_plugin",
+      "version": "4.16.0"
+    },
+    {
+      "distribution": "platformdirs",
+      "name": "platformdirs",
+      "value": "platformdirs.pytest_plugin",
+      "version": "4.14.5"
+    },
+    {
+      "distribution": "pytest-cov",
+      "name": "pytest_cov",
+      "value": "pytest_cov.plugin",
+      "version": "7.1.0"
+    }
+  ],
+  "canonical_versions": {
+    "affine": "3.0.1",
+    "annotated-doc": "0.0.5",
+    "annotated-types": "0.8.0",
+    "anyio": "4.16.0",
+    "attrs": "26.1.0",
+    "bottleneck": "1.6.0",
+    "build": "1.6.1",
+    "certifi": "2026.10.23",
+    "cffi": "2.1.1",
+    "cftime": "1.6.6.1",
+    "charset-normalizer": "3.5.2",
+    "click": "8.5.1",
+    "click-plugins": "1.1.1.2",
+    "cligj": "0.7.2",
+    "cloudpickle": "3.1.2",
+    "colorama": "0.4.6",
+    "contourpy": "1.4.0",
+    "coverage": "7.17.2",
+    "cramjam": "2.14.0",
+    "cryptography": "50.0.2",
+    "cycler": "0.12.1",
+    "cyclopts": "5.4.0",
+    "dask": "2026.8.0",
+    "dataclasses-json": "0.6.7",
+    "dbfread": "2.0.7",
+    "deprecated": "3.0.1",
+    "distributed": "2026.8.0",
+    "docstring-parser": "0.18.0",
+    "et-xmlfile": "2.0.0",
+    "ezdxf": "1.4.5",
+    "fastparquet": "2026.9.0",
+    "fiona": "1.10.1",
+    "fonttools": "4.68.0",
+    "fsspec": "2026.9.0",
+    "gdal": "3.13.3",
+    "geopandas": "1.2.0",
+    "h11": "0.16.0",
+    "h5py": "3.16.0",
+    "httpcore2": "2.16.0",
+    "httpx2": "2.16.0",
+    "idna": "3.20",
+    "iniconfig": "2.3.1",
+    "jinja2": "3.1.6",
+    "jsonschema": "4.26.0",
+    "jsonschema-specifications": "2025.9.1",
+    "kiwisolver": "1.5.1",
+    "laspy": "2.7.0",
+    "lazrs": "0.8.2",
+    "locket": "1.0.0",
+    "loguru": "0.7.3",
+    "lxml": "6.1.3",
+    "markdown-it-py": "4.2.0",
+    "markupsafe": "3.0.4",
+    "marshmallow": "3.26.2",
+    "matplotlib": "3.11.2",
+    "mcp": "2.3.0",
+    "mcp-types": "2.3.0",
+    "mdurl": "0.1.2",
+    "msgpack": "1.2.4",
+    "mypy-extensions": "1.2.0",
+    "netcdf4": "1.7.5.1.post1",
+    "nodeenv": "1.12.0",
+    "numpy": "2.5.4",
+    "numpy-typing-compat": "20260602.2.5",
+    "openpyxl": "3.1.5",
+    "opentelemetry-api": "1.45.2",
+    "optype": "0.19.0",
+    "packaging": "26.3",
+    "pandas": "3.1.1",
+    "pandas-stubs": "3.1.0.261029",
+    "partd": "1.4.2",
+    "pillow": "13.0.0",
+    "pillow-heif": "1.8.1",
+    "pip": "26.3",
+    "platformdirs": "4.14.5",
+    "pluggy": "1.7.0",
+    "pooch": "1.9.0",
+    "psutil": "7.2.2",
+    "pyarrow": "26.0.1",
+    "pyarrow-stubs": "20.0.0.20260819",
+    "pycparser": "3.12",
+    "pydantic": "2.14.3",
+    "pydantic-core": "2.50.4",
+    "pygltflib": "1.16.5",
+    "pygments": "2.21.0",
+    "pyjwt": "2.15.1",
+    "pyogrio": "0.13.0",
+    "pyparsing": "3.3.3",
+    "pypdf": "7.0.0",
+    "pyproj": "3.8.0",
+    "pyproject-hooks": "1.3.3",
+    "pyright": "1.1.414",
+    "pyshp": "3.1.7",
+    "pytest": "9.2.0",
+    "pytest-cov": "7.1.0",
+    "python-dateutil": "4.0.0",
+    "python-docx": "1.2.0",
+    "python-dotenv": "1.2.4",
+    "python-multipart": "0.0.33",
+    "pytuflow": "1.3.0",
+    "pyvista": "0.49.2",
+    "pyvista-validation": "0.2.2",
+    "pywin32": "312",
+    "pyyaml": "6.0.3",
+    "rasterio": "1.5.2",
+    "referencing": "0.37.0",
+    "requests": "2.34.2",
+    "rich": "15.0.0",
+    "rich-rst": "2.2.0",
+    "rpds-py": "2026.9.1",
+    "ruff": "0.16.6",
+    "run-hy8": "2026.10.18.2",
+    "ryan-culverts": "26.10.19.1",
+    "ryan-tools": "26.11.9.2",
+    "scipy": "1.18.1",
+    "scipy-stubs": "1.18.1.1",
+    "scooby": "0.12.1",
+    "seaborn": "0.13.2",
+    "shapely": "2.2.0",
+    "shellingham": "1.5.4",
+    "sortedcontainers": "2.4.0",
+    "sse-starlette": "3.7.0",
+    "starlette": "1.10.0",
+    "tabulate": "0.10.0",
+    "tblib": "3.2.2",
+    "toolz": "1.2.0",
+    "tornado": "6.6",
+    "tqdm": "4.70.1",
+    "truststore": "0.10.5",
+    "typer": "0.28.0",
+    "types-psutil": "7.2.2.20260906",
+    "types-rasterio": "1.5.2.20261029",
+    "typing-extensions": "4.16.0",
+    "typing-inspect": "0.9.0",
+    "typing-inspection": "0.4.5",
+    "tzdata": "2026.6",
+    "urllib3": "2.8.0",
+    "uvicorn": "0.54.0",
+    "vtk": "9.7.2",
+    "win32-setctime": "1.2.1",
+    "wrapt": "2.5.2",
+    "xlsxwriter": "3.3.1",
+    "zict": "3.0.0"
+  },
+  "capabilities": {
+    "mcp_exports": [
+      "parse_tuflow_filename",
+      "inspect_tuflow_result",
+      "inspect_tuflow_collection",
+      "inspect_raster_metadata",
+      "check_repo_health",
+      "list_workflows",
+      "get_workflow"
+    ],
+    "parser_status": {
+      "available": true,
+      "problem": "",
+      "version": "1.3.0"
+    },
+    "passed": [
+      "gdal_mem",
+      "rasterio_memory_gtiff",
+      "fiona_gpkg",
+      "pandas_pyarrow",
+      "scipy_binary_dilation",
+      "distributed_client",
+      "heif_registration",
+      "docx_roundtrip",
+      "mcp_exports",
+      "tuflow_filename",
+      "accepted_parser_api"
+    ]
+  },
+  "condition_medians": {
+    "cold": {
+      "candidate": {
+        "elapsed_seconds": 81.57869395000003,
+        "extra_capability_seconds": 4.636801899999966,
+        "gis_seconds": 7.107257600000025,
+        "parser_verification_seconds": 0.16938810000002036,
+        "policy_seconds": 69.7711135000001,
+        "profile_locked_resolve_install_seconds": 54.0757581,
+        "requirement_generation_seconds": 0.001186800000027688,
+        "source_and_environment_seconds": 6.824823650000013,
+        "strict_pyright_seconds": 8.417522900000023
+      },
+      "canonical": {
+        "elapsed_seconds": 79.52912610000001,
+        "extra_capability_seconds": 5.510073349999999,
+        "gis_seconds": 6.969603550000045,
+        "parser_verification_seconds": 0.17116154999999367,
+        "policy_seconds": 67.22583020000002,
+        "profile_locked_resolve_install_seconds": 51.37187795000003,
+        "requirement_generation_seconds": 9.399999953529914e-06,
+        "source_and_environment_seconds": 6.4276580499999625,
+        "strict_pyright_seconds": 8.71317775
+      }
+    },
+    "warm": {
+      "candidate": {
+        "elapsed_seconds": 75.47711220000002,
+        "extra_capability_seconds": 4.831525650000003,
+        "gis_seconds": 6.14357085000006,
+        "parser_verification_seconds": 0.16806830000001582,
+        "policy_seconds": 63.76787935000016,
+        "profile_locked_resolve_install_seconds": 48.83268615000003,
+        "requirement_generation_seconds": 0.0012434000000212109,
+        "source_and_environment_seconds": 6.4816070500000365,
+        "strict_pyright_seconds": 8.622310650000031
+      },
+      "canonical": {
+        "elapsed_seconds": 75.29605860000001,
+        "extra_capability_seconds": 4.734845749999977,
+        "gis_seconds": 6.223203149999961,
+        "parser_verification_seconds": 0.18415245000005598,
+        "policy_seconds": 63.64819239999997,
+        "profile_locked_resolve_install_seconds": 48.74355609999998,
+        "requirement_generation_seconds": 1.0000000031595846e-05,
+        "source_and_environment_seconds": 6.442072950000011,
+        "strict_pyright_seconds": 8.497270699999945
+      }
+    }
+  },
+  "error": null,
+  "experiment_elapsed_seconds": 764.2244991,
+  "experiment_head": "33c9c650a6df719b5cb7369b869c28ce26f5cd74",
+  "host": {
+    "executable": "C:\\hostedtoolcache\\windows\\Python\\3.14.10\\x64\\python.exe",
+    "node_executable": "C:\\Program Files\\nodejs\\node.EXE",
+    "node_sha256": "dccc52de28d8df2ee22d2062424f8c563070d95d8ad70c54c4bf01d590dec14f",
+    "node_version": "v22.23.4",
+    "platform": "Windows-2025Server-10.0.26100-SP0",
+    "python": "3.14.10 (tags/v3.14.10:b703b2c, Oct 25 2026, 17:36:52) [MSC v.1944 64 bit (AMD64)]",
+    "runner_arch": "X64",
+    "runner_image_os": "win25-vs2026",
+    "runner_image_version": "20261103.298.1",
+    "runner_name": "GitHub Actions 1000017155",
+    "runner_os": "Windows"
+  },
+  "job_elapsed_seconds": 789.0,
+  "job_id": 128841626213,
+  "limitations": [
+    "One serial Windows runner, two repeats; no account-wide cost projection.",
+    "Cold/warm refers only to pip's download cache, not OS, network or CDN caches.",
+    "Named URL/hash constraints change resolution work relative to unconstrained routine Policy.",
+    "Fresh source snapshots and environments are used for every sample, including warm-cache samples.",
+    "The fixed maintained-file manifest is representative, not the entire cumulative PR selection.",
+    "Locked remote URLs may prevent the GIS helper's local-file network recovery; such a run fails closed.",
+    "Full Hosted tests, QGIS, solver execution and legacy-script campaigns are outside this experiment."
+  ],
+  "package_counts": {
+    "candidate": 138,
+    "canonical": 143
+  },
+  "paired_deltas": [
+    {
+      "cache": "cold",
+      "candidate_minus_canonical_seconds": {
+        "elapsed_seconds": -1.211652699999945,
+        "extra_capability_seconds": -1.6360897999999793,
+        "gis_seconds": 0.6727707000000009,
+        "parser_verification_seconds": 0.0008608000000549509,
+        "policy_seconds": 0.32110830000004853,
+        "profile_locked_resolve_install_seconds": 0.1319787999999562,
+        "requirement_generation_seconds": 0.0011508999999705338,
+        "source_and_environment_seconds": 0.13347360000000208,
+        "strict_pyright_seconds": -0.4856528999999341
+      },
+      "policy_percent_change": 0.47787431260732927,
+      "repeat": 1
+    },
+    {
+      "cache": "warm",
+      "candidate_minus_canonical_seconds": {
+        "elapsed_seconds": 1.3673626000000354,
+        "extra_capability_seconds": 0.2730430999999953,
+        "gis_seconds": -0.13786449999997785,
+        "parser_verification_seconds": -0.026727700000037657,
+        "policy_seconds": 0.9406549000001405,
+        "profile_locked_resolve_install_seconds": 1.1562066999999843,
+        "requirement_generation_seconds": 0.001266100000066217,
+        "source_and_environment_seconds": 0.21952150000004167,
+        "strict_pyright_seconds": -0.05222569999989446
+      },
+      "policy_percent_change": 1.504409339791768,
+      "repeat": 1
+    },
+    {
+      "cache": "cold",
+      "candidate_minus_canonical_seconds": {
+        "elapsed_seconds": 5.3107883999999785,
+        "extra_capability_seconds": -0.11045310000008612,
+        "gis_seconds": -0.39746260000003986,
+        "parser_verification_seconds": -0.004407700000001569,
+        "policy_seconds": 4.76945830000011,
+        "profile_locked_resolve_install_seconds": 5.275781499999994,
+        "requirement_generation_seconds": 0.0012039000001777822,
+        "source_and_environment_seconds": 0.6608576000000994,
+        "strict_pyright_seconds": -0.10565680000001976
+      },
+      "policy_percent_change": 7.091443436374512,
+      "repeat": 2
+    },
+    {
+      "cache": "warm",
+      "candidate_minus_canonical_seconds": {
+        "elapsed_seconds": -1.00525540000001,
+        "extra_capability_seconds": -0.07968329999994239,
+        "gis_seconds": -0.021400099999823397,
+        "parser_verification_seconds": -0.00544060000004265,
+        "policy_seconds": -0.7012809999997671,
+        "profile_locked_resolve_install_seconds": -0.977946599999882,
+        "requirement_generation_seconds": 0.001200699999913013,
+        "source_and_environment_seconds": -0.14045329999999012,
+        "strict_pyright_seconds": 0.3023056000000679
+      },
+      "policy_percent_change": -1.0827273907307422,
+      "repeat": 2
+    }
+  ],
+  "parity": {
+    "all_installed_versions_match_plan": true,
+    "all_pip_checks_and_parser_origin_checks_pass": true,
+    "all_shared_wheel_artifacts_match": true,
+    "capabilities_equal": true,
+    "cold_warm_cache_states_verified": true,
+    "only_expected_pytest_plugin_change": true,
+    "schedule_and_all_samples_passed": true,
+    "strict_diagnostics_equal_zero_errors": true,
+    "warm_cache_exactly_matches_paired_cold_end": true
+  },
+  "preparation_seconds": 100.07717260000004,
+  "profile_artifact_count": 140,
+  "recommendation": "Retain the canonical production Policy profile: this bounded pilot found no repeatable material timing saving.",
+  "removed_distributions": [
+    "build",
+    "coverage",
+    "pyproject-hooks",
+    "pytest-cov",
+    "ruff"
+  ],
+  "run_id": 42516847229,
+  "run_url": "https://github.com/Chain-Frost/ryan-tools/actions/runs/42516847229",
+  "sample_count": 8,
+  "samples": [
+    {
+      "cache": "cold",
+      "cache_after": {
+        "bytes": 397580633,
+        "files": 284
+      },
+      "cache_before": {
+        "bytes": 0,
+        "files": 0
+      },
+      "cache_seed_method": "new empty directory",
+      "cache_seed_seconds": 0.0,
+      "cleanup_seconds": 4.269043300000021,
+      "elapsed_seconds": 80.12545919999997,
+      "environment_creation_seconds": 3.4058211999999912,
+      "extra_capability_seconds": 6.161826299999973,
+      "free_disk_bytes_after": 155830689792,
+      "free_disk_bytes_before": 157768884224,
+      "gis_seconds": 6.382631400000037,
+      "name": "r1-canonical-cold",
+      "parser_verification_seconds": 0.1645874999999819,
+      "pip_pin_seconds": 2.2604549000000134,
+      "policy_seconds": 67.19513719999998,
+      "profile_locked_resolve_install_seconds": 51.678879300000006,
+      "repeat": 1,
+      "requirement_generation_seconds": 1.0299999985363684e-05,
+      "source_and_environment_seconds": 6.402781199999993,
+      "source_copy_seconds": 0.7344878999999764,
+      "status": "passed",
+      "strict_pyright_seconds": 8.969028699999967,
+      "variant": "canonical"
+    },
+    {
+      "cache": "cold",
+      "cache_after": {
+        "bytes": 386722827,
+        "files": 274
+      },
+      "cache_before": {
+        "bytes": 0,
+        "files": 0
+      },
+      "cache_seed_method": "new empty directory",
+      "cache_seed_seconds": 0.0,
+      "cleanup_seconds": 4.2674681000000305,
+      "elapsed_seconds": 78.91380650000002,
+      "environment_creation_seconds": 3.398931399999981,
+      "extra_capability_seconds": 4.525736499999994,
+      "free_disk_bytes_after": 155470794752,
+      "free_disk_bytes_before": 157368348672,
+      "gis_seconds": 7.0554021000000375,
+      "name": "r1-candidate-cold",
+      "parser_verification_seconds": 0.16544830000003685,
+      "pip_pin_seconds": 2.285484600000018,
+      "policy_seconds": 67.51624550000003,
+      "profile_locked_resolve_install_seconds": 51.81085809999996,
+      "repeat": 1,
+      "requirement_generation_seconds": 0.0011611999999558975,
+      "source_and_environment_seconds": 6.536254799999995,
+      "source_copy_seconds": 0.84964930000001,
+      "status": "passed",
+      "strict_pyright_seconds": 8.483375800000033,
+      "variant": "candidate"
+    },
+    {
+      "cache": "warm",
+      "cache_after": {
+        "bytes": 445220569,
+        "files": 288
+      },
+      "cache_before": {
+        "bytes": 397580633,
+        "files": 284
+      },
+      "cache_seed_method": "paired cold sample",
+      "cache_seed_seconds": 0.0,
+      "cleanup_seconds": 4.343697299999917,
+      "elapsed_seconds": 73.91133489999999,
+      "environment_creation_seconds": 3.343074300000012,
+      "extra_capability_seconds": 4.587439300000028,
+      "free_disk_bytes_after": 155391246336,
+      "free_disk_bytes_before": 156978782208,
+      "gis_seconds": 6.181000700000027,
+      "name": "r1-canonical-warm",
+      "parser_verification_seconds": 0.1902332000000797,
+      "pip_pin_seconds": 2.2791445000000294,
+      "policy_seconds": 62.526526200000035,
+      "profile_locked_resolve_install_seconds": 47.71930359999999,
+      "repeat": 1,
+      "requirement_generation_seconds": 1.0900000006586197e-05,
+      "source_and_environment_seconds": 6.333011400000032,
+      "source_copy_seconds": 0.708153799999991,
+      "status": "passed",
+      "strict_pyright_seconds": 8.435977799999932,
+      "variant": "canonical"
+    },
+    {
+      "cache": "warm",
+      "cache_after": {
+        "bytes": 434362762,
+        "files": 278
+      },
+      "cache_before": {
+        "bytes": 386722827,
+        "files": 274
+      },
+      "cache_seed_method": "paired cold sample",
+      "cache_seed_seconds": 0.0,
+      "cleanup_seconds": 4.769832999999949,
+      "elapsed_seconds": 75.27869750000002,
+      "environment_creation_seconds": 3.4062703999999258,
+      "extra_capability_seconds": 4.8604824000000235,
+      "free_disk_bytes_after": 155817086976,
+      "free_disk_bytes_before": 157374865408,
+      "gis_seconds": 6.043136200000049,
+      "name": "r1-candidate-warm",
+      "parser_verification_seconds": 0.16350550000004205,
+      "pip_pin_seconds": 2.296537199999989,
+      "policy_seconds": 63.467181100000175,
+      "profile_locked_resolve_install_seconds": 48.87551029999997,
+      "repeat": 1,
+      "requirement_generation_seconds": 0.0012770000000728032,
+      "source_and_environment_seconds": 6.552532900000074,
+      "source_copy_seconds": 0.8470131999999921,
+      "status": "passed",
+      "strict_pyright_seconds": 8.383752100000038,
+      "variant": "candidate"
+    },
+    {
+      "cache": "cold",
+      "cache_after": {
+        "bytes": 387557898,
+        "files": 276
+      },
+      "cache_before": {
+        "bytes": 0,
+        "files": 0
+      },
+      "cache_seed_method": "new empty directory",
+      "cache_seed_seconds": 0.0,
+      "cleanup_seconds": 4.256487800000059,
+      "elapsed_seconds": 84.24358140000004,
+      "environment_creation_seconds": 3.762215499999911,
+      "extra_capability_seconds": 4.747867299999939,
+      "free_disk_bytes_after": 155861757952,
+      "free_disk_bytes_before": 157760151552,
+      "gis_seconds": 7.159113100000013,
+      "name": "r2-candidate-cold",
+      "parser_verification_seconds": 0.17332790000000386,
+      "pip_pin_seconds": 2.547880999999961,
+      "policy_seconds": 72.02598150000017,
+      "profile_locked_resolve_install_seconds": 56.34065810000004,
+      "repeat": 2,
+      "requirement_generation_seconds": 0.0012124000000994783,
+      "source_and_environment_seconds": 7.113392500000032,
+      "source_copy_seconds": 0.8004238000000896,
+      "status": "passed",
+      "strict_pyright_seconds": 8.351670000000013,
+      "variant": "candidate"
+    },
+    {
+      "cache": "cold",
+      "cache_after": {
+        "bytes": 397580216,
+        "files": 284
+      },
+      "cache_before": {
+        "bytes": 0,
+        "files": 0
+      },
+      "cache_seed_method": "new empty directory",
+      "cache_seed_seconds": 0.0,
+      "cleanup_seconds": 4.387099000000035,
+      "elapsed_seconds": 78.93279300000006,
+      "environment_creation_seconds": 3.3993990000000167,
+      "extra_capability_seconds": 4.858320400000025,
+      "free_disk_bytes_after": 155431542784,
+      "free_disk_bytes_before": 157369745408,
+      "gis_seconds": 7.556575700000053,
+      "name": "r2-canonical-cold",
+      "parser_verification_seconds": 0.17773560000000543,
+      "pip_pin_seconds": 2.2493703999999752,
+      "policy_seconds": 67.25652320000006,
+      "profile_locked_resolve_install_seconds": 51.06487660000005,
+      "repeat": 2,
+      "requirement_generation_seconds": 8.499999921696144e-06,
+      "source_and_environment_seconds": 6.452534899999932,
+      "source_copy_seconds": 0.8007417000000032,
+      "status": "passed",
+      "strict_pyright_seconds": 8.457326800000033,
+      "variant": "canonical"
+    },
+    {
+      "cache": "warm",
+      "cache_after": {
+        "bytes": 435197833,
+        "files": 280
+      },
+      "cache_before": {
+        "bytes": 387557898,
+        "files": 276
+      },
+      "cache_seed_method": "paired cold sample",
+      "cache_seed_seconds": 0.0,
+      "cleanup_seconds": 4.54145840000001,
+      "elapsed_seconds": 75.67552690000002,
+      "environment_creation_seconds": 3.4225651000000425,
+      "extra_capability_seconds": 4.802568899999983,
+      "free_disk_bytes_after": 155411419136,
+      "free_disk_bytes_before": 156969201664,
+      "gis_seconds": 6.244005500000071,
+      "name": "r2-candidate-warm",
+      "parser_verification_seconds": 0.1726310999999896,
+      "pip_pin_seconds": 2.2647875000000113,
+      "policy_seconds": 64.06857760000014,
+      "profile_locked_resolve_install_seconds": 48.789862000000085,
+      "repeat": 2,
+      "requirement_generation_seconds": 0.0012097999999696185,
+      "source_and_environment_seconds": 6.410681199999999,
+      "source_copy_seconds": 0.7200010999999904,
+      "status": "passed",
+      "strict_pyright_seconds": 8.860869200000025,
+      "variant": "candidate"
+    },
+    {
+      "cache": "warm",
+      "cache_after": {
+        "bytes": 446055679,
+        "files": 290
+      },
+      "cache_before": {
+        "bytes": 397580216,
+        "files": 284
+      },
+      "cache_seed_method": "paired cold sample",
+      "cache_seed_seconds": 0.0,
+      "cleanup_seconds": 4.517986400000041,
+      "elapsed_seconds": 76.68078230000003,
+      "environment_creation_seconds": 3.5229556000000457,
+      "extra_capability_seconds": 4.882252199999925,
+      "free_disk_bytes_after": 155766956032,
+      "free_disk_bytes_before": 157355327488,
+      "gis_seconds": 6.2654055999998945,
+      "name": "r2-canonical-warm",
+      "parser_verification_seconds": 0.17807170000003225,
+      "pip_pin_seconds": 2.2977021000000377,
+      "policy_seconds": 64.7698585999999,
+      "profile_locked_resolve_install_seconds": 49.76780859999997,
+      "repeat": 2,
+      "requirement_generation_seconds": 9.100000056605495e-06,
+      "source_and_environment_seconds": 6.551134499999989,
+      "source_copy_seconds": 0.7269841999999471,
+      "status": "passed",
+      "strict_pyright_seconds": 8.558563599999957,
+      "variant": "canonical"
+    }
+  ],
+  "source_sha": "92351854625dae81001c033306969f73eff4a7f7",
+  "status": "completed",
+  "strict_diagnostics": {
+    "generalDiagnostics": [],
+    "summary": {
+      "errorCount": 0,
+      "filesAnalyzed": 20,
+      "informationCount": 0,
+      "warningCount": 0
+    },
+    "version": "1.1.414"
+  },
+  "sum_sample_cleanup_seconds": 35.35307330000006,
+  "sum_sample_elapsed_seconds": 623.7619817000002,
+  "sum_sample_policy_seconds": 528.8260309000004
+}

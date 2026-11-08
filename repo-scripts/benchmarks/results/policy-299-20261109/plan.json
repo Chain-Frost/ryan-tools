@@ -1,0 +1,210 @@
+{
+  "allowed_head_changes": [
+    ".github/workflows/policy-dependency-benchmark.yml",
+    "docs/work/2026-11-08-ci-dependency-groups.md",
+    "docs/work/README.md",
+    "repo-scripts/benchmarks/README.md",
+    "repo-scripts/benchmarks/benchmark_policy_dependencies.py"
+  ],
+  "build_requirements": [
+    "setuptools>=69",
+    "wheel"
+  ],
+  "candidate_dev_requirements": [
+    "pandas-stubs>=3.1.0.261029",
+    "pyarrow-stubs",
+    "types-psutil",
+    "types-rasterio>=1.5.2.20261029",
+    "scipy-stubs",
+    "distributed",
+    "pillow-heif>=1.8.0",
+    "python-docx",
+    "pyright>=1.1.414",
+    "pytest"
+  ],
+  "canonical_dev_requirements": [
+    "build",
+    "pandas-stubs>=3.1.0.261029",
+    "pyarrow-stubs",
+    "types-psutil",
+    "types-rasterio>=1.5.2.20261029",
+    "scipy-stubs",
+    "distributed",
+    "pillow-heif>=1.8.0",
+    "python-docx",
+    "pyright>=1.1.414",
+    "pytest",
+    "pytest-cov",
+    "ruff==0.16.6"
+  ],
+  "command_timeout_seconds": 600,
+  "core_sha256": {
+    "pyproject.toml": "c1c84df8f5a0c4e6b2482868c005330d9d31a3574620675fce3672e0b245e9a8",
+    "repo-scripts/ci-policy-requirements.txt": "bafac7ee36739ba269084b6a093e48ad4e7e00fa44111ce45ab355871938842b",
+    "repo-scripts/ci_gis_bootstrap.py": "67b226c7c754ead3b68656c38cd7b437cb11ec3c897fecb1e71db164d9fdb966",
+    "repo-scripts/ci_scope.py": "5a23127c150b50291e9abf017abff32aec622bf5094c4530fc24a755bc112eb7",
+    "repo-scripts/install_latest_wheel.py": "f335eaf2d34aed11d8b55e78f086211f4b045beabf1d2d6f607608f4afb2abab",
+    "repo-scripts/pytuflow-requirement.txt": "0326868e6192545bd414b79e6d3cb90db5c2ed53dae88dfdd6e8d8effef27a28",
+    "repo-scripts/tuflow-initialiser/validate_test_project.py": "d351adc3a153fc813bd91933a0cb50e3d958869319726cf10e525d757dc87158",
+    "repo-scripts/vendor_pytuflow_wheel.py": "3f1f91895cb388d4ca97216e011eb279e0585d051d7e27b6c58ada7df5959587",
+    "repo-scripts/wheels/pytuflow/887534ea8c15b80d185a38a7ead1d42ab42a7167/README.md": "bdf5b9c323f5b66a9eb1675354a7df32667653e4fd2791bde1cb0dc7c61633b0",
+    "repo-scripts/wheels/pytuflow/887534ea8c15b80d185a38a7ead1d42ab42a7167/provenance.json": "f3d91b69841525a0d9d01b23a94240322534202dd0a32f8be257cb3576a92ec9",
+    "repo-scripts/wheels/pytuflow/887534ea8c15b80d185a38a7ead1d42ab42a7167/pytuflow-1.3.0-py3-none-any.whl": "4bfcd24734349f9e0dcf60776ee06a2e17953ac342f40e3611b0e2aae33b30e3",
+    "ryan-scripts/AutoCAD-python/group-by-entity-colour-and-dissolve-to-hatch_dask3.py": "109014b682518dfc7d7882a12c729af4c0f3e7db66e837e9a273052d127c075e",
+    "ryan-scripts/misc-python/heic_to_jpeg.py": "1c19b61a06aaa01932bf42c333793db207ca3811c4e8a723419e0fcd49c28f2b",
+    "ryan-scripts/unsorted-python/export_water_level_profile_tables_50m.py": "b580d410519de2e6eb3ae3e307757c69917956f897b5369596391c3671f3bdd6",
+    "ryan_library/functions/gdal/profiling.py": "b7511ad83f5aa1c00612afb113c8d7762d0d5b872171c99410876211b6605118",
+    "ryan_library/functions/gdal/terrain_mosaic.py": "ad5c406aba49f147479488d7f3c5563057eb1cd825fa6cf6b70ab5198bc29864",
+    "ryan_library/functions/geometry/raster_coordinates.py": "38f444a07b3bd945dd7e8a1fdf65e8ff52adac2bd085a491d121cc86785c42ea",
+    "ryan_library/functions/lidar_processing.py": "de35581cc6d19693c0618e23c19e980cc84b8911273ff4ff1dd51789523835a7",
+    "ryan_library/functions/pandas/median_calc.py": "1acf690280d2b68200909d10fb3e62392314f4eaff23929719c8eba3fc2edb9a",
+    "ryan_library/functions/tuflow/gpu_occupancy.py": "07512cff642d3dd1087f089a1d0f5d1d5a98cd4b30ae28745b4cd16293c02e9b",
+    "ryan_library/functions/tuflow/pytuflow_compatibility.py": "f705e8b6102d7c1b1fbc79f1381c7db50859d63e957aa19b23303ab8037e8420",
+    "ryan_library/functions/tuflow/tgc_terrain.py": "549c9f61df334cd30b89ea5009b15b6f157f3d7ed5c6c381630cf5fda79f4040",
+    "ryan_library/mcp/server.py": "4100e0412340804ad7b0282dfb2db95f10fc21e0a72d5d131cc0229429bd32f6",
+    "ryan_library/orchestrators/tuflow/initialiser/cli.py": "cf9fa26e1afcf35bb5ed964215bb6ef156adca66e14dd5352116486be572a899",
+    "ryan_library/orchestrators/tuflow/initialiser/gis_writer.py": "09bbd62f0a667a27fc71862b08e16568e4c2d738d3ce8674ab9eca0058adfff2",
+    "ryan_library/orchestrators/tuflow/initialiser/workflow.py": "8facb77c99b1c5f9d8e3812e0387a2f9be2f30ec47a2ed2f5a06e6202106a16d",
+    "ryan_library/orchestrators/tuflow/project_setup.py": "52fe34606aaa4c5de7fca49e5b92ea0191b690bc6a716996fc143e5d7b12f25b",
+    "ryan_library/processors/tuflow/maximums_1d/ccAProcessor.py": "76b40007232557f3a5a9273dca8f6dce03a0ebac5ef83863d144a30d33e10402",
+    "tests/repo_scripts/test_ci_scope.py": "2df98b4a1cf1c4f64e1f787d6ec1f0f42768c99d9ad7f79686c22b6b5902a0c8",
+    "typings/fiona/__init__.pyi": "0980f5c4995de1ce406a5fc9c9640742c7c1537e45b2766d77a02c7c9a97303a",
+    "typings/fiona/crs.pyi": "75222fc7fbb379db12813aabbfe8ac4b5ea7d78b3bd17f14c22a2350dbf5a3fa",
+    "typings/fiona/errors.pyi": "ca43330318263c644fb9d81d4ff4105ace3a4fd657dc3e7cd909ed6cb176505e",
+    "typings/fiona/model.pyi": "e0e86f120e851e16c742bbb6ce838cfa87dc16121f5dc83a126a55bae0243758",
+    "typings/laspy/__init__.pyi": "cb5ffe31b66645323acb1535441be4bd8a42c74d346044c4fddcb79c2f8d064d",
+    "typings/shapefile/__init__.pyi": "713b1a4b5daf17e476a78a125390d1ed53c7c586cacd2441f833fbf51254a813"
+  },
+  "experiment_head": "33c9c650a6df719b5cb7369b869c28ce26f5cd74",
+  "experiment_timeout_seconds": 2100,
+  "host": {
+    "executable": "C:\\hostedtoolcache\\windows\\Python\\3.14.10\\x64\\python.exe",
+    "node_executable": "C:\\Program Files\\nodejs\\node.EXE",
+    "node_sha256": "dccc52de28d8df2ee22d2062424f8c563070d95d8ad70c54c4bf01d590dec14f",
+    "node_version": "v22.23.4",
+    "platform": "Windows-2025Server-10.0.26100-SP0",
+    "python": "3.14.10 (tags/v3.14.10:b703b2c, Oct 25 2026, 17:36:52) [MSC v.1944 64 bit (AMD64)]",
+    "runner_arch": "X64",
+    "runner_image_os": "win25-vs2026",
+    "runner_image_version": "20261103.298.1",
+    "runner_name": "GitHub Actions 1000017155",
+    "runner_os": "Windows"
+  },
+  "limitations": [
+    "One serial Windows runner, two repeats; no account-wide cost projection.",
+    "Cold/warm refers only to pip's download cache, not OS, network or CDN caches.",
+    "Named URL/hash constraints change resolution work relative to unconstrained routine Policy.",
+    "Fresh source snapshots and environments are used for every sample, including warm-cache samples.",
+    "The fixed maintained-file manifest is representative, not the entire cumulative PR selection.",
+    "Locked remote URLs may prevent the GIS helper's local-file network recovery; such a run fails closed.",
+    "Full Hosted tests, QGIS, solver execution and legacy-script campaigns are outside this experiment."
+  ],
+  "manifest": [
+    "repo-scripts/ci_scope.py",
+    "tests/repo_scripts/test_ci_scope.py",
+    "ryan_library/functions/pandas/median_calc.py",
+    "ryan_library/functions/tuflow/gpu_occupancy.py",
+    "ryan_library/functions/gdal/profiling.py",
+    "ryan_library/functions/gdal/terrain_mosaic.py",
+    "ryan_library/functions/geometry/raster_coordinates.py",
+    "ryan_library/functions/tuflow/tgc_terrain.py",
+    "ryan_library/functions/tuflow/pytuflow_compatibility.py",
+    "ryan_library/orchestrators/tuflow/project_setup.py",
+    "ryan_library/orchestrators/tuflow/initialiser/gis_writer.py",
+    "ryan_library/orchestrators/tuflow/initialiser/workflow.py",
+    "ryan_library/orchestrators/tuflow/initialiser/cli.py",
+    "repo-scripts/tuflow-initialiser/validate_test_project.py",
+    "ryan_library/mcp/server.py",
+    "ryan_library/functions/lidar_processing.py",
+    "ryan_library/processors/tuflow/maximums_1d/ccAProcessor.py"
+  ],
+  "mcp_requirements": [
+    "mcp[cli]>=2.1,<3"
+  ],
+  "pip_version": "26.3",
+  "python_version": "3.14.10",
+  "runtime_requirements": [
+    "numpy",
+    "pandas",
+    "scipy",
+    "bottleneck",
+    "pyshp",
+    "geopandas",
+    "fiona",
+    "pyarrow",
+    "fastparquet",
+    "matplotlib",
+    "colorama",
+    "XlsxWriter",
+    "psutil",
+    "laspy[lazrs]",
+    "tqdm",
+    "rasterio",
+    "shapely>=2",
+    "seaborn",
+    "requests",
+    "openpyxl",
+    "loguru",
+    "tabulate",
+    "pypdf",
+    "cryptography>=3.1",
+    "ezdxf",
+    "rich",
+    "pytuflow>=1.2",
+    "run-hy8>=2026.10.16.1",
+    "ryan-culverts>=26.10.19.1"
+  ],
+  "schedule": [
+    {
+      "cache": "cold",
+      "repeat": 1,
+      "variant": "canonical"
+    },
+    {
+      "cache": "cold",
+      "repeat": 1,
+      "variant": "candidate"
+    },
+    {
+      "cache": "warm",
+      "repeat": 1,
+      "variant": "canonical"
+    },
+    {
+      "cache": "warm",
+      "repeat": 1,
+      "variant": "candidate"
+    },
+    {
+      "cache": "cold",
+      "repeat": 2,
+      "variant": "candidate"
+    },
+    {
+      "cache": "cold",
+      "repeat": 2,
+      "variant": "canonical"
+    },
+    {
+      "cache": "warm",
+      "repeat": 2,
+      "variant": "candidate"
+    },
+    {
+      "cache": "warm",
+      "repeat": 2,
+      "variant": "canonical"
+    }
+  ],
+  "source_sha": "92351854625dae81001c033306969f73eff4a7f7",
+  "source_tree": "42780d9957002ec0bf0b54312b713234a6c453e9",
+  "supplemental_manifest": {
+    "classification": "Repository-only legacy consumers; strict checking only, no execution or lifecycle promotion",
+    "files": [
+      "ryan-scripts/AutoCAD-python/group-by-entity-colour-and-dissolve-to-hatch_dask3.py",
+      "ryan-scripts/misc-python/heic_to_jpeg.py",
+      "ryan-scripts/unsorted-python/export_water_level_profile_tables_50m.py"
+    ]
+  },
+  "tracked_local_changes": []
+}

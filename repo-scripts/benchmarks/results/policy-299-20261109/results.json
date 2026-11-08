@@ -1,0 +1,1644 @@
+{
+  "commands": [
+    {
+      "command": [
+        "C:\\hostedtoolcache\\windows\\Python\\3.14.10\\x64\\python.exe",
+        "-m",
+        "pip",
+        "download",
+        "--only-binary=:all:",
+        "--no-deps",
+        "-d",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\bootstrap-wheels",
+        "pip==26.3"
+      ],
+      "cwd": "D:\\a\\ryan-tools\\ryan-tools",
+      "elapsed_seconds": 3.071939399999991,
+      "label": "prepare-pip-wheel",
+      "log": "logs/000-prepare-pip-wheel.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:48:29.385442+00:00"
+    },
+    {
+      "command": [
+        "C:\\hostedtoolcache\\windows\\Python\\3.14.10\\x64\\python.exe",
+        "-m",
+        "venv",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\preparation\\venv"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\preparation\\source",
+      "elapsed_seconds": 4.076192300000002,
+      "label": "preparation-venv",
+      "log": "logs/001-preparation-venv.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:48:33.196217+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\preparation\\venv\\Scripts\\python.exe",
+        "-m",
+        "pip",
+        "install",
+        "--no-index",
+        "--no-deps",
+        "--no-cache-dir",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\bootstrap-wheels\\pip-26.3-py3-none-any.whl"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\preparation\\source",
+      "elapsed_seconds": 2.863455500000015,
+      "label": "preparation-pip",
+      "log": "logs/002-preparation-pip.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:48:37.273389+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\preparation\\venv\\Scripts\\python.exe",
+        "-m",
+        "pip",
+        "install",
+        "--dry-run",
+        "--ignore-installed",
+        "--only-binary=:all:",
+        "--report",
+        "D:\\a\\_temp\\policy-benchmark-299\\evidence\\prepare-build-report.json",
+        "setuptools>=69",
+        "wheel"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\preparation\\source",
+      "elapsed_seconds": 1.3968749000000003,
+      "label": "prepare-build-resolution",
+      "log": "logs/003-prepare-build-resolution.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:48:40.137696+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\preparation\\venv\\Scripts\\python.exe",
+        "repo-scripts/ci_gis_bootstrap.py"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\preparation\\source",
+      "elapsed_seconds": 10.31392809999997,
+      "label": "prepare-gis",
+      "log": "logs/004-prepare-gis.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:48:41.536131+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\preparation\\venv\\Scripts\\python.exe",
+        "-m",
+        "pip",
+        "install",
+        "--report",
+        "D:\\a\\_temp\\policy-benchmark-299\\evidence\\prepare-canonical-report.json",
+        "-r",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\preparation\\source\\repo-scripts\\ci-policy-requirements.txt"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\preparation\\source",
+      "elapsed_seconds": 69.58615350000002,
+      "label": "prepare-canonical-profile",
+      "log": "logs/005-prepare-canonical-profile.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:48:51.852634+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\preparation\\venv\\Scripts\\python.exe",
+        "-c",
+        "\nimport importlib.metadata as metadata\nimport json\nimport pathlib\nimport re\nimport site\nimport sys\nimport sysconfig\n\ndef name(value):\n    return re.sub(r\"[-_.]+\", \"-\", value).lower()\n\nprefix = pathlib.Path(sys.prefix).resolve()\nassert sys.prefix != sys.base_prefix and not site.ENABLE_USER_SITE\nlocations = sorted({str(pathlib.Path(sysconfig.get_path(key)).resolve()) for key in (\"purelib\", \"platlib\")})\nassert all(pathlib.Path(path).is_relative_to(prefix) for path in locations)\ndistributions = {}\nfor dist in metadata.distributions(path=locations):\n    key = name(dist.metadata[\"Name\"])\n    origin = pathlib.Path(dist.locate_file(\"\")).resolve()\n    if not origin.is_relative_to(prefix):\n        raise RuntimeError(\"Distribution outside this environment: \" + str(origin))\n    if key in distributions:\n        raise RuntimeError(\"Duplicate installed distribution: \" + key)\n    distributions[key] = {\n        \"version\": dist.version,\n        \"location\": str(origin),\n        \"direct_url\": json.loads(dist.read_text(\"direct_url.json\") or \"null\"),\n    }\nplugins = sorted(\n    [{\"name\": entry.name, \"value\": entry.value,\n      \"distribution\": name(entry.dist.metadata[\"Name\"]), \"version\": entry.dist.version}\n     for entry in metadata.entry_points(group=\"pytest11\")], key=lambda value: value[\"name\"])\nresult = {\"executable\": sys.executable, \"prefix\": sys.prefix, \"base_prefix\": sys.base_prefix,\n          \"sys_path\": sys.path, \"site_locations\": locations, \"user_site_enabled\": site.ENABLE_USER_SITE,\n          \"python_version\": sys.version, \"distributions\": distributions, \"pytest_plugins\": plugins}\npathlib.Path(sys.argv[1]).write_text(json.dumps(result, indent=2, sort_keys=True), encoding=\"utf-8\")\n",
+        "D:\\a\\_temp\\policy-benchmark-299\\evidence\\prepare-canonical-inventory.json"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\preparation\\source",
+      "elapsed_seconds": 0.31869050000000243,
+      "label": "prepare-canonical-inventory",
+      "log": "logs/006-prepare-canonical-inventory.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:50:01.459610+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\preparation\\venv\\Scripts\\python.exe",
+        "-m",
+        "pip",
+        "install",
+        "--dry-run",
+        "--ignore-installed",
+        "--report",
+        "D:\\a\\_temp\\policy-benchmark-299\\evidence\\prepare-candidate-report.json",
+        "-r",
+        "D:\\a\\_temp\\policy-benchmark-299\\evidence\\prepare-candidate-requirements.txt"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\preparation\\source",
+      "elapsed_seconds": 6.295377900000005,
+      "label": "prepare-candidate-resolution",
+      "log": "logs/007-prepare-candidate-resolution.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:50:01.780581+00:00"
+    },
+    {
+      "command": [
+        "C:\\hostedtoolcache\\windows\\Python\\3.14.10\\x64\\python.exe",
+        "-m",
+        "venv",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-cold\\venv"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-cold\\source",
+      "elapsed_seconds": 3.4058211999999912,
+      "label": "r1-canonical-cold-venv",
+      "log": "logs/008-r1-canonical-cold-venv.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:50:13.417970+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-cold\\venv\\Scripts\\python.exe",
+        "-m",
+        "pip",
+        "install",
+        "--no-index",
+        "--no-deps",
+        "--no-cache-dir",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\bootstrap-wheels\\pip-26.3-py3-none-any.whl"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-cold\\source",
+      "elapsed_seconds": 2.2604549000000134,
+      "label": "r1-canonical-cold-pip",
+      "log": "logs/009-r1-canonical-cold-pip.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:50:16.824798+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-cold\\venv\\Scripts\\python.exe",
+        "repo-scripts/ci_gis_bootstrap.py"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-cold\\source",
+      "elapsed_seconds": 6.382631400000037,
+      "label": "r1-canonical-cold-gis",
+      "log": "logs/010-r1-canonical-cold-gis.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:50:19.086192+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-cold\\venv\\Scripts\\python.exe",
+        "-m",
+        "pip",
+        "install",
+        "--report",
+        "D:\\a\\_temp\\policy-benchmark-299\\evidence\\r1-canonical-cold-profile-report.json",
+        "-r",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-cold\\source\\repo-scripts\\ci-policy-requirements.txt"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-cold\\source",
+      "elapsed_seconds": 51.678879300000006,
+      "label": "r1-canonical-cold-profile",
+      "log": "logs/011-r1-canonical-cold-profile.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:50:25.469936+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-cold\\venv\\Scripts\\python.exe",
+        "repo-scripts/vendor_pytuflow_wheel.py",
+        "--installed"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-cold\\source",
+      "elapsed_seconds": 0.1645874999999819,
+      "label": "r1-canonical-cold-parser-origin",
+      "log": "logs/012-r1-canonical-cold-parser-origin.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:51:17.150616+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-cold\\venv\\Scripts\\python.exe",
+        "-c",
+        "\nimport importlib.metadata as metadata\nimport json\nimport pathlib\nimport re\nimport site\nimport sys\nimport sysconfig\n\ndef name(value):\n    return re.sub(r\"[-_.]+\", \"-\", value).lower()\n\nprefix = pathlib.Path(sys.prefix).resolve()\nassert sys.prefix != sys.base_prefix and not site.ENABLE_USER_SITE\nlocations = sorted({str(pathlib.Path(sysconfig.get_path(key)).resolve()) for key in (\"purelib\", \"platlib\")})\nassert all(pathlib.Path(path).is_relative_to(prefix) for path in locations)\ndistributions = {}\nfor dist in metadata.distributions(path=locations):\n    key = name(dist.metadata[\"Name\"])\n    origin = pathlib.Path(dist.locate_file(\"\")).resolve()\n    if not origin.is_relative_to(prefix):\n        raise RuntimeError(\"Distribution outside this environment: \" + str(origin))\n    if key in distributions:\n        raise RuntimeError(\"Duplicate installed distribution: \" + key)\n    distributions[key] = {\n        \"version\": dist.version,\n        \"location\": str(origin),\n        \"direct_url\": json.loads(dist.read_text(\"direct_url.json\") or \"null\"),\n    }\nplugins = sorted(\n    [{\"name\": entry.name, \"value\": entry.value,\n      \"distribution\": name(entry.dist.metadata[\"Name\"]), \"version\": entry.dist.version}\n     for entry in metadata.entry_points(group=\"pytest11\")], key=lambda value: value[\"name\"])\nresult = {\"executable\": sys.executable, \"prefix\": sys.prefix, \"base_prefix\": sys.base_prefix,\n          \"sys_path\": sys.path, \"site_locations\": locations, \"user_site_enabled\": site.ENABLE_USER_SITE,\n          \"python_version\": sys.version, \"distributions\": distributions, \"pytest_plugins\": plugins}\npathlib.Path(sys.argv[1]).write_text(json.dumps(result, indent=2, sort_keys=True), encoding=\"utf-8\")\n",
+        "D:\\a\\_temp\\policy-benchmark-299\\evidence\\r1-canonical-cold-inventory.json"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-cold\\source",
+      "elapsed_seconds": 0.3336761999999567,
+      "label": "r1-canonical-cold-inventory",
+      "log": "logs/013-r1-canonical-cold-inventory.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:51:17.335888+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-cold\\venv\\Scripts\\python.exe",
+        "-m",
+        "pyright",
+        "--outputjson",
+        "--pythonpath",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-cold\\venv\\Scripts\\python.exe",
+        "repo-scripts/ci_scope.py",
+        "tests/repo_scripts/test_ci_scope.py",
+        "ryan_library/functions/pandas/median_calc.py",
+        "ryan_library/functions/tuflow/gpu_occupancy.py",
+        "ryan_library/functions/gdal/profiling.py",
+        "ryan_library/functions/gdal/terrain_mosaic.py",
+        "ryan_library/functions/geometry/raster_coordinates.py",
+        "ryan_library/functions/tuflow/tgc_terrain.py",
+        "ryan_library/functions/tuflow/pytuflow_compatibility.py",
+        "ryan_library/orchestrators/tuflow/project_setup.py",
+        "ryan_library/orchestrators/tuflow/initialiser/gis_writer.py",
+        "ryan_library/orchestrators/tuflow/initialiser/workflow.py",
+        "ryan_library/orchestrators/tuflow/initialiser/cli.py",
+        "repo-scripts/tuflow-initialiser/validate_test_project.py",
+        "ryan_library/mcp/server.py",
+        "ryan_library/functions/lidar_processing.py",
+        "ryan_library/processors/tuflow/maximums_1d/ccAProcessor.py",
+        "ryan-scripts/AutoCAD-python/group-by-entity-colour-and-dissolve-to-hatch_dask3.py",
+        "ryan-scripts/misc-python/heic_to_jpeg.py",
+        "ryan-scripts/unsorted-python/export_water_level_profile_tables_50m.py"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-cold\\source",
+      "elapsed_seconds": 8.969028699999967,
+      "label": "r1-canonical-cold-pyright",
+      "log": "logs/014-r1-canonical-cold-pyright.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:51:17.677508+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-cold\\venv\\Scripts\\python.exe",
+        "-m",
+        "pip",
+        "check"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-cold\\source",
+      "elapsed_seconds": 0.6354058999999666,
+      "label": "r1-canonical-cold-pip-check",
+      "log": "logs/015-r1-canonical-cold-pip-check.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:51:26.648024+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-cold\\venv\\Scripts\\python.exe",
+        "-c",
+        "\nimport importlib\nimport io\nimport json\nimport pathlib\nimport sys\nimport tempfile\n\nimport numpy as np\nimport pandas as pd\nfrom osgeo import gdal\nimport rasterio\nfrom rasterio.io import MemoryFile\nfrom rasterio.transform import from_origin\nimport fiona\nfrom scipy.ndimage import binary_dilation\nimport distributed\nfrom dask.distributed import Client\nimport pillow_heif\nfrom PIL import Image\nimport docx\nfrom ryan_library.functions.tuflow.pytuflow_compatibility import require_validation_api\nfrom ryan_library.mcp import server\n\nsource = pathlib.Path.cwd().resolve()\nprefix = pathlib.Path(sys.prefix).resolve()\norigins = {}\nfor module_name in (\"numpy\", \"pandas\", \"pyarrow\", \"osgeo.gdal\", \"rasterio\", \"fiona\", \"scipy\",\n                    \"distributed\", \"dask\", \"pillow_heif\", \"PIL\", \"docx\", \"mcp\", \"pytuflow\", \"ryan_library\"):\n    module = importlib.import_module(module_name)\n    origin = pathlib.Path(module.__file__).resolve()\n    expected = source if module_name == \"ryan_library\" else prefix\n    if not origin.is_relative_to(expected):\n        raise RuntimeError(f\"Foreign import for {module_name}: {origin}\")\n    origins[module_name] = str(origin)\n\ndataset = gdal.GetDriverByName(\"MEM\").Create(\"\", 2, 2, 1, gdal.GDT_Float32)\ndataset.GetRasterBand(1).Fill(7)\nassert np.array_equal(dataset.ReadAsArray(), np.full((2, 2), 7, dtype=\"float32\"))\ndataset = None\nvalues = np.array([[1, 2], [3, 4]], dtype=\"float32\")\nwith MemoryFile() as memory:\n    with memory.open(driver=\"GTiff\", height=2, width=2, count=1, dtype=\"float32\",\n                     crs=\"EPSG:28356\", transform=from_origin(100, 100, 1, 1)) as raster:\n        raster.write(values, 1)\n    with memory.open() as raster:\n        assert np.array_equal(raster.read(1), values)\n        assert raster.crs.to_epsg() == 28356\nwith tempfile.TemporaryDirectory(dir=sys.argv[2]) as temporary:\n    path = pathlib.Path(temporary) / \"probe.gpkg\"\n    schema = {\"geometry\": \"Point\", \"properties\": {\"probe_id\": \"int\"}}\n    with fiona.open(path, \"w\", driver=\"GPKG\", schema=schema, crs=\"EPSG:28356\") as collection:\n        collection.write({\"geometry\": {\"type\": \"Point\", \"coordinates\": (100.0, 100.0)},\n                          \"properties\": {\"probe_id\": 7}})\n    with fiona.open(path) as collection:\n        features = list(collection)\n        assert len(features) == 1 and features[0][\"properties\"][\"probe_id\"] == 7\nframe = pd.DataFrame({\"value\": [1, 2]})\nbuffer = io.BytesIO()\nframe.to_parquet(buffer, engine=\"pyarrow\", index=False)\nbuffer.seek(0)\nassert pd.read_parquet(buffer, engine=\"pyarrow\").equals(frame)\nmask = np.zeros((3, 3), dtype=bool)\nmask[1, 1] = True\nassert int(binary_dilation(mask).sum()) == 5\nassert distributed.Client is Client and callable(Client)\npillow_heif.register_heif_opener()\nassert \"HEIF\" in Image.OPEN\ndocument = docx.Document()\ndocument.add_paragraph(\"Policy dependency probe\")\nbuffer = io.BytesIO()\ndocument.save(buffer)\nbuffer.seek(0)\nassert docx.Document(buffer).paragraphs[0].text == \"Policy dependency probe\"\nassert server.mcp is not None\nexports = (\"parse_tuflow_filename\", \"inspect_tuflow_result\", \"inspect_tuflow_collection\",\n           \"inspect_raster_metadata\", \"check_repo_health\", \"list_workflows\", \"get_workflow\")\nassert all(callable(getattr(server, name)) for name in exports)\nparsed = server.parse_tuflow_filename(\"benchmark_1d_H.csv\")\nassert parsed[\"file_name\"] == \"benchmark_1d_H.csv\"\ndiagnostic = require_validation_api().diagnostic\nresult = {\"passed\": [\"gdal_mem\", \"rasterio_memory_gtiff\", \"fiona_gpkg\", \"pandas_pyarrow\",\n                     \"scipy_binary_dilation\", \"distributed_client\", \"heif_registration\", \"docx_roundtrip\",\n                     \"mcp_exports\", \"tuflow_filename\", \"accepted_parser_api\"],\n          \"parser_diagnostic\": diagnostic.message,\n          \"parser_status\": {\"available\": diagnostic.available, \"version\": diagnostic.version, \"problem\": diagnostic.problem},\n          \"mcp_exports\": list(exports), \"module_origins\": origins}\npathlib.Path(sys.argv[1]).write_text(json.dumps(result, indent=2, sort_keys=True), encoding=\"utf-8\")\n",
+        "D:\\a\\_temp\\policy-benchmark-299\\evidence\\r1-canonical-cold-capabilities.json",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-cold"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-cold\\source",
+      "elapsed_seconds": 5.524389400000018,
+      "label": "r1-canonical-cold-capabilities",
+      "log": "logs/016-r1-canonical-cold-capabilities.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:51:27.284332+00:00"
+    },
+    {
+      "command": [
+        "C:\\hostedtoolcache\\windows\\Python\\3.14.10\\x64\\python.exe",
+        "-m",
+        "venv",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-cold\\venv"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-cold\\source",
+      "elapsed_seconds": 3.398931399999981,
+      "label": "r1-candidate-cold-venv",
+      "log": "logs/017-r1-candidate-cold-venv.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:51:37.987966+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-cold\\venv\\Scripts\\python.exe",
+        "-m",
+        "pip",
+        "install",
+        "--no-index",
+        "--no-deps",
+        "--no-cache-dir",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\bootstrap-wheels\\pip-26.3-py3-none-any.whl"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-cold\\source",
+      "elapsed_seconds": 2.285484600000018,
+      "label": "r1-candidate-cold-pip",
+      "log": "logs/018-r1-candidate-cold-pip.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:51:41.388091+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-cold\\venv\\Scripts\\python.exe",
+        "repo-scripts/ci_gis_bootstrap.py"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-cold\\source",
+      "elapsed_seconds": 7.0554021000000375,
+      "label": "r1-candidate-cold-gis",
+      "log": "logs/019-r1-candidate-cold-gis.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:51:43.674632+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-cold\\venv\\Scripts\\python.exe",
+        "-m",
+        "pip",
+        "install",
+        "--report",
+        "D:\\a\\_temp\\policy-benchmark-299\\evidence\\r1-candidate-cold-profile-report.json",
+        "-r",
+        "D:\\a\\_temp\\policy-benchmark-299\\evidence\\r1-candidate-cold-requirements.txt"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-cold\\source",
+      "elapsed_seconds": 51.81085809999996,
+      "label": "r1-candidate-cold-profile",
+      "log": "logs/020-r1-candidate-cold-profile.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:51:50.732332+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-cold\\venv\\Scripts\\python.exe",
+        "repo-scripts/vendor_pytuflow_wheel.py",
+        "--installed"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-cold\\source",
+      "elapsed_seconds": 0.16544830000003685,
+      "label": "r1-candidate-cold-parser-origin",
+      "log": "logs/021-r1-candidate-cold-parser-origin.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:52:42.545068+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-cold\\venv\\Scripts\\python.exe",
+        "-c",
+        "\nimport importlib.metadata as metadata\nimport json\nimport pathlib\nimport re\nimport site\nimport sys\nimport sysconfig\n\ndef name(value):\n    return re.sub(r\"[-_.]+\", \"-\", value).lower()\n\nprefix = pathlib.Path(sys.prefix).resolve()\nassert sys.prefix != sys.base_prefix and not site.ENABLE_USER_SITE\nlocations = sorted({str(pathlib.Path(sysconfig.get_path(key)).resolve()) for key in (\"purelib\", \"platlib\")})\nassert all(pathlib.Path(path).is_relative_to(prefix) for path in locations)\ndistributions = {}\nfor dist in metadata.distributions(path=locations):\n    key = name(dist.metadata[\"Name\"])\n    origin = pathlib.Path(dist.locate_file(\"\")).resolve()\n    if not origin.is_relative_to(prefix):\n        raise RuntimeError(\"Distribution outside this environment: \" + str(origin))\n    if key in distributions:\n        raise RuntimeError(\"Duplicate installed distribution: \" + key)\n    distributions[key] = {\n        \"version\": dist.version,\n        \"location\": str(origin),\n        \"direct_url\": json.loads(dist.read_text(\"direct_url.json\") or \"null\"),\n    }\nplugins = sorted(\n    [{\"name\": entry.name, \"value\": entry.value,\n      \"distribution\": name(entry.dist.metadata[\"Name\"]), \"version\": entry.dist.version}\n     for entry in metadata.entry_points(group=\"pytest11\")], key=lambda value: value[\"name\"])\nresult = {\"executable\": sys.executable, \"prefix\": sys.prefix, \"base_prefix\": sys.base_prefix,\n          \"sys_path\": sys.path, \"site_locations\": locations, \"user_site_enabled\": site.ENABLE_USER_SITE,\n          \"python_version\": sys.version, \"distributions\": distributions, \"pytest_plugins\": plugins}\npathlib.Path(sys.argv[1]).write_text(json.dumps(result, indent=2, sort_keys=True), encoding=\"utf-8\")\n",
+        "D:\\a\\_temp\\policy-benchmark-299\\evidence\\r1-candidate-cold-inventory.json"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-cold\\source",
+      "elapsed_seconds": 0.3028003999999669,
+      "label": "r1-candidate-cold-inventory",
+      "log": "logs/022-r1-candidate-cold-inventory.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:52:42.731105+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-cold\\venv\\Scripts\\python.exe",
+        "-m",
+        "pyright",
+        "--outputjson",
+        "--pythonpath",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-cold\\venv\\Scripts\\python.exe",
+        "repo-scripts/ci_scope.py",
+        "tests/repo_scripts/test_ci_scope.py",
+        "ryan_library/functions/pandas/median_calc.py",
+        "ryan_library/functions/tuflow/gpu_occupancy.py",
+        "ryan_library/functions/gdal/profiling.py",
+        "ryan_library/functions/gdal/terrain_mosaic.py",
+        "ryan_library/functions/geometry/raster_coordinates.py",
+        "ryan_library/functions/tuflow/tgc_terrain.py",
+        "ryan_library/functions/tuflow/pytuflow_compatibility.py",
+        "ryan_library/orchestrators/tuflow/project_setup.py",
+        "ryan_library/orchestrators/tuflow/initialiser/gis_writer.py",
+        "ryan_library/orchestrators/tuflow/initialiser/workflow.py",
+        "ryan_library/orchestrators/tuflow/initialiser/cli.py",
+        "repo-scripts/tuflow-initialiser/validate_test_project.py",
+        "ryan_library/mcp/server.py",
+        "ryan_library/functions/lidar_processing.py",
+        "ryan_library/processors/tuflow/maximums_1d/ccAProcessor.py",
+        "ryan-scripts/AutoCAD-python/group-by-entity-colour-and-dissolve-to-hatch_dask3.py",
+        "ryan-scripts/misc-python/heic_to_jpeg.py",
+        "ryan-scripts/unsorted-python/export_water_level_profile_tables_50m.py"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-cold\\source",
+      "elapsed_seconds": 8.483375800000033,
+      "label": "r1-candidate-cold-pyright",
+      "log": "logs/023-r1-candidate-cold-pyright.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:52:43.042294+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-cold\\venv\\Scripts\\python.exe",
+        "-m",
+        "pip",
+        "check"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-cold\\source",
+      "elapsed_seconds": 0.5988283999999453,
+      "label": "r1-candidate-cold-pip-check",
+      "log": "logs/024-r1-candidate-cold-pip-check.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:52:51.527444+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-cold\\venv\\Scripts\\python.exe",
+        "-c",
+        "\nimport importlib\nimport io\nimport json\nimport pathlib\nimport sys\nimport tempfile\n\nimport numpy as np\nimport pandas as pd\nfrom osgeo import gdal\nimport rasterio\nfrom rasterio.io import MemoryFile\nfrom rasterio.transform import from_origin\nimport fiona\nfrom scipy.ndimage import binary_dilation\nimport distributed\nfrom dask.distributed import Client\nimport pillow_heif\nfrom PIL import Image\nimport docx\nfrom ryan_library.functions.tuflow.pytuflow_compatibility import require_validation_api\nfrom ryan_library.mcp import server\n\nsource = pathlib.Path.cwd().resolve()\nprefix = pathlib.Path(sys.prefix).resolve()\norigins = {}\nfor module_name in (\"numpy\", \"pandas\", \"pyarrow\", \"osgeo.gdal\", \"rasterio\", \"fiona\", \"scipy\",\n                    \"distributed\", \"dask\", \"pillow_heif\", \"PIL\", \"docx\", \"mcp\", \"pytuflow\", \"ryan_library\"):\n    module = importlib.import_module(module_name)\n    origin = pathlib.Path(module.__file__).resolve()\n    expected = source if module_name == \"ryan_library\" else prefix\n    if not origin.is_relative_to(expected):\n        raise RuntimeError(f\"Foreign import for {module_name}: {origin}\")\n    origins[module_name] = str(origin)\n\ndataset = gdal.GetDriverByName(\"MEM\").Create(\"\", 2, 2, 1, gdal.GDT_Float32)\ndataset.GetRasterBand(1).Fill(7)\nassert np.array_equal(dataset.ReadAsArray(), np.full((2, 2), 7, dtype=\"float32\"))\ndataset = None\nvalues = np.array([[1, 2], [3, 4]], dtype=\"float32\")\nwith MemoryFile() as memory:\n    with memory.open(driver=\"GTiff\", height=2, width=2, count=1, dtype=\"float32\",\n                     crs=\"EPSG:28356\", transform=from_origin(100, 100, 1, 1)) as raster:\n        raster.write(values, 1)\n    with memory.open() as raster:\n        assert np.array_equal(raster.read(1), values)\n        assert raster.crs.to_epsg() == 28356\nwith tempfile.TemporaryDirectory(dir=sys.argv[2]) as temporary:\n    path = pathlib.Path(temporary) / \"probe.gpkg\"\n    schema = {\"geometry\": \"Point\", \"properties\": {\"probe_id\": \"int\"}}\n    with fiona.open(path, \"w\", driver=\"GPKG\", schema=schema, crs=\"EPSG:28356\") as collection:\n        collection.write({\"geometry\": {\"type\": \"Point\", \"coordinates\": (100.0, 100.0)},\n                          \"properties\": {\"probe_id\": 7}})\n    with fiona.open(path) as collection:\n        features = list(collection)\n        assert len(features) == 1 and features[0][\"properties\"][\"probe_id\"] == 7\nframe = pd.DataFrame({\"value\": [1, 2]})\nbuffer = io.BytesIO()\nframe.to_parquet(buffer, engine=\"pyarrow\", index=False)\nbuffer.seek(0)\nassert pd.read_parquet(buffer, engine=\"pyarrow\").equals(frame)\nmask = np.zeros((3, 3), dtype=bool)\nmask[1, 1] = True\nassert int(binary_dilation(mask).sum()) == 5\nassert distributed.Client is Client and callable(Client)\npillow_heif.register_heif_opener()\nassert \"HEIF\" in Image.OPEN\ndocument = docx.Document()\ndocument.add_paragraph(\"Policy dependency probe\")\nbuffer = io.BytesIO()\ndocument.save(buffer)\nbuffer.seek(0)\nassert docx.Document(buffer).paragraphs[0].text == \"Policy dependency probe\"\nassert server.mcp is not None\nexports = (\"parse_tuflow_filename\", \"inspect_tuflow_result\", \"inspect_tuflow_collection\",\n           \"inspect_raster_metadata\", \"check_repo_health\", \"list_workflows\", \"get_workflow\")\nassert all(callable(getattr(server, name)) for name in exports)\nparsed = server.parse_tuflow_filename(\"benchmark_1d_H.csv\")\nassert parsed[\"file_name\"] == \"benchmark_1d_H.csv\"\ndiagnostic = require_validation_api().diagnostic\nresult = {\"passed\": [\"gdal_mem\", \"rasterio_memory_gtiff\", \"fiona_gpkg\", \"pandas_pyarrow\",\n                     \"scipy_binary_dilation\", \"distributed_client\", \"heif_registration\", \"docx_roundtrip\",\n                     \"mcp_exports\", \"tuflow_filename\", \"accepted_parser_api\"],\n          \"parser_diagnostic\": diagnostic.message,\n          \"parser_status\": {\"available\": diagnostic.available, \"version\": diagnostic.version, \"problem\": diagnostic.problem},\n          \"mcp_exports\": list(exports), \"module_origins\": origins}\npathlib.Path(sys.argv[1]).write_text(json.dumps(result, indent=2, sort_keys=True), encoding=\"utf-8\")\n",
+        "D:\\a\\_temp\\policy-benchmark-299\\evidence\\r1-candidate-cold-capabilities.json",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-cold"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-cold\\source",
+      "elapsed_seconds": 3.92442589999996,
+      "label": "r1-candidate-cold-capabilities",
+      "log": "logs/025-r1-candidate-cold-capabilities.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:52:52.127509+00:00"
+    },
+    {
+      "command": [
+        "C:\\hostedtoolcache\\windows\\Python\\3.14.10\\x64\\python.exe",
+        "-m",
+        "venv",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-warm\\venv"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-warm\\source",
+      "elapsed_seconds": 3.343074300000012,
+      "label": "r1-canonical-warm-venv",
+      "log": "logs/026-r1-canonical-warm-venv.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:53:01.197350+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-warm\\venv\\Scripts\\python.exe",
+        "-m",
+        "pip",
+        "install",
+        "--no-index",
+        "--no-deps",
+        "--no-cache-dir",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\bootstrap-wheels\\pip-26.3-py3-none-any.whl"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-warm\\source",
+      "elapsed_seconds": 2.2791445000000294,
+      "label": "r1-canonical-warm-pip",
+      "log": "logs/027-r1-canonical-warm-pip.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:53:04.541730+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-warm\\venv\\Scripts\\python.exe",
+        "repo-scripts/ci_gis_bootstrap.py"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-warm\\source",
+      "elapsed_seconds": 6.181000700000027,
+      "label": "r1-canonical-warm-gis",
+      "log": "logs/028-r1-canonical-warm-gis.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:53:06.822148+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-warm\\venv\\Scripts\\python.exe",
+        "-m",
+        "pip",
+        "install",
+        "--report",
+        "D:\\a\\_temp\\policy-benchmark-299\\evidence\\r1-canonical-warm-profile-report.json",
+        "-r",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-warm\\source\\repo-scripts\\ci-policy-requirements.txt"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-warm\\source",
+      "elapsed_seconds": 47.71930359999999,
+      "label": "r1-canonical-warm-profile",
+      "log": "logs/029-r1-canonical-warm-profile.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:53:13.004369+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-warm\\venv\\Scripts\\python.exe",
+        "repo-scripts/vendor_pytuflow_wheel.py",
+        "--installed"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-warm\\source",
+      "elapsed_seconds": 0.1902332000000797,
+      "label": "r1-canonical-warm-parser-origin",
+      "log": "logs/030-r1-canonical-warm-parser-origin.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:54:00.725681+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-warm\\venv\\Scripts\\python.exe",
+        "-c",
+        "\nimport importlib.metadata as metadata\nimport json\nimport pathlib\nimport re\nimport site\nimport sys\nimport sysconfig\n\ndef name(value):\n    return re.sub(r\"[-_.]+\", \"-\", value).lower()\n\nprefix = pathlib.Path(sys.prefix).resolve()\nassert sys.prefix != sys.base_prefix and not site.ENABLE_USER_SITE\nlocations = sorted({str(pathlib.Path(sysconfig.get_path(key)).resolve()) for key in (\"purelib\", \"platlib\")})\nassert all(pathlib.Path(path).is_relative_to(prefix) for path in locations)\ndistributions = {}\nfor dist in metadata.distributions(path=locations):\n    key = name(dist.metadata[\"Name\"])\n    origin = pathlib.Path(dist.locate_file(\"\")).resolve()\n    if not origin.is_relative_to(prefix):\n        raise RuntimeError(\"Distribution outside this environment: \" + str(origin))\n    if key in distributions:\n        raise RuntimeError(\"Duplicate installed distribution: \" + key)\n    distributions[key] = {\n        \"version\": dist.version,\n        \"location\": str(origin),\n        \"direct_url\": json.loads(dist.read_text(\"direct_url.json\") or \"null\"),\n    }\nplugins = sorted(\n    [{\"name\": entry.name, \"value\": entry.value,\n      \"distribution\": name(entry.dist.metadata[\"Name\"]), \"version\": entry.dist.version}\n     for entry in metadata.entry_points(group=\"pytest11\")], key=lambda value: value[\"name\"])\nresult = {\"executable\": sys.executable, \"prefix\": sys.prefix, \"base_prefix\": sys.base_prefix,\n          \"sys_path\": sys.path, \"site_locations\": locations, \"user_site_enabled\": site.ENABLE_USER_SITE,\n          \"python_version\": sys.version, \"distributions\": distributions, \"pytest_plugins\": plugins}\npathlib.Path(sys.argv[1]).write_text(json.dumps(result, indent=2, sort_keys=True), encoding=\"utf-8\")\n",
+        "D:\\a\\_temp\\policy-benchmark-299\\evidence\\r1-canonical-warm-inventory.json"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-warm\\source",
+      "elapsed_seconds": 0.3177472999999509,
+      "label": "r1-canonical-warm-inventory",
+      "log": "logs/031-r1-canonical-warm-inventory.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:54:00.936824+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-warm\\venv\\Scripts\\python.exe",
+        "-m",
+        "pyright",
+        "--outputjson",
+        "--pythonpath",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-warm\\venv\\Scripts\\python.exe",
+        "repo-scripts/ci_scope.py",
+        "tests/repo_scripts/test_ci_scope.py",
+        "ryan_library/functions/pandas/median_calc.py",
+        "ryan_library/functions/tuflow/gpu_occupancy.py",
+        "ryan_library/functions/gdal/profiling.py",
+        "ryan_library/functions/gdal/terrain_mosaic.py",
+        "ryan_library/functions/geometry/raster_coordinates.py",
+        "ryan_library/functions/tuflow/tgc_terrain.py",
+        "ryan_library/functions/tuflow/pytuflow_compatibility.py",
+        "ryan_library/orchestrators/tuflow/project_setup.py",
+        "ryan_library/orchestrators/tuflow/initialiser/gis_writer.py",
+        "ryan_library/orchestrators/tuflow/initialiser/workflow.py",
+        "ryan_library/orchestrators/tuflow/initialiser/cli.py",
+        "repo-scripts/tuflow-initialiser/validate_test_project.py",
+        "ryan_library/mcp/server.py",
+        "ryan_library/functions/lidar_processing.py",
+        "ryan_library/processors/tuflow/maximums_1d/ccAProcessor.py",
+        "ryan-scripts/AutoCAD-python/group-by-entity-colour-and-dissolve-to-hatch_dask3.py",
+        "ryan-scripts/misc-python/heic_to_jpeg.py",
+        "ryan-scripts/unsorted-python/export_water_level_profile_tables_50m.py"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-warm\\source",
+      "elapsed_seconds": 8.435977799999932,
+      "label": "r1-canonical-warm-pyright",
+      "log": "logs/032-r1-canonical-warm-pyright.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:54:01.262845+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-warm\\venv\\Scripts\\python.exe",
+        "-m",
+        "pip",
+        "check"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-warm\\source",
+      "elapsed_seconds": 0.5904491000000007,
+      "label": "r1-canonical-warm-pip-check",
+      "log": "logs/033-r1-canonical-warm-pip-check.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:54:09.700613+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-warm\\venv\\Scripts\\python.exe",
+        "-c",
+        "\nimport importlib\nimport io\nimport json\nimport pathlib\nimport sys\nimport tempfile\n\nimport numpy as np\nimport pandas as pd\nfrom osgeo import gdal\nimport rasterio\nfrom rasterio.io import MemoryFile\nfrom rasterio.transform import from_origin\nimport fiona\nfrom scipy.ndimage import binary_dilation\nimport distributed\nfrom dask.distributed import Client\nimport pillow_heif\nfrom PIL import Image\nimport docx\nfrom ryan_library.functions.tuflow.pytuflow_compatibility import require_validation_api\nfrom ryan_library.mcp import server\n\nsource = pathlib.Path.cwd().resolve()\nprefix = pathlib.Path(sys.prefix).resolve()\norigins = {}\nfor module_name in (\"numpy\", \"pandas\", \"pyarrow\", \"osgeo.gdal\", \"rasterio\", \"fiona\", \"scipy\",\n                    \"distributed\", \"dask\", \"pillow_heif\", \"PIL\", \"docx\", \"mcp\", \"pytuflow\", \"ryan_library\"):\n    module = importlib.import_module(module_name)\n    origin = pathlib.Path(module.__file__).resolve()\n    expected = source if module_name == \"ryan_library\" else prefix\n    if not origin.is_relative_to(expected):\n        raise RuntimeError(f\"Foreign import for {module_name}: {origin}\")\n    origins[module_name] = str(origin)\n\ndataset = gdal.GetDriverByName(\"MEM\").Create(\"\", 2, 2, 1, gdal.GDT_Float32)\ndataset.GetRasterBand(1).Fill(7)\nassert np.array_equal(dataset.ReadAsArray(), np.full((2, 2), 7, dtype=\"float32\"))\ndataset = None\nvalues = np.array([[1, 2], [3, 4]], dtype=\"float32\")\nwith MemoryFile() as memory:\n    with memory.open(driver=\"GTiff\", height=2, width=2, count=1, dtype=\"float32\",\n                     crs=\"EPSG:28356\", transform=from_origin(100, 100, 1, 1)) as raster:\n        raster.write(values, 1)\n    with memory.open() as raster:\n        assert np.array_equal(raster.read(1), values)\n        assert raster.crs.to_epsg() == 28356\nwith tempfile.TemporaryDirectory(dir=sys.argv[2]) as temporary:\n    path = pathlib.Path(temporary) / \"probe.gpkg\"\n    schema = {\"geometry\": \"Point\", \"properties\": {\"probe_id\": \"int\"}}\n    with fiona.open(path, \"w\", driver=\"GPKG\", schema=schema, crs=\"EPSG:28356\") as collection:\n        collection.write({\"geometry\": {\"type\": \"Point\", \"coordinates\": (100.0, 100.0)},\n                          \"properties\": {\"probe_id\": 7}})\n    with fiona.open(path) as collection:\n        features = list(collection)\n        assert len(features) == 1 and features[0][\"properties\"][\"probe_id\"] == 7\nframe = pd.DataFrame({\"value\": [1, 2]})\nbuffer = io.BytesIO()\nframe.to_parquet(buffer, engine=\"pyarrow\", index=False)\nbuffer.seek(0)\nassert pd.read_parquet(buffer, engine=\"pyarrow\").equals(frame)\nmask = np.zeros((3, 3), dtype=bool)\nmask[1, 1] = True\nassert int(binary_dilation(mask).sum()) == 5\nassert distributed.Client is Client and callable(Client)\npillow_heif.register_heif_opener()\nassert \"HEIF\" in Image.OPEN\ndocument = docx.Document()\ndocument.add_paragraph(\"Policy dependency probe\")\nbuffer = io.BytesIO()\ndocument.save(buffer)\nbuffer.seek(0)\nassert docx.Document(buffer).paragraphs[0].text == \"Policy dependency probe\"\nassert server.mcp is not None\nexports = (\"parse_tuflow_filename\", \"inspect_tuflow_result\", \"inspect_tuflow_collection\",\n           \"inspect_raster_metadata\", \"check_repo_health\", \"list_workflows\", \"get_workflow\")\nassert all(callable(getattr(server, name)) for name in exports)\nparsed = server.parse_tuflow_filename(\"benchmark_1d_H.csv\")\nassert parsed[\"file_name\"] == \"benchmark_1d_H.csv\"\ndiagnostic = require_validation_api().diagnostic\nresult = {\"passed\": [\"gdal_mem\", \"rasterio_memory_gtiff\", \"fiona_gpkg\", \"pandas_pyarrow\",\n                     \"scipy_binary_dilation\", \"distributed_client\", \"heif_registration\", \"docx_roundtrip\",\n                     \"mcp_exports\", \"tuflow_filename\", \"accepted_parser_api\"],\n          \"parser_diagnostic\": diagnostic.message,\n          \"parser_status\": {\"available\": diagnostic.available, \"version\": diagnostic.version, \"problem\": diagnostic.problem},\n          \"mcp_exports\": list(exports), \"module_origins\": origins}\npathlib.Path(sys.argv[1]).write_text(json.dumps(result, indent=2, sort_keys=True), encoding=\"utf-8\")\n",
+        "D:\\a\\_temp\\policy-benchmark-299\\evidence\\r1-canonical-warm-capabilities.json",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-warm"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-canonical-warm\\source",
+      "elapsed_seconds": 3.994377800000052,
+      "label": "r1-canonical-warm-capabilities",
+      "log": "logs/034-r1-canonical-warm-capabilities.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:54:10.292216+00:00"
+    },
+    {
+      "command": [
+        "C:\\hostedtoolcache\\windows\\Python\\3.14.10\\x64\\python.exe",
+        "-m",
+        "venv",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-warm\\venv"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-warm\\source",
+      "elapsed_seconds": 3.4062703999999258,
+      "label": "r1-candidate-warm-venv",
+      "log": "logs/035-r1-candidate-warm-venv.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:54:19.575959+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-warm\\venv\\Scripts\\python.exe",
+        "-m",
+        "pip",
+        "install",
+        "--no-index",
+        "--no-deps",
+        "--no-cache-dir",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\bootstrap-wheels\\pip-26.3-py3-none-any.whl"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-warm\\source",
+      "elapsed_seconds": 2.296537199999989,
+      "label": "r1-candidate-warm-pip",
+      "log": "logs/036-r1-candidate-warm-pip.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:54:22.983558+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-warm\\venv\\Scripts\\python.exe",
+        "repo-scripts/ci_gis_bootstrap.py"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-warm\\source",
+      "elapsed_seconds": 6.043136200000049,
+      "label": "r1-candidate-warm-gis",
+      "log": "logs/037-r1-candidate-warm-gis.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:54:25.281317+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-warm\\venv\\Scripts\\python.exe",
+        "-m",
+        "pip",
+        "install",
+        "--report",
+        "D:\\a\\_temp\\policy-benchmark-299\\evidence\\r1-candidate-warm-profile-report.json",
+        "-r",
+        "D:\\a\\_temp\\policy-benchmark-299\\evidence\\r1-candidate-warm-requirements.txt"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-warm\\source",
+      "elapsed_seconds": 48.87551029999997,
+      "label": "r1-candidate-warm-profile",
+      "log": "logs/038-r1-candidate-warm-profile.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:54:31.326955+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-warm\\venv\\Scripts\\python.exe",
+        "repo-scripts/vendor_pytuflow_wheel.py",
+        "--installed"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-warm\\source",
+      "elapsed_seconds": 0.16350550000004205,
+      "label": "r1-candidate-warm-parser-origin",
+      "log": "logs/039-r1-candidate-warm-parser-origin.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:55:20.204654+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-warm\\venv\\Scripts\\python.exe",
+        "-c",
+        "\nimport importlib.metadata as metadata\nimport json\nimport pathlib\nimport re\nimport site\nimport sys\nimport sysconfig\n\ndef name(value):\n    return re.sub(r\"[-_.]+\", \"-\", value).lower()\n\nprefix = pathlib.Path(sys.prefix).resolve()\nassert sys.prefix != sys.base_prefix and not site.ENABLE_USER_SITE\nlocations = sorted({str(pathlib.Path(sysconfig.get_path(key)).resolve()) for key in (\"purelib\", \"platlib\")})\nassert all(pathlib.Path(path).is_relative_to(prefix) for path in locations)\ndistributions = {}\nfor dist in metadata.distributions(path=locations):\n    key = name(dist.metadata[\"Name\"])\n    origin = pathlib.Path(dist.locate_file(\"\")).resolve()\n    if not origin.is_relative_to(prefix):\n        raise RuntimeError(\"Distribution outside this environment: \" + str(origin))\n    if key in distributions:\n        raise RuntimeError(\"Duplicate installed distribution: \" + key)\n    distributions[key] = {\n        \"version\": dist.version,\n        \"location\": str(origin),\n        \"direct_url\": json.loads(dist.read_text(\"direct_url.json\") or \"null\"),\n    }\nplugins = sorted(\n    [{\"name\": entry.name, \"value\": entry.value,\n      \"distribution\": name(entry.dist.metadata[\"Name\"]), \"version\": entry.dist.version}\n     for entry in metadata.entry_points(group=\"pytest11\")], key=lambda value: value[\"name\"])\nresult = {\"executable\": sys.executable, \"prefix\": sys.prefix, \"base_prefix\": sys.base_prefix,\n          \"sys_path\": sys.path, \"site_locations\": locations, \"user_site_enabled\": site.ENABLE_USER_SITE,\n          \"python_version\": sys.version, \"distributions\": distributions, \"pytest_plugins\": plugins}\npathlib.Path(sys.argv[1]).write_text(json.dumps(result, indent=2, sort_keys=True), encoding=\"utf-8\")\n",
+        "D:\\a\\_temp\\policy-benchmark-299\\evidence\\r1-candidate-warm-inventory.json"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-warm\\source",
+      "elapsed_seconds": 0.3177679000000353,
+      "label": "r1-candidate-warm-inventory",
+      "log": "logs/040-r1-candidate-warm-inventory.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:55:20.389065+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-warm\\venv\\Scripts\\python.exe",
+        "-m",
+        "pyright",
+        "--outputjson",
+        "--pythonpath",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-warm\\venv\\Scripts\\python.exe",
+        "repo-scripts/ci_scope.py",
+        "tests/repo_scripts/test_ci_scope.py",
+        "ryan_library/functions/pandas/median_calc.py",
+        "ryan_library/functions/tuflow/gpu_occupancy.py",
+        "ryan_library/functions/gdal/profiling.py",
+        "ryan_library/functions/gdal/terrain_mosaic.py",
+        "ryan_library/functions/geometry/raster_coordinates.py",
+        "ryan_library/functions/tuflow/tgc_terrain.py",
+        "ryan_library/functions/tuflow/pytuflow_compatibility.py",
+        "ryan_library/orchestrators/tuflow/project_setup.py",
+        "ryan_library/orchestrators/tuflow/initialiser/gis_writer.py",
+        "ryan_library/orchestrators/tuflow/initialiser/workflow.py",
+        "ryan_library/orchestrators/tuflow/initialiser/cli.py",
+        "repo-scripts/tuflow-initialiser/validate_test_project.py",
+        "ryan_library/mcp/server.py",
+        "ryan_library/functions/lidar_processing.py",
+        "ryan_library/processors/tuflow/maximums_1d/ccAProcessor.py",
+        "ryan-scripts/AutoCAD-python/group-by-entity-colour-and-dissolve-to-hatch_dask3.py",
+        "ryan-scripts/misc-python/heic_to_jpeg.py",
+        "ryan-scripts/unsorted-python/export_water_level_profile_tables_50m.py"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-warm\\source",
+      "elapsed_seconds": 8.383752100000038,
+      "label": "r1-candidate-warm-pyright",
+      "log": "logs/041-r1-candidate-warm-pyright.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:55:20.715973+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-warm\\venv\\Scripts\\python.exe",
+        "-m",
+        "pip",
+        "check"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-warm\\source",
+      "elapsed_seconds": 0.6279921000000286,
+      "label": "r1-candidate-warm-pip-check",
+      "log": "logs/042-r1-candidate-warm-pip-check.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:55:29.101487+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-warm\\venv\\Scripts\\python.exe",
+        "-c",
+        "\nimport importlib\nimport io\nimport json\nimport pathlib\nimport sys\nimport tempfile\n\nimport numpy as np\nimport pandas as pd\nfrom osgeo import gdal\nimport rasterio\nfrom rasterio.io import MemoryFile\nfrom rasterio.transform import from_origin\nimport fiona\nfrom scipy.ndimage import binary_dilation\nimport distributed\nfrom dask.distributed import Client\nimport pillow_heif\nfrom PIL import Image\nimport docx\nfrom ryan_library.functions.tuflow.pytuflow_compatibility import require_validation_api\nfrom ryan_library.mcp import server\n\nsource = pathlib.Path.cwd().resolve()\nprefix = pathlib.Path(sys.prefix).resolve()\norigins = {}\nfor module_name in (\"numpy\", \"pandas\", \"pyarrow\", \"osgeo.gdal\", \"rasterio\", \"fiona\", \"scipy\",\n                    \"distributed\", \"dask\", \"pillow_heif\", \"PIL\", \"docx\", \"mcp\", \"pytuflow\", \"ryan_library\"):\n    module = importlib.import_module(module_name)\n    origin = pathlib.Path(module.__file__).resolve()\n    expected = source if module_name == \"ryan_library\" else prefix\n    if not origin.is_relative_to(expected):\n        raise RuntimeError(f\"Foreign import for {module_name}: {origin}\")\n    origins[module_name] = str(origin)\n\ndataset = gdal.GetDriverByName(\"MEM\").Create(\"\", 2, 2, 1, gdal.GDT_Float32)\ndataset.GetRasterBand(1).Fill(7)\nassert np.array_equal(dataset.ReadAsArray(), np.full((2, 2), 7, dtype=\"float32\"))\ndataset = None\nvalues = np.array([[1, 2], [3, 4]], dtype=\"float32\")\nwith MemoryFile() as memory:\n    with memory.open(driver=\"GTiff\", height=2, width=2, count=1, dtype=\"float32\",\n                     crs=\"EPSG:28356\", transform=from_origin(100, 100, 1, 1)) as raster:\n        raster.write(values, 1)\n    with memory.open() as raster:\n        assert np.array_equal(raster.read(1), values)\n        assert raster.crs.to_epsg() == 28356\nwith tempfile.TemporaryDirectory(dir=sys.argv[2]) as temporary:\n    path = pathlib.Path(temporary) / \"probe.gpkg\"\n    schema = {\"geometry\": \"Point\", \"properties\": {\"probe_id\": \"int\"}}\n    with fiona.open(path, \"w\", driver=\"GPKG\", schema=schema, crs=\"EPSG:28356\") as collection:\n        collection.write({\"geometry\": {\"type\": \"Point\", \"coordinates\": (100.0, 100.0)},\n                          \"properties\": {\"probe_id\": 7}})\n    with fiona.open(path) as collection:\n        features = list(collection)\n        assert len(features) == 1 and features[0][\"properties\"][\"probe_id\"] == 7\nframe = pd.DataFrame({\"value\": [1, 2]})\nbuffer = io.BytesIO()\nframe.to_parquet(buffer, engine=\"pyarrow\", index=False)\nbuffer.seek(0)\nassert pd.read_parquet(buffer, engine=\"pyarrow\").equals(frame)\nmask = np.zeros((3, 3), dtype=bool)\nmask[1, 1] = True\nassert int(binary_dilation(mask).sum()) == 5\nassert distributed.Client is Client and callable(Client)\npillow_heif.register_heif_opener()\nassert \"HEIF\" in Image.OPEN\ndocument = docx.Document()\ndocument.add_paragraph(\"Policy dependency probe\")\nbuffer = io.BytesIO()\ndocument.save(buffer)\nbuffer.seek(0)\nassert docx.Document(buffer).paragraphs[0].text == \"Policy dependency probe\"\nassert server.mcp is not None\nexports = (\"parse_tuflow_filename\", \"inspect_tuflow_result\", \"inspect_tuflow_collection\",\n           \"inspect_raster_metadata\", \"check_repo_health\", \"list_workflows\", \"get_workflow\")\nassert all(callable(getattr(server, name)) for name in exports)\nparsed = server.parse_tuflow_filename(\"benchmark_1d_H.csv\")\nassert parsed[\"file_name\"] == \"benchmark_1d_H.csv\"\ndiagnostic = require_validation_api().diagnostic\nresult = {\"passed\": [\"gdal_mem\", \"rasterio_memory_gtiff\", \"fiona_gpkg\", \"pandas_pyarrow\",\n                     \"scipy_binary_dilation\", \"distributed_client\", \"heif_registration\", \"docx_roundtrip\",\n                     \"mcp_exports\", \"tuflow_filename\", \"accepted_parser_api\"],\n          \"parser_diagnostic\": diagnostic.message,\n          \"parser_status\": {\"available\": diagnostic.available, \"version\": diagnostic.version, \"problem\": diagnostic.problem},\n          \"mcp_exports\": list(exports), \"module_origins\": origins}\npathlib.Path(sys.argv[1]).write_text(json.dumps(result, indent=2, sort_keys=True), encoding=\"utf-8\")\n",
+        "D:\\a\\_temp\\policy-benchmark-299\\evidence\\r1-candidate-warm-capabilities.json",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-warm"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r1-candidate-warm\\source",
+      "elapsed_seconds": 4.229815400000007,
+      "label": "r1-candidate-warm-capabilities",
+      "log": "logs/043-r1-candidate-warm-capabilities.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:55:29.730707+00:00"
+    },
+    {
+      "command": [
+        "C:\\hostedtoolcache\\windows\\Python\\3.14.10\\x64\\python.exe",
+        "-m",
+        "venv",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-cold\\venv"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-cold\\source",
+      "elapsed_seconds": 3.762215499999911,
+      "label": "r2-candidate-cold-venv",
+      "log": "logs/044-r2-candidate-cold-venv.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:55:39.600661+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-cold\\venv\\Scripts\\python.exe",
+        "-m",
+        "pip",
+        "install",
+        "--no-index",
+        "--no-deps",
+        "--no-cache-dir",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\bootstrap-wheels\\pip-26.3-py3-none-any.whl"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-cold\\source",
+      "elapsed_seconds": 2.547880999999961,
+      "label": "r2-candidate-cold-pip",
+      "log": "logs/045-r2-candidate-cold-pip.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:55:43.364409+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-cold\\venv\\Scripts\\python.exe",
+        "repo-scripts/ci_gis_bootstrap.py"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-cold\\source",
+      "elapsed_seconds": 7.159113100000013,
+      "label": "r2-candidate-cold-gis",
+      "log": "logs/046-r2-candidate-cold-gis.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:55:45.913696+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-cold\\venv\\Scripts\\python.exe",
+        "-m",
+        "pip",
+        "install",
+        "--report",
+        "D:\\a\\_temp\\policy-benchmark-299\\evidence\\r2-candidate-cold-profile-report.json",
+        "-r",
+        "D:\\a\\_temp\\policy-benchmark-299\\evidence\\r2-candidate-cold-requirements.txt"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-cold\\source",
+      "elapsed_seconds": 56.34065810000004,
+      "label": "r2-candidate-cold-profile",
+      "log": "logs/047-r2-candidate-cold-profile.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:55:53.075354+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-cold\\venv\\Scripts\\python.exe",
+        "repo-scripts/vendor_pytuflow_wheel.py",
+        "--installed"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-cold\\source",
+      "elapsed_seconds": 0.17332790000000386,
+      "label": "r2-candidate-cold-parser-origin",
+      "log": "logs/048-r2-candidate-cold-parser-origin.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:56:49.418288+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-cold\\venv\\Scripts\\python.exe",
+        "-c",
+        "\nimport importlib.metadata as metadata\nimport json\nimport pathlib\nimport re\nimport site\nimport sys\nimport sysconfig\n\ndef name(value):\n    return re.sub(r\"[-_.]+\", \"-\", value).lower()\n\nprefix = pathlib.Path(sys.prefix).resolve()\nassert sys.prefix != sys.base_prefix and not site.ENABLE_USER_SITE\nlocations = sorted({str(pathlib.Path(sysconfig.get_path(key)).resolve()) for key in (\"purelib\", \"platlib\")})\nassert all(pathlib.Path(path).is_relative_to(prefix) for path in locations)\ndistributions = {}\nfor dist in metadata.distributions(path=locations):\n    key = name(dist.metadata[\"Name\"])\n    origin = pathlib.Path(dist.locate_file(\"\")).resolve()\n    if not origin.is_relative_to(prefix):\n        raise RuntimeError(\"Distribution outside this environment: \" + str(origin))\n    if key in distributions:\n        raise RuntimeError(\"Duplicate installed distribution: \" + key)\n    distributions[key] = {\n        \"version\": dist.version,\n        \"location\": str(origin),\n        \"direct_url\": json.loads(dist.read_text(\"direct_url.json\") or \"null\"),\n    }\nplugins = sorted(\n    [{\"name\": entry.name, \"value\": entry.value,\n      \"distribution\": name(entry.dist.metadata[\"Name\"]), \"version\": entry.dist.version}\n     for entry in metadata.entry_points(group=\"pytest11\")], key=lambda value: value[\"name\"])\nresult = {\"executable\": sys.executable, \"prefix\": sys.prefix, \"base_prefix\": sys.base_prefix,\n          \"sys_path\": sys.path, \"site_locations\": locations, \"user_site_enabled\": site.ENABLE_USER_SITE,\n          \"python_version\": sys.version, \"distributions\": distributions, \"pytest_plugins\": plugins}\npathlib.Path(sys.argv[1]).write_text(json.dumps(result, indent=2, sort_keys=True), encoding=\"utf-8\")\n",
+        "D:\\a\\_temp\\policy-benchmark-299\\evidence\\r2-candidate-cold-inventory.json"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-cold\\source",
+      "elapsed_seconds": 0.30586489999996047,
+      "label": "r2-candidate-cold-inventory",
+      "log": "logs/049-r2-candidate-cold-inventory.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:56:49.614663+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-cold\\venv\\Scripts\\python.exe",
+        "-m",
+        "pyright",
+        "--outputjson",
+        "--pythonpath",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-cold\\venv\\Scripts\\python.exe",
+        "repo-scripts/ci_scope.py",
+        "tests/repo_scripts/test_ci_scope.py",
+        "ryan_library/functions/pandas/median_calc.py",
+        "ryan_library/functions/tuflow/gpu_occupancy.py",
+        "ryan_library/functions/gdal/profiling.py",
+        "ryan_library/functions/gdal/terrain_mosaic.py",
+        "ryan_library/functions/geometry/raster_coordinates.py",
+        "ryan_library/functions/tuflow/tgc_terrain.py",
+        "ryan_library/functions/tuflow/pytuflow_compatibility.py",
+        "ryan_library/orchestrators/tuflow/project_setup.py",
+        "ryan_library/orchestrators/tuflow/initialiser/gis_writer.py",
+        "ryan_library/orchestrators/tuflow/initialiser/workflow.py",
+        "ryan_library/orchestrators/tuflow/initialiser/cli.py",
+        "repo-scripts/tuflow-initialiser/validate_test_project.py",
+        "ryan_library/mcp/server.py",
+        "ryan_library/functions/lidar_processing.py",
+        "ryan_library/processors/tuflow/maximums_1d/ccAProcessor.py",
+        "ryan-scripts/AutoCAD-python/group-by-entity-colour-and-dissolve-to-hatch_dask3.py",
+        "ryan-scripts/misc-python/heic_to_jpeg.py",
+        "ryan-scripts/unsorted-python/export_water_level_profile_tables_50m.py"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-cold\\source",
+      "elapsed_seconds": 8.351670000000013,
+      "label": "r2-candidate-cold-pyright",
+      "log": "logs/050-r2-candidate-cold-pyright.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:56:49.943454+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-cold\\venv\\Scripts\\python.exe",
+        "-m",
+        "pip",
+        "check"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-cold\\source",
+      "elapsed_seconds": 0.5971296000000166,
+      "label": "r2-candidate-cold-pip-check",
+      "log": "logs/051-r2-candidate-cold-pip-check.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:56:58.297080+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-cold\\venv\\Scripts\\python.exe",
+        "-c",
+        "\nimport importlib\nimport io\nimport json\nimport pathlib\nimport sys\nimport tempfile\n\nimport numpy as np\nimport pandas as pd\nfrom osgeo import gdal\nimport rasterio\nfrom rasterio.io import MemoryFile\nfrom rasterio.transform import from_origin\nimport fiona\nfrom scipy.ndimage import binary_dilation\nimport distributed\nfrom dask.distributed import Client\nimport pillow_heif\nfrom PIL import Image\nimport docx\nfrom ryan_library.functions.tuflow.pytuflow_compatibility import require_validation_api\nfrom ryan_library.mcp import server\n\nsource = pathlib.Path.cwd().resolve()\nprefix = pathlib.Path(sys.prefix).resolve()\norigins = {}\nfor module_name in (\"numpy\", \"pandas\", \"pyarrow\", \"osgeo.gdal\", \"rasterio\", \"fiona\", \"scipy\",\n                    \"distributed\", \"dask\", \"pillow_heif\", \"PIL\", \"docx\", \"mcp\", \"pytuflow\", \"ryan_library\"):\n    module = importlib.import_module(module_name)\n    origin = pathlib.Path(module.__file__).resolve()\n    expected = source if module_name == \"ryan_library\" else prefix\n    if not origin.is_relative_to(expected):\n        raise RuntimeError(f\"Foreign import for {module_name}: {origin}\")\n    origins[module_name] = str(origin)\n\ndataset = gdal.GetDriverByName(\"MEM\").Create(\"\", 2, 2, 1, gdal.GDT_Float32)\ndataset.GetRasterBand(1).Fill(7)\nassert np.array_equal(dataset.ReadAsArray(), np.full((2, 2), 7, dtype=\"float32\"))\ndataset = None\nvalues = np.array([[1, 2], [3, 4]], dtype=\"float32\")\nwith MemoryFile() as memory:\n    with memory.open(driver=\"GTiff\", height=2, width=2, count=1, dtype=\"float32\",\n                     crs=\"EPSG:28356\", transform=from_origin(100, 100, 1, 1)) as raster:\n        raster.write(values, 1)\n    with memory.open() as raster:\n        assert np.array_equal(raster.read(1), values)\n        assert raster.crs.to_epsg() == 28356\nwith tempfile.TemporaryDirectory(dir=sys.argv[2]) as temporary:\n    path = pathlib.Path(temporary) / \"probe.gpkg\"\n    schema = {\"geometry\": \"Point\", \"properties\": {\"probe_id\": \"int\"}}\n    with fiona.open(path, \"w\", driver=\"GPKG\", schema=schema, crs=\"EPSG:28356\") as collection:\n        collection.write({\"geometry\": {\"type\": \"Point\", \"coordinates\": (100.0, 100.0)},\n                          \"properties\": {\"probe_id\": 7}})\n    with fiona.open(path) as collection:\n        features = list(collection)\n        assert len(features) == 1 and features[0][\"properties\"][\"probe_id\"] == 7\nframe = pd.DataFrame({\"value\": [1, 2]})\nbuffer = io.BytesIO()\nframe.to_parquet(buffer, engine=\"pyarrow\", index=False)\nbuffer.seek(0)\nassert pd.read_parquet(buffer, engine=\"pyarrow\").equals(frame)\nmask = np.zeros((3, 3), dtype=bool)\nmask[1, 1] = True\nassert int(binary_dilation(mask).sum()) == 5\nassert distributed.Client is Client and callable(Client)\npillow_heif.register_heif_opener()\nassert \"HEIF\" in Image.OPEN\ndocument = docx.Document()\ndocument.add_paragraph(\"Policy dependency probe\")\nbuffer = io.BytesIO()\ndocument.save(buffer)\nbuffer.seek(0)\nassert docx.Document(buffer).paragraphs[0].text == \"Policy dependency probe\"\nassert server.mcp is not None\nexports = (\"parse_tuflow_filename\", \"inspect_tuflow_result\", \"inspect_tuflow_collection\",\n           \"inspect_raster_metadata\", \"check_repo_health\", \"list_workflows\", \"get_workflow\")\nassert all(callable(getattr(server, name)) for name in exports)\nparsed = server.parse_tuflow_filename(\"benchmark_1d_H.csv\")\nassert parsed[\"file_name\"] == \"benchmark_1d_H.csv\"\ndiagnostic = require_validation_api().diagnostic\nresult = {\"passed\": [\"gdal_mem\", \"rasterio_memory_gtiff\", \"fiona_gpkg\", \"pandas_pyarrow\",\n                     \"scipy_binary_dilation\", \"distributed_client\", \"heif_registration\", \"docx_roundtrip\",\n                     \"mcp_exports\", \"tuflow_filename\", \"accepted_parser_api\"],\n          \"parser_diagnostic\": diagnostic.message,\n          \"parser_status\": {\"available\": diagnostic.available, \"version\": diagnostic.version, \"problem\": diagnostic.problem},\n          \"mcp_exports\": list(exports), \"module_origins\": origins}\npathlib.Path(sys.argv[1]).write_text(json.dumps(result, indent=2, sort_keys=True), encoding=\"utf-8\")\n",
+        "D:\\a\\_temp\\policy-benchmark-299\\evidence\\r2-candidate-cold-capabilities.json",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-cold"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-cold\\source",
+      "elapsed_seconds": 4.146380700000009,
+      "label": "r2-candidate-cold-capabilities",
+      "log": "logs/052-r2-candidate-cold-capabilities.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:56:58.896090+00:00"
+    },
+    {
+      "command": [
+        "C:\\hostedtoolcache\\windows\\Python\\3.14.10\\x64\\python.exe",
+        "-m",
+        "venv",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-cold\\venv"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-cold\\source",
+      "elapsed_seconds": 3.3993990000000167,
+      "label": "r2-canonical-cold-venv",
+      "log": "logs/053-r2-canonical-cold-venv.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:57:08.154746+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-cold\\venv\\Scripts\\python.exe",
+        "-m",
+        "pip",
+        "install",
+        "--no-index",
+        "--no-deps",
+        "--no-cache-dir",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\bootstrap-wheels\\pip-26.3-py3-none-any.whl"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-cold\\source",
+      "elapsed_seconds": 2.2493703999999752,
+      "label": "r2-canonical-cold-pip",
+      "log": "logs/054-r2-canonical-cold-pip.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:57:11.555691+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-cold\\venv\\Scripts\\python.exe",
+        "repo-scripts/ci_gis_bootstrap.py"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-cold\\source",
+      "elapsed_seconds": 7.556575700000053,
+      "label": "r2-canonical-cold-gis",
+      "log": "logs/055-r2-canonical-cold-gis.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:57:13.806504+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-cold\\venv\\Scripts\\python.exe",
+        "-m",
+        "pip",
+        "install",
+        "--report",
+        "D:\\a\\_temp\\policy-benchmark-299\\evidence\\r2-canonical-cold-profile-report.json",
+        "-r",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-cold\\source\\repo-scripts\\ci-policy-requirements.txt"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-cold\\source",
+      "elapsed_seconds": 51.06487660000005,
+      "label": "r2-canonical-cold-profile",
+      "log": "logs/056-r2-canonical-cold-profile.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:57:21.364533+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-cold\\venv\\Scripts\\python.exe",
+        "repo-scripts/vendor_pytuflow_wheel.py",
+        "--installed"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-cold\\source",
+      "elapsed_seconds": 0.17773560000000543,
+      "label": "r2-canonical-cold-parser-origin",
+      "log": "logs/057-r2-canonical-cold-parser-origin.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:58:12.431667+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-cold\\venv\\Scripts\\python.exe",
+        "-c",
+        "\nimport importlib.metadata as metadata\nimport json\nimport pathlib\nimport re\nimport site\nimport sys\nimport sysconfig\n\ndef name(value):\n    return re.sub(r\"[-_.]+\", \"-\", value).lower()\n\nprefix = pathlib.Path(sys.prefix).resolve()\nassert sys.prefix != sys.base_prefix and not site.ENABLE_USER_SITE\nlocations = sorted({str(pathlib.Path(sysconfig.get_path(key)).resolve()) for key in (\"purelib\", \"platlib\")})\nassert all(pathlib.Path(path).is_relative_to(prefix) for path in locations)\ndistributions = {}\nfor dist in metadata.distributions(path=locations):\n    key = name(dist.metadata[\"Name\"])\n    origin = pathlib.Path(dist.locate_file(\"\")).resolve()\n    if not origin.is_relative_to(prefix):\n        raise RuntimeError(\"Distribution outside this environment: \" + str(origin))\n    if key in distributions:\n        raise RuntimeError(\"Duplicate installed distribution: \" + key)\n    distributions[key] = {\n        \"version\": dist.version,\n        \"location\": str(origin),\n        \"direct_url\": json.loads(dist.read_text(\"direct_url.json\") or \"null\"),\n    }\nplugins = sorted(\n    [{\"name\": entry.name, \"value\": entry.value,\n      \"distribution\": name(entry.dist.metadata[\"Name\"]), \"version\": entry.dist.version}\n     for entry in metadata.entry_points(group=\"pytest11\")], key=lambda value: value[\"name\"])\nresult = {\"executable\": sys.executable, \"prefix\": sys.prefix, \"base_prefix\": sys.base_prefix,\n          \"sys_path\": sys.path, \"site_locations\": locations, \"user_site_enabled\": site.ENABLE_USER_SITE,\n          \"python_version\": sys.version, \"distributions\": distributions, \"pytest_plugins\": plugins}\npathlib.Path(sys.argv[1]).write_text(json.dumps(result, indent=2, sort_keys=True), encoding=\"utf-8\")\n",
+        "D:\\a\\_temp\\policy-benchmark-299\\evidence\\r2-canonical-cold-inventory.json"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-cold\\source",
+      "elapsed_seconds": 0.32913270000005923,
+      "label": "r2-canonical-cold-inventory",
+      "log": "logs/058-r2-canonical-cold-inventory.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:58:12.632086+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-cold\\venv\\Scripts\\python.exe",
+        "-m",
+        "pyright",
+        "--outputjson",
+        "--pythonpath",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-cold\\venv\\Scripts\\python.exe",
+        "repo-scripts/ci_scope.py",
+        "tests/repo_scripts/test_ci_scope.py",
+        "ryan_library/functions/pandas/median_calc.py",
+        "ryan_library/functions/tuflow/gpu_occupancy.py",
+        "ryan_library/functions/gdal/profiling.py",
+        "ryan_library/functions/gdal/terrain_mosaic.py",
+        "ryan_library/functions/geometry/raster_coordinates.py",
+        "ryan_library/functions/tuflow/tgc_terrain.py",
+        "ryan_library/functions/tuflow/pytuflow_compatibility.py",
+        "ryan_library/orchestrators/tuflow/project_setup.py",
+        "ryan_library/orchestrators/tuflow/initialiser/gis_writer.py",
+        "ryan_library/orchestrators/tuflow/initialiser/workflow.py",
+        "ryan_library/orchestrators/tuflow/initialiser/cli.py",
+        "repo-scripts/tuflow-initialiser/validate_test_project.py",
+        "ryan_library/mcp/server.py",
+        "ryan_library/functions/lidar_processing.py",
+        "ryan_library/processors/tuflow/maximums_1d/ccAProcessor.py",
+        "ryan-scripts/AutoCAD-python/group-by-entity-colour-and-dissolve-to-hatch_dask3.py",
+        "ryan-scripts/misc-python/heic_to_jpeg.py",
+        "ryan-scripts/unsorted-python/export_water_level_profile_tables_50m.py"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-cold\\source",
+      "elapsed_seconds": 8.457326800000033,
+      "label": "r2-canonical-cold-pyright",
+      "log": "logs/059-r2-canonical-cold-pyright.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:58:12.970021+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-cold\\venv\\Scripts\\python.exe",
+        "-m",
+        "pip",
+        "check"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-cold\\source",
+      "elapsed_seconds": 0.6116553000000522,
+      "label": "r2-canonical-cold-pip-check",
+      "log": "logs/060-r2-canonical-cold-pip-check.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:58:21.429402+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-cold\\venv\\Scripts\\python.exe",
+        "-c",
+        "\nimport importlib\nimport io\nimport json\nimport pathlib\nimport sys\nimport tempfile\n\nimport numpy as np\nimport pandas as pd\nfrom osgeo import gdal\nimport rasterio\nfrom rasterio.io import MemoryFile\nfrom rasterio.transform import from_origin\nimport fiona\nfrom scipy.ndimage import binary_dilation\nimport distributed\nfrom dask.distributed import Client\nimport pillow_heif\nfrom PIL import Image\nimport docx\nfrom ryan_library.functions.tuflow.pytuflow_compatibility import require_validation_api\nfrom ryan_library.mcp import server\n\nsource = pathlib.Path.cwd().resolve()\nprefix = pathlib.Path(sys.prefix).resolve()\norigins = {}\nfor module_name in (\"numpy\", \"pandas\", \"pyarrow\", \"osgeo.gdal\", \"rasterio\", \"fiona\", \"scipy\",\n                    \"distributed\", \"dask\", \"pillow_heif\", \"PIL\", \"docx\", \"mcp\", \"pytuflow\", \"ryan_library\"):\n    module = importlib.import_module(module_name)\n    origin = pathlib.Path(module.__file__).resolve()\n    expected = source if module_name == \"ryan_library\" else prefix\n    if not origin.is_relative_to(expected):\n        raise RuntimeError(f\"Foreign import for {module_name}: {origin}\")\n    origins[module_name] = str(origin)\n\ndataset = gdal.GetDriverByName(\"MEM\").Create(\"\", 2, 2, 1, gdal.GDT_Float32)\ndataset.GetRasterBand(1).Fill(7)\nassert np.array_equal(dataset.ReadAsArray(), np.full((2, 2), 7, dtype=\"float32\"))\ndataset = None\nvalues = np.array([[1, 2], [3, 4]], dtype=\"float32\")\nwith MemoryFile() as memory:\n    with memory.open(driver=\"GTiff\", height=2, width=2, count=1, dtype=\"float32\",\n                     crs=\"EPSG:28356\", transform=from_origin(100, 100, 1, 1)) as raster:\n        raster.write(values, 1)\n    with memory.open() as raster:\n        assert np.array_equal(raster.read(1), values)\n        assert raster.crs.to_epsg() == 28356\nwith tempfile.TemporaryDirectory(dir=sys.argv[2]) as temporary:\n    path = pathlib.Path(temporary) / \"probe.gpkg\"\n    schema = {\"geometry\": \"Point\", \"properties\": {\"probe_id\": \"int\"}}\n    with fiona.open(path, \"w\", driver=\"GPKG\", schema=schema, crs=\"EPSG:28356\") as collection:\n        collection.write({\"geometry\": {\"type\": \"Point\", \"coordinates\": (100.0, 100.0)},\n                          \"properties\": {\"probe_id\": 7}})\n    with fiona.open(path) as collection:\n        features = list(collection)\n        assert len(features) == 1 and features[0][\"properties\"][\"probe_id\"] == 7\nframe = pd.DataFrame({\"value\": [1, 2]})\nbuffer = io.BytesIO()\nframe.to_parquet(buffer, engine=\"pyarrow\", index=False)\nbuffer.seek(0)\nassert pd.read_parquet(buffer, engine=\"pyarrow\").equals(frame)\nmask = np.zeros((3, 3), dtype=bool)\nmask[1, 1] = True\nassert int(binary_dilation(mask).sum()) == 5\nassert distributed.Client is Client and callable(Client)\npillow_heif.register_heif_opener()\nassert \"HEIF\" in Image.OPEN\ndocument = docx.Document()\ndocument.add_paragraph(\"Policy dependency probe\")\nbuffer = io.BytesIO()\ndocument.save(buffer)\nbuffer.seek(0)\nassert docx.Document(buffer).paragraphs[0].text == \"Policy dependency probe\"\nassert server.mcp is not None\nexports = (\"parse_tuflow_filename\", \"inspect_tuflow_result\", \"inspect_tuflow_collection\",\n           \"inspect_raster_metadata\", \"check_repo_health\", \"list_workflows\", \"get_workflow\")\nassert all(callable(getattr(server, name)) for name in exports)\nparsed = server.parse_tuflow_filename(\"benchmark_1d_H.csv\")\nassert parsed[\"file_name\"] == \"benchmark_1d_H.csv\"\ndiagnostic = require_validation_api().diagnostic\nresult = {\"passed\": [\"gdal_mem\", \"rasterio_memory_gtiff\", \"fiona_gpkg\", \"pandas_pyarrow\",\n                     \"scipy_binary_dilation\", \"distributed_client\", \"heif_registration\", \"docx_roundtrip\",\n                     \"mcp_exports\", \"tuflow_filename\", \"accepted_parser_api\"],\n          \"parser_diagnostic\": diagnostic.message,\n          \"parser_status\": {\"available\": diagnostic.available, \"version\": diagnostic.version, \"problem\": diagnostic.problem},\n          \"mcp_exports\": list(exports), \"module_origins\": origins}\npathlib.Path(sys.argv[1]).write_text(json.dumps(result, indent=2, sort_keys=True), encoding=\"utf-8\")\n",
+        "D:\\a\\_temp\\policy-benchmark-299\\evidence\\r2-canonical-cold-capabilities.json",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-cold"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-cold\\source",
+      "elapsed_seconds": 4.243686400000001,
+      "label": "r2-canonical-cold-capabilities",
+      "log": "logs/061-r2-canonical-cold-capabilities.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:58:22.042475+00:00"
+    },
+    {
+      "command": [
+        "C:\\hostedtoolcache\\windows\\Python\\3.14.10\\x64\\python.exe",
+        "-m",
+        "venv",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-warm\\venv"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-warm\\source",
+      "elapsed_seconds": 3.4225651000000425,
+      "label": "r2-candidate-warm-venv",
+      "log": "logs/062-r2-candidate-warm-venv.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:58:31.497384+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-warm\\venv\\Scripts\\python.exe",
+        "-m",
+        "pip",
+        "install",
+        "--no-index",
+        "--no-deps",
+        "--no-cache-dir",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\bootstrap-wheels\\pip-26.3-py3-none-any.whl"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-warm\\source",
+      "elapsed_seconds": 2.2647875000000113,
+      "label": "r2-candidate-warm-pip",
+      "log": "logs/063-r2-candidate-warm-pip.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:58:34.921694+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-warm\\venv\\Scripts\\python.exe",
+        "repo-scripts/ci_gis_bootstrap.py"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-warm\\source",
+      "elapsed_seconds": 6.244005500000071,
+      "label": "r2-candidate-warm-gis",
+      "log": "logs/064-r2-candidate-warm-gis.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:58:37.187964+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-warm\\venv\\Scripts\\python.exe",
+        "-m",
+        "pip",
+        "install",
+        "--report",
+        "D:\\a\\_temp\\policy-benchmark-299\\evidence\\r2-candidate-warm-profile-report.json",
+        "-r",
+        "D:\\a\\_temp\\policy-benchmark-299\\evidence\\r2-candidate-warm-requirements.txt"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-warm\\source",
+      "elapsed_seconds": 48.789862000000085,
+      "label": "r2-candidate-warm-profile",
+      "log": "logs/065-r2-candidate-warm-profile.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:58:43.434631+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-warm\\venv\\Scripts\\python.exe",
+        "repo-scripts/vendor_pytuflow_wheel.py",
+        "--installed"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-warm\\source",
+      "elapsed_seconds": 0.1726310999999896,
+      "label": "r2-candidate-warm-parser-origin",
+      "log": "logs/066-r2-candidate-warm-parser-origin.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:59:32.226915+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-warm\\venv\\Scripts\\python.exe",
+        "-c",
+        "\nimport importlib.metadata as metadata\nimport json\nimport pathlib\nimport re\nimport site\nimport sys\nimport sysconfig\n\ndef name(value):\n    return re.sub(r\"[-_.]+\", \"-\", value).lower()\n\nprefix = pathlib.Path(sys.prefix).resolve()\nassert sys.prefix != sys.base_prefix and not site.ENABLE_USER_SITE\nlocations = sorted({str(pathlib.Path(sysconfig.get_path(key)).resolve()) for key in (\"purelib\", \"platlib\")})\nassert all(pathlib.Path(path).is_relative_to(prefix) for path in locations)\ndistributions = {}\nfor dist in metadata.distributions(path=locations):\n    key = name(dist.metadata[\"Name\"])\n    origin = pathlib.Path(dist.locate_file(\"\")).resolve()\n    if not origin.is_relative_to(prefix):\n        raise RuntimeError(\"Distribution outside this environment: \" + str(origin))\n    if key in distributions:\n        raise RuntimeError(\"Duplicate installed distribution: \" + key)\n    distributions[key] = {\n        \"version\": dist.version,\n        \"location\": str(origin),\n        \"direct_url\": json.loads(dist.read_text(\"direct_url.json\") or \"null\"),\n    }\nplugins = sorted(\n    [{\"name\": entry.name, \"value\": entry.value,\n      \"distribution\": name(entry.dist.metadata[\"Name\"]), \"version\": entry.dist.version}\n     for entry in metadata.entry_points(group=\"pytest11\")], key=lambda value: value[\"name\"])\nresult = {\"executable\": sys.executable, \"prefix\": sys.prefix, \"base_prefix\": sys.base_prefix,\n          \"sys_path\": sys.path, \"site_locations\": locations, \"user_site_enabled\": site.ENABLE_USER_SITE,\n          \"python_version\": sys.version, \"distributions\": distributions, \"pytest_plugins\": plugins}\npathlib.Path(sys.argv[1]).write_text(json.dumps(result, indent=2, sort_keys=True), encoding=\"utf-8\")\n",
+        "D:\\a\\_temp\\policy-benchmark-299\\evidence\\r2-candidate-warm-inventory.json"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-warm\\source",
+      "elapsed_seconds": 0.3114738000000443,
+      "label": "r2-candidate-warm-inventory",
+      "log": "logs/067-r2-candidate-warm-inventory.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:59:32.421355+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-warm\\venv\\Scripts\\python.exe",
+        "-m",
+        "pyright",
+        "--outputjson",
+        "--pythonpath",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-warm\\venv\\Scripts\\python.exe",
+        "repo-scripts/ci_scope.py",
+        "tests/repo_scripts/test_ci_scope.py",
+        "ryan_library/functions/pandas/median_calc.py",
+        "ryan_library/functions/tuflow/gpu_occupancy.py",
+        "ryan_library/functions/gdal/profiling.py",
+        "ryan_library/functions/gdal/terrain_mosaic.py",
+        "ryan_library/functions/geometry/raster_coordinates.py",
+        "ryan_library/functions/tuflow/tgc_terrain.py",
+        "ryan_library/functions/tuflow/pytuflow_compatibility.py",
+        "ryan_library/orchestrators/tuflow/project_setup.py",
+        "ryan_library/orchestrators/tuflow/initialiser/gis_writer.py",
+        "ryan_library/orchestrators/tuflow/initialiser/workflow.py",
+        "ryan_library/orchestrators/tuflow/initialiser/cli.py",
+        "repo-scripts/tuflow-initialiser/validate_test_project.py",
+        "ryan_library/mcp/server.py",
+        "ryan_library/functions/lidar_processing.py",
+        "ryan_library/processors/tuflow/maximums_1d/ccAProcessor.py",
+        "ryan-scripts/AutoCAD-python/group-by-entity-colour-and-dissolve-to-hatch_dask3.py",
+        "ryan-scripts/misc-python/heic_to_jpeg.py",
+        "ryan-scripts/unsorted-python/export_water_level_profile_tables_50m.py"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-warm\\source",
+      "elapsed_seconds": 8.860869200000025,
+      "label": "r2-candidate-warm-pyright",
+      "log": "logs/068-r2-candidate-warm-pyright.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:59:32.741863+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-warm\\venv\\Scripts\\python.exe",
+        "-m",
+        "pip",
+        "check"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-warm\\source",
+      "elapsed_seconds": 0.5923949000000448,
+      "label": "r2-candidate-warm-pip-check",
+      "log": "logs/069-r2-candidate-warm-pip-check.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:59:41.604848+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-warm\\venv\\Scripts\\python.exe",
+        "-c",
+        "\nimport importlib\nimport io\nimport json\nimport pathlib\nimport sys\nimport tempfile\n\nimport numpy as np\nimport pandas as pd\nfrom osgeo import gdal\nimport rasterio\nfrom rasterio.io import MemoryFile\nfrom rasterio.transform import from_origin\nimport fiona\nfrom scipy.ndimage import binary_dilation\nimport distributed\nfrom dask.distributed import Client\nimport pillow_heif\nfrom PIL import Image\nimport docx\nfrom ryan_library.functions.tuflow.pytuflow_compatibility import require_validation_api\nfrom ryan_library.mcp import server\n\nsource = pathlib.Path.cwd().resolve()\nprefix = pathlib.Path(sys.prefix).resolve()\norigins = {}\nfor module_name in (\"numpy\", \"pandas\", \"pyarrow\", \"osgeo.gdal\", \"rasterio\", \"fiona\", \"scipy\",\n                    \"distributed\", \"dask\", \"pillow_heif\", \"PIL\", \"docx\", \"mcp\", \"pytuflow\", \"ryan_library\"):\n    module = importlib.import_module(module_name)\n    origin = pathlib.Path(module.__file__).resolve()\n    expected = source if module_name == \"ryan_library\" else prefix\n    if not origin.is_relative_to(expected):\n        raise RuntimeError(f\"Foreign import for {module_name}: {origin}\")\n    origins[module_name] = str(origin)\n\ndataset = gdal.GetDriverByName(\"MEM\").Create(\"\", 2, 2, 1, gdal.GDT_Float32)\ndataset.GetRasterBand(1).Fill(7)\nassert np.array_equal(dataset.ReadAsArray(), np.full((2, 2), 7, dtype=\"float32\"))\ndataset = None\nvalues = np.array([[1, 2], [3, 4]], dtype=\"float32\")\nwith MemoryFile() as memory:\n    with memory.open(driver=\"GTiff\", height=2, width=2, count=1, dtype=\"float32\",\n                     crs=\"EPSG:28356\", transform=from_origin(100, 100, 1, 1)) as raster:\n        raster.write(values, 1)\n    with memory.open() as raster:\n        assert np.array_equal(raster.read(1), values)\n        assert raster.crs.to_epsg() == 28356\nwith tempfile.TemporaryDirectory(dir=sys.argv[2]) as temporary:\n    path = pathlib.Path(temporary) / \"probe.gpkg\"\n    schema = {\"geometry\": \"Point\", \"properties\": {\"probe_id\": \"int\"}}\n    with fiona.open(path, \"w\", driver=\"GPKG\", schema=schema, crs=\"EPSG:28356\") as collection:\n        collection.write({\"geometry\": {\"type\": \"Point\", \"coordinates\": (100.0, 100.0)},\n                          \"properties\": {\"probe_id\": 7}})\n    with fiona.open(path) as collection:\n        features = list(collection)\n        assert len(features) == 1 and features[0][\"properties\"][\"probe_id\"] == 7\nframe = pd.DataFrame({\"value\": [1, 2]})\nbuffer = io.BytesIO()\nframe.to_parquet(buffer, engine=\"pyarrow\", index=False)\nbuffer.seek(0)\nassert pd.read_parquet(buffer, engine=\"pyarrow\").equals(frame)\nmask = np.zeros((3, 3), dtype=bool)\nmask[1, 1] = True\nassert int(binary_dilation(mask).sum()) == 5\nassert distributed.Client is Client and callable(Client)\npillow_heif.register_heif_opener()\nassert \"HEIF\" in Image.OPEN\ndocument = docx.Document()\ndocument.add_paragraph(\"Policy dependency probe\")\nbuffer = io.BytesIO()\ndocument.save(buffer)\nbuffer.seek(0)\nassert docx.Document(buffer).paragraphs[0].text == \"Policy dependency probe\"\nassert server.mcp is not None\nexports = (\"parse_tuflow_filename\", \"inspect_tuflow_result\", \"inspect_tuflow_collection\",\n           \"inspect_raster_metadata\", \"check_repo_health\", \"list_workflows\", \"get_workflow\")\nassert all(callable(getattr(server, name)) for name in exports)\nparsed = server.parse_tuflow_filename(\"benchmark_1d_H.csv\")\nassert parsed[\"file_name\"] == \"benchmark_1d_H.csv\"\ndiagnostic = require_validation_api().diagnostic\nresult = {\"passed\": [\"gdal_mem\", \"rasterio_memory_gtiff\", \"fiona_gpkg\", \"pandas_pyarrow\",\n                     \"scipy_binary_dilation\", \"distributed_client\", \"heif_registration\", \"docx_roundtrip\",\n                     \"mcp_exports\", \"tuflow_filename\", \"accepted_parser_api\"],\n          \"parser_diagnostic\": diagnostic.message,\n          \"parser_status\": {\"available\": diagnostic.available, \"version\": diagnostic.version, \"problem\": diagnostic.problem},\n          \"mcp_exports\": list(exports), \"module_origins\": origins}\npathlib.Path(sys.argv[1]).write_text(json.dumps(result, indent=2, sort_keys=True), encoding=\"utf-8\")\n",
+        "D:\\a\\_temp\\policy-benchmark-299\\evidence\\r2-candidate-warm-capabilities.json",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-warm"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-candidate-warm\\source",
+      "elapsed_seconds": 4.206835899999987,
+      "label": "r2-candidate-warm-capabilities",
+      "log": "logs/070-r2-candidate-warm-capabilities.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:59:42.198853+00:00"
+    },
+    {
+      "command": [
+        "C:\\hostedtoolcache\\windows\\Python\\3.14.10\\x64\\python.exe",
+        "-m",
+        "venv",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-warm\\venv"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-warm\\source",
+      "elapsed_seconds": 3.5229556000000457,
+      "label": "r2-canonical-warm-venv",
+      "log": "logs/071-r2-canonical-warm-venv.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:59:51.852849+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-warm\\venv\\Scripts\\python.exe",
+        "-m",
+        "pip",
+        "install",
+        "--no-index",
+        "--no-deps",
+        "--no-cache-dir",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\bootstrap-wheels\\pip-26.3-py3-none-any.whl"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-warm\\source",
+      "elapsed_seconds": 2.2977021000000377,
+      "label": "r2-canonical-warm-pip",
+      "log": "logs/072-r2-canonical-warm-pip.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:59:55.377691+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-warm\\venv\\Scripts\\python.exe",
+        "repo-scripts/ci_gis_bootstrap.py"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-warm\\source",
+      "elapsed_seconds": 6.2654055999998945,
+      "label": "r2-canonical-warm-gis",
+      "log": "logs/073-r2-canonical-warm-gis.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T19:59:57.676945+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-warm\\venv\\Scripts\\python.exe",
+        "-m",
+        "pip",
+        "install",
+        "--report",
+        "D:\\a\\_temp\\policy-benchmark-299\\evidence\\r2-canonical-warm-profile-report.json",
+        "-r",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-warm\\source\\repo-scripts\\ci-policy-requirements.txt"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-warm\\source",
+      "elapsed_seconds": 49.76780859999997,
+      "label": "r2-canonical-warm-profile",
+      "log": "logs/074-r2-canonical-warm-profile.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T20:00:03.944145+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-warm\\venv\\Scripts\\python.exe",
+        "repo-scripts/vendor_pytuflow_wheel.py",
+        "--installed"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-warm\\source",
+      "elapsed_seconds": 0.17807170000003225,
+      "label": "r2-canonical-warm-parser-origin",
+      "log": "logs/075-r2-canonical-warm-parser-origin.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T20:00:53.714387+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-warm\\venv\\Scripts\\python.exe",
+        "-c",
+        "\nimport importlib.metadata as metadata\nimport json\nimport pathlib\nimport re\nimport site\nimport sys\nimport sysconfig\n\ndef name(value):\n    return re.sub(r\"[-_.]+\", \"-\", value).lower()\n\nprefix = pathlib.Path(sys.prefix).resolve()\nassert sys.prefix != sys.base_prefix and not site.ENABLE_USER_SITE\nlocations = sorted({str(pathlib.Path(sysconfig.get_path(key)).resolve()) for key in (\"purelib\", \"platlib\")})\nassert all(pathlib.Path(path).is_relative_to(prefix) for path in locations)\ndistributions = {}\nfor dist in metadata.distributions(path=locations):\n    key = name(dist.metadata[\"Name\"])\n    origin = pathlib.Path(dist.locate_file(\"\")).resolve()\n    if not origin.is_relative_to(prefix):\n        raise RuntimeError(\"Distribution outside this environment: \" + str(origin))\n    if key in distributions:\n        raise RuntimeError(\"Duplicate installed distribution: \" + key)\n    distributions[key] = {\n        \"version\": dist.version,\n        \"location\": str(origin),\n        \"direct_url\": json.loads(dist.read_text(\"direct_url.json\") or \"null\"),\n    }\nplugins = sorted(\n    [{\"name\": entry.name, \"value\": entry.value,\n      \"distribution\": name(entry.dist.metadata[\"Name\"]), \"version\": entry.dist.version}\n     for entry in metadata.entry_points(group=\"pytest11\")], key=lambda value: value[\"name\"])\nresult = {\"executable\": sys.executable, \"prefix\": sys.prefix, \"base_prefix\": sys.base_prefix,\n          \"sys_path\": sys.path, \"site_locations\": locations, \"user_site_enabled\": site.ENABLE_USER_SITE,\n          \"python_version\": sys.version, \"distributions\": distributions, \"pytest_plugins\": plugins}\npathlib.Path(sys.argv[1]).write_text(json.dumps(result, indent=2, sort_keys=True), encoding=\"utf-8\")\n",
+        "D:\\a\\_temp\\policy-benchmark-299\\evidence\\r2-canonical-warm-inventory.json"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-warm\\source",
+      "elapsed_seconds": 0.3181455999999798,
+      "label": "r2-canonical-warm-inventory",
+      "log": "logs/076-r2-canonical-warm-inventory.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T20:00:53.914442+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-warm\\venv\\Scripts\\python.exe",
+        "-m",
+        "pyright",
+        "--outputjson",
+        "--pythonpath",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-warm\\venv\\Scripts\\python.exe",
+        "repo-scripts/ci_scope.py",
+        "tests/repo_scripts/test_ci_scope.py",
+        "ryan_library/functions/pandas/median_calc.py",
+        "ryan_library/functions/tuflow/gpu_occupancy.py",
+        "ryan_library/functions/gdal/profiling.py",
+        "ryan_library/functions/gdal/terrain_mosaic.py",
+        "ryan_library/functions/geometry/raster_coordinates.py",
+        "ryan_library/functions/tuflow/tgc_terrain.py",
+        "ryan_library/functions/tuflow/pytuflow_compatibility.py",
+        "ryan_library/orchestrators/tuflow/project_setup.py",
+        "ryan_library/orchestrators/tuflow/initialiser/gis_writer.py",
+        "ryan_library/orchestrators/tuflow/initialiser/workflow.py",
+        "ryan_library/orchestrators/tuflow/initialiser/cli.py",
+        "repo-scripts/tuflow-initialiser/validate_test_project.py",
+        "ryan_library/mcp/server.py",
+        "ryan_library/functions/lidar_processing.py",
+        "ryan_library/processors/tuflow/maximums_1d/ccAProcessor.py",
+        "ryan-scripts/AutoCAD-python/group-by-entity-colour-and-dissolve-to-hatch_dask3.py",
+        "ryan-scripts/misc-python/heic_to_jpeg.py",
+        "ryan-scripts/unsorted-python/export_water_level_profile_tables_50m.py"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-warm\\source",
+      "elapsed_seconds": 8.558563599999957,
+      "label": "r2-canonical-warm-pyright",
+      "log": "logs/077-r2-canonical-warm-pyright.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T20:00:54.241729+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-warm\\venv\\Scripts\\python.exe",
+        "-m",
+        "pip",
+        "check"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-warm\\source",
+      "elapsed_seconds": 0.6045692000000145,
+      "label": "r2-canonical-warm-pip-check",
+      "log": "logs/078-r2-canonical-warm-pip-check.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T20:01:02.802956+00:00"
+    },
+    {
+      "command": [
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-warm\\venv\\Scripts\\python.exe",
+        "-c",
+        "\nimport importlib\nimport io\nimport json\nimport pathlib\nimport sys\nimport tempfile\n\nimport numpy as np\nimport pandas as pd\nfrom osgeo import gdal\nimport rasterio\nfrom rasterio.io import MemoryFile\nfrom rasterio.transform import from_origin\nimport fiona\nfrom scipy.ndimage import binary_dilation\nimport distributed\nfrom dask.distributed import Client\nimport pillow_heif\nfrom PIL import Image\nimport docx\nfrom ryan_library.functions.tuflow.pytuflow_compatibility import require_validation_api\nfrom ryan_library.mcp import server\n\nsource = pathlib.Path.cwd().resolve()\nprefix = pathlib.Path(sys.prefix).resolve()\norigins = {}\nfor module_name in (\"numpy\", \"pandas\", \"pyarrow\", \"osgeo.gdal\", \"rasterio\", \"fiona\", \"scipy\",\n                    \"distributed\", \"dask\", \"pillow_heif\", \"PIL\", \"docx\", \"mcp\", \"pytuflow\", \"ryan_library\"):\n    module = importlib.import_module(module_name)\n    origin = pathlib.Path(module.__file__).resolve()\n    expected = source if module_name == \"ryan_library\" else prefix\n    if not origin.is_relative_to(expected):\n        raise RuntimeError(f\"Foreign import for {module_name}: {origin}\")\n    origins[module_name] = str(origin)\n\ndataset = gdal.GetDriverByName(\"MEM\").Create(\"\", 2, 2, 1, gdal.GDT_Float32)\ndataset.GetRasterBand(1).Fill(7)\nassert np.array_equal(dataset.ReadAsArray(), np.full((2, 2), 7, dtype=\"float32\"))\ndataset = None\nvalues = np.array([[1, 2], [3, 4]], dtype=\"float32\")\nwith MemoryFile() as memory:\n    with memory.open(driver=\"GTiff\", height=2, width=2, count=1, dtype=\"float32\",\n                     crs=\"EPSG:28356\", transform=from_origin(100, 100, 1, 1)) as raster:\n        raster.write(values, 1)\n    with memory.open() as raster:\n        assert np.array_equal(raster.read(1), values)\n        assert raster.crs.to_epsg() == 28356\nwith tempfile.TemporaryDirectory(dir=sys.argv[2]) as temporary:\n    path = pathlib.Path(temporary) / \"probe.gpkg\"\n    schema = {\"geometry\": \"Point\", \"properties\": {\"probe_id\": \"int\"}}\n    with fiona.open(path, \"w\", driver=\"GPKG\", schema=schema, crs=\"EPSG:28356\") as collection:\n        collection.write({\"geometry\": {\"type\": \"Point\", \"coordinates\": (100.0, 100.0)},\n                          \"properties\": {\"probe_id\": 7}})\n    with fiona.open(path) as collection:\n        features = list(collection)\n        assert len(features) == 1 and features[0][\"properties\"][\"probe_id\"] == 7\nframe = pd.DataFrame({\"value\": [1, 2]})\nbuffer = io.BytesIO()\nframe.to_parquet(buffer, engine=\"pyarrow\", index=False)\nbuffer.seek(0)\nassert pd.read_parquet(buffer, engine=\"pyarrow\").equals(frame)\nmask = np.zeros((3, 3), dtype=bool)\nmask[1, 1] = True\nassert int(binary_dilation(mask).sum()) == 5\nassert distributed.Client is Client and callable(Client)\npillow_heif.register_heif_opener()\nassert \"HEIF\" in Image.OPEN\ndocument = docx.Document()\ndocument.add_paragraph(\"Policy dependency probe\")\nbuffer = io.BytesIO()\ndocument.save(buffer)\nbuffer.seek(0)\nassert docx.Document(buffer).paragraphs[0].text == \"Policy dependency probe\"\nassert server.mcp is not None\nexports = (\"parse_tuflow_filename\", \"inspect_tuflow_result\", \"inspect_tuflow_collection\",\n           \"inspect_raster_metadata\", \"check_repo_health\", \"list_workflows\", \"get_workflow\")\nassert all(callable(getattr(server, name)) for name in exports)\nparsed = server.parse_tuflow_filename(\"benchmark_1d_H.csv\")\nassert parsed[\"file_name\"] == \"benchmark_1d_H.csv\"\ndiagnostic = require_validation_api().diagnostic\nresult = {\"passed\": [\"gdal_mem\", \"rasterio_memory_gtiff\", \"fiona_gpkg\", \"pandas_pyarrow\",\n                     \"scipy_binary_dilation\", \"distributed_client\", \"heif_registration\", \"docx_roundtrip\",\n                     \"mcp_exports\", \"tuflow_filename\", \"accepted_parser_api\"],\n          \"parser_diagnostic\": diagnostic.message,\n          \"parser_status\": {\"available\": diagnostic.available, \"version\": diagnostic.version, \"problem\": diagnostic.problem},\n          \"mcp_exports\": list(exports), \"module_origins\": origins}\npathlib.Path(sys.argv[1]).write_text(json.dumps(result, indent=2, sort_keys=True), encoding=\"utf-8\")\n",
+        "D:\\a\\_temp\\policy-benchmark-299\\evidence\\r2-canonical-warm-capabilities.json",
+        "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-warm"
+      ],
+      "cwd": "D:\\a\\_temp\\policy-benchmark-299\\scratch\\r2-canonical-warm\\source",
+      "elapsed_seconds": 4.274203300000067,
+      "label": "r2-canonical-warm-capabilities",
+      "log": "logs/079-r2-canonical-warm-capabilities.log",
+      "returncode": 0,
+      "started_at": "2026-11-08T20:01:03.409147+00:00"
+    }
+  ],
+  "elapsed_seconds": 764.2244991,
+  "error": null,
+  "experiment_head": "33c9c650a6df719b5cb7369b869c28ce26f5cd74",
+  "limitations": [
+    "One serial Windows runner, two repeats; no account-wide cost projection.",
+    "Cold/warm refers only to pip's download cache, not OS, network or CDN caches.",
+    "Named URL/hash constraints change resolution work relative to unconstrained routine Policy.",
+    "Fresh source snapshots and environments are used for every sample, including warm-cache samples.",
+    "The fixed maintained-file manifest is representative, not the entire cumulative PR selection.",
+    "Locked remote URLs may prevent the GIS helper's local-file network recovery; such a run fails closed.",
+    "Full Hosted tests, QGIS, solver execution and legacy-script campaigns are outside this experiment."
+  ],
+  "samples": [
+    {
+      "cache": "cold",
+      "cache_after": {
+        "bytes": 397580633,
+        "files": 284
+      },
+      "cache_before": {
+        "bytes": 0,
+        "files": 0
+      },
+      "cache_seed_method": "new empty directory",
+      "cache_seed_seconds": 0.0,
+      "cleanup_seconds": 4.269043300000021,
+      "elapsed_seconds": 80.12545919999997,
+      "environment_creation_seconds": 3.4058211999999912,
+      "extra_capability_seconds": 6.161826299999973,
+      "free_disk_bytes_after": 155830689792,
+      "free_disk_bytes_before": 157768884224,
+      "gis_seconds": 6.382631400000037,
+      "name": "r1-canonical-cold",
+      "parser_verification_seconds": 0.1645874999999819,
+      "pip_pin_seconds": 2.2604549000000134,
+      "policy_seconds": 67.19513719999998,
+      "profile_locked_resolve_install_seconds": 51.678879300000006,
+      "repeat": 1,
+      "requirement_generation_seconds": 1.0299999985363684e-05,
+      "source_and_environment_seconds": 6.402781199999993,
+      "source_copy_seconds": 0.7344878999999764,
+      "status": "passed",
+      "strict_pyright_seconds": 8.969028699999967,
+      "variant": "canonical"
+    },
+    {
+      "cache": "cold",
+      "cache_after": {
+        "bytes": 386722827,
+        "files": 274
+      },
+      "cache_before": {
+        "bytes": 0,
+        "files": 0
+      },
+      "cache_seed_method": "new empty directory",
+      "cache_seed_seconds": 0.0,
+      "cleanup_seconds": 4.2674681000000305,
+      "elapsed_seconds": 78.91380650000002,
+      "environment_creation_seconds": 3.398931399999981,
+      "extra_capability_seconds": 4.525736499999994,
+      "free_disk_bytes_after": 155470794752,
+      "free_disk_bytes_before": 157368348672,
+      "gis_seconds": 7.0554021000000375,
+      "name": "r1-candidate-cold",
+      "parser_verification_seconds": 0.16544830000003685,
+      "pip_pin_seconds": 2.285484600000018,
+      "policy_seconds": 67.51624550000003,
+      "profile_locked_resolve_install_seconds": 51.81085809999996,
+      "repeat": 1,
+      "requirement_generation_seconds": 0.0011611999999558975,
+      "source_and_environment_seconds": 6.536254799999995,
+      "source_copy_seconds": 0.84964930000001,
+      "status": "passed",
+      "strict_pyright_seconds": 8.483375800000033,
+      "variant": "candidate"
+    },
+    {
+      "cache": "warm",
+      "cache_after": {
+        "bytes": 445220569,
+        "files": 288
+      },
+      "cache_before": {
+        "bytes": 397580633,
+        "files": 284
+      },
+      "cache_seed_method": "paired cold sample",
+      "cache_seed_seconds": 0.0,
+      "cleanup_seconds": 4.343697299999917,
+      "elapsed_seconds": 73.91133489999999,
+      "environment_creation_seconds": 3.343074300000012,
+      "extra_capability_seconds": 4.587439300000028,
+      "free_disk_bytes_after": 155391246336,
+      "free_disk_bytes_before": 156978782208,
+      "gis_seconds": 6.181000700000027,
+      "name": "r1-canonical-warm",
+      "parser_verification_seconds": 0.1902332000000797,
+      "pip_pin_seconds": 2.2791445000000294,
+      "policy_seconds": 62.526526200000035,
+      "profile_locked_resolve_install_seconds": 47.71930359999999,
+      "repeat": 1,
+      "requirement_generation_seconds": 1.0900000006586197e-05,
+      "source_and_environment_seconds": 6.333011400000032,
+      "source_copy_seconds": 0.708153799999991,
+      "status": "passed",
+      "strict_pyright_seconds": 8.435977799999932,
+      "variant": "canonical"
+    },
+    {
+      "cache": "warm",
+      "cache_after": {
+        "bytes": 434362762,
+        "files": 278
+      },
+      "cache_before": {
+        "bytes": 386722827,
+        "files": 274
+      },
+      "cache_seed_method": "paired cold sample",
+      "cache_seed_seconds": 0.0,
+      "cleanup_seconds": 4.769832999999949,
+      "elapsed_seconds": 75.27869750000002,
+      "environment_creation_seconds": 3.4062703999999258,
+      "extra_capability_seconds": 4.8604824000000235,
+      "free_disk_bytes_after": 155817086976,
+      "free_disk_bytes_before": 157374865408,
+      "gis_seconds": 6.043136200000049,
+      "name": "r1-candidate-warm",
+      "parser_verification_seconds": 0.16350550000004205,
+      "pip_pin_seconds": 2.296537199999989,
+      "policy_seconds": 63.467181100000175,
+      "profile_locked_resolve_install_seconds": 48.87551029999997,
+      "repeat": 1,
+      "requirement_generation_seconds": 0.0012770000000728032,
+      "source_and_environment_seconds": 6.552532900000074,
+      "source_copy_seconds": 0.8470131999999921,
+      "status": "passed",
+      "strict_pyright_seconds": 8.383752100000038,
+      "variant": "candidate"
+    },
+    {
+      "cache": "cold",
+      "cache_after": {
+        "bytes": 387557898,
+        "files": 276
+      },
+      "cache_before": {
+        "bytes": 0,
+        "files": 0
+      },
+      "cache_seed_method": "new empty directory",
+      "cache_seed_seconds": 0.0,
+      "cleanup_seconds": 4.256487800000059,
+      "elapsed_seconds": 84.24358140000004,
+      "environment_creation_seconds": 3.762215499999911,
+      "extra_capability_seconds": 4.747867299999939,
+      "free_disk_bytes_after": 155861757952,
+      "free_disk_bytes_before": 157760151552,
+      "gis_seconds": 7.159113100000013,
+      "name": "r2-candidate-cold",
+      "parser_verification_seconds": 0.17332790000000386,
+      "pip_pin_seconds": 2.547880999999961,
+      "policy_seconds": 72.02598150000017,
+      "profile_locked_resolve_install_seconds": 56.34065810000004,
+      "repeat": 2,
+      "requirement_generation_seconds": 0.0012124000000994783,
+      "source_and_environment_seconds": 7.113392500000032,
+      "source_copy_seconds": 0.8004238000000896,
+      "status": "passed",
+      "strict_pyright_seconds": 8.351670000000013,
+      "variant": "candidate"
+    },
+    {
+      "cache": "cold",
+      "cache_after": {
+        "bytes": 397580216,
+        "files": 284
+      },
+      "cache_before": {
+        "bytes": 0,
+        "files": 0
+      },
+      "cache_seed_method": "new empty directory",
+      "cache_seed_seconds": 0.0,
+      "cleanup_seconds": 4.387099000000035,
+      "elapsed_seconds": 78.93279300000006,
+      "environment_creation_seconds": 3.3993990000000167,
+      "extra_capability_seconds": 4.858320400000025,
+      "free_disk_bytes_after": 155431542784,
+      "free_disk_bytes_before": 157369745408,
+      "gis_seconds": 7.556575700000053,
+      "name": "r2-canonical-cold",
+      "parser_verification_seconds": 0.17773560000000543,
+      "pip_pin_seconds": 2.2493703999999752,
+      "policy_seconds": 67.25652320000006,
+      "profile_locked_resolve_install_seconds": 51.06487660000005,
+      "repeat": 2,
+      "requirement_generation_seconds": 8.499999921696144e-06,
+      "source_and_environment_seconds": 6.452534899999932,
+      "source_copy_seconds": 0.8007417000000032,
+      "status": "passed",
+      "strict_pyright_seconds": 8.457326800000033,
+      "variant": "canonical"
+    },
+    {
+      "cache": "warm",
+      "cache_after": {
+        "bytes": 435197833,
+        "files": 280
+      },
+      "cache_before": {
+        "bytes": 387557898,
+        "files": 276
+      },
+      "cache_seed_method": "paired cold sample",
+      "cache_seed_seconds": 0.0,
+      "cleanup_seconds": 4.54145840000001,
+      "elapsed_seconds": 75.67552690000002,
+      "environment_creation_seconds": 3.4225651000000425,
+      "extra_capability_seconds": 4.802568899999983,
+      "free_disk_bytes_after": 155411419136,
+      "free_disk_bytes_before": 156969201664,
+      "gis_seconds": 6.244005500000071,
+      "name": "r2-candidate-warm",
+      "parser_verification_seconds": 0.1726310999999896,
+      "pip_pin_seconds": 2.2647875000000113,
+      "policy_seconds": 64.06857760000014,
+      "profile_locked_resolve_install_seconds": 48.789862000000085,
+      "repeat": 2,
+      "requirement_generation_seconds": 0.0012097999999696185,
+      "source_and_environment_seconds": 6.410681199999999,
+      "source_copy_seconds": 0.7200010999999904,
+      "status": "passed",
+      "strict_pyright_seconds": 8.860869200000025,
+      "variant": "candidate"
+    },
+    {
+      "cache": "warm",
+      "cache_after": {
+        "bytes": 446055679,
+        "files": 290
+      },
+      "cache_before": {
+        "bytes": 397580216,
+        "files": 284
+      },
+      "cache_seed_method": "paired cold sample",
+      "cache_seed_seconds": 0.0,
+      "cleanup_seconds": 4.517986400000041,
+      "elapsed_seconds": 76.68078230000003,
+      "environment_creation_seconds": 3.5229556000000457,
+      "extra_capability_seconds": 4.882252199999925,
+      "free_disk_bytes_after": 155766956032,
+      "free_disk_bytes_before": 157355327488,
+      "gis_seconds": 6.2654055999998945,
+      "name": "r2-canonical-warm",
+      "parser_verification_seconds": 0.17807170000003225,
+      "pip_pin_seconds": 2.2977021000000377,
+      "policy_seconds": 64.7698585999999,
+      "profile_locked_resolve_install_seconds": 49.76780859999997,
+      "repeat": 2,
+      "requirement_generation_seconds": 9.100000056605495e-06,
+      "source_and_environment_seconds": 6.551134499999989,
+      "source_copy_seconds": 0.7269841999999471,
+      "status": "passed",
+      "strict_pyright_seconds": 8.558563599999957,
+      "variant": "canonical"
+    }
+  ],
+  "source_sha": "92351854625dae81001c033306969f73eff4a7f7",
+  "status": "completed"
+}

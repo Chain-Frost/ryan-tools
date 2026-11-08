@@ -6,23 +6,33 @@ when using their output to support a decision.
 
 ## Windows Policy dependencies
 
-`benchmark_policy_dependencies.py` implements the bounded experiment in
-[issue #299](https://github.com/Chain-Frost/ryan-tools/issues/299). It compares the canonical Policy profile with a
-scratch candidate omitting only `build`, `ruff` and `pytest-cov` from the current development extra. It preserves
-runtime/MCP requirements and the accepted parser wheel; it does not change production installation profiles.
+**Completed on 2026-11-09: retain the canonical Policy profile.** The bounded experiment in
+[issue #299](https://github.com/Chain-Frost/ryan-tools/issues/299) found no repeatable Windows saving from omitting
+`build`, `ruff` and `pytest-cov`. The candidate was slower in three of four paired measurements; its only faster
+result saved 0.701 seconds. All eight clean environments passed dependency, parser, capability and strict-typing
+parity checks. Production installation profiles remain unchanged.
 
-The dedicated branch-scoped workflow runs Windows/Python 3.14.10 and fixes pip 26.3, package artifact identities and
-build inputs. Eight clean environments cover both profiles, empty and populated pip download caches, and a
-reversed-order repeat. The same strict file manifest and capability checks run in every environment. Fresh temporary
-environments are specific to this isolated experiment; normal repository setup remains unchanged. The command needs
-separate output and scratch directories and does not initialise any submodule.
+The [single successful run](https://github.com/Chain-Frost/ryan-tools/actions/runs/42516847229) used source
+`92351854625dae81001c033306969f73eff4a7f7`, Windows/Python 3.14.10, pip 26.3, fixed package artifacts and isolated
+build inputs. Its complete job took 789 seconds, including preparation and all eight samples. The measured Policy
+stages replay a fixed 20-file typing selection, not the entire ordinary Policy job. Empty and populated pip caches
+were compared in reversed-order repeats, with a fresh source and environment for every sample. Populated caches
+still required some network downloads; OS/network/CDN caches were uncontrolled.
 
-Use `--plan-only` to inspect the metadata-derived profile and manifest without installing dependencies or running
-the benchmark. Executed measurements require Windows and the fixed Python version. Preserve the JSON reports and
-logs, and distinguish preparation, cache seeding, environment creation, GIS bootstrap, profile setup and typing
-durations. A populated download cache is not an already-installed environment. Results go in #299; a smaller download
-alone does not justify adopting a new profile. The workflow is scoped to `ci/policy-dependency-benchmark-299` and has
-no schedule or pull-request trigger.
+Compact evidence is archived here so artifact expiry does not require another hosted run. JSON values are
+preserved; Windows line endings are normalised to LF:
+
+- [Comparison](results/policy-299-20261109/comparison.json): all eight timing rows, paired deltas, versions, parity
+  reconciliation, limitations and the full artifact's SHA-256.
+- [Plan](results/policy-299-20261109/plan.json): exact source/tree, host, requirements, file hashes, manifest and schedule.
+- [Preparation](results/policy-299-20261109/preparation.json): locked artifact identities and expected versions.
+- [Raw results](results/policy-299-20261109/results.json): executed commands, exit statuses, cache observations and
+  stage timings. Referenced detailed logs remain in the original Actions artifact, which expires on 2026-11-23
+  Australia/Perth time.
+
+The temporary workflow is retired. The harness remains an archived experiment, not a production installer or a
+scheduled benchmark. Its original [execution commit](https://github.com/Chain-Frost/ryan-tools/commit/33c9c650a6df719b5cb7369b869c28ce26f5cd74)
+preserves the workflow and invocation used for these measurements. No further run is needed for this candidate.
 
 ## WP11 PO workload baseline
 

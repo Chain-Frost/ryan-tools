@@ -2,13 +2,13 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active: optional Windows Policy benchmark [#299](https://github.com/Chain-Frost/ryan-tools/issues/299); production profiles retained |
+| Status | Complete: Windows Policy benchmark [#299](https://github.com/Chain-Frost/ryan-tools/issues/299); retain canonical profile. Parser-pin retirement is a separate deferred upstream-release follow-up |
 | Owner | ChatGPT / maintainer review |
 | Created | 2026-11-08 |
 | Updated | 2026-11-09 |
-| Next review | 2026-11-16 |
-| Current benchmark baseline | PR #251 at `92351854625dae81001c033306969f73eff4a7f7`, containing main `585e5d06dd599e68b1c470420481b5b9a3c79333` |
-| Helper delivery | [#295](https://github.com/Chain-Frost/ryan-tools/pull/295) merged into draft #251 as `feae324a`; all nine integrated checks passed at `9235185` |
+| Next review | — for completed delivery/benchmark; parser-pin retirement resumes only after an upstream release containing the required fixes |
+| Fixed benchmark baseline | PR #251 at `92351854625dae81001c033306969f73eff4a7f7`, containing main `585e5d06dd599e68b1c470420481b5b9a3c79333` |
+| Helper delivery | [#295](https://github.com/Chain-Frost/ryan-tools/pull/295) merged into #251 as `feae324a`; all nine integrated checks passed at `9235185` |
 | Delivery | [PR #274](https://github.com/Chain-Frost/ryan-tools/pull/274) integrated into [PR #272](https://github.com/Chain-Frost/ryan-tools/pull/272); merged to main as `8c03dc961455c124fe4e0996ee15f50813cf5682` |
 | Historical predecessor | Initial PR #272 head `7f45110b37eb143f9b785001fe5d04af526ab339` |
 | Timing baseline | Previous PR #272 head `1ae1235c2369950c287c4fafe24ef23848880fe0` |
@@ -25,9 +25,10 @@ Child #274 was integrated into #272 as `05939c936282aedfce5f090a2434fbd49e6d7d10
 Do not continue the old child branch or rebuild the accepted wheel as unfinished work.
 
 The CI-scope contracts now run in a pytest-only phase at the start of the existing Windows Hosted job, delivered by
-#295. The full runtime/MCP and Policy environments remain intact. The selected follow-up is the bounded Policy
-dependency benchmark in #299. This record owns that dependency boundary, the assessment of further reductions and
-eventual retirement of the temporary parser pin. No separate non-GIS/GIS jobs are adopted. See the
+#295. The full runtime/MCP and Policy environments remain intact. The bounded Policy dependency benchmark in #299
+is complete and found no repeatable saving; the canonical profile is retained. This record owns that dependency
+boundary, the assessment of further reductions and the separate future retirement of the temporary parser pin.
+No separate non-GIS/GIS jobs are adopted. See the
 [CI resource record](2026-11-08-ci-resource-efficiency.md) for the preceding delivery history.
 
 ## Completed delivery: accepted PyTuflow wheel
@@ -88,7 +89,10 @@ dependencies account for much of the remaining installation time.
 6. Plain `pip install ryan-tools` still resolves published dependency metadata through PyPI. It does not discover a
    wheel beside repository scripts. Published metadata and every normal runtime/developer dependency are unchanged.
 
-Retire the temporary wheel and its pin only when a released upstream build contains the required fixes and passes
+### Upstream retirement trigger
+
+This is a separate deferred follow-up, not unfinished work for #299. Retire the temporary wheel and its pin only
+when a released upstream build contains the required fixes and passes
 consumer capability checks. Merging the upstream PR alone does not provide a published installation artifact.
 
 Verify the artifact hash separately or use a deliberate supported hash mechanism. Adding `--hash` to the shared
@@ -166,18 +170,52 @@ environment and package installation, not the sole installed-package check.
 
 ## Next action
 
-Run the [issue #299](https://github.com/Chain-Frost/ryan-tools/issues/299) experiment from the isolated
-`ci/policy-dependency-benchmark-299` branch. Its dedicated push-only Windows workflow compares eight fresh Policy
-environments on fixed Python 3.14.10/pip 26.3: canonical versus three-tool omission, empty versus populated download
-caches, and a reversed-order repeat. The benchmark derives the candidate from current metadata, fixes remote wheel
-identities and isolated build inputs, replays the same strict file manifest and checks dependency/runtime/MCP parity.
-It uses the current shared root Pyright configuration, including initialiser files; the old separate initialiser
-configuration has been retired on #251. See the [benchmark guide](../../repo-scripts/benchmarks/README.md).
+Retain the canonical Policy development extra. [Issue #299](https://github.com/Chain-Frost/ryan-tools/issues/299)
+is complete; no new production profile, additional hosted experiment or CI setting change is justified for this
+candidate. The temporary workflow is retired and compact evidence is archived on the isolated
+`ci/policy-dependency-benchmark-299` branch. No PR or main merge is needed for this negative benchmark result.
 
-Keep production profiles and normal workflows unchanged during the experiment. Record the run, measurements,
-limitations and adopt/retain decision in the issue without status-only source pushes. A negligible or inconsistent
-saving is a valid result: retain the canonical development extra and close the issue with evidence. This experiment
-does not block #251 and does not repeat the broad Hosted/native acceptance campaign.
+The only separate dependency follow-up is [parser-pin retirement](#upstream-retirement-trigger) after a released
+upstream build supplies the required fixes and passes the existing acceptance contract.
+
+## Completed Policy benchmark (2026-11-09)
+
+[Run 42516847229](https://github.com/Chain-Frost/ryan-tools/actions/runs/42516847229) passed on its first attempt at
+experiment commit `33c9c650a6df719b5cb7369b869c28ce26f5cd74`, using the fixed source above. Windows image
+`win25-vs2026 20261103.298.1`, Python 3.14.10, pip 26.3 and Pyright 1.1.414 were fixed across eight fresh source
+snapshots and environments. Canonical and candidate profiles shared identical retained package versions and
+remote artifact identities. The second repeat reversed the profile order.
+
+| Cache | Repeat | Canonical Policy stages (s) | Candidate Policy stages (s) | Candidate minus canonical (s) |
+| --- | --- | ---: | ---: | ---: |
+| Empty | 1 | 67.195 | 67.516 | +0.321 |
+| Populated | 1 | 62.527 | 63.467 | +0.941 |
+| Empty | 2 | 67.257 | 72.026 | +4.769 |
+| Populated | 2 | 64.770 | 64.069 | -0.701 |
+
+These sums include GIS bootstrap, requirements generation, profile resolution/installation, accepted-parser
+verification and the same 20-file strict typing replay. They are not full production Policy job durations.
+The candidate was slower in three of four pairs; the single 0.701-second improvement did not repeat. This pilot
+does not prove an intrinsic slowdown, but it establishes no saving that justifies another maintained profile.
+
+All eight environments passed `pip check`, installed-parser provenance, 11 capability probes and the identical
+20-file Pyright selection with zero errors, warnings or information messages. The installed distribution count
+fell from 143 to 138: only `build`, `ruff`, `pytest-cov` and their unnecessary transitive distributions `coverage`
+and `pyproject-hooks` disappeared. Shared versions/artifacts remained identical; the only removed pytest plugin
+was `pytest_cov`. Runtime/MCP requirements, the other ten development entries and accepted parser bytes remained.
+
+The complete single Windows job took 789 seconds (13 minutes 9 seconds), including 100.077 seconds of preparation;
+the harness took 764.224 seconds. One serial runner and two repeats limit extrapolation. Cold/warm refers only to
+pip caches; each populated cache exactly inherited its paired empty-cache result but still needed some Fiona/GDAL
+downloads. OS/network/CDN caches were uncontrolled. Exact artifact constraints also differ from unconstrained
+routine resolution. No ordinary CI, full Hosted suite or native solver campaign was triggered by the experiment.
+
+The [benchmark guide](../../repo-scripts/benchmarks/README.md#windows-policy-dependencies) links the archived plan,
+artifact lock, raw commands/timings and independently reconciled comparison. The original 5,719,318-byte artifact
+has SHA-256 `05b75a298a4d9794cb2bef7ae827666e3fc18ed6504c36b31de75898a21a581b` and expires on 2026-11-23
+Australia/Perth time. The retirement/evidence batch only removes the temporary workflow and updates this isolated
+experiment archive; production profiles, normal workflows, main and #251 are unchanged by it. Results and final
+delivery links are recorded in #299 rather than a further status-only source commit.
 
 ### Completed helper-stage evidence
 
@@ -198,9 +236,8 @@ and Package jobs retain their existing scheduling.
 The dependency audit at #251/package `26.11.9.2` retains 29 declared runtime requirements and 13 development entries.
 Hosted already omits the development extra. Policy still needs the runtime import environment and typing support;
 `distributed`, `pillow_heif` and `docx` have actual first-party imports. The only evidenced optional Policy removals
-are `build`, `ruff` and `pytest-cov`. Their timing benefit has not been demonstrated, so this change keeps the
-canonical development extra rather than adding a custom installer or a copied requirement list that can drift.
-The focused prompt below defines the bounded experiment now selected in #299.
+are `build`, `ruff` and `pytest-cov`. The completed #299 benchmark found no repeatable timing benefit, so the
+canonical development extra remains. The focused prompt below preserves the completed experiment's scope.
 
 If further dependency reduction is worthwhile after measuring the consolidated jobs, investigate these stages in
 a separate reviewable change:
@@ -288,6 +325,9 @@ also passed. Both profiles continue to resolve all 29 declared runtime requireme
   substitute for checks on subsequent source changes; post-merge operations are tracked in the linked CI record.
 
 ## Focused follow-up prompt
+
+**Historical scope, completed by #299 on 2026-11-09.** Retain the canonical profile using the evidence above;
+do not treat this prompt as a request for another experiment.
 
 ```text
 Repository: Chain-Frost/ryan-tools

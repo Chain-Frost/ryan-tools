@@ -151,7 +151,7 @@ but they are not current architectural policy when they conflict with the canoni
 | [Installed script inventory](audits/2026-10-19-installed-scripts-inventory.md) | All 161 source paths; 83 selected and 78 excluded; lifecycle sign-off outstanding |
 | [Script remediation backlog](audits/2026-10-22-script-remediation-backlog.md) | 47 AB items: open/deferred work plus accepted-closed HY-8 evidence (AB-023); triaged safety, engineering and lifecycle tasks |
 | [CI resource efficiency and Windows acceptance](work/2026-11-08-ci-resource-efficiency.md) | Merged #272 implementation, post-merge validation and coordinated adoption by active stacks |
-| [CI dependency and PyTuflow wheel implementation](work/2026-11-08-ci-dependency-groups.md) | Completed #274/#272 wheel delivery and accepted Windows coverage; deferred, bounded dependency follow-up |
+| [CI dependency and PyTuflow wheel implementation](work/2026-11-08-ci-dependency-groups.md) | Completed wheel/helper delivery and #299 benchmark; canonical Policy profile retained, parser-pin retirement awaits an upstream release |
 | [Fast PR checks and hosted timing](work/2026-10-17-fast-pr-checks-129.md) | Historical PR #129 independent workflow implementation and timing evidence |
 | [Mapped-drive-safe filesystem paths and raster progress](work/2026-10-16-absolute-path-policy.md) | PR #128 path policy, multiline raster progress, retained-wheel rebuild blocker and validation handoff |
 | [GitHub CI implementation handoff](work/2026-10-07-github-ci.md) | Implemented hosted checks, external-software boundaries and validation record |
