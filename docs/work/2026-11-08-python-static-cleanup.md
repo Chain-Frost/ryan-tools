@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active; whole-repository static cleanup passes, final Windows acceptance and delivery underway |
+| Status | Needs review; whole-repository static and full Windows acceptance pass, existing-branch delivery |
 | Owner | ChatGPT / maintainer |
 | Created / updated | 2026-11-08 |
 | Next review | 2026-11-15 |
@@ -20,7 +20,7 @@ Full native tests at 741803bc: 3,074 pass / 41 skip / one failure. The source-im
 
 ## Next action
 
-Finish final Windows suite and rebuilt-wheel acceptance, commit this coherent checkpoint and push the existing #251 branch once. Verify every required hosted job at the pushed commit. Keep #284's independent no-data regression contract on its existing child branch; no merge into main is authorized.
+Verify all required checks at the latest pushed #251 commit and record subsequent hosted outcomes in that PR's description, without extra source commits solely to record CI. Keep #284's independent no-data regression contract on its existing child branch; no merge into main is authorized.
 
 ## Evidence and delivery
 
@@ -92,3 +92,20 @@ e6f5038b368e4d53694be5490d56c508d3c59dbea0e263ea4443dfa669710d5e.
 The wheel is retained locally under ignored `dist`; it is not a tracked artifact
 and is not published. Installed core/MCP and copied dashboard/result-wrapper
 smokes are rerun against this exact rebuild. Final local/hosted results follow.
+
+## Final local acceptance and delivery
+
+- Source checkpoint: a0502210, `Complete shared strict typing and fix CI executable modes`.
+- Complete Windows Python 3.14 suite: **3,078 passed / 41 skipped / six warnings**, 326.94 seconds. All 3,119 collected tests were considered; no ignores, deselections, marker filters or early stopping. Existing native/privilege skip reasons are retained in the XML/log; no new skip was introduced.
+- Whole first-party inventory: **674 files**, zero Ruff lint findings, all formatted; strict Pyright reports **zero errors / zero warnings**, including unnecessary-ignore checking. The normal root CLI also passes the modified-file selection.
+- Documentation policy/links, Loguru formatting and patch whitespace pass. All first-party shebang files have executable Git modes.
+- Final 26.11.8.6 rebuild succeeds. The isolated installation resolves that exact version; core/MCP, copied log-dashboard and copied result-dashboard/wrapper smokes all exit zero. Final wheel SHA256 remains e6f5038b368e4d53694be5490d56c508d3c59dbea0e263ea4443dfa669710d5e.
+- Runtime parity and native synthetic checks above were repeated successfully after the final edits. Installed application/model-specific acceptance is not inferred from typing success.
+- The validation-record commit accompanies a0502210 in one normal push to `fix/tlf-hyphenated-variables-239` for [#251](https://github.com/Chain-Frost/ryan-tools/pull/251). The PR stays draft; use its exact-head checks and latest validation section for hosted acceptance. No force push, parent/main merge or publication.
+- The pre-existing `tests/test_data` submodule change is preserved and excluded from staging. No unrelated submodule work is included.
+
+Private evidence: `full-suite-accepted.xml`, `full-suite-accepted.log`,
+`pyright-delivery.json`, `pyright-root-delivery.log`, `ruff-delivery.log`,
+`build-delivery.log`, `wheel-final-results.json` and native runtime receipts under
+the campaign directory above. Historical failed runs remain retained, not
+relabeled as passing evidence.
