@@ -2,14 +2,14 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Bounded native ellipse implemented and locally validated; EG11 RAM source evidence found; full hydraulic acceptance open |
+| Status | Authorised assumed circular EG11 comparison executed with limitations; source-equivalent #102/#103 acceptance remains blocked |
 | Owner | WP15 allocation agent / maintainer |
-| Created / updated | 2026-11-08 |
+| Created / updated | 2026-11-08 / 2026-11-09 |
 | Next review | 2026-11-15 or earlier if blockers resolve |
 | Issues | [#102](https://github.com/Chain-Frost/ryan-tools/issues/102), [#103](https://github.com/Chain-Frost/ryan-tools/issues/103), [#101](https://github.com/Chain-Frost/ryan-tools/issues/101) |
 | Allocation | [#240](https://github.com/Chain-Frost/ryan-tools/issues/240) / WP15 |
 | Assessed refs | main `8de77a67fb614ad32cd3c151a338f23eeb871412`; PR #251 `dc6d74455e092d3611b975f0fc3975a977578ecc` |
-| Delivery | `docs/wp15-culvert-evidence-101-103-20261108`, draft child of #251; no main merge permitted |
+| Delivery | #282 integrated into draft #251 at 63c7da77. New scoped docs/wp15-assumed-eg11-20261109 branch preserves prior evidence and adds conditional executable results; no parent/main merge. |
 
 ## Scope decision
 
@@ -171,3 +171,134 @@ These EOF dimensions already incorporate the source blockage; **do not reapply t
 **HY-8 permission:** explicit maintainer [approval for Windows HY-8 8.0.1.2 execution on disposable copies](https://github.com/Chain-Frost/ryan-tools/pull/282#issuecomment-6720767040) is now established. There is no need to request that same permission again. The executable was previously verified read-only at `C:/Program Files/HY-8 8.00/HY864.exe`, version `8.0.1.2`, SHA-256 `0b1c5e7fb6b48be9c675b5486ae9a84346f436c5c649aa5ed09a1552267ee806`. This WP15 checkpoint did **not** execute HY-8; source-specific numerical validation still requires true physical inlet/material and representative matched configurations.
 
 **Validation ownership:** historical 175 Windows focused passes/2 privilege skips, Ruff/Pyright on six Python files and wheel/copied-wrapper checks apply to child `2bbbae3b` only. Its historical hosted red CI reflects a stale moving-parent merge scope, not demonstrated regressions in the WP15 diff. The reconciled merge head still requires new complete CI, fresh Codex review and final installed-wheel smoke. #101 bounded code is present, but do not close #101–#103 while their remaining criteria are unverified.
+
+
+## WP15 independent Windows engineering acceptance — 2026-11-09
+
+**Overall: BLOCKED — physical inlet/material unproven.** Task A is **PASS WITH LIMITATIONS** for the selected historical EG11 RAM dimension trace. Task B is **NOT RUN / BLOCKED**. No new HY-8 or TUFLOW execution, accepted Python regression replay, upstream synthetic comparison, production edit, release, issue closure or merge was performed.
+
+### Revision and environment
+
+Reviewed PR source: `b18e9a0c1b99dc52d188d6d1b097c7bac3e04143`; pinned test-data source: `d2dae3ecf9a7ed306e1340de54a8d12ca9f53f58`. This is source-data inspection, not a new hydraulic test of that code revision. Windows 10 build 19045, normal Python 3.14.6 (`C:/Program Files/Python314/python.exe`), PyShp 3.1.0. Installed package inventory: ryan-tools 26.11.8.8, run-hy8 2026.10.18.2, ryan-culverts 26.10.19.1; none was used to claim hydraulic acceptance.
+
+Live API reports #282 **closed/merged**, merge commit `63c7da77676b9ad44e20e7f1729b738985d400cc`; its narrative still says unmerged. This pre-existing state was observed, not changed here. Existing dirty WP15 worktree was preserved; inspection and documentation use a separate detached checkout of the reviewed head. Existing [CI run 42501881704](https://github.com/Chain-Frost/ryan-tools/actions/runs/42501881704) is successful; no jobs were rerun.
+
+HY-8 read-only verification: `C:/Program Files/HY-8 8.00/HY864.exe`, file/product **8.0.1.2**, SHA-256 `0b1c5e7fb6b48be9c675b5486ae9a84346f436c5c649aa5ed09a1552267ee806`. Disposable execution remains authorised, but the source-equivalence gate is unmet.
+
+### Independent source/event trace
+
+Read raw Git blobs at the pinned commit; copied only selected archive members and matching EG11 output files to unique scratch. No submodule checkout or source modification was needed.
+
+Archive `tuflow/example_input_preflight/examples.zip`:
+- `runs/EG11_~e1~_~e2~_004.tcf`: matrix ON, method RAM, default A; reads `model/EG11_004.ecf`, `model/Matrix_Blockages.csv`, `runs/EG11_004.tef`.
+- ECF reads `model/gis/1d_nwk_EG11_004_L.shp`. Exactly three records; all `Ignore=0`, character `pBlockage` categories B/C/D, blank `Inlet_Type`.
+- TEF: Q100 = ARI 100 years; QPMF = ARI 2000 years; 2hr ends at 3 hours. The TCF default names Q100, but retained QPMF TLF explicitly records `-e1 QPMF -e2 2hr`; both selected TLFs confirm RAM, correct ARI, default A, **Blockage Override = Not Set**, and the selected ECF/network.
+- Retained EOF/TLF build is **2025.2.1-iSP-w64**, not 2026.3. Output root: `tuflow/TUFLOW_Example_Model_Dataset/EG11/`; logs under sibling `log/`; channel CSVs under `EG11/plot/csv/`.
+
+| DBF record (1-based) / channel | Category / barrels | Nominal dimensions (m) | Q100 matrix → output %; EOF effective (m) | QPMF matrix → output %; EOF effective (m) |
+| --- | --- | --- | --- | --- |
+| 1 / FC04.1_C | B / 3 | diameter 1.2 | 20 → 20; D 1.073 | 50 → 50; D 0.849 |
+| 2 / FC01.1_R | C / 3 | width 1.8, height 1.8 | 50 → 50; W 0.900, H 1.800 | 70 → 70; W 0.540, H 1.800 |
+| 3 / FC01.2_R | D / 5 | width 2.4, height 1.2 | 70 → 70; W 0.720, H 1.200 | **100 → 99**; W 0.024, H 1.200 |
+
+Independent circular calculations: `1.2*sqrt(0.8)=1.0733126292` and `1.2*sqrt(0.5)=0.8485281374` m. EOF minus calculated values: -0.0003126292 and +0.0004718626 m, both within printed 0.001 m rounding (±0.0005 m). Rectangular calculations `W*(1-output_pct/100)` give 0.900/0.540 and 0.720/0.024 m. **6/6 dimension checks pass**; this rounding check is not an engineering hydraulic tolerance. EOF culvert rows are lines 135–137; channel-definition rows 59–61 and corresponding `_1d_Chan.csv` corroborate output percentages.
+
+**Correction/qualification to earlier shorthand:** category D at ARI 2000 requests 100 in the matrix, while this retained build reports 99. The residual 1% width is observed evidence, not proof of complete closure or a universal cap rule. Category E also contains 100 but is not assigned to these three records. No executed 2026.3 complete-closure acceptance is established.
+
+These EOF dimensions already contain the observed RAM reduction. Applying the percentage again would reduce area twice (remaining-area factor squared). Nominal circular HW/D denominator remains 1.2 m; rectangular nominal rises remain 1.8/1.2 m. The EOF circular `Diameter or Width` column holds D; its `Height` is `-----`, so do not treat that field as a nominal circular diameter.
+
+### Physical configuration and missing evidence
+
+Source lengths: 20/7/10 m and US/DS inverts: 43.35/42.75, 44.6/44.5, 37.6/37.5 m, respectively in DBF order above. All rows specify n=0.015, entry=0.5, exit=1.0, form=0; EOF confirms n and entrance/exit/fixed coefficients and marks entrance/exit losses **Adjusted**. Inlet-contraction parameters are height=0.6, width=0.9. None establishes a physical inlet or material or an equivalent HY-8 loss treatment.
+
+Selected TCF/TEF/ECF/TBC/TGC, boundary database, active network and referenced boundary/material DBF attributes were inspected. No explicit culvert material or physical inlet mapping exists there. `Materials.csv` describes 2D land cover (pasture/roads/buildings/water/vegetation), not pipe construction. Network `Inlet_Type` is blank for all three records, with no material field. Boundary links are SX/CN into the 2D domain; an external HQ boundary is not a fixed culvert tailwater. Time-dependent node heads are retained, but no source-equivalent steady HY-8 boundary/loss/roadway specification is established. No matching EG11 Maximums XLSX was found in the pinned TUFLOW tree or archive.
+
+To unblock: supply an authoritative channel-ID mapping to actual construction material and physical inlet details; reconcile TUFLOW adjusted loss/contraction treatment with that geometry; supply the matching Maximums export and selected Q/headwater/tailwater times plus roadway/boundary geometry; agree engineering comparison tolerances before parity decisions. For #103 also supply genuine 2026.3 ELM evidence covering outlet-control ELM versus inlet-control RAM fallback, numeric/blank defaults/overrides and complete blockage. This RAM-only three-channel network does not supply the required pit/ignored-feature cases.
+
+Task B forward/inverse Maximums scenarios, network HW/D 1.5/2.0, and HY-8 Q/HW/HW-rise/barrel-road split/outlet velocity/control/warning comparisons: **NOT RUN / BLOCKED**, not passing skips. No raw HY-8 project/results exist from this inspection. #102/#103 remain incomplete.
+
+### SHA-256 provenance
+
+Values below hash **unmodified raw Git blob/archive-member bytes**, not text rewritten by a Windows checkout.
+
+| Source | SHA-256 |
+| --- | --- |
+| examples.zip | `e374c8e072679fc6c4dc11e63b270caa1101b6aebb84d70060872cdd1b0aa7d6` |
+| TCF | `4580565687282e45204e631110c4f6cfab425e15941971379046b8c5b3d257f4` |
+| TEF | `c9dca9344c2b942ac7b18aaa94d6792f1ca79ac65493300dd9071b346543fe81` |
+| ECF | `70b4d7b669cc9a6c2dec7a67588ba938ef685f8bf2b7f109471718ed9caf9cf5` |
+| Matrix_Blockages.csv | `4aca443eb35f7ccc24f7e76963984c5b9eaef1b7d485fd92617626160e662638` |
+| network DBF | `cdb344c9e6e36324e1d55a4a9027efba852856492d53c6fb59ae707cee9bec13` |
+| Q100 EOF | `5d277223a726ef51b856e33e86a3a82b57ce819a4f2a450c9260ba0ca810568e` |
+| QPMF EOF | `d0f6cf31bb9a4dc8b8602dc509a59f192c2b05fba35b73c851a772e78d7f24c0` |
+| Q100 TLF | `ef9732faf8540c60b1d67164e2f6dd37b59a41bd0b29bfd6efa96a7d54a32302` |
+| QPMF TLF | `2015548aa533986ee3c462c0ee0da58c7935ce29c1d798b2fa0519f3ba9c0dcb` |
+| Q100 channel CSV | `27e158e72fab7ec877072a29b718aff8113d19978b735cc0b931d3beec128bab` |
+| QPMF channel CSV | `8fa6ae89c8c63244b9f1c2f6b8948215d1f9f4a843e0e92885413fd7012ea5da` |
+
+Earlier EOF hashes `f789b265…` / `b74ebc9f…` are reproduced exactly by LF→CRLF conversion of these blobs; this explains the difference without asserting changed hydraulic content.
+
+Local evidence retains selected source/output bytes, complete SHA-256 manifest, network/ancillary attribute JSON, environment inventory and six-row numerical CSV in a unique scratch directory. Documentation update is kept on an isolated detached checkout for coordination; no branch push into the already-merged child or moving parent is made.
+
+
+
+Next review: 2026-11-15 or when the maintainer supplies physical material/inlet and matched boundary/loss evidence. The earlier permission and pending-CI statements are historical; execution is authorised, existing exact-head CI is green, and the current blocker is source equivalence.
+
+Delivery checkpoint: [acceptance report posted to PR #282](https://github.com/Chain-Frost/ryan-tools/pull/282#issuecomment-6724523011). Default documentation checker (7 files and central-index coverage), explicit links-only checks (2 files), and git diff --check pass. All 28 retained output blobs rechecked against pinned Git source. Initial verification-manifest lookup used Windows separators and was corrected to POSIX keys; source bytes were unaffected. Documentation-only local commit retained in E:/Github/ryan-tools-wp15-source-acceptance; no branch push. Raw local evidence: C:/Users/Ryan/AppData/Local/Temp/wp15-independent-eg11-_ano6do8.
+
+
+## WP15 conditional EG11 RCP/headwall comparison — 2026-11-09
+
+**PASS WITH LIMITATIONS for authorised disposable execution; full #102/#103 source-equivalence acceptance remains BLOCKED.** The [explicit hypothesis](https://github.com/Chain-Frost/ryan-tools/pull/282#issuecomment-6724651602) is adopted only for circular FC04.1_C. Construction material/inlet remain unverified by source. No rectangular-to-circular substitution, Maximums workbook invention, 2026.3 ELM claim or engineering tolerance was introduced.
+
+### Exact sources and operating assumptions
+
+Parent source `63c7da77676b9ad44e20e7f1729b738985d400cc`; matching installed verification wheel ryan-tools **26.11.9.1**, SHA-256 `4a296287add1fd972507ea49153a2b91e6a7bab5376ac9f5597cde781fec5021`. Normal Windows 10/Python **3.14.6**, run-hy8 **2026.10.18.2**, ryan-culverts **26.10.19.1**. The wheel is installed into a separate target, with physical import origin recorded, without a source checkout override or new virtual environment.
+
+Read-only reverified executable `C:/Program Files/HY-8 8.00/HY864.exe`, file/product **8.0.1.2**, SHA-256 `0b1c5e7fb6b48be9c675b5486ae9a84346f436c5c649aa5ed09a1552267ee806`. All executions use a fresh unique temp workspace.
+
+Pinned EG11 source remains `d2dae3ecf9a7ed306e1340de54a8d12ca9f53f58`, separate from WP04's newer fixture pin. The [independent 6/6 dimension/source-hash report](https://github.com/Chain-Frost/ryan-tools/pull/282#issuecomment-6724523011) is retained. All **46** selected source-copy hashes were rechecked unchanged. Matrix SHA-256 `4aca443eb35f7ccc24f7e76963984c5b9eaef1b7d485fd92617626160e662638`; network DBF `cdb344c9e6e36324e1d55a4a9027efba852856492d53c6fb59ae707cee9bec13`.
+
+- Explicit assumed material/inlet: concrete RCP, square-edge headwall.
+- Retained source n=**0.015**, entry=**0.5**, exit=**1.0**, form=**0**; 3 barrels, length 20 m, inverts **43.35/42.75 m**.
+- Nominal diameter **1.2 m**, used for HW/D. Hydraulic diameters computed once: Q100 20% RAM → **1.0733126292 m**; QPMF 50% → **0.8485281374 m**. Printed EOF 1.073/0.849 m is audited, not reduced again.
+- **The actual source width-contraction factor is 0.9 and inlet-contraction height is 0.6. Both adapters explicitly reject width factor 0.9.** Four fail-closed probes (two events × two engines) confirm this before any solver run. Executed scenarios explicitly assume width factor **1.0**, standard physical-inlet losses and no separate 0.6 height-contraction effect. EOF `Adjusted` entrance/exit treatment is not reproduced. These unsupported source effects are recorded, not silently dropped.
+- Assumed forward Q=**1 m³/s** with constant TW=**42.75** or **43.25 m**. Inverse targets **45.15/45.75 m** correspond to nominal HW/D **1.5/2.0**, with assumed TW=43.25 m. The internal scenario label “submerged” means elevated TW by 0.5 m; it does **not** mean the whole outlet is submerged.
+- HY-8's adapter suppresses roadway overtopping with an **assumed crest 93.35 m**, roadway width/stations 10 m, matching the native absence of roadway flow. This is not recovered source roadway geometry.
+
+### Numerical results
+
+Twenty successful public-API solves form **10 paired scenarios**. Units: Q m³/s, headwater elevation m, outlet velocity m/s. Values below are native / HY-8.
+
+| Event / case | Q | Headwater | Outlet velocity |
+| --- | --- | --- | --- |
+| Q100 forward, TW 42.75 | 1 / 1 | 43.768785 / 43.78 | 2.778556 / 2.76 |
+| Q100 forward, TW 43.25 | 1 / 1 | 43.768785 / 43.78 | **0.806953 / 2.76** |
+| Q100 inverse nominal HW/D 1.5 | 7.868701 / 7.88 | 45.150000 / 45.14 | 4.461215 / 4.46 |
+| Q100 inverse nominal HW/D 2.0 | 9.786829 / 9.82 | 45.750000 / 45.75 | 4.733694 / 4.74 |
+| QPMF forward, TW 42.75 | 1 / 1 | 43.814824 / 43.82 | 2.845965 / 2.84 |
+| QPMF forward, TW 43.25 | 1 / 1 | 43.814824 / 43.82 | **0.961545 / 2.84** |
+| QPMF inverse nominal HW/D 1.5 | 5.237586 / 5.24 | 45.150000 / 45.14 | 4.182898 / 4.18 |
+| QPMF inverse nominal HW/D 2.0 | 6.376602 / 6.40 | 45.750000 / 45.76 | 4.404832 / 4.40 |
+| QPMF coincident sample treated as steady: forward | 0.199 / 0.20 | 43.573909 / 43.57 | 0.119691 / 0.12 |
+| QPMF coincident sample treated as steady: inverse | **0.149541 / 0.05** | 43.563600 / 43.56 | 0.089943 / 0.03 |
+
+QPMF sampled inputs come from the **same 1.283333 h row** in retained Q/H CSVs: Q=**0.199**, upstream H=**43.5636**, downstream H=**43.5542**. They are an instantaneous transient snapshot, not a proven steady boundary. Q100 sampled circular flow is zero throughout its retained Q series; no positive source flow was invented. Its 1 m³/s cases are openly assumed.
+
+Maximum paired |ΔHW| = **0.011214738 m**. Nominal HW/D-target inverse discharge differences are **+0.0461% to +0.3669%** (HY-8 minus native). These are observations, not pass thresholds. Elevated-tailwater velocity differences reach **1.953047 m/s** and remain unresolved. The sampled inverse differs by **−66.5643% Q**; run-hy8's existing internal **0.01 m headwater search stop** plus printed result precision is not an agreed discharge/parity tolerance. No tighter retry, coefficient tuning or excluded failure was used to manufacture agreement.
+
+All roadway flows are zero under the stated artificial roadway assumptions. Total barrel-group Q equals reported total Q; per-barrel Q is explicitly derived as group Q/3 and retained in CSV. Native regimes: inlet-control unsubmerged for assumed forward cases, inlet-control submerged for HW/D targets, outlet-control free-surface for the sampled pair. HY-8 raw flow codes: **1-S2n**, **5-S2n**, **1-S1t**, respectively. Native warning `representative_barrel_equal_flow` occurs in all ten native solves; Python warning capture is empty. Raw report qualifiers/profile data are retained, without pretending the two control vocabularies are identical.
+
+Readback of emitted HY-8 projects confirms concrete/headwall, **3 barrels and n_top=n_bottom=0.015**. SI→stored-unit→SI diameter values are 1.0733126616/0.8485281480 m; these are conversion precision differences, not catalogue snapping. Inverts/length and constant tailwaters were also audited.
+
+### Retained evidence and remaining gates
+
+Raw **29 each** `.hy8/.rst/.rsql/.plt` files (inverse searches produce multiple trials), all source/executable/package hashes, warning captures, serialized-input audit, parsed RST, normalized 20-row results and 10-row differences are retained. Public sanitized numerical CSVs and relative artifact SHA-256 manifests accompany the canonical WP15 record in the follow-up branch. Local workspace: `wp15-assumed-eg11-bn23q1oo`.
+
+**Not run / still blocked:** genuine Maximums workbook scenarios, true physical provenance, equivalent source contraction/adjusted-loss/roadway and steady-boundary treatment, agreed hydraulic tolerances, 2026.3 ELM outlet-control/inlet-control-RAM fallback and full blockage. The category-D QPMF source matrix still requests 100 while historical outputs apply 99; no general cap rule or full-closure acceptance is claimed.
+
+The prior local evidence commit `9fcefd6c` was preserved and cherry-picked onto a new scoped branch from #251, without pushing the merged #282 branch. No production edits, issue closure, parent/main merge, auto-merge or release. #101/#102/#103 remain open.
+
+
+
+Numerical artifacts: [20 normalized results](../validation_data/wp15-eg11-assumed-20261109/results.csv), [10 paired differences](../validation_data/wp15-eg11-assumed-20261109/differences.csv), [source hashes](../validation_data/wp15-eg11-assumed-20261109/source-sha256.json), [raw artifact hashes](../validation_data/wp15-eg11-assumed-20261109/artifact-sha256.json), and [HY-8 input readback](../validation_data/wp15-eg11-assumed-20261109/serialized-input-audit.json). Next review 2026-11-15 or on source/loss/tolerance resolution.
