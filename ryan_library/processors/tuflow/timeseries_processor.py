@@ -46,6 +46,15 @@ class TimeSeriesProcessor(BaseProcessor):
                 self.df = pd.DataFrame()
                 return
 
+            # Retain entity existence before subclass normalisation drops invalid
+            # numeric samples. An existing all-invalid selection is FAIL, not SKIP.
+            selected_before_cleaning = False
+            if self.entity_filter:
+                id_column = next((name for name in ("Chan ID", "Location") if name in self.df.columns), None)
+                if id_column is not None:
+                    identifiers = self.df[id_column].astype("string").str.strip()
+                    selected_before_cleaning = bool(identifiers.isin(self.entity_filter).any())
+
             status = self.process_timeseries_raw_dataframe()
             if status is not ProcessorStatus.SUCCESS:
                 logger.error(f"Processing aborted for file: {self.log_path} during {data_type} post-processing step.")
@@ -55,8 +64,12 @@ class TimeSeriesProcessor(BaseProcessor):
 
             self.apply_entity_filter()
             if self.applied_entity_filter and self.df.empty:
-                self.filtered_empty = True
-                logger.info("{}: No requested timeseries entities found; skipping file.", self.file_name)
+                if selected_before_cleaning:
+                    self.input_health = "INVALID"
+                    logger.warning("{}: Selected entities contain no usable timeseries samples.", self.file_name)
+                else:
+                    self.filtered_empty = True
+                    logger.info("{}: No requested timeseries entities found; skipping file.", self.file_name)
                 return
             self.add_common_columns()
             self.apply_output_transformations()

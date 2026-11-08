@@ -12,7 +12,7 @@ import pandas as pd
 from loguru import logger
 from pandas import DataFrame, Series
 
-from ....functions.tuflow.sample_validity import clean_hydraulic_samples
+from ....functions.tuflow.sample_validity import clean_hydraulic_samples, is_water_level_measurement
 from ..base_processor import BaseProcessor
 
 
@@ -48,6 +48,11 @@ class POProcessor(BaseProcessor):
 
         self.df = tidy_df
         self.df["AbsValue"] = self.df["Value"].abs()
+        # Preserve raw TUFLOW level values and row counts for source/split parity,
+        # but prevent the -99999 dry marker from contributing to derived extrema.
+        levels = self.df["Type"].astype("string").map(lambda name: is_water_level_measurement(str(name)))
+        dry = levels & self.df["Value"].eq(-99999).fillna(False)
+        self.df.loc[dry, "AbsValue"] = float("nan")
 
         self.apply_entity_filter()
         if self.applied_entity_filter and self.df.empty:
@@ -56,6 +61,8 @@ class POProcessor(BaseProcessor):
             self.filtered_empty = True
             logger.info("{}: No requested PO locations found; skipping file.", self.file_name)
             return
+        if not self.df["AbsValue"].notna().any():
+            self.input_health = "INVALID"
         self.add_common_columns()
         self.apply_output_transformations()
 
@@ -114,6 +121,11 @@ class POProcessor(BaseProcessor):
                 continue
 
             values, rejected = clean_hydraulic_samples(data_rows.iloc[:, idx], measurement=measurement_text)
+            if is_water_level_measurement(measurement_text):
+                source_values = pd.to_numeric(data_rows.iloc[:, idx], errors="coerce")
+                # A dry-level sentinel remains in the raw Value column for
+                # exact source provenance; derived AbsValue is masked later.
+                values = values.mask(source_values.eq(-99999).fillna(False), -99999)
             self.record_rejections(rejected)
             if values.isna().all():
                 logger.debug(

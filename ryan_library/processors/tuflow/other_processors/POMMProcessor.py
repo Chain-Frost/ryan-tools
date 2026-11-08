@@ -28,16 +28,24 @@ class POMMProcessor(BaseProcessor):
         # Let the BaseProcessor __post_init__ do its thing (sets self.name_parser, data_type, etc).
         super().__post_init__()
 
+    def _valid_extrema(self) -> pd.DataFrame:
+        """Numerical extrema excluding level no-data, without changing source Max/Min."""
+        valid = self.df[["Max", "Min"]].copy()
+        levels = self.df["Type"].astype("string").map(lambda name: is_water_level_measurement(str(name)))
+        for column in ("Max", "Min"):
+            dry = levels & valid[column].eq(-99999).fillna(False)
+            valid.loc[dry, column] = float("nan")
+        return valid
+
     def _derive_abs_metrics(self) -> None:
-        """Populate AbsMax and SignedAbsMax from the Max/Min columns."""
+        """Derive absolute extrema without allowing source level sentinels to govern."""
         if not {"Max", "Min"}.issubset(self.df.columns):
             return
-
-        absolute_values = self.df[["Max", "Min"]].abs()
+        valid = self._valid_extrema()
+        absolute_values = valid.abs()
         self.df["AbsMax"] = absolute_values.max(axis=1)
-
         use_max = (absolute_values["Max"] >= absolute_values["Min"]) | absolute_values["Min"].isna()
-        self.df["SignedAbsMax"] = self.df["Max"].where(use_max, self.df["Min"])
+        self.df["SignedAbsMax"] = valid["Max"].where(use_max, valid["Min"])
 
     def _remove_invalid_extrema(self) -> None:
         """Mask dry-level sentinels and discard rows without an actual numeric extreme."""
@@ -47,12 +55,13 @@ class POMMProcessor(BaseProcessor):
             no_data = level_rows & numeric.eq(-99999).fillna(False)
             count = int(no_data.sum())
             if count:
-                numeric = numeric.mask(no_data)
                 rejected["no_data"] = rejected.get("no_data", 0) + count
+            # Raw Max/Min are provenance columns, including the source -99999.
+            # Only derived AbsMax/SignedAbsMax must exclude level no-data.
             self.df[column] = numeric
             self.record_rejections(rejected)
 
-        all_missing = self.df[["Max", "Min"]].isna().all(axis=1)
+        all_missing = self._valid_extrema().isna().all(axis=1)
         if all_missing.any():
             self.record_rejections({"all_missing_extrema": int(all_missing.sum())})
             # Preserve unusable event rows with NaN maxima for TP population
@@ -150,6 +159,8 @@ class POMMProcessor(BaseProcessor):
                 self.filtered_empty = True
                 logger.info("{}: No requested POMM locations found; skipping file.", self.file_name)
                 return
+            if not self.df["AbsMax"].notna().any():
+                self.input_health = "INVALID"
             self.add_common_columns()
             self.apply_output_transformations()
             if not self.validate_data():
