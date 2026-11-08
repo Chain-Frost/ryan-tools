@@ -1,0 +1,50 @@
+{
+  "environment": {
+    "python": "3.14.6 (tags/v3.14.6:c63aec6, Jun 10 2026, 10:26:10) [MSC v.1944 64 bit (AMD64)]",
+    "platform": "Windows-10-10.0.19045-SP0",
+    "packages": {
+      "run-hy8": {
+        "version": "2026.10.18.2",
+        "recorded_files": 27,
+        "mismatches": []
+      },
+      "ryan-culverts": {
+        "version": "26.10.19.1",
+        "recorded_files": 62,
+        "mismatches": []
+      },
+      "ryan-tools": {
+        "version": "26.11.9.1",
+        "recorded_files": 400,
+        "mismatches": []
+      }
+    },
+    "exe_sha256": "0b1c5e7fb6b48be9c675b5486ae9a84346f436c5c649aa5ed09a1552267ee806"
+  },
+  "retained_raw_files_verified": {
+    "Q100/assumed-forward-invert/hy8/FC04.1_C__e008d91bbf8a_hw_from_q_run_001.hy8": "4b7c3c723a82e85ca31ed13f205cb9119ad10380a778447a80684987d236fc22",
+    "Q100/assumed-forward-invert/hy8/FC04.1_C__e008d91bbf8a_hw_from_q_run_001.plt": "e4f6aefdba3ec1ea773d6f4e8f8eaf8630b191c2f22183d81088a30b5affd027",
+    "Q100/assumed-forward-invert/hy8/FC04.1_C__e008d91bbf8a_hw_from_q_run_001.rsql": "176d2ce1f0093218f5bacc02b1b1e30dc42c706890ee2bb748e36a4b6b1c71ad",
+    "Q100/assumed-forward-invert/hy8/FC04.1_C__e008d91bbf8a_hw_from_q_run_001.rst": "7004d2fc508c86cc2cdbabfc49475ab8810b950e7fff11e25575df122da6b1c5",
+    "Q100/assumed-forward-submerged/hy8/FC04.1_C__e008d91bbf8a_hw_from_q_run_001.hy8": "335c43ec028b4540055d8975ba0dafaf938be9cd2758ed70b07f70be8df83e46",
+    "Q100/assumed-forward-submerged/hy8/FC04.1_C__e008d91bbf8a_hw_from_q_run_001.plt": "d73a34f89ef707f901fe0f44df4f34d849eabcca6020e792094f625fb3f92a7f",
+    "Q100/assumed-forward-submerged/hy8/FC04.1_C__e008d91bbf8a_hw_from_q_run_001.rsql": "2ee142b16da3f46f872f36336dc030f31efdd877d6fcc2e97e64b90b9533357f",
+    "Q100/assumed-forward-submerged/hy8/FC04.1_C__e008d91bbf8a_hw_from_q_run_001.rst": "a04637b1fd0fa7eede1864b06e4feabe58d46ecb424a39e79e8d017b32ff6ac8",
+    "QPMF/assumed-forward-invert/hy8/FC04.1_C__e008d91bbf8a_hw_from_q_run_001.hy8": "593a0f37b671768e7194dba582c0c2c1a3f28fb8fe8b47e27fd7fb41e107a060",
+    "QPMF/assumed-forward-invert/hy8/FC04.1_C__e008d91bbf8a_hw_from_q_run_001.plt": "d251bb3baa6c0b9f30703a0067339babc872e70937cecd98ede0ff082c75b674",
+    "QPMF/assumed-forward-invert/hy8/FC04.1_C__e008d91bbf8a_hw_from_q_run_001.rsql": "a4c2d5064eeac25de9d57ac9e66cabc5c6c5cbdbe36891d3a974a2c472747753",
+    "QPMF/assumed-forward-invert/hy8/FC04.1_C__e008d91bbf8a_hw_from_q_run_001.rst": "000b848a7b2496d218e9e149f0a96d30f7095ddcffa48fb51959efdd76ecbdc4",
+    "QPMF/assumed-forward-submerged/hy8/FC04.1_C__e008d91bbf8a_hw_from_q_run_001.hy8": "01d6f2ecc9a82fb1c5ae4e445daa65e703548eb437e5111ca561241eeb60a35a",
+    "QPMF/assumed-forward-submerged/hy8/FC04.1_C__e008d91bbf8a_hw_from_q_run_001.plt": "3f935c367f700102764dd41cefc53761c22f4ccf7cadd0c842a5319f461b39f0",
+    "QPMF/assumed-forward-submerged/hy8/FC04.1_C__e008d91bbf8a_hw_from_q_run_001.rsql": "c6253ea503a4fe8f54043db59c0f0765cdd0fa73109f4c32211d898802ee9ab9",
+    "QPMF/assumed-forward-submerged/hy8/FC04.1_C__e008d91bbf8a_hw_from_q_run_001.rst": "3570095213879793b2b328c687691ab4abd291f2b6247a9228adff777894a749"
+  },
+  "native_input_and_output_sha256": {
+    "Q100-assumed-forward-invert-native.json": "cd94929f47fd3bb48eacaf6fa9979ac7a4ac62ec6abc7bbff19d68a1c431936c",
+    "Q100-assumed-forward-submerged-native.json": "8dd9eda40fae360653ec86af6c821633bf4693655a918c7b309c797878ec8040",
+    "QPMF-assumed-forward-invert-native.json": "a0f4c9381f11605c46ba8d78705faf527db080667871f104e352c3b5f5e27016",
+    "QPMF-assumed-forward-submerged-native.json": "1c25eb9f21fa1c806c0e27d26a978d3140adfabb5b7d417b6ed79566849eb75c"
+  },
+  "extraction_script_sha256": "b70026930d51f9d970a75bf2e027b6a42b678e3e47c840a377ad9113fde793bf",
+  "method": "Four native calls through unchanged installed adapter, capture public solve_crossing_hydraulics result; HY-8 PLT FlowProfile 1 (35.3147 cfs group flow), Profile series final point station 20 m; circular segment area from depth, not Q/V. RST Culvert Summary Table Q=1 column. RSQL retains only FlowProfile 0, not target flow."
+}
