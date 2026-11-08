@@ -4,19 +4,13 @@ from __future__ import annotations
 
 __lazy_modules__: list[str] = ["pandas"]
 import copy
-import hashlib
-import importlib
-import json
-import os
 import re
-import tempfile
-from collections.abc import Collection, Hashable
-from datetime import UTC, datetime
+from collections.abc import Collection
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from loguru import logger
-from pandas import NA, DataFrame, MultiIndex, Series, concat, to_numeric
+from pandas import NA, DataFrame, Series, concat, to_numeric
 
 from ryan_library.functions.dataframe_helpers import (
     reorder_columns,
@@ -766,249 +760,23 @@ class ProcessorCollection:
         )
         return filtered_collection
 
-    @staticmethod
-    def _hdf_registry_digest() -> str:
-        """Fingerprint the processor schema used to interpret cached frames."""
-        registry = Path(__file__).parents[2] / "classes" / "tuflow_results_validation_and_datatypes.json"
-        return hashlib.sha256(registry.read_bytes()).hexdigest()
-
-    @staticmethod
-    def _hdf_source_signature(path: Path) -> dict[str, Any]:
-        """Record lightweight source identity; this is not a content hash."""
-        absolute = path.absolute()
-        stat = absolute.stat()
-        if not absolute.is_file():
-            msg = f"Processor source is not a file: {absolute}"
-            raise ValueError(msg)
-        signature: dict[str, Any] = {
-            "path": str(absolute),
-            "size": stat.st_size,
-            "mtime_ns": stat.st_mtime_ns,
-        }
-        # A GeoPackage's latest committed results may still be in its WAL.
-        if absolute.suffix.lower() == ".gpkg":
-            wal = absolute.with_name(absolute.name + "-wal")
-            if wal.exists():
-                wal_stat = wal.stat()
-                signature["wal"] = {"size": wal_stat.st_size, "mtime_ns": wal_stat.st_mtime_ns}
-            else:
-                signature["wal"] = None
-        return signature
-
-    @staticmethod
-    def _hdf_frame_bytes(frame: DataFrame) -> bytes:
-        """Encode a pandas frame and its extension dtypes using Arrow IPC, not pickle."""
-        import numpy as np
-
-        pa: Any = importlib.import_module("pyarrow")
-
-        # POMM's promoted header can leave the column Index name as np.int64.
-        # Arrow's pandas metadata is JSON and rejects NumPy scalars in axis names.
-        # Normalise only the copied axis metadata; do not alter source frames.
-        portable = frame.copy(deep=False)
-        if isinstance(portable.columns, MultiIndex):
-            names: list[Hashable | None] = [
-                cast("Hashable | None", name.item()) if isinstance(name, np.generic) else name
-                for name in portable.columns.names
-            ]
-            portable.columns = portable.columns.set_names(names)
-        else:
-            name = portable.columns.name
-            if isinstance(name, np.generic):
-                portable.columns = portable.columns.rename(cast("Hashable | None", name.item()))
-
-        # Arrow encodes object-typed pd.NA as a null and normally restores
-        # it as None, which changes the processed DataFrame's value contract.
-        # Preserve the exact pandas missing sentinel alongside Arrow metadata.
-        na_positions: dict[str, list[int]] = {}
-        for col_idx in range(frame.shape[1]):
-            if frame.dtypes.iloc[col_idx] == "object":
-                positions = [row_idx for row_idx, value in enumerate(frame.iloc[:, col_idx]) if value is NA]
-                if positions:
-                    na_positions[str(col_idx)] = positions
-
-        sink = pa.BufferOutputStream()
-        table = pa.Table.from_pandas(portable, preserve_index=True)
-        if na_positions:
-            schema_metadata: dict[bytes, bytes] = dict(table.schema.metadata or {})
-            schema_metadata[b"ryan_tools:pd_na_positions"] = json.dumps(na_positions, sort_keys=True).encode("utf-8")
-            table = table.replace_schema_metadata(schema_metadata)
-        with pa.ipc.new_file(sink, table.schema) as writer:
-            writer.write_table(table)
-        return bytes(sink.getvalue().to_pybytes())
-
-    @staticmethod
-    def _hdf_frame_from_bytes(payload: bytes) -> DataFrame:
-        """Restore pandas/index metadata, including categories and nullable types."""
-        pa: Any = importlib.import_module("pyarrow")
-
-        table = pa.ipc.open_file(pa.BufferReader(payload)).read_all()
-        frame: Any = table.to_pandas()
-        if not isinstance(frame, DataFrame):
-            msg = "Cached Arrow payload did not contain a DataFrame"
-            raise TypeError(msg)
-
-        schema_metadata = cast("dict[bytes, bytes] | None", table.schema.metadata)
-        extra = schema_metadata.get(b"ryan_tools:pd_na_positions") if schema_metadata is not None else None
-        if extra is not None:
-            raw_positions: Any = json.loads(extra.decode("utf-8"))
-            if not isinstance(raw_positions, dict):
-                msg = "Cached Arrow missing-value metadata is malformed"
-                raise ValueError(msg)
-            positions_by_column = cast("dict[str, Any]", raw_positions)
-            for column, raw_column_positions in positions_by_column.items():
-                if not isinstance(raw_column_positions, list):
-                    msg = "Cached Arrow missing-value metadata is malformed"
-                    raise ValueError(msg)
-                positions = cast("list[Any]", raw_column_positions)
-                col_idx = int(column)
-                if not 0 <= col_idx < frame.shape[1]:
-                    msg = "Cached Arrow missing-value column index is invalid"
-                    raise ValueError(msg)
-                for row_idx in positions:
-                    if not isinstance(row_idx, int) or not 0 <= row_idx < len(frame):
-                        msg = "Cached Arrow missing-value row index is invalid"
-                        raise ValueError(msg)
-                    frame.iloc[row_idx, col_idx] = NA
-        return frame
-
-    @staticmethod
-    def _hdf_put_bytes(store: Any, name: str, payload: bytes, filters: Any) -> None:
-        """Write one named binary payload as a compressed HDF5 byte array."""
-        import numpy as np
-
-        tables: Any = importlib.import_module("tables")
-
-        data = np.frombuffer(payload, dtype=np.uint8)
-        node = store.create_carray(store.root, name, atom=tables.UInt8Atom(), shape=(len(data),), filters=filters)
-        node[:] = data
-
-    @staticmethod
-    def _hdf_get_bytes(store: Any, name: str) -> bytes:
-        """Reject a missing cache member rather than returning partial results."""
-        tables: Any = importlib.import_module("tables")
-
-        try:
-            node = store.get_node(f"/{name}")
-        except tables.NoSuchNodeError as exc:
-            msg = f"HDF5 cache missing required member {name!r}"
-            raise ValueError(msg) from exc
-        return bytes(node.read())
-
-    @staticmethod
-    def _hdf_require_storage() -> None:
-        """Report the optional PyTables dependency before mutating any cache paths."""
-        try:
-            importlib.import_module("pyarrow")
-            importlib.import_module("tables")
-        except ImportError as exc:
-            msg = "HDF5 processor caches require pyarrow and optional PyTables: pip install 'ryan-tools[cache]'"
-            raise RuntimeError(msg) from exc
+    # Breaking change (2026-11-08): the optional HDF5 snapshot feature was removed.
+    # Retain the migration notice through 2027-03-31; remove from 2027-04-01.
+    # Last published HDF5-API release: ryan-tools==26.11.8.3 on PyPI.
+    _HDF5_REMOVAL_NOTICE = (
+        "HDF5 snapshots were removed on 2026-11-08. "
+        "The last published version retaining the API is ryan-tools==26.11.8.3 "
+        "(https://pypi.org/project/ryan-tools/26.11.8.3/). "
+        "Use Parquet for processed tabular data. "
+        "Migration notices are retained through 2027-03-31."
+    )
 
     def to_hdf(self, file_path: Path | str, *, overwrite: bool = False) -> None:
-        """Stage and atomically publish a versioned Arrow-in-HDF5 processor snapshot.
+        """Retired HDF5 writer; see PyPI ryan-tools==26.11.8.3.
 
-        The default refuses an existing cache. Set overwrite=True to deliberately
-        replace it atomically. Source file metadata is captured for later freshness
-        checks; the processed rows themselves are a snapshot, not live result data.
+        Keep this migration notice through 2027-03-31.
         """
-        self._hdf_require_storage()
-        tables: Any = importlib.import_module("tables")
-
-        destination = Path(file_path).absolute()
-        if destination.is_symlink():
-            msg = f"Refusing to publish through an HDF5 cache symlink: {destination}"
-            raise FileExistsError(msg)
-        if destination.exists() and not overwrite:
-            msg = f"HDF5 cache already exists (set overwrite=True to replace): {destination}"
-            raise FileExistsError(msg)
-        if destination.exists() and not destination.is_file():
-            msg = f"HDF5 cache destination is not a regular file: {destination}"
-            raise ValueError(msg)
-
-        for processor in self.processors:
-            if (
-                destination.exists()
-                and processor.resolved_file_path.exists()
-                and destination.samefile(processor.resolved_file_path)
-            ):
-                msg = f"HDF5 cache destination aliases a processor source: {destination}"
-                raise ValueError(msg)
-
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        fd, temporary = tempfile.mkstemp(prefix=f".{destination.name}.", suffix=".part", dir=destination.parent)
-        os.close(fd)
-
-        try:
-            manifest: dict[str, Any] = {
-                "cache_version": 1,
-                "frame_codec": "arrow-ipc-file",
-                "registry_sha256": self._hdf_registry_digest(),
-                "created_at_utc": datetime.now(UTC).isoformat(),
-                "processors": [],
-                "has_basic_info_lookup": self.basic_info_lookup is not None,
-            }
-            filters = tables.Filters(complevel=9, complib="blosc:zstd")
-            manifest_payload: bytes = b""
-            with tables.open_file(temporary, mode="w") as store:
-                for idx, processor in enumerate(self.processors):
-                    if not processor.processed or processor.df.empty:
-                        msg = f"Only non-empty successfully processed members may be cached: {processor.file_path}"
-                        raise ValueError(msg)
-
-                    name = f"proc_{idx:06d}"
-                    payload = self._hdf_frame_bytes(processor.df)
-                    self._hdf_put_bytes(store, name, payload, filters)
-                    manifest["processors"].append(
-                        {
-                            "hdf_key": name,
-                            "sha256": hashlib.sha256(payload).hexdigest(),
-                            "file_path": str(processor.resolved_file_path),
-                            "source": self._hdf_source_signature(processor.resolved_file_path),
-                            "class_name": processor.__class__.__name__,
-                            "class_module": processor.__class__.__module__,
-                            "processor_module": processor.processor_module,
-                            "dataformat": processor.dataformat,
-                            "data_type": processor.data_type,
-                            "raw_run_code": processor.name_parser.raw_run_code,
-                            "include_path_columns": processor.include_path_columns,
-                            "entity_filter": sorted(processor.entity_filter) if processor.entity_filter else [],
-                            "applied_location_filter": (
-                                sorted(processor.applied_location_filter) if processor.applied_location_filter else []
-                            ),
-                            "applied_entity_filter": (
-                                sorted(processor.applied_entity_filter) if processor.applied_entity_filter else []
-                            ),
-                        }
-                    )
-
-                if self.basic_info_lookup is not None:
-                    lookup_payload = self._hdf_frame_bytes(self.basic_info_lookup)
-                    self._hdf_put_bytes(store, "basic_info_lookup", lookup_payload, filters)
-                    manifest["basic_info_sha256"] = hashlib.sha256(lookup_payload).hexdigest()
-
-                manifest_payload = json.dumps(manifest, ensure_ascii=False, sort_keys=True).encode("utf-8")
-                self._hdf_put_bytes(store, "manifest", manifest_payload, filters)
-
-            # Re-open the complete staging file before replacing any prior cache.
-            with tables.open_file(temporary, mode="r") as store:
-                if self._hdf_get_bytes(store, "manifest") != manifest_payload:
-                    msg = "HDF5 cache staging verification failed"
-                    raise ValueError(msg)
-
-            if overwrite:
-                Path(temporary).replace(destination)
-            elif os.name == "nt":
-                # On Windows rename is an atomic no-clobber operation.
-                Path(temporary).rename(destination)
-            else:
-                # On POSIX rename replaces its target; hard-link is atomic no-clobber.
-                os.link(temporary, destination)
-                Path(temporary).unlink()
-        finally:
-            Path(temporary).unlink(missing_ok=True)
-
-        logger.info("Saved {} processor snapshots to {}", len(self.processors), destination)
+        raise NotImplementedError(self._HDF5_REMOVAL_NOTICE)
 
     @staticmethod
     def from_hdf(
@@ -1017,127 +785,11 @@ class ProcessorCollection:
         *,
         verify_sources: bool = True,
     ) -> ProcessorCollection:
-        """Restore the complete cache or fail, checking source freshness by default.
+        """Retired HDF5 reader; see PyPI ryan-tools==26.11.8.3.
 
-        verify_sources=False explicitly treats the file as a historical snapshot
-        even if the original sources have moved or changed.
+        Keep this migration notice through 2027-03-31.
         """
-        ProcessorCollection._hdf_require_storage()
-        tables: Any = importlib.import_module("tables")
-
-        path = Path(file_path)
-        if not path.is_file():
-            msg = f"HDF5 cache file not found: {path}"
-            raise FileNotFoundError(msg)
-
-        collection = ProcessorCollection()
-        with tables.open_file(str(path), mode="r") as store:
-            try:
-                raw_manifest: Any = json.loads(ProcessorCollection._hdf_get_bytes(store, "manifest").decode("utf-8"))
-            except (UnicodeError, json.JSONDecodeError) as exc:
-                msg = f"HDF5 cache manifest is corrupt: {path}"
-                raise ValueError(msg) from exc
-
-            if not isinstance(raw_manifest, dict):
-                msg = f"Unsupported HDF5 processor cache version: {path}"
-                raise ValueError(msg)
-            manifest = cast("dict[str, Any]", raw_manifest)
-            if manifest.get("cache_version") != 1:
-                msg = f"Unsupported HDF5 processor cache version: {path}"
-                raise ValueError(msg)
-            if manifest.get("frame_codec") != "arrow-ipc-file":
-                msg = f"Unsupported HDF5 processor cache frame codec: {path}"
-                raise ValueError(msg)
-            if manifest.get("registry_sha256") != ProcessorCollection._hdf_registry_digest():
-                msg = f"HDF5 cache processor registry changed since snapshot: {path}"
-                raise ValueError(msg)
-            raw_entries: Any = manifest.get("processors")
-            if not isinstance(raw_entries, list):
-                msg = f"HDF5 cache processor inventory is malformed: {path}"
-                raise ValueError(msg)
-
-            entries = cast("list[Any]", raw_entries)
-            for idx, raw_entry in enumerate(entries):
-                if not isinstance(raw_entry, dict):
-                    msg = f"HDF5 cache member inventory is malformed at index {idx}: {path}"
-                    raise ValueError(msg)
-                entry = cast("dict[str, Any]", raw_entry)
-                if entry.get("hdf_key") != f"proc_{idx:06d}":
-                    msg = f"HDF5 cache member inventory is malformed at index {idx}: {path}"
-                    raise ValueError(msg)
-                if verify_sources:
-                    recorded = entry.get("source")
-                    recorded_dict = cast("dict[str, Any]", recorded) if isinstance(recorded, dict) else None
-                    source_path: Any = recorded_dict.get("path") if recorded_dict is not None else None
-                    if not isinstance(source_path, str):
-                        msg = f"HDF5 cache member lacks a valid source identity: {entry.get('file_path')}"
-                        raise ValueError(msg)
-                    try:
-                        current_source = ProcessorCollection._hdf_source_signature(Path(source_path))
-                    except OSError as exc:
-                        msg = f"HDF5 cache source is unavailable: {source_path}"
-                        raise ValueError(msg) from exc
-                    if recorded != current_source:
-                        msg = f"HDF5 cache source has changed since snapshot: {source_path}"
-                        raise ValueError(msg)
-
-                key = entry["hdf_key"]
-                payload = ProcessorCollection._hdf_get_bytes(store, key)
-                if hashlib.sha256(payload).hexdigest() != entry.get("sha256"):
-                    msg = f"HDF5 cache member checksum mismatch: {key}"
-                    raise ValueError(msg)
-                frame = ProcessorCollection._hdf_frame_from_bytes(payload)
-                if frame.empty:
-                    msg = f"HDF5 cache member has no processed rows: {key}"
-                    raise ValueError(msg)
-
-                processor_class = BaseProcessor.get_processor_class(
-                    class_name=entry["class_name"],
-                    processor_module=entry.get("processor_module"),
-                    dataformat=entry.get("dataformat"),
-                )
-                if processor_class.__module__ != entry.get("class_module"):
-                    msg = f"HDF5 cache processor class has changed for {entry['class_name']}"
-                    raise ValueError(msg)
-                processor = processor_class(
-                    file_path=Path(entry["file_path"]),
-                    entity_filter=entry.get("entity_filter"),
-                    include_path_columns=entry.get("include_path_columns", True),
-                )
-                if (
-                    processor.data_type != entry.get("data_type")
-                    or processor.dataformat != entry.get("dataformat")
-                    or processor.name_parser.raw_run_code != entry.get("raw_run_code")
-                ):
-                    msg = f"HDF5 processor configuration mismatches cached source {entry['file_path']}"
-                    raise ValueError(msg)
-
-                processor.df = frame
-                processor.applied_location_filter = frozenset(entry.get("applied_location_filter", []))
-                processor.applied_entity_filter = frozenset(entry.get("applied_entity_filter", []))
-                processor.processed = True
-                collection.add_processor(processor)
-
-            if manifest.get("has_basic_info_lookup"):
-                payload = ProcessorCollection._hdf_get_bytes(store, "basic_info_lookup")
-                if hashlib.sha256(payload).hexdigest() != manifest.get("basic_info_sha256"):
-                    msg = "HDF5 cache basic-info lookup checksum mismatch"
-                    raise ValueError(msg)
-                collection.basic_info_lookup = ProcessorCollection._hdf_frame_from_bytes(payload)
-            else:
-                try:
-                    store.get_node("/basic_info_lookup")
-                except tables.NoSuchNodeError:
-                    pass
-                else:
-                    msg = "HDF5 cache has an unrecorded basic-info lookup"
-                    raise ValueError(msg)
-
-        if locations:
-            collection.filter_locations(locations)
-
-        logger.info("Restored {} processors from HDF5 snapshot {}", len(collection.processors), path)
-        return collection
+        raise NotImplementedError(ProcessorCollection._HDF5_REMOVAL_NOTICE)
 
     def check_duplicates(self) -> dict[tuple[str, str], list[BaseProcessor]]:
         """Identify processors that share the same run-code (internalName) and data_type.
