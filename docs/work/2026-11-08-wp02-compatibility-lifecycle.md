@@ -2,11 +2,11 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Needs review — baseline evidence gathered; draft PR and dependency-absence verification outstanding |
+| Status | Complete — source-checkout and installed-wheel import checks passed; parent PR remains draft/unmerged |
 | Owner | ChatGPT / maintainer |
 | Created | 2026-11-08 |
 | Updated | 2026-11-08 |
-| Next review | 2026-11-20 |
+| Next review | — (follow normal draft PR review; no main-merge authorisation) |
 | Baseline | `main` `5ad632cc9a17b302ad3f4f2b55315a1e2e8d1d51` (2026-11-07), separate from WP02 [#234](https://github.com/Chain-Frost/ryan-tools/issues/234) |
 | Delivery | Consolidated into [PR #251](https://github.com/Chain-Frost/ryan-tools/pull/251) (WP01 + WP02); original draft PRs [#252](https://github.com/Chain-Frost/ryan-tools/pull/252) and [#256](https://github.com/Chain-Frost/ryan-tools/pull/256) retained for review history. No main merge or release authorised |
 
@@ -63,10 +63,10 @@ does eagerly import `run_hy8` **when that bridge is selected**; this is expected
 is an unconditional `ryan-tools` requirement in `pyproject.toml`. The MCP SDK is an explicit
 `mcp` extra. Importing the package root must not require optional GIS or MCP tooling.
 
-**Verification not completed in this review:** a fresh Python 3.14 source checkout and a separate
-installed-wheel process that deliberately blocks `osgeo`, QGIS and the MCP SDK have not been run.
-A focused runtime check, run from the respective *normal* environments without a virtual environment,
-can use:
+**Initial review gap, resolved in this follow-up:** the original document-only review did not execute
+Python 3.14 source and installed-wheel optional-import probes. Both are now covered by independent
+fresh-process checks in [the exact-head Windows CI](https://github.com/Chain-Frost/ryan-tools/actions/runs/42397863652).
+The following command remains an optional **manual** cross-check, not a newly claimed test run:
 
 ```powershell
 py -3.14 -c "import sys; sys.modules.update({'osgeo': None, 'qgis': None, 'mcp': None}); import ryan_library, ryan_library.functions, ryan_library.functions.gdal; print(ryan_library.__file__)"
@@ -74,8 +74,10 @@ py -3.14 -c "import sys; sys.modules.update({'osgeo': None, 'qgis': None, 'mcp':
 
 For installed-wheel confirmation, execute from **outside the repository** and inspect the printed
 package path; for source-checkout confirmation, execute from the checkout and inspect the distinct
-source path. A successful probe establishes only the package-initializer boundary, not optional GIS
-workflow functionality. Do not report this command as already executed.
+source path. The automated regression tests additionally import the maintained lightweight path helper,
+block all attempts (including swallowed optional-import failures), and check exact module origin.
+The manual one-liner above was not run; the equivalent automated checks passed. Neither test claims
+optional GIS workflow functionality or native HY-8/TUFLOW solver acceptance.
 
 ## HY-8 and missing-run current acceptance
 
@@ -91,16 +93,24 @@ workflow functionality. Do not report this command as already executed.
   installed-wheel smoke and a 1,468-log mapped-drive campaign scan; those are previously
   recorded evidence, not newly repeated by WP02. No native model was launched.
 
-## Next action, validation and delivery
+## Acceptance, validation and delivery
 
-1. Review combined [PR #251](https://github.com/Chain-Frost/ryan-tools/pull/251) and check its hosted documentation validation at the exact head
-   and confirm that no unrelated implementation or package changes entered its diff.
-2. When a Python 3.14 source checkout and an installed-wheel installation are available,
-   run the separately identified optional-dependency-absence probe in both contexts.
-   If it fails, open a **separate bounded implementation issue**; do not silently expand #98
-   into code refactoring or remove a public API.
-3. Obtain maintainer acceptance before closing #98; keep broader package/MCP source-inventory
-   approval on [PR #137](https://github.com/Chain-Frost/ryan-tools/pull/137).
+- [x] Reconcile actual namespaces, warnings, support dates, callers and maintained HY-8/missing-run entry points.
+- [x] Document source-checkout and installed-wheel evidence independently and maintain canonical policy/register/index.
+- [x] Verify lightweight source and installed-wheel imports with optional dependencies blocked in fresh Python 3.14 processes. Test exact physical source origins.
+- [x] Commit/push the bounded source and package-smoke checks onto draft [PR #251](https://github.com/Chain-Frost/ryan-tools/pull/251). No new API deletion or native solver execution.
+- [ ] A maintainer may review/approve the **eventual** single parent squash merge; there is **no authorisation** to merge, auto-merge or release. Closing [#98](https://github.com/Chain-Frost/ryan-tools/issues/98) should occur only on an explicitly authorised parent merge.
+
+**Current accepted checks:** [Windows Python CI run 42397863652](https://github.com/Chain-Frost/ryan-tools/actions/runs/42397863652) on `bcf3fd92974bdb0a580e620f4481bcaee446503a`, with all five jobs passing. Hosted tests:
+**2,546 passed, 14 skipped, 8 deselected**, including `tests/test_compatibility_import_isolation.py`.
+The Package job built/verified `ryan_tools-26.11.7.13-py3-none-any.whl` (SHA-256
+`3ab4fc1baf3d7c8be244258c105d9419c0fde2df4d16fdd1047dd2ed7edc3ac3`) and logged
+`Wheel import-isolation and physical-origin check passed.` It exercised the probe against the
+separately installed wheel, not source-checkout code. Policy and [Fast PR Ruff checks](https://github.com/Chain-Frost/ryan-tools/actions/runs/42397863653)
+also passed, including changed-file strict Pyright (0 errors/0 warnings), documentation checks and
+Loguru policy. MCP smoke and POSIX wrapper security passed. These are hosted source-and-wheel
+checks, **not** licensed TUFLOW or external HY-8 runs. The broader script-selection, Office/UNC
+and engineering acceptance remain tracked independently (not #98 reopen conditions).
 
 **2026-11-08 validation:** inspected source package initializers, relevant wrappers,
 orchestrators, policy, August audit and the current `pyproject.toml`/distribution on GitHub;
@@ -117,3 +127,33 @@ Recorded current import/lifecycle state, reconciled the merged #120 and subseque
 release, distinguished source from installed-wheel evidence, identified the remaining
 optional-dependency test limitation, and retained separately owned distribution and native
 software acceptance gates.
+
+### 2026-11-08 — Repeatable import-boundary validation added
+
+WP02 issue #98 now has a read-only, stdlib-based import-origin and optional-dependency
+probe in `repo-scripts/check_compatibility_imports.py`. A new hosted source-checkout
+test runs it with `PYTHONPATH` pointing at this repository, and the existing
+installed-wheel smoke invokes the same probe in a **fresh process** with
+`PYTHONPATH` restricted to the isolated wheel target. These separate contexts
+check physical package origin and block `osgeo`, `qgis`, `mcp`, `tkinter`,
+`run_hy8` and `culvert_solver` during lightweight package/utility imports.
+The two engine distributions are required dependencies, but remain unnecessary
+for those lightweight imports. The probe also records blocked attempts that
+an importing module may swallow internally.
+
+A synthetic local probe with Python 3.13 passed, and a deliberately swallowed
+`osgeo` import caused the expected failure. This **does not establish** the
+supported Python 3.14 source and installed-wheel checks: confirm both on the
+combined PR #251 head in hosted CI before updating this record to complete and
+adding an issue-closing keyword for #98. No licensed solver or native GIS
+runtime is exercised by this probe.
+
+### 2026-11-08 — Exact-head acceptance and WP02 closeout
+
+After the first hosted Ruff failure (six EM102 messages), code commit `bcf3fd92`
+replaced direct f-string exception arguments; the new exact-head Fast PR job and
+all five Python CI jobs passed. The hosted source-checkout test and real isolated
+wheel smoke independently demonstrate the required optional-import boundary.
+Issue #98 is ready for **automatic closure upon an expressly authorised future
+merge** of parent #251. The parent remains draft; no main merge, auto-merge or
+release is authorised, and there are no additional #98 native acceptance gates.

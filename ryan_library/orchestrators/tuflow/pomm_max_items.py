@@ -11,6 +11,7 @@ __lazy_modules__: list[str] = ["pandas"]
 import warnings
 from collections.abc import Callable, Collection, Sequence
 from datetime import datetime
+from functools import partial
 from pathlib import Path
 
 import pandas as pd
@@ -18,6 +19,7 @@ from loguru import logger
 
 from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.tuflow.pomm_utils import (
+    STANDARD_DURATIONS_MINUTES,
     aggregated_from_paths,
     save_peak_report_mean,
     save_peak_report_median,
@@ -168,6 +170,8 @@ def export_mean_peak_report(
     include_pomm: bool = True,
     locations_to_include: Collection[str] | None = None,
     include_data_types: Collection[str] | None = None,
+    standard_durations: Sequence[int] = STANDARD_DURATIONS_MINUTES,
+    expected_tp_count: int = 10,
 ) -> None:
     """Locate and process POMM files and export **mean-based** peak values.
 
@@ -180,7 +184,9 @@ def export_mean_peak_report(
         include_pomm=include_pomm,
         locations_to_include=locations_to_include,
         include_data_types=include_data_types,
-        exporter=save_peak_report_mean,
+        exporter=partial(
+            save_peak_report_mean, standard_durations=standard_durations, expected_tp_count=expected_tp_count
+        ),
     )
 
 

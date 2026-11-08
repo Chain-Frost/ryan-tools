@@ -239,7 +239,8 @@ def test_literal_volume_names(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, f
     unrelated.write_bytes(b"preserve")
 
     def fake_run(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
-        volume.write_bytes(b"archive")
+        staged_archive = Path(command[-1])
+        (staged_archive.parent / f"{staged_archive.name}.001").write_bytes(b"archive")
         return subprocess.CompletedProcess(command, int(failed), stdout="", stderr="failure" if failed else "")
 
     monkeypatch.setattr(subprocess, "run", fake_run)
