@@ -6,7 +6,6 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
-from ryan_library.functions.tuflow.pomm_utils import find_aep_dur_max
 from ryan_library.functions.tuflow.po_timeseries_checks import (
     PeakCheckConfig,
     StabilityCheckConfig,
@@ -14,6 +13,7 @@ from ryan_library.functions.tuflow.po_timeseries_checks import (
     analyze_stability_csv,
     analyze_stability_q_csv,
 )
+from ryan_library.functions.tuflow.pomm_utils import find_aep_dur_max
 from ryan_library.functions.tuflow.tuflow_common import _result_status
 from ryan_library.orchestrators.tuflow.peak_check_po_csvs import _file_outcome as _peak_file_outcome
 from ryan_library.orchestrators.tuflow.tuflow_timeseries_stability import _file_outcome as _stability_file_outcome
@@ -189,7 +189,8 @@ def test_pomm_keeps_unusable_tp_provenance_for_population_counts(tmp_path: Path)
     )
     valid.process()
     invalid.process()
-    assert valid.processed and invalid.processed
+    assert valid.processed
+    assert invalid.processed
     collection = ProcessorCollection()
     collection.add_processor(valid)
     collection.add_processor(invalid)
