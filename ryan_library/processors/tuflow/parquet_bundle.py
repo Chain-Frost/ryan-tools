@@ -617,7 +617,7 @@ def _assert_pinned_directory(destination: Path, directory_fd: int | None) -> Non
             raise ValueError(message)
         return
     original = os.fstat(directory_fd)
-    current = os.stat(destination, follow_symlinks=False)  # noqa: PTH113
+    current = destination.stat(follow_symlinks=False)
     if (
         not stat.S_ISDIR(current.st_mode)
         or (original.st_dev, original.st_ino) != (current.st_dev, current.st_ino)
@@ -653,7 +653,7 @@ def _publish_manifest(tmp_path: Path, target: Path, directory_fd: int | None) ->
     if directory_fd is None:
         tmp_path.replace(target)
     else:
-        os.replace(tmp_path.name, target.name, src_dir_fd=directory_fd, dst_dir_fd=directory_fd)  # noqa: PTH105
+        os.replace(tmp_path.name, target.name, src_dir_fd=directory_fd, dst_dir_fd=directory_fd) 
 
 
 def _overwrite_collection(  # noqa: C901
@@ -684,7 +684,7 @@ def _overwrite_collection(  # noqa: C901
             versions = destination / _VERSIONS
             if directory_fd is not None:
                 with suppress(FileExistsError):
-                    os.mkdir(_VERSIONS, dir_fd=directory_fd)  # noqa: PTH102
+                    os.mkdir(_VERSIONS, dir_fd=directory_fd) 
                 flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
                 versions_fd = os.open(_VERSIONS, flags, dir_fd=directory_fd)
             else:
@@ -721,7 +721,7 @@ def _overwrite_collection(  # noqa: C901
                 if temp_path is not None:
                     if directory_fd is not None:
                         with suppress(FileNotFoundError):
-                            os.unlink(temp_path.name, dir_fd=directory_fd)  # noqa: PTH108
+                            os.unlink(temp_path.name, dir_fd=directory_fd) 
                     else:
                         temp_path.unlink(missing_ok=True)
                 if moved_name is not None and not published:
@@ -740,7 +740,7 @@ def _overwrite_collection(  # noqa: C901
                         if locked:
                             if directory_fd is not None:
                                 with suppress(FileNotFoundError):
-                                    os.unlink(".publish.lock", dir_fd=directory_fd)  # noqa: PTH108
+                                    os.unlink(".publish.lock", dir_fd=directory_fd) 
                             else:
                                 lock_path.unlink(missing_ok=True)
 
