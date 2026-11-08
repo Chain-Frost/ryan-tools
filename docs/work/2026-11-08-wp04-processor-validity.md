@@ -183,3 +183,16 @@ filters, and PO valid/dry-sentinel location handling. The preflight Ruff
 format correction is included. Focused tests, strict Pyright, hosted CI,
 fresh Codex review, genuine Module04/EG02 and wheel parity still require
 independent verification at the pushed head.
+
+## 8 November 2026 — all-invalid source with absent direct selection
+
+Codex identified a second outcome corner: an entirely rejected but well-formed
+file previously failed even when the requested entity did not exist. An empty
+PO result now uses the recorded canonical source locations to classify a truly
+absent direct selection as SKIP, without treating malformed files (which do
+not provide validated source IDs) as valid. Timeseries handling similarly
+recognises an empty H pivot or Q/H/CF/V normalisation only when the parser
+has reliable source IDs; existing entirely invalid selections remain FAIL.
+Added focused all-invalid PO/Q/H missing-versus-present and malformed-time
+regressions. Source and installed-wheel hydraulic parity, exact-head CI,
+strict Pyright and Codex review are pending.

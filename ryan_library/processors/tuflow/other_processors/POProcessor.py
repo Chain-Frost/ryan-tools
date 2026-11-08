@@ -76,9 +76,20 @@ class POProcessor(BaseProcessor):
 
         tidy_df: DataFrame = self._parse_point_output(raw_df=raw_df)
         if tidy_df.empty:
+            self.df = tidy_df
+            # An all-rejected but structurally readable file can still have
+            # a genuinely absent selection. Malformed inputs have no source IDs.
+            if (
+                self.entity_filter
+                and self.source_locations
+                and self.entity_filter.isdisjoint(self.source_locations)
+            ):
+                self.applied_entity_filter = self.entity_filter
+                self.filtered_empty = True
+                logger.info("{}: No requested PO locations found; skipping file.", self.file_name)
+                return
             logger.warning(f"{self.file_name}: No point output values found after processing.")
             self.input_health = "INVALID"
-            self.df = tidy_df
             return
 
         self.df = tidy_df

@@ -68,6 +68,16 @@ class TimeSeriesProcessor(BaseProcessor):
             self.selected_unusable = False
         return selected
 
+    def _mark_absent_source_selection(self) -> bool:
+        """Classify genuinely absent IDs after otherwise readable data ran out."""
+        requested = self.entity_filter
+        if not requested or not self.source_channels or not requested.isdisjoint(self.source_channels):
+            return False
+        self.applied_entity_filter = requested
+        self.filtered_empty = True
+        logger.info("{}: No requested timeseries entities were present in source headers.", self.file_name)
+        return True
+
     def process(self) -> None:
         """Execute the standard timeseries processing pipeline."""
         return self._process_timeseries_pipeline(data_type=self.data_type)
@@ -77,6 +87,7 @@ class TimeSeriesProcessor(BaseProcessor):
         self.reset_processing_state()
         self.source_channels = frozenset()
         self.usable_source_channels = frozenset()
+        self._empty_after_reshape = False
         # H pivoting drops entirely blank source channels, so retain header evidence.
         self._selected_h_source_present = False
         logger.info(f"Starting processing of {data_type} file: {self.log_path}")
@@ -84,6 +95,9 @@ class TimeSeriesProcessor(BaseProcessor):
         try:
             status: ProcessorStatus = self.read_and_process_timeseries_csv(data_type=data_type)
             if status is not ProcessorStatus.SUCCESS:
+                if self._empty_after_reshape and self._mark_absent_source_selection():
+                    self.df = pd.DataFrame()
+                    return
                 logger.error(
                     f"Processing aborted for file: {self.log_path} while reading and reshaping {data_type} data."
                 )
@@ -106,6 +120,9 @@ class TimeSeriesProcessor(BaseProcessor):
 
             status = self.process_timeseries_raw_dataframe()
             if status is not ProcessorStatus.SUCCESS:
+                if status is ProcessorStatus.EMPTY_DATAFRAME and self._mark_absent_source_selection():
+                    self.df = pd.DataFrame()
+                    return
                 logger.error(f"Processing aborted for file: {self.log_path} during {data_type} post-processing step.")
                 self.input_health = "INVALID"
                 self.df = pd.DataFrame()
@@ -356,6 +373,7 @@ class TimeSeriesProcessor(BaseProcessor):
             raise ProcessorError(msg) from exc
 
         if df_melted.empty:
+            self._empty_after_reshape = True
             logger.error(f"{self.file_name}: No data found after reshaping.")
             msg = "No data found after reshaping."
             raise DataValidationError(msg)

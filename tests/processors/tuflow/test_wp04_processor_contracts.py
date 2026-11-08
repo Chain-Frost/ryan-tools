@@ -657,6 +657,71 @@ def test_po_repeated_selection_distinguishes_valid_exclusion_from_rejection(tmp_
     assert _result_status(direct) == "SKIP"
 
 
+
+@pytest.mark.parametrize(
+    ("suffix", "content"),
+    [
+        ("_1d_Q.csv", "Descriptor,Time,Q C1\nrow,0,inf\nrow,1,inf\n"),
+        (
+            "_1d_H.csv",
+            "Descriptor,Time,H C1.1,H C1.2\nrow,0,,\nrow,1,,\n",
+        ),
+        (
+            "_1d_H.csv",
+            "Descriptor,Time,H C1.1,H C1.2\nrow,0,inf,inf\nrow,1,inf,inf\n",
+        ),
+    ],
+)
+def test_all_invalid_timeseries_still_skips_absent_direct_selection(
+    tmp_path: Path, suffix: str, content: str
+) -> None:
+    path = _file(tmp_path, suffix, content)
+
+    absent = BaseProcessor.from_file(path, entity_filter=["Absent"])
+    absent.process()
+    assert not absent.processed
+    assert absent.filtered_empty
+    assert _result_status(absent) == "SKIP"
+
+    present = BaseProcessor.from_file(path, entity_filter=["C1"])
+    present.process()
+    assert not present.processed
+    assert not present.filtered_empty
+    assert present.input_health == "INVALID"
+    assert _result_status(present) == "FAIL"
+
+    unfiltered = BaseProcessor.from_file(path)
+    unfiltered.process()
+    assert not unfiltered.processed
+    assert _result_status(unfiltered) == "FAIL"
+
+
+def test_po_all_rejected_source_skips_only_absent_direct_selection(tmp_path: Path) -> None:
+    path = _file(
+        tmp_path,
+        "_PO.csv",
+        "Dummy,Time,Q\nDummy,Time,C1\nrow,0,inf\nrow,1,inf\n",
+    )
+    absent = POProcessor(file_path=path, entity_filter=frozenset({"Absent"}))
+    absent.process()
+    assert absent.source_locations == frozenset({"C1"})
+    assert absent.filtered_empty
+    assert _result_status(absent) == "SKIP"
+
+    present = POProcessor(file_path=path, entity_filter=frozenset({"C1"}))
+    present.process()
+    assert not present.filtered_empty
+    assert present.input_health == "INVALID"
+    assert _result_status(present) == "FAIL"
+
+    path.write_text("Dummy,Time,Q\nDummy,Time,C1\nrow,1,inf\nrow,1,inf\n", encoding="utf-8")
+    malformed = POProcessor(file_path=path, entity_filter=frozenset({"Absent"}))
+    malformed.process()
+    assert not malformed.filtered_empty
+    assert malformed.input_health == "INVALID"
+    assert _result_status(malformed) == "FAIL"
+
+
 def test_tlf_retry_does_not_expose_previous_finished_status(tmp_path: Path) -> None:
     path = _file(tmp_path, ".tlf", "placeholder\n")
     processor = TLFProcessor(file_path=path)
