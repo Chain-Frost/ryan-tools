@@ -34,6 +34,8 @@ class TimeSeriesProcessor(BaseProcessor):
     def _process_timeseries_pipeline(self, data_type: str) -> None:
         """Run the shared processing pipeline for a timeseries dataset."""
         self.reset_processing_state()
+        # H pivoting drops entirely blank source channels, so retain header evidence.
+        self._selected_h_source_present = False
         logger.info(f"Starting processing of {data_type} file: {self.log_path}")
 
         try:
@@ -48,12 +50,12 @@ class TimeSeriesProcessor(BaseProcessor):
 
             # Retain entity existence before subclass normalisation drops invalid
             # numeric samples. An existing all-invalid selection is FAIL, not SKIP.
-            selected_before_cleaning = False
+            selected_before_cleaning = self._selected_h_source_present
             if self.entity_filter:
                 id_column = next((name for name in ("Chan ID", "Location") if name in self.df.columns), None)
                 if id_column is not None:
                     identifiers = self.df[id_column].astype("string").str.strip()
-                    selected_before_cleaning = bool(identifiers.isin(self.entity_filter).any())
+                    selected_before_cleaning = selected_before_cleaning or bool(identifiers.isin(self.entity_filter).any())
 
             status = self.process_timeseries_raw_dataframe()
             if status is not ProcessorStatus.SUCCESS:
@@ -123,6 +125,17 @@ class TimeSeriesProcessor(BaseProcessor):
             if df_clean.empty:
                 logger.error(f"{self.file_name}: DataFrame is empty after cleaning headers.")
                 return ProcessorStatus.EMPTY_DATAFRAME
+
+            selected_filter = self.entity_filter
+            if data_type == "H" and selected_filter:
+                # Keep canonical .1/.2 channel presence before pivot_table
+                # removes rows whose upstream/downstream samples are all blank.
+                self._selected_h_source_present = any(
+                    isinstance(label, str)
+                    and label.endswith((".1", ".2"))
+                    and label[:-2].strip() in selected_filter
+                    for label in df_clean.columns
+                )
 
             df_melted: pd.DataFrame = self._reshape_timeseries_df(df=df_clean, data_type=data_type)
             if df_melted.empty:

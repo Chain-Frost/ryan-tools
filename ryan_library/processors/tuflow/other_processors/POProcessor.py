@@ -29,6 +29,7 @@ class POProcessor(BaseProcessor):
         """Parse the CSV, reshape it to long format, and add common columns."""
         logger.info(f"Starting processing of PO file: {self.log_path}")
         self.reset_processing_state()
+        self._selected_source_present = False
 
         try:
             raw_df: DataFrame = pd.read_csv(self.file_path, header=None, dtype=str)
@@ -56,10 +57,13 @@ class POProcessor(BaseProcessor):
 
         self.apply_entity_filter()
         if self.applied_entity_filter and self.df.empty:
-            # The source contained valid numeric PO data; only the selection
-            # removed it. This is a normal SKIP, not malformed input.
-            self.filtered_empty = True
-            logger.info("{}: No requested PO locations found; skipping file.", self.file_name)
+            if self._selected_source_present:
+                # Present but wholly rejected is a file failure, not no-match.
+                self.input_health = "INVALID"
+                logger.warning("{}: Selected PO locations contain no usable samples.", self.file_name)
+            else:
+                self.filtered_empty = True
+                logger.info("{}: No requested PO locations found; skipping file.", self.file_name)
             return
         if not self.df["AbsValue"].notna().any():
             self.input_health = "INVALID"
@@ -119,6 +123,9 @@ class POProcessor(BaseProcessor):
                 continue
             if not measurement_text or not location_text:
                 continue
+
+            if self.entity_filter and location_text in self.entity_filter:
+                self._selected_source_present = True
 
             values, rejected = clean_hydraulic_samples(data_rows.iloc[:, idx], measurement=measurement_text)
             if is_water_level_measurement(measurement_text):

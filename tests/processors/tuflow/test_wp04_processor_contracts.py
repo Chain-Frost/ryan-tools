@@ -29,6 +29,7 @@ from ryan_library.processors.tuflow.other_processors.POMMProcessor import POMMPr
 from ryan_library.processors.tuflow.other_processors.POProcessor import POProcessor
 from ryan_library.processors.tuflow.other_processors.TLFProcessor import TLFProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
+from ryan_library.processors.tuflow.timeseries_1d.HProcessor import HProcessor
 from ryan_library.processors.tuflow.timeseries_1d.QProcessor import QProcessor
 
 RUN = "Selection_01.00p_00120m_TP01"
@@ -274,6 +275,41 @@ def test_hdf_roundtrip_retains_invalid_processor_health_and_tp_evidence(tmp_path
     assert _result_status(restored) == "FAIL"
 
 
+def test_hdf_and_public_filter_reclassify_unusable_pomm_selection(tmp_path: Path) -> None:
+    pytest.importorskip("tables")
+    pytest.importorskip("pyarrow")
+    path = _pomm_two_location_path(tmp_path)
+    original = POMMProcessor(file_path=path)
+    original.process()
+    assert original.processed
+    assert original.input_health == "PARTIAL"
+    assert original.df["AbsMax"].notna().sum() == 1
+
+    source = ProcessorCollection()
+    source.add_processor(original)
+    cache = tmp_path / "mixed-health.h5"
+    source.to_hdf(cache)
+
+    restored = ProcessorCollection.from_hdf(cache, locations=["Dry"])
+    assert len(restored.processors) == 1
+    invalid = restored.processors[0]
+    assert invalid.processed
+    assert len(invalid.df) == 1
+    assert invalid.df["AbsMax"].isna().all()
+    assert invalid.input_health == "INVALID"
+    assert _result_status(invalid) == "FAIL"
+
+    directly_filtered = ProcessorCollection.from_hdf(cache)
+    directly_filtered.filter_locations(["Dry"])
+    assert len(directly_filtered.processors) == 1
+    assert directly_filtered.processors[0].input_health == "INVALID"
+    assert _result_status(directly_filtered.processors[0]) == "FAIL"
+
+    usable = ProcessorCollection.from_hdf(cache, locations=["Wet"])
+    assert len(usable.processors) == 1
+    assert _result_status(usable.processors[0]) == "OK"
+
+
 def test_mcp_exposes_invalid_health_without_losing_raw_population(tmp_path: Path) -> None:
     path = _pomm_two_location_path(tmp_path)
     single = inspect_tuflow_result(file_path=str(path), locations=["Dry"])
@@ -317,6 +353,34 @@ def test_selected_wholly_invalid_q_is_fail_not_absent_entity_skip(tmp_path: Path
     assert valid.df["Q"].tolist() == [1.0, 2.0]
 
 
+def test_h_selection_distinguishes_blank_present_channel_from_absent(tmp_path: Path) -> None:
+    path = _file(
+        tmp_path,
+        "_1d_H.csv",
+        "Descriptor,Time,H C1.1,H C1.2,H C2.1,H C2.2\n"
+        "row,0,,,10,9\n"
+        "row,1,,,11,10\n",
+    )
+    present = HProcessor(file_path=path, entity_filter=frozenset({"C1"}))
+    present.process()
+    assert not present.processed
+    assert not present.filtered_empty
+    assert present.input_health == "INVALID"
+    assert _result_status(present) == "FAIL"
+
+    absent = HProcessor(file_path=path, entity_filter=frozenset({"C3"}))
+    absent.process()
+    assert not absent.processed
+    assert absent.filtered_empty
+    assert _result_status(absent) == "SKIP"
+
+    usable = HProcessor(file_path=path, entity_filter=frozenset({"C2"}))
+    usable.process()
+    assert usable.processed
+    assert usable.df["US_H"].tolist() == [10.0, 11.0]
+    assert usable.df["DS_H"].tolist() == [9.0, 10.0]
+
+
 def test_po_mask_sentinel_before_absolute_values_with_valid_zero_and_negative(tmp_path: Path) -> None:
     path = _file(
         tmp_path,
@@ -334,6 +398,32 @@ def test_po_mask_sentinel_before_absolute_values_with_valid_zero_and_negative(tm
     flows = processor.df[processor.df["Type"] == "Flow"]
     assert flows["Value"].tolist() == [-5.0, 0.0, 2.0]
     assert flows["AbsValue"].tolist() == [5.0, 0.0, 2.0]
+
+
+def test_po_selection_distinguishes_rejected_location_from_absent(tmp_path: Path) -> None:
+    path = _file(
+        tmp_path,
+        "_PO.csv",
+        "Dummy,Time,Q,Q\nDummy,Time,C1,C2\nrow,0,inf,1\nrow,1,inf,2\n",
+    )
+    present = POProcessor(file_path=path, entity_filter=frozenset({"C1"}))
+    present.process()
+    assert not present.processed
+    assert not present.filtered_empty
+    assert present.input_health == "INVALID"
+    assert _result_status(present) == "FAIL"
+    assert present.rejection_reasons["nonfinite"] == 2
+
+    absent = POProcessor(file_path=path, entity_filter=frozenset({"C3"}))
+    absent.process()
+    assert not absent.processed
+    assert absent.filtered_empty
+    assert _result_status(absent) == "SKIP"
+
+    usable = POProcessor(file_path=path, entity_filter=frozenset({"C2"}))
+    usable.process()
+    assert usable.processed
+    assert usable.df["Value"].tolist() == [1.0, 2.0]
 
 
 def test_tlf_retry_does_not_expose_previous_finished_status(tmp_path: Path) -> None:

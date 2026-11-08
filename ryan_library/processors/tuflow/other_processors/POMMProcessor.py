@@ -2,6 +2,8 @@
 
 __lazy_modules__ = ["pandas"]
 
+from collections.abc import Collection
+
 import pandas as pd
 from loguru import logger
 
@@ -73,6 +75,13 @@ class POMMProcessor(BaseProcessor):
         """An existing selection without usable extrema is an invalid input, not a skip."""
         if not self.df["AbsMax"].notna().any():
             self.input_health = "INVALID"
+
+    def filter_locations(self, locations: Collection[str] | None) -> frozenset[str]:
+        """Recheck usable extrema after collection or HDF location selection."""
+        selected = super().filter_locations(locations)
+        if self.applied_location_filter == selected and not self.df.empty:
+            self._classify_selected_extrema()
+        return selected
 
     def process(self) -> None:
         """Read the raw POMM CSV, transpose + promote row 1 to header,
