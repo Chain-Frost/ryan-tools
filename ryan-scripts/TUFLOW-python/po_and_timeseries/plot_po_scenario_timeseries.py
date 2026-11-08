@@ -459,7 +459,7 @@ def _draw_measurement_plot(
         ):
             ordered = series.sort_values("Time")
             label = f"{scenario} | Run={run_code} | Type={measurement}"
-            aep_value: Any = series[str(color_meta["column"])].iloc[0]  # pyright: ignore[reportUnknownMemberType]
+            aep_value: Any = series[str(color_meta["column"])].iloc[0]
             color = colorize_aep(aep_value)
             (line,) = ax.plot(  # pyright: ignore[reportUnknownMemberType]
                 ordered["Time"], ordered["Value"], label=label, color=color

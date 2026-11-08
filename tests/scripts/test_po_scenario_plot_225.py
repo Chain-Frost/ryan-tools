@@ -289,7 +289,7 @@ def test_headless_png_preserves_full_legend_bounds(
 
     def capture_savefig(self: Figure, *args: Any, **kwargs: Any) -> None:
         saved_bounds.append(kwargs.get("bbox_inches"))
-        original(self, *args, **kwargs)  # pyright: ignore[reportUnknownMemberType]
+        original(self, *args, **kwargs)
 
     monkeypatch.setattr(Figure, "savefig", capture_savefig)
     plotter.plot_timeseries(source)
