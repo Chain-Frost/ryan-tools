@@ -319,7 +319,7 @@ def test_codex_writer_refuses_symlink_without_replacing_it(tmp_path: Path) -> No
     target.write_text('model = "managed"\n', encoding="utf-8")
     try:
         link.symlink_to(target)
-    except (OSError, NotImplementedError):
+    except OSError, NotImplementedError:
         pytest.skip("Creating symbolic links is not permitted in this environment")
     with pytest.raises(ValueError, match="symlink"):
         write(link, 'model = "unsafe"\n', dry_run=False, expected_original=target.read_bytes())

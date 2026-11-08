@@ -208,7 +208,7 @@ def main(
                         result.status,
                         result.message,
                     )
-        except (OSError, RuntimeError, ValueError):
+        except OSError, RuntimeError, ValueError:
             logger.exception("Archive worker pool failed.")
             return 1
 

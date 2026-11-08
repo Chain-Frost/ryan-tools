@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from pypdf import PdfReader, PdfWriter
 from pypdf.generic import ArrayObject, DictionaryObject, NameObject
@@ -42,6 +42,7 @@ def _is_signature_field(value: Any) -> bool:
     if not isinstance(field_dict, dict):
         return False
 
+    field_dict = cast("dict[object, object]", field_dict)
     if field_dict.get("/FT") == NameObject("/Sig"):
         return True
 
@@ -50,11 +51,13 @@ def _is_signature_field(value: Any) -> bool:
         return True
 
     value_dict = _resolve_indirect(field_dict.get("/V"))
-    return bool(isinstance(value_dict, dict) and value_dict.get("/Type") == NameObject("/Sig"))
+    return bool(
+        isinstance(value_dict, dict) and cast("dict[object, object]", value_dict).get("/Type") == NameObject("/Sig")
+    )
 
 
 def _strip_signature_fields(writer: PdfWriter) -> None:
-    root: DictionaryObject = writer._root_object
+    root: DictionaryObject = writer.root_object
     acro_entry = root.get("/AcroForm")
     if acro_entry is None:
         return
@@ -64,6 +67,7 @@ def _strip_signature_fields(writer: PdfWriter) -> None:
         root.pop("/AcroForm", None)
         return
 
+    acro_form = cast("dict[object, object]", acro_form)
     fields_entry = acro_form.get("/Fields")
     if fields_entry is None:
         root.pop("/AcroForm", None)
@@ -126,7 +130,7 @@ def _strip_signature_annotations(writer: PdfWriter) -> None:
 
 
 def _sanitize_catalog(writer: PdfWriter) -> None:
-    root: DictionaryObject = writer._root_object
+    root: DictionaryObject = writer.root_object
     root.pop("/AcroForm", None)
     root.pop("/Perms", None)
 

@@ -336,7 +336,7 @@ def read_simulation_progress(record: ActivityRecord) -> SimulationProgress | Non
         # accidental or malformed files while the solver is writing.
         with tsf_path.open("r", encoding="utf-8-sig", errors="replace") as stream:
             content = stream.read(128 * 1024)
-    except (OSError, OverflowError, ValueError):
+    except OSError, OverflowError, ValueError:
         return None
 
     fields: dict[str, str] = {}
@@ -365,7 +365,7 @@ def _parse_tsf_progress_fields(fields: dict[str, str]) -> SimulationProgress | N
         start_time = float(start_value) if start_value is not None else None
         percent_value = fields.get("percentage complete (%)")
         percent = float(percent_value) if percent_value is not None else None
-    except (KeyError, ValueError):
+    except KeyError, ValueError:
         return None
     if not math.isfinite(model_time) or not math.isfinite(end_time):
         return None

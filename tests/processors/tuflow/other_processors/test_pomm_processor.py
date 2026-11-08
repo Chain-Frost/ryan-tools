@@ -1,10 +1,14 @@
+from collections.abc import Callable
+from contextlib import AbstractContextManager
+from pathlib import Path
+
 import pandas as pd
 import pytest
 
 from ryan_library.processors.tuflow.other_processors.POMMProcessor import POMMProcessor
 
 
-def test_pomm_processor_synthetic(tmp_path, change_cwd):
+def test_pomm_processor_synthetic(tmp_path: Path, change_cwd: Callable[[Path], AbstractContextManager[None]]):
     """Test POMMProcessor with synthetic data."""
     with change_cwd(tmp_path):
         csv_path = tmp_path / "Test_Run_POMM.csv"
@@ -97,7 +101,7 @@ def test_pomm_processor_synthetic(tmp_path, change_cwd):
     assert float(loc1.iloc[0]["Max"]) == 5.0
 
 
-def test_pomm_processor_robustness(tmp_path, change_cwd):
+def test_pomm_processor_robustness(tmp_path: Path, change_cwd: Callable[[Path], AbstractContextManager[None]]):
     """Test robustness against invalid files."""
     with change_cwd(tmp_path):
         # Empty file
@@ -118,7 +122,7 @@ def test_pomm_processor_robustness(tmp_path, change_cwd):
         assert not proc_bad.processed
 
 
-def test_pomm_processor_real_file(find_test_file):
+def test_pomm_processor_real_file(find_test_file: Callable[[str], Path | None]):
     """Test POMMProcessor with a real file if available."""
     # Try to find a POMM file. Suffix might be _POMM.csv?
     # Or maybe it's just .csv but in a specific folder?

@@ -46,6 +46,13 @@ allowances; they are not current installation instructions or acceptance status.
   BATs) and the exact per-TCF baseline. Three **non-blocking** missing-CRS
   advisories remain in `EG03_011.tcf`, `EG06_002.tcf` and `EG15_006.tcf`.
   They are reported, not silently discarded or classified as blocking failures.
+  Specifically, `EG03_011.tcf` reads rainfall `EG03_011_rf.nc` via
+  `Read Grid RF`; `EG06_002.tcf` reads initial water levels from
+  `EG06_2D_002_IWL_h.tif` via `Read Grid IWL`; and `EG15_006.tcf`
+  reads manholes from `1d_mh_EG15_006_P.shp` via `Read GIS Manhole`.
+  The sources do not declare a CRS, so the validator cannot establish their
+  consistency with the TCF projection EPSG:32760. This is missing provenance,
+  not a demonstrated misalignment; the immutable archive is not rewritten.
 - **Installed origin and reuse:** the native job checked the vendored wheel
   integrity and installed `direct_url.json` path/digest; the JSON diagnostic
   identifies the installed site-packages PyTuflow 1.3.0 and local accepted wheel.

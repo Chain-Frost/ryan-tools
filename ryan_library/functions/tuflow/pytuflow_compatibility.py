@@ -100,7 +100,7 @@ def _source_description(dist: metadata.Distribution) -> str:
         if isinstance(vcs, dict):
             commit = cast(dict[str, object], vcs).get("commit_id")
         return f"{url} (commit {commit})" if commit else str(url)
-    except (ValueError, OSError, TypeError):
+    except ValueError, OSError, TypeError:
         return "unreadable direct_url.json"
 
 
@@ -143,7 +143,7 @@ def _probe() -> tuple[CompatibilityStatus, object | None, object | None]:  # noq
             dir_info = record.get("dir_info")
             if isinstance(dir_info, dict):
                 editable = bool(cast(dict[str, object], dir_info).get("editable", False))
-        except (TypeError, ValueError, OSError):
+        except TypeError, ValueError, OSError:
             pass
         if not actual.is_relative_to(expected) and not editable:
             return status(f"import is shadowed by {actual}; installed distribution package is {expected}"), None, None

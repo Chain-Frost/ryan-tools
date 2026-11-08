@@ -6,12 +6,19 @@ contiguous closed polylines per layer, and write out a DXF with each entity
 still carrying its original colour.
 """
 
+# External optional keyword signatures are incomplete; exceptions stay on individual calls.
+
 import os
+from collections.abc import Iterable
+from typing import cast
 
 import ezdxf
 from ezdxf.document import Drawing
+from ezdxf.entities.dxfgfx import DXFGraphic
+from ezdxf.entities.lwpolyline import LWPolyline
 from ezdxf.layouts.layout import Modelspace
-from shapely.geometry import Polygon
+from shapely.geometry import GeometryCollection, MultiPolygon, Polygon
+from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
 
@@ -66,7 +73,7 @@ def group_and_dissolve_by_color(input_file: str, output_file: str, progress_inte
 
         layer_name = make_layer_name(tc, ic)
         if layer_name not in doc.layers:
-            doc.layers.add(name=layer_name)
+            doc.layers.add(name=layer_name)  # pyright: ignore[reportUnknownMemberType]
             print(f"  + Created layer '{layer_name}'")
 
         # remember the original colour so we can restore it later
@@ -84,15 +91,15 @@ def group_and_dissolve_by_color(input_file: str, output_file: str, progress_inte
     TOLERANCE = 0.1
 
     for layer_name, colours in layer_map.items():
-        raw_polys = []
-        handles_to_delete = []
+        raw_polys: list[BaseGeometry] = []
+        handles_to_delete: list[str] = []
 
         # 1) collect & round your closed LWPOLYLINEs
-        for e in msp.query(f'LWPolyline[layer=="{layer_name}"]'):
-            if not e.closed:
+        for e in cast("Iterable[DXFGraphic]", msp.query(f'LWPolyline[layer=="{layer_name}"]')):
+            if not cast("LWPolyline", e).closed:
                 continue
-            pts = [(round(x, 4), round(y, 4)) for x, y, *rest in e.get_points()]
-            poly = Polygon(pts)
+            pts = [(round(x, 4), round(y, 4)) for x, y, *_rest in cast("LWPolyline", e).get_points()]
+            poly: BaseGeometry = Polygon(pts)
             if not poly.is_valid or poly.is_empty:
                 # “clean” geometry
                 poly = poly.buffer(0)
@@ -111,25 +118,29 @@ def group_and_dissolve_by_color(input_file: str, output_file: str, progress_inte
         merged = unary_union(grown)
 
         # 4) shrink back by the same amount
-        dissolved = merged.buffer(-TOLERANCE)
+        dissolved = cast("BaseGeometry", merged.buffer(-TOLERANCE))
 
         # 5) extract final Polygon list
         final_polys = (
             [dissolved]
             if isinstance(dissolved, Polygon)
-            else [p for p in dissolved.geoms if isinstance(p, Polygon) and not p.is_empty]
+            else [
+                p
+                for p in cast("MultiPolygon | GeometryCollection", dissolved).geoms
+                if isinstance(p, Polygon) and not p.is_empty
+            ]
         )
 
         # 6) delete the originals
         for h in handles_to_delete:
-            msp.delete_entity(msp.entitydb[h])
+            msp.delete_entity(cast("DXFGraphic", msp.entitydb[h]))
 
         # 7) re-draw and restore colours
         for poly in final_polys:
             coords = list(poly.exterior.coords)
-            new_pl = msp.add_lwpolyline(coords, close=True, dxfattribs={"layer": layer_name})
+            new_pl = msp.add_lwpolyline(coords, close=True, dxfattribs={"layer": layer_name})  # pyright: ignore[reportUnknownMemberType]
             original = next(iter(colours.values()))
-            if isinstance(original, int) and 1 <= original <= 256:
+            if 1 <= original <= 256:
                 new_pl.dxf.color = original
             else:
                 new_pl.dxf.true_color = original
@@ -138,7 +149,7 @@ def group_and_dissolve_by_color(input_file: str, output_file: str, progress_inte
 
     # 3) Save result
     print("Saving output…")
-    doc.saveas(output_file)
+    doc.saveas(output_file)  # pyright: ignore[reportUnknownMemberType]
     print(f"Done: '{output_file}'")
 
 

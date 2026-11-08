@@ -1,4 +1,4 @@
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from os import PathLike
 from types import TracebackType
 from typing import Self, TypedDict
@@ -32,8 +32,10 @@ def open(  # noqa: A001 - third-party public API name
     *,
     driver: str = ...,
     layer: str = ...,
-    schema: Schema = ...,
+    schema: Schema | Mapping[str, object] = ...,
+    crs: str | CRS | Mapping[str, object] | None = ...,
     crs_wkt: str | None = ...,
     encoding: str = ...,
+    **kwargs: object,
 ) -> Collection: ...
 def listlayers(fp: str | PathLike[str]) -> list[str]: ...
