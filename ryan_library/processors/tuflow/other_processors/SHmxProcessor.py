@@ -32,27 +32,11 @@ class SHmxProcessor(BaseProcessor):
         self.raw_df = pd.DataFrame()
         self.applied_entity_filter = None
         try:
-            with self.file_path.open(encoding="utf-8-sig", newline="") as handle:
-                header = next(csv.reader(handle))
-            if len(header) != len(self.SOURCE_FIELDS) + 1 or tuple(header[1:]) != self.SOURCE_FIELDS:
-                raise ValueError(f"Unexpected SHmx source header: {header[1:]!r}")
-            if not header[0].strip().startswith(f"{self.name_parser.raw_run_code} ["):
-                raise ValueError("SHmx descriptor disagrees with its filename run code.")
-
-            raw = pd.read_csv(
-                self.file_path,
-                header=0,
-                usecols=list(self.SOURCE_FIELDS),
-                dtype=str,
-                keep_default_na=False,
-                skipinitialspace=True,
-                encoding="utf-8-sig",
-            )
-            if raw.empty:
-                raise ValueError("SHmx has no structure rows.")
+            raw = self._read_source_rows()
             locations = raw["ID (Lowest)"].astype("string").str.strip()
             if locations.isna().any() or locations.eq("").any() or locations.duplicated().any():
-                raise ValueError("Missing or duplicate SHmx structure identifiers.")
+                message = "Missing or duplicate SHmx structure identifiers."
+                raise ValueError(message)
 
             if self.entity_filter:
                 raw = raw.loc[locations.isin(self.entity_filter)].copy()
@@ -64,9 +48,11 @@ class SHmxProcessor(BaseProcessor):
 
             values = {field: parse_reporting_numbers(raw[field], column=field) for field in self.SOURCE_FIELDS[1:]}
             if not any(series.notna().any() for series in values.values()):
-                raise ValueError("Every selected SHmx hydraulic value is missing.")
+                message = "Every selected SHmx hydraulic value is missing."
+                raise ValueError(message)
             if (values["h U/S"].notna() & values["Time"].isna()).any():
-                raise ValueError("Upstream water level has no source associated time.")
+                message = "Upstream water level has no source associated time."
+                raise ValueError(message)
 
             self.raw_df = raw
             self.df = pd.DataFrame({"Location": locations, "Type": self.MEASUREMENT_TYPE, **values}).reset_index(
@@ -76,8 +62,34 @@ class SHmxProcessor(BaseProcessor):
             self.add_common_columns()
             self.apply_output_transformations()
             if not self.validate_data():
-                raise ValueError("SHmx state failed validation.")
+                message = "SHmx state failed validation."
+                raise ValueError(message)
             self.processed = True
         except (OSError, StopIteration, TypeError, ValueError, pd.errors.ParserError) as exc:
             logger.error("{}: SHmx processing failed: {}", self.file_name, exc)
             self.df = pd.DataFrame()
+
+    def _read_source_rows(self) -> pd.DataFrame:
+        """Verify SHmx labels and read only the named source fields."""
+        with self.file_path.open(encoding="utf-8-sig", newline="") as handle:
+            header = next(csv.reader(handle))
+        if len(header) != len(self.SOURCE_FIELDS) + 1 or tuple(header[1:]) != self.SOURCE_FIELDS:
+            message = f"Unexpected SHmx source header: {header[1:]!r}"
+            raise ValueError(message)
+        if not header[0].strip().startswith(f"{self.name_parser.raw_run_code} ["):
+            message = "SHmx descriptor disagrees with its filename run code."
+            raise ValueError(message)
+
+        raw = pd.read_csv(
+            self.file_path,
+            header=0,
+            usecols=list(self.SOURCE_FIELDS),
+            dtype=str,
+            keep_default_na=False,
+            skipinitialspace=True,
+            encoding="utf-8-sig",
+        )
+        if raw.empty:
+            message = "SHmx has no structure rows."
+            raise ValueError(message)
+        return raw

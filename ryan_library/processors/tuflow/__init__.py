@@ -12,13 +12,13 @@ if TYPE_CHECKING:
         POMMProcessor,
         POProcessor,
         RLLQmxProcessor,
-        SHmxProcessor,
-        SQProcessor,
         RLLQProcessor,
         RLPHmxProcessor,
         RLPHProcessor,
         RLRVolmxProcessor,
         RLRVolProcessor,
+        SHmxProcessor,
+        SQProcessor,
     )
     from .timeseries_1d import CFProcessor, HProcessor, QProcessor, VProcessor
 
@@ -56,12 +56,12 @@ __all__ = [
     "QProcessor",
     "RLLQProcessor",
     "RLLQmxProcessor",
-    "SHmxProcessor",
-    "SQProcessor",
     "RLPHProcessor",
     "RLPHmxProcessor",
     "RLRVolProcessor",
     "RLRVolmxProcessor",
+    "SHmxProcessor",
+    "SQProcessor",
     "VProcessor",
     "ccAProcessor",
 ]
