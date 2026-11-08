@@ -96,6 +96,22 @@ def test_real_cmx_and_nmx_selection_preserves_processed_rows_and_is_idempotent(t
             assert processor.df is frame
 
 
+def test_direct_eof_no_match_is_skip_and_reprocessing_recovers(tmp_path: Path) -> None:
+    original = _process_eof(tmp_path, [("C01", 2.0), ("C02", 3.0)])
+    processor = EOFProcessor(file_path=original.file_path, entity_filter=frozenset({"missing"}))
+    processor.process()
+    assert processor.df.empty
+    assert not processor.processed
+    assert processor.filtered_empty
+    assert processor.applied_entity_filter == frozenset({"missing"})
+
+    processor.entity_filter = frozenset({"C02"})
+    processor.process()
+    assert processor.processed
+    assert not processor.filtered_empty
+    assert _channels(processor.df) == {"C02"}
+
+
 @pytest.mark.parametrize("column", ["Location", "Chan ID", "Node ID", "ID"])
 @pytest.mark.parametrize("dtype", ["string", "category"])
 def test_identifier_selection_is_exact_and_preserves_original_values_and_dtypes(
