@@ -115,6 +115,29 @@ Use the change-type matrix in [`docs/DEVELOPMENT_GUIDE.md`](docs/DEVELOPMENT_GUI
   forwarding or warning checks.
 - Use synthetic fixtures where proprietary project data cannot be shared.
 - For documentation-only changes, verify links, commands, paths and behavioural claims against the current repository.
+- Windows with Python 3.14 is the primary acceptance environment. Use Ubuntu for inexpensive portable checks or a
+  specific POSIX compatibility contract when it reduces cost or latency; Linux success does not replace Windows,
+  installed-wheel or native application acceptance.
+- CI may use task-specific dependency profiles. Preserve the declared user/developer environment in `pyproject.toml`
+  and `requirements.txt`. Before narrowing a test profile, compare collected tests, deselections, skips and capability
+  probes on Windows; fewer collected tests or new dependency-related skips are not a saving.
+
+### Batch pushes to control CI usage
+
+- Make local commits as useful, but push one coherent, locally checked batch at a review or hosted-validation
+  milestone. A series of local commits can share one push. Do not push every edited file, formatting fix or work-note
+  update separately.
+- Run the applicable inexpensive checks before pushing. Include code, tests and documentation for the checkpoint in
+  that batch. Record subsequent CI results in the PR description when no source correction is needed.
+- Continue the assigned PR branch. With GitHub APIs, create one tree and commit for the related changes, then update
+  the branch once; avoid one Contents API commit per file.
+- For a diagnosed transient CI failure, rerun the failed jobs on the same revision. Do not create empty commits or
+  repeatedly rerun already successful jobs. For complete test diagnostics, rerun all jobs on the same PR revision;
+  first-attempt early stopping is disabled on subsequent attempts.
+- Keep required validation on the final pushed commit. Do not use skip-CI markers or draft status to bypass it.
+  Preserve every main push's release validation and existing release concurrency policy.
+- Initialise only submodules required for the chosen check. Use source-only checkouts for routine repository work;
+  retrieve a specific LFS asset only when its bytes are needed. Never use recursive submodule checkout.
 
 ## Build workflow
 

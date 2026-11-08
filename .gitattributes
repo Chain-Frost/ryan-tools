@@ -4,3 +4,6 @@
 *.cmd text eol=crlf
 
 *.xlsx filter=lfs diff=lfs merge=lfs -text
+
+# Immutable third-party dependency wheel; ordinary Git binary, not LFS.
+repo-scripts/wheels/pytuflow/**/*.whl binary

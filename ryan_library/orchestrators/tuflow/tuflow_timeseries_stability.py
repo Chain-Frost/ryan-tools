@@ -9,6 +9,7 @@ from __future__ import annotations
 __lazy_modules__: list[str] = ["pandas"]
 
 import concurrent.futures as cf
+from collections import Counter
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Literal
@@ -16,7 +17,9 @@ from typing import Literal
 from loguru import logger
 from pandas import DataFrame
 
+from ryan_library.functions.dashboard_workflow import await_future_with_dashboard_refresh
 from ryan_library.functions.excel_export import ExcelExporter
+from ryan_library.functions.live_dashboard import LiveWorkflowDashboard, WorkflowStatus
 from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.tuflow.po_timeseries_checks import (
     StabilityCheckConfig,
@@ -45,6 +48,24 @@ def _analyze_stability_worker(path_str: str, result_type: str, config: Stability
     return flatten_stability_results(results=results)
 
 
+_MALFORMED_INPUT_STATUSES: frozenset[str] = frozenset(
+    {"EMPTY_FILE", "NO_COLUMNS", "DECODE_FAIL", "CSV_PARSE_FAIL", "BAD_HEADER", "TIME_PARSE_FAIL"}
+)
+_NO_DATA_STATUSES: frozenset[str] = frozenset({"NO_DATA"})
+
+
+def _file_outcome(rows: list[dict[str, object]]) -> WorkflowStatus:
+    """Separate parser failures from successful QA findings and valid empty inputs."""
+    if not rows:
+        return "SKIP"
+    statuses = {str(row.get("status", "")) for row in rows}
+    if statuses & _MALFORMED_INPUT_STATUSES:
+        return "FAIL"
+    if statuses <= _NO_DATA_STATUSES:
+        return "SKIP"
+    return "OK"
+
+
 def main_processing(
     *,
     paths_to_process: Sequence[Path],
@@ -65,7 +86,10 @@ def main_processing(
     console_log_level: str = "INFO",
     output_dir: Path | None = None,
     export_mode: Literal["excel", "parquet", "both"] = "excel",
-) -> None:
+    use_live_dashboard: bool = True,
+    live_refresh_per_second: float = 2.0,
+    live_max_rows: int = 10,
+) -> bool:
     """Run stability checks for selected TUFLOW timeseries CSV files and export a summary.
 
     Args:
@@ -100,88 +124,153 @@ def main_processing(
         max_sign_changes=max_sign_changes,
         min_points=min_points,
     )
+
+    dashboard = LiveWorkflowDashboard(
+        title="TUFLOW Timeseries Stability",
+        subtitle="PO and 1D Q CSV timeseries",
+        enabled=use_live_dashboard,
+        refresh_per_second=live_refresh_per_second,
+        max_rows=live_max_rows,
+    )
     with setup_logger(console_log_level=console_log_level):
-        effective_result_types: tuple[str, ...] = normalize_result_types(
-            result_types=result_types,
-            accepted=ACCEPTED_RESULT_TYPES,
-            default=DEFAULT_RESULT_TYPES,
-        )
-        result_type_globs: dict[str, str] = {**RESULT_TYPE_GLOBS, "PO": csv_glob}
-        files: list[tuple[Path, str]] = collect_timeseries_files(
-            paths_to_process=paths_to_process,
-            result_types=effective_result_types,
-            result_type_globs=result_type_globs,
-        )
+        with dashboard:
+            try:
+                dashboard.set_phase("Discovering")
+                effective_result_types: tuple[str, ...] = normalize_result_types(
+                    result_types=result_types,
+                    accepted=ACCEPTED_RESULT_TYPES,
+                    default=DEFAULT_RESULT_TYPES,
+                )
+                result_type_globs: dict[str, str] = {**RESULT_TYPE_GLOBS, "PO": csv_glob}
+                files: list[tuple[Path, str]] = collect_timeseries_files(
+                    paths_to_process=paths_to_process,
+                    result_types=effective_result_types,
+                    result_type_globs=result_type_globs,
+                )
+                dashboard.set_tasks(labels=[f"{result_type}: {path}" for path, result_type in files])
+                if not files:
+                    selected_patterns = [result_type_globs[result_type] for result_type in effective_result_types]
+                    logger.info("No files matched {} in the provided directories.", selected_patterns)
+                    dashboard.finish(outcome="SKIPPED", detail="no matching timeseries CSV files")
+                    return True
 
-        if not files:
-            selected_patterns: list[str] = [result_type_globs[result_type] for result_type in effective_result_types]
-            logger.info(f"No files matched {selected_patterns} in the provided directories.")
-            return
+                logger.info(
+                    "Processing {} timeseries CSV file(s) for stability checks ({}).",
+                    len(files),
+                    ", ".join(effective_result_types),
+                )
+                dashboard.set_phase("Processing")
+                all_rows: list[dict[str, object]] = []
+                status_counts: Counter[WorkflowStatus] = Counter()
+                # Preserve ordered/chunked pool results while a single helper
+                # thread waits on each blocking iterator result. The coordinator
+                # can then refresh the dashboard throughout slow-file processing.
+                with (
+                    cf.ProcessPoolExecutor(max_workers=max_workers) as executor,
+                    cf.ThreadPoolExecutor(max_workers=1) as waiter,
+                ):
+                    rows_iter = iter(
+                        executor.map(
+                            _analyze_stability_worker,
+                            (str(path) for path, _ in files),
+                            (result_type for _, result_type in files),
+                            (config for _ in files),
+                            chunksize=chunksize,
+                        )
+                    )
+                    for index in range(1, len(files) + 1):
+                        dashboard.mark_running(index=index)
+                        dashboard.refresh(force=True)
+                        pending = waiter.submit(next, rows_iter)
+                        rows = await_future_with_dashboard_refresh(
+                            future=pending,
+                            dashboard=dashboard,
+                            refresh_per_second=live_refresh_per_second,
+                        )
+                        status = _file_outcome(rows)
+                        status_counts[status] += 1
+                        dashboard.mark_finished(
+                            index=index,
+                            status=status,
+                            detail=f"{len(rows)} diagnostic/result row(s)",
+                        )
+                        if rows:
+                            all_rows.extend(rows)
 
-        logger.info(
-            f"Processing {len(files)} timeseries CSV file(s) for stability checks "
-            f"({', '.join(effective_result_types)})."
-        )
-        all_rows: list[dict[str, object]] = []
-        with cf.ProcessPoolExecutor(max_workers=max_workers) as executor:
-            for rows in executor.map(
-                _analyze_stability_worker,
-                (str(path) for path, _ in files),
-                (result_type for _, result_type in files),
-                (config for _ in files),
-                chunksize=chunksize,
-            ):
-                if rows:
-                    all_rows.extend(rows)
+                dashboard.set_phase("Aggregating")
+                if not all_rows:
+                    logger.info("No matching data columns after filters. Skipping export.")
+                    dashboard.finish(outcome="SKIPPED", detail="no matching series")
+                    return True
 
-        if not all_rows:
-            logger.info("No matching data columns after filters. Skipping export.")
-            return
+                out_df = DataFrame(data=all_rows)
+                first_cols: list[str] = [
+                    "run_code",
+                    "status",
+                    "datatype",
+                    "location",
+                    "points",
+                    "sign_changes",
+                    "nonzero_steps",
+                    "value_range",
+                    "delta_tol",
+                    "value_min",
+                    "value_max",
+                    "start_value",
+                    "end_value",
+                    "start_time",
+                    "end_time",
+                    "time_span",
+                    "max_abs_step",
+                    "mean_abs_step",
+                    "raw_run_code",
+                    "trim_run_code",
+                    "data_type",
+                    "TP",
+                    "TP_num",
+                    "Duration",
+                    "Duration_m",
+                    "AEP",
+                    "AEP_value",
+                    "file",
+                ]
+                ordered: list[str] = [c for c in first_cols if c in out_df.columns] + [
+                    c for c in out_df.columns if c not in first_cols
+                ]
+                out_df: DataFrame = out_df.reindex(columns=ordered)
 
-        out_df = DataFrame(data=all_rows)
-        first_cols: list[str] = [
-            "run_code",
-            "status",
-            "datatype",
-            "location",
-            "points",
-            "sign_changes",
-            "nonzero_steps",
-            "value_range",
-            "delta_tol",
-            "value_min",
-            "value_max",
-            "start_value",
-            "end_value",
-            "start_time",
-            "end_time",
-            "time_span",
-            "max_abs_step",
-            "mean_abs_step",
-            "raw_run_code",
-            "trim_run_code",
-            "data_type",
-            "TP",
-            "TP_num",
-            "Duration",
-            "Duration_m",
-            "AEP",
-            "AEP_value",
-            "file",
-        ]
-        ordered: list[str] = [c for c in first_cols if c in out_df.columns] + [
-            c for c in out_df.columns if c not in first_cols
-        ]
-        out_df: DataFrame = out_df.reindex(columns=ordered)
+                dashboard.set_phase("Exporting")
+                ExcelExporter().save_to_excel(
+                    data_frame=out_df,
+                    file_name_prefix="timeseries_stability",
+                    sheet_name="Summary",
+                    output_directory=output_dir,
+                    export_mode=export_mode,
+                    parquet_compression="gzip",
+                    include_data_dictionary=True,
+                    data_dictionary_metadata={"Workflow": "Timeseries stability"},
+                )
+                logger.info("Timeseries stability export complete.")
 
-        ExcelExporter().save_to_excel(
-            data_frame=out_df,
-            file_name_prefix="timeseries_stability",
-            sheet_name="Summary",
-            output_directory=output_dir,
-            export_mode=export_mode,
-            parquet_compression="gzip",
-            include_data_dictionary=True,
-            data_dictionary_metadata={"Workflow": "Timeseries stability"},
-        )
-        logger.info("Timeseries stability export complete.")
+                if status_counts["FAIL"]:
+                    logger.error(
+                        "{} input file(s) had malformed data; diagnostic rows were retained in the report.",
+                        status_counts["FAIL"],
+                    )
+                    dashboard.finish(
+                        outcome="FAILED", detail=f"{status_counts['FAIL']} malformed file(s); partial report exported"
+                    )
+                    return False
+                if not status_counts["OK"]:
+                    dashboard.finish(outcome="SKIPPED", detail="diagnostic-only report exported")
+                    return True
+
+                dashboard.finish(outcome="SUCCESS", detail=f"{len(all_rows)} checked row(s) exported")
+                return True
+            except KeyboardInterrupt:
+                dashboard.finish(outcome="INTERRUPTED", detail="processing interrupted")
+                raise
+            except Exception:
+                logger.exception("Timeseries stability workflow failed.")
+                dashboard.finish(outcome="FAILED", detail="processing or export failed")
+                raise

@@ -55,25 +55,25 @@ ryan-tools/
 
 ## Set up the repository
 
-This repository uses Git submodules and Git LFS for workbook resources. Install Git LFS, then clone recursively:
+The repository uses Git submodules and Git LFS for optional workbook resources. **Do not use recursive submodule checkout**: the `unsorted` submodule is excluded from all automated work. Initialise only the required, maintained submodules.
 
 ```powershell
-git lfs install
-git clone --recurse-submodules https://github.com/Chain-Frost/ryan-tools.git
+git clone https://github.com/Chain-Frost/ryan-tools.git
 cd ryan-tools
-git lfs pull
-git -C qgis-resources lfs pull
-git -C excel-resources lfs pull
 ```
 
-For an existing clone:
+Source review, documentation and static checks need no submodules. Initialise the maintained fixtures only when the
+selected test or build needs them. The hosted test suite uses:
 
 ```powershell
-git submodule update --init --recursive
-git lfs pull
-git -C qgis-resources lfs pull
-git -C excel-resources lfs pull
+git submodule update --init tests/test_data qgis-resources
 ```
+
+Initialise `excel-resources` separately when working with its workbook resources. For source-only automation where Git
+LFS is installed, set `GIT_LFS_SKIP_SMUDGE=1` for checkout and submodule commands, then restore the prior environment
+setting afterwards. This leaves LFS pointers available without downloading optional binaries.
+
+Git LFS binary downloads are **not required for routine source and CI checks**. Install Git LFS when you need an LFS-tracked workbook, then retrieve only the resources required for that task (for example, `git -C excel-resources lfs pull --include="*.xlsx"`). Avoid unconditional `git lfs pull` in every checkout: repeated downloads consume the account's LFS bandwidth allowance.
 
 The test suite requires `tests/test_data`; it does not download or substitute those fixtures automatically. Because
 `run_hy8` and `culvert_solver` are independent PyPI dependencies (`run-hy8` and `ryan-culverts`), not Git submodules or bundled code. Install `ryan-tools` with pip to resolve supported dependencies automatically. Python 3.14 or newer is the supported runtime for `ryan-tools` and its published dependencies; bypassing `Requires-Python` during installation does not make older interpreters compatible.
@@ -84,6 +84,7 @@ assume that users know how to create or activate a virtual environment:
 ```powershell
 py -3.14 -m pip install --upgrade pip
 py -3.14 repo-scripts\install_latest_wheel.py --dependencies-only
+py -3.14 repo-scripts\vendor_pytuflow_wheel.py
 py -3.14 -m pip install --force-reinstall --no-deps -r repo-scripts\pytuflow-requirement.txt
 py -3.14 -m pip install -r requirements.txt
 ```
@@ -127,12 +128,15 @@ Windows convenience entry points are:
 ```
 
 `install-ryan-tools.bat` installs the latest published `ryan-tools[mcp]` release
-directly from PyPI, along with upstream QGIS MCP and the pinned PyTUFLOW PR #63
-contributor-fork source (based on upstream PR #17) referenced in [`repo-scripts/pytuflow-requirement.txt`](repo-scripts/pytuflow-requirement.txt).
+directly from PyPI, along with upstream QGIS MCP and the [locally vendored PyTuflow dependency wheel](repo-scripts/pytuflow-requirement.txt)
+built from exact contributor commit `887534ea8c15` proposed in upstream PR #17. The verified
+dependency wheel is distinct from the built `ryan-tools` wheel.
 It keeps the binary GIS bootstrap, replaces incompatible same-version PyTUFLOW
 builds, and checks installed dependencies and the public validation API before
 reporting success. The local-wheel installer uses the same dependency setup and
-verification. If Codex is detected, the PyPI installer
+verification, including the installed parser wheel's source path and SHA-256. Plain `pip install ryan-tools`
+does **not** discover the wheel stored alongside these repository scripts: use the supplied installer or
+the repository requirements when the accepted fork is needed. If Codex is detected, the PyPI installer
 configures the QGIS and ryan-tools MCP servers only as needed, preserving other
 settings and backing up any changed Codex configuration. `install-from-pypi.bat` is the explicit PyPI entry point;
 `install-ryan-tools.bat` forwards to it.

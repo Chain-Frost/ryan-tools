@@ -11,10 +11,13 @@ tables are always included in the same protected output batch.
 from pathlib import Path
 from typing import Literal
 
-WRAPPER_VERSION = "2026-11-07.3"
+WRAPPER_VERSION = "2026-11-08.1"
 PAUSE_ON_FINISH = True
 
 CONSOLE_LOG_LEVEL = "INFO"
+USE_LIVE_DASHBOARD = True
+LIVE_REFRESH_PER_SECOND = 2.0
+LIVE_MAX_ROWS = 10
 LOCATIONS_TO_INCLUDE: list[str] = []
 EXPORT_MODE: Literal["excel", "parquet", "both"] = "excel"
 WORKING_DIR: Path = Path(__file__).absolute().parent
@@ -26,6 +29,8 @@ PATHS_TO_PROCESS: list[Path] = []
 # Ultimately, we are just looking at exceedance duration of some form so should not be that hard.
 
 import argparse
+
+from loguru import logger
 
 from ryan_library.functions.wrapper_utils import (
     CommonWrapperOptions,
@@ -46,6 +51,9 @@ def main(
     export_mode: Literal["excel", "parquet", "both"] | None = None,
     paths_to_process: tuple[Path, ...] | None = None,
     working_directory: Path | None = None,
+    use_live_dashboard: bool | None = None,
+    live_refresh_per_second: float | None = None,
+    live_max_rows: int | None = None,
 ) -> int:
     print_wrapper_banner(
         wrapper_source="TUFLOW-python/po_and_timeseries/calculate_po_closure_durations.py",
@@ -64,18 +72,32 @@ def main(
     if not change_working_directory(target_dir=script_directory):
         return 1
 
-    effective_console_log_level: str = console_log_level or CONSOLE_LOG_LEVEL
-    effective_locations: tuple[str, ...] | None = tuple(locations_to_include or LOCATIONS_TO_INCLUDE) or None
-    effective_export_mode: Literal["excel", "parquet", "both"] = export_mode or EXPORT_MODE
-    run_closure_durations(
-        paths=effective_paths_to_process,
-        thresholds=None,
-        data_type="Flow",
-        allowed_locations=effective_locations,
-        log_level=effective_console_log_level,
-        export_mode=effective_export_mode,
+    effective_console_log_level: str = CONSOLE_LOG_LEVEL if console_log_level is None else console_log_level
+    effective_locations: tuple[str, ...] | None = (
+        tuple(LOCATIONS_TO_INCLUDE if locations_to_include is None else locations_to_include) or None
     )
-    return 0
+    effective_export_mode: Literal["excel", "parquet", "both"] = export_mode or EXPORT_MODE
+    try:
+        outcome = run_closure_durations(
+            paths=effective_paths_to_process,
+            thresholds=None,
+            data_type="Flow",
+            allowed_locations=effective_locations,
+            log_level=effective_console_log_level,
+            export_mode=effective_export_mode,
+            use_live_dashboard=USE_LIVE_DASHBOARD if use_live_dashboard is None else use_live_dashboard,
+            live_refresh_per_second=(
+                LIVE_REFRESH_PER_SECOND if live_refresh_per_second is None else live_refresh_per_second
+            ),
+            live_max_rows=LIVE_MAX_ROWS if live_max_rows is None else live_max_rows,
+        )
+    except KeyboardInterrupt:
+        logger.warning("Closure-duration workflow interrupted.")
+        return 130
+    except Exception:  # noqa: BLE001 - CLI boundary must return nonzero for unexpected workflow failure
+        logger.exception("Closure-duration workflow failed.")
+        return 1
+    return 1 if outcome is False else 0
 
 
 def _parse_cli_arguments() -> tuple[CommonWrapperOptions, Literal["excel", "parquet", "both"] | None]:
@@ -100,6 +122,9 @@ if __name__ == "__main__":
         locations_to_include=common_options.locations_to_include,
         export_mode=cli_export_mode,
         working_directory=common_options.working_directory,
+        use_live_dashboard=common_options.use_live_dashboard,
+        live_refresh_per_second=common_options.live_refresh_per_second,
+        live_max_rows=common_options.live_max_rows,
     )
     print_wrapper_banner(
         wrapper_source="TUFLOW-python/po_and_timeseries/calculate_po_closure_durations.py",
