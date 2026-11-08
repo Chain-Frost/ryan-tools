@@ -380,6 +380,9 @@ No automatic issue closure, auto-merge or main merge is authorised.
 
 ## Projection template authority encoding
 
+Fix proposed in [PR #275](https://github.com/Chain-Frost/ryan-tools/pull/275);
+source commit `24b4f259` pushed, hosted checks pending. No merge performed.
+
 Project setup now normalises an input PRJ to its EPSG definition only when PROJ
 identifies an exact match (confidence 100). Both the standard project-setup entry
 point and the initialiser use this shared writer. GeoTIFF templates store the
