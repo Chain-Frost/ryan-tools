@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import MagicMock
 
+import pandas as pd
 import pytest
 
 from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
+
+from tests.processors.tuflow.fixture_contract_assertions import assert_declared_outcome, load_declared_cases
 
 
 @pytest.fixture(scope="module")
@@ -47,6 +51,8 @@ def test_smoke_process_all_files(tuflow_test_data: Path) -> None:
 
     failures: list[str] = []
     warnings: list[str] = []
+    declared_cases = load_declared_cases()
+    observed_declared: set[str] = set()
 
     # Files known to fail processing due to malformed data or missing columns
     # We hardcode these to ensure they continue to fail gracefully (processed=False)
@@ -80,9 +86,20 @@ def test_smoke_process_all_files(tuflow_test_data: Path) -> None:
     }
 
     for file_path in files:
+        if file_path.name in declared_cases:
+            observed_declared.add(file_path.name)
         try:
             processor = BaseProcessor.from_file(file_path)
             processor.process()
+
+            # Only explicitly declared fixtures have a supported/rejected contract.
+            # They must never fall through to the historical warning-only path.
+            if case := declared_cases.get(file_path.name):
+                try:
+                    assert_declared_outcome(processor, case)
+                except AssertionError as exc:
+                    failures.append(f"{file_path.name}: {exc}")
+                continue
 
             if file_path.name in KNOWN_PROBLEMATIC_FILES:
                 if processor.processed:
@@ -109,12 +126,49 @@ def test_smoke_process_all_files(tuflow_test_data: Path) -> None:
         except Exception as e:
             failures.append(f"{file_path.name}: Raised exception {e}")
 
+    # Losing a registered suffix/discovery match must not silently remove a
+    # fixture from this broad smoke gate.
+    missing_declared = sorted(set(declared_cases) - observed_declared)
+    assert not missing_declared, f"Declared fixtures missing from discovery: {missing_declared}"
+
     if warnings:
-        print(f"\nWarnings (Processed=False): {len(warnings)} files")
-        # Uncomment to see details
+        print(f"\nUnclassified outcomes (not accepted as supported): {len(warnings)} files")
         print("\n".join(warnings))
 
     assert not failures, f"Failures occurred in {len(failures)} files:\n" + "\n".join(failures[:10])
+
+
+
+@pytest.mark.parametrize(
+    ("processed", "has_data", "message"),
+    [
+        (False, False, "rejected"),
+        (True, False, "no processed rows"),
+        (True, True, "Runcode"),
+    ],
+)
+def test_supported_manifest_case_rejects_false_success(
+    processed: bool, has_data: bool, message: str
+) -> None:
+    """EG01_007 must fail its contract when it is dropped, empty or misidentified."""
+    processor = MagicMock(spec=BaseProcessor)
+    processor.processed = processed
+    processor.df = (
+        pd.DataFrame({"Runcode": ["wrong_run"], "EndStatus": ["Simulation FINISHED"]})
+        if has_data
+        else pd.DataFrame()
+    )
+    with pytest.raises(AssertionError, match=message):
+        assert_declared_outcome(processor, load_declared_cases()["EG01_007.tlf"])
+
+
+def test_rejected_manifest_case_cannot_retain_processed_rows() -> None:
+    """A rejected input must not expose stale data as usable measurements."""
+    processor = MagicMock(spec=BaseProcessor)
+    processor.processed = False
+    processor.df = pd.DataFrame({"Value": [1.0]})
+    with pytest.raises(AssertionError, match="retained rows"):
+        assert_declared_outcome(processor, load_declared_cases()["EG02_012_PO.csv"])
 
 
 def test_integration_collection_timeseries(tuflow_test_data: Path) -> None:

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import csv
 import json
-import math
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +13,8 @@ import pytest
 from ryan_library.functions.excel_export import ExcelExporter
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
+
+from tests.processors.tuflow.fixture_contract_assertions import assert_declared_outcome
 
 CONTRACT = Path(__file__).with_name("fixture_contract_wp11.json")
 VALID_OUTCOMES = {"supported", "empty", "unsupported", "malformed"}
@@ -53,19 +54,7 @@ def test_real_fixture_matches_declared_outcome(fixture_root: Path, case: dict[st
     assert len(matches) == 1, f"Fixture ID {case['id']} must resolve to exactly one pinned file; got {matches}"
     processor = BaseProcessor.from_file(matches[0])
     processor.process()
-    if case["outcome"] != "supported":
-        assert not processor.processed, f"{case['id']} unexpectedly accepted: {case['reason']}"
-        return
-    assert processor.processed, f"{case['id']} was rejected: {case['reason']}"
-    assert len(processor.df) >= case["minimum_rows"]
-    assert set(case["columns"]).issubset(processor.df.columns)
-    for name, expected in case.get("values", {}).items():
-        actual = processor.df.iloc[0][name]
-        if isinstance(expected, float):
-            assert math.isclose(float(actual), expected, rel_tol=1e-10, abs_tol=1e-10)
-        else:
-            assert str(actual) == expected
-
+    assert_declared_outcome(processor, case)
 
 def _write_small_po(path: Path, q_offset: float) -> None:
     # Independent expected 2-row PO header and signed/zero hydraulic source values.

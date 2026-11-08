@@ -10,6 +10,28 @@
 | Baseline | #251 feature branch fix/tlf-hyphenated-variables-239 at dc6d74455e092d3611b975f0fc3975a977578ecc |
 | Tracking | [WP11 in #240](https://github.com/Chain-Frost/ryan-tools/issues/240), [fixtures #228](https://github.com/Chain-Frost/ryan-tools/issues/228), [scalability #229](https://github.com/Chain-Frost/ryan-tools/issues/229) |
 
+## #228 follow-up — enforce the bounded fixture contract in broad smoke testing
+
+The first-stage fixture manifest lists eight explicit outcomes, including the reproduced
+`EG01_007.tlf` false-negative. The broad `test_smoke_process_all_files` previously warned
+rather than failed when a supported file was rejected, and accepted processed-but-empty
+results. It now calls the same test-only assertion as the focused fixture gate and
+requires every declared fixture to appear in registered discovery. Supported fixtures
+must retain their expected rows, columns and independent pinned values; malformed,
+empty and unsupported fixtures must not report processed/stale rows. Four synthetic
+mutation cases exercise rejected, empty, misidentified or stale results.
+
+This **does not** upgrade every registered file to supported status: unclassified inputs
+still produce bounded diagnostics rather than speculative acceptance. Remaining #228
+work includes modern/legacy/large/encoded/truncated fixture variants, wider POMM and
+partial-ensemble report readback, explicit per-script capability/installed/MCP inventory
+and applicable Windows acceptance. WP04 owns processor-level #219/#220/#223 changes.
+#229's full-scale resource evaluation and optional Dask decision are explicitly deferred.
+
+Validation at creation: Python 3.13 syntax checks of the changed sources only;
+Windows 3.14 hosted fixture-data tests and strict type/lint checks are required on
+the PR's final revision. No production, snapshot, fixture, solver or `main` changes.
+
 ## Delivery scope and ownership
 
 This first WP11 delivery implements a bounded, executable support/fixture matrix and a deliberately safe reproducible
