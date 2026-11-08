@@ -13,8 +13,7 @@ import pandas as pd
 import pytest
 
 SCRIPT = (
-    Path(__file__).absolute().parents[2]
-    / "ryan-scripts/TUFLOW-python/po_and_timeseries/plot_po_scenario_timeseries.py"
+    Path(__file__).absolute().parents[2] / "ryan-scripts/TUFLOW-python/po_and_timeseries/plot_po_scenario_timeseries.py"
 )
 
 
@@ -144,9 +143,7 @@ def test_missing_scenario_dimension_rejected(plotter: ModuleType) -> None:
         plotter.prepare_plot_df(sample_frame().drop(columns=["duration_text"]))
 
 
-def cache_environment(
-    plotter: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, df: pd.DataFrame
-) -> Path:
+def cache_environment(plotter: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, df: pd.DataFrame) -> Path:
     source = tmp_path / "R_A_PO.csv"
     source.write_text("source\n", encoding="utf-8")
     monkeypatch.setattr(plotter, "TUFLOW_RESULTS_ROOT", tmp_path)

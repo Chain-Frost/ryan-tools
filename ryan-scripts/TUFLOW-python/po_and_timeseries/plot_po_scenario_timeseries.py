@@ -116,9 +116,7 @@ def filter_internal_name(df: pd.DataFrame) -> pd.DataFrame:
         msg = "INTERNAL_NAME_FILTER requires the internalName run-identity column."
         raise KeyError(msg)
     mask: Series[bool] = (
-        df["internalName"]
-        .astype("string")
-        .str.contains(pat=INTERNAL_NAME_FILTER, case=False, regex=False, na=False)
+        df["internalName"].astype("string").str.contains(pat=INTERNAL_NAME_FILTER, case=False, regex=False, na=False)
     )
     filtered: DataFrame = df.loc[mask].copy()
     if filtered.empty:
@@ -262,8 +260,7 @@ def load_po_dataframe() -> pd.DataFrame:
 
     if PARQUET_PATH.exists() and not REPLACE_PARQUET_CACHE:
         msg = (
-            f"PO plot cache already exists at {PARQUET_PATH}; "
-            "set REPLACE_PARQUET_CACHE=True to replace it explicitly."
+            f"PO plot cache already exists at {PARQUET_PATH}; set REPLACE_PARQUET_CACHE=True to replace it explicitly."
         )
         raise FileExistsError(msg)
     logger.info("Sequentially processing {} PO file(s).", len(files))
@@ -407,6 +404,7 @@ def _measurement_ylabel(measurement: str) -> str:
 
 def _png_path(location: str, measurement: str) -> Path:
     """Bound names for Windows and distinguish slug collisions deterministically."""
+
     def slug(text: str) -> str:
         return re.sub(r"[^A-Za-z0-9_-]+", "_", text).strip("_")[:48] or "unnamed"
 
