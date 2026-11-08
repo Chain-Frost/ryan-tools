@@ -50,9 +50,55 @@
       "dataformat": "PO"
     }
   },
+  "SQ": {
+    "processor": "SQProcessor",
+    "suffixes": [
+      "_SQ.csv"
+    ],
+    "output_columns": {
+      "Time": "float",
+      "Location": "string",
+      "Type": "string",
+      "Value": "float",
+      "AbsValue": "float"
+    },
+    "processingParts": {
+      "dataformat": "PO",
+      "module": "other_processors"
+    }
+  },
+  "SHmx": {
+    "processor": "SHmxProcessor",
+    "suffixes": [
+      "_SHmx.csv"
+    ],
+    "output_columns": {
+      "Location": "string",
+      "Type": "string",
+      "Q Below": "float",
+      "Q Above": "float",
+      "Q Total": "float",
+      "A Below": "float",
+      "A Above": "float",
+      "A Total": "float",
+      "V Below": "float",
+      "V Above": "float",
+      "V Combined": "float",
+      "h U/S": "float",
+      "h D/S": "float",
+      "dh": "float",
+      "Time": "float"
+    },
+    "processingParts": {
+      "dataformat": "StructureState",
+      "module": "other_processors"
+    }
+  },
   "RLL_Q": {
     "processor": "RLLQProcessor",
-    "suffixes": ["_RLL_Q.csv"],
+    "suffixes": [
+      "_RLL_Q.csv"
+    ],
     "output_columns": {
       "Time": "float",
       "Location": "string",
@@ -111,7 +157,9 @@
   },
   "RLR_Vol": {
     "processor": "RLRVolProcessor",
-    "suffixes": ["_RLR_Vol.csv"],
+    "suffixes": [
+      "_RLR_Vol.csv"
+    ],
     "output_columns": {
       "Time": "float",
       "Location": "string",
@@ -126,7 +174,9 @@
   },
   "RLR_Volmx": {
     "processor": "RLRVolmxProcessor",
-    "suffixes": ["_RLR_Volmx.csv"],
+    "suffixes": [
+      "_RLR_Volmx.csv"
+    ],
     "output_columns": {
       "Location": "string",
       "Type": "string",

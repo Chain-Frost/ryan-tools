@@ -374,3 +374,35 @@ representative smoke check, and a package build. Use synthetic fixtures when pro
 
 If the new processor type has recurring agent-facing value, verify that the generic MCP inspection tools handle it and
 update their guidance or focused coverage as needed. Do not add a separate MCP endpoint for each basic processor.
+
+## Structure crossing history and upstream-level-state outputs (#236)
+
+The factory recognises `_SQ.csv` as source-computed **total structure crossing
+flow**, distinct from the 2D-only `_2d_QS.csv` and PO structure flow.
+It selects structure columns before wide-to-long expansion.
+
+The separate `_SHmx.csv` is the **state at maximum upstream water level**,
+not a discharge-maximum table. `Q Below`, `Q Above`, `Q Total`,
+`A Below`, `A Above`, `A Total`, `V Below`, `V Above`,
+`V Combined`, `h U/S`, `h D/S`, `dh` and `Time` are source
+values. They are never recomputed as coincident 1D independent extrema.
+The new readers preserve printed float64 precision, signed/zero numbers
+and null values for `-99999`, `**********` and empty cells.
+
+```python
+from pathlib import Path
+from ryan_library.orchestrators.tuflow.structure_results import main_processing
+
+main_processing(
+    paths_to_process=[Path("TUFLOW/results/EG02/plot/csv")],
+    include_data_types=["SQ", "SHmx"],
+    locations_to_include=["FC01.1_R"],
+    export_mode="both",
+    use_live_dashboard=False,
+)
+```
+
+A protected workbook/Parquet export keeps histories and supplied upstream
+level states in separate sheets. The two product types remain distinct in
+`ProcessorCollection` and read-only MCP inspection. The full #236 format
+backlog and native-scale acceptance remain open.

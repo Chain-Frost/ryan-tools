@@ -11,6 +11,8 @@ from .RLPHmxProcessor import RLPHmxProcessor
 from .RLPHProcessor import RLPHProcessor
 from .RLRVolmxProcessor import RLRVolmxProcessor
 from .RLRVolProcessor import RLRVolProcessor
+from .SHmxProcessor import SHmxProcessor
+from .SQProcessor import SQProcessor
 from .TLFProcessor import TLFProcessor
 
 __all__: list[str] = [
@@ -24,5 +26,7 @@ __all__: list[str] = [
     "RLPHmxProcessor",
     "RLRVolProcessor",
     "RLRVolmxProcessor",
+    "SHmxProcessor",
+    "SQProcessor",
     "TLFProcessor",
 ]
