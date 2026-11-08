@@ -14,6 +14,7 @@ from ryan_library.functions.tuflow.logsummary_excel_append import (
     append_dataframe_to_workbook_table,
     filter_new_log_files,
     load_existing_log_summary_rows,
+    master_workbook_claim,
 )
 from ryan_library.orchestrators.tuflow.tuflow_logsummary import (
     LOG_SUMMARY_DASHBOARD_COLUMNS,
@@ -66,7 +67,7 @@ def append_to_master_log_summary(
         console_log_level if console_log_level is not None else ("SUCCESS" if use_live_dashboard else "INFO")
     )
 
-    with setup_logger(console_log_level=console_level) as log_queue:
+    with setup_logger(console_log_level=console_level) as log_queue, master_workbook_claim(workbook_path=workbook_path):
         with dashboard:
             try:
                 dashboard.set_phase("Discovering")
@@ -128,6 +129,7 @@ def append_to_master_log_summary(
                     workbook_path=workbook_path,
                     sheet_name=sheet_name,
                     table_name=table_name,
+                    _claim_is_held=True,
                 )
                 if failed_count or skipped_count:
                     logger.error(

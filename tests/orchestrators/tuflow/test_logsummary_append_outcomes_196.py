@@ -40,6 +40,28 @@ def _result(path: Path, status: LogSummaryStatus) -> LogFileProcessingResult:
         (["OK", "SKIP"], False, True),
     ],
 )
+def test_master_claim_is_held_before_workbook_discovery(tmp_path: Path) -> None:
+    master = tmp_path / "master.xlsx"
+    _workbook(master)
+    claim = master.with_name(f".{master.name}.writing")
+    original = excel_append.load_existing_log_summary_rows
+
+    def probe(**kwargs: object) -> excel_append.ExistingLogSummaryRows:
+        assert claim.exists()
+        with pytest.raises(FileExistsError, match="already being updated"):
+            with excel_append.master_workbook_claim(workbook_path=master):
+                pass
+        return original(**kwargs)  # pyright: ignore[reportArgumentType]
+
+    with (
+        patch.object(app, "load_existing_log_summary_rows", side_effect=probe),
+        patch.object(app, "discover_log_files", return_value=[]),
+    ):
+        assert app.append_to_master_log_summary(master_workbook_path=master, use_live_dashboard=False)
+
+    assert not claim.exists()
+
+
 def test_append_reports_truthful_outcome(
     tmp_path: Path,
     statuses: list[LogSummaryStatus],

@@ -8,7 +8,8 @@ import math
 import os
 import stat
 import tempfile
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
@@ -36,6 +37,37 @@ class ExistingLogSummaryRows:
     runcodes: frozenset[str]
     log_paths: frozenset[str]
     log_filenames: frozenset[str]
+
+
+@contextmanager
+def master_workbook_claim(*, workbook_path: Path) -> Iterator[None]:
+    """Prevent cooperating writers from using one master workbook concurrently.
+
+    The claim covers the entire discovery/read/processing/replace workflow.
+    Creation is exclusive on the workbook's filesystem (including SMB).
+    A crash can leave a claim behind: inspect ownership before manual removal.
+    """
+    claim_path = workbook_path.with_name(f".{workbook_path.name}.writing")
+    try:
+        claim_file = claim_path.open("x+b")
+    except FileExistsError as exc:
+        msg = f"Master workbook is already being updated: {workbook_path} (claim: {claim_path})"
+        raise FileExistsError(msg) from exc
+
+    try:
+        owned_stat = os.fstat(claim_file.fileno())
+        claim_file.write(f"pid={os.getpid()}\n".encode("ascii"))
+        claim_file.flush()
+        yield
+    finally:
+        claim_file.close()
+        try:
+            current = claim_path.lstat()
+        except FileNotFoundError:
+            pass
+        else:
+            if (current.st_dev, current.st_ino) == (owned_stat.st_dev, owned_stat.st_ino):
+                claim_path.unlink()
 
 
 def load_existing_log_summary_rows(
@@ -129,8 +161,29 @@ def append_dataframe_to_workbook_table(
     workbook_path: Path,
     sheet_name: str,
     table_name: str | None,
+    _claim_is_held: bool = False,
 ) -> None:
-    """Append dataframe rows to a worksheet table, extending the table range as needed."""
+    """Append rows under an exclusive claim; coordinators may hold it already."""
+    _validate_master_workbook_type(workbook_path=workbook_path)
+    if _claim_is_held:
+        _append_dataframe_to_workbook_table_claimed(
+            data_frame=data_frame, workbook_path=workbook_path, sheet_name=sheet_name, table_name=table_name
+        )
+        return
+    with master_workbook_claim(workbook_path=workbook_path):
+        _append_dataframe_to_workbook_table_claimed(
+            data_frame=data_frame, workbook_path=workbook_path, sheet_name=sheet_name, table_name=table_name
+        )
+
+
+def _append_dataframe_to_workbook_table_claimed(
+    *,
+    data_frame: pd.DataFrame,
+    workbook_path: Path,
+    sheet_name: str,
+    table_name: str | None,
+) -> None:
+    """Write a staged workbook while the caller holds the exclusive claim."""
     _validate_master_workbook_type(workbook_path=workbook_path)
     original_stat: os.stat_result = _require_unlinked_master_workbook(workbook_path=workbook_path)
     workbook: Workbook = load_workbook(filename=workbook_path, read_only=False, data_only=False)

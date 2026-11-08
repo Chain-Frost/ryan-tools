@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import pytest
 import pandas as pd
 from openpyxl import Workbook
 from openpyxl.worksheet.table import Table, TableStyleInfo
@@ -71,6 +72,28 @@ class TestExistingLogSummaryRows:
         filtered = lsea.filter_new_log_files(files=files, existing_rows=existing)
         assert len(filtered) == 1
         assert filtered[0].name == "run4.tlf"
+
+
+def test_exclusive_master_claim_blocks_competing_publication(tmp_path: Path) -> None:
+    path = tmp_path / "master.xlsx"
+    create_dummy_workbook(path)
+    original = path.read_bytes()
+    claim = path.with_name(f".{path.name}.writing")
+    new_rows = pd.DataFrame({"Runcode": ["run3"], "orig_log_path": ["run3.tlf"]})
+
+    with lsea.master_workbook_claim(workbook_path=path):
+        assert claim.is_file()
+        with pytest.raises(FileExistsError, match="already being updated"):
+            lsea.append_dataframe_to_workbook_table(
+                data_frame=new_rows, workbook_path=path, sheet_name="Summary", table_name=None
+            )
+        assert path.read_bytes() == original
+
+    assert not claim.exists()
+    lsea.append_dataframe_to_workbook_table(
+        data_frame=new_rows, workbook_path=path, sheet_name="Summary", table_name=None
+    )
+    assert not claim.exists()
 
 
 class TestAppendDataframe:
