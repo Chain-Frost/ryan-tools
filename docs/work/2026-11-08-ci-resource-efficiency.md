@@ -2,13 +2,13 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Implemented; hosted acceptance and review pending |
+| Status | Active: operational recovery and stack adoption; CI implementation merged |
 | Owner | ChatGPT / maintainer |
 | Created | 2026-11-08 |
 | Updated | 2026-11-08 |
 | Next review | 2026-11-15 |
-| Delivery | [Draft PR #272](https://github.com/Chain-Frost/ryan-tools/pull/272), branch `ci/resource-efficiency-20261108` |
-| Previous head | `1ae1235c2369950c287c4fafe24ef23848880fe0` |
+| Delivery | [PR #272](https://github.com/Chain-Frost/ryan-tools/pull/272), including [#274](https://github.com/Chain-Frost/ryan-tools/pull/274), merged to main as `8c03dc961455c124fe4e0996ee15f50813cf5682` |
+| Historical timing baseline | `1ae1235c2369950c287c4fafe24ef23848880fe0` |
 
 ## Scope and decisions
 
@@ -16,9 +16,11 @@ Windows/Python 3.14 remains the target acceptance environment. Ubuntu supplies i
 the existing narrow POSIX filesystem checks. Normal package and developer dependencies remain unchanged. This work
 reduces repeated environments and unnecessary starts; it does not remove engineering or installed-wheel acceptance.
 
-The preceding draft added Markdown-aware routing, shorter artifact retention and selective submodule instructions.
-This checkpoint makes cheap validation a prerequisite for expensive jobs, consolidates duplicated MCP tests, adds
-CI-specific dependency profiles, and documents batched pushes. No merge, release or branch-rule change is authorized.
+The merged implementation makes cheap validation a prerequisite for expensive jobs, consolidates duplicated MCP
+tests, adds CI-specific dependency profiles and the verified PyTuflow wheel, and documents batched pushes. PR #274
+was integrated into #272 at 08:33 UTC on 2026-11-08; #272 was merged to main at 08:51 UTC. Both PRs are closed.
+This record now tracks operational main validation and adoption by active stacks. Further dependency reduction
+is deferred in the [dependency record](2026-11-08-ci-dependency-groups.md).
 
 ## Implemented behaviour
 
@@ -50,6 +52,8 @@ See [environment and CI guidance](../ENVIRONMENTS.md#github-actions-ci) for curr
 
 ## Evidence and validation
 
+### Initial implementation evidence
+
 The previous head's [Python CI run 42449907300](https://github.com/Chain-Frost/ryan-tools/actions/runs/42449907300)
 passed. Its Hosted job used 280 seconds, including 79 seconds installing GIS/development dependencies and 169 seconds
 running pytest. MCP used 133 seconds, including 86 seconds installing dependencies. These are individual observations,
@@ -65,25 +69,75 @@ establishes Windows/PowerShell or native GIS acceptance:
 - Default documentation/index coverage, all changed-document links and the Python 3.14 logging policy check pass.
 - Actionlint passes the final workflow structure. Independent review checked required-status propagation, explicit
   MCP evidence, bounded Pyright arguments, preserved wheel validation and distinct cache hashes.
-- Package/developer metadata and the existing hosted selection/exclusions remain unchanged. The only additional
-  test file covers the changed CI routing behaviour.
+- Package/developer metadata and the existing hosted selection/exclusions remain unchanged. This initial checkpoint
+  added the scope-helper test file; the later wheel integration added seven further passing cases.
 
-The PR description records the published commit and hosted results after the batched update, avoiding another
-source push solely to log CI. Older green runs do not validate a changed head. Review current-head Policy, Hosted,
-MCP, Package, preflight, POSIX and targeted TUFLOW results before any merge.
+The initial parent head `7f45110b37eb143f9b785001fe5d04af526ab339` passed
+[Python CI 42453824693](https://github.com/Chain-Frost/ryan-tools/actions/runs/42453824693) and
+[TUFLOW validation 42453824703](https://github.com/Chain-Frost/ryan-tools/actions/runs/42453824703).
+JUnit comparison retained every one of the 2,654 baseline selected nodes, added exactly 26 scope cases and changed
+no skip identities or reasons. The broad suite passed 2,666 with 14 skips and eight deselections; the separate
+profiling suite passed all 10 cases. The original Markdown-only child also exercised the cheap routing path in
+[run 42454127128](https://github.com/Chain-Frost/ryan-tools/actions/runs/42454127128): preflight and Policy passed,
+heavy jobs skipped, and its separate PR concurrency group left the parent run intact.
+
+Observed summed job wall time rose from 624 to 696 seconds across those different-input runs. The initial baseline
+had no Python changes and skipped real typing; the new source exercised the full Windows type environment and
+added tests. These observations do not establish a controlled total-runner saving or billed-minute reduction.
+
+### Final reviewed integration
+
+Integrated parent head `05939c936282aedfce5f090a2434fbd49e6d7d10`, containing child #274's accepted wheel, passed
+[all six Python CI jobs](https://github.com/Chain-Frost/ryan-tools/actions/runs/42463452659) and
+[all three TUFLOW jobs](https://github.com/Chain-Frost/ryan-tools/actions/runs/42463452656).
+Hosted collected 2,695 cases, deselected eight, passed 2,673 and retained the same 14 skips/reasons; the test phase
+took 189.57 seconds. Explicit profiling passed 10 cases. Windows typing, MCP compilation/exports, installed parser
+provenance, isolated wheel/copied-wrapper checks and the 161-TCF/174-context replay all passed. Codex's
+[integrated review](https://github.com/Chain-Frost/ryan-tools/pull/272#issuecomment-6719351353) reported no findings.
+This accepted implementation is now in main at `8c03dc961455c124fe4e0996ee15f50813cf5682`.
+
+### Historical post-merge download failure and recovery
+
+Main [Python CI 42464717133](https://github.com/Chain-Frost/ryan-tools/actions/runs/42464717133) failed only in Policy:
+the GIS bootstrap received HTTP 504 downloading the Fiona wheel from the geospatial wheel release. Typing had
+not started. The other five jobs passed, including Hosted's parser-origin verification and Package/MCP acceptance.
+The same-head failed-job rerun (attempt 2) encountered the same HTTP 504. A separate read-only request reproduced
+the failure even though the release API still listed the asset.
+
+The official public GitHub asset API for
+[Fiona asset 521560770](https://api.github.com/repos/cgohlke/geospatial-wheels/releases/assets/521560770)
+returned the same 834,605-byte artifact with its expected SHA-256 while the canonical release-download URL still
+returned HTTP 504. Recovery must retain that exact release-file identity; an alternative route is not permission
+to substitute another package or version.
+
+The focused CI recovery uses the normal GIS installer command first. Only a matching transient 502/503/504 failure
+for an official Fiona/Rasterio/GDAL release wheel can use a bounded public-API download. The release/tag/filename,
+asset URL, size and SHA-256 must agree before installing the temporary wheel. The original command must then run
+again with full dependency resolution; a verified download or `--no-deps` pre-install alone cannot pass the check.
+Normal developer installers and declared dependencies remain unchanged. Final-head validation and merge evidence
+belong in the recovery PR description, avoiding another source push solely to record its CI outcome.
 
 ## Acceptance and next action
 
-1. Confirm current-head Windows jobs and preserved required names pass, including the unique profiling/export
-   steps and isolated copied-wrapper acceptance.
-2. Compare hosted collected/passed/skipped/deselected outcomes against the previous head, accounting for the new
-   scope tests. Investigate any new dependency-related skip or missing native capability.
-3. Check the new artifact retention and measure installation, test execution, total job time and total runner minutes.
-   Do not extrapolate a monthly saving from one run or confuse lower wall time with lower usage.
-4. Exercise Markdown-only routing through the stacked dependency-audit handoff. A full source-changing PR still
-   requests Windows acceptance; no skip-CI markers or empty commits are needed.
-5. Further non-GIS/GIS grouping requires a separate benchmarked change with collection, skip-reason and capability
-   parity. Extra jobs repeat setup and may cost more than a shared environment.
+1. Finish the bounded recovery's review and Windows acceptance before propagating its resulting main revision.
+   Keep the two failed attempts on `8c03dc9` as historical evidence; a changed recovery source needs its own checks.
+   Record final results in the recovery PR/run evidence, and avoid repeatedly retrying the known failing URL.
+2. Adopt current main once into stack root [#251](https://github.com/Chain-Frost/ryan-tools/pull/251) as a coherent,
+   locally checked branch update. The inspected source heads are main `8c03dc961455c124fe4e0996ee15f50813cf5682`
+   and #251 `d61925675dffd86811ae9277b9ca53615e172f1f`. Re-read both refs immediately before publishing; if either
+   changes, refresh the candidate and preserve the owner's new work. After recovery reaches main, regenerate the
+   candidate against that revision so it inherits the fix and these records. Do not force-update a stale candidate.
+3. Retain #251's native cutline-test exclusion and its pandas 2.3.3 POMM/culvert compatibility step when resolving
+   the CI conflict. Run the pandas compatibility override after the default-environment MCP profiling/export
+   checks; a failure still fails Hosted and its downstream required MCP gate.
+4. Dependent owners should fetch their updated immediate parent at their next coherent update: #254, #255, #259
+   and #265 follow #251; #261 follows #254 and #263 follows #259 after those parents adopt #251.
+   Re-read each child's current head before integration,
+   preserve concurrent engineering changes, and push one checked batch per owner milestone. Do not automatically
+   update every child or merge these engineering PRs into main as part of this CI adoption.
+5. Keep further dependency experiments separate and deferred. The follow-up brief starts from the delivered wheel
+   and current CI, requires same-source collection/skip/capability parity and compares total runner use, including
+   extra setup. No additional profile rewrite or performance experiment is part of this refresh.
 
 Several unrelated work-register rows already have overdue review dates. Their owners and histories are preserved;
 this CI task does not reopen or implement those work fronts.

@@ -2,12 +2,13 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Exact accepted wheel delivered; final Windows integration and dependency audit pending |
+| Status | Deferred: further dependency reduction; accepted wheel delivery complete |
 | Owner | ChatGPT / maintainer review |
 | Created | 2026-11-08 |
 | Updated | 2026-11-08 |
 | Next review | 2026-11-15 |
-| Predecessor | [PR #272](https://github.com/Chain-Frost/ryan-tools/pull/272), head `7f45110b37eb143f9b785001fe5d04af526ab339` |
+| Delivery | [PR #274](https://github.com/Chain-Frost/ryan-tools/pull/274) integrated into [PR #272](https://github.com/Chain-Frost/ryan-tools/pull/272); merged to main as `8c03dc961455c124fe4e0996ee15f50813cf5682` |
+| Historical predecessor | Initial PR #272 head `7f45110b37eb143f9b785001fe5d04af526ab339` |
 | Timing baseline | Previous PR #272 head `1ae1235c2369950c287c4fafe24ef23848880fe0` |
 
 ## Outcome and scope
@@ -16,12 +17,16 @@ Keep Windows/Python 3.14 as the primary acceptance environment while avoiding de
 use. Small POSIX checks retain their specific portability and filesystem-safety purpose. Normal user installation,
 published package dependencies, native engineering acceptance and release behaviour are separate contracts.
 
-This record owns the dependency audit and any later split into narrower Windows test groups. The profiles below are
-implemented in parent PR #272, together with workflow routing and cancellation. The stacked child PR #274 now contains the checked-in binary, provenance and installer/CI
-integration. Parent #272 remains at the recorded SHA with its passing Windows CI.
-Its parent is not merged into main; preserve that integration boundary. See the [parent work record](2026-11-08-ci-resource-efficiency.md).
+The accepted wheel, provenance checks, installer integration and initial CI profiles are complete and merged.
+Child #274 was integrated into #272 as `05939c936282aedfce5f090a2434fbd49e6d7d10` on 2026-11-08 at 08:33 UTC;
+#272 was merged into main as `8c03dc961455c124fe4e0996ee15f50813cf5682` at 08:51 UTC. Both PRs are closed.
+Do not continue the old child branch or rebuild the accepted wheel as unfinished work.
 
-## First delivery: vendor the accepted PyTuflow wheel
+This record now owns only the deferred investigation of further dependency reduction and eventual retirement of
+the temporary parser pin. No additional non-GIS/GIS test split is adopted. See the
+[CI resource record](2026-11-08-ci-resource-efficiency.md) for operational validation and active-stack adoption.
+
+## Completed delivery: accepted PyTuflow wheel
 
 A temporary PyTuflow wheel is stored in ordinary Git until a released upstream version supplies
 the required fixes. The exact Windows/Python 3.14.10 wheel was reproduced on the child branch and
@@ -31,7 +36,7 @@ runtime, normal developer or published project dependencies are removed.
 ### Exact candidate and existing Windows evidence
 
 The current [parser requirement](../../repo-scripts/pytuflow-requirement.txt) selects the same source as
-[upstream PR #17](https://github.com/TUFLOW-Support/PyTuflow/pull/17), which is still open. This is the fork contribution
+[upstream PR #17](https://github.com/TUFLOW-Support/PyTuflow/pull/17). This is the fork contribution
 rebased onto upstream 1.3.0. The older #63 source and the separate #65 integration wheel are different revisions.
 
 | Property | Observed value |
@@ -58,36 +63,29 @@ avoidable source download/extraction, build-environment setup and metadata prepa
 seconds per observed installation. These are preparation observations, not a controlled total CI saving. Native
 dependencies account for much of the remaining installation time.
 
-### Installation and repository changes
+### Implemented installation contract
 
-1. Store the wheel in ordinary Git under
-   `repo-scripts/wheels/pytuflow/887534ea8c15b80d185a38a7ead1d42ab42a7167/`, with a small README and provenance manifest.
-   Record source repository/SHA, wheel filename/version/hash, build command/tool versions and validation links.
-   Keep the existing license and bundled notices, `py.typed`, CLI metadata and runtime resources. Use an explicit
-   binary attribute if needed. Do not use LFS or ignored/build-owned `dist/`, or accidentally package this wheel
-   inside the published ryan-tools distribution through the existing vendored-Python source boundary.
-2. Update the shared parser requirement and selector in `repo-scripts/install_latest_wheel.py` together. The selector
-   currently enforces an exact source URL, so changing the requirements line alone breaks normal installation.
-   Resolve an absolute wheel path relative to the installer, validate its expected hash/metadata, and fail clearly
-   on a missing or corrupt wheel. Keep documented root-relative requirements commands working, including paths
-   with spaces. Do not commit machine-specific file URLs or quietly fall back to source installation.
-3. Preserve parser-only `--force-reinstall --no-deps`, followed by joint normal dependency resolution, `pip check`
-   and the public capability guard. An official build can share the same version string; version equality alone
-   does not identify the accepted fork. Preserve normal GIS bootstrap, QGIS MCP defaults, legacy migration and the
-   existing separate recovery mode. Keep all declared runtime/developer dependencies.
-4. Adapt installed provenance checks rather than deleting them. The real model-replay test currently extracts an
-   archive URL from the requirement and asserts it in `direct_url.json`; a local wheel needs a matching archive
-   digest and source-manifest evidence. Keep the incompatible-parser rejection and broken-import/shadowing checks.
-   Narrow the PyPI-installer test that forbids every `.whl` argument: it should reject a local ryan-tools wheel while
-   allowing this explicit PyTuflow dependency wheel.
-5. Add wheel/manifest/verifier changes to the targeted TUFLOW workflow's path filters and relevant pip cache inputs.
-   Otherwise a wheel-only update can miss the dedicated model acceptance. Preserve distinct cache profiles and
-   all existing required checks. Validate the committed artifact cheaply before expensive installations.
-6. Keep plain `pip install ryan-tools` semantics explicit: package metadata does not automatically discover a wheel
-   beside scripts in this Git repository. Cover the repository's normal installer, developer and CI routes without
-   adding a nested dependency-wheel installer or a direct local path to published package metadata.
-7. Retire the temporary wheel and its pin when a released upstream build contains the required fixes and passes
-   the consumer capability checks. Merging the upstream PR alone does not provide a published installation artifact.
+1. The wheel is ordinary Git binary data under
+   `repo-scripts/wheels/pytuflow/887534ea8c15b80d185a38a7ead1d42ab42a7167/`, with a README and provenance manifest.
+   The verifier checks source identity, hash, size, metadata, licenses, CLI entries, `py.typed` and runtime resources.
+   It is outside LFS and build-owned `dist/`; package verification rejects nested dependency wheels.
+2. The shared requirement selects that local wheel. The installer verifies the requirement and artifact, then uses
+   an absolute path independent of the working directory. Documented requirements commands run from the repository
+   root. Missing or corrupt bytes are errors, with no silent source-download fallback.
+3. Normal installers retain parser-only `--force-reinstall --no-deps`, followed by joint dependency resolution,
+   `pip check`, installed provenance and the public capability guard. Same-version replacement, GIS bootstrap,
+   QGIS MCP defaults, legacy migration and separate recovery mode remain covered.
+4. Installed provenance requires pip's `direct_url.json` to name the accepted local file and digest. Consumer/model
+   checks retain incompatible-parser rejection and broken-import/shadowing checks. PyPI-installer tests allow the
+   explicit parser wheel while continuing to reject accidental local ryan-tools wheel substitution.
+5. Wheel, manifest and verifier changes are inputs to targeted TUFLOW triggers and relevant pip caches. The cheap
+   preflight verifies the committed artifact before native installation; required checks and separate cache profiles
+   remain intact.
+6. Plain `pip install ryan-tools` still resolves published dependency metadata through PyPI. It does not discover a
+   wheel beside repository scripts. Published metadata and every normal runtime/developer dependency are unchanged.
+
+Retire the temporary wheel and its pin only when a released upstream build contains the required fixes and passes
+consumer capability checks. Merging the upstream PR alone does not provide a published installation artifact.
 
 Verify the artifact hash separately or use a deliberate supported hash mechanism. Adding `--hash` to the shared
 requirements line can enable pip's global hash-checking mode and conflict with editable installs and unpinned
@@ -95,7 +93,7 @@ dependencies. Do not turn this bounded change into a full dependency lock migrat
 [pip installation](https://pip.pypa.io/en/stable/cli/pip_install/) and
 [hash-checking rules](https://pip.pypa.io/en/stable/topics/secure-installs/).
 
-### Acceptance for the vendored wheel
+### Acceptance to preserve for any replacement
 
 - Verify wheel metadata, license notices, packaged resources, source provenance and SHA-256 before use.
 - Exercise missing/corrupt wheel, paths with spaces, execution outside the repository working directory,
@@ -160,11 +158,16 @@ environment and package installation, not the sole installed-package check.
 
 ## Next action
 
-Parent #272's recorded head passed Windows acceptance with every baseline selected node retained, exactly 26 new
-scope-helper tests, unchanged 14 skip identities/reasons and unchanged eight deselections. The exact accepted
-PyTuflow wheel has now been committed. Review PR #274's final-head Windows Policy, Hosted, Package, MCP and
-161-TCF consumer acceptance; compare collection, skip identities and install timing against the parent.
-Do not split more dependency profiles without same-source parity evidence and a reduction in total runner usage.
+Keep further dependency reduction deferred while the merged CI reaches active stacks and operational validation
+is reconciled in the [CI resource record](2026-11-08-ci-resource-efficiency.md). Select a separate, bounded benchmark
+only if measured setup or execution costs justify it. Do not reopen the completed wheel delivery or split profiles
+without same-source collection, skip-reason, capability and total-runner-use evidence.
+
+One focused candidate is moving the 26 real-Git CI-scope helper tests to Ubuntu preflight while retaining the actual
+Windows Policy manifest invocation and all Windows runtime, MCP and installed-package acceptance. At initial parent
+acceptance those tests consumed 21.382 summed testcase seconds on Windows; a local Linux/Python 3.14 run took
+1.86 seconds for the suite. These are different measures on different machines, not a controlled saving estimate.
+No test move or new performance experiment is implemented by this handoff refresh.
 
 If further dependency reduction is worthwhile after measuring the consolidated jobs, investigate these stages in
 a separate reviewable change:
@@ -180,7 +183,7 @@ a separate reviewable change:
 The two behavioural groups are a proposal, not an adopted replacement for the current hosted suite. Additional
 jobs add setup and billing overhead, so retain a single environment unless measured savings justify the split.
 
-## Completion criteria
+## Acceptance criteria for a future dependency change
 
 - Current-head Windows Policy, Hosted tests, preserved MCP gate and Package checks pass.
 - Hosted dependencies retain the immutable PyTUFLOW source and every declared runtime dependency.
@@ -199,8 +202,8 @@ not an account-wide cost projection or a controlled benchmark.
 The initial audit used Linux/Python 3.12.14, followed by focused checks on Linux/Python 3.14.9. Inspection covered
 package metadata, pytest configuration, installer/setup tests and the hosted/MCP/package commands. Scope/setup/
 installer contracts pass without the QGIS MCP bridge; native Windows collection and runtime acceptance remain
-hosted checks. Parent PR #272 records its passing current-head results. The child now changes the parser's
-distribution route to a verified local wheel; no narrower Windows groups have been adopted.
+hosted checks. The final parent and child results below establish Windows acceptance for the delivered wheel
+integration. No narrower Windows groups have been adopted.
 
 Local validation passed: `python repo-scripts/check_documentation.py --links-only
 docs/work/2026-11-08-ci-dependency-groups.md`; profile include/extra resolution and pytest configuration assertions
@@ -231,32 +234,41 @@ also passed. Both profiles continue to resolve all 29 declared runtime requireme
 - **Contracts retained:** declared normal/dev/runtime PyPI dependencies unchanged, including
   `pytuflow>=1.2,<2` metadata; plain `pip install ryan-tools` cannot discover a checked-in
   sidecar wheel. Reuse accepted native/private engineering evidence for identical wheel bytes.
-  Windows current-head source/installer/CI acceptance is separate and must pass before integration.
+  Windows source/installer/CI acceptance passed at the final child and integrated parent heads below.
 - **Further grouping:** no additional GIS/non-GIS test split is adopted. Existing Windows collection
   parity and skipped capabilities must be preserved before trialing any new dependency profile.
   No controlled total-runner-minute or installation saving is yet claimed.
+
+### Completed Windows acceptance and integration (2026-11-08)
+
+- Child head `169c4631801c0c8d237fe87f110b8307e4a4832c` passed
+  [Python CI 42459842586](https://github.com/Chain-Frost/ryan-tools/actions/runs/42459842586) and
+  [TUFLOW validation 42459842680](https://github.com/Chain-Frost/ryan-tools/actions/runs/42459842680).
+- Integrated parent `05939c936282aedfce5f090a2434fbd49e6d7d10` passed
+  [Python CI 42463452659](https://github.com/Chain-Frost/ryan-tools/actions/runs/42463452659) and
+  [TUFLOW validation 42463452656](https://github.com/Chain-Frost/ryan-tools/actions/runs/42463452656).
+  Hosted reported 2,695 collected, eight deselected, 2,673 passed and the same 14 skipped cases/reasons;
+  separate profiling passed all 10 tests. Installed provenance, strict typing, isolated wheel/copied-wrapper
+  checks and the 161-TCF/174-context replay passed. The seven added passing cases cover the wheel integration.
+- Codex reviews of the child and integrated parent reported no findings or unresolved findings. The integrated
+  implementation was merged to main as `8c03dc961455c124fe4e0996ee15f50813cf5682`. These premerge results do not
+  substitute for checks on subsequent source changes; post-merge operations are tracked in the linked CI record.
 
 ## Focused follow-up prompt
 
 ```text
 Repository: Chain-Frost/ryan-tools
 Read AGENTS.md, docs/DEVELOPMENT_GUIDE.md, docs/work/README.md and
-docs/work/2026-11-08-ci-dependency-groups.md. Read the current PR #272 and linked
-CI evidence, then continue this stacked follow-up branch in a separate worktree.
-Recorded predecessor: 7f45110b37eb143f9b785001fe5d04af526ab339. Fetch and record any
-refresh before implementation; do not assume that an old green check covers it.
+docs/work/2026-11-08-ci-dependency-groups.md, then fetch current main and record
+its exact SHA. PRs #274 and #272 are closed and merged; implementation baseline
+8c03dc961455c124fe4e0996ee15f50813cf5682 already includes the accepted wheel,
+provenance checks, CI profiles and MCP consolidation. Do not continue the old
+child branch or rebuild/reintegrate the same accepted wheel.
 
-Audit whether the remaining Windows test dependencies can be reduced further.
-First implement the 'First delivery: vendor the accepted PyTuflow wheel' section.
-Use exactly 887534ea8c15b80d185a38a7ead1d42ab42a7167. The observed Windows wheel is
-pytuflow-1.3.0-py3-none-any.whl, 976,447 bytes, SHA-256
-4bfcd24734349f9e0dcf60776ee06a2e17953ac342f40e3611b0e2aae33b30e3.
-Recover or build it once, verify its contents/provenance, and integrate the local
-wheel across existing installer/requirements/CI routes. Preserve parser-only
-same-version replacement, dependency resolution, capability guards and the
-real model-replay provenance check. Include the artifact in workflow path/cache
-inputs. Keep plain PyPI installation semantics explicit. No fresh native/private
-engineering campaign is required solely for identical already accepted bytes.
+This brief is deferred future work, not an instruction to start a benchmark.
+When a maintainer selects it, use a separate worktree and one bounded candidate.
+Coordinate with active stack owners before adopting their source. Keep the
+accepted parser bytes and normal user dependency declarations unchanged.
 
 Preserve normal dependency declarations, published pyproject.toml requirements,
 the immutable PyTUFLOW source and installed-wheel isolation. Do not initialize or
@@ -268,7 +280,9 @@ and execution separately. Inventory direct, transitive, dynamic-engine and
 subprocess imports for any proposed group. An absent import must not make
 importorskip or a capability fallback silently remove accepted coverage.
 
-After the wheel delivery, trial only the smallest evidenced dependency change. Compare the same source
+Consider the CI-scope helper-test move before a broad GIS/non-GIS split, while
+keeping real Windows Policy scope invocation and user-runtime acceptance.
+Trial only the smallest evidenced change. Compare the same source
 and test-data revisions in fresh environments, and require collection/capability
 parity before adopting it. Preserve the explicit profiling, compilation and
 MCP export checks and all wheel/copy-wrapper checks. Benchmark total runner
