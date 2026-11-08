@@ -1,13 +1,15 @@
 # ryan_library/processors/tuflow/timeseries_processor.py
 
-__lazy_modules__ = ["pandas"]
+__lazy_modules__ = ["numpy", "pandas"]
 
 from abc import abstractmethod
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from loguru import logger
 
+from ...functions.tuflow.sample_validity import clean_hydraulic_samples
 from .base_processor import (
     BaseProcessor,
     DataValidationError,
@@ -40,12 +42,14 @@ class TimeSeriesProcessor(BaseProcessor):
                 logger.error(
                     f"Processing aborted for file: {self.log_path} while reading and reshaping {data_type} data."
                 )
+                self.input_health = "INVALID"
                 self.df = pd.DataFrame()
                 return
 
             status = self.process_timeseries_raw_dataframe()
             if status is not ProcessorStatus.SUCCESS:
                 logger.error(f"Processing aborted for file: {self.log_path} during {data_type} post-processing step.")
+                self.input_health = "INVALID"
                 self.df = pd.DataFrame()
                 return
 
@@ -59,6 +63,7 @@ class TimeSeriesProcessor(BaseProcessor):
 
             if not self.validate_data():
                 logger.error(f"{self.file_name}: Data validation failed for {data_type} data.")
+                self.input_health = "INVALID"
                 self.df = pd.DataFrame()
                 return
 
@@ -66,6 +71,7 @@ class TimeSeriesProcessor(BaseProcessor):
             logger.info(f"Completed processing of {data_type} file: {self.log_path}")
         except Exception as exc:  # pragma: no cover - defensive logging
             logger.error(f"Failed to process {data_type} file {self.log_path}: {exc}")
+            self.input_health = "INVALID"
             self.df = pd.DataFrame()
             return
 
@@ -111,6 +117,14 @@ class TimeSeriesProcessor(BaseProcessor):
                 return ProcessorStatus.EMPTY_DATAFRAME
 
             self.df = df_melted
+            if data_type in {"Q", "V", "H"}:
+                value_columns = ("US_H", "DS_H") if data_type == "H" else (data_type,)
+                for value_column in value_columns:
+                    numeric, rejected = clean_hydraulic_samples(
+                        self.df[value_column], measurement=value_column
+                    )
+                    self.df[value_column] = numeric
+                    self.record_rejections(rejected)
             self._apply_final_transformations(data_type=data_type)
             logger.info(f"{self.file_name}: Timeseries CSV processed successfully.")
             return ProcessorStatus.SUCCESS
@@ -182,6 +196,13 @@ class TimeSeriesProcessor(BaseProcessor):
                 logger.error(f"{self.file_name}: 'Time' column is missing after cleaning headers.")
                 msg = "'Time' column is missing after cleaning headers."
                 raise DataValidationError(msg)
+
+            time_values = pd.to_numeric(df["Time"], errors="coerce")
+            if not np.isfinite(time_values.to_numpy(dtype="float64", na_value=np.nan)).all():
+                raise DataValidationError("Timeseries contains missing or nonfinite timestamps.")
+            if (time_values.diff().iloc[1:] <= 0).any():
+                raise DataValidationError("Timeseries timestamps must increase strictly without duplicates.")
+            df["Time"] = time_values
 
             cleaned_columns: list[str] = self._clean_column_names(columns=df.columns, data_type=data_type)
             df.columns = cleaned_columns
