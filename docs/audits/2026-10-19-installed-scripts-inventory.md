@@ -1,7 +1,7 @@
 # Per-file installed-script inventory — evidence ledger (2026-10-19)
 
-**Status: incomplete review.** This ledger originated with 146 files at `1ac42c6` and now covers all **158** Git-tracked source files under `ryan-scripts/`, including five repository-only additions in PR #187 and the new repository-only TUFLOW guide in PR #250. It excludes submodules. It does not enter or inspect the `unsorted` submodule.
-There are **83 selected wheel files**, **75 excluded source files** and
+**Status: incomplete review.** This ledger originated with 146 files at `1ac42c6` and now covers all **160** Git-tracked source files under `ryan-scripts/`, including five repository-only additions in PR #187 and the new repository-only TUFLOW guide in PR #250. It excludes submodules. It does not enter or inspect the `unsorted` submodule.
+There are **83 selected wheel files**, **77 excluded source files** and
 **33 distinct existing MCP script paths**. These counts are inventory evidence,
 **not proof** that every source file is maintained, safe to import, or correctly excluded.
 
@@ -177,6 +177,8 @@ available in the repository but excluded from the wheel. MCP “Yes” denotes a
 | `unsorted-python/convert_shapefiles_to_gpkg.py` | No | No | Source inspected; repository-only standalone TUFLOW shapefile template converter; owner pending | Guarded argparse --version/--dry-run/verify-only and GDAL-only dependency; no general installed CLI acceptance | Copies matching <type>_empty.gpkg and inserts shapefile features; needs OGR schema/CRS, symlink, overwrite, and failed conversion checks | Static inventory refreshed; excluded lifecycle retained |
 | `unsorted-python/export_water_level_profile_tables_50m.py` | No | No | Source inspected; repository-only project hydrograph table generator | Configured data paths/scenarios, guarded main but no general argparse/no-pause | Reads GIS lines/rasters and writes CSV, Excel, Word tables at 50 m chainages; compare against maintained profiling orchestrator | Static inventory refreshed; excluded lifecycle retained |
 | `unsorted-python/plot_water_level_profiles.py` | No | No | Source inspected; repository-only project-specific profile plotting wrapper | Guarded argparse and no-pause, fixed P:/Q: GIS inputs; installed parity not established | Uses ryan_library water-level profiles and project chainage offsets; verify alignment, CRS and comparison to general wrapper | Static inventory refreshed; excluded lifecycle retained |
+| `cad-python/cad_to_gpkg.py` | No | No | Recovered maintained standalone GDAL/OGR converter; guarded Python 3.14 entry point, repository-only pending native CAD acceptance | Editable defaults and CLI flags; converts DXF/DWG into same-named GPKG with areas/lines/points; existing output refused unless --overwrite; native smoke pending | GDAL/OGR Python bindings; optional opt-in Autodesk console fallback for unsupported DWG; preserves CAD coordinates and optionally assigns CRS metadata; uses staged output publication; validate real DWG/DXF and network paths before production use | Added in terrain-crop branch; earlier recheck does not apply |
+| `TUFLOW-python/crop_tgc_terrains.py` | No | No | Source inspected; repository-only maintained terrain crop wrapper; owner acceptance pending | Guarded CLI, plan-only default, single scenario input, exclusive new outputs and focused tests; live write mode not yet accepted | Uses PyTUFLOW scopes to select terrain precedence, trims deep overlap while retaining a 50 m seam allowance, and writes native-grid rasters plus a patched TGC and manifest | Added in terrain-crop branch; earlier recheck does not apply |
 
 
 ## Remaining pre-existing evidence and non-executable companions

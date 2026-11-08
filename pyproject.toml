@@ -27,6 +27,7 @@ dependencies = [
   "laspy[lazrs]",
   "tqdm",
   "rasterio",
+  "shapely>=2",
   "seaborn",
   "requests",
   "openpyxl",
@@ -63,6 +64,7 @@ mcp = [
 [project.scripts]
 ryan-mcp = "ryan_library.mcp.server:main"
 ryan-scripts = "ryan_library.mcp.installed_scripts:main"
+tuflow-initialiser = "ryan_library.orchestrators.tuflow.initialiser.cli:main"
 
 [project.urls]
 Repository = "https://github.com/Chain-Frost/ryan-tools"

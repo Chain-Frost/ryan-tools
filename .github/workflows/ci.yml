@@ -47,6 +47,10 @@ jobs:
             ${{ runner.temp }}/installed-scripts-audit.md
           if-no-files-found: warn
 
+      - name: Test CAD SQLite publication on POSIX
+        # These tests exercise real SQLite locks/journals without GDAL or fixtures.
+        run: python -m pytest -q tests/test_cad_to_gpkg.py -k overwrite --noconftest
+
       - name: Test descriptor-based staging and cleanup
         # The regular hosted suite runs on Windows, where these POSIX-only
         # regression tests would otherwise be skipped. These tests need no
@@ -130,8 +134,27 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m ruff format --check $pythonFiles
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -m pyright $pythonFiles
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          # The migrated initialiser keeps its own typed GIS stubs. Running
+          # both type-checkers in strict mode avoids overriding ryan-tools'
+          # existing, deliberately narrow rasterio stubs and PyTUFLOW API.
+          # Use the project's own include list so shared helpers moved out of
+          # the orchestrator retain the same strict GIS-stub environment.
+          $initialiserIncludes = @((Get-Content pyright-initialiser.json -Raw | ConvertFrom-Json).include)
+          $initialiserFiles = @($pythonFiles | Where-Object {
+            $file = $_
+            @($initialiserIncludes | Where-Object {
+              $file -eq $_ -or $file.StartsWith("$_/")
+            }).Count -gt 0
+          })
+          $sharedFiles = @($pythonFiles | Where-Object { $_ -notin $initialiserFiles })
+          if ($sharedFiles.Count -gt 0) {
+            python -m pyright $sharedFiles
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          if ($initialiserFiles.Count -gt 0) {
+            python -m pyright --project pyright-initialiser.json
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
 
       - name: Check documentation and logging policy
         shell: pwsh
