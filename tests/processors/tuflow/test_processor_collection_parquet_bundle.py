@@ -326,9 +326,7 @@ def test_competing_writer_cannot_bypass_default_no_clobber(
     dest = tmp_path / "competing.parquetdir"
     original_stage = parquet_bundle._stage_tables
 
-    def race(
-        selected: ProcessorCollection, stage: Path, entries: list[dict[str, Any]]
-    ) -> dict[str, Any] | None:
+    def race(selected: ProcessorCollection, stage: Path, entries: list[dict[str, Any]]) -> dict[str, Any] | None:
         result = original_stage(selected, stage, entries)
         with monkeypatch.context() as patcher:
             patcher.setattr(parquet_bundle, "_stage_tables", original_stage)
@@ -394,9 +392,7 @@ def test_destination_swap_during_overwrite_cannot_mutate_other_dataset(
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows directory SHARE_DELETE semantics only")
-def test_windows_publication_guard_blocks_directory_swap(
-    collection: ProcessorCollection, tmp_path: Path
-) -> None:
+def test_windows_publication_guard_blocks_directory_swap(collection: ProcessorCollection, tmp_path: Path) -> None:
     dest = tmp_path / "held.parquetdir"
     collection.to_parquet(dest)
     backup = tmp_path / "moved.parquetdir"

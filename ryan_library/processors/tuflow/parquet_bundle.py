@@ -618,10 +618,7 @@ def _assert_pinned_directory(destination: Path, directory_fd: int | None) -> Non
         return
     original = os.fstat(directory_fd)
     current = destination.stat(follow_symlinks=False)
-    if (
-        not stat.S_ISDIR(current.st_mode)
-        or (original.st_dev, original.st_ino) != (current.st_dev, current.st_ino)
-    ):
+    if not stat.S_ISDIR(current.st_mode) or (original.st_dev, original.st_ino) != (current.st_dev, current.st_ino):
         message = f"Parquet publication directory identity changed: {destination}"
         raise ValueError(message)
 
