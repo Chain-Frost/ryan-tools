@@ -8,7 +8,7 @@ import math
 import os
 import stat
 import tempfile
-from collections.abc import Iterable, Iterator
+from collections.abc import Generator, Iterable
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
@@ -40,7 +40,7 @@ class ExistingLogSummaryRows:
 
 
 @contextmanager
-def master_workbook_claim(*, workbook_path: Path) -> Iterator[None]:
+def master_workbook_claim(*, workbook_path: Path) -> Generator[None, None, None]:
     """Prevent cooperating writers from using one master workbook concurrently.
 
     The claim covers the entire discovery/read/processing/replace workflow.
@@ -54,6 +54,7 @@ def master_workbook_claim(*, workbook_path: Path) -> Iterator[None]:
         msg = f"Master workbook is already being updated: {workbook_path} (claim: {claim_path})"
         raise FileExistsError(msg) from exc
 
+    owned_stat: os.stat_result | None = None
     try:
         owned_stat = os.fstat(claim_file.fileno())
         claim_file.write(f"pid={os.getpid()}\n".encode("ascii"))
@@ -61,13 +62,14 @@ def master_workbook_claim(*, workbook_path: Path) -> Iterator[None]:
         yield
     finally:
         claim_file.close()
-        try:
-            current = claim_path.lstat()
-        except FileNotFoundError:
-            pass
-        else:
-            if (current.st_dev, current.st_ino) == (owned_stat.st_dev, owned_stat.st_ino):
-                claim_path.unlink()
+        if owned_stat is not None:
+            try:
+                current = claim_path.lstat()
+            except FileNotFoundError:
+                pass
+            else:
+                if (current.st_dev, current.st_ino) == (owned_stat.st_dev, owned_stat.st_ino):
+                    claim_path.unlink()
 
 
 def load_existing_log_summary_rows(

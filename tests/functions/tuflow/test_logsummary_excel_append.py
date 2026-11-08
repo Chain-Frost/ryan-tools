@@ -13,6 +13,7 @@ from ryan_library.functions.tuflow import logsummary_excel_append as lsea
 def create_dummy_workbook(path: Path, with_table: bool = True) -> None:
     wb = Workbook()
     ws = wb.active
+    assert ws is not None
     ws.title = "Summary"
     # Add headers
     ws.append(["Runcode", "orig_log_path", "Other"])
