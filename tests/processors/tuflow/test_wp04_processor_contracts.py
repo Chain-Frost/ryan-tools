@@ -357,9 +357,7 @@ def test_h_selection_distinguishes_blank_present_channel_from_absent(tmp_path: P
     path = _file(
         tmp_path,
         "_1d_H.csv",
-        "Descriptor,Time,H C1.1,H C1.2,H C2.1,H C2.2\n"
-        "row,0,,,10,9\n"
-        "row,1,,,11,10\n",
+        "Descriptor,Time,H C1.1,H C1.2,H C2.1,H C2.2\nrow,0,,,10,9\nrow,1,,,11,10\n",
     )
     present = HProcessor(file_path=path, entity_filter=frozenset({"C1"}))
     present.process()
