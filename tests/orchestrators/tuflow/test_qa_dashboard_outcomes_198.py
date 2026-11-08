@@ -19,7 +19,7 @@ def test_qa_dashboard_refreshes_during_slow_ordered_worker(tmp_path: Path, workf
     started = Event()
     release = Event()
     refreshed_while_waiting: list[bool] = []
-    rows = [{"run_code": "run1", "status": "OK", "points": 5}]
+    rows: list[dict[str, object]] = [{"run_code": "run1", "status": "OK", "points": 5}]
     module = peak if workflow == "peak" else stability
     file_path = tmp_path / "input_PO.csv"
 
