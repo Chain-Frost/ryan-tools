@@ -1,13 +1,26 @@
 """Unit tests for ryan_library.processors.tuflow.maximums_1d.CmxProcessor."""
 
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
 
 from ryan_library.processors.tuflow.base_processor import ProcessorStatus
 from ryan_library.processors.tuflow.maximums_1d.CmxProcessor import CmxProcessor
+
+
+def _process_with_mocked_read(processor: CmxProcessor, read_mock: MagicMock) -> None:
+    """A successful mocked read must repopulate df after invocation state resets."""
+    if read_mock.return_value is ProcessorStatus.SUCCESS:
+        source = processor.df.copy(deep=True)
+
+        def fresh_read() -> ProcessorStatus:
+            processor.df = source.copy(deep=True)
+            return ProcessorStatus.SUCCESS
+
+        read_mock.side_effect = fresh_read
+    processor.process()
 
 
 class TestCmxProcessor:
@@ -101,7 +114,7 @@ class TestCmxProcessor:
         # However, since we created mock_processor with a patched __post_init__, it's an instance of CmxProcessor.
         # The patches above are on the class, so they should apply.
 
-        mock_processor.process()
+        _process_with_mocked_read(mock_processor, mock_read)
 
         assert mock_processor.processed is True
         mock_read.assert_called_once()
@@ -113,7 +126,7 @@ class TestCmxProcessor:
         """Test process aborts when read fails."""
         mock_read.return_value = ProcessorStatus.FAILURE
 
-        mock_processor.process()
+        _process_with_mocked_read(mock_processor, mock_read)
 
         assert mock_processor.processed is False
         assert mock_processor.df.empty
@@ -132,7 +145,7 @@ class TestCmxProcessor:
             {"Chan ID": ["C1"], "Time Qmax": [1.0], "Qmax": [10.0], "Time Vmax": [1.1], "Vmax": [1.0]}
         )
 
-        mock_processor.process()
+        _process_with_mocked_read(mock_processor, mock_read)
 
         assert mock_processor.processed is False
         assert mock_processor.df.empty
@@ -142,7 +155,7 @@ class TestCmxProcessor:
         """Test process handles exceptions."""
         mock_read.side_effect = Exception("Test Error")
 
-        mock_processor.process()
+        _process_with_mocked_read(mock_processor, mock_read)
 
         assert mock_processor.processed is False
         assert mock_processor.df.empty

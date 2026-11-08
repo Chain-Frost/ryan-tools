@@ -1,13 +1,26 @@
 """Unit tests for ryan_library.processors.tuflow.maximums_1d.NmxProcessor."""
 
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
 
 from ryan_library.processors.tuflow.base_processor import ProcessorStatus
 from ryan_library.processors.tuflow.maximums_1d.NmxProcessor import NmxProcessor
+
+
+def _process_with_mocked_read(processor: NmxProcessor, read_mock: MagicMock) -> None:
+    """A successful mocked read must repopulate df after invocation state resets."""
+    if read_mock.return_value is ProcessorStatus.SUCCESS:
+        source = processor.df.copy(deep=True)
+
+        def fresh_read() -> ProcessorStatus:
+            processor.df = source.copy(deep=True)
+            return ProcessorStatus.SUCCESS
+
+        read_mock.side_effect = fresh_read
+    processor.process()
 
 
 class TestNmxProcessor:
@@ -102,7 +115,7 @@ class TestNmxProcessor:
 
         mock_processor.df = pd.DataFrame({"Node ID": ["C1.1", "C1.2"], "Time Hmax": [1.0, 1.0], "Hmax": [10.0, 9.0]})
 
-        mock_processor.process()
+        _process_with_mocked_read(mock_processor, mock_read)
 
         assert mock_processor.processed is True
         mock_read.assert_called_once()
@@ -113,7 +126,7 @@ class TestNmxProcessor:
         """Test process aborts when read fails."""
         mock_read.return_value = ProcessorStatus.FAILURE
 
-        mock_processor.process()
+        _process_with_mocked_read(mock_processor, mock_read)
 
         assert mock_processor.processed is False
         assert mock_processor.df.empty
@@ -129,7 +142,7 @@ class TestNmxProcessor:
 
         mock_processor.df = pd.DataFrame({"Node ID": ["C1.1", "C1.2"], "Time Hmax": [1.0, 1.0], "Hmax": [10.0, 9.0]})
 
-        mock_processor.process()
+        _process_with_mocked_read(mock_processor, mock_read)
 
         assert mock_processor.processed is False
         assert mock_processor.df.empty
@@ -139,7 +152,7 @@ class TestNmxProcessor:
         """Test process handles exceptions."""
         mock_read.side_effect = Exception("Test Error")
 
-        mock_processor.process()
+        _process_with_mocked_read(mock_processor, mock_read)
 
         assert mock_processor.processed is False
         assert mock_processor.df.empty
