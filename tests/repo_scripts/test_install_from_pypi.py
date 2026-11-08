@@ -88,7 +88,9 @@ def test_pypi_route_verifies_before_codex_setup(
     assert "public PyTUFLOW capabilities verified" in capsys.readouterr().out
 
 
-@pytest.mark.parametrize("failed_stage", ["bootstrap", "parser", "package", "dependencies", "provenance", "capabilities"])
+@pytest.mark.parametrize(
+    "failed_stage", ["bootstrap", "parser", "package", "dependencies", "provenance", "capabilities"]
+)
 def test_pypi_route_stops_on_install_or_verification_failure(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], failed_stage: str
 ) -> None:

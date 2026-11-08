@@ -14,7 +14,20 @@ import pytest
 
 REPO = Path(__file__).absolute().parents[2]
 codex: dict[str, Any] = runpy.run_path(str(REPO / "repo-scripts" / "setup_codex_mcp.py"))
-installer: dict[str, Any] = runpy.run_path(str(REPO / "repo-scripts" / "install_latest_wheel.py"))
+
+
+def _load_installer() -> dict[str, Any]:
+    # runpy does not add the target script's directory to sys.path. Recreate
+    # ordinary script execution so its sibling wheel-verification import works.
+    script_directory = str(REPO / "repo-scripts")
+    sys.path.insert(0, script_directory)
+    try:
+        return runpy.run_path(str(REPO / "repo-scripts" / "install_latest_wheel.py"))
+    finally:
+        sys.path.remove(script_directory)
+
+
+installer: dict[str, Any] = _load_installer()
 render = cast(Callable[[str, Path, Path, str], str], codex["render_config"])
 pip_commands = cast(Callable[..., list[list[str]]], installer["_pip_commands"])
 
@@ -67,7 +80,7 @@ def test_wheel_installer_includes_qgis_mcp(tmp_path: Path) -> None:
     commands = pip_commands(wheel, False)
     assert len(commands) == 4
     assert "nkarasiak/qgis-mcp" in commands[1][-1]
-    parser = cast(str, installer["ACCEPTED_PYTUFLOW_SOURCE"])
+    parser = str(cast(Path, installer["WHEEL_PATH"]))
     assert commands[-1][-2:] == [f"{wheel}[mcp]", parser]
 
 
@@ -127,8 +140,15 @@ def test_pypi_installer_commands_use_distribution_not_local_wheel(
     assert "fiona" in commands[0]
     assert "nkarasiak/qgis-mcp" in commands[1][-1]
     assert commands[-1][-2] == "ryan-tools[mcp]"
-    assert commands[-1][-1] == installer["ACCEPTED_PYTUFLOW_SOURCE"]
-    assert all(not any(".whl" in argument for argument in command) for command in commands)
+    accepted_parser = str(cast(Path, installer["WHEEL_PATH"]))
+    assert commands[-1][-1] == accepted_parser
+    # This remains the PyPI installer for ryan-tools; only the approved
+    # PyTuflow dependency wheel is supplied from the repository.
+    assert not any(
+        Path(argument).name.startswith("ryan_tools-") and argument.casefold().endswith(".whl")
+        for command in commands
+        for argument in command
+    )
     assert len(commands_fn(skip_qgis_mcp=True)) == 3
 
 

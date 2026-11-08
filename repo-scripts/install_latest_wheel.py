@@ -17,9 +17,7 @@ QGIS_MCP_ARCHIVE: str = "https://github.com/nkarasiak/qgis-mcp/archive/refs/head
 PYTUFLOW_REQUIREMENT_FILE = Path(__file__).absolute().with_name("pytuflow-requirement.txt")
 # Requirements files are installed from the repository root; command-list installers
 # resolve the same wheel independently of the caller's working directory.
-ACCEPTED_PYTUFLOW_REQUIREMENT = (
-    Path("repo-scripts") / "wheels" / "pytuflow" / SOURCE_COMMIT / WHEEL_NAME
-).as_posix()
+ACCEPTED_PYTUFLOW_REQUIREMENT = (Path("repo-scripts") / "wheels" / "pytuflow" / SOURCE_COMMIT / WHEEL_NAME).as_posix()
 
 
 def _pytuflow_requirement() -> str:
