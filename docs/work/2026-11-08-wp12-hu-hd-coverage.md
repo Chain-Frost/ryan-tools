@@ -2,11 +2,11 @@
 
 | Field | Current status |
 | --- | --- |
-| Status | Needs review — native NTFS/UNC/mapped happy paths passed; partial-companion warning fix under CI; other acceptance gates open |
+| Status | WP12 selected coverage integrated into draft #251; native NTFS/UNC/SMB and missing-companion diagnostics passed, wider acceptance open |
 | Owner | WP12; coordinate numerical, validity and export contracts with WP03, WP04, WP08, WP10 and WP11 |
 | Updated | 2026-11-08 |
 | Next review | 2026-11-15 or after #219's no-data contract is accepted |
-| Delivery | Draft stack: [#251](https://github.com/Chain-Frost/ryan-tools/pull/251) → [#262](https://github.com/Chain-Frost/ryan-tools/pull/262) → [#269](https://github.com/Chain-Frost/ryan-tools/pull/269) → [#270](https://github.com/Chain-Frost/ryan-tools/pull/270); all unmerged to main |
+| Delivery | [#270](https://github.com/Chain-Frost/ryan-tools/pull/270) squash-merged into [#269](https://github.com/Chain-Frost/ryan-tools/pull/269), then [#269](https://github.com/Chain-Frost/ryan-tools/pull/269) into [#262](https://github.com/Chain-Frost/ryan-tools/pull/262), then [#262](https://github.com/Chain-Frost/ryan-tools/pull/262) into [draft #251](https://github.com/Chain-Frost/ryan-tools/pull/251) as `19aeefee`; no main merge |
 | Tracking | [#237](https://github.com/Chain-Frost/ryan-tools/issues/237), [#236](https://github.com/Chain-Frost/ryan-tools/issues/236), [#240](https://github.com/Chain-Frost/ryan-tools/issues/240), [#212](https://github.com/Chain-Frost/ryan-tools/issues/212) |
 
 ## Decision from the first-delivery investigation
@@ -137,15 +137,39 @@ collection, identifying the absent `*_RLP_Hmx.csv`, `*_RLL_Qmx.csv`, `*_RLR_Volm
 history counterpart by filename suffix. It preserves successful, read-only partial reporting
 and existing export/no-clobber semantics. Tests now cover the reported history-only case with
 `console_log_level="SUCCESS"` and an INFO log file, summary-only cases, a mixed complete/incomplete
-multi-run collection, and a fully matched pair without spurious warnings. This **code change has
-not itself been retested on native UNC/SMB**; check its exact-head hosted CI and request fresh
-independent review before any acceptance or integration decision.
+multi-run collection, and a fully matched pair without spurious warnings. The warning fix **was retested successfully on native NTFS and SMB/UNC** at `642e33cc` after the first local report, with 6/6 hosted checks and a no-findings Codex review. Preserve the earlier failure as historical evidence, not as the current defect status.
 
 The native happy-path evidence is recorded; full #236/#237 acceptance remains open for
 WP04/#219 shared missing-value behavior, WP11/#228 fixture matrix and #229 realistic memory,
 optional binary/HDF environment health, native exclusive locks and permissions, and other
 still-unimplemented source families such as `_SQ.csv` and `_SHmx.csv`. No merge to `main`,
 automatic issue closure or release is authorised.
+
+## 2026-11-08 WP12 selected-scope integration into parent #251
+
+**Integrated feature-branch work:** reviewed reporting-region and line child #270 was squash-merged
+into #269 as `c7f0c6b6`, then #269 into #262 as `21e83b6e`, and #262 into
+**draft #251** as `19aeefee`. All three child PRs are closed as merged and preserve
+their individual review histories. This is **not a merge to `main`**, nor a release or
+authorisation to close #236/#237. Parent #251 remains draft.
+
+**Native acceptance of this selected slice:** [initial local report](https://github.com/Chain-Frost/ryan-tools/pull/270#issuecomment-6717962107) passed source Python 3.14.6
+focused tests (44 passed), native NTFS, genuine SMB UNC, mapped drive, Excel/Parquet
+readback, signed numerical provenance, source immutability and overwrite protection.
+[Targeted native warning retest](https://github.com/Chain-Frost/ryan-tools/pull/270#issuecomment-6718358565) at `642e33cc` passed
+history-only, complete and mixed line results, including SUCCESS-console and INFO-file
+per-run warning visibility, and a genuine SMB path. All source hashes and mtimes were
+unchanged. The tested implementation had all six hosted CI checks passing and an
+exact-head Codex review without findings before stacked reconciliation; reconciled
+#262/#269/#270 heads also passed all six checks and their reviews found no new issues.
+The combined parent #251 must pass its **own** exact-head CI with WP07 input-discovery
+changes before downstream release decisions.
+
+**Remaining work is explicit:** #219 shared PO/POMM no-data validation and legacy Qmx
+sentinels, #228 supported-format matrix, #229 large model-size/RSS/disk and PyTuflow
+float precision benchmarking, native installed wheel, optional h5py Windows DLL health,
+exclusive-lock/ACL denial and remaining #236 SQ/SHmx/split/MB formats. These are not
+silently declared passed or auto-closed. No licensed TUFLOW solver run was performed.
 
 ## #236 selected next: reporting-location point water levels (initial decision)
 
@@ -160,4 +184,4 @@ Acceptance before marking either suffix supported: real factory/dispatch, locati
 - **Executed in hosted Windows Python 3.14 CI on prior head `69e15789`:** Ruff/whitespace, Package (installed/copy smoke), MCP smoke and POSIX wrapper security passed; strict Pyright and one numerical TPC assertion failed as above. The corrected HU/HD head `9e375778` passed all six GitHub checks (including Hosted, strict Pyright, Package, Ruff and MCP). Validate the final commit again, and do not infer passing native Windows/SMB acceptance from ordinary CI.
 - **Historical authoring-phase limit:** No local native Windows test was performed in the GitHub-connector authoring environment. The later exact-source native NTFS/UNC/mapped happy-path tests and outstanding scale/lock/HDF gaps are documented above; no licensed solver was run.
 
-Next action: validate the current-head companion-warning fix in CI, obtain fresh independent review and native spot-check of the changed diagnostic, then reconcile remaining scale/precision with WP11 and the shared #219 no-data contract with WP04. The next separate ready #236 candidate is `_SQ.csv` / `_SHmx.csv` structure outputs (state at maximum upstream level), not a re-interpretation of independent maxima. Keep remaining formats staged and separately allocated. #237 remains open until actual reader/consumer parity and required validity are accepted; broad #236 remains open. Do not merge, release or change the PyTuflow pin.
+Next action: verify final integrated #251 exact-head CI and independent review following WP07's shared workflow changes; reconcile remaining scale/precision with WP11 and shared #219 missing-value acceptance with WP04. The next separate ready #236 candidate is `_SQ.csv` / `_SHmx.csv` structure outputs (state at maximum upstream level), not a re-interpretation of independent maxima. Keep remaining formats staged and separately allocated. #237 remains open until actual reader/consumer parity and required validity are accepted; broad #236 remains open. Do not merge, release or change the PyTuflow pin.
