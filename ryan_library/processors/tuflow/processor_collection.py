@@ -760,6 +760,33 @@ class ProcessorCollection:
         )
         return filtered_collection
 
+    def to_parquet(self, file_path: Path | str, *, overwrite: bool = False) -> None:
+        """Write a single .rtparquet ZIP bundle of Parquet frames and processor metadata.
+
+        This is a heterogeneous collection snapshot, not a normal .parquet table.
+        """
+        from .parquet_bundle import write_collection_bundle
+
+        write_collection_bundle(self, file_path, overwrite=overwrite)
+
+    @staticmethod
+    def from_parquet(
+        file_path: Path | str,
+        locations: Collection[str] | None = None,
+        *,
+        data_types: Collection[str] | None = None,
+        verify_sources: bool = True,
+    ) -> ProcessorCollection:
+        """Restore a .rtparquet bundle, validating the current processor configuration."""
+        from .parquet_bundle import read_collection_bundle
+
+        return read_collection_bundle(
+            file_path,
+            locations=locations,
+            data_types=data_types,
+            verify_sources=verify_sources,
+        )
+
     # Breaking change (2026-11-08): the optional HDF5 snapshot feature was removed.
     # Retain the migration notice through 2027-03-31; remove from 2027-04-01.
     # Last published HDF5-API release: ryan-tools==26.11.8.3 on PyPI.

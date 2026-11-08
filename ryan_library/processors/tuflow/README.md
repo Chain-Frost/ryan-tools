@@ -159,6 +159,45 @@ To release retained raw input tables across the collection, call:
 discarded_count = collection.discard_raw_dataframes()
 ```
 
+## Single-file Parquet processor collections
+
+To export and later restore **individual ryan-tools processor objects**, use the
+single-file `.rtparquet` archive format. It contains one Parquet table per
+processor plus a versioned JSON manifest. This is **not** a conventional
+`.parquet` file; `pandas.read_parquet()` reads ordinary exported tables, not
+a whole collection bundle.
+
+```python
+from pathlib import Path
+
+from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
+
+bundle = Path("processed_tuflow.rtparquet")
+collection.to_parquet(bundle)  # Never overwrites an existing archive by default.
+restored = ProcessorCollection.from_parquet(bundle)
+# Or restore only selected types/locations:
+selected = ProcessorCollection.from_parquet(
+    bundle, data_types=["PO", "POMM"], locations=["Culvert_01"]
+)
+```
+
+`to_parquet(..., overwrite=True)` explicitly replaces an existing bundle
+through an owned temporary file. The archive uses individual compressed
+Parquet members and a ZIP container without redundant ZIP compression.
+Corruption, unexpected entries, processor-configuration mismatch, and
+changed/missing sources fail closed. `verify_sources=True` (default)
+compares source path, size and timestamp, including available GeoPackage WAL
+metadata. `verify_sources=False` explicitly permits reading historical
+snapshots after source files have moved or changed; it does not disable archive
+integrity or registry validation. No source files are rewritten.
+
+The full loaded collection still occupies memory. For workflows exceeding
+available RAM, retain the independent partitioned-Parquet/export and
+per-run reduction strategy instead of materialising a large collection.
+The bundle records processed DataFrames, filters, source identities and the
+compacted basic-info lookup; it deliberately does not serialize raw input
+DataFrames or execute arbitrary Python classes from the archive.
+
 ## Processed data storage and retired HDF5 snapshot API
 
 **Breaking change (8 November 2026):** `ProcessorCollection.to_hdf()` and
@@ -182,8 +221,8 @@ historical snapshot can be restored.
 **Use Parquet for current processed tabular results.** The existing
 `ryan-tools` TUFLOW processors remain the result readers. Export combined
 DataFrames using `to_parquet()` and load tables using `pandas.read_parquet()`.
-Parquet does not currently restore complete `ProcessorCollection` objects:
-the unused HDF snapshot feature was removed, not silently converted.
+Conventional Parquet tables do not restore processor objects. Use the separate
+`.rtparquet` collection bundle above for a validated single-file snapshot.
 
 ## MCP inspection and advanced queries
 
