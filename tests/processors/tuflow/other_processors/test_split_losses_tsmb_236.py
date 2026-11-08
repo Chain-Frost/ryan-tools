@@ -104,8 +104,7 @@ def test_component_source_duplicate_rejected_but_valid_distinct_components(tmp_p
     assert valid.df["Value"].iloc[2] == 0
     assert pd.isna(valid.df["Value"].iloc[3])
     path.write_text(
-        '"EG02_014 [model.tcf]","Time(h)","Entry LC Pipe [EG02_014]","Entry LC Pipe [EG02_014]"\n'
-        "1,0,1,2\n",
+        '"EG02_014 [model.tcf]","Time(h)","Entry LC Pipe [EG02_014]","Entry LC Pipe [EG02_014]"\n1,0,1,2\n',
         encoding="utf-8",
     )
     invalid = BaseProcessor.from_file(path)
@@ -123,9 +122,7 @@ def test_component_source_duplicate_rejected_but_valid_distinct_components(tmp_p
 )
 def test_mcp_identifies_new_types(run: str, dtype: str, location: str) -> None:
     source_suffix = {"2d_H": "2d_H", "L": "1d_L", "TSMB": "1d_TSMB"}[dtype]
-    result = inspect_tuflow_result(
-        str(CSV / f"{run}_{source_suffix}.csv"), locations=[location], sample_rows=1
-    )
+    result = inspect_tuflow_result(str(CSV / f"{run}_{source_suffix}.csv"), locations=[location], sample_rows=1)
     assert result["processed"]
     assert result["data_type"] == dtype
 
@@ -139,7 +136,11 @@ def test_mcp_identifies_new_types(run: str, dtype: str, location: str) -> None:
     ],
 )
 def test_protected_family_exports(
-    workflow: Callable[..., bool], run: str, suffix: str, pattern: str, tmp_path: Path,
+    workflow: Callable[..., bool],
+    run: str,
+    suffix: str,
+    pattern: str,
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     src, dest = tmp_path / "src", tmp_path / "dest"
