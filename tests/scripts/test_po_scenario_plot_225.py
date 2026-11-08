@@ -247,6 +247,8 @@ def test_headless_png_is_bounded_and_no_clobber(
     with pytest.raises(FileExistsError, match="OVERWRITE_PNG"):
         plotter.plot_timeseries(sample_frame())
     assert files[0].read_bytes() == original
+
+
 def test_source_inventory_addition_during_processing_cancels_cache(
     plotter: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
