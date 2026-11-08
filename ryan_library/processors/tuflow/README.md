@@ -457,8 +457,8 @@ summary. Call `node_mass_balance_summary.main_processing`. The existing
 
 Native TUFLOW time-series NetCDF and dedicated GPKG have **not** been
 registered as generic `BaseProcessor` readers. The pinned PyTuflow public
-TPC interface has CSV/NetCDF/GPKG dispatch and genuine `tests/nc_ts`
-and `tests/tpc_gpkg` fixtures, whereas the selected ryan-tools example
+TPC interface has CSV/NetCDF/GPKG dispatch and genuine [NetCDF fixtures](https://github.com/Chain-Frost/PyTuflow/tree/b1026d0cf72118ef68a0b6229610f427a7284e10/tests/nc_ts)
+and [GPKG fixtures](https://github.com/Chain-Frost/PyTuflow/tree/b1026d0cf72118ef68a0b6229610f427a7284e10/tests/tpc_gpkg), whereas the selected ryan-tools example
 corpus has CSV-only TPC inventories. Native adoption must preserve TPC
 association, location and measurement selection before materialisation,
 float precision, no-data, model units/reference time, and exact
