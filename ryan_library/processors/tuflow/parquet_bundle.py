@@ -12,6 +12,7 @@ import ctypes
 import errno
 import hashlib
 import json
+import math
 import os
 import re
 import shutil
@@ -19,13 +20,12 @@ import stat
 import sys
 import tempfile
 import uuid
-from collections.abc import Collection, Iterator
+from collections.abc import Collection, Generator
 from contextlib import ExitStack, contextmanager, suppress
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
-import numpy as np
 import pandas as pd
 from pandas import DataFrame, MultiIndex
 
@@ -81,9 +81,128 @@ def _portable_frame(frame: DataFrame) -> DataFrame:
         portable.columns = portable.columns.set_names(names)
     else:
         column_name: object = portable.columns.name
-        if isinstance(column_name, np.generic):
+        if column_name is not None:
             portable.columns.name = str(column_name)
     return portable
+
+
+def _encode_category(value: object) -> dict[str, object]:
+    """JSON-safe, explicitly typed category scalar; reject unsupported lossy values."""
+    if isinstance(value, bool):
+        return {"type": "bool", "value": value}
+    if isinstance(value, str):
+        return {"type": "str", "value": value}
+    if isinstance(value, int):
+        return {"type": "int", "value": value}
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            message = "Non-finite categorical values are unsupported"
+            raise ValueError(message)
+        return {"type": "float", "value": value}
+    if isinstance(value, pd.Timestamp):
+        return {"type": "timestamp", "value": value.isoformat()}
+    if isinstance(value, pd.Timedelta):
+        return {"type": "timedelta", "value": value.isoformat()}
+    if isinstance(value, datetime):
+        return {"type": "datetime", "value": value.isoformat()}
+    if isinstance(value, date):
+        return {"type": "date", "value": value.isoformat()}
+    if isinstance(value, Path):
+        return {"type": "path", "value": str(value)}
+    message = f"Unsupported categorical scalar for Parquet directory: {type(value).__name__}"
+    raise ValueError(message)
+
+
+def _decode_category(raw: object) -> object:
+    if not isinstance(raw, dict):
+        message = "Invalid Parquet directory categorical scalar"
+        raise ValueError(message)
+    value = cast("dict[str, object]", raw)
+    kind = value.get("type")
+    payload = value.get("value")
+    if kind == "bool" and isinstance(payload, bool):
+        return payload
+    if kind == "str" and isinstance(payload, str):
+        return payload
+    if kind == "int" and type(payload) is int:
+        return payload
+    if kind == "float" and type(payload) in {float, int} and math.isfinite(cast("float", payload)):
+        return float(payload)
+    if not isinstance(payload, str):
+        message = "Invalid Parquet directory categorical scalar value"
+        raise ValueError(message)
+    if kind == "timestamp":
+        return pd.Timestamp(payload)
+    if kind == "timedelta":
+        return pd.Timedelta(payload)
+    if kind == "datetime":
+        return datetime.fromisoformat(payload)
+    if kind == "date":
+        return date.fromisoformat(payload)
+    if kind == "path":
+        return Path(payload)
+    message = f"Unsupported Parquet directory categorical scalar kind: {kind!r}"
+    raise ValueError(message)
+
+
+def _category_contract(dtype: object) -> dict[str, object] | None:
+    if not isinstance(dtype, pd.CategoricalDtype):
+        return None
+    categories = dtype.categories
+    if categories is None:
+        message = "Categorical dtype has no categories"
+        raise ValueError(message)
+    values = cast("list[object]", categories.tolist())
+    return {
+        "index_dtype": str(categories.dtype),
+        "values": [_encode_category(value) for value in values],
+    }
+
+
+def _rehydrate_categories(frame: DataFrame, contract: object) -> DataFrame:
+    """Reinstate categorical dtype and unused categories lost by Arrow conversions."""
+    if not isinstance(contract, dict):
+        message = "Invalid Parquet directory DataFrame contract"
+        raise ValueError(message)
+    metadata = cast("dict[str, object]", contract)
+    categories_raw = metadata.get("categories")
+    ordered_raw = metadata.get("categorical_ordered")
+    if not isinstance(categories_raw, list) or not isinstance(ordered_raw, list):
+        message = "Missing Parquet directory categorical metadata"
+        raise ValueError(message)
+    categories_list = cast("list[object]", categories_raw)
+    ordered_list = cast("list[object]", ordered_raw)
+    if len(frame.columns) != len(categories_list) or len(ordered_list) != len(categories_list):
+        message = "Parquet directory categorical column inventory mismatch"
+        raise ValueError(message)
+    for name, raw, ordered in zip(frame.columns, categories_list, ordered_list, strict=True):
+        if raw is None:
+            if ordered is not None:
+                message = "Invalid Parquet directory non-categorical ordered field"
+                raise ValueError(message)
+            continue
+        if not isinstance(raw, dict) or not isinstance(ordered, bool):
+            message = "Invalid Parquet directory categorical field"
+            raise ValueError(message)
+        spec = cast("dict[str, object]", raw)
+        dtype_string: object = spec.get("index_dtype")
+        values_raw: object = spec.get("values")
+        if not isinstance(dtype_string, str) or not isinstance(values_raw, list):
+            message = "Invalid Parquet directory categorical category specification"
+            raise ValueError(message)
+        categories = [_decode_category(item) for item in cast("list[object]", values_raw)]
+        category_index = pd.Index(categories, dtype=dtype_string)
+        category_dtype = pd.CategoricalDtype(categories=category_index, ordered=ordered)
+        source = frame[name]
+        if any(isinstance(item, Path) for item in categories):
+            source = source.map(lambda item: Path(item) if isinstance(item, str) else item)
+        before = int(source.notna().sum())
+        restored = source.astype(category_dtype)
+        if int(restored.notna().sum()) != before:
+            message = f"Parquet category restoration would lose values in column {name!r}"
+            raise ValueError(message)
+        frame[name] = restored
+    return frame
 
 
 def _frame_contract(frame: DataFrame) -> dict[str, object]:
@@ -98,6 +217,8 @@ def _frame_contract(frame: DataFrame) -> dict[str, object]:
         "categorical_ordered": [
             dtype.ordered if isinstance(dtype, pd.CategoricalDtype) else None for dtype in frame.dtypes
         ],
+        "categories": [_category_contract(dtype) for dtype in frame.dtypes],
+        "non_nulls": [int(value) for value in frame.notna().sum(axis=0).tolist()],
         "index_kind": type(frame.index).__name__,
         "index_names": [str(name) if name is not None else None for name in frame.index.names],
         "index_dtypes": index_dtypes,
@@ -498,7 +619,9 @@ def _restore_processor(directory: Path, entry: dict[str, Any], *, verify_sources
     ):
         message = f"Parquet directory trusted processor factory mismatch: {source_path}"
         raise ValueError(message)
-    processor.df = pd.read_parquet(_verify_member(directory, entry), engine="pyarrow")
+    processor.df = _rehydrate_categories(
+        pd.read_parquet(_verify_member(directory, entry), engine="pyarrow"), entry.get("frame")
+    )
     _check_frame(processor.df, entry)
     processor.applied_location_filter = frozenset(
         _string_list(entry.get("applied_location_filter"), "applied_location_filter")
@@ -534,7 +657,7 @@ def _restore_processor(directory: Path, entry: dict[str, Any], *, verify_sources
     processor.source_entity_presence = _entity_index(entry, "source_entities")
     # The factory may have sampled a different source now. Restore the exact
     # processing-time identity, including for explicit offline/historical reads.
-    processor.source_at_processing = cast("dict[str, object]", source)
+    processor.source_at_processing = source
     processor.processed = True
     return processor
 
@@ -581,7 +704,7 @@ def _close_windows_directory_handle(handle: int) -> None:
 
 
 @contextmanager
-def _guard_publication_directory(destination: Path) -> Iterator[int | None]:
+def _guard_publication_directory(destination: Path) -> Generator[int | None]:
     """Hold stable directory identities while publishing, not only at preflight."""
     if os.name == "nt":
         with ExitStack() as stack:
@@ -663,6 +786,7 @@ def _overwrite_collection(  # noqa: C901
 ) -> None:
     """Publish a new immutable generation; always release lock and owned temporaries."""
     lock_path = destination / ".publish.lock"
+    versions = destination / _VERSIONS
     with _guard_publication_directory(destination) as directory_fd:
         _assert_pinned_directory(destination, directory_fd)
         locked = False
@@ -678,7 +802,6 @@ def _overwrite_collection(  # noqa: C901
             _assert_pinned_directory(destination, directory_fd)
             _checked_manifest(destination)
             _assert_pinned_directory(destination, directory_fd)
-            versions = destination / _VERSIONS
             if directory_fd is not None:
                 with suppress(FileExistsError):
                     os.mkdir(_VERSIONS, dir_fd=directory_fd)
@@ -841,7 +964,9 @@ def read_collection_bundle(  # noqa: C901
         collection.add_processor(restored)
         selected.append((entry, restored, source_hit))
     if lookup is not None:
-        result = pd.read_parquet(_verify_member(active, lookup), engine="pyarrow")
+        result = _rehydrate_categories(
+            pd.read_parquet(_verify_member(active, lookup), engine="pyarrow"), lookup.get("frame")
+        )
         if _frame_contract(result) != lookup.get("frame"):
             message = "Parquet directory basic-info lookup schema mismatch"
             raise ValueError(message)

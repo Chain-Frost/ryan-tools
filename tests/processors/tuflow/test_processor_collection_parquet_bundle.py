@@ -51,7 +51,7 @@ def collection(tmp_path: Path) -> ProcessorCollection:
     q_processor.df["optional_text"] = pd.Series(["alpha", pd.NA], index=q_processor.df.index, dtype="string")
     q_processor.df["optional_bool"] = pd.Series([True, pd.NA], index=q_processor.df.index, dtype="boolean")
     q_processor.df["ordered_category"] = pd.Categorical(
-        ["first", "second"], categories=["second", "first"], ordered=True
+        ["first", "second"], categories=["third", "second", "first"], ordered=True
     )
     q_processor.applied_location_filter = frozenset({"C1"})
     q_processor.applied_entity_filter = frozenset({"C1"})
@@ -324,7 +324,7 @@ def test_competing_writer_cannot_bypass_default_no_clobber(
     collection: ProcessorCollection, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     dest = tmp_path / "competing.parquetdir"
-    original_stage = parquet_bundle._stage_tables
+    original_stage = parquet_bundle._stage_tables  # pyright: ignore[reportPrivateUsage]
 
     def race(selected: ProcessorCollection, stage: Path, entries: list[dict[str, Any]]) -> dict[str, Any] | None:
         result = original_stage(selected, stage, entries)
@@ -374,7 +374,7 @@ def test_destination_swap_during_overwrite_cannot_mutate_other_dataset(
     collection.to_parquet(other)
     victim_before = (dest / "manifest.json").read_bytes()
     other_before = (other / "manifest.json").read_bytes()
-    original_manifest = parquet_bundle._manifest_bytes
+    original_manifest = parquet_bundle._manifest_bytes  # pyright: ignore[reportPrivateUsage]
 
     def swap(*args: Any, **kwargs: Any) -> bytes:
         result = original_manifest(*args, **kwargs)
@@ -396,7 +396,7 @@ def test_windows_publication_guard_blocks_directory_swap(collection: ProcessorCo
     dest = tmp_path / "held.parquetdir"
     collection.to_parquet(dest)
     backup = tmp_path / "moved.parquetdir"
-    with parquet_bundle._guard_publication_directory(dest):
+    with parquet_bundle._guard_publication_directory(dest):  # pyright: ignore[reportPrivateUsage]
         with pytest.raises(OSError):
             dest.rename(backup)
     assert dest.is_dir()
