@@ -150,9 +150,7 @@ def test_supported_manifest_case_rejects_false_success(processed: bool, has_data
     processor = MagicMock(spec=BaseProcessor)
     processor.processed = processed
     processor.df = (
-        pd.DataFrame({"Runcode": ["wrong_run"], "EndStatus": ["Simulation FINISHED"]})
-        if has_data
-        else pd.DataFrame()
+        pd.DataFrame({"Runcode": ["wrong_run"], "EndStatus": ["Simulation FINISHED"]}) if has_data else pd.DataFrame()
     )
     with pytest.raises(AssertionError, match=message):
         assert_declared_outcome(processor, load_declared_cases()["EG01_007.tlf"])

@@ -55,6 +55,7 @@ def test_real_fixture_matches_declared_outcome(fixture_root: Path, case: dict[st
     processor.process()
     assert_declared_outcome(processor, case)
 
+
 def _write_small_po(path: Path, q_offset: float) -> None:
     # Independent expected 2-row PO header and signed/zero hydraulic source values.
     with path.open("x", newline="", encoding="utf-8") as stream:
