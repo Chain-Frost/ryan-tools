@@ -19,8 +19,9 @@ from pathlib import Path
 
 import numpy as np
 import rasterio
+from rasterio.enums import Resampling
 from rasterio.transform import Affine
-from rasterio.warp import Resampling, reproject
+from rasterio.warp import reproject
 
 from ryan_library.functions.gdal.raster_processing import read_raster_band
 

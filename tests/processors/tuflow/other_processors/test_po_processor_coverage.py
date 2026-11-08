@@ -1,7 +1,10 @@
 """Coverage tests for POProcessor."""
 
+# Unit tests intentionally exercise the implementation helpers under test.
+# pyright: reportPrivateUsage=false
+
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 
@@ -10,7 +13,7 @@ from ryan_library.processors.tuflow.other_processors.POProcessor import POProces
 
 class TestPOProcessorEdgeCases:
     @patch("ryan_library.processors.tuflow.other_processors.POProcessor.pd.read_csv")
-    def test_process_empty_tidy_df(self, mock_read_csv):
+    def test_process_empty_tidy_df(self, mock_read_csv: MagicMock):
         proc = POProcessor(Path("test_PO.csv"))
         # Mock _parse_point_output directly to return empty
         with patch.object(proc, "_parse_point_output", return_value=pd.DataFrame()):
@@ -19,7 +22,7 @@ class TestPOProcessorEdgeCases:
         assert not proc.processed
 
     @patch("ryan_library.processors.tuflow.other_processors.POProcessor.pd.read_csv")
-    def test_process_validation_fails(self, mock_read_csv):
+    def test_process_validation_fails(self, mock_read_csv: MagicMock):
         proc = POProcessor(Path("test_PO.csv"))
 
         # Valid tidy df

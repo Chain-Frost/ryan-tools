@@ -205,7 +205,7 @@ def combine_processors_from_paths(
     include_data_types: Collection[str] | None = None,
     console_log_level: str = "INFO",
     locations_to_include: Collection[str] | None = None,
-    log_queue: LogQueue | None = None,  # type: ignore[name-defined]  # guarded by TYPE_CHECKING
+    log_queue: LogQueue | None = None,
 ) -> ProcessorCollection:
     """Return a :class:`ProcessorCollection` for the provided directories."""
     if include_data_types is None:
@@ -213,7 +213,7 @@ def combine_processors_from_paths(
 
     normalized_locations: frozenset[str] = BaseProcessor.normalize_locations(locations_to_include)
 
-    def _run_with_queue(queue: LogQueue) -> ProcessorCollection:  # type: ignore[name-defined]
+    def _run_with_queue(queue: LogQueue) -> ProcessorCollection:
         logger.info(
             "Starting POMM processing for combine_processors_from_paths. Data types: {}; searching in {} folder(s).",
             include_data_types,
@@ -257,7 +257,7 @@ def combine_df_from_paths(
     include_data_types: Collection[str] | None = None,
     console_log_level: str = "INFO",
     locations_to_include: Collection[str] | None = None,
-    log_queue: LogQueue | None = None,  # type: ignore[name-defined]
+    log_queue: LogQueue | None = None,
 ) -> DataFrame:
     """Return an aggregated DataFrame for the given directories."""
     results_set: ProcessorCollection = combine_processors_from_paths(
@@ -282,7 +282,7 @@ def aggregated_from_paths(
     paths: list[Path],
     locations_to_include: frozenset[str] | None = None,
     include_data_types: Collection[str] | None = None,
-    log_queue: LogQueue | None = None,  # type: ignore[name-defined]
+    log_queue: LogQueue | None = None,
 ) -> DataFrame:
     """Process directories and return a combined POMM DataFrame."""
     df: DataFrame = combine_df_from_paths(

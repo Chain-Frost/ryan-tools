@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active — first-stage implementation on draft child; exact-head acceptance and Codex review open |
+| Status | First-stage native acceptance PASS; reconciled child pending exact-head CI and review; broader #228/#229 open |
 | Owner | WP11 implementation / maintainer |
 | Created | 2026-11-08 |
 | Updated | 2026-11-08 |
@@ -83,13 +83,13 @@ independently approved RAM/disk/time budget; do not run it by default.
 
 ## Validation and delivery (2026-11-08)
 
-Isolated Linux scratch worktree (Python 3.13.5, **not** the supported Windows 3.14 environment):
+Historical first-delivery isolated Linux scratch worktree (Python 3.13.5, **not** Windows 3.14):
 - PASS: pytest -q tests/benchmarks/test_benchmark_po_workload.py — **7 passed** (exact 300-grid dimensions,
   inclusive timesteps, source values, zero/negative discharge, unique names, overwrite refusal, RAM gate, source-key
   export/peak-time validation with deliberately corrupted values/time, header drift and full retained-output disk budget).
 - PASS: Python compilation of new script and tests, and JSON syntax validation of the fixture manifest.
-- NOT RUN: pinned large-test-data-dependent real processor tests; live processor/collection/export benchmark; Ruff,
-  strict Pyright, repository documentation checker, installed wheel, real Windows/SMB and CI. The container has no
+- NOT RUN **at this historical stage**: pinned real processor fixtures, end-to-end benchmark, Ruff,
+  strict Pyright, documentation checker, installed wheel, native Windows/SMB and CI. The container has no
   Python 3.14, source checkout, pinned test-data submodule or network Git remote; source files were authored on an
   isolated local scratch worktree and delivered through the GitHub connector into a **separate child branch**.
 - No licensed engineering solver was executed. The synthetic generator tests are not representative end-to-end
@@ -162,3 +162,18 @@ Evidence, copied runner and source/installed CSV/Parquet manifests: E:/Github/wp
 Publish scoped repairs and this record together, then verify final-head CI/review. #228/#229 remain
 open and broader support/scalability acceptance remains incomplete. No solver, dependency-policy
 change, snapshot rebaseline, parent/main merge or release.
+
+## Parent reconciliation — 2026-11-08
+
+Accepted native Windows source and installed-wheel evidence: [PR #285 report](https://github.com/Chain-Frost/ryan-tools/pull/285#issuecomment-6722107028), original child `c04e288b5b6ad9384081e4d17accfb0eeb30dd51`.
+Reconciled with parent #251 `2a2530dd18f5d8e3146a911ab2ac2d9be01b401f`, preserving unrelated parent changes. In
+`tests/functions/test_parse_tlf_real_world.py`, the WP11 public `BaseProcessor` and full pinned
+snapshot membership gate remains strict; WP01 #231's **twelve explicitly listed** new diagnostic fields
+and #224's `EG05_018.tlf` archived `Model_Start_Time=-72.0` are retained as the sole expected
+extra-field allowances. All existing pinned fields must match and other unexpected keys fail.
+No source snapshot or fixture expectations were rewritten.
+
+The work indexes use entries distinct from the independent WP10 insertion to avoid overwriting
+concurrent plotter documentation. Exact parent-reconciled head CI and review remain required.
+The complete 300-run profile, cold-cache I/O, OS peak RSS, optional Dask, partitioned data and
+SMB/UNC acceptance are **NOT RUN**. Both #228 and #229 remain open pending broader scoped work.

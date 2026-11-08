@@ -1,5 +1,6 @@
 """Tests for ryan_library.functions.terrain_processing."""
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -57,7 +58,7 @@ class TestTileData:
 
 class TestReadGeoTiff:
     @patch("rasterio.open")
-    def test_read_geotiff_success(self, mock_open):
+    def test_read_geotiff_success(self, mock_open: MagicMock):
         """Test successful reading of GeoTIFF."""
         mock_ds = MagicMock()
         mock_open.return_value.__enter__.return_value = mock_ds
@@ -81,7 +82,7 @@ class TestReadGeoTiff:
         assert list(df["Z"]) == [1, 2, 3, 4]
 
     @patch("rasterio.open")
-    def test_read_geotiff_nodata(self, mock_open):
+    def test_read_geotiff_nodata(self, mock_open: MagicMock):
         """Test reading with nodata masking."""
         mock_ds = MagicMock()
         mock_open.return_value.__enter__.return_value = mock_ds
@@ -99,7 +100,7 @@ class TestReadGeoTiff:
         assert -9999 not in df["Z"].to_numpy()
 
     @patch("rasterio.open")
-    def test_read_geotiff_error(self, mock_open):
+    def test_read_geotiff_error(self, mock_open: MagicMock):
         """Test error handling during read."""
         mock_open.side_effect = Exception("File not found")
         df = terrain_processing.read_geotiff("missing.tif")
@@ -109,21 +110,23 @@ class TestReadGeoTiff:
 
 class TestProcessTerrainFile:
     @patch("ryan_library.functions.terrain_processing.read_geotiff")
-    def test_process_terrain_file_inner_tiled(self, mock_read):
+    def test_process_terrain_file_inner_tiled(self, mock_read: MagicMock):
         """Test processing with tiling."""
         df = pd.DataFrame({"X": [0, 10], "Y": [0, 0], "Z": [1, 2]})
         mock_read.return_value = df
 
         save_mock = MagicMock()
 
-        terrain_processing.process_terrain_file_inner("test.tif", "out_dir", None, tile_size=5, save_function=save_mock)
+        terrain_processing.process_terrain_file_inner(
+            "test.tif", Path("out_dir"), None, tile_size=5, save_function=save_mock
+        )
 
         # Should result in 2 tiles (0,0) and (2,0) if tile_size=5?
         # 0 to 5 is tile 0. 10 is in tile 2 (10 // 5 = 2).
         assert save_mock.call_count == 2
 
     @patch("ryan_library.functions.terrain_processing.read_geotiff")
-    def test_process_terrain_file_inner_no_tile(self, mock_read):
+    def test_process_terrain_file_inner_no_tile(self, mock_read: MagicMock):
         """Test processing without tiling."""
         df = pd.DataFrame({"X": [0], "Y": [0], "Z": [1]})
         mock_read.return_value = df
@@ -131,22 +134,22 @@ class TestProcessTerrainFile:
         save_mock = MagicMock()
 
         terrain_processing.process_terrain_file_inner(
-            "test.tif", "out_dir", None, tile_size=None, save_function=save_mock
+            "test.tif", Path("out_dir"), None, tile_size=None, save_function=save_mock
         )
 
         assert save_mock.call_count == 1
         args = save_mock.call_args[0]
-        assert args[1] == "out_dir"
+        assert args[1] == Path("out_dir")
         assert args[2] == "test"  # base filename
 
     @patch("ryan_library.functions.terrain_processing.read_geotiff")
-    def test_process_terrain_file_inner_empty(self, mock_read):
+    def test_process_terrain_file_inner_empty(self, mock_read: MagicMock):
         """Test processing empty file."""
         mock_read.return_value = pd.DataFrame(columns=["X", "Y", "Z"])
         save_mock = MagicMock()
 
         terrain_processing.process_terrain_file_inner(
-            "test.tif", "out_dir", None, tile_size=10, save_function=save_mock
+            "test.tif", Path("out_dir"), None, tile_size=10, save_function=save_mock
         )
 
         save_mock.assert_not_called()
@@ -155,16 +158,16 @@ class TestProcessTerrainFile:
 class TestParallelProcessing:
     @patch("ryan_library.functions.terrain_processing.Pool")
     @patch("ryan_library.functions.terrain_processing.cpu_count")
-    def test_parallel_process_multiple_terrain(self, mock_cpu, mock_pool):
+    def test_parallel_process_multiple_terrain(self, mock_cpu: MagicMock, mock_pool: MagicMock):
         """Test parallel processing orchestration."""
         mock_cpu.return_value = 2
         pool_instance = mock_pool.return_value.__enter__.return_value
         pool_instance.imap_unordered.return_value = []
 
-        files = ["f1.tif", "f2.tif"]
+        files = [Path("f1.tif"), Path("f2.tif")]
         save_mock = MagicMock()
 
-        terrain_processing.parallel_process_multiple_terrain(files, "out", None, 10, save_mock)
+        terrain_processing.parallel_process_multiple_terrain(files, Path("out"), None, 10, save_mock)
 
         assert pool_instance.imap_unordered.called
         args = pool_instance.imap_unordered.call_args[0]

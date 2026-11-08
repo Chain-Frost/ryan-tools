@@ -7,6 +7,7 @@ import tempfile
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, cast
 
 import fiona
 import numpy as np
@@ -21,6 +22,9 @@ from .catchment_outputs import write_catchment_polygons, write_outlet_catchment_
 from .catchments import delineate_inflows, delineate_outlet_catchments
 from .geometry import check_dem
 from .grass_runner import process_terrain
+
+# Rasterio masked=True returns a MaskedArray; upstream currently declares ndarray.
+type MaskedBand = np.ma.MaskedArray[Any, np.dtype[np.number[Any]]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -182,13 +186,15 @@ def build_catchments(  # noqa: C901 - staged catchment pipeline includes distinc
                     & (elevation_source.read_masks(1) > 0)
                     & (terrain.read_masks(1) > 0)
                 )
-                directions = direction_source.read(1, masked=True).filled(0).astype(np.int16)
-                elevations = elevation_source.read(1, masked=True).filled(np.nan).astype(np.float64)
+                directions = cast("MaskedBand", direction_source.read(1, masked=True)).filled(0).astype(np.int16)
+                elevations = cast("MaskedBand", elevation_source.read(1, masked=True)).filled(np.nan).astype(np.float64)
                 valid &= np.isfinite(elevations)
                 staged = scratch / config.output.name
                 geometry_types = {geometry.geom_type for geometry in interests}
                 if geometry_types == {"Point"}:
-                    upstream = accumulation_source.read(1, masked=True).filled(np.nan).astype(np.float64)
+                    upstream = (
+                        cast("MaskedBand", accumulation_source.read(1, masked=True)).filled(np.nan).astype(np.float64)
+                    )
                     catchments = delineate_outlet_catchments(
                         directions,
                         elevations,

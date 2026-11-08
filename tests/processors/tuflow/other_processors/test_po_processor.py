@@ -1,7 +1,10 @@
+# Unit tests intentionally exercise implementation helpers.
+# pyright: reportPrivateUsage=false
+
 """Unit tests for ryan_library.processors.tuflow.other_processors.PoProcessor."""
 
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
@@ -25,7 +28,7 @@ class TestPOProcessor:
             processor.data_type = "PO"
             return processor
 
-    def test_parse_point_output_success(self, mock_processor):
+    def test_parse_point_output_success(self, mock_processor: POProcessor):
         """Test successful parsing of PO data."""
         # Construct a raw dataframe mimicking PO format
         # PO files have a dummy first column that gets dropped
@@ -56,7 +59,7 @@ class TestPOProcessor:
         assert len(v_rows) == 2
         assert v_rows.iloc[0]["Value"] == 1.0
 
-    def test_parse_point_output_missing_time(self, mock_processor):
+    def test_parse_point_output_missing_time(self, mock_processor: POProcessor):
         """Test parsing fails if Time column is missing."""
         data = [["Dummy", "H", "V"], ["Dummy", "Loc1", "Loc1"], ["Dummy", "10.0", "1.0"]]
         raw_df = pd.DataFrame(data)
@@ -64,7 +67,7 @@ class TestPOProcessor:
         tidy_df = mock_processor._parse_point_output(raw_df)
         assert tidy_df.empty
 
-    def test_parse_point_output_empty(self, mock_processor):
+    def test_parse_point_output_empty(self, mock_processor: POProcessor):
         """Test parsing empty raw dataframe."""
         raw_df = pd.DataFrame()
         tidy_df = mock_processor._parse_point_output(raw_df)
@@ -74,7 +77,14 @@ class TestPOProcessor:
     @patch("ryan_library.processors.tuflow.other_processors.POProcessor.POProcessor.add_common_columns")
     @patch("ryan_library.processors.tuflow.other_processors.POProcessor.POProcessor.apply_output_transformations")
     @patch("ryan_library.processors.tuflow.other_processors.POProcessor.POProcessor.validate_data")
-    def test_process_success(self, mock_validate, mock_apply, mock_add, mock_read, mock_processor):
+    def test_process_success(
+        self,
+        mock_validate: MagicMock,
+        mock_apply: MagicMock,
+        mock_add: MagicMock,
+        mock_read: MagicMock,
+        mock_processor: MagicMock,
+    ):
         """Test full process flow success."""
         mock_validate.return_value = True
 

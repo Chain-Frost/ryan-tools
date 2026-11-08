@@ -1,5 +1,5 @@
 required-version = "==0.16.6"
-target-version = "py313"
+target-version = "py314"
 line-length = 120
 extend-exclude = [
     "*.ipynb",
@@ -104,6 +104,12 @@ ignore = [
 ]
 
 [lint.per-file-ignores]
+"typings/shapefile/__init__.pyi" = [
+    "N802", # external pyshp method names must retain their published spelling
+    "N803", # external pyshp parameter names are part of its keyword-call contract
+    "N815", # external pyshp attributes retain their published spelling
+    "N818", # ShapefileException is pyshp's public exception class
+]
 "ryan-scripts/TUFLOW-python/**/*.py" = [
     "ERA001", # mutable wrappers intentionally keep commented configuration examples for users
 ]

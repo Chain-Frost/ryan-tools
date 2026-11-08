@@ -1,7 +1,10 @@
+# Unit tests intentionally exercise implementation helpers.
+# pyright: reportPrivateUsage=false
+
 """Unit tests for ryan_library.processors.tuflow.maximums_1d.NmxProcessor."""
 
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
@@ -26,7 +29,7 @@ class TestNmxProcessor:
             processor.data_type = "Nmx"
             return processor
 
-    def test_extract_and_transform_nmx_data_success(self, mock_processor):
+    def test_extract_and_transform_nmx_data_success(self, mock_processor: NmxProcessor):
         """Test successful extraction and transformation of NMX data."""
         mock_processor.df = pd.DataFrame(
             {
@@ -47,7 +50,7 @@ class TestNmxProcessor:
         assert c1["US_h"] == 10.0
         assert c1["DS_h"] == 9.0
 
-    def test_extract_and_transform_nmx_data_invalid_suffix(self, mock_processor):
+    def test_extract_and_transform_nmx_data_invalid_suffix(self, mock_processor: NmxProcessor):
         """Test filtering of invalid suffixes."""
         mock_processor.df = pd.DataFrame(
             {
@@ -66,7 +69,7 @@ class TestNmxProcessor:
         assert c1["US_h"] == 10.0
         assert c1["DS_h"] == 9.0
 
-    def test_extract_and_transform_nmx_data_missing_columns(self, mock_processor):
+    def test_extract_and_transform_nmx_data_missing_columns(self, mock_processor: NmxProcessor):
         """Test failure when columns are missing."""
         mock_processor.df = pd.DataFrame(
             {
@@ -78,7 +81,7 @@ class TestNmxProcessor:
         mock_processor._extract_and_transform_nmx_data()
         assert mock_processor.df.empty
 
-    def test_extract_and_transform_nmx_data_missing_pivot_columns(self, mock_processor):
+    def test_extract_and_transform_nmx_data_missing_pivot_columns(self, mock_processor: NmxProcessor):
         """Test failure when pivot results in missing columns (e.g. only suffix .1 present)."""
         mock_processor.df = pd.DataFrame(
             {
@@ -95,7 +98,14 @@ class TestNmxProcessor:
     @patch("ryan_library.processors.tuflow.maximums_1d.NmxProcessor.NmxProcessor.add_common_columns")
     @patch("ryan_library.processors.tuflow.maximums_1d.NmxProcessor.NmxProcessor.apply_output_transformations")
     @patch("ryan_library.processors.tuflow.maximums_1d.NmxProcessor.NmxProcessor.validate_data")
-    def test_process_success(self, mock_validate, mock_apply, mock_add, mock_read, mock_processor):
+    def test_process_success(
+        self,
+        mock_validate: MagicMock,
+        mock_apply: MagicMock,
+        mock_add: MagicMock,
+        mock_read: MagicMock,
+        mock_processor: MagicMock,
+    ):
         """Test full process flow success."""
         mock_read.return_value = ProcessorStatus.SUCCESS
         mock_validate.return_value = True
@@ -109,7 +119,7 @@ class TestNmxProcessor:
         mock_add.assert_called_once()
 
     @patch("ryan_library.processors.tuflow.maximums_1d.NmxProcessor.NmxProcessor.read_maximums_csv")
-    def test_process_read_failure(self, mock_read, mock_processor):
+    def test_process_read_failure(self, mock_read: MagicMock, mock_processor: MagicMock):
         """Test process aborts when read fails."""
         mock_read.return_value = ProcessorStatus.FAILURE
 
@@ -122,7 +132,14 @@ class TestNmxProcessor:
     @patch("ryan_library.processors.tuflow.maximums_1d.NmxProcessor.NmxProcessor.add_common_columns")
     @patch("ryan_library.processors.tuflow.maximums_1d.NmxProcessor.NmxProcessor.apply_output_transformations")
     @patch("ryan_library.processors.tuflow.maximums_1d.NmxProcessor.NmxProcessor.validate_data")
-    def test_process_validation_failure(self, mock_validate, mock_apply, mock_add, mock_read, mock_processor):
+    def test_process_validation_failure(
+        self,
+        mock_validate: MagicMock,
+        mock_apply: MagicMock,
+        mock_add: MagicMock,
+        mock_read: MagicMock,
+        mock_processor: MagicMock,
+    ):
         """Test process aborts when validation fails."""
         mock_read.return_value = ProcessorStatus.SUCCESS
         mock_validate.return_value = False
@@ -135,7 +152,7 @@ class TestNmxProcessor:
         assert mock_processor.df.empty
 
     @patch("ryan_library.processors.tuflow.maximums_1d.NmxProcessor.NmxProcessor.read_maximums_csv")
-    def test_process_exception(self, mock_read, mock_processor):
+    def test_process_exception(self, mock_read: MagicMock, mock_processor: MagicMock):
         """Test process handles exceptions."""
         mock_read.side_effect = Exception("Test Error")
 

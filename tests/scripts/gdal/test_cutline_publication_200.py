@@ -10,7 +10,7 @@ from typing import Any
 
 import numpy as np
 import pytest
-from osgeo import gdal, ogr, osr  # type: ignore
+from osgeo import gdal, ogr, osr
 
 # The native GDAL bindings do not ship complete stubs.
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false

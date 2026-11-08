@@ -44,7 +44,7 @@ def resolve_vector_format(value: str) -> tuple[VectorFormat, VectorFormatSpec]:
 def require_vector_driver(vector_format: str) -> tuple[VectorFormat, VectorFormatSpec]:
     """Resolve a vector format and verify that its GDAL driver is available."""
     normalized, spec = resolve_vector_format(vector_format)
-    with gdal.ExceptionMgr():  # type: ignore
+    with gdal.ExceptionMgr():
         if gdal.GetDriverByName(spec.driver) is None:  # type: ignore
             msg = f"The active GDAL installation does not provide the '{spec.driver}' driver"
             raise RuntimeError(msg)
@@ -54,7 +54,7 @@ def require_vector_driver(vector_format: str) -> tuple[VectorFormat, VectorForma
 def get_vector_layer_names(source: str | Path) -> list[str]:
     """Return vector layer names in source order."""
     source_path = Path(source).absolute()
-    with gdal.ExceptionMgr():  # type: ignore
+    with gdal.ExceptionMgr():
         source_dataset = gdal.OpenEx(str(source_path), gdal.OF_VECTOR)  # type: ignore
         if source_dataset is None:
             msg = f"GDAL could not open vector dataset {source_path}"
@@ -75,7 +75,7 @@ def get_vector_layer_names(source: str | Path) -> list[str]:
 def get_unique_attribute_values(source: str | Path, layer_name: str, attribute_name: str) -> list[str]:
     """Return sorted, non-empty distinct text values from one vector field."""
     source_path = Path(source).absolute()
-    with gdal.ExceptionMgr():  # type: ignore
+    with gdal.ExceptionMgr():
         source_dataset = gdal.OpenEx(str(source_path), gdal.OF_VECTOR | gdal.OF_READONLY)  # type: ignore
         if source_dataset is None:
             msg = f"GDAL could not open vector dataset {source_path}"
@@ -147,7 +147,7 @@ def translate_vector_dataset(
             dstSRS=dst_srs,
             where=where,
         )
-        with gdal.ExceptionMgr():  # type: ignore
+        with gdal.ExceptionMgr():
             output_dataset = gdal.VectorTranslate(  # type: ignore
                 str(temporary_output),
                 str(source_path),

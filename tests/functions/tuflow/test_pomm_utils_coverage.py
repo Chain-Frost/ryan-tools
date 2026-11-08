@@ -1,5 +1,8 @@
 """Additional coverage tests for pomm_utils."""
 
+# Unit tests intentionally exercise the implementation helpers under test.
+# pyright: reportPrivateUsage=false
+
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -13,14 +16,14 @@ class TestSelectInternalNames:
     def test_missing_columns(self):
         df = pd.DataFrame({"A": [1]})
         med, mean = pomm_utils._select_internal_names_for_group(df)
-        assert pd.isna(med)
-        assert pd.isna(mean)
+        assert pd.isna(pd.Series([med])).iloc[0]
+        assert pd.isna(pd.Series([mean])).iloc[0]
 
     def test_no_valid_absmax(self):
         df = pd.DataFrame({"internalName": ["A"], "AbsMax": [pd.NA]})
         med, mean = pomm_utils._select_internal_names_for_group(df)
-        assert pd.isna(med)
-        assert pd.isna(mean)
+        assert pd.isna(pd.Series([med])).iloc[0]
+        assert pd.isna(pd.Series([mean])).iloc[0]
 
     def test_select_names(self):
         # 3 values: 10, 20, 30. Mean=20, Median=20
@@ -34,7 +37,7 @@ class TestSelectInternalNames:
 
 class TestCombineDFFromPaths:
     @patch("ryan_library.functions.tuflow.pomm_utils.combine_processors_from_paths")
-    def test_combine_df_empty(self, mock_combine):
+    def test_combine_df_empty(self, mock_combine: MagicMock):
         mock_pc = MagicMock()
         mock_pc.processors = []
         mock_combine.return_value = mock_pc
@@ -74,7 +77,7 @@ class TestSavePeakReport:
     @patch("ryan_library.functions.tuflow.pomm_utils.save_to_excel")
     @patch("ryan_library.functions.tuflow.pomm_utils.find_aep_max")
     @patch("ryan_library.functions.tuflow.pomm_utils.find_aep_dur_max")
-    def test_save_peak_report(self, mock_dur, mock_max, mock_save, tmp_path):
+    def test_save_peak_report(self, mock_dur: MagicMock, mock_max: MagicMock, mock_save: MagicMock, tmp_path: Path):
         df = pd.DataFrame({"A": [1]})
         mock_dur.return_value = df
         mock_max.return_value = df
@@ -85,7 +88,7 @@ class TestSavePeakReport:
 
 class TestFindAepDurMedianEdgeCases:
     @patch("ryan_library.functions.tuflow.pomm_utils.median_calc")
-    def test_find_median_with_internal_name_and_missing_dur(self, mock_median):
+    def test_find_median_with_internal_name_and_missing_dur(self, mock_median: MagicMock):
         # We need to simulate median_calc returning stats and test normalization
         mock_median.return_value = (
             {

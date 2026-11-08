@@ -37,7 +37,7 @@ dependencies = [
   "cryptography>=3.1",
   "ezdxf",
   "rich",
-  "pytuflow>=1.2,<2",
+  "pytuflow>=1.2",
   "run-hy8>=2026.10.16.1",
   'ryan-culverts>=26.10.16.1',
 ]
@@ -46,7 +46,7 @@ license = "SUL-1.0"
 name = "ryan-tools"
 readme = "README.md"
 requires-python = ">=3.14"
-version = "26.11.8.4"
+version = "26.11.8.8"
 
 [project.optional-dependencies]
 cache = [
@@ -55,8 +55,15 @@ cache = [
 dev = [
   "build",
   "tables>=3.11.1",
-  "pandas-stubs",
-  "pyright",
+  "pandas-stubs>=3.1.0.261029",
+  "pyarrow-stubs",
+  "types-psutil",
+  "types-rasterio>=1.5.2.20261029",
+  "scipy-stubs",
+  "distributed",
+  "pillow-heif>=1.8.0",
+  "python-docx",
+  "pyright>=1.1.414",
   "pytest",
   "pytest-cov",
   "ruff==0.16.6",
@@ -77,9 +84,6 @@ Repository = "https://github.com/Chain-Frost/ryan-tools"
 include-package-data = true
 
 [tool.setuptools.package-data]
-"vendor" = ["README.md"]
-"vendor.PyHMA" = ["README.md", "LICENSE"]
-"vendor.simil" = ["README.md", "LICENSE"]
 "ryan_library.classes" = ["*.json"]
 "ryan_library.resources.mcp" = ["*.json"]
 "ryan_library.resources.qgis.tuflow" = ["*.qml"]
@@ -94,6 +98,9 @@ include-package-data = true
   "runs/*.tcf",
   "runs/*.trd",
 ]
+"vendor" = ["README.md"]
+"vendor.PyHMA" = ["README.md", "LICENSE"]
+"vendor.simil" = ["README.md", "LICENSE"]
 
 [tool.setuptools.packages.find]
 exclude = [
@@ -128,4 +135,27 @@ where = [".", "ryan-scripts/TUFLOW-python"]
 extraPaths = ["vendor"]
 include = ["ryan_library", "ryan-scripts"]
 pythonVersion = "3.14"
+reportUnnecessaryTypeIgnoreComment = "error"
 typeCheckingMode = "strict"
+
+[[tool.pyright.executionEnvironments]]
+extraPaths = ["repo-scripts", ".", "vendor"]
+root = "repo-scripts"
+
+[[tool.pyright.executionEnvironments]]
+extraPaths = [
+  ".",
+  "vendor",
+  "ryan-scripts/TUFLOW-python",
+  "ryan-scripts/TUFLOW-python/raster_processing",
+  "ryan-scripts/unsorted-python",
+  "ryan-scripts/gdal-python",
+  "ryan-scripts/RORB-python",
+  "ryan-scripts/hydrology-python",
+  "ryan-scripts/other",
+]
+root = "tests/scripts/promoted_scripts"
+
+[[tool.pyright.executionEnvironments]]
+extraPaths = ["vendor"]
+root = "."

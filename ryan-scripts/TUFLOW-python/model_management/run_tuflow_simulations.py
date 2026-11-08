@@ -315,7 +315,7 @@ def main(argv: list[str] | None = None, *, _parsed_arguments: argparse.Namespace
         ):
             outcome_code = 1
         return outcome_code
-    except (OSError, ValueError):
+    except OSError, ValueError:
         logger.exception("Runner preparation or execution failed.")
         return 1
     except KeyboardInterrupt:

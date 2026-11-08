@@ -46,4 +46,34 @@ def test_parse_tlf_real_world(regression_snapshot: dict[str, dict[str, Any]]) ->
         assert processor.processed, f"Supported log rejected: {log_path.name}"
         assert len(processor.df) == 1, f"Unexpected TLF row count: {log_path.name}"
         actual = {key: _json_value(value) for key, value in processor.df.iloc[0].to_dict().items()}
-        assert actual == expected, f"Production TLF snapshot drift in {log_path.name}"
+        # WP01 #231 adds explicit diagnostics not present in the pinned legacy snapshot.
+        # Every pre-existing expected value and all fixture inventory membership stay strict.
+        missing = set(expected) - set(actual)
+        assert not missing, f"Missing pinned TLF fields in {log_path.name}: {sorted(missing)}"
+
+        accepted_diagnostics = {
+            "TLF_1D_Negative_Depths",
+            "TLF_HPC_HCN_Repeated_Timesteps",
+            "TLF_HPC_NaN_Repeated_Timesteps",
+            "TLF_HPC_NaN_Warnings_2550",
+            "TLF_Warnings_Prior",
+            "TLF_Warnings_During",
+            "TLF_Checks_Prior",
+            "TLF_Checks_During",
+            "TLF_Quadtree_ZC_Cells",
+            "TLF_Quadtree_ZU_Faces",
+            "TLF_Quadtree_ZV_Faces",
+            "TLF_Quadtree_ZH_Corners",
+        }
+        unexpected = set(actual) - set(expected) - accepted_diagnostics
+        if log_path.name == "EG05_018.tlf":
+            # WP01 #224 preserves the archived -72 h starting time.
+            assert actual.get("Model_Start_Time") == -72.0
+            unexpected.discard("Model_Start_Time")
+        assert not unexpected, f"Unexpected TLF fields in {log_path.name}: {sorted(unexpected)}"
+
+        for field, expected_value in expected.items():
+            assert actual[field] == expected_value, (
+                f"TLF snapshot value drift in {log_path.name} for {field!r}: "
+                f"expected {expected_value!r}, got {actual[field]!r}"
+            )

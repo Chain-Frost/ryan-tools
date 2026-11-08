@@ -11,7 +11,7 @@ from typing import Protocol, cast
 
 import numpy as np
 import numpy.typing as npt
-import rasterio  # pyright: ignore[reportMissingTypeStubs]
+import rasterio
 from loguru import logger
 
 
@@ -47,7 +47,7 @@ class _RasterDataset(Protocol):
 def _open_raster(path: Path) -> _RasterDataset:
     return cast(
         "_RasterDataset",
-        rasterio.open(path),  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+        rasterio.open(path),
     )
 
 
