@@ -161,7 +161,13 @@ def main_processing(
                 dashboard.set_phase("Processing")
                 all_rows: list[dict[str, object]] = []
                 status_counts: Counter[WorkflowStatus] = Counter()
-                with cf.ProcessPoolExecutor(max_workers=max_workers) as executor:
+                # Preserve ordered/chunked pool results while a single helper
+                # thread waits on each blocking iterator result. The coordinator
+                # can then refresh the dashboard throughout slow-file processing.
+                with (
+                    cf.ProcessPoolExecutor(max_workers=max_workers) as executor,
+                    cf.ThreadPoolExecutor(max_workers=1) as waiter,
+                ):
                     rows_iter = iter(
                         executor.map(
                             _analyze_stability_worker,
@@ -173,7 +179,15 @@ def main_processing(
                     )
                     for index in range(1, len(files) + 1):
                         dashboard.mark_running(index=index)
-                        rows = next(rows_iter)
+                        dashboard.refresh(force=True)
+                        pending = waiter.submit(next, rows_iter)
+                        while True:
+                            try:
+                                rows = pending.result(timeout=1.0 / live_refresh_per_second)
+                            except cf.TimeoutError:
+                                dashboard.refresh(force=True)
+                            else:
+                                break
                         status = _file_outcome(rows)
                         status_counts[status] += 1
                         dashboard.mark_finished(

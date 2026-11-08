@@ -1,6 +1,7 @@
 """Dashboard lifecycle and export-failure regressions for PO QA workflows (#198)."""
 
 from pathlib import Path
+from threading import Event
 from unittest.mock import patch
 
 import pytest
@@ -8,6 +9,51 @@ import pytest
 from ryan_library.functions.live_dashboard import LiveWorkflowDashboard
 from ryan_library.orchestrators.tuflow import peak_check_po_csvs as peak
 from ryan_library.orchestrators.tuflow import tuflow_timeseries_stability as stability
+
+
+@pytest.mark.parametrize("workflow", ["peak", "stability"])
+def test_qa_dashboard_refreshes_during_slow_ordered_worker(
+    tmp_path: Path, workflow: str
+) -> None:
+    """The coordinator must refresh while the next pool result is blocked."""
+    started = Event()
+    release = Event()
+    refreshed_while_waiting: list[bool] = []
+    rows = [{"run_code": "run1", "status": "OK", "points": 5}]
+    module = peak if workflow == "peak" else stability
+    file_path = tmp_path / "input_PO.csv"
+
+    class DelayedResults:
+        def __iter__(self) -> DelayedResults:
+            return self
+
+        def __next__(self) -> list[dict[str, object]]:
+            started.set()
+            assert release.wait(timeout=5), "Coordinator did not refresh while worker blocked"
+            return rows
+
+    def on_refresh(_dashboard: LiveWorkflowDashboard, *, force: bool = False) -> None:
+        if force and started.is_set():
+            refreshed_while_waiting.append(True)
+            if len(refreshed_while_waiting) >= 2:
+                release.set()
+
+    with (
+        patch.object(module, "collect_po_csv_files" if workflow == "peak" else "collect_timeseries_files") as find,
+        patch.object(module.cf, "ProcessPoolExecutor") as pool,
+        patch.object(module, "ExcelExporter") as exporter,
+        patch.object(LiveWorkflowDashboard, "refresh", autospec=True, side_effect=on_refresh),
+    ):
+        find.return_value = [file_path] if workflow == "peak" else [(file_path, "PO")]
+        pool.return_value.__enter__.return_value.map.return_value = DelayedResults()
+        assert module.main_processing(
+            paths_to_process=[tmp_path], use_live_dashboard=True, live_refresh_per_second=100.0
+        )
+        exporter.return_value.save_to_excel.assert_called_once()
+
+    assert started.is_set()
+    assert release.is_set()
+    assert len(refreshed_while_waiting) >= 2
 
 
 @pytest.mark.parametrize("enabled", [False, True])
