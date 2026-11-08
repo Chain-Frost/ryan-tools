@@ -266,6 +266,9 @@ class TimeSeriesProcessor(BaseProcessor):
                 skipinitialspace=True,
                 encoding="utf-8",
             )
+            if df.isna().any().any() and not has_consistent_csv_widths(file_path):
+                message = "CSV record widths are inconsistent."
+                raise DataValidationError(message)
             logger.debug("CSV file '{}' read successfully with {} rows.", self.file_name, len(df))
             return df
         except Exception as exc:

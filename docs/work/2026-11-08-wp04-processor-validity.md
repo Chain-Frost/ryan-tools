@@ -1,7 +1,7 @@
 # WP04 — TUFLOW processor input health, lifecycle and culvert selection
 
-**Status:** WP04 code integrated into draft #251 as `ff9e0ed3`; combined-head CI and native Windows acceptance are tracked separately.
-**Updated:** 2026-11-08. **Next review:** 2026-11-15.
+**Status:** Windows native acceptance exposes three remaining parent defects; fixes pass locally on the scoped follow-up branch. Fresh child CI/review and parent integration remain required.
+**Updated:** 2026-11-09. **Next review:** 2026-11-15.
 **Allocation:** [#240](https://github.com/Chain-Frost/ryan-tools/issues/240).
 **Original issues:** [#219](https://github.com/Chain-Frost/ryan-tools/issues/219) input health;
 [#223](https://github.com/Chain-Frost/ryan-tools/issues/223) lifecycle;
@@ -238,3 +238,114 @@ The child `4a8cd631` passed six exact-head hosted checks (3,208 Windows tests), 
 Combined-head Codex identified that the new canonical-filter validation required `MBHistoryProcessor` to record a matching model/domain scope as an applied entity filter before `validate_data()`. The local correction invokes `apply_entity_filter()` on the canonical `Location` column for matched scopes, preserving an unmatched scope as `filtered_empty`/SKIP; both MB history and MB node readers now use the shared per-invocation reset. Added real EG02 regression cases for MB/MB1D/MB_HPC matching scopes, unmatched scope and protected model report export.
 
 The combined-head CI and review of this correction remain independent gates. The original #219/#220/#223 engineering acceptance (Windows source/wheel, Module04/EG02, genuine ten-TP provenance and live UNC/SMB) is not represented as passed by the hosted suite. Do not merge #251 into `main`, release or close those issues based on this feature-branch integration.
+
+
+## 2026-11-09 ? final Windows native acceptance and corrective follow-up
+
+Baseline: live draft #251 `63c7da77676b9ad44e20e7f1729b738985d400cc`.
+Separate worktree `E:/Github/ryan-tools-wp04-final-acceptance`, branch
+`fix/wp04-native-acceptance-20261109`. Existing dirty worktrees and all unrelated
+submodule state are preserved. Test-data stays pinned at
+`f3c49e867cd8a165e031217a148293a8968c2d88`; no tutorial bytes or snapshots change.
+
+### Defects reproduced and corrected
+
+1. Q/PO with one good record and a subsequent shortened CSV record returned
+   workflow OK/PARTIAL because pandas padded the missing field. When parsed
+   frames contain missing cells, verify original record widths before numerical
+   cleaning. Explicit blank fields remain supported partial observations;
+   truncated records fail. Complete numeric frames incur no extra file scan.
+2. Direct EOF and ccA unmatched channel selections returned FAIL instead of SKIP.
+   Set the existing `filtered_empty` flag after a successfully applied no-match.
+3. ccA omitted the shared invocation reset and could retain `processed=True`
+   after later failure. Apply the same reset as other maintained processors.
+
+Four new regression cases cover shortened Q/PO records versus explicit blanks,
+recovery with valid zero/negative samples, direct EOF no-match/reselection and
+real ccA DBF no-match/success/failure/recovery. No WAL/GPKG staging or hydraulic
+formula changes. This follows existing processor ownership; no new MCP tool is
+needed because existing inspection exposes the corrected statuses.
+
+### Current local acceptance
+
+Windows 10 build 19045; normal Python 3.14.6, pandas 3.0.5, NumPy 2.5.3,
+PyShp 3.1.0, PyArrow 24.0.0, openpyxl 3.1.5, pytest 9.1.1.
+The initial workstation parser was 1.2.9; those runs are superseded. Installed
+and verified the repository's accepted PyTuflow **1.3.0**, source
+`887534ea8c15b80d185a38a7ead1d42ab42a7167`, wheel SHA-256
+`4bfcd24734349f9e0dcf60776ee06a2e17953ac342f40e3611b0e2aae33b30e3`.
+All current counts below were refreshed with that exact dependency.
+
+- Requested focused processor/QA suite plus EG02, culvert selection, POMM
+  outcomes/populations/provenance and export failure regressions: **369 passed,
+  zero failed/skipped**. Installed-wheel subset: **121 passed, zero failed/skipped**.
+- Ruff lint/format, strict Pyright on all seven changed Python files, Loguru
+  policy and documentation/default-index checks pass.
+- Built and verified package **26.11.9.2**, retained wheel SHA-256
+  `d00012fbd503c09f42c12e124c5354583653b4c8aec718fbacb0de447c2fc308`.
+  Installed it into an isolated target using the normal interpreter, without
+  changing the normal ryan-tools installation or creating a virtual environment.
+  Source/wheel physical import origins are recorded independently.
+- **176 original native checks per environment per storage path**: local NTFS,
+  actual mapped T: drive and actual UNC to the same existing SMB server/share,
+  each using a unique disposable directory. **1,056 passed checks total**.
+  Fourteen authentic files per path; exact processed-row/numerical fingerprints,
+  health/rejection outcomes and input hashes match source versus wheel.
+- Factory/direct, public collection and MCP filtering exercised Cmx/Nmx/Chan/
+  EOF/ccA/CF/H/Q/V with one/two/absent/whitespace selections. Existing focused
+  tests additionally verify numeric-text IDs, repeated filters, rejected-source
+  presence, EOF unambiguous/ambiguous alignment and model/domain MB scopes.
+- Actual completed EG02 TLF replacement with initialising bytes and recovery,
+  shortened/malformed Q/PO, missing files, invalid times and real Windows
+  deny-sharing read locks pass on NTFS/mapped/UNC under source and wheel.
+- Copied maintained maximums, peak-QA and stability-QA wrapper entry points:
+  **18 successful executions**, source/wheel across three paths. Four exported
+  tables per paired run match exactly after path columns are excluded; selected
+  maximums/raw tables contain only requested FC01.01. Native no-clobber exporter
+  checks preserve pre-existing report bytes on all six runs.
+- All original selected input hashes and directory inventories remain unchanged;
+  only disposable output/failure-fixture directories receive writes.
+
+Independent Module04 HU/HD maxima: **40.9482 / 40.7525 m**, with **7 / 1** dry
+PO source samples. EG02_011 HU/HD maxima: **40.7877 / 40.6995 m**, with **44 / 44**
+dry PO samples. Raw sentinel provenance survives; derived extrema exclude it.
+Selected peak and stability QA explicitly use verbose structure-level measurement
+names and retain PARTIAL health, separate from hydraulic status. Source values
+are independently read with Python csv/finite-value arithmetic, not approved by
+snapshot regeneration. Ordinary Flow-only behavior remains covered.
+
+Ten authentic distinct TP simulations are unavailable in this selected tutorial
+set. Ten explicitly synthetic TP labels carry each authentic source population;
+mean/median reproduce the four maxima above (roundoff below 1e-12), contributing
+counts are 10, median selects TP06 and mean selects TP01 for equal-valued ties.
+This validates aggregation/provenance logic, **not genuine ten-TP native data**.
+Partial/all-invalid population evidence is also checked by the focused suite.
+
+### Limits, issue verdicts and delivery
+
+**#219 / #220 / #223: PASS WITH LIMITATIONS on this local corrective child;
+parent closure acceptance remains incomplete.** The fixes must be reviewed,
+pass exact-head hosted checks and be incorporated into #251 before claiming the
+parent satisfies them. Do not add closing keywords until the maintainer accepts
+remaining limitations, including the synthetic-TP evidence boundary.
+
+The optional PyTuflow h5py import emits a native Windows 0xc0000139 diagnostic
+and NumPy ABI warning in the broad focused run, which nevertheless exits with
+369 passes; raw diagnostics are retained. No HDF/XMDF acceptance is inferred,
+no binary warning is suppressed and no optional-package environment repair is
+included. No licensed solver, topology or scalability campaign ran.
+
+Reproduction artifacts (commands, XML/logs, independent native and copied-wrapper
+runners, JSON tables/hashes, wheel and environment inventory) are retained under
+`validation/wp04-final/` in the isolated worktree. Required acceptance commands
+include the focused handoff suite above plus EG02/related workflow paths,
+`python validation/wp04-final/run_native.py` and
+`python validation/wp04-final/run_wrappers.py`. Native scripts are local evidence,
+not a new supported repository API. Initial harness failures (missing isolated
+user-site dependency path, spawn guard and short-name versus verbose HU/HD
+selection) were corrected; final runs assert nonempty QA exports.
+
+Delivery: one scoped checked batch to a child of #251; no parent/main merge,
+release, auto-merge or manual issue closure. Next: review exact child CI/Codex,
+obtain explicit limitation disposition and integrate only with authorisation.
+Next review remains 2026-11-15 or on review completion.

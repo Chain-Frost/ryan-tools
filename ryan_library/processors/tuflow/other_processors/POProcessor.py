@@ -71,6 +71,10 @@ class POProcessor(BaseProcessor):
 
         try:
             raw_df: DataFrame = pd.read_csv(self.file_path, header=None, dtype=str)
+            if raw_df.isna().any().any() and not has_consistent_csv_widths(self.file_path):
+                self.input_health = "INVALID"
+                logger.warning("{}: CSV record widths are inconsistent; processing failed.", self.file_name)
+                return
             self.raw_df = raw_df.copy()
         except Exception as exc:  # pragma: no cover - IO errors handled here
             logger.exception(f"{self.file_name}: Failed to read CSV file: {exc}")

@@ -44,11 +44,12 @@ def clean_hydraulic_samples(values: Series, *, measurement: str) -> tuple[Series
 
 
 def has_consistent_csv_widths(path: Path) -> bool:
-    """Check original CSV row widths before treating an empty selection as absent.
+    """Check original CSV row widths when missing fields may conceal truncation.
 
     Pandas pads truncated rows with NaN, making a shortened source record
     indistinguishable from an explicitly blank measurement in a DataFrame.
-    Use this only on the rare all-invalid/absent-selection outcome path.
+    Check frames with missing cells and all-invalid/absent-selection outcomes;
+    complete numeric frames do not require an additional file scan.
     """
     try:
         with path.open(encoding="utf-8", newline="") as source:

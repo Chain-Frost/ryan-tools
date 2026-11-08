@@ -33,6 +33,7 @@ class ccAProcessor(BaseProcessor):
             pd.DataFrame: Processed CCA data.
         """
         logger.debug("Starting processing of CCA file: {}", self.log_path)
+        self.reset_processing_state()
         file_ext = self.file_path.suffix.lower()
 
         try:
@@ -58,6 +59,10 @@ class ccAProcessor(BaseProcessor):
             self.df = cca_data
 
             self.apply_entity_filter()
+            if self.applied_entity_filter and self.df.empty:
+                self.filtered_empty = True
+                logger.info("{}: No requested channels found; skipping file.", self.file_name)
+                return
             # Add common columns like run codes, paths, etc.
             self.add_common_columns()
 
