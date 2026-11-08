@@ -156,6 +156,11 @@ Reserve `Path.resolve()` for operations that explicitly need canonical physical 
 The sections below define the important boundaries. See [`ENVIRONMENTS.md`](ENVIRONMENTS.md) for setup commands, VS Code
 tasks, interpreter selection and environment-specific entry points.
 
+Windows is the target platform and the primary acceptance environment. Ubuntu is useful for inexpensive portable
+checks and narrowly defined POSIX compatibility tests; it does not replace Windows or native GIS acceptance.
+Keep the normal user dependency environment intact. CI-only profiles may omit tools that their checks do not invoke,
+but removing a test dependency requires Windows collection, skip-reason and capability parity evidence.
+
 ### Repository development
 
 Development uses the user's normal Python 3.14 installation, with the project installed through `requirements.txt`.
@@ -229,6 +234,11 @@ repository-owned READMEs for unresolved relative Markdown links and unambiguous 
 submodule content. Pass explicit repository-relative Markdown paths to check a different document set; add
 `--links-only` for prose-heavy audits that use abbreviated source filenames.
 
+Run applicable lightweight checks before a hosted-validation checkpoint, then push the related changes as one batch.
+Multiple local commits do not require multiple pushes. See the
+[agent batching rules](../AGENTS.md#batch-pushes-to-control-ci-usage) and the
+[current CI dependency profiles](ENVIRONMENTS.md#ci-dependency-profiles).
+
 ## Data, scale and safety
 
 - Model results may be large, numerous, located on network drives or unavailable outside their project. Avoid loading
@@ -268,7 +278,7 @@ project progress in its status record; a proposed design is not adopted policy m
 | Shared maintained-script principles and standalone contract | [`../ryan-scripts/README.md`](../ryan-scripts/README.md) |
 | Library-backed maintained wrapper contract | [`../ryan-scripts/WRAPPER_STANDARD.md`](../ryan-scripts/WRAPPER_STANDARD.md) |
 | TUFLOW processor implementation | [`../ryan_library/processors/tuflow/README.md`](../ryan_library/processors/tuflow/README.md) and local workflow documentation |
-| Test fixture contents and provenance | [`../tests/test_data/README.md`](../tests/test_data/README.md) and dataset-local documentation |
+| Test fixture contents and provenance | [Test-data repository README](https://github.com/Chain-Frost/ryan-tools-test-data/blob/main/README.md) and dataset-local documentation; available without initialising the submodule |
 | Current proposals and unfinished work | Roadmaps, audits and implementation plans; these are informative, not architectural authority |
 
 When documents conflict, prefer the most specific canonical source above and correct or retire the stale guidance in the

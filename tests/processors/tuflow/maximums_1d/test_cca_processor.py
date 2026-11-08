@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import os
+import shutil
 import sqlite3
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from pathlib import Path
 from unittest.mock import patch
+
+import pytest
 
 from ryan_library.processors.tuflow.maximums_1d.ccAProcessor import ccAProcessor
 
@@ -172,6 +176,78 @@ def test_cca_gpkg_writer_shutdown_between_preflight_and_read(tmp_path: Path) -> 
     assert path.read_bytes() == bytes_after_writer_close
     assert not wal.exists()
     assert not shm.exists()
+
+
+def test_cca_gpkg_retries_fresh_copy_after_writer_shutdown(tmp_path: Path) -> None:
+    """A removed WAL invalidates the first copy; a fresh checkpointed copy succeeds."""
+    path = tmp_path / "RetryShutdown_Results1D.gpkg"
+    _create_minimal_cca_gpkg(path)
+    writer = sqlite3.connect(path)
+    writer.execute("PRAGMA journal_mode=WAL")
+    writer.execute("UPDATE cc_results_1d_ccA_L SET pFull_Max=99")
+    writer.commit()
+    copy = shutil.copyfile
+    attempts: list[Path] = []
+    original: bytes | None = None
+
+    def shutdown_during_copy(src: Path, dst: Path) -> str:
+        nonlocal original
+        result = copy(src, dst)
+        if src == path:
+            attempts.append(dst)
+            if len(attempts) == 1:
+                writer.close()
+                original = path.read_bytes()
+        return str(result)
+
+    try:
+        with patch("shutil.copyfile", shutdown_during_copy):
+            data = ccAProcessor(file_path=path).process_gpkg()
+    finally:
+        writer.close()
+    assert data.loc[0, "pFull_Max"] == 99
+    assert len(attempts) == 2
+    assert attempts[0].parent != attempts[1].parent
+    assert all(not item.parent.exists() for item in attempts)
+    assert path.read_bytes() == original
+    assert not path.with_name(path.name + "-wal").exists()
+    assert not path.with_name(path.name + "-shm").exists()
+
+
+@pytest.mark.parametrize("keep_changing", [False, True])
+def test_cca_gpkg_retry_rechecks_signatures_and_bounds_copy_count(tmp_path: Path, keep_changing: bool) -> None:
+    """Never open a rejected attempt; permanent churn stops after three copies."""
+    path = tmp_path / "RetryChange_Results1D.gpkg"
+    _create_minimal_cca_gpkg(path)
+    copy = shutil.copyfile
+    copies: list[Path] = []
+
+    def change_during_copy(src: Path, dst: Path) -> str:
+        result = copy(src, dst)
+        copies.append(dst)
+        if keep_changing or len(copies) == 1:
+            writer = sqlite3.connect(path)
+            try:
+                writer.execute("UPDATE cc_results_1d_ccA_L SET pFull_Max=pFull_Max+1")
+                writer.commit()
+            finally:
+                writer.close()
+            # SMB can defer mtime updates after a same-size SQLite write.
+            # This case exercises detected signature changes, not a distributed lock.
+            observed = path.stat()
+            os.utime(path, ns=(observed.st_atime_ns, observed.st_mtime_ns + 1_000_000_000))
+        return str(result)
+
+    with patch("shutil.copyfile", change_during_copy):
+        data = ccAProcessor(file_path=path).process_gpkg()
+    if keep_changing:
+        assert data.empty
+        assert len(copies) == 3
+    else:
+        assert data.loc[0, "pFull_Max"] == 2
+        # A share may expose one further delayed mtime update after writer close.
+        assert 2 <= len(copies) <= 3
+    assert all(not item.parent.exists() for item in copies)
 
 
 def test_cca_gpkg_rollback_to_wal_transition_never_creates_reader_sidecars(tmp_path: Path) -> None:

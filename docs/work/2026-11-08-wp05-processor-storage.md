@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | #254 safety correction reviewed/hosted-green; #261 refreshed for hosted and native HDF acceptance |
+| Status | Bounded WAL retry passes native source/wheel checks; final CI/review pending; HDF remains separate |
 | Owner | WP05 delivery agent / maintainer |
 | Created | 2026-11-08 |
 | Updated | 2026-11-08 |
@@ -126,3 +126,68 @@ Next action: #254 owner corrects the no-create WAL contract and obtains review; 
 ### HDF branch reconciliation after the #254 owned-copy review
 
 [#254](https://github.com/Chain-Frost/ryan-tools/pull/254) at `cd6fdb28` uses invocation-owned SQLite snapshots, has **six hosted CI passes** and a [Codex review without findings](https://github.com/Chain-Frost/ryan-tools/pull/254#issuecomment-6719253134); earlier review threads are resolved. Native Windows/SMB/large-file acceptance is **NOT RUN**. The #261 HDF code is refreshed as a two-parent, non-force branch merge with that parent, preserving #251/WP12 and newer package metadata. HDF source, wheel and native Q/PO/POMM cache roundtrip checks remain **NOT RUN on this reconciled SHA**, pending fresh hosted and local tests. Neither child is incorporated into #251 or main. No issue closures or release.
+
+
+### Native follow-up: leave ccA styling to the TUFLOW QGIS plugin
+
+The maintained `apply_qgis_styles_to_results.py` wrapper no longer selects
+`Results1D` shapefiles/GeoPackages for ccA styling. Standalone `1d_ccA_L`
+files were already absent from the default mapping. The TUFLOW QGIS plugin
+now provides the built-in ccA style, so this script leaves both forms alone.
+Existing result files and QML sidecars are preserved; raster mappings remain.
+The wrapper revision is `2026-11-08.1`.
+
+Validation on Windows 10/Python 3.14.6: seven existing styling tests pass;
+Ruff lint/format, strict modified-file Pyright, compilation and documentation
+links pass. Disposable source and extracted-wheel probes verify zero SQLite
+opens, unchanged hashes for ccA/Results1D inputs and existing QML sidecars,
+and successful depth-raster QML creation in root and nested folders. Copied
+wrapper `--help` succeeds against source and wheel. This mapping removal
+requires no new MCP exposure; the existing public workflow remains the same.
+
+The no-bump build retains package version `26.11.8.2`; wheel SHA256 is
+`59ad1ed511ae7633e796db9f43744ba357054e55fa88f642a3e5d15cc5a63f5b`.
+The wheel is a local ignored build artifact, not a published release or a
+global installation. The existing source checkout and submodules remain untouched.
+Delivery is on the existing draft #254; current-head hosted checks remain to
+be reviewed. This styling change does not clear WAL/share shutdown acceptance
+or the missing-PyTables HDF gate. Native reports remain under #254/#261.
+Next review: 2026-11-15. No parent/main merge, release or issue closure.
+
+### 2026-11-08 completion follow-up: bounded source-change retry
+
+Refreshed #254 from #251 at `dc6d74455e092d3611b975f0fc3975a977578ecc`
+without force-push, preserving styling commit `71c84c80`, the consolidated CI,
+vendored PyTuflow wheel and all accepted parent work. Main remains
+`c1a66970c8ed228ab94404b4f747a40c755847cd`; no child is integrated into #251.
+
+A changed copy is discarded before retrying, with at most three complete copies
+and 50/100 ms backoff. A disappeared WAL during checkpoint is retried only when
+source signatures changed. All signature, journal and incomplete-sidecar checks
+remain intact. Failed attempts never reach SQLite and owned scratch is removed.
+No immutable/direct-source SQLite fallback is added.
+
+Windows 10/Python 3.14.6: **23 focused pytest PASS, no skips**; **15 native direct
+checks PASS** (five each NTFS, mapped, UNC): shutdown during copy, shutdown after
+copy, rollback-to-WAL transition, detected-change recovery and three-copy
+exhaustion. Successful shutdown reads preserve committed 99 and source bytes,
+with no source sidecars recreated. Initial harness assertions assumed exactly two
+attempts; SMB legitimately needed a third because mtime updates were delayed.
+Those harness results are superseded after allowing the specified three-attempt
+bound. An explicit mtime change makes the detected-change test deterministic;
+same-metadata rewrites remain outside the stat-signature guarantee.
+
+Ruff/strict modified-file Pyright and Loguru policy pass. Built/verified package
+26.11.8.3; SHA256 `215c9e289d5da95fa4466f6582c8062fa91bf0b78c293d1590c1150b7db8cc58`.
+Only tests/test_data and qgis-resources were initialized for tests/build; no
+unsorted access. Private harness/evidence: `E:/Github/wp0508-completion-20261108`.
+The prior native report on `cd6fdb28` remains historical; successful share-shutdown
+coverage above supersedes its two unsuccessful shutdown assertions only.
+
+Copy-cost boundary: one attempt's scratch is released before the next, so peak
+copied payload remains DB+WAL plus SQLite overhead; I/O may triple. Retain the
+prior 64 MiB synthetic copy measurements; representative multi-GB performance,
+cross-host WAL concurrency and same-metadata rewrites are NOT RUN/unsupported.
+MCP assessment: existing generic processor inspection remains appropriate; the
+retry does not warrant a new tool. Next: exact-head hosted CI and fresh Codex
+review, then refresh/test #261. No issue closure or integration is claimed yet.

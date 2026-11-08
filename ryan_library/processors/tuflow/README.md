@@ -299,6 +299,30 @@ median/mean ensemble, and there is no implied coincident maximum-flow state.
 The generic read-only MCP inspection interfaces work through the shared registry.
 See [WP12's record](../../../docs/work/2026-11-08-wp12-hu-hd-coverage.md) for native acceptance and unsupported formats.
 
+## ccA SQLite source safety and copy costs
+
+ccA GeoPackage reads copy the database and any applicable WAL to invocation-owned
+local scratch before opening SQLite. The source is never opened with SQLite;
+SQLite may create its index/sidecars only in scratch. A rollback journal,
+incomplete WAL/SHM pair, unavailable source or unstable copy is refused.
+
+Detected source changes allow up to **three fresh copy attempts** with 50 ms and
+100 ms delays. Every attempt repeats the unchanged source identity, size, mtime
+and journal checks. Rejected copies are deleted before the next attempt. This
+bounds copying to three attempts, not wall-clock time on an unresponsive share.
+A continuously changing source still fails explicitly; close/checkpoint its
+writer and retry after it stabilises. No immutable or writable-source fallback
+is used. A successful copy can predate later committed writes.
+
+Scratch needs at least database plus WAL bytes, with additional space for SQLite
+runtime sidecars. Retries can transfer up to three times that volume. The earlier
+synthetic native probe copied 67,637,904 bytes in 0.026-0.057 seconds; this is not a
+multi-GB production benchmark. Stat signatures are not distributed locks or content
+checksums: same-metadata rewrites, unsupported network locking and SQLite
+journal_mode=OFF are outside this acceptance. Cross-host concurrent SQLite WAL
+use on a network filesystem is not qualified. See the
+[WP05 record](../../../docs/work/2026-11-08-wp05-processor-storage.md) for evidence.
+
 ## Add a processor-backed data type
 
 ### 1. Choose the appropriate base class
