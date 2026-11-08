@@ -159,22 +159,31 @@ To release retained raw input tables across the collection, call:
 discarded_count = collection.discard_raw_dataframes()
 ```
 
-## Cache a collection with HDF5
+## Processed data storage and retired HDF5 snapshot API
 
-`to_hdf()` writes each processed DataFrame and enough processor metadata to one HDF5 cache. `from_hdf()` reconstructs
-the concrete processor classes and can apply an optional location filter while loading:
+**Breaking change (8 November 2026):** `ProcessorCollection.to_hdf()` and
+`ProcessorCollection.from_hdf()` no longer read or write HDF5. They raise
+`NotImplementedError`. The error-raising migration notices remain **through
+31 March 2027** and may be removed from **1 April 2027**. The optional
+`ryan-tools[cache]` extra and PyTables dependency are removed.
 
-```python
-from pathlib import Path
+The last **published PyPI release containing these HDF5 methods** is
+[`ryan-tools==26.11.8.3`](https://pypi.org/project/ryan-tools/26.11.8.3/). To use that historical API in a
+separate environment:
 
-cache_path = Path("cache/tuflow-results.h5")
-collection.to_hdf(cache_path)
-
-restored = ProcessorCollection.from_hdf(cache_path, locations=["Culvert_01"])
+```powershell
+python -m pip install "ryan-tools==26.11.8.3"
 ```
 
-Treat this as a processing cache rather than a stable interchange format. Rehydration depends on the configured
-processor classes remaining importable and compatible with the stored metadata.
+The older HDF5 implementation has known categorical/nullable DataFrame
+round-trip limitations; its availability does not guarantee that every
+historical snapshot can be restored.
+
+**Use Parquet for current processed tabular results.** The existing
+`ryan-tools` TUFLOW processors remain the result readers. Export combined
+DataFrames using `to_parquet()` and load tables using `pandas.read_parquet()`.
+Parquet does not currently restore complete `ProcessorCollection` objects:
+the unused HDF snapshot feature was removed, not silently converted.
 
 ## MCP inspection and advanced queries
 
@@ -276,6 +285,30 @@ median/mean ensemble, and there is no implied coincident maximum-flow state.
 The generic read-only MCP inspection interfaces work through the shared registry.
 See [WP12's record](../../../docs/work/2026-11-08-wp12-hu-hd-coverage.md) for native acceptance and unsupported formats.
 
+## ccA SQLite source safety and copy costs
+
+ccA GeoPackage reads copy the database and any applicable WAL to invocation-owned
+local scratch before opening SQLite. The source is never opened with SQLite;
+SQLite may create its index/sidecars only in scratch. A rollback journal,
+incomplete WAL/SHM pair, unavailable source or unstable copy is refused.
+
+Detected source changes allow up to **three fresh copy attempts** with 50 ms and
+100 ms delays. Every attempt repeats the unchanged source identity, size, mtime
+and journal checks. Rejected copies are deleted before the next attempt. This
+bounds copying to three attempts, not wall-clock time on an unresponsive share.
+A continuously changing source still fails explicitly; close/checkpoint its
+writer and retry after it stabilises. No immutable or writable-source fallback
+is used. A successful copy can predate later committed writes.
+
+Scratch needs at least database plus WAL bytes, with additional space for SQLite
+runtime sidecars. Retries can transfer up to three times that volume. The earlier
+synthetic native probe copied 67,637,904 bytes in 0.026-0.057 seconds; this is not a
+multi-GB production benchmark. Stat signatures are not distributed locks or content
+checksums: same-metadata rewrites, unsupported network locking and SQLite
+journal_mode=OFF are outside this acceptance. Cross-host concurrent SQLite WAL
+use on a network filesystem is not qualified. See the
+[WP05 record](../../../docs/work/2026-11-08-wp05-processor-storage.md) for evidence.
+
 ## Add a processor-backed data type
 
 ### 1. Choose the appropriate base class
@@ -327,3 +360,98 @@ representative smoke check, and a package build. Use synthetic fixtures when pro
 
 If the new processor type has recurring agent-facing value, verify that the generic MCP inspection tools handle it and
 update their guidance or focused coverage as needed. Do not add a separate MCP endpoint for each basic processor.
+
+## Structure crossing history and upstream-level-state outputs (#236)
+
+The factory recognises `_SQ.csv` as source-computed **total structure crossing
+flow**, distinct from the 2D-only `_2d_QS.csv` and PO structure flow.
+It selects structure columns before wide-to-long expansion.
+
+The separate `_SHmx.csv` is the **state at maximum upstream water level**,
+not a discharge-maximum table. `Q Below`, `Q Above`, `Q Total`,
+`A Below`, `A Above`, `A Total`, `V Below`, `V Above`,
+`V Combined`, `h U/S`, `h D/S`, `dh` and `Time` are source
+values. They are never recomputed as coincident 1D independent extrema.
+The new readers preserve printed float64 precision, signed/zero numbers
+and null values for `-99999`, `**********` and empty cells.
+
+```python
+from pathlib import Path
+from ryan_library.orchestrators.tuflow.structure_results import main_processing
+
+main_processing(
+    paths_to_process=[Path("TUFLOW/results/EG02/plot/csv")],
+    include_data_types=["SQ", "SHmx"],
+    locations_to_include=["FC01.1_R"],
+    export_mode="both",
+    use_live_dashboard=False,
+)
+```
+
+A protected workbook/Parquet export keeps histories and supplied upstream
+level states in separate sheets. The two product types remain distinct in
+`ProcessorCollection` and read-only MCP inspection. The full #236 format
+backlog and native-scale acceptance remain open.
+
+## Split 2D CSV, loss coefficients and node mass-balance histories (#236)
+
+The registered `_2d_H.csv`, `_2d_Q.csv` and `_2d_V.csv` readers
+retain location, simulation hours and source H/Q/V measurements in the
+existing PO-shaped `Time/Location/Type/Value/AbsValue` schema, using the
+same metric labels as the combined `_PO.csv`. They have a separate
+`SplitPO` dataformat and a dedicated `split_2d_results.main_processing`
+workflow: **do not ingest the complete PO and its split equivalents as
+two independent ensemble observations**. Structure HU/HD/QS remain under
+the separate #237 investigation.
+
+`_1d_L.csv` is available via `LProcessor` and
+`culvert_losses.main_processing`. Values are **dimensionless coefficients**,
+not head loss in metres. Preserve `Entry LC`, `Additional LC`, `Exit LC`
+for channels and `LC` for nodes/pits as distinct `Type` fields. Select
+channel/pit columns before reading the full time-series values. This does not
+infer channel connectivity.
+
+`_1d_TSMB.csv` is available via `TSMBProcessor` and
+`node_mass_balance_history.main_processing`. It preserves source node
+IDs and timestamps; it is **not** a replacement for node summary
+`_1d_MB.csv` or model/domain `_MB.csv` products.
+
+All readers retain source float64 precision, signed and zero values and
+reserved no-data as missing; the protected exporters use separate
+workbooks/Parquet files and do not modify input results.
+
+## Model/domain and cumulative node mass balance (#236)
+
+The `_MB.csv`, `_MB1D.csv` and `_MB_HPC.csv` formats use **separate**
+model/domain histories and keep their original named metrics in `Type`,
+original simulation hours in `Time` and their source scope in `Location`.
+For example, `Q ME (%)` and `Cum ME (%)` are source percentage fields,
+not hydraulic flows; `nRS_NaNs`, `iStep` and `dtTarget` are retained as
+HPC diagnostic fields where present. No automatic engineering acceptance
+threshold is invented. Call `model_mass_balance.main_processing` on the
+model result directory. Discovery distinguishes the canonical registry suffix
+`_1d_MB.csv` from `_MB.csv` before input availability checks; an
+unrequested node summary cannot invalidate a model-only export.
+
+The node `_1d_MB.csv` prelude is **not** an ordinary wide time-series
+header. `MBNodeProcessor` explicitly reads its source-provided
+`Cum %ME`, `Cum VE`, `Cum VQ` summary rows and node identifiers
+without treating the subsequent source `Time` rows as part of that
+summary. Call `node_mass_balance_summary.main_processing`. The existing
+`_1d_TSMB.csv` adapter is a distinct node history in
+`node_mass_balance_history.main_processing`.
+
+## Optional native time-series containers: held for parity validation
+
+Native TUFLOW time-series NetCDF and dedicated GPKG have **not** been
+registered as generic `BaseProcessor` readers. The pinned PyTuflow public
+TPC interface has CSV/NetCDF/GPKG dispatch and genuine [NetCDF fixtures](https://github.com/Chain-Frost/PyTuflow/tree/b1026d0cf72118ef68a0b6229610f427a7284e10/tests/nc_ts)
+and [GPKG fixtures](https://github.com/Chain-Frost/PyTuflow/tree/b1026d0cf72118ef68a0b6229610f427a7284e10/tests/tpc_gpkg), whereas the selected ryan-tools example
+corpus has CSV-only TPC inventories. Native adoption must preserve TPC
+association, location and measurement selection before materialisation,
+float precision, no-data, model units/reference time, and exact
+CSV-native numerical/report parity. Dedicated GPKG is not the legacy
+`*_Results.gpkg` TS layer (which can be time-thinned); structure-group
+support must not be inferred. Benchmark selected reads and RSS/disk I/O
+under #229 before claiming a performance benefit. No dependency repin,
+new TPC parser or unsupported native format claim is made here.

@@ -10,6 +10,23 @@ from typing import TypedDict, cast
 import pytest
 
 SCRIPT = Path(__file__).absolute().parents[2] / "repo-scripts" / "ci_scope.py"
+PROJECT_METADATA = """[project]
+name = "scope-example"
+version = "26.11.8.1"
+requires-python = ">=3.14"
+dependencies = ["pandas>=2"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.pyright]
+typeCheckingMode = "strict"
+
+[tool.example]
+flag = 1
+values = [1.0]
+"""
+UPDATED_VERSION = PROJECT_METADATA.replace('version = "26.11.8.1"', 'version = "26.11.8.2"')
 
 
 class ScopeResult(TypedDict):
@@ -72,7 +89,10 @@ def _scope(
         "GITHUB_OUTPUT": str(output),
         "CI_SCOPE_PATH": str(manifest) if manifest else "",
     }
-    subprocess.run([sys.executable, str(SCRIPT)], cwd=root, env=env, check=True, capture_output=True, timeout=30)
+    result = subprocess.run(
+        [sys.executable, str(SCRIPT)], cwd=root, env=env, check=False, capture_output=True, timeout=30
+    )
+    assert result.returncode == 0, result.stderr.decode("utf-8", errors="replace")
     lines = output.read_text(encoding="utf-8").splitlines()
     assert len(lines) == 5
     values = dict(line.split("=", maxsplit=1) for line in lines)
@@ -210,6 +230,84 @@ def test_invalid_head_also_falls_back_to_full_tracked_scope(repository: Path) ->
     assert result["type_files"] == ["source.py"]
 
 
+@pytest.mark.parametrize("event", ["pull_request", "push"])
+def test_version_only_pyproject_change_does_not_expand_static_checks(repository: Path, event: str) -> None:
+    template = '[project]\nname = "example"\nversion = "1.0.0"\n\n[tool.pyright]\ntypeCheckingMode = "strict"\n'
+    _write(repository, "pyproject.toml", template)
+    _write(repository, "typings/types.pyi", "value: int\n")
+    base = _commit(repository)
+
+    _write(repository, "pyproject.toml", template.replace('version = "1.0.0"', 'version = "1.0.1"'))
+    _write(repository, "source.py", "value = 2\n")
+    _commit(repository)
+
+    result = _scope(repository, base, event=event)
+
+    assert result["full"]
+    assert result["comparison_available"]
+    assert result["lint_files"] == ["source.py"]
+    assert result["type_files"] == ["source.py"]
+
+
+def test_version_only_pyproject_change_still_requires_package_validation(repository: Path) -> None:
+    _write(repository, "pyproject.toml", '[project]\nname = "example"\nversion = "1.0.0"\n')
+    base = _commit(repository)
+    _write(repository, "pyproject.toml", '[project]\nname = "example"\nversion = "1.0.1"\n')
+    _commit(repository)
+
+    result = _scope(repository, base)
+
+    assert result["full"]
+    assert result["lint_files"] == []
+    assert result["type_files"] == []
+
+
+@pytest.mark.parametrize("dependency", ["tables>=3.11.1", "tables>=3.11.2", "h5py>=3"])
+def test_optional_dependency_and_version_change_expand_static_scope(repository: Path, dependency: str) -> None:
+    before = PROJECT_METADATA.replace(
+        "[tool.ruff]",
+        '[project.optional-dependencies]\ndev = ["build", "ruff==0.16.6", "pyright"]\n\n[tool.ruff]',
+    )
+    _write(repository, "pyproject.toml", before)
+    _write(repository, "typings/types.pyi", "value: int\n")
+    base = _commit(repository)
+    after = before.replace('version = "26.11.8.1"', 'version = "26.11.8.4"').replace(
+        'dev = ["build", "ruff==0.16.6", "pyright"]',
+        f'cache = ["{dependency}"]\ndev = ["build", "{dependency}", "ruff==0.16.6", "pyright"]',
+    )
+    _write(repository, "pyproject.toml", after)
+    _write(repository, "source.py", "value = 2\n")
+    _commit(repository)
+
+    scope = _scope(repository, base)
+
+    assert scope["full"]
+    expected = ["source.py", "typings/types.pyi"]
+    assert scope["lint_files"] == expected
+    assert scope["type_files"] == expected
+
+
+@pytest.mark.parametrize(
+    "extra_change",
+    [
+        'dependencies = ["numpy"]\n',
+        '\n[tool.pyright]\ntypeCheckingMode = "strict"\n',
+    ],
+)
+def test_version_and_other_pyproject_changes_still_expand_static_checks(repository: Path, extra_change: str) -> None:
+    _write(repository, "pyproject.toml", '[project]\nname = "example"\nversion = "1.0.0"\n')
+    _write(repository, "typings/types.pyi", "value: int\n")
+    base = _commit(repository)
+    _write(repository, "pyproject.toml", '[project]\nname = "example"\nversion = "1.0.1"\n' + extra_change)
+    _commit(repository)
+
+    result = _scope(repository, base)
+
+    assert result["full"]
+    assert result["lint_files"] == ["source.py", "typings/types.pyi"]
+    assert result["type_files"] == ["source.py", "typings/types.pyi"]
+
+
 @pytest.mark.parametrize(
     ("config", "lint_all", "type_all"),
     [
@@ -239,42 +337,148 @@ def test_configuration_changes_expand_the_affected_static_checks(
 
 
 @pytest.mark.parametrize(
-    ("project_content", "lint_all", "type_all"),
+    ("event", "config", "change_python"),
     [
-        ('[project]\nversion = "2"\n[tool.ruff]\nline-length = 120\n', False, False),
-        ('[project]\nversion = "1"\n[tool.ruff]\nline-length = 100\n', True, False),
-        (
-            '[project]\nversion = "1"\n[tool.ruff]\nline-length = 120\n[tool.pyright]\ntypeCheckingMode = "strict"\n',
-            False,
-            True,
-        ),
-        ('[project]\nversion = "1"\nrequires-python = ">=3.15"\n[tool.ruff]\nline-length = 120\n', True, True),
+        ("pull_request", "pyproject.toml", True),
+        ("push", "pyproject.toml", True),
+        ("pull_request", "packages/local project/pyproject.toml", False),
     ],
 )
-def test_pyproject_metadata_and_tool_configuration_have_distinct_scopes(
-    repository: Path, project_content: str, *, lint_all: bool, type_all: bool
+def test_numeric_version_only_change_keeps_full_ci_and_changed_python_scope(
+    repository: Path, event: str, config: str, *, change_python: bool
 ) -> None:
-    _write(repository, "typings/types.pyi", "value: int\n")
-    _write(repository, "pyproject.toml", '[project]\nversion = "1"\n[tool.ruff]\nline-length = 120\n')
+    _write(repository, config, PROJECT_METADATA)
     base = _commit(repository)
-    _write(repository, "pyproject.toml", project_content)
+    _write(repository, config, UPDATED_VERSION)
+    if change_python:
+        _write(repository, "changed.py")
+    head = _commit(repository)
+
+    result = _scope(repository, base, event=event, head=head)
+
+    assert result["full"]
+    assert result["comparison_available"]
+    assert result["lint_files"] == (["changed.py"] if change_python else [])
+    assert result["type_files"] == result["lint_files"]
+
+
+@pytest.mark.parametrize(
+    ("config", "old", "new"),
+    [
+        ("pyproject.toml", "pandas>=2", "pandas>=3"),
+        ("packages/local project/pyproject.toml", "line-length = 120", "line-length = 100"),
+        ("pyproject.toml", 'requires-python = ">=3.14"', 'requires-python = ">=3.15"'),
+        ("pyproject.toml", 'typeCheckingMode = "strict"', 'typeCheckingMode = "basic"'),
+        ("pyproject.toml", "flag = 1", "flag = true"),
+        ("pyproject.toml", "values = [1.0]", "values = [1]"),
+    ],
+)
+def test_version_bump_never_hides_other_metadata_or_scalar_type_changes(
+    repository: Path, config: str, old: str, new: str
+) -> None:
+    _write(repository, config, PROJECT_METADATA)
+    base = _commit(repository)
+    _write(repository, config, UPDATED_VERSION.replace(old, new))
     _commit(repository)
 
     result = _scope(repository, base)
-    all_python = ["source.py", "typings/types.pyi"]
+
     assert result["full"]
-    assert result["lint_files"] == (all_python if lint_all else [])
-    assert result["type_files"] == (all_python if type_all else [])
+    assert result["lint_files"] == ["source.py"]
+    assert result["type_files"] == ["source.py"]
 
 
-def test_malformed_pyproject_fails_open_to_static_checks(repository: Path) -> None:
-    _write(repository, "pyproject.toml", '[project]\nversion = "1"\n')
+@pytest.mark.parametrize(
+    ("before", "after"),
+    [
+        (None, UPDATED_VERSION),
+        (PROJECT_METADATA, None),
+        ('[project]\nname = "scope-example"\n', UPDATED_VERSION),
+        ('project = "not a table"\n', UPDATED_VERSION),
+        ('[project\nversion = "26.11.8.1"\n', UPDATED_VERSION),
+        (PROJECT_METADATA, UPDATED_VERSION.replace('version = "26.11.8.2"', "version = 2")),
+        (PROJECT_METADATA, UPDATED_VERSION.replace('version = "26.11.8.2"', 'version = ""')),
+        (PROJECT_METADATA, UPDATED_VERSION.replace('version = "26.11.8.2"', 'version = "not-a-version"')),
+        (PROJECT_METADATA, UPDATED_VERSION.replace("[project]", '[project]\ndynamic = ["version"]')),
+    ],
+    ids=["added", "deleted", "missing-version", "non-table", "invalid-base", "integer", "empty", "invalid", "dynamic"],
+)
+def test_uncertain_pyproject_metadata_retains_full_static_scope(
+    repository: Path, before: str | None, after: str | None
+) -> None:
+    config = "pyproject.toml"
+    if before is not None:
+        _write(repository, config, before)
     base = _commit(repository)
-    _write(repository, "pyproject.toml", "[project\nversion = invalid\n")
+    if after is None:
+        (repository / config).unlink()
+    else:
+        _write(repository, config, after)
     _commit(repository)
 
     result = _scope(repository, base)
+
     assert result["full"]
+    assert result["comparison_available"]
+    assert result["lint_files"] == ["source.py"]
+    assert result["type_files"] == ["source.py"]
+
+
+def test_version_comparison_uses_committed_blobs_not_worktree_metadata(repository: Path) -> None:
+    _write(repository, "pyproject.toml", PROJECT_METADATA)
+    base = _commit(repository)
+    _write(repository, "pyproject.toml", UPDATED_VERSION.replace("pandas>=2", "pandas>=3"))
+    head = _commit(repository)
+    _write(repository, "pyproject.toml", UPDATED_VERSION)
+
+    result = _scope(repository, base, head=head)
+
+    assert result["full"]
+    assert result["lint_files"] == ["source.py"]
+    assert result["type_files"] == ["source.py"]
+
+
+@pytest.mark.parametrize(("before_mode", "after_mode"), [("100644", "100755"), ("120000", "120000")])
+def test_version_bump_requires_unchanged_regular_git_file_modes(
+    repository: Path, before_mode: str, after_mode: str
+) -> None:
+    config = "pyproject.toml"
+    revisions: list[str] = []
+    for mode, content in ((before_mode, PROJECT_METADATA), (after_mode, UPDATED_VERSION)):
+        _write(repository, config, content)
+        blob = _git(repository, "hash-object", "-w", config)
+        # Write only the synthetic index: no Windows symlink privilege is needed.
+        _git(repository, "update-index", "--add", "--cacheinfo", mode, blob, config)
+        _git(repository, "commit", "--quiet", "-m", "Version metadata mode fixture")
+        revisions.append(_git(repository, "rev-parse", "HEAD"))
+
+    result = _scope(repository, revisions[0], head=revisions[1])
+
+    assert result["full"]
+    assert result["lint_files"] == ["source.py"]
+    assert result["type_files"] == ["source.py"]
+
+
+@pytest.mark.parametrize("failure", ["unreadable-blob", "invalid-utf8"])
+def test_pyproject_blob_read_and_decode_failures_expand_static_checks(repository: Path, failure: str) -> None:
+    config = "pyproject.toml"
+    _write(repository, config, PROJECT_METADATA)
+    base = _commit(repository)
+    _write(repository, config, UPDATED_VERSION)
+    if failure == "invalid-utf8":
+        with (repository / config).open("ab") as file:
+            file.write(b"# invalid UTF-8: \xff\n")
+    head = _commit(repository)
+    if failure == "unreadable-blob":
+        blob = _git(repository, "rev-parse", f"{head}:{config}")
+        object_path = repository / ".git" / "objects" / blob[:2] / blob[2:]
+        object_path.chmod(0o600)
+        object_path.unlink()
+
+    result = _scope(repository, base, head=head)
+
+    assert result["full"]
+    assert result["comparison_available"]
     assert result["lint_files"] == ["source.py"]
     assert result["type_files"] == ["source.py"]
 

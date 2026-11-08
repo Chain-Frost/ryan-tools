@@ -4,14 +4,13 @@ from __future__ import annotations
 
 __lazy_modules__: list[str] = ["pandas"]
 import copy
-import json
 import re
 from collections.abc import Collection
 from pathlib import Path
 from typing import Any
 
 from loguru import logger
-from pandas import NA, DataFrame, HDFStore, Series, concat, to_numeric
+from pandas import NA, DataFrame, Series, concat, to_numeric
 
 from ryan_library.functions.dataframe_helpers import (
     reorder_columns,
@@ -381,11 +380,7 @@ class ProcessorCollection:
 
         combined_df = reorder_long_columns(df=combined_df)
 
-        grouped_df: DataFrame = (
-            combined_df.groupby(by=group_keys, observed=True)  # pyright: ignore[reportUnknownMemberType]
-            .agg(func="max")
-            .reset_index()
-        )
+        grouped_df: DataFrame = combined_df.groupby(by=group_keys, observed=True).agg(func="max").reset_index()
 
         grouped_df = self._calculate_hw_d_ratio(df=grouped_df)
 
@@ -522,11 +517,7 @@ class ProcessorCollection:
             logger.error(f"Missing group keys {missing_keys} in Maximums/ccA data.")
             return DataFrame()
 
-        grouped_df: DataFrame = (
-            combined_df.groupby(by=group_keys, observed=True)  # pyright: ignore[reportUnknownMemberType]
-            .agg(func="max")
-            .reset_index()
-        )
+        grouped_df: DataFrame = combined_df.groupby(by=group_keys, observed=True).agg(func="max").reset_index()
         grouped_df = self._calculate_hw_d_ratio(df=grouped_df)
         p1_col: list[str] = [
             "trim_runcode",
@@ -630,15 +621,9 @@ class ProcessorCollection:
             df["HW_D"] = Series(dtype="Float64")
             return df
 
-        us_h_series: Series[float] = to_numeric(  # pyright: ignore[reportUnknownMemberType]
-            arg=df[us_h_col], errors="coerce"
-        )
-        us_invert_series: Series = to_numeric(  # pyright: ignore[reportUnknownMemberType]
-            arg=df["US Invert"], errors="coerce"
-        )
-        height_series: Series = to_numeric(  # pyright: ignore[reportUnknownMemberType]
-            arg=df["Height"], errors="coerce"
-        )
+        us_h_series: Series[float] = to_numeric(arg=df[us_h_col], errors="coerce")
+        us_invert_series: Series = to_numeric(arg=df["US Invert"], errors="coerce")
+        height_series: Series = to_numeric(arg=df["Height"], errors="coerce")
 
         valid_mask: Series[bool] = (
             us_h_series.notna() & us_invert_series.notna() & height_series.notna() & (height_series != 0)
@@ -775,121 +760,36 @@ class ProcessorCollection:
         )
         return filtered_collection
 
-    def to_hdf(self, file_path: Path | str) -> None:
-        """Save the collection to a single HDF5 file using pandas.HDFStore.
+    # Breaking change (2026-11-08): the optional HDF5 snapshot feature was removed.
+    # Retain the migration notice through 2027-03-31; remove from 2027-04-01.
+    # Last published HDF5-API release: ryan-tools==26.11.8.3 on PyPI.
+    _HDF5_REMOVAL_NOTICE = (
+        "HDF5 snapshots were removed on 2026-11-08. "
+        "The last published version retaining the API is ryan-tools==26.11.8.3 "
+        "(https://pypi.org/project/ryan-tools/26.11.8.3/). "
+        "Use Parquet for processed tabular data. "
+        "Migration notices are retained through 2027-03-31."
+    )
 
-        Args:
-            file_path: Destination HDF5 file path.
+    def to_hdf(self, file_path: Path | str, *, overwrite: bool = False) -> None:
+        """Retired HDF5 writer; see PyPI ryan-tools==26.11.8.3.
+
+        Keep this migration notice through 2027-03-31.
         """
-        file_path = Path(file_path)
-        # Ensure parent exists
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-
-        metadata: list[dict[str, Any]] = []
-
-        # User requested blosc:zstd level 9
-        # complib type hint in pandas can be strict, but 'blosc:zstd' is valid at runtime.
-        with HDFStore(
-            str(file_path),
-            mode="w",
-            complevel=9,
-            complib="blosc:zstd",  # pyright: ignore[reportArgumentType]
-        ) as store:
-            for idx, proc in enumerate(self.processors):
-                # We need a unique key for each processor df
-                key = f"proc_{idx:04d}"
-
-                proc_meta = {
-                    "file_path": str(proc.file_path),
-                    "class_name": proc.__class__.__name__,
-                    "processor_module": proc.processor_module,
-                    "dataformat": proc.dataformat,
-                    "hdf_key": key,
-                    "data_type": proc.data_type,
-                    "applied_location_filter": (
-                        list(proc.applied_location_filter) if proc.applied_location_filter else None
-                    ),
-                    "applied_entity_filter": (list(proc.applied_entity_filter) if proc.applied_entity_filter else None),
-                }
-                metadata.append(proc_meta)
-
-                if not proc.df.empty:
-                    # Using fixed format for speed as "cache".
-                    # If querying is needed, 'table' is better but slower/larger.
-                    store.put(key, proc.df, format="fixed")
-
-            meta_df = DataFrame({"json": [json.dumps(metadata)]})
-            store.put("metadata", meta_df)
-
-        logger.info(f"Saved {len(self.processors)} processors to {file_path}")
+        raise NotImplementedError(self._HDF5_REMOVAL_NOTICE)
 
     @staticmethod
-    def from_hdf(file_path: Path | str, locations: Collection[str] | None = None) -> ProcessorCollection:
-        """Load a collection from a single HDF5 file.
+    def from_hdf(
+        file_path: Path | str,
+        locations: Collection[str] | None = None,
+        *,
+        verify_sources: bool = True,
+    ) -> ProcessorCollection:
+        """Retired HDF5 reader; see PyPI ryan-tools==26.11.8.3.
 
-        Args:
-            file_path: Source HDF5 file.
-            locations: Optional location filter.
-
-        Returns:
-            ProcessorCollection: Rehydrated collection.
+        Keep this migration notice through 2027-03-31.
         """
-        file_path = Path(file_path)
-        if not file_path.exists():
-            msg = f"HDF5 file not found: {file_path}"
-            raise FileNotFoundError(msg)
-
-        collection = ProcessorCollection()
-
-        with HDFStore(str(file_path), mode="r") as store:
-            if "metadata" not in store:
-                msg = "HDF5 file missing 'metadata' key."
-                raise KeyError(msg)
-
-            meta_df = store.get("metadata")
-            metadata: list[dict[str, Any]] = json.loads(meta_df.iloc[0]["json"])  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
-
-            for item in metadata:
-                file_path_str = item["file_path"]
-                class_name = item["class_name"]
-                hdf_key = item["hdf_key"]
-
-                try:
-                    proc_cls = BaseProcessor.get_processor_class(
-                        class_name=class_name,
-                        processor_module=item.get("processor_module"),
-                        dataformat=item.get("dataformat"),
-                    )
-
-                    proc = proc_cls(file_path=Path(file_path_str))
-
-                    if hdf_key in store:
-                        stored_frame = store.get(hdf_key)
-                        if not isinstance(stored_frame, DataFrame):
-                            msg = f"HDF5 key {hdf_key!r} did not contain a DataFrame."
-                            raise TypeError(msg)
-                        proc.df = stored_frame
-                        proc.processed = True
-                    else:
-                        proc.df = DataFrame()
-                        proc.processed = True
-
-                    if item.get("applied_location_filter"):
-                        proc.applied_location_filter = frozenset(item["applied_location_filter"])
-                    if item.get("applied_entity_filter"):
-                        proc.applied_entity_filter = frozenset(item["applied_entity_filter"])
-
-                    collection.add_processor(proc)
-
-                except Exception as e:
-                    logger.error(f"Failed to rehydrate processor for {file_path_str}: {e}")
-                    continue
-
-        if locations:
-            collection.filter_locations(locations)
-
-        logger.info(f"Loaded {len(collection.processors)} processors from HDF5: {file_path}")
-        return collection
+        raise NotImplementedError(ProcessorCollection._HDF5_REMOVAL_NOTICE)
 
     def check_duplicates(self) -> dict[tuple[str, str], list[BaseProcessor]]:
         """Identify processors that share the same run-code (internalName) and data_type.

@@ -1,12 +1,17 @@
 """Tests for ryan_library.functions.RORB.read_rorb_files."""
 
+# Unit tests intentionally exercise the implementation helpers under test.
+# pyright: reportPrivateUsage=false
+
 from pathlib import Path
+
+import pytest
 
 from ryan_library.functions.RORB import read_rorb_files
 
 
 class TestHelpers:
-    def test_find_batch_files(self, tmp_path):
+    def test_find_batch_files(self, tmp_path: Path):
         d1 = tmp_path / "d1"
         d1.mkdir()
         (d1 / "batch.out").touch()
@@ -102,7 +107,7 @@ class TestParsing:
         assert res[6] == 100.0
         assert str(res[7]).endswith(".csv")
 
-    def test_parse_batch_output(self, tmp_path, caplog):
+    def test_parse_batch_output(self, tmp_path: Path, caplog: pytest.LogCaptureFixture):
         f = tmp_path / "batch.out"
         header_line = " Run        Duration   Unit   AEP   TP   Peak   Print   Other"
         content = f"Some Header\nPeak  Description\n{header_line}\n1 24 hour 1% 10 12.5 Y 100\n"
@@ -126,7 +131,7 @@ class TestParsing:
 
 
 class TestHydrograph:
-    def test_read_hydrograph_csv(self, tmp_path):
+    def test_read_hydrograph_csv(self, tmp_path: Path):
         f = tmp_path / "hydro.csv"
         content = (
             "Header1\n"
@@ -142,7 +147,7 @@ class TestHydrograph:
         assert "Time (hrs)" in df.columns
         assert "Calculated hydrograph:  Loc1" in df.columns
 
-    def test_analyze_hydrograph(self, tmp_path):
+    def test_analyze_hydrograph(self, tmp_path: Path):
         # Create a CSV with standard RORB format (Time first)
         f = tmp_path / "hydro.csv"
         content = "H1\nH2\nTime (hrs),Calculated hydrograph:  Loc1\n0.0,0.0\n1.0,10.0\n"

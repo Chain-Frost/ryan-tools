@@ -105,10 +105,16 @@ but they are not current architectural policy when they conflict with the canoni
 
 | Document | Scope and status |
 | --- | --- |
+| [WP13 QGIS project structural comparison](work/2026-11-08-wp13-qgis-project-comparison.md) | Selected read-only #169 structural layer comparison, focused tests, review and Windows acceptance gates for draft #283 |
 | [WP06 owned-output publication](work/2026-11-08-wp06-publication.md) | Profile PNG staging, archive and GDAL output safety, validation and stacked PR delivery |
+| [WP01 TLF parser metadata reliability](work/2026-11-08-tlf-parser-wp01.md) | Staged #239/#224/#231 implementation, linked PRs and acceptance record |
 | [WP07 file discovery and input outcomes](work/2026-11-08-wp07-file-discovery.md) | #203 finder cycle protection and #195 truthful input outcomes accepted with Windows 10/SMB limits; integrated into draft #251 via #257/#268 |
 | [Missing TLF ensemble inference](work/2026-11-07-missing-tlf-ensembles.md) | Folder inference implementation, local validation and delivery |
+| [Master log append outcomes and safe workbook publication](work/2026-11-08-master-log-append-196.md) | WP08 #196: supported-filesystem append, safe SMB refusal, whole-workflow failure reporting and native acceptance |
 | [WP08 POMM, PO QA and closure dashboard adoption](work/2026-11-08-po-qa-dashboard-198.md) | #198 implementation in stacked #265; QA per-file outcomes, POMM and closure workflow lifecycle, validation and unresolved native/partial-input gates |
+| [WP09 PO closure population and scenario identity](work/2026-11-08-wp09-closure-populations.md) | #215 valid zero-duration TP retention, scenario-specific grouping, invalid-population contracts and review and independent Windows 10 source/wheel/wrapper acceptance (56/56 tests; 6/6 hosted CI) |
+| [WP10 PO scenario plotting fidelity](work/2026-11-08-wp10-po-scenario-plotting.md) | #225 scenario identity / Q-H plotting, source-provenance Parquet cache, safe NTFS PNG/cache writes; 17 native passes and genuine source/wheel parity |
+| [WP11 fixture contracts and measured PO scalability](work/2026-11-08-wp11-fixture-benchmarks.md) | #228 strict pinned TLF/PO fixture contracts and #229 resource-guarded scaled benchmark; 18 native tests and 32 source/installed scaled cases passed |
 | [Dashboard defaults and background file properties](work/2026-11-07-dashboard-file-properties.md) | Shared presentation defaults, nonblocking file-size metadata and preserved legacy banner calls |
 | [Offline wrapper revision warnings](work/2026-11-07-wrapper-version-warnings.md) | Shared installed-package comparison, stable script identities and maintained-script rollout |
 | [Batch dashboard foundation](work/2026-11-01-batch-dashboard-foundation-180.md) | #180 stacked PR 1: shared batch display/diagnostics, optional workflow metrics, log-summary reference and concrete consumer handoff |
@@ -141,7 +147,7 @@ but they are not current architectural policy when they conflict with the canoni
 | [Installed scripts and distribution rename](work/2026-10-18-installed-scripts.md) | PR #120 wheel scripts, automatic MCP resolution, removed import shim and PyPI name migration |
 | [Installed scripts and MCP requirements](work/2026-10-17-installed-scripts-mcp-pip-distribution.md) | PR #130/#137: corrected wrapper copying, provisional packaging and outstanding engineering acceptance |
 | [Original script distribution requirements](audits/2026-10-17-installed-scripts-original-requirements.md) | Preserved original A–F requirements |
-| [Installed script inventory](audits/2026-10-19-installed-scripts-inventory.md) | All 160 source paths; 83 selected and 77 excluded; lifecycle sign-off outstanding |
+| [Installed script inventory](audits/2026-10-19-installed-scripts-inventory.md) | All 161 source paths; 83 selected and 78 excluded; lifecycle sign-off outstanding |
 | [Script remediation backlog](audits/2026-10-22-script-remediation-backlog.md) | 47 AB items: open/deferred work plus accepted-closed HY-8 evidence (AB-023); triaged safety, engineering and lifecycle tasks |
 | [CI resource efficiency and Windows acceptance](work/2026-11-08-ci-resource-efficiency.md) | Merged #272 implementation, post-merge validation and coordinated adoption by active stacks |
 | [CI dependency and PyTuflow wheel implementation](work/2026-11-08-ci-dependency-groups.md) | Completed #274/#272 wheel delivery and accepted Windows coverage; deferred, bounded dependency follow-up |
@@ -159,6 +165,10 @@ but they are not current architectural policy when they conflict with the canoni
 | [Floodway research](audits/2026-09-13-floodway-design-research.md) | Source baseline |
 | [Floodway calculation specification](audits/2026-09-14-floodway-calculation-specification.md) | Calculation contracts |
 | [Floodway validation vectors](audits/2026-09-14-floodway-validation-vectors.md) | Source regression targets |
+| [WP05 processor storage / ccA WAL delivery](work/2026-11-08-wp05-processor-storage.md) | #222/#226 staged implementation; source-preserving WAL snapshot correction is under hosted/native review |
+| [HDF5 retirement and Parquet-only processor storage](work/2026-11-08-hdf5-retirement.md) | Breaking change: unpublished HDF5 backend retired, PyPI 26.11.8.3 migration notice retained through 31 March 2027; native ryan-tools readers retained |
+| [Repository Python lint and typing cleanup](work/2026-11-08-python-static-cleanup.md) | Full Windows/static audit correction and shared typing standard |
+| [Shared dependency type stubs](../typings/README.md) | Strict typing support shared by all maintained code, including the initialiser |
 | [Work register](work/README.md) | Open work fronts, review dates, next actions and links to authoritative status records |
 | [Culvert uncertainty/sensitivity workflow](work/2026-10-06-culvert-uncertainty-91.md) | Issue #91 implementation; final package verification and authorized squash merge |
 | [Culvert workflow implementation](work/2026-09-13-culvert-workflow-80.md) | Active issue #80 implementation and validation/delivery status |

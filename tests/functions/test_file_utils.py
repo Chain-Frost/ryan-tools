@@ -2,8 +2,10 @@
 
 import json
 import logging
+from collections.abc import Sequence
 from pathlib import Path
 from pprint import pprint
+from typing import cast
 
 import pytest
 from loguru import logger
@@ -27,13 +29,20 @@ EXPECTED_FILES_JSON: Path = Path(__file__).parent.parent / "test_data" / "expect
 
 
 @pytest.fixture
-def load_expected_files():
+def load_expected_files() -> dict[str, list[str]]:
     """
     Fixture to load expected files from the JSON file.
     """
     with open(EXPECTED_FILES_JSON) as f:
-        data = json.load(f)
-    return data
+        data: object = json.load(f)
+    assert isinstance(data, dict)
+    result: dict[str, list[str]] = {}
+    for key, values in cast("dict[object, object]", data).items():
+        assert isinstance(key, str)
+        assert isinstance(values, list)
+        assert all(isinstance(value, str) for value in cast("list[object]", values))
+        result[key] = cast("list[str]", values)
+    return result
 
 
 @pytest.fixture
@@ -46,14 +55,14 @@ def setup_test_environment() -> Path:
     return TEST_DATA_DIR
 
 
-def resolve_paths(relative_paths: list[Path | str]) -> list[Path]:
+def resolve_paths(relative_paths: Sequence[Path | str]) -> list[Path]:
     """
     Helper function to resolve relative paths to absolute Path objects.
     """
     return [TEST_DATA_DIR / Path(p) for p in relative_paths]
 
 
-def test_find_files_inclusion_only(setup_test_environment: Path, load_expected_files) -> None:
+def test_find_files_inclusion_only(setup_test_environment: Path, load_expected_files: dict[str, list[str]]) -> None:
     """
     Test the find_files_parallel function with only inclusion patterns.
     """
@@ -85,7 +94,7 @@ def test_find_files_inclusion_only(setup_test_environment: Path, load_expected_f
     assert set(matched_files) == set(expected_files), "Inclusion-only test failed."
 
 
-def test_find_files_with_exclusions_effective(setup_test_environment, load_expected_files):
+def test_find_files_with_exclusions_effective(setup_test_environment: Path, load_expected_files: dict[str, list[str]]):
     """
     Test the find_files_parallel function with inclusion and exclusion patterns that affect results.
     """
@@ -115,7 +124,7 @@ def test_find_files_with_exclusions_effective(setup_test_environment, load_expec
     assert set(matched_files) == set(expected_files), "Inclusion with effective exclusions test failed."
 
 
-def test_find_files_log_summary(setup_test_environment, load_expected_files):
+def test_find_files_log_summary(setup_test_environment: Path, load_expected_files: dict[str, list[str]]):
     """
     Test the find_files_parallel function with inclusion and exclusion patterns that affect results.
     """
@@ -142,7 +151,7 @@ def test_find_files_log_summary(setup_test_environment, load_expected_files):
     assert set(matched_files) == set(expected_files), "Inclusion with effective exclusions test failed."
 
 
-def test_find_files_exclusions_no_effect(setup_test_environment, load_expected_files):
+def test_find_files_exclusions_no_effect(setup_test_environment: Path, load_expected_files: dict[str, list[str]]):
     """
     Test the find_files_parallel function with exclusion patterns that do not affect the outcome.
     """
@@ -169,7 +178,7 @@ def test_find_files_exclusions_no_effect(setup_test_environment, load_expected_f
     assert set(matched_files) == set(expected_files), "Exclusions with no effect test failed."
 
 
-def test_find_files_multiple_inclusions(setup_test_environment, load_expected_files):
+def test_find_files_multiple_inclusions(setup_test_environment: Path, load_expected_files: dict[str, list[str]]):
     """
     Test the find_files_parallel function with multiple inclusion patterns.
     """
@@ -197,7 +206,9 @@ def test_find_files_multiple_inclusions(setup_test_environment, load_expected_fi
     assert set(matched_files) == set(expected_files), "Multiple inclusions test failed."
 
 
-def test_find_files_multiple_inclusions_and_exclusions(setup_test_environment, load_expected_files):
+def test_find_files_multiple_inclusions_and_exclusions(
+    setup_test_environment: Path, load_expected_files: dict[str, list[str]]
+):
     """
     Test the find_files_parallel function with multiple inclusion and exclusion patterns.
     """
@@ -227,7 +238,7 @@ def test_find_files_multiple_inclusions_and_exclusions(setup_test_environment, l
     assert set(matched_files) == set(expected_files), "Multiple inclusions with exclusions test failed."
 
 
-def test_find_files_no_matches(setup_test_environment, load_expected_files):
+def test_find_files_no_matches(setup_test_environment: Path, load_expected_files: dict[str, list[str]]):
     """
     Test the find_files_parallel function when no files match the inclusion patterns.
     """
@@ -258,11 +269,11 @@ def test_find_files_no_matches(setup_test_environment, load_expected_files):
 # Removed the test_find_files_invalid_patterns as the function no longer requires patterns to start with a dot
 
 
-def test_find_files_empty_root_dirs(load_expected_files) -> None:
+def test_find_files_empty_root_dirs(load_expected_files: dict[str, list[str]]) -> None:
     """
     Test the find_files_parallel function with an empty list of root directories.
     """
-    root_dirs = []
+    root_dirs: list[Path] = []
 
     # Define inclusion patterns
     include_patterns = "*.hpc.dt.csv"
@@ -286,7 +297,9 @@ def test_find_files_empty_root_dirs(load_expected_files) -> None:
     assert set(matched_files) == set(expected_files), "Empty root_dirs test failed."
 
 
-def test_find_files_with_report_level(setup_test_environment, load_expected_files, caplog):
+def test_find_files_with_report_level(
+    setup_test_environment: Path, load_expected_files: dict[str, list[str]], caplog: pytest.LogCaptureFixture
+):
     """
     Test the find_files_parallel function with report_level enabled.
     """
@@ -362,7 +375,9 @@ def test_ensure_output_directory_idempotent_existing(tmp_path: Path) -> None:
         ("populated", True, None),
     ],
 )
-def test_is_non_zero_file_scenarios(tmp_path: Path, scenario, expected_result, expected_log_fragment) -> None:
+def test_is_non_zero_file_scenarios(
+    tmp_path: Path, scenario: str, expected_result: bool, expected_log_fragment: str | None
+) -> None:
     if scenario == "missing":
         target_path: Path = tmp_path / "missing.txt"
     elif scenario == "directory":

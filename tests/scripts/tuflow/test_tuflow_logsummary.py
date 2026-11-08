@@ -11,13 +11,13 @@ from ryan_library.orchestrators.tuflow.tuflow_logsummary import LogFileProcessin
 
 
 @pytest.fixture
-def mock_log_file(tmp_path):
+def mock_log_file(tmp_path: Path):
     f = tmp_path / "run.tlf"
     f.write_text("Log content")
     return f
 
 
-def test_process_log_file_success(mock_log_file):
+def test_process_log_file_success(mock_log_file: Path):
     with patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.get_log_lines") as mock_read:
         with patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.search_for_completion") as mock_search:
             with patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.process_top_lines") as mock_process:
@@ -39,7 +39,7 @@ def test_process_log_file_success(mock_log_file):
                     assert df.iloc[0]["Runcode"] == "run"
 
 
-def test_process_log_file_incomplete(mock_log_file):
+def test_process_log_file_incomplete(mock_log_file: Path):
     with patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.get_log_lines") as mock_read:
         with patch("ryan_library.orchestrators.tuflow.tuflow_logsummary.search_for_completion") as mock_search:
             mock_read.return_value = (["Line 1"], ["Line 1"])

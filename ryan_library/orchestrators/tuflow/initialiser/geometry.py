@@ -2,10 +2,13 @@
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 import fiona
 import numpy as np
 import rasterio
+import rasterio.crs
+import rasterio.io
 from numpy.typing import NDArray
 from rasterio.features import rasterize, shapes
 from shapely.geometry import Polygon, box, shape
@@ -62,7 +65,7 @@ def read_aoi(path: Path, *, expected_crs: rasterio.crs.CRS) -> BaseGeometry:
 
 def check_dem(dem: rasterio.io.DatasetReader) -> None:
     """Reject incompatible DEMs rather than silently warp input."""
-    if dem.count != 1 or dem.crs is None or not dem.crs.is_projected:
+    if dem.count != 1 or cast("rasterio.crs.CRS | None", dem.crs) is None or not dem.crs.is_projected:
         msg = "DEM must have one band and projected coordinate system"
         raise ValueError(msg)
     units, factor = dem.crs.linear_units_factor

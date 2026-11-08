@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Bounded native ellipse implemented and locally validated; source-model/HY-8 acceptance blocked |
+| Status | Bounded native ellipse implemented and locally validated; EG11 RAM source evidence found; full hydraulic acceptance open |
 | Owner | WP15 allocation agent / maintainer |
 | Created / updated | 2026-11-08 |
 | Next review | 2026-11-15 or earlier if blockers resolve |
@@ -73,7 +73,7 @@ Use only a permitted licensed HY-8 Windows host and an **authorised, disposable*
 
 **Historical initial assessment validation 2026-11-08:** GitHub repository/source-path and upstream API inspection, PyPI version/provenance page verification and TUFLOW 2026.3 documentation review. Newly authored relative links verified using GitHub file lookups. No model data or executable available. **Functional pytest: not run (0 passed, 0 failed, 0 skipped); Ruff/Pyright: not run (no Python changes); Windows HY-8/installed-wheel: not run.** The canonical `python repo-scripts/check_documentation.py` is not run because the execution environment has no network-accessible Git checkout; hosted CI/Codex are separately pending. Changes committed only to the WP15 child branch.
 
-**Next action:** review the bounded native integration and obtain authorised matched source/event fixtures, explicit HY-8 execution permission and independently agreed engineering tolerances for remaining #102/#103 acceptance. Review by 2026-11-15 or on unblock.
+**Next action (superseded by continuation below):** reconcile #282 with current #251 and validate the integrated head. EG11 source traces and HY-8 permission are now available, but physical material/inlet mapping, ELM/2026.3 evidence, and accepted numerical tolerances remain open. Review by 2026-11-15.
 
 
 ## Windows continuation ? 2026-11-08
@@ -152,3 +152,22 @@ control versus RAM inlet-control fallback matrix above remains the required cont
   ELM/RAM blockage cases. No Python checks are counted as those acceptance gates.
 - **Delivery:** one locally validated batch on existing draft #282; hosted final-head
   CI and fresh Codex review are recorded in the PR after push. No merge or release.
+
+
+## 2026-11-09 integration and source-trace checkpoint
+
+**Git reconciliation:** this checkpoint preserves draft #251 parent `93169e809ebd596c04741d71cc7139f42c94433d` and the bounded WP15 source delta from `2bbbae3b2ba95a45767af5bac7ca74d422f70c57`, with the current parent controlling all unrelated files. The newer parent dependency, Python type/stub configuration and reduced CI are retained; only the published native solver minimum is raised to `ryan-culverts>=26.10.19.1`. New combined development version: `26.11.9.1`. A wheel for that combined version has **not** been locally built or smoke-tested in this GitHub connector session; exact-head hosted package validation remains mandatory. No merge into `main` is authorised.
+
+**New authentic TUFLOW source evidence:** pinned tutorial-data `d2dae3ec` supplies EG11 RAM files in `tuflow/example_input_preflight/examples.zip`, including the active TCF, TEF, ECF, `1d_nwk` shapefile and `Matrix_Blockages.csv`. A previous local agent [traced identical-channel EOF and matrix data](https://github.com/Chain-Frost/ryan-tools/pull/282#issuecomment-6720722253):
+
+| Channel | Nominal opening | Event blockage | EOF effective dimension |
+| --- | --- | --- | --- |
+| `FC04.1_C`, three circular barrels | diameter 1.2 m | 20% and 50% | diameters 1.073 and 0.849 m |
+| `FC01.1_R`, rectangular | width 1.8 m | 50% and 70% | widths 0.900 and 0.540 m |
+| `FC01.2_R`, rectangular | width 2.4 m | 70% and 99% | widths 0.720 and 0.024 m |
+
+These EOF dimensions already incorporate the source blockage; **do not reapply the same blockage percentage** to these effective values. This is source evidence from **TUFLOW 2025.2.1-iSP-w64**, not direct acceptance of 2026.3, ELM, inlet-control ELM-to-RAM fallback, an executed 100%-blockage case, or HY-8 hydraulic parity. There is no matching Maximums XLSX or proven physical material/inlet mapping in that source; Manning `n=0.015` and entry loss `0.5` do **not** identify material or inlet. Preserve source and output hashes and do not fabricate a mapping.
+
+**HY-8 permission:** explicit maintainer [approval for Windows HY-8 8.0.1.2 execution on disposable copies](https://github.com/Chain-Frost/ryan-tools/pull/282#issuecomment-6720767040) is now established. There is no need to request that same permission again. The executable was previously verified read-only at `C:/Program Files/HY-8 8.00/HY864.exe`, version `8.0.1.2`, SHA-256 `0b1c5e7fb6b48be9c675b5486ae9a84346f436c5c649aa5ed09a1552267ee806`. This WP15 checkpoint did **not** execute HY-8; source-specific numerical validation still requires true physical inlet/material and representative matched configurations.
+
+**Validation ownership:** historical 175 Windows focused passes/2 privilege skips, Ruff/Pyright on six Python files and wheel/copied-wrapper checks apply to child `2bbbae3b` only. Its historical hosted red CI reflects a stale moving-parent merge scope, not demonstrated regressions in the WP15 diff. The reconciled merge head still requires new complete CI, fresh Codex review and final installed-wheel smoke. #101 bounded code is present, but do not close #101–#103 while their remaining criteria are unverified.

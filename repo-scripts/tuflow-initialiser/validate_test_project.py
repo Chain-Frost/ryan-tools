@@ -5,8 +5,10 @@ import hashlib
 import json
 import time
 from pathlib import Path
+from typing import cast
 
 import rasterio
+import rasterio.crs
 
 from ryan_library.orchestrators.tuflow.initialiser.verification import ProjectQA, verify_project
 from ryan_library.orchestrators.tuflow.initialiser.workflow import BuildConfig, build
@@ -48,7 +50,7 @@ def main() -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
     # Derive the projection from the tracked GeoTIFF; no local .prj is required.
     with rasterio.open(fixture / "dem_epsg28350.tif") as dem:
-        if dem.crs is None or dem.crs.to_epsg() != 28350:
+        if cast("rasterio.crs.CRS | None", dem.crs) is None or dem.crs.to_epsg() != 28350:
             msg = "Shared DEM must declare EPSG:28350"
             raise ValueError(msg)
         wkt = dem.crs.to_wkt()

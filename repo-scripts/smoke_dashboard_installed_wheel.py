@@ -13,12 +13,13 @@ import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from openpyxl import load_workbook
+from openpyxl import Workbook, load_workbook
 
 import ryan_library
 from ryan_library.mcp.installed_scripts import copy_wrapper
 
 WRAPPER = "TUFLOW-python/log_processing/create_log_summary_report.py"
+MASTER_WRAPPER = "TUFLOW-python/log_processing/append_log_summary_to_master_workbook.py"
 COMPLETE_LOG = """Build: 2023-03-AF
 Computer Name: SyntheticHost
 Simulation Started: 2026-Nov-01 14:00
@@ -156,6 +157,117 @@ def _check_one_mode(work: Path, root: Path, *, dashboard_enabled: bool) -> tuple
     return result
 
 
+def _master_workbook_rows(path: Path) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Return headers and run codes, preserving the existing master rows."""
+    workbook = load_workbook(path, read_only=True, data_only=True)
+    try:
+        rows = list(workbook["Log Summary"].values)
+        if len(rows) != 3 or "Runcode" not in rows[0]:
+            msg = f"Unexpected master log append rows: {rows}"
+            raise RuntimeError(msg)
+        headers = tuple(str(value) for value in rows[0])
+        column = headers.index("Runcode")
+        run_codes = tuple(str(row[column]) for row in rows[1:])
+        if set(run_codes) != {"Existing_Run", "Complete_Run"}:
+            msg = f"Master workbook did not retain old and new runs: {run_codes}"
+            raise RuntimeError(msg)
+        return headers, run_codes
+    finally:
+        workbook.close()
+
+
+def _check_master_append_no_mutation(
+    script: Path, work: Path, root: Path, master: Path, mode: str, saved: bytes
+) -> None:
+    """Verify that duplicate, incomplete and invalid batches preserve the workbook."""
+    duplicate = _run(script, work, root, "--master-workbook", str(master), mode)
+    if duplicate.returncode != 0 or master.read_bytes() != saved:
+        msg = f"Duplicate log append modified workbook or failed: {duplicate.stdout[-1000:]}"
+        raise RuntimeError(msg)
+
+    (work / "Incomplete_Run.tlf").write_text(INCOMPLETE_LOG, encoding="utf-8")
+    incomplete = _run(script, work, root, "--master-workbook", str(master), mode)
+    if incomplete.returncode != 0 or master.read_bytes() != saved:
+        msg = f"Incomplete-only skip changed master: {incomplete.stdout[-1100:]}"
+        raise RuntimeError(msg)
+
+    invalid = _run(script, work, root, "--master-workbook", str(master), "--live-max-rows", "0")
+    if invalid.returncode != 1 or "live_max_rows" not in invalid.stdout + invalid.stderr:
+        msg = f"Invalid master dashboard setting not rejected: {invalid.stdout[-1000:]}"
+        raise RuntimeError(msg)
+    if master.read_bytes() != saved:
+        msg = "Invalid display settings modified the master workbook"
+        raise RuntimeError(msg)
+
+
+def _check_master_append_writer_failure(
+    script: Path, work: Path, root: Path, master: Path, mode: str, saved: bytes
+) -> None:
+    """Prove copied wrapper propagates a staged writer denial without mutation."""
+    (work / "New_Run.tlf").write_text(COMPLETE_LOG, encoding="utf-8")
+    launcher = work / "master_write_failure.py"
+    launcher.write_text(
+        "from openpyxl.workbook.workbook import Workbook\n"
+        "import runpy\n"
+        "def fail(*args, **kwargs):\n    raise PermissionError('synthetic append save denial')\n"
+        "Workbook.save = fail\n"
+        f"runpy.run_path({str(script)!r}, run_name='__main__')\n",
+        encoding="utf-8",
+    )
+    failure = _run(launcher, work, root, "--master-workbook", str(master), mode)
+    if failure.returncode != 1 or (
+        mode == "--live-dashboard" and "TUFLOW Master Log Append: FAILED" not in failure.stdout
+    ):
+        msg = f"Copied master append write failure returned false success: {failure.stdout[-1600:]}"
+        raise RuntimeError(msg)
+    if master.read_bytes() != saved or list(work.glob(".master-*.xlsx")):
+        msg = "Failed copied master append damaged workbook or left owned staging"
+        raise RuntimeError(msg)
+
+
+def _check_master_append_one_mode(work: Path, root: Path, *, dashboard_enabled: bool) -> tuple[str, ...]:
+    """Exercise copied master append with real disposable workbook and failure paths."""
+    work.mkdir(parents=True)
+    master = work / "master.xlsx"
+    workbook = Workbook()
+    sheet = workbook.active
+    if sheet is None:
+        msg = "New workbook has no active worksheet"
+        raise RuntimeError(msg)
+    sheet.title = "Log Summary"
+    sheet.append(["Runcode", "orig_log_path"])
+    sheet.append(["Existing_Run", "Existing_Run.tlf"])
+    workbook.save(master)
+    workbook.close()
+    (work / "Complete_Run.tlf").write_text(COMPLETE_LOG, encoding="utf-8")
+    script = copy_wrapper(MASTER_WRAPPER, work)
+    if not script.is_file() or not script.absolute().is_relative_to(work):
+        msg = f"Master wrapper not copied outside repository: {script}"
+        raise RuntimeError(msg)
+
+    help_result = _run(script, work, root, "--help")
+    if help_result.returncode != 0 or "--master-workbook" not in help_result.stdout:
+        msg = f"Missing copied master wrapper CLI: {help_result.stdout[-1000:]} {help_result.stderr[-900:]}"
+        raise RuntimeError(msg)
+    mode = "--live-dashboard" if dashboard_enabled else "--no-live-dashboard"
+    report = _run(script, work, root, "--master-workbook", str(master), mode)
+    if report.returncode != 0:
+        msg = f"Copied master append failed: {report.stdout[-2000:]} {report.stderr[-1200:]}"
+        raise RuntimeError(msg)
+    if dashboard_enabled and "TUFLOW Master Log Append: SUCCESS" not in report.stdout:
+        msg = f"Full-workflow SUCCESS missing from master append: {report.stdout[-1200:]}"
+        raise RuntimeError(msg)
+    if "\x1b[" in report.stdout:
+        msg = "Copied master append emitted ANSI cursor codes to redirected stdout"
+        raise RuntimeError(msg)
+
+    headers, _ = _master_workbook_rows(master)
+    saved = master.read_bytes()
+    _check_master_append_no_mutation(script, work, root, master, mode, saved)
+    _check_master_append_writer_failure(script, work, root, master, mode, saved)
+    return headers
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--expected-root", type=Path, required=True)
@@ -177,8 +289,18 @@ def main() -> None:
                 raise RuntimeError(msg)
             expected = result
 
+        master_headers: tuple[str, ...] | None = None
+        for dashboard_enabled in (False, True):
+            work = base / ("master_dashboard" if dashboard_enabled else "master_ordinary")
+            headers = _check_master_append_one_mode(work, root, dashboard_enabled=dashboard_enabled)
+            if master_headers is not None and master_headers != headers:
+                msg = "Master append dashboard changed workbook column schema"
+                raise RuntimeError(msg)
+            master_headers = headers
+
     print(
-        f"Copied log-summary installed-wheel smoke passed at {actual_library}: on/off, workbook, DEBUG, warning and failure."
+        f"Copied log-summary and master-append installed-wheel smoke passed at {actual_library}: "
+        "dashboard on/off, workbook parity, duplicate/empty, DEBUG, invalid settings and writer failure."
     )
 
 

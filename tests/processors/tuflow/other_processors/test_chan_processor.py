@@ -1,7 +1,7 @@
 """Unit tests for ryan_library.processors.tuflow.other_processors.ChanProcessor."""
 
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
@@ -30,7 +30,14 @@ class TestChanProcessor:
     @patch("ryan_library.processors.tuflow.other_processors.ChanProcessor.ChanProcessor.add_common_columns")
     @patch("ryan_library.processors.tuflow.other_processors.ChanProcessor.ChanProcessor.apply_output_transformations")
     @patch("ryan_library.processors.tuflow.other_processors.ChanProcessor.ChanProcessor.validate_data")
-    def test_process_success(self, mock_validate, mock_apply, mock_add, mock_read, mock_processor):
+    def test_process_success(
+        self,
+        mock_validate: MagicMock,
+        mock_apply: MagicMock,
+        mock_add: MagicMock,
+        mock_read: MagicMock,
+        mock_processor: MagicMock,
+    ):
         """Test successful processing with all required columns."""
         mock_read.return_value = ProcessorStatus.SUCCESS
         mock_validate.return_value = True
@@ -53,7 +60,7 @@ class TestChanProcessor:
         assert mock_processor.df.iloc[0]["Height"] == 5.0  # 10.0 - 5.0
 
     @patch("ryan_library.processors.tuflow.other_processors.ChanProcessor.ChanProcessor.read_maximums_csv")
-    def test_process_read_failure(self, mock_read, mock_processor):
+    def test_process_read_failure(self, mock_read: MagicMock, mock_processor: MagicMock):
         """Test process aborts when read fails."""
         mock_read.return_value = ProcessorStatus.FAILURE
 
@@ -63,7 +70,7 @@ class TestChanProcessor:
         assert mock_processor.df.empty
 
     @patch("ryan_library.processors.tuflow.other_processors.ChanProcessor.ChanProcessor.read_maximums_csv")
-    def test_process_missing_height_columns(self, mock_read, mock_processor):
+    def test_process_missing_height_columns(self, mock_read: MagicMock, mock_processor: MagicMock):
         """Test failure when columns for Height calculation are missing."""
         mock_read.return_value = ProcessorStatus.SUCCESS
 
@@ -81,7 +88,7 @@ class TestChanProcessor:
         assert mock_processor.processed is False
 
     @patch("ryan_library.processors.tuflow.other_processors.ChanProcessor.ChanProcessor.read_maximums_csv")
-    def test_process_missing_channel_column(self, mock_read, mock_processor):
+    def test_process_missing_channel_column(self, mock_read: MagicMock, mock_processor: MagicMock):
         """Test failure when Channel column is missing."""
         mock_read.return_value = ProcessorStatus.SUCCESS
 
@@ -102,7 +109,14 @@ class TestChanProcessor:
     @patch("ryan_library.processors.tuflow.other_processors.ChanProcessor.ChanProcessor.add_common_columns")
     @patch("ryan_library.processors.tuflow.other_processors.ChanProcessor.ChanProcessor.apply_output_transformations")
     @patch("ryan_library.processors.tuflow.other_processors.ChanProcessor.ChanProcessor.validate_data")
-    def test_process_validation_failure(self, mock_validate, mock_apply, mock_add, mock_read, mock_processor):
+    def test_process_validation_failure(
+        self,
+        mock_validate: MagicMock,
+        mock_apply: MagicMock,
+        mock_add: MagicMock,
+        mock_read: MagicMock,
+        mock_processor: MagicMock,
+    ):
         """Test process aborts when validation fails."""
         mock_read.return_value = ProcessorStatus.SUCCESS
         mock_validate.return_value = False
@@ -115,7 +129,7 @@ class TestChanProcessor:
         assert mock_processor.df.empty
 
     @patch("ryan_library.processors.tuflow.other_processors.ChanProcessor.ChanProcessor.read_maximums_csv")
-    def test_process_exception(self, mock_read, mock_processor):
+    def test_process_exception(self, mock_read: MagicMock, mock_processor: MagicMock):
         """Test process handles exceptions."""
         mock_read.side_effect = Exception("Test Error")
 

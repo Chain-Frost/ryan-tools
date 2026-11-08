@@ -10,6 +10,8 @@ running it as a script. Treat the plots and printed result as calculation aids;
 confirm inputs and applicability against the governing ARR guidance.
 """
 
+# External optional keyword signatures are incomplete; exceptions stay on individual calls.
+
 import math
 import warnings
 
@@ -92,7 +94,7 @@ params = pd.DataFrame(params_data, index=list("abcdefghi"))
 # Functions ---------------------------------------------------------------
 
 
-def ARF_long(area, duration, aep, region, params_df) -> int | None:
+def ARF_long(area: float, duration: float, aep: float, region: str, params_df: pd.DataFrame) -> float | None:
     """Calculate the long-duration ARF.
 
     Parameters:
@@ -135,7 +137,7 @@ def ARF_long(area, duration, aep, region, params_df) -> int | None:
         return None
 
 
-def ARF_short(area, duration, aep) -> int | None:
+def ARF_short(area: float, duration: float, aep: float) -> float | None:
     """Calculate the short-duration ARF.
 
     Parameters:
@@ -172,7 +174,14 @@ def ARF_short(area, duration, aep) -> int | None:
         return None
 
 
-def ARF(area, duration, aep, region=None, params_df=None, neg_to_zero=True):
+def ARF(
+    area: float,
+    duration: float,
+    aep: float,
+    region: str | None = None,
+    params_df: pd.DataFrame | None = None,
+    neg_to_zero: bool = True,
+) -> float | None:
     """Calculate the Areal Reduction Factor (ARF).
 
     Parameters:
@@ -260,6 +269,9 @@ def ARF(area, duration, aep, region=None, params_df=None, neg_to_zero=True):
 
     # Duration between 720 and 1440 minutes
     if 720 < duration < 1440:
+        if region is None or params_df is None:
+            warnings.warn("Region and params must be provided for interpolation.", stacklevel=2)
+            return None
         if 1 < area < 10:
             # Interpolate ARF for duration between 720 and 1440
             arf_long_24 = ARF_long(10, 1440, aep_frac, region, params_df)
@@ -296,26 +308,26 @@ def plot_arf_for_northern_coastal(params_df: pd.DataFrame) -> None:
     area_values = range(1, 350)  # area from 1 to 20 km²
 
     # Prepare plot
-    plt.figure(figsize=(12, 8))
+    plt.figure(figsize=(12, 8))  # pyright: ignore[reportUnknownMemberType]
 
     for aep in aep_values:
-        arf_data = []
+        arf_data: list[float] = []
         for area in area_values:
             arf_for_durations = [
                 ARF(area, duration, aep, region=region, params_df=params_df) for duration in duration_values
             ]
             # Collect ARF data for maximum value across durations at each area and AEP
-            arf_data.append(max(filter(lambda x: x is not None, arf_for_durations), default=0))
+            arf_data.append(max((value for value in arf_for_durations if value is not None), default=0))
 
-        plt.plot(area_values, arf_data, label=f"AEP {aep}%")
+        plt.plot(area_values, arf_data, label=f"AEP {aep}%")  # pyright: ignore[reportUnknownMemberType]
 
     # Label plot
-    plt.xlabel("Area (km²)")
-    plt.ylabel("ARF")
-    plt.title("ARF vs Area for 'Northern Coastal' Region (Varying AEP, Discrete Durations)")
-    plt.legend(title="AEP (%)")
-    plt.grid(True)
-    plt.show()
+    plt.xlabel("Area (km²)")  # pyright: ignore[reportUnknownMemberType]
+    plt.ylabel("ARF")  # pyright: ignore[reportUnknownMemberType]
+    plt.title("ARF vs Area for 'Northern Coastal' Region (Varying AEP, Discrete Durations)")  # pyright: ignore[reportUnknownMemberType]
+    plt.legend(title="AEP (%)")  # pyright: ignore[reportUnknownMemberType] - public Legend keyword omitted by stub
+    plt.grid(True)  # pyright: ignore[reportUnknownMemberType] - Matplotlib leaves Artist kwargs untyped
+    plt.show()  # pyright: ignore[reportUnknownMemberType]
 
 
 def plot_arf_for_northern_coastal_by_duration(params_df: pd.DataFrame) -> None:
@@ -331,23 +343,23 @@ def plot_arf_for_northern_coastal_by_duration(params_df: pd.DataFrame) -> None:
     area_values = range(1, 350)  # area from 1 to 20 km²
 
     # Prepare plot
-    plt.figure(figsize=(12, 8))
+    plt.figure(figsize=(12, 8))  # pyright: ignore[reportUnknownMemberType]
 
     for duration in duration_values:
-        arf_data = []
+        arf_data: list[float] = []
         for area in area_values:
             arf_value = ARF(area, duration, aep, region=region, params_df=params_df)
             arf_data.append(arf_value if arf_value is not None else 0)
 
-        plt.plot(area_values, arf_data, label=f"Duration {duration} mins")
+        plt.plot(area_values, arf_data, label=f"Duration {duration} mins")  # pyright: ignore[reportUnknownMemberType]
 
     # Label plot
-    plt.xlabel("Area (km²)")
-    plt.ylabel("ARF")
-    plt.title("ARF vs Area for 'Northern Coastal' Region (Fixed AEP = 5%, Varying Durations)")
-    plt.legend(title="Duration (mins)")
-    plt.grid(True)
-    plt.show()
+    plt.xlabel("Area (km²)")  # pyright: ignore[reportUnknownMemberType]
+    plt.ylabel("ARF")  # pyright: ignore[reportUnknownMemberType]
+    plt.title("ARF vs Area for 'Northern Coastal' Region (Fixed AEP = 5%, Varying Durations)")  # pyright: ignore[reportUnknownMemberType]
+    plt.legend(title="Duration (mins)")  # pyright: ignore[reportUnknownMemberType] - public Legend keyword omitted by stub
+    plt.grid(True)  # pyright: ignore[reportUnknownMemberType] - Matplotlib leaves Artist kwargs untyped
+    plt.show()  # pyright: ignore[reportUnknownMemberType]
 
 
 # Example Usage ------------------------------------------------------------

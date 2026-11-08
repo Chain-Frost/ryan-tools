@@ -9,8 +9,10 @@ hydraulic topography to the coarser watershed analysis grid.
 
 from collections.abc import Sequence
 from pathlib import Path
+from typing import cast
 
 import rasterio
+import rasterio.crs
 from rasterio.crs import CRS
 from rasterio.enums import Resampling
 from rasterio.shutil import copy as raster_copy
@@ -39,7 +41,7 @@ def set_model_terrain(
     for rank, path in reversed(tuple(enumerate(sources, start=1))):
         source = path.absolute()
         with rasterio.open(source) as dem:
-            if dem.count != 1 or dem.crs is None:
+            if dem.count != 1 or cast("rasterio.crs.CRS | None", dem.crs) is None:
                 msg = f"Cannot use invalid source DEM in TUFLOW geometry: {source}"
                 raise ValueError(msg)
             if dem.crs == target_crs:

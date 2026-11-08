@@ -4,10 +4,14 @@ Scan a DXF for true-color (RGB) values and regroup entities so
 that each unique color lives on its own layer, with progress reports.
 """
 
+# External optional keyword signatures are incomplete; exceptions stay on individual calls.
+
 import os
 
-import ezdxf
 from ezdxf.document import Drawing
+from ezdxf.filemanagement import (
+    readfile,  # pyright: ignore[reportUnknownVariableType] - external encoding default lacks annotations
+)
 from ezdxf.layouts.layout import Modelspace
 
 
@@ -30,7 +34,7 @@ def rgb_from_int(color: int) -> tuple[int, int, int]:
 def group_by_true_color(input_file: str, output_file: str, progress_interval: int) -> None:
     print(f"Loading DXF '{input_file}'...")
     # Load the drawing
-    doc: Drawing = ezdxf.readfile(input_file)
+    doc: Drawing = readfile(input_file)
     msp: Modelspace = doc.modelspace()
 
     total = len(msp)
@@ -59,7 +63,7 @@ def group_by_true_color(input_file: str, output_file: str, progress_interval: in
             while layer_name in doc.layers:
                 layer_name = f"{base_name}_{suffix}"
                 suffix += 1
-            doc.layers.add(name=layer_name)
+            doc.layers.add(name=layer_name)  # pyright: ignore[reportUnknownMemberType]
             color_layer_map[rgb] = layer_name
             print(f"  + Created layer '{layer_name}' for color {rgb}")
 
@@ -68,7 +72,7 @@ def group_by_true_color(input_file: str, output_file: str, progress_interval: in
 
     # Save result
     print(f"Finished processing {processed} entities. Created {len(color_layer_map)} layers.")
-    doc.saveas(filename=output_file)
+    doc.saveas(filename=output_file)  # pyright: ignore[reportUnknownMemberType]
     print(f"Grouped-by-color DXF written to: {output_file}")
 
 
