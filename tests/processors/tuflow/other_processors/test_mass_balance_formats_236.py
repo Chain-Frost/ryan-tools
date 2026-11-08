@@ -31,9 +31,7 @@ def processed(path: Path, locations: list[str] | None = None) -> BaseProcessor:
         ("MB_HPC", "HPC Model", "iStep", 129.0),
     ],
 )
-def test_real_model_domain_mass_balance_first_sample(
-    suffix: str, scope: str, metric: str, expected: float
-) -> None:
+def test_real_model_domain_mass_balance_first_sample(suffix: str, scope: str, metric: str, expected: float) -> None:
     result = processed(ROOT / f"{RUN}_{suffix}.csv")
     assert result.data_type == suffix
     assert result.dataformat == "ModelMassBalanceHistory"
@@ -114,8 +112,10 @@ def test_protected_model_and_node_exports(tmp_path: Path, monkeypatch: pytest.Mo
     monkeypatch.chdir(output)
     assert export_model(paths_to_process=[source], export_mode="parquet", use_live_dashboard=False)
     assert export_node(
-        paths_to_process=[source], locations_to_include=["ds1.1"],
-        export_mode="parquet", use_live_dashboard=False,
+        paths_to_process=[source],
+        locations_to_include=["ds1.1"],
+        export_mode="parquet",
+        use_live_dashboard=False,
     )
     all_model = list(output.glob("*_model_mass_balance_Global_MB.parquet.gzip"))
     nodes = list(output.glob("*_node_mass_balance_summary_Node_Cumulative_Summary.parquet.gzip"))

@@ -60,9 +60,7 @@ class MBHistoryProcessor(BaseProcessor):
             frames: list[pd.DataFrame] = []
             for field in fields:
                 values = parse_reporting_numbers(raw[field], column=field)
-                frames.append(
-                    pd.DataFrame({"Time": times, "Location": scope, "Type": field, "Value": values})
-                )
+                frames.append(pd.DataFrame({"Time": times, "Location": scope, "Type": field, "Value": values}))
             self.raw_df = raw
             self.df = pd.concat(frames, ignore_index=True)
             if not self.df["Value"].notna().any():
