@@ -134,9 +134,9 @@ class TimeSeriesProcessor(BaseProcessor):
             # when a later filter switches to a previously excluded channel.
             id_column = next((name for name in ("Chan ID", "Location") if name in self.df.columns), None)
             if id_column is not None:
-                identifiers: list[object] = self.df[id_column].tolist()
+                usable_labels: list[object] = self.df[id_column].tolist()
                 self.usable_source_channels = frozenset(
-                    str(label).strip() for label in identifiers if str(label).strip()
+                    str(label).strip() for label in usable_labels if str(label).strip()
                 )
 
             self.apply_entity_filter()
