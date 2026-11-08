@@ -79,10 +79,12 @@ class BaseProcessor(ABC):
     filtered_empty: bool = field(default=False, init=False)
     input_health: str = field(default="OK", init=False)
     rejected_samples: int = field(default=0, init=False)
-    rejection_reasons: dict[str, int] = field(default_factory=dict, init=False)
+    rejection_reasons: dict[str, int] = field(default_factory=lambda: cast("dict[str, int]", {}), init=False)
     # An immutable input fingerprint captured before processing, not when exporting.
     source_at_processing: dict[str, object] | None = field(default=None, init=False, repr=False)
-    source_entity_presence: dict[str, list[str]] = field(default_factory=dict, init=False, repr=False)
+    source_entity_presence: dict[str, list[str]] = field(
+        default_factory=lambda: cast("dict[str, list[str]]", {}), init=False, repr=False
+    )
     include_path_columns: bool = field(default=True, repr=False)
     applied_location_filter: frozenset[str] | None = field(default=None, init=False, repr=False)
     applied_entity_filter: frozenset[str] | None = field(default=None, init=False, repr=False)

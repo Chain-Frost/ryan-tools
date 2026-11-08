@@ -74,10 +74,13 @@ def _portable_frame(frame: DataFrame) -> DataFrame:
     """Make NumPy scalar column-axis labels compatible with Arrow pandas metadata."""
     portable = frame.copy(deep=False)
     if isinstance(portable.columns, MultiIndex):
-        names = [name.item() if isinstance(name, np.generic) else name for name in portable.columns.names]
+        axis_names = cast("list[object]", portable.columns.names)
+        names: list[str | None] = [str(name) if name is not None else None for name in axis_names]
         portable.columns = portable.columns.set_names(names)
-    elif isinstance(portable.columns.name, np.generic):
-        portable.columns = portable.columns.rename(portable.columns.name.item())
+    else:
+        column_name: object = portable.columns.name
+        if isinstance(column_name, np.generic):
+            portable.columns.name = str(column_name)
     return portable
 
 
@@ -146,8 +149,7 @@ def _source_entry(processor: BaseProcessor, index: int) -> dict[str, Any]:
         message = f"Processor has no pre-processing source fingerprint: {processor.file_path}"
         raise ValueError(message)
     source_entities, frame_entities = _entity_evidence(processor)
-    raw_rejections: object = getattr(processor, "rejection_reasons", {})
-    rejections = dict(raw_rejections) if isinstance(raw_rejections, dict) else {}
+    rejections: dict[str, int] = processor.rejection_reasons.copy()
     return {
         "member": f"processors/{index:06d}.parquet",
         "source": dict(captured),  # Never substitute a newer export-time fingerprint.
@@ -184,11 +186,16 @@ def _sha_file(path: Path) -> dict[str, Any]:
 
 
 def _check_source(entry: dict[str, Any]) -> None:
-    source = entry["source"]
-    if not isinstance(source, dict) or not isinstance(source.get("path"), str):
+    source_raw: object = entry.get("source")
+    if not isinstance(source_raw, dict):
         message = "Parquet directory has invalid source identity"
         raise ValueError(message)
-    path = Path(source["path"])
+    source = cast("dict[str, object]", source_raw)
+    path_text = source.get("path")
+    if not isinstance(path_text, str):
+        message = "Parquet directory has invalid source path"
+        raise ValueError(message)
+    path = Path(path_text)
     if _source_signature(path) != source:
         message = f"Parquet directory source has changed: {path}"
         raise ValueError(message)
@@ -229,13 +236,13 @@ def _stage_tables(collection: ProcessorCollection, stage: Path, entries: list[di
     members.mkdir()
     for entry, processor in zip(entries, collection.processors, strict=True):
         table = stage / cast("str", entry["member"])
-        _portable_frame(processor.df).to_parquet(table, engine="pyarrow", compression="zstd", index=True)
+        _portable_frame(processor.df).to_parquet(table, engine="pyarrow", compression="zstd", index=None)
         entry.update(_sha_file(table))
     if collection.basic_info_lookup is None:
         return None
     lookup_path = stage / _LOOKUP
     _portable_frame(collection.basic_info_lookup).to_parquet(
-        lookup_path, engine="pyarrow", compression="zstd", index=True
+        lookup_path, engine="pyarrow", compression="zstd", index=None
     )
     return {"member": _LOOKUP, **_sha_file(lookup_path), "frame": _frame_contract(collection.basic_info_lookup)}
 
@@ -330,15 +337,20 @@ def _validate_inventory(  # noqa: C901
         message = "Parquet directory processor inventory is invalid"
         raise ValueError(message)
     entries: list[dict[str, Any]] = []
-    for index, raw_entry in enumerate(raw_entries):
-        if not isinstance(raw_entry, dict) or raw_entry.get("member") != f"processors/{index:06d}.parquet":
+    for index, raw_entry in enumerate(cast("list[object]", raw_entries)):
+        if not isinstance(raw_entry, dict):
+            message = "Invalid Parquet directory processor entry"
+            raise ValueError(message)
+        typed_entry = cast("dict[str, object]", raw_entry)
+        if typed_entry.get("member") != f"processors/{index:06d}.parquet":
             message = "Invalid or duplicate Parquet directory processor member path"
             raise ValueError(message)
-        entries.append(cast("dict[str, Any]", raw_entry))
+        entries.append(cast("dict[str, Any]", typed_entry))
     raw_lookup: object = payload.get("basic_info_lookup")
-    if raw_lookup is not None and (not isinstance(raw_lookup, dict) or raw_lookup.get("member") != _LOOKUP):
-        message = "Invalid Parquet directory lookup member path"
-        raise ValueError(message)
+    if raw_lookup is not None:
+        if not isinstance(raw_lookup, dict) or cast("dict[str, object]", raw_lookup).get("member") != _LOOKUP:
+            message = "Invalid Parquet directory lookup member path"
+            raise ValueError(message)
     lookup = cast("dict[str, Any] | None", raw_lookup)
     for entry in [*entries, *([lookup] if lookup is not None else [])]:
         sha, size = entry.get("sha256"), entry.get("size")
@@ -416,10 +428,14 @@ def _verify_member(directory: Path, entry: dict[str, Any]) -> Path:
 
 
 def _string_list(value: object, label: str) -> list[str]:
-    if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
+    if not isinstance(value, list):
         message = f"Parquet directory {label} must be a string list"
         raise ValueError(message)
-    return cast("list[str]", value)
+    items = cast("list[object]", value)
+    if any(not isinstance(item, str) for item in items):
+        message = f"Parquet directory {label} must contain only strings"
+        raise ValueError(message)
+    return cast("list[str]", items)
 
 
 def _entity_index(entry: dict[str, Any], key: str) -> dict[str, list[str]]:
@@ -428,7 +444,8 @@ def _entity_index(entry: dict[str, Any], key: str) -> dict[str, list[str]]:
         message = f"Parquet directory {key} metadata is missing"
         raise ValueError(message)
     result: dict[str, list[str]] = {}
-    for column, values in raw.items():
+    entries = cast("dict[object, object]", raw)
+    for column, values in entries.items():
         if not isinstance(column, str) or column not in BaseProcessor.ENTITY_ID_COLUMNS:
             message = f"Invalid {key} identifier column"
             raise ValueError(message)
@@ -437,15 +454,25 @@ def _entity_index(entry: dict[str, Any], key: str) -> dict[str, list[str]]:
 
 
 def _check_frame(frame: DataFrame, entry: dict[str, Any]) -> None:
-    if frame.empty or _frame_contract(frame) != entry.get("frame"):
-        message = f"Parquet directory processed DataFrame schema mismatch: {entry.get('member')}"
+    actual = _frame_contract(frame)
+    expected: object = entry.get("frame")
+    if frame.empty or actual != expected:
+        message = (
+            f"Parquet directory processed DataFrame schema mismatch: {entry.get('member')}: "
+            f"expected {expected!r}, got {actual!r}"
+        )
         raise ValueError(message)
 
 
 def _restore_processor(directory: Path, entry: dict[str, Any], *, verify_sources: bool) -> BaseProcessor:
-    source = entry.get("source")
-    if not isinstance(source, dict) or not isinstance(source.get("path"), str):
+    source_raw: object = entry.get("source")
+    if not isinstance(source_raw, dict):
         message = "Parquet directory source identity is invalid"
+        raise ValueError(message)
+    source = cast("dict[str, object]", source_raw)
+    source_path = source.get("path")
+    if not isinstance(source_path, str):
+        message = "Parquet directory source path is invalid"
         raise ValueError(message)
     if verify_sources:
         _check_source(entry)
@@ -454,7 +481,7 @@ def _restore_processor(directory: Path, entry: dict[str, Any], *, verify_sources
         message = "Parquet directory include_path_columns is invalid"
         raise ValueError(message)
     processor = BaseProcessor.from_file(
-        Path(source["path"]),
+        Path(source_path),
         entity_filter=_string_list(entry.get("entity_filter"), "entity_filter"),
         include_path_columns=include_paths,
     )
@@ -466,7 +493,7 @@ def _restore_processor(directory: Path, entry: dict[str, Any], *, verify_sources
         or processor.name_parser.raw_run_code != entry.get("raw_run_code")
         or _run_components(processor) != entry.get("run_components")
     ):
-        message = f"Parquet directory trusted processor factory mismatch: {source['path']}"
+        message = f"Parquet directory trusted processor factory mismatch: {source_path}"
         raise ValueError(message)
     processor.df = pd.read_parquet(_verify_member(directory, entry), engine="pyarrow")
     _check_frame(processor.df, entry)
@@ -476,19 +503,23 @@ def _restore_processor(directory: Path, entry: dict[str, Any], *, verify_sources
     processor.applied_entity_filter = frozenset(
         _string_list(entry.get("applied_entity_filter"), "applied_entity_filter")
     )
-    health = entry.get("health")
-    if not isinstance(health, dict):
+    health_raw: object = entry.get("health")
+    if not isinstance(health_raw, dict):
         message = "Parquet directory processor health metadata is missing"
         raise ValueError(message)
-    input_health = health.get("input_health")
-    rejected = health.get("rejected_samples")
-    reasons = health.get("rejection_reasons")
+    health = cast("dict[str, object]", health_raw)
+    input_health: object = health.get("input_health")
+    rejected: object = health.get("rejected_samples")
+    reasons: object = health.get("rejection_reasons")
     if (
         not isinstance(input_health, str)
         or type(rejected) is not int
         or rejected < 0
         or not isinstance(reasons, dict)
-        or any(not isinstance(key, str) or type(value) is not int or value < 0 for key, value in reasons.items())
+        or any(
+            not isinstance(key, str) or type(value) is not int or value < 0
+            for key, value in cast("dict[object, object]", reasons).items()
+        )
         or not isinstance(health.get("filtered_empty"), bool)
     ):
         message = "Parquet directory processor health metadata is invalid"
@@ -496,7 +527,7 @@ def _restore_processor(directory: Path, entry: dict[str, Any], *, verify_sources
     processor.input_health = input_health
     processor.rejected_samples = rejected
     processor.rejection_reasons = cast("dict[str, int]", reasons)
-    processor.filtered_empty = health["filtered_empty"]
+    processor.filtered_empty = cast("bool", health["filtered_empty"])
     processor.source_entity_presence = _entity_index(entry, "source_entities")
     # The factory may have sampled a different source now. Restore the exact
     # processing-time identity, including for explicit offline/historical reads.

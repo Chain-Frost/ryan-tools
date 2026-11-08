@@ -60,12 +60,6 @@ def _manifest(directory: Path) -> dict[str, Any]:
     return json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
 
 
-def _active(directory: Path) -> Path:
-    generation = _manifest(directory)["active_generation"]
-    assert isinstance(generation, str)
-    return directory if generation == "." else directory / generation
-
-
 def test_parquet_directory_restores_real_heterogeneous_processors_and_dtypes(
     collection: ProcessorCollection, tmp_path: Path
 ) -> None:
