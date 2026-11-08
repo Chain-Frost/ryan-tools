@@ -110,14 +110,14 @@ def test_directory_selects_type_without_loading_other_tables(
     path = tmp_path / "filtered.parquetdir"
     collection.to_parquet(path)
     called: list[str] = []
-    actual_read = pd.read_parquet
+    actual_read = parquet_bundle._read_verified_frame  # pyright: ignore[reportPrivateUsage]
 
-    def checked_read(file: Path, **kwargs: Any) -> pd.DataFrame:
-        called.append(file.name)
-        assert file.name == "000002.parquet"
-        return actual_read(file, **kwargs)
+    def checked_read(directory: Path, entry: dict[str, Any]) -> pd.DataFrame:
+        called.append(Path(entry["member"]).name)
+        assert entry["member"] == "processors/000002.parquet"
+        return actual_read(directory, entry)
 
-    monkeypatch.setattr(parquet_bundle.pd, "read_parquet", checked_read)
+    monkeypatch.setattr(parquet_bundle, "_read_verified_frame", checked_read)
     restored = ProcessorCollection.from_parquet(path, data_types=["POMM"], locations=["Loc1"])
     assert called == ["000002.parquet"]
     assert len(restored.processors) == 1
@@ -477,3 +477,40 @@ def test_replaced_versions_directory_never_publishes_broken_manifest(
     (destination / ".versions").rmdir()
     replaced.rename(destination / ".versions")
     assert len(ProcessorCollection.from_parquet(destination).processors) == 3
+
+
+@pytest.mark.parametrize("lookup", [False, True])
+def test_member_replacement_after_verification_cannot_change_loaded_values(
+    collection: ProcessorCollection, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, lookup: bool
+) -> None:
+    if lookup:
+        collection.compact_basic_info_columns()
+    destination = tmp_path / "replacement.parquetdir"
+    collection.to_parquet(destination)
+    member = destination / ("basic_info_lookup.parquet" if lookup else "processors/000000.parquet")
+    actual_read = pd.read_parquet
+    replacement = actual_read(member)
+    if lookup:
+        replacement["file"] = "changed.csv"
+    else:
+        replacement["Q"] = replacement["Q"] + 100
+    calls = 0
+
+    def replace_before_arrow_read(file: Any, **kwargs: Any) -> pd.DataFrame:
+        nonlocal calls
+        calls += 1
+        # This is after checksum verification but before Arrow consumes bytes.
+        # Replacing the public member must not affect the owned verified handle.
+        if calls == (4 if lookup else 1):
+            replacement.to_parquet(member, engine="pyarrow", index=None)
+        return actual_read(file, **kwargs)
+
+    monkeypatch.setattr(parquet_bundle.pd, "read_parquet", replace_before_arrow_read)
+    restored = ProcessorCollection.from_parquet(destination)
+    assert calls == 3 + int(lookup)
+    for original, actual in zip(collection.processors, restored.processors, strict=True):
+        pd.testing.assert_frame_equal(actual.df, original.df)
+    if lookup:
+        assert restored.basic_info_lookup is not None
+        assert collection.basic_info_lookup is not None
+        pd.testing.assert_frame_equal(restored.basic_info_lookup, collection.basic_info_lookup)

@@ -587,15 +587,47 @@ def _checked_manifest(  # noqa: C901
     return manifest, directory, entries, lookup
 
 
-def _verify_member(directory: Path, entry: dict[str, Any]) -> Path:
+def _member_path(directory: Path, entry: dict[str, Any]) -> Path:
     member = directory / cast("str", entry["member"])
     if _unsafe_link(member) or not member.is_file():
         message = f"Parquet directory member is missing or linked: {member}"
         raise ValueError(message)
+    return member
+
+
+def _verify_member(directory: Path, entry: dict[str, Any]) -> Path:
+    member = _member_path(directory, entry)
     if _sha_file(member) != {"sha256": entry["sha256"], "size": entry["size"]}:
         message = f"Parquet directory member checksum mismatch: {entry['member']}"
         raise ValueError(message)
     return member
+
+
+def _read_verified_frame(directory: Path, entry: dict[str, Any]) -> DataFrame:
+    """Hash an owned disk snapshot and give Arrow that same open file instance.
+
+    The source member can be replaced or edited by another process. Neither
+    hashing a pathname before opening it nor keeping an input handle alone
+    prevents an in-place edit. Copy in bounded chunks, hash exactly those
+    bytes, and read the private temporary handle without reopening a path.
+    """
+    member = _member_path(directory, entry)
+    digest = hashlib.sha256()
+    size = 0
+    expected_size = cast("int", entry["size"])
+    with tempfile.TemporaryFile(mode="w+b") as snapshot:
+        with member.open("rb") as source:
+            while block := source.read(min(_CHUNK_SIZE, expected_size - size + 1)):
+                size += len(block)
+                if size > expected_size:
+                    break
+                digest.update(block)
+                snapshot.write(block)
+        if size != expected_size or digest.hexdigest() != entry["sha256"]:
+            message = f"Parquet directory member checksum mismatch: {entry['member']}"
+            raise ValueError(message)
+        snapshot.seek(0)
+        return pd.read_parquet(snapshot, engine="pyarrow")
 
 
 def _string_list(value: object, label: str) -> list[str]:
@@ -666,9 +698,7 @@ def _restore_processor(directory: Path, entry: dict[str, Any], *, verify_sources
     ):
         message = f"Parquet directory trusted processor factory mismatch: {source_path}"
         raise ValueError(message)
-    processor.df = _rehydrate_categories(
-        pd.read_parquet(_verify_member(directory, entry), engine="pyarrow"), entry.get("frame")
-    )
+    processor.df = _rehydrate_categories(_read_verified_frame(directory, entry), entry.get("frame"))
     _check_frame(processor.df, entry)
     processor.applied_location_filter = frozenset(
         _string_list(entry.get("applied_location_filter"), "applied_location_filter")
@@ -1047,9 +1077,7 @@ def read_collection_bundle(  # noqa: C901
         collection.add_processor(restored)
         selected.append((entry, restored, source_hit))
     if lookup is not None:
-        result = _rehydrate_categories(
-            pd.read_parquet(_verify_member(active, lookup), engine="pyarrow"), lookup.get("frame")
-        )
+        result = _rehydrate_categories(_read_verified_frame(active, lookup), lookup.get("frame"))
         if _frame_contract(result) != lookup.get("frame"):
             message = "Parquet directory basic-info lookup schema mismatch"
             raise ValueError(message)

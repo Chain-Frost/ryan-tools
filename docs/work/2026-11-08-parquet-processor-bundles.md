@@ -144,3 +144,25 @@ the final pushed SHA. NTFS acceptance above does not establish mapped-drive/UNC
 or native SMB acceptance. Independent final-head review and WP04 integration
 remain separate gates. No merge, release or issue closure is authorised.
 Next review remains 2026-11-15.
+
+
+### Review follow-up: bind verification to consumed Parquet bytes
+
+A new review thread identified a checksum/read race after the first repair
+checkpoint. Processor and lookup reads now copy selected members to an owned
+on-disk temporary file in bounded chunks, hash the copied bytes, enforce the
+manifest byte length, and give PyArrow that same open temporary handle. No
+mutable public pathname is reopened after successful verification. This adds
+temporary disk I/O for selected members, without buffering a whole member in RAM.
+
+Two parameterised regressions replace the public processor/lookup file after
+verification and before Arrow reads it; restored values retain the original
+verified snapshot. Updated selective-read instrumentation still proves unrelated
+members are not loaded. Windows source tests: 23 passed / two Linux-only skips;
+installed wheel 26.11.9.2: the same 23 passed / two skips. Ruff and strict Pyright
+pass; the package build verifies. Earlier 57 related tests remain unchanged.
+
+Review-thread resolutions link these fixes and the existing RangeIndex,
+no-clobber, pinned-directory/generation, cleanup and EOF regressions. Linux-only
+identity tests and UNC/SMB acceptance are not relabelled as Windows passes.
+Final-head hosted validation and an independent fresh review remain separate.
