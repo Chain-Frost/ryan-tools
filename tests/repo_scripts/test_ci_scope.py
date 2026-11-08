@@ -212,7 +212,7 @@ def test_invalid_head_also_falls_back_to_full_tracked_scope(repository: Path) ->
 
 @pytest.mark.parametrize("event", ["pull_request", "push"])
 def test_version_only_pyproject_change_does_not_expand_static_checks(repository: Path, event: str) -> None:
-    template = '[project]\\nname = "example"\\nversion = "1.0.0"\\n\\n[tool.pyright]\\ntypeCheckingMode = "strict"\\n'
+    template = '[project]\nname = "example"\nversion = "1.0.0"\n\n[tool.pyright]\ntypeCheckingMode = "strict"\n'
     _write(repository, "pyproject.toml", template)
     _write(repository, "typings/types.pyi", "value: int\n")
     base = _commit(repository)
