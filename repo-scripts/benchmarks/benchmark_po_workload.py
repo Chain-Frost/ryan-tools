@@ -203,7 +203,7 @@ class ProcessMemorySampler:
                 self.sample.peak_parent_rss_bytes = max(self.sample.peak_parent_rss_bytes or 0, parent)
                 self.sample.peak_workers_rss_bytes = max(self.sample.peak_workers_rss_bytes or 0, children)
                 self.sample.peak_combined_rss_bytes = max(self.sample.peak_combined_rss_bytes or 0, parent + children)
-            except (self.psutil.Error, OSError):
+            except self.psutil.Error, OSError:
                 pass  # A short-lived worker can exit between discovery and sampling.
             self.stop_signal.wait(0.05)
 
@@ -503,7 +503,7 @@ def _git_revision(directory: Path) -> str | None:
             check=False,
             timeout=5,
         )
-    except (OSError, subprocess.TimeoutExpired):
+    except OSError, subprocess.TimeoutExpired:
         return None
     return completed.stdout.strip() if completed.returncode == 0 else None
 
