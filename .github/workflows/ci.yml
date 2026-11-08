@@ -184,6 +184,8 @@ jobs:
           cache-dependency-path: |
             pyproject.toml
             repo-scripts/ci-policy-requirements.txt
+            repo-scripts/install_latest_wheel.py
+            repo-scripts/ci_gis_bootstrap.py
             repo-scripts/pytuflow-requirement.txt
             repo-scripts/vendor_pytuflow_wheel.py
             repo-scripts/wheels/pytuflow/**/provenance.json
@@ -204,7 +206,7 @@ jobs:
           $scope = Get-Content (Join-Path $env:RUNNER_TEMP 'ci-scope.json') -Raw | ConvertFrom-Json
           $pythonFiles = @($scope.type_files)
           if ($pythonFiles.Count -eq 0) { throw 'Expected Python inputs from successful preflight.' }
-          python repo-scripts/install_latest_wheel.py --dependencies-only
+          python repo-scripts/ci_gis_bootstrap.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -m pip install -r repo-scripts/ci-policy-requirements.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -297,6 +299,8 @@ jobs:
           cache-dependency-path: |
             pyproject.toml
             repo-scripts/ci-test-requirements.txt
+            repo-scripts/install_latest_wheel.py
+            repo-scripts/ci_gis_bootstrap.py
             repo-scripts/pytuflow-requirement.txt
             repo-scripts/vendor_pytuflow_wheel.py
             repo-scripts/wheels/pytuflow/**/provenance.json
@@ -309,7 +313,7 @@ jobs:
       - name: Install binary GIS dependencies
         shell: pwsh
         run: |
-          python repo-scripts/install_latest_wheel.py --dependencies-only
+          python repo-scripts/ci_gis_bootstrap.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Install runtime, MCP and hosted-test dependencies

@@ -201,6 +201,14 @@ See the [CI work record](work/2026-11-08-ci-resource-efficiency.md) for delivery
 
 ### CI dependency profiles
 
+Windows CI runs [`ci_gis_bootstrap.py`](../repo-scripts/ci_gis_bootstrap.py) around the existing binary GIS installation
+command. A failed download qualifies for recovery only when pip reports HTTP 502, 503 or 504 for a Fiona, Rasterio or
+GDAL wheel in `cgohlke/geospatial-wheels`. The helper resolves that exact release tag and filename through GitHub's
+public API, requires the official asset size and SHA-256 digest, and verifies the download before installing it.
+Recovery is limited to one asset per distribution and four normal bootstrap attempts in total. The final attempt
+must resolve all dependencies successfully; repeated failures, other errors and invalid artifacts fail the job.
+Downloads and subprocesses have time and size bounds. Normal user installers and dependency declarations are unchanged.
+
 Normal user/developer installation remains [`requirements.txt`](../requirements.txt), with the unchanged runtime
 metadata in [`pyproject.toml`](../pyproject.toml). CI profiles are narrower installation inputs for their particular
 checks, not replacements for the expected user environment.
