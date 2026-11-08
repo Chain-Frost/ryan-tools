@@ -1,6 +1,6 @@
 # Parquet-directory snapshots for native TUFLOW processor collections
 
-**Decision:** 8 November 2026. **Status:** WP04-integrated parent reconciliation staged; combined-head CI, independent review and mapped/UNC native acceptance pending. **Next review:** 15 November 2026.
+**Decision:** 8 November 2026. **Status:** BLOCKED: intermittent UNC lock-cleanup assertion on final delivery check; final CI/review remain separate. **Next review:** 15 November 2026.
 
 **Scope:** [PR #293](https://github.com/Chain-Frost/ryan-tools/pull/293) stacked on draft [#251](https://github.com/Chain-Frost/ryan-tools/pull/251). WP04 #284 has been incorporated into the parent #251; retain its native validity, lifecycle and source-selection contracts.
 
@@ -178,3 +178,96 @@ Hosted CI at `9fa26311` reported that the original destination validator rejecte
 ### Independent WP04 post-restoration review (9 November 2026)
 
 The exact-parent Codex review identified two P2 integration issues. The empty-invalid export gate was fixed first; the import frame contract now accepts only the explicit `selected_unusable=True` and `input_health=INVALID` outcome, subject to exact schema/hash checks. The Parquet manifest also retains native WP04 `source_locations` / `usable_source_locations` and Q/H `source_channels` / `usable_source_channels`, so filtering **after complete restoration** has the original source-presence and unusable-sample context. Restore validates the allowlisted inventories, source subsets and usable-subset invariants before assigning them; new round-trip and malformed-inventory regressions cover the change. Fresh exact-head tests and review remain required.
+
+
+### 2026-11-09 final Windows native acceptance
+
+Native verdict: **BLOCKED** pending the intermittent UNC cleanup observation below, for corrected code revision
+`e04c625afb12f273e1882557fed33380a14a088e`, based on current #293
+`65db31f36909e2e1854a839dc9bc7b5b07c1d64c`; #251 remains
+`92351854625dae81001c033306969f73eff4a7f7`.
+The upstream empty-invalid import and native-inventory repairs superseded local
+repairs during testing. Current-head acceptance then reproduced an overwrite
+regression: the double-escaped generation regex rejected valid `.versions/<uuid>`
+paths. Restore the original regex; retain the existing regression assertion.
+No WP04 changes or alternate implementation are introduced.
+
+Environment: Windows 10 build 19045, normal Python 3.14.6, pandas 3.0.5,
+PyArrow 24.0.0. Isolated worktree; source and independently installed wheel
+26.11.9.3 are verified separately. All 252 tracked library Python/JSON files
+match the installed wheel byte-for-byte. Wheel SHA-256:
+`29bee9c347835552a05605b50fb15de4ef4dcd5d3ed7e228b8738373302d8919`.
+The normal installed package was not replaced.
+
+| Context | Local NTFS focused regression | Mapped SMB Parquet regression | UNC SMB Parquet regression |
+| --- | --- | --- | --- |
+| Source | 95 passed, 2 Linux-only skips | 30 passed, 2 Linux-only skips | Initially 30 passed / 2 skips; final check 29 passed / 1 failed / 2 skips |
+| Installed wheel | 95 passed, 2 Linux-only skips | 30 passed, 2 Linux-only skips | 30 passed, 2 Linux-only skips |
+
+Focused command: `python -m pytest tests/processors/tuflow/test_processor_collection_parquet_bundle.py tests/processors/tuflow/test_wp04_processor_contracts.py tests/processors/tuflow/test_collection_channel_selection.py -q`.
+The mapped/UNC runs execute the Parquet module with a unique disposable
+`--basetemp`; installed tests are copied outside the source checkout.
+Ruff lint/format, strict Pyright and verified package build pass.
+
+Real tutorial inputs from test-data revision `f3c49e867cd8a165e031217a148293a8968c2d88`
+include Q/H/Cmx/EOF from Module 03 and PO/POMM from Module 01: six processors,
+543/543/543/3/6/3 rows. Each source/wheel context runs real round-trip,
+no-clobber, explicit overwrite, external writer-lock exclusion, original-member
+SHA integrity and compacted-lookup restoration on NTFS, a genuine mapped SMB
+drive and its corresponding UNC share. Actual server/share names are omitted.
+Dedicated directories use the `pr293-native-20261109-final-*` prefix.
+All input hashes remain unchanged. Processor and lookup Parquet members have
+identical SHA-256 across source/wheel and all three access paths. Manifests
+match after excluding only the expected `created_at_utc` timestamp.
+
+The synthetic regression module covers nullable/categorical dtypes including
+unused ordered categories, source fingerprints, historical/offline restoration,
+health/rejections, INVALID/ABSENT selection, shortened/ambiguous EOF aliases,
+interrupted staging/overwrite, simulated rename failure, corrupt/missing members,
+stale semantics, competing publication and owned staging/lock cleanup.
+WP04 regression coverage includes truncated Q/PO rejection, real tutorial ccA
+no-match SKIP and state recovery, EOF no-match, partial-invalid classifications.
+Additional native checks in all six context/filesystem cells verify RangeIndex,
+string Index, DatetimeIndex and MultiIndex, plus two genuinely concurrent child
+writers: exactly one publishes and one refuses; restoration and cleanup pass.
+
+Limitations: Windows symlink creation is unavailable (WinError 1314 locally,
+access denied on SMB). SMB junction creation is unsupported. These are unexecuted
+link scenarios, not passing safety cases. Actual local junction destinations
+are refused without changing target bytes; Windows directory-share-delete guard
+regressions pass on NTFS and SMB. Linux-only directory-descriptor tests remain
+skipped. Fault injection is synthetic, not a machine crash or SMB disconnect.
+No broad suite, redundant hosted rerun, merge, release or issue closure.
+
+Private reproducible scripts, JUnit, per-input/member SHA inventories and reports
+are retained outside the repository at `E:/Github/pr293-native-evidence`.
+Native acceptance remains blocked on confirming UNC cleanup semantics; fresh
+final-head hosted CI and independent Codex review also require separate
+confirmation before integration. Correction and evidence form one batch for
+existing #293; preserve #251/main. Next review: 2026-11-15.
+
+
+#### Final delivery check: do not erase the intermittent UNC failure
+
+At documentation-only revision `44d86c24837b856feb2a5643f834fc5f2bb97865`,
+the same six regression runs produced **309 passed, 1 failed, 12 skipped**.
+Source UNC `test_directory_no_clobber_overwrite_uses_immutable_generation`
+failed because `.publish.lock.exists()` returned True immediately after a
+successful overwrite. The completed dataset restored and the lock was absent
+on subsequent direct inspection/listing. An unchanged focused rerun passed
+(1 passed / 31 deselected). The installed-wheel UNC run passed 30/2.
+Both source/wheel mapped runs passed 30/2 and both NTFS focused runs passed 95/2.
+Do not replace the failure with the successful rerun or weaken the assertion.
+Client SMB directory/file-info cache lifetimes are 10 seconds (negative cache
+5 seconds), but caching is only a hypothesis until reproduced and distinguished
+from an actual live lock. Evidence remains in `delivery-source-unc.xml`.
+Next action: diagnose immediate UNC lock visibility versus exclusive creation,
+then repeat the unchanged cleanup/concurrency acceptance on the agreed head.
+No data loss or source/member corruption was observed.
+
+
+UNC follow-up probe: 120 fresh snapshot/overwrite cycles all restored; zero
+post-cleanup `exists()` observations and zero failures to acquire a new lock
+using `O_CREAT|O_EXCL`. This does not reproduce or explain the preserved failure;
+`cache-probe.json` retains every observation. Verdict remains BLOCKED pending
+root cause or an agreed, documented SMB acceptance boundary.
