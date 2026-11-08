@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Blocked on unresolved #254 writer-shutdown race; native HDF acceptance not run |
+| Status | #254 safety correction reviewed/hosted-green; #261 refreshed for hosted and native HDF acceptance |
 | Owner | WP05 delivery agent / maintainer |
 | Created | 2026-11-08 |
 | Updated | 2026-11-08 |
@@ -72,6 +72,46 @@ merged the #251 branch into #254 and #254 into #261 without force-push, retarget
 and revised their names and #251's consolidated title; no merge to main. Automated validation and
 native acceptance remain distinct gates.
 
+### P1 review correction: closed WAL mode without sidecars
+
+Codex's [#254 P1 review finding](https://github.com/Chain-Frost/ryan-tools/pull/254#discussion_r4502825951) identified that SQLite `mode=ro` can create new `-wal` and `-shm` files for a **closed, checkpointed WAL-mode** GeoPackage even when both sidecars are initially absent. Unlike a rollback-journal database, that case is not safe to open in a writable result directory.
+
+The processor now reads the fixed SQLite database-header journal markers **before opening SQLite**. If the header denotes WAL mode but the pair of existing `-wal`/`-shm` sidecars is incomplete or absent, it **fails explicitly without opening a connection or creating files**. An active WAL writer with both sidecars remains supported and its committed snapshot is read with `mode=ro`. No unsafe `immutable=1` bypass or writable fallback is added; closed WAL-mode results lacking sidecars must be changed to a rollback journal by their producer or otherwise processed under a separately validated read-only strategy.
+
+A disposable SQLite regression reproduces the closed-WAL case and verifies source bytes and no sidecars after failed read. Source header bytes, actual WAL lifecycle and results are tested without a licensed solver. Exact-head Windows/Python 3.14 CI and native Windows/SMB acceptance remain separate, pending results; **the P1 must not be marked fully accepted from static changes alone**.
+
+### Follow-up review finding — writer shutdown between preflight and SQLite open
+
+[Codex P2 on #254](https://github.com/Chain-Frost/ryan-tools/pull/254#discussion_r4505393356) identifies a **remaining TOCTOU source-mutation risk**. The new header check in `3394578f` prevents WAL/SHM creation if a closed WAL-mode database has no sidecars *at preflight*. However, if an active writer closes/checkpoints **after** the sidecar check but **before** the read-only SQLite connection opens, SQLite can create its own WAL/SHM sidecars. The earlier P1 fix is therefore **partial and unaccepted**, not a full solution to #222's no-source-mutation requirement.
+
+**Required resolution:** demonstrate a portable no-create read contract that preserves committed active WAL data without unsafe `immutable=1` stale reads, or explicitly document and agree to a narrower unsupported/failed-read case. Add deterministic shutdown-between-check-and-open regression, check original bytes and all sidecars, then obtain Windows/SMB validation and exact-head CI. The P2 must be resolved before #254/#261 feature-branch integration. Both children have been returned to **draft** pending this gate. The [blocking comment on #254](https://github.com/Chain-Frost/ryan-tools/pull/254#issuecomment-6718649064) records the handoff. Do not close #222 or #226 or merge into `main`.
+
+### P2 writer-shutdown race correction: owned SQLite read snapshot
+
+Codex P2 found that an active WAL writer can close between the preflight sidecar check and a SQLite mode=ro open, allowing the reader to recreate -wal/-shm beside the source. The original header check does not close this race.
+
+The SQLite reader now copies **both rollback and WAL-mode** source databases (plus any existing WAL) to invocation-owned local scratch, checks source inode/size/mtime metadata before and after copying, and lets SQLite build any required shared-memory index only inside scratch. A closed checkpointed WAL-mode database is read from its staged main file. A stable active WAL copy retains committed data; incomplete or changing sources fail closed. No immutable=1 or writable direct-path fallback is used for WAL-mode files.
+
+A deterministic regression now shuts down the active writer after the owned copy but before the SQLite connection opens. It verifies the previously committed value, unchanged source bytes after legitimate writer checkpoint, and no reader-created sidecars. The closed-WAL case now requires a successful staged read and unchanged source bytes.
+
+Performance and acceptance limits: WAL-mode reads copy the entire main database and WAL to local scratch, adding disk/network I/O and temporary space. Before/after signatures detect ordinary changes but are not a distributed lock nor a cryptographic full-byte consistency proof against same-metadata rewrites. Locked, changing, or inaccessible sources fail safely. Rollback-journal databases retain their previous direct read-only connection. Real Windows/UNC/SMB writer-shutdown and large-result performance acceptance plus current-head CI remain required before integration. SQLite WAL across separate hosts on a network file system is not generally supported.
+
+### Additional Codex P2: journal-mode transition during direct read
+
+A fresh [review finding](https://github.com/Chain-Frost/ryan-tools/pull/254#discussion_r4505510849) identified a separate transition: the source could switch from rollback journal to WAL *after* header inspection, before direct `mode=ro` reading, and thereby create reader-owned source sidecars. The owned snapshot is now used for **all SQLite ccA source modes**, avoiding SQLite connections to the source path entirely. A deterministic test transitions the source to WAL immediately before opening the already staged copy; it reads the earlier stable snapshot without recreating source sidecars or overwriting the legitimately updated source. The prior direct-rollback fast path is intentionally removed.
+
+**Cost boundary:** this is an I/O-heavy safety choice for large result files; its memory footprint is bounded by streaming `shutil.copyfile`, but local scratch disk usage equals the main database plus WAL. Changing source stat signatures or inconsistent copied SQLite files fail closed. Validate real large-file/SMB behaviour and documented costs before feature-branch integration. Do not describe a running writer's read as a globally atomic, latest-timepoint snapshot.
+
+### Hosted two-case acceptance repair
+
+The first fully refreshed #254 Windows hosted run at `2243d6a5` passed Ruff/Policy/Package/MCP/security but found **two real regressions** among 2,791 passing tests. The rollback→WAL test used a `with sqlite3.connect(...)` context that commits but does **not close** the SQLite connection; it now closes explicitly before asserting that the last writer removed both WAL sidecars. More importantly, the owned source copy bypassed SQLite's exclusive rollback-journal lock and could read an uncommitted database snapshot. The source preflight now includes the rollback `-journal` in its before/after file signatures and **fails closed whenever a journal is present**, rather than returning uncommitted values. The existing exclusive-writer test must remain a refusal. The acceptance boundary for nonstandard `journal_mode=OFF` or unsupported network locks is not expanded. Confirm exact-head hosted and Windows/UNC/SMB behaviour before accepting this work pack.
+
+The actual [Codex P2 rollback-to-WAL transition finding](https://github.com/Chain-Frost/ryan-tools/pull/254#discussion_r4505510849) is addressed by staging all source modes instead of opening the source directly; previous stored drafts incorrectly used a provisional comment ID.
+
+### Historical #261 native gate audit (superseded prerequisite)
+
+The following audit was accurate at the earlier parent SHA, but is **superseded** by reviewed #254 owned-copy correction. It is retained as dated evidence; no HDF native tests ran in that audit.
+
 ### 2026-11-08 local-agent gate audit - HDF acceptance not run
 
 Read native handoff https://github.com/Chain-Frost/ryan-tools/pull/261#issuecomment-6718682286 and verified live #254 at `f70e69519499dc071d03863c6d0b9233f0536653`, with the writer-shutdown race thread https://github.com/Chain-Frost/ryan-tools/pull/254#discussion_r4505393356 still unresolved. Both the original closed-WAL review and shutdown-race review remain unresolved; the parent canonical WP05 record explicitly marks the P1 correction partial/unaccepted.
@@ -81,3 +121,8 @@ Read native handoff https://github.com/Chain-Frost/ryan-tools/pull/261#issuecomm
 #261 remains at code `7df8202eef2c50b8af5aecb0378bfd18be75d030`, draft, stacked on #254. **BLOCKED:** the handoff explicitly requires correction and review of #254 before refreshing the HDF branch and running native acceptance. Therefore no HDF source/native/installed-wheel/cache/mapped/UNC tests, build or dependency changes were performed, and no source-immutability claim is made. This documentation-only gate audit does not refresh implementation or incorporate the child anywhere.
 
 Next action: #254 owner corrects the no-create WAL contract and obtains review; then refresh this existing branch without force-push and execute the stated Q/PO/POMM HDF acceptance matrix on its new exact SHA. Next review 2026-11-15. No merge, auto-merge, release, issue closure, production operation or unsorted inspection.
+
+
+### HDF branch reconciliation after the #254 owned-copy review
+
+[#254](https://github.com/Chain-Frost/ryan-tools/pull/254) at `cd6fdb28` uses invocation-owned SQLite snapshots, has **six hosted CI passes** and a [Codex review without findings](https://github.com/Chain-Frost/ryan-tools/pull/254#issuecomment-6719253134); earlier review threads are resolved. Native Windows/SMB/large-file acceptance is **NOT RUN**. The #261 HDF code is refreshed as a two-parent, non-force branch merge with that parent, preserving #251/WP12 and newer package metadata. HDF source, wheel and native Q/PO/POMM cache roundtrip checks remain **NOT RUN on this reconciled SHA**, pending fresh hosted and local tests. Neither child is incorporated into #251 or main. No issue closures or release.

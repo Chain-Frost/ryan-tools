@@ -567,6 +567,14 @@ untagged, their source coordinates are assumed to already align.
 The default masked-bilinear sampler returns NoData only when the profile
 station's containing raster cell is NoData; adjacent NoData cells are excluded
 and the remaining interpolation weights are renormalised.
+Profile PNGs are rendered into unique, invocation-owned files in the destination
+directory, then published only after successful rendering. Set `OVERWRITE_EXISTING = False` or
+`--no-overwrite-existing` to prevent replacement even if an output appears
+after preflight. Existing case-only filename aliases are also rejected.
+Explicit overwrite replaces the requested output only after rendering.
+If atomic no-overwrite publication is unsupported by a filesystem, the operation
+fails without publishing a partial PNG. Profiles publish independently: if a
+later profile fails, earlier completed PNGs remain.
 
 Only the single-layer GeoPackage renamer,
 [`gis_processing/rename_geopackage_layer_to_filename.py`](gis_processing/rename_geopackage_layer_to_filename.py),
@@ -783,6 +791,79 @@ unattributable quantity rows are suppressed with a warning rather than reported 
 
 ## POMM peak wrapper migration
 
+### Supported peak inputs
+
+The mean and median POMM peak reports accept `POMM` and `RLL_Qmx` by default and
+retain both source types in the raw POMM worksheet. Reporting-location line
+maximums retain their source `file`, `Chan ID`, signed `Q` (`Qmax`) and
+`Type = Q`; the common `Location` field is derived from `Chan ID`.
+POMM `Type = Flow` remains distinct from RLL `Type = Q`, so the reporting
+groups are not silently merged.
+
+For RLL, `AbsMax = abs(Qmax)` and `SignedAbsMax = Qmax`. This is the magnitude
+of the **reported signed maximum**, not a reconstructed absolute extremum
+across the entire time series. Unlike POMM `AbsMax`, which uses both the
+reported time-series maximum and minimum, an RLL file cannot supply an
+unreported negative minimum. Peak reports retain that measurement distinction;
+they must not be interpreted as proving the two input quantities have
+identical sampling semantics.
+
+### Finite TP populations, counts and source provenance
+
+POMM median and mean statistics rank only finite hydraulic values; valid zero
+values are retained. Each duration's `count_TP` is the number of finite
+contributing observations, not the size of the raw bin; `count_TP_aep` is
+their sum across durations, and `count_duration` is the number of duration
+bins with at least one finite observation. The separate unusable-TP/bin
+counts and `tp_population_status` (`OK`, `PARTIAL`, `UNUSABLE`) disclose
+observed invalid values. They do not infer unobserved runs or processing
+failures absent from the input inventory. All-invalid bins cannot govern a
+peak statistic.
+
+For ten finite TP records the median is the sixth sorted record (upper-middle
+rule), not the arithmetic midpoint of ranks five and six. The mean
+representative is the *observed* event closest to the arithmetic mean, and
+the final mean peak chooses the largest of these duration-level representative
+values. Mean-distance ties select the lower observed value; ties on the
+same value use increasing TP identifier, then run name/source filename.
+The selected `mean_TP`, `mean_Duration`, `mean_PeakFlow`,
+`mean_internalName` and `mean_file` all come from the same input row.
+Median `internalName` and `file` likewise refer to the upper-middle
+selected event. A final peak table preserves the contributing event count
+rather than overwriting it with the number of duration bins.
+
+Culvert discharge reports also require finite `Q`; a geometry-only
+`Height` field cannot become the governing peak metric. Duration-level
+culvert `count` represents finite-Q contributing observations,
+`count_total` the observed input rows and `count_unusable` their difference.
+The independent per-field maxima contract is unchanged: adopted flow,
+velocity and water levels are values from the selected representative run,
+not reconstructed coincident-timestep peak measurements.
+
+### Mean peak coverage findings
+
+`po_and_timeseries/create_pomm_mean_peak_report.py` adds coverage findings to `aep-mean-max`,
+independently for each AEP, PO location, result type and run/scenario. Existing peak selection is unchanged.
+The new columns show the minimum and maximum tested duration in minutes, the sampled duration list,
+missing intermediate durations, and separate warnings for:
+
+- A selected peak sourced from the shortest or longest tested duration (both when only one was tested).
+- Any duration bin with a sampled input count (finite contributors **plus** known non-finite samples) other than `EXPECTED_TP_COUNT` records (default 10), including non-winning bins.
+- Any duration bin with known non-finite samples, reported separately in `hydraulic_population_warning`; complete sampled input coverage does not imply complete valid hydraulic observations.
+- Missing standard durations between the tested bounds, unrecognised duration labels or non-standard durations.
+
+`findings_status` is `WARNING` if any check fires, otherwise `OK`. These are coverage findings, not a
+model-validity assessment. The expected TP coverage check counts observed records, while `count_TP` in the statistic tables counts only **finite contributing values**. The separate unusable counts and warning keep invalid values visible. Neither count proves that all temporal-pattern identities are distinct.
+For example, sampling 30, 60 and 120 minutes reports gaps at 45 and 90 minutes. Durations outside the
+sampled bounds are not labelled missing; the boundary warning identifies a potentially truncated peak search.
+
+The editable `STANDARD_DURATIONS_MINUTES` uses the
+[ARR Storm Generator duration sequence](https://help-innovyze.atlassian.net/wiki/spaces/arr2016/pages/14614606/Editing+the+Properties+of+ARR+Storms).
+Some listed durations are optional in downloaded ARR datasets: adopt the study's intended sequence explicitly
+when it differs. The effective schedule and expected ensemble size are recorded in the workbook data dictionary.
+Library callers can pass `standard_durations` and `expected_tp_count` to `export_mean_peak_report`,
+`save_peak_report_mean` or `find_aep_mean_max`. Updated wrappers require the matching updated library package.
+
 The maintained mean and median POMM peak wrappers use
 `ryan_library.orchestrators.tuflow.pomm_max_items` directly. The deprecated
 `PommPeakWrapperDefaults`, `PeakReportExporter` and `run_pomm_peak_report_wrapper`
@@ -954,6 +1035,54 @@ or change `ROOT_DIR` in the script.
 
 Verify first on a disposable copy of model results, particularly on network drives.
 
+## Crop an ordered TGC terrain stack
+
+Active `Read Grid Zpts` commands must be in the root TGC. Terrain commands
+loaded through `Read File` includes are rejected before planning or writing
+outputs; publishing patched include hierarchies is not supported.
+
+[`crop_tgc_terrains.py`](crop_tgc_terrains.py) creates smaller copies of the
+`Read Grid Zpts` rasters active for one scenario. PyTUFLOW evaluates the TGC's
+scenario scopes and preserves command order; the script does not implement a
+second TUFLOW conditional parser and intentionally accepts only one `-s1`
+scenario value.
+
+The supplied analysis box is a hard outer limit. Within it, later terrain reads
+have precedence. Lower layers retain their uniquely required area plus the
+default 50 m seam allowance, leaving deliberate overlap around dataset edges
+without retaining deep redundant overlap. Source elevations stay on their
+native grids and are not reprojected or resampled. Optional `|` polygon masks
+participate in coverage planning and remain on the corresponding patched TGC
+commands.
+
+The default is plan-only. `--write` creates new losslessly compressed rasters
+using the shared ryan-tools `tuflow` GeoTIFF profile: DEFLATE, predictor 2,
+conservative strips, GDAL threading and BigTIFF when safer. It also creates a
+new `_SCENARIO_cropped.tgc` beside the source TGC, a JSON manifest,
+and a `terrain_coverage_qa.gpkg` for review in QGIS. The QA GeoPackage
+contains original raster footprints, per-layer valid coverage within the
+analysis bounds, clipped-out portions, the requested minimum coverage extent,
+observed final clipped extent, remaining coverage gaps and any valid coverage
+lost during trimming. All valid-coverage comparisons use the **planning-grid
+resolution**, so they are not proof of exact native-resolution equivalence.
+Written-raster QA retains each original polygon clip, including where native
+pixels cross planning-cell boundaries. It refuses to overwrite any destination
+and never edits original rasters or TGCs.
+
+```powershell
+py -3.14 .\ryan-scripts\TUFLOW-python\crop_tgc_terrains.py `
+  --tgc "Q:\Project\TUFLOW\model\GEOM_01.tgc" `
+  --scenario EXG `
+  --bounds 700000 7400000 750000 7450000 `
+  --crs EPSG:28350 `
+  --buffer 50 `
+  --output-dir "Q:\Project\TUFLOW\terrain\cropped_EXG" `
+  --write --no-pause
+```
+
+The planning grid controls coverage-mask precision only; it does not change
+terrain resolution. Review the manifest and compare a TUFLOW `DEM_Z` check
+against the original stack before replacing a production TGC reference.
 
 ## Result-wrapper path and label-output safety
 

@@ -1,8 +1,11 @@
 # ryan_library/processors/tuflow/maximums_1d/ccAProcessor.py
 
 __lazy_modules__ = ["pandas"]
+import shutil
 import sqlite3
+import tempfile
 import urllib.parse
+from contextlib import ExitStack
 from pathlib import Path
 from typing import ClassVar
 
@@ -123,20 +126,59 @@ class ccAProcessor(BaseProcessor):
 
         return targets
 
-    def _open_sqlite_connection(self, path: Path) -> sqlite3.Connection | None:
-        """Open without file creation or immutable snapshots; bound waits for active writers."""
-        errors: list[str] = []
+    @staticmethod
+    def _source_signature(path: Path) -> tuple[int, int, int, int] | None:
+        """Return physical identity and content-change metadata without writing."""
+        try:
+            stat = path.stat()
+        except FileNotFoundError:
+            return None
+        return stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns
 
-        # A WAL without its shared-memory index can cause SQLite to create a new -shm
-        # file even for mode=ro. An inaccessible WAL snapshot must fail explicitly.
-        wal = path.with_name(path.name + "-wal")
-        shm = path.with_name(path.name + "-shm")
-        if wal.exists() and not shm.exists():
-            logger.error(
-                "process_gpkg: WAL exists without its -shm index for {}; refusing a sidecar-creating read", path
-            )
+    def _prepare_gpkg_read_source(self, path: Path, owned: ExitStack) -> Path | None:
+        """Read SQLite from owned local scratch, never through a source-side SQLite connection.
+
+        A writer can enter WAL mode after any header preflight, or shut down
+        between WAL sidecar inspection and a read-only SQLite open. Stage both
+        rollback and WAL sources to prevent reader-created source sidecars.
+        SQLite recreates any needed -shm only in scratch. Do not use immutable=1,
+        which can silently miss committed frames from an active WAL writer.
+        """
+        try:
+            wal = path.with_name(path.name + "-wal")
+            shm = path.with_name(path.name + "-shm")
+            journal = path.with_name(path.name + "-journal")
+            source_paths = (path, wal, shm, journal)
+            before = tuple(self._source_signature(item) for item in source_paths)
+            if before[0] is None or (before[1] is None) != (before[2] is None):
+                logger.error("process_gpkg: Missing database or incomplete WAL/SHM sidecars for {}", path)
+                return None
+            if before[3] is not None:
+                # An exclusive rollback-journal writer may have changed pages
+                # in the main file before commit. Copying it as a standalone
+                # snapshot could expose uncommitted values; fail closed.
+                logger.error("process_gpkg: Rollback journal is present for {}; refusing unsafe snapshot", path)
+                return None
+
+            scratch = Path(owned.enter_context(tempfile.TemporaryDirectory(prefix="ryan-cca-sqlite-")))
+            staged_path = scratch / path.name
+            shutil.copyfile(path, staged_path)
+            # Do not copy the live shared-memory index: SQLite can rebuild it
+            # from copied WAL frames without accessing the source directory.
+            if before[1] is not None:
+                shutil.copyfile(wal, scratch / wal.name)
+            if tuple(self._source_signature(item) for item in source_paths) != before:
+                logger.error("process_gpkg: Source changed while copying SQLite snapshot of {}; refusing read", path)
+                return None
+            logger.debug("process_gpkg: Reading {} from owned local snapshot", path)
+            return staged_path
+        except OSError as exc:
+            logger.error("process_gpkg: Could not prepare read-only snapshot of {}: {}", path, exc)
             return None
 
+    def _open_sqlite_connection(self, path: Path) -> sqlite3.Connection | None:
+        """Open a rollback-mode source or owned WAL snapshot, without write fallback."""
+        errors: list[str] = []
         for label, target in self._build_sqlite_connection_targets(path):
             conn: sqlite3.Connection | None = None
             try:
@@ -164,8 +206,14 @@ class ccAProcessor(BaseProcessor):
             logger.error("process_gpkg: GeoPackage does not exist or is not a file: {}", path)
             return pd.DataFrame()
 
-        conn = self._open_sqlite_connection(path)
+        owned = ExitStack()
+        read_path = self._prepare_gpkg_read_source(path, owned)
+        if read_path is None:
+            owned.close()
+            return pd.DataFrame()
+        conn = self._open_sqlite_connection(read_path)
         if conn is None:
+            owned.close()
             return pd.DataFrame()
 
         try:
@@ -225,7 +273,10 @@ class ccAProcessor(BaseProcessor):
             logger.error("process_gpkg: Unable to read consistent ccA snapshot from {}: {}", path, exc)
             return pd.DataFrame()
         finally:
-            conn.close()
+            try:
+                conn.close()
+            finally:
+                owned.close()
 
         cca_data = self._normalize_column_names(cca_data)
         if "Chan ID" not in cca_data.columns:
