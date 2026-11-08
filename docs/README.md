@@ -155,6 +155,7 @@ but they are not current architectural policy when they conflict with the canoni
 | [Fast PR checks and hosted timing](work/2026-10-17-fast-pr-checks-129.md) | Historical PR #129 independent workflow implementation and timing evidence |
 | [Mapped-drive-safe filesystem paths and raster progress](work/2026-10-16-absolute-path-policy.md) | PR #128 path policy, multiline raster progress, retained-wheel rebuild blocker and validation handoff |
 | [GitHub CI implementation handoff](work/2026-10-07-github-ci.md) | Implemented hosted checks, external-software boundaries and validation record |
+| [WP15 culvert/HY-8 engineering evidence](work/2026-11-08-wp15-culvert-engineering-evidence.md) | #101–#103 current physical source/API matrix, upstream evidence, native package and blockage-data gates, Windows validation handoff |
 | [TUFLOW culvert engine validation](work/2026-10-08-tuflow-culvert-engines-99.md) | PR #100 retained-wheel repair, numerical evidence and outstanding source-data acceptance |
 | [PyPI release automation](work/2026-10-15-release-automation.md) | Merge-only release policy, release opt-outs, validation and historical publication evidence |
 | [CI validation efficiency](work/2026-10-15-ci-validation.md) | Actionlint enforcement, focused dependencies and publication-wheel smoke validation |

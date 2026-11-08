@@ -19,6 +19,7 @@ from ...classes.culvert.criteria import DesignCriteria
 from ...classes.culvert.crossing import (
     CircularBarrelDefinition,
     CrossingDefinition,
+    HorizontalEllipseBarrelDefinition,
     RectangularBarrelDefinition,
 )
 from ...classes.culvert.results import CandidateAssessment, CrossingRatingResult, DesignResult, ScenarioResult
@@ -135,7 +136,14 @@ def crossing_definition_record(crossing: CrossingDefinition) -> dict[str, object
             "material": barrel.material.value,
             "label": barrel.label,
         }
-        if isinstance(barrel, RectangularBarrelDefinition):
+        if isinstance(barrel, HorizontalEllipseBarrelDefinition):
+            barrel_record.update(
+                shape="horizontal_ellipse",
+                span_mm=barrel.span_mm,
+                rise_mm=barrel.rise_mm,
+                physical_inlet=barrel.physical_inlet,
+            )
+        elif isinstance(barrel, RectangularBarrelDefinition):
             barrel_record.update(shape="rectangular", span_mm=barrel.span_mm, rise_mm=barrel.rise_mm)
         elif isinstance(barrel, CircularBarrelDefinition):  # pyright: ignore[reportUnnecessaryIsInstance]
             barrel_record.update(shape="circular", diameter_mm=barrel.diameter_mm)

@@ -212,7 +212,7 @@ def _run_design(
             diameters_mm=diameters_mm or (template_barrel.diameter_mm,),
             quantities=design_quantities,
         )
-    elif isinstance(  # pyright: ignore[reportUnnecessaryIsInstance]
+    elif isinstance(
         template_barrel, RectangularBarrelDefinition
     ):
         candidates = generate_rectangular_candidates(
