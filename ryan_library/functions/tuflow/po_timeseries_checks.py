@@ -17,6 +17,7 @@ from loguru import logger
 from pandas import DataFrame, Series
 
 from ryan_library.classes import tuflow_string_classes as tsc
+
 from .sample_validity import clean_hydraulic_samples
 
 # TODO: make it more like the other orchestrators for options etc. I don't think it is using the common pipeline either.
@@ -187,17 +188,21 @@ def _valid_time_axis(time_hours: Series) -> bool:
 def _check_peak_config(config: PeakCheckConfig) -> None:
     values = (config.warn_1hour, config.warn_2hours, config.flat_tol)
     if not all(np.isfinite(value) and value >= 0 for value in values):
-        raise ValueError("Peak warning thresholds and flat tolerance must be finite and nonnegative.")
+        message = "Peak warning thresholds and flat tolerance must be finite and nonnegative."
+        raise ValueError(message)
     if config.warn_1hour > config.warn_2hours:
-        raise ValueError("The one-hour warning threshold cannot exceed the two-hour threshold.")
+        message = "The one-hour warning threshold cannot exceed the two-hour threshold."
+        raise ValueError(message)
 
 
 def _check_stability_config(config: StabilityCheckConfig) -> None:
     values = (config.flat_tol, config.diff_rel_tol, config.diff_abs_tol)
     if not all(np.isfinite(value) and value >= 0 for value in values):
-        raise ValueError("Stability tolerances must be finite and nonnegative.")
+        message = "Stability tolerances must be finite and nonnegative."
+        raise ValueError(message)
     if config.min_points < 2 or config.max_sign_changes < 0:
-        raise ValueError("Minimum points must be >= 2 and allowed sign changes nonnegative.")
+        message = "Minimum points must be >= 2 and allowed sign changes nonnegative."
+        raise ValueError(message)
 
 
 def _rejection_summary(reasons: dict[str, int]) -> str:

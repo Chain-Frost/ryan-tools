@@ -199,9 +199,11 @@ class TimeSeriesProcessor(BaseProcessor):
 
             time_values = pd.to_numeric(df["Time"], errors="coerce")
             if not np.isfinite(time_values.to_numpy(dtype="float64", na_value=np.nan)).all():
-                raise DataValidationError("Timeseries contains missing or nonfinite timestamps.")
+                message = "Timeseries contains missing or nonfinite timestamps."
+                raise DataValidationError(message)
             if (time_values.diff().iloc[1:] <= 0).any():
-                raise DataValidationError("Timeseries timestamps must increase strictly without duplicates.")
+                message = "Timeseries timestamps must increase strictly without duplicates."
+                raise DataValidationError(message)
             df["Time"] = time_values
 
             cleaned_columns: list[str] = self._clean_column_names(columns=df.columns, data_type=data_type)

@@ -39,6 +39,26 @@ class POMMProcessor(BaseProcessor):
         use_max = (absolute_values["Max"] >= absolute_values["Min"]) | absolute_values["Min"].isna()
         self.df["SignedAbsMax"] = self.df["Max"].where(use_max, self.df["Min"])
 
+    def _remove_invalid_extrema(self) -> None:
+        """Mask dry-level sentinels and discard rows without an actual numeric extreme."""
+        level_rows = self.df["Type"].astype("string").map(
+            lambda name: is_water_level_measurement(str(name))
+        )
+        for column in ("Max", "Min"):
+            numeric, rejected = clean_hydraulic_samples(self.df[column], measurement="")
+            no_data = level_rows & numeric.eq(-99999).fillna(False)
+            count = int(no_data.sum())
+            if count:
+                numeric = numeric.mask(no_data)
+                rejected["no_data"] = rejected.get("no_data", 0) + count
+            self.df[column] = numeric
+            self.record_rejections(rejected)
+
+        all_missing = self.df[["Max", "Min"]].isna().all(axis=1)
+        if all_missing.any():
+            self.record_rejections({"all_missing_extrema": int(all_missing.sum())})
+            self.df = self.df.loc[~all_missing].copy()
+
     def process(self) -> None:
         """Read the raw POMM CSV, transpose + promote row 1 to header,
         rename the key columns, calculate AbsMax and SignedAbsMax,
@@ -100,24 +120,7 @@ class POMMProcessor(BaseProcessor):
 
             self.df = transposed
 
-            # Exclude documented level sentinels before numerical casts or ranking.
-            level_rows = self.df["Type"].astype("string").map(
-                lambda name: is_water_level_measurement(str(name))
-            )
-            for column in ("Max", "Min"):
-                numeric, rejected = clean_hydraulic_samples(self.df[column], measurement="")
-                no_data = level_rows & numeric.eq(-99999).fillna(False)
-                count = int(no_data.sum())
-                if count:
-                    numeric = numeric.mask(no_data)
-                    rejected["no_data"] = rejected.get("no_data", 0) + count
-                self.df[column] = numeric
-                self.record_rejections(rejected)
-
-            all_missing = self.df[["Max", "Min"]].isna().all(axis=1)
-            if all_missing.any():
-                self.record_rejections({"all_missing_extrema": int(all_missing.sum())})
-                self.df = self.df.loc[~all_missing].copy()
+            self._remove_invalid_extrema()
             if self.df.empty:
                 self.input_health = "INVALID"
                 return

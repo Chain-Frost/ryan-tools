@@ -14,7 +14,6 @@ from ryan_library.functions.tuflow.po_timeseries_checks import (
     analyze_stability_q_csv,
 )
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
-from ryan_library.processors.tuflow.maximums_1d.CmxProcessor import CmxProcessor
 from ryan_library.processors.tuflow.maximums_1d.NmxProcessor import NmxProcessor
 from ryan_library.processors.tuflow.other_processors.POMMProcessor import POMMProcessor
 from ryan_library.processors.tuflow.other_processors.POProcessor import POProcessor

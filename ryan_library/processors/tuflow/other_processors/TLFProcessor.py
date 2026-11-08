@@ -1,9 +1,9 @@
 # ryan_library/processors/tuflow/other_processors/TLFProcessor.py
 
 from pathlib import Path
+from typing import Any
 
 from loguru import logger
-from typing import Any
 
 from ryan_library.functions.parse_tlf import (
     finalise_data,
