@@ -1,5 +1,7 @@
 # ryan-tools
 
+> **Draft migration:** The [standalone TUFLOW initialiser](docs/work/tuflow-initialiser/README.md) is being incorporated through stacked PR #246. Its `tuflow-initialiser` command is not released until validation and merge.
+
 `ryan-tools` is a collection of Python utilities for TUFLOW, RORB, 12D, GDAL, QGIS and general data-processing
 workflows. Reusable code lives in `ryan_library`; files under `ryan-scripts` are human-facing wrappers and standalone
 utilities.

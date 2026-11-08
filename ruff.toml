@@ -130,6 +130,9 @@ ignore = [
     "BLE001", # each GIS feature/scenario is isolated so later TUFLOW features still produce auditable output
     "C901",   # GIS mapping, scenario dispatch, partial-failure capture, and CSV export form one wrapper transaction
 ]
+"ryan-scripts/cad-python/cad_to_gpkg.py" = [
+    "C901",   # cohesive input validation and GeoPackage transaction remain auditable together
+]
 "ryan-scripts/gdal-python/audit_CRS.py" = [
     "BLE001", # each independent datasource audit becomes a report row so one unreadable file cannot stop the batch
 ]
