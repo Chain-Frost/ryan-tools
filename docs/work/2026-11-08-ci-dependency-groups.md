@@ -2,11 +2,12 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Deferred: further dependency reduction; accepted wheel delivery complete |
+| Status | Needs review: early Windows helper group; broad dependency reductions not justified |
 | Owner | ChatGPT / maintainer review |
 | Created | 2026-11-08 |
-| Updated | 2026-11-08 |
-| Next review | 2026-11-15 |
+| Updated | 2026-11-09 |
+| Next review | 2026-11-16 |
+| Current candidate baseline | Draft #251 at `63c7da77676b9ad44e20e7f1729b738985d400cc`, which already contains main `585e5d06dd599e68b1c470420481b5b9a3c79333` |
 | Delivery | [PR #274](https://github.com/Chain-Frost/ryan-tools/pull/274) integrated into [PR #272](https://github.com/Chain-Frost/ryan-tools/pull/272); merged to main as `8c03dc961455c124fe4e0996ee15f50813cf5682` |
 | Historical predecessor | Initial PR #272 head `7f45110b37eb143f9b785001fe5d04af526ab339` |
 | Timing baseline | Previous PR #272 head `1ae1235c2369950c287c4fafe24ef23848880fe0` |
@@ -22,9 +23,11 @@ Child #274 was integrated into #272 as `05939c936282aedfce5f090a2434fbd49e6d7d10
 #272 was merged into main as `8c03dc961455c124fe4e0996ee15f50813cf5682` at 08:51 UTC. Both PRs are closed.
 Do not continue the old child branch or rebuild the accepted wheel as unfinished work.
 
-This record now owns only the deferred investigation of further dependency reduction and eventual retirement of
-the temporary parser pin. No additional non-GIS/GIS test split is adopted. See the
-[CI resource record](2026-11-08-ci-resource-efficiency.md) for operational validation and active-stack adoption.
+The selected follow-up moves the CI-scope contracts into a pytest-only phase at the start of the existing Windows
+Hosted job. The full runtime/MCP and Policy environments remain intact. This record owns that dependency boundary,
+the completed assessment of further reductions and eventual retirement of the temporary parser pin. No separate
+non-GIS/GIS jobs are adopted. See the [CI resource record](2026-11-08-ci-resource-efficiency.md) for validation and
+active-stack delivery.
 
 ## Completed delivery: accepted PyTuflow wheel
 
@@ -108,15 +111,19 @@ dependencies. Do not turn this bounded change into a full dependency lock migrat
 
 ## Current state
 
-Two CI installation profiles retain dependency resolution through the authoritative package metadata:
+The full CI installation profiles retain dependency resolution through the authoritative package metadata. A small
+shared helper profile allows Windows CI-scope failures to stop Hosted before fixture and native setup:
 
 | Job | Requirements | Retained contract | Omitted work |
 | --- | --- | --- | --- |
+| Early Windows CI-scope contracts | [ci-helper-requirements.txt](../../repo-scripts/ci-helper-requirements.txt) | Pytest, the standard library and Git; the entire existing scope-test file runs once | Project/runtime installation and fixture checkout are delayed until these tests pass |
 | Hosted tests, including consolidated MCP checks | [ci-test-requirements.txt](../../repo-scripts/ci-test-requirements.txt) | All declared runtime dependencies, MCP extra, pytest and immutable PyTUFLOW source | The `dev` extra and separate interactive QGIS MCP bridge |
 | Windows strict typing | [ci-policy-requirements.txt](../../repo-scripts/ci-policy-requirements.txt) | All runtime dependencies, canonical development/MCP extras and immutable PyTUFLOW source | Separate interactive QGIS MCP bridge |
 | Package / installed-wheel smoke | [wheel-smoke-requirements.txt](../../repo-scripts/wheel-smoke-requirements.txt) | Existing focused smoke dependencies and isolated installation | No new removals in this audit |
 
-Run profile installation from the repository root, after the existing Windows binary GIS bootstrap. The nested
+Run profile installation from the repository root. Install the helper profile before fixture checkout and native
+setup; install the full hosted and Policy profiles after the existing Windows binary GIS bootstrap. Hosted includes
+the shared helper profile instead of maintaining a second pytest requirement. The nested
 PyTUFLOW requirements include resolves relative to the profile; the editable `.` refers to the repository working
 directory. [requirements.txt](../../requirements.txt) and [pyproject.toml](../../pyproject.toml) remain unchanged.
 
@@ -158,16 +165,25 @@ environment and package installation, not the sole installed-package check.
 
 ## Next action
 
-Keep further dependency reduction deferred while the merged CI reaches active stacks and operational validation
-is reconciled in the [CI resource record](2026-11-08-ci-resource-efficiency.md). Select a separate, bounded benchmark
-only if measured setup or execution costs justify it. Do not reopen the completed wheel delivery or split profiles
-without same-source collection, skip-reason, capability and total-runner-use evidence.
+Validate the new Windows helper phase against the accepted #251 source, then reconcile the early and broad JUnit
+node sets and skip reasons. The child starts from `63c7da77`, already synchronized with current main; do not create
+an empty sync commit or repeat the documentation preflight already delivered by #292. Publish one checked batch
+on `ci/early-windows-helper-checks-20261109`, targeting #251. Record hosted results in the PR description.
 
-One focused candidate is moving the 26 real-Git CI-scope helper tests to Ubuntu preflight while retaining the actual
-Windows Policy manifest invocation and all Windows runtime, MCP and installed-package acceptance. At initial parent
-acceptance those tests consumed 21.382 summed testcase seconds on Windows; a local Linux/Python 3.14 run took
-1.86 seconds for the suite. These are different measures on different machines, not a controlled saving estimate.
-No test move or new performance experiment is implemented by this handoff refresh.
+The feature baseline contains **57** real-Git CI-scope cases, including the three dependency/version cases added
+after main's 54-case checkpoint. They stay on Windows. The early phase uses `--confcutdir=tests/repo_scripts` and
+disables plugin autoload only for that step; the later broad suite ignores only this exact file. No test assertion
+or runtime capability is removed. On the first PR attempt, a helper failure stops Hosted's subsequent fixture/GIS
+installation. Main/manual runs and PR reruns retain the remaining broad diagnostics, then explicitly fail Hosted
+using the helper step's original outcome. The required MCP gate rejects the failed Hosted job. Independent Policy
+and Package jobs retain their existing scheduling.
+
+The dependency audit at #251/package `26.11.9.1` found 29 declared runtime requirements and 13 development entries.
+Hosted already omits the development extra. Policy still needs the runtime import environment and typing support;
+`distributed`, `pillow_heif` and `docx` have actual first-party imports. The only evidenced optional Policy removals
+are `build`, `ruff` and `pytest-cov`. Their timing benefit has not been demonstrated, so this change keeps the
+canonical development extra rather than adding a custom installer or a copied requirement list that can drift.
+The focused prompt below defines a bounded experiment if that remaining optimization is selected later.
 
 If further dependency reduction is worthwhile after measuring the consolidated jobs, investigate these stages in
 a separate reviewable change:
@@ -258,38 +274,41 @@ also passed. Both profiles continue to resolve all 29 declared runtime requireme
 
 ```text
 Repository: Chain-Frost/ryan-tools
-Read AGENTS.md, docs/DEVELOPMENT_GUIDE.md, docs/work/README.md and
-docs/work/2026-11-08-ci-dependency-groups.md, then fetch current main and record
-its exact SHA. PRs #274 and #272 are closed and merged; implementation baseline
-8c03dc961455c124fe4e0996ee15f50813cf5682 already includes the accepted wheel,
-provenance checks, CI profiles and MCP consolidation. Do not continue the old
-child branch or rebuild/reintegrate the same accepted wheel.
+Optional bounded follow-up: benchmark removing unused execution tools from
+Windows Policy only. Read AGENTS.md, docs/DEVELOPMENT_GUIDE.md, docs/work/README.md
+and this record; inspect current main, #251 and open CI PRs before choosing a
+fresh isolated child. Do not repeat the accepted wheel or early-helper work.
 
-This brief is deferred future work, not an instruction to start a benchmark.
-When a maintainer selects it, use a separate worktree and one bounded candidate.
-Coordinate with active stack owners before adopting their source. Keep the
-accepted parser bytes and normal user dependency declarations unchanged.
+Compare the canonical .[dev,mcp] profile with a scratch candidate containing
+the same runtime/MCP/parser requirements and every current dev entry except
+build, ruff and pytest-cov. Preserve exact version constraints and markers.
+At baseline 63c7da77 the ten retained development entries are:
+  pandas-stubs>=3.1.0.261029, pyarrow-stubs, types-psutil,
+  types-rasterio>=1.5.2.20261029, scipy-stubs, distributed,
+  pillow-heif>=1.8.0, python-docx, pyright>=1.1.414, pytest.
+Recompute that set from current metadata; retain all newly added entries unless
+their omission is independently justified. Never drop them through a stale list.
 
-Preserve normal dependency declarations, published pyproject.toml requirements,
-the immutable PyTUFLOW source and installed-wheel isolation. Do not initialize or
-inspect unsorted. Do not merge, enable auto-merge, release or publish packages.
+Use the identical Windows/Python 3.14 source and fixture revisions. Resolve each
+candidate once and reuse exact package artifacts/versions for timing. Compare
+clean installation with an empty download cache and clean installation from a
+populated cache; an already-installed environment is not a warm-cache test.
+Time GIS bootstrap, profile resolution/install, strict checking and total runner
+use separately, with a repeat in reversed order to expose transient variance.
 
-Start by recording the exact existing Windows/Python 3.14 test commands,
-collected node IDs, pass/deselect/skip counts and skip reasons. Measure setup
-and execution separately. Inventory direct, transitive, dynamic-engine and
-subprocess imports for any proposed group. An absent import must not make
-importorskip or a capability fallback silently remove accepted coverage.
+Require matching pip-check results, runtime/MCP capability probes and strict
+Pyright diagnostics for the same maintained files, including initialiser stubs
+and files importing the development-provided runtime modules. Keep Hosted's
+full runtime/MCP profile, selected nodes, deselections, skip reasons, profiling,
+pandas compatibility, parser provenance and installed-wheel checks unchanged.
 
-Consider the CI-scope helper-test move before a broad GIS/non-GIS split, while
-keeping real Windows Policy scope invocation and user-runtime acceptance.
-Trial only the smallest evidenced change. Compare the same source
-and test-data revisions in fresh environments, and require collection/capability
-parity before adopting it. Preserve the explicit profiling, compilation and
-MCP export checks and all wheel/copy-wrapper checks. Benchmark total runner
-minutes as well as elapsed time; extra groups may cost more than one shared
-installation. Record actual savings or reject the split if no benefit appears.
+Adopt a production profile only if repeatable Windows setup savings justify its
+maintenance and coordination cost. A smaller download alone is insufficient.
+If no benefit is established, record the result and retain the canonical extra.
+Do not introduce a production installer merely to perform this experiment.
 
-Implement only a justified result, run focused validation before one batch
-push, and update this record and the PR with evidence and remaining native
-acceptance. Keep any optional future work distinct from the delivered change.
+Preserve normal user dependency declarations and accepted PyTuflow bytes; never
+initialize or inspect unsorted. Publish one checked batch with evidence and
+fresh remote-head guards. No main merge, release or package publication is
+authorized by this optional handoff.
 ```
