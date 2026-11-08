@@ -10,8 +10,10 @@ Input validation is not TUFLOW execution and never modifies model inputs.
 
 The supported temporary PyTUFLOW requirement is maintained in
 [`repo-scripts/pytuflow-requirement.txt`](../repo-scripts/pytuflow-requirement.txt).
-The selected source is a fixed contributor-fork commit, not an upstream release.
-It includes the public API and consolidated validation fixes proposed in upstream PR #17 (originally developed through fork PR #63). PyTuflow reports version 1.3.0, but the exact commit is required until upstream accepts the changes.
+The selected artifact is a verified local wheel built from a fixed contributor-fork commit, not an
+upstream release. It includes the public API and consolidated validation fixes proposed in upstream PR #17
+(originally developed through fork PR #63). PyTuflow reports version 1.3.0, but version equality is not
+sufficient: the committed binary has an immutable SHA-256 and explicit installed-wheel provenance checks.
 The pin also fixes implicit generic and machine-specific TCF override parsing,
 so the runner can discover redirected log folders through the public context API.
 It remains under review and requires native acceptance before release. Public package metadata retains the publishable
@@ -20,7 +22,7 @@ prove compatibility. Another PyTUFLOW 1.2.7 build lacks the batch validation API
 
 For normal Windows installation, run `install-ryan-tools.bat`. It uses the
 selected normal Python installation, installs the published package together
-with the accepted PyTUFLOW source, and checks the result. No separate parser
+with the accepted PyTuflow wheel, and checks the result. No separate parser
 installation or virtual environment is required. To preview the same PyPI route:
 
 ```powershell
@@ -50,8 +52,9 @@ py -3.14 -m pip install -r requirements.txt
 py -3.14 -m pip check
 ```
 
-The requirements file includes the same pinned PyTUFLOW source and resolves its
-dependencies. The preceding parser-only replacement is necessary because pip
+The requirements file references the same verified, root-relative PyTuflow wheel and
+resolves its dependencies. Run it from the repository root; the wheel also supports paths containing spaces.
+Plain `pip install ryan-tools` does not discover this local dependency wheel. The preceding parser-only replacement is necessary because pip
 can retain an existing incompatible build when its version number matches.
 Run the capability diagnostic below after installation. An existing PyPI
 installation without the public API is not supported for input checking.
@@ -260,7 +263,7 @@ workflow is retained because it checks the immutable accepted PyTUFLOW source,
 deliberately rejects an incompatible same-version build, and replays the entire
 public example archive. The standalone command-plan and CSV unit tests already
 run in the main Hosted tests; the separate scope-specific workflows are retired.
-This workflow installs the exact pinned PR63 archive and exercises real public
+This workflow installs the exact wheel from accepted PR #17 source and exercises real public
 file, selected-layer, BC CSV, GIS-linked-source and mapping checks, plus
 same-version incompatibility, broken transitive imports, shadowed packages,
 incomplete group results, lazy imports and installer dry-run commands.

@@ -65,11 +65,12 @@ These documents stay near the code they describe so that browsing a target direc
 | DataFrame examples | [DataFrame examples](../examples/dataframes/README.md) | Table assembly and Excel/Parquet export helpers |
 | Rock-protection lookup data | [Outlet rock-protection data](../ryan_library/functions/data/README.md) | Source, interpretation and limits of the bundled multi-pipe lookup tables |
 | Maintenance benchmarks | [Benchmark guide](../repo-scripts/benchmarks/README.md) | Running and interpreting file-collection or DataFrame backend benchmarks |
+| Accepted temporary PyTuflow wheel | [Vendored PyTuflow wheel and provenance](../repo-scripts/wheels/pytuflow/887534ea8c15b80d185a38a7ead1d42ab42a7167/README.md) | Immutable third-party parser wheel, checksum verification, Windows build provenance and retirement policy |
 | 3D similarity transformations | [Similarity transform API](GEOMETRY_SIMILARITY.md) | Supported fit function, parameters and transform conventions |
 | Vendored algorithms | [Vendor inventory](../vendor/README.md) | Third-party PyHMA and simil source, licence, import and packaging policy |
 | Vendored `simil` | [`simil` upstream README](../vendor/simil/README.md) | Bundled similarity-transform implementation, usage and upstream attribution |
 | Vendored `PyHMA` | [`PyHMA` README](../vendor/PyHMA/README.md) | Hydrograph matching usage, requirements and upstream attribution |
-| TUFLOW public input-preflight smoke | [TUFLOW input preflight](TUFLOW_INPUT_PREFLIGHT.md) | Windows Python 3.14 pinned PyTUFLOW PR63 smoke, incompatible same-version rejection and retained scoped test-data fixtures; superseded archive/parity harness retired |
+| TUFLOW public input-preflight smoke | [TUFLOW input preflight](TUFLOW_INPUT_PREFLIGHT.md) | Windows Python 3.14 accepted local PR17 wheel, incompatible same-version rejection and retained model fixtures |
 
 ## Integrations
 
@@ -142,7 +143,9 @@ but they are not current architectural policy when they conflict with the canoni
 | [Original script distribution requirements](audits/2026-10-17-installed-scripts-original-requirements.md) | Preserved original A–F requirements |
 | [Installed script inventory](audits/2026-10-19-installed-scripts-inventory.md) | All 160 source paths; 83 selected and 77 excluded; lifecycle sign-off outstanding |
 | [Script remediation backlog](audits/2026-10-22-script-remediation-backlog.md) | 47 AB items: open/deferred work plus accepted-closed HY-8 evidence (AB-023); triaged safety, engineering and lifecycle tasks |
-| [Fast PR checks and hosted timing](work/2026-10-17-fast-pr-checks-129.md) | PR #129 implementation, exact-head hosted validation, timing evidence and remaining Python-change exercise |
+| [CI resource efficiency and Windows acceptance](work/2026-11-08-ci-resource-efficiency.md) | Merged #272 implementation, post-merge validation and coordinated adoption by active stacks |
+| [CI dependency and PyTuflow wheel implementation](work/2026-11-08-ci-dependency-groups.md) | Completed #274/#272 wheel delivery and accepted Windows coverage; deferred, bounded dependency follow-up |
+| [Fast PR checks and hosted timing](work/2026-10-17-fast-pr-checks-129.md) | Historical PR #129 independent workflow implementation and timing evidence |
 | [Mapped-drive-safe filesystem paths and raster progress](work/2026-10-16-absolute-path-policy.md) | PR #128 path policy, multiline raster progress, retained-wheel rebuild blocker and validation handoff |
 | [GitHub CI implementation handoff](work/2026-10-07-github-ci.md) | Implemented hosted checks, external-software boundaries and validation record |
 | [TUFLOW culvert engine validation](work/2026-10-08-tuflow-culvert-engines-99.md) | PR #100 retained-wheel repair, numerical evidence and outstanding source-data acceptance |
