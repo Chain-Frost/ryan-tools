@@ -35,6 +35,8 @@ class ProcessorCollection:
         """Initialize an empty ProcessorCollection."""
         self.processors: list[BaseProcessor] = []
         self.basic_info_lookup: DataFrame | None = None
+        # Distinguish invalid source-present locations from truly absent ones.
+        self.parquet_selection_diagnostics: list[dict[str, str]] = []
 
     def copy(self) -> ProcessorCollection:
         """Return a deep copy of the collection."""
@@ -43,6 +45,7 @@ class ProcessorCollection:
         new_collection.processors = [copy.deepcopy(p) for p in self.processors]
         if self.basic_info_lookup is not None:
             new_collection.basic_info_lookup = self.basic_info_lookup.copy(deep=True)
+        new_collection.parquet_selection_diagnostics = copy.deepcopy(self.parquet_selection_diagnostics)
         return new_collection
 
     def add_processor(self, processor: BaseProcessor) -> None:
@@ -760,31 +763,35 @@ class ProcessorCollection:
         )
         return filtered_collection
 
-    def to_parquet(self, file_path: Path | str, *, overwrite: bool = False) -> None:
-        """Write a single .rtparquet ZIP bundle of Parquet frames and processor metadata.
+    def to_parquet(
+        self,
+        directory: Path | str,
+        *,
+        overwrite: bool = False,
+        verify_sources: bool = True,
+    ) -> None:
+        """Publish a directory of standard Parquet tables plus manifest.json.
 
-        This is a heterogeneous collection snapshot, not a normal .parquet table.
+        Freshness is checked before writing and immediately before publication.
+        Explicit historical/offline exports may use verify_sources=False.
         """
         from .parquet_bundle import write_collection_bundle
 
-        write_collection_bundle(self, file_path, overwrite=overwrite)
+        write_collection_bundle(self, directory, overwrite=overwrite, verify_sources=verify_sources)
 
     @staticmethod
     def from_parquet(
-        file_path: Path | str,
+        directory: Path | str,
         locations: Collection[str] | None = None,
         *,
         data_types: Collection[str] | None = None,
         verify_sources: bool = True,
     ) -> ProcessorCollection:
-        """Restore a .rtparquet bundle, validating the current processor configuration."""
+        """Restore selected trusted processors from a Parquet dataset directory."""
         from .parquet_bundle import read_collection_bundle
 
         return read_collection_bundle(
-            file_path,
-            locations=locations,
-            data_types=data_types,
-            verify_sources=verify_sources,
+            directory, locations=locations, data_types=data_types, verify_sources=verify_sources
         )
 
     # Breaking change (2026-11-08): the optional HDF5 snapshot feature was removed.

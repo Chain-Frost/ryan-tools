@@ -1,4 +1,4 @@
-"""Shared wide CSV reader for point, line and region reporting-location histories."""
+"""Selected-column wide CSV reader for reporting locations and staged result histories."""
 
 from __future__ import annotations
 
@@ -67,7 +67,14 @@ class ReportingLocationTimeSeriesProcessor(BaseProcessor):
             for source_column, location in selected:
                 values = parse_reporting_numbers(raw[source_column], column=source_column)
                 frames.append(
-                    pd.DataFrame({"Time": time, "Location": location, "Type": self._MEASUREMENT_TYPE, "Value": values})
+                    pd.DataFrame(
+                        {
+                            "Time": time,
+                            "Location": location,
+                            "Type": self._measurement_type_for_column(source_column),
+                            "Value": values,
+                        }
+                    )
                 )
             self.raw_df = raw
             self.df = pd.concat(frames, ignore_index=True)
@@ -104,16 +111,22 @@ class ReportingLocationTimeSeriesProcessor(BaseProcessor):
             raise ValueError(msg)
 
         locations: list[tuple[str, str]] = []
-        seen: set[str] = set()
+        seen: set[tuple[str, str]] = set()
         for source_column in header[2:]:
             match = self._HEADER.fullmatch(source_column.strip())
             if match is None or match.group("run") != self.name_parser.raw_run_code:
                 msg = f"{self.file_name}: Unsupported {self._LOCATION_KIND} column {source_column!r}."
                 raise ValueError(msg)
             location = match.group("location").strip()
-            if not location or location in seen:
+            distinct_field = (location, match.groupdict().get("component", ""))
+            if not location or distinct_field in seen:
                 msg = f"{self.file_name}: Empty or duplicate {self._LOCATION_KIND} identifier {location!r}."
                 raise ValueError(msg)
             locations.append((source_column, location))
-            seen.add(location)
+            seen.add(distinct_field)
         return header[1], locations
+
+    def _measurement_type_for_column(self, source_column: str) -> str:
+        """Default type is common to all columns; component readers may override."""
+        _ = source_column
+        return self._MEASUREMENT_TYPE

@@ -159,44 +159,59 @@ To release retained raw input tables across the collection, call:
 discarded_count = collection.discard_raw_dataframes()
 ```
 
-## Single-file Parquet processor collections
+## Parquet-directory processor collection snapshots
 
-To export and later restore **individual ryan-tools processor objects**, use the
-single-file `.rtparquet` archive format. It contains one Parquet table per
-processor plus a versioned JSON manifest. This is **not** a conventional
-`.parquet` file; `pandas.read_parquet()` reads ordinary exported tables, not
-a whole collection bundle.
+A `ProcessorCollection` contains heterogeneous native TUFLOW processor
+DataFrames; a normal one-table `.parquet` does not preserve their object state.
+The **directory** dataset API writes independent standard Parquet files plus a
+versioned `manifest.json`. The unpublished `.rtparquet` ZIP proposal is
+superseded, not a supported file format.
 
 ```python
 from pathlib import Path
-
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 
-bundle = Path("processed_tuflow.rtparquet")
-collection.to_parquet(bundle)  # Never overwrites an existing archive by default.
-restored = ProcessorCollection.from_parquet(bundle)
-# Or restore only selected types/locations:
+dataset = Path("processed_tuflow.parquetdir")
+collection.to_parquet(dataset)  # No-clobber by default.
+restored = ProcessorCollection.from_parquet(dataset)
 selected = ProcessorCollection.from_parquet(
-    bundle, data_types=["PO", "POMM"], locations=["Culvert_01"]
+    dataset, data_types=["PO", "POMM"], locations=["Culvert_01"]
 )
 ```
 
-`to_parquet(..., overwrite=True)` explicitly replaces an existing bundle
-through an owned temporary file. The archive uses individual compressed
-Parquet members and a ZIP container without redundant ZIP compression.
-Corruption, unexpected entries, processor-configuration mismatch, and
-changed/missing sources fail closed. `verify_sources=True` (default)
-compares source path, size and timestamp, including available GeoPackage WAL
-metadata. `verify_sources=False` explicitly permits reading historical
-snapshots after source files have moved or changed; it does not disable archive
-integrity or registry validation. No source files are rewritten.
+A fresh directory contains `manifest.json`, `processors/000000.parquet`,
+etc., and optional `basic_info_lookup.parquet`. All data tables use normal
+PyArrow/ZSTD Parquet. The manifest records member SHA-256/size, schema/index
+and categorical/nullable fidelity, registry and processing-code digests,
+factory class/run/AEP/TP/duration identity, path, source fingerprint, health,
+filters and original location-presence evidence. Only trusted installed
+native processor factory classes can be restored; original result CSV data
+is never reparsed. Type/location selection avoids reading unrelated frames,
+while complete collection loading remains RAM-resident.
 
-The full loaded collection still occupies memory. For workflows exceeding
-available RAM, retain the independent partitioned-Parquet/export and
-per-run reduction strategy instead of materialising a large collection.
-The bundle records processed DataFrames, filters, source identities and the
-compacted basic-info lookup; it deliberately does not serialize raw input
-DataFrames or execute arbitrary Python classes from the archive.
+**Publication:** a new dataset is staged and published with an atomic
+directory no-clobber rename. `overwrite=True` instead writes an immutable
+generation under `.versions/<generation>/` and atomically replaces only the
+root `manifest.json`. Previous generations stay available to readers and
+are not automatically deleted. Interrupted writes preserve the preceding
+snapshot. Unsupported atomic filesystem operations fail closed; native
+NTFS, UNC and mapped-SMB acceptance is still required.
+
+Source size/mtime_ns and optional GeoPackage WAL state are captured **before**
+processing, never first at export. Freshness is checked before writing and
+immediately before publication. An explicit historical/offline
+`verify_sources=False` read or write preserves the original signature, and
+still verifies loaded Parquet member hashes, native factory, registry and
+processing-semantics identity. This bounded fingerprint does not detect a
+replacement deliberately preserving size and timestamp; large source files
+are not hashed by default.
+
+A source-present, wholly rejected location cannot be represented as a
+successful empty processor. The restore exposes `parquet_selection_diagnostics`
+with `INVALID` versus genuinely `ABSENT` selection; valid selected
+processors are retained. For full 300-run timeseries collections, use
+incremental partitioned Parquet and per-run reduction rather than a single
+combined DataFrame. This API adds no PyTuflow readers, PyTables or HDF5.
 
 ## Processed data storage and retired HDF5 snapshot API
 
@@ -221,8 +236,8 @@ historical snapshot can be restored.
 **Use Parquet for current processed tabular results.** The existing
 `ryan-tools` TUFLOW processors remain the result readers. Export combined
 DataFrames using `to_parquet()` and load tables using `pandas.read_parquet()`.
-Conventional Parquet tables do not restore processor objects. Use the separate
-`.rtparquet` collection bundle above for a validated single-file snapshot.
+Parquet does not currently restore complete `ProcessorCollection` objects:
+the unused HDF snapshot feature was removed, not silently converted.
 
 ## MCP inspection and advanced queries
 
@@ -399,3 +414,62 @@ representative smoke check, and a package build. Use synthetic fixtures when pro
 
 If the new processor type has recurring agent-facing value, verify that the generic MCP inspection tools handle it and
 update their guidance or focused coverage as needed. Do not add a separate MCP endpoint for each basic processor.
+
+## Structure crossing history and upstream-level-state outputs (#236)
+
+The factory recognises `_SQ.csv` as source-computed **total structure crossing
+flow**, distinct from the 2D-only `_2d_QS.csv` and PO structure flow.
+It selects structure columns before wide-to-long expansion.
+
+The separate `_SHmx.csv` is the **state at maximum upstream water level**,
+not a discharge-maximum table. `Q Below`, `Q Above`, `Q Total`,
+`A Below`, `A Above`, `A Total`, `V Below`, `V Above`,
+`V Combined`, `h U/S`, `h D/S`, `dh` and `Time` are source
+values. They are never recomputed as coincident 1D independent extrema.
+The new readers preserve printed float64 precision, signed/zero numbers
+and null values for `-99999`, `**********` and empty cells.
+
+```python
+from pathlib import Path
+from ryan_library.orchestrators.tuflow.structure_results import main_processing
+
+main_processing(
+    paths_to_process=[Path("TUFLOW/results/EG02/plot/csv")],
+    include_data_types=["SQ", "SHmx"],
+    locations_to_include=["FC01.1_R"],
+    export_mode="both",
+    use_live_dashboard=False,
+)
+```
+
+A protected workbook/Parquet export keeps histories and supplied upstream
+level states in separate sheets. The two product types remain distinct in
+`ProcessorCollection` and read-only MCP inspection. The full #236 format
+backlog and native-scale acceptance remain open.
+
+## Split 2D CSV, loss coefficients and node mass-balance histories (#236)
+
+The registered `_2d_H.csv`, `_2d_Q.csv` and `_2d_V.csv` readers
+retain location, simulation hours and source H/Q/V measurements in the
+existing PO-shaped `Time/Location/Type/Value/AbsValue` schema, using the
+same metric labels as the combined `_PO.csv`. They have a separate
+`SplitPO` dataformat and a dedicated `split_2d_results.main_processing`
+workflow: **do not ingest the complete PO and its split equivalents as
+two independent ensemble observations**. Structure HU/HD/QS remain under
+the separate #237 investigation.
+
+`_1d_L.csv` is available via `LProcessor` and
+`culvert_losses.main_processing`. Values are **dimensionless coefficients**,
+not head loss in metres. Preserve `Entry LC`, `Additional LC`, `Exit LC`
+for channels and `LC` for nodes/pits as distinct `Type` fields. Select
+channel/pit columns before reading the full time-series values. This does not
+infer channel connectivity.
+
+`_1d_TSMB.csv` is available via `TSMBProcessor` and
+`node_mass_balance_history.main_processing`. It preserves source node
+IDs and timestamps; it is **not** a replacement for node summary
+`_1d_MB.csv` or model/domain `_MB.csv` products.
+
+All readers retain source float64 precision, signed and zero values and
+reserved no-data as missing; the protected exporters use separate
+workbooks/Parquet files and do not modify input results.

@@ -25,6 +25,8 @@ from ryan_library.classes.suffixes_and_dtypes import (
 from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 from ryan_library.functions.dataframe_helpers import reorder_long_columns
 
+from .source_fingerprint import source_signature
+
 
 # Custom Exceptions
 class ProcessorError(Exception):
@@ -73,6 +75,9 @@ class BaseProcessor(ABC):
     df: pd.DataFrame = field(default_factory=pd.DataFrame)
     raw_df: pd.DataFrame = field(default_factory=pd.DataFrame)
     processed: bool = field(default=False)
+    # An immutable input fingerprint captured before processing, not when exporting.
+    source_at_processing: dict[str, object] | None = field(default=None, init=False, repr=False)
+    source_entity_presence: dict[str, list[str]] = field(default_factory=dict, init=False, repr=False)
     include_path_columns: bool = field(default=True, repr=False)
     applied_location_filter: frozenset[str] | None = field(default=None, init=False, repr=False)
     applied_entity_filter: frozenset[str] | None = field(default=None, init=False, repr=False)
@@ -93,6 +98,9 @@ class BaseProcessor(ABC):
     def __post_init__(self) -> None:
         self.file_name = self.file_path.name
         self.resolved_file_path = self.file_path.absolute()  # Preserve public attribute name for existing callers.
+        self.source_at_processing = (
+            source_signature(self.resolved_file_path) if self.resolved_file_path.is_file() else None
+        )
         self.name_parser = TuflowStringParser(file_path=self.file_path)
         if self.name_parser.data_type is None:
             msg = "data_type was not set in TuflowStringParser for self.file_path.name"
@@ -292,7 +300,18 @@ class BaseProcessor(ABC):
             raise ConfigurationError(msg)
 
         # Depending on dataformat, load columns_to_use or expected_in_header
-        handled_formats: set[str] = {"Maximums", "ccA", "Timeseries", "POMM", "EOF", "TLF"}
+        handled_formats: set[str] = {
+            "Maximums",
+            "ccA",
+            "Timeseries",
+            "POMM",
+            "EOF",
+            "TLF",
+            "StructureState",
+            "SplitPO",
+            "LossCoefficient",
+            "NodeMassBalanceHistory",
+        }
 
         if self.dataformat in {"Maximums", "ccA", "POMM"}:
             self.columns_to_use: dict[str, str] = processing_parts.columns_to_use
@@ -579,9 +598,18 @@ class BaseProcessor(ABC):
             raise
 
     def discard_raw_dataframe(self) -> None:
-        """Release the raw dataframe copy to reduce peak memory usage."""
+        """Release raw rows, retaining source-location evidence for later snapshots."""
         if self.raw_df.empty:
             return
+        if self.data_type in {"PO", "POMM"} and len(self.raw_df) > 1:
+            start_column = 1 if self.data_type == "PO" else 2
+            locations = {
+                str(item).strip()
+                for item in self.raw_df.iloc[1, start_column:].dropna()
+                if str(item).strip() and str(item).strip().casefold() != "time"
+            }
+            existing = set(self.source_entity_presence.get("Location", []))
+            self.source_entity_presence["Location"] = sorted(locations | existing)
         logger.debug("{}: Discarding raw_df with {} rows.", self.file_name, len(self.raw_df))
         self.raw_df = pd.DataFrame()
 

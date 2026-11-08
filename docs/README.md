@@ -105,6 +105,7 @@ but they are not current architectural policy when they conflict with the canoni
 
 | Document | Scope and status |
 | --- | --- |
+| [WP13 QGIS project structural comparison](work/2026-11-08-wp13-qgis-project-comparison.md) | Selected read-only #169 structural layer comparison, focused tests, review and Windows acceptance gates for draft #283 |
 | [WP06 owned-output publication](work/2026-11-08-wp06-publication.md) | Profile PNG staging, archive and GDAL output safety, validation and stacked PR delivery |
 | [WP01 TLF parser metadata reliability](work/2026-11-08-tlf-parser-wp01.md) | Staged #239/#224/#231 implementation, linked PRs and acceptance record |
 | [WP07 file discovery and input outcomes](work/2026-11-08-wp07-file-discovery.md) | #203 finder cycle protection and #195 truthful input outcomes accepted with Windows 10/SMB limits; integrated into draft #251 via #257/#268 |
@@ -146,7 +147,7 @@ but they are not current architectural policy when they conflict with the canoni
 | [Installed scripts and distribution rename](work/2026-10-18-installed-scripts.md) | PR #120 wheel scripts, automatic MCP resolution, removed import shim and PyPI name migration |
 | [Installed scripts and MCP requirements](work/2026-10-17-installed-scripts-mcp-pip-distribution.md) | PR #130/#137: corrected wrapper copying, provisional packaging and outstanding engineering acceptance |
 | [Original script distribution requirements](audits/2026-10-17-installed-scripts-original-requirements.md) | Preserved original A–F requirements |
-| [Installed script inventory](audits/2026-10-19-installed-scripts-inventory.md) | All 160 source paths; 83 selected and 77 excluded; lifecycle sign-off outstanding |
+| [Installed script inventory](audits/2026-10-19-installed-scripts-inventory.md) | All 161 source paths; 83 selected and 78 excluded; lifecycle sign-off outstanding |
 | [Script remediation backlog](audits/2026-10-22-script-remediation-backlog.md) | 47 AB items: open/deferred work plus accepted-closed HY-8 evidence (AB-023); triaged safety, engineering and lifecycle tasks |
 | [CI resource efficiency and Windows acceptance](work/2026-11-08-ci-resource-efficiency.md) | Merged #272 implementation, post-merge validation and coordinated adoption by active stacks |
 | [CI dependency and PyTuflow wheel implementation](work/2026-11-08-ci-dependency-groups.md) | Completed #274/#272 wheel delivery and accepted Windows coverage; deferred, bounded dependency follow-up |
@@ -163,8 +164,8 @@ but they are not current architectural policy when they conflict with the canoni
 | [Floodway research](audits/2026-09-13-floodway-design-research.md) | Source baseline |
 | [Floodway calculation specification](audits/2026-09-14-floodway-calculation-specification.md) | Calculation contracts |
 | [Floodway validation vectors](audits/2026-09-14-floodway-validation-vectors.md) | Source regression targets |
-| [Single-file Parquet processor collection bundles](work/2026-11-08-parquet-processor-bundles.md) | Parquet tables and manifest stored in a single .rtparquet container, restoring ryan-tools processor identities, filters and compacted metadata |
 | [WP05 processor storage / ccA WAL delivery](work/2026-11-08-wp05-processor-storage.md) | #222/#226 staged implementation; source-preserving WAL snapshot correction is under hosted/native review |
+| [Parquet-directory processor collection snapshots](work/2026-11-08-parquet-processor-bundles.md) | Ordinary ZSTD Parquet tables plus a versioned JSON manifest, preserving native processor identities, filters, source provenance, health and selective reads |
 | [HDF5 retirement and Parquet-only processor storage](work/2026-11-08-hdf5-retirement.md) | Breaking change: unpublished HDF5 backend retired, PyPI 26.11.8.3 migration notice retained through 31 March 2027; native ryan-tools readers retained |
 | [Repository Python lint and typing cleanup](work/2026-11-08-python-static-cleanup.md) | Full Windows/static audit correction and shared typing standard |
 | [Shared dependency type stubs](../typings/README.md) | Strict typing support shared by all maintained code, including the initialiser |

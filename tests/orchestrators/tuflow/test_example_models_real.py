@@ -26,7 +26,7 @@ from ryan_library.orchestrators.tuflow.command_preflight import check_command_pl
 
 DATA = Path(__file__).absolute().parents[2] / "test_data/tuflow/example_input_preflight"
 REQUIREMENT = Path(__file__).absolute().parents[3] / "repo-scripts/pytuflow-requirement.txt"
-ARCHIVE_SHA256 = "4f90b77044b3247cf7bdb5154d84d1a74da6c669cd1d28d3f2e6089063f2d141"
+ARCHIVE_SHA256 = "e374c8e072679fc6c4dc11e63b270caa1101b6aebb84d70060872cdd1b0aa7d6"
 pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="Example BAT plans require native Windows paths")
 
 # The seven selected 1D BC defects and one rainfall-triangle defect in the
@@ -43,7 +43,7 @@ def example_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
     expected = {str(entry["path"]): entry for entry in entries}
     root = tmp_path_factory.mktemp("tuflow-examples")
     with zipfile.ZipFile(archive) as source:
-        assert len(source.namelist()) == len(expected) == 1465
+        assert len(source.namelist()) == len(expected) == 1464
         assert set(source.namelist()) == set(expected)
         for member in source.infolist():
             # Resolve deliberately: archive extraction must remain inside its temporary root across links.

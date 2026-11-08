@@ -44,11 +44,12 @@ superseded only for the removed HDF implementation.
   because this implementation branch exists. Main integration requires
   separate maintainer authorisation.
 
-## Follow-up: reintroduce collection snapshots without HDF5
+## Separate native Parquet-directory collection follow-up
 
-A separate, newly versioned `.rtparquet` archive uses ZIP to package
-individual Parquet tables and a JSON manifest in one file. This is **not**
-revival of HDF5 and does not alter the 31 March 2027 expiry for the
-retired HDF API. The bundle is explicitly loaded by `ProcessorCollection.from_parquet()`.
-Native `ryan-tools` processors remain the sole TUFLOW result readers.
-See [the Parquet bundle work record](2026-11-08-parquet-processor-bundles.md).
+Draft [#293](https://github.com/Chain-Frost/ryan-tools/pull/293) proposes
+`ProcessorCollection.to_parquet(directory)` /
+`ProcessorCollection.from_parquet(directory)` using ordinary Parquet tables
+plus `manifest.json`. This supersedes the unpublished single-file
+`.rtparquet` ZIP proposal; it does not restore HDF5 or modify the last
+published version retaining HDF5 methods. The sunset remains 2027-03-31.
+Integration waits on WP04 #284 and independent acceptance.
