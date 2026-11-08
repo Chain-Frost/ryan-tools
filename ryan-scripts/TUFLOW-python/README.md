@@ -791,6 +791,79 @@ unattributable quantity rows are suppressed with a warning rather than reported 
 
 ## POMM peak wrapper migration
 
+### Supported peak inputs
+
+The mean and median POMM peak reports accept `POMM` and `RLL_Qmx` by default and
+retain both source types in the raw POMM worksheet. Reporting-location line
+maximums retain their source `file`, `Chan ID`, signed `Q` (`Qmax`) and
+`Type = Q`; the common `Location` field is derived from `Chan ID`.
+POMM `Type = Flow` remains distinct from RLL `Type = Q`, so the reporting
+groups are not silently merged.
+
+For RLL, `AbsMax = abs(Qmax)` and `SignedAbsMax = Qmax`. This is the magnitude
+of the **reported signed maximum**, not a reconstructed absolute extremum
+across the entire time series. Unlike POMM `AbsMax`, which uses both the
+reported time-series maximum and minimum, an RLL file cannot supply an
+unreported negative minimum. Peak reports retain that measurement distinction;
+they must not be interpreted as proving the two input quantities have
+identical sampling semantics.
+
+### Finite TP populations, counts and source provenance
+
+POMM median and mean statistics rank only finite hydraulic values; valid zero
+values are retained. Each duration's `count_TP` is the number of finite
+contributing observations, not the size of the raw bin; `count_TP_aep` is
+their sum across durations, and `count_duration` is the number of duration
+bins with at least one finite observation. The separate unusable-TP/bin
+counts and `tp_population_status` (`OK`, `PARTIAL`, `UNUSABLE`) disclose
+observed invalid values. They do not infer unobserved runs or processing
+failures absent from the input inventory. All-invalid bins cannot govern a
+peak statistic.
+
+For ten finite TP records the median is the sixth sorted record (upper-middle
+rule), not the arithmetic midpoint of ranks five and six. The mean
+representative is the *observed* event closest to the arithmetic mean, and
+the final mean peak chooses the largest of these duration-level representative
+values. Mean-distance ties select the lower observed value; ties on the
+same value use increasing TP identifier, then run name/source filename.
+The selected `mean_TP`, `mean_Duration`, `mean_PeakFlow`,
+`mean_internalName` and `mean_file` all come from the same input row.
+Median `internalName` and `file` likewise refer to the upper-middle
+selected event. A final peak table preserves the contributing event count
+rather than overwriting it with the number of duration bins.
+
+Culvert discharge reports also require finite `Q`; a geometry-only
+`Height` field cannot become the governing peak metric. Duration-level
+culvert `count` represents finite-Q contributing observations,
+`count_total` the observed input rows and `count_unusable` their difference.
+The independent per-field maxima contract is unchanged: adopted flow,
+velocity and water levels are values from the selected representative run,
+not reconstructed coincident-timestep peak measurements.
+
+### Mean peak coverage findings
+
+`po_and_timeseries/create_pomm_mean_peak_report.py` adds coverage findings to `aep-mean-max`,
+independently for each AEP, PO location, result type and run/scenario. Existing peak selection is unchanged.
+The new columns show the minimum and maximum tested duration in minutes, the sampled duration list,
+missing intermediate durations, and separate warnings for:
+
+- A selected peak sourced from the shortest or longest tested duration (both when only one was tested).
+- Any duration bin with a sampled input count (finite contributors **plus** known non-finite samples) other than `EXPECTED_TP_COUNT` records (default 10), including non-winning bins.
+- Any duration bin with known non-finite samples, reported separately in `hydraulic_population_warning`; complete sampled input coverage does not imply complete valid hydraulic observations.
+- Missing standard durations between the tested bounds, unrecognised duration labels or non-standard durations.
+
+`findings_status` is `WARNING` if any check fires, otherwise `OK`. These are coverage findings, not a
+model-validity assessment. The expected TP coverage check counts observed records, while `count_TP` in the statistic tables counts only **finite contributing values**. The separate unusable counts and warning keep invalid values visible. Neither count proves that all temporal-pattern identities are distinct.
+For example, sampling 30, 60 and 120 minutes reports gaps at 45 and 90 minutes. Durations outside the
+sampled bounds are not labelled missing; the boundary warning identifies a potentially truncated peak search.
+
+The editable `STANDARD_DURATIONS_MINUTES` uses the
+[ARR Storm Generator duration sequence](https://help-innovyze.atlassian.net/wiki/spaces/arr2016/pages/14614606/Editing+the+Properties+of+ARR+Storms).
+Some listed durations are optional in downloaded ARR datasets: adopt the study's intended sequence explicitly
+when it differs. The effective schedule and expected ensemble size are recorded in the workbook data dictionary.
+Library callers can pass `standard_durations` and `expected_tp_count` to `export_mean_peak_report`,
+`save_peak_report_mean` or `find_aep_mean_max`. Updated wrappers require the matching updated library package.
+
 The maintained mean and median POMM peak wrappers use
 `ryan_library.orchestrators.tuflow.pomm_max_items` directly. The deprecated
 `PommPeakWrapperDefaults`, `PeakReportExporter` and `run_pomm_peak_report_wrapper`
