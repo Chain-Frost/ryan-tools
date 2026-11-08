@@ -300,6 +300,8 @@ jobs:
             tests/functions/tuflow/test_pomm_pandas_compat_227.py `
             tests/functions/tuflow/test_pomm_peak_inputs_218.py `
             tests/functions/tuflow/test_pomm_finite_populations_216_217.py `
+            tests/functions/tuflow/test_pomm_coverage_findings.py `
+            tests/scripts/test_pomm_max_items.py `
             tests/functions/tuflow/test_pomm_utils.py `
             tests/orchestrators/tuflow/test_tuflow_culverts_finite_216.py `
             tests/orchestrators/tuflow/test_tuflow_culverts_mean.py
