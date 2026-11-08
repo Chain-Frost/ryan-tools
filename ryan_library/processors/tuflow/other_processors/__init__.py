@@ -4,6 +4,8 @@
 from .ChanProcessor import ChanProcessor
 from .EOFProcessor import EOFProcessor
 from .LProcessor import LProcessor
+from .MBHistoryProcessor import MBHistoryProcessor
+from .MBNodeProcessor import MBNodeProcessor
 from .POMMProcessor import POMMProcessor
 from .POProcessor import POProcessor
 from .RLLQmxProcessor import RLLQmxProcessor
@@ -24,6 +26,8 @@ __all__: list[str] = [
     "ChanProcessor",
     "EOFProcessor",
     "LProcessor",
+    "MBHistoryProcessor",
+    "MBNodeProcessor",
     "POMMProcessor",
     "POProcessor",
     "RLLQProcessor",

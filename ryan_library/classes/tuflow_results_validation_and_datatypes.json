@@ -618,5 +618,70 @@
       "dataformat": "NodeMassBalanceHistory",
       "module": "other_processors"
     }
+  },
+  "MB_Node": {
+    "processor": "MBNodeProcessor",
+    "suffixes": [
+      "_1d_MB.csv"
+    ],
+    "output_columns": {
+      "Location": "string",
+      "Type": "string",
+      "Cum %ME": "float",
+      "Cum VE": "float",
+      "Cum VQ": "float"
+    },
+    "processingParts": {
+      "dataformat": "NodeMassBalanceSummary",
+      "module": "other_processors"
+    }
+  },
+  "MB": {
+    "processor": "MBHistoryProcessor",
+    "suffixes": [
+      "_MB.csv"
+    ],
+    "output_columns": {
+      "Time": "float",
+      "Location": "string",
+      "Type": "string",
+      "Value": "float"
+    },
+    "processingParts": {
+      "dataformat": "ModelMassBalanceHistory",
+      "module": "other_processors"
+    }
+  },
+  "MB1D": {
+    "processor": "MBHistoryProcessor",
+    "suffixes": [
+      "_MB1D.csv"
+    ],
+    "output_columns": {
+      "Time": "float",
+      "Location": "string",
+      "Type": "string",
+      "Value": "float"
+    },
+    "processingParts": {
+      "dataformat": "ModelMassBalanceHistory",
+      "module": "other_processors"
+    }
+  },
+  "MB_HPC": {
+    "processor": "MBHistoryProcessor",
+    "suffixes": [
+      "_MB_HPC.csv"
+    ],
+    "output_columns": {
+      "Time": "float",
+      "Location": "string",
+      "Type": "string",
+      "Value": "float"
+    },
+    "processingParts": {
+      "dataformat": "ModelMassBalanceHistory",
+      "module": "other_processors"
+    }
   }
 }

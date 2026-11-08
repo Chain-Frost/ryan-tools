@@ -303,6 +303,8 @@ class BaseProcessor(ABC):
             "SplitPO",
             "LossCoefficient",
             "NodeMassBalanceHistory",
+            "ModelMassBalanceHistory",
+            "NodeMassBalanceSummary",
         }
 
         if self.dataformat in {"Maximums", "ccA", "POMM"}:
