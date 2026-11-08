@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Implemented, isolated focused smoke passed; repository CI/review and Windows installed-wheel acceptance pending |
+| Status | Implemented; initial Windows CI uncovered an inventory documentation count mismatch, corrected; final hosted recheck and new-wrapper native acceptance pending |
 | Owner | WP13 allocation agent |
 | Created / updated | 2026-11-08 |
 | Next review | 2026-11-15 |
@@ -54,10 +54,9 @@ XML and does not claim semantic GIS data equality or full QGIS interpretation.
   compilation passed for all four new Python files. This is **not** a claim of
   complete repository Python 3.14 validation.
 - **Initial hosted preflight at 102477bb:** Ruff identified two EM102 exception-style, one RUF043 regex and one PT013 import violation. Policy did not reach Pyright; remaining jobs were skipped. Corrected in follow-up, not credited as a passing run.
-- **Not yet run at initial delivery:** repository-backed focused tests, changed-file
-  Ruff, strict Pyright, Python 3.14, installed-wheel/copied-wrapper, hosted
-  CI final-head and independent Codex review. Record their actual status in the
-  PR after they occur; do not call unexecuted gates passed.
+- **Windows Python 3.14 hosted run [42473143587](https://github.com/Chain-Frost/ryan-tools/actions/runs/42473143587), commit `0b2749d7`:** Ruff/format/docs/actionlint/Loguru checks **PASS**; strict Pyright **0 errors / 0 warnings**; wheel build, installed generic copied-wrapper smoke and POSIX security **PASS**. Hosted regression reached **2,950 passed, 14 skipped, 8 deselected, 1 failed**. All 9 new QGIS tests passed. The one failure was `test_documentation_indexes_track_live_inventory_counts`: it correctly detected this WP13 wrapper increases inventory from 160 to **161 source paths, 83 selected, 78 excluded**. MCP gate consequently failed because hosted results were not successful. The documentation/index counts have been corrected in the next commit; the new exact-head CI must establish success before claiming it.
+- **Codex:** source and exact-head reviews through `0b2749d7` finished **without findings**. A fresh review remains appropriate after any substantive code change.
+- **Native limits:** a dedicated installed-wheel copied **WP13** wrapper on Windows/UNC, Unicode path smoke and local Python 3.14 acceptance have not been performed. The generic hosted wheel checks do not exercise this new wrapper.
 - **Native QGIS:** no semantic PyQGIS/provider/cartographic claims are made, so
   a QGIS runtime test is not an implementation acceptance requirement for this
   bounded XML-only feature. Windows mapped-drive/UNC project locations still
