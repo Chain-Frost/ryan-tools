@@ -1,13 +1,16 @@
 # ryan_library/processors/tuflow/timeseries_processor.py
 
-__lazy_modules__ = ["pandas"]
+__lazy_modules__ = ["numpy", "pandas"]
 
 from abc import abstractmethod
+from collections.abc import Collection
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from loguru import logger
 
+from ...functions.tuflow.sample_validity import clean_hydraulic_samples, has_consistent_csv_widths
 from .base_processor import (
     BaseProcessor,
     DataValidationError,
@@ -25,35 +28,146 @@ class TimeSeriesProcessor(BaseProcessor):
     :meth:`process_timeseries_raw_dataframe` for format-specific transforms.
     """
 
+    # Canonical channels named by the original supported CSV headers, including
+    # entities whose numeric samples disappear during normalisation.
+    source_channels: frozenset[str] = frozenset()
+    # Channels with usable values before any entity or collection selection.
+    usable_source_channels: frozenset[str] = frozenset()
+
+    @staticmethod
+    def _source_channel_ids(columns: pd.Index, data_type: str) -> frozenset[str]:
+        """Return source channels before missing-data removal or H pivoting."""
+        channels: set[str] = set()
+        for raw_name in columns:
+            label = str(raw_name).strip()
+            if not label or label == "Time":
+                continue
+            if data_type == "H":
+                if not label.endswith((".1", ".2")):
+                    continue
+                label = label[:-2].strip()
+            if label:
+                channels.add(label)
+        return frozenset(channels)
+
+    def _clean_h_source_samples(self, frame: pd.DataFrame) -> None:
+        """Count missing H observations before pivoting removes empty channels."""
+        for raw_column in frame.columns:
+            column = str(raw_column)
+            if not column.endswith((".1", ".2")):
+                continue
+            measurement = "US_H" if column.endswith(".1") else "DS_H"
+            cleaned, rejected = clean_hydraulic_samples(frame[column], measurement=measurement)
+            frame[column] = cleaned
+            self.record_rejections(rejected)
+
+    def filter_locations(self, locations: Collection[str] | None) -> frozenset[str]:
+        """Classify source-confirmed, all-rejected channels as invalid, not absent."""
+        selected = super().filter_locations(locations)
+        if not selected:
+            return selected
+        if self.df.empty:
+            self.applied_location_filter = selected
+            if selected & (self.source_channels - self.usable_source_channels):
+                self.selected_unusable = True
+                self.filtered_empty = False
+                self.input_health = "INVALID"
+            else:
+                self.selected_unusable = False
+                self.filtered_empty = True
+        else:
+            self.selected_unusable = False
+        return selected
+
+    def _mark_absent_source_selection(self) -> bool:
+        """Classify genuinely absent IDs after otherwise readable data ran out."""
+        requested = self.entity_filter
+        if not requested or not self.source_channels or not requested.isdisjoint(self.source_channels):
+            return False
+        if not has_consistent_csv_widths(self.file_path):
+            logger.warning("{}: CSV record widths are inconsistent; absent selection is not a SKIP.", self.file_name)
+            return False
+        self.applied_entity_filter = requested
+        self.filtered_empty = True
+        logger.info("{}: No requested timeseries entities were present in source headers.", self.file_name)
+        return True
+
+    def _finish_failed_step(self, *, data_type: str, stage: str, status: ProcessorStatus) -> None:
+        """Keep absent selection distinct from failed source processing."""
+        no_usable_rows = self._empty_after_reshape if stage == "read" else status is ProcessorStatus.EMPTY_DATAFRAME
+        if no_usable_rows and self._mark_absent_source_selection():
+            self.df = pd.DataFrame()
+            return
+        if stage == "read":
+            logger.error(f"Processing aborted for file: {self.log_path} while reading and reshaping {data_type} data.")
+        else:
+            logger.error(f"Processing aborted for file: {self.log_path} during {data_type} post-processing step.")
+        self.input_health = "INVALID"
+        self.df = pd.DataFrame()
+
     def process(self) -> None:
         """Execute the standard timeseries processing pipeline."""
         return self._process_timeseries_pipeline(data_type=self.data_type)
 
     def _process_timeseries_pipeline(self, data_type: str) -> None:
         """Run the shared processing pipeline for a timeseries dataset."""
+        self.reset_processing_state()
+        self.source_channels = frozenset()
+        self.usable_source_channels = frozenset()
+        self._empty_after_reshape = False
+        # H pivoting drops entirely blank source channels, so retain header evidence.
+        self._selected_h_source_present = False
         logger.info(f"Starting processing of {data_type} file: {self.log_path}")
 
         try:
             status: ProcessorStatus = self.read_and_process_timeseries_csv(data_type=data_type)
             if status is not ProcessorStatus.SUCCESS:
-                logger.error(
-                    f"Processing aborted for file: {self.log_path} while reading and reshaping {data_type} data."
-                )
-                self.df = pd.DataFrame()
+                self._finish_failed_step(data_type=data_type, stage="read", status=status)
                 return
+
+            # Retain entity existence before subclass normalisation drops invalid
+            # numeric samples. An existing all-invalid selection is FAIL, not SKIP.
+            selected_before_cleaning = self._selected_h_source_present or bool(
+                self.entity_filter and self.source_channels & self.entity_filter
+            )
+            if self.entity_filter:
+                id_column = next((name for name in ("Chan ID", "Location") if name in self.df.columns), None)
+                if id_column is not None:
+                    identifiers = self.df[id_column].astype("string").str.strip()
+                    selected_before_cleaning = selected_before_cleaning or bool(
+                        identifiers.isin(self.entity_filter).any()
+                    )
 
             status = self.process_timeseries_raw_dataframe()
             if status is not ProcessorStatus.SUCCESS:
-                logger.error(f"Processing aborted for file: {self.log_path} during {data_type} post-processing step.")
-                self.df = pd.DataFrame()
+                self._finish_failed_step(data_type=data_type, stage="normalise", status=status)
                 return
 
+            # Record actual usable channels before a user selection discards
+            # valid rows. Header existence alone cannot prove invalid input
+            # when a later filter switches to a previously excluded channel.
+            id_column = next((name for name in ("Chan ID", "Location") if name in self.df.columns), None)
+            if id_column is not None:
+                usable_labels: list[object] = self.df[id_column].tolist()
+                self.usable_source_channels = frozenset(
+                    str(label).strip() for label in usable_labels if str(label).strip()
+                )
+
             self.apply_entity_filter()
+            if self.applied_entity_filter and self.df.empty:
+                if selected_before_cleaning:
+                    self.input_health = "INVALID"
+                    logger.warning("{}: Selected entities contain no usable timeseries samples.", self.file_name)
+                else:
+                    self.filtered_empty = True
+                    logger.info("{}: No requested timeseries entities found; skipping file.", self.file_name)
+                return
             self.add_common_columns()
             self.apply_output_transformations()
 
             if not self.validate_data():
                 logger.error(f"{self.file_name}: Data validation failed for {data_type} data.")
+                self.input_health = "INVALID"
                 self.df = pd.DataFrame()
                 return
 
@@ -61,6 +175,7 @@ class TimeSeriesProcessor(BaseProcessor):
             logger.info(f"Completed processing of {data_type} file: {self.log_path}")
         except Exception as exc:  # pragma: no cover - defensive logging
             logger.error(f"Failed to process {data_type} file {self.log_path}: {exc}")
+            self.input_health = "INVALID"
             self.df = pd.DataFrame()
             return
 
@@ -100,14 +215,29 @@ class TimeSeriesProcessor(BaseProcessor):
                 logger.error(f"{self.file_name}: DataFrame is empty after cleaning headers.")
                 return ProcessorStatus.EMPTY_DATAFRAME
 
+            self.source_channels = self._source_channel_ids(df_clean.columns, data_type)
+            selected_filter = self.entity_filter
+            if data_type == "H" and selected_filter:
+                # Keep canonical .1/.2 channel presence before pivot_table
+                # removes rows whose upstream/downstream samples are all blank.
+                self._selected_h_source_present = any(
+                    label.endswith((".1", ".2")) and label[:-2].strip() in selected_filter for label in df_clean.columns
+                )
+
+            if data_type == "H":
+                self._clean_h_source_samples(df_clean)
+
             df_melted: pd.DataFrame = self._reshape_timeseries_df(df=df_clean, data_type=data_type)
             if df_melted.empty:
                 logger.error(f"{self.file_name}: No data found after reshaping.")
                 return ProcessorStatus.EMPTY_DATAFRAME
 
             self.df = df_melted
+            if data_type in {"Q", "V"}:
+                numeric, rejected = clean_hydraulic_samples(self.df[data_type], measurement=data_type)
+                self.df[data_type] = numeric
+                self.record_rejections(rejected)
             self._apply_final_transformations(data_type=data_type)
-            self.processed = True  # Mark as processed once the shared pipeline completes
             logger.info(f"{self.file_name}: Timeseries CSV processed successfully.")
             return ProcessorStatus.SUCCESS
         except (ProcessorError, DataValidationError) as exc:
@@ -178,6 +308,15 @@ class TimeSeriesProcessor(BaseProcessor):
                 logger.error(f"{self.file_name}: 'Time' column is missing after cleaning headers.")
                 msg = "'Time' column is missing after cleaning headers."
                 raise DataValidationError(msg)
+
+            time_values = pd.to_numeric(df["Time"], errors="coerce")
+            if not np.isfinite(time_values.to_numpy(dtype="float64", na_value=np.nan)).all():
+                message = "Timeseries contains missing or nonfinite timestamps."
+                raise DataValidationError(message)
+            if (time_values.diff().iloc[1:] <= 0).any():
+                message = "Timeseries timestamps must increase strictly without duplicates."
+                raise DataValidationError(message)
+            df["Time"] = time_values
 
             cleaned_columns: list[str] = self._clean_column_names(columns=df.columns, data_type=data_type)
             df.columns = cleaned_columns
@@ -250,6 +389,7 @@ class TimeSeriesProcessor(BaseProcessor):
             raise ProcessorError(msg) from exc
 
         if df_melted.empty:
+            self._empty_after_reshape = True
             logger.error(f"{self.file_name}: No data found after reshaping.")
             msg = "No data found after reshaping."
             raise DataValidationError(msg)

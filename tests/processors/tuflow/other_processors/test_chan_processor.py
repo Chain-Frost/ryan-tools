@@ -10,11 +10,24 @@ from ryan_library.processors.tuflow.base_processor import ProcessorStatus
 from ryan_library.processors.tuflow.other_processors.ChanProcessor import ChanProcessor
 
 
+def _process_with_mocked_read(processor: ChanProcessor, read_mock: MagicMock) -> None:
+    """A successful mocked read must repopulate df after invocation state resets."""
+    if read_mock.return_value is ProcessorStatus.SUCCESS:
+        source = processor.df.copy(deep=True)
+
+        def fresh_read() -> ProcessorStatus:
+            processor.df = source.copy(deep=True)
+            return ProcessorStatus.SUCCESS
+
+        read_mock.side_effect = fresh_read
+    processor.process()
+
+
 class TestChanProcessor:
     """Tests for ChanProcessor class."""
 
     @pytest.fixture
-    def mock_processor(self):
+    def mock_processor(self) -> ChanProcessor:
         """Create a mock ChanProcessor with minimal setup."""
         with patch("ryan_library.processors.tuflow.base_processor.BaseProcessor.__post_init__"):
             processor = ChanProcessor(Path("test_1d_Chan.csv"))
@@ -36,8 +49,8 @@ class TestChanProcessor:
         mock_apply: MagicMock,
         mock_add: MagicMock,
         mock_read: MagicMock,
-        mock_processor: MagicMock,
-    ):
+        mock_processor: ChanProcessor,
+    ) -> None:
         """Test successful processing with all required columns."""
         mock_read.return_value = ProcessorStatus.SUCCESS
         mock_validate.return_value = True
@@ -45,7 +58,7 @@ class TestChanProcessor:
         # Setup df with required columns
         mock_processor.df = pd.DataFrame({"Channel": ["C1"], "LBUS Obvert": [10.0], "US Invert": [5.0]})
 
-        mock_processor.process()
+        _process_with_mocked_read(mock_processor, mock_read)
 
         assert mock_processor.processed is True
 
@@ -60,17 +73,17 @@ class TestChanProcessor:
         assert mock_processor.df.iloc[0]["Height"] == 5.0  # 10.0 - 5.0
 
     @patch("ryan_library.processors.tuflow.other_processors.ChanProcessor.ChanProcessor.read_maximums_csv")
-    def test_process_read_failure(self, mock_read: MagicMock, mock_processor: MagicMock):
+    def test_process_read_failure(self, mock_read: MagicMock, mock_processor: ChanProcessor) -> None:
         """Test process aborts when read fails."""
         mock_read.return_value = ProcessorStatus.FAILURE
 
-        mock_processor.process()
+        _process_with_mocked_read(mock_processor, mock_read)
 
         assert mock_processor.processed is False
         assert mock_processor.df.empty
 
     @patch("ryan_library.processors.tuflow.other_processors.ChanProcessor.ChanProcessor.read_maximums_csv")
-    def test_process_missing_height_columns(self, mock_read: MagicMock, mock_processor: MagicMock):
+    def test_process_missing_height_columns(self, mock_read: MagicMock, mock_processor: ChanProcessor) -> None:
         """Test failure when columns for Height calculation are missing."""
         mock_read.return_value = ProcessorStatus.SUCCESS
 
@@ -82,13 +95,13 @@ class TestChanProcessor:
             }
         )
 
-        mock_processor.process()
+        _process_with_mocked_read(mock_processor, mock_read)
 
         assert mock_processor.df.empty
         assert mock_processor.processed is False
 
     @patch("ryan_library.processors.tuflow.other_processors.ChanProcessor.ChanProcessor.read_maximums_csv")
-    def test_process_missing_channel_column(self, mock_read: MagicMock, mock_processor: MagicMock):
+    def test_process_missing_channel_column(self, mock_read: MagicMock, mock_processor: ChanProcessor) -> None:
         """Test failure when Channel column is missing."""
         mock_read.return_value = ProcessorStatus.SUCCESS
 
@@ -100,7 +113,7 @@ class TestChanProcessor:
             }
         )
 
-        mock_processor.process()
+        _process_with_mocked_read(mock_processor, mock_read)
 
         assert mock_processor.df.empty
         assert mock_processor.processed is False
@@ -115,25 +128,25 @@ class TestChanProcessor:
         mock_apply: MagicMock,
         mock_add: MagicMock,
         mock_read: MagicMock,
-        mock_processor: MagicMock,
-    ):
+        mock_processor: ChanProcessor,
+    ) -> None:
         """Test process aborts when validation fails."""
         mock_read.return_value = ProcessorStatus.SUCCESS
         mock_validate.return_value = False
 
         mock_processor.df = pd.DataFrame({"Channel": ["C1"], "LBUS Obvert": [10.0], "US Invert": [5.0]})
 
-        mock_processor.process()
+        _process_with_mocked_read(mock_processor, mock_read)
 
         assert mock_processor.processed is False
         assert mock_processor.df.empty
 
     @patch("ryan_library.processors.tuflow.other_processors.ChanProcessor.ChanProcessor.read_maximums_csv")
-    def test_process_exception(self, mock_read: MagicMock, mock_processor: MagicMock):
+    def test_process_exception(self, mock_read: MagicMock, mock_processor: ChanProcessor) -> None:
         """Test process handles exceptions."""
         mock_read.side_effect = Exception("Test Error")
 
-        mock_processor.process()
+        _process_with_mocked_read(mock_processor, mock_read)
 
         assert mock_processor.processed is False
         assert mock_processor.df.empty

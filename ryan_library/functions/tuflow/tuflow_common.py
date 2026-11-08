@@ -64,6 +64,8 @@ def _result_status(processor: BaseProcessor | None) -> WorkflowStatus:
         return "FAIL"
     if processor.df.empty and getattr(processor, "filtered_empty", False):
         return "SKIP"
+    if getattr(processor, "input_health", "OK") in {"INVALID", "IO_FAILURE", "INCOMPLETE"}:
+        return "FAIL"
     if not processor.processed:
         return "FAIL"
     if processor.df.empty:

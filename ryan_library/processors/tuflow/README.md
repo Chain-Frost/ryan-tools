@@ -63,6 +63,23 @@ if processor.processed:
 ```
 
 A successful processor must expose its processed rows through `processor.df` and set `processor.processed = True`.
+Each maintained WP04 processor invocation resets old processed/raw frames,
+success and filter state, and rejected-sample diagnostics. A valid no-match
+selection reports SKIP; an existing PO location with wholly rejected
+readings reports INVALID/FAIL even when its selected processed table
+becomes empty. The source-header location evidence is retained through
+collection filtering and copying, without fabricating a hydraulic value.
+
+`input_health`, `rejected_samples` and `rejection_reasons` report
+input validity separately from hydraulic significance. The documented
+dry-level `-99999` and `**********` markers are excluded from
+derived peaks while real zeros, signed flow/velocity and negative
+level datums remain valid. `rejected_samples` counts rejected source
+readings; POMM `all_missing_extrema` in `rejection_reasons` is a
+separate derived unusable-row count and not another source sample.
+The QA stability heuristic counts significant changes over the whole
+record, not a rolling time interval.
+
 `processor.raw_df` may retain an intermediate input table for diagnostics; call `discard_raw_dataframe()` after it is
 no longer needed.
 

@@ -15,6 +15,7 @@ class EOFProcessor(BaseProcessor):
 
     def process(self) -> None:
         """Process the '.eof' file and extract CULVERT AND PIPE DATA."""
+        self.reset_processing_state()
         logger.info(f"Starting processing of EOF file: {self.log_path}")
 
         try:

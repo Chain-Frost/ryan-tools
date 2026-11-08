@@ -13,11 +13,24 @@ from ryan_library.processors.tuflow.base_processor import ProcessorStatus
 from ryan_library.processors.tuflow.maximums_1d.CmxProcessor import CmxProcessor
 
 
+def _process_with_mocked_read(processor: CmxProcessor, read_mock: MagicMock) -> None:
+    """A successful mocked read must repopulate df after invocation state resets."""
+    if read_mock.return_value is ProcessorStatus.SUCCESS:
+        source = processor.df.copy(deep=True)
+
+        def fresh_read() -> ProcessorStatus:
+            processor.df = source.copy(deep=True)
+            return ProcessorStatus.SUCCESS
+
+        read_mock.side_effect = fresh_read
+    processor.process()
+
+
 class TestCmxProcessor:
     """Tests for CmxProcessor class."""
 
     @pytest.fixture
-    def mock_processor(self):
+    def mock_processor(self) -> CmxProcessor:
         """Create a mock CmxProcessor with minimal setup."""
         # We need to mock the __post_init__ to avoid config loading during instantiation in tests
         with patch("ryan_library.processors.tuflow.base_processor.BaseProcessor.__post_init__"):
@@ -30,7 +43,7 @@ class TestCmxProcessor:
             processor.data_type = "Cmx"
             return processor
 
-    def test_reshape_cmx_data_success(self, mock_processor: CmxProcessor):
+    def test_reshape_cmx_data_success(self, mock_processor: CmxProcessor) -> None:
         """Test successful reshaping of CMX data."""
         mock_processor.df = pd.DataFrame(
             {
@@ -60,7 +73,7 @@ class TestCmxProcessor:
         assert v_rows.iloc[0]["V"] == 1.0
         assert pd.isna(v_rows.iloc[0]["Q"])
 
-    def test_reshape_cmx_data_missing_columns(self, mock_processor: CmxProcessor):
+    def test_reshape_cmx_data_missing_columns(self, mock_processor: CmxProcessor) -> None:
         """Test reshaping fails with missing columns."""
         mock_processor.df = pd.DataFrame(
             {
@@ -73,7 +86,7 @@ class TestCmxProcessor:
         mock_processor._reshape_cmx_data()
         assert mock_processor.df.empty
 
-    def test_handle_malformed_data(self, mock_processor: CmxProcessor):
+    def test_handle_malformed_data(self, mock_processor: CmxProcessor) -> None:
         """Test handling of malformed data."""
         mock_processor.df = pd.DataFrame(
             {"Chan ID": ["C1", None], "Time": [1.0, None], "Q": [10.0, None], "V": [None, None]}
@@ -94,8 +107,8 @@ class TestCmxProcessor:
         mock_apply: MagicMock,
         mock_add: MagicMock,
         mock_read: MagicMock,
-        mock_processor: MagicMock,
-    ):
+        mock_processor: CmxProcessor,
+    ) -> None:
         """Test full process flow success."""
         mock_read.return_value = ProcessorStatus.SUCCESS
         mock_validate.return_value = True
@@ -111,7 +124,7 @@ class TestCmxProcessor:
         # However, since we created mock_processor with a patched __post_init__, it's an instance of CmxProcessor.
         # The patches above are on the class, so they should apply.
 
-        mock_processor.process()
+        _process_with_mocked_read(mock_processor, mock_read)
 
         assert mock_processor.processed is True
         mock_read.assert_called_once()
@@ -119,11 +132,11 @@ class TestCmxProcessor:
         mock_apply.assert_called_once()
 
     @patch("ryan_library.processors.tuflow.maximums_1d.CmxProcessor.CmxProcessor.read_maximums_csv")
-    def test_process_read_failure(self, mock_read: MagicMock, mock_processor: MagicMock):
+    def test_process_read_failure(self, mock_read: MagicMock, mock_processor: CmxProcessor) -> None:
         """Test process aborts when read fails."""
         mock_read.return_value = ProcessorStatus.FAILURE
 
-        mock_processor.process()
+        _process_with_mocked_read(mock_processor, mock_read)
 
         assert mock_processor.processed is False
         assert mock_processor.df.empty
@@ -138,8 +151,8 @@ class TestCmxProcessor:
         mock_apply: MagicMock,
         mock_add: MagicMock,
         mock_read: MagicMock,
-        mock_processor: MagicMock,
-    ):
+        mock_processor: CmxProcessor,
+    ) -> None:
         """Test process aborts when validation fails."""
         mock_read.return_value = ProcessorStatus.SUCCESS
         mock_validate.return_value = False
@@ -149,17 +162,17 @@ class TestCmxProcessor:
             {"Chan ID": ["C1"], "Time Qmax": [1.0], "Qmax": [10.0], "Time Vmax": [1.1], "Vmax": [1.0]}
         )
 
-        mock_processor.process()
+        _process_with_mocked_read(mock_processor, mock_read)
 
         assert mock_processor.processed is False
         assert mock_processor.df.empty
 
     @patch("ryan_library.processors.tuflow.maximums_1d.CmxProcessor.CmxProcessor.read_maximums_csv")
-    def test_process_exception(self, mock_read: MagicMock, mock_processor: MagicMock):
+    def test_process_exception(self, mock_read: MagicMock, mock_processor: CmxProcessor) -> None:
         """Test process handles exceptions."""
         mock_read.side_effect = Exception("Test Error")
 
-        mock_processor.process()
+        _process_with_mocked_read(mock_processor, mock_read)
 
         assert mock_processor.processed is False
         assert mock_processor.df.empty

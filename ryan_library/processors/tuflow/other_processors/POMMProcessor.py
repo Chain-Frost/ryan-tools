@@ -2,9 +2,12 @@
 
 __lazy_modules__ = ["pandas"]
 
+from collections.abc import Collection
+
 import pandas as pd
 from loguru import logger
 
+from ....functions.tuflow.sample_validity import clean_hydraulic_samples, is_water_level_measurement
 from ..base_processor import BaseProcessor, DataValidationError
 
 POMM_RENAME_COLUMNS: dict[str, str] = {
@@ -27,23 +30,67 @@ class POMMProcessor(BaseProcessor):
         # Let the BaseProcessor __post_init__ do its thing (sets self.name_parser, data_type, etc).
         super().__post_init__()
 
+    def _valid_extrema(self) -> pd.DataFrame:
+        """Numerical extrema excluding level no-data, without changing source Max/Min."""
+        valid = self.df[["Max", "Min"]].copy()
+        levels = self.df["Type"].astype("string").map(lambda name: is_water_level_measurement(str(name)))
+        for column in ("Max", "Min"):
+            dry = levels & valid[column].eq(-99999).fillna(False)
+            valid.loc[dry, column] = float("nan")
+        return valid
+
     def _derive_abs_metrics(self) -> None:
-        """Populate AbsMax and SignedAbsMax from the Max/Min columns."""
+        """Derive absolute extrema without allowing source level sentinels to govern."""
         if not {"Max", "Min"}.issubset(self.df.columns):
             return
-
-        absolute_values = self.df[["Max", "Min"]].abs()
+        valid = self._valid_extrema()
+        absolute_values = valid.abs()
         self.df["AbsMax"] = absolute_values.max(axis=1)
+        use_max = (absolute_values["Max"] >= absolute_values["Min"]) | absolute_values["Min"].isna()
+        self.df["SignedAbsMax"] = valid["Max"].where(use_max, valid["Min"])
 
-        use_max = absolute_values["Max"] >= absolute_values["Min"]
-        self.df["SignedAbsMax"] = self.df["Max"].where(use_max, self.df["Min"])
+    def _remove_invalid_extrema(self) -> None:
+        """Mask dry-level sentinels and discard rows without an actual numeric extreme."""
+        level_rows = self.df["Type"].astype("string").map(lambda name: is_water_level_measurement(str(name)))
+        for column in ("Max", "Min"):
+            numeric, rejected = clean_hydraulic_samples(self.df[column], measurement="")
+            no_data = level_rows & numeric.eq(-99999).fillna(False)
+            count = int(no_data.sum())
+            if count:
+                rejected["no_data"] = rejected.get("no_data", 0) + count
+            # Raw Max/Min are provenance columns, including the source -99999.
+            # Only derived AbsMax/SignedAbsMax must exclude level no-data.
+            self.df[column] = numeric
+            self.record_rejections(rejected)
+
+        all_missing = self._valid_extrema().isna().all(axis=1)
+        if all_missing.any():
+            # This is a derived unusable-row diagnostic, not another
+            # rejected source measurement.
+            self.rejection_reasons["all_missing_extrema"] = int(all_missing.sum())
+            # Preserve unusable event rows with NaN maxima for TP population
+            # accounting in pomm_utils; they must never govern a peak.
+            if all_missing.all():
+                self.input_health = "INVALID"
+
+    def _classify_selected_extrema(self) -> None:
+        """An existing selection without usable extrema is an invalid input, not a skip."""
+        if not self.df["AbsMax"].notna().any():
+            self.input_health = "INVALID"
+
+    def filter_locations(self, locations: Collection[str] | None) -> frozenset[str]:
+        """Recheck usable extrema after public collection location selection."""
+        selected = super().filter_locations(locations)
+        if self.applied_location_filter == selected and not self.df.empty:
+            self._classify_selected_extrema()
+        return selected
 
     def process(self) -> None:
         """Read the raw POMM CSV, transpose + promote row 1 to header,
         rename the key columns, calculate AbsMax and SignedAbsMax,
         extract TP, Duration, AEP, and finally add all 'common' columns.
         """
-        self.filtered_empty = False
+        self.reset_processing_state()
         try:
             # 1) Load the CSV without headers (header=None)
             raw_df: pd.DataFrame = pd.read_csv(filepath_or_buffer=self.file_path, header=None)
@@ -99,6 +146,11 @@ class POMMProcessor(BaseProcessor):
 
             self.df = transposed
 
+            self._remove_invalid_extrema()
+            if self.df.empty:
+                self.input_health = "INVALID"
+                return
+
             # Rename columns and cast to appropriate data types
             base_dtype_map: dict[str, str] = {
                 column: self.output_columns[column] for column in ordered_columns if column in self.output_columns
@@ -123,13 +175,19 @@ class POMMProcessor(BaseProcessor):
                 self.filtered_empty = True
                 logger.info("{}: No requested POMM locations found; skipping file.", self.file_name)
                 return
+            self._classify_selected_extrema()
             self.add_common_columns()
             self.apply_output_transformations()
+            if not self.validate_data():
+                self.input_health = "INVALID"
+                self.df = pd.DataFrame()
+                return
             # Mark success
             self.processed = True
             logger.info(f"{self.log_path}: POMM processed successfully.")
 
         except Exception:
             logger.exception(f"{self.log_path}: Failed in POMMProcessor.process()")
+            self.input_health = "INVALID"
             self.df = pd.DataFrame()
             return
