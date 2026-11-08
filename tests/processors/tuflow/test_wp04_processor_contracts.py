@@ -252,60 +252,46 @@ def test_pomm_selection_reclassifies_only_unusable_locations(tmp_path: Path) -> 
     assert _result_status(missing) == "SKIP"
 
 
-def test_hdf_roundtrip_retains_invalid_processor_health_and_tp_evidence(tmp_path: Path) -> None:
-    pytest.importorskip("tables")
-    pytest.importorskip("pyarrow")
+def test_collection_copy_preserves_invalid_pomm_health_and_tp_evidence(tmp_path: Path) -> None:
     path = _pomm_two_location_path(tmp_path)
     selected = POMMProcessor(file_path=path, entity_filter=frozenset({"Dry"}))
     selected.process()
     assert selected.processed
     assert _result_status(selected) == "FAIL"
-    source = ProcessorCollection()
-    source.add_processor(selected)
-    cache = tmp_path / "invalid-health.h5"
-    source.to_hdf(cache)
-    loaded = ProcessorCollection.from_hdf(cache)
-    assert len(loaded.processors) == 1
-    restored = loaded.processors[0]
-    assert restored.processed
-    assert restored.input_health == "INVALID"
-    assert restored.rejected_samples == selected.rejected_samples
-    assert restored.rejection_reasons == selected.rejection_reasons
-    assert restored.df["AbsMax"].isna().all()
-    assert _result_status(restored) == "FAIL"
+    collection = ProcessorCollection()
+    collection.add_processor(selected)
+    copied = collection.copy().processors[0]
+    assert copied is not selected
+    assert copied.processed
+    assert copied.input_health == "INVALID"
+    assert copied.rejected_samples == selected.rejected_samples
+    assert copied.rejection_reasons == selected.rejection_reasons
+    assert copied.df["AbsMax"].isna().all()
+    assert _result_status(copied) == "FAIL"
 
 
-def test_hdf_and_public_filter_reclassify_unusable_pomm_selection(tmp_path: Path) -> None:
-    pytest.importorskip("tables")
-    pytest.importorskip("pyarrow")
+def test_public_filter_reclassifies_unusable_pomm_location(tmp_path: Path) -> None:
     path = _pomm_two_location_path(tmp_path)
     original = POMMProcessor(file_path=path)
     original.process()
     assert original.processed
     assert original.input_health == "PARTIAL"
     assert original.df["AbsMax"].notna().sum() == 1
+    collection = ProcessorCollection()
+    collection.add_processor(original)
 
-    source = ProcessorCollection()
-    source.add_processor(original)
-    cache = tmp_path / "mixed-health.h5"
-    source.to_hdf(cache)
-
-    restored = ProcessorCollection.from_hdf(cache, locations=["Dry"])
-    assert len(restored.processors) == 1
-    invalid = restored.processors[0]
+    selected = collection.copy()
+    selected.filter_locations(["Dry"])
+    assert len(selected.processors) == 1
+    invalid = selected.processors[0]
     assert invalid.processed
     assert len(invalid.df) == 1
     assert invalid.df["AbsMax"].isna().all()
     assert invalid.input_health == "INVALID"
     assert _result_status(invalid) == "FAIL"
 
-    directly_filtered = ProcessorCollection.from_hdf(cache)
-    directly_filtered.filter_locations(["Dry"])
-    assert len(directly_filtered.processors) == 1
-    assert directly_filtered.processors[0].input_health == "INVALID"
-    assert _result_status(directly_filtered.processors[0]) == "FAIL"
-
-    usable = ProcessorCollection.from_hdf(cache, locations=["Wet"])
+    usable = collection.copy()
+    usable.filter_locations(["Wet"])
     assert len(usable.processors) == 1
     assert _result_status(usable.processors[0]) == "OK"
 
@@ -424,9 +410,7 @@ def test_po_selection_distinguishes_rejected_location_from_absent(tmp_path: Path
     assert usable.df["Value"].tolist() == [1.0, 2.0]
 
 
-def test_po_public_filter_and_hdf_reclassify_dry_only_location(tmp_path: Path) -> None:
-    pytest.importorskip("tables")
-    pytest.importorskip("pyarrow")
+def test_po_public_filter_reclassifies_dry_only_location(tmp_path: Path) -> None:
     path = _file(
         tmp_path,
         "_PO.csv",
@@ -458,18 +442,8 @@ def test_po_public_filter_and_hdf_reclassify_dry_only_location(tmp_path: Path) -
     assert invalid.df["Value"].tolist() == [-99999.0, -99999.0]
     assert invalid.df["AbsValue"].isna().all()
 
-    cache = tmp_path / "mixed-po-health.h5"
-    collection.to_hdf(cache)
-    restored = ProcessorCollection.from_hdf(cache, locations=["Dry"])
-    assert len(restored.processors) == 1
-    invalid_restored = restored.processors[0]
-    assert invalid_restored.processed
-    assert invalid_restored.input_health == "INVALID"
-    assert _result_status(invalid_restored) == "FAIL"
-    assert invalid_restored.df["AbsValue"].isna().all()
-    assert invalid_restored.df["Value"].tolist() == [-99999.0, -99999.0]
-
-    usable = ProcessorCollection.from_hdf(cache, locations=["Wet"])
+    usable = collection.copy()
+    usable.filter_locations(["Wet"])
     assert len(usable.processors) == 1
     assert _result_status(usable.processors[0]) == "OK"
     assert usable.processors[0].df["AbsValue"].tolist() == [39.0, 41.0]

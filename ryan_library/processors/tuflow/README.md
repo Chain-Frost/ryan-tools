@@ -63,23 +63,25 @@ if processor.processed:
 ```
 
 A successful processor must expose its processed rows through `processor.df` and set `processor.processed = True`.
-Each maintained processor invocation clears its previous `df`, `raw_df`, success flag, filter caches and sample-health
-diagnostics; do not treat a former success as evidence about an overwritten or truncated file. For failed/incomplete
-inputs, stale processed rows cannot be reused. Some structurally readable but all-invalid POMM
-populations retain non-ranking NaN records and set `input_health=INVALID` for the FAIL classifier. A **valid no-match** selection
-sets `filtered_empty` and leaves `processed` false, allowing the workflow outcome layer to report SKIP
-instead of FAIL. `processor.raw_df` may retain an intermediate input table for diagnostics; call
-`discard_raw_dataframe()` after it is no longer needed.
+Each maintained WP04 processor invocation resets old processed/raw frames,
+success and filter state, and rejected-sample diagnostics. A valid no-match
+selection reports SKIP; an existing PO location with wholly rejected
+readings reports INVALID/FAIL even when its selected processed table
+becomes empty. The source-header location evidence is retained through
+collection filtering and copying, without fabricating a hydraulic value.
 
-`input_health`, `rejected_samples` and `rejection_reasons` report data quality separately from numerical
-extrema: `OK` means no rejected samples, `PARTIAL` means a usable subset with excluded samples, and
-`INVALID`/`IO_FAILURE`/`INCOMPLETE` describe failed processing. The documented `-99999` dry structure
-water-level value and `**********` numeric null marker do not become extrema; valid zero, negative
-discharge and negative water-level datums remain measurements. This is measurement-specific; no blanket
-negative-value rejection is applied. Filtered outputs preserve the original entity labels and numeric
-results, and filters are applied only after Nmx endpoints and Chan identifiers have canonical channel IDs.
-The QA stability calculation counts significant direction changes over the **entire series**, not a rolling
-time window. Its hydraulic heuristic and input-health outcome must be interpreted separately.
+`input_health`, `rejected_samples` and `rejection_reasons` report
+input validity separately from hydraulic significance. The documented
+dry-level `-99999` and `**********` markers are excluded from
+derived peaks while real zeros, signed flow/velocity and negative
+level datums remain valid. `rejected_samples` counts rejected source
+readings; POMM `all_missing_extrema` in `rejection_reasons` is a
+separate derived unusable-row count and not another source sample.
+The QA stability heuristic counts significant changes over the whole
+record, not a rolling time interval.
+
+`processor.raw_df` may retain an intermediate input table for diagnostics; call `discard_raw_dataframe()` after it is
+no longer needed.
 
 `ProcessorCollection.add_processor()` adds a processor only when it is marked processed **and** its processed
 DataFrame is non-empty. A processed-but-empty result is logged and skipped, as is an unprocessed object.
@@ -174,45 +176,31 @@ To release retained raw input tables across the collection, call:
 discarded_count = collection.discard_raw_dataframes()
 ```
 
-## Cache a collection with HDF5
+## Processed data storage and retired HDF5 snapshot API
 
-Install the optional HDF cache backend alongside the normal package:
+**Breaking change (8 November 2026):** `ProcessorCollection.to_hdf()` and
+`ProcessorCollection.from_hdf()` no longer read or write HDF5. They raise
+`NotImplementedError`. The error-raising migration notices remain **through
+31 March 2027** and may be removed from **1 April 2027**. The optional
+`ryan-tools[cache]` extra and PyTables dependency are removed.
+
+The last **published PyPI release containing these HDF5 methods** is
+[`ryan-tools==26.11.8.3`](https://pypi.org/project/ryan-tools/26.11.8.3/). To use that historical API in a
+separate environment:
 
 ```powershell
-python -m pip install "ryan-tools[cache]"
+python -m pip install "ryan-tools==26.11.8.3"
 ```
 
-`to_hdf()` saves a **versioned, read-only processor snapshot**. It keeps the concrete processor class, full source
-path/run identity, entity and location filter state, actual processed DataFrame extension dtypes (categorical, nullable,
-string and numeric) and any `compact_basic_info_columns()` lookup table. Frames are stored as Arrow IPC byte arrays
-inside a compressed HDF5 file. The file is **not** a reusable live database or a stable interchange format.
+The older HDF5 implementation has known categorical/nullable DataFrame
+round-trip limitations; its availability does not guarantee that every
+historical snapshot can be restored.
 
-```python
-from pathlib import Path
-
-from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
-
-cache_path = Path("cache/tuflow-results.h5")
-collection.to_hdf(cache_path)  # Refuses to replace any existing cache.
-collection.to_hdf(cache_path, overwrite=True)  # Explicit, atomic replacement.
-
-restored = ProcessorCollection.from_hdf(cache_path, locations=["Culvert_01"])
-```
-
-Writing uses an invocation-owned temporary file in the destination folder, verifies its manifest and only then
-publishes it. If writing fails, an earlier cache is preserved. Existing destinations require `overwrite=True`.
-Do not share a destination with an input file or rely on a symlinked cache destination.
-
-Loading validates every member, cache schema version, configured processor registry and lightweight source fingerprint
-(absolute path, size, modification time; WAL size/time for GeoPackage sources). A missing or changed input fails closed
-rather than returning an incomplete collection. This fingerprint is not a cryptographic verification of source contents
-and is not a substitute for rerunning processing when underlying data or settings change. For an explicitly historical
-snapshot with changed or unavailable sources, use `from_hdf(cache_path, verify_sources=False)`; this still checks
-member hashes, schema compatibility and processor classes. Old fixed-format caches are incompatible and must be
-regenerated.
-
-Do not use this HDF processor cache as a substitute for the separate PO-plot Parquet cache or as a source for live
-TUFLOW/WAL results. Native Windows/SMB active-writer acceptance for ccA GeoPackages is a separate test gate.
+**Use Parquet for current processed tabular results.** The existing
+`ryan-tools` TUFLOW processors remain the result readers. Export combined
+DataFrames using `to_parquet()` and load tables using `pandas.read_parquet()`.
+Parquet does not currently restore complete `ProcessorCollection` objects:
+the unused HDF snapshot feature was removed, not silently converted.
 
 ## MCP inspection and advanced queries
 
@@ -389,3 +377,62 @@ representative smoke check, and a package build. Use synthetic fixtures when pro
 
 If the new processor type has recurring agent-facing value, verify that the generic MCP inspection tools handle it and
 update their guidance or focused coverage as needed. Do not add a separate MCP endpoint for each basic processor.
+
+## Structure crossing history and upstream-level-state outputs (#236)
+
+The factory recognises `_SQ.csv` as source-computed **total structure crossing
+flow**, distinct from the 2D-only `_2d_QS.csv` and PO structure flow.
+It selects structure columns before wide-to-long expansion.
+
+The separate `_SHmx.csv` is the **state at maximum upstream water level**,
+not a discharge-maximum table. `Q Below`, `Q Above`, `Q Total`,
+`A Below`, `A Above`, `A Total`, `V Below`, `V Above`,
+`V Combined`, `h U/S`, `h D/S`, `dh` and `Time` are source
+values. They are never recomputed as coincident 1D independent extrema.
+The new readers preserve printed float64 precision, signed/zero numbers
+and null values for `-99999`, `**********` and empty cells.
+
+```python
+from pathlib import Path
+from ryan_library.orchestrators.tuflow.structure_results import main_processing
+
+main_processing(
+    paths_to_process=[Path("TUFLOW/results/EG02/plot/csv")],
+    include_data_types=["SQ", "SHmx"],
+    locations_to_include=["FC01.1_R"],
+    export_mode="both",
+    use_live_dashboard=False,
+)
+```
+
+A protected workbook/Parquet export keeps histories and supplied upstream
+level states in separate sheets. The two product types remain distinct in
+`ProcessorCollection` and read-only MCP inspection. The full #236 format
+backlog and native-scale acceptance remain open.
+
+## Split 2D CSV, loss coefficients and node mass-balance histories (#236)
+
+The registered `_2d_H.csv`, `_2d_Q.csv` and `_2d_V.csv` readers
+retain location, simulation hours and source H/Q/V measurements in the
+existing PO-shaped `Time/Location/Type/Value/AbsValue` schema, using the
+same metric labels as the combined `_PO.csv`. They have a separate
+`SplitPO` dataformat and a dedicated `split_2d_results.main_processing`
+workflow: **do not ingest the complete PO and its split equivalents as
+two independent ensemble observations**. Structure HU/HD/QS remain under
+the separate #237 investigation.
+
+`_1d_L.csv` is available via `LProcessor` and
+`culvert_losses.main_processing`. Values are **dimensionless coefficients**,
+not head loss in metres. Preserve `Entry LC`, `Additional LC`, `Exit LC`
+for channels and `LC` for nodes/pits as distinct `Type` fields. Select
+channel/pit columns before reading the full time-series values. This does not
+infer channel connectivity.
+
+`_1d_TSMB.csv` is available via `TSMBProcessor` and
+`node_mass_balance_history.main_processing`. It preserves source node
+IDs and timestamps; it is **not** a replacement for node summary
+`_1d_MB.csv` or model/domain `_MB.csv` products.
+
+All readers retain source float64 precision, signed and zero values and
+reserved no-data as missing; the protected exporters use separate
+workbooks/Parquet files and do not modify input results.

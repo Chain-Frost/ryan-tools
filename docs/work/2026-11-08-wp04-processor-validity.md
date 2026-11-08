@@ -124,3 +124,33 @@ Windows focused acceptance: **46 passes / zero skips** across all 13 EG02 cases,
 WP04 contracts and HDF persistence. Strict modified-test Pyright, Ruff and format
 pass. Confirm fresh hosted CI and review on the resulting child head before
 integration. No main/parent merge, release or issue closure.
+
+## 8 November 2026 — final invalid PO selection and storage reconciliation
+
+The remaining P2 finding concerned an existing PO source location whose
+readings were wholly rejected (e.g. `inf`). After unfiltered processing,
+`ProcessorCollection.filter_locations()` could silently remove the location
+and report SKIP as though it had never been present. WP04 now retains
+source-header evidence, reclassifies known all-rejected selections as
+INVALID/FAIL, and keeps an empty selected processor for explicit diagnostics.
+No invalid readings are converted into valid hydraulic values. Tests cover
+public filtering, selected data-type subcollections, genuinely absent
+locations, valid locations, combined selection and repeated file processing.
+
+The `rejected_samples` counter now counts rejected **source readings**,
+not an additional derived POMM `all_missing_extrema` row. That row count
+remains available in `rejection_reasons` for TP population diagnostics.
+
+The separate unused HDF5 snapshot implementation was removed by #291
+with an upgrade notice pointing to published PyPI `26.11.8.3` through
+31 March 2027. WP04 no longer exercises retired HDF5 persistence:
+its validation uses native `ryan-tools` processors and in-memory
+collection selection/copy. Future directory-based Parquet import/export
+belongs to draft #293, not this work pack. Parent reconciliation preserves
+new WP12 source-format processors, WAL/ccA protections and other packs.
+
+**Acceptance caveat:** original local Windows 10/Python 3.14 source/wheel,
+copied-wrapper, genuine ten-TP provenance and live SMB acceptance
+have not been independently provided for this reconciled head.
+Hosted CI and Codex must be reported with the exact SHA. No `main` merge,
+automatic release or claim of native acceptance is authorised.

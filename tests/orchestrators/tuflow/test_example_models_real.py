@@ -158,9 +158,10 @@ def test_all_example_models_public_validation(example_plan: CommandPlan, tmp_pat
         plan = replace(example_plan, runs=tuple(runs))
         report = check_command_plan(plan)
         report.write_csv(output / f"{tcf.stem}-issues.csv")
-        if not report.passed or report.completed_runs != len(runs) or report.issues:
+        if not report.passed or report.completed_runs != len(runs) or report.issues or report.warnings:
             unexpected_failures.append(
-                f"{tcf.name}: {len(report.issues)} issue(s), {report.completed_runs}/{len(runs)} runs checked"
+                f"{tcf.name}: {len(report.issues)} issue(s), {len(report.warnings)} warning(s), "
+                f"{report.completed_runs}/{len(runs)} runs checked"
             )
         rows.append(
             {
