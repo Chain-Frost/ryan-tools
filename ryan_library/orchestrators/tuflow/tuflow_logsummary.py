@@ -158,6 +158,13 @@ def process_log_file_for_dashboard(
     )
 
 
+def _attach_hpc_companion_metrics(*, data_frame: pd.DataFrame, logfile_path: Path) -> pd.DataFrame:
+    """Add opt-in companion observations only to an already validated TLF row."""
+    for field, value in read_hpc_companion_metrics(logfile_path).items():
+        data_frame[field] = value
+    return data_frame
+
+
 def _process_log_file_dataframe(logfile: Path, *, include_hpc_companion_metrics: bool = False) -> pd.DataFrame:
     logfile_path: Path = logfile
     sim_complete: int = 0
@@ -230,8 +237,7 @@ def _process_log_file_dataframe(logfile: Path, *, include_hpc_companion_metrics:
             )
             if not df.empty:
                 if include_hpc_companion_metrics:
-                    for field, value in read_hpc_companion_metrics(logfile_path).items():
-                        df[field] = value
+                    df = _attach_hpc_companion_metrics(data_frame=df, logfile_path=logfile_path)
                 logger.debug(df.head())
                 return df
             message = f"Completed TUFLOW log failed report finalization: {logfile_path}"
