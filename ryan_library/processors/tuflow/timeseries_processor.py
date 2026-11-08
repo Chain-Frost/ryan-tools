@@ -31,6 +31,8 @@ class TimeSeriesProcessor(BaseProcessor):
     # Canonical channels named by the original supported CSV headers, including
     # entities whose numeric samples disappear during normalisation.
     source_channels: frozenset[str] = frozenset()
+    # Channels with usable values before any entity or collection selection.
+    usable_source_channels: frozenset[str] = frozenset()
 
     @staticmethod
     def _source_channel_ids(columns: pd.Index, data_type: str) -> frozenset[str]:
@@ -55,7 +57,7 @@ class TimeSeriesProcessor(BaseProcessor):
             return selected
         if self.df.empty:
             self.applied_location_filter = selected
-            if selected & self.source_channels:
+            if selected & (self.source_channels - self.usable_source_channels):
                 self.selected_unusable = True
                 self.filtered_empty = False
                 self.input_health = "INVALID"
@@ -74,6 +76,7 @@ class TimeSeriesProcessor(BaseProcessor):
         """Run the shared processing pipeline for a timeseries dataset."""
         self.reset_processing_state()
         self.source_channels = frozenset()
+        self.usable_source_channels = frozenset()
         # H pivoting drops entirely blank source channels, so retain header evidence.
         self._selected_h_source_present = False
         logger.info(f"Starting processing of {data_type} file: {self.log_path}")
@@ -107,6 +110,16 @@ class TimeSeriesProcessor(BaseProcessor):
                 self.input_health = "INVALID"
                 self.df = pd.DataFrame()
                 return
+
+            # Record actual usable channels before a user selection discards
+            # valid rows. Header existence alone cannot prove invalid input
+            # when a later filter switches to a previously excluded channel.
+            id_column = next((name for name in ("Chan ID", "Location") if name in self.df.columns), None)
+            if id_column is not None:
+                identifiers: list[object] = self.df[id_column].tolist()
+                self.usable_source_channels = frozenset(
+                    str(label).strip() for label in identifiers if str(label).strip()
+                )
 
             self.apply_entity_filter()
             if self.applied_entity_filter and self.df.empty:

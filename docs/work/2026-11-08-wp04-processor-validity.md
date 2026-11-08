@@ -166,3 +166,20 @@ processor for a requested source-confirmed unusable channel, while a
 genuine absent channel still SKIPs and a usable C2 remains OK.
 Tests include direct Q/H raw CSV, public/type selection and repeated
 processing reset, without replacing the native ryan-tools TUFLOW readers.
+
+## 8 November 2026 — filter-history versus rejected-source distinction
+
+Follow-up to Codex P2 on successive location filters: header presence alone
+does not establish failure after a prior filter has legitimately excluded a
+usable channel. TimeSeriesProcessor now records usable channel IDs after
+normalisation but **before** any direct entity selection. Only source-confirmed
+channels that had no usable rows are invalid when selected into an empty
+collection. The same pre-selection usability distinction is applied to PO,
+where dry-level sentinel values do not count as usable `AbsValue`.
+
+New synthetic regressions cover Q zero/negative flows, H dual-level values,
+valid source channels removed by successive public filters and direct entity
+filters, and PO valid/dry-sentinel location handling. The preflight Ruff
+format correction is included. Focused tests, strict Pyright, hosted CI,
+fresh Codex review, genuine Module04/EG02 and wheel parity still require
+independent verification at the pushed head.

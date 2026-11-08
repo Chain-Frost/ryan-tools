@@ -31,6 +31,7 @@ from ryan_library.processors.tuflow.other_processors.TLFProcessor import TLFProc
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 from ryan_library.processors.tuflow.timeseries_1d.HProcessor import HProcessor
 from ryan_library.processors.tuflow.timeseries_1d.QProcessor import QProcessor
+from ryan_library.processors.tuflow.timeseries_processor import TimeSeriesProcessor
 
 RUN = "Selection_01.00p_00120m_TP01"
 
@@ -516,7 +517,6 @@ def test_po_source_location_evidence_resets_when_file_reprocessed(tmp_path: Path
     assert not processor.selected_unusable
 
 
-
 @pytest.mark.parametrize(
     ("suffix", "content"),
     [
@@ -530,15 +530,14 @@ def test_po_source_location_evidence_resets_when_file_reprocessed(tmp_path: Path
         ),
     ],
 )
-def test_timeseries_public_filter_preserves_all_rejected_channel(
-    tmp_path: Path, suffix: str, content: str
-) -> None:
+def test_timeseries_public_filter_preserves_all_rejected_channel(tmp_path: Path, suffix: str, content: str) -> None:
     path = _file(tmp_path, suffix, content)
-    processor = BaseProcessor.from_file(path)
+    processor = cast("TimeSeriesProcessor", BaseProcessor.from_file(path))
     processor.process()
     assert processor.processed
     assert processor.input_health == "PARTIAL"
     assert set(processor.source_channels) == {"C1", "C2"}
+    assert processor.usable_source_channels == frozenset({"C2"})
 
     source = ProcessorCollection()
     source.add_processor(processor)
@@ -582,6 +581,81 @@ def test_timeseries_source_channel_evidence_resets_on_reprocess(tmp_path: Path) 
     processor.filter_locations(["C1"])
     assert processor.filtered_empty
     assert not processor.selected_unusable
+
+
+
+@pytest.mark.parametrize(
+    ("suffix", "content"),
+    [
+        ("_1d_Q.csv", "Descriptor,Time,Q C1,Q C2\\nrow,0,0,1\\nrow,1,-3,2\\n"),
+        (
+            "_1d_H.csv",
+            "Descriptor,Time,H C1.1,H C1.2,H C2.1,H C2.2\\nrow,0,8,7,10,9\\nrow,1,9,8,11,10\\n",
+        ),
+    ],
+)
+def test_repeated_timeseries_filters_do_not_fail_previously_valid_channel(
+    tmp_path: Path, suffix: str, content: str
+) -> None:
+    path = _file(tmp_path, suffix, content)
+    original = cast("TimeSeriesProcessor", BaseProcessor.from_file(path))
+    original.process()
+    assert original.processed
+    assert original.usable_source_channels == frozenset({"C1", "C2"})
+    collection = ProcessorCollection()
+    collection.add_processor(original)
+
+    collection.filter_locations(["C2"])
+    narrowed = collection.processors[0]
+    narrowed.filter_locations(["C1"])
+    assert narrowed.df.empty
+    assert narrowed.filtered_empty
+    assert not narrowed.selected_unusable
+    assert _result_status(narrowed) == "SKIP"
+    collection.filter_locations(["C1"])
+    assert not collection.processors
+
+    direct = cast("TimeSeriesProcessor", BaseProcessor.from_file(path, entity_filter=["C2"]))
+    direct.process()
+    assert direct.processed
+    assert direct.usable_source_channels == frozenset({"C1", "C2"})
+    direct.filter_locations(["C1"])
+    assert direct.filtered_empty
+    assert not direct.selected_unusable
+    assert _result_status(direct) == "SKIP"
+
+
+def test_po_repeated_selection_distinguishes_valid_exclusion_from_rejection(tmp_path: Path) -> None:
+    path = _file(
+        tmp_path,
+        "_PO.csv",
+        "Dummy,Time,HU,HU\\nDummy,Time,Dry,Wet\\nrow,0,0,30\\nrow,1,-2,32\\n",
+    )
+    original = POProcessor(file_path=path)
+    original.process()
+    assert original.processed
+    assert original.usable_source_locations == frozenset({"Dry", "Wet"})
+
+    collection = ProcessorCollection()
+    collection.add_processor(original)
+    collection.filter_locations(["Wet"])
+    selected = collection.processors[0]
+    selected.filter_locations(["Dry"])
+    assert selected.df.empty
+    assert selected.filtered_empty
+    assert not selected.selected_unusable
+    assert _result_status(selected) == "SKIP"
+    collection.filter_locations(["Dry"])
+    assert not collection.processors
+
+    direct = POProcessor(file_path=path, entity_filter=frozenset({"Wet"}))
+    direct.process()
+    assert direct.processed
+    assert direct.usable_source_locations == frozenset({"Dry", "Wet"})
+    direct.filter_locations(["Dry"])
+    assert direct.filtered_empty
+    assert not direct.selected_unusable
+    assert _result_status(direct) == "SKIP"
 
 
 def test_tlf_retry_does_not_expose_previous_finished_status(tmp_path: Path) -> None:

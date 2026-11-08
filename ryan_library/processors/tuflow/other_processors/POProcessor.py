@@ -25,6 +25,8 @@ class POProcessor(BaseProcessor):
     filtered_empty: bool = False
     # Source header IDs, including locations whose samples are all rejected.
     source_locations: frozenset[str] = frozenset()
+    # Source locations with at least one usable derived hydraulic value.
+    usable_source_locations: frozenset[str] = frozenset()
 
     VALUE_COLUMNS: ClassVar[list[str]] = ["Time", "Location", "Type", "Value"]
 
@@ -35,7 +37,7 @@ class POProcessor(BaseProcessor):
             return selected
         if self.df.empty:
             self.applied_location_filter = selected
-            if selected & self.source_locations:
+            if selected & (self.source_locations - self.usable_source_locations):
                 # Invalid samples were dropped during parsing, but the source
                 # contained the location: INVALID/FAIL, not absent/SKIP.
                 self.selected_unusable = True
@@ -61,6 +63,7 @@ class POProcessor(BaseProcessor):
         self.reset_processing_state()
         self._selected_source_present = False
         self.source_locations = frozenset()
+        self.usable_source_locations = frozenset()
 
         try:
             raw_df: DataFrame = pd.read_csv(self.file_path, header=None, dtype=str)
@@ -85,6 +88,13 @@ class POProcessor(BaseProcessor):
         levels = self.df["Type"].astype("string").map(lambda name: is_water_level_measurement(str(name)))
         dry = levels & self.df["Value"].eq(-99999).fillna(False)
         self.df.loc[dry, "AbsValue"] = float("nan")
+
+        # Determine usability before direct/collection selection. A valid
+        # location removed by an earlier filter is not rejected source data.
+        usable_labels: list[object] = self.df.loc[self.df["AbsValue"].notna(), "Location"].tolist()
+        self.usable_source_locations = frozenset(
+            str(label).strip() for label in usable_labels if str(label).strip()
+        )
 
         self.apply_entity_filter()
         if self.applied_entity_filter and self.df.empty:
