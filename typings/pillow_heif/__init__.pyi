@@ -1,0 +1,3 @@
+"""Public registration entry point used by the optional HEIC utility."""
+
+def register_heif_opener(**kwargs: object) -> None: ...

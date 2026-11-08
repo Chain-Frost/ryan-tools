@@ -1,5 +1,9 @@
 """Tests for ryan_library.orchestrators.tuflow.tuflow_culverts_mean."""
 
+# Unit tests intentionally exercise the implementation helpers under test.
+# pyright: reportPrivateUsage=false
+
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -33,7 +37,7 @@ def sample_aggregated_df() -> pd.DataFrame:
 
 
 class TestFindStatistics:
-    def test_find_culvert_aep_dur_mean(self, sample_aggregated_df):
+    def test_find_culvert_aep_dur_mean(self, sample_aggregated_df: pd.DataFrame):
         res = find_culvert_aep_dur_mean(sample_aggregated_df)
         assert not res.empty
         # For 10m: Q mean is 2.0, V mean is 0.2
@@ -46,7 +50,7 @@ class TestFindStatistics:
         assert row_10["min_Q"] == 1.0
         assert row_10["max_Q"] == 3.0
 
-    def test_find_culvert_aep_dur_median(self, sample_aggregated_df):
+    def test_find_culvert_aep_dur_median(self, sample_aggregated_df: pd.DataFrame):
         res = find_culvert_aep_dur_median(sample_aggregated_df)
         assert not res.empty
         assert len(res) == 2
@@ -67,7 +71,7 @@ class TestFindStatistics:
         df_no_num = pd.DataFrame({"aep_text": ["1"], "duration_text": ["1"], "trim_runcode": ["E"], "Chan ID": ["C"]})
         assert _find_culvert_aep_dur_statistic(df_no_num, "mean").empty
 
-    def test_find_culvert_aep_mean_max(self, sample_aggregated_df):
+    def test_find_culvert_aep_mean_max(self, sample_aggregated_df: pd.DataFrame):
         mean_df = find_culvert_aep_dur_mean(sample_aggregated_df)
         max_df = find_culvert_aep_mean_max(mean_df)
         assert not max_df.empty
@@ -97,7 +101,9 @@ class TestFindStatistics:
 class TestOrchestratorReport:
     @patch("ryan_library.orchestrators.tuflow.tuflow_culverts_mean.ExcelExporter")
     @patch("ryan_library.orchestrators.tuflow.tuflow_culverts_mean.bulk_read_and_merge_tuflow_csv")
-    def test_run_report_success(self, mock_bulk, mock_exporter, tmp_path, sample_aggregated_df):
+    def test_run_report_success(
+        self, mock_bulk: MagicMock, mock_exporter: MagicMock, tmp_path: Path, sample_aggregated_df: pd.DataFrame
+    ):
         mock_collection = MagicMock()
         mock_collection.processors = [1]
         mock_collection.combine_1d_maximums.return_value = sample_aggregated_df
@@ -113,7 +119,7 @@ class TestOrchestratorReport:
         assert mock_exporter.return_value.export_dataframes.called
 
     @patch("ryan_library.orchestrators.tuflow.tuflow_culverts_mean.bulk_read_and_merge_tuflow_csv")
-    def test_run_report_empty_processors(self, mock_bulk, tmp_path):
+    def test_run_report_empty_processors(self, mock_bulk: MagicMock, tmp_path: Path):
         mock_collection = MagicMock()
         mock_collection.processors = []
         mock_bulk.return_value = mock_collection
@@ -126,7 +132,7 @@ class TestOrchestratorReport:
         # Should exit early without raising
 
     @patch("ryan_library.orchestrators.tuflow.tuflow_culverts_mean.bulk_read_and_merge_tuflow_csv")
-    def test_run_report_empty_dataframe(self, mock_bulk, tmp_path):
+    def test_run_report_empty_dataframe(self, mock_bulk: MagicMock, tmp_path: Path):
         mock_collection = MagicMock()
         mock_collection.processors = [1]
         mock_collection.combine_1d_maximums.return_value = pd.DataFrame()
@@ -139,7 +145,7 @@ class TestOrchestratorReport:
         )
 
     @patch("ryan_library.orchestrators.tuflow.tuflow_culverts_mean.bulk_read_and_merge_tuflow_csv")
-    def test_run_report_empty_locations(self, mock_bulk, tmp_path, sample_aggregated_df):
+    def test_run_report_empty_locations(self, mock_bulk: MagicMock, tmp_path: Path, sample_aggregated_df: pd.DataFrame):
         mock_collection = MagicMock()
         mock_collection.processors = [1]
         mock_collection.filter_locations.return_value = frozenset()
@@ -155,7 +161,9 @@ class TestOrchestratorReport:
 
     @patch("ryan_library.orchestrators.tuflow.tuflow_culverts_mean._find_culvert_aep_dur_statistic")
     @patch("ryan_library.orchestrators.tuflow.tuflow_culverts_mean.bulk_read_and_merge_tuflow_csv")
-    def test_run_report_empty_dur_stat(self, mock_bulk, mock_find, tmp_path, sample_aggregated_df):
+    def test_run_report_empty_dur_stat(
+        self, mock_bulk: MagicMock, mock_find: MagicMock, tmp_path: Path, sample_aggregated_df: pd.DataFrame
+    ):
         mock_collection = MagicMock()
         mock_collection.processors = [1]
         mock_collection.combine_1d_maximums.return_value = sample_aggregated_df

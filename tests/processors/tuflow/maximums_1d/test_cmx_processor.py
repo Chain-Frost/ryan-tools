@@ -1,7 +1,10 @@
+# Unit tests intentionally exercise implementation helpers.
+# pyright: reportPrivateUsage=false
+
 """Unit tests for ryan_library.processors.tuflow.maximums_1d.CmxProcessor."""
 
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
@@ -27,7 +30,7 @@ class TestCmxProcessor:
             processor.data_type = "Cmx"
             return processor
 
-    def test_reshape_cmx_data_success(self, mock_processor):
+    def test_reshape_cmx_data_success(self, mock_processor: CmxProcessor):
         """Test successful reshaping of CMX data."""
         mock_processor.df = pd.DataFrame(
             {
@@ -57,7 +60,7 @@ class TestCmxProcessor:
         assert v_rows.iloc[0]["V"] == 1.0
         assert pd.isna(v_rows.iloc[0]["Q"])
 
-    def test_reshape_cmx_data_missing_columns(self, mock_processor):
+    def test_reshape_cmx_data_missing_columns(self, mock_processor: CmxProcessor):
         """Test reshaping fails with missing columns."""
         mock_processor.df = pd.DataFrame(
             {
@@ -70,7 +73,7 @@ class TestCmxProcessor:
         mock_processor._reshape_cmx_data()
         assert mock_processor.df.empty
 
-    def test_handle_malformed_data(self, mock_processor):
+    def test_handle_malformed_data(self, mock_processor: CmxProcessor):
         """Test handling of malformed data."""
         mock_processor.df = pd.DataFrame(
             {"Chan ID": ["C1", None], "Time": [1.0, None], "Q": [10.0, None], "V": [None, None]}
@@ -85,7 +88,14 @@ class TestCmxProcessor:
     @patch("ryan_library.processors.tuflow.maximums_1d.CmxProcessor.CmxProcessor.add_common_columns")
     @patch("ryan_library.processors.tuflow.maximums_1d.CmxProcessor.CmxProcessor.apply_output_transformations")
     @patch("ryan_library.processors.tuflow.maximums_1d.CmxProcessor.CmxProcessor.validate_data")
-    def test_process_success(self, mock_validate, mock_apply, mock_add, mock_read, mock_processor):
+    def test_process_success(
+        self,
+        mock_validate: MagicMock,
+        mock_apply: MagicMock,
+        mock_add: MagicMock,
+        mock_read: MagicMock,
+        mock_processor: MagicMock,
+    ):
         """Test full process flow success."""
         mock_read.return_value = ProcessorStatus.SUCCESS
         mock_validate.return_value = True
@@ -109,7 +119,7 @@ class TestCmxProcessor:
         mock_apply.assert_called_once()
 
     @patch("ryan_library.processors.tuflow.maximums_1d.CmxProcessor.CmxProcessor.read_maximums_csv")
-    def test_process_read_failure(self, mock_read, mock_processor):
+    def test_process_read_failure(self, mock_read: MagicMock, mock_processor: MagicMock):
         """Test process aborts when read fails."""
         mock_read.return_value = ProcessorStatus.FAILURE
 
@@ -122,7 +132,14 @@ class TestCmxProcessor:
     @patch("ryan_library.processors.tuflow.maximums_1d.CmxProcessor.CmxProcessor.add_common_columns")
     @patch("ryan_library.processors.tuflow.maximums_1d.CmxProcessor.CmxProcessor.apply_output_transformations")
     @patch("ryan_library.processors.tuflow.maximums_1d.CmxProcessor.CmxProcessor.validate_data")
-    def test_process_validation_failure(self, mock_validate, mock_apply, mock_add, mock_read, mock_processor):
+    def test_process_validation_failure(
+        self,
+        mock_validate: MagicMock,
+        mock_apply: MagicMock,
+        mock_add: MagicMock,
+        mock_read: MagicMock,
+        mock_processor: MagicMock,
+    ):
         """Test process aborts when validation fails."""
         mock_read.return_value = ProcessorStatus.SUCCESS
         mock_validate.return_value = False
@@ -138,7 +155,7 @@ class TestCmxProcessor:
         assert mock_processor.df.empty
 
     @patch("ryan_library.processors.tuflow.maximums_1d.CmxProcessor.CmxProcessor.read_maximums_csv")
-    def test_process_exception(self, mock_read, mock_processor):
+    def test_process_exception(self, mock_read: MagicMock, mock_processor: MagicMock):
         """Test process handles exceptions."""
         mock_read.side_effect = Exception("Test Error")
 

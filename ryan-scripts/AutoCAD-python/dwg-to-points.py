@@ -9,16 +9,23 @@ Existing outputs are protected unless ``--force`` is supplied. This reads DXF,
 not binary DWG; export or convert a DWG before running the tool.
 """
 
+# External optional keyword signatures are incomplete; exceptions stay on individual calls.
+
 from __future__ import annotations
 
 import argparse
 from collections.abc import Iterable, Iterator
 from pathlib import Path
+from types import TracebackType
+from typing import Any, cast
 
-import ezdxf
 import pyarrow as pa
 import pyarrow.parquet as pq
-from ezdxf.entities import DXFGraphic
+from ezdxf.entities.dxfgfx import DXFGraphic
+from ezdxf.filemanagement import (
+    readfile,  # pyright: ignore[reportUnknownVariableType] - external encoding default lacks annotations
+)
+from ezdxf.lldxf.const import DXFStructureError
 
 Vec3 = tuple[float, float, float]
 Triangle = tuple[Vec3, Vec3, Vec3]
@@ -116,8 +123,8 @@ def main() -> None:
         raise SystemExit(msg)
 
     try:
-        doc = ezdxf.readfile(source)
-    except (OSError, ezdxf.DXFStructureError) as exc:
+        doc = readfile(source)
+    except (OSError, DXFStructureError) as exc:
         msg = f"Unable to read '{source}': {exc}"
         raise SystemExit(msg) from exc
 
@@ -217,7 +224,9 @@ class ParquetBatchWriter:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback) -> None:
+    def __exit__(
+        self, exc_type: type[BaseException] | None, exc_value: BaseException | None, traceback: TracebackType | None
+    ) -> None:
         if self.writer is not None:
             self.writer.close()
 
@@ -225,7 +234,7 @@ class ParquetBatchWriter:
         table = pa.Table.from_pylist(rows, schema=self.schema)
         if self.writer is None:
             self.writer = pq.ParquetWriter(self.path, self.schema, compression="zstd")
-        self.writer.write_table(table)
+        self.writer.write_table(table)  # pyright: ignore[reportUnknownMemberType]
 
 
 def collect_unique_vertices(modelspace: Iterable[DXFGraphic], precision: int) -> dict[Vec3, Vec3]:
@@ -277,7 +286,7 @@ def iterate_entity_vertices(entity: DXFGraphic) -> Iterator[Vec3]:
         iterable = attribute() if callable(attribute) else attribute
         if not iterable:
             continue
-        for item in iterable:
+        for item in cast("Iterable[Any]", iterable):
             point = _to_vec3(item)
             if point:
                 yield point
@@ -318,10 +327,10 @@ def triangulate_points(points: list[Vec3]) -> Iterator[Triangle]:
 
 
 def normalize(point: Vec3, precision: int) -> Vec3:
-    return tuple(round(coord, precision) for coord in point)
+    return (round(point[0], precision), round(point[1], precision), round(point[2], precision))
 
 
-def _to_vec3(value) -> Vec3 | None:
+def _to_vec3(value: Any) -> Vec3 | None:
     if value is None:
         return None
     if isinstance(value, DXFGraphic):
@@ -337,7 +346,7 @@ def _to_vec3(value) -> Vec3 | None:
     return None
 
 
-def _tuple_from_iterable(iterable) -> Vec3 | None:
+def _tuple_from_iterable(iterable: Iterable[Any]) -> Vec3 | None:
     coords = tuple(float(coord) for coord in iterable)
     if not coords:
         return None

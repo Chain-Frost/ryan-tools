@@ -9,8 +9,8 @@ from pathlib import Path
 from typing import Literal
 
 import numpy as np
-import rasterio  # pyright: ignore[reportMissingTypeStubs]
-import rasterio.windows  # pyright: ignore[reportMissingTypeStubs]
+import rasterio
+import rasterio.windows
 from loguru import logger
 from numpy.typing import NDArray
 from shapely.geometry import LineString

@@ -46,7 +46,7 @@ license = "SUL-1.0"
 name = "ryan-tools"
 readme = "README.md"
 requires-python = ">=3.14"
-version = "26.11.8.5"
+version = "26.11.8.6"
 
 [project.optional-dependencies]
 cache = [
@@ -55,8 +55,12 @@ cache = [
 dev = [
   "build",
   "tables>=3.11.1",
-  "pandas-stubs",
-  "pyright",
+  "pandas-stubs>=3.1.0.261029",
+  "types-psutil",
+  "scipy-stubs",
+  "distributed",
+  "pillow-heif",
+  "pyright>=1.1.414",
   "pytest",
   "pytest-cov",
   "ruff==0.16.6",
@@ -129,3 +133,26 @@ extraPaths = ["vendor"]
 include = ["ryan_library", "ryan-scripts"]
 pythonVersion = "3.14"
 typeCheckingMode = "strict"
+reportUnnecessaryTypeIgnoreComment = "error"
+
+[[tool.pyright.executionEnvironments]]
+root = "repo-scripts"
+extraPaths = ["repo-scripts", ".", "vendor"]
+
+[[tool.pyright.executionEnvironments]]
+root = "tests/scripts/promoted_scripts"
+extraPaths = [
+  ".",
+  "vendor",
+  "ryan-scripts/TUFLOW-python",
+  "ryan-scripts/TUFLOW-python/raster_processing",
+  "ryan-scripts/unsorted-python",
+  "ryan-scripts/gdal-python",
+  "ryan-scripts/RORB-python",
+  "ryan-scripts/hydrology-python",
+  "ryan-scripts/other",
+]
+
+[[tool.pyright.executionEnvironments]]
+root = "."
+extraPaths = ["vendor"]

@@ -42,7 +42,7 @@ from loguru import logger
 from osgeo import gdal  # type: ignore
 
 # Enable GDAL exceptions so errors are raised as Python exceptions
-gdal.UseExceptions()  # type: ignore
+gdal.UseExceptions()
 
 from ryan_library.functions.gdal.raster_processing import geotiff_creation_options
 from ryan_library.functions.loguru_helpers import setup_logger

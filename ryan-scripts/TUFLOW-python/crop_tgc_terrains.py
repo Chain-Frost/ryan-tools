@@ -196,7 +196,7 @@ def resolve_terrain_layers(tgc_path: Path, scenario: str) -> list[TerrainLayer]:
             message = f"Line {run_input.line_number} has unsupported extra references: {run_input.rhs}"
             raise ValueError(message)
 
-        source = _absolute(Path(str(references[0].path_pattern)))  # pyright: ignore[reportGeneralTypeIssues]
+        source = _absolute(Path(str(references[0].path_pattern)))
         mask_path = _absolute(Path(str(references[1].path_pattern))) if len(references) == 2 else None
         source_expression = str(run_input.rhs).split("|", maxsplit=1)[0].strip()
         selected.append(
@@ -470,7 +470,7 @@ def _source_window(source: Any, bounds: tuple[float, float, float, float]) -> Wi
         message = "Retained coverage does not intersect the source raster"
         raise ValueError(message)
     width, height = col_stop - col_start, row_stop - row_start
-    return Window(col_start, row_start, width, height)  # pyright: ignore[reportCallIssue]
+    return Window(col_start, row_start, width, height)
 
 
 def _retained_bounds(
@@ -483,7 +483,7 @@ def _retained_bounds(
     row_start, row_stop = int(rows.min()), int(rows.max()) + 1
     col_start, col_stop = int(cols.min()), int(cols.max()) + 1
     transform = rasterio.windows.transform(
-        Window(col_start, row_start, col_stop - col_start, row_stop - row_start),  # pyright: ignore[reportCallIssue]
+        Window(col_start, row_start, col_stop - col_start, row_stop - row_start),
         grid.transform,
     )
     west, south, east, north = array_bounds(row_stop - row_start, col_stop - col_start, transform)
@@ -549,7 +549,7 @@ def _write_layer(planned: PlannedLayer, grid: PlanningGrid, bounds: AnalysisBoun
                         source_window.row_off + destination_window.row_off,
                         destination_window.width,
                         destination_window.height,
-                    )  # pyright: ignore[reportCallIssue]
+                    )
                     data = source.read(1, window=read_window)
                     source_valid = source.read_masks(1, window=read_window) > 0
                     destination_transform = rasterio.windows.transform(read_window, source.transform)
@@ -571,7 +571,8 @@ def _write_layer(planned: PlannedLayer, grid: PlanningGrid, bounds: AnalysisBoun
                         all_touched=False,
                     )
                     valid = source_valid & (retained > 0) & inside
-                    data[~valid] = source.nodata
+                    # Discovery rejects sources without a nodata value.
+                    data[~valid] = cast("float", source.nodata)
                     destination.write(data, 1, window=destination_window)
             complete = True
         finally:

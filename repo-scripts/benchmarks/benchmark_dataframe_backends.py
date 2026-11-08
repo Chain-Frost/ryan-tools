@@ -95,9 +95,9 @@ def load_frames_from_paths(paths: list[Path], limit: int | None = None, fmt: str
                 else:
                     use_fmt = "csv"
             if use_fmt == "parquet":
-                df = pd.read_parquet(path)  # type: ignore[arg-type]
+                df = pd.read_parquet(path)
             else:
-                df = pd.read_csv(path)  # type: ignore[arg-type]
+                df = pd.read_csv(path)
             frames.append(df)
         except Exception as exc:
             print(f"Failed to load {path}: {exc}", file=sys.stderr)
@@ -135,7 +135,7 @@ def bench_polars(frames: list[pd.DataFrame]) -> list[BenchmarkResult]:
     results.append(BenchmarkResult("polars", "concat", elapsed, combined.height, combined.width))
 
     start = _now()
-    grouped = combined.group_by(["internalName", "Chan ID"]).agg(pl.all().max())  # type: ignore[arg-type]
+    grouped = combined.group_by(["internalName", "Chan ID"]).agg(pl.all().max())
     elapsed = _now() - start
     results.append(BenchmarkResult("polars", "groupby", elapsed, grouped.height, grouped.width))
     return results

@@ -18,7 +18,7 @@ class TestTuflowCommon:
 
     @patch("ryan_library.functions.tuflow.tuflow_common.find_files_parallel")
     @patch("ryan_library.functions.tuflow.tuflow_common.is_non_zero_file")
-    def test_collect_files(self, mock_is_non_zero, mock_find):
+    def test_collect_files(self, mock_is_non_zero: MagicMock, mock_find: MagicMock):
         """Test file collection logic."""
         mock_find.return_value = [Path("test_1d_H.csv")]
         mock_is_non_zero.return_value = True
@@ -36,7 +36,7 @@ class TestTuflowCommon:
         assert files[0] == Path("test_1d_H.csv")
 
     @patch("ryan_library.processors.tuflow.base_processor.BaseProcessor.from_file")
-    def test_process_file_success(self, mock_from_file):
+    def test_process_file_success(self, mock_from_file: MagicMock):
         """Test successful file processing."""
         mock_proc = MagicMock()
         mock_proc.validate_data.return_value = True
@@ -49,7 +49,7 @@ class TestTuflowCommon:
 
     @patch("ryan_library.functions.tuflow.tuflow_common.Pool")
     @patch("ryan_library.functions.tuflow.tuflow_common.calculate_pool_size")
-    def test_process_files_in_parallel(self, mock_calc_size, mock_pool_cls):
+    def test_process_files_in_parallel(self, mock_calc_size: MagicMock, mock_pool_cls: MagicMock):
         """Test parallel processing orchestration."""
         mock_calc_size.return_value = 1
         mock_pool = MagicMock()
@@ -69,7 +69,7 @@ class TestTuflowCommon:
 
     @patch("ryan_library.functions.tuflow.tuflow_common.collect_files")
     @patch("ryan_library.functions.tuflow.tuflow_common.process_files_in_parallel")
-    def test_bulk_read_and_merge_tuflow_csv(self, mock_process, mock_collect):
+    def test_bulk_read_and_merge_tuflow_csv(self, mock_process: MagicMock, mock_collect: MagicMock):
         """Test bulk processing orchestration."""
         mock_collect.return_value = [Path("test.csv")]
         mock_process.return_value = ProcessorCollection()

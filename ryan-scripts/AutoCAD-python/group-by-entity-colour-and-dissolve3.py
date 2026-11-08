@@ -11,14 +11,22 @@ Review the new drawing in CAD, especially geometries that only touch within the
 configured tolerance.
 """
 
-import os
-from datetime import datetime
+# External optional keyword signatures are incomplete; exceptions stay on individual calls.
 
-import ezdxf
+import os
+from collections.abc import Iterable
+from datetime import datetime
+from typing import cast
+
 from ezdxf.document import Drawing
 from ezdxf.entities.dxfgfx import DXFGraphic
+from ezdxf.entities.lwpolyline import LWPolyline
+from ezdxf.filemanagement import (
+    readfile,  # pyright: ignore[reportUnknownVariableType] - external encoding default lacks annotations
+)
 from ezdxf.layouts.layout import Modelspace
-from shapely.geometry import Polygon
+from shapely.geometry import MultiPolygon, Polygon
+from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
 # tolerance for merging “point-touchers” (in drawing units)
@@ -38,13 +46,14 @@ def main() -> None:
     # ────────────────────────────────────────────────────────────────────────
 
     print(f"[{now()}] Reading '{input_file}'…")
-    doc: Drawing = ezdxf.readfile(input_file)
+    doc: Drawing = readfile(input_file)
     msp: Modelspace = doc.modelspace()
 
     # 1) Re-layer by true_color / index color
     print(f"[{now()}] Re-layering entities by color…")
     colour_map: dict[str, int] = {}
     layer_counts: dict[str, int] = {}
+    idx = 0
     for idx, e in enumerate(msp, start=1):
         old_layer = e.get_dxf_attrib("layer", "0")
         tc = e.get_dxf_attrib("true_color", None)
@@ -52,7 +61,7 @@ def main() -> None:
         lname = make_layer_name(tc, ic)
 
         if lname not in doc.layers:
-            doc.layers.add(name=lname)
+            doc.layers.add(name=lname)  # pyright: ignore[reportUnknownMemberType]
         colour_map[lname] = tc if tc is not None else ic
         e.dxf.layer = lname
 
@@ -78,7 +87,7 @@ def main() -> None:
 
     # 3) Save
     print(f"[{now()}] Saving '{output_file}'…")
-    doc.saveas(filename=output_file)
+    doc.saveas(filename=output_file)  # pyright: ignore[reportUnknownMemberType]
     print(f"[{now()}] Done.")
 
 
@@ -99,7 +108,7 @@ def make_layer_name(tc: int | None, ic: int) -> str:
     return f"I_{ic:03d}"
 
 
-def extract_polygons(e: DXFGraphic) -> list[Polygon]:
+def extract_polygons(e: DXFGraphic) -> list[BaseGeometry]:
     """Return a list of 2D Shapely Polygons from a DXFGraphic.
     Supports:
       - Closed LWPOLYLINE
@@ -109,8 +118,8 @@ def extract_polygons(e: DXFGraphic) -> list[Polygon]:
     et = e.dxftype()
     pts: list[tuple[float, float]] = []
 
-    if et == "LWPOLYLINE" and e.closed:
-        pts = [(x, y) for x, y, *_ in e.get_points()]
+    if et == "LWPOLYLINE" and cast("LWPolyline", e).closed:
+        pts = [(x, y) for x, y, *_ in cast("LWPolyline", e).get_points()]
 
     elif et in ("SOLID", "3DFACE"):
         # fetch the four possible vertices
@@ -135,7 +144,7 @@ def extract_polygons(e: DXFGraphic) -> list[Polygon]:
     if len(pts) < 3:
         return []
 
-    poly = Polygon(pts)
+    poly: BaseGeometry = Polygon(pts)
     if not poly.is_valid:
         # minimal self-intersection fix
         poly = poly.buffer(0)
@@ -146,9 +155,9 @@ def dissolve_layer(msp: Modelspace, layer_name: str, colour_map: dict[str, int])
     """Collect all polygons on 'layer_name', buffer & union to dissolve,
     delete originals, and re-add as single or multiple LWPOLYLINEs.
     """
-    raws: list[Polygon] = []
+    raws: list[BaseGeometry] = []
     handles_to_delete: list[str] = []
-    for count, e in enumerate(msp.query(f'*[layer=="{layer_name}"]'), start=1):
+    for count, e in enumerate(cast("Iterable[DXFGraphic]", msp.query(f'*[layer=="{layer_name}"]')), start=1):
         for poly in extract_polygons(e):
             raws.append(poly.buffer(distance=TOLERANCE))
             handles_to_delete.append(e.dxf.handle)
@@ -160,17 +169,17 @@ def dissolve_layer(msp: Modelspace, layer_name: str, colour_map: dict[str, int])
         print(f"[{now()}]   • No polygons found on '{layer_name}', skipping.")
         return
 
-    merged = unary_union(raws).buffer(distance=-TOLERANCE)
-    final_polys = [merged] if isinstance(merged, Polygon) else list(merged.geoms)
+    merged = cast("BaseGeometry", unary_union(raws).buffer(distance=-TOLERANCE))
+    final_polys = [merged] if isinstance(merged, Polygon) else list(cast("MultiPolygon", merged).geoms)
 
     # delete the raw entities
     for h in handles_to_delete:
-        msp.delete_entity(msp.entitydb[h])
+        msp.delete_entity(cast("DXFGraphic", msp.entitydb[h]))
 
     # re-add dissolved shapes
     for poly in final_polys:
         coords = list(poly.exterior.coords)
-        new_pl = msp.add_lwpolyline(coords, close=True, dxfattribs={"layer": layer_name})
+        new_pl = msp.add_lwpolyline(coords, close=True, dxfattribs={"layer": layer_name})  # pyright: ignore[reportUnknownMemberType]
         orig = colour_map[layer_name]
         if 1 <= orig <= 256:
             new_pl.dxf.color = orig

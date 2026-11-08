@@ -226,7 +226,7 @@ def maximums_dataframe_to_crossings(
 
     raw_rows = cast(
         "list[dict[str, Any]]",
-        maximums.to_dict(orient="records"),  # pyright: ignore[reportUnknownMemberType]
+        maximums.to_dict(orient="records"),
     )
     indexes: Sequence[int | str] = list(maximums.index)
     crossings: list[CulvertCrossing] = []

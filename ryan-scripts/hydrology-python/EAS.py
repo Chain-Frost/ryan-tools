@@ -20,17 +20,22 @@ Dependencies:
     - shapely
 """
 
+# External optional keyword signatures are incomplete; exceptions stay on individual calls.
+
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from numpy.typing import NDArray
 from scipy.interpolate import interp1d
-from scipy.optimize import brentq
+from scipy.optimize import brentq  # pyright: ignore[reportUnknownVariableType] - backend boolean overload is partial
 from shapely.geometry import Polygon
 
+type Intersection = tuple[float, float] | tuple[None, None]
 
-def calc_slope_ea(x: np.ndarray, y: np.ndarray) -> float:
+
+def calc_slope_ea(x: NDArray[np.float64], y: NDArray[np.float64]) -> float:
     """Calculate the equal area slope.
 
     Parameters:
@@ -51,7 +56,7 @@ def calc_slope_ea(x: np.ndarray, y: np.ndarray) -> float:
     # Calculate equal area slope
     h = 2 * A / (L**2)  # Units: m/m
 
-    return h
+    return float(h)
 
 
 def generate_random_profile(seed: int = 11, num_points: int = 100) -> pd.DataFrame:
@@ -92,26 +97,26 @@ def generate_random_profile(seed: int = 11, num_points: int = 100) -> pd.DataFra
     return profile_df
 
 
-def plot_stream_profile(profile_df: pd.DataFrame, save_path: Path):
+def plot_stream_profile(profile_df: pd.DataFrame, save_path: Path) -> None:
     """Plot the stream profile and save the plot.
 
     Parameters:
         profile_df (pd.DataFrame): DataFrame containing 'x' and 'y' columns
         save_path (Path): Path to save the plot image
     """
-    plt.figure(figsize=(8, 6))
-    plt.plot(profile_df["x"], profile_df["y"], marker="o", linestyle="-")
-    plt.xlabel("Distance (km)")
-    plt.ylabel("Elevation (m)")
-    plt.title("Stream Profile")
-    plt.grid(True)
+    plt.figure(figsize=(8, 6))  # pyright: ignore[reportUnknownMemberType]
+    plt.plot(profile_df["x"], profile_df["y"], marker="o", linestyle="-")  # pyright: ignore[reportUnknownMemberType]
+    plt.xlabel("Distance (km)")  # pyright: ignore[reportUnknownMemberType]
+    plt.ylabel("Elevation (m)")  # pyright: ignore[reportUnknownMemberType]
+    plt.title("Stream Profile")  # pyright: ignore[reportUnknownMemberType]
+    plt.grid(True)  # pyright: ignore[reportUnknownMemberType] - Matplotlib leaves Artist kwargs untyped
     plt.tight_layout()
-    plt.savefig(save_path)
+    plt.savefig(save_path)  # pyright: ignore[reportUnknownMemberType]
     plt.close()
     print(f"Stream profile plot saved to {save_path}")
 
 
-def plot_stream_profile_with_slope(profile_df: pd.DataFrame, h: float, save_path: Path):
+def plot_stream_profile_with_slope(profile_df: pd.DataFrame, h: float, save_path: Path) -> None:
     """Plot the stream profile with the equal area slope and save the plot.
 
     Parameters:
@@ -122,23 +127,23 @@ def plot_stream_profile_with_slope(profile_df: pd.DataFrame, h: float, save_path
     L = profile_df["x"].max() - profile_df["x"].min()
     C_y = profile_df["y"].min() + h * L
 
-    plt.figure(figsize=(8, 6))
-    plt.plot(profile_df["x"], profile_df["y"], marker="o", linestyle="-", label="Profile")
-    plt.scatter(profile_df["x"].max(), C_y, color="blue", s=50, label="Equal Area Slope Point")
-    plt.plot(
+    plt.figure(figsize=(8, 6))  # pyright: ignore[reportUnknownMemberType]
+    plt.plot(profile_df["x"], profile_df["y"], marker="o", linestyle="-", label="Profile")  # pyright: ignore[reportUnknownMemberType]
+    plt.scatter(profile_df["x"].max(), C_y, color="blue", s=50, label="Equal Area Slope Point")  # pyright: ignore[reportUnknownMemberType]
+    plt.plot(  # pyright: ignore[reportUnknownMemberType]
         [profile_df["x"].min(), profile_df["x"].max()],
         [profile_df["y"].min(), C_y],
         linestyle="--",
         color="blue",
         label="Equal Area Slope Line",
     )
-    plt.xlabel("Distance (km)")
-    plt.ylabel("Elevation (m)")
-    plt.title("Stream Profile with Equal Area Slope")
-    plt.legend()
-    plt.grid(True)
+    plt.xlabel("Distance (km)")  # pyright: ignore[reportUnknownMemberType]
+    plt.ylabel("Elevation (m)")  # pyright: ignore[reportUnknownMemberType]
+    plt.title("Stream Profile with Equal Area Slope")  # pyright: ignore[reportUnknownMemberType]
+    plt.legend()  # pyright: ignore[reportUnknownMemberType]
+    plt.grid(True)  # pyright: ignore[reportUnknownMemberType] - Matplotlib leaves Artist kwargs untyped
     plt.tight_layout()
-    plt.savefig(save_path)
+    plt.savefig(save_path)  # pyright: ignore[reportUnknownMemberType]
     plt.close()
     print(f"Stream profile with equal area slope plot saved to {save_path}")
 
@@ -146,11 +151,11 @@ def plot_stream_profile_with_slope(profile_df: pd.DataFrame, h: float, save_path
 def plot_stream_profile_with_polygons(
     profile_df: pd.DataFrame,
     h: float,
-    intersection: tuple,
+    intersection: Intersection,
     poly1_df: pd.DataFrame,
     poly2_df: pd.DataFrame,
     save_path: Path,
-):
+) -> None:
     """Plot the stream profile with equal area slope, intersection, and polygons, then save the plot.
 
     Parameters:
@@ -164,10 +169,10 @@ def plot_stream_profile_with_polygons(
     L = profile_df["x"].max() - profile_df["x"].min()
     C_y = profile_df["y"].min() + h * L
 
-    plt.figure(figsize=(8, 6))
-    plt.plot(profile_df["x"], profile_df["y"], marker="o", linestyle="-", label="Profile")
-    plt.scatter(profile_df["x"].max(), C_y, color="blue", s=50, label="Equal Area Slope Point")
-    plt.plot(
+    plt.figure(figsize=(8, 6))  # pyright: ignore[reportUnknownMemberType]
+    plt.plot(profile_df["x"], profile_df["y"], marker="o", linestyle="-", label="Profile")  # pyright: ignore[reportUnknownMemberType]
+    plt.scatter(profile_df["x"].max(), C_y, color="blue", s=50, label="Equal Area Slope Point")  # pyright: ignore[reportUnknownMemberType]
+    plt.plot(  # pyright: ignore[reportUnknownMemberType]
         [profile_df["x"].min(), profile_df["x"].max()],
         [profile_df["y"].min(), C_y],
         linestyle="--",
@@ -177,7 +182,7 @@ def plot_stream_profile_with_polygons(
 
     if intersection[0] is not None:
         # Plot intersection point
-        plt.scatter(
+        plt.scatter(  # pyright: ignore[reportUnknownMemberType]
             intersection[0],
             intersection[1],
             color="red",
@@ -192,21 +197,21 @@ def plot_stream_profile_with_polygons(
         x_poly1, y_poly1 = polygon1.exterior.xy
         x_poly2, y_poly2 = polygon2.exterior.xy
 
-        plt.fill(x_poly1, y_poly1, color="blue", alpha=0.2, label="Polygon A1")
-        plt.fill(x_poly2, y_poly2, color="green", alpha=0.2, label="Polygon A2")
+        plt.fill(x_poly1, y_poly1, color="blue", alpha=0.2, label="Polygon A1")  # pyright: ignore[reportUnknownMemberType] - backend data overload is partial
+        plt.fill(x_poly2, y_poly2, color="green", alpha=0.2, label="Polygon A2")  # pyright: ignore[reportUnknownMemberType] - backend data overload is partial
 
-    plt.xlabel("Distance (km)")
-    plt.ylabel("Elevation (m)")
-    plt.title("Stream Profile with Equal Area Slope and Polygons")
-    plt.legend()
-    plt.grid(True)
+    plt.xlabel("Distance (km)")  # pyright: ignore[reportUnknownMemberType]
+    plt.ylabel("Elevation (m)")  # pyright: ignore[reportUnknownMemberType]
+    plt.title("Stream Profile with Equal Area Slope and Polygons")  # pyright: ignore[reportUnknownMemberType]
+    plt.legend()  # pyright: ignore[reportUnknownMemberType]
+    plt.grid(True)  # pyright: ignore[reportUnknownMemberType] - Matplotlib leaves Artist kwargs untyped
     plt.tight_layout()
-    plt.savefig(save_path)
+    plt.savefig(save_path)  # pyright: ignore[reportUnknownMemberType]
     plt.close()
     print(f"Stream profile with polygons plot saved to {save_path}")
 
 
-def find_intersection(profile_df: pd.DataFrame, h: float) -> tuple:
+def find_intersection(profile_df: pd.DataFrame, h: float) -> Intersection:
     """Find the intersection point between the stream profile and the equal area slope line.
 
     Parameters:
@@ -228,13 +233,13 @@ def find_intersection(profile_df: pd.DataFrame, h: float) -> tuple:
     profile_y_func = interp1d(profile_df["x"], profile_df["y"], kind="linear", fill_value="extrapolate")
 
     # Define the difference function
-    def calc_ydiff(x_val):
-        return profile_y_func(x_val) - slope_ea_y_func(x_val)
+    def calc_ydiff(x_val: float) -> float:
+        return float(profile_y_func(x_val) - slope_ea_y_func(x_val))
 
     # Attempt to find the root (intersection)
     try:
         x_int = brentq(calc_ydiff, profile_df["x"].iloc[1], profile_df["x"].max())
-        y_int = slope_ea_y_func(x_int)
+        y_int = float(slope_ea_y_func(x_int))
         print(f"Intersection found at x = {x_int:.4f} km, y = {y_int:.4f} m")
         return x_int, y_int
     except ValueError:
@@ -242,7 +247,9 @@ def find_intersection(profile_df: pd.DataFrame, h: float) -> tuple:
         return None, None
 
 
-def define_polygons(profile_df: pd.DataFrame, intersection: tuple, h: float) -> tuple:
+def define_polygons(
+    profile_df: pd.DataFrame, intersection: Intersection, h: float
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Define the two polygons based on the intersection point.
 
     Parameters:
@@ -280,7 +287,7 @@ def define_polygons(profile_df: pd.DataFrame, intersection: tuple, h: float) -> 
     return poly1_df, poly2_df
 
 
-def calculate_polygon_areas(poly1_df: pd.DataFrame, poly2_df: pd.DataFrame) -> tuple:
+def calculate_polygon_areas(poly1_df: pd.DataFrame, poly2_df: pd.DataFrame) -> tuple[float, float]:
     """Calculate the areas of the two polygons.
 
     Parameters:
@@ -302,7 +309,7 @@ def calculate_polygon_areas(poly1_df: pd.DataFrame, poly2_df: pd.DataFrame) -> t
     return A1, A2
 
 
-def main():
+def main() -> None:
     # Determine the script's directory
     script_dir = Path(__file__).absolute().parent
 
@@ -314,7 +321,7 @@ def main():
     plot_stream_profile(profile_df, profile_plot_path)
 
     # Calculate the equal area slope
-    slope_ea = calc_slope_ea(profile_df["x"].values, profile_df["y"].values)
+    slope_ea = calc_slope_ea(profile_df["x"].to_numpy(dtype=float), profile_df["y"].to_numpy(dtype=float))
     print(f"Calculated Equal Area Slope (h): {slope_ea:.6f} m/km")
 
     # Save the stream profile with equal area slope plot

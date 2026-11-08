@@ -1,5 +1,5 @@
 from collections.abc import Mapping
-from typing import TypedDict
+from typing import Literal, TypedDict, overload
 
 type FieldValue = str | int | float | None
 
@@ -10,7 +10,15 @@ class Geometry:
 class Feature:
     geometry: Geometry | None
     properties: Mapping[str, FieldValue]
+    @overload
+    def __getitem__(self, key: Literal["geometry"]) -> Geometry | None: ...
+    @overload
+    def __getitem__(self, key: Literal["properties"]) -> Mapping[str, FieldValue]: ...
+    @overload
+    def get(self, key: Literal["geometry"]) -> Geometry | None: ...
+    @overload
+    def get(self, key: Literal["properties"]) -> Mapping[str, FieldValue]: ...
 
 class FeatureRecord(TypedDict):
-    geometry: dict[str, object] | None
-    properties: dict[str, FieldValue]
+    geometry: Mapping[str, object] | None
+    properties: Mapping[str, FieldValue]

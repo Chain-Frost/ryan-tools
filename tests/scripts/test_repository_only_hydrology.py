@@ -52,3 +52,16 @@ def test_invalid_ari_inputs_fail_without_side_effects(bad_ari: float) -> None:
 def test_invalid_aep_inputs_are_rejected(bad_aep: float) -> None:
     with pytest.raises(ValueError, match="between 0 and 100"):
         conversions.ari_from_aep(bad_aep)
+
+
+@pytest.mark.parametrize("area", [5.0, 10.0, 100.0])
+def test_arf_interpolation_requires_regional_parameters(area: float) -> None:
+    """Missing regional data must follow the documented invalid-input result."""
+    source = ROOT / "ryan-scripts" / "hydrology-python" / "ARF-calcs.py"
+    spec = importlib.util.spec_from_file_location("repo_only_arf", source)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    with pytest.warns(UserWarning, match="Region and params must be provided"):
+        assert module.ARF(area=area, duration=1000.0, aep=1.0) is None

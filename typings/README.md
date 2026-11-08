@@ -10,6 +10,11 @@ attributes or weaken strictness to conceal a diagnostic. Dynamic metadata and
 NumPy dtype parameters may need explicit `Any` where the external API itself
 permits arbitrary values.
 
+The shared surface includes affine transforms, Fiona records, Rasterio datasets,
+scaled LAS point views and HEIF opener registration. Scientific and process
+dependencies use their maintained stub distributions where available. Pyright
+also reports unnecessary ignore comments so retired exceptions do not accumulate.
+
 The former `typings-initialiser` directory and `pyright-initialiser.json` were
 retired on 2026-11-08. GIS dependencies still require their normal runtime
 environment for native acceptance; stubs do not establish runtime correctness.

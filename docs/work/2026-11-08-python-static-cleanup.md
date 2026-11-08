@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active; Ruff and source-import fixes implemented, broad typing remediation underway |
+| Status | Active; whole-repository static cleanup passes, final Windows acceptance and delivery underway |
 | Owner | ChatGPT / maintainer |
 | Created / updated | 2026-11-08 |
 | Next review | 2026-11-15 |
@@ -20,11 +20,11 @@ Full native tests at 741803bc: 3,074 pass / 41 skip / one failure. The source-im
 
 ## Next action
 
-Consolidate GIS typing support, correct genuine maintained/legacy/test typing findings without broad suppressions, rerun full first-party Ruff and strict checks and full Windows tests, build and verify wheel, then batch delivery to the existing branch. Preserve concurrent remote work. Linked #284's two-file formatting failure is a separate small fix on its existing child branch/worktree.
+Finish final Windows suite and rebuilt-wheel acceptance, commit this coherent checkpoint and push the existing #251 branch once. Verify every required hosted job at the pushed commit. Keep #284's independent no-data regression contract on its existing child branch; no merge into main is authorized.
 
 ## Evidence and delivery
 
-Detailed baseline logs, complete diagnostics, AST checks and native reports are retained privately at E:/validation/pr251-full-20261108. Current changes are local/uncommitted; do not imply they are pushed or hosted-accepted. No main merge, release or issue closure.
+Detailed baseline logs, complete diagnostics, AST checks and native reports are retained privately at E:/validation/pr251-full-20261108. Shared-profile checkpoint 169484c8 is pushed to #251. The following cleanup is local until the delivery entry below records its commit and push. No main merge, release or issue closure.
 
 
 ## 2026-11-08 shared typing and Ruff checkpoint
@@ -46,3 +46,49 @@ correct script import paths and 214 concrete fixture/mock/literal annotations.
 Further fixture typing is local and not part of this first checkpoint. Full
 Windows tests are running; no whole-repository clean claim is made. The linked
 #284 repair is pushed at 0e1be2bb, with 33 focused passes and hosted CI pending.
+
+## 2026-11-08 whole-repository cleanup checkpoint
+
+The explicit inventory now contains 674 first-party Python/stub files, excluding
+independent vendor/resource/test-data content and the forbidden `unsorted`
+submodule. Whole-inventory Ruff lint/format and strict Pyright pass. Modified
+files also pass the normal root Pyright CLI; this is not an initialiser-specific
+configuration. The profile now reports redundant ignore comments, and 111
+confirmed unnecessary ignore rules/comments have been removed. Concrete test
+fixtures, NumPy arrays, CAD geometry and synchronous Dask results are annotated;
+untyped native GDAL calls have bounded local protocols. The remaining exceptions
+are individual external calls with incomplete optional-keyword annotations and
+private-helper access in unit tests, rather than lower typing strictness for an
+area of the repository.
+
+The declared development environment includes the tested minimum Pyright
+1.1.414 and pandas-stubs 3.1.0.261029, SciPy/process stubs, and dependencies used
+by the existing Dask/HEIF utilities. Matplotlib uses its own published typing.
+Shared stubs cover actual Rasterio/Fiona APIs and scaled LAS array views.
+
+The Ubuntu preflight failures at 169484c8 were ten shebang-bearing scripts
+missing executable Git modes. All ten modes are corrected; the complete
+first-party shebang/index-mode audit reports no remaining mismatches.
+
+Runtime corrections are limited to missing regional parameters in ARF
+interpolation and an unbound completion counter for empty CAD drawings.
+Existing hydrology coverage adds three missing-parameter cases. Disposable
+native checks pass: 48 exact before/after ARF comparisons, three exact equal-area
+slope profiles, four empty-DXF entry points, three real LWPOLYLINE extractions,
+GDAL raster/OGR vector CRS auditing, and LAS chunk clipping with reopened output.
+These checks do not claim acceptance against proprietary drawings or models.
+No new MCP entry is warranted for annotation changes or these narrow legacy
+edge cases; existing discovery/CLI boundaries remain intact.
+
+The first broad rerun reported 3,073 passes / 41 skips / five failures. One
+test still expected a string after its input fixture was corrected to `Path`;
+four publication hooks exposed unnecessary positional-to-keyword changes in the
+typing cleanup. Restored positional calls preserve those hooks; all 30 affected
+tests pass. The final complete suite is being rerun, with no exclusions,
+deselections or early-stop option.
+
+Rebuilt and verified package 26.11.8.6, SHA256
+e6f5038b368e4d53694be5490d56c508d3c59dbea0e263ea4443dfa669710d5e.
+The wheel is retained locally under ignored `dist`; it is not a tracked artifact
+and is not published. Installed core/MCP and copied dashboard/result-wrapper
+smokes are rerun against this exact rebuild. Final local/hosted results follow.

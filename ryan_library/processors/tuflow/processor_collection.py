@@ -386,11 +386,7 @@ class ProcessorCollection:
 
         combined_df = reorder_long_columns(df=combined_df)
 
-        grouped_df: DataFrame = (
-            combined_df.groupby(by=group_keys, observed=True)  # pyright: ignore[reportUnknownMemberType]
-            .agg(func="max")
-            .reset_index()
-        )
+        grouped_df: DataFrame = combined_df.groupby(by=group_keys, observed=True).agg(func="max").reset_index()
 
         grouped_df = self._calculate_hw_d_ratio(df=grouped_df)
 
@@ -527,11 +523,7 @@ class ProcessorCollection:
             logger.error(f"Missing group keys {missing_keys} in Maximums/ccA data.")
             return DataFrame()
 
-        grouped_df: DataFrame = (
-            combined_df.groupby(by=group_keys, observed=True)  # pyright: ignore[reportUnknownMemberType]
-            .agg(func="max")
-            .reset_index()
-        )
+        grouped_df: DataFrame = combined_df.groupby(by=group_keys, observed=True).agg(func="max").reset_index()
         grouped_df = self._calculate_hw_d_ratio(df=grouped_df)
         p1_col: list[str] = [
             "trim_runcode",
@@ -635,15 +627,9 @@ class ProcessorCollection:
             df["HW_D"] = Series(dtype="Float64")
             return df
 
-        us_h_series: Series[float] = to_numeric(  # pyright: ignore[reportUnknownMemberType]
-            arg=df[us_h_col], errors="coerce"
-        )
-        us_invert_series: Series = to_numeric(  # pyright: ignore[reportUnknownMemberType]
-            arg=df["US Invert"], errors="coerce"
-        )
-        height_series: Series = to_numeric(  # pyright: ignore[reportUnknownMemberType]
-            arg=df["Height"], errors="coerce"
-        )
+        us_h_series: Series[float] = to_numeric(arg=df[us_h_col], errors="coerce")
+        us_invert_series: Series = to_numeric(arg=df["US Invert"], errors="coerce")
+        height_series: Series = to_numeric(arg=df["Height"], errors="coerce")
 
         valid_mask: Series[bool] = (
             us_h_series.notna() & us_invert_series.notna() & height_series.notna() & (height_series != 0)

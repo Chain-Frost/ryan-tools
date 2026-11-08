@@ -23,7 +23,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import rasterio  # type: ignore
+import rasterio
 
 # Set this flag to True if you want to drop rows with missing z values
 DROP_NA = True  # Change to True to drop rows with missing z's instead of filling them

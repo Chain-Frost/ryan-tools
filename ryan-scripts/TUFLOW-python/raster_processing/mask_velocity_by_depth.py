@@ -88,7 +88,7 @@ def ensure_original_backup(velocity_path: Path) -> Path | None:
 
 def build_aligned_mask(
     depth_path: Path,
-    velocity_dataset: rasterio.io.DatasetReader,  # pyright: ignore[reportAttributeAccessIssue]
+    velocity_dataset: rasterio.io.DatasetReader,
     threshold: float,
 ) -> np.ndarray:
     with rasterio.open(depth_path) as depth_ds:
@@ -111,7 +111,7 @@ def build_aligned_mask(
 
 
 def mask_velocity_data(
-    velocity_dataset: rasterio.io.DatasetReader,  # pyright: ignore[reportAttributeAccessIssue]
+    velocity_dataset: rasterio.io.DatasetReader,
     mask: np.ndarray,
 ) -> tuple[np.ndarray, dict[str, Any]]:
     profile = velocity_dataset.profile.copy()

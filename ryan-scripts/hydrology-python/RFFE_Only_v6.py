@@ -253,7 +253,7 @@ def main() -> int:
         return 1
 
     try:
-        df_in: DataFrame = pd.read_csv(filepath_or_buffer=csv_fp)  # type: ignore
+        df_in: DataFrame = pd.read_csv(filepath_or_buffer=csv_fp)
     except (OSError, UnicodeError, ValueError) as ex:
         logger.critical("Cannot read CSV: {}", ex)
         return 1
@@ -261,7 +261,7 @@ def main() -> int:
     out.mkdir(parents=True, exist_ok=True)
     catchments: list[Catchment] = [
         Catchment.from_record(rec=rec, idx=idx)
-        for idx, rec in enumerate(iterable=df_in.to_dict(orient="records"), start=1)  # type: ignore
+        for idx, rec in enumerate(iterable=df_in.to_dict(orient="records"), start=1)
     ]
 
     all_res: list[DataFrame] = []
