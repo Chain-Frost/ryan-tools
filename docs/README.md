@@ -163,6 +163,7 @@ but they are not current architectural policy when they conflict with the canoni
 | [Floodway calculation specification](audits/2026-09-14-floodway-calculation-specification.md) | Calculation contracts |
 | [Floodway validation vectors](audits/2026-09-14-floodway-validation-vectors.md) | Source regression targets |
 | [WP05 processor storage / ccA WAL delivery](work/2026-11-08-wp05-processor-storage.md) | #222/#226 staged implementation; source-preserving WAL snapshot correction is under hosted/native review |
+| [HDF5 retirement and Parquet-only processor storage](work/2026-11-08-hdf5-retirement.md) | Breaking change: unpublished HDF5 backend retired, PyPI 26.11.8.3 migration notice retained through 31 March 2027; native ryan-tools readers retained |
 | [Repository Python lint and typing cleanup](work/2026-11-08-python-static-cleanup.md) | Full Windows/static audit correction and shared typing standard |
 | [Shared dependency type stubs](../typings/README.md) | Strict typing support shared by all maintained code, including the initialiser |
 | [Work register](work/README.md) | Open work fronts, review dates, next actions and links to authoritative status records |
