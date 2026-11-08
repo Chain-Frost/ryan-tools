@@ -73,17 +73,28 @@ class MBHistoryProcessor(BaseProcessor):
                 message = "Model mass-balance table failed validation."
                 raise ValueError(message)
             self.processed = True
-        except (OSError, StopIteration, KeyError, TypeError, ValueError, pd.errors.ParserError) as exc:
+        except (OSError, StopIteration, KeyError, TypeError, ValueError, csv.Error, pd.errors.ParserError) as exc:
             logger.error("{}: Failed to read model/domain mass balance: {}", self.file_name, exc)
             self.df = pd.DataFrame()
 
     def _source_fields(self) -> tuple[list[str], list[str]]:
         """Identify time, scope descriptor and exact numeric metric column names."""
         with self.file_path.open(encoding="utf-8-sig", newline="") as handle:
-            names = [name.strip() for name in next(csv.reader(handle))]
-        if len(names) < 3 or names[0] != "Time (h)" or len(set(names)) != len(names):
-            message = "Unexpected model mass-balance source headers."
-            raise ValueError(message)
+            source = csv.reader(handle, strict=True)
+            names = [name.strip() for name in next(source)]
+            if len(names) < 3 or names[0] != "Time (h)" or len(set(names)) != len(names):
+                message = "Unexpected model mass-balance source headers."
+                raise ValueError(message)
+
+            # pandas may silently infer an index from extra CSV fields, or pad short
+            # records with missing values. Validate the original field counts first.
+            for record_number, record in enumerate(source, start=2):
+                if record and len(record) != len(names):
+                    message = (
+                        f"Model mass-balance record {record_number} contains {len(record)} fields; "
+                        f"expected {len(names)}."
+                    )
+                    raise ValueError(message)
         if self.data_type in {"MB", "MB1D"}:
             if not names[1].endswith(":"):
                 message = "Missing model/domain descriptor column."

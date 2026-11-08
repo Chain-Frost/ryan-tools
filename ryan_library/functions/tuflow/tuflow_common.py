@@ -144,8 +144,25 @@ def collect_files(
     logger.debug("Collecting files with patterns: {}", patterns)
     files: list[Path] = find_files_parallel(root_dirs=normalized_roots, patterns=patterns)
     logger.debug("Found {} matching files before validation.", len(files))
+
+    # A generic pattern such as *_MB.csv also matches the more specific *_1d_MB.csv.
+    # Match the factory's first registered suffix before checking file availability:
+    # an unrequested zero-byte companion must not fail an otherwise valid batch.
+    canonical_suffixes: tuple[tuple[str, str], ...] = tuple(
+        (suffix.lower(), data_type)
+        for data_type, type_suffixes in data_map.items()
+        for suffix in type_suffixes
+    )
+    selected_types = set(deduped_types)
     filtered_files: list[Path] = []
     for file_path in dict.fromkeys(files):
+        lower_name = file_path.name.lower()
+        canonical_type = next(
+            (data_type for suffix, data_type in canonical_suffixes if lower_name.endswith(suffix)), None
+        )
+        if canonical_type is not None and canonical_type not in selected_types:
+            logger.debug("Skipping unselected canonical type '{}' for {}", canonical_type, file_path)
+            continue
         if not is_non_zero_file(file_path):
             message = f"TUFLOW file discovery: matched input empty, unavailable or unreadable: {file_path}"
             raise OSError(message)

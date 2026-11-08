@@ -35,6 +35,33 @@ class TestTuflowCommon:
         assert len(files) == 1
         assert files[0] == Path("test_1d_H.csv")
 
+    @patch("ryan_library.functions.tuflow.tuflow_common.find_files_parallel")
+    @patch("ryan_library.functions.tuflow.tuflow_common.is_non_zero_file")
+    def test_collect_files_excludes_unselected_specific_suffix_before_stat(
+        self, mock_is_non_zero: MagicMock, mock_find: MagicMock
+    ) -> None:
+        """A corrupt/empty node summary cannot break model-only MB discovery."""
+        model = Path("EG02_013_MB.csv")
+        node = Path("EG02_013_1d_MB.csv")
+        mock_find.return_value = [node, model]
+        mock_is_non_zero.return_value = True
+        mock_suffixes = MagicMock(spec=SuffixesConfig)
+        mock_suffixes.suffix_to_type = {"_1d_MB.csv": "MB_Node", "_MB.csv": "MB"}
+        mock_suffixes.invert_suffix_to_type.return_value = {
+            "MB_Node": ["_1d_MB.csv"],
+            "MB": ["_MB.csv"],
+        }
+
+        with patch.object(Path, "is_dir", return_value=True):
+            files = collect_files(
+                paths_to_process=[Path("root")],
+                include_data_types=["MB"],
+                suffixes_config=mock_suffixes,
+            )
+
+        assert files == [model]
+        mock_is_non_zero.assert_called_once_with(model)
+
     @patch("ryan_library.processors.tuflow.base_processor.BaseProcessor.from_file")
     def test_process_file_success(self, mock_from_file: MagicMock):
         """Test successful file processing."""

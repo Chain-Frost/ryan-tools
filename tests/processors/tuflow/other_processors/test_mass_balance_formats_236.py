@@ -100,6 +100,42 @@ def test_invalid_model_metric_and_node_header_fail_gracefully(tmp_path: Path) ->
     assert not invalid.processed
 
 
+@pytest.mark.parametrize(
+    "record",
+    [
+        "0.017,129,0.5,999",  # Extra field could shift Time into an implicit pandas index.
+        "0.017,129",  # Missing field could be silently padded.
+    ],
+)
+def test_model_history_rejects_mismatched_source_row_width(tmp_path: Path, record: str) -> None:
+    model = tmp_path / f"{RUN}_MB_HPC.csv"
+    model.write_text('"Time (h)","iStep","dtTarget"\n' + record + "\n", encoding="utf-8")
+    invalid = BaseProcessor.from_file(model)
+    invalid.process()
+    assert not invalid.processed
+    assert invalid.df.empty
+
+
+@pytest.mark.parametrize("invalid_node_content", ["", '"bad","Node:","ds1.1"\n"bad","Wrong",1\n'])
+def test_model_export_ignores_unrequested_invalid_or_empty_node_summary(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, invalid_node_content: str
+) -> None:
+    source, output = tmp_path / "input", tmp_path / "output"
+    source.mkdir()
+    output.mkdir()
+    copy2(ROOT / f"{RUN}_MB.csv", source / f"{RUN}_MB.csv")
+    node = source / f"{RUN}_1d_MB.csv"
+    node.write_text(invalid_node_content, encoding="utf-8")
+    original = node.read_bytes()
+    monkeypatch.chdir(output)
+
+    assert export_model(paths_to_process=[source], export_mode="parquet", use_live_dashboard=False)
+    exported = list(output.glob("*_model_mass_balance_Global_MB.parquet.gzip"))
+    assert len(exported) == 1
+    assert set(pd.read_parquet(exported[0])["Location"].astype(str)) == {"1D and 2D Model"}
+    assert node.read_bytes() == original
+
+
 def test_read_only_mcp_inspects_separate_source_metric_schemas() -> None:
     for suffix, field in (("MB", "Value"), ("1d_MB", "Cum VE")):
         report = inspect_tuflow_result(str(ROOT / f"{RUN}_{suffix}.csv"), sample_rows=1)

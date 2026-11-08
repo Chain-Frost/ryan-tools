@@ -429,7 +429,9 @@ For example, `Q ME (%)` and `Cum ME (%)` are source percentage fields,
 not hydraulic flows; `nRS_NaNs`, `iStep` and `dtTarget` are retained as
 HPC diagnostic fields where present. No automatic engineering acceptance
 threshold is invented. Call `model_mass_balance.main_processing` on the
-model result directory.
+model result directory. Discovery distinguishes the canonical registry suffix
+`_1d_MB.csv` from `_MB.csv` before input availability checks; an
+unrequested node summary cannot invalidate a model-only export.
 
 The node `_1d_MB.csv` prelude is **not** an ordinary wide time-series
 header. `MBNodeProcessor` explicitly reads its source-provided
