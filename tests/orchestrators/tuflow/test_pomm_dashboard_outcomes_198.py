@@ -76,9 +76,7 @@ def test_pomm_invalid_dashboard_settings_precede_aggregation(tmp_path: Path) -> 
 @pytest.mark.parametrize("kind", ["mean", "median"])
 @pytest.mark.parametrize("enabled", [False, True])
 @pytest.mark.parametrize("incomplete", [False, True])
-def test_pomm_partial_input_never_exports(
-    kind: str, enabled: bool, incomplete: bool, tmp_path: Path
-) -> None:
+def test_pomm_partial_input_never_exports(kind: str, enabled: bool, incomplete: bool, tmp_path: Path) -> None:
     """A valid contributor cannot conceal a failed or missing file outcome."""
     report = pomm_max_items.export_mean_peak_report if kind == "mean" else pomm_max_items.export_median_peak_report
     exporter_name = "save_peak_report_mean" if kind == "mean" else "save_peak_report_median"
@@ -112,9 +110,7 @@ def test_pomm_file_accounting_reaches_shared_executor(tmp_path: Path) -> None:
         patch.object(pomm_utils, "collect_files", return_value=[tmp_path / "run_POMM.csv"]),
         patch.object(pomm_utils, "process_files_in_parallel", return_value=ProcessorCollection()) as process,
     ):
-        result = pomm_utils.aggregated_from_paths(
-            paths=[tmp_path], log_queue=MagicMock(), batch_progress=progress
-        )
+        result = pomm_utils.aggregated_from_paths(paths=[tmp_path], log_queue=MagicMock(), batch_progress=progress)
 
     assert result.empty
     assert process.call_args is not None
@@ -127,9 +123,7 @@ def test_pomm_empty_scan_clears_reused_file_accounting(tmp_path: Path) -> None:
     progress.reset(scheduled=1)
     progress.observe("FAIL")
     with patch.object(pomm_utils, "collect_files", return_value=[]):
-        result = pomm_utils.aggregated_from_paths(
-            paths=[tmp_path], log_queue=MagicMock(), batch_progress=progress
-        )
+        result = pomm_utils.aggregated_from_paths(paths=[tmp_path], log_queue=MagicMock(), batch_progress=progress)
 
     assert result.empty
     assert progress.scheduled == progress.failed == progress.completed == 0

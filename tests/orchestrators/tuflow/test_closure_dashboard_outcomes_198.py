@@ -89,9 +89,7 @@ def test_closure_invalid_display_settings_fail_before_processing(tmp_path: Path)
 
 @pytest.mark.parametrize("enabled", [False, True])
 @pytest.mark.parametrize("incomplete", [False, True])
-def test_closure_partial_processor_batch_never_publishes(
-    tmp_path: Path, enabled: bool, incomplete: bool
-) -> None:
+def test_closure_partial_processor_batch_never_publishes(tmp_path: Path, enabled: bool, incomplete: bool) -> None:
     """Missing and failed PO inputs fail the entire export, not just a row."""
     collection = MagicMock()
     collection.processors = [MagicMock()]
