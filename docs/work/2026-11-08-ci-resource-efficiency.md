@@ -9,6 +9,7 @@
 | Next review | 2026-11-15 |
 | Delivery | [PR #272](https://github.com/Chain-Frost/ryan-tools/pull/272), including [#274](https://github.com/Chain-Frost/ryan-tools/pull/274), merged to main as `8c03dc961455c124fe4e0996ee15f50813cf5682` |
 | Recovery | [PR #277](https://github.com/Chain-Frost/ryan-tools/pull/277) merged as `c1a66970c8ed228ab94404b4f747a40c755847cd`; all six post-merge jobs passed |
+| Scope correction | [PR #278](https://github.com/Chain-Frost/ryan-tools/pull/278) owns current-head acceptance and integration evidence |
 | Historical timing baseline | `1ae1235c2369950c287c4fafe24ef23848880fe0` |
 
 ## Scope and decisions
@@ -146,6 +147,17 @@ changed-Python checks, complete-PR scope, full runtime/package validation and co
 metadata/configuration change, including nested `pyproject.toml` files. Real-Git regression cases cover the
 exception and its failure boundaries. Final exact-head Windows outcomes belong in the correction PR and #251
 descriptions, without a notes-only source push.
+
+The corrected candidate `7480da5` passed all six [Windows/portable CI jobs](https://github.com/Chain-Frost/ryan-tools/actions/runs/42471008323),
+including 2,744 broad-suite passes, unchanged 14 skips/eight deselections and all 49 scope cases. Windows acceptance
+caught a subprocess reader-thread decoding difference; explicit byte capture and caller-thread UTF-8 decoding now
+ensure malformed metadata reaches the conservative fallback. The fresh configured review found no issues.
+
+While that validation ran, [#275](https://github.com/Chain-Frost/ryan-tools/pull/275) merged into main as `8de77a6`,
+including projection authority corrections and an initial version-only classifier. The consolidated correction
+preserves its runtime source, projection tests, metadata and native acceptance record, and retains all five of its
+scope regressions alongside the 49 accepted cases. The resulting 54-case helper and updated base need their own
+current-head CI, recorded in #278. Reuse the accepted projection-native evidence for the unchanged engineering code.
 
 ## Acceptance and next action
 
