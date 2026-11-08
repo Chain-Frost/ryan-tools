@@ -160,6 +160,7 @@ but they are not current architectural policy when they conflict with the canoni
 | [Transactional package build and verification](work/2026-09-13-transactional-packaging.md) | Completed no-bump, verified and failure-safe wheel workflow implementation |
 | [TUFLOW statistic-then-maximum workflow](work/2026-09-09-tuflow-stat-then-maximum.md) | Completed generic mean/median raster workflow, provenance validation and delivery state |
 | [WP02 compatibility/lifecycle review](work/2026-11-08-wp02-compatibility-lifecycle.md) | Issue #98 current source-checkout, installed-wheel and optional import evidence; maintained HY-8 and missing-run boundaries |
+| [WP12 HU/HD capability and result-format review](work/2026-11-08-wp12-hu-hd-coverage.md) | #237 existing PO/POMM/PyTuflow consumer matrix, independent EG02 HU/HD values, precision/memory limits and #236 reporting-location next stage |
 | [WP03 POMM/TP report correctness](work/2026-11-08-wp03-pomm-report-correctness.md) | #227/#218/#216/#217 and #238 POMM coverage integrated into draft #251 at `9f38d971`; tested code/accepted unverified RLL metadata limitation; no main merge |
 | [Compatibility policy and inventory](COMPATIBILITY_POLICY.md) | Compatibility namespaces, migration state and deprecation checklist |
 | [Repository improvement roadmap](REPOSITORY_IMPROVEMENT_ROADMAP.md) | Deferred repository-wide opportunity inventory; no active improvement front is selected |
