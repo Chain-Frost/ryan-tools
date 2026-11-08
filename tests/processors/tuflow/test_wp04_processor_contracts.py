@@ -351,6 +351,8 @@ def test_h_selection_distinguishes_blank_present_channel_from_absent(tmp_path: P
     assert not present.processed
     assert not present.filtered_empty
     assert present.input_health == "INVALID"
+    assert present.rejected_samples == 4
+    assert present.rejection_reasons["missing"] == 4
     assert _result_status(present) == "FAIL"
 
     absent = HProcessor(file_path=path, entity_filter=frozenset({"C3"}))
@@ -362,6 +364,9 @@ def test_h_selection_distinguishes_blank_present_channel_from_absent(tmp_path: P
     usable = HProcessor(file_path=path, entity_filter=frozenset({"C2"}))
     usable.process()
     assert usable.processed
+    assert usable.input_health == "PARTIAL"
+    assert usable.rejected_samples == 4
+    assert usable.rejection_reasons["missing"] == 4
     assert usable.df["US_H"].tolist() == [10.0, 11.0]
     assert usable.df["DS_H"].tolist() == [9.0, 10.0]
 
@@ -518,24 +523,34 @@ def test_po_source_location_evidence_resets_when_file_reprocessed(tmp_path: Path
 
 
 @pytest.mark.parametrize(
-    ("suffix", "content"),
+    ("suffix", "content", "expected_rejections"),
     [
         (
             "_1d_Q.csv",
             "Descriptor,Time,Q C1,Q C2\nrow,0,inf,1\nrow,1,inf,2\n",
+            2,
         ),
         (
             "_1d_H.csv",
             "Descriptor,Time,H C1.1,H C1.2,H C2.1,H C2.2\nrow,0,inf,inf,10,9\nrow,1,inf,inf,11,10\n",
+            4,
+        ),
+        (
+            "_1d_H.csv",
+            "Descriptor,Time,H C1.1,H C1.2,H C2.1,H C2.2\nrow,0,,,10,9\nrow,1,,,11,10\n",
+            4,
         ),
     ],
 )
-def test_timeseries_public_filter_preserves_all_rejected_channel(tmp_path: Path, suffix: str, content: str) -> None:
+def test_timeseries_public_filter_preserves_all_rejected_channel(
+    tmp_path: Path, suffix: str, content: str, expected_rejections: int
+) -> None:
     path = _file(tmp_path, suffix, content)
     processor = cast("TimeSeriesProcessor", BaseProcessor.from_file(path))
     processor.process()
     assert processor.processed
     assert processor.input_health == "PARTIAL"
+    assert processor.rejected_samples == expected_rejections
     assert set(processor.source_channels) == {"C1", "C2"}
     assert processor.usable_source_channels == frozenset({"C2"})
 
@@ -549,6 +564,7 @@ def test_timeseries_public_filter_preserves_all_rejected_channel(tmp_path: Path,
     assert invalid.df.empty
     assert invalid.selected_unusable
     assert invalid.input_health == "INVALID"
+    assert invalid.rejected_samples == expected_rejections
     assert not invalid.filtered_empty
     assert _result_status(invalid) == "FAIL"
 
@@ -717,6 +733,27 @@ def test_po_all_rejected_source_skips_only_absent_direct_selection(tmp_path: Pat
     assert not malformed.filtered_empty
     assert malformed.input_health == "INVALID"
     assert _result_status(malformed) == "FAIL"
+
+
+
+@pytest.mark.parametrize(
+    ("suffix", "content"),
+    [
+        ("_1d_Q.csv", "Descriptor,Time,Q C1\nrow,0\nrow,1\n"),
+        ("_1d_H.csv", "Descriptor,Time,H C1.1,H C1.2\nrow,0,\nrow,1,\n"),
+        ("_PO.csv", "Dummy,Time,Q\nDummy,Time,C1\nrow,0\nrow,1\n"),
+    ],
+)
+def test_truncated_records_cannot_be_treated_as_absent_selection(
+    tmp_path: Path, suffix: str, content: str
+) -> None:
+    path = _file(tmp_path, suffix, content)
+    processor = BaseProcessor.from_file(path, entity_filter=["Absent"])
+    processor.process()
+    assert not processor.processed
+    assert not processor.filtered_empty
+    assert processor.input_health == "INVALID"
+    assert _result_status(processor) == "FAIL"
 
 
 def test_tlf_retry_does_not_expose_previous_finished_status(tmp_path: Path) -> None:

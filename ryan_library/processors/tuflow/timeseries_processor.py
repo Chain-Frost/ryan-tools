@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from loguru import logger
 
-from ...functions.tuflow.sample_validity import clean_hydraulic_samples
+from ...functions.tuflow.sample_validity import clean_hydraulic_samples, has_consistent_csv_widths
 from .base_processor import (
     BaseProcessor,
     DataValidationError,
@@ -50,6 +50,17 @@ class TimeSeriesProcessor(BaseProcessor):
                 channels.add(label)
         return frozenset(channels)
 
+    def _clean_h_source_samples(self, frame: pd.DataFrame) -> None:
+        """Count missing H observations before pivoting removes empty channels."""
+        for raw_column in frame.columns:
+            column = str(raw_column)
+            if not column.endswith((".1", ".2")):
+                continue
+            measurement = "US_H" if column.endswith(".1") else "DS_H"
+            cleaned, rejected = clean_hydraulic_samples(frame[column], measurement=measurement)
+            frame[column] = cleaned
+            self.record_rejections(rejected)
+
     def filter_locations(self, locations: Collection[str] | None) -> frozenset[str]:
         """Classify source-confirmed, all-rejected channels as invalid, not absent."""
         selected = super().filter_locations(locations)
@@ -72,6 +83,9 @@ class TimeSeriesProcessor(BaseProcessor):
         """Classify genuinely absent IDs after otherwise readable data ran out."""
         requested = self.entity_filter
         if not requested or not self.source_channels or not requested.isdisjoint(self.source_channels):
+            return False
+        if not has_consistent_csv_widths(self.file_path):
+            logger.warning("{}: CSV record widths are inconsistent; absent selection is not a SKIP.", self.file_name)
             return False
         self.applied_entity_filter = requested
         self.filtered_empty = True
@@ -210,18 +224,19 @@ class TimeSeriesProcessor(BaseProcessor):
                     label.endswith((".1", ".2")) and label[:-2].strip() in selected_filter for label in df_clean.columns
                 )
 
+            if data_type == "H":
+                self._clean_h_source_samples(df_clean)
+
             df_melted: pd.DataFrame = self._reshape_timeseries_df(df=df_clean, data_type=data_type)
             if df_melted.empty:
                 logger.error(f"{self.file_name}: No data found after reshaping.")
                 return ProcessorStatus.EMPTY_DATAFRAME
 
             self.df = df_melted
-            if data_type in {"Q", "V", "H"}:
-                value_columns = ("US_H", "DS_H") if data_type == "H" else (data_type,)
-                for value_column in value_columns:
-                    numeric, rejected = clean_hydraulic_samples(self.df[value_column], measurement=value_column)
-                    self.df[value_column] = numeric
-                    self.record_rejections(rejected)
+            if data_type in {"Q", "V"}:
+                numeric, rejected = clean_hydraulic_samples(self.df[data_type], measurement=data_type)
+                self.df[data_type] = numeric
+                self.record_rejections(rejected)
             self._apply_final_transformations(data_type=data_type)
             logger.info(f"{self.file_name}: Timeseries CSV processed successfully.")
             return ProcessorStatus.SUCCESS

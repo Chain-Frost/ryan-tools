@@ -196,3 +196,24 @@ has reliable source IDs; existing entirely invalid selections remain FAIL.
 Added focused all-invalid PO/Q/H missing-versus-present and malformed-time
 regressions. Source and installed-wheel hydraulic parity, exact-head CI,
 strict Pyright and Codex review are pending.
+
+## 8 November 2026 — malformed width and H quality before pivot
+
+Follow-up exact-head Codex review identified two remaining P2 cases. An
+all-invalid direct no-match must only SKIP when the original CSV record widths
+are consistent; pandas otherwise pads truncated records with NaN and masks
+source corruption. Shared, fail-closed CSV width inspection is invoked only
+on this rare absent-selection shortcut to avoid rescanning normal large
+TUFLOW files. Existing QA record-width validation remains independent.
+
+H channel samples are now classified on the source-shaped table before
+`pivot_table()` discards wholly blank channels. This preserves exact
+`missing`, `no_data` and `nonfinite` rejection counts without
+double-counting during the post-pivot process. New regression cases cover
+Q/H/PO truncated rows, explicit blank H values, nonfinite H values,
+present-invalid vs absent selection and retained quality evidence after
+public collection filtering.
+
+No new dependency, output format or merge authorisation. Exact-head
+Ruff, strict Pyright, Windows hosted tests, fresh Codex and native
+Module04/EG02 installed-wheel fidelity are independent acceptance gates.

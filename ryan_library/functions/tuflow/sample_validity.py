@@ -4,6 +4,9 @@ from __future__ import annotations
 
 __lazy_modules__ = ["numpy", "pandas"]
 
+import csv
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 from pandas import Series
@@ -38,3 +41,24 @@ def clean_hydraulic_samples(values: Series, *, measurement: str) -> tuple[Series
         "no_data": int(no_data.sum()),
     }
     return numbers, {reason: count for reason, count in reasons.items() if count}
+
+def has_consistent_csv_widths(path: Path) -> bool:
+    """Check original CSV row widths before treating an empty selection as absent.
+
+    Pandas pads truncated rows with NaN, making a shortened source record
+    indistinguishable from an explicitly blank measurement in a DataFrame.
+    Use this only on the rare all-invalid/absent-selection outcome path.
+    """
+    try:
+        with path.open(encoding="utf-8", newline="") as source:
+            expected: int | None = None
+            for row in csv.reader(source, strict=True):
+                if not row:
+                    continue
+                if expected is None:
+                    expected = len(row)
+                elif len(row) != expected:
+                    return False
+            return expected is not None
+    except (OSError, UnicodeError, csv.Error):
+        return False

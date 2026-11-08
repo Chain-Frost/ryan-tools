@@ -13,7 +13,11 @@ import pandas as pd
 from loguru import logger
 from pandas import DataFrame, Series
 
-from ....functions.tuflow.sample_validity import clean_hydraulic_samples, is_water_level_measurement
+from ....functions.tuflow.sample_validity import (
+    clean_hydraulic_samples,
+    has_consistent_csv_widths,
+    is_water_level_measurement,
+)
 from ..base_processor import BaseProcessor
 
 
@@ -79,7 +83,12 @@ class POProcessor(BaseProcessor):
             self.df = tidy_df
             # An all-rejected but structurally readable file can still have
             # a genuinely absent selection. Malformed inputs have no source IDs.
-            if self.entity_filter and self.source_locations and self.entity_filter.isdisjoint(self.source_locations):
+            if (
+                self.entity_filter
+                and self.source_locations
+                and self.entity_filter.isdisjoint(self.source_locations)
+                and has_consistent_csv_widths(self.file_path)
+            ):
                 self.applied_entity_filter = self.entity_filter
                 self.filtered_empty = True
                 logger.info("{}: No requested PO locations found; skipping file.", self.file_name)
