@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active; stacked PRs awaiting integrated-head CI and native acceptance |
+| Status | Blocked on unresolved #254 writer-shutdown race; native HDF acceptance not run |
 | Owner | WP05 delivery agent / maintainer |
 | Created | 2026-11-08 |
 | Updated | 2026-11-08 |
@@ -71,3 +71,11 @@ PRs #254 and #261. Added regressions and explicit source/file mutation contracts
 merged the #251 branch into #254 and #254 into #261 without force-push, retargeted both child PRs,
 and revised their names and #251's consolidated title; no merge to main. Automated validation and
 native acceptance remain distinct gates.
+
+### 2026-11-08 local-agent gate audit - HDF acceptance not run
+
+Read native handoff https://github.com/Chain-Frost/ryan-tools/pull/261#issuecomment-6718682286 and verified live #254 at `f70e69519499dc071d03863c6d0b9233f0536653`, with the writer-shutdown race thread https://github.com/Chain-Frost/ryan-tools/pull/254#discussion_r4505393356 still unresolved. Both the original closed-WAL review and shutdown-race review remain unresolved; the parent canonical WP05 record explicitly marks the P1 correction partial/unaccepted.
+
+#261 remains at code `7df8202eef2c50b8af5aecb0378bfd18be75d030`, draft, stacked on #254. **BLOCKED:** the handoff explicitly requires correction and review of #254 before refreshing the HDF branch and running native acceptance. Therefore no HDF source/native/installed-wheel/cache/mapped/UNC tests, build or dependency changes were performed, and no source-immutability claim is made. This documentation-only gate audit does not refresh implementation or incorporate the child anywhere.
+
+Next action: #254 owner corrects the no-create WAL contract and obtains review; then refresh this existing branch without force-push and execute the stated Q/PO/POMM HDF acceptance matrix on its new exact SHA. Next review 2026-11-15. No merge, auto-merge, release, issue closure, production operation or unsorted inspection.
