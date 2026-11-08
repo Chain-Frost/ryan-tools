@@ -87,3 +87,18 @@ with two selected channels and no-match, direct Chan/CF/H/Q/V/ccA selection,
 and 1D Q malformed/truncated rows under source and wheel. Record exact SHA,
 number of passes/fails/skips and environment-specific limitations in PR;
 request fresh Codex review and resolve actionable findings.
+
+
+## 2026-11-08 targeted CI preflight repair
+
+Reviewed failed run 42476665887 at 8d4f6c30. Formatted processor_collection.py
+and test_wp04_processor_contracts.py with the branch Ruff policy. Both initial
+format repairs are AST-equivalent. Strict validation also exposed Unknown key/value
+types after narrowing rejection metadata to dict: an explicit dict[object, object]
+cast retains every existing key/value/count validation without changing the data.
+
+Windows Python 3.14.6: Ruff lint/format and strict two-file Pyright pass; **33 focused
+WP04/HDF tests pass**, zero skips with PyTables 3.11.1 and the accepted parser wheel.
+No-bump 26.11.8.4 wheel build/verification passes. This is a narrow CI correction,
+not acceptance of every native WP04 case. Source/installed parity and other review
+requirements stay attached to their own evidence. No parent/main merge or release.

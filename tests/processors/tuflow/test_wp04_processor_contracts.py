@@ -213,7 +213,6 @@ def test_pomm_keeps_unusable_tp_provenance_for_population_counts(tmp_path: Path)
     assert winning["tp_population_status"] == "PARTIAL"
 
 
-
 def _pomm_two_location_path(folder: Path) -> Path:
     """One wholly unusable and one usable level at distinct POMM locations."""
     path = folder / f"{RUN}_POMM.csv"
@@ -316,6 +315,7 @@ def test_selected_wholly_invalid_q_is_fail_not_absent_entity_skip(tmp_path: Path
     valid.process()
     assert valid.processed
     assert valid.df["Q"].tolist() == [1.0, 2.0]
+
 
 def test_po_mask_sentinel_before_absolute_values_with_valid_zero_and_negative(tmp_path: Path) -> None:
     path = _file(

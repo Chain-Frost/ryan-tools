@@ -1143,8 +1143,8 @@ class ProcessorCollection:
                 }
                 valid_count = type(rejection_count) is int and rejection_count >= 0
                 valid_reasons = isinstance(raw_rejections, dict) and all(
-                    isinstance(key, str) and type(value) is int and value >= 0
-                    for key, value in raw_rejections.items()
+                    isinstance(reason_name, str) and type(count) is int and count >= 0
+                    for reason_name, count in cast("dict[object, object]", raw_rejections).items()
                 )
                 if not valid_health or not valid_count or not valid_reasons:
                     msg = f"HDF5 cache member has invalid sample-health metadata: {key}"
