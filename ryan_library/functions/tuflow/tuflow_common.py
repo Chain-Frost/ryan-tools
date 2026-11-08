@@ -149,9 +149,7 @@ def collect_files(
     # Match the factory's first registered suffix before checking file availability:
     # an unrequested zero-byte companion must not fail an otherwise valid batch.
     canonical_suffixes: tuple[tuple[str, str], ...] = tuple(
-        (suffix.lower(), data_type)
-        for data_type, type_suffixes in data_map.items()
-        for suffix in type_suffixes
+        (suffix.lower(), data_type) for data_type, type_suffixes in data_map.items() for suffix in type_suffixes
     )
     selected_types = set(deduped_types)
     filtered_files: list[Path] = []
