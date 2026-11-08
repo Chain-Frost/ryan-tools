@@ -364,6 +364,7 @@ def _build_empty_stability_result(
         end_value=None,
         max_abs_step=None,
         mean_abs_step=None,
+        input_health="OK" if status == "NO_DATA" else "INVALID",
     )
 
 
@@ -556,6 +557,7 @@ def analyze_peak_csv(path: Path, config: PeakCheckConfig) -> list[PeakCheckResul
                     peak_above_start=None,
                     end_pct_of_peak=None,
                     status=parse_status,
+                    input_health="OK" if parse_status == "NO_DATA" else "INVALID",
                 )
             )
         return results

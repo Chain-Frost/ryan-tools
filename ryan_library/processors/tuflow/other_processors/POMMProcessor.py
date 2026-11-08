@@ -55,7 +55,10 @@ class POMMProcessor(BaseProcessor):
         all_missing = self.df[["Max", "Min"]].isna().all(axis=1)
         if all_missing.any():
             self.record_rejections({"all_missing_extrema": int(all_missing.sum())})
-            self.df = self.df.loc[~all_missing].copy()
+            # Preserve unusable event rows with NaN maxima for TP population
+            # accounting in pomm_utils; they must never govern a peak.
+            if all_missing.all():
+                self.input_health = "INVALID"
 
     def process(self) -> None:
         """Read the raw POMM CSV, transpose + promote row 1 to header,

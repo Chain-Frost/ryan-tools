@@ -38,7 +38,16 @@ def _analyze_peak_worker(path_str: str, config: PeakCheckConfig) -> list[dict[st
 
 
 _MALFORMED_INPUT_STATUSES: frozenset[str] = frozenset(
-    {"EMPTY_FILE", "NO_COLUMNS", "DECODE_FAIL", "CSV_PARSE_FAIL", "BAD_HEADER", "TIME_PARSE_FAIL"}
+    {
+        "EMPTY_FILE",
+        "NO_COLUMNS",
+        "DECODE_FAIL",
+        "CSV_PARSE_FAIL",
+        "BAD_HEADER",
+        "TIME_PARSE_FAIL",
+        "MALFORMED_ROW",
+        "INVALID_TIME_AXIS",
+    }
 )
 _NO_DATA_STATUSES: frozenset[str] = frozenset({"NO_DATA"})
 
