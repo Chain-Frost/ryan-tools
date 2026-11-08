@@ -85,9 +85,7 @@ class TimeSeriesProcessor(BaseProcessor):
             self.df = pd.DataFrame()
             return
         if stage == "read":
-            logger.error(
-                f"Processing aborted for file: {self.log_path} while reading and reshaping {data_type} data."
-            )
+            logger.error(f"Processing aborted for file: {self.log_path} while reading and reshaping {data_type} data.")
         else:
             logger.error(f"Processing aborted for file: {self.log_path} during {data_type} post-processing step.")
         self.input_health = "INVALID"
