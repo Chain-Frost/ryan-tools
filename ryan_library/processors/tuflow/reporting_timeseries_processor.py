@@ -1,4 +1,4 @@
-"""Shared wide CSV reader for point, line and region reporting-location histories."""
+"""Selected-column wide CSV reader for reporting locations and staged result histories."""
 
 from __future__ import annotations
 
@@ -121,4 +121,5 @@ class ReportingLocationTimeSeriesProcessor(BaseProcessor):
 
     def _measurement_type_for_column(self, source_column: str) -> str:
         """Default type is common to all columns; component readers may override."""
+        _ = source_column
         return self._MEASUREMENT_TYPE

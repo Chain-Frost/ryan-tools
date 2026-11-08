@@ -1,5 +1,6 @@
 """Real source and synthetic compatibility checks for #236 staged CSV readers."""
 
+from collections.abc import Callable
 from pathlib import Path
 from shutil import copy2
 
@@ -121,10 +122,12 @@ def test_component_source_duplicate_rejected_but_valid_distinct_components(tmp_p
     ],
 )
 def test_mcp_identifies_new_types(run: str, dtype: str, location: str) -> None:
-    result = inspect_tuflow_result(str(CSV / f"{run}_{dtype if dtype != 'L' else '1d_L'}.csv"))
-    # The TSMB source uses the 1d_TSMB filename prefix.
-    assert result["processed"] or dtype == "TSMB"
-    assert result["data_type"] in {dtype, "TSMB"}
+    source_suffix = {"2d_H": "2d_H", "L": "1d_L", "TSMB": "1d_TSMB"}[dtype]
+    result = inspect_tuflow_result(
+        str(CSV / f"{run}_{source_suffix}.csv"), locations=[location], sample_rows=1
+    )
+    assert result["processed"]
+    assert result["data_type"] == dtype
 
 
 @pytest.mark.parametrize(
@@ -136,7 +139,8 @@ def test_mcp_identifies_new_types(run: str, dtype: str, location: str) -> None:
     ],
 )
 def test_protected_family_exports(
-    workflow: object, run: str, suffix: str, pattern: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    workflow: Callable[..., bool], run: str, suffix: str, pattern: str, tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     src, dest = tmp_path / "src", tmp_path / "dest"
     src.mkdir()
@@ -145,7 +149,7 @@ def test_protected_family_exports(
     copy2(CSV / file.name, file)
     before = file.read_bytes()
     monkeypatch.chdir(dest)
-    assert workflow(  # type: ignore[operator]
+    assert workflow(
         paths_to_process=[src],
         export_mode="parquet",
         use_live_dashboard=False,
