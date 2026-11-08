@@ -133,7 +133,7 @@ class TimeSeriesProcessor(BaseProcessor):
                 # Keep canonical .1/.2 channel presence before pivot_table
                 # removes rows whose upstream/downstream samples are all blank.
                 self._selected_h_source_present = any(
-                    isinstance(label, str) and label.endswith((".1", ".2")) and label[:-2].strip() in selected_filter
+                    label.endswith((".1", ".2")) and label[:-2].strip() in selected_filter
                     for label in df_clean.columns
                 )
 
