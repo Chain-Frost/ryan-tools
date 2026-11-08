@@ -516,6 +516,75 @@ def test_po_source_location_evidence_resets_when_file_reprocessed(tmp_path: Path
     assert not processor.selected_unusable
 
 
+
+@pytest.mark.parametrize(
+    ("suffix", "content"),
+    [
+        (
+            "_1d_Q.csv",
+            "Descriptor,Time,Q C1,Q C2\nrow,0,inf,1\nrow,1,inf,2\n",
+        ),
+        (
+            "_1d_H.csv",
+            "Descriptor,Time,H C1.1,H C1.2,H C2.1,H C2.2\n"
+            "row,0,inf,inf,10,9\nrow,1,inf,inf,11,10\n",
+        ),
+    ],
+)
+def test_timeseries_public_filter_preserves_all_rejected_channel(
+    tmp_path: Path, suffix: str, content: str
+) -> None:
+    path = _file(tmp_path, suffix, content)
+    processor = BaseProcessor.from_file(path)
+    processor.process()
+    assert processor.processed
+    assert processor.input_health == "PARTIAL"
+    assert set(processor.source_channels) == {"C1", "C2"}
+
+    source = ProcessorCollection()
+    source.add_processor(processor)
+
+    rejected = source.copy()
+    rejected.filter_locations(["C1"])
+    assert len(rejected.processors) == 1
+    invalid = rejected.processors[0]
+    assert invalid.df.empty
+    assert invalid.selected_unusable
+    assert invalid.input_health == "INVALID"
+    assert not invalid.filtered_empty
+    assert _result_status(invalid) == "FAIL"
+
+    selected_type = rejected.get_processors_by_data_type(processor.data_type)
+    assert len(selected_type.processors) == 1
+    assert _result_status(selected_type.processors[0]) == "FAIL"
+
+    absent = source.copy()
+    absent.filter_locations(["C3"])
+    assert not absent.processors
+
+    usable = source.copy()
+    usable.filter_locations(["C2"])
+    assert len(usable.processors) == 1
+    assert _result_status(usable.processors[0]) == "OK"
+    assert set(usable.processors[0].df["Chan ID"].astype(str)) == {"C2"}
+
+
+def test_timeseries_source_channel_evidence_resets_on_reprocess(tmp_path: Path) -> None:
+    path = _file(tmp_path, "_1d_Q.csv", "Descriptor,Time,Q C1,Q C2\nrow,0,inf,1\nrow,1,inf,2\n")
+    processor = QProcessor(file_path=path)
+    processor.process()
+    assert processor.source_channels == frozenset({"C1", "C2"})
+
+    path.write_text("Descriptor,Time,Q C2\nrow,0,3\nrow,1,4\n", encoding="utf-8")
+    processor.process()
+    assert processor.processed
+    assert processor.source_channels == frozenset({"C2"})
+    assert processor.input_health == "OK"
+    processor.filter_locations(["C1"])
+    assert processor.filtered_empty
+    assert not processor.selected_unusable
+
+
 def test_tlf_retry_does_not_expose_previous_finished_status(tmp_path: Path) -> None:
     path = _file(tmp_path, ".tlf", "placeholder\n")
     processor = TLFProcessor(file_path=path)

@@ -3,6 +3,7 @@
 __lazy_modules__ = ["numpy", "pandas"]
 
 from abc import abstractmethod
+from collections.abc import Collection
 from pathlib import Path
 
 import numpy as np
@@ -27,6 +28,44 @@ class TimeSeriesProcessor(BaseProcessor):
     :meth:`process_timeseries_raw_dataframe` for format-specific transforms.
     """
 
+    # Canonical channels named by the original supported CSV headers, including
+    # entities whose numeric samples disappear during normalisation.
+    source_channels: frozenset[str] = frozenset()
+
+    @staticmethod
+    def _source_channel_ids(columns: pd.Index, data_type: str) -> frozenset[str]:
+        """Return source channels before missing-data removal or H pivoting."""
+        channels: set[str] = set()
+        for raw_name in columns:
+            label = str(raw_name).strip()
+            if not label or label == "Time":
+                continue
+            if data_type == "H":
+                if not label.endswith((".1", ".2")):
+                    continue
+                label = label[:-2].strip()
+            if label:
+                channels.add(label)
+        return frozenset(channels)
+
+    def filter_locations(self, locations: Collection[str] | None) -> frozenset[str]:
+        """Classify source-confirmed, all-rejected channels as invalid, not absent."""
+        selected = super().filter_locations(locations)
+        if not selected:
+            return selected
+        if self.df.empty:
+            self.applied_location_filter = selected
+            if selected & self.source_channels:
+                self.selected_unusable = True
+                self.filtered_empty = False
+                self.input_health = "INVALID"
+            else:
+                self.selected_unusable = False
+                self.filtered_empty = True
+        else:
+            self.selected_unusable = False
+        return selected
+
     def process(self) -> None:
         """Execute the standard timeseries processing pipeline."""
         return self._process_timeseries_pipeline(data_type=self.data_type)
@@ -34,6 +73,7 @@ class TimeSeriesProcessor(BaseProcessor):
     def _process_timeseries_pipeline(self, data_type: str) -> None:
         """Run the shared processing pipeline for a timeseries dataset."""
         self.reset_processing_state()
+        self.source_channels = frozenset()
         # H pivoting drops entirely blank source channels, so retain header evidence.
         self._selected_h_source_present = False
         logger.info(f"Starting processing of {data_type} file: {self.log_path}")
@@ -50,7 +90,9 @@ class TimeSeriesProcessor(BaseProcessor):
 
             # Retain entity existence before subclass normalisation drops invalid
             # numeric samples. An existing all-invalid selection is FAIL, not SKIP.
-            selected_before_cleaning = self._selected_h_source_present
+            selected_before_cleaning = self._selected_h_source_present or bool(
+                self.entity_filter and self.source_channels & self.entity_filter
+            )
             if self.entity_filter:
                 id_column = next((name for name in ("Chan ID", "Location") if name in self.df.columns), None)
                 if id_column is not None:
@@ -128,6 +170,7 @@ class TimeSeriesProcessor(BaseProcessor):
                 logger.error(f"{self.file_name}: DataFrame is empty after cleaning headers.")
                 return ProcessorStatus.EMPTY_DATAFRAME
 
+            self.source_channels = self._source_channel_ids(df_clean.columns, data_type)
             selected_filter = self.entity_filter
             if data_type == "H" and selected_filter:
                 # Keep canonical .1/.2 channel presence before pivot_table

@@ -154,3 +154,15 @@ copied-wrapper, genuine ten-TP provenance and live SMB acceptance
 have not been independently provided for this reconciled head.
 Hosted CI and Codex must be reported with the exact SHA. No `main` merge,
 automatic release or claim of native acceptance is authorised.
+
+## Source-confirmed nonfinite 1D channels (review follow-up)
+
+After PO's invalid-location correction, exact-head Codex review found the
+same source-presence gap for Q/H time-series processors. The shared
+`TimeSeriesProcessor` now captures canonical channel IDs from CSV column
+headers before numeric cleaning or H pivoting drops all-invalid series.
+Public collection-level filtering retains an INVALID/FAIL diagnostic
+processor for a requested source-confirmed unusable channel, while a
+genuine absent channel still SKIPs and a usable C2 remains OK.
+Tests include direct Q/H raw CSV, public/type selection and repeated
+processing reset, without replacing the native ryan-tools TUFLOW readers.
