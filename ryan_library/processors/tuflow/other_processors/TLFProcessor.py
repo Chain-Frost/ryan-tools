@@ -13,6 +13,7 @@ from ryan_library.functions.parse_tlf import (
     search_for_completion,
 )
 from ryan_library.functions.path_stuff import convert_to_relative_path
+from ryan_library.functions.tuflow.hpc_companion import read_hpc_companion_metrics
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 
 
@@ -24,7 +25,12 @@ class TLFProcessor(BaseProcessor):
     efficient tail-reading for large files to minimise network transfer.
     """
 
-    def process(self) -> None:
+    def _append_hpc_companion_metrics(self) -> None:
+        """Add optional HPC companion fields without changing core log validity."""
+        for field, value in read_hpc_companion_metrics(self.file_path).items():
+            self.df[field] = value
+
+    def process(self, *, include_hpc_companion_metrics: bool = False) -> None:
         """Process the TLF file and populate the internal DataFrame (self.df).
 
         Reads the log file (using efficient tail-reading for files > 10MB).
@@ -99,6 +105,8 @@ class TLFProcessor(BaseProcessor):
                     logfile_path=self.file_path,
                 )
                 if not self.df.empty:
+                    if include_hpc_companion_metrics:
+                        self._append_hpc_companion_metrics()
                     self.processed = True
                 else:
                     self.input_health = "INVALID"
