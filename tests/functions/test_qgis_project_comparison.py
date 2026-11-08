@@ -97,7 +97,7 @@ def test_layer_reordering_does_not_create_false_changes(tmp_path: Path) -> None:
     assert diff.project_crs_changed is False
 
 
-@pytest.mark.parametrize("identifiers", [("",), ("duplicated", "duplicated")])
+@pytest.mark.parametrize("identifiers", [("",), ("  ",), ("duplicated", "duplicated")])
 def test_ambiguous_layer_ids_fail_instead_of_pairing_by_position(tmp_path: Path, identifiers: tuple[str, ...]) -> None:
     original = tmp_path / "a.qgs"
     updated = tmp_path / "b.qgs"
@@ -105,7 +105,7 @@ def test_ambiguous_layer_ids_fail_instead_of_pairing_by_position(tmp_path: Path,
     original.write_bytes(_project_xml(*layers))
     updated.write_bytes(_project_xml(("valid", "Layer", "ogr", "./data.gpkg", "")))
     bytes_before = original.read_bytes()
-    with pytest.raises(ValueError, match="no ID|Duplicate QGIS layer ID"):
+    with pytest.raises(ValueError, match=r"no ID|Duplicate QGIS layer ID"):
         compare_qgis_projects(original, updated)
     assert original.read_bytes() == bytes_before
 

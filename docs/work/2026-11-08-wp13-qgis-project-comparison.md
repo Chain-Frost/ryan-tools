@@ -45,14 +45,15 @@ XML and does not claim semantic GIS data equality or full QGIS interpretation.
 - Disposable synthetic QGS and QGZ comparisons cover a QGZ with QGD and unknown
   archive members; exact source project/archive/data byte preservation;
   independent expected change values, provider classification, CRS and
-  out-of-order layers; duplicate/missing ID refusal; invalid archive handling;
+  out-of-order layers; duplicate/missing/whitespace-only ID refusal; invalid archive handling;
   CLI JSON values and distinct exit codes.
-- **Local portable smoke:** 7 focused tests passed on Linux/Python 3.13.5,
+- **Local portable smoke:** 9 focused tests passed on Linux/Python 3.13.5,
   using a temporary test harness with minimal stand-ins for the already reviewed
   **read_project_xml** and wrapper-utility interfaces because this environment
   cannot clone the repository (GitHub DNS unavailable). Python syntax
   compilation passed for all four new Python files. This is **not** a claim of
   complete repository Python 3.14 validation.
+- **Initial hosted preflight at 102477bb:** Ruff identified two EM102 exception-style, one RUF043 regex and one PT013 import violation. Policy did not reach Pyright; remaining jobs were skipped. Corrected in follow-up, not credited as a passing run.
 - **Not yet run at initial delivery:** repository-backed focused tests, changed-file
   Ruff, strict Pyright, Python 3.14, installed-wheel/copied-wrapper, hosted
   CI final-head and independent Codex review. Record their actual status in the

@@ -83,10 +83,12 @@ def _project_structure(path: Path) -> tuple[str, dict[str, QgisLayerStructure]]:
     layers: dict[str, QgisLayerStructure] = {}
     for index, element in enumerate(root.findall("./projectlayers/maplayer"), start=1):
         layer_id = element.findtext("id") or ""
-        if not layer_id:
-            raise ValueError(f"QGIS layer {index} in {path} has no ID; comparison by ID is unsafe")
+        if not layer_id.strip():
+            message = f"QGIS layer {index} in {path} has no ID; comparison by ID is unsafe"
+            raise ValueError(message)
         if layer_id in layers:
-            raise ValueError(f"Duplicate QGIS layer ID {layer_id!r} in {path}; comparison by ID is unsafe")
+            message = f"Duplicate QGIS layer ID {layer_id!r} in {path}; comparison by ID is unsafe"
+            raise ValueError(message)
         provider = element.findtext("provider") or ""
         layers[layer_id] = QgisLayerStructure(
             layer_id=layer_id,

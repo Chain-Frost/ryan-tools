@@ -54,6 +54,11 @@ def _print_text(comparison: QgisProjectComparison) -> None:
             after = asdict(change.after)
             for field in change.changed_fields:
                 print(f"  {field}: {before[field]!r} -> {after[field]!r}")
+            if "provider" in change.changed_fields:
+                print(
+                    f"  provider category: {change.before.provider_category!r} "
+                    f"-> {change.after.provider_category!r}"
+                )
         else:
             layer = change.before if change.before is not None else change.after
             if layer is not None:
