@@ -30,14 +30,15 @@ def test_contract_is_bounded_explicit_and_unambiguous() -> None:
     assert 1 <= len(cases) <= 64, "The first-delivery manifest must remain deliberately bounded"
     ids = [case["id"] for case in cases]
     assert len(ids) == len(set(ids))
-    assert set(case["outcome"] for case in cases) == VALID_OUTCOMES
+    assert {case["outcome"] for case in cases} == VALID_OUTCOMES
     assert all(case.get("reason") and case["id"] == Path(case["id"]).name for case in cases)
     for case in cases:
         if case["outcome"] == "supported":
             assert case.get("minimum_rows", 0) >= 1
             assert case.get("columns")
         else:
-            assert "minimum_rows" not in case and "values" not in case
+            assert "minimum_rows" not in case
+            assert "values" not in case
 
 
 @pytest.fixture(scope="module")
@@ -88,7 +89,7 @@ def test_synthetic_public_po_collection_and_export_roundtrip(tmp_path: Path) -> 
         processor = BaseProcessor.from_file(path, entity_filter=["L001"], include_path_columns=False)
         processor.process()
         assert processor.processed
-        assert len(processor.df) == 9  # 3 times × 3 measurements, only selected L001.
+        assert len(processor.df) == 9  # 3 times x 3 measurements, only selected L001.
         collection.add_processor(processor)
     combined = collection.po_combine()
     assert len(combined) == 18

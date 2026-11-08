@@ -40,7 +40,7 @@ VARIABLES: list[str] = ["H", "Q", "V"]
 
 @dataclass(frozen=True)
 class Workload:
-    """A subset of the fixed 5 AEP × 6 duration × 10 TP input grid."""
+    """A subset of the fixed 5 AEP x 6 durations x 10 TP input grid."""
 
     aep_codes: list[str]
     durations_min: list[int]
@@ -113,7 +113,8 @@ def make_fixture(root: Path, spec: Workload) -> list[Path]:
     root.mkdir(parents=True, exist_ok=False)
     run_codes = spec.run_codes
     if len(set(run_codes)) != len(run_codes):
-        raise ValueError("Fixture run identifiers must be unique")
+        message = "Fixture run identifiers must be unique"
+        raise ValueError(message)
     files: list[Path] = []
     for run_index, run_code in enumerate(run_codes):
         target = root / f"{run_code}_PO.csv"
@@ -225,7 +226,8 @@ def run_case(
     expected_rows = spec.observations(selected)
     output_rows = len(files) * (spec.selected_locations if selected else spec.locations) * len(VARIABLES)
     if not summary_only and expected_rows * 24 > max_numeric_gib * 1024**3:
-        raise ValueError("In-memory full-series numeric lower bound exceeds configured RAM budget")
+        message = "In-memory full-series numeric lower bound exceeds configured RAM budget"
+        raise ValueError(message)
 
     ids = _selected_ids(spec, selected)
     area = "selected" if selected else "all"
@@ -265,10 +267,16 @@ def run_case(
             # Parallel receives data through IPC; summary reduces inside workers.
             combined = pd.concat(frames, ignore_index=True)
         aggregate_seconds = time.perf_counter() - aggregate_start
-        assert len(combined) == (output_rows if summary_only else expected_rows), (
-            case, len(combined), output_rows if summary_only else expected_rows
-        )
-        assert combined["Value"].notna().all() and combined["AbsValue"].notna().all()
+        required_rows = output_rows if summary_only else expected_rows
+        if len(combined) != required_rows:
+            message = f"{case}: got {len(combined)} rows instead of {required_rows}"
+            raise AssertionError(message)
+        if not combined["Value"].notna().all():
+            message = f"{case}: missing Value samples after processing"
+            raise AssertionError(message)
+        if not combined["AbsValue"].notna().all():
+            message = f"{case}: missing AbsValue samples after processing"
+            raise AssertionError(message)
         export_start = time.perf_counter()
         _export(combined, target, file_format)
         export_seconds = time.perf_counter() - export_start
@@ -302,13 +310,16 @@ def run_benchmark(
     max_numeric_gib: float = 1.0,
 ) -> dict[str, Any]:
     if workers < 1 or spec.locations < 1 or not (1 <= spec.selected_locations <= spec.locations):
-        raise ValueError("Invalid workers or location selection")
+        message = "Invalid workers or location selection"
+        raise ValueError(message)
     if spec.final_minute < 0 or not spec.run_codes:
-        raise ValueError("No valid benchmark observations")
+        message = "No valid benchmark observations"
+        raise ValueError(message)
     # Conservative disk estimate from generated ten-decimal CSV values.
     estimated_bytes = spec.observations(False) * 21
     if estimated_bytes * DISK_SAFETY_FACTOR > shutil.disk_usage(output_root.parent).free:
-        raise OSError("Insufficient free disk for a conservatively estimated fixture")
+        message = "Insufficient free disk for a conservatively estimated fixture"
+        raise OSError(message)
     output_root.mkdir(parents=True, exist_ok=False)
     generation_start = time.perf_counter()
     files = make_fixture(output_root / "inputs", spec)
@@ -367,7 +378,8 @@ def run_benchmark(
 
 def main() -> None:
     if PROFILE == "full" and not ALLOW_FULL_WORKLOAD:
-        raise ValueError("Set ALLOW_FULL_WORKLOAD=True explicitly before generating the 300-run full dataset")
+        message = "Set ALLOW_FULL_WORKLOAD=True explicitly before generating the 300-run full dataset"
+        raise ValueError(message)
     result = run_benchmark(
         output_root=OUTPUT_ROOT.absolute(),
         spec=workload(PROFILE),

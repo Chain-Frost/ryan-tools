@@ -45,6 +45,7 @@ def test_parse_tlf_real_world(regression_snapshot: dict[str, dict[str, Any]]) ->
         processor = BaseProcessor.from_file(log_path)
         processor.process()  # Production includes modern and accepted legacy completion semantics.
         expected = regression_snapshot[log_path.name]
-        assert processor.processed and len(processor.df) == 1, f"Supported log rejected: {log_path.name}"
+        assert processor.processed, f"Supported log rejected: {log_path.name}"
+        assert len(processor.df) == 1, f"Unexpected TLF row count: {log_path.name}"
         actual = {key: _json_value(value) for key, value in processor.df.iloc[0].to_dict().items()}
         assert actual == expected, f"Production TLF snapshot drift in {log_path.name}"
