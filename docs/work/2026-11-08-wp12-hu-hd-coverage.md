@@ -72,6 +72,52 @@ The source headers and current automated fixture target are the `EG02_013`/`EG02
 
 **Validation:** The selected reporting-point code/tests passed **all six GitHub checks** at [`0c917568`](https://github.com/Chain-Frost/ryan-tools/commit/0c91756885f0f00e30dd9e5cdf5126c7263010dd) in Windows Python **3.14.10**: **2,565 passed, 14 skipped, 8 deselected** (Hosted); Policy including strict Pyright; Ruff/whitespace; Package including installed-wheel/copied-wrapper smoke; MCP smoke; POSIX security. New focused assertions exercise the actual EG02 factory, pre-read location projection, signed/zero/NaN/invalid input outcomes, protected Excel/Parquet readback, generic MCP inspection and the public discovery→report workflow. **Native Windows/SMB and measured large-file selected-read memory remain unverified**, and neither the shared #219 validity contract nor all #236 formats are claimed delivered. These successes apply to the cited code head; documentation-only follow-up commits must still pass their current-head checks.
 
+## 2026-11-08 third delivery — complete selected reporting-location histories and summaries (#236)
+
+The next bounded [WP12 child draft](https://github.com/Chain-Frost/ryan-tools/issues/236) extends the
+approved reporting-point path with the **source-provided reporting-line and region families**.
+It is based on [#269](https://github.com/Chain-Frost/ryan-tools/pull/269), itself stacked on
+[#262](https://github.com/Chain-Frost/ryan-tools/pull/262) and [#251](https://github.com/Chain-Frost/ryan-tools/pull/251).
+No branch has been integrated into `main`.
+
+| Source suffix | Reader / consumer | Value and source meaning |
+| --- | --- | --- |
+| `_RLL_Q.csv` | `RLLQProcessor`, `reporting_lines` Python workflow | `Time` (simulation hours), reporting **line** ID `Location`, `Type=Reporting Line Flow`, signed `Value` and nullable `AbsValue` in the source flow units (m³/s for metric EG02); selected labels are read as columns before long-form expansion |
+| `_RLL_Qmx.csv` | **Existing** `RLLQmxProcessor` (no implementation changes) | `Chan ID` retains the reporting-line identifier, `Q` and `Time` mean source Qmax and Time Qmax, with separate `dQ`, `Time dQ` and `H` fields; the source `H=-99999` remains a #219 validity limitation |
+| `_RLR_Vol.csv` | `RLRVolProcessor`, `reporting_regions` Python workflow | `Time`, reporting **region** ID, `Type=Reporting Region Volume` and source volumes in model units (m³ for metric EG02) |
+| `_RLR_Volmx.csv` | `RLRVolmxProcessor`, `reporting_regions` Python workflow | Source `Vol max`, `Time Vol max`, `dVolmax`, `Time dVolmax`, `H` retained with their independent associations |
+
+Point, line and region histories share a single specialised wide-CSV reader;
+point and region source maxima share a specialised source-summary reader.
+They retain the previously accepted point output schema and missing-value treatment,
+and they do not add a competing TPC parser or modify the upstream PyTuflow pin.
+The protected reporting exporters share an internal publication helper.
+The three workflow entry points have **separate output names and sheets** so that
+a reporting point and reporting line with the same source identifier cannot be
+silently combined as identical measurements or counted as separate events.
+None of these are automatically added to the existing PO/POMM ensemble calculations.
+
+**Archived numerical values (pinned EG02):** `EG02_013` reporting line `RL_03` has
+181 sampled flows and a sampled maximum **96.812**, but source `RLL_Qmx`
+reports **96.842** at **0.9741 h**. Reporting region `RL_06` has
+181 sampled volumes with a printed maximum **8773.318**, while `RLR_Volmx`
+reports **8773.601** at **1.2697 h**. These are true source-product
+differences (sample time vs maximum event) and must not be rounded away,
+overwritten or reconstructed into coincident hydraulic states.
+Legitimate negative values and zeros remain; the selected new readers map
+`-99999`, `**********` and empty numeric cells to missing.
+
+**Evidence and boundaries:** Genuine-fixture and synthetic tests now exercise
+factory, selected-reader materialisation, source relationships, signed values,
+partial/all missing, missing point IDs, time validation, public MCP inspection
+and protected Excel/Parquet report publication. Normal CI, source/installed-wheel,
+native Windows/SMB/UNC, optional-companion and memory benchmarking evidence
+must remain distinguished until actual checks are complete. WP04 owns
+common `#219` validity; WP11 owns `#228` fixture matrix and `#229`
+selected-read memory/precision measurement. Structure `_SQ/_SHmx`, split
+2D formats, loss/MB, network and native container extensions remain under the
+broader staged #236 backlog; this delivery does not close #236 or #237.
+
 ## #236 selected next: reporting-location point water levels (initial decision)
 
 Select the reporting-location family next, starting with **_RLP_H.csv** (point water-level series) and **_RLP_Hmx.csv** (source-provided maximum and associated fields) using the existing PO-style report consumer. These have genuine EG02_013 source files, and TPC already has reporting-location readers. Reporting point/line/region types and measurement units must stay distinct even if their labels coincide; dHmax, Q and time columns must retain their source associations rather than all becoming independent maxima.

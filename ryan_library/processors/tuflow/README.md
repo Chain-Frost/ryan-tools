@@ -229,6 +229,49 @@ a combined PO batch, so no alternate input is silently counted as an additional 
 The selected scope is tracked in [WP12's living record](../../../docs/work/2026-11-08-wp12-hu-hd-coverage.md);
 other reporting lines/regions, structure SQ/SHmx, 2D split equivalents and general networks are not included.
 
+## Reporting-location lines and regions
+
+The registered source products keep TUFLOW's geometry and measurement categories distinct:
+
+- `*_RLL_Q.csv`: signed reporting-**line** flow histories (not a reconstructed channel network). The
+  existing `*_RLL_Qmx.csv` processor supplies source Qmax/time and its separate dQ/time fields.
+- `*_RLR_Vol.csv`: reporting-**region** volume histories. `*_RLR_Volmx.csv` supplies source
+  maximum volume and change data with separate times and associated `H`.
+
+`Time` in history outputs is simulation hours. Source flow and volume units are retained
+(m³/s and m³ in the metric EG02 fixtures), with float64 conversion of the printed CSV values.
+`-99999` and `**********` are missing in the new readers, while valid negative values and
+zero are preserved. The pre-existing line Qmx source `H` still carries its original missing
+sentinel until the common validity work in #219 is accepted.
+
+```python
+from pathlib import Path
+
+from ryan_library.orchestrators.tuflow.reporting_lines import main_processing as report_lines
+from ryan_library.orchestrators.tuflow.reporting_regions import main_processing as report_regions
+
+csv_path = Path("TUFLOW/results/EG02/plot/csv")
+report_lines(
+    paths_to_process=[csv_path],
+    locations_to_include=["RL_03"],
+    export_mode="both",
+    use_live_dashboard=False,
+)
+report_regions(
+    paths_to_process=[csv_path],
+    locations_to_include=["RL_06"],
+    export_mode="both",
+    use_live_dashboard=False,
+)
+```
+
+Each maintained Python workflow uses the existing discovery/processor/collection pipeline and
+protected exporter, with separate history and source-summary sheets and matching Parquet
+products. They do **not** insert the line/region output into POMM extrema or the PO
+median/mean ensemble, and there is no implied coincident maximum-flow state.
+The generic read-only MCP inspection interfaces work through the shared registry.
+See [WP12's record](../../../docs/work/2026-11-08-wp12-hu-hd-coverage.md) for native acceptance and unsupported formats.
+
 ## Add a processor-backed data type
 
 ### 1. Choose the appropriate base class

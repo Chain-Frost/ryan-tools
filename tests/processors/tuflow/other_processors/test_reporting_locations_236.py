@@ -283,11 +283,10 @@ def test_generic_mcp_inspection_recognises_new_types(data_type: str, location: s
 
 
 @pytest.mark.parametrize(
-    ("suffixes", "workflow", "output_key", "sheets", "expected_series", "expected_max"),
+    ("suffixes", "output_key", "sheets", "expected_series", "expected_max"),
     [
         (
             ("RLL_Q", "RLL_Qmx"),
-            run_lines,
             "reporting_lines",
             ("Line_Flow_Series", "Source_Flow_Maxima"),
             96.812,
@@ -295,7 +294,6 @@ def test_generic_mcp_inspection_recognises_new_types(data_type: str, location: s
         ),
         (
             ("RLR_Vol", "RLR_Volmx"),
-            run_regions,
             "reporting_regions",
             ("Region_Volume_Series", "Source_Volume_Maxima"),
             8773.318,
@@ -307,7 +305,6 @@ def test_public_discovery_export_protects_source_maxima(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     suffixes: tuple[str, str],
-    workflow: object,
     output_key: str,
     sheets: tuple[str, str],
     expected_series: float,
@@ -331,7 +328,7 @@ def test_public_discovery_export_protects_source_maxima(
             paths_to_process=[source], locations_to_include=["RL_06"], export_mode="both", use_live_dashboard=False
         )
 
-    source_frames = list(destination.glob(f"*_ {output_key}.xlsx".replace(" ", "")))
+    source_frames = list(destination.glob(f"*_{output_key}.xlsx"))
     assert len(source_frames) == 1
     series_sheet, summary_sheet = sheets
     series = pd.read_excel(source_frames[0], sheet_name=series_sheet)  # pyright: ignore[reportUnknownMemberType]
