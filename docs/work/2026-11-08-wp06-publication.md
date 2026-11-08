@@ -1,6 +1,6 @@
 # WP06 — owned staging in standalone output workflows
 
-**Status:** Needs review: #200 is implemented on the isolated native-acceptance branch; Windows/local/SMB acceptance found and fixed a #232 collision-error regression. #232/#197 code remains integrated only in parent #251. Native evidence and review disposition are recorded below; no main merge or issue closure.
+**Status:** WP06 #232/#197/#200 changes are integrated into draft parent PR #251; #271 was squash-merged into the feature branch at `24241d7` after six green child checks and fresh Codex review with no remaining findings. Native Windows/SMB/7-Zip/GDAL evidence is recorded below; one **new GCP-specific native test remains unrun**, and documented environment/crash-recovery limits remain. Parent exact-head checks and other work-pack integration are separate gates. No `main` merge or issue closure.
 **Owner:** WP06 local validation / maintainer review.
 **Updated:** 2026-11-08 (Perth).
 **Next review:** 2026-11-15 or when current-head CI/native validation is available.
@@ -28,7 +28,7 @@
 
 ## Third delivery — cutline GDAL (#200)
 
-Implemented in the separate native-acceptance branch described below, pending child-PR review/integration.
+Implemented in [PR #271](https://github.com/Chain-Frost/ryan-tools/pull/271), **squash-merged into parent feature branch #251** as `24241d7` after native validation and Codex review. No merge to `main`.
 The maintained script retains its processing locally; no new orchestrator or compatibility layer is introduced.
 Source CRS comes from raster metadata unless explicitly corrected with `--source-crs`; `--target-crs`
 independently controls the destination. The complete batch is checked for physical/case aliases and output
@@ -44,7 +44,7 @@ The environment cannot resolve `github.com` over Git transport, so no remote clo
 
 The reviewed #232/#197 implementation is now included in [main-targeting parent PR #251](https://github.com/Chain-Frost/ryan-tools/pull/251) via **merge commit `66dece4` on its feature branch**. Child PRs #258 and #264 closed as merged into the parent, with their review history retained. The parent remains draft, and **no commit was merged to `main`**.
 
-The parent PR description carries `Closes #232` and `Closes #197` as **conditional closing links**. These cannot close issues until an expressly authorised final parent merge to the default branch. The parent must remain unmerged pending unresolved native acceptance and the other work pack owners' approvals. Keep #200 open: its new implementation still requires review and approved integration.
+The parent PR description carries `Closes #232` and `Closes #197` as **conditional closing links**. These cannot close issues until an expressly authorised final parent merge to the default branch. The parent must remain unmerged pending unresolved native acceptance and the other work pack owners' approvals. Keep #200 open while the parent is unmerged. Its implementation is now incorporated, so add the conditional `Closes #200` to the **main-targeting parent PR #251**; it must only take effect after a separately authorised final merge.
 
 ## Local agent acceptance and completion handoff
 
@@ -69,9 +69,9 @@ The parent PR description carries `Closes #232` and `Closes #197` as **condition
 - Repeat representative no-overwrite and concurrent-writer cases on a permitted mapped-drive/UNC/SMB share; check stale `.*.writing` lock handling and document any file-sharing policy restrictions. Do not remove a stale lock without confirming no active owner.
 - Check an independently copied `archive_compress_folder.py` wrapper against the installed version. Do not present GitHub hosted wheel build/smoke alone as full copied-wrapper/native acceptance.
 
-### GDAL cutline publication — #200 (not implemented)
+### Historical GDAL cutline implementation handoff — #200 (completed in #271)
 
-- A local agent with working `osgeo.gdal` / OSGeo4W or QGIS Python and synthetic raster/vector test data must implement this as a **separate reviewable PR**, stacked onto the latest parent #251 or another agreed integration branch. No change was claimed for `ryan-scripts/gdal-python/gdalwarp_clip_to_polygon.py` in WP06 first/second deliveries.
+- The following requirements were the original local-agent handoff and have since been implemented and tested in #271, apart from the separately logged GCP follow-up. The child has been incorporated into #251's feature branch; the original acceptance requirements are retained for provenance.
 - Derive source CRS from each raster's metadata unless an explicit source override is provided; keep target/destination CRS independent. Use safe invocation-owned staging, preflight input/output physical and case collisions **across all input roots before creating any output**, and enforce no-overwrite at publication. Confirm preservation of source rasters after warp errors, aliases, partial batches, and publication races.
 - Test real different-CRS synthetic rasters/cutlines and inspect actual output projection, geometry, extent, pixel values/NoData and failed warp behavior. Ruff/strict Pyright, wrapper `--help`, independent installed/copied script and native Windows/SMB acceptance must be recorded. Mock-only GDAL tests do not establish spatial correctness.
 
@@ -81,9 +81,7 @@ The parent PR description carries `Closes #232` and `Closes #197` as **condition
 - Post a **SHA-specific acceptance summary** to PR #251 and update this canonical WP06 record: OS/Python, package and 7-Zip/GDAL versions, drive/share path type, exact commands, pass/fail/skip, artifacts and remaining exceptions. Include #200's PR if/when delivered.
 - Do **not** merge into `main`, enable auto-merge, release, close issues manually or silently convert unverified native checks into passes. Any final squash merge requires separate explicit maintainer authorisation.
 
-**Next action:** Review the separate native-acceptance child PR, reconcile any remaining exceptions, then explicitly
-approve integration into #251. Repeat final-parent-head checks after all approved packs are integrated and obtain
-fresh independent review. No main merge, auto-merge, release or manual issue closure is authorised.
+**Next action:** Run the newly added GCP-only raster native regression on Windows/GDAL; verify the updated parent-head CI and review other stacked packs and main conflicts. No main merge, auto-merge, release or manual issue closure is authorised.
 
 ## 2026-11-08 local Windows acceptance
 
@@ -181,10 +179,9 @@ No normal/user Python package was replaced. `smoke_test_installed_wheel.py --exp
 - Hosted CI deliberately excludes the new native GDAL file before collection, matching the existing native GDAL test boundary; its real local/SMB results above are separate evidence.
 - Hosted checks and fresh independent review for the new child are recorded separately at delivery. After
   approved child integration, rerun the latest **parent** SHA; this child evidence cannot certify a later parent.
-- Maintainer acceptance of these limits, approved integration, final-head review and any main merge remain
-  explicit separate steps. #200 remains open and has no issue-closing keyword.
+- The documented privilege/SMB-junction/crash limits are acknowledged for **feature-branch integration**, not described as tests that passed. Final-head review and any main merge require separate approval. #200 remains open, with a **conditional** closing keyword on the parent PR only.
 
-**Delivery checkpoint:** Draft child #271 is pushed. Current-head hosted status is separate from the local evidence: see [child checks](https://github.com/Chain-Frost/ryan-tools/pull/271/checks) and the SHA-specific delivery comments on #271/#251. No fresh independent review has been obtained. Parent #251 remains draft at the recorded baseline and has main merge conflicts owned by integration. The canonical record is updated in the child without directly editing the parent branch.
+**Delivery checkpoint:** Child [#271](https://github.com/Chain-Frost/ryan-tools/pull/271) is closed as squash-merged into draft parent #251 at `24241d7`, **not `main`**. Final child head `d0064a80` passed **all six hosted checks (2,548 tests)**. Fresh Codex review at that exact head reported no new findings and the previous GCP P2 discussion was resolved following the code/test correction. The review's new **native GCP-specific test remains to be executed**. Parent head is advanced by this integration and documentation; record exact-head parent checks separately. Parent/main conflicts and other packs remain integration-owner responsibilities.
 
 The final wrapper revision is **2026-11-08.2**. Additional real regressions reject untagged rasters unless a source CRS is explicitly supplied and reject hard-linked existing batch outputs before mutation. The final mapped-to-UNC source identity probe also refuses the physical source alias and preserves its bytes. All final package/copied-wrapper checks are repeated with **26.11.8.2**.
 
@@ -193,3 +190,13 @@ The final wrapper revision is **2026-11-08.2**. Additional real regressions reje
 Codex identified a P2 input-compatibility omission in [PR #271's GDAL CRS guard](https://github.com/Chain-Frost/ryan-tools/pull/271#discussion_r4505150571): rasters georeferenced with ground control points can have an empty `GetProjectionRef()` but a valid `GetGCPProjection()`. The script now accepts either form before allowing GDAL to infer the source CRS, without overriding it by default. A real GCP-only GeoTIFF and cutline regression was added to `tests/scripts/gdal/test_cutline_publication_200.py`.
 
 **Native GCP test remains to be rerun:** the GitHub-connector environment does not provide `osgeo.gdal`. The prior 118-pass native validation covers the earlier affine-CRS version and **must not** be presented as a run of the newly added GCP case. The local Windows/GDAL agent should rerun `python -m pytest -q -rs tests/scripts/gdal/test_cutline_publication_200.py` at the amended child or integrated parent SHA, verify the GCP output projection/nonempty pixels and original raster hash, and record the result before a future `main` merge. Hosted CI separately checks Python 3.14 lint/type/package and the non-native test suite. No production data, release, auto-merge or `main` merge is authorised.
+
+## Integration disposition — 2026-11-08
+
+- [x] Integrated #232 and #197 via earlier reviewed child PRs #258/#264; integrated #200 and #232 SMB follow-up via [#271](https://github.com/Chain-Frost/ryan-tools/pull/271) at parent feature-branch commit [`24241d7`](https://github.com/Chain-Frost/ryan-tools/commit/24241d721bb06c75ab56756c144d44bc6973eb21).
+- [x] Final amended child head `d0064a80` passed all **six hosted checks**, 2,548 tests passed/14 skipped/8 deselected. [Fresh Codex review](https://github.com/Chain-Frost/ryan-tools/pull/271#issuecomment-6717786508) found no further issues; its earlier [P2 GCP review thread](https://github.com/Chain-Frost/ryan-tools/pull/271#discussion_r4505150571) is resolved. Native Windows/SMB, real 7-Zip split archives, copied wrappers and GDAL/QGIS results for the prior affine-CRS head remain recorded above (118 focused passes/one skip).
+- [x] Accepted the **documented environmental limitations for feature-branch integration** only: unavailable directory-symlink privilege; SMB server cannot host junctions; sudden power-loss/forced-process-crash recovery untested. These are limitations, **not passing tests**. The earlier WP02 source import-probe environment failure remains WP02-owned and documented.
+- [ ] **Native GCP regression:** run `python -m pytest -q -rs tests/scripts/gdal/test_cutline_publication_200.py` with GDAL 3.13.3 and Python 3.14 against the *current integrated parent SHA*. Confirm `test_source_crs_from_ground_control_points` passes, output projection/values are valid and source bytes unchanged; post version, path type, evidence and exact SHA. Hosted CI does **not** collect this native test. Do not conflate this new test with the earlier 118 accepted focused cases.
+- [ ] Check new parent-head CI after its documentation update and reconcile all other stacked work packs. Resolve current parent versus `main` conflicts when integration owner approves. Conduct final review before a separately **explicitly authorised future squash merge to `main`**.
+
+The parent PR description uses conditional issue closers for #232, #197 and **#200**. No issue has been manually closed. Neither #271's parent integration nor this record is authorisation to merge or release.
