@@ -41,7 +41,6 @@ _PROCESSORS = {
 }
 
 __all__ = [
-    "ccAProcessor",
     "CFProcessor",
     "ChanProcessor",
     "CmxProcessor",
@@ -51,13 +50,14 @@ __all__ = [
     "POMMProcessor",
     "POProcessor",
     "QProcessor",
-    "RLLQmxProcessor",
     "RLLQProcessor",
-    "RLPHmxProcessor",
+    "RLLQmxProcessor",
     "RLPHProcessor",
-    "RLRVolmxProcessor",
+    "RLPHmxProcessor",
     "RLRVolProcessor",
+    "RLRVolmxProcessor",
     "VProcessor",
+    "ccAProcessor",
 ]
 
 

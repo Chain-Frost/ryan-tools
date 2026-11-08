@@ -252,9 +252,9 @@ def test_region_summary_rejects_missing_peak_time_and_bad_numbers(tmp_path: Path
         "H": "1.0",
     }
     record[column] = value
+    record_row = ",".join(("1", *record.values()))
     path.write_text(
-        f'"{RUN} [model.tcf]","ID","Vol max","Time Vol max","dVolmax","Time dVolmax","H"\n'
-        + "1," + ",".join(record.values()) + "\n",
+        f'"{RUN} [model.tcf]","ID","Vol max","Time Vol max","dVolmax","Time dVolmax","H"\n{record_row}\n',
         encoding="utf-8",
     )
     processor = BaseProcessor.from_file(path)
@@ -366,18 +366,13 @@ def test_summary_only_source_is_supported_without_series_companion(
     collection.add_processor(_processed(suffix))
     monkeypatch.chdir(tmp_path)
     fixed = datetime(2026, 11, 8, 12, 0)
+    exporter = export_lines if kind == "line" else export_regions
     with patch("ryan_library.functions.excel_export.datetime") as clock:
         clock.now.return_value = fixed
-        if kind == "line":
-            assert export_lines(results=collection, export_mode="parquet")
-        else:
-            assert export_regions(results=collection, export_mode="parquet")
+        assert exporter(results=collection, export_mode="parquet")
         # Unchanged destinations must remain protected even if the call is repeated later.
         with pytest.raises(FileExistsError):
-            if kind == "line":
-                export_lines(results=collection, export_mode="parquet")
-            else:
-                export_regions(results=collection, export_mode="parquet")
+            exporter(results=collection, export_mode="parquet")
 
     products = list(tmp_path.glob(f"*_{output_key}_{summary_sheet}.parquet.gzip"))
     assert len(products) == 1
