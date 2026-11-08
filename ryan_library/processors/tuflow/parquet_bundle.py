@@ -127,7 +127,7 @@ def _decode_category(raw: object) -> object:  # noqa: C901
     if kind == "int" and type(payload) is int:
         return payload
     if kind == "float" and type(payload) in {float, int} and math.isfinite(cast("float", payload)):
-        return float(payload)
+        return float(cast("float | int", payload))
     if not isinstance(payload, str):
         message = "Invalid Parquet directory categorical scalar value"
         raise ValueError(message)
@@ -148,7 +148,7 @@ def _decode_category(raw: object) -> object:  # noqa: C901
 def _category_contract(dtype: object) -> dict[str, object] | None:
     if not isinstance(dtype, pd.CategoricalDtype):
         return None
-    categories = dtype.categories
+    categories: pd.Index[Any] | None = cast("pd.Index[Any] | None", dtype.categories)
     if categories is None:
         message = "Categorical dtype has no categories"
         raise ValueError(message)
@@ -157,6 +157,10 @@ def _category_contract(dtype: object) -> dict[str, object] | None:
         "index_dtype": str(categories.dtype),
         "values": [_encode_category(value) for value in values],
     }
+
+
+def _restore_path_scalar(item: object) -> object:
+    return Path(item) if isinstance(item, str) else item
 
 
 def _rehydrate_categories(frame: DataFrame, contract: object) -> DataFrame:  # noqa: C901
@@ -195,14 +199,50 @@ def _rehydrate_categories(frame: DataFrame, contract: object) -> DataFrame:  # n
         category_dtype = pd.CategoricalDtype(categories=category_index, ordered=ordered)
         source = frame[name]
         if any(isinstance(item, Path) for item in categories):
-            source = source.map(lambda item: Path(item) if isinstance(item, str) else item)
+            source = source.map(_restore_path_scalar)
         before = int(source.notna().sum())
         restored = source.astype(category_dtype)
         if int(restored.notna().sum()) != before:
             message = f"Parquet category restoration would lose values in column {name!r}"
             raise ValueError(message)
         frame[name] = restored
+    names = metadata.get("column_names")
+    if not isinstance(names, list) or len(cast("list[object]", names)) != frame.columns.nlevels:
+        message = "Invalid Parquet column-axis names"
+        raise ValueError(message)
+    decoded_names = [None if name is None else _decode_category(name) for name in cast("list[object]", names)]
+    frame.columns = frame.columns.set_names(decoded_names)
+    nulls = metadata.get("object_na_positions")
+    if not isinstance(nulls, list) or len(cast("list[object]", nulls)) != len(frame.columns):
+        message = "Invalid Parquet object null metadata"
+        raise ValueError(message)
+    for column, positions in enumerate(cast("list[object]", nulls)):
+        if not isinstance(positions, list):
+            message = "Invalid Parquet object null positions"
+            raise ValueError(message)
+        missing = frame.iloc[:, column].isna()
+        for row in cast("list[object]", positions):
+            if (
+                type(row) is not int
+                or not 0 <= row < len(frame)
+                or not pd.api.types.is_object_dtype(frame.dtypes.iloc[column])
+            ):
+                message = "Invalid Parquet object null position"
+                raise ValueError(message)
+            if not missing.iloc[row]:
+                message = "Parquet object null metadata would replace a value"
+                raise ValueError(message)
+            frame.iloc[row, column] = pd.NA
     return frame
+
+
+def _axis_name(value: object) -> dict[str, object] | None:
+    if value is None:
+        return None
+    # Native pandas axis names may be NumPy integer scalars.
+    if hasattr(value, "item"):
+        value = cast("Any", value).item()
+    return _encode_category(value)
 
 
 def _frame_contract(frame: DataFrame) -> dict[str, object]:
@@ -212,6 +252,13 @@ def _frame_contract(frame: DataFrame) -> dict[str, object]:
         else [str(frame.index.dtype)]
     )
     return {
+        "column_names": [_axis_name(name) for name in frame.columns.names],
+        "object_na_positions": [
+            [i for i, value in enumerate(frame.iloc[:, column]) if value is pd.NA]
+            if pd.api.types.is_object_dtype(dtype)
+            else []
+            for column, dtype in enumerate(frame.dtypes)
+        ],
         "columns": [str(column) for column in frame.columns],
         "dtypes": [str(dtype) for dtype in frame.dtypes],
         "categorical_ordered": [
@@ -288,7 +335,7 @@ def _source_entry(processor: BaseProcessor, index: int) -> dict[str, Any]:
         "applied_entity_filter": sorted(processor.applied_entity_filter or ()),
         "source_entities": source_entities,
         "frame_entities": frame_entities,
-        "frame": _frame_contract(_portable_frame(processor.df)),
+        "frame": _frame_contract(processor.df),
         "health": {
             "input_health": str(getattr(processor, "input_health", "OK")),
             "rejected_samples": int(getattr(processor, "rejected_samples", 0)),
@@ -685,7 +732,7 @@ def _windows_directory_handle(path: Path) -> int:
     create.restype = ctypes.c_void_p
     handle: int | None = create(
         str(path),
-        0x80,  # FILE_READ_ATTRIBUTES
+        0x80000000,  # GENERIC_READ: attribute-only handles do not block POSIX-style Windows rename.
         0x01 | 0x02,  # FILE_SHARE_READ | FILE_SHARE_WRITE; deny FILE_SHARE_DELETE
         None,
         3,  # OPEN_EXISTING

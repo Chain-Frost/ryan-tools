@@ -1,6 +1,6 @@
 # Parquet-directory snapshots for native TUFLOW processor collections
 
-**Decision:** 8 November 2026. **Status:** revised design implemented on draft PR #293; final-head CI, native Windows/installed-wheel and Codex acceptance pending. **Next review:** 15 November 2026.
+**Decision:** 8 November 2026. **Status:** Windows source/installed-wheel repairs validated; final pushed-head CI and independent review pending. **Next review:** 15 November 2026.
 
 **Scope:** [PR #293](https://github.com/Chain-Frost/ryan-tools/pull/293) stacked on draft [#251](https://github.com/Chain-Frost/ryan-tools/pull/251). [WP04 #284](https://github.com/Chain-Frost/ryan-tools/pull/284) remains a separate prerequisite; do not modify or merge it from this work front.
 
@@ -53,7 +53,7 @@ under `.versions/<uuid>/` and atomically replaces only `manifest.json`,
 preserving the prior generation for readers who have already opened it.
 Linux pins directory descriptors for the entire publication window and uses
 atomic RENAME_NOREPLACE into a pinned versions directory and descriptor-relative
-manifest replacement. Windows holds non-reparse-point CreateFileW handles with
+manifest replacement. Windows holds non-reparse-point CreateFileW GENERIC_READ handles with
 FILE_SHARE_DELETE denied on the destination, its ancestors and versions folder
 through cleanup, preventing path swaps. If these protections are unavailable
 the overwrite fails closed. Overwrite consent is rechecked after staging, so a
@@ -106,3 +106,41 @@ does not provide Windows Python 3.14, native SMB, a checked-out repository
 worktree, or a locally installed PyArrow wheel. Do not infer local, native,
 installed-wheel or hosted success without separate evidence. Log exact-head
 CI and Codex results on PR #293 once available, without merging.
+
+
+## 2026-11-09 Windows repair checkpoint
+
+Continued the existing #293 branch from `b67c270f` in an isolated worktree;
+the parent checkout and WP04 remain untouched. Fixed all six strict-Pyright
+errors reproduced from the hosted Policy job. Windows execution additionally
+exposed three failures in the existing Parquet tests: integer column-axis names
+became strings, object lookup `pd.NA` values became `None`, and attribute-only
+Windows directory handles did not prevent POSIX-style renames.
+
+The manifest now preserves typed column-axis names and the positions of object
+`pd.NA` values. Restoration validates those positions and refuses to replace
+non-null values. Windows publication handles request GENERIC_READ and deny
+FILE_SHARE_DELETE; the existing native directory-swap regression now passes.
+No new MCP surface is needed: this repairs the existing Python snapshot API.
+
+Validation on Windows Python 3.14.6 / PyArrow 24.0.0:
+
+- `python -m pytest tests/processors/tuflow/test_processor_collection_parquet_bundle.py -q`:
+  21 passed, two Linux-only safety tests skipped.
+- Related collection/info/coverage/channel-selection/persistence tests: 57 passed.
+- Ruff lint/format and strict Pyright on the PR's four Python implementation
+  files and Parquet test module: passed with the declared development typing dependencies.
+- `python repo-scripts/build_library.py --skip-pip`: built and verified local
+  wheel `26.11.9.1`. Initial build refused missing QML resources; initialised only
+  the required `qgis-resources` and `tests/test_data` submodules, without LFS downloads.
+- Installed that wheel into an isolated temporary package directory, verified
+  the imported module path, and ran a copied Parquet test module against it:
+  21 passed, two Linux-only skips. No environment or installed package replacement.
+- Documentation checker and diff whitespace checks: passed.
+
+Delivery: code, version and this record are batched for the existing PR branch;
+the ignored wheel remains local. Hosted results will be recorded on the PR at
+the final pushed SHA. NTFS acceptance above does not establish mapped-drive/UNC
+or native SMB acceptance. Independent final-head review and WP04 integration
+remain separate gates. No merge, release or issue closure is authorised.
+Next review remains 2026-11-15.
