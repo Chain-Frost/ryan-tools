@@ -1,6 +1,6 @@
 # Parquet-directory snapshots for native TUFLOW processor collections
 
-**Decision:** 8 November 2026. **Status:** BLOCKED: intermittent UNC lock-cleanup assertion on final delivery check; final CI/review remain separate. **Next review:** 15 November 2026.
+**Decision:** 8 November 2026. **Status:** Scoped Windows native acceptance PASS at `7ac3c0c5`; revised exclusive-create contract and filtered-location regressions pass. Final hosted CI remains a separate gate. **Next review:** 15 November 2026.
 
 **Scope:** [PR #293](https://github.com/Chain-Frost/ryan-tools/pull/293) stacked on draft [#251](https://github.com/Chain-Frost/ryan-tools/pull/251). WP04 #284 has been incorporated into the parent #251; retain its native validity, lifecycle and source-selection contracts.
 
@@ -73,7 +73,7 @@ multi-run aggregation are deliberately not introduced: restoring an entire
 partitioned Parquet/reduction for those workloads.
 
 The normal collection retains only nonempty successfully processed processor
-objects. `parquet_selection_diagnostics` records `SELECTED`, `ABSENT`
+objects. `parquet_selection_diagnostics` records `SELECTED`, `FILTERED`, `ABSENT`
 or `INVALID` outcomes for location-filtered restores, so a source-present
 but wholly rejected location is not silently rebranded as no-match.
 
@@ -271,3 +271,143 @@ post-cleanup `exists()` observations and zero failures to acquire a new lock
 using `O_CREAT|O_EXCL`. This does not reproduce or explain the preserved failure;
 `cache-probe.json` retains every observation. Verdict remains BLOCKED pending
 root cause or an agreed, documented SMB acceptance boundary.
+
+### 2026-11-09 synchronous UNC cleanup capture
+
+Implementation and remote #293 remain at `9d8a82b730be9ddedf9b7941f2f48f1624c5cb1a`;
+#251 remains `92351854625dae81001c033306969f73eff4a7f7`. No production code, test,
+assertion, installed package or remote branch was changed during this investigation.
+
+Private harness `E:/Github/pr293-native-evidence/observe_cleanup.py` intercepts
+only the existing cleanup test's `.publish.lock.exists()` call, returns its exact
+original boolean, and synchronously records positive observations before returning
+to the unchanged assertion. Capture includes nanosecond timestamps, PID, literal
+path, repeated exists, `os.stat(..., follow_symlinks=False)` or exact exception,
+directory listing, and `O_CREAT|O_EXCL|O_WRONLY`. A successfully created diagnostic
+lock is closed and removed only after matching its file identity; failed exclusive
+creation never removes a lock. Subsequent samples use requested delays of 10 ms,
+100 ms and one second; diagnostic I/O adds elapsed time. A separate child process
+then repeats read-only exists/listing. A local positive control preserved an
+unowned lock and returned the original True to the caller.
+
+Ten fresh-process full Parquet-module runs (five UNC and five mapped basetemp)
+passed **300 tests / 20 Linux-only skips**, with no positive cleanup observations.
+Pytest canonicalises mapped basetemp paths to UNC. To retain literal path spelling,
+private `direct_cleanup.py` calls the unchanged fixture body and unchanged test
+function directly; these are diagnostic calls, not additional pytest counts.
+Literal UNC failed on its first call; literal mapped failed on call two, then
+again on call eight in a separate process. Total direct calls: eight passed and
+three original cleanup assertions failed. No assertion was caught and relabelled
+as passing.
+
+At the first positive observation on **both genuine UNC and mapped SMB**:
+
+- Immediate repeated `exists()` also returned True.
+- Non-following `stat` returned `FileNotFoundError`, errno 2 / WinError 2.
+- `os.listdir` returned `.versions`, `manifest.json`, `processors`, with no lock.
+- Exclusive creation succeeded; only the diagnostic-owned lock was removed.
+- Later samples again sometimes returned True while stat/listing/exclusive-create
+  continued to report no outstanding lock. Diagnostic create/delete operations
+  can themselves affect later metadata, so the initial sample is decisive evidence.
+- The independent child sometimes also saw True while its listing omitted the lock.
+
+This directly supports stale existence metadata for the captured observations,
+rather than a genuinely outstanding writer lock at exclusive creation. It does
+not identify the responsible Windows/SMB cache layer or establish an accepted
+cleanup contract. The original delivery failure and assertion remain preserved.
+Raw captures: `observe-direct-unc.jsonl`, `observe-direct-mapped.jsonl`,
+`observe-direct-mapped-confirm.jsonl`; direct-call summaries and ten JUnit reports
+are retained in the same private evidence directory. Connection details remain
+outside the repository.
+
+Source concurrency/index checks were rerun on genuine UNC and mapped paths:
+each produced one publication and one refusal, restored correctly, and cleaned
+owned staging/locks; four index contracts passed per path. An initial invocation
+of the external script imported the older normal installed package and failed
+before publication (`to_parquet` unavailable); those attempts are not acceptance
+evidence. Corrected `python -c`/`runpy.run_path` invocations verified the module
+origin under this worktree before executing the checks and their child writers.
+
+Hosted run [42514379086](https://github.com/Chain-Frost/ryan-tools/actions/runs/42514379086)
+now has all six jobs terminal and successful: Ruff, Policy, Package, POSIX security,
+Hosted tests and MCP smoke. No hosted rerun was requested.
+
+Next action: decide and validate the SMB existence/cleanup acceptance contract
+from these captures while retaining the assertion until understood. Separately,
+the active filtered-location P2
+[review thread](https://github.com/Chain-Frost/ryan-tools/pull/293#discussion_r4507456784)
+still needs its focused regression and verified fix; this investigation does not
+resolve it. Native acceptance remains BLOCKED; PR remains draft. This handoff is
+local and uncommitted; no push, merge, release or issue closure. Next review:
+2026-11-15.
+
+
+### 2026-11-09 revised-head native acceptance
+
+Actioned [the maintainer handoff](https://github.com/Chain-Frost/ryan-tools/pull/293#issuecomment-6729859375)
+on exact code `7ac3c0c527ad067b913da67c2b35ffd7f853ce18`, in the existing isolated
+Windows worktree. Preserved the uncommitted synchronous-capture record above and
+all raw failure captures. Earlier BLOCKED verdicts remain historical evidence;
+this verdict applies to the revised exclusive-create availability contract.
+No production locking, cleanup or no-clobber implementation changed here.
+
+Windows 10 build 19045 / normal Python 3.14.6, pandas 3.0.5, PyArrow 24.0.0,
+pytest 9.1.1. Independent no-bump build of 26.11.9.3 verifies with SHA-256
+`964c27043fd4a5f44e2d3b89aeb9f192cb4c12ecbbdb3a750624f43cf4d3d78f`.
+All 252 library Python/JSON files match the isolated installed wheel byte-for-byte;
+source and wheel import origins were recorded independently. The normal installed
+package was not replaced. Accepted PyTuflow 1.3.0 archive/direct-URL hash is
+`4bfcd24734349f9e0dcf60776ee06a2e17953ac342f40e3611b0e2aae33b30e3`, identical
+to the repository artifact at source `887534ea8c15b80d185a38a7ead1d42ab42a7167`.
+The verifier's literal archive-location check rejects the installation URL from
+another worktree; archive bytes/hash and recorded installed hash independently match.
+
+| Context | NTFS focused WP04/selection/Parquet | Mapped SMB Parquet | Genuine UNC Parquet |
+| --- | --- | --- | --- |
+| Source | 99 passed / 2 Linux-only skips | 34 passed / 2 skips | 34 passed / 2 skips |
+| Independent installed wheel | 99 passed / 2 Linux-only skips | 34 passed / 2 skips | 34 passed / 2 skips |
+
+Total **334 passes, zero failures, 12 Linux-only skips**. Tests are the three
+focused modules named above on NTFS, and the Parquet module on SMB, with fresh
+unique `--basetemp` and JUnit reports. Installed tests were copied outside the
+checkout, retaining only the needed real ccA fixture. Revised tests verify
+exclusive-create lock availability and preservation of an existing unowned lock;
+PO/Q preselection now distinguishes FILTERED, INVALID and ABSENT.
+
+Additional original native checks pass in all six source/wheel/storage cells:
+
+- Real six-processor Q/H/PO/POMM/Cmx/EOF round trip, compacted lookup, no-clobber,
+  external writer-lock exclusion, explicit overwrite and original-member integrity.
+- Four index contracts and actual two-process initial publication: exactly one
+  publisher and one refusal, successful restore and owned staging cleanup.
+- Actual overlapping overwrite processes: hold the first writer after exclusive
+  lock acquisition, refuse the competing writer, verify the old snapshot remains
+  readable/unchanged, release the first writer and restore its new generation.
+- Ten literal-path calls per cell to the actual revised overwrite/cleanup test,
+  and ten existing-unowned-lock preservation checks: **60 cycles each** overall.
+  This retains mapped spelling independently of pytest basetemp canonicalisation.
+
+All original six input SHA-256 values match the retained prior native capture.
+Processor and lookup payload hashes match across all six comparable snapshots;
+manifest parity is exact after excluding only `created_at_utc`. Initial source/wheel
+harness runs used different working directories, producing expected relative-path
+lookup differences; the three wheel real-input runs were repeated with the same
+base directory and explicit verified isolated imports before asserting byte parity.
+No source/snapshot input was regenerated or edited.
+
+Raw reproduction scripts, logs, six JUnit files, module identities, per-input/member
+hashes and parity report remain private under
+`E:/Github/pr293-native-evidence/revised-7ac3c0c5/`, alongside the retained
+`delivery-source-unc.xml` and synchronous `observe-direct-*.jsonl` captures.
+No share/server identity is published. Reproduction uses `run_revised.py`,
+`run_overwrite_revised.py`, `run_samebase.py` and `check_revised.py` in the parent
+evidence directory. Link privilege, unsupported SMB junction, Linux-only descriptor,
+crash/disconnect and scale boundaries above remain; no broader acceptance is inferred.
+
+Delivery: documentation-only acceptance batch on existing #293. PR was found ready
+for review and restored to **draft** as the handoff explicitly requires. #251/main
+are unchanged by this task; no merge, release or issue closure. Exact-code hosted
+run 42543915538 is still running at this checkpoint; prior independent no-major-issue
+review is reported in the linked handoff, not rerun here. Next action: verify final
+documentation-head CI, then seek explicit integration authorisation. Next review:
+2026-11-15.
