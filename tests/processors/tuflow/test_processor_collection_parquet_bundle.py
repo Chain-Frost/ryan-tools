@@ -13,6 +13,7 @@ import pytest
 
 from ryan_library.processors.tuflow import parquet_bundle
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
+from ryan_library.processors.tuflow.other_processors.POProcessor import POProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 
 
@@ -461,6 +462,7 @@ def test_previous_filter_does_not_hide_rejected_source_samples(tmp_path: Path) -
     processor = BaseProcessor.from_file(source)
     processor.process()
     assert processor.processed
+    assert isinstance(processor, POProcessor)
     assert processor.usable_source_locations == frozenset({"Wet"})
     collection = ProcessorCollection()
     collection.add_processor(processor)
