@@ -1,8 +1,8 @@
 # Parquet-directory snapshots for native TUFLOW processor collections
 
-**Decision:** 8 November 2026. **Status:** Scoped Windows native acceptance PASS at `7ac3c0c5`; revised exclusive-create contract and filtered-location regressions pass. Final hosted CI remains a separate gate. **Next review:** 15 November 2026.
+**Decision:** 8 November 2026. **Status:** Integrated into draft #251 at `c1cb3d5d`; child six-job CI, independent review and scoped Windows NTFS/mapped/UNC native acceptance PASS. Integrated-head CI and TUFLOW input validation remain separate. **Next review:** 15 November 2026.
 
-**Scope:** [PR #293](https://github.com/Chain-Frost/ryan-tools/pull/293) stacked on draft [#251](https://github.com/Chain-Frost/ryan-tools/pull/251). WP04 #284 has been incorporated into the parent #251; retain its native validity, lifecycle and source-selection contracts.
+**Scope:** [PR #293](https://github.com/Chain-Frost/ryan-tools/pull/293) squash-integrated into feature branch [#251](https://github.com/Chain-Frost/ryan-tools/pull/251), **not** `main`. WP04 #284 and corrective #296 remain included in #251; preserve their input-health, lifecycle and source-selection contracts.
 
 ## Revised architectural decision
 
@@ -411,3 +411,11 @@ run 42543915538 is still running at this checkpoint; prior independent no-major-
 review is reported in the linked handoff, not rerun here. Next action: verify final
 documentation-head CI, then seek explicit integration authorisation. Next review:
 2026-11-15.
+
+## 2026-11-09 — Accepted feature-branch integration (not a release)
+
+The final child revision [`fab1726b`](https://github.com/Chain-Frost/ryan-tools/commit/fab1726b2958b63fef24ac2a74847216ad8c0db1) passed all six hosted CI checks ([run 42545779656](https://github.com/Chain-Frost/ryan-tools/actions/runs/42545779656)) after correcting contradictory README migration guidance. The preceding acceptance/evidence head `16f3df85` passed six checks with **3,232 Windows hosted tests, 16 skips and eight deselections**; the final revision changes documentation only. Exact-head independent Codex review on `fab1726b` reported **no findings**; all 14 PR review threads resolved. No additional runtime/test modification followed Windows native acceptance on code head `7ac3c0c5`.
+
+The scoped Windows 10/Python 3.14 native matrix passed **334 tests, zero failures and 12 Linux-only skips** across source and separately installed wheel on NTFS, real mapped SMB and corresponding UNC. Authentic Q/H/PO/POMM/Cmx/EOF round trips, source/member hashes, processing-time metadata, lookups, no-clobber/overwrite, genuinely concurrent writers, exclusive lock cleanup and FILTERED/INVALID/ABSENT diagnostics passed. Retain earlier misleading UNC `.exists()` captures and the revised acceptance report; the exclusive-create contract addresses the observed SMB metadata discrepancy without weakening production writer exclusion. Symlink privilege, SMB junction support, machine crash/disconnect and large-scale workloads remain unexecuted or outside the accepted boundary.
+
+At parent `18b31d18`, #293 was squash-merged **only into draft #251's feature branch** as [`c1cb3d5d`](https://github.com/Chain-Frost/ryan-tools/commit/c1cb3d5dd77f4c6c1d421fc3c950d7e823cc7cec). Eleven scoped Parquet/documentation/package files changed; the newer WP15 evidence and reporting-processor work were preserved. PR #293 is merged/closed. [Integrated parent Python CI](https://github.com/Chain-Frost/ryan-tools/actions/runs/42546455303) and [TUFLOW input validation](https://github.com/Chain-Frost/ryan-tools/actions/runs/42546455310) started at this merge head; their final results and any combined-head review must be checked separately before whole-parent acceptance. No merge of #251 into `main`, release, or issue closure has been authorised. Original WP04 and broader storage/scale issue gates remain independent.
