@@ -69,7 +69,7 @@ def test_copy_is_byte_identical_and_does_not_overwrite(tmp_path: Path) -> None:
         "TUFLOW-python/log_processing/check_tuflow_user_activity.py",
         "gdal-python/gdal_merge.py",
         "gdal-python/recompress_geotiffs.py",
-        "tuflow/tuflow_culvert_from_1d_nwk.py",
+        "TUFLOW-python/culvert_results/tuflow_culvert_from_1d_nwk.py",
     ],
 )
 def test_copy_preserves_entire_original_wrapper_including_editable_defaults(script: str, tmp_path: Path) -> None:
