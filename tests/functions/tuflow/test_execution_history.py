@@ -184,8 +184,10 @@ def test_history_uses_relative_windows_tcf_and_command_without_changing_executio
         log.finish(identity, log.start(identity), Observed(run, 1, pid=2340))
     with path.open(encoding="utf-8", newline="") as stream:
         reader = csv.DictReader(stream)
-        assert reader.fieldnames == list(COLUMNS)
-        assert reader.fieldnames.index("arguments") < reader.fieldnames.index("tcf")
+        fieldnames = reader.fieldnames
+        assert fieldnames == list(COLUMNS)
+        assert fieldnames is not None
+        assert fieldnames.index("arguments") < fieldnames.index("tcf")
         rows = list(reader)
     assert [row["event"] for row in rows] == ["START", "FINISH"]
     assert rows[-1]["outcome"] == "FAILED"
