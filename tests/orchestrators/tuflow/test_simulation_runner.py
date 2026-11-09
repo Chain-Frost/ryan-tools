@@ -11,6 +11,7 @@ from collections.abc import Callable, Collection, Generator
 from dataclasses import replace
 from datetime import datetime, timedelta
 from io import StringIO
+from itertools import pairwise
 from pathlib import Path
 from threading import Event
 from typing import cast
@@ -525,13 +526,14 @@ def test_interlaunch_spacing_includes_failed_start_attempts(
         assert "-pu0" in args or "-pu1" in args
         attempts.append(time.monotonic())
         if failed_first and len(attempts) == 1:
-            raise FileNotFoundError("synthetic missing solver")
+            message = "synthetic missing solver"
+            raise FileNotFoundError(message)
         return FakeProcess(len(attempts) + 800)
 
     outcome = runner.launch_plan(plan, config, popen=fake_popen)
     assert len(attempts) == 3
-    assert all(second - first >= delay - 0.01 for first, second in zip(attempts, attempts[1:]))
-    assert outcome.successful is not failed_first
+    assert all(second - first >= delay - 0.01 for first, second in pairwise(attempts))
+    assert outcome.successful == (not failed_first)
     assert sum(item.pid is None for item in outcome.outcomes) == int(failed_first)
 
 
