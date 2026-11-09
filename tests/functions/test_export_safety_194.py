@@ -59,10 +59,15 @@ def test_parquet_failure_leaves_no_reports(
             output_directory=tmp_path,
             export_mode="parquet" if mode == "parquet" else "excel" if mode == "fallback" else "both",
         )
-    assert list(tmp_path.iterdir()) == []
+    outputs = list(tmp_path.iterdir())
+    if mode == "both":
+        assert len(outputs) == 1
+        assert outputs[0].name == "report.xlsx"
+    else:
+        assert outputs == []
 
 
-def test_excel_writer_failure_removes_partial_stage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_excel_writer_failure_removes_partial_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     def fail(*_args: object, **_kwargs: object) -> None:
         msg = "synthetic Excel failure"
         raise OSError(msg)
@@ -74,20 +79,21 @@ def test_excel_writer_failure_removes_partial_stage(tmp_path: Path, monkeypatch:
 
 
 @pytest.mark.parametrize("failed_link", [1, 2])
-def test_concurrent_destination_is_retained_and_partial_publication_identified(
+def test_concurrent_destination_is_retained_and_completed_reports_identified(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failed_link: int
 ) -> None:
-    original = exports.os.link
+    original_open = Path.open
     count = 0
 
-    def race(source: Path, destination: Path) -> None:
+    def race(path: Path, mode: str = "r", *args: object, **kwargs: object):  # type: ignore[no-untyped-def]
         nonlocal count
-        count += 1
-        if count == failed_link:
-            destination.write_bytes(b"concurrent owner")
-        original(source, destination)
+        if mode == "xb" and path.parent == tmp_path:
+            count += 1
+            if count == failed_link:
+                path.write_bytes(b"concurrent owner")
+        return original_open(path, mode, *args, **kwargs)
 
-    monkeypatch.setattr(exports.os, "link", race)
+    monkeypatch.setattr(Path, "open", race)
     with pytest.raises(FileExistsError) as caught:
         exports.ExcelExporter().save_to_excel(
             pd.DataFrame({"value": [1]}),
@@ -150,7 +156,7 @@ def test_generated_names_refuse_same_minute_collision(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("interrupted", [False, True])
-def test_csv_failure_discards_staged_parquet(
+def test_csv_failure_retains_completed_parquet(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, interrupted: bool
 ) -> None:
     def fail(*_args: object, **_kwargs: object) -> None:
@@ -163,18 +169,20 @@ def test_csv_failure_discards_staged_parquet(
     monkeypatch.setattr(pd.DataFrame, "to_csv", fail)
     with pytest.raises(KeyboardInterrupt if interrupted else PermissionError):
         exports.ExcelExporter().save_to_excel(pd.DataFrame({"v": [1]}), output_directory=tmp_path)
-    assert list(tmp_path.iterdir()) == []
+    outputs = list(tmp_path.iterdir())
+    assert len(outputs) == 1
+    assert outputs[0].suffix == ".gzip"
 
 
-def test_unsupported_publication_fails_without_reports(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_direct_export_does_not_require_hard_links(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     def fail(*_args: object, **_kwargs: object) -> None:
         message = "hard links unsupported"
         raise OSError(message)
 
     monkeypatch.setattr(exports.os, "link", fail)
-    with pytest.raises(OSError, match="hard links unsupported"):
-        exports.ExcelExporter().save_to_excel(pd.DataFrame({"v": [1]}), output_directory=tmp_path)
-    assert list(tmp_path.iterdir()) == []
+    exports.ExcelExporter().save_to_excel(pd.DataFrame({"v": [1]}), file_name="report", output_directory=tmp_path)
+    assert [path.name for path in tmp_path.iterdir()] == ["report.xlsx"]
+    assert pd.read_excel(tmp_path / "report.xlsx")["v"].tolist() == [1]
 
 
 def test_explicit_extension_spelling_preserved(tmp_path: Path) -> None:
