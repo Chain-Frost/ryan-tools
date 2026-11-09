@@ -65,9 +65,9 @@ MONITOR_PROGRESS = True  # Read model progress in the background when the live d
 PROGRESS_POLL_INTERVAL_SECONDS = 10.0  # Separate from display refresh; increase for slow network shares.
 SHOW_PROGRESS_DIAGNOSTICS = True  # Show the latest timestep and observed final mass error in Detail.
 CONSOLE_LOG_LEVEL: params.LogLevel = params.LOG.INFO
-WAIT_TIME_AFTER_RUN = 2.0  # Seconds between launches (>=0). Example: 0.5. Does not change GPU slots.
+WAIT_TIME_AFTER_RUN = 2.0  # Minimum seconds between subprocess start attempts (>=0), regardless of GPU slots.
 PAUSE_ON_FINISH = True  # Pause interactively on finish; --no-pause forces False, --pause forces True.
-WRAPPER_VERSION = "2026-11-07.3"
+WRAPPER_VERSION = "2026-11-09.1"
 
 import argparse  # noqa: I001, RUF100
 import signal
