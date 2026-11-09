@@ -53,7 +53,7 @@ def _find_templates_dir() -> Path:
     installed_dir: Path = Path(ryan_library.resources.__file__).parent / "tuflow_templates"
     if installed_dir.is_dir():
         return installed_dir
-    repository_dir: Path = Path(__file__).absolute().parents[2] / "ryan_library" / "resources" / "tuflow_templates"
+    repository_dir: Path = Path(__file__).absolute().parents[3] / "ryan_library" / "resources" / "tuflow_templates"
     if repository_dir.is_dir():
         return repository_dir
     msg = f"TUFLOW templates not found at {installed_dir} or {repository_dir}. Rebuild and install ryan-tools."
@@ -130,7 +130,9 @@ if __name__ == "__main__":
     args: argparse.Namespace = _parse_cli_arguments()
     common_options: CommonWrapperOptions = parse_common_cli_arguments(args)
     print_wrapper_banner(
-        wrapper_source="tuflow/init_tuflow_project.py", wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION
+        wrapper_source="TUFLOW-python/model_management/init_tuflow_project.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
     )
     result: int = main(
         output_dir=args.output if args.output is not None else DEFAULT_OUTPUT_DIR,
@@ -144,7 +146,7 @@ if __name__ == "__main__":
         working_directory=common_options.working_directory,
     )
     print_wrapper_banner(
-        wrapper_source="tuflow/init_tuflow_project.py",
+        wrapper_source="TUFLOW-python/model_management/init_tuflow_project.py",
         wrapper_file=Path(__file__),
         wrapper_version=WRAPPER_VERSION,
         leading_blank_line=True,

@@ -315,7 +315,7 @@ def _workspace(
 
 def run(args: argparse.Namespace) -> int:
     print_wrapper_banner(
-        wrapper_source="tuflow/tuflow_culvert_from_maximums.py",
+        wrapper_source="TUFLOW-python/culvert_results/tuflow_culvert_from_maximums.py",
         wrapper_file=Path(__file__),
         wrapper_version=WRAPPER_VERSION,
     )
@@ -512,7 +512,7 @@ if __name__ == "__main__":
         exit_code = 1
     finally:
         print_wrapper_banner(
-            wrapper_source="tuflow/tuflow_culvert_from_maximums.py",
+            wrapper_source="TUFLOW-python/culvert_results/tuflow_culvert_from_maximums.py",
             wrapper_file=Path(__file__),
             wrapper_version=WRAPPER_VERSION,
             leading_blank_line=True,

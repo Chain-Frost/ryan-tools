@@ -330,8 +330,7 @@ log messages, prompts, and failures remain visible.
 | `pdf-python`, `docx-python` | PDF and Word document utilities. |
 | `point-cloud-python`, `raster-python` | XYZ/LAS and raster conversion or cleanup. |
 | `RORB-python` | RORB rainfall, hydrograph, peak, and closure-period processing. |
-| `TUFLOW-python` | TUFLOW result processing, GIS preparation, copying, and model checks; see its README for maintained-wrapper and shared-CLI conventions. |
-| `tuflow` | Standard TUFLOW project initialization; see the [project setup guide](tuflow/PROJECT_SETUP.md). |
+| `TUFLOW-python` | TUFLOW result processing, GIS preparation, copying, model checks and project initialization; see its README and [project setup guide](TUFLOW-python/model_management/PROJECT_SETUP.md) for maintained-wrapper and shared-CLI conventions. |
 | `powershell`, `GlobalMapper` | PowerShell helpers and Global Mapper scripts. |
 | `other` | Narrow utilities that do not fit a maintained workflow category; review each module docstring and implementation. |
 | `python-not-polished` | Experimental or project-specific scripts; treat these as examples, not stable tools. |
@@ -342,7 +341,7 @@ exists. Keep project-specific paths, globs, and output names in wrappers; reusab
 Maintained root-level hydraulic wrappers include:
 
 - `culvert.py` for culvert solve/analyse/design/rating workflows;
-- `tuflow/tuflow_culvert_from_maximums.py` and `tuflow/tuflow_culvert_from_1d_nwk.py` for TUFLOW culvert checks with an explicit `--engine hy8|ryan-culverts` selection; see [the engine guide](../docs/TUFLOW_CULVERT_ENGINES.md);
+- `TUFLOW-python/culvert_results/tuflow_culvert_from_maximums.py` and `TUFLOW-python/culvert_results/tuflow_culvert_from_1d_nwk.py` for TUFLOW culvert checks with an explicit `--engine hy8|ryan-culverts` selection; see [the engine guide](../docs/TUFLOW_CULVERT_ENGINES.md);
 - `floodway.py` for overtopping floodway formation assessment using a culvert project plus a separate versioned
   floodway formation JSON/TOML definition. Hydrograph/closure-duration processing is intentionally not part of this
   wrapper.

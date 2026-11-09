@@ -128,11 +128,11 @@ ignore = [
     "LOG015", # standalone stdlib-logging scripts intentionally configure and use the root logger
     "N",      # legacy filenames and engineering variable names are user-facing script contracts
 ]
-"ryan-scripts/tuflow/tuflow_culvert_from_maximums.py" = [
+"ryan-scripts/TUFLOW-python/culvert_results/tuflow_culvert_from_maximums.py" = [
     "BLE001", # each crossing/scenario is isolated so later TUFLOW rows still produce auditable output
     "C901",   # source mapping, scenario dispatch, partial-failure capture, and CSV export form one wrapper transaction
 ]
-"ryan-scripts/tuflow/tuflow_culvert_from_1d_nwk.py" = [
+"ryan-scripts/TUFLOW-python/culvert_results/tuflow_culvert_from_1d_nwk.py" = [
     "BLE001", # each GIS feature/scenario is isolated so later TUFLOW features still produce auditable output
     "C901",   # GIS mapping, scenario dispatch, partial-failure capture, and CSV export form one wrapper transaction
 ]
@@ -600,13 +600,13 @@ ignore = [
     "BLE001", # extract_msg property parsing spans multiple binary and compression backends and returns safe defaults
     "C901", # duplicate detection, metadata validation, collision handling, rename, and summary form one batch workflow
 ]
-"ryan-scripts/tuflow/find_missing_tlf_runs.py" = [
+"ryan-scripts/TUFLOW-python/model_management/find_missing_tlf_runs.py" = [
     "BLE001", # maintained wrapper logs unexpected workflow failures and returns a nonzero process result
 ]
-"ryan-scripts/tuflow/init_tuflow_project.py" = [
+"ryan-scripts/TUFLOW-python/model_management/init_tuflow_project.py" = [
     "BLE001", # maintained wrapper logs unexpected workflow failures and returns a nonzero process result
 ]
-"ryan-scripts/tuflow/tuflow_to_hy8.py" = [
+"ryan-scripts/TUFLOW-python/culvert_results/tuflow_to_hy8.py" = [
     "BLE001", # maintained wrapper logs unexpected conversion failures and returns a nonzero process result
 ]
 "ryan_library/functions/hy8/run_hy8_bridge.py" = [

@@ -13,10 +13,10 @@ Generic HY-8 examples remain upstream.
 ## Maximums workbook
 
 ```powershell
-python ryan-scripts/tuflow/tuflow_culvert_from_maximums.py maximums.xlsx --engine ryan-culverts
-python ryan-scripts/tuflow/tuflow_culvert_from_maximums.py maximums.xlsx --engine hy8 --hy8-exe C:\Path\HY864.exe
-python ryan-scripts/tuflow/tuflow_culvert_from_maximums.py maximums.xlsx --culvert-attributes culvert-attributes.csv --engine hy8
-python ryan-scripts/tuflow/tuflow_culvert_from_maximums.py maximums.xlsx --culvert-attributes model.gpkg --attributes-layer 1d_nwk --engine ryan-culverts
+python ryan-scripts/TUFLOW-python/culvert_results/tuflow_culvert_from_maximums.py maximums.xlsx --engine ryan-culverts
+python ryan-scripts/TUFLOW-python/culvert_results/tuflow_culvert_from_maximums.py maximums.xlsx --engine hy8 --hy8-exe C:\Path\HY864.exe
+python ryan-scripts/TUFLOW-python/culvert_results/tuflow_culvert_from_maximums.py maximums.xlsx --culvert-attributes culvert-attributes.csv --engine hy8
+python ryan-scripts/TUFLOW-python/culvert_results/tuflow_culvert_from_maximums.py maximums.xlsx --culvert-attributes model.gpkg --attributes-layer 1d_nwk --engine ryan-culverts
 ```
 
 The workflow retains the useful scenarios from the former
@@ -58,9 +58,9 @@ separately in `TuflowLossParameters`.
 ## TUFLOW 1d_nwk
 
 ```powershell
-python ryan-scripts/tuflow/tuflow_culvert_from_1d_nwk.py model.gpkg --engine ryan-culverts
-python ryan-scripts/tuflow/tuflow_culvert_from_1d_nwk.py model.gpkg --layer 1d_nwk --engine hy8
-python ryan-scripts/tuflow/tuflow_culvert_from_1d_nwk.py model.gpkg --layer 1d_nwk --culvert-attributes material-map.csv --engine hy8
+python ryan-scripts/TUFLOW-python/culvert_results/tuflow_culvert_from_1d_nwk.py model.gpkg --engine ryan-culverts
+python ryan-scripts/TUFLOW-python/culvert_results/tuflow_culvert_from_1d_nwk.py model.gpkg --layer 1d_nwk --engine hy8
+python ryan-scripts/TUFLOW-python/culvert_results/tuflow_culvert_from_1d_nwk.py model.gpkg --layer 1d_nwk --culvert-attributes material-map.csv --engine hy8
 ```
 
 The default inverse checks are HW/D 1.5 and 2.0. Use `--headwater-ratios`
@@ -152,7 +152,7 @@ path currently fails closed for HDPE because the TUFLOW adapter does not yet sup
 an explicit native HDPE inlet-coefficient set; it does not borrow concrete or CSP
 coefficients. The migration deliberately does not infer missing box width, material
 or inlet configuration. Unsupported source combinations fail closed. Broader
-project-export mapping in [`tuflow_to_hy8.py`](../ryan-scripts/tuflow/tuflow_to_hy8.py)
+project-export mapping in [`tuflow_to_hy8.py`](../ryan-scripts/TUFLOW-python/culvert_results/tuflow_to_hy8.py)
 remains a separate workflow.
 
 **TODO (deferred, out of scope of this PR):** Complete native HDPE support before

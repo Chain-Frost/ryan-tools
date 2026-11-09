@@ -3,8 +3,8 @@
 `find_missing_tlf_runs.py` recursively inventories TLF filenames. It reads no log contents and changes no model files.
 
 ```powershell
-python ryan-scripts/tuflow/find_missing_tlf_runs.py "T:\results\04" --no-pause
-python ryan-scripts/tuflow/find_missing_tlf_runs.py "T:\results\04" --output-csv "missing.csv" --no-pause
+python ryan-scripts/TUFLOW-python/model_management/find_missing_tlf_runs.py "T:\results\04" --no-pause
+python ryan-scripts/TUFLOW-python/model_management/find_missing_tlf_runs.py "T:\results\04" --output-csv "missing.csv" --no-pause
 ```
 
 Alternatively edit `RESULTS_FOLDER` near the top of the script. The default is the launch directory.
@@ -54,7 +54,7 @@ while models run; rerun after the campaign ends for final acceptance. Verificati
 is unavailable in legacy tracking-table mode.
 
 ```powershell
-python ryan-scripts/tuflow/find_missing_tlf_runs.py "T:\results\04" --verify-success --no-pause
+python ryan-scripts/TUFLOW-python/model_management/find_missing_tlf_runs.py "T:\results\04" --verify-success --no-pause
 ```
 
 Success verification uses the shared TUFLOW log-summary progress dashboard: enabled by default, ten visible rows,
@@ -80,7 +80,7 @@ another existing directory; relative values use the launch directory. This workb
 missing-run CSV. A filename-only scan never reads log contents or exports a log-summary workbook.
 
 ```powershell
-python ryan-scripts/tuflow/find_missing_tlf_runs.py "T:\results\04" --verify-success --export-log-summary --no-pause
+python ryan-scripts/TUFLOW-python/model_management/find_missing_tlf_runs.py "T:\results\04" --verify-success --export-log-summary --no-pause
 ```
 
 `--output-csv` saves all inferred missing run names, without an extension;
