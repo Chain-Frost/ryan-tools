@@ -24,8 +24,9 @@ from ryan_library.functions.culvert.tuflow_engines import (
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-MAXIMUMS_SCRIPT = PROJECT_ROOT / "ryan-scripts" / "tuflow" / "tuflow_culvert_from_maximums.py"
-NWK_SCRIPT = PROJECT_ROOT / "ryan-scripts" / "tuflow" / "tuflow_culvert_from_1d_nwk.py"
+CULVERT_SCRIPTS_DIR = PROJECT_ROOT / "ryan-scripts" / "TUFLOW-python" / "culvert_results"
+MAXIMUMS_SCRIPT = CULVERT_SCRIPTS_DIR / "tuflow_culvert_from_maximums.py"
+NWK_SCRIPT = CULVERT_SCRIPTS_DIR / "tuflow_culvert_from_1d_nwk.py"
 
 
 def _maximums_namespace() -> dict[str, Any]:
