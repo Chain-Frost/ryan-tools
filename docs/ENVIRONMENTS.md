@@ -171,14 +171,15 @@ substitute evidence for Windows, QGIS, OSGeo4W or other native applications.
 
 [`ci.yml`](../.github/workflows/ci.yml) runs on pull requests, every push to `main`, and manual dispatch. Its
 `Ruff and whitespace` preflight is a prerequisite for expensive jobs; the former independent Fast PR workflow has
-been consolidated into it. A lint, workflow, documentation or logging failure therefore stops Windows installation
+been consolidated into it. Script-inventory documentation counts are checked immediately after Python setup, using
+only the standard library and Git. A lint, workflow, documentation or logging failure therefore stops Windows installation
 from starting. The required `Policy` check also explicitly fails if preflight fails.
 
 | Check | Environment and responsibility |
 | --- | --- |
 | Ruff and whitespace | Ubuntu/Python 3.14; complete-PR file scope, patch whitespace, pinned Ruff, actionlint, documentation and logging checks |
 | Policy | Windows/Python 3.14 strict typing when Python inputs changed; inexpensive Ubuntu status reporting otherwise |
-| Hosted tests | Windows/Python 3.14; existing full hosted selection, explicit MCP profiling, compilation and export checks |
+| Hosted tests | Windows/Python 3.14; early CI-scope contracts, full hosted selection, explicit MCP profiling, compilation and export checks |
 | MCP smoke | Inexpensive status gate requiring successful Windows Hosted tests and explicit MCP acceptance output |
 | Package | Windows/Python 3.14; real wheel construction, verification and isolated installed-package/copied-wrapper acceptance |
 | POSIX wrapper security | Small Ubuntu/Python 3.14 static inventory, SQLite locking and descriptor-safety checks |
@@ -189,8 +190,10 @@ runtime/package/POSIX jobs. Main pushes and manual runs always request full vali
 selects all first-party static inputs and full validation; patch whitespace is reported as unavailable. A helper
 execution failure fails required preflight rather than reporting a successful empty scope.
 
-Changed-file typing uses the cumulative PR diff. Policy derives the strict GIS-stub group from
-`pyright-initialiser.json` and checks that project separately from the remaining files. Scope lists use a JSON
+Changed-file typing uses the cumulative PR diff. All maintained code, including the TUFLOW initialiser,
+uses the shared strict configuration in `pyproject.toml`, maintained dependency
+typing (including official `types-rasterio`) and the remaining narrow fallbacks in `typings`.
+Scope lists use a JSON
 manifest rather than large Windows environment variables; large Pyright argument lists are checked in bounded
 batches. Changes to lint/type configuration expand the corresponding static-check scope. A committed
 `pyproject.toml` change can retain changed-file static checks only when both TOML documents are readable, the
@@ -217,13 +220,16 @@ Normal user/developer installation remains [`requirements.txt`](../requirements.
 metadata in [`pyproject.toml`](../pyproject.toml). CI profiles are narrower installation inputs for their particular
 checks, not replacements for the expected user environment.
 
-| Profile | Installation after the Windows binary GIS bootstrap | Scope |
+| Profile | Installation | Scope |
 | --- | --- | --- |
-| Hosted tests | `python -m pip install -r repo-scripts/ci-test-requirements.txt` | All declared runtime dependencies, MCP extra, pytest and the immutable accepted PyTuflow wheel; omits unused development tools and the separate QGIS MCP bridge |
+| CI helpers | `python -m pip install -r repo-scripts/ci-helper-requirements.txt` before fixtures and GIS installation | Pytest only; real-Git CI-scope contracts use the standard library and Git |
+| Hosted tests | `python -m pip install -r repo-scripts/ci-test-requirements.txt` | All declared runtime dependencies, the MCP extra, pytest and the immutable accepted PyTuflow wheel; omits unused development tools and the separate QGIS MCP bridge |
 | Strict typing | `python -m pip install -r repo-scripts/ci-policy-requirements.txt` | Runtime, development and MCP extras plus immutable accepted PyTuflow wheel; omits the separate QGIS MCP bridge |
 | Package smoke | Existing `repo-scripts/wheel-smoke-requirements.txt` workflow | Focused isolated wheel dependencies; real build and copied-wrapper checks remain |
 
-Run these commands from the repository root. The hosted command does not invoke Ruff, Pyright, pandas-stubs,
+Run these commands from the repository root. Install the full hosted and strict-typing profiles after the Windows
+binary GIS bootstrap. The hosted profile includes the helper requirements, so both phases use the same pytest
+requirement without maintaining a second copy. The hosted command does not invoke Ruff, Pyright, pandas-stubs,
 pytest-cov or the build frontend; those tools are retained where needed by static checks or the Package job.
 First-party tests do not import the interactive QGIS MCP bridge. Its normal installation/configuration contract is
 unchanged. Build isolation still installs the declared build backend.
@@ -236,15 +242,35 @@ time before adopting a split. Pip caches store downloaded packages, not a ready-
 
 ### Hosted test and package boundaries
 
-The hosted test job initialises only `qgis-resources` and `tests/test_data`. The QGIS repository supplies test/resource
-data; no QGIS application is launched. The job installs the binary GIS bootstrap and hosted dependency profile,
-sets `MPLBACKEND=Agg`, and runs:
+The hosted test job first compiles the supported sources, installs the pytest-only helper profile and runs the
+CI-scope contracts on Windows before fixture checkout or native installation:
+
+```powershell
+python -m pytest -q tests/repo_scripts/test_ci_scope.py `
+  --confcutdir=tests/repo_scripts -rs `
+  --junitxml=test-results/ci-scope.xml
+```
+
+Create `test-results` before running these commands. CI sets `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1` only for this helper
+step. The scope contracts need no project imports or fixture submodules; `--confcutdir` excludes the parent
+test-data availability hook while retaining the root pytest configuration. On the first PR attempt, a failure stops
+this Hosted job before submodule/GIS work. Main/manual runs and PR reruns continue through the remaining broad suite
+for full diagnostics; an explicit check of the helper step's original outcome then fails Hosted even when that
+step used `continue-on-error`. The required MCP gate rejects the unsuccessful Hosted result. Policy and Package remain
+independent jobs after the shared preflight; this helper stage does not cancel their work.
+
+The successful job then initialises only `qgis-resources` and `tests/test_data`. The QGIS repository supplies
+test/resource data; no QGIS application is launched. It installs the binary GIS bootstrap and full hosted dependency
+profile, sets `MPLBACKEND=Agg`, and runs the remaining hosted selection. Only the already-executed scope file is added
+to the existing ignore list, so each scope contract runs once:
 
 ```powershell
 python -m pytest tests `
+  --ignore=tests/repo_scripts/test_ci_scope.py `
   --ignore=tests/functions/gdal `
   --ignore=tests/orchestrators/gdal `
   --ignore=tests/scripts/gdal/test_gdal_flood_extent.py `
+  --ignore=tests/scripts/gdal/test_cutline_publication_200.py `
   --ignore=tests/scripts/test_promoted_utilities.py `
   --ignore=tests/scripts/test_archive_compress.py `
   -m "not gdal and not gui and not external" `
@@ -257,9 +283,12 @@ python -m pytest tests/functions/gdal/test_profiling.py -m "not gui and not exte
   --junitxml=test-results/mcp-profiling.xml
 ```
 
-Create `test-results` before running these commands. The workflow also compiles `ryan_library` and asserts the MCP
-module/tool exports. Most previous MCP tests already belong to the broad hosted selection; the explicit profiling
-command preserves the former MCP job's unique test file despite the broad command's directory exclusion.
+The workflow also asserts the MCP module/tool exports. Most previous MCP tests already belong to the broad hosted
+selection; the explicit profiling command preserves the former MCP job's unique test file despite the broad
+command's directory exclusion. Default-environment profiling and MCP acceptance precede the separate pandas 2.3.3
+compatibility phase. The helper and broad JUnit reports together describe the original hosted test boundary;
+compare their union, not the smaller broad-suite count alone. All reports produced are retained after a test failure;
+a first-attempt helper failure may produce only `ci-scope.xml` because the broad suite does not start.
 
 The ignored modules import `osgeo` directly or through production modules during collection, so marker deselection
 alone cannot define this hosted boundary. Rasterio/Fiona tests, native ASC processing, wrapper dry runs and mocked

@@ -46,7 +46,7 @@ def _changed_paths(root: Path, base_sha: str, head_sha: str) -> list[str] | None
     try:
         # Renames must include the deleted path: source.py -> notes.md is code work.
         output = _git(root, "diff", "--no-renames", "--name-only", "-z", base_sha, head_sha, "--")
-    except (OSError, subprocess.SubprocessError):
+    except OSError, subprocess.SubprocessError:
         return None
     return [path for path in output.split("\0") if path]
 
@@ -91,12 +91,10 @@ def _same_toml_values(before: object, after: object) -> bool:
     return before == after
 
 
-def _is_version_only_pyproject_change(root: Path, path: str, base_sha: str, head_sha: str) -> bool:
-    """Exempt only committed numeric release-version replacements from static expansion.
+def _is_statically_neutral_pyproject_change(root: Path, path: str, base_sha: str, head_sha: str) -> bool:
+    """Exempt only numeric version changes with otherwise identical project metadata.
 
-    The repository uses dotted numeric date-based versions. Other version forms,
-    dynamic versions and uncertain metadata conservatively retain full checks;
-    this is not a general package-metadata or PEP 440 validator.
+    Any dependency, metadata or tooling change expands static checking.
     """
     documents: list[dict[str, object]] = []
     versions: list[str] = []
@@ -126,9 +124,11 @@ def _is_version_only_pyproject_change(root: Path, path: str, base_sha: str, head
                 return False
             documents.append(document)
             versions.append(version)
-    except (OSError, UnicodeError, subprocess.SubprocessError, tomllib.TOMLDecodeError):
+    except OSError, UnicodeError, subprocess.SubprocessError, tomllib.TOMLDecodeError:
         return False
-    return versions[0] != versions[1] and _same_toml_values(documents[0], documents[1])
+    if versions[0] == versions[1]:
+        return False
+    return _same_toml_values(documents[0], documents[1])
 
 
 def determine_scope(root: Path, *, event_name: str, base_sha: str, head_sha: str = "HEAD") -> CIScope:
@@ -145,7 +145,7 @@ def determine_scope(root: Path, *, event_name: str, base_sha: str, head_sha: str
         path
         for path in owned_changes
         if PurePosixPath(path).name != "pyproject.toml"
-        or not _is_version_only_pyproject_change(root, path, base_sha, comparison_head)
+        or not _is_statically_neutral_pyproject_change(root, path, base_sha, comparison_head)
     ]
     all_lint = changed is None or any(PurePosixPath(path).name in RUFF_CONFIG_NAMES for path in configuration_changes)
     all_types = changed is None or any(_is_type_config(path) for path in configuration_changes)

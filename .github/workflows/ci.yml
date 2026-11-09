@@ -37,6 +37,10 @@ jobs:
           cache: pip
           cache-dependency-path: pyproject.toml
 
+      - name: Check script inventory documentation counts before expensive CI
+        # Standard library plus Git only; run before dependency setup and hosted pytest.
+        run: python repo-scripts/audit_installed_scripts.py --check-docs
+
       - name: Verify accepted PyTuflow wheel before expensive native work
         run: python repo-scripts/vendor_pytuflow_wheel.py
 
@@ -213,20 +217,11 @@ jobs:
           python repo-scripts/vendor_pytuflow_wheel.py --installed
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           # Ruff, workflow syntax, documentation and logging already passed preflight.
-          # Preserve the initialiser's distinct strict GIS stub configuration.
-          $initialiserIncludes = @((Get-Content pyright-initialiser.json -Raw | ConvertFrom-Json).include)
-          $initialiserFiles = @($pythonFiles | Where-Object {
-            $file = $_
-            @($initialiserIncludes | Where-Object {
-              $file -eq $_ -or $file.StartsWith("$_/")
-            }).Count -gt 0
-          })
-          $sharedFiles = @($pythonFiles | Where-Object { $_ -notin $initialiserFiles })
           # Large configuration changes can select every file. Bound command-line
           # length as well as avoiding Windows' environment-variable length limit.
           $batch = @()
           $characters = 0
-          foreach ($file in $sharedFiles) {
+          foreach ($file in $pythonFiles) {
             if ($characters + $file.Length + 3 -gt 12000) {
               python -m pyright @batch
               if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -238,10 +233,6 @@ jobs:
           }
           if ($batch.Count -gt 0) {
             python -m pyright @batch
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          }
-          if ($initialiserFiles.Count -gt 0) {
-            python -m pyright --project pyright-initialiser.json
             if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
 
@@ -283,14 +274,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Initialise required test submodules
-        shell: pwsh
-        run: |
-          git submodule sync -- qgis-resources tests/test_data
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          git submodule update --init qgis-resources tests/test_data
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
       - name: Set up Python 3.14
         uses: actions/setup-python@v6
         with:
@@ -298,6 +281,7 @@ jobs:
           cache: pip
           cache-dependency-path: |
             pyproject.toml
+            repo-scripts/ci-helper-requirements.txt
             repo-scripts/ci-test-requirements.txt
             repo-scripts/install_latest_wheel.py
             repo-scripts/ci_gis_bootstrap.py
@@ -309,6 +293,34 @@ jobs:
       - name: Compile supported Windows Python sources before installing dependencies
         shell: pwsh
         run: python -m compileall -q ryan_library
+
+      - name: Install lightweight CI-helper test dependency
+        shell: pwsh
+        run: python -m pip install -r repo-scripts/ci-helper-requirements.txt
+
+      - name: Test CI scope before fixtures and native installation
+        # These real-Git tests need no project imports or fixture submodules.
+        # Run once here; the later broad suite ignores only this exact file.
+        # Main/manual runs and PR reruns still collect the remaining diagnostics.
+        id: ci-scope-tests
+        continue-on-error: ${{ github.event_name != 'pull_request' || github.run_attempt != 1 }}
+        shell: pwsh
+        env:
+          PYTEST_DISABLE_PLUGIN_AUTOLOAD: "1"
+        run: |
+          New-Item -ItemType Directory -Force -Path test-results | Out-Null
+          python -m pytest -q tests/repo_scripts/test_ci_scope.py `
+            --confcutdir=tests/repo_scripts -rs `
+            --junitxml=test-results/ci-scope.xml
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Initialise required test submodules
+        shell: pwsh
+        run: |
+          git submodule sync -- qgis-resources tests/test_data
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          git submodule update --init qgis-resources tests/test_data
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Install binary GIS dependencies
         shell: pwsh
@@ -334,9 +346,11 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path test-results | Out-Null
           python -m pytest tests `
+            --ignore=tests/repo_scripts/test_ci_scope.py `
             --ignore=tests/functions/gdal `
             --ignore=tests/orchestrators/gdal `
             --ignore=tests/scripts/gdal/test_gdal_flood_extent.py `
+            --ignore=tests/scripts/gdal/test_cutline_publication_200.py `
             --ignore=tests/scripts/test_promoted_utilities.py `
             --ignore=tests/scripts/test_archive_compress.py `
             -m "not gdal and not gui and not external" `
@@ -346,6 +360,16 @@ jobs:
             --durations=15 `
             --junitxml=test-results/hosted-tests.xml
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Require CI-scope success after collecting applicable diagnostics
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        env:
+          CI_SCOPE_OUTCOME: ${{ steps.ci-scope-tests.outcome }}
+        run: |
+          if ($env:CI_SCOPE_OUTCOME -ne 'success') {
+            throw "CI-scope tests did not pass: $env:CI_SCOPE_OUTCOME"
+          }
 
       - name: Preserve the focused profiling regression excluded by the broad GIS boundary
         shell: pwsh
@@ -361,6 +385,27 @@ jobs:
           python -B -c "import ryan_library.mcp.server as server; assert server.mcp is not None; assert all(callable(getattr(server, name)) for name in ('parse_tuflow_filename', 'inspect_tuflow_result', 'inspect_tuflow_collection', 'inspect_raster_metadata', 'check_repo_health', 'list_workflows', 'get_workflow'))"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           "passed=true" >> $env:GITHUB_OUTPUT
+
+      # #227: a second pandas major series must preserve POMM/culvert
+      # numeric values, representative-event identity and XLSX schemas.
+      # Keep the default-environment suite and MCP acceptance above as the primary gates.
+      - name: Run focused POMM compatibility tests with pandas 2.3.3
+        shell: pwsh
+        run: |
+          python -m pip install --only-binary=:all: "pandas==2.3.3"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -c "import pandas as pd; assert pd.__version__ == '2.3.3', pd.__version__; print(f'pandas {pd.__version__}')"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pytest -q `
+            tests/functions/tuflow/test_pomm_pandas_compat_227.py `
+            tests/functions/tuflow/test_pomm_peak_inputs_218.py `
+            tests/functions/tuflow/test_pomm_finite_populations_216_217.py `
+            tests/functions/tuflow/test_pomm_coverage_findings.py `
+            tests/scripts/test_pomm_max_items.py `
+            tests/functions/tuflow/test_pomm_utils.py `
+            tests/orchestrators/tuflow/test_tuflow_culverts_finite_216.py `
+            tests/orchestrators/tuflow/test_tuflow_culverts_mean.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Upload test report
         if: always()

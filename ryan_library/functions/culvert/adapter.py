@@ -4,12 +4,15 @@ from culvert_solver import (
     CONCRETE_BOX,
     CONCRETE_PIPE,
     CORRUGATED_STEEL,
+    HORIZONTAL_ELLIPSE_CONCRETE_SQUARE_EDGE,
+    HORIZONTAL_ELLIPSE_LOSS_SQUARE_EDGE,
     SMOOTH_HDPE,
     CircularGeometry,
     CulvertBarrel,
     CulvertCrossing,
     CulvertGroup,
     CulvertMaterial,
+    HorizontalEllipseGeometry,
     RectangularGeometry,
     RoadwayCrestPoint,
     RoadwayCrestProfile,
@@ -25,6 +28,7 @@ from ...classes.culvert.crossing import (
     CrossingDefinition,
     CulvertGroupDefinition,
     CulvertMaterialName,
+    HorizontalEllipseBarrelDefinition,
     RectangularBarrelDefinition,
     RoadwayDefinition,
     RoadwayOvertoppingDefinition,
@@ -48,6 +52,18 @@ _ROADWAY_SURFACES: dict[RoadwaySurfaceName, RoadwaySurface] = {
 def build_solver_barrel(definition: BarrelDefinition) -> CulvertBarrel:
     """Convert a workflow barrel definition to the authoritative solver model."""
     definition_value: object = definition
+    if isinstance(definition_value, HorizontalEllipseBarrelDefinition):
+        return CulvertBarrel(
+            geometry=HorizontalEllipseGeometry(definition_value.span_mm / 1000, definition_value.rise_mm / 1000),
+            length=definition_value.length,
+            inlet_invert=definition_value.inlet_invert,
+            outlet_invert=definition_value.outlet_invert,
+            roughness=definition_value.roughness,
+            material=CONCRETE_PIPE,
+            inlet_coefficients=HORIZONTAL_ELLIPSE_CONCRETE_SQUARE_EDGE,
+            entrance_loss_coefficient=HORIZONTAL_ELLIPSE_LOSS_SQUARE_EDGE,
+            label=definition_value.label,
+        )
     if isinstance(definition_value, RectangularBarrelDefinition):
         typed_definition: BarrelDefinition = definition_value
         geometry = RectangularGeometry.from_mm(definition_value.span_mm, definition_value.rise_mm)

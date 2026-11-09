@@ -76,7 +76,7 @@ def is_notebook() -> bool:
         if shell is None:
             return False
         return type(shell).__name__ == "ZMQInteractiveShell"
-    except (AttributeError, ImportError):
+    except AttributeError, ImportError:
         return False
 
 
@@ -789,7 +789,7 @@ def plot_hydrographs(
         print(f"Required columns '{time_col}' and/or '{value_col}' not found in DataFrame.")
         return
 
-    _fig, ax = plt.subplots(figsize=(12, 6))  # pyright: ignore[reportUnknownMemberType]
+    _fig, ax = plt.subplots(figsize=(12, 6))
 
     if group_col in df.columns:
         for label, group in df.groupby(group_col, observed=True):
@@ -806,5 +806,5 @@ def plot_hydrographs(
     ax.set_ylabel(ylabel)  # pyright: ignore[reportUnknownMemberType]
     ax.set_title(label=title)  # pyright: ignore[reportUnknownMemberType]
     ax.grid(visible=True, alpha=0.3)  # pyright: ignore[reportUnknownMemberType]
-    plt.tight_layout()  # pyright: ignore[reportUnknownMemberType]
+    plt.tight_layout()
     plt.show()  # pyright: ignore[reportUnknownMemberType]

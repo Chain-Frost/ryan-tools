@@ -1,7 +1,7 @@
 """Unit tests for ryan_library.processors.tuflow.other_processors.EofProcessor."""
 
 from pathlib import Path
-from unittest.mock import mock_open, patch
+from unittest.mock import MagicMock, mock_open, patch
 
 import pandas as pd
 import pytest
@@ -28,7 +28,9 @@ class TestEOFProcessor:
     @patch("ryan_library.processors.tuflow.other_processors.EOFProcessor.EOFProcessor.add_common_columns")
     @patch("ryan_library.processors.tuflow.other_processors.EOFProcessor.EOFProcessor.apply_output_transformations")
     @patch("ryan_library.processors.tuflow.other_processors.EOFProcessor.EOFProcessor.validate_data")
-    def test_process_success(self, mock_validate, mock_apply, mock_add, mock_processor):
+    def test_process_success(
+        self, mock_validate: MagicMock, mock_apply: MagicMock, mock_add: MagicMock, mock_processor: MagicMock
+    ):
         """Test successful processing of a valid EOF file content."""
         mock_validate.return_value = True
 
@@ -58,7 +60,7 @@ C1  R  1  10.0  9.0  12.0  11.0  100.0  0.01  0.013  2.0  2.0  2.0  2.0  0.5  1.
         assert row["US Invert"] == 10.0
         assert row["Height"] == 2.0
 
-    def test_process_section_not_found(self, mock_processor):
+    def test_process_section_not_found(self, mock_processor: EOFProcessor):
         """Test failure when section header is missing."""
         eof_content = """
 Some Header Info
@@ -70,7 +72,7 @@ No Data Here
         assert mock_processor.df.empty
         assert mock_processor.processed is False
 
-    def test_process_no_data_lines(self, mock_processor):
+    def test_process_no_data_lines(self, mock_processor: EOFProcessor):
         """Test failure when header exists but no data follows."""
         eof_content = """
 CULVERT AND PIPE DATA

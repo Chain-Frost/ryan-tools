@@ -18,6 +18,7 @@ class ChanProcessor(MaxDataProcessor):
         Returns:
             pd.DataFrame: Processed Chan data.
         """
+        self.reset_processing_state()
         logger.info(f"Starting processing of Chan file: {self.log_path}")
 
         try:
@@ -52,6 +53,10 @@ class ChanProcessor(MaxDataProcessor):
             logger.debug("Renamed 'LBUS Obvert' to 'US Obvert'.")
 
             self.apply_entity_filter()
+            if self.applied_entity_filter and self.df.empty:
+                self.filtered_empty = True
+                logger.info("{}: No requested channels found; skipping file.", self.file_name)
+                return
             # Proceed with common processing steps from BaseProcessor
             self.add_common_columns()
             self.apply_output_transformations()

@@ -2,9 +2,59 @@ from __future__ import annotations
 
 import csv
 from collections import Counter
+from importlib import import_module
 from pathlib import Path
+from typing import Protocol, cast
 
-from osgeo import gdal, ogr, osr
+
+class SpatialReference(Protocol):
+    """GDAL spatial-reference operations used by this read-only audit."""
+
+    def Clone(self) -> SpatialReference: ...
+    def AutoIdentifyEPSG(self) -> int: ...
+    def IsProjected(self) -> int: ...
+    def IsGeographic(self) -> int: ...
+    def GetAuthorityName(self, target_key: str | None) -> str | None: ...
+    def GetAuthorityCode(self, target_key: str | None) -> str | None: ...
+    def GetName(self) -> str | None: ...
+    def GetAttrValue(self, name: str) -> str | None: ...
+    def ExportToWkt(self) -> str: ...
+    def ImportFromWkt(self, wkt: str) -> int: ...
+
+
+class RasterDataset(Protocol):
+    def GetProjectionRef(self) -> str: ...
+
+
+class VectorLayer(Protocol):
+    def GetSpatialRef(self) -> SpatialReference | None: ...
+    def GetName(self) -> str: ...
+
+
+class VectorDataset(Protocol):
+    def GetLayerCount(self) -> int: ...
+    def GetLayerByIndex(self, index: int) -> VectorLayer | None: ...
+
+
+class GdalModule(Protocol):
+    GA_ReadOnly: int
+
+    def Open(self, filename: str, access: int) -> RasterDataset | None: ...
+    def UseExceptions(self) -> None: ...
+
+
+class OgrModule(Protocol):
+    def Open(self, filename: str, update: int) -> VectorDataset | None: ...
+
+
+class OsrModule(Protocol):
+    def SpatialReference(self) -> SpatialReference: ...
+
+
+# GDAL's generated bindings lack annotations; bound the native API used here.
+gdal = cast("GdalModule", import_module("osgeo.gdal"))
+ogr = cast("OgrModule", import_module("osgeo.ogr"))
+osr = cast("OsrModule", import_module("osgeo.osr"))
 
 ROOTS: list[Path] = [
     Path(r"Q:\path\path]"),
@@ -15,7 +65,7 @@ OUTPUT_CSV: Path = Path(__file__).resolve().parent / "higginsville_crs_audit.csv
 EXTENSIONS: set[str] = {".tif", ".tiff", ".flt", ".gpkg"}
 
 
-def describe_srs(srs: osr.SpatialReference | None) -> dict[str, str]:
+def describe_srs(srs: SpatialReference | None) -> dict[str, str]:
     if srs is None:
         return {
             "crs_name": "",
@@ -234,7 +284,7 @@ def main() -> None:
     print("CRS SUMMARY")
     print("=" * 80)
 
-    crs_counts = Counter()
+    crs_counts: Counter[str] = Counter()
 
     for row in rows:
         if row["status"] != "OK":

@@ -2,14 +2,16 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active: stack adoption; main CI recovery verified |
+| Status | Needs review: early Windows helper checks on a child of #251 |
 | Owner | ChatGPT / maintainer |
 | Created | 2026-11-08 |
-| Updated | 2026-11-08 |
-| Next review | 2026-11-15 |
+| Updated | 2026-11-09 |
+| Next review | 2026-11-16 |
+| Current branch | `ci/early-windows-helper-checks-20261109`, targeting draft #251 |
+| Current baseline | #251 `63c7da77676b9ad44e20e7f1729b738985d400cc`; includes current main `585e5d06dd599e68b1c470420481b5b9a3c79333` |
 | Delivery | [PR #272](https://github.com/Chain-Frost/ryan-tools/pull/272), including [#274](https://github.com/Chain-Frost/ryan-tools/pull/274), merged to main as `8c03dc961455c124fe4e0996ee15f50813cf5682` |
 | Recovery | [PR #277](https://github.com/Chain-Frost/ryan-tools/pull/277) merged as `c1a66970c8ed228ab94404b4f747a40c755847cd`; all six post-merge jobs passed |
-| Scope correction | [PR #278](https://github.com/Chain-Frost/ryan-tools/pull/278) owns current-head acceptance and integration evidence |
+| Scope correction | [PR #278](https://github.com/Chain-Frost/ryan-tools/pull/278) merged as `585e5d06`; all six post-merge main checks passed |
 | Historical timing baseline | `1ae1235c2369950c287c4fafe24ef23848880fe0` |
 
 ## Scope and decisions
@@ -21,8 +23,52 @@ reduces repeated environments and unnecessary starts; it does not remove enginee
 The merged implementation makes cheap validation a prerequisite for expensive jobs, consolidates duplicated MCP
 tests, adds CI-specific dependency profiles and the verified PyTuflow wheel, and documents batched pushes. PR #274
 was integrated into #272 at 08:33 UTC on 2026-11-08; #272 was merged to main at 08:51 UTC. Both PRs are closed.
-This record now tracks operational main validation and adoption by active stacks. Further dependency reduction
-is deferred in the [dependency record](2026-11-08-ci-dependency-groups.md).
+The selected follow-up starts from #251, which already contains current main and #292's script-inventory
+documentation preflight. No sync commit or duplicate backport is needed. It moves lightweight Windows helper tests
+ahead of expensive Hosted setup. The [dependency record](2026-11-08-ci-dependency-groups.md) records the minimal
+helper profile and the assessment that further runtime/Policy reductions are not yet justified.
+
+## Early Windows checks: 2026-11-09 checkpoint
+
+- The existing Windows Hosted job installs the shared pytest-only helper profile, then executes all **57** current
+  `test_ci_scope.py` contracts before fixture submodules and native/runtime installation. The file is excluded only
+  from the later broad selection; every assertion still runs once, on Windows. A separate `ci-scope.xml` is included
+  in the existing seven-day hosted-report artifact.
+- First-attempt PR failures stop Hosted before the expensive work. Main/manual runs and PR reruns continue through
+  the remaining broad suite for diagnostics, then an explicit check of the helper step's original outcome fails
+  Hosted. `continue-on-error` cannot produce a successful required status for a failed helper test. The existing MCP
+  gate still requires both successful Hosted completion and explicit MCP acceptance.
+- Selective fixture checkout, runtime/MCP dependencies, parser provenance, all previous broad ignores/deselections,
+  profiling, default-environment MCP acceptance, pandas 2.3.3 compatibility and isolated wheel checks are retained.
+  The five other jobs are unchanged. This early phase stops Hosted's setup on a first-attempt failure; it does not
+  cancel the parallel Policy and Package jobs.
+- Normal user dependencies, the accepted PyTuflow wheel and engineering implementation/tests are unchanged.
+  No additional CI job, schedule, draft bypass or skip marker is introduced.
+
+### Baseline and validation boundary
+
+The accepted [#251 baseline run 42502774241](https://github.com/Chain-Frost/ryan-tools/actions/runs/42502774241) passed
+at `63c7da77`. Its Hosted artifact contains **3,241 selected nodes: 3,227 passes and 14 skips**, with eight deselections
+reported in the log. The scope file contributes 57 of those nodes. Separate profiling passed ten tests, and the
+pandas compatibility phase passed 64. Hosted job wall time was 392 seconds; its broad JUnit elapsed time was
+249.450 seconds and the scope cases sum to 40.029 testcase seconds. These are different measures, not a saving claim.
+
+The candidate must retain exactly that selected-node union and the same skip identities/reasons: 57 early helpers
+plus 3,184 later selected cases, with 3,170 broad passes and 14 skips. No new Python tests or assertions are added by
+this child. Verify actual reports and the eight unchanged deselections before integration.
+
+Local Python 3.14.9 checks run the 57 cases with only a freshly installed pytest dependency set, plugin autoload
+disabled and no fixture submodule or project installation. Both isolated cold/warm-cache runs pass with no skips.
+Observed Linux installation times were 23.077 seconds with an empty download cache and 1.237 seconds with a populated
+cache into a new target; test commands took 5.289 and 5.385 seconds respectively. These establish the minimal
+dependency boundary, not Windows speed or a controlled runner-minute saving. Injected failures check that first PR
+attempts skip expensive work and that diagnostic runs still end with a failing status.
+
+Independent review confirms identical helper node sets, preserved downstream acceptance and unchanged scheduling
+outside Hosted. Actionlint and documentation checks apply before the batched publication. Exact-head Windows
+acceptance, combined JUnit reconciliation and final delivery belong in the child PR description; do not create a
+status-only source commit merely to record a completed run. Keep #251 draft and preserve its separate engineering
+acceptance and main-merge boundary.
 
 ## Implemented behaviour
 

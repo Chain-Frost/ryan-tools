@@ -13,6 +13,7 @@ from __future__ import annotations
 import math
 import time
 from collections.abc import Callable, Sequence
+from concurrent.futures import Future
 from dataclasses import dataclass
 from multiprocessing import Pool, Queue
 from multiprocessing import pool as multiprocessing_pool
@@ -90,6 +91,27 @@ class WorkflowRunReport[TResult]:
     @property
     def failures(self) -> tuple[WorkflowItemOutcome[TResult], ...]:
         return tuple(item for item in self.outcomes if item.status == "FAIL")
+
+
+def await_future_with_dashboard_refresh[TResult](
+    *,
+    future: Future[TResult],
+    dashboard: LiveWorkflowDashboard,
+    refresh_per_second: float,
+) -> TResult:
+    """Wait for an ordered worker result without freezing the coordinator UI.
+
+    A worker may itself raise TimeoutError; propagate that completed exception
+    rather than treating it as an endless polling timeout.
+    """
+    poll_seconds = 1.0 / refresh_per_second
+    while True:
+        try:
+            return future.result(timeout=poll_seconds)
+        except TimeoutError:
+            if future.done():
+                return future.result()
+            dashboard.refresh(force=True)
 
 
 def run_dashboard_workflow[TItem, TResult](
@@ -404,7 +426,7 @@ def _collect_finished_dashboard_results[TResult](
             continue
         try:
             result: TResult = async_result.get()
-        except (MaybeEncodingError, OSError):
+        except MaybeEncodingError, OSError:
             # Pool transport/serialization faults must reach the caller's
             # existing retry/fallback policy, including in the report API.
             raise

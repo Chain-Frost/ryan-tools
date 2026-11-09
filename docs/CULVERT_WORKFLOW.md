@@ -41,6 +41,43 @@ The initial workflow supports:
 
 GUI work is future aspirational issue #89 and is outside PR #86. Plotting remains tracked by #84.
 
+## Project-defined horizontal concrete ellipse
+
+Requires the published `ryan-culverts>=26.10.19.1` package. Set barrel `shape` to
+`horizontal_ellipse`, `span_mm` greater than `rise_mm`, `material` to `concrete_pipe`
+and explicitly set `physical_inlet` to `square_edge_headwall`. Other common barrel
+fields use the same units as circular and rectangular definitions. For example:
+
+```json
+{
+  "shape": "horizontal_ellipse",
+  "span_mm": 2000,
+  "rise_mm": 1000,
+  "length_m": 20,
+  "inlet_invert_elevation_m": 1,
+  "outlet_invert_elevation_m": 0.8,
+  "roughness_manning_n": 0.013,
+  "material": "concrete_pipe",
+  "physical_inlet": "square_edge_headwall"
+}
+```
+
+This is a mathematical ellipse using public native geometry and explicit FHWA HDS-5
+Table A.2 Chart 29 Scale 1 inlet coefficients and Table C.2 entrance loss. It needs
+no HY-8 executable. HW/D uses rise; spans are never snapped to a catalogue or rotated.
+Project JSON round-trips and crossing audit records preserve dimensions and inlet;
+detailed result JSON retains coefficient sources and warnings. Summary CSV retains
+its existing scalar/warning contract; keep the project and detailed JSON beside it
+for configuration and source provenance.
+
+Vertical ellipses, steel/aluminum, HDPE, other inlets and HY-8 catalogue oval dispatch
+are unsupported in this project integration. The TUFLOW Maximums/1d_nwk demos remain
+circular-only. A mathematical ellipse is not the HY-8 four-arc concrete oval; no
+HY-8 parity or source-model blockage acceptance is claimed. High-head extrapolation
+warnings require engineering review. Automatic size candidate generation remains
+circular/rectangular only. Existing MCP culvert CLI discovery already reaches project
+files; no duplicate tool or catalogue entry is needed for this bounded schema addition.
+
 ## Plotting
 
 `plot_longitudinal_profile` consumes a `ScenarioResult` containing a solver-computed profile and plots invert, crown,

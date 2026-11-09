@@ -262,6 +262,31 @@ def test_version_only_pyproject_change_still_requires_package_validation(reposit
     assert result["type_files"] == []
 
 
+@pytest.mark.parametrize("dependency", ["tables>=3.11.1", "tables>=3.11.2", "h5py>=3"])
+def test_optional_dependency_and_version_change_expand_static_scope(repository: Path, dependency: str) -> None:
+    before = PROJECT_METADATA.replace(
+        "[tool.ruff]",
+        '[project.optional-dependencies]\ndev = ["build", "ruff==0.16.6", "pyright"]\n\n[tool.ruff]',
+    )
+    _write(repository, "pyproject.toml", before)
+    _write(repository, "typings/types.pyi", "value: int\n")
+    base = _commit(repository)
+    after = before.replace('version = "26.11.8.1"', 'version = "26.11.8.4"').replace(
+        'dev = ["build", "ruff==0.16.6", "pyright"]',
+        f'cache = ["{dependency}"]\ndev = ["build", "{dependency}", "ruff==0.16.6", "pyright"]',
+    )
+    _write(repository, "pyproject.toml", after)
+    _write(repository, "source.py", "value = 2\n")
+    _commit(repository)
+
+    scope = _scope(repository, base)
+
+    assert scope["full"]
+    expected = ["source.py", "typings/types.pyi"]
+    assert scope["lint_files"] == expected
+    assert scope["type_files"] == expected
+
+
 @pytest.mark.parametrize(
     "extra_change",
     [

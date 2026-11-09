@@ -14,7 +14,7 @@ offsets, and a representative output before bulk processing.
 
 from pathlib import Path
 
-import laspy  # pyright: ignore[reportMissingTypeStubs]
+import laspy
 import numpy as np
 import pandas as pd
 from loguru import logger

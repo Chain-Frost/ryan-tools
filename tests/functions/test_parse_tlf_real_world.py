@@ -1,143 +1,79 @@
-import json
-import sys
-from pathlib import Path
+"""Source-backed TLF snapshot gate exercising the real public processor (#228)."""
 
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+
+import pandas as pd
 import pytest
 
-# Add project root to sys.path
-project_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(project_root))
-
-from ryan_library.functions.parse_tlf import (
-    finalise_data,
-    get_log_lines,
-    process_top_lines,
-    search_for_completion,
-)
-
-
-# Helper function to parse a single TLF file (same logic as in generate_tlf_snapshot.py)
-def parse_tlf_file(logfile_path: Path) -> dict:
-    """Parses a single TLF file and returns the result as a dictionary."""
-    sim_complete = 0
-    success = 0
-    spec_events = False
-    spec_scen = False
-    spec_var = False
-    data_dict = {}
-    current_section = None
-
-    file_size = logfile_path.stat().st_size
-    is_large_file = file_size > 10 * 1024 * 1024  # 10 MB
-
-    lines, last_lines = get_log_lines(
-        logfile_path=logfile_path,
-        is_large_file=is_large_file,
-    )
-
-    if not lines and not last_lines:
-        return {}
-
-    runcode: str = logfile_path.stem
-    relative_logfile_path: Path = Path(logfile_path.name)
-
-    # Search for completion in the last 100 lines
-    for line in last_lines:
-        data_dict, sim_complete, current_section = search_for_completion(
-            line=line,
-            data_dict=data_dict,
-            sim_complete=sim_complete,
-            current_section=current_section,
-        )
-        if sim_complete == 2:
-            data_dict["Runcode"] = runcode
-            break
-
-    if sim_complete == 2:
-        data_dict, success, spec_events, spec_scen, spec_var = process_top_lines(
-            logfile_path=logfile_path,
-            lines=lines,
-            data_dict=data_dict,
-            success=success,
-            spec_events=spec_events,
-            spec_scen=spec_scen,
-            spec_var=spec_var,
-            is_large_file=is_large_file,
-            runcode=runcode,
-            relative_logfile_path=relative_logfile_path,
-        )
-
-        if success == 4:
-            df = finalise_data(
-                runcode=runcode,
-                data_dict=data_dict,
-                logfile_path=logfile_path,
-            )
-            if not df.empty:
-                result = df.to_dict(orient="records")[0]
-                # Convert datetime objects to strings for comparison
-                for key, value in result.items():
-                    if hasattr(value, "isoformat"):
-                        result[key] = value.isoformat()
-                return result
-
-    return {}
+from ryan_library.processors.tuflow.base_processor import BaseProcessor
 
 
 @pytest.fixture(scope="module")
-def regression_snapshot():
-    snapshot_path = Path(__file__).parent.parent / "test_data" / "tlf_regression_snapshot.json"
-    if not snapshot_path.exists():
-        pytest.fail(f"Snapshot file not found: {snapshot_path}. Run tests/generate_tlf_snapshot.py to generate it.")
-
-    with open(snapshot_path, encoding="utf-8") as f:
-        return json.load(f)
+def regression_snapshot() -> dict[str, dict[str, Any]]:
+    snapshot_path = Path(__file__).parents[1] / "test_data" / "tlf_regression_snapshot.json"
+    if not snapshot_path.is_file():
+        pytest.fail(f"Pinned TLF snapshot is missing: {snapshot_path}")
+    return json.loads(snapshot_path.read_text(encoding="utf-8"))
 
 
-def test_parse_tlf_real_world(regression_snapshot):
-    base_dir = Path(__file__).parent.parent / "test_data" / "tuflow" / "TUFLOW_Example_Model_Dataset" / "log"
-    tlf_files = sorted(
-        [f for f in base_dir.glob("*.tlf") if not f.name.endswith(".hpc.tlf") and not f.name.endswith(".gpu.tlf")]
+def _json_value(value: Any) -> Any:
+    """Match the existing JSON snapshot representation without recomputing data."""
+    if pd.isna(value):
+        return None
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return value
+
+
+def test_parse_tlf_real_world(regression_snapshot: dict[str, dict[str, Any]]) -> None:
+    log_dir = Path(__file__).parents[1] / "test_data" / "tuflow" / "TUFLOW_Example_Model_Dataset" / "log"
+    tlf_files = sorted(path for path in log_dir.glob("*.tlf") if not path.name.endswith((".hpc.tlf", ".gpu.tlf")))
+    assert tlf_files, "No pinned TUFLOW main logs found"
+    observed = {path.name for path in tlf_files}
+    assert observed == set(regression_snapshot), (
+        f"Pinned TLF snapshot membership drift; added={sorted(observed - set(regression_snapshot))}, "
+        f"missing={sorted(set(regression_snapshot) - observed)}. Investigate rather than silently skipping files."
     )
 
-    assert len(tlf_files) > 0, "No TLF files found in test data directory."
+    for log_path in tlf_files:
+        processor = BaseProcessor.from_file(log_path)
+        processor.process()  # Production includes modern and accepted legacy completion semantics.
+        expected = regression_snapshot[log_path.name]
+        assert processor.processed, f"Supported log rejected: {log_path.name}"
+        assert len(processor.df) == 1, f"Unexpected TLF row count: {log_path.name}"
+        actual: dict[str, Any] = {str(key): _json_value(value) for key, value in processor.df.iloc[0].to_dict().items()}
+        # WP01 #231 adds explicit diagnostics not present in the pinned legacy snapshot.
+        # Every pre-existing expected value and all fixture inventory membership stay strict.
+        missing = set(expected) - set(actual)
+        assert not missing, f"Missing pinned TLF fields in {log_path.name}: {sorted(missing)}"
 
-    for tlf_file in tlf_files:
-        filename = tlf_file.name
+        accepted_diagnostics = {
+            "TLF_1D_Negative_Depths",
+            "TLF_HPC_HCN_Repeated_Timesteps",
+            "TLF_HPC_NaN_Repeated_Timesteps",
+            "TLF_HPC_NaN_Warnings_2550",
+            "TLF_Warnings_Prior",
+            "TLF_Warnings_During",
+            "TLF_Checks_Prior",
+            "TLF_Checks_During",
+            "TLF_Quadtree_ZC_Cells",
+            "TLF_Quadtree_ZU_Faces",
+            "TLF_Quadtree_ZV_Faces",
+            "TLF_Quadtree_ZH_Corners",
+        }
+        unexpected = set(actual) - set(expected) - accepted_diagnostics
+        if log_path.name == "EG05_018.tlf":
+            # WP01 #224 preserves the archived -72 h starting time.
+            assert actual.get("Model_Start_Time") == -72.0
+            unexpected.discard("Model_Start_Time")
+        assert not unexpected, f"Unexpected TLF fields in {log_path.name}: {sorted(unexpected)}"
 
-        # Skip files not in snapshot (e.g. if they were added but snapshot not updated)
-        # Or fail if strict regression is desired. For now, let's warn or skip.
-        if filename not in regression_snapshot:
-            # pytest.warns(UserWarning, match=f"File {filename} not in snapshot.")
-            continue
-
-        expected_data = regression_snapshot[filename]
-        actual_data = parse_tlf_file(tlf_file)
-
-        # If actual data is empty but expected is not, that's a failure
-        if not actual_data and expected_data:
-            pytest.fail(f"Failed to parse {filename}, but expected data exists.")
-
-        # Compare keys and values
-        # We can do a direct dict comparison since we serialized everything to basic types
-        # However, floating point numbers might need tolerance if they were not stringified identically
-        # But in generate_tlf_snapshot.py we rely on json serialization which handles floats.
-        # Let's try direct comparison first.
-
-        # Note: In the snapshot generation, we converted datetimes to isoformat strings.
-        # The parse_tlf_file function here also does that.
-
-        # Check for missing keys
-        missing_keys = set(expected_data.keys()) - set(actual_data.keys())
-        assert not missing_keys, f"Missing keys in {filename}: {missing_keys}"
-
-        # Check for extra keys (optional, but good for regression)
-        extra_keys = set(actual_data.keys()) - set(expected_data.keys())
-        assert not extra_keys, f"Extra keys in {filename}: {extra_keys}"
-
-        # Check values
-        for key, expected_val in expected_data.items():
-            actual_val = actual_data[key]
-            assert actual_val == expected_val, (
-                f"Mismatch in {filename} for key '{key}': expected {expected_val}, got {actual_val}"
+        for field, expected_value in expected.items():
+            assert actual[field] == expected_value, (
+                f"TLF snapshot value drift in {log_path.name} for {field!r}: "
+                f"expected {expected_value!r}, got {actual[field]!r}"
             )

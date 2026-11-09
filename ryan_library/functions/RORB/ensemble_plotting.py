@@ -48,13 +48,13 @@ def _draw_vertical_boxplots(
 
             position = category_index + (hue_index - (hue_count - 1) / 2) * box_width
             color = single_color if hue_col is None else _SET1_COLORS[hue_index % len(_SET1_COLORS)]
-            ax.boxplot(  # pyright: ignore[reportUnknownMemberType]
+            ax.boxplot(
                 values,
                 positions=[position],
                 widths=box_width * 0.9,
                 patch_artist=True,
                 whis=1000.0,
-                orientation="vertical",
+                orientation="vertical",  # public Matplotlib 3.10+ keyword
                 manage_ticks=False,
                 boxprops={"facecolor": color, "edgecolor": "#333333", "linewidth": 0.8},
                 medianprops={"color": "#333333", "linewidth": 1.0},
@@ -97,7 +97,7 @@ def plot_peak_flow_distribution(
 
     legend_handles, legend_labels = _draw_vertical_boxplots(ax, df, aep_col, peak_flow_col, duration_col)
 
-    ax.set(
+    ax.set(  # Artist property kwargs are intentionally dynamic
         xlabel="AEP (1 in X years)",
         ylabel=r"Peak Flow ($m^3/s$)",
         title=f"Location: {location} - Peak Flow Distribution",

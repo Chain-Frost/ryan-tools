@@ -40,6 +40,32 @@ def _require_installed_below(module_file: str | None, expected_root: Path, packa
         raise RuntimeError(msg)
 
 
+def _check_installed_import_isolation(expected_root: Path) -> None:
+    """Verify lightweight imports in a fresh subprocess using only the wheel root."""
+    environment = os.environ.copy()
+    environment["PYTHONPATH"] = str(expected_root)
+    environment["PYTHONNOUSERSITE"] = "1"
+    environment.pop("RYAN_TOOLS_REPOSITORY_ROOT", None)
+    probe = Path(__file__).with_name("check_compatibility_imports.py")
+    with TemporaryDirectory(prefix="ryan-wheel-import-isolation-") as directory:
+        result = subprocess.run(
+            [sys.executable, "-B", str(probe), "--expected-root", str(expected_root)],
+            cwd=directory,
+            env=environment,
+            check=False,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
+            stdin=subprocess.DEVNULL,
+        )
+    if result.returncode != 0:
+        msg = f"Wheel import isolation failed: {(result.stdout + result.stderr)[-1600:]}"
+        raise RuntimeError(msg)
+    print("Wheel import-isolation and physical-origin check passed.")
+
+
 def _check_installed_scripts() -> None:
     """Require every catalogued script to resolve without a checkout."""
     registry = WorkflowRegistry(discover_repository=False, configured_profile="privileged")
@@ -460,6 +486,8 @@ def main(argv: list[str] | None = None) -> int:
             ("vendor.simil", vendor_simil.__file__),
         ):
             _require_installed_below(module_file, expected_root, package)
+
+        _check_installed_import_isolation(expected_root)
 
     resources = importlib.resources.files("ryan_library.resources")
     for relative_path in (
