@@ -124,16 +124,14 @@ def find_files_parallel(
         """Catch errors raised during iteration (Path.iterdir is lazy)."""
         try:
             yield from path.iterdir()
+        except PermissionError as exc:
+            logger.error("Permission denied accessing directory: {}", path)
+            record_error("Permission denied accessing directory", path, exc, skippable=path != root_dir)
         except OSError as exc:
-            record_error(
-                "Error accessing directory",
-                path,
-                exc,
-                skippable=path != root_dir,
-            )
+            record_error("Error accessing directory", path, exc, skippable=path != root_dir)
         except Exception as exc:
             logger.error("Unexpected error accessing directory {}: {}", path, exc)
-            record_error("Unexpected error accessing directory", path, exc)
+            record_error("Error accessing directory", path, exc)
 
     # Queue for directories to process; the stop event lets workers exit once traversal finishes.
     dir_queue: Queue[tuple[Path, Path]] = Queue()
