@@ -46,7 +46,7 @@ These documents stay near the code they describe so that browsing a target direc
 
 | Area | Local document | Relevant work |
 | --- | --- | --- |
-| Missing TUFLOW runs | [Filename ensemble inference](../ryan-scripts/tuflow/MISSING_RUNS.md) | Folder scanning, inferred scenario/event permutations and reporting limits |
+| Missing TUFLOW runs | [Filename ensemble inference](../ryan-scripts/TUFLOW-python/model_management/MISSING_RUNS.md) | Folder scanning, inferred scenario/event permutations and reporting limits |
 | Culvert analysis/design | [Culvert analysis and design workflow](CULVERT_WORKFLOW.md) | Project/scenario models, solver boundary, design search, rating curves, CLI and output contracts |
 | TUFLOW culvert engines | [Selectable TUFLOW culvert engines](TUFLOW_CULVERT_ENGINES.md) | TUFLOW Maximums/1d_nwk ingestion, HY-8 vs ryan-culverts dispatch, output and ownership boundaries |
 | TUFLOW initialiser | [Initialiser implementation](../ryan_library/orchestrators/tuflow/initialiser/README.md) | Hydrology function boundaries, TUFLOW project generation and Windows QA gates |
@@ -56,7 +56,7 @@ These documents stay near the code they describe so that browsing a target direc
 | TUFLOW GPU scheduling | [GPU and CodeMeter validation](TUFLOW_GPU_CODEMETER_VALIDATION.md) | Licensed two-GPU procedure, polling benchmark, measured limitations and scheduler evidence |
 | TUFLOW GPU hardware handoff | [Licensed two-GPU agent prompt](TUFLOW_GPU_HARDWARE_TEST_PROMPT.md) | Copy-ready prompt for completing PR #193 validation on suitable hardware |
 | TUFLOW runner progress handoff | [Local progress-validation prompt](TUFLOW_RUNNER_PROGRESS_HANDOFF.md) | Grouped TCF display, live model-time observations and Windows/SMB acceptance |
-| TUFLOW project setup | [Project setup guide](../ryan-scripts/tuflow/PROJECT_SETUP.md) | Compact project initialization, canonical empty-file generation and validation evidence |
+| TUFLOW project setup | [Project setup guide](../ryan-scripts/TUFLOW-python/model_management/PROJECT_SETUP.md) | Compact project initialization, canonical empty-file generation and validation evidence |
 | Native ASC_to_ASC operations | [Native ASC_to_ASC-style raster operations](ASC_TO_ASC_NATIVE_OPERATIONS.md) | Supported commands, module responsibilities, NoData policies and executable comparison |
 | GDAL wrappers | [GDAL Python wrappers](../ryan-scripts/gdal-python/README.md) | Maintained GDAL workflows, recipes, mutation risks and automation catalogue |
 | Legacy GDAL | [Legacy GDAL batch files](../ryan-scripts/gdal-bat/README.md) | Mapping retained BAT entry points to maintained Python replacements |

@@ -210,7 +210,9 @@ def _show_inventory(inventory: EnsembleInventory) -> None:
 def main(args: argparse.Namespace) -> int:
     """Validate effective settings and run without pausing or terminating the process."""
     print_wrapper_banner(
-        wrapper_source="tuflow/find_missing_tlf_runs.py", wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION
+        wrapper_source="TUFLOW-python/model_management/find_missing_tlf_runs.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
     )
     result = 0
     try:
@@ -272,7 +274,7 @@ if __name__ == "__main__":
     options = _parse_cli_arguments()
     exit_code = main(options)
     print_wrapper_banner(
-        wrapper_source="tuflow/find_missing_tlf_runs.py",
+        wrapper_source="TUFLOW-python/model_management/find_missing_tlf_runs.py",
         wrapper_file=Path(__file__),
         wrapper_version=WRAPPER_VERSION,
         leading_blank_line=True,

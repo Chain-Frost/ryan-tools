@@ -52,7 +52,9 @@ def main(
         working_directory: Overrides the default WORKING_DIR.
     """
     print_wrapper_banner(
-        wrapper_source="tuflow/tuflow_to_hy8.py", wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION
+        wrapper_source="TUFLOW-python/culvert_results/tuflow_to_hy8.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
     )
     script_directory: Path = working_directory or WORKING_DIR
 
@@ -127,7 +129,7 @@ if __name__ == "__main__":
         working_directory=common_options.working_directory,
     )
     print_wrapper_banner(
-        wrapper_source="tuflow/tuflow_to_hy8.py",
+        wrapper_source="TUFLOW-python/culvert_results/tuflow_to_hy8.py",
         wrapper_file=Path(__file__),
         wrapper_version=WRAPPER_VERSION,
         leading_blank_line=True,

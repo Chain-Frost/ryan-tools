@@ -13,7 +13,7 @@ The standard wrapper and `tuflow-initialiser init` generate the same starter pro
 Both include four working layers, an active boundary read, the location style and default utilities.
 The boundary layer remains empty until project-specific boundary features are supplied.
 
-The maintained wrapper is [`init_tuflow_project.py`](init_tuflow_project.py). Reusable setup logic is in [`project_setup.py`](../../ryan_library/orchestrators/tuflow/project_setup.py), and text templates are under [`tuflow_templates/`](../../ryan_library/resources/tuflow_templates/).
+The maintained wrapper is [`init_tuflow_project.py`](init_tuflow_project.py). Reusable setup logic is in [`project_setup.py`](../../../ryan_library/orchestrators/tuflow/project_setup.py), and text templates are under [`tuflow_templates/`](../../../ryan_library/resources/tuflow_templates/).
 
 The GeoPackage workflow deliberately follows TUFLOW's own QGIS plugin contract:
 
@@ -68,7 +68,7 @@ from the active method event. These project-specific loss values must still be r
 ## Usage
 
 ```powershell
-python .\ryan-scripts\tuflow\init_tuflow_project.py `
+python .\ryan-scripts\TUFLOW-python\model_management\init_tuflow_project.py `
   --output "E:\Projects\MyProject\tuflow" `
   --name "MyProject" `
   --scenario "bigModel" `
