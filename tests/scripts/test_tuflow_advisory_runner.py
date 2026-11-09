@@ -186,16 +186,20 @@ def test_preflight_only_reports_every_finding_and_fails_closed(
     assert "public API unavailable" in caplog.text
 
 
-def test_input_check_summary_distinguishes_incomplete_coverage_from_issues(tmp_path: Path) -> None:
+def test_input_check_summary_distinguishes_incomplete_coverage_from_issues(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
     plan = runner.prepare_plan(settings(tmp_path))
     report = CommandPreflightReport(plan, completed_runs=1)
     report.issues = [
         CommandPreflightIssue(plan.runs[0], PreflightIssue(1, "", "missing", "test", "file", "unavailable"))
     ]
 
-    assert runner._input_check_summary(report) == (
-        "Input check incomplete: checked 1 of 2 runs; 1 checked run has issues."
-    )
+    monkeypatch.setattr(command_preflight, "check_command_plan", lambda *_args, **_kwargs: report)
+    caplog.set_level(logging.INFO)
+
+    assert runner.check_plan_only(plan) is False
+    assert "Input check incomplete: checked 1 of 2 runs; 1 checked run has issues." in caplog.text
 
 
 def test_gpu_inspected_only_once_and_inspection_uncertainty_is_not_all_clear(
