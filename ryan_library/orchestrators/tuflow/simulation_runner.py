@@ -1276,6 +1276,10 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
     next_print = 0
     gpu_availability = GpuAvailability()
     next_gpu_check = 0.0
+    # Throttle subprocess start attempts, not GPU reservations or process exits.
+    # This deadline also covers failed starts, which previously bypassed the
+    # sleep after a successful Popen and could retry immediately.
+    next_launch_at: float | None = None
     gpu_status: str | None = "Checking" if settings.wait_for_available_gpu and groups else None
     has_configured_gpu: bool = any(is_gpu_switch(token) for run in plan.runs for token in run.arguments)
     has_source_priority: bool = any(run.start_options for run in plan.runs)
@@ -1301,6 +1305,10 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
         "-puN uses TUFLOW/CUDA order, not NVIDIA or Windows display indexes. "
         "These names describe this launch environment; external processes may use different CUDA ordering. "
         "For older TUFLOW builds, verify device names in the model's .hpc.tlf."
+    )
+    logger.info(
+        "Minimum interval between TUFLOW launch attempts: {}s (includes failed starts).",
+        settings.wait_time_after_run,
     )
     if gpu_status is not None:
         logger.info(
@@ -1517,6 +1525,10 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                 if poll_children() and gpu_status is not None:
                     next_gpu_check = 0.0
                 while queue and len(active) < capacity and not stop.is_set():
+                    if next_launch_at is not None:
+                        launch_wait = max(0.0, next_launch_at - time.monotonic())
+                        if launch_wait and stop.wait(launch_wait):
+                            break
                     if (
                         gpu_status is not None
                         and len(claimed_slots) < len(groups)
@@ -1572,6 +1584,9 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                     if on_before_launch is not None:
                         on_before_launch(run)
                     progress_started_at = time.time()
+                    # Timestamp the actual subprocess attempt, after any
+                    # prelaunch hook, so every next attempt is spaced correctly.
+                    next_launch_at = time.monotonic() + settings.wait_time_after_run
                     try:
                         process = factory(
                             args=args,
@@ -1624,8 +1639,6 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                         )
                         dashboard.set_active_count(len(active), refresh=False)
                         dashboard.refresh(force=True)
-                    if queue and settings.wait_time_after_run:
-                        time.sleep(settings.wait_time_after_run)
                     if poll_children() and gpu_status is not None:
                         next_gpu_check = 0.0
                 if active:
