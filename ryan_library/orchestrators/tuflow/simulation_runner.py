@@ -992,13 +992,8 @@ def _input_check_summary(report: CommandPreflightReport) -> str:
             f"Input check completed for all {report.run_count:,} runs; "
             f"{affected:,} {run_word} {'has' if affected == 1 else 'have'} issues."
         )
-    issue_clause = (
-        f"; {affected:,} checked {run_word} {'has' if affected == 1 else 'have'} issues" if affected else ""
-    )
-    return (
-        f"Input check incomplete: checked {report.completed_runs:,} of {report.run_count:,} runs"
-        f"{issue_clause}."
-    )
+    issue_clause = f"; {affected:,} checked {run_word} {'has' if affected == 1 else 'have'} issues" if affected else ""
+    return f"Input check incomplete: checked {report.completed_runs:,} of {report.run_count:,} runs{issue_clause}."
 
 
 class AdvisoryInputCheck:
