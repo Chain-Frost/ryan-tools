@@ -195,7 +195,10 @@ def test_input_check_summary_distinguishes_incomplete_coverage_from_issues(
         CommandPreflightIssue(plan.runs[0], PreflightIssue(1, "", "missing", "test", "file", "unavailable"))
     ]
 
-    monkeypatch.setattr(command_preflight, "check_command_plan", lambda *_args, **_kwargs: report)
+    def return_report(*_args: object, **_kwargs: object) -> CommandPreflightReport:
+        return report
+
+    monkeypatch.setattr(command_preflight, "check_command_plan", return_report)
     caplog.set_level(logging.INFO)
 
     assert runner.check_plan_only(plan) is False
