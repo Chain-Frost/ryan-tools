@@ -52,6 +52,8 @@ class _RasterDataset(Protocol):
 
     def read(self, band_index: int, *, window: object | None = None) -> npt.NDArray[np.generic]: ...
 
+    def read_masks(self, band_index: int, *, window: object | None = None) -> npt.NDArray[np.uint8]: ...
+
     def write(self, data: npt.NDArray[np.generic], band_index: int, *, window: object | None = None) -> None: ...
 
     def close(self) -> None: ...
@@ -212,15 +214,23 @@ def source_output_paths(
     return _source_output_paths(Path(output_file).absolute(), source_output_file, source_legend_file)
 
 
-def _write_source_legend(legend_path: Path, input_paths: list[Path]) -> None:
-    """Atomically write the 1-based source IDs used by the source raster."""
+def _write_source_legend(
+    legend_path: Path, input_paths: list[Path], source_counts: npt.NDArray[np.int64]
+) -> None:
+    """Atomically write source IDs, original paths, and selected cell counts."""
+    if source_counts.shape != (len(input_paths) + 1,):
+        msg = "Source counts must contain one bin per input plus NoData source ID 0"
+        raise ValueError(msg)
     temporary_path = _temporary_output(legend_path)
     try:
         temporary_path.parent.mkdir(parents=True, exist_ok=True)
         with temporary_path.open("w", encoding="utf-8", newline="") as stream:
             writer = csv.writer(stream)
-            writer.writerow(["source_id", "source_file"])
-            writer.writerows((source_id, str(path)) for source_id, path in enumerate(input_paths, start=1))
+            writer.writerow(["source_id", "source_file", "cell_count"])
+            writer.writerows(
+                (source_id, str(path), int(source_counts[source_id]))
+                for source_id, path in enumerate(input_paths, start=1)
+            )
         _replace_output(temporary_path, legend_path)
     finally:
         temporary_path.unlink(missing_ok=True)
@@ -263,6 +273,7 @@ def flatten_nested_source_provenance(
         msg = "Too many original rasters for a 32-bit source-ID raster"
         raise ValueError(msg)
 
+    source_counts = np.zeros(len(original_paths) + 1, dtype=np.int64)
     try:
         with ExitStack() as stack:
             stack.enter_context(rasterio.Env(GDAL_CACHEMAX=512, VSI_CACHE=True))
@@ -295,9 +306,10 @@ def flatten_nested_source_provenance(
                     selected_cells = group_cells & valid_local_ids
                     flattened_ids[selected_cells] = np.asarray(offset + local_ids[selected_cells], dtype=np.int32)
                 destination.write(flattened_ids, 1, window=window)
+                source_counts += np.bincount(flattened_ids.ravel(), minlength=source_counts.size)
 
         _replace_output(temporary_source_path, source_path)
-        _write_source_legend(legend_path, original_paths)
+        _write_source_legend(legend_path, original_paths, source_counts)
     finally:
         temporary_source_path.unlink(missing_ok=True)
 
@@ -436,8 +448,10 @@ def compute_stat(
     """Write a supported cell-wise ASC_to_ASC-style statistic.
 
     ``require_all`` writes NoData unless every input is valid. ``zero`` includes
-    invalid inputs as zeroes. ``exclude`` calculates from the valid inputs and
-    writes NoData only where every input is invalid.
+    invalid inputs as zeroes where at least one input is valid, preserving
+    NoData where all inputs are invalid (outside the model extent).
+    ``exclude`` calculates from valid inputs and writes NoData where none
+    are valid.
 
     Median uses ASC_to_ASC's upper-median convention: for an even number of
     contributing values, index ``n // 2`` in ascending order is returned.
@@ -489,6 +503,9 @@ def compute_stat(
             profile, output_nodata = _output_profile(datasets[0], extra_args)
             destination = stack.enter_context(closing(_open_raster(temporary_path, "w", profile)))
             source_destination: _RasterDataset | None = None
+            source_counts: npt.NDArray[np.int64] | None = (
+                np.zeros(len(datasets) + 1, dtype=np.int64) if write_source else None
+            )
             if write_source:
                 source_profile = profile.copy()
                 source_profile["dtype"] = "int32"
@@ -499,7 +516,8 @@ def compute_stat(
             for _, window in _chunk_windows(datasets[0], num_datasets=len(datasets)):
                 arrays = [np.asarray(dataset.read(1, window=window), dtype=np.float64) for dataset in datasets]
                 valid_arrays = [
-                    _valid_mask(data, dataset.nodata) for data, dataset in zip(arrays, datasets, strict=True)
+                    _valid_mask(data, dataset.nodata) & (dataset.read_masks(1, window=window) != 0)
+                    for data, dataset in zip(arrays, datasets, strict=True)
                 ]
                 stack_data = np.stack(arrays, axis=0)
                 stack_valid = np.stack(valid_arrays, axis=0)
@@ -511,7 +529,7 @@ def compute_stat(
                 elif nodata_policy == "zero":
                     adjusted_data = np.where(stack_valid, stack_data, 0.0)
                     eligible = np.ones(stack_valid.shape, dtype=np.bool_)
-                    output_valid = np.ones(stack_valid.shape[1:], dtype=np.bool_)
+                    output_valid = np.any(stack_valid, axis=0)
                     valid_count = np.full(stack_data.shape[1:], stack_data.shape[0], dtype=np.intp)
                 else:
                     adjusted_data = stack_data
@@ -558,10 +576,13 @@ def compute_stat(
                 if source_destination is not None:
                     source_ids = np.asarray(np.where(output_valid, source_indexes + 1, 0), dtype=np.int32)
                     source_destination.write(source_ids, 1, window=window)
+                    assert source_counts is not None
+                    source_counts += np.bincount(source_ids.ravel(), minlength=source_counts.size)
         _replace_output(temporary_path, output_path)
         if write_source:
+            assert source_counts is not None
             _replace_output(temporary_source_path, source_path)
-            _write_source_legend(legend_path, input_paths)
+            _write_source_legend(legend_path, input_paths, source_counts)
     finally:
         temporary_path.unlink(missing_ok=True)
         temporary_source_path.unlink(missing_ok=True)
