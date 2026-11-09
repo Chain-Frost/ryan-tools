@@ -191,10 +191,8 @@ def test_hy8_unresolved_inverse_exports_failed_row_without_flow(
         headwater_elevation_m: float,
         **_kwargs: object,
     ) -> CulvertEngineResult:
-        raise FlowSearchError(
-            "Insufficient headwater report resolution: distinct trial flows share rounded HW.",
-            target_headwater=headwater_elevation_m,
-        )
+        message = "Insufficient headwater report resolution: distinct trial flows share rounded HW."
+        raise FlowSearchError(message, target_headwater=headwater_elevation_m)
 
     run_function = cast("FunctionType", namespace["run"])
     run_function.__globals__["solve_tuflow_culvert_inverse"] = fake_inverse
