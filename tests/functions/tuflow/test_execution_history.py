@@ -6,10 +6,10 @@ No TUFLOW executable, external process inventory or model data is accessed.
 from __future__ import annotations
 
 import csv
+import subprocess
 from dataclasses import dataclass, replace
 from datetime import datetime, tzinfo
 from pathlib import Path, PureWindowsPath
-import subprocess
 
 import pytest
 
