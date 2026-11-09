@@ -1095,6 +1095,30 @@ def write_collection_bundle(
             shutil.rmtree(stage, ignore_errors=True)
 
 
+def _missing_saved_rows_status(entry: dict[str, Any], present_requested: frozenset[str]) -> str:
+    """Distinguish earlier selection from wholly rejected hydraulic samples."""
+    inventories_raw: object = entry.get("native_inventories")
+    usable: set[str] | None = None
+    if isinstance(inventories_raw, dict):
+        inventories = cast("dict[str, object]", inventories_raw)
+        for name in ("usable_source_locations", "usable_source_channels"):
+            recorded = inventories.get(name)
+            if recorded is not None:
+                if usable is None:
+                    usable = set()
+                usable.update(_string_list(recorded, f"native inventory {name}"))
+    if usable is not None and not present_requested.issubset(usable):
+        return "INVALID"
+
+    location_filter = set(_string_list(entry.get("applied_location_filter"), "applied_location_filter"))
+    entity_filter = set(_string_list(entry.get("applied_entity_filter"), "applied_entity_filter"))
+    if (location_filter and present_requested.isdisjoint(location_filter)) or (
+        entity_filter and present_requested.isdisjoint(entity_filter)
+    ):
+        return "FILTERED"
+    return "INVALID"
+
+
 def read_collection_bundle(  # noqa: C901
     directory: Path | str,
     locations: Collection[str] | None = None,
@@ -1155,8 +1179,9 @@ def read_collection_bundle(  # noqa: C901
             and not (desired_locations & frame_values)
             and data_type != "EOF"
         ):
+            missing_status = _missing_saved_rows_status(entry, desired_locations & sources)
             collection.parquet_selection_diagnostics.append(
-                {"data_type": data_type, "source": entry["source"]["path"], "status": "INVALID"}
+                {"data_type": data_type, "source": entry["source"]["path"], "status": missing_status}
             )
             continue
         restored = _restore_processor(active, entry, verify_sources=verify_sources)

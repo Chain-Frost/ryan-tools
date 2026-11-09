@@ -230,8 +230,10 @@ are not hashed by default.
 
 A source-present, wholly rejected location cannot be represented as a
 successful empty processor. The restore exposes `parquet_selection_diagnostics`
-with `INVALID` versus genuinely `ABSENT` selection; valid selected
-processors are retained. For full 300-run timeseries collections, use
+with `SELECTED` for retained data, `INVALID` for rejected source samples,
+`ABSENT` for source IDs never present, and `FILTERED` for source IDs
+excluded from the saved rows by an earlier selection. `FILTERED` describes
+snapshot availability, not a hydraulic input-quality failure. For full 300-run timeseries collections, use
 incremental partitioned Parquet and per-run reduction rather than a single
 combined DataFrame. This API adds no PyTuflow readers, PyTables or HDF5.
 

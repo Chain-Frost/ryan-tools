@@ -158,6 +158,18 @@ def test_historical_reexport_keeps_original_signature(collection: ProcessorColle
     assert len(ProcessorCollection.from_parquet(copy, verify_sources=False).processors) == 3
 
 
+def _assert_publication_lock_released(directory: Path) -> None:
+    """Verify actual lock availability; SMB may cache a deleted lock in exists()."""
+    lock = directory / ".publish.lock"
+    # Match the writer's O_EXCL contract, rather than checking cached path metadata.
+    # This creates a new, test-owned lock only after the original was released.
+    fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+    try:
+        os.close(fd)
+    finally:
+        lock.unlink()
+
+
 def test_directory_no_clobber_overwrite_uses_immutable_generation(
     collection: ProcessorCollection, tmp_path: Path
 ) -> None:
@@ -176,7 +188,7 @@ def test_directory_no_clobber_overwrite_uses_immutable_generation(
     assert (path / "manifest.json").read_bytes() != first_manifest
     assert ProcessorCollection.from_parquet(path).processors[0].df.iloc[0]["Q"] == 123.0
     assert not list(tmp_path.glob(".existing.parquetdir.*.staging"))
-    assert not (path / ".publish.lock").exists()
+    _assert_publication_lock_released(path)
     assert not list(path.glob(".manifest-*.tmp"))
 
 
@@ -199,7 +211,7 @@ def test_interrupted_overwrite_leaves_original_readable(
     assert not list(tmp_path.glob(".safe.parquetdir.*.staging"))
     assert not list((path / ".versions").glob("*"))
     assert not list(path.glob(".manifest-*.tmp"))
-    assert not (path / ".publish.lock").exists()
+    _assert_publication_lock_released(path)
 
 
 def test_directory_validation_rejects_corruption_and_extra_members(
@@ -396,6 +408,78 @@ def test_wp04_native_inventory_survives_full_restore_and_later_selection(
     assert not wet.processors[0].selected_unusable
 
 
+@pytest.mark.parametrize(
+    ("suffix", "source_text"),
+    [
+        ("_PO.csv", "Dummy,Time,Q,Q\nDummy,Time,Dry,Wet\nrow,0,1,2\nrow,1,3,4\n"),
+        ("_1d_Q.csv", "Index,Time,Q Dry [run],Q Wet [run]\n1,0,1,2\n2,1,3,4\n"),
+    ],
+)
+def test_previously_filtered_valid_source_is_not_reported_invalid(
+    tmp_path: Path, suffix: str, source_text: str
+) -> None:
+    source = tmp_path / f"Run_01.0p_0060m_TP01{suffix}"
+    source.write_text(source_text, encoding="utf-8")
+    processor = BaseProcessor.from_file(source)
+    processor.process()
+    assert processor.processed and not processor.df.empty
+    collection = ProcessorCollection()
+    collection.add_processor(processor)
+    collection.filter_locations(["Wet"])
+    assert processor.applied_location_filter == frozenset({"Wet"})
+    assert processor.input_health != "INVALID"
+
+    directory = tmp_path / f"{suffix.lstrip('_')}-previously-filtered.parquetdir"
+    collection.to_parquet(directory)
+    excluded = ProcessorCollection.from_parquet(directory, locations=["Dry"])
+    assert not excluded.processors
+    assert [item["status"] for item in excluded.parquet_selection_diagnostics] == ["FILTERED"]
+
+    full = ProcessorCollection.from_parquet(directory)
+    retained = full.processors[0]
+    full.filter_locations(["Dry"])
+    assert not full.processors
+    assert retained.filtered_empty and retained.input_health != "INVALID"
+
+    selected = ProcessorCollection.from_parquet(directory, locations=["Wet"])
+    assert len(selected.processors) == 1
+    assert [item["status"] for item in selected.parquet_selection_diagnostics] == ["SELECTED"]
+
+    absent = ProcessorCollection.from_parquet(directory, locations=["Absent"])
+    assert not absent.processors
+    assert [item["status"] for item in absent.parquet_selection_diagnostics] == ["ABSENT"]
+
+
+def test_previous_filter_does_not_hide_rejected_source_samples(tmp_path: Path) -> None:
+    source = tmp_path / "Run_01.0p_0060m_TP01_PO.csv"
+    source.write_text(
+        "Dummy,Time,Q,Q\nDummy,Time,Dry,Wet\nrow,0,inf,2\nrow,1,inf,4\n",
+        encoding="utf-8",
+    )
+    processor = BaseProcessor.from_file(source)
+    processor.process()
+    assert processor.processed
+    assert processor.usable_source_locations == frozenset({"Wet"})
+    collection = ProcessorCollection()
+    collection.add_processor(processor)
+    collection.filter_locations(["Wet"])
+    directory = tmp_path / "invalid-preselected.parquetdir"
+    collection.to_parquet(directory)
+    invalid = ProcessorCollection.from_parquet(directory, locations=["Dry"])
+    assert not invalid.processors
+    assert [item["status"] for item in invalid.parquet_selection_diagnostics] == ["INVALID"]
+
+
+def test_lock_release_contract_preserves_an_existing_writer_lock(tmp_path: Path) -> None:
+    directory = tmp_path / "locked.parquetdir"
+    directory.mkdir()
+    lock = directory / ".publish.lock"
+    lock.write_bytes(b"another writer")
+    with pytest.raises(FileExistsError):
+        _assert_publication_lock_released(directory)
+    assert lock.read_bytes() == b"another writer"
+
+
 def test_wp04_native_inventory_rejects_fabricated_usable_source(tmp_path: Path) -> None:
     source = tmp_path / "Run_01.0p_0060m_TP01_PO.csv"
     source.write_text(
@@ -509,7 +593,7 @@ def test_failed_generation_rename_does_not_mask_error_or_leak_lock(
     with pytest.raises(OSError, match="atomic rename refused"):
         collection.to_parquet(dest, overwrite=True)
     assert (dest / "manifest.json").read_bytes() == old_manifest
-    assert not (dest / ".publish.lock").exists()
+    _assert_publication_lock_released(dest)
     assert not list(tmp_path.glob(".rename.parquetdir.*.staging"))
     assert not list((dest / ".versions").glob("*"))
     assert len(ProcessorCollection.from_parquet(dest).processors) == 3
@@ -539,7 +623,7 @@ def test_destination_swap_during_overwrite_cannot_mutate_other_dataset(
         collection.to_parquet(dest, overwrite=True)
     assert (backup / "manifest.json").read_bytes() == victim_before
     assert (other / "manifest.json").read_bytes() == other_before
-    assert not (backup / ".publish.lock").exists()
+    _assert_publication_lock_released(backup)
     assert not list(tmp_path.glob(".victim.parquetdir.*.staging"))
 
 
@@ -625,7 +709,7 @@ def test_replaced_versions_directory_never_publishes_broken_manifest(
     with pytest.raises(ValueError, match="version folder identity changed"):
         collection.to_parquet(destination, overwrite=True)
     assert (destination / "manifest.json").read_bytes() == original
-    assert not (destination / ".publish.lock").exists()
+    _assert_publication_lock_released(destination)
     (destination / ".versions").rmdir()
     replaced.rename(destination / ".versions")
     assert len(ProcessorCollection.from_parquet(destination).processors) == 3
