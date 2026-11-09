@@ -213,6 +213,14 @@ Failed inputs and scenarios remain visible rather than being silently dropped.
 A native result whose solver status is `unresolved` is retained in the CSV but
 causes a non-zero wrapper exit status.
 
+The HY-8 inverse adapter requires `run-hy8>=2026.11.9.1`, which fails closed
+with `FlowSearchError` when rounded RST headwaters cannot distinguish trial
+discharges. Both maintained TUFLOW culvert wrappers report a `failed` scenario
+with an explicit diagnostic, **no computed discharge**, and a nonzero exit
+code. A near-target minimum-flow seed is not proof of a resolved inverse.
+This preserves the upstream 0.01 m reported-headwater tolerance; it does
+not demonstrate TUFLOW-equivalent hydraulic behavior.
+
 ## Repository boundary
 
 `ryan-tools` owns TUFLOW field interpretation, engine selection and batch output.

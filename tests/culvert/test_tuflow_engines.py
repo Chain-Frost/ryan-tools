@@ -14,6 +14,7 @@ from culvert_solver import (
 )
 from run_hy8 import CulvertMaterial as Hy8Material
 from run_hy8 import Hy8ResultRow, HydraulicsResult
+from run_hy8.hydraulics import FlowSearchError
 
 from ryan_library.classes.culvert import CulvertMaterialName
 from ryan_library.functions.culvert import tuflow_engines as engine_module
@@ -191,6 +192,30 @@ def test_hy8_forward_dispatch_uses_run_hy8_boundary(
     assert result.computed_discharge_m3s == pytest.approx(2.0)
     assert result.headwater_elevation_m == pytest.approx(10.8)
     crossing.hw_from_q.assert_called_once()
+
+
+def test_hy8_ambiguous_inverse_propagates_resolution_error(
+    concrete_crossing: TuflowCircularCulvert,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    crossing = MagicMock()
+    crossing.q_from_hw.side_effect = FlowSearchError(
+        "Insufficient headwater report resolution: distinct trial flows share rounded HW.",
+        target_headwater=43.5636,
+    )
+    monkeypatch.setattr(engine_module, "_hy8_crossing", MagicMock(return_value=(MagicMock(), crossing)))
+
+    with pytest.raises(FlowSearchError, match="Insufficient headwater report resolution") as caught:
+        solve_tuflow_culvert_inverse(
+            concrete_crossing,
+            scenario="low-head inverse",
+            headwater_elevation_m=43.5636,
+            tailwater_elevation_m=43.5542,
+            engine=CulvertEngine.HY8,
+            q_hint_m3s=0.199,
+        )
+    assert caught.value.target_headwater == pytest.approx(43.5636)
+    crossing.q_from_hw.assert_called_once()
 
 
 def test_hy8_tailwater_preserves_downstream_invert(

@@ -38,7 +38,7 @@ dependencies = [
   "ezdxf",
   "rich",
   "pytuflow>=1.2",
-  "run-hy8>=2026.10.16.1",
+  "run-hy8>=2026.11.9.1",
   'ryan-culverts>=26.10.19.1',
 ]
 description = "Collection of TUFLOW and data processing functions."

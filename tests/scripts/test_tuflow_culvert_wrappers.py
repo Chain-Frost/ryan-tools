@@ -8,6 +8,7 @@ from typing import Any, cast
 
 import pandas as pd
 import pytest
+from run_hy8.hydraulics import FlowSearchError
 
 from ryan_library.classes.culvert import CulvertMaterialName
 from ryan_library.functions.culvert.tuflow_attributes import TuflowCulvertAttributes
@@ -96,6 +97,119 @@ def test_wrapper_run_refuses_to_replace_source_before_reading(
     with pytest.raises(ValueError, match="must not replace an input file"):
         run(args)
     assert source.read_bytes() == b"preserve source data"
+
+
+@pytest.mark.parametrize("source_kind", ["maximums", "network"])
+def test_hy8_unresolved_inverse_exports_failed_row_without_flow(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, source_kind: str
+) -> None:
+    output = tmp_path / "culvert-results.csv"
+    if source_kind == "maximums":
+        namespace = _maximums_namespace()
+        workbook = tmp_path / "maximums.xlsx"
+        pd.DataFrame(
+            [
+                {
+                    "Chan ID": "FC04.1_C",
+                    "Type": "C",
+                    "Material": "concrete_pipe",
+                    "Inlet Configuration": "square-edge-headwall",
+                    "Height": 1.2,
+                    "Length": 20.0,
+                    "Q": 0.199,
+                    "US_h": 43.5636,
+                    "DS_h": 43.5542,
+                    "US Invert": 43.35,
+                    "DS Invert": 42.75,
+                    "n or Cd": 0.015,
+                    "Num_barrels": 3,
+                    "trim_runcode": "EG11",
+                }
+            ]
+        ).to_excel(workbook, sheet_name="Maximums", index=False)  # pyright: ignore[reportUnknownMemberType]
+        cli = [str(workbook), "--engine", "hy8", "--output-csv", str(output)]
+    else:
+        namespace = _nwk_namespace()
+        frame = pd.DataFrame(
+            [
+                {
+                    "ID": "FC04.1_C",
+                    "Type": "C",
+                    "Material": "concrete_pipe",
+                    "Inlet Configuration": "square-edge-headwall",
+                    "Ignore": "",
+                    "Width_or_D": 1.2,
+                    "Len_or_ANA": 20.0,
+                    "US_Invert": 43.35,
+                    "DS_Invert": 42.75,
+                    "n_nF_Cd": 0.015,
+                    "Number_of": 3,
+                }
+            ]
+        )
+
+        def read_file(*_args: object, **_kwargs: object) -> pd.DataFrame:
+            return frame.copy()
+
+        monkeypatch.setattr(namespace["gpd"], "read_file", read_file)
+        cli = [
+            str(tmp_path / "network.gpkg"),
+            "--layer",
+            "1d_nwk",
+            "--engine",
+            "hy8",
+            "--output-csv",
+            str(output),
+        ]
+
+    def fake_forward(
+        definition: TuflowCircularCulvert,
+        *,
+        scenario: str,
+        discharge_m3s: float,
+        **_kwargs: object,
+    ) -> CulvertEngineResult:
+        return CulvertEngineResult(
+            engine=CulvertEngine.HY8,
+            crossing=definition.name,
+            scenario=scenario,
+            requested_discharge_m3s=discharge_m3s,
+            requested_headwater_m=None,
+            computed_discharge_m3s=discharge_m3s,
+            headwater_elevation_m=43.7,
+            headwater_ratio=(43.7 - definition.inlet_invert_m) / definition.hw_diameter_m,
+            outlet_velocity_mps=1.0,
+            flow_type="test",
+            roadway_discharge_m3s=0.0,
+            overtopping=False,
+            status="success",
+        )
+
+    def fake_inverse(
+        _definition: TuflowCircularCulvert,
+        *,
+        headwater_elevation_m: float,
+        **_kwargs: object,
+    ) -> CulvertEngineResult:
+        raise FlowSearchError(
+            "Insufficient headwater report resolution: distinct trial flows share rounded HW.",
+            target_headwater=headwater_elevation_m,
+        )
+
+    run_function = cast("FunctionType", namespace["run"])
+    run_function.__globals__["solve_tuflow_culvert_inverse"] = fake_inverse
+    if source_kind == "maximums":
+        run_function.__globals__["solve_tuflow_culvert_forward"] = fake_forward
+    args = namespace["_parser"]().parse_args(cli)
+    assert run_function(args) == 1
+
+    rows = pd.read_csv(output)
+    failed = rows.loc[rows["Status"] == "failed"]
+    assert not failed.empty
+    assert failed["Error"].str.contains("Insufficient headwater report resolution", regex=False).all()
+    assert failed["Computed Flow (m3/s)"].isna().all()
+    if source_kind == "maximums":
+        assert (rows["Status"] == "success").sum() == 2
 
 
 def test_maximums_mapping_uses_canonical_barrel_count_and_preserves_zero_invert() -> None:

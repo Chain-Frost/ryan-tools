@@ -454,3 +454,31 @@ artifact hashes and all recorded package-file hashes pass. Documentation links a
 This evidence is delivered on existing draft #298; hosted checks for its final head are separate.
 Next review 2026-11-15; next action is independent hydraulic review of jump selection and a separate
 bounded inverse-search investigation, without coefficient tuning or an engineering-parity claim.
+
+## 2026-11-09 — Published inverse-search correction and consumer tests
+
+Upstream [run-hy8 #20](https://github.com/Chain-Frost/run-hy8/pull/20)
+merged as `329eef3651a97b3f12f00588ee501fb9cf55bb0e` after a
+re-reviewed outside-tolerance bracket-expansion correction. Both post-merge
+CI and automated [PyPI `v2026.11.9.1`](https://github.com/Chain-Frost/run-hy8/releases/tag/v2026.11.9.1)
+publication passed; the verified wheel SHA-256 is
+`6b9dee8cb4c15fc39a5db50a98773adcda4ff17cab0f61e862f343c495cbc5a4`.
+The upstream issue #19 closed, while Ryan-tools #102 remains open.
+
+This scoped consumer update raises `run-hy8` to `>=2026.11.9.1`
+and adds regression coverage of `FlowSearchError` propagation through the
+HY-8 adapter and failed-row reporting in both maintained culvert wrappers.
+An unresolved inverse must have **no computed flow** and return a nonzero
+wrapper exit, while valid forwards remain successful. Tests use synthetic
+controlled exceptions and do not claim a new local Windows executable replay
+of the updated Ryan-tools head. The recorded upstream Windows source and
+isolated installed-wheel HY-8 8.0.1.2 evidence is separate.
+
+The historical QPMF 0.05 versus 0.149541 m³/s inverse comparison is now
+classified as under-resolved at RST output precision, **not solved discharge
+parity**. Forward native-JS1 versus HY-8-S2 outlet-profile treatment,
+actual TUFLOW width contraction 0.9, adjusted losses, unverified
+material/inlet mapping and transient boundary/roadway conditions remain
+unresolved; 2026.3 ELM/full blockage and agreed engineering tolerances are
+also outstanding. **Keep #102/#103 OPEN.** No main merge or Ryan-tools
+release is authorised by this child integration.
