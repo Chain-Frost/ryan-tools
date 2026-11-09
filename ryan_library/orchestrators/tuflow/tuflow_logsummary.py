@@ -284,20 +284,34 @@ def main_processing(
         log_file=log_file,
         file_log_level=file_log_level,
     ) as log_queue:
-        with dashboard:
-            dashboard.set_phase("Discovering")
-            logger.info("Starting log file processing...")
-            logger.info("Built and tested with modern TUFLOW logs; older completed logs use compatibility parsing.")
-            try:
-                root_dir: Path = Path.cwd()
-                files: list[Path] = discover_log_files(root_dir=root_dir)
-                logger.info("Found {} log files.", len(files))
+        # Discover before starting Rich Live: an unreadable folder must not
+        # leave a partial dashboard frame in the terminal on early failure.
+        logger.info("Starting log file processing...")
+        logger.info("Built and tested with modern TUFLOW logs; older completed logs use compatibility parsing.")
+        try:
+            root_dir: Path = Path.cwd()
+            files: list[Path] = discover_log_files(root_dir=root_dir)
+        except KeyboardInterrupt:
+            dashboard.finish(outcome="INTERRUPTED", detail="processing was interrupted")
+            raise
+        except Exception:
+            logger.exception("Log summary discovery failed.")
+            dashboard.finish(outcome="FAILED", detail="file discovery failed")
+            raise
 
+        logger.info("Found {} log files.", len(files))
+        if not files:
+            logger.warning("No log files found to process.")
+            dashboard.finish(outcome="SKIPPED", detail="0 completed run(s)")
+            return True
+
+        dashboard.set_phase("Processing")
+        with dashboard:
+            try:
                 processing_results: list[LogFileProcessingResult] = []
                 if not files:
                     logger.warning("No log files found to process.")
                 else:
-                    dashboard.set_phase("Processing")
                     processing_results = process_log_files(
                         files=files,
                         root_dir=root_dir,
@@ -360,6 +374,7 @@ def discover_log_files(*, root_dir: Path) -> list[Path]:
         root_dirs=[root_dir],
         patterns="*.tlf",
         excludes=["*.hpc.tlf", "*.gpu.tlf"],
+        skip_inaccessible_subdirectories=True,
     )
     # A zero-byte file matches the requested input format but cannot be parsed.
     for logfile in files:
