@@ -14,19 +14,21 @@ ASC_to_ASC. Choose another ``MEAN_VALUE_METHOD`` or use
 Input globs may contain wildcards, but output naming templates must render
 concrete filenames and must not rediscover generated outputs.
 
-Source rasters are disabled by default. Set ``WRITE_SOURCE_RASTERS`` or use
-``--source`` to create per-duration source outputs and final source outputs
-whose CSV IDs link directly to the original temporal-pattern rasters.
+Source rasters and CSV legends with per-source ``cell_count`` are enabled
+by default for both stages. Set ``WRITE_SOURCE_RASTERS = False`` or use
+``--no-source`` to disable them. Final legend IDs link directly to the
+original temporal-pattern rasters.
 
-For ``d_HR_Max`` and ``V_Max``, NoData contributes zero to both statistics.
-For elevation results ``h_Max`` and ``h_HR_Max``, NoData is excluded and an
-output cell remains NoData only when every contributing cell is NoData.
+For ``d_HR_Max`` and ``V_Max``, NoData contributes zero where some
+other input has a valid cell; all-NoData locations remain NoData in both
+stages. For elevation results ``h_Max`` and ``h_HR_Max``, NoData is
+excluded from the statistic.
 """
 
 from pathlib import Path
 from typing import Literal
 
-WRAPPER_VERSION = "2026-11-07.3"
+WRAPPER_VERSION = "2026-11-09.1"
 
 WORKING_DIR: Path = Path(__file__).absolute().parent
 OUTPUT_DIRECTORY_NAME = "ensemble_statistics"
@@ -37,7 +39,7 @@ RESULT_TYPES: list[str] = ["d_HR_Max", "h_HR_Max", "V_Max"]
 MEAN_VALUE_METHOD: Literal["asc_to_asc", "closest_source", "arithmetic"] = "asc_to_asc"
 WORKERS: int | None = None
 STRICT_INCOMPLETE_GROUPS = False
-WRITE_SOURCE_RASTERS = False
+WRITE_SOURCE_RASTERS = True
 USE_LIVE_DASHBOARD = True
 LIVE_REFRESH_PER_SECOND = 2.0
 LIVE_MAX_ROWS = 10
@@ -135,12 +137,20 @@ def _parse_cli_arguments() -> CliOptions:
     strict_group = parser.add_mutually_exclusive_group()
     strict_group.add_argument("--strict", dest="strict", action="store_true", default=None)
     strict_group.add_argument("--no-strict", dest="strict", action="store_false")
-    parser.add_argument(
+    source_group = parser.add_mutually_exclusive_group()
+    source_group.add_argument(
         "--source",
         dest="write_source",
         action="store_true",
         default=None,
-        help="Write source rasters and CSV legends linked to the original input rasters.",
+        help="Write source rasters and CSV legends with per-source cell counts (default).",
+    )
+    source_group.add_argument(
+        "--no-source",
+        dest="write_source",
+        action="store_false",
+        default=None,
+        help="Disable source rasters and CSV legends.",
     )
     args: argparse.Namespace = parser.parse_args()
     return CliOptions(
