@@ -119,7 +119,6 @@ def test_compute_stat_excludes_nodata_and_preserves_all_nodata(
     np.testing.assert_array_equal(_read_raster(output), np.asarray([expected], dtype=np.float32))
 
 
-
 def test_compute_stat_honours_explicit_band_masks(tmp_path: Path) -> None:
     """An internal validity mask may exclude finite pixels, even without a sentinel hit."""
     first = tmp_path / "first.tif"
