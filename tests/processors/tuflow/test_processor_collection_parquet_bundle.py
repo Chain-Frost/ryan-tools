@@ -858,4 +858,3 @@ def test_empty_invalid_saved_selection_distinguishes_excluded_usable_source(
     absent = ProcessorCollection.from_parquet(directory, locations=["Absent"])
     assert not absent.processors
     assert [item["status"] for item in absent.parquet_selection_diagnostics] == ["ABSENT"]
-
