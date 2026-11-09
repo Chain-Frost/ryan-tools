@@ -387,7 +387,9 @@ def _arguments(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help="Show/hide the latest HPC timestep and observed final mass error in Detail; retain run phase.",
     )
-    parser.add_argument("--launch-delay", type=float, help="Seconds between starts and after run exits (>=0; 0 disables).")
+    parser.add_argument(
+        "--launch-delay", type=float, help="Seconds between starts and after run exits (>=0; 0 disables)."
+    )
     parser.add_argument(
         "--wait-for-available-gpu",
         action=argparse.BooleanOptionalAction,
