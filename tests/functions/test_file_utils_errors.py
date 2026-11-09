@@ -143,7 +143,8 @@ def test_unreadable_root_remains_fatal_in_opt_in_mode(
     def unreadable(path: Path) -> Iterator[Path]:
         if path == root:
             yield from ()
-            raise PermissionError("root denied")
+            message = "root denied"
+            raise PermissionError(message)
         yield from original_iterdir(path)
 
     monkeypatch.setattr(Path, "iterdir", unreadable)
@@ -163,7 +164,8 @@ def test_unreadable_child_entry_is_skipped_in_opt_in_mode(
 
     def unreadable(path: Path) -> Path:
         if path == bad:
-            raise PermissionError("synthetic subdirectory permission error")
+            message = "synthetic subdirectory permission error"
+            raise PermissionError(message)
         return original_absolute(path)
 
     monkeypatch.setattr(Path, "absolute", unreadable)
