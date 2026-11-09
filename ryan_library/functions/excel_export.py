@@ -414,8 +414,9 @@ class ExcelExporter:
             )
             sheets.append(DATA_DICTIONARY_SHEET_NAME)
         with (
-            nullcontext(existing_handle) if existing_handle is not None else temporary.open("xb")
-        ) as handle, pd.ExcelWriter(path=handle, engine="openpyxl") as writer:
+            nullcontext(existing_handle) if existing_handle is not None else temporary.open("xb") as handle,
+            pd.ExcelWriter(path=handle, engine="openpyxl") as writer,
+        ):
             # Keep a valid sheet even if the first DataFrame write fails, so close preserves the original error.
             writer.book.create_sheet(sheets[0])
             writer.book.properties.creator = f"ryan-tools {get_tools_version()}"
