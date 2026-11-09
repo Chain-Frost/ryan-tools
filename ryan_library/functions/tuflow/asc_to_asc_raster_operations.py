@@ -136,7 +136,8 @@ def _creation_option_arguments(options: list[str]) -> list[str]:
     return [item for option in options for item in ("-co", option)]
 
 
-def _output_profile(reference: _RasterDataset, extra_args: list[str] | None) -> tuple[dict[str, object], float]:
+def _tuflow_creation_profile(reference: _RasterDataset) -> dict[str, object]:
+    """Apply lossless GeoTIFF creation options explicitly: dataset.meta omits compression."""
     profile: dict[str, object] = reference.meta.copy()
     if str(profile.get("driver", "")).casefold() == "gtiff":
         profile.update(
@@ -144,6 +145,20 @@ def _output_profile(reference: _RasterDataset, extra_args: list[str] | None) -> 
                 _creation_option_arguments(geotiff_creation_options(profile="tuflow", threads="ALL_CPUS"))
             )
         )
+    return profile
+
+
+def _source_index_dtype(maximum_source_id: int) -> str:
+    """Use the smallest unsigned GeoTIFF type that represents every 1-based source ID."""
+    if maximum_source_id <= 255:
+        return "uint8"
+    if maximum_source_id <= 65535:
+        return "uint16"
+    return "uint32"
+
+
+def _output_profile(reference: _RasterDataset, extra_args: list[str] | None) -> tuple[dict[str, object], float]:
+    profile = _tuflow_creation_profile(reference)
     profile.update(_parse_creation_options(extra_args))
     profile["count"] = 1
     profile["dtype"] = "float64" if reference.dtypes[0].lower() == "float64" else "float32"
@@ -277,9 +292,11 @@ def flatten_nested_source_provenance(
             stack.enter_context(rasterio.Env(GDAL_CACHEMAX=512, VSI_CACHE=True))
             _, datasets = _open_inputs(stack, [str(source_path), *nested_source_files])
             selector, *nested_sources = datasets
-            profile = selector.meta.copy()
+            # Flattening creates a fresh TIFF: selector.meta does not retain
+            # its DEFLATE compression settings, so reapply the shared profile.
+            profile = _tuflow_creation_profile(selector)
             profile["count"] = 1
-            profile["dtype"] = "int32"
+            profile["dtype"] = _source_index_dtype(len(original_paths))
             profile["nodata"] = 0
             destination = stack.enter_context(closing(_open_raster(temporary_source_path, "w", profile)))
 
@@ -504,7 +521,7 @@ def compute_stat(
             source_counts: npt.NDArray[np.int64] = np.zeros(len(datasets) + 1, dtype=np.int64)
             if write_source:
                 source_profile = profile.copy()
-                source_profile["dtype"] = "int32"
+                source_profile["dtype"] = _source_index_dtype(len(datasets))
                 source_profile["nodata"] = 0
                 source_destination = stack.enter_context(
                     closing(_open_raster(temporary_source_path, "w", source_profile))

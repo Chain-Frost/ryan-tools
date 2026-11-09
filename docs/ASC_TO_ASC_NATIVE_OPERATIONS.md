@@ -90,11 +90,18 @@ incremental skip.
 
 ## GeoTIFF compression
 
-Native GeoTIFF value rasters and auxiliary rasters always use the repository's
+Native GeoTIFF value rasters and auxiliary source rasters use the repository's
 shared TUFLOW creation profile by default: `COMPRESS=DEFLATE`, `PREDICTOR=2`,
-`BIGTIFF=IF_SAFER`, and `NUM_THREADS=ALL_CPUS`. This does not depend on whether
-the input GeoTIFF is compressed. Explicit `-co NAME=VALUE` creation options
-override the corresponding defaults when another lossless profile is required.
+`BIGTIFF=IF_SAFER`, and `NUM_THREADS=ALL_CPUS`. This also applies when
+flattening the final maximum-of-means/medians source IDs: the input raster's
+`meta` does not include its compression creation options, so these are applied
+again explicitly rather than silently writing a large uncompressed source TIFF.
+Source ID rasters use `uint8` (up to 255 inputs), `uint16` (up to 65,535),
+or `uint32` for larger source counts, with ID 0 reserved for NoData. Reducing
+the integer width and enabling lossless compression changes storage only, not
+source selection, georeferencing, IDs, or legend `cell_count` values.
+Explicit `-co NAME=VALUE` creation options override value-raster defaults
+when another lossless profile is required.
 
 ## NoData policies
 

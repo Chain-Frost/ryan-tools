@@ -12,7 +12,11 @@ import pytest
 import rasterio
 from rasterio.transform import from_origin
 
-from ryan_library.functions.tuflow.asc_to_asc_raster_operations import compute_stat, flatten_nested_source_provenance
+from ryan_library.functions.tuflow.asc_to_asc_raster_operations import (
+    _source_index_dtype,
+    compute_stat,
+    flatten_nested_source_provenance,
+)
 from ryan_library.functions.tuflow.asc_to_asc_runner import RasterOperationJob, run_python_raster_job
 from ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search import (
     ParsedRaster,
@@ -37,6 +41,7 @@ class _RasterWriter(Protocol):
 
 class _RasterReader(Protocol):
     compression: _Compression | None
+    dtypes: tuple[str, ...]
 
     def read(self, indexes: int) -> npt.NDArray[np.float32]: ...
 
@@ -79,6 +84,14 @@ def _compression(path: Path) -> str | None:
     source = cast("_RasterReader", rasterio.open(path))
     try:
         return None if source.compression is None else source.compression.name
+    finally:
+        source.close()
+
+
+def _raster_dtype(path: Path) -> str:
+    source = cast("_RasterReader", rasterio.open(path))
+    try:
+        return source.dtypes[0]
     finally:
         source.close()
 
@@ -355,6 +368,7 @@ def test_native_geotiff_outputs_use_tuflow_compression_by_default(tmp_path: Path
 
     assert _compression(output) == "deflate"
     assert _compression(tmp_path / "maximum_src.tif") == "deflate"
+    assert _raster_dtype(tmp_path / "maximum_src.tif") == "uint8"
 
 
 def test_explicit_creation_options_override_tuflow_compression_defaults(tmp_path: Path) -> None:
@@ -392,6 +406,8 @@ def test_flatten_nested_source_provenance_links_to_original_rasters(tmp_path: Pa
     )
 
     np.testing.assert_array_equal(_read_raster(final_source), np.asarray([[2, 4, 0, 0]], dtype=np.int32))
+    assert _compression(final_source) == "deflate"
+    assert _raster_dtype(final_source) == "uint8"
     with (tmp_path / "maximum_src_legend.csv").open(encoding="utf-8", newline="") as stream:
         rows = list(csv.reader(stream))
     assert rows == [
@@ -401,6 +417,58 @@ def test_flatten_nested_source_provenance_links_to_original_rasters(tmp_path: Pa
             for index, path in enumerate(originals, start=1)
         ],
     ]
+
+
+@pytest.mark.parametrize(
+    ("maximum_source_id", "expected_dtype"),
+    [(1, "uint8"), (255, "uint8"), (256, "uint16"), (65535, "uint16"), (65536, "uint32")],
+)
+def test_source_index_dtype_preserves_all_source_ids(maximum_source_id: int, expected_dtype: str) -> None:
+    assert _source_index_dtype(maximum_source_id) == expected_dtype
+
+
+def test_flattened_source_raster_uses_effective_lossless_compression(tmp_path: Path) -> None:
+    """A large uniform source-ID grid must not be emitted as an uncompressed TIFF."""
+    size = 512
+    source = tmp_path / "max_src.tif"
+    nested = tmp_path / "mean_src.tif"
+    original = tmp_path / "tp01.tif"
+    final_output = tmp_path / "max.tif"
+    data = np.ones((size, size), dtype=np.float32)
+    for path in (source, nested, original):
+        dataset = cast(
+            "_RasterWriter",
+            rasterio.open(
+                path,
+                "w",
+                driver="GTiff",
+                width=size,
+                height=size,
+                count=1,
+                dtype="float32",
+                transform=from_origin(0.0, float(size), 1.0, 1.0),
+                nodata=NODATA,
+            ),
+        )
+        try:
+            dataset.write(data, 1)
+        finally:
+            dataset.close()
+
+    flatten_nested_source_provenance(
+        output_file=str(final_output),
+        nested_source_files=[str(nested)],
+        original_input_groups=[[str(original)]],
+        source_output_file=str(source),
+    )
+
+    assert _compression(source) == "deflate"
+    assert _raster_dtype(source) == "uint8"
+    np.testing.assert_array_equal(_read_raster(source), np.ones((size, size), dtype=np.uint8))
+    assert source.stat().st_size < 50_000
+    with (tmp_path / "max_src_legend.csv").open(encoding="utf-8", newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    assert rows[0]["cell_count"] == str(size * size)
 
 
 def _parsed_raster(*, tmp_path: Path, result_type: str) -> ParsedRaster:
