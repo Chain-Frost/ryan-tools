@@ -521,18 +521,32 @@ def test_interlaunch_spacing_includes_failed_start_attempts(
     monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
     monkeypatch.setattr(runner, "_apply_priority", _no_op)
     attempts: list[float] = []
+    gpu_assignments: list[str] = []
+
+    class HoldFirstProcess(FakeProcess):
+        def poll(self) -> int | None:
+            # Keep GPU0 occupied while the next queued run starts on GPU1.
+            if len(attempts) < 2:
+                return None
+            return super().poll()
 
     def fake_popen(*, args: list[str], **_options: object) -> FakeProcess:
-        assert "-pu0" in args or "-pu1" in args
+        gpu = "-pu0" if "-pu0" in args else "-pu1"
+        assert gpu in args
+        gpu_assignments.append(gpu)
         attempts.append(time.monotonic())
         if failed_first and len(attempts) == 1:
             message = "synthetic missing solver"
             raise FileNotFoundError(message)
+        if not failed_first and len(attempts) == 1:
+            return HoldFirstProcess(801)
         return FakeProcess(len(attempts) + 800)
 
     outcome = runner.launch_plan(plan, config, popen=fake_popen)
     assert len(attempts) == 3
     assert all(second - first >= delay - 0.01 for first, second in pairwise(attempts))
+    if not failed_first:
+        assert gpu_assignments[:2] == ["-pu0", "-pu1"]
     assert outcome.successful == (not failed_first)
     assert sum(item.pid is None for item in outcome.outcomes) == int(failed_first)
 
