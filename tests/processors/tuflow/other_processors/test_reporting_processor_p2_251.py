@@ -15,10 +15,7 @@ def _source(directory: Path, kind: str, *, mode: str = "full") -> Path:
     """Provide two known locations; a short row differs from an explicit blank."""
     if kind in {"RLL_Q", "RLP_H"}:
         measurement = "Q" if kind == "RLL_Q" else "H"
-        header = (
-            f'"{RUN} [model.tcf]","Time (h)",'
-            f'"{measurement} A [{RUN}]","{measurement} B [{RUN}]"'
-        )
+        header = f'"{RUN} [model.tcf]","Time (h)","{measurement} A [{RUN}]","{measurement} B [{RUN}]"'
         rows = [["1", "0", "1", "10"], ["2", "1", "2", "20"]]
         blank_at = -1
     elif kind == "RLR_Volmx":
