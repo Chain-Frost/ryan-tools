@@ -422,7 +422,8 @@ def test_previously_filtered_valid_source_is_not_reported_invalid(
     source.write_text(source_text, encoding="utf-8")
     processor = BaseProcessor.from_file(source)
     processor.process()
-    assert processor.processed and not processor.df.empty
+    assert processor.processed
+    assert not processor.df.empty
     collection = ProcessorCollection()
     collection.add_processor(processor)
     collection.filter_locations(["Wet"])
@@ -439,7 +440,8 @@ def test_previously_filtered_valid_source_is_not_reported_invalid(
     retained = full.processors[0]
     full.filter_locations(["Dry"])
     assert not full.processors
-    assert retained.filtered_empty and retained.input_health != "INVALID"
+    assert retained.filtered_empty
+    assert retained.input_health != "INVALID"
 
     selected = ProcessorCollection.from_parquet(directory, locations=["Wet"])
     assert len(selected.processors) == 1
