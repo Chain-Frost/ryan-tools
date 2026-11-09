@@ -248,6 +248,19 @@ def _process_log_file_dataframe(logfile: Path, *, include_hpc_companion_metrics:
     return pd.DataFrame()
 
 
+def _discover_logs_for_dashboard(*, root_dir: Path, dashboard: LiveWorkflowDashboard) -> list[Path]:
+    """Discover before starting Rich Live, keeping early errors outside its frame."""
+    try:
+        return discover_log_files(root_dir=root_dir)
+    except KeyboardInterrupt:
+        dashboard.finish(outcome="INTERRUPTED", detail="processing was interrupted")
+        raise
+    except Exception:
+        logger.exception("Log summary discovery failed.")
+        dashboard.finish(outcome="FAILED", detail="file discovery failed")
+        raise
+
+
 def main_processing(
     console_log_level: str | None = None,
     *,
@@ -288,16 +301,8 @@ def main_processing(
         # leave a partial dashboard frame in the terminal on early failure.
         logger.info("Starting log file processing...")
         logger.info("Built and tested with modern TUFLOW logs; older completed logs use compatibility parsing.")
-        try:
-            root_dir: Path = Path.cwd()
-            files: list[Path] = discover_log_files(root_dir=root_dir)
-        except KeyboardInterrupt:
-            dashboard.finish(outcome="INTERRUPTED", detail="processing was interrupted")
-            raise
-        except Exception:
-            logger.exception("Log summary discovery failed.")
-            dashboard.finish(outcome="FAILED", detail="file discovery failed")
-            raise
+        root_dir: Path = Path.cwd()
+        files: list[Path] = _discover_logs_for_dashboard(root_dir=root_dir, dashboard=dashboard)
 
         logger.info("Found {} log files.", len(files))
         if not files:
