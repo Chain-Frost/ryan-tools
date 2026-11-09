@@ -214,3 +214,53 @@ def test_successful_dashboard_export_never_emits_failure_diagnostic(tmp_path: Pa
     ):
         assert ls.main_processing(use_live_dashboard=True) is True
         log_error.assert_not_called()
+
+
+def test_discovery_failure_does_not_start_live_dashboard() -> None:
+    with (
+        patch.object(ls, "LiveWorkflowDashboard") as dashboard_type,
+        patch.object(ls, "discover_log_files", side_effect=OSError("unreadable root")),
+    ):
+        with pytest.raises(OSError, match="unreadable root"):
+            ls.main_processing(use_live_dashboard=True)
+    dashboard = dashboard_type.return_value
+    dashboard.__enter__.assert_not_called()
+    dashboard.finish.assert_called_once_with(outcome="FAILED", detail="file discovery failed")
+
+
+def test_log_summary_continues_when_one_child_directory_is_inaccessible(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from collections.abc import Iterator
+
+    from ryan_library.functions import file_utils
+
+    good = tmp_path / "complete.tlf"
+    good.write_text("nonempty", encoding="utf-8")
+    bad = tmp_path / ".ryan-export-inaccessible"
+    bad.mkdir()
+    original_iterdir = Path.iterdir
+
+    def unreadable(path: Path) -> Iterator[Path]:
+        if path == bad:
+            yield from ()
+            raise OSError(59, "synthetic SMB directory error")
+        yield from original_iterdir(path)
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(Path, "iterdir", unreadable)
+    parsed = LogFileProcessingResult(
+        good.absolute(),
+        pd.DataFrame({"StartDate": [1], "Runcode": ["complete"]}),
+        "OK",
+        "1 row",
+    )
+    with (
+        patch.object(file_utils.logger, "error") as log_error,
+        patch.object(ls, "process_log_files", return_value=[parsed]) as process,
+        patch.object(ls, "ExcelExporter") as exporter,
+    ):
+        assert ls.main_processing(use_live_dashboard=False) is True
+    assert process.call_args.kwargs["files"] == [good.absolute()]
+    exporter.return_value.save_to_excel.assert_called_once()
+    assert any("Skipping inaccessible subdirectory" in str(call) for call in log_error.call_args_list)

@@ -28,6 +28,7 @@ def find_files_parallel(
     report_level: int | None = 2,
     print_found_folder: bool = True,
     recursive_search: bool = True,
+    skip_inaccessible_subdirectories: bool = False,
 ) -> list[Path]:
     """Search for files matching specific patterns across multiple directories in parallel.
 
@@ -48,14 +49,17 @@ def find_files_parallel(
             matched files. Defaults to True.
         recursive_search (bool, optional): If True, searches directories recursively.
             Defaults to True.
+        skip_inaccessible_subdirectories (bool, optional): Log and skip unreadable
+            child directories while continuing to scan accessible folders.
+            Root and matched-file failures remain fatal. Defaults to False.
 
     Returns:
         list[Path]: Sorted matched paths, preserving the spelling of the first
             visited physical directory. Distinct file hardlinks are not collapsed.
 
     Raises:
-        OSError: If any root, directory or matched file could not be scanned;
-            a partial match list is never reported as a successful scan.
+        OSError: If a required root or matched file cannot be scanned, or any
+            directory cannot be scanned in the default strict mode.
     """
 
     def _normalize_globs(globs: str | list[str] | None) -> list[str]:
@@ -108,10 +112,26 @@ def find_files_parallel(
     discovery_errors_lock = threading.Lock()
     discovery_errors: list[str] = []
 
-    def record_error(reason: str, path: Path, exc: Exception | None = None) -> None:
+    def record_error(reason: str, path: Path, exc: Exception | None = None, *, skippable: bool = False) -> None:
         detail = f"{reason}: {path}" if exc is None else f"{reason}: {path}: {exc}"
+        if skippable and skip_inaccessible_subdirectories:
+            logger.error("Skipping inaccessible subdirectory: {}", detail)
+            return
         with discovery_errors_lock:
             discovery_errors.append(detail)
+
+    def directory_entries(path: Path, root_dir: Path) -> Generator[Path]:
+        """Catch errors raised during iteration (Path.iterdir is lazy)."""
+        try:
+            yield from path.iterdir()
+        except PermissionError as exc:
+            logger.error("Permission denied accessing directory: {}", path)
+            record_error("Permission denied accessing directory", path, exc, skippable=path != root_dir)
+        except OSError as exc:
+            record_error("Error accessing directory", path, exc, skippable=path != root_dir)
+        except Exception as exc:
+            logger.error("Unexpected error accessing directory {}: {}", path, exc)
+            record_error("Error accessing directory", path, exc)
 
     # Queue for directories to process; the stop event lets workers exit once traversal finishes.
     dir_queue: Queue[tuple[Path, Path]] = Queue()
@@ -153,19 +173,17 @@ def find_files_parallel(
                 local_matched: list[Path] = []
                 local_folders_with_matches: set[Path] = set()
 
-                try:
-                    iterator: Generator[Path] = current_path.iterdir()
-                except PermissionError as exc:
-                    logger.error("Permission denied accessing directory: {}", current_path)
-                    record_error("Permission denied accessing directory", current_path, exc)
-                    continue
-                except Exception as exc:
-                    logger.error("Error accessing directory {}: {}", current_path, exc)
-                    record_error("Error accessing directory", current_path, exc)
-                    continue
+                for subpath in directory_entries(current_path, root_dir):
+                    try:
+                        is_directory = subpath.is_dir()
+                    except OSError as exc:
+                        matches_input = _matches_any(subpath.name, compiled_includes) and not _matches_any(
+                            subpath.name, compiled_excludes
+                        )
+                        record_error("Error inspecting directory entry", subpath, exc, skippable=not matches_input)
+                        continue
 
-                for subpath in iterator:
-                    if subpath.is_dir():
+                    if is_directory:
                         if recursive_search and report_level:
                             try:
                                 relative_path = subpath.relative_to(root_dir)
@@ -187,16 +205,19 @@ def find_files_parallel(
                                     logger.warning(
                                         "Subdirectory does not exist (might be a broken symlink): {}", subpath
                                     )
-                                    record_error("Subdirectory disappeared during discovery", subpath)
+                                    record_error("Subdirectory disappeared during discovery", subpath, skippable=True)
                                     continue
                                 directory_key = _physical_directory_identity(resolved_subpath)
                             except PermissionError as exc:
                                 logger.error("Permission denied accessing subdirectory: {}", subpath)
-                                record_error("Permission denied accessing subdirectory", subpath, exc)
+                                record_error("Permission denied accessing subdirectory", subpath, exc, skippable=True)
+                                continue
+                            except OSError as exc:
+                                record_error("Error resolving subdirectory", subpath, exc, skippable=True)
                                 continue
                             except Exception as exc:
-                                logger.error("Error resolving subdirectory {}: {}", subpath, exc)
-                                record_error("Error resolving subdirectory", subpath, exc)
+                                logger.error("Unexpected error resolving subdirectory {}: {}", subpath, exc)
+                                record_error("Unexpected error resolving subdirectory", subpath, exc)
                                 continue
 
                             # Stat follows links to prevent re-entering an ancestor through a

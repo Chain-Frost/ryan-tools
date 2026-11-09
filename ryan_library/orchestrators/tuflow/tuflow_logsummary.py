@@ -248,6 +248,19 @@ def _process_log_file_dataframe(logfile: Path, *, include_hpc_companion_metrics:
     return pd.DataFrame()
 
 
+def _discover_logs_for_dashboard(*, root_dir: Path, dashboard: LiveWorkflowDashboard) -> list[Path]:
+    """Discover before starting Rich Live, keeping early errors outside its frame."""
+    try:
+        return discover_log_files(root_dir=root_dir, skip_inaccessible_subdirectories=True)
+    except KeyboardInterrupt:
+        dashboard.finish(outcome="INTERRUPTED", detail="processing was interrupted")
+        raise
+    except Exception:
+        logger.exception("Log summary discovery failed.")
+        dashboard.finish(outcome="FAILED", detail="file discovery failed")
+        raise
+
+
 def main_processing(
     console_log_level: str | None = None,
     *,
@@ -284,20 +297,26 @@ def main_processing(
         log_file=log_file,
         file_log_level=file_log_level,
     ) as log_queue:
-        with dashboard:
-            dashboard.set_phase("Discovering")
-            logger.info("Starting log file processing...")
-            logger.info("Built and tested with modern TUFLOW logs; older completed logs use compatibility parsing.")
-            try:
-                root_dir: Path = Path.cwd()
-                files: list[Path] = discover_log_files(root_dir=root_dir)
-                logger.info("Found {} log files.", len(files))
+        # Discover before starting Rich Live: an unreadable folder must not
+        # leave a partial dashboard frame in the terminal on early failure.
+        logger.info("Starting log file processing...")
+        logger.info("Built and tested with modern TUFLOW logs; older completed logs use compatibility parsing.")
+        root_dir: Path = Path.cwd()
+        files: list[Path] = _discover_logs_for_dashboard(root_dir=root_dir, dashboard=dashboard)
 
+        logger.info("Found {} log files.", len(files))
+        if not files:
+            logger.warning("No log files found to process.")
+            dashboard.finish(outcome="SKIPPED", detail="0 completed run(s)")
+            return True
+
+        dashboard.set_phase("Processing")
+        with dashboard:
+            try:
                 processing_results: list[LogFileProcessingResult] = []
                 if not files:
                     logger.warning("No log files found to process.")
                 else:
-                    dashboard.set_phase("Processing")
                     processing_results = process_log_files(
                         files=files,
                         root_dir=root_dir,
@@ -355,11 +374,12 @@ def main_processing(
                 raise
 
 
-def discover_log_files(*, root_dir: Path) -> list[Path]:
+def discover_log_files(*, root_dir: Path, skip_inaccessible_subdirectories: bool = False) -> list[Path]:
     files = find_files_parallel(
         root_dirs=[root_dir],
         patterns="*.tlf",
         excludes=["*.hpc.tlf", "*.gpu.tlf"],
+        skip_inaccessible_subdirectories=skip_inaccessible_subdirectories,
     )
     # A zero-byte file matches the requested input format but cannot be parsed.
     for logfile in files:
