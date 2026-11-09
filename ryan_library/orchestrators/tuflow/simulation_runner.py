@@ -1533,6 +1533,7 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                     break
                 if poll_children() and gpu_status is not None:
                     next_gpu_check = 0.0
+                paused_for_launch_cooldown = False
                 while queue and len(active) < capacity and not stop.is_set():
                     # Poll during the cooldown: a child can exit between two
                     # starts, extending the deadline from its observed finish.
@@ -1544,6 +1545,7 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                             # Small interruptible slices keep the dashboard,
                             # input checks and other child completions responsive.
                             stop.wait(min(launch_wait, 0.1))
+                            paused_for_launch_cooldown = True
                             break
                     if (
                         gpu_status is not None
@@ -1659,8 +1661,11 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                         next_gpu_check = 0.0
                 if active:
                     time.sleep(0.1)
-                elif queue and gpu_status is not None:
-                    # No owned children: wait interruptibly without rescanning or waking at child-poll frequency.
+                elif queue and gpu_status is not None and not paused_for_launch_cooldown:
+                    # No owned children and no pending launch cooldown: wait for
+                    # another GPU scan. After a cooldown slice, return to the
+                    # outer loop instead; the GPU may already be available.
+                    # Avoid accidentally waiting until the next GPU poll.
                     remaining = max(0.0, next_gpu_check - time.monotonic())
                     dashboard_interval = 1.0 / settings.live_refresh_per_second if dashboard is not None else remaining
                     stop.wait(min(dashboard_interval, remaining))
