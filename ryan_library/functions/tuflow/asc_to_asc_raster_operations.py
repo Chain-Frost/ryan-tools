@@ -503,9 +503,7 @@ def compute_stat(
             profile, output_nodata = _output_profile(datasets[0], extra_args)
             destination = stack.enter_context(closing(_open_raster(temporary_path, "w", profile)))
             source_destination: _RasterDataset | None = None
-            source_counts: npt.NDArray[np.int64] | None = (
-                np.zeros(len(datasets) + 1, dtype=np.int64) if write_source else None
-            )
+            source_counts: npt.NDArray[np.int64] = np.zeros(len(datasets) + 1, dtype=np.int64)
             if write_source:
                 source_profile = profile.copy()
                 source_profile["dtype"] = "int32"
@@ -576,11 +574,9 @@ def compute_stat(
                 if source_destination is not None:
                     source_ids = np.asarray(np.where(output_valid, source_indexes + 1, 0), dtype=np.int32)
                     source_destination.write(source_ids, 1, window=window)
-                    assert source_counts is not None
                     source_counts += np.bincount(source_ids.ravel(), minlength=source_counts.size)
         _replace_output(temporary_path, output_path)
         if write_source:
-            assert source_counts is not None
             _replace_output(temporary_source_path, source_path)
             _write_source_legend(legend_path, input_paths, source_counts)
     finally:
