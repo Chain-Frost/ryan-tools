@@ -131,9 +131,7 @@ def test_compute_stat_excludes_nodata_and_preserves_all_nodata(
 
 
 @pytest.mark.parametrize("stat_type", ["max", "min"])
-def test_zero_policy_extrema_prefer_valid_source_over_substituted_zero_tie(
-    tmp_path: Path, stat_type: str
-) -> None:
+def test_zero_policy_extrema_prefer_valid_source_over_substituted_zero_tie(tmp_path: Path, stat_type: str) -> None:
     invalid = tmp_path / "invalid_duration.tif"
     valid = tmp_path / "valid_duration.tif"
     output = tmp_path / "extremum.tif"
@@ -167,7 +165,9 @@ def test_zero_policy_maximum_keeps_original_tp_provenance_when_invalid_duration_
     _write_raster(original_dry, [NODATA])
     _write_raster(original_wet, [0.0])
 
-    compute_stat("max", [str(first_duration), str(second_duration)], str(output), nodata_policy="zero", write_source=True)
+    compute_stat(
+        "max", [str(first_duration), str(second_duration)], str(output), nodata_policy="zero", write_source=True
+    )
     np.testing.assert_array_equal(_read_raster(tmp_path / "maximum_src.tif"), [[2]])
 
     flatten_nested_source_provenance(
