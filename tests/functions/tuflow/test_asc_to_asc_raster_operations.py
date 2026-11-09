@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+from collections.abc import Callable
 from pathlib import Path
 from typing import Protocol, cast
 
@@ -12,11 +13,8 @@ import pytest
 import rasterio
 from rasterio.transform import from_origin
 
-from ryan_library.functions.tuflow.asc_to_asc_raster_operations import (
-    _source_index_dtype,
-    compute_stat,
-    flatten_nested_source_provenance,
-)
+from ryan_library.functions.tuflow import asc_to_asc_raster_operations as raster_operations
+from ryan_library.functions.tuflow.asc_to_asc_raster_operations import compute_stat, flatten_nested_source_provenance
 from ryan_library.functions.tuflow.asc_to_asc_runner import RasterOperationJob, run_python_raster_job
 from ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search import (
     ParsedRaster,
@@ -424,7 +422,9 @@ def test_flatten_nested_source_provenance_links_to_original_rasters(tmp_path: Pa
     [(1, "uint8"), (255, "uint8"), (256, "uint16"), (65535, "uint16"), (65536, "uint32")],
 )
 def test_source_index_dtype_preserves_all_source_ids(maximum_source_id: int, expected_dtype: str) -> None:
-    assert _source_index_dtype(maximum_source_id) == expected_dtype
+    # Keep the adaptive encoding helper private to the library module.
+    select_dtype = cast("Callable[[int], str]", getattr(raster_operations, "_source_index_dtype"))  # noqa: B009
+    assert select_dtype(maximum_source_id) == expected_dtype
 
 
 def test_flattened_source_raster_uses_effective_lossless_compression(tmp_path: Path) -> None:
