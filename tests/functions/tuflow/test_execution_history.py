@@ -131,7 +131,7 @@ def test_existing_operator_column_order_is_still_appendable_without_rewriting_hi
     with path.open(encoding="utf-8", newline="") as stream:
         rows = list(csv.DictReader(stream))
     with path.open("w", encoding="utf-8", newline="") as stream:
-        writer: csv.DictWriter[str] = csv.DictWriter(stream, fieldnames=previous_columns, lineterminator="\\n")
+        writer: csv.DictWriter[str] = csv.DictWriter(stream, fieldnames=previous_columns, lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
     original = path.read_bytes()
@@ -144,7 +144,7 @@ def test_existing_operator_column_order_is_still_appendable_without_rewriting_hi
 
 
 def test_history_uses_relative_windows_tcf_and_command_without_changing_execution_plan(tmp_path: Path) -> None:
-    base = PureWindowsPath(r"Q:\\26\\RP26188 HD4 TO HD1 PIPELINE - UON\\TUFLOW_HD14Pipeline")
+    base = PureWindowsPath(r"Q:\26\RP26188 HD4 TO HD1 PIPELINE - UON\TUFLOW_HD14Pipeline")
     tcf = base / "runs" / "UON_04" / "_~s2~_~s1~_~e1~_~e2~_~e4~_~e3~_~e5~_~s4~.tcf"
     flags = (
         ("e3", "TP02"),
@@ -167,11 +167,11 @@ def test_history_uses_relative_windows_tcf_and_command_without_changing_executio
         working_directory=base,
         flag_pairs=flags,
         arguments=original_args,
-        executable=r"C:\\TUFLOW\\tuflow-2026.3\\TUFLOW_iSP_w64.exe",
+        executable=r"C:\TUFLOW\tuflow-2026.3\TUFLOW_iSP_w64.exe",
     )
     plan = CommandPlan(base / "run_tuflow.py", (run,), (), 0, "commands")
     identity = identify_runs(plan, fallback_executable=Path("unused.exe"), base_directory=tmp_path)[1]
-    expected_tcf = r"runs\\UON_04\\_~s2~_~s1~_~e1~_~e2~_~e4~_~e3~_~e5~_~s4~.tcf"
+    expected_tcf = r"runs\UON_04\_~s2~_~s1~_~e1~_~e2~_~e4~_~e3~_~e5~_~s4~.tcf"
     assert identity.tcf == expected_tcf
     assert identity.arguments == subprocess.list2cmdline(["-b", *model_args, expected_tcf])
     assert str(tcf) not in identity.arguments
@@ -199,7 +199,7 @@ def test_history_uses_relative_windows_tcf_and_command_without_changing_executio
 
 
 def test_relative_command_only_rewrites_the_explicit_tcf_token(tmp_path: Path) -> None:
-    base = PureWindowsPath(r"Q:\\model")
+    base = PureWindowsPath(r"Q:\model")
     tcf = base / "runs" / "model.tcf"
     flag_value = str(tcf)
     run = PlannedRun(
@@ -211,12 +211,12 @@ def test_relative_command_only_rewrites_the_explicit_tcf_token(tmp_path: Path) -
         working_directory=base,
         flag_pairs=(("e1", flag_value),),
         arguments=(str(tcf), "-e1", flag_value, "-b"),
-        executable=r"C:\\TUFLOW\\solver.exe",
+        executable=r"C:\TUFLOW\solver.exe",
     )
     plan = CommandPlan(base / "runs.txt", (run,), (), 0, "commands")
     identity = identify_runs(plan, fallback_executable=Path("unused.exe"), base_directory=tmp_path)[1]
-    assert identity.tcf == r"runs\\model.tcf"
-    assert identity.arguments == subprocess.list2cmdline([r"runs\\model.tcf", "-e1", flag_value, "-b"])
+    assert identity.tcf == r"runs\model.tcf"
+    assert identity.arguments == subprocess.list2cmdline([r"runs\model.tcf", "-e1", flag_value, "-b"])
 
     no_explicit = replace(run, arguments=("-e1", flag_value, "-b"))
     plan_without = replace(plan, runs=(no_explicit,))
@@ -229,29 +229,29 @@ def test_relative_command_only_rewrites_the_explicit_tcf_token(tmp_path: Path) -
     ("working_directory", "tcf", "expected"),
     [
         (
-            PureWindowsPath(r"Q:\\Project"),
-            PureWindowsPath(r"Q:\\Project\\runs\\model.tcf"),
-            r"runs\\model.tcf",
+            PureWindowsPath(r"Q:\Project"),
+            PureWindowsPath(r"Q:\Project\runs\model.tcf"),
+            r"runs\model.tcf",
         ),
         (
-            PureWindowsPath(r"q:\\project"),
-            PureWindowsPath(r"Q:\\PROJECT\\runs\\model.tcf"),
-            r"runs\\model.tcf",
+            PureWindowsPath(r"q:\project"),
+            PureWindowsPath(r"Q:\PROJECT\runs\model.tcf"),
+            r"runs\model.tcf",
         ),
         (
-            PureWindowsPath(r"\\\\server\\share\\model"),
-            PureWindowsPath(r"\\\\server\\share\\model\\runs\\case.tcf"),
-            r"runs\\case.tcf",
+            PureWindowsPath(r"\\server\share\model"),
+            PureWindowsPath(r"\\server\share\model\runs\case.tcf"),
+            r"runs\case.tcf",
         ),
         (
-            PureWindowsPath(r"Q:\\Project"),
-            PureWindowsPath(r"R:\\Project\\runs\\model.tcf"),
-            r"R:\\Project\\runs\\model.tcf",
+            PureWindowsPath(r"Q:\Project"),
+            PureWindowsPath(r"R:\Project\runs\model.tcf"),
+            r"R:\Project\runs\model.tcf",
         ),
         (
-            PureWindowsPath(r"Q:\\Project"),
-            PureWindowsPath(r"Q:\\AnotherProject\\runs\\model.tcf"),
-            r"Q:\\AnotherProject\\runs\\model.tcf",
+            PureWindowsPath(r"Q:\Project"),
+            PureWindowsPath(r"Q:\AnotherProject\runs\model.tcf"),
+            r"Q:\AnotherProject\runs\model.tcf",
         ),
     ],
 )
@@ -267,7 +267,7 @@ def test_windows_tcf_display_respects_model_containment(
         working_directory=working_directory,
         flag_pairs=(),
         arguments=("-b", str(tcf)),
-        executable=r"C:\\TUFLOW\\solver.exe",
+        executable=r"C:\TUFLOW\solver.exe",
     )
     plan = CommandPlan(working_directory / "run.bat", (run,), (), 0, "commands")
     identity = identify_runs(plan, fallback_executable=Path("unused.exe"), base_directory=tmp_path)[1]
