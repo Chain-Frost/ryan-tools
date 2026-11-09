@@ -112,9 +112,7 @@ def find_files_parallel(
     discovery_errors_lock = threading.Lock()
     discovery_errors: list[str] = []
 
-    def record_error(
-        reason: str, path: Path, exc: Exception | None = None, *, skippable: bool = False
-    ) -> None:
+    def record_error(reason: str, path: Path, exc: Exception | None = None, *, skippable: bool = False) -> None:
         detail = f"{reason}: {path}" if exc is None else f"{reason}: {path}: {exc}"
         if skippable and skip_inaccessible_subdirectories:
             logger.error("Skipping inaccessible subdirectory: {}", detail)
@@ -181,7 +179,10 @@ def find_files_parallel(
                     try:
                         is_directory = subpath.is_dir()
                     except OSError as exc:
-                        record_error("Error inspecting directory entry", subpath, exc, skippable=True)
+                        matches_input = _matches_any(subpath.name, compiled_includes) and not _matches_any(
+                            subpath.name, compiled_excludes
+                        )
+                        record_error("Error inspecting directory entry", subpath, exc, skippable=not matches_input)
                         continue
 
                     if is_directory:
@@ -206,16 +207,12 @@ def find_files_parallel(
                                     logger.warning(
                                         "Subdirectory does not exist (might be a broken symlink): {}", subpath
                                     )
-                                    record_error(
-                                        "Subdirectory disappeared during discovery", subpath, skippable=True
-                                    )
+                                    record_error("Subdirectory disappeared during discovery", subpath, skippable=True)
                                     continue
                                 directory_key = _physical_directory_identity(resolved_subpath)
                             except PermissionError as exc:
                                 logger.error("Permission denied accessing subdirectory: {}", subpath)
-                                record_error(
-                                    "Permission denied accessing subdirectory", subpath, exc, skippable=True
-                                )
+                                record_error("Permission denied accessing subdirectory", subpath, exc, skippable=True)
                                 continue
                             except OSError as exc:
                                 record_error("Error resolving subdirectory", subpath, exc, skippable=True)
