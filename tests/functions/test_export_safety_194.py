@@ -4,7 +4,7 @@ import os
 import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import BinaryIO, Literal, TextIO
+from typing import Literal
 from unittest.mock import patch
 
 import pandas as pd
@@ -59,15 +59,10 @@ def test_parquet_failure_leaves_no_reports(
             output_directory=tmp_path,
             export_mode="parquet" if mode == "parquet" else "excel" if mode == "fallback" else "both",
         )
-    outputs = list(tmp_path.iterdir())
-    if mode == "both":
-        assert len(outputs) == 1
-        assert outputs[0].name == "report.xlsx"
-    else:
-        assert outputs == []
+    assert list(tmp_path.iterdir()) == []
 
 
-def test_excel_writer_failure_removes_partial_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_excel_writer_failure_removes_partial_stage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     def fail(*_args: object, **_kwargs: object) -> None:
         msg = "synthetic Excel failure"
         raise OSError(msg)
@@ -79,28 +74,20 @@ def test_excel_writer_failure_removes_partial_output(tmp_path: Path, monkeypatch
 
 
 @pytest.mark.parametrize("failed_link", [1, 2])
-def test_concurrent_destination_is_retained_and_completed_reports_identified(
+def test_concurrent_destination_is_retained_and_partial_publication_identified(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failed_link: int
 ) -> None:
-    original_open = Path.open
+    original = exports.os.link
     count = 0
 
-    def race(
-        path: Path,
-        mode: str = "r",
-        buffering: int = -1,
-        encoding: str | None = None,
-        errors: str | None = None,
-        newline: str | None = None,
-    ) -> TextIO | BinaryIO:
+    def race(source: Path, destination: Path) -> None:
         nonlocal count
-        if mode == "xb" and path.parent == tmp_path:
-            count += 1
-            if count == failed_link:
-                path.write_bytes(b"concurrent owner")
-        return original_open(path, mode, buffering, encoding, errors, newline)
+        count += 1
+        if count == failed_link:
+            destination.write_bytes(b"concurrent owner")
+        original(source, destination)
 
-    monkeypatch.setattr(Path, "open", race)
+    monkeypatch.setattr(exports.os, "link", race)
     with pytest.raises(FileExistsError) as caught:
         exports.ExcelExporter().save_to_excel(
             pd.DataFrame({"value": [1]}),
@@ -163,7 +150,7 @@ def test_generated_names_refuse_same_minute_collision(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("interrupted", [False, True])
-def test_csv_failure_retains_completed_parquet(
+def test_csv_failure_discards_staged_parquet(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, interrupted: bool
 ) -> None:
     def fail(*_args: object, **_kwargs: object) -> None:
@@ -176,12 +163,27 @@ def test_csv_failure_retains_completed_parquet(
     monkeypatch.setattr(pd.DataFrame, "to_csv", fail)
     with pytest.raises(KeyboardInterrupt if interrupted else PermissionError):
         exports.ExcelExporter().save_to_excel(pd.DataFrame({"v": [1]}), output_directory=tmp_path)
-    outputs = list(tmp_path.iterdir())
-    assert len(outputs) == 1
-    assert outputs[0].suffix == ".gzip"
+    assert list(tmp_path.iterdir()) == []
 
 
-def test_direct_export_does_not_require_hard_links(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_unsupported_batch_publication_fails_without_reports(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def fail(*_args: object, **_kwargs: object) -> None:
+        message = "hard links unsupported"
+        raise OSError(message)
+
+    monkeypatch.setattr(exports.os, "link", fail)
+    with pytest.raises(OSError, match="hard links unsupported"):
+        exports.ExcelExporter().save_to_excel(
+            pd.DataFrame({"v": [1]}), output_directory=tmp_path, export_mode="both"
+        )
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_single_excel_export_does_not_create_subdirectory_or_use_hardlinks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from zipfile import is_zipfile
+
     def fail(*_args: object, **_kwargs: object) -> None:
         message = "hard links unsupported"
         raise OSError(message)
@@ -189,7 +191,7 @@ def test_direct_export_does_not_require_hard_links(tmp_path: Path, monkeypatch: 
     monkeypatch.setattr(exports.os, "link", fail)
     exports.ExcelExporter().save_to_excel(pd.DataFrame({"v": [1]}), file_name="report", output_directory=tmp_path)
     assert [path.name for path in tmp_path.iterdir()] == ["report.xlsx"]
-    assert pd.read_excel(tmp_path / "report.xlsx")["v"].tolist() == [1]
+    assert is_zipfile(tmp_path / "report.xlsx")
 
 
 def test_explicit_extension_spelling_preserved(tmp_path: Path) -> None:
