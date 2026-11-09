@@ -9,6 +9,7 @@ import csv
 from dataclasses import dataclass, replace
 from datetime import datetime, tzinfo
 from pathlib import Path, PureWindowsPath
+import subprocess
 
 import pytest
 
@@ -94,6 +95,24 @@ def test_new_csv_prioritizes_operator_facing_columns(tmp_path: Path) -> None:
         "event",
         "outcome",
         "return_code",
+        "pid",
+        "error",
+        "arguments",
+        "tcf",
+        "working_directory",
+        "executable",
+        "run_key",
+        "attempt_id",
+        "schema_version",
+    ]
+
+
+def test_existing_operator_column_order_is_still_appendable_without_rewriting_history(tmp_path: Path) -> None:
+    previous_columns = (
+        "recorded_at",
+        "event",
+        "outcome",
+        "return_code",
         "tcf",
         "pid",
         "error",
@@ -103,7 +122,172 @@ def test_new_csv_prioritizes_operator_facing_columns(tmp_path: Path) -> None:
         "run_key",
         "attempt_id",
         "schema_version",
-    ]
+    )
+    plan = _plan(tmp_path, 1)
+    identity = identify_runs(plan, fallback_executable=Path("unused.exe"), base_directory=tmp_path)[1]
+    path = tmp_path / "batch_runs.csv"
+    with CsvExecutionLog(path) as log:
+        log.finish(identity, log.start(identity), Observed(plan.runs[0], 0))
+    with path.open(encoding="utf-8", newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    with path.open("w", encoding="utf-8", newline="") as stream:
+        writer: csv.DictWriter[str] = csv.DictWriter(stream, fieldnames=previous_columns, lineterminator="\\n")
+        writer.writeheader()
+        writer.writerows(rows)
+    original = path.read_bytes()
+    with CsvExecutionLog(path) as log:
+        assert log.successful_keys() == {identity.key}
+        log.start(identity)
+    assert path.read_bytes().startswith(original)
+    with path.open(encoding="utf-8", newline="") as stream:
+        assert tuple(next(csv.reader(stream))) == previous_columns
+
+
+def test_history_uses_relative_windows_tcf_and_command_without_changing_execution_plan(tmp_path: Path) -> None:
+    base = PureWindowsPath(r"Q:\\26\\RP26188 HD4 TO HD1 PIPELINE - UON\\TUFLOW_HD14Pipeline")
+    tcf = base / "runs" / "UON_04" / "_~s2~_~s1~_~e1~_~e2~_~e4~_~e3~_~e5~_~s4~.tcf"
+    flags = (
+        ("e3", "TP02"),
+        ("e2", "00540m"),
+        ("e1", "00.5p"),
+        ("e4", "EnsembleILCL"),
+        ("e5", "CCNear"),
+        ("s1", "EXG"),
+        ("s2", "M3W"),
+        ("s4", "16M"),
+    )
+    model_args = tuple(arg for key, value in flags for arg in (f"-{key}", value))
+    original_args = ("-b", *model_args, str(tcf))
+    run = PlannedRun(
+        index=1,
+        source=base / "run_tuflow.py",
+        line_start=1,
+        line_end=1,
+        tcf=tcf,
+        working_directory=base,
+        flag_pairs=flags,
+        arguments=original_args,
+        executable=r"C:\\TUFLOW\\tuflow-2026.3\\TUFLOW_iSP_w64.exe",
+    )
+    plan = CommandPlan(base / "run_tuflow.py", (run,), (), 0, "commands")
+    identity = identify_runs(plan, fallback_executable=Path("unused.exe"), base_directory=tmp_path)[1]
+    expected_tcf = r"runs\\UON_04\\_~s2~_~s1~_~e1~_~e2~_~e4~_~e3~_~e5~_~s4~.tcf"
+    assert identity.tcf == expected_tcf
+    assert identity.arguments == subprocess.list2cmdline(["-b", *model_args, expected_tcf])
+    assert str(tcf) not in identity.arguments
+    assert identity.working_directory == str(base)
+    assert run.arguments == original_args  # The actual subprocess command stays absolute.
+    key = identity.key
+
+    path = tmp_path / "run_tuflow_runs.csv"
+    with CsvExecutionLog(path) as log:
+        log.finish(identity, log.start(identity), Observed(run, 1, pid=2340))
+    with path.open(encoding="utf-8", newline="") as stream:
+        reader = csv.DictReader(stream)
+        assert reader.fieldnames == list(COLUMNS)
+        assert reader.fieldnames.index("arguments") < reader.fieldnames.index("tcf")
+        rows = list(reader)
+    assert [row["event"] for row in rows] == ["START", "FINISH"]
+    assert rows[-1]["outcome"] == "FAILED"
+    assert rows[-1]["return_code"] == "1"
+    assert rows[-1]["pid"] == "2340"
+    assert rows[-1]["arguments"] == identity.arguments
+    assert rows[-1]["tcf"] == expected_tcf
+    assert rows[-1]["run_key"] == key
+    with CsvExecutionLog(path) as log:
+        assert key not in log.successful_keys()
+
+
+def test_relative_command_only_rewrites_the_explicit_tcf_token(tmp_path: Path) -> None:
+    base = PureWindowsPath(r"Q:\\model")
+    tcf = base / "runs" / "model.tcf"
+    flag_value = str(tcf)
+    run = PlannedRun(
+        index=1,
+        source=base / "runs.txt",
+        line_start=1,
+        line_end=1,
+        tcf=tcf,
+        working_directory=base,
+        flag_pairs=(("e1", flag_value),),
+        arguments=(str(tcf), "-e1", flag_value, "-b"),
+        executable=r"C:\\TUFLOW\\solver.exe",
+    )
+    plan = CommandPlan(base / "runs.txt", (run,), (), 0, "commands")
+    identity = identify_runs(plan, fallback_executable=Path("unused.exe"), base_directory=tmp_path)[1]
+    assert identity.tcf == r"runs\\model.tcf"
+    assert identity.arguments == subprocess.list2cmdline([r"runs\\model.tcf", "-e1", flag_value, "-b"])
+
+    no_explicit = replace(run, arguments=("-e1", flag_value, "-b"))
+    plan_without = replace(plan, runs=(no_explicit,))
+    bare = identify_runs(plan_without, fallback_executable=Path("unused.exe"), base_directory=tmp_path)[1]
+    assert bare.tcf == identity.tcf
+    assert bare.arguments == subprocess.list2cmdline(list(no_explicit.arguments))
+
+
+@pytest.mark.parametrize(
+    ("working_directory", "tcf", "expected"),
+    [
+        (
+            PureWindowsPath(r"Q:\\Project"),
+            PureWindowsPath(r"Q:\\Project\\runs\\model.tcf"),
+            r"runs\\model.tcf",
+        ),
+        (
+            PureWindowsPath(r"q:\\project"),
+            PureWindowsPath(r"Q:\\PROJECT\\runs\\model.tcf"),
+            r"runs\\model.tcf",
+        ),
+        (
+            PureWindowsPath(r"\\\\server\\share\\model"),
+            PureWindowsPath(r"\\\\server\\share\\model\\runs\\case.tcf"),
+            r"runs\\case.tcf",
+        ),
+        (
+            PureWindowsPath(r"Q:\\Project"),
+            PureWindowsPath(r"R:\\Project\\runs\\model.tcf"),
+            r"R:\\Project\\runs\\model.tcf",
+        ),
+        (
+            PureWindowsPath(r"Q:\\Project"),
+            PureWindowsPath(r"Q:\\AnotherProject\\runs\\model.tcf"),
+            r"Q:\\AnotherProject\\runs\\model.tcf",
+        ),
+    ],
+)
+def test_windows_tcf_display_respects_model_containment(
+    tmp_path: Path, working_directory: PureWindowsPath, tcf: PureWindowsPath, expected: str
+) -> None:
+    run = PlannedRun(
+        index=1,
+        source=working_directory / "run.bat",
+        line_start=1,
+        line_end=1,
+        tcf=tcf,
+        working_directory=working_directory,
+        flag_pairs=(),
+        arguments=("-b", str(tcf)),
+        executable=r"C:\\TUFLOW\\solver.exe",
+    )
+    plan = CommandPlan(working_directory / "run.bat", (run,), (), 0, "commands")
+    identity = identify_runs(plan, fallback_executable=Path("unused.exe"), base_directory=tmp_path)[1]
+    assert identity.tcf == expected
+    assert identity.arguments == subprocess.list2cmdline(["-b", expected])
+    assert str(tcf) == run.arguments[-1]
+
+
+def test_posix_tcf_display_is_relative_when_inside_working_directory(tmp_path: Path) -> None:
+    plan = _plan(tmp_path, 1)
+    identity = identify_runs(plan, fallback_executable=Path("unused.exe"), base_directory=tmp_path)[1]
+    assert identity.tcf == str(plan.runs[0].tcf)
+    inside = replace(plan.runs[0], working_directory=tmp_path)
+    identity_inside = identify_runs(
+        replace(plan, runs=(inside,)), fallback_executable=Path("unused.exe"), base_directory=tmp_path
+    )[1]
+    assert identity_inside.tcf == str(Path("models") / "effective.tcf")
+    assert identity_inside.arguments == subprocess.list2cmdline(
+        ["-b", "-e1", "event1", str(Path("models") / "effective.tcf")]
+    )
 
 
 def test_existing_internal_first_column_order_remains_appendable(tmp_path: Path) -> None:
