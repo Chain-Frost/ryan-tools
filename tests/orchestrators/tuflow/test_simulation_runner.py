@@ -6,6 +6,7 @@ import logging
 import os
 import subprocess
 import sys
+import time
 from collections.abc import Callable, Collection, Generator
 from dataclasses import replace
 from datetime import datetime, timedelta
@@ -500,6 +501,62 @@ def test_import_and_generated_use_one_ordered_plan(tmp_path: Path) -> None:
     config = settings(tmp_path, mode="both", tcf=tmp_path / "Model A" / "one.tcf", input_files=(bat,))
     with pytest.raises(CommandPlanError, match="Python TCF"):
         runner.prepare_plan(config)
+
+
+@pytest.mark.parametrize("failed_first", [False, True])
+def test_interlaunch_spacing_includes_failed_start_attempts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failed_first: bool
+) -> None:
+    """Popen attempts are at least the requested interval apart across GPU slots."""
+    delay = 0.06
+    config = settings(
+        tmp_path,
+        run_variables={"e1": ["A", "B", "C"]},
+        gpu_devices=(("-pu0",), ("-pu1",)),
+        wait_time_after_run=delay,
+    )
+    plan = runner.prepare_plan(config)
+    monkeypatch.setattr(runner, "local_cuda_device_names", dict[int, str])
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    attempts: list[float] = []
+
+    def fake_popen(*, args: list[str], **_options: object) -> FakeProcess:
+        assert "-pu0" in args or "-pu1" in args
+        attempts.append(time.monotonic())
+        if failed_first and len(attempts) == 1:
+            raise FileNotFoundError("synthetic missing solver")
+        return FakeProcess(len(attempts) + 800)
+
+    outcome = runner.launch_plan(plan, config, popen=fake_popen)
+    assert len(attempts) == 3
+    assert all(second - first >= delay - 0.01 for first, second in zip(attempts, attempts[1:]))
+    assert outcome.successful is not failed_first
+    assert sum(item.pid is None for item in outcome.outcomes) == int(failed_first)
+
+
+def test_interlaunch_wait_is_interruptible_without_starting_another_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An interrupt during a launch interval must not start the queued child."""
+    config = settings(tmp_path, wait_time_after_run=2.0)
+    plan = runner.prepare_plan(config)
+    monkeypatch.setattr(runner, "local_cuda_device_names", dict[int, str])
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    stop = Event()
+    launched: list[int] = []
+
+    def fake_popen(**_options: object) -> FakeProcess:
+        launched.append(1)
+        stop.set()
+        return FakeProcess(800)
+
+    start = time.monotonic()
+    outcome = runner.launch_plan(plan, config, popen=fake_popen, interrupted=stop)
+    assert time.monotonic() - start < 1.0
+    assert outcome.interrupted
+    assert launched == [1]
 
 
 @pytest.mark.parametrize("source", ["-e1 A", 'SET "TCF=model.tcf"\\n-e1 A'])
