@@ -11,6 +11,7 @@ from typing import ClassVar
 import pandas as pd
 from loguru import logger
 
+from ...functions.tuflow.sample_validity import has_consistent_csv_widths
 from .base_processor import BaseProcessor
 from .reporting_location_helpers import parse_reporting_numbers
 
@@ -25,14 +26,13 @@ class ReportingLocationTimeSeriesProcessor(BaseProcessor):
 
     def process(self) -> None:
         """Project requested location columns before reading and expanding samples."""
-        self.processed = False
-        self.filtered_empty = False
-        self.df = pd.DataFrame()
-        self.raw_df = pd.DataFrame()
-        self.applied_entity_filter = None
+        self.reset_processing_state()
 
         try:
             time_column, locations = self._source_columns()
+            if not has_consistent_csv_widths(self.file_path):
+                msg = f"{self.file_name}: Inconsistent CSV source record widths."
+                raise ValueError(msg)
             selected = [
                 (source_column, location)
                 for source_column, location in locations
@@ -93,6 +93,8 @@ class ReportingLocationTimeSeriesProcessor(BaseProcessor):
             self.processed = True
         except (OSError, StopIteration, TypeError, ValueError, pd.errors.ParserError) as exc:
             logger.error("{}: Failed to read {} time series: {}", self.file_name, self._LOCATION_KIND, exc)
+            self.input_health = "INVALID"
+            self.raw_df = pd.DataFrame()
             self.df = pd.DataFrame()
 
     def _source_columns(self) -> tuple[str, list[tuple[str, str]]]:

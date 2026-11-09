@@ -10,6 +10,7 @@ from typing import ClassVar
 import pandas as pd
 from loguru import logger
 
+from ....functions.tuflow.sample_validity import has_consistent_csv_widths
 from ..base_processor import BaseProcessor
 from ..reporting_location_helpers import parse_reporting_numbers
 
@@ -38,11 +39,7 @@ class SHmxProcessor(BaseProcessor):
 
     def process(self) -> None:
         """Validate the actual source schema and retain selected row components verbatim."""
-        self.processed = False
-        self.filtered_empty = False
-        self.df = pd.DataFrame()
-        self.raw_df = pd.DataFrame()
-        self.applied_entity_filter = None
+        self.reset_processing_state()
         try:
             raw = self._read_source_rows()
             locations = raw["ID (Lowest)"].astype("string").str.strip()
@@ -79,6 +76,8 @@ class SHmxProcessor(BaseProcessor):
             self.processed = True
         except (OSError, StopIteration, TypeError, ValueError, pd.errors.ParserError) as exc:
             logger.error("{}: SHmx processing failed: {}", self.file_name, exc)
+            self.input_health = "INVALID"
+            self.raw_df = pd.DataFrame()
             self.df = pd.DataFrame()
 
     def _read_source_rows(self) -> pd.DataFrame:
@@ -90,6 +89,10 @@ class SHmxProcessor(BaseProcessor):
             raise ValueError(message)
         if not header[0].strip().startswith(f"{self.name_parser.raw_run_code} ["):
             message = "SHmx descriptor disagrees with its filename run code."
+            raise ValueError(message)
+
+        if not has_consistent_csv_widths(self.file_path):
+            message = f"{self.file_name}: Inconsistent CSV source record widths."
             raise ValueError(message)
 
         raw = pd.read_csv(
