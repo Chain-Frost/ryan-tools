@@ -754,3 +754,108 @@ def test_member_replacement_after_verification_cannot_change_loaded_values(
         assert restored.basic_info_lookup is not None
         assert collection.basic_info_lookup is not None
         pd.testing.assert_frame_equal(restored.basic_info_lookup, collection.basic_info_lookup)
+
+
+@pytest.mark.parametrize(
+    ("suffix", "header", "rows"),
+    [
+        (
+            "_RLL_Q.csv",
+            '"Run_01.0p_0060m_TP01 [model.tcf]","Time (h)","Q A [Run_01.0p_0060m_TP01]","Q B [Run_01.0p_0060m_TP01]"',
+            "1,0,1,10\n2,1,2,20\n",
+        ),
+        (
+            "_RLP_H.csv",
+            '"Run_01.0p_0060m_TP01 [model.tcf]","Time (h)","H A [Run_01.0p_0060m_TP01]","H B [Run_01.0p_0060m_TP01]"',
+            "1,0,1,10\n2,1,2,20\n",
+        ),
+        (
+            "_RLR_Volmx.csv",
+            '"Run_01.0p_0060m_TP01 [model.tcf]","ID","Vol max","Time Vol max","dVolmax","Time dVolmax","H"',
+            "1,A,2,1,0,0,2\n2,B,3,1,0,0,3\n",
+        ),
+        (
+            "_SHmx.csv",
+            '"Run_01.0p_0060m_TP01 [model.tcf]","ID (Lowest)","Q Below","Q Above","Q Total","A Below","A Above","A Total","V Below","V Above","V Combined","h U/S","h D/S","dh","Time"',
+            "1,A,1,2,3,4,5,6,7,8,9,10,11,12,0.5\n2,B,1,2,3,4,5,6,7,8,9,10,11,12,0.5\n",
+        ),
+    ],
+)
+@pytest.mark.parametrize("selection_stage", ["processing", "collection"])
+def test_reporting_source_ids_survive_parquet_preselection(
+    tmp_path: Path, suffix: str, header: str, rows: str, selection_stage: str
+) -> None:
+    source = tmp_path / f"Run_01.0p_0060m_TP01{suffix}"
+    source.write_text(f"{header}\n{rows}", encoding="utf-8")
+    requested = ["A"] if selection_stage == "processing" else None
+    processor = BaseProcessor.from_file(source, entity_filter=requested)
+    processor.process()
+    assert processor.processed
+    assert processor.source_entity_presence["Location"] == ["A", "B"]
+    collection = ProcessorCollection()
+    collection.add_processor(processor)
+    if selection_stage == "collection":
+        collection.filter_locations(["A"])
+    assert set(collection.processors[0].df["Location"].astype(str)) == {"A"}
+    # Source identities must persist even if the source rows are compacted away.
+    collection.discard_raw_dataframes()
+    directory = tmp_path / f"{suffix.lstrip('_')}-{selection_stage}.parquetdir"
+    collection.to_parquet(directory)
+    assert _manifest(directory)["processors"][0]["source_entities"]["Location"] == ["A", "B"]
+
+    excluded = ProcessorCollection.from_parquet(directory, locations=["B"])
+    assert not excluded.processors
+    assert [item["status"] for item in excluded.parquet_selection_diagnostics] == ["FILTERED"]
+    retained = ProcessorCollection.from_parquet(directory, locations=["A"])
+    assert len(retained.processors) == 1
+    assert [item["status"] for item in retained.parquet_selection_diagnostics] == ["SELECTED"]
+    absent = ProcessorCollection.from_parquet(directory, locations=["Absent"])
+    assert not absent.processors
+    assert [item["status"] for item in absent.parquet_selection_diagnostics] == ["ABSENT"]
+
+
+@pytest.mark.parametrize(
+    ("suffix", "source_text"),
+    [
+        (
+            "_PO.csv",
+            "Dummy,Time,Q,Q\nDummy,Time,Dry,Wet\nrow,0,inf,2\nrow,1,inf,4\n",
+        ),
+        (
+            "_1d_Q.csv",
+            "Index,Time,Q Dry [run],Q Wet [run]\n1,0,inf,2\n2,1,inf,4\n",
+        ),
+    ],
+)
+def test_empty_invalid_saved_selection_distinguishes_excluded_usable_source(
+    tmp_path: Path, suffix: str, source_text: str
+) -> None:
+    source = tmp_path / f"Run_01.0p_0060m_TP01{suffix}"
+    source.write_text(source_text, encoding="utf-8")
+    processor = BaseProcessor.from_file(source)
+    processor.process()
+    assert processor.processed
+    collection = ProcessorCollection()
+    collection.add_processor(processor)
+    collection.filter_locations(["Dry"])
+    assert len(collection.processors) == 1
+    assert processor.df.empty
+    assert processor.selected_unusable
+    assert processor.input_health == "INVALID"
+
+    directory = tmp_path / f"{suffix.lstrip('_')}-empty-invalid.parquetdir"
+    collection.to_parquet(directory)
+    excluded = ProcessorCollection.from_parquet(directory, locations=["Wet"])
+    assert not excluded.processors
+    assert [item["status"] for item in excluded.parquet_selection_diagnostics] == ["FILTERED"]
+
+    invalid = ProcessorCollection.from_parquet(directory, locations=["Dry"])
+    assert len(invalid.processors) == 1
+    assert invalid.processors[0].selected_unusable
+    assert invalid.processors[0].input_health == "INVALID"
+    assert [item["status"] for item in invalid.parquet_selection_diagnostics] == ["INVALID"]
+
+    absent = ProcessorCollection.from_parquet(directory, locations=["Absent"])
+    assert not absent.processors
+    assert [item["status"] for item in absent.parquet_selection_diagnostics] == ["ABSENT"]
+

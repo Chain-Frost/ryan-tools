@@ -33,6 +33,8 @@ class ReportingLocationTimeSeriesProcessor(BaseProcessor):
             if not has_consistent_csv_widths(self.file_path):
                 msg = f"{self.file_name}: Inconsistent CSV source record widths."
                 raise ValueError(msg)
+            # Persist all original IDs before early column projection or later filtering.
+            self.source_entity_presence["Location"] = sorted({location for _, location in locations})
             selected = [
                 (source_column, location)
                 for source_column, location in locations

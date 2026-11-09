@@ -1172,18 +1172,16 @@ def read_collection_bundle(  # noqa: C901
                 {"data_type": data_type, "source": entry["source"]["path"], "status": "ABSENT"}
             )
             continue
-        if (
-            desired_locations
-            and source_hit
-            and frame_values
-            and not (desired_locations & frame_values)
-            and data_type != "EOF"
-        ):
+        if desired_locations and source_hit and not (desired_locations & frame_values) and data_type != "EOF":
             missing_status = _missing_saved_rows_status(entry, desired_locations & sources)
-            collection.parquet_selection_diagnostics.append(
-                {"data_type": data_type, "source": entry["source"]["path"], "status": missing_status}
-            )
-            continue
+            # An empty saved frame can represent an intentionally preserved,
+            # wholly rejected WP04 selection. Restore that INVALID processor,
+            # but do not mistake previously excluded usable IDs for INVALID.
+            if frame_values or missing_status != "INVALID":
+                collection.parquet_selection_diagnostics.append(
+                    {"data_type": data_type, "source": entry["source"]["path"], "status": missing_status}
+                )
+                continue
         restored = _restore_processor(active, entry, verify_sources=verify_sources)
         # WP04 intentionally retains processed empty-invalid selections.
         if restored.selected_unusable and restored.input_health == "INVALID":

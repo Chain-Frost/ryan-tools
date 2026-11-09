@@ -46,6 +46,8 @@ class SHmxProcessor(BaseProcessor):
             if locations.isna().any() or locations.eq("").any() or locations.duplicated().any():
                 message = "Missing or duplicate SHmx structure identifiers."
                 raise ValueError(message)
+            # Keep the complete source list even after a selected or discarded frame.
+            self.source_entity_presence["Location"] = sorted({str(location) for location in locations})
 
             if self.entity_filter:
                 raw = raw.loc[locations.isin(self.entity_filter)].copy()

@@ -37,6 +37,8 @@ class ReportingLocationMaximumsProcessor(BaseProcessor):
             if locations.isna().any() or locations.eq("").any() or locations.duplicated().any():
                 msg = f"{self.file_name}: Missing or duplicate {self._LOCATION_KIND} identifier."
                 raise ValueError(msg)
+            # A selected output still carries the complete original source population.
+            self.source_entity_presence["Location"] = sorted({str(location) for location in locations})
 
             if self.entity_filter:
                 raw = raw.loc[locations.isin(self.entity_filter)].copy()
