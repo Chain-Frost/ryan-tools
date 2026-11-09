@@ -214,9 +214,7 @@ def source_output_paths(
     return _source_output_paths(Path(output_file).absolute(), source_output_file, source_legend_file)
 
 
-def _write_source_legend(
-    legend_path: Path, input_paths: list[Path], source_counts: npt.NDArray[np.int64]
-) -> None:
+def _write_source_legend(legend_path: Path, input_paths: list[Path], source_counts: npt.NDArray[np.int64]) -> None:
     """Atomically write source IDs, original paths, and selected cell counts."""
     if source_counts.shape != (len(input_paths) + 1,):
         msg = "Source counts must contain one bin per input plus NoData source ID 0"
