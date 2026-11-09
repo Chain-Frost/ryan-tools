@@ -103,9 +103,7 @@ class TestFindFilesParallelErrors:
             _scan(root)
 
 
-def test_unreadable_child_directory_does_not_abort_opt_in_scan(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_unreadable_child_directory_does_not_abort_opt_in_scan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     root = tmp_path / "root"
     bad = root / "locked"
     good = root / "good"
@@ -133,9 +131,7 @@ def test_unreadable_child_directory_does_not_abort_opt_in_scan(
         _scan(root)
 
 
-def test_unreadable_root_remains_fatal_in_opt_in_mode(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_unreadable_root_remains_fatal_in_opt_in_mode(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     root = tmp_path / "root"
     root.mkdir()
     original_iterdir = Path.iterdir
@@ -152,9 +148,7 @@ def test_unreadable_root_remains_fatal_in_opt_in_mode(
         _scan(root, skip_inaccessible_subdirectories=True)
 
 
-def test_unreadable_child_entry_is_skipped_in_opt_in_mode(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_unreadable_child_entry_is_skipped_in_opt_in_mode(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     root = tmp_path / "root"
     bad = root / "locked"
     bad.mkdir(parents=True)
