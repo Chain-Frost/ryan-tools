@@ -117,10 +117,11 @@ def test_launches_during_held_advisory_and_delivers_all_findings(
         assert len(launched) == 2
         release.set()
         assert advisory.finished.wait(3)
-        assert advisory.status == "Issues: 25"
+        assert advisory.status == "Issues: 25 across 1 run"
         advisory.drain()
         assert sum("Input check run" in record.message for record in caplog.records) == 25
-        assert "passed for" not in caplog.text
+        assert "Input check completed for all 2 runs; 1 run has issues." in caplog.text
+        assert "failed or incomplete for 2/2" not in caplog.text
     finally:
         release.set()
         advisory.close()
@@ -174,6 +175,7 @@ def test_preflight_only_reports_every_finding_and_fails_closed(
     assert "Source      :" in caplog.text
     assert "Command     : Full command not provided by validator" in caplog.text
     assert str(plan.runs[0].tcf.name) in caplog.text
+    assert "Input check completed for all 2 runs; 1 run has issues." in caplog.text
 
     def unavailable(*_args: object, **_kwargs: object) -> CommandPreflightReport:
         message = "public API unavailable"
@@ -182,6 +184,18 @@ def test_preflight_only_reports_every_finding_and_fails_closed(
     monkeypatch.setattr(command_preflight, "check_command_plan", unavailable)
     assert runner.check_plan_only(plan) is False
     assert "public API unavailable" in caplog.text
+
+
+def test_input_check_summary_distinguishes_incomplete_coverage_from_issues(tmp_path: Path) -> None:
+    plan = runner.prepare_plan(settings(tmp_path))
+    report = CommandPreflightReport(plan, completed_runs=1)
+    report.issues = [
+        CommandPreflightIssue(plan.runs[0], PreflightIssue(1, "", "missing", "test", "file", "unavailable"))
+    ]
+
+    assert runner._input_check_summary(report) == (
+        "Input check incomplete: checked 1 of 2 runs; 1 checked run has issues."
+    )
 
 
 def test_gpu_inspected_only_once_and_inspection_uncertainty_is_not_all_clear(
