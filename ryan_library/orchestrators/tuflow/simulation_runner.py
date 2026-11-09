@@ -1276,9 +1276,8 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
     next_print = 0
     gpu_availability = GpuAvailability()
     next_gpu_check = 0.0
-    # Throttle subprocess start attempts, not GPU reservations or process exits.
-    # This deadline also covers failed starts, which previously bypassed the
-    # sleep after a successful Popen and could retry immediately.
+    # One global cooldown applies to starts across GPU slots and to observed
+    # process completions (successful or failed). It never changes slot ownership.
     next_launch_at: float | None = None
     gpu_status: str | None = "Checking" if settings.wait_for_available_gpu and groups else None
     has_configured_gpu: bool = any(is_gpu_switch(token) for run in plan.runs for token in run.arguments)
@@ -1307,7 +1306,7 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
         "For older TUFLOW builds, verify device names in the model's .hpc.tlf."
     )
     logger.info(
-        "Minimum interval between TUFLOW launch attempts: {}s (includes failed starts).",
+        "TUFLOW launch cooldown: {}s between starts and after observed completion/failure (0 disables).",
         settings.wait_time_after_run,
     )
     if gpu_status is not None:
@@ -1382,8 +1381,18 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
         latest_progress.pop(result.run.index, None)
         return progress_update
 
+    def postpone_next_launch() -> None:
+        nonlocal next_launch_at
+        if settings.wait_time_after_run <= 0:
+            return
+        deadline = time.monotonic() + settings.wait_time_after_run
+        next_launch_at = max(next_launch_at, deadline) if next_launch_at is not None else deadline
+
     def observed(result: RunOutcome) -> None:
         nonlocal next_print
+        # A finished solver, including a nonzero exit or failed Popen, starts
+        # a new cooldown before the scheduler can replace it on any GPU slot.
+        postpone_next_launch()
         outcomes.append(result)
         if on_observed_completion is not None:
             on_observed_completion(result)
@@ -1525,9 +1534,16 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                 if poll_children() and gpu_status is not None:
                     next_gpu_check = 0.0
                 while queue and len(active) < capacity and not stop.is_set():
+                    # Poll during the cooldown: a child can exit between two
+                    # starts, extending the deadline from its observed finish.
+                    if poll_children() and gpu_status is not None:
+                        next_gpu_check = 0.0
                     if next_launch_at is not None:
                         launch_wait = max(0.0, next_launch_at - time.monotonic())
-                        if launch_wait and stop.wait(launch_wait):
+                        if launch_wait:
+                            # Small interruptible slices keep the dashboard,
+                            # input checks and other child completions responsive.
+                            stop.wait(min(launch_wait, 0.1))
                             break
                     if (
                         gpu_status is not None
@@ -1584,9 +1600,6 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                     if on_before_launch is not None:
                         on_before_launch(run)
                     progress_started_at = time.time()
-                    # Timestamp the actual subprocess attempt, after any
-                    # prelaunch hook, so every next attempt is spaced correctly.
-                    next_launch_at = time.monotonic() + settings.wait_time_after_run
                     try:
                         process = factory(
                             args=args,
@@ -1597,6 +1610,9 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                     except OSError as exc:
                         observed(RunOutcome(run, None, started, datetime.now(), None, f"Launch failed: {exc}"))
                         continue
+                    # A successful process start also spaces initial launches
+                    # when several GPU groups are free concurrently.
+                    postpone_next_launch()
                     # Ownership must precede priority, presentation or another fallible operation.
                     active.append(_OwnedChild(run, process, started, slot))
                     if slot is not None:
