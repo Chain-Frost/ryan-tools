@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from io import StringIO
 from itertools import pairwise
 from pathlib import Path
-from threading import Event
+from threading import Event, Timer
 from typing import cast
 
 import pytest
@@ -541,21 +541,34 @@ def test_interlaunch_wait_is_interruptible_without_starting_another_run(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """An interrupt during a launch interval must not start the queued child."""
-    config = settings(tmp_path, wait_time_after_run=2.0)
+    config = settings(
+        tmp_path,
+        gpu_devices=(("-pu0",), ("-pu1",)),
+        wait_time_after_run=2.0,
+    )
     plan = runner.prepare_plan(config)
     monkeypatch.setattr(runner, "local_cuda_device_names", dict[int, str])
     monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
     monkeypatch.setattr(runner, "_apply_priority", _no_op)
     stop = Event()
     launched: list[int] = []
+    interrupt_timer: Timer | None = None
 
     def fake_popen(**_options: object) -> FakeProcess:
+        nonlocal interrupt_timer
         launched.append(1)
-        stop.set()
-        return FakeProcess(800)
+        if len(launched) == 1:
+            # Signal during the two-second throttle, not before it begins.
+            interrupt_timer = Timer(0.05, stop.set)
+            interrupt_timer.start()
+        return FakeProcess(800 + len(launched))
 
     start = time.monotonic()
-    outcome = runner.launch_plan(plan, config, popen=fake_popen, interrupted=stop)
+    try:
+        outcome = runner.launch_plan(plan, config, popen=fake_popen, interrupted=stop)
+    finally:
+        if interrupt_timer is not None:
+            interrupt_timer.join(timeout=1.0)
     assert time.monotonic() - start < 1.0
     assert outcome.interrupted
     assert launched == [1]
