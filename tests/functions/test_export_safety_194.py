@@ -173,9 +173,7 @@ def test_unsupported_batch_publication_fails_without_reports(tmp_path: Path, mon
 
     monkeypatch.setattr(exports.os, "link", fail)
     with pytest.raises(OSError, match="hard links unsupported"):
-        exports.ExcelExporter().save_to_excel(
-            pd.DataFrame({"v": [1]}), output_directory=tmp_path, export_mode="both"
-        )
+        exports.ExcelExporter().save_to_excel(pd.DataFrame({"v": [1]}), output_directory=tmp_path, export_mode="both")
     assert list(tmp_path.iterdir()) == []
 
 
