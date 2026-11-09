@@ -566,14 +566,22 @@ def compute_stat(
                         selected = closest & (adjusted_data == closest_value)
                         source_indexes = np.argmax(selected, axis=0)
                         statistic = arithmetic_mean if mean_value_method == "arithmetic" else closest_value
-                elif normalized_stat == "max":
-                    selectable = np.where(eligible, adjusted_data, -np.inf)
-                    source_indexes = np.argmax(selectable, axis=0)
+                elif normalized_stat in {"max", "min"}:
+                    if normalized_stat == "max":
+                        selectable = np.where(eligible, adjusted_data, -np.inf)
+                        source_indexes = np.argmax(selectable, axis=0)
+                    else:
+                        selectable = np.where(eligible, adjusted_data, np.inf)
+                        source_indexes = np.argmin(selectable, axis=0)
                     statistic = np.take_along_axis(selectable, source_indexes[np.newaxis, ...], axis=0)[0]
-                elif normalized_stat == "min":
-                    selectable = np.where(eligible, adjusted_data, np.inf)
-                    source_indexes = np.argmin(selectable, axis=0)
-                    statistic = np.take_along_axis(selectable, source_indexes[np.newaxis, ...], axis=0)[0]
+                    if nodata_policy == "zero":
+                        # An invalid contributing cell can represent zero in the
+                        # statistic, but if a real zero ties it, attribute the
+                        # source to the valid raster. Otherwise an all-NoData
+                        # duration could win a max tie and lose provenance.
+                        valid_ties = stack_valid & (selectable == statistic)
+                        preferred = np.argmax(valid_ties, axis=0)
+                        source_indexes = np.where(np.any(valid_ties, axis=0), preferred, source_indexes)
                 else:
                     selectable = np.where(eligible, adjusted_data, np.inf)
                     sorted_indexes = np.argsort(selectable, axis=0, kind="stable")

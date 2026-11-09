@@ -130,6 +130,59 @@ def test_compute_stat_excludes_nodata_and_preserves_all_nodata(
     np.testing.assert_array_equal(_read_raster(output), np.asarray([expected], dtype=np.float32))
 
 
+@pytest.mark.parametrize("stat_type", ["max", "min"])
+def test_zero_policy_extrema_prefer_valid_source_over_substituted_zero_tie(
+    tmp_path: Path, stat_type: str
+) -> None:
+    invalid = tmp_path / "invalid_duration.tif"
+    valid = tmp_path / "valid_duration.tif"
+    output = tmp_path / "extremum.tif"
+    _write_raster(invalid, [NODATA, NODATA])
+    _write_raster(valid, [0.0, NODATA])
+
+    compute_stat(stat_type, [str(invalid), str(valid)], str(output), nodata_policy="zero", write_source=True)
+
+    np.testing.assert_array_equal(_read_raster(output), np.asarray([[0.0, NODATA]], dtype=np.float32))
+    np.testing.assert_array_equal(_read_raster(tmp_path / "extremum_src.tif"), [[2, 0]])
+    with (tmp_path / "extremum_src_legend.csv").open(encoding="utf-8", newline="") as stream:
+        legend = list(csv.DictReader(stream))
+    assert [int(item["cell_count"]) for item in legend] == [0, 1]
+
+
+def test_zero_policy_maximum_keeps_original_tp_provenance_when_invalid_duration_ties(
+    tmp_path: Path,
+) -> None:
+    first_duration = tmp_path / "all_dry_duration.tif"
+    second_duration = tmp_path / "wet_duration.tif"
+    output = tmp_path / "maximum.tif"
+    first_source = tmp_path / "all_dry_duration_src.tif"
+    second_source = tmp_path / "wet_duration_src.tif"
+    original_dry = tmp_path / "dry_tp.tif"
+    original_wet = tmp_path / "wet_tp.tif"
+
+    _write_raster(first_duration, [NODATA])
+    _write_raster(second_duration, [0.0])
+    _write_raster(first_source, [0.0])
+    _write_raster(second_source, [1.0])
+    _write_raster(original_dry, [NODATA])
+    _write_raster(original_wet, [0.0])
+
+    compute_stat("max", [str(first_duration), str(second_duration)], str(output), nodata_policy="zero", write_source=True)
+    np.testing.assert_array_equal(_read_raster(tmp_path / "maximum_src.tif"), [[2]])
+
+    flatten_nested_source_provenance(
+        output_file=str(output),
+        nested_source_files=[str(first_source), str(second_source)],
+        original_input_groups=[[str(original_dry)], [str(original_wet)]],
+    )
+
+    np.testing.assert_array_equal(_read_raster(output), [[0.0]])
+    np.testing.assert_array_equal(_read_raster(tmp_path / "maximum_src.tif"), [[2]])
+    with (tmp_path / "maximum_src_legend.csv").open(encoding="utf-8", newline="") as stream:
+        legend = list(csv.DictReader(stream))
+    assert [int(row["cell_count"]) for row in legend] == [0, 1]
+
+
 def test_compute_stat_honours_explicit_band_masks(tmp_path: Path) -> None:
     """An internal validity mask may exclude finite pixels, even without a sentinel hit."""
     first = tmp_path / "first.tif"

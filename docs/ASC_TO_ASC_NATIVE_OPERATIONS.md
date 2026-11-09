@@ -112,7 +112,10 @@ replicate ASC_to_ASC:
 - `zero`: treat invalid inputs as zero if at least one input cell is valid at
   that location. Where **all** contributing inputs are invalid, preserve
   NoData and source ID `0`. This distinguishes outside-model coverage from
-  a dry temporal pattern in an otherwise valid ensemble cell.
+  a dry temporal pattern in an otherwise valid ensemble cell. For minimum
+  and maximum, when substituted zero ties an originally valid zero, retain
+  the valid contributor's source ID rather than selecting an all-NoData
+  duration and losing final flattened provenance.
 - `exclude`: calculate from valid contributors and output NoData only when all
   contributors are NoData.
 
