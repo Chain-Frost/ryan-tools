@@ -25,6 +25,8 @@ from ryan_library.classes.suffixes_and_dtypes import (
 from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 from ryan_library.functions.dataframe_helpers import reorder_long_columns
 
+from .source_fingerprint import source_signature
+
 
 # Custom Exceptions
 class ProcessorError(Exception):
@@ -78,6 +80,11 @@ class BaseProcessor(ABC):
     input_health: str = field(default="OK", init=False)
     rejected_samples: int = field(default=0, init=False)
     rejection_reasons: dict[str, int] = field(default_factory=lambda: cast("dict[str, int]", {}), init=False)
+    # An immutable input fingerprint captured before processing, not when exporting.
+    source_at_processing: dict[str, object] | None = field(default=None, init=False, repr=False)
+    source_entity_presence: dict[str, list[str]] = field(
+        default_factory=lambda: cast("dict[str, list[str]]", {}), init=False, repr=False
+    )
     include_path_columns: bool = field(default=True, repr=False)
     applied_location_filter: frozenset[str] | None = field(default=None, init=False, repr=False)
     applied_entity_filter: frozenset[str] | None = field(default=None, init=False, repr=False)
@@ -98,6 +105,9 @@ class BaseProcessor(ABC):
     def __post_init__(self) -> None:
         self.file_name = self.file_path.name
         self.resolved_file_path = self.file_path.absolute()  # Preserve public attribute name for existing callers.
+        self.source_at_processing = (
+            source_signature(self.resolved_file_path) if self.resolved_file_path.is_file() else None
+        )
         self.name_parser = TuflowStringParser(file_path=self.file_path)
         if self.name_parser.data_type is None:
             msg = "data_type was not set in TuflowStringParser for self.file_path.name"
@@ -354,6 +364,11 @@ class BaseProcessor(ABC):
         self.input_health = "OK"
         self.rejected_samples = 0
         self.rejection_reasons = {}
+        self.source_entity_presence = {}
+        # Refresh the source identity before each WP04 processing retry.
+        self.source_at_processing = (
+            source_signature(self.resolved_file_path) if self.resolved_file_path.is_file() else None
+        )
 
     def record_rejections(self, reasons: dict[str, int]) -> None:
         """Retain input-health evidence independently from hydraulic calculations."""
@@ -612,9 +627,18 @@ class BaseProcessor(ABC):
             raise
 
     def discard_raw_dataframe(self) -> None:
-        """Release the raw dataframe copy to reduce peak memory usage."""
+        """Release raw rows, retaining source-location evidence for later snapshots."""
         if self.raw_df.empty:
             return
+        if self.data_type in {"PO", "POMM"} and len(self.raw_df) > 1:
+            start_column = 1 if self.data_type == "PO" else 2
+            locations = {
+                str(item).strip()
+                for item in self.raw_df.iloc[1, start_column:].dropna()
+                if str(item).strip() and str(item).strip().casefold() != "time"
+            }
+            existing = set(self.source_entity_presence.get("Location", []))
+            self.source_entity_presence["Location"] = sorted(locations | existing)
         logger.debug("{}: Discarding raw_df with {} rows.", self.file_name, len(self.raw_df))
         self.raw_df = pd.DataFrame()
 

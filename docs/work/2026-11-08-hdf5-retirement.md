@@ -43,3 +43,13 @@ superseded only for the removed HDF implementation.
 - Do **not** merge into `main`, publish a release or close #226 merely
   because this implementation branch exists. Main integration requires
   separate maintainer authorisation.
+
+## Separate native Parquet-directory collection follow-up
+
+Draft [#293](https://github.com/Chain-Frost/ryan-tools/pull/293) proposes
+`ProcessorCollection.to_parquet(directory)` /
+`ProcessorCollection.from_parquet(directory)` using ordinary Parquet tables
+plus `manifest.json`. This supersedes the unpublished single-file
+`.rtparquet` ZIP proposal; it does not restore HDF5 or modify the last
+published version retaining HDF5 methods. The sunset remains 2027-03-31.
+Integration waits on WP04 #284 and independent acceptance.

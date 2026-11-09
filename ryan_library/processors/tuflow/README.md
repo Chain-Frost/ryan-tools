@@ -176,6 +176,67 @@ To release retained raw input tables across the collection, call:
 discarded_count = collection.discard_raw_dataframes()
 ```
 
+## Parquet-directory processor collection snapshots
+
+A `ProcessorCollection` contains heterogeneous native TUFLOW processor
+DataFrames; a normal one-table `.parquet` does not preserve their object state.
+The **directory** dataset API writes independent standard Parquet files plus a
+versioned **manifest.json**. The unpublished `.rtparquet` ZIP proposal is
+superseded, not a supported file format.
+
+```python
+from pathlib import Path
+from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
+
+dataset = Path("processed_tuflow.parquetdir")
+collection.to_parquet(dataset)  # No-clobber by default.
+restored = ProcessorCollection.from_parquet(dataset)
+selected = ProcessorCollection.from_parquet(
+    dataset, data_types=["PO", "POMM"], locations=["Culvert_01"]
+)
+```
+
+A fresh directory contains **manifest.json**, `processors/000000.parquet`,
+etc., and optional `basic_info_lookup.parquet`. All data tables use normal
+PyArrow/ZSTD Parquet. The manifest records member SHA-256/size, schema/index
+and categorical/nullable fidelity, registry and processing-code digests,
+factory class/run/AEP/TP/duration identity, path, source fingerprint, health,
+filters and original location-presence evidence. Only trusted installed
+native processor factory classes can be restored; original result CSV data
+is never reparsed. Type/location selection avoids reading unrelated frames,
+while complete collection loading remains RAM-resident.
+
+**Publication:** a new dataset is staged and published with an atomic
+directory no-clobber rename. `overwrite=True` instead writes an immutable
+generation under `.versions/<generation>/` and atomically replaces only the
+root **manifest.json**. Previous generations stay available to readers and
+are not automatically deleted. Interrupted writes preserve the preceding
+snapshot. Unsupported atomic filesystem operations fail closed; native
+NTFS, UNC and mapped-SMB acceptance is still required. Linux pins
+directory handles for generation publication and manifest updates; Windows
+holds non-reparse-point directory handles without FILE_SHARE_DELETE, including
+ancestors and the versions directory, to prevent a linked path swap.
+Overwrite consent is rechecked after staging, and failed generation renames
+release locks and clean only this invocation's owned staging files.
+
+Source size/mtime_ns and optional GeoPackage WAL state are captured **before**
+processing, never first at export. Freshness is checked before writing and
+immediately before publication. An explicit historical/offline
+`verify_sources=False` read or write preserves the original signature, and
+still verifies loaded Parquet member hashes, native factory, registry and
+processing-semantics identity. This bounded fingerprint does not detect a
+replacement deliberately preserving size and timestamp; large source files
+are not hashed by default.
+
+A source-present, wholly rejected location cannot be represented as a
+successful empty processor. The restore exposes `parquet_selection_diagnostics`
+with `SELECTED` for retained data, `INVALID` for rejected source samples,
+`ABSENT` for source IDs never present, and `FILTERED` for source IDs
+excluded from the saved rows by an earlier selection. `FILTERED` describes
+snapshot availability, not a hydraulic input-quality failure. For full 300-run timeseries collections, use
+incremental partitioned Parquet and per-run reduction rather than a single
+combined DataFrame. This API adds no PyTuflow readers, PyTables or HDF5.
+
 ## Processed data storage and retired HDF5 snapshot API
 
 **Breaking change (8 November 2026):** `ProcessorCollection.to_hdf()` and
@@ -196,11 +257,13 @@ The older HDF5 implementation has known categorical/nullable DataFrame
 round-trip limitations; its availability does not guarantee that every
 historical snapshot can be restored.
 
-**Use Parquet for current processed tabular results.** The existing
-`ryan-tools` TUFLOW processors remain the result readers. Export combined
-DataFrames using `to_parquet()` and load tables using `pandas.read_parquet()`.
-Parquet does not currently restore complete `ProcessorCollection` objects:
-the unused HDF snapshot feature was removed, not silently converted.
+**Parquet supports two distinct workflows.** For an individual processed table,
+use `DataFrame.to_parquet()` and `pandas.read_parquet()`; this preserves the
+table, not its processor objects. To export and restore a complete native
+`ProcessorCollection`, use `ProcessorCollection.to_parquet(directory)` and
+`ProcessorCollection.from_parquet(directory)` with the versioned-manifest
+Parquet directory format documented above. Existing HDF5 snapshots are
+**not automatically converted**; the retired HDF5 API is separate.
 
 ## MCP inspection and advanced queries
 
