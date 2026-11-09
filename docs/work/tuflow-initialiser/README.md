@@ -136,7 +136,7 @@ Local work on `feature/migrate-tuflow-initialiser`, based on `fe9c4ef1659bec748c
 - Preserved existing solver, GIS/grid format and calibrated starter-loss settings. No model
   names, identifying paths, network GIS or project-specific rainfall data were imported.
 - Updated generated-name checks, wheel smoke resource path and the
-  [project setup guide](../../../ryan-scripts/tuflow/PROJECT_SETUP.md).
+  [project setup guide](../../../ryan-scripts/TUFLOW-python/model_management/PROJECT_SETUP.md).
 
 The user confirmed removal of the boundary-template marker and directed both entry
 points to create the same project, with the initialiser adding actual data. The earlier

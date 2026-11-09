@@ -13,6 +13,9 @@
     "TUFLOW-python/culvert_results/combine_culvert_timeseries.py",
     "TUFLOW-python/culvert_results/create_mean_culvert_peak_report.py",
     "TUFLOW-python/culvert_results/create_median_culvert_peak_report.py",
+    "TUFLOW-python/culvert_results/tuflow_culvert_from_1d_nwk.py",
+    "TUFLOW-python/culvert_results/tuflow_culvert_from_maximums.py",
+    "TUFLOW-python/culvert_results/tuflow_to_hy8.py",
     "TUFLOW-python/gis_processing/__init__.py",
     "TUFLOW-python/gis_processing/apply_qgis_styles_to_results.py",
     "TUFLOW-python/gis_processing/rename_geopackage_layer_to_filename.py",
@@ -21,10 +24,13 @@
     "TUFLOW-python/log_processing/append_log_summary_to_master_workbook.py",
     "TUFLOW-python/log_processing/check_tuflow_user_activity.py",
     "TUFLOW-python/log_processing/create_log_summary_report.py",
+    "TUFLOW-python/model_management/PROJECT_SETUP.md",
     "TUFLOW-python/model_management/__init__.py",
     "TUFLOW-python/model_management/check_tuflow_inputs.py",
     "TUFLOW-python/model_management/collect_result_and_check_files.py",
     "TUFLOW-python/model_management/delete_duplicate_check_files.py",
+    "TUFLOW-python/model_management/find_missing_tlf_runs.py",
+    "TUFLOW-python/model_management/init_tuflow_project.py",
     "TUFLOW-python/model_management/run_tuflow_simulations.py",
     "TUFLOW-python/model_management/verify_converted_tuflow_rasters.py",
     "TUFLOW-python/po_and_timeseries/__init__.py",
@@ -78,12 +84,6 @@
     "gdal-python/vacuum_geopackages.py",
     "misc-python/remove_excel_protection.py",
     "other/audit_qgis_projects.py",
-    "other/repair_qgis_project_paths.py",
-    "tuflow/PROJECT_SETUP.md",
-    "tuflow/find_missing_tlf_runs.py",
-    "tuflow/init_tuflow_project.py",
-    "tuflow/tuflow_culvert_from_1d_nwk.py",
-    "tuflow/tuflow_culvert_from_maximums.py",
-    "tuflow/tuflow_to_hy8.py"
+    "other/repair_qgis_project_paths.py"
   ]
 }

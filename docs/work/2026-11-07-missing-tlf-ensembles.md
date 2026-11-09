@@ -13,7 +13,7 @@
 The maintained folder wrapper now infers the Cartesian product of observed filename fields within compatible layouts.
 It supports absent TP/duration fields, expects TP01–TP10 for TP layouts, and deduplicates TLF/HPC log pairs.
 All gaps are labelled inferred; log presence is independent of successful completion. Values absent everywhere remain
-unknown. The original table-based interface remains available. See the [usage guide](../../ryan-scripts/tuflow/MISSING_RUNS.md).
+unknown. The original table-based interface remains available. See the [usage guide](../../ryan-scripts/TUFLOW-python/model_management/MISSING_RUNS.md).
 
 ## Validation
 
