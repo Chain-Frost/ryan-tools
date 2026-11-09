@@ -551,6 +551,54 @@ def test_interlaunch_spacing_includes_failed_start_attempts(
     assert sum(item.pid is None for item in outcome.outcomes) == int(failed_first)
 
 
+def test_failed_start_cooldown_does_not_wait_for_next_gpu_inspection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A failed Popen retries after the cooldown, not the 60-second GPU poll."""
+    config = settings(
+        tmp_path,
+        gpu_devices=(("-pu0",), ("-pu1",)),
+        wait_for_available_gpu=True,
+        gpu_check_interval_seconds=60.0,
+        wait_time_after_run=0.08,
+        use_live_dashboard=False,
+    )
+    plan = runner.prepare_plan(config)
+    monkeypatch.setattr(runner, "local_cuda_device_names", dict[int, str])
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+
+    def available_gpu(*_args: object, **_kwargs: object) -> runner.GpuAvailability:
+        return runner.GpuAvailability()
+
+    monkeypatch.setattr(runner, "_blocked_external_gpu_slots", available_gpu)
+    stop = Event()
+    raw_wait = stop.wait
+    waits: list[float] = []
+
+    def bounded_wait(timeout: float | None = None) -> bool:
+        assert timeout is not None
+        assert timeout <= 0.25, "GPU poll wait must not override a launch cooldown"
+        waits.append(timeout)
+        return raw_wait(timeout)
+
+    monkeypatch.setattr(stop, "wait", bounded_wait)
+    attempts: list[float] = []
+
+    def fake_popen(**_options: object) -> FakeProcess:
+        attempts.append(time.monotonic())
+        if len(attempts) == 1:
+            message = "synthetic startup failure"
+            raise FileNotFoundError(message)
+        return FakeProcess(802)
+
+    outcome = runner.launch_plan(plan, config, popen=fake_popen, interrupted=stop)
+    assert len(attempts) == 2
+    assert attempts[1] - attempts[0] >= config.wait_time_after_run - 0.01
+    assert waits
+    assert not outcome.successful
+    assert sum(item.pid is None for item in outcome.outcomes) == 1
+
+
 @pytest.mark.parametrize("exit_code", [0, 2])
 def test_next_launch_waits_after_observed_solver_completion(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, exit_code: int
