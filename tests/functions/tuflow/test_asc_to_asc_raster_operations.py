@@ -153,7 +153,9 @@ def test_compute_stat_honours_explicit_band_masks(tmp_path: Path) -> None:
         np.testing.assert_array_equal(source.read_masks(1), np.asarray([[255, 255, 0]], dtype=np.uint8))
     finally:
         source.close()
-    np.testing.assert_array_equal(_read_raster(tmp_path / "masked_mean_src.tif"), np.asarray([[2, 2, 0]], dtype=np.int32))
+    np.testing.assert_array_equal(
+        _read_raster(tmp_path / "masked_mean_src.tif"), np.asarray([[2, 2, 0]], dtype=np.int32)
+    )
     with (tmp_path / "masked_mean_src_legend.csv").open(encoding="utf-8", newline="") as stream:
         rows = list(csv.reader(stream))
     assert [row[2] for row in rows[1:]] == ["0", "2"]
@@ -211,9 +213,7 @@ def test_mean_then_max_preserves_nodata_and_counts_flattened_original_sources(tm
         )
     )
 
-    np.testing.assert_array_equal(
-        _read_raster(maximum), np.asarray([[NODATA, 6.0, 7.0, NODATA]], dtype=np.float32)
-    )
+    np.testing.assert_array_equal(_read_raster(maximum), np.asarray([[NODATA, 6.0, 7.0, NODATA]], dtype=np.float32))
     np.testing.assert_array_equal(
         _read_raster(tmp_path / "TPMean_DurMax_src.tif"), np.asarray([[0, 4, 2, 0]], dtype=np.int32)
     )
@@ -225,6 +225,7 @@ def test_mean_then_max_preserves_nodata_and_counts_flattened_original_sources(tm
     assert [Path(row["source_file"]) for row in maximum_legend] == [
         path.resolve() for group in input_groups for path in group
     ]
+
 
 def test_compute_stat_can_write_arithmetic_mean(tmp_path: Path) -> None:
     first = tmp_path / "first.tif"
