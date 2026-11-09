@@ -249,16 +249,19 @@ runner colours log levels and message text, including green SUCCESS messages.
 Copied wrappers need version `2026-11-03.3` or newer for this console format.
 Settings matching current library defaults are grey; changed values and required
 paths are cyan. The baseline includes `-b`, LOW priority, minimized windows,
-automatic GPU placement and a two-second launch delay; it does not change when
+automatic GPU placement and a two-second launch cooldown; it does not change when
 you edit the wrapper. `WAIT_TIME_AFTER_RUN` (overridden by `--launch-delay`)
-sets a **minimum interval between successive TUFLOW process start attempts**,
-not a delay after each process *completes*. The scheduler uses monotonic time
-to enforce this interval across all configured GPU slots, including after a
-failed start. The delay is interruptible, does not alter GPU selection or
-configured concurrency, and adds no unnecessary delay after the final attempt.
-The effective setting and launch-interval contract are logged when execution
-begins. Run controls compare against run/resume, export and input
-checks enabled, INFO logging, pause enabled and no follow-up script.
+enforces **both** a minimum gap between TUFLOW process starts (globally across
+GPU slots) **and** a cooldown after the scheduler observes a run ending,
+whether successfully or unsuccessfully. A failed `Popen` attempt also starts
+the cooldown. A completion can extend an existing deadline; no new queued
+run starts before the most recent cooldown expires. Active runs continue in
+parallel, and initial launches into different GPU slots are still spaced.
+`WAIT_TIME_AFTER_RUN = 0` disables these cooldowns without changing the
+number of configured GPU slots. Waiting is interruptible and does not add a
+cooldown when no more launches remain. The effective setting is logged before
+execution. Run controls compare against run/resume, export and input checks
+enabled, INFO logging, pause enabled and no follow-up script.
 
 On interruption, the wrapper prints `Batch interrupted.` when `NEXT_RUN_FILE`
 is `None`. It mentions that a follow-up was not started only when one was
