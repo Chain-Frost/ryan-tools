@@ -21,8 +21,9 @@ line number, full parsed model command, input reference and lookup details.
 Paths within each run's working directory are shown relative to that directory.
 Launch commands, export destinations, CSV-history locations and configured-file
 warnings also use paths relative to the runner working directory where possible.
-External paths remain absolute. This presentation does not change subprocess
-arguments, working directories or absolute CSV execution-history provenance.
+External paths remain absolute. CSV history similarly displays TCF paths
+relative to each run's working directory when they lie within it, without
+changing the absolute subprocess arguments or Resume identity.
 During normal execution, input checking is advisory and runs in a daemon
 thread alongside model launches; its findings do not block launches.
 `--preflight-only` waits for checking, returns failure for input issues and
@@ -479,9 +480,17 @@ a project-wide or network-wide history. The CSV is an append-only START / FINISH
 / RESET log of observed process outcomes. No saved run manifest or additional
 session directory is required. Each `recorded_at` value uses the local computer's
 timezone and includes its UTC offset; existing timezone-aware UTC rows remain valid.
-New CSVs place operator-facing fields first: timestamp, event, outcome, return code,
-TCF, PID and error. Command context follows, while run hashes and schema metadata are
-last. Existing CSVs retain their original column order and remain readable and appendable.
+New CSVs place operator-facing fields first: timestamp, event, outcome,
+return code, PID, error, **run arguments**, then **TCF path**. Working directory,
+executable, run key, attempt ID and schema metadata follow. The `tcf` field and
+the explicit TCF argument in `arguments` use paths relative to that run's
+`working_directory` when contained there. The working directory stays absolute
+as the reference point, and TCF paths outside it (including other drives or
+UNC shares) remain absolute. These formatting changes do not affect the actual
+TUFLOW launch, model identity or Resume matching. Existing CSVs retain their
+original header/column order and complete earlier records without rewriting
+the append-only history; new appended records use readable TCF paths, even
+when an older column order is retained.
 
 **Resume is the default.** The runner regenerates the full current plan and
 selects its launch queue using the CSV:
