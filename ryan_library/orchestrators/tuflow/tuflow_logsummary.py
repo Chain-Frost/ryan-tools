@@ -251,7 +251,7 @@ def _process_log_file_dataframe(logfile: Path, *, include_hpc_companion_metrics:
 def _discover_logs_for_dashboard(*, root_dir: Path, dashboard: LiveWorkflowDashboard) -> list[Path]:
     """Discover before starting Rich Live, keeping early errors outside its frame."""
     try:
-        return discover_log_files(root_dir=root_dir)
+        return discover_log_files(root_dir=root_dir, skip_inaccessible_subdirectories=True)
     except KeyboardInterrupt:
         dashboard.finish(outcome="INTERRUPTED", detail="processing was interrupted")
         raise
@@ -374,12 +374,12 @@ def main_processing(
                 raise
 
 
-def discover_log_files(*, root_dir: Path) -> list[Path]:
+def discover_log_files(*, root_dir: Path, skip_inaccessible_subdirectories: bool = False) -> list[Path]:
     files = find_files_parallel(
         root_dirs=[root_dir],
         patterns="*.tlf",
         excludes=["*.hpc.tlf", "*.gpu.tlf"],
-        skip_inaccessible_subdirectories=True,
+        skip_inaccessible_subdirectories=skip_inaccessible_subdirectories,
     )
     # A zero-byte file matches the requested input format but cannot be parsed.
     for logfile in files:
