@@ -4,16 +4,14 @@
 from __future__ import annotations
 
 import os
-from contextlib import ExitStack
 from dataclasses import dataclass
 from datetime import datetime
-from tempfile import TemporaryDirectory
 
 __lazy_modules__: list[str] = ["openpyxl", "pandas"]
 import re
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Literal, TypedDict
+from typing import BinaryIO, Literal, TypedDict
 
 import pandas as pd
 from loguru import logger
@@ -140,9 +138,9 @@ class ExcelExporter:
     ) -> None:
         """Export reports as a batch without replacing existing files.
 
-        Validate all destinations, stage every report, then publish exclusively.
-        A publication failure can leave completed reports; the exception notes
-        identify those retained outputs. Unsupported hard-link filesystems fail closed.
+        Validate destinations, then create reports exclusively in the output directory.
+        A write failure removes the incomplete file but retains completed reports;
+        exception notes identify any retained outputs.
 
         Args:
             export_dict (dict[str, ExportContent]):
@@ -187,13 +185,13 @@ class ExcelExporter:
                 Additional metadata rows to place before the column definitions.
             raw_exports (Sequence[RawTableExport], optional):
                 Explicitly named raw tables included regardless of ``export_mode``.
-                Their destinations and writes participate in the same preflight,
-                staging and publication batch as the formatted reports.
+                Their destinations participate in the same preflight and direct-write
+                batch as the formatted reports.
 
         Raises:
             ValueError: If the number of DataFrames doesn't match the number of sheets.
             FileExistsError: If any planned report already exists.
-            OSError: If staging or no-replace publication fails. Writer exceptions propagate.
+            OSError: If creating or writing a report fails. Writer exceptions propagate.
 
         Example:
             export_dict = {
@@ -219,31 +217,31 @@ class ExcelExporter:
         )
         published: list[Path] = []
         try:
-            # Stage the complete batch before publishing: writer failures expose no partial reports.
-            with ExitStack() as stack:
-                staged: list[tuple[Path, Path]] = []
-                for target in targets:
-                    target.path.parent.mkdir(parents=True, exist_ok=True)
-                    directory = stack.enter_context(TemporaryDirectory(prefix=".ryan-export-", dir=target.path.parent))
-                    temporary = Path(directory) / target.path.name
-                    self._write_target(
-                        target,
-                        temporary,
-                        column_widths,
-                        auto_adjust_width,
-                        parquet_compression,
-                        include_data_dictionary,
-                        data_dictionary_metadata,
-                    )
-                    if not temporary.is_file():
-                        msg = f"Export did not create the staged report for {target.path}"
-                        raise OSError(msg)
-                    staged.append((temporary, target.path))
-                for temporary, destination in staged:
-                    # Atomic no-replace publication also refuses a concurrently created file or symlink.
-                    # Filesystems without hard-link support fail closed; there is no overwrite fallback.
-                    os.link(temporary, destination)
-                    published.append(destination)
+            for target in targets:
+                target.path.parent.mkdir(parents=True, exist_ok=True)
+                created = False
+                try:
+                    # Write directly into the existing output directory. Exclusive creation
+                    # prevents replacing another report, including a concurrent writer's.
+                    with target.path.open("xb") as handle:
+                        created = True
+                        self._write_target(
+                            target,
+                            handle,
+                            column_widths,
+                            auto_adjust_width,
+                            parquet_compression,
+                            include_data_dictionary,
+                            data_dictionary_metadata,
+                        )
+                    published.append(target.path)
+                except BaseException:
+                    if created:
+                        try:
+                            target.path.unlink()
+                        except OSError:
+                            logger.warning("Could not remove incomplete report: {}", target.path)
+                    raise
         except BaseException as exc:
             if published:
                 paths = ", ".join(str(path) for path in published)
@@ -357,19 +355,19 @@ class ExcelExporter:
     def _write_target(
         self,
         target: _ExportTarget,
-        temporary: Path,
+        handle: BinaryIO,
         column_widths: dict[str, dict[str, float]] | None,
         auto_adjust_width: bool,
         compression: ParquetCompression,
         include_data_dictionary: bool,
         metadata: Mapping[str, str] | None,
     ) -> None:
-        logger.debug("Staging {} report for {}", target.kind, target.path)
+        logger.debug("Writing {} report to {}", target.kind, target.path)
         if target.kind == "parquet":
-            target.dataframes[0].to_parquet(path=temporary, index=target.parquet_index, compression=compression)
+            target.dataframes[0].to_parquet(path=handle, index=target.parquet_index, compression=compression)
             return
         if target.kind == "csv":
-            target.dataframes[0].to_csv(path_or_buf=temporary, index=False)
+            target.dataframes[0].to_csv(path_or_buf=handle, index=False)
             return
         frames, sheets = list(target.dataframes), list(target.sheets)
         if include_data_dictionary:
@@ -382,7 +380,7 @@ class ExcelExporter:
                 build_data_dictionary(sheet_frames=dict(zip(sheets, frames, strict=True)), metadata_rows=rows)
             )
             sheets.append(DATA_DICTIONARY_SHEET_NAME)
-        with temporary.open("xb") as handle, pd.ExcelWriter(path=handle, engine="openpyxl") as writer:
+        with pd.ExcelWriter(path=handle, engine="openpyxl") as writer:
             # Keep a valid sheet even if the first DataFrame write fails, so close preserves the original error.
             writer.book.create_sheet(sheets[0])
             writer.book.properties.creator = f"ryan-tools {get_tools_version()}"
