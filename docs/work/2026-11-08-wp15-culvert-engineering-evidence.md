@@ -283,6 +283,71 @@ Twenty successful public-API solves form **10 paired scenarios**. Units: Q m³/s
 | QPMF coincident sample treated as steady: forward | 0.199 / 0.20 | 43.573909 / 43.57 | 0.119691 / 0.12 |
 | QPMF coincident sample treated as steady: inverse | **0.149541 / 0.05** | 43.563600 / 43.56 | 0.089943 / 0.03 |
 
+### Velocity definitions and outlet-area diagnostics — 2026-11-09
+
+**TUFLOW 1D channel velocity is not inherently culvert outlet velocity.** TUFLOW
+1D channels/structures contain modelled flow and velocity calculation points.
+The `_1d_V` channel velocity (or independent maximum `V` reported alongside
+other Maximums fields) is not a measured HY-8 outlet-station velocity. In
+particular, Maximums `Q`, `V`, `US_h` and `DS_h` need not be coincident.
+Therefore TUFLOW `V` and HY-8 outlet velocity must **not** be required to
+match. See the [TUFLOW 1D manual](https://docs.tuflow.com/classic-hpc/manual/2026.3/05-1D-Domains.html)
+and [FHWA HDS-5](https://www.fhwa.dot.gov/engineering/hydraulics/pubs/12026/hif12026.pdf).
+
+**The velocity columns in the ten paired Ryan-tools cases above do not contain
+TUFLOW channel `V`.** The native adapter uses
+[`barrel_result.velocity_outlet`](../../ryan_library/functions/culvert/tuflow_engines.py),
+while the HY-8 adapter records the parsed HY-8 result-row `velocity` as
+`outlet_velocity_mps` in that same file. Both are *labelled* outlet velocity
+by the adapters; the raw HY-8 result/profile is still needed to confirm the
+precise station/depth definition of its row field. Thus the paired
+**1.953047 m/s** difference cannot be dismissed solely as a comparison of
+TUFLOW channel velocity with HY-8 outlet velocity.
+
+Using the archived group discharge and stated three-barrel equal-flow assumption,
+`A_implied = (Q_group / 3) / V_reported` gives an **indirect continuity
+diagnostic**. The derived values are **not actual solver-reported outlet
+wetted areas or depths**, and HY-8 printed rounding limits numerical precision.
+They are preserved for all ten pairs in the
+[derived outlet-area CSV](../validation_data/wp15-eg11-assumed-20261109/outlet-area-diagnostics.csv).
+The original [20 solver result rows](../validation_data/wp15-eg11-assumed-20261109/results.csv)
+and original paired-difference CSV are unchanged.
+
+| Forward case | Tailwater (m) | Native implied area/barrel (m²) | HY-8 implied area/barrel (m²) | Area ratio |
+| --- | ---: | ---: | ---: | ---: |
+| Q100, invert TW | 42.75 | 0.119966 | 0.120773 | 0.993 |
+| Q100, elevated TW | 43.25 | 0.413076 | 0.120773 | **3.420** |
+| QPMF, invert TW | 42.75 | 0.117125 | 0.117371 | 0.998 |
+| QPMF, elevated TW | 43.25 | 0.346664 | 0.117371 | **2.954** |
+
+At invert tailwater the implied areas nearly agree. Increasing tailwater by
+0.5 m lowers the native reported velocity and increases its implied area;
+the HY-8 reported outlet velocity and implied area remain unchanged.
+This pattern **suggests an outlet-depth/flow-area selection, flow-regime or
+result-field interpretation difference**, but it does not prove a bug in either
+solver or a true outlet-depth difference without inspecting the raw profiles.
+The historic scenario identifier `assumed-forward-submerged` refers only to
+an *elevated tailwater*; it does **not** establish that the outlet is submerged.
+
+The separate sampled inverse discrepancy (**0.149541 versus 0.05 m³/s**)
+is **not** explained by this forward-area pattern: its two implied areas
+are nearly the same, although inferred from different predicted discharges
+and rounded velocities. Retain the original low-head inverse control/search
+and printed-precision limitations. Do not accept either difference as parity
+without separately agreed engineering tolerances.
+
+**Next bounded native evidence:** inspect existing HY-8 `.rst/.rsql/.plt`
+for the four forward pairs above to identify the actual outlet station,
+depth, flow area and flow-type interpretation, and obtain native solver
+outlet depth/area through verified public result fields. Recalculate `Q/A`
+from those *reported* areas, preserving group/per-barrel flow and three
+barrels. Do not invent a native attribute, treat the derived `Q/V` area as
+measured, rerun the full ten-case campaign, or tune coefficients to force
+agreement. Full source-equivalent TUFLOW parity still requires the actual
+0.9 width contraction, adjusted losses, verified material/inlet, roadway
+geometry and equivalent time-coincident boundary conditions. #102/#103
+remain **BLOCKED**, notwithstanding the valid conditional HY-8 execution.
+
 QPMF sampled inputs come from the **same 1.283333 h row** in retained Q/H CSVs: Q=**0.199**, upstream H=**43.5636**, downstream H=**43.5542**. They are an instantaneous transient snapshot, not a proven steady boundary. Q100 sampled circular flow is zero throughout its retained Q series; no positive source flow was invented. Its 1 m³/s cases are openly assumed.
 
 Maximum paired |ΔHW| = **0.011214738 m**. Nominal HW/D-target inverse discharge differences are **+0.0461% to +0.3669%** (HY-8 minus native). These are observations, not pass thresholds. Elevated-tailwater velocity differences reach **1.953047 m/s** and remain unresolved. The sampled inverse differs by **−66.5643% Q**; run-hy8's existing internal **0.01 m headwater search stop** plus printed result precision is not an agreed discharge/parity tolerance. No tighter retry, coefficient tuning or excluded failure was used to manufacture agreement.
@@ -302,3 +367,90 @@ The prior local evidence commit `9fcefd6c` was preserved and cherry-picked onto 
 
 
 Numerical artifacts: [20 normalized results](../validation_data/wp15-eg11-assumed-20261109/results.csv), [10 paired differences](../validation_data/wp15-eg11-assumed-20261109/differences.csv), [source hashes](../validation_data/wp15-eg11-assumed-20261109/source-sha256.json), [raw artifact hashes](../validation_data/wp15-eg11-assumed-20261109/artifact-sha256.json), and [HY-8 input readback](../validation_data/wp15-eg11-assumed-20261109/serialized-input-audit.json). Next review 2026-11-15 or on source/loss/tolerance resolution.
+
+## Four forward outlet profiles ? Windows evidence, 2026-11-09
+
+Completed the [bounded #298 request](https://github.com/Chain-Frost/ryan-tools/pull/298#issuecomment-6725728459)
+using retained [#297](https://github.com/Chain-Frost/ryan-tools/pull/297) artifacts;
+**no HY-8 replay or TUFLOW simulation**. Four native forward evaluations were necessary because the
+normalized retained results omit outlet depth. They reproduce the prior headwaters and velocities exactly.
+Original results, differences and ten inferred-area diagnostics remain unchanged.
+
+Windows 10 build 19045 / Python 3.14.6; installed ryan-tools 26.11.9.1, run-hy8 2026.10.18.2,
+ryan-culverts 26.10.19.1. All 400/27/62 files in the prior respective package manifests match SHA-256.
+The existing separately installed verification target supplies ryan-tools; native and HY-8 packages import
+from normal Python314 user site-packages, without solver source-checkout overrides.
+HY864.exe file/product version 8.0.1.2 and SHA-256
+`0b1c5e7fb6b48be9c675b5486ae9a84346f436c5c649aa5ed09a1552267ee806` match.
+All 16 selected raw HY8/RST/RSQL/PLT files match the previous artifact manifest.
+
+### Extraction and continuity check
+
+All cases use three equal-flow barrels, group Q=1 and per-barrel Q=1/3 m?/s, length 20 m,
+outlet invert 42.75 m and the exact prior assumed inputs/configuration. Retained serialized-project readback
+confirms three barrels and hydraulic diameters 1.0733126616 / 0.8485281480 m (stored-unit conversion);
+nominal analytical diameters are 1.0733126292 / 0.8485281374 m.
+
+HY-8: select **FlowProfile 1**, `FlowProfileFlow: 35.3147` (group flow in cfs, approximately 1 m?/s),
+then the final `Profile` point at **station 20 m**. Profile 0 is the separate minimum-flow 0.1 m?/s case.
+The RSQL files contain **only profile 0**; their jump/control flags must not be assigned to the 1 m?/s case.
+Use the RST **Culvert Summary Table**, column Q=1, for `Outlet Depth`, `Outlet Velocity`,
+normal/critical depths and flow type. Its outlet velocity matches the adapter's exported `row.velocity`.
+The target PLT outlet elevation minus 42.75 supplies the less-rounded outlet depth. Reconstruct wetted
+area independently with circular-segment geometry, `A=D?(??sin ?)/8`, `?=2 acos(1?2y/D)`.
+The table below uses analytical D; stored-D conversion changes only insignificant final digits.
+HY-8 does **not** directly export wetted area here: this is geometry reconstructed from reported depth,
+not measured area and not the earlier Q/V inference. Printed profile elevations limit precision.
+
+Native: intercept the unchanged adapter's call to public `solve_crossing_hydraulics` and retain its
+public `group_results[0].barrel_result`. Read `outlet_depth`, `velocity_outlet`, `regime`,
+`control_type`, `profile_curve`, `hydraulic_jump_station`, `outlet_sequent_depth` and
+`group.barrel_discharge`. Calculate area using the public `barrel.geometry.area(depth=outlet_depth)`.
+This is area evaluated from the solver's computed depth, not a measured physical depth or invented result field.
+
+| Event | TW m | Engine | Outlet depth m | Area/barrel m? | Q/A m/s | Reported V m/s | Profile |
+| --- | ---: | --- | ---: | ---: | ---: | ---: | --- |
+| Q100 | 42.75 | native | 0.204254 | 0.119966390 | 2.778556 | 2.778556 | S2 |
+| Q100 | 42.75 | HY-8 | 0.205100 | 0.120679815 | 2.762130 | 2.76 | 1-S2n |
+| Q100 | 43.25 | native | 0.500000 | 0.413076272 | 0.806953 | 0.806953 | JS1 |
+| Q100 | 43.25 | HY-8 | 0.205100 | 0.120679815 | 2.762130 | 2.76 | 1-S2n |
+| QPMF | 42.75 | native | 0.221014 | 0.117124897 | 2.845965 | 2.845965 | S2 |
+| QPMF | 42.75 | HY-8 | 0.221400 | 0.117412448 | 2.838995 | 2.84 | 1-S2n |
+| QPMF | 43.25 | native | 0.500000 | 0.346664448 | 0.961545 | 0.961545 | JS1 |
+| QPMF | 43.25 | HY-8 | 0.221400 | 0.117412448 | 2.838995 | 2.84 | 1-S2n |
+
+All native cases retain inlet-control unsubmerged regime/headwater control. Native normal/critical depths are
+0.201088/0.316617 m (Q100) and 0.217188/0.339370 m (QPMF). HY-8 prints 0.20/0.32 and
+0.22/0.34 m, respectively; its outlet depth is a routed S2 endpoint, not simply critical or normal depth.
+RST outlet depths are 0.21/0.22 m and velocities round consistently from the independently computed Q/A.
+Native Q/A equals reported velocity at full retained precision.
+
+At elevated TW, native reports **in-barrel hydraulic jumps** at station **19.091342 m** (Q100) and
+**19.992478 m** (QPMF), with outlet sequent depths **0.468062/0.499728 m** and downstream S1
+profile reaching TW depth 0.5 m. The installed native `compute_steep_inlet_control_profile` compares
+S2 conjugate depth with TW, routes backward S1 and brackets the momentum jump location.
+HY-8's target profile and summary instead retain **1-S2n**, no in-barrel jump in that plotted profile,
+and the shallow S2 outlet even when external TW is 0.5 m. This establishes different computed
+profile/depth selection as the immediate cause of the forward velocity difference. It does **not** prove
+which engine's jump treatment is physically correct or establish the internal HY-8 decision rule.
+Both outlets remain below crown; the historic `assumed-forward-submerged` label means elevated TW only.
+
+### Evidence, limitations and delivery
+
+[Eight extracted engine rows](../validation_data/wp15-eg11-assumed-20261109/outlet-profile-results.json)
+and [input/output/package provenance](../validation_data/wp15-eg11-assumed-20261109/outlet-profile-sha256.json)
+record the values, extraction and exact SHA-256. Full native inputs/configuration/results and extraction script
+remain private in `validation/outlet` of the isolated PR #298 checkout. No solver or coefficient edits.
+
+The separate QPMF inverse **0.149541 native versus 0.05 HY-8 m?/s** remains unresolved and was not rerun.
+The forward jump difference does not clear its search/control/precision investigation.
+Do not compare TUFLOW channel V directly with outlet V or treat independent Maximums Q/H/V as coincident.
+Source-equivalent acceptance remains **BLOCKED** by unsupported 0.9 contraction, adjusted losses,
+unverified physical material/inlet and unmatched boundary/roadway assumptions; 2026.3 ELM/full blockage
+and agreed engineering tolerances also remain open. #102/#103 remain OPEN. No main merge or release.
+
+Local validation: four exact native reproductions, eight independent depth-based Q/A checks, 16 retained
+artifact hashes and all recorded package-file hashes pass. Documentation links and whitespace checked.
+This evidence is delivered on existing draft #298; hosted checks for its final head are separate.
+Next review 2026-11-15; next action is independent hydraulic review of jump selection and a separate
+bounded inverse-search investigation, without coefficient tuning or an engineering-parity claim.
