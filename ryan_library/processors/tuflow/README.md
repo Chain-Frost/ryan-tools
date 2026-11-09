@@ -257,11 +257,13 @@ The older HDF5 implementation has known categorical/nullable DataFrame
 round-trip limitations; its availability does not guarantee that every
 historical snapshot can be restored.
 
-**Use Parquet for current processed tabular results.** The existing
-`ryan-tools` TUFLOW processors remain the result readers. Export combined
-DataFrames using `to_parquet()` and load tables using `pandas.read_parquet()`.
-Parquet does not currently restore complete `ProcessorCollection` objects:
-the unused HDF snapshot feature was removed, not silently converted.
+**Parquet supports two distinct workflows.** For an individual processed table,
+use `DataFrame.to_parquet()` and `pandas.read_parquet()`; this preserves the
+table, not its processor objects. To export and restore a complete native
+`ProcessorCollection`, use `ProcessorCollection.to_parquet(directory)` and
+`ProcessorCollection.from_parquet(directory)` with the versioned-manifest
+Parquet directory format documented above. Existing HDF5 snapshots are
+**not automatically converted**; the retired HDF5 API is separate.
 
 ## MCP inspection and advanced queries
 
