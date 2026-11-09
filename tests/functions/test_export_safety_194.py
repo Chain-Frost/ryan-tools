@@ -4,7 +4,7 @@ import os
 import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import Literal
+from typing import BinaryIO, Literal, TextIO
 from unittest.mock import patch
 
 import pandas as pd
@@ -85,13 +85,20 @@ def test_concurrent_destination_is_retained_and_completed_reports_identified(
     original_open = Path.open
     count = 0
 
-    def race(path: Path, mode: str = "r", *args: object, **kwargs: object):  # type: ignore[no-untyped-def]
+    def race(
+        path: Path,
+        mode: str = "r",
+        buffering: int = -1,
+        encoding: str | None = None,
+        errors: str | None = None,
+        newline: str | None = None,
+    ) -> TextIO | BinaryIO:
         nonlocal count
         if mode == "xb" and path.parent == tmp_path:
             count += 1
             if count == failed_link:
                 path.write_bytes(b"concurrent owner")
-        return original_open(path, mode, *args, **kwargs)
+        return original_open(path, mode, buffering, encoding, errors, newline)
 
     monkeypatch.setattr(Path, "open", race)
     with pytest.raises(FileExistsError) as caught:
