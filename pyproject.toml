@@ -84,6 +84,7 @@ include-package-data = true
 "ryan_library.resources.mcp" = ["*.json"]
 "ryan_library.resources.qgis.tuflow" = ["*.qml"]
 "ryan_library.resources.tuflow_templates" = [
+  ".vscode/*.json",
   "*.bat",
   "*.png",
   "model/*.trd",
