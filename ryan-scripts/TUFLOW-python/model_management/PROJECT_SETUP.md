@@ -44,10 +44,9 @@ The generated main control file follows the example project flag convention:
 ```
 
 It reads `runs/run_times_01.trd` for duration-dependent end times and `runs/model_cell_sizes_01.trd` for `VarCellSize`.
-The starter `EVENTS_01.tef` defines the matching 22 durations with four- and five-digit event flags, including both `~StormDuration~` and `~DUR~`
+The starter `EVENTS_01.tef` defines the matching 22 durations with four- and five-digit event flags, including both `~DUR5~` and `~DUR4~`
 aliases, plus starter AEP, temporal-pattern, rainfall-method and climate events.
-Five-digit duration events retain their existing five-digit substitutions; four-digit events use a four-digit `~DUR~`
-and a five-digit `~StormDuration~`. Review the BC database naming before choosing flags. The 9-hour event
+Both event spellings supply a four-digit `~DUR4~` and a five-digit `~DUR5~` substitution. Review the BC database naming before choosing flags. The 9-hour event
 (`00540m` or `0540m`) has an editable starter end time of 18 hours. All end times require project-specific review.
 Climate selection uses `~e5~` independently of the rainfall method (`~e4~`); `CCNear` supplies the starter `~CC~`
 substitution, which must be reviewed against the rainfall database. `EnsembleILCL` no longer implicitly selects climate.
@@ -72,8 +71,8 @@ Add assessed climate/AEP loss branches there as needed, setting both variables i
 is included in the rainfall inputs before applying additional losses.
 
 The event file also includes `00.2p` and `00.5p` AEP substitutions and separate `DummyTP` and `DummyDUR` aliases,
-while retaining `Dummy` for existing temporal-pattern inputs. `DummyDUR` substitutes only `~DUR~`; it does not
-select an end time or set `~StormDuration~`. Supply matching boundary data and an explicit project end-time branch
+while retaining `Dummy` for existing temporal-pattern inputs. `DummyDUR` substitutes only `~DUR4~`; it does not
+select an end time or set `~DUR5~`. Supply matching boundary data and an explicit project end-time branch
 in `runs/run_times_01.trd` before using it. Local/regional inflow selection, ESTRY connections, spatial loss zones
 and catchment-specific end times require project design and are not enabled by the generic templates.
 

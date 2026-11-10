@@ -6,7 +6,7 @@ Define Event ==  Nested
 End Define
 
 Define Event == EnsembleILCL
-    BC Event Source == ~EnsembleILCL~ | EnsembleILCL 
+    BC Event Source == ~EnsembleILCL~ | EnsembleILCL
 End Define
 
 ! Climate selection is independent of rainfall method. Review against the BC database.
@@ -41,7 +41,7 @@ End Define
 Define Event == DummyTP !Dummy TP
     BC Event Source == ~TP~ | Dummy
 End Define
-Define Event == DummyDUR 
+Define Event == DummyDUR
     BC Event Source == ~DUR4~ |  Dummy
 End Define
 Define Event == Dummy !Dummy TP

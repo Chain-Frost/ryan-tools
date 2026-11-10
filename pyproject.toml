@@ -84,6 +84,8 @@ include-package-data = true
 "ryan_library.resources.mcp" = ["*.json"]
 "ryan_library.resources.qgis.tuflow" = ["*.qml"]
 "ryan_library.resources.tuflow_templates" = [
+  "*.bat",
+  "*.png",
   "model/*.trd",
   ".gitignore",
   "model/*.csv",

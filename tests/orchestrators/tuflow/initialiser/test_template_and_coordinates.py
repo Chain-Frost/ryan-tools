@@ -59,8 +59,9 @@ def test_duration_aliases_select_same_end_time(minutes: int) -> None:
     for flag in (long_flag, short_flag):
         blocks = re.findall(rf"^Define Event == {flag}\n(.*?)End Define", events, flags=re.MULTILINE | re.DOTALL)
         assert len(blocks) == 1
-        assert f"BC Event Source == ~StormDuration~ | {long_flag}" in blocks[0]
-        assert f"BC Event Source == ~DUR~ | {flag}" in blocks[0]
+        normalized = "\n".join(" ".join(line.split()) for line in blocks[0].splitlines())
+        assert f"BC Event Source == ~DUR5~ | {long_flag}" in normalized
+        assert f"BC Event Source == ~DUR4~ | {short_flag}" in normalized
     assert f"If Event == {long_flag} | {short_flag}" in run_times
     if minutes == 540:
         assert "If Event == 00540m | 0540m\n\tEnd Time == 18 ! hours" in run_times
