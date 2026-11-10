@@ -215,14 +215,10 @@ def test_input_check_summary_reports_unchecked_runs_without_claiming_they_were_c
         for run in plan.runs
     ]
 
-    assert runner._input_check_summary(report) == (
-        "Input check incomplete: checked 0 of 2 runs; 2 runs have issues."
-    )
+    assert runner._input_check_summary(report) == ("Input check incomplete: checked 0 of 2 runs; 2 runs have issues.")
 
     report.completed_runs = 1
-    assert runner._input_check_summary(report) == (
-        "Input check incomplete: checked 1 of 2 runs; 2 runs have issues."
-    )
+    assert runner._input_check_summary(report) == ("Input check incomplete: checked 1 of 2 runs; 2 runs have issues.")
 
 
 def test_gpu_inspected_only_once_and_inspection_uncertainty_is_not_all_clear(
