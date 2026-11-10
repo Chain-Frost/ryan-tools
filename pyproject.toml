@@ -86,6 +86,7 @@ include-package-data = true
 "ryan_library.resources.tuflow_templates" = [
   ".vscode/*.json",
   "*.bat",
+  "*.ini",
   "*.png",
   "model/*.trd",
   ".gitignore",
