@@ -1,5 +1,6 @@
 """Terrain/AOI checks and deterministic domain generation."""
 
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
@@ -138,6 +139,14 @@ def make_domain(  # noqa: C901 - domain mask validation and exclusions must rema
         msg = "Invalid or incomplete active model polygon"
         raise ValueError(msg)
     xmin, ymin, xmax, ymax = active.bounds
+    # Keep inactive grid cells beyond the code boundary, then snap outwards.
+    # An exact bounding box can put the outermost active cells on the model edge.
+    location_grid_m = 400.0
+    location_margin_m = 400.0
+    xmin = math.floor((xmin - location_margin_m) / location_grid_m) * location_grid_m
+    ymin = math.floor((ymin - location_margin_m) / location_grid_m) * location_grid_m
+    xmax = math.ceil((xmax + location_margin_m) / location_grid_m) * location_grid_m
+    ymax = math.ceil((ymax + location_margin_m) / location_grid_m) * location_grid_m
     loc = Polygon([(xmin, ymin), (xmax, ymin), (xmax, ymax), (xmin, ymax)])
     if not loc.is_valid or not loc.covers(active):
         msg = "Cardinal 2d_loc rectangle does not cover active area"

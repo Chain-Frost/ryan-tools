@@ -474,3 +474,20 @@ The initialiser now uses the same strict Pyright configuration and shared depend
 stubs as the rest of the repository. The former separate project configuration
 and duplicate stub tree are retired. Earlier split-profile results above remain
 historical evidence; they do not define a different maintained-code standard.
+
+
+## Location margin and 400 m grid alignment - 2026-11-10
+
+The populated location rectangle now adds at least 400 m around the active code extent, then rounds its west/south
+bounds down and east/north bounds up to whole 400 m multiples. Previously it used the exact active bounds and supplied
+no inactive-cell margin. This changes location only; active code, rainfall and contributing-area selection are unchanged.
+Four focused regressions cover positive/negative coordinates, exact multiples and fractional outward rounding.
+Windows Python 3.14: 132 focused project-setup/initialiser tests pass; strict changed-file Pyright and Ruff pass.
+Package 26.11.10.2 builds and verifies. Hosted final-head acceptance remains separate.
+
+A native private-project check re-created the analysis grid and GRASS D8 outputs: all 821,843 selected upstream cell
+squares are covered by the persisted code polygon, with zero missing area. A queried boundary neighbour drains away
+from the AOI and is correctly excluded. No polygon simplification is used. The existing analysis mosaic does resample
+to an aligned grid; for the checked single-DEM case its origin shifted about 3.59 m west and 13.59 m north. This is a
+separate analysis-grid choice, not evidence that original raster cells and analysis cells share an origin. Original
+terrain and project-specific inputs remain private; no hydraulic simulation was run.

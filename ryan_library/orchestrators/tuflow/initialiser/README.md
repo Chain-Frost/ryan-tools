@@ -25,6 +25,10 @@ General-purpose algorithms and focused GIS helpers are maintained outside this o
 
 The shared TUFLOW text templates are maintained in `ryan_library/resources/tuflow_templates`. Both entry points create the same four starter working layers, active boundary read, QGIS style and default utilities. The full initialiser build then populates code, location and rainfall GIS and adds terrain and hydrology products; boundary GIS remains empty until configured.
 
+The populated `2d_loc` is a north-aligned rectangle with at least 400 m of clearance around the active `2d_code`
+extent. All four bounds round outwards to whole multiples of 400 m. This margin provides inactive grid space;
+it does not enlarge the contributing catchment, active code or rainfall polygons.
+
 ## Entry points and acceptance
 
 `tuflow-initialiser init|build|catchments` is registered in `pyproject.toml`. Focused tests are in `tests/orchestrators/tuflow/initialiser/`. Real Windows/TUFLOW/GRASS verification is exercised through `repo-scripts/tuflow-initialiser/validate_test_project.py`.

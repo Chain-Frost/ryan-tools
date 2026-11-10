@@ -15,6 +15,31 @@ def test_mask_vectorisation() -> None:
     assert polygon.area == pytest.approx(1.0)
 
 
+@pytest.mark.parametrize("offset", [-4000, 0, 4000])
+def test_location_has_margin_and_outward_400m_alignment(offset: int) -> None:
+    domain = make_domain(
+        np.zeros((20, 20), dtype=np.int16),
+        aoi=box(offset + 400, offset + 400, offset + 800, offset + 800),
+        transform=from_origin(offset - 2000, offset + 2000, 200, 200),
+        raster_bounds=(offset - 2000, offset - 2000, offset + 2000, offset + 2000),
+        buffer_m=400,
+    )
+    assert domain.location.bounds == (offset - 400, offset - 400, offset + 1600, offset + 1600)
+    assert domain.location.covers(domain.active.buffer(400))
+
+
+def test_location_rounds_fractional_bounds_outwards() -> None:
+    domain = make_domain(
+        np.zeros((20, 20), dtype=np.int16),
+        aoi=box(411.5, 423.5, 811.5, 823.5),
+        transform=from_origin(-2000, 2000, 200, 200),
+        raster_bounds=(-2000, -2000, 2000, 2000),
+        buffer_m=400,
+    )
+    assert domain.location.bounds == (-400, -400, 2000, 2000)
+    assert domain.location.covers(domain.active.buffer(400))
+
+
 def test_buffer_requires_terrain_coverage() -> None:
     directions = np.full((8, 8), 6, dtype=np.int16)
     directions[0, :] = 0
