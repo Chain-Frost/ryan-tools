@@ -981,6 +981,21 @@ def _input_issue_message(issue: CommandPreflightIssue, *, advisory: bool = False
     )
 
 
+def _input_check_summary(report: CommandPreflightReport) -> str:
+    """Describe coverage and affected runs without presenting completion as failures."""
+    affected = report.affected_runs
+    run_word = "run" if affected == 1 else "runs"
+    if report.passed:
+        return f"Input check passed for all {report.run_count:,} runs."
+    if report.completed_runs == report.run_count:
+        return (
+            f"Input check completed for all {report.run_count:,} runs; "
+            f"{affected:,} {run_word} {'has' if affected == 1 else 'have'} issues."
+        )
+    issue_clause = f"; {affected:,} {run_word} {'has' if affected == 1 else 'have'} issues" if affected else ""
+    return f"Input check incomplete: checked {report.completed_runs:,} of {report.run_count:,} runs{issue_clause}."
+
+
 class AdvisoryInputCheck:
     """At most one daemon validation of the frozen plan; never gates launching."""
 
@@ -1001,7 +1016,12 @@ class AdvisoryInputCheck:
             # Keep upstream inspection inside this daemon. Thread-pool workers
             # are joined at interpreter exit and could hold shutdown on slow I/O.
             report: CommandPreflightReport = check_command_plan(self.plan, check_gpkg_layers=self._layers, io_workers=1)
-            status: str = "Passed" if report.passed else f"Issues: {len(report.issues)}"
+            status: str = (
+                "Passed"
+                if report.passed
+                else f"Issues: {len(report.issues):,} across {report.affected_runs:,} "
+                f"{'run' if report.affected_runs == 1 else 'runs'}"
+            )
             messages: list[tuple[str, str]] = [
                 (
                     "WARNING",
@@ -1013,10 +1033,7 @@ class AdvisoryInputCheck:
             messages.append(
                 (
                     "SUCCESS" if report.passed else "WARNING",
-                    (
-                        f"Input check {'passed' if report.passed else 'failed or incomplete'} for "
-                        f"{report.completed_runs}/{report.run_count} runs."
-                    ),
+                    _input_check_summary(report),
                 )
             )
         except Exception as exc:  # noqa: BLE001 - advisory checks are never a launch prerequisite
@@ -1064,9 +1081,9 @@ def check_plan_only(plan: CommandPlan, *, check_gpkg_layers: bool = True) -> boo
     for warning in report.warnings:
         logger.warning("{}", _input_issue_message(warning, advisory=True))
     if not report.passed:
-        logger.error("Input checking failed or is incomplete: {}/{} completed", report.completed_runs, report.run_count)
+        logger.error("{}", _input_check_summary(report))
     else:
-        logger.success("Input check passed for {}/{} runs.", report.completed_runs, report.run_count)
+        logger.success("{}", _input_check_summary(report))
     return report.passed
 
 
