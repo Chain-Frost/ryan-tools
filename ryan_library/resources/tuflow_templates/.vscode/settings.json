@@ -1,0 +1,9 @@
+{
+    "material-icon-theme.activeIconPack": "react",
+    "material-icon-theme.files.associations": {
+        "*.tlf": "Ruby",
+        "*.hpc.tlf": "Go"
+    },
+    "tuflowValidator.diagnosticLevel": "hint",
+    "tuflowValidator.enableLatestVersionChecks": true
+}
