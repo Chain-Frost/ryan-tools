@@ -2,5 +2,5 @@
 ! Initial loss is in mm; continuing loss is in mm/h. These are not calibrated defaults.
 ! Add climate/AEP branches here when supported by the project loss assessment.
 ! Every selected branch must set both variables used by Soil_01.tsoilf soil 100.
-Set Variable InitialLoss == 21
-Set Variable ContLoss == 3.21
+Set Variable InitialLoss == 0
+Set Variable ContLoss == 0

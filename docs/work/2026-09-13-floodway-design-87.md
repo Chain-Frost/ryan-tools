@@ -12,7 +12,7 @@
 | Owner | Unassigned |
 | Created | 2026-09-13 |
 | Updated | 2026-11-10 |
-| Next review | None - completed delivery |
+| Next review | 2027-02-15 |
 | Branch | `feature/floodway-design-87` / PR #88 |
 | Baseline | PR head `a90bbae`; local lint repairs are unstaged; incorporates `origin/main` (`beb1011`) |
 
