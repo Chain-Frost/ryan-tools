@@ -42,8 +42,8 @@
 		Set Variable InitialLoss ==	0
 		Set Variable ContLoss ==	0
 	Else If Event == EnsembleILCL
-		Set Variable InitialLoss ==	21
-		Set Variable ContLoss ==	3.21
+		! Review preburst handling in the rainfall inputs to avoid applying it twice.
+		Read File ==				..\model\soils_losses_01.trd
 		BC Database ==				..\bc_dbase\ARR19\bc_dbase_CC.csv
 	Else
 		Pause == No rainfall input selected
@@ -72,7 +72,7 @@
 	TIF Map Output Interval ==		0
 	HRTIF Start Map Output ==		0
 	HRTIF Map Output Interval ==	0
-	Map Output Interval ==			60 ! seconds
+	Map Output Interval ==			0 ! maximum-only maps; time series still use OutInterval
 
 	Store Maximums and Minimums == ON MAXIMUMS ONLY
 
@@ -90,6 +90,8 @@
 	Screen/Log Display Interval ==	200
 	Check Inside Grid ==			WARNING
 	GIS Projection Check ==			ERROR
-	Use GDAL ==						ON
-	Grid Format ==					COG
+	Grid Format ==					TIF
+	! Optional COG grid writing: enable both commands after checking the application environment.
+	! Use GDAL ==					ON
+	! Grid Format ==				COG
 	GIS Format ==					GPKG

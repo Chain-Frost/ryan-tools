@@ -43,7 +43,25 @@ Define Event == Dummy
     BC Event Source == ~TP~ | Dummy
 End Define
 
+! Independent dummy selections for externally supplied hydrographs.
+! DummyDUR requires a project-specific end-time branch in run_times_01.trd.
+Define Event == DummyTP
+    BC Event Source == ~TP~ | Dummy
+End Define
+
+Define Event == DummyDUR
+    BC Event Source == ~DUR~ | Dummy
+End Define
+
 ! AEP events. Add any aliases required by the selected BC databases.
+Define Event == 00.2p
+	BC Event Source == ~AEP~ | 00.2p
+End Define
+
+Define Event == 00.5p
+	BC Event Source == ~AEP~ | 00.5p
+End Define
+
 Define Event == 01.0p
 	BC Event Source == ~AEP~ | 01.0p
 End Define

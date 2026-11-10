@@ -53,7 +53,9 @@ Climate selection uses `~e5~` independently of the rainfall method (`~e4~`); `CC
 substitution, which must be reviewed against the rainfall database. `EnsembleILCL` no longer implicitly selects climate.
 Existing generated projects and launch commands are not migrated automatically: new projects must supply `-e5`.
 `OutputBase` defaults to `..`, while `OutputRoot` contains the relative results hierarchy including the climate flag;
-output, log and check folders share that base. Map output explicitly stores maximums only.
+output, log and check folders share that base. Map output explicitly stores maximums only, with the global,
+TIF and HRTIF map intervals all set to zero. Time-series output retains its separate `OutInterval` setting.
+Grid writing defaults to TIF; the paired GDAL/COG commands remain commented options for a verified application environment.
 An unrecognised rainfall method stops through a TUFLOW `Pause` diagnostic. The TCF contains a example project rainfall
 method block for selecting the BC database and `InitialLoss`/`ContLoss`; its database paths and loss values are
 explicitly project-specific and must be reviewed before running a model.
@@ -62,8 +64,18 @@ The initializer does not create a root `check` directory or `model/xf`. TUFLOW c
 folders later when a model is run.
 
 The starter loss setup is complete across the control files: the TCF reads `model/Soil_01.tsoilf`, its rainfall-method
-block sets `InitialLoss` and `ContLoss`, and `GEOM_01.tgc` selects soil 99 (no infiltration) or soil 100 (variable IL/CL)
+block sets `InitialLoss` and `ContLoss` directly for PMP/nested inputs or reads `model/soils_losses_01.trd` for
+`EnsembleILCL`, and `GEOM_01.tgc` selects soil 99 (no infiltration) or soil 100 (variable IL/CL)
 from the active method event. These project-specific loss values must still be reviewed before simulation.
+The loss file preserves the existing starter values of 21 mm and 3.21 mm/h; these are not calibrated defaults.
+Add assessed climate/AEP loss branches there as needed, setting both variables in every branch. Check how preburst
+is included in the rainfall inputs before applying additional losses.
+
+The event file also includes `00.2p` and `00.5p` AEP substitutions and separate `DummyTP` and `DummyDUR` aliases,
+while retaining `Dummy` for existing temporal-pattern inputs. `DummyDUR` substitutes only `~DUR~`; it does not
+select an end time or set `~StormDuration~`. Supply matching boundary data and an explicit project end-time branch
+in `runs/run_times_01.trd` before using it. Local/regional inflow selection, ESTRY connections, spatial loss zones
+and catchment-specific end times require project design and are not enabled by the generic templates.
 
 ## Usage
 
