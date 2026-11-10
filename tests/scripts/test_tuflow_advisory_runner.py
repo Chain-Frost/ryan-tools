@@ -202,7 +202,27 @@ def test_input_check_summary_distinguishes_incomplete_coverage_from_issues(
     caplog.set_level(logging.INFO)
 
     assert runner.check_plan_only(plan) is False
-    assert "Input check incomplete: checked 1 of 2 runs; 1 checked run has issues." in caplog.text
+    assert "Input check incomplete: checked 1 of 2 runs; 1 run has issues." in caplog.text
+
+
+def test_input_check_summary_reports_unchecked_runs_without_claiming_they_were_checked(tmp_path: Path) -> None:
+    plan = runner.prepare_plan(settings(tmp_path))
+    report = CommandPreflightReport(plan, completed_runs=0)
+    report.issues = [
+        CommandPreflightIssue(
+            run, PreflightIssue(run.index, "", "unresolved", "test", "validator", "validation failed")
+        )
+        for run in plan.runs
+    ]
+
+    assert runner._input_check_summary(report) == (
+        "Input check incomplete: checked 0 of 2 runs; 2 runs have issues."
+    )
+
+    report.completed_runs = 1
+    assert runner._input_check_summary(report) == (
+        "Input check incomplete: checked 1 of 2 runs; 2 runs have issues."
+    )
 
 
 def test_gpu_inspected_only_once_and_inspection_uncertainty_is_not_all_clear(
