@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+from collections.abc import Callable
 from pathlib import Path
 from typing import Protocol, cast
 
@@ -12,7 +13,9 @@ import pytest
 import rasterio
 from rasterio.transform import from_origin
 
+from ryan_library.functions.tuflow import asc_to_asc_raster_operations as raster_operations
 from ryan_library.functions.tuflow.asc_to_asc_raster_operations import compute_stat, flatten_nested_source_provenance
+from ryan_library.functions.tuflow.asc_to_asc_runner import RasterOperationJob, run_python_raster_job
 from ryan_library.orchestrators.tuflow.asc2asc_mean_then_max_by_search import (
     ParsedRaster,
     discover_max_jobs,
@@ -29,13 +32,18 @@ class _Compression(Protocol):
 class _RasterWriter(Protocol):
     def write(self, data: npt.NDArray[np.float32], indexes: int) -> None: ...
 
+    def write_mask(self, mask: npt.NDArray[np.uint8]) -> None: ...
+
     def close(self) -> None: ...
 
 
 class _RasterReader(Protocol):
     compression: _Compression | None
+    dtypes: tuple[str, ...]
 
     def read(self, indexes: int) -> npt.NDArray[np.float32]: ...
+
+    def read_masks(self, indexes: int) -> npt.NDArray[np.uint8]: ...
 
     def close(self) -> None: ...
 
@@ -78,11 +86,21 @@ def _compression(path: Path) -> str | None:
         source.close()
 
 
+def _raster_dtype(path: Path) -> str:
+    source = cast("_RasterReader", rasterio.open(path))
+    try:
+        return source.dtypes[0]
+    finally:
+        source.close()
+
+
 @pytest.mark.parametrize(
     ("stat_type", "expected"),
-    [("-statMean", [2.0, 0.0]), ("-statMax", [2.0, 0.0])],
+    [("-statMean", [2.0, NODATA]), ("-statMax", [2.0, NODATA])],
 )
-def test_compute_stat_treats_nodata_as_zero(tmp_path: Path, stat_type: str, expected: list[float]) -> None:
+def test_compute_stat_treats_partial_nodata_as_zero_but_preserves_empty_footprint(
+    tmp_path: Path, stat_type: str, expected: list[float]
+) -> None:
     first = tmp_path / "first.tif"
     second = tmp_path / "second.tif"
     output = tmp_path / "mean.tif"
@@ -110,6 +128,166 @@ def test_compute_stat_excludes_nodata_and_preserves_all_nodata(
     compute_stat(stat_type, [str(first), str(second)], str(output), nodata_policy="exclude")
 
     np.testing.assert_array_equal(_read_raster(output), np.asarray([expected], dtype=np.float32))
+
+
+@pytest.mark.parametrize("stat_type", ["max", "min"])
+def test_zero_policy_extrema_prefer_valid_source_over_substituted_zero_tie(tmp_path: Path, stat_type: str) -> None:
+    invalid = tmp_path / "invalid_duration.tif"
+    valid = tmp_path / "valid_duration.tif"
+    output = tmp_path / "extremum.tif"
+    _write_raster(invalid, [NODATA, NODATA])
+    _write_raster(valid, [0.0, NODATA])
+
+    compute_stat(stat_type, [str(invalid), str(valid)], str(output), nodata_policy="zero", write_source=True)
+
+    np.testing.assert_array_equal(_read_raster(output), np.asarray([[0.0, NODATA]], dtype=np.float32))
+    np.testing.assert_array_equal(_read_raster(tmp_path / "extremum_src.tif"), [[2, 0]])
+    with (tmp_path / "extremum_src_legend.csv").open(encoding="utf-8", newline="") as stream:
+        legend = list(csv.DictReader(stream))
+    assert [int(item["cell_count"]) for item in legend] == [0, 1]
+
+
+def test_zero_policy_maximum_keeps_original_tp_provenance_when_invalid_duration_ties(
+    tmp_path: Path,
+) -> None:
+    first_duration = tmp_path / "all_dry_duration.tif"
+    second_duration = tmp_path / "wet_duration.tif"
+    output = tmp_path / "maximum.tif"
+    first_source = tmp_path / "all_dry_duration_src.tif"
+    second_source = tmp_path / "wet_duration_src.tif"
+    original_dry = tmp_path / "dry_tp.tif"
+    original_wet = tmp_path / "wet_tp.tif"
+
+    _write_raster(first_duration, [NODATA])
+    _write_raster(second_duration, [0.0])
+    _write_raster(first_source, [0.0])
+    _write_raster(second_source, [1.0])
+    _write_raster(original_dry, [NODATA])
+    _write_raster(original_wet, [0.0])
+
+    compute_stat(
+        "max", [str(first_duration), str(second_duration)], str(output), nodata_policy="zero", write_source=True
+    )
+    np.testing.assert_array_equal(_read_raster(tmp_path / "maximum_src.tif"), [[2]])
+
+    flatten_nested_source_provenance(
+        output_file=str(output),
+        nested_source_files=[str(first_source), str(second_source)],
+        original_input_groups=[[str(original_dry)], [str(original_wet)]],
+    )
+
+    np.testing.assert_array_equal(_read_raster(output), [[0.0]])
+    np.testing.assert_array_equal(_read_raster(tmp_path / "maximum_src.tif"), [[2]])
+    with (tmp_path / "maximum_src_legend.csv").open(encoding="utf-8", newline="") as stream:
+        legend = list(csv.DictReader(stream))
+    assert [int(row["cell_count"]) for row in legend] == [0, 1]
+
+
+def test_compute_stat_honours_explicit_band_masks(tmp_path: Path) -> None:
+    """An internal validity mask may exclude finite pixels, even without a sentinel hit."""
+    first = tmp_path / "first.tif"
+    second = tmp_path / "second.tif"
+    output = tmp_path / "masked_mean.tif"
+    _write_raster(first, [2.0, 6.0, 90.0])
+    _write_raster(second, [4.0, 8.0, 100.0])
+
+    for path, valid in (
+        (first, [255, 0, 0]),
+        (second, [255, 255, 0]),
+    ):
+        dataset = cast("_RasterWriter", rasterio.open(path, "r+"))
+        try:
+            dataset.write_mask(np.asarray([valid], dtype=np.uint8))
+        finally:
+            dataset.close()
+
+    compute_stat(
+        "mean",
+        [str(first), str(second)],
+        str(output),
+        nodata_policy="zero",
+        mean_value_method="arithmetic",
+        write_source=True,
+    )
+
+    np.testing.assert_array_equal(_read_raster(output), np.asarray([[3.0, 4.0, NODATA]], dtype=np.float32))
+    source = cast("_RasterReader", rasterio.open(output))
+    try:
+        np.testing.assert_array_equal(source.read_masks(1), np.asarray([[255, 255, 0]], dtype=np.uint8))
+    finally:
+        source.close()
+    np.testing.assert_array_equal(
+        _read_raster(tmp_path / "masked_mean_src.tif"), np.asarray([[2, 2, 0]], dtype=np.int32)
+    )
+    with (tmp_path / "masked_mean_src_legend.csv").open(encoding="utf-8", newline="") as stream:
+        rows = list(csv.reader(stream))
+    assert [row[2] for row in rows[1:]] == ["0", "2"]
+
+
+def test_mean_then_max_preserves_nodata_and_counts_flattened_original_sources(tmp_path: Path) -> None:
+    """Both stages preserve the outside footprint while accepting a dry/wet TP mixture."""
+    input_groups: list[tuple[Path, ...]] = []
+    mean_paths: list[Path] = []
+    for duration, arrays in (
+        ("00030m", ([NODATA, 6.0, 5.0, NODATA], [NODATA, NODATA, 9.0, NODATA])),
+        ("00060m", ([NODATA, 4.0, 3.0, NODATA], [NODATA, 8.0, 3.0, NODATA])),
+    ):
+        input_group: list[Path] = []
+        for tp, values in enumerate(arrays, start=1):
+            input_path = tmp_path / f"{duration}_TP{tp:02d}.tif"
+            _write_raster(input_path, values)
+            input_group.append(input_path)
+        input_groups.append(tuple(input_group))
+
+        mean_path = tmp_path / f"{duration}_TPMean.tif"
+        mean_paths.append(mean_path)
+        run_python_raster_job(
+            job=RasterOperationJob(
+                label=f"{duration} mean",
+                operation="-statMean",
+                input_files=tuple(input_group),
+                output_file=mean_path,
+                nodata_policy="zero",
+                mean_value_method="asc_to_asc",
+                write_source=True,
+            )
+        )
+        with (tmp_path / f"{duration}_TPMean_src_legend.csv").open(encoding="utf-8", newline="") as stream:
+            mean_legend = list(csv.DictReader(stream))
+        assert [int(row["cell_count"]) for row in mean_legend] == [1, 1]
+
+    np.testing.assert_array_equal(
+        _read_raster(mean_paths[0]), np.asarray([[NODATA, 3.0, 7.0, NODATA]], dtype=np.float32)
+    )
+    np.testing.assert_array_equal(
+        _read_raster(mean_paths[1]), np.asarray([[NODATA, 6.0, 3.0, NODATA]], dtype=np.float32)
+    )
+
+    maximum = tmp_path / "TPMean_DurMax.tif"
+    run_python_raster_job(
+        job=RasterOperationJob(
+            label="max of means",
+            operation="-statMax",
+            input_files=tuple(mean_paths),
+            output_file=maximum,
+            nodata_policy="zero",
+            write_source=True,
+            original_input_groups=tuple(input_groups),
+        )
+    )
+
+    np.testing.assert_array_equal(_read_raster(maximum), np.asarray([[NODATA, 6.0, 7.0, NODATA]], dtype=np.float32))
+    np.testing.assert_array_equal(
+        _read_raster(tmp_path / "TPMean_DurMax_src.tif"), np.asarray([[0, 4, 2, 0]], dtype=np.int32)
+    )
+    with (tmp_path / "TPMean_DurMax_src_legend.csv").open(encoding="utf-8", newline="") as stream:
+        maximum_legend = list(csv.DictReader(stream))
+    assert [int(row["source_id"]) for row in maximum_legend] == [1, 2, 3, 4]
+    assert [int(row["cell_count"]) for row in maximum_legend] == [0, 1, 0, 1]
+    assert sum(int(row["cell_count"]) for row in maximum_legend) == 2
+    assert [Path(row["source_file"]) for row in maximum_legend] == [
+        path.resolve() for group in input_groups for path in group
+    ]
 
 
 def test_compute_stat_can_write_arithmetic_mean(tmp_path: Path) -> None:
@@ -188,10 +366,10 @@ def test_compute_stat_writes_source_ids_and_legend(tmp_path: Path) -> None:
     with (tmp_path / "maximum_src_legend.csv").open(encoding="utf-8", newline="") as stream:
         rows = list(csv.reader(stream))
     assert rows == [
-        ["source_id", "source_file"],
-        ["1", str(first.resolve())],
-        ["2", str(second.resolve())],
-        ["3", str(third.resolve())],
+        ["source_id", "source_file", "cell_count"],
+        ["1", str(first.resolve()), "1"],
+        ["2", str(second.resolve()), "1"],
+        ["3", str(third.resolve()), "1"],
     ]
 
 
@@ -241,6 +419,7 @@ def test_native_geotiff_outputs_use_tuflow_compression_by_default(tmp_path: Path
 
     assert _compression(output) == "deflate"
     assert _compression(tmp_path / "maximum_src.tif") == "deflate"
+    assert _raster_dtype(tmp_path / "maximum_src.tif") == "uint8"
 
 
 def test_explicit_creation_options_override_tuflow_compression_defaults(tmp_path: Path) -> None:
@@ -278,12 +457,71 @@ def test_flatten_nested_source_provenance_links_to_original_rasters(tmp_path: Pa
     )
 
     np.testing.assert_array_equal(_read_raster(final_source), np.asarray([[2, 4, 0, 0]], dtype=np.int32))
+    assert _compression(final_source) == "deflate"
+    assert _raster_dtype(final_source) == "uint8"
     with (tmp_path / "maximum_src_legend.csv").open(encoding="utf-8", newline="") as stream:
         rows = list(csv.reader(stream))
     assert rows == [
-        ["source_id", "source_file"],
-        *[[str(index), str(path.resolve())] for index, path in enumerate(originals, start=1)],
+        ["source_id", "source_file", "cell_count"],
+        *[
+            [str(index), str(path.resolve()), str([0, 1, 0, 1][index - 1])]
+            for index, path in enumerate(originals, start=1)
+        ],
     ]
+
+
+@pytest.mark.parametrize(
+    ("maximum_source_id", "expected_dtype"),
+    [(1, "uint8"), (255, "uint8"), (256, "uint16"), (65535, "uint16"), (65536, "uint32")],
+)
+def test_source_index_dtype_preserves_all_source_ids(maximum_source_id: int, expected_dtype: str) -> None:
+    # Keep the adaptive encoding helper private to the library module.
+    select_dtype = cast("Callable[[int], str]", getattr(raster_operations, "_source_index_dtype"))  # noqa: B009
+    assert select_dtype(maximum_source_id) == expected_dtype
+
+
+def test_flattened_source_raster_uses_effective_lossless_compression(tmp_path: Path) -> None:
+    """A large uniform source-ID grid must not be emitted as an uncompressed TIFF."""
+    size = 512
+    source = tmp_path / "max_src.tif"
+    nested = tmp_path / "mean_src.tif"
+    original = tmp_path / "tp01.tif"
+    final_output = tmp_path / "max.tif"
+    data = np.ones((size, size), dtype=np.float32)
+    for path in (source, nested, original):
+        dataset = cast(
+            "_RasterWriter",
+            rasterio.open(
+                path,
+                "w",
+                driver="GTiff",
+                width=size,
+                height=size,
+                count=1,
+                dtype="float32",
+                transform=from_origin(0.0, float(size), 1.0, 1.0),
+                nodata=NODATA,
+            ),
+        )
+        try:
+            dataset.write(data, 1)
+        finally:
+            dataset.close()
+
+    flatten_nested_source_provenance(
+        output_file=str(final_output),
+        nested_source_files=[str(nested)],
+        original_input_groups=[[str(original)]],
+        source_output_file=str(source),
+    )
+
+    assert _compression(source) == "deflate"
+    assert _raster_dtype(source) == "uint8"
+    np.testing.assert_array_equal(_read_raster(source), np.ones((size, size), dtype=np.uint8))
+    assert source.stat().st_size < 50_000
+    with (tmp_path / "max_src_legend.csv").open(encoding="utf-8", newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    assert rows[0]["cell_count"] == str(size * size)
 
 
 def _parsed_raster(*, tmp_path: Path, result_type: str) -> ParsedRaster:

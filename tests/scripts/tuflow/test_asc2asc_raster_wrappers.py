@@ -27,6 +27,26 @@ def _load_script(filename: str) -> ModuleType:
     return module
 
 
+@pytest.mark.parametrize(
+    "wrapper",
+    [
+        "run_asc_to_asc_mean_then_maximum.py",
+        "run_asc_to_asc_median_then_maximum.py",
+    ],
+)
+@pytest.mark.parametrize(
+    ("cli_flag", "expected"),
+    [("", None), ("--source", True), ("--no-source", False)],
+)
+def test_stat_then_max_source_defaults_and_cli_overrides(
+    wrapper: str, cli_flag: str, expected: bool | None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = _load_script(wrapper)
+    assert module.WRITE_SOURCE_RASTERS is True
+    monkeypatch.setattr(sys, "argv", [wrapper, *([cli_flag] if cli_flag else [])])
+    assert module._parse_cli_arguments().write_source is expected
+
+
 def test_max_search_wrapper_dry_run_uses_configured_fixture_layout(
     raster_test_data: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

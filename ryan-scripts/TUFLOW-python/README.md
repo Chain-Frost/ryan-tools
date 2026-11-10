@@ -563,8 +563,12 @@ policies, closest-source mean, upper median and optional executable-comparison b
 `raster_processing/run_asc_to_asc_mean_then_maximum.py` and
 `raster_processing/run_asc_to_asc_median_then_maximum.py` share one generic
 statistic-then-maximum orchestrator. They aggregate temporal patterns for each
-duration, then take the maximum across durations. With `--source`, the final
-source legend resolves directly to the original temporal-pattern rasters.
+duration, then take the maximum across durations. Source rasters and CSV legends
+are enabled by default, with `--no-source` to disable them. Each source legend
+includes the original input path and `cell_count`, the number of raster cells
+assigned that source ID. The final legend resolves directly to the original
+temporal-pattern rasters. All-NoData cells stay NoData; for depth/velocity,
+partial NoData contributes zero only where another input is valid.
 The mean wrapper defaults to ASC_to_ASC selection: its value raster contains
 the arithmetic mean and its source identifies the lowest contributing TP value
 at or above the mean. `MEAN_VALUE_METHOD` or `--mean-value-method` can instead
