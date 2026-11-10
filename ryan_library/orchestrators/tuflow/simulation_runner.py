@@ -1276,6 +1276,9 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
     next_print = 0
     gpu_availability = GpuAvailability()
     next_gpu_check = 0.0
+    # One global cooldown applies to starts across GPU slots and to observed
+    # process completions (successful or failed). It never changes slot ownership.
+    next_launch_at: float | None = None
     gpu_status: str | None = "Checking" if settings.wait_for_available_gpu and groups else None
     has_configured_gpu: bool = any(is_gpu_switch(token) for run in plan.runs for token in run.arguments)
     has_source_priority: bool = any(run.start_options for run in plan.runs)
@@ -1301,6 +1304,10 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
         "-puN uses TUFLOW/CUDA order, not NVIDIA or Windows display indexes. "
         "These names describe this launch environment; external processes may use different CUDA ordering. "
         "For older TUFLOW builds, verify device names in the model's .hpc.tlf."
+    )
+    logger.info(
+        "TUFLOW launch cooldown: {}s between starts and after observed completion/failure (0 disables).",
+        settings.wait_time_after_run,
     )
     if gpu_status is not None:
         logger.info(
@@ -1374,8 +1381,18 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
         latest_progress.pop(result.run.index, None)
         return progress_update
 
+    def postpone_next_launch() -> None:
+        nonlocal next_launch_at
+        if settings.wait_time_after_run <= 0:
+            return
+        deadline = time.monotonic() + settings.wait_time_after_run
+        next_launch_at = max(next_launch_at, deadline) if next_launch_at is not None else deadline
+
     def observed(result: RunOutcome) -> None:
         nonlocal next_print
+        # A finished solver, including a nonzero exit or failed Popen, starts
+        # a new cooldown before the scheduler can replace it on any GPU slot.
+        postpone_next_launch()
         outcomes.append(result)
         if on_observed_completion is not None:
             on_observed_completion(result)
@@ -1516,7 +1533,20 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                     break
                 if poll_children() and gpu_status is not None:
                     next_gpu_check = 0.0
+                paused_for_launch_cooldown = False
                 while queue and len(active) < capacity and not stop.is_set():
+                    # Poll during the cooldown: a child can exit between two
+                    # starts, extending the deadline from its observed finish.
+                    if poll_children() and gpu_status is not None:
+                        next_gpu_check = 0.0
+                    if next_launch_at is not None:
+                        launch_wait = max(0.0, next_launch_at - time.monotonic())
+                        if launch_wait:
+                            # Small interruptible slices keep the dashboard,
+                            # input checks and other child completions responsive.
+                            stop.wait(min(launch_wait, 0.1))
+                            paused_for_launch_cooldown = True
+                            break
                     if (
                         gpu_status is not None
                         and len(claimed_slots) < len(groups)
@@ -1582,6 +1612,9 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                     except OSError as exc:
                         observed(RunOutcome(run, None, started, datetime.now(), None, f"Launch failed: {exc}"))
                         continue
+                    # A successful process start also spaces initial launches
+                    # when several GPU groups are free concurrently.
+                    postpone_next_launch()
                     # Ownership must precede priority, presentation or another fallible operation.
                     active.append(_OwnedChild(run, process, started, slot))
                     if slot is not None:
@@ -1624,14 +1657,15 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                         )
                         dashboard.set_active_count(len(active), refresh=False)
                         dashboard.refresh(force=True)
-                    if queue and settings.wait_time_after_run:
-                        time.sleep(settings.wait_time_after_run)
                     if poll_children() and gpu_status is not None:
                         next_gpu_check = 0.0
                 if active:
                     time.sleep(0.1)
-                elif queue and gpu_status is not None:
-                    # No owned children: wait interruptibly without rescanning or waking at child-poll frequency.
+                elif queue and gpu_status is not None and not paused_for_launch_cooldown:
+                    # No owned children and no pending launch cooldown: wait for
+                    # another GPU scan. After a cooldown slice, return to the
+                    # outer loop instead; the GPU may already be available.
+                    # Avoid accidentally waiting until the next GPU poll.
                     remaining = max(0.0, next_gpu_check - time.monotonic())
                     dashboard_interval = 1.0 / settings.live_refresh_per_second if dashboard is not None else remaining
                     stop.wait(min(dashboard_interval, remaining))
