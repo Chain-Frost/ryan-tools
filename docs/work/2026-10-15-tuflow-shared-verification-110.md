@@ -1,8 +1,14 @@
+> **Current reconciliation (2026-11-10): scoped implementation delivered.** GitHub confirms [PR #116](https://github.com/Chain-Frost/ryan-tools/pull/116) merged at 2026-10-15T13:52:12Z (UTC), commit `592581d8bcbb3cfda22097e50136f383f80af64c`, into `main`. Historical local wheel and CRS notes remain evidence of their recorded revisions; no new raster run is claimed.
+>
+> Earlier pending-review, no-merge and next-action statements below are historical snapshots, not current delivery instructions.
+>
+> This reconciliation checks GitHub delivery and available final-head check conclusions; it does not rerun local/native tests or imply every wider engineering gate passed.
+
 # TUFLOW cleanup: shared filesystem verification (#110)
 
 | Field | Value |
 | --- | --- |
-| Status | Implemented; awaiting CI and review |
+| Status | Complete - scoped implementation merged; see current reconciliation |
 | Created | 2026-10-15 |
 | Parent | PR #109, safe GeoTIFF recompression |
 | Follow-up | Issue #110; branch `feature/shared-tuflow-verification-110` |
