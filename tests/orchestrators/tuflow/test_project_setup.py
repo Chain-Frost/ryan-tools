@@ -189,6 +189,19 @@ def test_project_layers_are_empty_derivatives_of_tuflow_empties(
     main_tcf: Path = runs_dir / "Example_01_~s2~_~s1~_~e1~_~e2~_~e4~_~e3~_~e5~_~s4~.tcf"
     assert main_tcf.is_file()
     assert (result.project_dir / "ARR Tool.png").read_bytes() == (templates_dir / "ARR Tool.png").read_bytes()
+    vscode_dir = result.project_dir / ".vscode"
+    settings_text = (vscode_dir / "settings.json").read_text(encoding="utf-8")
+    assert '"**/results/**": true' in settings_text
+    assert '"python-envs.defaultEnvManager": "ms-python.python:system"' in settings_text
+    extensions_text = (vscode_dir / "extensions.json").read_text(encoding="utf-8")
+    assert '"Chain-Frost.tuflow-path-validator"' in extensions_text
+
+    batch_text = (result.project_dir / "package_model.bat").read_text(encoding="utf-8")
+    assert f'"TUFLOW_EXE={tuflow_executable.absolute()}"' in batch_text
+    assert f"runs\\{main_tcf.name}" in batch_text
+    assert '-pmAllini "pm.ini" -xf0' in batch_text
+    assert (result.project_dir / "pm.ini").read_text(encoding="utf-8") == "Copy Destination == C:\\Temp\\Example\n"
+
     assert not (runs_dir / "Example_01.tcf").exists()
     tcf_text: str = main_tcf.read_text(encoding="utf-8")
     normalized_tcf_lines = tuple(" ".join(line.split()) for line in tcf_text.splitlines())
