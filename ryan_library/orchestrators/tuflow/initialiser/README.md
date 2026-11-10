@@ -29,6 +29,12 @@ The populated `2d_loc` is a north-aligned rectangle with at least 400 m of clear
 extent. All four bounds round outwards to whole multiples of 400 m. This margin provides inactive grid space;
 it does not enlarge the contributing catchment, active code or rainfall polygons.
 
+For one unclipped DEM already in the project CRS, the default analysis retains the original raster origin,
+dimensions, resolution, elevation values and masks. Multiple DEMs, reprojection, or explicitly requested analysis
+bounds/resolution use a mosaic anchored to the finest-resolution source's origin, using its resolution by default.
+Source order still decides which DEM wins overlaps. Reprojected sources use GDAL's suggested target-CRS grid when
+choosing that reference. The 400 m location alignment does not resample the terrain.
+
 ## Entry points and acceptance
 
 `tuflow-initialiser init|build|catchments` is registered in `pyproject.toml`. Focused tests are in `tests/orchestrators/tuflow/initialiser/`. Real Windows/TUFLOW/GRASS verification is exercised through `repo-scripts/tuflow-initialiser/validate_test_project.py`.

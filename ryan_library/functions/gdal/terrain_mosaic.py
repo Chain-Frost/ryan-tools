@@ -21,9 +21,10 @@ from affine import Affine
 from rasterio.crs import CRS
 from rasterio.enums import Resampling
 from rasterio.features import rasterize
+from rasterio.shutil import copy as raster_copy
 from rasterio.transform import from_origin
 from rasterio.vrt import WarpedVRT
-from rasterio.warp import transform_bounds, transform_geom
+from rasterio.warp import calculate_default_transform, transform_bounds, transform_geom
 from rasterio.windows import Window
 
 
@@ -57,6 +58,43 @@ class TerrainLayer:
 
     raster: Path
     clip: Path | None = None
+
+
+def _copy_native_grid(
+    source: rasterio.io.DatasetReader,
+    *,
+    target: Path,
+    provenance: Path,
+    target_crs: CRS,
+    max_cells: int,
+) -> TerrainMosaic:
+    """Preserve one raster's grid, elevations, NoData and masks without warping."""
+    if source.width < 3 or source.height < 3 or source.width * source.height > max_cells:
+        msg = f"Unsafe analysis raster size {source.width}x{source.height}; change analysis resolution"
+        raise ValueError(msg)
+    raster_copy(source, target, driver="GTiff", compress="deflate", BIGTIFF="IF_SAFER")
+    # An explicit missing-CRS assumption labels the copy; it never moves pixels.
+    if cast("CRS | None", source.crs) is None:
+        with rasterio.open(target, "r+") as output:
+            output.crs = target_crs
+    with rasterio.open(
+        provenance,
+        "w",
+        driver="GTiff",
+        width=source.width,
+        height=source.height,
+        count=1,
+        dtype="uint16",
+        crs=target_crs,
+        transform=source.transform,
+        nodata=0,
+        compress="deflate",
+        BIGTIFF="IF_SAFER",
+    ) as index:
+        for _, window in source.block_windows(1):
+            valid = (source.read_masks(1, window=window) > 0) & np.isfinite(source.read(1, window=window))
+            index.write(valid.astype(np.uint16), 1, window=window)
+    return TerrainMosaic(target, provenance, max(abs(source.res[0]), abs(source.res[1])))
 
 
 def compose_terrain(
@@ -101,7 +139,12 @@ def compose_terrain_layers(  # noqa: C901 - staged raster composition is intenti
     assume_missing_crs: CRS | None = None,
     bounds: tuple[float, float, float, float] | None = None,
 ) -> TerrainMosaic:
-    """Build a high-to-low priority mosaic, including optional clip polygons."""
+    """Build a high-to-low priority mosaic, including optional clip polygons.
+
+    A single unclipped matching-CRS input retains its native grid unless bounds
+    or resolution are explicitly requested. Other cases align to the finest
+    input's origin in the target CRS; input order still controls overlap priority.
+    """
     layers = tuple(
         TerrainLayer(item.raster.absolute(), item.clip.absolute() if item.clip else None) for item in terrain_layers
     )
@@ -136,13 +179,29 @@ def compose_terrain_layers(  # noqa: C901 - staged raster composition is intenti
     with ExitStack() as stack:
         sources = [stack.enter_context(rasterio.open(path)) for path in paths]
         source_bounds = [_validated_bounds(source, target_crs, assume_missing_crs) for source in sources]
+        if (
+            len(sources) == 1
+            and layers[0].clip is None
+            and resolution_m is None
+            and bounds is None
+            and (sources[0].crs or assume_missing_crs) == target_crs
+        ):
+            return _copy_native_grid(
+                sources[0], target=target, provenance=provenance, target_crs=target_crs, max_cells=max_cells
+            )
+        reference_grids: list[Affine] = []
+        for source in sources:
+            source_crs = cast("CRS", source.crs or assume_missing_crs)
+            if source_crs == target_crs:
+                reference_grids.append(source.transform)
+            else:
+                projected, _, _ = calculate_default_transform(
+                    source_crs, target_crs, source.width, source.height, *source.bounds
+                )
+                reference_grids.append(projected)
+        reference = min(reference_grids, key=lambda grid: max(abs(grid.a), abs(grid.e)))
         if resolution_m is None:
-            first = sources[0]
-            first_crs = first.crs or assume_missing_crs
-            if first_crs is None or first_crs != target_crs or not first_crs.is_projected:
-                msg = "Specify --analysis-resolution-m if top-priority DEM requires reprojection"
-                raise ValueError(msg)
-            resolution_m = max(abs(first.res[0]), abs(first.res[1]))
+            resolution_m = max(abs(reference.a), abs(reference.e))
         if not math.isfinite(resolution_m) or resolution_m <= 0:
             msg = "Analysis resolution must be finite and positive"
             raise ValueError(msg)
@@ -159,10 +218,12 @@ def compose_terrain_layers(  # noqa: C901 - staged raster composition is intenti
         if requested[0] >= requested[2] or requested[1] >= requested[3]:
             msg = "Terrain bounds must have positive width and height"
             raise ValueError(msg)
-        west = math.floor(requested[0] / resolution_m) * resolution_m
-        south = math.floor(requested[1] / resolution_m) * resolution_m
-        east = math.ceil(requested[2] / resolution_m) * resolution_m
-        north = math.ceil(requested[3] / resolution_m) * resolution_m
+        # Snap relative to the finest source, not coordinate zero. In its CRS,
+        # this preserves that source's cell boundaries when using its resolution.
+        west = reference.c + math.floor((requested[0] - reference.c) / resolution_m) * resolution_m
+        south = reference.f + math.floor((requested[1] - reference.f) / resolution_m) * resolution_m
+        east = reference.c + math.ceil((requested[2] - reference.c) / resolution_m) * resolution_m
+        north = reference.f + math.ceil((requested[3] - reference.f) / resolution_m) * resolution_m
         width = round((east - west) / resolution_m)
         height = round((north - south) / resolution_m)
         if width < 3 or height < 3 or width * height > max_cells:

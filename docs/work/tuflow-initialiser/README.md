@@ -491,3 +491,26 @@ from the AOI and is correctly excluded. No polygon simplification is used. The e
 to an aligned grid; for the checked single-DEM case its origin shifted about 3.59 m west and 13.59 m north. This is a
 separate analysis-grid choice, not evidence that original raster cells and analysis cells share an origin. Original
 terrain and project-specific inputs remain private; no hydraulic simulation was run.
+
+
+## Native single-DEM grid and finest-source mosaic anchor - 2026-11-10
+
+Supersedes the single-DEM resampling choice documented above. One unclipped DEM already in the target CRS now copies
+its native grid, values, dtype, NoData and masks without warping when analysis bounds/resolution are not overridden.
+Multiple DEMs choose the finest target-CRS grid as their alignment reference and default resolution, independently of
+source priority. The first valid source still wins overlaps; explicit analysis resolution remains an override. A source
+requiring reprojection supplies GDAL's suggested target grid for reference selection. The 400 m location margin and
+outward coordinate rounding remain the unconditional populated-location defaults.
+
+Windows Python 3.14: 137 focused project-setup/initialiser tests pass. Added exact float32/float64 native-value/mask/grid
+checks, explicit-resolution origin anchoring, and reversed-priority multi-resolution cases. Ruff, strict changed-file
+Pyright and the rebuilt 26.11.10.3 wheel pass. No new MCP surface is needed for this existing initialiser behaviour.
+
+A native single-DEM GRASS/TUFLOW empty-generation rerun preserves the original 1,918 by 1,810 grid exactly, including
+pixels and masks. Reopened GIS passes CRS, validity, containment and code/rainfall parity checks. The authorised
+replacement updates generated code/location/rainfall, streams and hydrology only; a boundary file containing a user's
+feature retains its original hash. Original prepared AOI settings are reused; the source AOI file was independently
+changed after the first snapshot. Prior outputs are backed up privately. No hydraulic simulation was run.
+
+Delivery: changes continue on enhancement/tuflow-template-refresh. PR #307 was merged separately while this follow-up
+was underway; these new defaults are not part of that merged revision. No second PR or main merge is created here.

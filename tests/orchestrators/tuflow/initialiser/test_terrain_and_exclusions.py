@@ -67,6 +67,80 @@ def test_reverse_terrain_priority(tmp_path: Path) -> None:
         assert np.all(last_dem.read(1) == 2)
 
 
+@pytest.mark.parametrize("dtype", ["float32", "float64"])
+def test_single_dem_preserves_native_grid_values_and_masks(tmp_path: Path, dtype: str) -> None:
+    source = tmp_path / "native.tif"
+    pixels = (np.arange(25).reshape(5, 5) / 7.0).astype(dtype)
+    pixels[0, 0] = -9999
+    mask = np.full((5, 5), 255, dtype=np.uint8)
+    mask[2, 2] = 0
+    transform = from_origin(500000.25, 7000000.75, 1, 1)
+    with rasterio.open(
+        source,
+        "w",
+        driver="GTiff",
+        count=1,
+        width=5,
+        height=5,
+        dtype=dtype,
+        nodata=-9999,
+        crs="EPSG:28350",
+        transform=transform,
+    ) as dataset:
+        dataset.write(pixels, 1)
+        dataset.write_mask(mask)
+    result = compose_terrain([source], target_crs=CRS.from_epsg(28350), directory=tmp_path / "native")
+    with rasterio.open(source) as original, rasterio.open(result.dem) as actual:
+        assert actual.transform == original.transform
+        assert actual.shape == original.shape
+        assert actual.dtypes == original.dtypes
+        assert actual.nodata == original.nodata
+        np.testing.assert_array_equal(actual.read(1), original.read(1))
+        np.testing.assert_array_equal(actual.read_masks(1), original.read_masks(1))
+    with rasterio.open(result.source_index) as provenance:
+        assert provenance.transform == transform
+        np.testing.assert_array_equal(provenance.read(1), (mask > 0).astype(np.uint16))
+
+
+def test_explicit_resolution_still_anchors_to_source_origin(tmp_path: Path) -> None:
+    source = tmp_path / "source.tif"
+    _raster(source, np.ones((5, 5)), west=0.25, north=5.75)
+    result = compose_terrain([source], target_crs=CRS.from_epsg(28350), directory=tmp_path / "aligned", resolution_m=2)
+    with rasterio.open(result.dem) as actual:
+        assert actual.transform == from_origin(0.25, 5.75, 2, 2)
+        assert actual.shape == (3, 3)
+
+
+@pytest.mark.parametrize("reverse_priority", [False, True])
+def test_multi_dem_anchors_to_finest_grid_independent_of_priority(tmp_path: Path, reverse_priority: bool) -> None:
+    fine, coarse = tmp_path / "fine.tif", tmp_path / "coarse.tif"
+    _raster(fine, np.full((5, 5), 200), west=2.25, north=7.75)
+    with rasterio.open(
+        coarse,
+        "w",
+        driver="GTiff",
+        count=1,
+        width=5,
+        height=5,
+        dtype="float32",
+        nodata=-9999,
+        crs="EPSG:28350",
+        transform=from_origin(0, 10, 2, 2),
+    ) as dataset:
+        dataset.write(np.full((5, 5), 100, dtype=np.float32), 1)
+    sources = [coarse, fine] if reverse_priority else [fine, coarse]
+    result = compose_terrain(sources, target_crs=CRS.from_epsg(28350), directory=tmp_path / "mosaic")
+    with rasterio.open(result.dem) as actual, rasterio.open(result.source_index) as provenance:
+        assert actual.res == (1, 1)
+        assert actual.transform == from_origin(-0.75, 10.75, 1, 1)
+        assert actual.shape == (11, 11)
+        # A fine-source cell centre remains a centre on the mosaic grid.
+        row, col = actual.index(2.75, 7.25)
+        assert actual.xy(row, col) == (2.75, 7.25)
+        assert actual.read(1)[row, col] == (100 if reverse_priority else 200)
+        assert provenance.read(1)[row, col] == 1
+
+
 def test_reject_unbounded_fine_grid(tmp_path: Path) -> None:
     a = tmp_path / "a.tif"
     _raster(a, np.ones((5, 5)), west=0, north=5)
