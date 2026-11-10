@@ -222,11 +222,14 @@ def _copy_text_templates(*, config: TuflowProjectConfig, project_dir: Path) -> N
             msg = f"Refusing to overwrite existing project file: {destination}"
             raise FileExistsError(msg)
 
-        content: str = template_file.read_text(encoding="utf-8")
-        for placeholder, replacement in replacements.items():
-            content = content.replace(placeholder, replacement)
         destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_text(content, encoding="utf-8")
+        if template_file.suffix.casefold() == ".png":
+            shutil.copyfile(template_file, destination)
+        else:
+            content: str = template_file.read_text(encoding="utf-8")
+            for placeholder, replacement in replacements.items():
+                content = content.replace(placeholder, replacement)
+            destination.write_text(content, encoding="utf-8")
         logger.debug("Created project file from template: {}", destination)
 
 

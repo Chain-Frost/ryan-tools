@@ -46,7 +46,7 @@ license = "SUL-1.0"
 name = "ryan-tools"
 readme = "README.md"
 requires-python = ">=3.14"
-version = "26.11.9.3"
+version = "26.11.10.1"
 
 [project.optional-dependencies]
 dev = [
@@ -84,6 +84,11 @@ include-package-data = true
 "ryan_library.resources.mcp" = ["*.json"]
 "ryan_library.resources.qgis.tuflow" = ["*.qml"]
 "ryan_library.resources.tuflow_templates" = [
+  ".vscode/*.json",
+  "*.bat",
+  "*.ini",
+  "*.png",
+  "model/*.trd",
   ".gitignore",
   "model/*.csv",
   "model/*.tbc",

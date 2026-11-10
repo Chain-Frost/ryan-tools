@@ -1,0 +1,8 @@
+! Machine-specific output override.
+! TUFLOW processes this file after the selected TCF.
+
+Set Variable OutputBase == C:\temp\ModelName
+
+Log Folder == <<OutputBase>>\<<OutputRoot>>\Log
+Output Folder == <<OutputBase>>\<<OutputRoot>>
+Write Check Files == <<OutputBase>>\<<OutputRoot>>\check\

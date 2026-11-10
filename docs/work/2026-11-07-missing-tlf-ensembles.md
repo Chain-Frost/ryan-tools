@@ -1,11 +1,17 @@
+> **Current reconciliation (2026-11-10): scoped implementation delivered.** GitHub confirms [PR #250](https://github.com/Chain-Frost/ryan-tools/pull/250) merged at 2026-11-07T15:48:44Z (UTC), commit `5ad632cc9a17b302ad3f4f2b55315a1e2e8d1d51`, into `main`. Final-head CI has six successful checks. Inference and completion-marker limitations remain unchanged.
+>
+> Earlier pending-review, no-merge and next-action statements below are historical snapshots, not current delivery instructions.
+>
+> This reconciliation checks GitHub delivery and available final-head check conclusions; it does not rerun local/native tests or imply every wider engineering gate passed.
+
 # Missing TLF ensemble inference
 
 | Field | Value |
 | --- | --- |
-| Status | Complete; hosted inventory documentation repair awaiting validation |
+| Status | Complete - scoped implementation merged; see current reconciliation |
 | Owner | ChatGPT |
-| Created / Updated | 2026-11-07 |
-| Next review | 2026-11-08 |
+| Created / Updated | 2026-11-07 / 2026-11-10 |
+| Next review | None - completed delivery |
 | Git delivery | Committed/pushed on `feat/tlf-ensemble-inference`; open PR [#250](https://github.com/Chain-Frost/ryan-tools/pull/250) targets main |
 
 ## Outcome

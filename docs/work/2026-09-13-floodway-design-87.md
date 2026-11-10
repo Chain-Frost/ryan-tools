@@ -1,12 +1,18 @@
+> **Current reconciliation (2026-11-10): scoped implementation delivered.** GitHub confirms [PR #88](https://github.com/Chain-Frost/ryan-tools/pull/88) merged at 2026-10-06T11:39:41Z (UTC), commit `aea0eb983e4e053b939e2423e0b39471484970e4`, into `main`. Scoped floodway implementation delivered. Separate hydrograph/closure work and historical repository-wide failures are not closed by this reconciliation.
+>
+> Earlier pending-review, no-merge and next-action statements below are historical snapshots, not current delivery instructions.
+>
+> This reconciliation checks GitHub delivery and available final-head check conclusions; it does not rerun local/native tests or imply every wider engineering gate passed.
+
 # Floodway design and reporting workflow
 
 | Field | Value |
 | --- | --- |
-| Status | Needs review: floodway validation passed; repository-wide failures remain |
+| Status | Complete - scoped implementation merged; see current reconciliation |
 | Owner | Unassigned |
 | Created | 2026-09-13 |
-| Updated | 2026-10-06 |
-| Next review | 2026-10-13 |
+| Updated | 2026-11-10 |
+| Next review | 2027-02-15 |
 | Branch | `feature/floodway-design-87` / PR #88 |
 | Baseline | PR head `a90bbae`; local lint repairs are unstaged; incorporates `origin/main` (`beb1011`) |
 

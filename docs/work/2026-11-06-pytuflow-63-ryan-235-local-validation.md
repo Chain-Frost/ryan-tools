@@ -1,11 +1,17 @@
+> **Current reconciliation (2026-11-10): scoped implementation delivered.** GitHub confirms [PR #235](https://github.com/Chain-Frost/ryan-tools/pull/235) merged at 2026-11-05T17:18:30Z (UTC), commit `e317e4efadb6ab874e94a90ce8c27c8f7319d33d`, into `main`. The merged integration is delivered. Later completion-display follow-up notes and licensed active/occupied/two-GPU limits are not newly validated or closed by the merge check.
+>
+> Earlier pending-review, no-merge and next-action statements below are historical snapshots, not current delivery instructions.
+>
+> This reconciliation checks GitHub delivery and available final-head check conclusions; it does not rerun local/native tests or imply every wider engineering gate passed.
+
 # Local handoff: PyTuflow #63 + ryan-tools #235
 
 | Field | Current local acceptance status |
 | --- | --- |
-| Status | Needs review: performance and correctness pass; CI repair pushed; operational gates remain |
+| Status | Complete - scoped implementation merged; see current reconciliation |
 | Owner | ChatGPT / maintainer |
-| Updated | 2026-11-06 |
-| Next review | 2026-11-07 |
+| Updated | 2026-11-10 |
+| Next review | None - completed delivery |
 | Next action | Verify final-head CI and review remaining licensed active/occupied-GPU acceptance gaps |
 
 The owner authorised this handoff, then selected the current wrapper's complete

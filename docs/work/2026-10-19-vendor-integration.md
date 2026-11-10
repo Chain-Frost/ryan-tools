@@ -1,12 +1,18 @@
+> **Current reconciliation (2026-11-10): scoped implementation delivered.** GitHub confirms [PR #139](https://github.com/Chain-Frost/ryan-tools/pull/139) merged at 2026-10-19T11:15:47Z (UTC), commit `81c8d98243d4d6aab89c13f96838386fefdb8885`, into `main`. Unknown original upstream revisions remain an attribution limitation.
+>
+> Earlier pending-review, no-merge and next-action statements below are historical snapshots, not current delivery instructions.
+>
+> This reconciliation checks GitHub delivery and available final-head check conclusions; it does not rerun local/native tests or imply every wider engineering gate passed.
+
 # Vendored simil and PyHMA integration
 
 | Field | Value |
 | --- | --- |
-| Status | Needs review |
+| Status | Complete - scoped implementation merged; see current reconciliation |
 | Owner | ChatGPT |
 | Created | 2026-10-19 |
-| Updated | 2026-10-19 |
-| Next review | 2026-10-21 |
+| Updated | 2026-11-10 |
+| Next review | None - completed delivery |
 | Baseline | `main` at `1ac42c63`; `fix/vendor-simil-pyhma-integration-20261019` |
 | Pull request | [#139](https://github.com/Chain-Frost/ryan-tools/pull/139) |
 | Delivery | Commits pushed to PR branch; not merged or published |

@@ -44,16 +44,17 @@ The generated main control file follows the example project flag convention:
 ```
 
 It reads `runs/run_times_01.trd` for duration-dependent end times and `runs/model_cell_sizes_01.trd` for `VarCellSize`.
-The starter `EVENTS_01.tef` defines the matching 22 durations with four- and five-digit event flags, including both `~StormDuration~` and `~DUR~`
+The starter `EVENTS_01.tef` defines the matching 22 durations with four- and five-digit event flags, including both `~DUR5~` and `~DUR4~`
 aliases, plus starter AEP, temporal-pattern, rainfall-method and climate events.
-Five-digit duration events retain their existing five-digit substitutions; four-digit events use a four-digit `~DUR~`
-and a five-digit `~StormDuration~`. Review the BC database naming before choosing flags. The 9-hour event
+Both event spellings supply a four-digit `~DUR4~` and a five-digit `~DUR5~` substitution. Review the BC database naming before choosing flags. The 9-hour event
 (`00540m` or `0540m`) has an editable starter end time of 18 hours. All end times require project-specific review.
 Climate selection uses `~e5~` independently of the rainfall method (`~e4~`); `CCNear` supplies the starter `~CC~`
 substitution, which must be reviewed against the rainfall database. `EnsembleILCL` no longer implicitly selects climate.
 Existing generated projects and launch commands are not migrated automatically: new projects must supply `-e5`.
 `OutputBase` defaults to `..`, while `OutputRoot` contains the relative results hierarchy including the climate flag;
-output, log and check folders share that base. Map output explicitly stores maximums only.
+output, log and check folders share that base. Map output explicitly stores maximums only, with the global,
+TIF and HRTIF map intervals all set to zero. Time-series output retains its separate `OutInterval` setting.
+Grid writing defaults to TIF; the paired GDAL/COG commands remain commented options for a verified application environment.
 An unrecognised rainfall method stops through a TUFLOW `Pause` diagnostic. The TCF contains a example project rainfall
 method block for selecting the BC database and `InitialLoss`/`ContLoss`; its database paths and loss values are
 explicitly project-specific and must be reviewed before running a model.
@@ -62,8 +63,18 @@ The initializer does not create a root `check` directory or `model/xf`. TUFLOW c
 folders later when a model is run.
 
 The starter loss setup is complete across the control files: the TCF reads `model/Soil_01.tsoilf`, its rainfall-method
-block sets `InitialLoss` and `ContLoss`, and `GEOM_01.tgc` selects soil 99 (no infiltration) or soil 100 (variable IL/CL)
+block sets `InitialLoss` and `ContLoss` directly for PMP/nested inputs or reads `model/soils_losses_01.trd` for
+`EnsembleILCL`, and `GEOM_01.tgc` selects soil 99 (no infiltration) or soil 100 (variable IL/CL)
 from the active method event. These project-specific loss values must still be reviewed before simulation.
+The loss file starts at 0 mm and 0 mm/h; these disable infiltration losses until reviewed and are not calibrated defaults.
+Add assessed climate/AEP loss branches there as needed, setting both variables in every branch. Check how preburst
+is included in the rainfall inputs before applying additional losses.
+
+The event file also includes `00.2p` and `00.5p` AEP substitutions and separate `DummyTP` and `DummyDUR` aliases,
+while retaining `Dummy` for existing temporal-pattern inputs. `DummyDUR` substitutes only `~DUR4~`; it does not
+select an end time or set `~DUR5~`. Supply matching boundary data and an explicit project end-time branch
+in `runs/run_times_01.trd` before using it. Local/regional inflow selection, ESTRY connections, spatial loss zones
+and catchment-specific end times require project design and are not enabled by the generic templates.
 
 ## Usage
 
@@ -96,6 +107,26 @@ error is logged and skipped without stopping the required project setup workflow
 | `model/gis` | `rename_geopackage_layer_to_filename.py` |
 | `results` | `combine_culvert_maximums.py`, `apply_qgis_styles_to_results.py`, `check_timeseries_stability.py`, `combine_pomm_results.py`, `create_pomm_mean_peak_report.py`, `run_asc_to_asc_mean_then_maximum.py` |
 | Project root | `run_tuflow_simulations.py`, `create_log_summary_report.py` |
+
+## Editor configuration and model packaging
+
+Each generated project includes `.vscode/settings.json` with TUFLOW log icon associations,
+TUFLOW Validator hints, project-folder watcher exclusions and the system Python environment,
+plus `.vscode/extensions.json` with recommended VS Code extensions. These recommendations
+are not required for project generation.
+
+The root `package_model.bat` runs the configured TUFLOW executable using
+`-pmAllini pm.ini -xf0` against the generated main TCF. It runs from the project root
+regardless of the caller's working directory, checks for the executable/TCF/INI and
+reports the tool's exit code. Edit `pm.ini` before running: the starter
+`Copy Destination` is `C:\Temp\<project name>`, substituted from the chosen project
+name. Change the destination for local disk space and storage policy as appropriate.
+
+TUFLOW's package-model mode does not validate the inputs, and `-pmAll` can package
+additional related file extensions. `-xf0` excludes processed XF files. Review whether
+the particular project needs explicit `Model Scenario` and `Model Event` entries in
+`pm.ini` to resolve every scenario/event filename before relying on the archive.
+No packaging execution is part of the initializer or automated tests.
 
 ## Validation evidence
 

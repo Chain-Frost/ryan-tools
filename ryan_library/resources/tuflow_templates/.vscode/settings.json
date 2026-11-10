@@ -1,0 +1,17 @@
+{
+    "material-icon-theme.activeIconPack": "react",
+    "material-icon-theme.files.associations": {
+        "*.tlf": "Ruby",
+        "*.hpc.tlf": "Go"
+    },
+    "tuflowValidator.diagnosticLevel": "hint",
+    "tuflowValidator.enableLatestVersionChecks": true,
+    "files.watcherExclude": {
+        "**/empty/**": true,
+        "**/results/**": true,
+        "**/xmdf_results/**": true,
+        "**/__pycache__/**": true,
+        "**/xf/**": true
+    },
+    "python-envs.defaultEnvManager": "ms-python.python:system"
+}

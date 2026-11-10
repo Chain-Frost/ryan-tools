@@ -4,7 +4,6 @@ Material ID, Manning's n          , Rainfall Loss Parameters, Land Use Hazard ID
           3, 0.05                 , "<<IL_Mat>>, <<CL_Mat>>"    ,                   , ! Sparse vegetation
           4, 0.06                 , "<<IL_Mat>>, <<CL_Mat>>"    ,                   , ! Riparian vegetation
           5, 0.001                , "<<IL_Mat>>, <<CL_Mat>>"    ,                   , ! Water
-           
          10, 0.035                , "<<IL_Mat>>, <<CL_Mat>>"    ,                   , ! Default material
         101, 0.02                 , "<<IL_Mat>>, <<CL_Mat>>"    ,                   , ! Sealed Surfaces                                         , 
         102, 0.03                 , "<<IL_Mat>>, <<CL_Mat>>"    ,                   , ! Barren earth (NDVI < 0.075)                             , 
