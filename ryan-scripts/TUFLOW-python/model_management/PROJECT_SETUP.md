@@ -66,7 +66,7 @@ The starter loss setup is complete across the control files: the TCF reads `mode
 block sets `InitialLoss` and `ContLoss` directly for PMP/nested inputs or reads `model/soils_losses_01.trd` for
 `EnsembleILCL`, and `GEOM_01.tgc` selects soil 99 (no infiltration) or soil 100 (variable IL/CL)
 from the active method event. These project-specific loss values must still be reviewed before simulation.
-The loss file preserves the existing starter values of 21 mm and 3.21 mm/h; these are not calibrated defaults.
+The loss file starts at 0 mm and 0 mm/h; these disable infiltration losses until reviewed and are not calibrated defaults.
 Add assessed climate/AEP loss branches there as needed, setting both variables in every branch. Check how preburst
 is included in the rainfall inputs before applying additional losses.
 
