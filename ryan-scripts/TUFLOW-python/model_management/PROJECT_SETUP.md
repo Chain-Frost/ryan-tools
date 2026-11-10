@@ -108,6 +108,26 @@ error is logged and skipped without stopping the required project setup workflow
 | `results` | `combine_culvert_maximums.py`, `apply_qgis_styles_to_results.py`, `check_timeseries_stability.py`, `combine_pomm_results.py`, `create_pomm_mean_peak_report.py`, `run_asc_to_asc_mean_then_maximum.py` |
 | Project root | `run_tuflow_simulations.py`, `create_log_summary_report.py` |
 
+## Editor configuration and model packaging
+
+Each generated project includes `.vscode/settings.json` with TUFLOW log icon associations,
+TUFLOW Validator hints, project-folder watcher exclusions and the system Python environment,
+plus `.vscode/extensions.json` with recommended VS Code extensions. These recommendations
+are not required for project generation.
+
+The root `package_model.bat` runs the configured TUFLOW executable using
+`-pmAllini pm.ini -xf0` against the generated main TCF. It runs from the project root
+regardless of the caller's working directory, checks for the executable/TCF/INI and
+reports the tool's exit code. Edit `pm.ini` before running: the starter
+`Copy Destination` is `C:\Temp\<project name>`, substituted from the chosen project
+name. Change the destination for local disk space and storage policy as appropriate.
+
+TUFLOW's package-model mode does not validate the inputs, and `-pmAll` can package
+additional related file extensions. `-xf0` excludes processed XF files. Review whether
+the particular project needs explicit `Model Scenario` and `Model Event` entries in
+`pm.ini` to resolve every scenario/event filename before relying on the archive.
+No packaging execution is part of the initializer or automated tests.
+
 ## Validation evidence
 
 - Focused project-setup tests verify schema-derived output, zero output features, expected names, projection files, and unsafe scenario-name rejection.
