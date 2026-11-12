@@ -169,7 +169,7 @@ def log_settings(title: str, values: Mapping[str, object], defaults: Mapping[str
     logger.opt(colors=True).info("\n".join(formats), *arguments)
 
 
-def _include_dashboard_console_record(record: dict[str, Any]) -> bool:
+def _include_dashboard_console_record(record: Any) -> bool:
     """Skip tagged INFO progress in Rich Live, without hiding warnings or errors."""
     return not (record["extra"].get("dashboard_progress", False) and record["level"].name == "INFO")
 
