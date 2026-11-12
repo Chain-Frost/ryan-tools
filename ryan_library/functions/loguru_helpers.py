@@ -15,7 +15,7 @@ import threading
 import traceback
 from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager
-from multiprocessing import Process, Queue
+from multiprocessing import Event, Process, Queue
 from pathlib import Path
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, ClassVar, TypedDict, cast
@@ -55,9 +55,10 @@ class SerializedLogRecord(TypedDict):
 class LogQueue:
     """Picklable queue plus the minimum level required by downstream sinks."""
 
-    def __init__(self, *, capture_log_level: str) -> None:
+    def __init__(self, *, capture_log_level: str, console_flush_event: Any | None = None) -> None:
         self.capture_log_level: str = normalize_log_level(capture_log_level)
         self._queue: MPQueue[bytes | None] = cast("MPQueue[bytes | None]", Queue())
+        self._console_flush_event: Any | None = console_flush_event
 
     def put(self, item: bytes | None) -> None:
         """Put a serialized record or shutdown sentinel on the queue."""
@@ -66,6 +67,30 @@ class LogQueue:
     def get(self) -> bytes | None:
         """Return the next serialized record or shutdown sentinel."""
         return self._queue.get()
+
+    def flush_console(self, *, timeout_seconds: float = LISTENER_SHUTDOWN_TIMEOUT_SECONDS) -> bool:
+        """Wait for prior logs to reach the parent's terminal sink, if enabled.
+
+        This barrier is issued only after workers have finished producing their
+        records; otherwise cross-process producer ordering is not guaranteed.
+        """
+        if self._console_flush_event is None:
+            return True
+        self._console_flush_event.clear()
+        self.put(b"")  # Reserved flush marker; real Loguru records are nonempty pickle payloads.
+        return bool(self._console_flush_event.wait(timeout=timeout_seconds))
+
+    @contextmanager
+    def drain_console_on_exit(self) -> Generator[None]:
+        """Drain outstanding console lines before Rich releases its live frame."""
+        try:
+            yield
+        finally:
+            self.flush_console()
+
+    def _notify_console_flushed(self) -> None:
+        if self._console_flush_event is not None:
+            self._console_flush_event.set()
 
     def close(self) -> None:
         """Close the producer side of the queue."""
@@ -282,6 +307,36 @@ def configure_notebook_logging(
         add_file_sink(log_file=log_file, file_log_level=normalized_file_level)
 
 
+class _ParentConsoleQueueSink:
+    """Send listener-formatted console messages back to the parent process."""
+
+    def __init__(self, output_queue: MPQueue[str | bytes | None], *, is_terminal: bool) -> None:
+        self.output_queue: MPQueue[str | bytes | None] = output_queue
+        self._is_terminal: bool = is_terminal
+
+    def write(self, message: str) -> None:
+        self.output_queue.put(message)
+
+    def flush(self) -> None:
+        """Satisfy Loguru's file-like sink interface."""
+
+    def isatty(self) -> bool:
+        """Preserve the parent's ANSI capability while formatting in the listener."""
+        return self._is_terminal
+
+
+def _relay_parent_console(output_queue: MPQueue[str | bytes | None], queue: LogQueue) -> None:
+    """Follow Rich's stdout redirection and serialize output with Live refreshes."""
+    while True:
+        message = output_queue.get()
+        if message is None:
+            return
+        if isinstance(message, bytes):
+            queue._notify_console_flushed()
+            continue
+        _write_stdout(message)
+
+
 def listener_process(
     queue: LogQueue,
     log_file: str | None = None,
@@ -289,8 +344,10 @@ def listener_process(
     file_log_level: str = "INFO",
     *,
     console_include_source: bool = True,
+    console_output_queue: MPQueue[str | bytes | None] | None = None,
+    console_is_terminal: bool = False,
 ) -> None:
-    """Receive trusted worker records and render them through listener sinks."""
+    """Receive worker records and render file/console sinks independently."""
     reset_logging()
     if log_file:
         _add_file_sink(log_file=log_file, level=file_log_level, forwarded=True)
@@ -298,6 +355,11 @@ def listener_process(
         level=console_log_level,
         forwarded=True,
         format_string=None if console_include_source else COMPACT_FORWARDED_CONSOLE_FORMAT,
+        sink=(
+            _ParentConsoleQueueSink(console_output_queue, is_terminal=console_is_terminal)
+            if console_output_queue is not None
+            else None
+        ),
     )
 
     while True:
@@ -305,6 +367,14 @@ def listener_process(
             queue_item: bytes | None = queue.get()
             if queue_item is None:
                 break
+            if queue_item == b"":
+                # Listener is the only producer of the parent-console queue.
+                # Its empty-byte acknowledgement follows all earlier log lines.
+                if console_output_queue is not None:
+                    console_output_queue.put(b"")
+                else:
+                    queue._notify_console_flushed()
+                continue
 
             record: SerializedLogRecord = cast(
                 "SerializedLogRecord",
@@ -395,9 +465,11 @@ class LoguruMultiprocessingLogger:
         file_log_level: str = "INFO",
         *,
         console_include_source: bool = True,
+        console_in_parent: bool = False,
     ) -> None:
         self.log_file: str | None = log_file
         self.console_include_source: bool = console_include_source
+        self.console_in_parent: bool = console_in_parent
         self.console_log_level: str = normalize_log_level(console_log_level)
         self.file_log_level: str = normalize_log_level(file_log_level)
         active_levels: list[str] = [self.console_log_level]
@@ -406,6 +478,8 @@ class LoguruMultiprocessingLogger:
         self.capture_log_level: str = minimum_log_level(*active_levels)
         self.queue: LogQueue | None = None
         self.listener: Process | None = None
+        self._console_output_queue: MPQueue[str | bytes | None] | None = None
+        self._console_thread: threading.Thread | None = None
         self._entered: bool = False
         self._shutdown: bool = False
         self._atexit_callback: Any = self.shutdown
@@ -422,17 +496,40 @@ class LoguruMultiprocessingLogger:
             self._entered = True
 
         try:
-            self.queue = LogQueue(capture_log_level=self.capture_log_level)
+            self.queue = LogQueue(
+                capture_log_level=self.capture_log_level,
+                console_flush_event=Event() if self.console_in_parent else None,
+            )
+            if self.console_in_parent:
+                self._console_output_queue = cast("MPQueue[str | bytes | None]", Queue())
+                self._console_thread = threading.Thread(
+                    target=_relay_parent_console,
+                    args=(self._console_output_queue, self.queue),
+                    name="ryan-log-console-relay",
+                    daemon=True,
+                )
             self.listener = Process(
                 target=listener_process,
                 args=(self.queue, self.log_file, self.console_log_level, self.file_log_level),
-                kwargs={"console_include_source": self.console_include_source},
+                kwargs={
+                    "console_include_source": self.console_include_source,
+                    "console_output_queue": self._console_output_queue,
+                    "console_is_terminal": bool(getattr(sys.stdout, "isatty", lambda: False)()),
+                },
             )
             self.listener.start()
+            if self._console_thread is not None:
+                # Start the relay after spawning the listener: never fork a
+                # process while a console writer thread is already running.
+                self._console_thread.start()
             worker_configurer(queue=self.queue)
             atexit.register(self._atexit_callback)
             return self.queue
         except BaseException:
+            if self.listener is not None and self.listener.is_alive():
+                self.listener.terminate()
+                self.listener.join(timeout=LISTENER_SHUTDOWN_TIMEOUT_SECONDS)
+            self._close_console_relay()
             self._release_active_context()
             self._close_queue()
             raise
@@ -457,6 +554,20 @@ class LoguruMultiprocessingLogger:
         self.queue.join_thread()
         self.queue = None
 
+    def _close_console_relay(self) -> None:
+        """Stop the parent-side writer only after the listener has finished."""
+        output_queue = self._console_output_queue
+        if output_queue is None:
+            return
+        output_queue.put(None)
+        if self._console_thread is not None:
+            if self._console_thread.ident is not None:
+                self._console_thread.join(timeout=LISTENER_SHUTDOWN_TIMEOUT_SECONDS)
+            self._console_thread = None
+        output_queue.close()
+        output_queue.join_thread()
+        self._console_output_queue = None
+
     def shutdown(self) -> None:
         """Drain and close logging resources; repeated calls are harmless."""
         if self._shutdown:
@@ -477,6 +588,7 @@ class LoguruMultiprocessingLogger:
             reset_logging()
             self._close_queue()
         finally:
+            self._close_console_relay()
             self._release_active_context()
 
 
@@ -486,8 +598,14 @@ def setup_logger(
     file_log_level: str = "INFO",
     *,
     console_include_source: bool = True,
+    console_in_parent: bool = False,
 ) -> LoguruMultiprocessingLogger:
-    """Return a multiprocessing context with independently formatted console and file sinks."""
+    """Configure independently formatted sinks and optional Rich-safe console relay.
+
+    The relay sends each formatted line from the listener process to a parent
+    thread that follows the current stdout. Rich's FileProxy then coordinates
+    console output with the active Live display. File logs stay in the listener.
+    """
     if log_file and not Path(log_file).is_absolute():
         log_file = str(Path.cwd() / log_file)
     return LoguruMultiprocessingLogger(
@@ -495,6 +613,7 @@ def setup_logger(
         console_log_level=console_log_level,
         file_log_level=file_log_level,
         console_include_source=console_include_source,
+        console_in_parent=console_in_parent,
     )
 
 

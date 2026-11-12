@@ -53,9 +53,13 @@ configured sink is invalid. Worker warnings/errors and serialized tracebacks
 remain visible through the logging listener. The TUFLOW log-summary workflow
 uses `console_include_source=False` to omit source locations from its console
 only; configured file logs preserve them. Explicit INFO console mode continues
-printing completed-file progress above the dashboard. The optional
-`clear_before_exit` presentation setting blanks the final Rich panel before
-shutdown to prevent a leftover partial border or heading.
+printing completed-file progress above the dashboard. An interactive
+log-summary dashboard sets `console_in_parent=True`, so the independent
+Loguru listener forwards console messages to the parent for Rich's
+cursor-aware rendering; worker messages and file logging are not suppressed.
+A flush barrier ensures prior console lines have been written before phase
+changes and transient shutdown. The opt-in `clear_before_exit` setting also
+blanks the final Rich panel before shutdown.
 
 Disabling the dashboard restores the caller's chosen ordinary console logging
 level. A redirected terminal must not receive repeated Rich frames or ANSI
@@ -75,8 +79,14 @@ Installing a corrected library affects newly started Python processes; it does n
 repair an already running dashboard or remove old terminal scrollback. Terminal
 reconnection/reflow can still leave display artifacts. For a future unattended run,
 the TUFLOW wrapper accepts `--no-live-dashboard` for ordinary logging.
-Multiprocessing listeners have their own stdout; this does not route a separate
-listener process through a parent process's Rich display.
+Multiprocessing listeners normally have their own stdout. A workflow using
+Rich Live can opt into `setup_logger(console_in_parent=True)` so the listener
+queues formatted console messages to one parent writer. The parent writer
+uses the current `sys.stdout` and Rich's redirected FileProxy, which serializes
+each log line with live redraws. The worker-to-listener queue and file sink
+remain unchanged; workflows not using this opt-in retain their previous
+behaviour. When the dashboard is non-interactive, the TUFLOW log summary
+keeps ordinary direct console output.
 
 `LiveWorkflowDashboard` does not start Rich's background auto-refresh thread. Its
 coordinator owns state updates and calls `refresh()` while polling; task updates

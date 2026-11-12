@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 import logging
+import os
+import subprocess
 import sys
 from io import StringIO
 from pathlib import Path
@@ -165,6 +167,35 @@ def test_opt_in_transient_cleanup_blanks_last_frame_before_rich_stop(monkeypatch
     assert dashboard._live is None
     assert stream.getvalue().count("Cleanup: SUCCESS") == 1
     assert LiveWorkflowDashboard(title="Default").clear_before_exit is False
+
+
+def test_parent_console_relay_keeps_every_info_line_during_rich_redraws(tmp_path: Path) -> None:
+    """Spawning a logger must not bypass Rich's parent-owned live display."""
+    repo_root = Path(__file__).absolute().parents[2]
+    harness = repo_root / "tests" / "support" / "live_console_relay_harness.py"
+    log_file = tmp_path / "relay.log"
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(repo_root)
+    env["TERM"] = "xterm-256color"
+    env["FORCE_COLOR"] = "1"
+    result = subprocess.run(
+        [sys.executable, str(harness), str(log_file)],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        cwd=repo_root,
+        env=env,
+        check=True,
+    )
+    assert result.stdout.count("RELAY_PROGRESS ") == 40
+    assert result.stdout.count("RELAY_WARNING ") == 2
+    assert "TUFLOW Log Summary: SUCCESS" in result.stdout
+    assert "CONSOLE_RELAY_CLOSED" in result.stdout
+    assert "live_console_relay_harness:worker:" not in result.stdout
+    detailed = log_file.read_text(encoding="utf-8")
+    assert detailed.count("RELAY_PROGRESS ") == 40
+    assert detailed.count("RELAY_WARNING ") == 2
+    assert "live_console_relay_harness:worker:" in detailed
 
 
 def test_default_serial_logs_clear_and_redraw_live_display(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

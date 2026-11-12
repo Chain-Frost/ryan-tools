@@ -298,6 +298,7 @@ def main_processing(
         log_file=log_file,
         file_log_level=file_log_level,
         console_include_source=False,
+        console_in_parent=use_live_dashboard and dashboard.console.is_terminal,
     ) as log_queue:
         # Discover before starting Rich Live: an unreadable folder must not
         # leave a partial dashboard frame in the terminal on early failure.
@@ -313,7 +314,7 @@ def main_processing(
             return True
 
         dashboard.set_phase("Processing")
-        with dashboard:
+        with dashboard, log_queue.drain_console_on_exit():
             try:
                 processing_results: list[LogFileProcessingResult] = []
                 if not files:
@@ -439,6 +440,10 @@ def process_log_files(
         max_start_events=max(pool_size * 2, live_max_rows),
     )
     _log_processing_results(processing_results=processing_results)
+    if log_queue is not None and use_live_dashboard:
+        # All processing workers have exited. Let Rich print the queued INFO
+        # lines above the dashboard before aggregation/export replaces its phase.
+        log_queue.flush_console()
     return processing_results
 
 
