@@ -35,12 +35,14 @@ def main() -> None:
     parser.add_argument("--log-file", type=Path)
     parser.add_argument("--file-level", default="DEBUG")
     parser.add_argument("--raise-worker-exception", action="store_true")
+    parser.add_argument("--compact-console", action="store_true")
     args = parser.parse_args()
 
     with setup_logger(
         console_log_level=args.console_level,
         log_file=str(args.log_file) if args.log_file else None,
         file_log_level=args.file_level,
+        console_include_source=not args.compact_console,
     ) as log_queue:
         logger.debug("MAIN_DEBUG")
         logger.info("MAIN_INFO")
