@@ -188,12 +188,14 @@ def test_parent_console_relay_keeps_every_info_line_during_rich_redraws(tmp_path
         check=True,
     )
     assert result.stdout.count("RELAY_PROGRESS ") == 40
+    assert result.stdout.count("Completed file_") == 40
     assert result.stdout.count("RELAY_WARNING ") == 2
     assert "TUFLOW Log Summary: SUCCESS" in result.stdout
     assert "CONSOLE_RELAY_CLOSED" in result.stdout
     assert "live_console_relay_harness:worker:" not in result.stdout
     detailed = log_file.read_text(encoding="utf-8")
     assert detailed.count("RELAY_PROGRESS ") == 40
+    assert detailed.count("Completed file_") == 40
     assert detailed.count("RELAY_WARNING ") == 2
     assert "live_console_relay_harness:worker:" in detailed
 

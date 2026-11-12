@@ -17,6 +17,7 @@ from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager
 from multiprocessing import Event, Process, Queue
 from pathlib import Path
+from queue import Empty
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, ClassVar, TypedDict, cast
 
@@ -88,7 +89,7 @@ class LogQueue:
         finally:
             self.flush_console()
 
-    def _notify_console_flushed(self) -> None:
+    def notify_console_flushed(self) -> None:
         if self._console_flush_event is not None:
             self._console_flush_event.set()
 
@@ -326,15 +327,38 @@ class _ParentConsoleQueueSink:
 
 
 def _relay_parent_console(output_queue: MPQueue[str | bytes | None], queue: LogQueue) -> None:
-    """Follow Rich's stdout redirection and serialize output with Live refreshes."""
+    """Serialize listener messages through Rich, coalescing short bursts.
+
+    Formatting and order are preserved. Eight queued records share one Rich
+    redraw at most, preventing thousands of full-panel redraws for large runs.
+    Control markers are handled only after every preceding line is printed.
+    """
     while True:
         message = output_queue.get()
         if message is None:
             return
         if isinstance(message, bytes):
-            queue._notify_console_flushed()
+            queue.notify_console_flushed()
             continue
-        _write_stdout(message)
+
+        records: list[str] = [message]
+        control: object = object()
+        for _ in range(7):
+            try:
+                next_message = output_queue.get_nowait()
+            except Empty:
+                break
+            if isinstance(next_message, str):
+                records.append(next_message)
+            else:
+                control = next_message
+                break
+
+        _write_stdout("".join(records))
+        if control is None:
+            return
+        if isinstance(control, bytes):
+            queue.notify_console_flushed()
 
 
 def listener_process(
@@ -373,7 +397,7 @@ def listener_process(
                 if console_output_queue is not None:
                     console_output_queue.put(b"")
                 else:
-                    queue._notify_console_flushed()
+                    queue.notify_console_flushed()
                 continue
 
             record: SerializedLogRecord = cast(

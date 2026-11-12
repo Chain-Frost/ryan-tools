@@ -28,6 +28,9 @@ def main() -> int:
     logfile = Path(sys.argv[1])
     multiprocessing.set_start_method("spawn", force=True)
     dashboard = LiveWorkflowDashboard(title="TUFLOW Log Summary", max_rows=5, clear_before_exit=True)
+    if not dashboard.console.is_terminal:
+        msg = "Rich terminal simulation is required for this test"
+        raise RuntimeError(msg)
     dashboard.set_tasks([f"Log {index:03d}" for index in range(40)])
     dashboard.set_phase("Processing")
     context = multiprocessing.get_context("spawn")
@@ -54,6 +57,8 @@ def main() -> int:
             if process.exitcode != 0:
                 msg = f"Worker exited with status {process.exitcode}"
                 raise RuntimeError(msg)
+            for index in range(40):
+                logger.info("Completed file_{:03d}.tlf", index)
             if not log_queue.flush_console(timeout_seconds=10.0):
                 msg = "Console relay did not drain"
                 raise RuntimeError(msg)
