@@ -5,7 +5,10 @@ import os
 import sys
 from argparse import ArgumentParser, Namespace
 from collections.abc import Callable
+from io import StringIO
 from pathlib import Path
+
+import colorama
 from typing import cast
 from unittest.mock import patch
 
@@ -195,6 +198,23 @@ def test_wrapper_banner_unavailable_comparison_does_not_block(
     monkeypatch.setattr(wrapper_utils, "files", resources)
     wrapper_utils.print_wrapper_banner(wrapper_file=Path("runner.py"), wrapper_version="2026-11-07.1")
     assert "is older than" not in capsys.readouterr().out
+
+
+def test_wrapper_warning_is_yellow_on_tty_and_plain_when_redirected(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeTerminal(StringIO):
+        def isatty(self) -> bool:
+            return True
+
+    plain = StringIO()
+    monkeypatch.setattr(wrapper_utils.sys, "stdout", plain)
+    wrapper_utils._print_wrapper_warning("WARNING: upgrade this wrapper")  # pyright: ignore[reportPrivateUsage]
+    assert plain.getvalue() == "WARNING: upgrade this wrapper\n"
+
+    terminal = FakeTerminal()
+    monkeypatch.setattr(wrapper_utils.sys, "stdout", terminal)
+    monkeypatch.setattr(colorama, "just_fix_windows_console", lambda: None)
+    wrapper_utils._print_wrapper_warning("WARNING: upgrade this wrapper")  # pyright: ignore[reportPrivateUsage]
+    assert terminal.getvalue() == f"{colorama.Fore.YELLOW}WARNING:{colorama.Style.RESET_ALL} upgrade this wrapper\n"
 
 
 def test_legacy_banner_calls_warn_and_continue(capsys: pytest.CaptureFixture[str]) -> None:

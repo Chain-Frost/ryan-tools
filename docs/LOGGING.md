@@ -52,6 +52,13 @@ An explicit worker override that would discard records destined for a
 configured sink is invalid. Worker warnings/errors and serialized tracebacks
 remain visible through the logging listener. Keep routine per-item INFO
 out of the dashboard console; do not replay it after the live region closes.
+The TUFLOW log summary opts into `console_include_source=False` to omit source
+function/line details from its console output only. Its file log retains full
+origins. With Live enabled, `suppress_dashboard_progress=True` filters tagged
+per-file INFO records from the independent listener's console sink, while
+preserving them in file logs. WARNING/ERROR records remain visible, including
+when they originate in a file-processing worker. With Live disabled, ordinary
+INFO records are still displayed. Other workflows retain the default formatter.
 
 Disabling the dashboard restores the caller's chosen ordinary console logging
 level. A redirected terminal must not receive repeated Rich frames or ANSI

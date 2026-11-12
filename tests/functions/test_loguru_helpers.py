@@ -82,6 +82,34 @@ def test_multiprocessing_info_console_and_debug_file(tmp_path: Path) -> None:
     assert "loguru_helpers:listener_process" not in file_output
 
 
+def test_log_summary_console_omits_origin_and_does_not_flood_live_dashboard(tmp_path: Path) -> None:
+    """Listener retains complete file diagnostics while filtering tagged INFO."""
+    log_file = tmp_path / "details.log"
+    result = run_harness(
+        "--console-level",
+        "INFO",
+        "--compact-console",
+        "--suppress-dashboard-progress",
+        "--log-file",
+        str(log_file),
+        "--file-level",
+        "INFO",
+    )
+    assert "MAIN_INFO" in result.stdout
+    assert "WORKER_INFO" in result.stdout
+    assert "WORKER_WARNING" in result.stdout
+    assert "MAIN_PROGRESS" not in result.stdout
+    assert "WORKER_PROGRESS" not in result.stdout
+    assert "loguru_multiprocessing_harness:main" not in result.stdout
+    assert "loguru_multiprocessing_harness:emit_worker_logs" not in result.stdout
+
+    detail = log_file.read_text(encoding="utf-8")
+    for marker in ("MAIN_INFO", "WORKER_INFO", "MAIN_PROGRESS", "WORKER_PROGRESS", "WORKER_WARNING"):
+        assert marker in detail
+    assert "loguru_multiprocessing_harness:emit_worker_logs" in detail
+    assert "loguru_multiprocessing_harness:main" in detail
+
+
 def test_success_level_is_low_context_mode() -> None:
     result = run_harness("--console-level", "SUCCESS")
 

@@ -128,11 +128,14 @@ def process_log_file_for_dashboard(
 ) -> LogFileProcessingResult:
     """Process one log file and return enough metadata to update a live dashboard."""
     try:
-        data_frame: pd.DataFrame = (
-            _process_log_file_dataframe(logfile=logfile, include_hpc_companion_metrics=True)
-            if include_hpc_companion_metrics
-            else _process_log_file_dataframe(logfile=logfile)
-        )
+        # Keep per-file INFO records in file logs without competing with Rich's
+        # terminal cursor when the multiprocessing listener writes output.
+        with logger.contextualize(dashboard_progress=True):
+            data_frame: pd.DataFrame = (
+                _process_log_file_dataframe(logfile=logfile, include_hpc_companion_metrics=True)
+                if include_hpc_companion_metrics
+                else _process_log_file_dataframe(logfile=logfile)
+            )
     except Exception as exc:
         logger.exception("Unhandled error while processing {}", logfile)
         return LogFileProcessingResult(
@@ -296,6 +299,8 @@ def main_processing(
         console_log_level=console_level,
         log_file=log_file,
         file_log_level=file_log_level,
+        console_include_source=False,
+        suppress_dashboard_progress=use_live_dashboard,
     ) as log_queue:
         # Discover before starting Rich Live: an unreadable folder must not
         # leave a partial dashboard frame in the terminal on early failure.
@@ -481,7 +486,7 @@ def _log_processing_results(*, processing_results: list[LogFileProcessingResult]
     for result in processing_results:
         relative_logfile_path: str = _format_dashboard_label(logfile=result.logfile)
         if result.status == "OK":
-            logger.info("Completed {}", relative_logfile_path)
+            logger.bind(dashboard_progress=True).info("Completed {}", relative_logfile_path)
         elif result.status == "SKIP":
             logger.warning("Skipped {}: {}", relative_logfile_path, result.detail)
         else:

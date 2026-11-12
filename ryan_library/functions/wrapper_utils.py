@@ -110,6 +110,17 @@ def print_wrapper_identity(*, wrapper_file: Path, wrapper_version: str, display_
     print(f"Wrapper: {display_path} (version {wrapper_version})")
 
 
+def _print_wrapper_warning(message: str) -> None:
+    """Highlight WARNING on a terminal without sending ANSI into redirected output."""
+    if not sys.stdout.isatty():
+        print(message)
+        return
+    from colorama import Fore, Style, just_fix_windows_console
+
+    just_fix_windows_console()
+    print(f"{Fore.YELLOW}WARNING:{Style.RESET_ALL}{message.removeprefix('WARNING:')}")
+
+
 def print_wrapper_banner(
     *,
     wrapper_file: Path | None = None,
@@ -141,7 +152,7 @@ def print_wrapper_banner(
     print_library_version(package_name=package_name)
     if package_name == "ryan-tools":
         if wrapper_file is None or _wrapper_revision(actual_version) is None or not wrapper_source:
-            print(
+            _print_wrapper_warning(
                 "WARNING: This script uses an outdated banner interface or unsupported revision. "
                 "Update the script to supply its original script path and embedded revision. "
                 "Execution will continue."
@@ -195,7 +206,7 @@ def _warn_if_wrapper_is_older(*, wrapper_file: Path, wrapper_version: str, wrapp
         latest_text = _read_wrapper_revision(original)
         latest = _wrapper_revision(latest_text) if latest_text is not None else None
         if latest is not None and current < latest:
-            print(
+            _print_wrapper_warning(
                 f"WARNING: This wrapper ({wrapper_version}) is older than the installed package's "
                 f"{source} ({latest_text}). Copy the newer script and transfer your settings before using it."
             )

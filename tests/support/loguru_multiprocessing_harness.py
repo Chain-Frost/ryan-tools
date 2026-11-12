@@ -17,6 +17,7 @@ def emit_worker_logs(log_queue: LogQueue, raise_exception: bool) -> None:
     worker_initializer(log_queue)
     logger.debug("WORKER_DEBUG")
     logger.info("WORKER_INFO")
+    logger.bind(dashboard_progress=True).info("WORKER_PROGRESS")
     logger.success("WORKER_SUCCESS")
     logger.warning("WORKER_WARNING")
     if raise_exception:
@@ -35,15 +36,20 @@ def main() -> None:
     parser.add_argument("--log-file", type=Path)
     parser.add_argument("--file-level", default="DEBUG")
     parser.add_argument("--raise-worker-exception", action="store_true")
+    parser.add_argument("--compact-console", action="store_true")
+    parser.add_argument("--suppress-dashboard-progress", action="store_true")
     args = parser.parse_args()
 
     with setup_logger(
         console_log_level=args.console_level,
         log_file=str(args.log_file) if args.log_file else None,
         file_log_level=args.file_level,
+        console_include_source=not args.compact_console,
+        suppress_dashboard_progress=args.suppress_dashboard_progress,
     ) as log_queue:
         logger.debug("MAIN_DEBUG")
         logger.info("MAIN_INFO")
+        logger.bind(dashboard_progress=True).info("MAIN_PROGRESS")
         logger.success("MAIN_SUCCESS")
         context = multiprocessing.get_context("spawn")
         worker = context.Process(target=emit_worker_logs, args=(log_queue, args.raise_worker_exception))

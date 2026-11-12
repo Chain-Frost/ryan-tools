@@ -151,8 +151,13 @@ The default `worker_log_level=None` captures the lowest sink level (including
 DEBUG when a DEBUG file sink is configured). An explicit worker override which
 would drop a configured sink's records is rejected. Workers keep severity,
 location and exception tracebacks; warning/error records remain visible
-through the listener, during or after a live display. Do not replay all
-completed-file INFO records after the dashboard closes.
+through the listener, during or after a live display. The log-summary workflow
+marks per-file INFO as dashboard progress and suppresses only those console
+writes while Live is enabled; the listener still records them at INFO in the
+configured file sink. This avoids thousands of uncoordinated stdout writes
+competing with the dashboard's transient Rich frame. With Live disabled, the
+ordinary per-file INFO output is retained. Do not replay all completed-file
+INFO records after the dashboard closes.
 
 The parent is responsible for closing the dashboard and logging context, and
 for displaying one truthful final status. Run ordinary reporting through all
