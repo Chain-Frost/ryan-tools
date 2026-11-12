@@ -169,6 +169,11 @@ def log_settings(title: str, values: Mapping[str, object], defaults: Mapping[str
     logger.opt(colors=True).info("\n".join(formats), *arguments)
 
 
+def _include_dashboard_console_record(record: dict[str, Any]) -> bool:
+    """Skip tagged INFO progress in Rich Live, without hiding warnings or errors."""
+    return not (record["extra"].get("dashboard_progress", False) and record["level"].name == "INFO")
+
+
 def _add_console_sink(
     *,
     level: str,
@@ -182,11 +187,7 @@ def _add_console_sink(
         sink=_write_stdout if sink is None else sink,
         level=normalize_log_level(level),
         format=format_string or (FORWARDED_CONSOLE_FORMAT if forwarded else CONSOLE_FORMAT),
-        filter=(
-            lambda record: not (record["extra"].get("dashboard_progress", False) and record["level"].name == "INFO")
-            if suppress_dashboard_progress
-            else None
-        ),
+        filter=_include_dashboard_console_record if suppress_dashboard_progress else None,
         # Never inject ANSI styling into redirected, piped or file-backed
         # console sinks; Rich live mode is controlled independently.
         colorize=CONSOLE_COLORIZE and bool(getattr(sys.stdout if sink is None else sink, "isatty", lambda: False)()),

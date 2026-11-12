@@ -98,13 +98,21 @@ def test_log_summary_console_omits_origin_and_does_not_flood_live_dashboard(tmp_
     assert "MAIN_INFO" in result.stdout
     assert "WORKER_INFO" in result.stdout
     assert "WORKER_WARNING" in result.stdout
+    assert "WORKER_TAGGED_WARNING" in result.stdout
     assert "MAIN_PROGRESS" not in result.stdout
     assert "WORKER_PROGRESS" not in result.stdout
     assert "loguru_multiprocessing_harness:main" not in result.stdout
     assert "loguru_multiprocessing_harness:emit_worker_logs" not in result.stdout
 
     detail = log_file.read_text(encoding="utf-8")
-    for marker in ("MAIN_INFO", "WORKER_INFO", "MAIN_PROGRESS", "WORKER_PROGRESS", "WORKER_WARNING"):
+    for marker in (
+        "MAIN_INFO",
+        "WORKER_INFO",
+        "MAIN_PROGRESS",
+        "WORKER_PROGRESS",
+        "WORKER_WARNING",
+        "WORKER_TAGGED_WARNING",
+    ):
         assert marker in detail
     assert "loguru_multiprocessing_harness:emit_worker_logs" in detail
     assert "loguru_multiprocessing_harness:main" in detail

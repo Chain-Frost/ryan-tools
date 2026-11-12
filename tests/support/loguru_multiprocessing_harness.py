@@ -20,6 +20,7 @@ def emit_worker_logs(log_queue: LogQueue, raise_exception: bool) -> None:
     logger.bind(dashboard_progress=True).info("WORKER_PROGRESS")
     logger.success("WORKER_SUCCESS")
     logger.warning("WORKER_WARNING")
+    logger.bind(dashboard_progress=True).warning("WORKER_TAGGED_WARNING")
     if raise_exception:
         try:
             msg = "synthetic worker failure"
