@@ -13,7 +13,7 @@ from threading import Event, Thread, current_thread
 
 import pytest
 from loguru import logger
-from rich.console import Console
+from rich.console import Console, RenderableType
 from rich.live import Live
 
 from ryan_library.functions.live_dashboard import LiveWorkflowDashboard
@@ -135,6 +135,36 @@ def test_grouped_dashboard_uses_one_refresh_owner_and_keeps_log_messages(
     assert sys.stdout is stream
     assert stream.getvalue().count("INPUT_CHECK_PASSED") == 1
     assert stream.getvalue().count("VISIBLE_WARNING") == 1
+
+
+def test_opt_in_transient_cleanup_blanks_last_frame_before_rich_stop(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Final cleanup blanks the panel, while the final summary stays visible."""
+    stream = StringIO()
+    monkeypatch.setattr(sys, "stdout", stream)
+    monkeypatch.setenv("TERM", "xterm-256color")
+    monkeypatch.setenv("FORCE_COLOR", "1")
+    rendered: list[RenderableType] = []
+    original_update = Live.update
+
+    def observe_update(live: Live, renderable: RenderableType, *, refresh: bool = False) -> None:
+        rendered.append(renderable)
+        original_update(live, renderable, refresh=refresh)
+
+    monkeypatch.setattr(Live, "update", observe_update)
+    dashboard = LiveWorkflowDashboard(title="Cleanup", clear_before_exit=True)
+    dashboard.console.width = 100
+    dashboard.console.height = 23
+    dashboard.set_tasks(["one"])
+
+    with dashboard:
+        assert dashboard._live is not None
+        dashboard.mark_finished(index=1, status="OK")
+        dashboard.finish(outcome="SUCCESS", detail="1 completed run(s)")
+
+    assert rendered[-1] == ""
+    assert dashboard._live is None
+    assert stream.getvalue().count("Cleanup: SUCCESS") == 1
+    assert LiveWorkflowDashboard(title="Default").clear_before_exit is False
 
 
 def test_default_serial_logs_clear_and_redraw_live_display(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

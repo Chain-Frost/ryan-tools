@@ -18,7 +18,7 @@ from contextlib import contextmanager
 from multiprocessing import Process, Queue
 from pathlib import Path
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, ClassVar, NotRequired, TypedDict, cast
+from typing import TYPE_CHECKING, Any, ClassVar, TypedDict, cast
 
 from loguru import logger
 
@@ -50,7 +50,6 @@ class SerializedLogRecord(TypedDict):
     function: str
     line: int
     exception: str | None
-    dashboard_progress: NotRequired[bool]
 
 
 class LogQueue:
@@ -169,25 +168,18 @@ def log_settings(title: str, values: Mapping[str, object], defaults: Mapping[str
     logger.opt(colors=True).info("\n".join(formats), *arguments)
 
 
-def _include_dashboard_console_record(record: Any) -> bool:
-    """Skip tagged INFO progress in Rich Live, without hiding warnings or errors."""
-    return not (record["extra"].get("dashboard_progress", False) and record["level"].name == "INFO")
-
-
 def _add_console_sink(
     *,
     level: str,
     forwarded: bool,
     sink: Any | None = None,
     format_string: str | None = None,
-    suppress_dashboard_progress: bool = False,
 ) -> None:
     """Install the standard stdout sink."""
     logger.add(
         sink=_write_stdout if sink is None else sink,
         level=normalize_log_level(level),
         format=format_string or (FORWARDED_CONSOLE_FORMAT if forwarded else CONSOLE_FORMAT),
-        filter=_include_dashboard_console_record if suppress_dashboard_progress else None,
         # Never inject ANSI styling into redirected, piped or file-backed
         # console sinks; Rich live mode is controlled independently.
         colorize=CONSOLE_COLORIZE and bool(getattr(sys.stdout if sink is None else sink, "isatty", lambda: False)()),
@@ -297,7 +289,6 @@ def listener_process(
     file_log_level: str = "INFO",
     *,
     console_include_source: bool = True,
-    suppress_dashboard_progress: bool = False,
 ) -> None:
     """Receive trusted worker records and render them through listener sinks."""
     reset_logging()
@@ -307,7 +298,6 @@ def listener_process(
         level=console_log_level,
         forwarded=True,
         format_string=None if console_include_source else COMPACT_FORWARDED_CONSOLE_FORMAT,
-        suppress_dashboard_progress=suppress_dashboard_progress,
     )
 
     while True:
@@ -325,15 +315,11 @@ def listener_process(
             if exception_text:
                 console_message = f"{console_message}\n{exception_text.rstrip()}"
             formatted_message: str = f"{record['module']}:{record['function']}:{record['line']} - {console_message}"
-            # Preserve the source-rich message for file sinks. Only the opt-in
-            # compact console formatter uses the separately bound plain message.
-            if console_include_source and not record.get("dashboard_progress", False):
+            if console_include_source:
                 logger.log(record["level"], formatted_message)
             else:
-                logger.bind(
-                    console_message=console_message,
-                    dashboard_progress=record.get("dashboard_progress", False),
-                ).log(record["level"], formatted_message)
+                # File sinks still receive the full source-rich message.
+                logger.bind(console_message=console_message).log(record["level"], formatted_message)
         except Exception:
             print("Error in logging listener:", file=sys.stderr)
             traceback.print_exc(file=sys.stderr)
@@ -373,8 +359,6 @@ def worker_configurer(queue: LogQueue, level: str | None = None) -> None:
                     "line": int(record["line"]),
                     "exception": _format_exception(record.get("exception")),
                 }
-                if cast("dict[str, Any]", record.get("extra", {})).get("dashboard_progress") is True:
-                    payload["dashboard_progress"] = True
                 self.log_queue.put(pickle.dumps(payload))
             except Exception:
                 sys.stderr.write("Failed to send log message to listener.\n")
@@ -411,11 +395,9 @@ class LoguruMultiprocessingLogger:
         file_log_level: str = "INFO",
         *,
         console_include_source: bool = True,
-        suppress_dashboard_progress: bool = False,
     ) -> None:
         self.log_file: str | None = log_file
         self.console_include_source: bool = console_include_source
-        self.suppress_dashboard_progress: bool = suppress_dashboard_progress
         self.console_log_level: str = normalize_log_level(console_log_level)
         self.file_log_level: str = normalize_log_level(file_log_level)
         active_levels: list[str] = [self.console_log_level]
@@ -444,10 +426,7 @@ class LoguruMultiprocessingLogger:
             self.listener = Process(
                 target=listener_process,
                 args=(self.queue, self.log_file, self.console_log_level, self.file_log_level),
-                kwargs={
-                    "console_include_source": self.console_include_source,
-                    "suppress_dashboard_progress": self.suppress_dashboard_progress,
-                },
+                kwargs={"console_include_source": self.console_include_source},
             )
             self.listener.start()
             worker_configurer(queue=self.queue)
@@ -507,13 +486,8 @@ def setup_logger(
     file_log_level: str = "INFO",
     *,
     console_include_source: bool = True,
-    suppress_dashboard_progress: bool = False,
 ) -> LoguruMultiprocessingLogger:
-    """Return a multiprocessing context with independent sink levels.
-
-    Source metadata remains in file logs even when omitted from the console.
-    Suppressed dashboard-progress INFO records still reach the file sink.
-    """
+    """Return a multiprocessing context with independently formatted console and file sinks."""
     if log_file and not Path(log_file).is_absolute():
         log_file = str(Path.cwd() / log_file)
     return LoguruMultiprocessingLogger(
@@ -521,7 +495,6 @@ def setup_logger(
         console_log_level=console_log_level,
         file_log_level=file_log_level,
         console_include_source=console_include_source,
-        suppress_dashboard_progress=suppress_dashboard_progress,
     )
 
 

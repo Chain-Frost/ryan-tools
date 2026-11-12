@@ -119,30 +119,6 @@ def test_listener_reconstructs_origin_once() -> None:
     mock_logger.log.assert_called_once_with("INFO", "mod:func:10 - Test Message")
 
 
-def test_worker_configurer_marks_dashboard_progress_without_altering_plain_records() -> None:
-    queue = MagicMock()
-    queue.capture_log_level = "INFO"
-    with patch.object(loguru_helpers, "logger") as mock_logger:
-        mock_logger.level.return_value = SimpleNamespace(name="INFO", no=20)
-        loguru_helpers.worker_configurer(queue)
-    sink = mock_logger.add.call_args.kwargs["sink"]
-    sink.write(
-        SimpleNamespace(
-            record={
-                "level": SimpleNamespace(name="INFO"),
-                "message": "completed",
-                "module": "module",
-                "function": "function",
-                "line": 12,
-                "exception": None,
-                "extra": {"dashboard_progress": True},
-            }
-        )
-    )
-    payload = pickle.loads(queue.put.call_args.args[0])  # noqa: S301 - trusted test payload
-    assert payload["dashboard_progress"] is True
-
-
 def test_setup_logger_passes_both_sink_levels() -> None:
     with patch.object(loguru_helpers, "LoguruMultiprocessingLogger") as mock_context:
         loguru_helpers.setup_logger(

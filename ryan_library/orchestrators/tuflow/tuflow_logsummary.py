@@ -128,14 +128,11 @@ def process_log_file_for_dashboard(
 ) -> LogFileProcessingResult:
     """Process one log file and return enough metadata to update a live dashboard."""
     try:
-        # Keep per-file INFO records in file logs without competing with Rich's
-        # terminal cursor when the multiprocessing listener writes output.
-        with logger.contextualize(dashboard_progress=True):
-            data_frame: pd.DataFrame = (
-                _process_log_file_dataframe(logfile=logfile, include_hpc_companion_metrics=True)
-                if include_hpc_companion_metrics
-                else _process_log_file_dataframe(logfile=logfile)
-            )
+        data_frame: pd.DataFrame = (
+            _process_log_file_dataframe(logfile=logfile, include_hpc_companion_metrics=True)
+            if include_hpc_companion_metrics
+            else _process_log_file_dataframe(logfile=logfile)
+        )
     except Exception as exc:
         logger.exception("Unhandled error while processing {}", logfile)
         return LogFileProcessingResult(
@@ -288,6 +285,7 @@ def main_processing(
         refresh_per_second=live_refresh_per_second,
         max_rows=live_max_rows,
         columns=LOG_SUMMARY_DASHBOARD_COLUMNS,
+        clear_before_exit=True,
     )
     # Choose the concise default only when the caller has not selected a level.
     # A user-supplied INFO/DEBUG override must not be silently reinterpreted.
@@ -300,7 +298,6 @@ def main_processing(
         log_file=log_file,
         file_log_level=file_log_level,
         console_include_source=False,
-        suppress_dashboard_progress=use_live_dashboard,
     ) as log_queue:
         # Discover before starting Rich Live: an unreadable folder must not
         # leave a partial dashboard frame in the terminal on early failure.
@@ -418,6 +415,7 @@ def process_log_files(
             refresh_per_second=live_refresh_per_second,
             max_rows=live_max_rows,
             columns=LOG_SUMMARY_DASHBOARD_COLUMNS,
+            clear_before_exit=True,
         )
     # Shared file-workflow metadata is fetched in the background, never here.
     dashboard.set_tasks(labels=[_format_dashboard_label(logfile=file) for file in files])
@@ -486,7 +484,7 @@ def _log_processing_results(*, processing_results: list[LogFileProcessingResult]
     for result in processing_results:
         relative_logfile_path: str = _format_dashboard_label(logfile=result.logfile)
         if result.status == "OK":
-            logger.bind(dashboard_progress=True).info("Completed {}", relative_logfile_path)
+            logger.info("Completed {}", relative_logfile_path)
         elif result.status == "SKIP":
             logger.warning("Skipped {}: {}", relative_logfile_path, result.detail)
         else:

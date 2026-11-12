@@ -194,10 +194,8 @@ def test_console_default_depends_on_dashboard_and_explicit_level_is_preserved() 
         ls.main_processing(use_live_dashboard=True)
         assert setup.call_args.kwargs["console_log_level"] == "SUCCESS"
         assert setup.call_args.kwargs["console_include_source"] is False
-        assert setup.call_args.kwargs["suppress_dashboard_progress"] is True
         ls.main_processing(use_live_dashboard=False)
         assert setup.call_args.kwargs["console_log_level"] == "INFO"
-        assert setup.call_args.kwargs["suppress_dashboard_progress"] is False
         ls.main_processing(use_live_dashboard=True, console_log_level="INFO")
         assert setup.call_args.kwargs["console_log_level"] == "INFO"
         ls.main_processing(use_live_dashboard=True, console_log_level="DEBUG")

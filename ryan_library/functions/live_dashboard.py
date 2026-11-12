@@ -216,6 +216,7 @@ class LiveWorkflowDashboard:
         columns: Sequence[WorkflowColumn] | None = None,
         transient: bool = True,
         screen: bool = False,
+        clear_before_exit: bool = False,
         group_by: str | None = None,
         group_label_key: str | None = None,
         newest_first: bool = False,
@@ -237,6 +238,7 @@ class LiveWorkflowDashboard:
         self._file_sizes: FileSizeProbe | None = None
         self.transient: bool = transient
         self.screen: bool = screen
+        self.clear_before_exit: bool = clear_before_exit
         self.group_by: str | None = group_by
         self.group_label_key: str | None = group_label_key
         self.newest_first: bool = newest_first
@@ -297,6 +299,12 @@ class LiveWorkflowDashboard:
         if self._context_depth == 0 and self._live is not None:
             try:
                 with self.console:
+                    if self.clear_before_exit and self.transient:
+                        # Rich redraws its final renderable during stop(), even
+                        # for transient displays. Replace the panel with a blank
+                        # frame first so a terminal reflow cannot leave its
+                        # header visible beneath the final summary.
+                        self._live.update("", refresh=True)
                     self._live.__exit__(exc_type, exc_val, exc_tb)
             finally:
                 self._live = None
