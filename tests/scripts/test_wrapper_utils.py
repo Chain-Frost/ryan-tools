@@ -7,11 +7,10 @@ from argparse import ArgumentParser, Namespace
 from collections.abc import Callable
 from io import StringIO
 from pathlib import Path
-
-import colorama
 from typing import cast
 from unittest.mock import patch
 
+import colorama
 import pytest
 
 from ryan_library.functions import wrapper_utils
