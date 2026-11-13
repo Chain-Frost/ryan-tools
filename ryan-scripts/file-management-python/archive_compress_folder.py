@@ -31,7 +31,7 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 # Wrapper identity and editable project settings (CLI options override these)
 # ---------------------------------------------------------------------------
-WRAPPER_VERSION = "2026-11-13.1"
+WRAPPER_VERSION = "2026-11-13.2"
 
 DEFAULT_INPUT_PATHS: list[Path] = [Path.cwd()]
 DEFAULT_WORKING_DIRECTORY: Path | None = None  # None = first input directory
@@ -58,7 +58,9 @@ from collections.abc import Sequence
 
 from loguru import logger
 from rich.console import Console
-from rich.progress import BarColumn, Progress, SpinnerColumn, TaskID, TaskProgressColumn, TextColumn, TimeElapsedColumn
+from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, TaskID, TextColumn
+from rich.table import Table
 
 from ryan_library.functions.archive_utils import (
     FolderCompressionJob,
@@ -91,17 +93,50 @@ def _staged_output_size(archive: Path, started_at: float) -> int:
     return total
 
 
+class ArchiveDashboard(Progress):
+    """Keep compression activity in a stable, compact terminal panel."""
+
+    def get_renderable(self) -> Panel:
+        if not self.tasks:
+            return Panel("Preparing archive jobs?", title="Archive compression", border_style="cyan")
+        task = self.tasks[0]
+        elapsed = int(task.elapsed or 0)
+        hours, remainder = divmod(elapsed, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        table = Table.grid(padding=(0, 3), expand=True)
+        table.add_column(style="dim", width=20)
+        table.add_column(overflow="fold")
+        table.add_row("Folder", str(task.fields.get("folder", "")))
+        table.add_row("Status", "[green]Finished[/green]" if task.finished else "[cyan]Compressing[/cyan]")
+        table.add_row("Elapsed", f"{hours:02}:{minutes:02}:{seconds:02}")
+        table.add_row("Folders completed", f"{int(task.completed)} / {int(task.total or 0)}")
+        table.add_row("Compressed output", str(task.fields.get("activity", "Waiting for 7-Zip output")))
+        table.add_row("Recent output growth", str(task.fields.get("rate", "Measuring?")))
+        table.add_row("Last size increase", str(task.fields.get("last_growth", "Waiting for first sample")))
+        table.add_row("", "[dim]Output size measures activity; completion time is unknown.[/dim]")
+        return Panel(table, title="Archive compression", border_style="cyan")
+
+
 def _monitor_staging(archive: Path, progress: Progress, task: TaskID, stop: threading.Event) -> None:
-    """Report staged bytes periodically without estimating completion."""
+    """Refresh activity; emit periodic plain-text reports outside live mode."""
     started_at = time.time()
-    last_report = time.monotonic()
+    last_report = previous_time = last_growth = time.monotonic()
+    previous_size = 0
     while not stop.wait(5):
+        now = time.monotonic()
         size = _staged_output_size(archive, started_at)
-        status = f"staged {size / 1024**3:.2f} GiB (compressed output)"
-        progress.update(task, activity=status)
-        if time.monotonic() - last_report >= 60:
-            logger.info("Still compressing {}: {}", archive, status)
-            last_report = time.monotonic()
+        if size > previous_size:
+            last_growth = now
+        rate = max(0, size - previous_size) / max(now - previous_time, 0.001) / 1024**2
+        status = f"{size / 1024**3:.2f} GiB"
+        progress.update(
+            task, activity=status, rate=f"{rate:.2f} MiB/s",
+            last_growth=f"{int(now - last_growth)} seconds ago",
+        )
+        previous_size, previous_time = size, now
+        if progress.disable and now - last_report >= 60:
+            logger.info("Still compressing {}: {} compressed output", archive, status)
+            last_report = now
 
 
 def main(
@@ -224,21 +259,19 @@ def main(
         console.print(f"Output: {archive_path_for_folder(jobs[0].folder)}", markup=False)
 
     counts: dict[str, int] = {"SUCCESS": 0, "SKIPPED": 0, "ERROR": 0}
-    with Progress(
+    with ArchiveDashboard(
         SpinnerColumn(),
         TextColumn("Folder progress"),
-        BarColumn(),
-        TaskProgressColumn(),
-        TimeElapsedColumn(),
-        TextColumn("{task.fields[activity]}"),
         console=console,
         disable=not interactive,
     ) as progress:
-        task = progress.add_task("Compressing folders", total=len(jobs), activity="")
+        task = progress.add_task(
+            "Compressing folders", total=len(jobs), activity="Waiting for 7-Zip output",
+            folder=jobs[0].folder.name if len(jobs) == 1 else f"{len(jobs)} selected folders",
+        )
         stop_monitor = threading.Event()
         monitor = None
         if len(jobs) == 1:
-            console.print("Folder progress counts completed folders; staged size is compressed output.", markup=False)
             monitor = threading.Thread(
                 target=_monitor_staging,
                 args=(archive_path_for_folder(jobs[0].folder), progress, task, stop_monitor),

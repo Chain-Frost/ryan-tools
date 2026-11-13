@@ -254,3 +254,20 @@ def test_active_log_is_excluded_for_its_source_folder(
     assert wrapper.main(input_paths=[source], seven_zip_exe=exe, active_log_file=source / "run.log") == 0
     assert "-x!run.log" in observed
     assert "Active log excluded" in capsys.readouterr().out
+
+
+def test_dashboard_renders_activity_without_completion_percentage(wrapper: ModuleType) -> None:
+    from io import StringIO
+    from rich.console import Console
+
+    output = StringIO()
+    console = Console(file=output, width=80)
+    dashboard = wrapper.ArchiveDashboard(console=console, disable=True)
+    dashboard.add_task("Compressing", total=1, folder="WeelMLTP", activity="2.46 GiB", rate="1.25 MiB/s")
+    console.print(dashboard.get_renderable())
+    text = output.getvalue()
+    assert "Archive compression" in text
+    assert "2.46 GiB" in text
+    assert "1.25 MiB/s" in text
+    assert "0 / 1" in text
+    assert "0%" not in text
