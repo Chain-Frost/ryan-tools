@@ -17,6 +17,7 @@ from loguru import logger
 
 from ...functions.tuflow.command_plan import CommandPlan
 from ...functions.tuflow.execution_history import CompletionSession, CsvExecutionLog, identify_runs, select_pending
+from ...functions.tuflow.model_features import inspect_model_features
 from ...functions.tuflow.runner_settings import CONT, OP
 from .simulation_runner import (
     AdvisoryInputCheck,
@@ -135,6 +136,24 @@ def _warn_optional_file_paths(plan: CommandPlan, settings: RunnerSettings, follo
             )
 
 
+def _log_model_features(plan: CommandPlan, settings: RunnerSettings) -> None:
+    """Show TCF-declared model options without treating them as solver-resolved truth."""
+    tcfs = sorted({Path(str(run.tcf)) for run in plan.runs}, key=str)
+    if not tcfs:
+        return
+    logger.info("Model options from TCF/Read File (advisory; the solver TLF is authoritative):")
+    for tcf in tcfs:
+        path = tcf if tcf.is_absolute() else (settings.working_directory / tcf).absolute()
+        features = inspect_model_features(path)
+        logger.info(
+            "  {}: SGS={} | SGS target distance={} | Quadtree={}",
+            display_runner_path(tcf, settings.working_directory),
+            features.sgs,
+            features.target_distance,
+            features.quadtree,
+        )
+
+
 def run_simulation_workflow(
     settings: RunnerSettings,
     controls: WorkflowControls,
@@ -161,6 +180,7 @@ def run_simulation_workflow(
     # inspecting GPUs or launching any solver.
     plan = prepare_plan(settings)
     _warn_optional_file_paths(plan, settings, follow_up)
+    _log_model_features(plan, settings)
     logger.info(
         "Selected {} unique simulations ({} duplicates discarded; {} source files).",
         len(plan.runs),
