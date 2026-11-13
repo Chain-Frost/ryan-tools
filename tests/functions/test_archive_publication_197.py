@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -194,3 +195,21 @@ def test_split_volume_sequence_must_start_at_one(tmp_path: Path, monkeypatch: py
 
     assert not list(tmp_path.glob("split.7z.*"))
     _assert_no_private_artifacts(archive)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows staging inherits the parent ACL")
+def test_windows_staging_uses_default_directory_permissions(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    archive = tmp_path / "result.7z"
+    mkdir = Path.mkdir
+    modes: list[int] = []
+
+    def record_mkdir(path: Path, mode: int = 0o777, parents: bool = False, exist_ok: bool = False) -> None:
+        modes.append(mode)
+        mkdir(path, mode=mode, parents=parents, exist_ok=exist_ok)
+
+    monkeypatch.setattr(Path, "mkdir", record_mkdir)
+    with archive_utils._archive_staging_directory(archive) as name:
+        staging = Path(name)
+        (staging / "data").write_text("accessible", encoding="utf-8")
+    assert modes == [0o777]
+    assert not staging.exists()

@@ -14,8 +14,8 @@ preview outputs without invoking 7-Zip.
 
 The default target is the current working directory. Edit the settings below
 or override them on the command line. Progress reports completed *folders*,
-not bytes within a running 7-Zip subprocess; a spinner and elapsed timer show
-that a large individual archive is still being processed.
+with the staged output size shown for a single running folder. Staged bytes
+are compressed output, not a percentage of the input or an ETA.
 
 Windows example:
     python archive_compress_folder.py -i "Q:\\BGER\\PER\\Project Results" --workers 2 --no-pause
@@ -31,7 +31,7 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 # Wrapper identity and editable project settings (CLI options override these)
 # ---------------------------------------------------------------------------
-WRAPPER_VERSION = "2026-11-08.1"
+WRAPPER_VERSION = "2026-11-13.2"
 
 DEFAULT_INPUT_PATHS: list[Path] = [Path.cwd()]
 DEFAULT_WORKING_DIRECTORY: Path | None = None  # None = first input directory
@@ -52,11 +52,15 @@ DEFAULT_PAUSE_ON_FINISH = True
 import argparse
 import multiprocessing
 import sys
+import threading
+import time
 from collections.abc import Sequence
 
 from loguru import logger
 from rich.console import Console
-from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn, TimeElapsedColumn
+from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, TaskID, TextColumn
+from rich.table import Table
 
 from ryan_library.functions.archive_utils import (
     FolderCompressionJob,
@@ -67,6 +71,72 @@ from ryan_library.functions.archive_utils import (
 from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.path_stuff import PathOrList, to_path_list
 from ryan_library.functions.wrapper_utils import change_working_directory, pause_console, print_wrapper_banner
+
+
+def _staged_output_size(archive: Path, started_at: float) -> int:
+    """Measure new staging output, including 7-Zip temporary volume files."""
+    total = 0
+    try:
+        for directory in archive.parent.iterdir():
+            if not directory.name.startswith(f".{archive.name}.staging-"):
+                continue
+            try:
+                if directory.stat().st_mtime < started_at:
+                    continue
+                for path in directory.iterdir():
+                    if path.is_file() and path.name.startswith(archive.name):
+                        total += path.stat().st_size
+            except OSError:
+                continue
+    except OSError:
+        pass
+    return total
+
+
+class ArchiveDashboard(Progress):
+    """Keep compression activity in a stable, compact terminal panel."""
+
+    def get_renderable(self) -> Panel:
+        if not self.tasks:
+            return Panel("Preparing archive jobs?", title="Archive compression", border_style="cyan")
+        task = self.tasks[0]
+        elapsed = int(task.elapsed or 0)
+        hours, remainder = divmod(elapsed, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        table = Table.grid(padding=(0, 3), expand=True)
+        table.add_column(style="dim", width=20)
+        table.add_column(overflow="fold")
+        table.add_row("Folder", str(task.fields.get("folder", "")))
+        table.add_row("Status", "[green]Finished[/green]" if task.finished else "[cyan]Compressing[/cyan]")
+        table.add_row("Elapsed", f"{hours:02}:{minutes:02}:{seconds:02}")
+        table.add_row("Folders completed", f"{int(task.completed)} / {int(task.total or 0)}")
+        table.add_row("Compressed output", str(task.fields.get("activity", "Waiting for 7-Zip output")))
+        table.add_row("Recent output growth", str(task.fields.get("rate", "Measuring?")))
+        table.add_row("Last size increase", str(task.fields.get("last_growth", "Waiting for first sample")))
+        table.add_row("", "[dim]Output size measures activity; completion time is unknown.[/dim]")
+        return Panel(table, title="Archive compression", border_style="cyan")
+
+
+def _monitor_staging(archive: Path, progress: Progress, task: TaskID, stop: threading.Event) -> None:
+    """Refresh activity; emit periodic plain-text reports outside live mode."""
+    started_at = time.time()
+    last_report = previous_time = last_growth = time.monotonic()
+    previous_size = 0
+    while not stop.wait(5):
+        now = time.monotonic()
+        size = _staged_output_size(archive, started_at)
+        if size > previous_size:
+            last_growth = now
+        rate = max(0, size - previous_size) / max(now - previous_time, 0.001) / 1024**2
+        status = f"{size / 1024**3:.2f} GiB"
+        progress.update(
+            task, activity=status, rate=f"{rate:.2f} MiB/s",
+            last_growth=f"{int(now - last_growth)} seconds ago",
+        )
+        previous_size, previous_time = size, now
+        if progress.disable and now - last_report >= 60:
+            logger.info("Still compressing {}: {} compressed output", archive, status)
+            last_report = now
 
 
 def main(
@@ -81,6 +151,7 @@ def main(
     max_part_size_gib: int | None = None,
     dry_run: bool | None = None,
     show_progress: bool | None = None,
+    active_log_file: Path | None = None,
 ) -> int:
     """Compress the selected folders and report per-folder and batch outcomes."""
     # Resolve all caller-provided paths before any working-directory change.
@@ -168,6 +239,9 @@ def main(
             excluded_folders=exclusions_folders,
             excluded_extensions=exclusions_extensions,
             max_part_size_gib=configured_part_size,
+            excluded_relative_paths=(str(active_log_file.relative_to(folder)),)
+            if active_log_file is not None and active_log_file.is_relative_to(folder)
+            else (),
         )
         for folder in folders
     ]
@@ -177,21 +251,33 @@ def main(
         f"Excluded folders: {exclusions_folders} | excluded extensions: {exclusions_extensions}", markup=False
     )
     console.print(f"Archive splitting: {split_description}", markup=False)
+    for job in jobs:
+        if job.excluded_relative_paths:
+            console.print(f"Active log excluded from {job.folder}: {job.excluded_relative_paths[0]}", markup=False)
     if len(jobs) == 1:
         console.print(f"Processing: {jobs[0].folder}", markup=False)
         console.print(f"Output: {archive_path_for_folder(jobs[0].folder)}", markup=False)
 
     counts: dict[str, int] = {"SUCCESS": 0, "SKIPPED": 0, "ERROR": 0}
-    with Progress(
+    with ArchiveDashboard(
         SpinnerColumn(),
         TextColumn("Folder progress"),
-        BarColumn(),
-        TaskProgressColumn(),
-        TimeElapsedColumn(),
         console=console,
         disable=not interactive,
     ) as progress:
-        task = progress.add_task("Compressing folders", total=len(jobs))
+        task = progress.add_task(
+            "Compressing folders", total=len(jobs), activity="Waiting for 7-Zip output",
+            folder=jobs[0].folder.name if len(jobs) == 1 else f"{len(jobs)} selected folders",
+        )
+        stop_monitor = threading.Event()
+        monitor = None
+        if len(jobs) == 1:
+            monitor = threading.Thread(
+                target=_monitor_staging,
+                args=(archive_path_for_folder(jobs[0].folder), progress, task, stop_monitor),
+                daemon=True,
+            )
+            monitor.start()
         try:
             with multiprocessing.Pool(processes=worker_count) as pool:
                 for finished, result in enumerate(pool.imap_unordered(compress_folder_7zip, jobs), start=1):
@@ -201,7 +287,8 @@ def main(
                     console.print(f"  Archive: {result.archive}", markup=False)
                     if result.message:
                         console.print(f"  Detail: {result.message}", markup=False)
-                    logger.debug(
+                    log_result = logger.error if result.status == "ERROR" else logger.info
+                    log_result(
                         "Folder {} -> {}: {} {}",
                         result.folder,
                         result.archive,
@@ -211,8 +298,13 @@ def main(
         except OSError, RuntimeError, ValueError:
             logger.exception("Archive worker pool failed.")
             return 1
+        finally:
+            stop_monitor.set()
+            if monitor is not None:
+                monitor.join()
 
-    logger.success(
+    log_summary = logger.error if invalid_count or counts["ERROR"] else logger.success
+    log_summary(
         "Archive compression complete: {} compressed, {} skipped, {} failed, {} invalid input(s).",
         counts["SUCCESS"],
         counts["SKIPPED"],
@@ -324,6 +416,7 @@ if __name__ == "__main__":
                 max_part_size_gib=cli.max_part_size_gib,
                 dry_run=cli.dry_run,
                 show_progress=cli.progress,
+                active_log_file=Path(log_file) if log_file is not None else None,
             )
         except Exception:
             logger.exception("Archive compression wrapper failed.")

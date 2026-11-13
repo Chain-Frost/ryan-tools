@@ -221,3 +221,53 @@ def test_wrapper_rejects_physical_output_aliases_before_dispatch(
         )
         == 1
     )
+
+
+def test_staged_output_size_includes_split_temporary_files(wrapper: ModuleType, tmp_path: Path) -> None:
+    archive = tmp_path / "result.7z"
+    staging = tmp_path / ".result.7z.staging-test"
+    staging.mkdir()
+    (staging / "result.7z.001").write_bytes(b"123")
+    (staging / "result.7z.002.tmp").write_bytes(b"12345")
+    (staging / "unrelated").write_bytes(b"ignored")
+    assert wrapper._staged_output_size(archive, 0) == 8
+
+
+def test_active_log_is_excluded_for_its_source_folder(
+    wrapper: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    exe = tmp_path / "7z.exe"
+    exe.touch()
+    monkeypatch.setattr(wrapper.multiprocessing, "Pool", InlinePool)
+    observed: list[str] = []
+
+    def fake_create(**kwargs: object) -> tuple[Path, ...]:
+        observed.extend(kwargs["exclusions"])  # type: ignore[arg-type]
+        output = kwargs["output_archive"]
+        assert isinstance(output, Path)
+        output.write_bytes(b"archive")
+        return (output,)
+
+    monkeypatch.setattr(archive_utils, "create_7zip_archive", fake_create)
+    assert wrapper.main(input_paths=[source], seven_zip_exe=exe, active_log_file=source / "run.log") == 0
+    assert "-x!run.log" in observed
+    assert "Active log excluded" in capsys.readouterr().out
+
+
+def test_dashboard_renders_activity_without_completion_percentage(wrapper: ModuleType) -> None:
+    from io import StringIO
+    from rich.console import Console
+
+    output = StringIO()
+    console = Console(file=output, width=80)
+    dashboard = wrapper.ArchiveDashboard(console=console, disable=True)
+    dashboard.add_task("Compressing", total=1, folder="WeelMLTP", activity="2.46 GiB", rate="1.25 MiB/s")
+    console.print(dashboard.get_renderable())
+    text = output.getvalue()
+    assert "Archive compression" in text
+    assert "2.46 GiB" in text
+    assert "1.25 MiB/s" in text
+    assert "0 / 1" in text
+    assert "0%" not in text
