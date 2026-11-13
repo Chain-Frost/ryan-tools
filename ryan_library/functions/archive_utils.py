@@ -250,6 +250,7 @@ class FolderCompressionJob:
     excluded_folders: tuple[str, ...] = ()
     excluded_extensions: tuple[str, ...] = ()
     max_part_size_gib: int | None = None
+    excluded_relative_paths: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -273,6 +274,7 @@ def compress_folder_7zip(job: FolderCompressionJob) -> FolderCompressionResult:
         return FolderCompressionResult(job.folder, existing, "SKIPPED", "Output archive already exists")
 
     exclusions = [f"-xr!{folder}" for folder in job.excluded_folders]
+    exclusions.extend(f"-x!{path}" for path in job.excluded_relative_paths)
     for extension in job.excluded_extensions:
         normalized = extension if extension.startswith(".") else f".{extension}"
         exclusions.append(f"-xr!*{normalized}")

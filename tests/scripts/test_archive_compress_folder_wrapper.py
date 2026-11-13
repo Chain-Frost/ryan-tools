@@ -231,3 +231,26 @@ def test_staged_output_size_includes_split_temporary_files(wrapper: ModuleType, 
     (staging / "result.7z.002.tmp").write_bytes(b"12345")
     (staging / "unrelated").write_bytes(b"ignored")
     assert wrapper._staged_output_size(archive, 0) == 8
+
+
+def test_active_log_is_excluded_for_its_source_folder(
+    wrapper: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    exe = tmp_path / "7z.exe"
+    exe.touch()
+    monkeypatch.setattr(wrapper.multiprocessing, "Pool", InlinePool)
+    observed: list[str] = []
+
+    def fake_create(**kwargs: object) -> tuple[Path, ...]:
+        observed.extend(kwargs["exclusions"])  # type: ignore[arg-type]
+        output = kwargs["output_archive"]
+        assert isinstance(output, Path)
+        output.write_bytes(b"archive")
+        return (output,)
+
+    monkeypatch.setattr(archive_utils, "create_7zip_archive", fake_create)
+    assert wrapper.main(input_paths=[source], seven_zip_exe=exe, active_log_file=source / "run.log") == 0
+    assert "-x!run.log" in observed
+    assert "Active log excluded" in capsys.readouterr().out

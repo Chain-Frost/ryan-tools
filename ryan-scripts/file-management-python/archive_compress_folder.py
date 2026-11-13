@@ -116,6 +116,7 @@ def main(
     max_part_size_gib: int | None = None,
     dry_run: bool | None = None,
     show_progress: bool | None = None,
+    active_log_file: Path | None = None,
 ) -> int:
     """Compress the selected folders and report per-folder and batch outcomes."""
     # Resolve all caller-provided paths before any working-directory change.
@@ -203,6 +204,9 @@ def main(
             excluded_folders=exclusions_folders,
             excluded_extensions=exclusions_extensions,
             max_part_size_gib=configured_part_size,
+            excluded_relative_paths=(str(active_log_file.relative_to(folder)),)
+            if active_log_file is not None and active_log_file.is_relative_to(folder)
+            else (),
         )
         for folder in folders
     ]
@@ -212,6 +216,9 @@ def main(
         f"Excluded folders: {exclusions_folders} | excluded extensions: {exclusions_extensions}", markup=False
     )
     console.print(f"Archive splitting: {split_description}", markup=False)
+    for job in jobs:
+        if job.excluded_relative_paths:
+            console.print(f"Active log excluded from {job.folder}: {job.excluded_relative_paths[0]}", markup=False)
     if len(jobs) == 1:
         console.print(f"Processing: {jobs[0].folder}", markup=False)
         console.print(f"Output: {archive_path_for_folder(jobs[0].folder)}", markup=False)
@@ -376,6 +383,7 @@ if __name__ == "__main__":
                 max_part_size_gib=cli.max_part_size_gib,
                 dry_run=cli.dry_run,
                 show_progress=cli.progress,
+                active_log_file=Path(log_file) if log_file is not None else None,
             )
         except Exception:
             logger.exception("Archive compression wrapper failed.")
