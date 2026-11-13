@@ -221,3 +221,13 @@ def test_wrapper_rejects_physical_output_aliases_before_dispatch(
         )
         == 1
     )
+
+
+def test_staged_output_size_includes_split_temporary_files(wrapper: ModuleType, tmp_path: Path) -> None:
+    archive = tmp_path / "result.7z"
+    staging = tmp_path / ".result.7z.staging-test"
+    staging.mkdir()
+    (staging / "result.7z.001").write_bytes(b"123")
+    (staging / "result.7z.002.tmp").write_bytes(b"12345")
+    (staging / "unrelated").write_bytes(b"ignored")
+    assert wrapper._staged_output_size(archive, 0) == 8

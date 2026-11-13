@@ -14,8 +14,8 @@ preview outputs without invoking 7-Zip.
 
 The default target is the current working directory. Edit the settings below
 or override them on the command line. Progress reports completed *folders*,
-not bytes within a running 7-Zip subprocess; a spinner and elapsed timer show
-that a large individual archive is still being processed.
+with the staged output size shown for a single running folder. Staged bytes
+are compressed output, not a percentage of the input or an ETA.
 
 Windows example:
     python archive_compress_folder.py -i "Q:\\BGER\\PER\\Project Results" --workers 2 --no-pause
@@ -31,7 +31,7 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 # Wrapper identity and editable project settings (CLI options override these)
 # ---------------------------------------------------------------------------
-WRAPPER_VERSION = "2026-11-08.1"
+WRAPPER_VERSION = "2026-11-13.1"
 
 DEFAULT_INPUT_PATHS: list[Path] = [Path.cwd()]
 DEFAULT_WORKING_DIRECTORY: Path | None = None  # None = first input directory
@@ -52,11 +52,13 @@ DEFAULT_PAUSE_ON_FINISH = True
 import argparse
 import multiprocessing
 import sys
+import threading
+import time
 from collections.abc import Sequence
 
 from loguru import logger
 from rich.console import Console
-from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn, TimeElapsedColumn
+from rich.progress import BarColumn, Progress, SpinnerColumn, TaskID, TaskProgressColumn, TextColumn, TimeElapsedColumn
 
 from ryan_library.functions.archive_utils import (
     FolderCompressionJob,
@@ -67,6 +69,39 @@ from ryan_library.functions.archive_utils import (
 from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.path_stuff import PathOrList, to_path_list
 from ryan_library.functions.wrapper_utils import change_working_directory, pause_console, print_wrapper_banner
+
+
+def _staged_output_size(archive: Path, started_at: float) -> int:
+    """Measure new staging output, including 7-Zip temporary volume files."""
+    total = 0
+    try:
+        for directory in archive.parent.iterdir():
+            if not directory.name.startswith(f".{archive.name}.staging-"):
+                continue
+            try:
+                if directory.stat().st_mtime < started_at:
+                    continue
+                for path in directory.iterdir():
+                    if path.is_file() and path.name.startswith(archive.name):
+                        total += path.stat().st_size
+            except OSError:
+                continue
+    except OSError:
+        pass
+    return total
+
+
+def _monitor_staging(archive: Path, progress: Progress, task: TaskID, stop: threading.Event) -> None:
+    """Report staged bytes periodically without estimating completion."""
+    started_at = time.time()
+    last_report = time.monotonic()
+    while not stop.wait(5):
+        size = _staged_output_size(archive, started_at)
+        status = f"staged {size / 1024**3:.2f} GiB (compressed output)"
+        progress.update(task, activity=status)
+        if time.monotonic() - last_report >= 60:
+            logger.info("Still compressing {}: {}", archive, status)
+            last_report = time.monotonic()
 
 
 def main(
@@ -188,10 +223,21 @@ def main(
         BarColumn(),
         TaskProgressColumn(),
         TimeElapsedColumn(),
+        TextColumn("{task.fields[activity]}"),
         console=console,
         disable=not interactive,
     ) as progress:
-        task = progress.add_task("Compressing folders", total=len(jobs))
+        task = progress.add_task("Compressing folders", total=len(jobs), activity="")
+        stop_monitor = threading.Event()
+        monitor = None
+        if len(jobs) == 1:
+            console.print("Folder progress counts completed folders; staged size is compressed output.", markup=False)
+            monitor = threading.Thread(
+                target=_monitor_staging,
+                args=(archive_path_for_folder(jobs[0].folder), progress, task, stop_monitor),
+                daemon=True,
+            )
+            monitor.start()
         try:
             with multiprocessing.Pool(processes=worker_count) as pool:
                 for finished, result in enumerate(pool.imap_unordered(compress_folder_7zip, jobs), start=1):
@@ -201,7 +247,8 @@ def main(
                     console.print(f"  Archive: {result.archive}", markup=False)
                     if result.message:
                         console.print(f"  Detail: {result.message}", markup=False)
-                    logger.debug(
+                    log_result = logger.error if result.status == "ERROR" else logger.info
+                    log_result(
                         "Folder {} -> {}: {} {}",
                         result.folder,
                         result.archive,
@@ -211,8 +258,13 @@ def main(
         except OSError, RuntimeError, ValueError:
             logger.exception("Archive worker pool failed.")
             return 1
+        finally:
+            stop_monitor.set()
+            if monitor is not None:
+                monitor.join()
 
-    logger.success(
+    log_summary = logger.error if invalid_count or counts["ERROR"] else logger.success
+    log_summary(
         "Archive compression complete: {} compressed, {} skipped, {} failed, {} invalid input(s).",
         counts["SUCCESS"],
         counts["SKIPPED"],
