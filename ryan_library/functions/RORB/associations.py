@@ -110,7 +110,7 @@ def associate_batch_csvs(  # noqa: C901 - bounded event association keeps explic
         key = batch_event_key(row)
         explicit = key in bindings
         if explicit:
-            selected = bindings[key]
+            selected: object = bindings[key]
             if not isinstance(selected, Path):
                 msg = "CSV override must be a pathlib.Path"
                 raise ValueError(msg)
