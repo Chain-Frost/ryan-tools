@@ -7,7 +7,7 @@ import pytest
 
 from ryan_library.functions.RORB.associations import associate_batch_csvs, compare_output_csv
 from ryan_library.functions.RORB.read_rorb_files import parse_batch_output, read_hydrograph_csv
-from ryan_library.functions.RORB.readers import read_rorb_bytes, read_rorb_file
+from ryan_library.functions.RORB.readers import read_rorb_bytes, read_rorb_file, read_rorb_table_bytes
 
 
 def batch_text(row: str = "1 24 hour 20% 2 100 0.9 12") -> str:
@@ -469,3 +469,36 @@ def test_invalid_scalar_token_is_retained_in_canonical_provenance() -> None:
     hydro = document.section("hydrographs_1")
     assert hydro.valid and hydro.completeness == "reported_increment_count"
     assert [row["Inc"] for row in hydro.rows] == [1, 2]
+
+
+
+def test_explicit_bare_table_api_retains_provenance_and_same_numeric_grammar() -> None:
+    raw = b"Inc Time Hyd001 Hyd002\r\n1 0 0 0\r\n2 1 3.50000 0\r\nEnd\r\n"
+    default = read_rorb_bytes(raw)
+    assert default.kind == "unsupported"
+    assert default.status == "unsupported"
+    document = read_rorb_table_bytes(raw)
+    assert document.kind == "isolated_hydrograph_table"
+    assert document.status == "partial"
+    assert document.original_bytes == raw
+    assert any(d.code == "unverified_table_source" for d in document.diagnostics)
+    assert not any(d.code == "unsupported_format" for d in document.diagnostics)
+    table = document.section("hydrographs_1")
+    assert table.valid
+    assert table.increment_origin == 1
+    assert table.completeness == "terminated"
+    assert table.columns == ["line", "Inc", "Time", "Hyd001", "Hyd002"]
+    assert table.source_tokens[1]["Hyd001"] == "3.50000"
+    assert table.source_decimal(1, "Hyd001") == Decimal("3.50000")
+
+
+def test_explicit_bare_table_rejects_incomplete_and_invalid_rows() -> None:
+    truncated = read_rorb_table_bytes(b"Inc Time Hyd001 Hyd002\n1 0 1 2\n2 1 3\nEnd\n")
+    assert truncated.status == "invalid"
+    assert not truncated.section("hydrographs_1").valid
+    assert any(d.code == "output_record" for d in truncated.diagnostics)
+    malformed = read_rorb_table_bytes(b"Inc Time Hyd001\n1 0 1\n2 1 NaN\nEnd\n")
+    assert malformed.status == "invalid"
+    assert any(d.code == "output_record" for d in malformed.diagnostics)
+    rejected = read_rorb_table_bytes(b"not a characterised report\n")
+    assert rejected.status == "unsupported"

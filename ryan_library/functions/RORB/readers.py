@@ -92,6 +92,36 @@ def read_rorb_bytes(
     return doc
 
 
+
+def read_rorb_table_bytes(
+    content: bytes,
+    *,
+    path: Path | None = None,
+    encoding: str | None = None,
+    max_bytes: int = MAX_FILE_BYTES,
+) -> RorbDocument:
+    """Explicitly inspect an unversioned Inc/Time table as *unverified* evidence.
+
+    Callers must opt in to loose source admission. The same canonical numeric
+    grammar validates the table; executable identity, physical sites, clock
+    conventions and full-report completeness are never inferred from a bare
+    table. No fallback reader or duplicated numeric grammar is maintained.
+    """
+    document = read_rorb_bytes(content, path=path, encoding=encoding, max_bytes=max_bytes)
+    if document.kind != "unsupported":
+        return document
+    if not any(line.split()[:2] == ["Inc", "Time"] for line in document.lines):
+        return document
+    document.kind = "isolated_hydrograph_table"
+    document.diagnostics = [item for item in document.diagnostics if item.code != "unsupported_format"]
+    document.issue(
+        "unverified_table_source",
+        "Bare Inc/Time table has no version or executable identity; source association is caller-owned.",
+    )
+    read_output(document)
+    return document
+
+
 def read_rorb_file(path: Path, *, encoding: str | None = None, max_bytes: int = MAX_FILE_BYTES) -> RorbDocument:
     """Inspect a bounded file by delegating to the canonical bytes reader."""
     if max_bytes < 1:

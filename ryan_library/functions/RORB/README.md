@@ -116,3 +116,16 @@ banner can be inspected with a `missing_report_banner` diagnostic. Missing
 program version and incomplete site descriptions remain unverified; they do not
 rewrite the numeric table or establish an engine identity. Source/print
 association and scalar comparison policy are consumer responsibilities.
+
+
+## Explicit bare hydrograph-table admission
+
+`read_rorb_table_bytes(data, ...)` is an **opt-in** source/evidence
+inspection entry point for incomplete native capture fragments containing an
+`Inc Time Hyd...` table but no version, banner, timestep or model metadata.
+It delegates to `read_rorb_bytes` and the same `output_reader.read_output`
+grammar; it never has a separate numeric parser. The returned
+`kind="isolated_hydrograph_table"` and `unverified_table_source` diagnostic
+mean the caller still owns source fingerprinting, expected site labels and
+horizon. The usual `read_rorb_file`/bytes entry points remain fail-closed
+for such bare sources. No bare report is assigned an executable identity.

@@ -291,3 +291,16 @@ and `section.valid=False` while preserving independently valid hydrograph
 tables; it also accepts the characterised standalone `End` table boundary.
 No numeric defaults, reclassification of invalid scalar rows or physical
 site inference is introduced.
+
+## 2026-11-15 explicit partial-source table entry point
+
+The remaining python-runoff-routing legacy capture helper needs to inspect
+unversioned bare `Inc Time Hyd...` tables supplied by captured synthetic
+reference tests. Added `read_rorb_table_bytes` as a deliberately opt-in
+canonical-grammar adapter: same decoder, source bytes, numeric table validator
+and diagnostics; explicitly returns `isolated_hydrograph_table` with
+`unverified_table_source`, not a claimed full standard report. The default
+file/bytes readers remain fail-closed on unversioned table fragments.
+This permits retiring the last local duplicate Inc/Time parser while keeping
+the capture expected-site/horizon verification policy in the consumer.
+Tests exercise two columns, truncated/nonfinite records and unsupported input.
