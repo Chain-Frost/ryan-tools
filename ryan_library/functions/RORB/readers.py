@@ -122,6 +122,18 @@ def read_rorb_table_bytes(
     return document
 
 
+def read_rorb_table_file(
+    path: Path, *, encoding: str | None = None, max_bytes: int = MAX_FILE_BYTES
+) -> RorbDocument:
+    """Read an opt-in unverified bare table using a bounded file snapshot."""
+    if max_bytes < 1:
+        msg = "max_bytes must be positive"
+        raise ValueError(msg)
+    with path.open("rb") as stream:
+        content = stream.read(max_bytes + 1)
+    return read_rorb_table_bytes(content, path=path, encoding=encoding, max_bytes=max_bytes)
+
+
 def read_rorb_file(path: Path, *, encoding: str | None = None, max_bytes: int = MAX_FILE_BYTES) -> RorbDocument:
     """Inspect a bounded file by delegating to the canonical bytes reader."""
     if max_bytes < 1:
