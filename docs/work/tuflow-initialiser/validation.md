@@ -1,4 +1,4 @@
-> **Historical record from [tuflow-initialiser](https://github.com/Chain-Frost/tuflow-initialiser).** Pending or proposed work is tracked in ryan-tools migration PR #246 and issues #242–#245; old issue numbers below are retained for provenance.
+> **Historical source documentation.** The initialiser migration is merged into `ryan-tools` through [#204](https://github.com/Chain-Frost/ryan-tools/pull/204). Current delivery and accepted evidence are in the [living record](README.md); [#312](https://github.com/Chain-Frost/ryan-tools/issues/312) owns continuing development/engineering acceptance and [#247](https://github.com/Chain-Frost/ryan-tools/issues/247) owns source retirement. Earlier installation paths, issue numbers and pending/merge statements below are retained as history.
 
 # Fail-closed integrity and preflight checks
 

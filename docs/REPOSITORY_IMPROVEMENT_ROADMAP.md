@@ -92,6 +92,11 @@ defects should get their own bounded work record rather than reopening completed
 
 ## Separately tracked or removed from this backlog
 
+- **TUFLOW initialiser:** the [development and engineering acceptance framework (#312)](https://github.com/Chain-Frost/ryan-tools/issues/312)
+  coordinates the maintained initialiser and existing #242–#245/#266 work. The
+  [living record](work/tuflow-initialiser/README.md) preserves accepted migration/native evidence and next actions.
+  [#247](https://github.com/Chain-Frost/ryan-tools/issues/247) separately owns source-repository retirement; archival
+  does not imply completion of later engineering acceptance or feature ideas.
 - **Unsorted migration:** incomplete but deferred. It is tracked separately in the
   [unsorted roadmap](UNSORTED_UPGRADE_ROADMAP.md) and work register. It is not being actively progressed and should not
   be treated as part of the general repository-improvement backlog unless explicitly resumed.

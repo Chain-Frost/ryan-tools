@@ -1,4 +1,4 @@
-> **Historical source-repository documentation.** The text below records the former standalone package's origins. Current ryan-tools implementation and template ownership are described in [the migration status](README.md) and the [package README](../../../ryan_library/orchestrators/tuflow/initialiser/README.md).
+> **Historical source documentation.** The initialiser migration is merged into `ryan-tools` through [#204](https://github.com/Chain-Frost/ryan-tools/pull/204). Current delivery and accepted evidence are in the [living record](README.md); [#312](https://github.com/Chain-Frost/ryan-tools/issues/312) owns continuing development/engineering acceptance and [#247](https://github.com/Chain-Frost/ryan-tools/issues/247) owns source retirement. Earlier installation paths, issue numbers and pending/merge statements below are retained as history.
 
 # Migration from ryan-tools
 

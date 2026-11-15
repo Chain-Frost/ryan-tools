@@ -2,36 +2,70 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Implementation and review/CI repair complete; engineering acceptance and retirement remain open |
-| Owner | ChatGPT |
+| Status | Bounded implementation merged; model-footprint integration and representative engineering acceptance retained in #242/#244 |
+| Owner | ChatGPT for documentation closeout; implementation ownership under #312 |
 | Created | 2026-11-04 |
-| Updated | 2026-11-08 |
-| Next review | 2026-11-11 |
-| Baseline | `main` at `ec873425`; branch `feat/tgc-terrain-crop`; unrelated local GDAL-script changes preserved |
+| Updated | 2026-11-15 |
+| Next review | 2026-11-29, or the next #242/#244 delivery |
+| Baseline | #204 merged into `main` as `f67ebd78c7cc3b389d8e1133f8f583ad2f1135e6`; validated final head `18c61e45` |
+| Current documentation branch | `docs/initialiser-retirement-framework`; checks/PR state recorded in #247 |
 
-## Outcome and scope
+## Outcome and supported scope
 
-Add a maintained, reusable script that asks PyTUFLOW to select the ordered
-`Read Grid Zpts` stack for one `-s1` scenario, clips it to a user-supplied box,
-removes deep lower-priority overlap, and retains a configurable seam allowance.
-The supported contract deliberately has one scenario flag and no multi-context
-or scenario-slot switching.
+The maintained script asks PyTUFLOW to select the ordered `Read Grid Zpts`
+stack for one `s1`, crops new copies to an explicit box and retains a configurable
+seam allowance. The supported contract uses matching-CRS single-band north-up
+rasters with declared NoData. It defaults to plan-only, requires explicit write
+selection, preserves source rasters and native grids, and publishes a patched TGC,
+manifest and coverage QA GeoPackage.
 
-## Current state
+## Current delivery and evidence
 
-Implementation, focused tests, user documentation and real plan-only model
-validation are complete. The script defaults to plan-only, writes only
-new destinations with explicit `--write`, preserves native grids and source
-values, and produces a patched TGC plus manifest. No production rasters or TGCs
-were changed during validation. PR #204 remains open. All five review threads are resolved. Native-grid TUFLOW DEM_Z equivalence and final-head hosted validation remain required.
+[PR #204](https://github.com/Chain-Frost/ryan-tools/pull/204) is merged; its child
+initialiser migration #246 is already integrated. All five review threads are
+resolved. Final head `18c61e45` passed
+[Python CI](https://github.com/Chain-Frost/ryan-tools/actions/runs/42399770939)
+and [Fast PR checks](https://github.com/Chain-Frost/ryan-tools/actions/runs/42399770905).
+Earlier pending/conflict statuses and claims that validation was limited to
+plan-only runs are historical.
 
-## Next action
+The delivered allocation conservatively confirms native replacement coverage
+before removing lower-priority terrain. Final read-back retains the supplied
+polygon clip, and lost original or required coverage prevents patched-TGC
+publication. Terrain commands in `Read File` includes are rejected before output
+creation; included hierarchy patching is outside the current contract.
 
-Review the remaining engineering acceptance and retirement tasks. Keep
-#242?#245, #266 and retirement tracker #247
-open for their remaining acceptance. No merge or release is authorised.
+The accepted bounded native fixture/private-model checks preserved the retained
+source elevations, resolution and CRS. The approved private window also matched
+independent source-index/elevation composition. These results supplement the
+historical plan-only checks; they do not establish complete model `DEM_Z`
+equivalence or broad-scale performance. Full migration parity and exact evidence
+populations are retained in the [initialiser work record](tuflow-initialiser/README.md).
 
-## Completion criteria
+## Next action and completion boundary
+
+The initial bounded script and review/CI repairs are delivered. Continue
+[#242](https://github.com/Chain-Frost/ryan-tools/issues/242) with model-footprint
+plus outer-margin integration, keeping that margin separate from seam allowance.
+Reuse the current engine and extract only genuinely reused processing; do not
+create a second independent terrain trimmer. Coordinate native-grid/void/seam
+and original/prepared `DEM_Z` and runtime evidence with
+[#244](https://github.com/Chain-Frost/ryan-tools/issues/244).
+
+[Framework #312](https://github.com/Chain-Frost/ryan-tools/issues/312) owns
+continuing development and engineering acceptance, including the separate
+catchment/exclusion work in #243/#245 and the representative mixed-CRS deferral
+in #266. [#247](https://github.com/Chain-Frost/ryan-tools/issues/247) owns source
+retirement only. Its documentation/transfer work does not complete the retained
+engineering requirements. No new native run is claimed by this status update.
+
+## Historical implementation receipts
+
+The following original criteria and dated receipts retain their tested revisions
+and contemporaneous PR status. Current delivery and next actions are defined
+above; historical pending/merge statements are not current gates.
+
+### Original bounded delivery criteria
 
 - PyTUFLOW owns conditional selection for one scenario value.
 - The analysis box is the hard limit and the default seam allowance is 50 m.
@@ -40,7 +74,7 @@ open for their remaining acceptance. No merge or release is authorised.
   plan-only model check pass.
 - The branch is pushed and a pull request is open without unrelated changes.
 
-## Validation and delivery
+### Original validation and delivery
 
 - `python -B -m pytest -q -p no:cacheprovider tests/test_crop_tgc_terrains.py`:
   3 passed with the current Q: PyTUFLOW checkout; one existing pytest
@@ -110,8 +144,8 @@ at the native raster resolution. The source footprint layer deliberately
 includes NoData. This output helps locate and review clipping errors in QGIS
 but does not establish hydraulic equivalence or native-resolution coverage
 guarantees; those checks remain required under
-[tuflow-initialiser #6](https://github.com/Chain-Frost/tuflow-initialiser/issues/6)
-and [#9](https://github.com/Chain-Frost/tuflow-initialiser/issues/9).
+[ryan-tools #242](https://github.com/Chain-Frost/ryan-tools/issues/242)
+and [#244](https://github.com/Chain-Frost/ryan-tools/issues/244).
 Plan-only runs remain read-only.
 
 
