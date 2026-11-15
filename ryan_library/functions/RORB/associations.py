@@ -79,6 +79,14 @@ def _matches_peaks(batch: RorbDocument, row: Record, csv_doc: RorbDocument) -> b
     return bool(batch.section("sites").rows)
 
 
+def _require_path_override(value: object) -> Path:
+    """Reject invalid caller overrides without assuming a free-form path string."""
+    if not isinstance(value, Path):
+        message = "CSV override must be a pathlib.Path"
+        raise ValueError(message)
+    return value
+
+
 def associate_batch_csvs(  # noqa: C901 - bounded event association keeps explicit missing/ambiguous/mismatch cases
     batch: RorbDocument,
     *,
@@ -114,10 +122,7 @@ def associate_batch_csvs(  # noqa: C901 - bounded event association keeps explic
         key = batch_event_key(row)
         explicit = key in bindings
         if explicit:
-            selected: object = bindings[key]
-            if not isinstance(selected, Path):
-                msg = "CSV override must be a pathlib.Path"
-                raise ValueError(msg)
+            selected = _require_path_override(bindings[key])
             candidates = [selected if selected.is_absolute() else batch.path.parent / selected]
         else:
             candidates = list(dict.fromkeys([batch.path.parent / (prefix + suffix), batch.path.parent / suffix]))

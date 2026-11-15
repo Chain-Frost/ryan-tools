@@ -3,6 +3,7 @@
 import ast
 from decimal import Decimal
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -523,6 +524,9 @@ def test_explicit_companion_overrides_resolve_only_selected_event(tmp_path: Path
     assert second.is_file()
     with pytest.raises(ValueError, match="unknown run/duration"):
         associate_batch_csvs(document, overrides={(99, "24", "hour", "20%", 2): first})
+    # Python callers may bypass annotations; the importer still rejects that input.
+    with pytest.raises(ValueError, match="pathlib.Path"):
+        associate_batch_csvs(document, overrides={identity: cast(Path, "custom_event.csv")})
 
 
 def test_explicit_override_is_fail_closed_and_can_break_ambiguity(tmp_path: Path) -> None:
