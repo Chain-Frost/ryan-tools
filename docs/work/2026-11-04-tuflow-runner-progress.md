@@ -1,3 +1,9 @@
+> **Current reconciliation (2026-11-10): scoped implementation delivered.** GitHub confirms [PR #211](https://github.com/Chain-Frost/ryan-tools/pull/211) merged at 2026-11-05T15:06:38Z (UTC), commit `681fc9165f94c3d2ae56cc972468bff24e4bec4f`, into `main`. Subsequent parser changes are historical integrations, not a reason to rerun unchanged native acceptance.
+>
+> Earlier pending-review, no-merge and next-action statements below are historical snapshots, not current delivery instructions.
+>
+> This reconciliation checks GitHub delivery and available final-head check conclusions; it does not rerun local/native tests or imply every wider engineering gate passed.
+
 > **Current parser pin (7 November 2026):** ryan-tools uses upstream PyTuflow [PR #17](https://github.com/TUFLOW-Support/PyTuflow/pull/17) contribution commit [`887534ea8c15`](https://github.com/Chain-Frost/PyTuflow/commit/887534ea8c15b80d185a38a7ead1d42ab42a7167), built on upstream 1.3.0. The Windows validation completed for #63 is accepted for the tested implementation and will not be repeated solely for the 1.3.0 rebase; current-head hosted integration CI covers the changed package/pin. Historical #63/ryan-tools #235 SHAs below document prior acceptance and are not claimed as tests of the new commit.
 
 > **Update for consolidated PR #235 (2026-11-06):** Historical entries below
@@ -14,11 +20,11 @@
 
 | Field | Value |
 | --- | --- |
-| Status | PR #205 merged; override parser repin in PR #211; local validation passes, hosted checks pending |
+| Status | Complete - scoped implementation merged; see current reconciliation |
 | Owner | ChatGPT / local validation agent |
 | Created | 2026-11-04 |
-| Updated | 2026-11-05 |
-| Next review | 2026-11-06 |
+| Updated | 2026-11-10 |
+| Next review | None - completed delivery |
 | Baseline | `main` at `ec8734256e33447856b648e02d5fe0c5a5802447` (merged PR #193) |
 | Branch | `fix/pytuflow-override-pin`; targets `main` (earlier runner implementation: `feat/tuflow-runner-progress`) |
 | Pull request | [#211 parser repin](https://github.com/Chain-Frost/ryan-tools/pull/211); earlier [#205](https://github.com/Chain-Frost/ryan-tools/pull/205) merged |

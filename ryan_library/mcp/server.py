@@ -17,7 +17,7 @@ try:
     from mcp.server import MCPServer
     from pydantic import Strict
 except ImportError:
-    MCPServer = None  # type: ignore[assignment, misc]
+    MCPServer = None
     _overview_validation = None
 else:
     # The optional MCP SDK supplies Pydantic. Reject coercion before the tool runs,
@@ -25,9 +25,11 @@ else:
     _overview_validation = Strict()
 
 from ..classes.tuflow_string_classes import TuflowStringParser
+from ..functions.tuflow.tuflow_common import _result_status  # pyright: ignore[reportPrivateUsage]
 from ..processors.tuflow.base_processor import BaseProcessor
 from ..processors.tuflow.processor_collection import ProcessorCollection
 from .registry import WorkflowRegistry, WorkflowRegistryError
+
 from .rorb import RORB_GUIDANCE_URI, inspect_rorb_file, rorb_reader_guidance_resource
 
 REGISTRY = WorkflowRegistry()
@@ -187,6 +189,10 @@ def _processor_summary(
         "dataformat": processor.dataformat,
         "raw_run_code": processor.name_parser.raw_run_code,
         "processed": processor.processed,
+        "workflow_status": _result_status(processor),
+        "input_health": processor.input_health,
+        "rejected_samples": processor.rejected_samples,
+        "rejection_reasons": dict(processor.rejection_reasons),
         "applied_entity_filter": sorted(processor.applied_entity_filter or ()),
         **_dataframe_summary(processor.df, sample_rows=sample_rows),
     }
@@ -518,13 +524,14 @@ if mcp is not None:
         description="Supported MCP queries and Python extension points for TUFLOW processors and collections.",
         mime_type="application/json",
     )(tuflow_processor_guidance_resource)
+
+
     mcp.resource(
         RORB_GUIDANCE_URI,
         name="rorb_reader_guidance",
         description="RORB read-only inspection, format limits, diagnostics and Python APIs.",
         mime_type="application/json",
     )(rorb_reader_guidance_resource)
-
 
 def main() -> None:
     """Run the ryan-tools MCP server over stdio."""

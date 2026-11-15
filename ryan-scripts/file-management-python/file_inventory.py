@@ -68,7 +68,7 @@ def main(args: argparse.Namespace) -> int:
         errors = sum(bool(row["error"]) for row in rows)
         logger.info("Inventory complete: {} file(s), {} error(s), reports in {}", len(rows), errors, output_dir)
         return 1 if errors else 0
-    except (OSError, ValueError, RuntimeError):
+    except OSError, ValueError, RuntimeError:
         logger.exception("File inventory failed")
         return 1
 

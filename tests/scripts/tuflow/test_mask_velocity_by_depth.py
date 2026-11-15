@@ -37,7 +37,7 @@ def test_mask_velocity_by_depth_uses_fine_depth_grid_without_mutating_fixture(
     depth_path = Path(shutil.copy2(source_directory / depth_name, tmp_path / depth_name))
     module = _load_mask_velocity_by_depth()
 
-    succeeded = module.process_velocity_file(  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType, reportUnknownVariableType]
+    succeeded = module.process_velocity_file(
         velocity_path=velocity_path,
         depth_path=depth_path,
         threshold=0.05,

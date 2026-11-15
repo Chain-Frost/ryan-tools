@@ -9,7 +9,7 @@ or use command-line arguments to override these settings.
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-07.3"
+WRAPPER_VERSION = "2026-11-08.1"
 
 # None chooses SUCCESS with a dashboard, INFO without; an explicit level overrides it.
 CONSOLE_LOG_LEVEL: str | None = None
@@ -65,7 +65,7 @@ def main(
         script_directory = (
             Path(working_directory if working_directory is not None else WORKING_DIR).expanduser().absolute()
         )
-        selected_roots = paths_to_process or PATHS_TO_PROCESS or (script_directory,)
+        selected_roots = paths_to_process if paths_to_process is not None else (PATHS_TO_PROCESS or (script_directory,))
         effective_paths = [
             (item if item.is_absolute() else script_directory / item).expanduser().absolute()
             for configured_path in selected_roots
@@ -73,7 +73,7 @@ def main(
         ]
         selected_locations = locations_to_include if locations_to_include is not None else LOCATIONS_TO_INCLUDE
         effective_locations = tuple(selected_locations) or None
-        effective_data_types = tuple(include_data_types or INCLUDED_DATA_TYPES)
+        effective_data_types = tuple(INCLUDED_DATA_TYPES if include_data_types is None else include_data_types)
         effective_dashboard = USE_LIVE_DASHBOARD if use_live_dashboard is None else use_live_dashboard
         effective_refresh = LIVE_REFRESH_PER_SECOND if live_refresh_per_second is None else live_refresh_per_second
         effective_rows = LIVE_MAX_ROWS if live_max_rows is None else live_max_rows

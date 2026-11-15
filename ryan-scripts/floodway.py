@@ -40,6 +40,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from ryan_library.classes.culvert.project import CulvertProject
+from ryan_library.classes.floodway.models import FloodwayFormation
+
 WRAPPER_VERSION = "2026-11-07.2"
 
 WORKING_DIR: Path = Path(__file__).absolute().parent
@@ -136,10 +139,10 @@ def main(
 ) -> int:
     """Resolve wrapper settings and execute the floodway assessment workflow."""
     print_wrapper_banner(wrapper_source="floodway.py", wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
-    target_directory = (working_directory or WORKING_DIR).absolute()
-    project_path = _resolve_path(target_directory, project_file or DEFAULT_PROJECT_FILE)
-    formation_path = _resolve_path(target_directory, formation_file or DEFAULT_FORMATION_FILE)
-    resolved_output = _output_path(target_directory, output_directory)
+    target_directory: Path = (working_directory or WORKING_DIR).absolute()
+    project_path: Path = _resolve_path(target_directory, project_file or DEFAULT_PROJECT_FILE)
+    formation_path: Path = _resolve_path(target_directory, formation_file or DEFAULT_FORMATION_FILE)
+    resolved_output: Path = _output_path(target_directory, output_directory)
     if not change_working_directory(target_dir=target_directory):
         return 1
 
@@ -149,11 +152,11 @@ def main(
         file_log_level=FILE_LOG_LEVEL,
     ):
         try:
-            project = load_project(project_path)
-            formation = load_floodway_formation(formation_path)
+            project: CulvertProject = load_project(project_path)
+            formation: FloodwayFormation = load_floodway_formation(formation_path)
             crossing: CrossingDefinition = _select_named(
-                project.crossings,
-                crossing_name,
+                items=project.crossings,
+                name=crossing_name,
                 get_name=lambda item: item.name,
             )
             if crossing.roadway is None:
@@ -165,29 +168,31 @@ def main(
             else:
                 scenarios = (
                     _select_named(
-                        project.scenarios,
-                        scenario_name,
+                        items=project.scenarios,
+                        name=scenario_name,
                         get_name=lambda item: item.name,
                     ),
                 )
 
-            assessments = assess_floodway_crossing(crossing, scenarios, formation)
+            assessments: tuple[FloodwayScenarioAssessment, ...] = assess_floodway_crossing(
+                crossing, scenarios, formation
+            )
 
             resolved_sweep_points = DEFAULT_SWEEP_POINTS if sweep_points is None else sweep_points
             if resolved_sweep_points < 0 or resolved_sweep_points == 1:
                 msg = "sweep_points must be 0 to disable the sweep or at least 2."
                 raise ValueError(msg)
             if resolved_sweep_points >= 2:
-                sweep_base = (
+                sweep_base: Scenario = (
                     max(scenarios, key=lambda item: item.discharge)
                     if sweep_scenario_name is None
                     else _select_named(
-                        project.scenarios,
-                        sweep_scenario_name,
+                        items=project.scenarios,
+                        name=sweep_scenario_name,
                         get_name=lambda item: item.name,
                     )
                 )
-                sweep_assessments = assess_floodway_discharge_sweep(
+                sweep_assessments: tuple[FloodwayScenarioAssessment, ...] = assess_floodway_discharge_sweep(
                     crossing,
                     sweep_base,
                     formation,
@@ -197,7 +202,7 @@ def main(
                 )
                 assessments = assessments + sweep_assessments
 
-            envelope = build_floodway_envelope_from_assessments(assessments)
+            envelope: FloodwayEventEnvelope = build_floodway_envelope_from_assessments(assessments)
             _write_outputs(
                 assessments=assessments,
                 envelope=envelope,
@@ -205,7 +210,7 @@ def main(
             )
             print(render_floodway_envelope_markdown(envelope))
             logger.success("Floodway assessment completed; outputs: {}", resolved_output)
-        except (OSError, TypeError, ValueError, RuntimeError):
+        except OSError, TypeError, ValueError, RuntimeError:
             logger.exception("Floodway assessment failed.")
             return 1
     return 0
@@ -251,8 +256,8 @@ def _parse_cli_arguments() -> argparse.Namespace:
 
 
 if __name__ == "__main__":
-    args = _parse_cli_arguments()
-    result = main(
+    args: argparse.Namespace = _parse_cli_arguments()
+    result: int = main(
         working_directory=args.directory,
         project_file=args.project,
         formation_file=args.formation,

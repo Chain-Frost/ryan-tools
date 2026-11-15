@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import os
-from contextlib import ExitStack
+from contextlib import ExitStack, nullcontext
 from dataclasses import dataclass
 from datetime import datetime
 from tempfile import TemporaryDirectory
@@ -13,7 +13,7 @@ __lazy_modules__: list[str] = ["openpyxl", "pandas"]
 import re
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Literal, TypedDict
+from typing import BinaryIO, Literal, TypedDict
 
 import pandas as pd
 from loguru import logger
@@ -140,9 +140,9 @@ class ExcelExporter:
     ) -> None:
         """Export reports as a batch without replacing existing files.
 
-        Validate all destinations, stage every report, then publish exclusively.
-        A publication failure can leave completed reports; the exception notes
-        identify those retained outputs. Unsupported hard-link filesystems fail closed.
+        Standalone Excel workbooks are written directly into the output folder.
+        Multi-output batches retain staged, exclusive publication. Existing
+        reports are never replaced.
 
         Args:
             export_dict (dict[str, ExportContent]):
@@ -217,6 +217,35 @@ class ExcelExporter:
             include_data_dictionary,
             raw_exports,
         )
+        # A standalone workbook needs no staging subdirectory. Creating it
+        # directly also avoids newly-created SMB directories with restrictive ACLs.
+        if len(targets) == 1 and targets[0].kind == "excel":
+            target = targets[0]
+            target.path.parent.mkdir(parents=True, exist_ok=True)
+            created = False
+            try:
+                with target.path.open("xb") as handle:
+                    created = True
+                    self._write_target(
+                        target,
+                        target.path,
+                        column_widths,
+                        auto_adjust_width,
+                        parquet_compression,
+                        include_data_dictionary,
+                        data_dictionary_metadata,
+                        existing_handle=handle,
+                    )
+            except BaseException:
+                if created:
+                    try:
+                        target.path.unlink()
+                    except OSError:
+                        logger.warning("Could not remove incomplete report: {}", target.path)
+                raise
+            logger.success("Exported report to {}", target.path)
+            return
+
         published: list[Path] = []
         try:
             # Stage the complete batch before publishing: writer failures expose no partial reports.
@@ -363,6 +392,8 @@ class ExcelExporter:
         compression: ParquetCompression,
         include_data_dictionary: bool,
         metadata: Mapping[str, str] | None,
+        *,
+        existing_handle: BinaryIO | None = None,
     ) -> None:
         logger.debug("Staging {} report for {}", target.kind, target.path)
         if target.kind == "parquet":
@@ -382,7 +413,10 @@ class ExcelExporter:
                 build_data_dictionary(sheet_frames=dict(zip(sheets, frames, strict=True)), metadata_rows=rows)
             )
             sheets.append(DATA_DICTIONARY_SHEET_NAME)
-        with temporary.open("xb") as handle, pd.ExcelWriter(path=handle, engine="openpyxl") as writer:
+        with (
+            nullcontext(existing_handle) if existing_handle is not None else temporary.open("xb") as handle,
+            pd.ExcelWriter(path=handle, engine="openpyxl") as writer,
+        ):
             # Keep a valid sheet even if the first DataFrame write fails, so close preserves the original error.
             writer.book.create_sheet(sheets[0])
             writer.book.properties.creator = f"ryan-tools {get_tools_version()}"

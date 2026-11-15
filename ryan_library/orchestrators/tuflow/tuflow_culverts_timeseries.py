@@ -19,7 +19,11 @@ from ryan_library.functions.excel_export import ExcelExporter, ExportContent
 from ryan_library.functions.live_dashboard import LiveWorkflowDashboard, WorkflowMetric
 from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.tuflow.tuflow_common import FileBatchProgress, bulk_read_and_merge_tuflow_csv
-from ryan_library.functions.tuflow.wrapper_helpers import normalize_data_types, warn_on_invalid_types
+from ryan_library.functions.tuflow.wrapper_helpers import (
+    normalize_data_types,
+    validate_discovery_settings,
+    warn_on_invalid_types,
+)
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 
@@ -51,6 +55,12 @@ def main_processing(
         requested=include_data_types,
         default=DEFAULT_DATA_TYPES,
         accepted=ACCEPTED_DATA_TYPES,
+    )
+    validate_discovery_settings(
+        paths_to_process=paths_to_process,
+        selected_data_types=requested_types,
+        accepted_data_types=ACCEPTED_DATA_TYPES,
+        context="Culvert timeseries",
     )
     normalized_locations: frozenset[str] = BaseProcessor.normalize_locations(locations=locations_to_include)
     dashboard = LiveWorkflowDashboard(

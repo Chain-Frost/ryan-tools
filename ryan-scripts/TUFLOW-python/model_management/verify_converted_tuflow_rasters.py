@@ -25,6 +25,7 @@ Do not run on active outputs; file metadata snapshots do not lock files.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
 # ---------------------------------------------------------------------------
 # Embedded wrapper identity and editable user settings
@@ -50,6 +51,8 @@ from uuid import uuid4
 
 import numpy as np
 import rasterio
+import rasterio.crs
+import rasterio.io
 from rasterio.errors import RasterioError
 from rich.progress import BarColumn, Progress, TaskID, TaskProgressColumn, TextColumn, TimeRemainingColumn
 
@@ -173,8 +176,8 @@ def raster_metadata_mismatch(original: rasterio.io.DatasetReader, converted: ras
         return "Grid geotransform differs"
     if original.scales != converted.scales or original.offsets != converted.offsets:
         return "Raster band value scales or offsets differ"
-    if original.crs is not None:
-        if converted.crs is None:
+    if cast("rasterio.crs.CRS | None", original.crs) is not None:
+        if cast("rasterio.crs.CRS | None", converted.crs) is None:
             return f"GeoTIFF is missing the declared source CRS: {original.crs}"
         # Strict CRS equality is intentional: do not ignore axis-order differences
         # (for example, OGC:CRS84 versus EPSG:4326) or normalise away discrepancies.
@@ -199,7 +202,10 @@ def compare_rasters(
         metadata_difference = raster_metadata_mismatch(original, converted)
         if metadata_difference is not None:
             return metadata_difference, None
-        warning = crs_warning(source_missing=original.crs is None, tif_missing=converted.crs is None)
+        warning = crs_warning(
+            source_missing=cast("rasterio.crs.CRS | None", original.crs) is None,
+            tif_missing=cast("rasterio.crs.CRS | None", converted.crs) is None,
+        )
 
         rows = max(1, min(original.height, MAX_WINDOW_CELLS // max(1, original.width)))
         if progress is not None and task_id is not None:

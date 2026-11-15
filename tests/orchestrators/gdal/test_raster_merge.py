@@ -1,7 +1,11 @@
 """Unit tests for ryan_library.orchestrators.gdal.raster_merge."""
 
+# Unit tests intentionally exercise the implementation helpers under test.
+# pyright: reportPrivateUsage=false
+
+from collections.abc import Iterator
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -14,7 +18,7 @@ from ryan_library.orchestrators.gdal.raster_merge import (
 
 
 @pytest.fixture
-def mock_gdal_functions():
+def mock_gdal_functions() -> Iterator[dict[str, MagicMock]]:
     with (
         patch("ryan_library.orchestrators.gdal.raster_merge.build_vrt") as mock_vrt,
         patch("ryan_library.orchestrators.gdal.raster_merge.translate_to_geotiff") as mock_translate,
@@ -57,7 +61,7 @@ def test_merge_directory_existing_output(tmp_path: Path) -> None:
         merge_directory(input_directory=tmp_path)
 
 
-def test_merge_directory_success(tmp_path: Path, mock_gdal_functions) -> None:
+def test_merge_directory_success(tmp_path: Path, mock_gdal_functions: dict[str, MagicMock]) -> None:
     file1 = tmp_path / "in1.tif"
     file1.touch()
 
@@ -71,14 +75,14 @@ def test_merge_directory_success(tmp_path: Path, mock_gdal_functions) -> None:
     mock_gdal_functions["overview"].assert_called_once()
 
 
-def test_merge_directory_by_vector_extent_no_files(tmp_path: Path, mock_gdal_functions) -> None:
+def test_merge_directory_by_vector_extent_no_files(tmp_path: Path, mock_gdal_functions: dict[str, MagicMock]) -> None:
     mock_gdal_functions["vector_extent"].return_value = (0, 0, 10, 10)
 
     with pytest.raises(FileNotFoundError):
         merge_directory_by_vector_extent(tmp_path, extent_vector=Path("ext.shp"))
 
 
-def test_merge_directory_by_vector_extent_success(tmp_path: Path, mock_gdal_functions) -> None:
+def test_merge_directory_by_vector_extent_success(tmp_path: Path, mock_gdal_functions: dict[str, MagicMock]) -> None:
     file1 = tmp_path / "in1.xyz"
     file1.touch()
 
@@ -98,7 +102,7 @@ def test_merge_directory_by_vector_extent_success(tmp_path: Path, mock_gdal_func
     mock_gdal_functions["overview"].assert_called_once()
 
 
-def test_merge_directory_by_vector_extent_list_only(tmp_path: Path, mock_gdal_functions) -> None:
+def test_merge_directory_by_vector_extent_list_only(tmp_path: Path, mock_gdal_functions: dict[str, MagicMock]) -> None:
     file1 = tmp_path / "in1.xyz"
     file1.touch()
 
@@ -112,7 +116,7 @@ def test_merge_directory_by_vector_extent_list_only(tmp_path: Path, mock_gdal_fu
     mock_gdal_functions["translate"].assert_not_called()
 
 
-def test_merge_rasters_to_temporary_vrt(mock_gdal_functions, tmp_path: Path) -> None:
+def test_merge_rasters_to_temporary_vrt(mock_gdal_functions: dict[str, MagicMock], tmp_path: Path) -> None:
     out = tmp_path / "out.tif"
     mock_gdal_functions["translate"].return_value = out
 

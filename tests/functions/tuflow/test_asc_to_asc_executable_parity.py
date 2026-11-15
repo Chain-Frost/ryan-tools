@@ -10,8 +10,8 @@ from typing import Protocol, cast
 import numpy as np
 import numpy.typing as npt
 import pytest
-import rasterio  # pyright: ignore[reportMissingTypeStubs]
-from rasterio.transform import from_origin  # pyright: ignore[reportMissingTypeStubs, reportUnknownVariableType]
+import rasterio
+from rasterio.transform import from_origin
 
 from ryan_library.functions.tuflow.asc_to_asc_raster_operations import MeanValueMethod
 from ryan_library.functions.tuflow.asc_to_asc_runner import (
@@ -71,7 +71,7 @@ def parity_inputs(tmp_path: Path) -> tuple[Path, ...]:
         path: Path = input_directory / f"source_{index}.tif"
         destination = cast(
             "_RasterWriter",
-            rasterio.open(  # pyright: ignore[reportUnknownMemberType]
+            rasterio.open(
                 fp=path,
                 mode="w",
                 driver="GTiff",
@@ -95,7 +95,7 @@ def parity_inputs(tmp_path: Path) -> tuple[Path, ...]:
 
 
 def _read_raster_contract(path: Path) -> tuple[np.ndarray, np.ndarray, object, object, float | int | None]:
-    source = cast("_RasterReader", rasterio.open(path))  # pyright: ignore[reportUnknownMemberType]
+    source = cast("_RasterReader", rasterio.open(path))
     try:
         values = source.read(1)
         mask = source.read_masks(1)

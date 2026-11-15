@@ -1,6 +1,12 @@
+> **Current reconciliation (2026-11-10): scoped implementation delivered.** GitHub confirms [PR #188](https://github.com/Chain-Frost/ryan-tools/pull/188) merged at 2026-11-02T02:42:34Z (UTC), commit `b6ace51d232035ea2fcac6d520b3a1d227de6f1e`, into `main`. Policy PR #135 also merged. GitHub Release v26.11.2.2 was published on 2 November; its wheel digest matches PyPI metadata: c03a4c8ee5b6fc976ce583c9ea3dd1d55735e22f340bead05d9682dbb3dc0c1c. This checks publication metadata, not a fresh downloaded-wheel installation.
+>
+> Earlier pending-review, no-merge and next-action statements below are historical snapshots, not current delivery instructions.
+>
+> This reconciliation checks GitHub delivery and available final-head check conclusions; it does not rerun local/native tests or imply every wider engineering gate passed.
+
 # Merge-only PyPI release policy follow-up, 2026-10-18
 
-Status: Active release repair. Owner: ChatGPT / maintainer. Updated: 2026-11-02. Next review: 2026-11-03.
+Status: Complete - repair merged and publication metadata verified. Owner: ChatGPT / maintainer. Updated: 2026-11-10. Next review: None.
 
 ## Current release repair, 2026-11-02
 
@@ -122,11 +128,11 @@ remains valid, while its same asset-selector repair needs a separate follow-up.
 
 | Field | Value |
 | --- | --- |
-| Status | Complete |
+| Status | Complete - scoped implementation merged; see current reconciliation |
 | Owner | ChatGPT |
 | Created | 2026-10-15 |
-| Updated | 2026-10-16 |
-| Next review | None |
+| Updated | 2026-11-10 |
+| Next review | None - completed delivery |
 | Baseline | feature/pypi-trusted-publishing at 2d1c978; PR #122 merged as 915b0eb; clean parent worktree before edits |
 
 ## Outcome and scope

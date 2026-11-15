@@ -33,7 +33,7 @@ from ...functions.loguru_helpers import log_settings
 if TYPE_CHECKING:
     from ...functions.live_dashboard import LiveWorkflowDashboard, WorkflowAlert
     from ...functions.tuflow.run_progress import LogProgressSnapshot
-    from .command_preflight import CommandPreflightIssue
+    from .command_preflight import CommandPreflightIssue, CommandPreflightReport
 
 from ...functions.tuflow.command_plan import (
     CommandPlan,
@@ -981,14 +981,29 @@ def _input_issue_message(issue: CommandPreflightIssue, *, advisory: bool = False
     )
 
 
+def _input_check_summary(report: CommandPreflightReport) -> str:
+    """Describe coverage and affected runs without presenting completion as failures."""
+    affected = report.affected_runs
+    run_word = "run" if affected == 1 else "runs"
+    if report.passed:
+        return f"Input check passed for all {report.run_count:,} runs."
+    if report.completed_runs == report.run_count:
+        return (
+            f"Input check completed for all {report.run_count:,} runs; "
+            f"{affected:,} {run_word} {'has' if affected == 1 else 'have'} issues."
+        )
+    issue_clause = f"; {affected:,} {run_word} {'has' if affected == 1 else 'have'} issues" if affected else ""
+    return f"Input check incomplete: checked {report.completed_runs:,} of {report.run_count:,} runs{issue_clause}."
+
+
 class AdvisoryInputCheck:
     """At most one daemon validation of the frozen plan; never gates launching."""
 
     def __init__(self, plan: CommandPlan, *, check_gpkg_layers: bool = True) -> None:
-        self.plan = plan
-        self._layers = check_gpkg_layers
+        self.plan: CommandPlan = plan
+        self._layers: bool = check_gpkg_layers
         self._messages: SimpleQueue[tuple[str, str]] = SimpleQueue()
-        self._lock = Lock()
+        self._lock: Lock = Lock()
         self._cancel = Event()
         self.finished = Event()
         self.status = "Running"
@@ -1000,9 +1015,14 @@ class AdvisoryInputCheck:
 
             # Keep upstream inspection inside this daemon. Thread-pool workers
             # are joined at interpreter exit and could hold shutdown on slow I/O.
-            report = check_command_plan(self.plan, check_gpkg_layers=self._layers, io_workers=1)
-            status = "Passed" if report.passed else f"Issues: {len(report.issues)}"
-            messages = [
+            report: CommandPreflightReport = check_command_plan(self.plan, check_gpkg_layers=self._layers, io_workers=1)
+            status: str = (
+                "Passed"
+                if report.passed
+                else f"Issues: {len(report.issues):,} across {report.affected_runs:,} "
+                f"{'run' if report.affected_runs == 1 else 'runs'}"
+            )
+            messages: list[tuple[str, str]] = [
                 (
                     "WARNING",
                     _input_issue_message(issue),
@@ -1013,10 +1033,7 @@ class AdvisoryInputCheck:
             messages.append(
                 (
                     "SUCCESS" if report.passed else "WARNING",
-                    (
-                        f"Input check {'passed' if report.passed else 'failed or incomplete'} for "
-                        f"{report.completed_runs}/{report.run_count} runs."
-                    ),
+                    _input_check_summary(report),
                 )
             )
         except Exception as exc:  # noqa: BLE001 - advisory checks are never a launch prerequisite
@@ -1064,9 +1081,9 @@ def check_plan_only(plan: CommandPlan, *, check_gpkg_layers: bool = True) -> boo
     for warning in report.warnings:
         logger.warning("{}", _input_issue_message(warning, advisory=True))
     if not report.passed:
-        logger.error("Input checking failed or is incomplete: {}/{} completed", report.completed_runs, report.run_count)
+        logger.error("{}", _input_check_summary(report))
     else:
-        logger.success("Input check passed for {}/{} runs.", report.completed_runs, report.run_count)
+        logger.success("{}", _input_check_summary(report))
     return report.passed
 
 
@@ -1177,10 +1194,10 @@ def _progress_observation_detail(update: ProgressUpdate, *, stale_after: float) 
 
 def _progress_diagnostic_detail(snapshot: LogProgressSnapshot) -> str | None:
     diagnostics: list[str] = []
-    timestep = snapshot.timestep_seconds
+    timestep: float | None = snapshot.timestep_seconds
     if timestep is not None and type(timestep) in (int, float) and math.isfinite(timestep) and timestep > 0:
         diagnostics.append(f"dt {timestep:.4g}s")
-    mass_error = snapshot.final_mass_error_percent
+    mass_error: float | None = snapshot.final_mass_error_percent
     if mass_error is not None and type(mass_error) in (int, float) and math.isfinite(mass_error):
         diagnostics.append(f"ME {mass_error:.4g}%")
     return " / ".join(diagnostics) if diagnostics else None
@@ -1194,17 +1211,21 @@ def _progress_detail(
     outcome_detail: str | None = None,
 ) -> str:
     """Describe observed work without turning a log phase into process status."""
-    snapshot = update.snapshot
-    phase_labels = {"initialising": "Initialising", "solving": "Solving", "writing_results": "Writing results"}
+    snapshot: LogProgressSnapshot = update.snapshot
+    phase_labels: dict[str, str] = {
+        "initialising": "Initialising",
+        "solving": "Solving",
+        "writing_results": "Writing results",
+    }
     parts: list[str] = []
     if outcome_detail is not None:
         parts.append(outcome_detail)
     elif snapshot.phase is not None and snapshot.phase in phase_labels:
         parts.append(phase_labels[snapshot.phase])
-    observation = _progress_observation_detail(update, stale_after=stale_after)
+    observation: str | None = _progress_observation_detail(update, stale_after=stale_after)
     if observation:
         parts.append(observation)
-    diagnostics = _progress_diagnostic_detail(snapshot) if show_diagnostics else None
+    diagnostics: str | None = _progress_diagnostic_detail(snapshot) if show_diagnostics else None
     if diagnostics:
         parts.append(diagnostics)
     if outcome_detail is None:
@@ -1216,12 +1237,12 @@ def _completion_timing(result: RunOutcome, progress: ProgressUpdate | None) -> s
     """Show observed process duration and model time, retaining unknown values."""
     runtime = "--"
     if result.started_at is not None and result.pid is not None:
-        seconds = max(0, int((result.finished_at - result.started_at).total_seconds()))
+        seconds: int = max(0, int((result.finished_at - result.started_at).total_seconds()))
         hours, remainder = divmod(seconds, 3600)
         minutes, seconds = divmod(remainder, 60)
-        runtime = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-    model_hours = progress.snapshot.model_hours if progress is not None else None
-    model = (
+        runtime: str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+    model_hours: float | None = progress.snapshot.model_hours if progress is not None else None
+    model: str = (
         f"{model_hours:.3f} h"
         if model_hours is not None and type(model_hours) in (int, float) and math.isfinite(model_hours)
         else "--"
@@ -1254,14 +1275,14 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
     groups = settings.gpu_devices
     # Each configured GPU group is one execution slot; automatic placement
     # without explicit groups provides a single slot.
-    capacity = len(groups) if groups else 1
+    capacity: int = len(groups) if groups else 1
     if capacity < 1:
         message = "No runner slots configured"
         raise CommandPlanError(message)
-    stop = interrupted if interrupted is not None else Event()
+    stop: Event = interrupted if interrupted is not None else Event()
     # This cast applies to the genuine stdlib constructor, never to a fake.
     factory: _ProcessFactory = popen if popen is not None else cast(_ProcessFactory, subprocess.Popen)
-    queue = deque(plan.runs)
+    queue: deque[PlannedRun] = deque(plan.runs)
     active: list[_OwnedChild] = []
     owned_slots: set[int] = set()
     # Unlike owned_slots (live children), these batch reservations persist
@@ -1272,9 +1293,12 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
     next_print = 0
     gpu_availability = GpuAvailability()
     next_gpu_check = 0.0
+    # One global cooldown applies to starts across GPU slots and to observed
+    # process completions (successful or failed). It never changes slot ownership.
+    next_launch_at: float | None = None
     gpu_status: str | None = "Checking" if settings.wait_for_available_gpu and groups else None
-    has_configured_gpu = any(is_gpu_switch(token) for run in plan.runs for token in run.arguments)
-    has_source_priority = any(run.start_options for run in plan.runs)
+    has_configured_gpu: bool = any(is_gpu_switch(token) for run in plan.runs for token in run.arguments)
+    has_source_priority: bool = any(run.start_options for run in plan.runs)
     if has_configured_gpu:
         logger.warning("Python BATCH_COMMANDS -pu switches are exported but runner GPU groups control launches.")
     if has_source_priority:
@@ -1297,6 +1321,10 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
         "-puN uses TUFLOW/CUDA order, not NVIDIA or Windows display indexes. "
         "These names describe this launch environment; external processes may use different CUDA ordering. "
         "For older TUFLOW builds, verify device names in the model's .hpc.tlf."
+    )
+    logger.info(
+        "TUFLOW launch cooldown: {}s between starts and after observed completion/failure (0 disables).",
+        settings.wait_time_after_run,
     )
     if gpu_status is not None:
         logger.info(
@@ -1370,8 +1398,18 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
         latest_progress.pop(result.run.index, None)
         return progress_update
 
+    def postpone_next_launch() -> None:
+        nonlocal next_launch_at
+        if settings.wait_time_after_run <= 0:
+            return
+        deadline = time.monotonic() + settings.wait_time_after_run
+        next_launch_at = max(next_launch_at, deadline) if next_launch_at is not None else deadline
+
     def observed(result: RunOutcome) -> None:
         nonlocal next_print
+        # A finished solver, including a nonzero exit or failed Popen, starts
+        # a new cooldown before the scheduler can replace it on any GPU slot.
+        postpone_next_launch()
         outcomes.append(result)
         if on_observed_completion is not None:
             on_observed_completion(result)
@@ -1512,7 +1550,20 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                     break
                 if poll_children() and gpu_status is not None:
                     next_gpu_check = 0.0
+                paused_for_launch_cooldown = False
                 while queue and len(active) < capacity and not stop.is_set():
+                    # Poll during the cooldown: a child can exit between two
+                    # starts, extending the deadline from its observed finish.
+                    if poll_children() and gpu_status is not None:
+                        next_gpu_check = 0.0
+                    if next_launch_at is not None:
+                        launch_wait = max(0.0, next_launch_at - time.monotonic())
+                        if launch_wait:
+                            # Small interruptible slices keep the dashboard,
+                            # input checks and other child completions responsive.
+                            stop.wait(min(launch_wait, 0.1))
+                            paused_for_launch_cooldown = True
+                            break
                     if (
                         gpu_status is not None
                         and len(claimed_slots) < len(groups)
@@ -1578,6 +1629,9 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                     except OSError as exc:
                         observed(RunOutcome(run, None, started, datetime.now(), None, f"Launch failed: {exc}"))
                         continue
+                    # A successful process start also spaces initial launches
+                    # when several GPU groups are free concurrently.
+                    postpone_next_launch()
                     # Ownership must precede priority, presentation or another fallible operation.
                     active.append(_OwnedChild(run, process, started, slot))
                     if slot is not None:
@@ -1620,14 +1674,15 @@ def launch_plan(  # noqa: C901 - single owned-process lifecycle and observation 
                         )
                         dashboard.set_active_count(len(active), refresh=False)
                         dashboard.refresh(force=True)
-                    if queue and settings.wait_time_after_run:
-                        time.sleep(settings.wait_time_after_run)
                     if poll_children() and gpu_status is not None:
                         next_gpu_check = 0.0
                 if active:
                     time.sleep(0.1)
-                elif queue and gpu_status is not None:
-                    # No owned children: wait interruptibly without rescanning or waking at child-poll frequency.
+                elif queue and gpu_status is not None and not paused_for_launch_cooldown:
+                    # No owned children and no pending launch cooldown: wait for
+                    # another GPU scan. After a cooldown slice, return to the
+                    # outer loop instead; the GPU may already be available.
+                    # Avoid accidentally waiting until the next GPU poll.
                     remaining = max(0.0, next_gpu_check - time.monotonic())
                     dashboard_interval = 1.0 / settings.live_refresh_per_second if dashboard is not None else remaining
                     stop.wait(min(dashboard_interval, remaining))

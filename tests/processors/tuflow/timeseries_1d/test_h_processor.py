@@ -1,7 +1,7 @@
 """Unit tests for ryan_library.processors.tuflow.timeseries_1d.HProcessor."""
 
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
@@ -26,13 +26,13 @@ class TestHProcessor:
             return processor
 
     @patch("ryan_library.processors.tuflow.timeseries_1d.HProcessor.HProcessor._process_timeseries_pipeline")
-    def test_process(self, mock_pipeline, mock_processor):
+    def test_process(self, mock_pipeline: MagicMock, mock_processor: MagicMock):
         """Test process method delegates correctly."""
         mock_processor.process()
         mock_pipeline.assert_called_once_with(data_type="H")
 
     @patch("ryan_library.processors.tuflow.timeseries_1d.HProcessor.HProcessor.check_headers_match")
-    def test_process_timeseries_raw_dataframe_success(self, mock_check_headers, mock_processor):
+    def test_process_timeseries_raw_dataframe_success(self, mock_check_headers: MagicMock, mock_processor: MagicMock):
         """Test successful normalization of H dataframe."""
         mock_check_headers.return_value = True
 
@@ -47,7 +47,7 @@ class TestHProcessor:
         assert list(mock_processor.df.columns) == ["Time", "Chan ID", "US_H", "DS_H"]
         mock_check_headers.assert_called_once()
 
-    def test_process_timeseries_raw_dataframe_missing_columns(self, mock_processor):
+    def test_process_timeseries_raw_dataframe_missing_columns(self, mock_processor: HProcessor):
         """Test failure when required columns are missing."""
         mock_processor.df = pd.DataFrame(
             {
@@ -60,14 +60,14 @@ class TestHProcessor:
         status = mock_processor.process_timeseries_raw_dataframe()
         assert status == ProcessorStatus.FAILURE
 
-    def test_process_timeseries_raw_dataframe_no_identifier(self, mock_processor):
+    def test_process_timeseries_raw_dataframe_no_identifier(self, mock_processor: HProcessor):
         """Test failure when no identifier column is found."""
         mock_processor.df = pd.DataFrame({"Time": [0.0], "US_H": [10.0], "DS_H": [9.0]})
 
         status = mock_processor.process_timeseries_raw_dataframe()
         assert status == ProcessorStatus.FAILURE
 
-    def test_process_timeseries_raw_dataframe_multiple_identifiers(self, mock_processor):
+    def test_process_timeseries_raw_dataframe_multiple_identifiers(self, mock_processor: HProcessor):
         """Test failure when multiple identifier columns are found."""
         mock_processor.df = pd.DataFrame(
             {"Time": [0.0], "US_H": [10.0], "DS_H": [9.0], "Chan ID": ["C1"], "Extra": ["X"]}
@@ -77,7 +77,9 @@ class TestHProcessor:
         assert status == ProcessorStatus.FAILURE
 
     @patch("ryan_library.processors.tuflow.timeseries_1d.HProcessor.HProcessor.check_headers_match")
-    def test_process_timeseries_raw_dataframe_empty_after_drop(self, mock_check_headers, mock_processor):
+    def test_process_timeseries_raw_dataframe_empty_after_drop(
+        self, mock_check_headers: MagicMock, mock_processor: MagicMock
+    ):
         """Test failure when dataframe becomes empty after dropping NaNs."""
         mock_processor.df = pd.DataFrame({"Time": [0.0], "US_H": [None], "DS_H": [None], "Chan ID": ["C1"]})
 

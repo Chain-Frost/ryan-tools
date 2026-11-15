@@ -76,7 +76,7 @@ def _seven_zip_version(executable: Path) -> str:
             check=False,
             timeout=10,
         )
-    except (OSError, subprocess.SubprocessError):
+    except OSError, subprocess.SubprocessError:
         return "unknown"
     for line in result.stdout.splitlines():
         if "7-Zip" in line:

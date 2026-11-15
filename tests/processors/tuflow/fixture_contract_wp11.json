@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "fixture_root": "tests/test_data/tuflow/TUFLOW_Example_Model_Dataset",
+  "notes": "Bounded, explicit first-delivery contract. Unlisted files retain historical smoke coverage; do not infer support from suffix alone.",
+  "cases": [
+    {
+      "id": "EG00_001.tlf",
+      "outcome": "supported",
+      "reason": "Pinned complete 2025.2.1 TUFLOW log; expected values independently recorded in the original snapshot.",
+      "minimum_rows": 1,
+      "columns": ["Runcode", "Model_End_Time", "Final_RunTime", "EndStatus"],
+      "values": {"Runcode": "EG00_001", "Model_End_Time": 3.0, "Final_RunTime": 0.005278, "EndStatus": "Simulation FINISHED"}
+    },
+    {
+      "id": "EG01_007.tlf",
+      "outcome": "supported",
+      "reason": "Previously demonstrated false-negative regression in #228; this is a completed main log.",
+      "minimum_rows": 1,
+      "columns": ["Runcode", "EndStatus"],
+      "values": {"Runcode": "EG01_007"}
+    },
+    {
+      "id": "EG11_001_1d_Q.csv",
+      "outcome": "supported",
+      "reason": "Supported 1D culvert timeseries, exercised by existing collection integration test.",
+      "minimum_rows": 1,
+      "columns": ["internalName", "Chan ID", "Time", "Q"]
+    },
+    {
+      "id": "EG11_001_1d_H.csv",
+      "outcome": "supported",
+      "reason": "Supported 1D culvert end-node water levels used in collection integration.",
+      "minimum_rows": 1,
+      "columns": ["internalName", "Chan ID", "Time"]
+    },
+    {
+      "id": "EG08_010_1d_ccA_L.dbf",
+      "outcome": "empty",
+      "reason": "Documented empty ccA table; no rows are required and it must not count as processed. See #228."
+    },
+    {
+      "id": "EG11_006_1d_Nmx.csv",
+      "outcome": "unsupported",
+      "reason": "Singular node IDs N1/N2 do not satisfy the supported culvert .1/.2 convention; network work is deferred to #221."
+    },
+    {
+      "id": "EG02_012_PO.csv",
+      "outcome": "malformed",
+      "reason": "Known empty/malformed PO input in the pinned corpus; reject without reporting usable measurements."
+    },
+    {
+      "id": "EG08_011.eof",
+      "outcome": "malformed",
+      "reason": "Missing required CULVERT AND PIPE DATA section; no successful culvert metadata processing."
+    }
+  ]
+}

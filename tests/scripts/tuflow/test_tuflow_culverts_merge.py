@@ -8,7 +8,7 @@ import pandas as pd
 from ryan_library.orchestrators.tuflow import tuflow_culverts_merge
 
 
-def test_main_processing_success():
+def test_main_processing_success() -> None:
     with (
         patch("ryan_library.orchestrators.tuflow.tuflow_culverts_merge.setup_logger"),
         patch("ryan_library.orchestrators.tuflow.tuflow_culverts_merge.bulk_read_and_merge_tuflow_csv") as mock_bulk,
@@ -21,7 +21,7 @@ def test_main_processing_success():
         mock_bulk.return_value = mock_collection
 
         tuflow_culverts_merge.main_processing(
-            paths_to_process=[Path()], include_data_types=["type"], output_dir=Path("out")
+            paths_to_process=[Path()], include_data_types=["Nmx"], output_dir=Path("out")
         )
 
         mock_bulk.assert_called_once()
@@ -30,7 +30,7 @@ def test_main_processing_success():
         mock_exporter.return_value.export_dataframes.assert_called_once()
 
 
-def test_main_processing_parquet():
+def test_main_processing_parquet() -> None:
     with (
         patch("ryan_library.orchestrators.tuflow.tuflow_culverts_merge.setup_logger"),
         patch("ryan_library.orchestrators.tuflow.tuflow_culverts_merge.bulk_read_and_merge_tuflow_csv") as mock_bulk,
@@ -41,9 +41,7 @@ def test_main_processing_parquet():
         mock_collection.combine_raw.return_value = pd.DataFrame({"B": [2]})
         mock_bulk.return_value = mock_collection
 
-        tuflow_culverts_merge.main_processing(
-            paths_to_process=[Path()], include_data_types=["type"], export_mode="both"
-        )
+        tuflow_culverts_merge.main_processing(paths_to_process=[Path()], include_data_types=["Nmx"], export_mode="both")
 
         _, kwargs = mock_exporter.return_value.export_dataframes.call_args
         assert kwargs["export_mode"] == "both"

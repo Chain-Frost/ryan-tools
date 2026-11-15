@@ -4,14 +4,13 @@ from __future__ import annotations
 
 __lazy_modules__: list[str] = ["pandas"]
 import copy
-import json
 import re
-from collections.abc import Collection
+from collections.abc import Collection, Mapping
 from pathlib import Path
 from typing import Any
 
 from loguru import logger
-from pandas import NA, DataFrame, HDFStore, Series, concat, to_numeric
+from pandas import NA, DataFrame, Series, concat, to_numeric
 
 from ryan_library.functions.dataframe_helpers import (
     reorder_columns,
@@ -36,6 +35,8 @@ class ProcessorCollection:
         """Initialize an empty ProcessorCollection."""
         self.processors: list[BaseProcessor] = []
         self.basic_info_lookup: DataFrame | None = None
+        # Distinguish invalid source-present locations from truly absent ones.
+        self.parquet_selection_diagnostics: list[dict[str, str]] = []
 
     def copy(self) -> ProcessorCollection:
         """Return a deep copy of the collection."""
@@ -44,6 +45,7 @@ class ProcessorCollection:
         new_collection.processors = [copy.deepcopy(p) for p in self.processors]
         if self.basic_info_lookup is not None:
             new_collection.basic_info_lookup = self.basic_info_lookup.copy(deep=True)
+        new_collection.parquet_selection_diagnostics = copy.deepcopy(self.parquet_selection_diagnostics)
         return new_collection
 
     def add_processor(self, processor: BaseProcessor) -> None:
@@ -113,7 +115,7 @@ class ProcessorCollection:
         self.basic_info_lookup = lookup_df
         return lookup_df
 
-    def align_eof_channel_ids(self) -> int:
+    def align_eof_channel_ids(self, reference_channel_ids: Mapping[str, Collection[str]] | None = None) -> int:
         """Replace shortened EOF channel IDs with full IDs from matching run outputs.
 
         TUFLOW EOF reports can truncate long channel IDs when writing the text
@@ -126,27 +128,30 @@ class ProcessorCollection:
         source_maps: dict[str, dict[str, str]] = {}
         ambiguous_keys: dict[str, set[str]] = {}
 
-        # First pass: build a per-run lookup from "what the EOF report would
-        # print" to the full channel ID seen in non-EOF result files. If two
-        # different full IDs collapse to the same printed key, leave that key
-        # unresolved rather than guessing.
-        for processor in self.processors:
-            if processor.data_type == "EOF" or "Chan ID" not in processor.df.columns:
-                continue
+        # First pass: use every original full channel identifier. A Parquet
+        # restore supplies this complete inventory from the manifest, even
+        # when unrelated data tables were skipped by location preselection.
+        # This retains conflict/ambiguity decisions across filtered restores.
+        if reference_channel_ids is None:
+            references: dict[str, set[str]] = {}
+            for processor in self.processors:
+                if processor.data_type == "EOF" or "Chan ID" not in processor.df.columns:
+                    continue
+                values = references.setdefault(processor.name_parser.raw_run_code, set())
+                for raw_value in processor.df["Chan ID"].to_numpy(dtype=object):
+                    if raw_value is not None and raw_value is not NA:
+                        values.add(str(raw_value))
+        else:
+            references = {run: set(values) for run, values in reference_channel_ids.items()}
 
-            run_code: str = processor.name_parser.raw_run_code
+        for run_code, labels in references.items():
             run_map: dict[str, str] = source_maps.setdefault(run_code, {})
             run_ambiguous: set[str] = ambiguous_keys.setdefault(run_code, set())
 
-            seen_values: set[str] = set()
-            for raw_value in processor.df["Chan ID"].to_numpy(dtype=object):
-                if raw_value is None or raw_value is NA:
+            for raw_value in labels:
+                value = raw_value.strip()
+                if not value:
                     continue
-                value = str(raw_value).strip()
-                if not value or value in seen_values:
-                    continue
-                seen_values.add(value)
-
                 key: str | None = self._channel_match_key(value=value)
                 if key is None or key in run_ambiguous:
                     continue
@@ -226,7 +231,12 @@ class ProcessorCollection:
             discarded += 1
         return discarded
 
-    def filter_locations(self, locations: Collection[str] | None) -> frozenset[str]:
+    def filter_locations(
+        self,
+        locations: Collection[str] | None,
+        *,
+        eof_reference_channel_ids: Mapping[str, Collection[str]] | None = None,
+    ) -> frozenset[str]:
         """Apply a location filter to all processors in the collection.
 
         Args:
@@ -242,7 +252,7 @@ class ProcessorCollection:
         if any(processor.data_type == "EOF" for processor in self.processors):
             # Resolve shortened labels against all available channel IDs before
             # removing rows, while ambiguity information is still complete.
-            self.align_eof_channel_ids()
+            self.align_eof_channel_ids(reference_channel_ids=eof_reference_channel_ids)
 
         total_before: int = sum(len(processor.df) for processor in self.processors)
 
@@ -252,7 +262,9 @@ class ProcessorCollection:
             processor.filter_locations(normalized_locations)
 
         filtered_processors: list[BaseProcessor] = [
-            processor for processor in self.processors if not processor.df.empty
+            processor
+            for processor in self.processors
+            if not processor.df.empty or (processor.selected_unusable and processor.input_health == "INVALID")
         ]
         removed_processors: int = len(self.processors) - len(filtered_processors)
         self.processors = filtered_processors
@@ -381,11 +393,7 @@ class ProcessorCollection:
 
         combined_df = reorder_long_columns(df=combined_df)
 
-        grouped_df: DataFrame = (
-            combined_df.groupby(by=group_keys, observed=True)  # pyright: ignore[reportUnknownMemberType]
-            .agg(func="max")
-            .reset_index()
-        )
+        grouped_df: DataFrame = combined_df.groupby(by=group_keys, observed=True).agg(func="max").reset_index()
 
         grouped_df = self._calculate_hw_d_ratio(df=grouped_df)
 
@@ -522,11 +530,7 @@ class ProcessorCollection:
             logger.error(f"Missing group keys {missing_keys} in Maximums/ccA data.")
             return DataFrame()
 
-        grouped_df: DataFrame = (
-            combined_df.groupby(by=group_keys, observed=True)  # pyright: ignore[reportUnknownMemberType]
-            .agg(func="max")
-            .reset_index()
-        )
+        grouped_df: DataFrame = combined_df.groupby(by=group_keys, observed=True).agg(func="max").reset_index()
         grouped_df = self._calculate_hw_d_ratio(df=grouped_df)
         p1_col: list[str] = [
             "trim_runcode",
@@ -630,15 +634,9 @@ class ProcessorCollection:
             df["HW_D"] = Series(dtype="Float64")
             return df
 
-        us_h_series: Series[float] = to_numeric(  # pyright: ignore[reportUnknownMemberType]
-            arg=df[us_h_col], errors="coerce"
-        )
-        us_invert_series: Series = to_numeric(  # pyright: ignore[reportUnknownMemberType]
-            arg=df["US Invert"], errors="coerce"
-        )
-        height_series: Series = to_numeric(  # pyright: ignore[reportUnknownMemberType]
-            arg=df["Height"], errors="coerce"
-        )
+        us_h_series: Series[float] = to_numeric(arg=df[us_h_col], errors="coerce")
+        us_invert_series: Series = to_numeric(arg=df["US Invert"], errors="coerce")
+        height_series: Series = to_numeric(arg=df["Height"], errors="coerce")
 
         valid_mask: Series[bool] = (
             us_h_series.notna() & us_invert_series.notna() & height_series.notna() & (height_series != 0)
@@ -766,7 +764,10 @@ class ProcessorCollection:
         filtered_collection = ProcessorCollection()
         for processor in self.processors:
             if processor.data_type in data_types:
-                filtered_collection.add_processor(processor)
+                if processor.selected_unusable and processor.input_health == "INVALID":
+                    filtered_collection.processors.append(processor)
+                else:
+                    filtered_collection.add_processor(processor)
 
         logger.debug(
             "Filtered ProcessorCollection created with {} processors matching data types {}.",
@@ -775,121 +776,67 @@ class ProcessorCollection:
         )
         return filtered_collection
 
-    def to_hdf(self, file_path: Path | str) -> None:
-        """Save the collection to a single HDF5 file using pandas.HDFStore.
+    def to_parquet(
+        self,
+        directory: Path | str,
+        *,
+        overwrite: bool = False,
+        verify_sources: bool = True,
+    ) -> None:
+        """Publish a directory of standard Parquet tables plus manifest.json.
 
-        Args:
-            file_path: Destination HDF5 file path.
+        Freshness is checked before writing and immediately before publication.
+        Explicit historical/offline exports may use verify_sources=False.
         """
-        file_path = Path(file_path)
-        # Ensure parent exists
-        file_path.parent.mkdir(parents=True, exist_ok=True)
+        from .parquet_bundle import write_collection_bundle
 
-        metadata: list[dict[str, Any]] = []
-
-        # User requested blosc:zstd level 9
-        # complib type hint in pandas can be strict, but 'blosc:zstd' is valid at runtime.
-        with HDFStore(
-            str(file_path),
-            mode="w",
-            complevel=9,
-            complib="blosc:zstd",  # pyright: ignore[reportArgumentType]
-        ) as store:
-            for idx, proc in enumerate(self.processors):
-                # We need a unique key for each processor df
-                key = f"proc_{idx:04d}"
-
-                proc_meta = {
-                    "file_path": str(proc.file_path),
-                    "class_name": proc.__class__.__name__,
-                    "processor_module": proc.processor_module,
-                    "dataformat": proc.dataformat,
-                    "hdf_key": key,
-                    "data_type": proc.data_type,
-                    "applied_location_filter": (
-                        list(proc.applied_location_filter) if proc.applied_location_filter else None
-                    ),
-                    "applied_entity_filter": (list(proc.applied_entity_filter) if proc.applied_entity_filter else None),
-                }
-                metadata.append(proc_meta)
-
-                if not proc.df.empty:
-                    # Using fixed format for speed as "cache".
-                    # If querying is needed, 'table' is better but slower/larger.
-                    store.put(key, proc.df, format="fixed")
-
-            meta_df = DataFrame({"json": [json.dumps(metadata)]})
-            store.put("metadata", meta_df)
-
-        logger.info(f"Saved {len(self.processors)} processors to {file_path}")
+        write_collection_bundle(self, directory, overwrite=overwrite, verify_sources=verify_sources)
 
     @staticmethod
-    def from_hdf(file_path: Path | str, locations: Collection[str] | None = None) -> ProcessorCollection:
-        """Load a collection from a single HDF5 file.
+    def from_parquet(
+        directory: Path | str,
+        locations: Collection[str] | None = None,
+        *,
+        data_types: Collection[str] | None = None,
+        verify_sources: bool = True,
+    ) -> ProcessorCollection:
+        """Restore selected trusted processors from a Parquet dataset directory."""
+        from .parquet_bundle import read_collection_bundle
 
-        Args:
-            file_path: Source HDF5 file.
-            locations: Optional location filter.
+        return read_collection_bundle(
+            directory, locations=locations, data_types=data_types, verify_sources=verify_sources
+        )
 
-        Returns:
-            ProcessorCollection: Rehydrated collection.
+    # Breaking change (2026-11-08): the optional HDF5 snapshot feature was removed.
+    # Retain the migration notice through 2027-03-31; remove from 2027-04-01.
+    # Last published HDF5-API release: ryan-tools==26.11.8.3 on PyPI.
+    _HDF5_REMOVAL_NOTICE = (
+        "HDF5 snapshots were removed on 2026-11-08. "
+        "The last published version retaining the API is ryan-tools==26.11.8.3 "
+        "(https://pypi.org/project/ryan-tools/26.11.8.3/). "
+        "Use Parquet for processed tabular data. "
+        "Migration notices are retained through 2027-03-31."
+    )
+
+    def to_hdf(self, file_path: Path | str, *, overwrite: bool = False) -> None:
+        """Retired HDF5 writer; see PyPI ryan-tools==26.11.8.3.
+
+        Keep this migration notice through 2027-03-31.
         """
-        file_path = Path(file_path)
-        if not file_path.exists():
-            msg = f"HDF5 file not found: {file_path}"
-            raise FileNotFoundError(msg)
+        raise NotImplementedError(self._HDF5_REMOVAL_NOTICE)
 
-        collection = ProcessorCollection()
+    @staticmethod
+    def from_hdf(
+        file_path: Path | str,
+        locations: Collection[str] | None = None,
+        *,
+        verify_sources: bool = True,
+    ) -> ProcessorCollection:
+        """Retired HDF5 reader; see PyPI ryan-tools==26.11.8.3.
 
-        with HDFStore(str(file_path), mode="r") as store:
-            if "metadata" not in store:
-                msg = "HDF5 file missing 'metadata' key."
-                raise KeyError(msg)
-
-            meta_df = store.get("metadata")
-            metadata: list[dict[str, Any]] = json.loads(meta_df.iloc[0]["json"])  # pyright: ignore[reportUnknownArgumentType, reportUnknownMemberType]
-
-            for item in metadata:
-                file_path_str = item["file_path"]
-                class_name = item["class_name"]
-                hdf_key = item["hdf_key"]
-
-                try:
-                    proc_cls = BaseProcessor.get_processor_class(
-                        class_name=class_name,
-                        processor_module=item.get("processor_module"),
-                        dataformat=item.get("dataformat"),
-                    )
-
-                    proc = proc_cls(file_path=Path(file_path_str))
-
-                    if hdf_key in store:
-                        stored_frame = store.get(hdf_key)
-                        if not isinstance(stored_frame, DataFrame):
-                            msg = f"HDF5 key {hdf_key!r} did not contain a DataFrame."
-                            raise TypeError(msg)
-                        proc.df = stored_frame
-                        proc.processed = True
-                    else:
-                        proc.df = DataFrame()
-                        proc.processed = True
-
-                    if item.get("applied_location_filter"):
-                        proc.applied_location_filter = frozenset(item["applied_location_filter"])
-                    if item.get("applied_entity_filter"):
-                        proc.applied_entity_filter = frozenset(item["applied_entity_filter"])
-
-                    collection.add_processor(proc)
-
-                except Exception as e:
-                    logger.error(f"Failed to rehydrate processor for {file_path_str}: {e}")
-                    continue
-
-        if locations:
-            collection.filter_locations(locations)
-
-        logger.info(f"Loaded {len(collection.processors)} processors from HDF5: {file_path}")
-        return collection
+        Keep this migration notice through 2027-03-31.
+        """
+        raise NotImplementedError(ProcessorCollection._HDF5_REMOVAL_NOTICE)
 
     def check_duplicates(self) -> dict[tuple[str, str], list[BaseProcessor]]:
         """Identify processors that share the same run-code (internalName) and data_type.

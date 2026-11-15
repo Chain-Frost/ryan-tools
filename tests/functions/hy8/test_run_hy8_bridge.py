@@ -1,5 +1,8 @@
 """Tests for ryan_library.functions.hy8.run_hy8_bridge."""
 
+# Unit tests intentionally exercise the implementation helpers under test.
+# pyright: reportPrivateUsage=false
+
 from unittest.mock import MagicMock, patch
 
 import pandas as pd

@@ -12,7 +12,7 @@ from typing import Any, Protocol, cast
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
-import rasterio  # pyright: ignore[reportMissingTypeStubs]
+import rasterio
 from loguru import logger
 from tqdm import tqdm
 
@@ -49,7 +49,7 @@ def read_geotiff(filename: str | Path, nodata_values: NodataValues = None) -> pd
     try:
         open_raster = cast(
             "Callable[[str | Path], RasterContext]",
-            rasterio.open,  # pyright: ignore[reportUnknownMemberType]
+            rasterio.open,
         )
         with open_raster(filename) as f:
             source_band = f.read(1)

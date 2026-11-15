@@ -48,7 +48,7 @@ def local_cuda_device_names() -> dict[int, str]:
             if label in duplicates and ordinal in buses:
                 names[ordinal] = f"{label}; PCI {buses[ordinal]}"
         return names
-    except (OSError, AttributeError):
+    except OSError, AttributeError:
         return {}
 
 

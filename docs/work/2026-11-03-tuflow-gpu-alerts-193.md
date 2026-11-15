@@ -1,12 +1,18 @@
+> **Current reconciliation (2026-11-10): scoped implementation delivered.** GitHub confirms [PR #206](https://github.com/Chain-Frost/ryan-tools/pull/206) merged at 2026-11-05T08:43:16Z (UTC), commit `10b71898220d11feaff8256618ffb8eeec35f4ef`, into `main`. Licensed hardware acceptance remains limited to the recorded tested cases; no new GPU/CodeMeter run is claimed.
+>
+> Earlier pending-review, no-merge and next-action statements below are historical snapshots, not current delivery instructions.
+>
+> This reconciliation checks GitHub delivery and available final-head check conclusions; it does not rerun local/native tests or imply every wider engineering gate passed.
+
 # TUFLOW GPU availability alerts and CodeMeter validation
 
 | Field | Value |
 | --- | --- |
-| Status | Needs review; licensed hardware evidence complete within recorded scope; hosted validation tracked in PR |
+| Status | Complete - scoped implementation merged; see current reconciliation |
 | Owner | ChatGPT |
 | Created | 2026-11-03 |
-| Updated | 2026-11-05 |
-| Next review | 2026-11-06 |
+| Updated | 2026-11-10 |
+| Next review | None - completed delivery |
 | Baseline | PR #193; scheduler tested at `b29f8c2b`, integrated remote `efeff949`; isolated `ryan-tools-pr193-two-gpu` worktree |
 
 ## Outcome and scope

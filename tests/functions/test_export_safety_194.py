@@ -166,15 +166,30 @@ def test_csv_failure_discards_staged_parquet(
     assert list(tmp_path.iterdir()) == []
 
 
-def test_unsupported_publication_fails_without_reports(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_unsupported_batch_publication_fails_without_reports(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     def fail(*_args: object, **_kwargs: object) -> None:
         message = "hard links unsupported"
         raise OSError(message)
 
     monkeypatch.setattr(exports.os, "link", fail)
     with pytest.raises(OSError, match="hard links unsupported"):
-        exports.ExcelExporter().save_to_excel(pd.DataFrame({"v": [1]}), output_directory=tmp_path)
+        exports.ExcelExporter().save_to_excel(pd.DataFrame({"v": [1]}), output_directory=tmp_path, export_mode="both")
     assert list(tmp_path.iterdir()) == []
+
+
+def test_single_excel_export_does_not_create_subdirectory_or_use_hardlinks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from zipfile import is_zipfile
+
+    def fail(*_args: object, **_kwargs: object) -> None:
+        message = "hard links unsupported"
+        raise OSError(message)
+
+    monkeypatch.setattr(exports.os, "link", fail)
+    exports.ExcelExporter().save_to_excel(pd.DataFrame({"v": [1]}), file_name="report", output_directory=tmp_path)
+    assert [path.name for path in tmp_path.iterdir()] == ["report.xlsx"]
+    assert is_zipfile(tmp_path / "report.xlsx")
 
 
 def test_explicit_extension_spelling_preserved(tmp_path: Path) -> None:

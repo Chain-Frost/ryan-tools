@@ -7,8 +7,8 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-import rasterio  # pyright: ignore[reportMissingTypeStubs]
-from rasterio.transform import from_origin  # pyright: ignore[reportMissingTypeStubs]
+import rasterio
+from rasterio.transform import from_origin
 from shapely.geometry import LineString
 
 from ryan_library.functions.gdal.profiling import (

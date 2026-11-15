@@ -46,16 +46,17 @@ These documents stay near the code they describe so that browsing a target direc
 
 | Area | Local document | Relevant work |
 | --- | --- | --- |
-| Missing TUFLOW runs | [Filename ensemble inference](../ryan-scripts/tuflow/MISSING_RUNS.md) | Folder scanning, inferred scenario/event permutations and reporting limits |
+| Missing TUFLOW runs | [Filename ensemble inference](../ryan-scripts/TUFLOW-python/model_management/MISSING_RUNS.md) | Folder scanning, inferred scenario/event permutations and reporting limits |
 | Culvert analysis/design | [Culvert analysis and design workflow](CULVERT_WORKFLOW.md) | Project/scenario models, solver boundary, design search, rating curves, CLI and output contracts |
 | TUFLOW culvert engines | [Selectable TUFLOW culvert engines](TUFLOW_CULVERT_ENGINES.md) | TUFLOW Maximums/1d_nwk ingestion, HY-8 vs ryan-culverts dispatch, output and ownership boundaries |
+| TUFLOW initialiser | [Initialiser implementation](../ryan_library/orchestrators/tuflow/initialiser/README.md) | Maintained CLI, shared hydrology/project boundaries and #312 engineering framework |
 | TUFLOW processors | [Processor development notes](../ryan_library/processors/tuflow/README.md) | Processor lifecycle, collections, combinations, filtering, caching and extension |
 | TUFLOW wrappers | [TUFLOW Python wrappers](../ryan-scripts/TUFLOW-python/README.md) | Maintained entry points, shared CLI behavior and wrapper selection |
 | TUFLOW run preflight | [Proposed-run input preflight](TUFLOW_INPUT_PREFLIGHT.md) | Check event/scenario-dependent input references, boundary source CSVs and GPKG layers before launching simulations |
 | TUFLOW GPU scheduling | [GPU and CodeMeter validation](TUFLOW_GPU_CODEMETER_VALIDATION.md) | Licensed two-GPU procedure, polling benchmark, measured limitations and scheduler evidence |
 | TUFLOW GPU hardware handoff | [Licensed two-GPU agent prompt](TUFLOW_GPU_HARDWARE_TEST_PROMPT.md) | Copy-ready prompt for completing PR #193 validation on suitable hardware |
 | TUFLOW runner progress handoff | [Local progress-validation prompt](TUFLOW_RUNNER_PROGRESS_HANDOFF.md) | Grouped TCF display, live model-time observations and Windows/SMB acceptance |
-| TUFLOW project setup | [Project setup guide](../ryan-scripts/tuflow/PROJECT_SETUP.md) | Compact project initialization, canonical empty-file generation and validation evidence |
+| TUFLOW project setup | [Project setup guide](../ryan-scripts/TUFLOW-python/model_management/PROJECT_SETUP.md) | Compact project initialization, canonical empty-file generation and validation evidence |
 | Native ASC_to_ASC operations | [Native ASC_to_ASC-style raster operations](ASC_TO_ASC_NATIVE_OPERATIONS.md) | Supported commands, module responsibilities, NoData policies and executable comparison |
 | GDAL wrappers | [GDAL Python wrappers](../ryan-scripts/gdal-python/README.md) | Maintained GDAL workflows, recipes, mutation risks and automation catalogue |
 | Legacy GDAL | [Legacy GDAL batch files](../ryan-scripts/gdal-bat/README.md) | Mapping retained BAT entry points to maintained Python replacements |
@@ -64,11 +65,12 @@ These documents stay near the code they describe so that browsing a target direc
 | DataFrame examples | [DataFrame examples](../examples/dataframes/README.md) | Table assembly and Excel/Parquet export helpers |
 | Rock-protection lookup data | [Outlet rock-protection data](../ryan_library/functions/data/README.md) | Source, interpretation and limits of the bundled multi-pipe lookup tables |
 | Maintenance benchmarks | [Benchmark guide](../repo-scripts/benchmarks/README.md) | Running and interpreting file-collection or DataFrame backend benchmarks |
+| Accepted temporary PyTuflow wheel | [Vendored PyTuflow wheel and provenance](../repo-scripts/wheels/pytuflow/887534ea8c15b80d185a38a7ead1d42ab42a7167/README.md) | Immutable third-party parser wheel, checksum verification, Windows build provenance and retirement policy |
 | 3D similarity transformations | [Similarity transform API](GEOMETRY_SIMILARITY.md) | Supported fit function, parameters and transform conventions |
 | Vendored algorithms | [Vendor inventory](../vendor/README.md) | Third-party PyHMA and simil source, licence, import and packaging policy |
 | Vendored `simil` | [`simil` upstream README](../vendor/simil/README.md) | Bundled similarity-transform implementation, usage and upstream attribution |
 | Vendored `PyHMA` | [`PyHMA` README](../vendor/PyHMA/README.md) | Hydrograph matching usage, requirements and upstream attribution |
-| TUFLOW public input-preflight smoke | [TUFLOW input preflight](TUFLOW_INPUT_PREFLIGHT.md) | Windows Python 3.14 pinned PyTUFLOW PR63 smoke, incompatible same-version rejection and retained scoped test-data fixtures; superseded archive/parity harness retired |
+| TUFLOW public input-preflight smoke | [TUFLOW input preflight](TUFLOW_INPUT_PREFLIGHT.md) | Windows Python 3.14 accepted local PR17 wheel, incompatible same-version rejection and retained model fixtures |
 
 ## Integrations
 
@@ -103,17 +105,37 @@ but they are not current architectural policy when they conflict with the canoni
 
 | Document | Scope and status |
 | --- | --- |
+| [WP13 QGIS project structural comparison](work/2026-11-08-wp13-qgis-project-comparison.md) | Selected read-only #169 structural layer comparison, focused tests, review and Windows acceptance gates for draft #283 |
+| [WP06 owned-output publication](work/2026-11-08-wp06-publication.md) | Profile PNG staging, archive and GDAL output safety, validation and stacked PR delivery |
+| [WP01 TLF parser metadata reliability](work/2026-11-08-tlf-parser-wp01.md) | Staged #239/#224/#231 implementation, linked PRs and acceptance record |
+| [WP07 file discovery and input outcomes](work/2026-11-08-wp07-file-discovery.md) | #203 finder cycle protection and #195 truthful input outcomes accepted with Windows 10/SMB limits; integrated into draft #251 via #257/#268 |
 | [Missing TLF ensemble inference](work/2026-11-07-missing-tlf-ensembles.md) | Folder inference implementation, local validation and delivery |
+| [Master log append outcomes and safe workbook publication](work/2026-11-08-master-log-append-196.md) | WP08 #196: supported-filesystem append, safe SMB refusal, whole-workflow failure reporting and native acceptance |
+| [WP08 POMM, PO QA and closure dashboard adoption](work/2026-11-08-po-qa-dashboard-198.md) | #198 implementation in stacked #265; QA per-file outcomes, POMM and closure workflow lifecycle, validation and unresolved native/partial-input gates |
+| [WP09 PO closure population and scenario identity](work/2026-11-08-wp09-closure-populations.md) | #215 valid zero-duration TP retention, scenario-specific grouping, invalid-population contracts and review and independent Windows 10 source/wheel/wrapper acceptance (56/56 tests; 6/6 hosted CI) |
+| [WP04 processor health, canonical selection and lifecycle](work/2026-11-08-wp04-processor-validity.md) | #219/#220/#223 valid/invalid-source outcomes, culvert filters and lifecycle regressions |
+| [WP10 PO scenario plotting fidelity](work/2026-11-08-wp10-po-scenario-plotting.md) | #225 scenario identity / Q-H plotting, source-provenance Parquet cache, safe NTFS PNG/cache writes; 17 native passes and genuine source/wheel parity |
+| [WP11 fixture contracts and measured PO scalability](work/2026-11-08-wp11-fixture-benchmarks.md) | #228 strict pinned TLF/PO fixture contracts and #229 resource-guarded scaled benchmark; 18 native tests and 32 source/installed scaled cases passed |
 | [Dashboard defaults and background file properties](work/2026-11-07-dashboard-file-properties.md) | Shared presentation defaults, nonblocking file-size metadata and preserved legacy banner calls |
 | [Offline wrapper revision warnings](work/2026-11-07-wrapper-version-warnings.md) | Shared installed-package comparison, stable script identities and maintained-script rollout |
 | [Batch dashboard foundation](work/2026-11-01-batch-dashboard-foundation-180.md) | #180 stacked PR 1: shared batch display/diagnostics, optional workflow metrics, log-summary reference and concrete consumer handoff |
+| [RORB reader audit and MCP scope](work/2026-11-05-rorb-readers-mcp.md) | Canonical source-aware RORB report/CSV readers, preservation, linked consumer and pending original 420-pair acceptance |
+| [RORB reader API and format limits](../ryan_library/functions/RORB/README.md) | Strict source-preserving report grammar, explicit statuses, companion associations, source clocks and DataFrame migration |
 | [TUFLOW result dashboard adoption](work/2026-11-01-tuflow-result-dashboards-180.md) | #180 stacked PR 2: scope six result wrappers immediately, wait for the implemented foundation, then integrate and validate |
-| [RORB reader audit and MCP scope](work/2026-11-05-rorb-readers-mcp.md) | Current functions/scripts, supplied-file evidence, parser reliability gaps and staged read-only MCP requirements |
-| [RORB reader API and format limits](../ryan_library/functions/RORB/README.md) | Strict source-preserving readers, explicit partial formats, associations, time comparisons and DataFrame migration |
 | [TUFLOW proposed-run input preflight](work/2026-10-21-tuflow-input-preflight.md) | PR #143 read-only PyTUFLOW checks, integrated simulation preflight and standalone wrapper; merged as bcc8e5c, with separate follow-up records |
 | [TUFLOW batch preflight optimisation](work/2026-10-22-tuflow-batch-preflight-optimisation.md) | Stacked draft against PR #143: consume PyTUFLOW batch API, share GIS/filesystem inspection, preserve parity and benchmark 500-run workloads |
 | [TUFLOW runner model checks](work/2026-10-23-tuflow-runner-model-checks.md) | PR #159 current decisions, implementation, validation and delivery state |
 | [TUFLOW GPU availability alerts and CodeMeter validation](work/2026-11-03-tuflow-gpu-alerts-193.md) | PR #193 implementation, measured evidence, validation and delivery state |
+| [TGC terrain crop workflow](work/2026-11-04-tgc-terrain-crop.md) | Merged #204 baseline; #242/#244 integration, native-grid evidence and acceptance limits under #312 |
+| [TUFLOW initialiser — current record](work/tuflow-initialiser/README.md) | Accepted migration/native evidence, #312 development, #247 archive/private closeout and #314 conditional retention review |
+| [TUFLOW initialiser — aoi-entry-catchments.md](work/tuflow-initialiser/aoi-entry-catchments.md) | Historical catchment/subcatchment design and exact entry identities; current acceptance #243 |
+| [TUFLOW initialiser — architecture.md](work/tuflow-initialiser/architecture.md) | Historical initial scope and shared function boundaries; current development #312 |
+| [TUFLOW initialiser — base-workflow-validation.md](work/tuflow-initialiser/base-workflow-validation.md) | Historical original-fixture validation receipts; authenticated source access and preservation plan in the living record |
+| [TUFLOW initialiser — future-work.md](work/tuflow-initialiser/future-work.md) | Deferred ideas and original exclusions; selected development under #312 and terrain integration #242 |
+| [TUFLOW initialiser — issue-7-quality-validation.md](work/tuflow-initialiser/issue-7-quality-validation.md) | Historical standalone source quality baseline; preserved validation provenance |
+| [TUFLOW initialiser — migration.md](work/tuflow-initialiser/migration.md) | Historical standalone package origins; maintained implementation now belongs to ryan-tools |
+| [TUFLOW initialiser — validation.md](work/tuflow-initialiser/validation.md) | Historical integrity checks; retained representative acceptance #243–#245/#266 |
+| [TUFLOW initialiser — windows-verification-handoff.md](work/tuflow-initialiser/windows-verification-handoff.md) | Historical standalone Windows/GRASS/TUFLOW receipts; current engineering work under #312 |
 | [TUFLOW runner grouping and model progress](work/2026-11-04-tuflow-runner-progress.md) | New runner PR, PyTUFLOW filename prediction, bounded live-log observations and local acceptance |
 | [PyTuflow #63 and runner #235 local acceptance](work/2026-11-06-pytuflow-63-ryan-235-local-validation.md) | Current-model 390-run timing, native correctness, mapped/UNC safety, wrapper refresh and remaining hardware/policy gates |
 | [Live dashboard logging regression](work/2026-11-03-live-dashboard-logging.md) | Default stdout routing for older copied runners, regression evidence and PR delivery |
@@ -128,11 +150,14 @@ but they are not current architectural policy when they conflict with the canoni
 | [Installed scripts and distribution rename](work/2026-10-18-installed-scripts.md) | PR #120 wheel scripts, automatic MCP resolution, removed import shim and PyPI name migration |
 | [Installed scripts and MCP requirements](work/2026-10-17-installed-scripts-mcp-pip-distribution.md) | PR #130/#137: corrected wrapper copying, provisional packaging and outstanding engineering acceptance |
 | [Original script distribution requirements](audits/2026-10-17-installed-scripts-original-requirements.md) | Preserved original A–F requirements |
-| [Installed script inventory](audits/2026-10-19-installed-scripts-inventory.md) | All 158 source paths; 83 selected and 75 excluded; lifecycle sign-off outstanding |
+| [Installed script inventory](audits/2026-10-19-installed-scripts-inventory.md) | All 161 source paths; 83 selected and 78 excluded; lifecycle sign-off outstanding |
 | [Script remediation backlog](audits/2026-10-22-script-remediation-backlog.md) | 47 AB items: open/deferred work plus accepted-closed HY-8 evidence (AB-023); triaged safety, engineering and lifecycle tasks |
-| [Fast PR checks and hosted timing](work/2026-10-17-fast-pr-checks-129.md) | PR #129 implementation, exact-head hosted validation, timing evidence and remaining Python-change exercise |
+| [CI resource efficiency and Windows acceptance](work/2026-11-08-ci-resource-efficiency.md) | Merged #272 implementation, post-merge validation and coordinated adoption by active stacks |
+| [CI dependency and PyTuflow wheel implementation](work/2026-11-08-ci-dependency-groups.md) | Completed #274/#272 wheel delivery and accepted Windows coverage; deferred, bounded dependency follow-up |
+| [Fast PR checks and hosted timing](work/2026-10-17-fast-pr-checks-129.md) | Historical PR #129 independent workflow implementation and timing evidence |
 | [Mapped-drive-safe filesystem paths and raster progress](work/2026-10-16-absolute-path-policy.md) | PR #128 path policy, multiline raster progress, retained-wheel rebuild blocker and validation handoff |
 | [GitHub CI implementation handoff](work/2026-10-07-github-ci.md) | Implemented hosted checks, external-software boundaries and validation record |
+| [WP15 culvert/HY-8 engineering evidence](work/2026-11-08-wp15-culvert-engineering-evidence.md) | #101–#103 current physical source/API matrix, upstream evidence, native package and blockage-data gates, Windows validation handoff |
 | [TUFLOW culvert engine validation](work/2026-10-08-tuflow-culvert-engines-99.md) | PR #100 retained-wheel repair, numerical evidence and outstanding source-data acceptance |
 | [PyPI release automation](work/2026-10-15-release-automation.md) | Merge-only release policy, release opt-outs, validation and historical publication evidence |
 | [CI validation efficiency](work/2026-10-15-ci-validation.md) | Actionlint enforcement, focused dependencies and publication-wheel smoke validation |
@@ -143,11 +168,19 @@ but they are not current architectural policy when they conflict with the canoni
 | [Floodway research](audits/2026-09-13-floodway-design-research.md) | Source baseline |
 | [Floodway calculation specification](audits/2026-09-14-floodway-calculation-specification.md) | Calculation contracts |
 | [Floodway validation vectors](audits/2026-09-14-floodway-validation-vectors.md) | Source regression targets |
+| [WP05 processor storage / ccA WAL delivery](work/2026-11-08-wp05-processor-storage.md) | #222/#226 staged implementation; source-preserving WAL snapshot correction is under hosted/native review |
+| [Parquet-directory processor collection snapshots](work/2026-11-08-parquet-processor-bundles.md) | Ordinary ZSTD Parquet tables plus a versioned JSON manifest, preserving native processor identities, filters, source provenance, health and selective reads |
+| [HDF5 retirement and Parquet-only processor storage](work/2026-11-08-hdf5-retirement.md) | Breaking change: unpublished HDF5 backend retired, PyPI 26.11.8.3 migration notice retained through 31 March 2027; native ryan-tools readers retained |
+| [Repository Python lint and typing cleanup](work/2026-11-08-python-static-cleanup.md) | Full Windows/static audit correction and shared typing standard |
+| [Shared dependency type stubs](../typings/README.md) | Strict typing support shared by all maintained code, including the initialiser |
 | [Work register](work/README.md) | Open work fronts, review dates, next actions and links to authoritative status records |
 | [Culvert uncertainty/sensitivity workflow](work/2026-10-06-culvert-uncertainty-91.md) | Issue #91 implementation; final package verification and authorized squash merge |
 | [Culvert workflow implementation](work/2026-09-13-culvert-workflow-80.md) | Active issue #80 implementation and validation/delivery status |
 | [Transactional package build and verification](work/2026-09-13-transactional-packaging.md) | Completed no-bump, verified and failure-safe wheel workflow implementation |
 | [TUFLOW statistic-then-maximum workflow](work/2026-09-09-tuflow-stat-then-maximum.md) | Completed generic mean/median raster workflow, provenance validation and delivery state |
+| [WP02 compatibility/lifecycle review](work/2026-11-08-wp02-compatibility-lifecycle.md) | Issue #98 current source-checkout, installed-wheel and optional import evidence; maintained HY-8 and missing-run boundaries |
+| [WP12 HU/HD capability and result-format review](work/2026-11-08-wp12-hu-hd-coverage.md) | #237 existing PO/POMM/PyTuflow consumer matrix, independent EG02 HU/HD values, precision/memory limits and #236 reporting-location next stage |
+| [WP03 POMM/TP report correctness](work/2026-11-08-wp03-pomm-report-correctness.md) | #227/#218/#216/#217 and #238 POMM coverage integrated into draft #251 at `9f38d971`; tested code/accepted unverified RLL metadata limitation; no main merge |
 | [Compatibility policy and inventory](COMPATIBILITY_POLICY.md) | Compatibility namespaces, migration state and deprecation checklist |
 | [Repository improvement roadmap](REPOSITORY_IMPROVEMENT_ROADMAP.md) | Deferred repository-wide opportunity inventory; no active improvement front is selected |
 | [Unsorted upgrade roadmap](UNSORTED_UPGRADE_ROADMAP.md) | Incomplete migration inventory; currently deferred and not actively progressed |
@@ -184,3 +217,6 @@ main README links and paths and verifies that every tracked Markdown document is
 - [Shared result export safety work](work/2026-11-04-result-export-safety-194.md): issue #194 implementation and validation.
 - [Office utility guide](../ryan-scripts/misc-python/README.md): safe workbook-copy behavior.
 - [Office protection safety work](work/2026-11-04-office-protection-safety-199.md): issue #199 implementation and validation.
+
+- [PyTuflow PR #17 1.3.1 dependency refresh](work/2026-11-15-pytuflow-pr17-131.md)
+- [PyTuflow 1.3.1 vendored artifact](../repo-scripts/wheels/pytuflow/4ca2dbe35c1d7e6a1c7b7150fbea622b1aa0ddb0/README.md)

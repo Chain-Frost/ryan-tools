@@ -212,9 +212,7 @@ def _run_design(
             diameters_mm=diameters_mm or (template_barrel.diameter_mm,),
             quantities=design_quantities,
         )
-    elif isinstance(  # pyright: ignore[reportUnnecessaryIsInstance]
-        template_barrel, RectangularBarrelDefinition
-    ):
+    elif isinstance(template_barrel, RectangularBarrelDefinition):
         candidates = generate_rectangular_candidates(
             crossing,
             spans_mm=spans_mm or (template_barrel.span_mm,),
@@ -449,7 +447,7 @@ def main(
                 msg = f"Unsupported command: {command}"
                 raise ValueError(msg)
             logger.success("Culvert workflow completed; outputs: {}", resolved_output)
-        except (OSError, ValueError, RuntimeError):
+        except OSError, ValueError, RuntimeError:
             logger.exception("Culvert workflow failed.")
             return 1
     return 0

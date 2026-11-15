@@ -365,7 +365,8 @@ def test_file_url_and_provider_options_preserved_on_rewrite(tmp_path: Path) -> N
 
 
 def test_qgz_repair_preserves_qgd_and_unknown_members(tmp_path: Path) -> None:
-    database = tmp_path / "aux.qgd"
+    # AUX is a reserved Windows device name even with a file extension.
+    database = tmp_path / "auxiliary.qgd"
     auxiliary_bytes = _qgd(database, "road-layer-id")
     project = tmp_path / "model.qgz"
     _qgz(

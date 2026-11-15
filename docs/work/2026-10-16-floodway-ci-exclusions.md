@@ -5,8 +5,8 @@
 | Status | Deferred |
 | Owner | Unassigned |
 | Created | 2026-10-16 |
-| Updated | 2026-10-16 |
-| Next review | 2026-10-22 |
+| Updated | 2026-11-10 |
+| Next review | 2026-11-24 |
 | Baseline | main 42a7511; CI changes merged through PR #125 |
 
 ## Scope and current state
@@ -33,3 +33,9 @@ The review date is a session-driven reminder; it does not schedule an automatic 
 The exclusions are merged and published as part of the completed
 [CI/release work](2026-10-15-ci-validation.md). This bounded follow-up record and its
 index/register links are local uncommitted documentation; no implementation work is selected.
+
+## Reconciliation, 2026-11-10
+
+Both named exclusions remain in the current checkout of `.github/workflows/ci.yml`. This follow-up is still deferred;
+the merged floodway implementation does not restore this coverage. No sweep tests were run or CI settings changed.
+Next action remains a separately selected runtime/coverage review; delivery statements above are historical.

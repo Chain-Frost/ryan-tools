@@ -38,7 +38,7 @@ def _vscode_codex_installed() -> bool:
                 check=False,
                 timeout=10,
             )
-        except (OSError, subprocess.TimeoutExpired):
+        except OSError, subprocess.TimeoutExpired:
             continue
         if result.returncode == 0 and "openai.chatgpt" in result.stdout.casefold().splitlines():
             return True

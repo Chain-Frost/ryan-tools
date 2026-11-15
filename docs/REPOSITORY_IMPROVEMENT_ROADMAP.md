@@ -32,7 +32,7 @@ backlog; a selected implementation project should have its own linked status rec
 | Package import repairs | Historical lazy script aliases and the `ryan_functions` alias were removed from the PR #120 branch (2026-10-18), leaving maintained direct imports in `ryan_library`. The prior 26.10.6.3 smoke test validated the old interface, not this breaking removal. |
 | Logging pipeline | [Implementation outcome](audits/2026-08-08-logging-pipeline-implementation-plan.md#implementation-outcome) records independent thresholds, queue context, deterministic shutdown, notebook setup, AST policy checks and Windows validation. Current implementation retains these mechanisms; historical test results are not a fresh run. |
 | Compatibility inventory | [Compatibility policy](COMPATIBILITY_POLICY.md) records replacements and deadlines. Remaining inventory reconciliation is listed below. |
-| Lifecycle decisions | `data_processing.py` was removed early in PR #120; `tkinter_utils.py` is absent; [missing-run analysis](../ryan_library/orchestrators/tuflow/tlf_missing_runs.py) has an orchestrator; the [HY-8 wrapper](../ryan-scripts/tuflow/tuflow_to_hy8.py) calls the bridge. These are no longer simply undecided removal/experimental candidates. |
+| Lifecycle decisions | `data_processing.py` was removed early in PR #120; `tkinter_utils.py` is absent; [missing-run analysis](../ryan_library/orchestrators/tuflow/tlf_missing_runs.py) has an orchestrator; the [HY-8 wrapper](../ryan-scripts/TUFLOW-python/culvert_results/tuflow_to_hy8.py) calls the bridge. These are no longer simply undecided removal/experimental candidates. |
 | PO/POMM combination | Both maintained orchestrators use [shared workflow coordination](../ryan_library/orchestrators/tuflow/_combination_workflow.py) and expose `export_results`. |
 | Timeseries checks | Notebook helpers and the peak/stability orchestrators reuse `po_timeseries_checks`; wider notebook collection/orchestration consolidation still requires assessment. |
 | Root document cleanup | The former testing architecture/task documents and logging checklist are absent. The completed [README implementation plan](../implementation_plan.md) is deliberately retained at the repository root as indexed historical implementation evidence; no archival move is pending. |
@@ -92,6 +92,13 @@ defects should get their own bounded work record rather than reopening completed
 
 ## Separately tracked or removed from this backlog
 
+- **TUFLOW initialiser:** the [development and engineering acceptance framework (#312)](https://github.com/Chain-Frost/ryan-tools/issues/312)
+  coordinates the maintained initialiser and existing #242–#245/#266 work. The
+  [living record](work/tuflow-initialiser/README.md) preserves accepted migration/native evidence and next actions.
+  [#247](https://github.com/Chain-Frost/ryan-tools/issues/247) separately owns the authorised archive/private closeout.
+  The [July 2027 deletion-readiness review](https://github.com/Chain-Frost/ryan-tools/issues/314) requires verified preservation of valuable material outside
+  the source before any deletion; the date alone triggers no deletion. Archival/private visibility does not imply
+  completion of later engineering acceptance or feature ideas.
 - **Unsorted migration:** incomplete but deferred. It is tracked separately in the
   [unsorted roadmap](UNSORTED_UPGRADE_ROADMAP.md) and work register. It is not being actively progressed and should not
   be treated as part of the general repository-improvement backlog unless explicitly resumed.

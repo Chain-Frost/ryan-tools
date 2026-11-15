@@ -217,7 +217,7 @@ def clip_vector(
         _promote_dataset(temporary_path, output_path, overwrite=overwrite)
         logger.success("Created {}", output_path)
         return True
-    except (OSError, RuntimeError):
+    except OSError, RuntimeError:
         logger.exception("Could not finalise clipped output {}", output_path)
         return False
     finally:

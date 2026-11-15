@@ -12,10 +12,12 @@ output is split into coordinate-based tiles by the shared terrain processor.
 import logging
 from pathlib import Path
 
+import pandas as pd
+
 from ryan_library.functions.terrain_processing import parallel_process_multiple_terrain
 
 
-def save_tile_csv(tile_df, output_dir, base_filename, i, j):
+def save_tile_csv(tile_df: pd.DataFrame, output_dir: Path, base_filename: str, i: int, j: int) -> None:
     """Saves a tile DataFrame as a CSV file."""
     logger = logging.getLogger(__name__)
     tile_filename = f"{base_filename}_tile_{i}_{j}.csv"
@@ -29,7 +31,7 @@ def save_tile_csv(tile_df, output_dir, base_filename, i, j):
         logger.exception("Failed to save CSV tile %s", tile_filename)
 
 
-def save_full_csv(df, output_dir, base_filename):
+def save_full_csv(df: pd.DataFrame, output_dir: Path, base_filename: str) -> None:
     """Saves the full DataFrame as a single CSV file without tiling."""
     logger = logging.getLogger(__name__)
     csv_filename = f"{base_filename}.csv"

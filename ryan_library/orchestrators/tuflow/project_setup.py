@@ -15,13 +15,14 @@ import subprocess
 from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final, Literal, cast
+from typing import Final, Literal
 
-import fiona  # pyright: ignore[reportMissingTypeStubs]
+import fiona
 import numpy as np
-import rasterio  # pyright: ignore[reportMissingTypeStubs]
+import rasterio
 from loguru import logger
-from rasterio.transform import from_origin  # pyright: ignore[reportMissingTypeStubs, reportUnknownVariableType]
+from pyproj import CRS
+from rasterio.transform import from_origin
 
 GeometrySuffix = Literal["P", "L", "R"]
 UtilityDestination = Literal[".", "model/gis", "results"]
@@ -55,6 +56,8 @@ class TuflowProjectConfig:
     templates_dir: Path
     copy_utilities: bool = True
     overwrite: bool = False
+    utility_source_root: Path | None = None
+    include_2d_loc_style: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,7 +155,7 @@ def initialize_tuflow_project(
         for spec in working_layers
     )
     for spec, working_layer in zip(working_layers, created_layers, strict=True):
-        if spec.empty_type == "2d_loc":
+        if config.include_2d_loc_style and spec.empty_type == "2d_loc":
             _copy_2d_loc_style(working_layer=working_layer, overwrite=config.overwrite)
     logger.success("Created TUFLOW project at {} with {} empty working layers", project_dir, len(created_layers))
     return ProjectSetupResult(
@@ -180,10 +183,11 @@ def _validate_config(config: TuflowProjectConfig) -> None:
     if not config.templates_dir.is_dir():
         msg = f"TUFLOW template directory not found: {config.templates_dir}"
         raise FileNotFoundError(msg)
-    style_file: Path = _resolve_2d_loc_style_file()
-    if not style_file.is_file():
-        msg = f"2d_loc QML style not found: {style_file}"
-        raise FileNotFoundError(msg)
+    if config.include_2d_loc_style:
+        style_file: Path = _resolve_2d_loc_style_file()
+        if not style_file.is_file():
+            msg = f"2d_loc QML style not found: {style_file}"
+            raise FileNotFoundError(msg)
 
 
 def _create_folders(project_dir: Path) -> None:
@@ -218,17 +222,20 @@ def _copy_text_templates(*, config: TuflowProjectConfig, project_dir: Path) -> N
             msg = f"Refusing to overwrite existing project file: {destination}"
             raise FileExistsError(msg)
 
-        content: str = template_file.read_text(encoding="utf-8")
-        for placeholder, replacement in replacements.items():
-            content = content.replace(placeholder, replacement)
         destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_text(content, encoding="utf-8")
+        if template_file.suffix.casefold() == ".png":
+            shutil.copyfile(template_file, destination)
+        else:
+            content: str = template_file.read_text(encoding="utf-8")
+            for placeholder, replacement in replacements.items():
+                content = content.replace(placeholder, replacement)
+            destination.write_text(content, encoding="utf-8")
         logger.debug("Created project file from template: {}", destination)
 
 
 def _copy_project_utilities(*, config: TuflowProjectConfig, project_dir: Path) -> tuple[Path, ...]:
     copied: list[Path] = []
-    source_root: Path = _resolve_utility_source_root()
+    source_root: Path = config.utility_source_root or _resolve_utility_source_root()
     for utility in _PROJECT_UTILITIES:
         source_file: Path = source_root / utility.relative_source
         if not source_file.is_file():
@@ -288,6 +295,12 @@ def _copy_2d_loc_style(*, working_layer: Path, overwrite: bool) -> Path:
 
 def _create_projection_files(*, prj_file: Path, gis_dir: Path, overwrite: bool) -> None:
     wkt: str = prj_file.read_text(encoding="utf-8-sig")
+    # ESRI WKT can otherwise serialize as a user-defined TIFF/GPKG CRS.
+    # Only canonicalise exact authority matches; preserve genuine local grids.
+    source_crs = CRS.from_wkt(wkt)
+    epsg = source_crs.to_epsg(min_confidence=100)
+    output_crs = CRS.from_epsg(epsg) if epsg is not None else source_crs
+    output_wkt = output_crs.to_wkt(version="WKT1_GDAL") if epsg is not None else wkt
     projection_name: str = f"projection_{prj_file.stem}"
     projection_prj: Path = gis_dir / f"{projection_name}.prj"
     projection_gpkg: Path = gis_dir / f"{projection_name}.gpkg"
@@ -301,19 +314,19 @@ def _create_projection_files(*, prj_file: Path, gis_dir: Path, overwrite: bool) 
 
     shutil.copy2(src=prj_file, dst=projection_prj)
     projection_schema: dict[str, object] = {"geometry": "Point", "properties": {"id": "str"}}
-    with fiona.open(  # pyright: ignore[reportUnknownMemberType]
+    with fiona.open(
         projection_gpkg,
         mode="w",
         driver="GPKG",
         layer=projection_name,
         schema=projection_schema,
-        crs_wkt=wkt,
+        crs_wkt=output_wkt,
         encoding="UTF-8",
     ):
         pass
 
-    transform = from_origin(west=-0.5, north=0.5, xsize=1.0, ysize=1.0)  # pyright: ignore[reportUnknownVariableType]
-    with rasterio.open(  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+    transform = from_origin(west=-0.5, north=0.5, xsize=1.0, ysize=1.0)
+    with rasterio.open(
         fp=projection_tif,
         mode="w",
         driver="GTiff",
@@ -321,12 +334,12 @@ def _create_projection_files(*, prj_file: Path, gis_dir: Path, overwrite: bool) 
         height=1,
         count=1,
         dtype="float32",
-        crs=wkt,
+        crs=f"EPSG:{epsg}" if epsg is not None else wkt,
         transform=transform,
         nodata=-999.0,
         compress="deflate",
-    ) as dataset:  # pyright: ignore[reportUnknownVariableType]
-        dataset.write(np.zeros((1, 1, 1), dtype=np.float32))  # pyright: ignore[reportUnknownMemberType]
+    ) as dataset:
+        dataset.write(np.zeros((1, 1, 1), dtype=np.float32))
     logger.info("Created projection files in {}", gis_dir)
 
 
@@ -376,13 +389,13 @@ def _create_working_layer_from_empty(
         target_path.unlink()
 
     schema: dict[str, object] = _read_fiona_schema(source_path=source_path, source_layer=source_layer)
-    with fiona.open(  # pyright: ignore[reportUnknownMemberType]
+    with fiona.open(
         fp=source_path,
         layer=source_layer,
     ) as source:
-        crs_wkt: str | None = cast("str | None", source.crs_wkt)  # pyright: ignore[reportUnknownMemberType]
+        crs_wkt: str | None = source.crs_wkt
 
-    with fiona.open(  # pyright: ignore[reportUnknownMemberType]
+    with fiona.open(
         fp=target_path,
         mode="w",
         driver="GPKG",
@@ -396,7 +409,7 @@ def _create_working_layer_from_empty(
     return target_path
 
 
-def _read_fiona_schema(*, source_path: Path, source_layer: str) -> dict[str, object]:
+def read_empty_schema(*, source_path: Path, source_layer: str) -> dict[str, object]:
     """Read a complete Fiona schema, including fields Fiona may omit."""
     uri: str = f"file:{source_path.as_posix()}?mode=ro"
     with closing(sqlite3.connect(database=uri, uri=True)) as connection:
@@ -433,6 +446,11 @@ def _read_fiona_schema(*, source_path: Path, source_layer: str) -> dict[str, obj
             continue
         properties[column_name] = _fiona_field_type(declared_type)
     return {"geometry": geometry_name, "properties": properties}
+
+
+def _read_fiona_schema(*, source_path: Path, source_layer: str) -> dict[str, object]:
+    """Compatibility alias for the previously private schema helper."""
+    return read_empty_schema(source_path=source_path, source_layer=source_layer)
 
 
 def _quote_sql_identifier(identifier: str) -> str:

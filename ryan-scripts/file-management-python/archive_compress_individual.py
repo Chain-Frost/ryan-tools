@@ -186,7 +186,7 @@ def main(
                 else:
                     logger.error("[{}/{}] Failed {}: {}", finished, len(jobs), file_path.name, msg)
                     total_errors += 1
-    except (OSError, RuntimeError, ValueError):
+    except OSError, RuntimeError, ValueError:
         logger.exception("Archive worker pool failed.")
         return 1
 

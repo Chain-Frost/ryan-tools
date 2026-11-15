@@ -24,10 +24,12 @@ import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 import numpy as np
 import rasterio
+import rasterio.crs
+import rasterio.io
 from rasterio.enums import MaskFlags
 from rasterio.windows import Window
 
@@ -136,7 +138,7 @@ def stream_copy_eligibility(dataset: rasterio.io.DatasetReader) -> tuple[bool, s
         return False, f"band count is {dataset.count}, not one"
     if dataset.dtypes != ("float32",):
         return False, f"data type is {dataset.dtypes[0]}, not Float32"
-    if dataset.crs is None:
+    if cast("rasterio.crs.CRS | None", dataset.crs) is None:
         return False, "CRS is missing"
     if dataset.transform.b != 0.0 or dataset.transform.d != 0.0:
         return False, "grid transform is rotated or skewed"
@@ -177,7 +179,7 @@ def _has_colour_table(dataset: rasterio.io.DatasetReader) -> bool:
 
 def capture_raster_signature(dataset: rasterio.io.DatasetReader) -> RasterSignature:
     """Capture metadata whose equality is required after recompression."""
-    crs_wkt = dataset.crs.to_wkt() if dataset.crs is not None else None
+    crs_wkt = dataset.crs.to_wkt() if cast("rasterio.crs.CRS | None", dataset.crs) is not None else None
     dataset_metadata = _capture_metadata_domains(dataset)
     band_metadata = tuple(_capture_metadata_domains(dataset, band) for band in range(1, dataset.count + 1))
     return RasterSignature(
@@ -422,10 +424,10 @@ def _copy_raster_metadata(
     source: rasterio.io.DatasetReader,
     destination: rasterio.io.DatasetWriter,
 ) -> None:
-    destination.update_tags(**source.tags())
+    destination.update_tags(0, **source.tags())
     for namespace in source.tag_namespaces():
         if namespace not in _IGNORED_METADATA_NAMESPACES:
-            destination.update_tags(ns=namespace, **source.tags(ns=namespace))
+            destination.update_tags(0, ns=namespace, **source.tags(ns=namespace))
     destination.scales = source.scales
     destination.offsets = source.offsets
     destination.units = source.units

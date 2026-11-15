@@ -1,5 +1,8 @@
 """Tests for the active RORB closure-duration orchestrator."""
 
+# Unit tests intentionally exercise the implementation helpers under test.
+# pyright: reportPrivateUsage=false
+
 from pathlib import Path
 from unittest.mock import patch
 
@@ -31,7 +34,7 @@ def mock_hydro_results():
     )
 
 
-def test_collect_batch_data_success(mock_batch_data):
+def test_collect_batch_data_success(mock_batch_data: pd.DataFrame):
     with patch("ryan_library.orchestrators.rorb.closure_durations.find_batch_files") as mock_find:
         with patch("ryan_library.orchestrators.rorb.closure_durations.parse_batch_output") as mock_parse:
             mock_find.return_value = [Path("batch.out")]
@@ -54,7 +57,7 @@ def test_collect_batch_data_empty():
         assert df.empty
 
 
-def test_process_hydrographs_success(mock_batch_data, mock_hydro_results):
+def test_process_hydrographs_success(mock_batch_data: pd.DataFrame, mock_hydro_results: pd.DataFrame):
     with patch("ryan_library.orchestrators.rorb.closure_durations.analyze_hydrograph") as mock_analyze:
         mock_analyze.return_value = mock_hydro_results
 
@@ -65,7 +68,7 @@ def test_process_hydrographs_success(mock_batch_data, mock_hydro_results):
         mock_analyze.assert_called_once()
 
 
-def test_summarise_results(mock_hydro_results):
+def test_summarise_results(mock_hydro_results: pd.DataFrame):
     # Mock median_stats_func
     with patch("ryan_library.orchestrators.rorb.closure_durations.median_stats_func") as mock_stats:
         mock_stats.return_value = (
@@ -87,7 +90,7 @@ def test_summarise_results(mock_hydro_results):
         assert summary.iloc[0]["Central_Value"] == 5.0
 
 
-def test_run_closure_durations_success(mock_batch_data, mock_hydro_results):
+def test_run_closure_durations_success(mock_batch_data: pd.DataFrame, mock_hydro_results: pd.DataFrame):
     with patch("ryan_library.orchestrators.rorb.closure_durations.setup_logger"):
         with patch("ryan_library.orchestrators.rorb.closure_durations._collect_batch_data") as mock_collect:
             with patch("ryan_library.orchestrators.rorb.closure_durations._process_hydrographs") as mock_process:

@@ -9,6 +9,10 @@ script need not be migrated into a wrapper or an orchestrator merely to remain
 maintained; historical/versioned snapshots retain their intentional behaviour.
 The TUFLOW runner and its command TXT exports target Windows.
 
+The `gis_processing/apply_qgis_styles_to_results.py` wrapper leaves `1d_ccA`
+layers, including those inside `Results1D.gpkg`, to the built-in styling in
+the TUFLOW QGIS plugin. It does not style these layers by default.
+
 ## Input checker reports
 
 The simulation runner reports input findings with the run number, TCF and
@@ -17,8 +21,9 @@ line number, full parsed model command, input reference and lookup details.
 Paths within each run's working directory are shown relative to that directory.
 Launch commands, export destinations, CSV-history locations and configured-file
 warnings also use paths relative to the runner working directory where possible.
-External paths remain absolute. This presentation does not change subprocess
-arguments, working directories or absolute CSV execution-history provenance.
+External paths remain absolute. CSV history similarly displays TCF paths
+relative to each run's working directory when they lie within it, without
+changing the absolute subprocess arguments or Resume identity.
 During normal execution, input checking is advisory and runs in a daemon
 thread alongside model launches; its findings do not block launches.
 `--preflight-only` waits for checking, returns failure for input issues and
@@ -245,9 +250,19 @@ runner colours log levels and message text, including green SUCCESS messages.
 Copied wrappers need version `2026-11-03.3` or newer for this console format.
 Settings matching current library defaults are grey; changed values and required
 paths are cyan. The baseline includes `-b`, LOW priority, minimized windows,
-automatic GPU placement and a two-second launch delay; it does not change when
-you edit the wrapper. Run controls compare against run/resume, export and input
-checks enabled, INFO logging, pause enabled and no follow-up script.
+automatic GPU placement and a two-second launch cooldown; it does not change when
+you edit the wrapper. `WAIT_TIME_AFTER_RUN` (overridden by `--launch-delay`)
+enforces **both** a minimum gap between TUFLOW process starts (globally across
+GPU slots) **and** a cooldown after the scheduler observes a run ending,
+whether successfully or unsuccessfully. A failed `Popen` attempt also starts
+the cooldown. A completion can extend an existing deadline; no new queued
+run starts before the most recent cooldown expires. Active runs continue in
+parallel, and initial launches into different GPU slots are still spaced.
+`WAIT_TIME_AFTER_RUN = 0` disables these cooldowns without changing the
+number of configured GPU slots. Waiting is interruptible and does not add a
+cooldown when no more launches remain. The effective setting is logged before
+execution. Run controls compare against run/resume, export and input checks
+enabled, INFO logging, pause enabled and no follow-up script.
 
 On interruption, the wrapper prints `Batch interrupted.` when `NEXT_RUN_FILE`
 is `None`. It mentions that a follow-up was not started only when one was
@@ -475,9 +490,17 @@ a project-wide or network-wide history. The CSV is an append-only START / FINISH
 / RESET log of observed process outcomes. No saved run manifest or additional
 session directory is required. Each `recorded_at` value uses the local computer's
 timezone and includes its UTC offset; existing timezone-aware UTC rows remain valid.
-New CSVs place operator-facing fields first: timestamp, event, outcome, return code,
-TCF, PID and error. Command context follows, while run hashes and schema metadata are
-last. Existing CSVs retain their original column order and remain readable and appendable.
+New CSVs place operator-facing fields first: timestamp, event, outcome,
+return code, PID, error, **run arguments**, then **TCF path**. Working directory,
+executable, run key, attempt ID and schema metadata follow. The `tcf` field and
+the explicit TCF argument in `arguments` use paths relative to that run's
+`working_directory` when contained there. The working directory stays absolute
+as the reference point, and TCF paths outside it (including other drives or
+UNC shares) remain absolute. These formatting changes do not affect the actual
+TUFLOW launch, model identity or Resume matching. Existing CSVs retain their
+original header/column order and complete earlier records without rewriting
+the append-only history; new appended records use readable TCF paths, even
+when an older column order is retained.
 
 **Resume is the default.** The runner regenerates the full current plan and
 selects its launch queue using the CSV:
@@ -550,8 +573,12 @@ policies, closest-source mean, upper median and optional executable-comparison b
 `raster_processing/run_asc_to_asc_mean_then_maximum.py` and
 `raster_processing/run_asc_to_asc_median_then_maximum.py` share one generic
 statistic-then-maximum orchestrator. They aggregate temporal patterns for each
-duration, then take the maximum across durations. With `--source`, the final
-source legend resolves directly to the original temporal-pattern rasters.
+duration, then take the maximum across durations. Source rasters and CSV legends
+are enabled by default, with `--no-source` to disable them. Each source legend
+includes the original input path and `cell_count`, the number of raster cells
+assigned that source ID. The final legend resolves directly to the original
+temporal-pattern rasters. All-NoData cells stay NoData; for depth/velocity,
+partial NoData contributes zero only where another input is valid.
 The mean wrapper defaults to ASC_to_ASC selection: its value raster contains
 the arithmetic mean and its source identifies the lowest contributing TP value
 at or above the mean. `MEAN_VALUE_METHOD` or `--mean-value-method` can instead
@@ -567,6 +594,14 @@ untagged, their source coordinates are assumed to already align.
 The default masked-bilinear sampler returns NoData only when the profile
 station's containing raster cell is NoData; adjacent NoData cells are excluded
 and the remaining interpolation weights are renormalised.
+Profile PNGs are rendered into unique, invocation-owned files in the destination
+directory, then published only after successful rendering. Set `OVERWRITE_EXISTING = False` or
+`--no-overwrite-existing` to prevent replacement even if an output appears
+after preflight. Existing case-only filename aliases are also rejected.
+Explicit overwrite replaces the requested output only after rendering.
+If atomic no-overwrite publication is unsupported by a filesystem, the operation
+fails without publishing a partial PNG. Profiles publish independently: if a
+later profile fails, earlier completed PNGs remain.
 
 Only the single-layer GeoPackage renamer,
 [`gis_processing/rename_geopackage_layer_to_filename.py`](gis_processing/rename_geopackage_layer_to_filename.py),
@@ -575,6 +610,48 @@ or an explicitly configured target directory). Nested files retain their
 relative subfolder names; full paths are still used for file operations.
 Green denotes a successful layer rename, yellow a skipped file (already
 correct or multiple layers), and red a failed inspection or rename.
+
+## Supported result naming and maximums
+
+Before combining results, give **each distinct simulation a unique full run code** with its intended
+scenario, AEP, duration and TP. Companion `Q`/`V`/`H`/`Cmx`/`Nmx`/`Chan`/`EOF` files from a
+single run intentionally share that code; `trim_runcode` groups an ensemble and must not identify distinct
+simulations. The four 1D culvert reports use culvert `.1`/`.2` end nodes, not arbitrary networks.
+Reported peak flow, velocity and upstream/downstream water levels are **independent maxima** and may occur
+at different simulation times. The precise filename example, supported assumptions and report-column
+interpretation are in the [processor contract](../../ryan_library/processors/tuflow/README.md#supported-run-identifiers-and-culvert-maximums).
+
+## PO timeseries QA dashboards
+
+[check_po_timeseries_peaks.py](po_and_timeseries/check_po_timeseries_peaks.py) and
+[check_timeseries_stability.py](po_and_timeseries/check_timeseries_stability.py)
+support the shared Rich dashboard for interactive CSV batches, with editable
+`USE_LIVE_DASHBOARD`, `LIVE_REFRESH_PER_SECOND` and `LIVE_MAX_ROWS`
+and CLI overrides. `--no-live-dashboard` retains ordinary logging without
+changing file selection, result calculations or export formats.
+An empty selection or no matching data is a successful skip without output.
+Worker or exporter failures are logged, marked FAILED, and give nonzero exit
+without claiming a completed report. Existing output collisions remain protected
+by the shared exporter. Headless use adds `--no-pause`; do not confuse console
+pausing with live-render enablement.
+
+## POMM peak and closure-duration dashboards
+
+[create_pomm_mean_peak_report.py](po_and_timeseries/create_pomm_mean_peak_report.py),
+[create_pomm_median_peak_report.py](po_and_timeseries/create_pomm_median_peak_report.py)
+and [calculate_po_closure_durations.py](po_and_timeseries/calculate_po_closure_durations.py)
+also expose editable `USE_LIVE_DASHBOARD`, `LIVE_REFRESH_PER_SECOND`,
+`LIVE_MAX_ROWS` and standard `--live-dashboard` / `--no-live-dashboard`
+flags. The renderer remains active through aggregation and protected report
+publication. An empty report is SKIPPED (exit 0); a processing/export
+exception is FAILED (nonzero exit). Existing mean/median selection, closure
+duration mathematics, filenames and raw CSV/Parquet sidecars are unchanged.
+
+The POMM and closure workflows currently display **one overall task**, not
+unverified per-file success counts. Complete partial-input failure attribution
+awaits the shared processor/discovery outcome contracts in #195/#219/#223,
+and calculation correctness remains owned by #216/#217/#215. Do not interpret
+a workflow SUCCESS as independent native TUFLOW or project-data acceptance.
 
 ## Culvert, PO and POMM result dashboards
 
@@ -632,6 +709,41 @@ repository-root `PYTHONPATH` workaround is not supported. For a headless run:
 ```powershell
 py -3.14 .\culvert_results\combine_culvert_maximums.py --working-directory "Q:\Model\results" --no-live-dashboard --no-pause
 py -3.14 .\po_and_timeseries\combine_pomm_results.py --working-directory "Q:\Model\results" --export-mode both --no-pause
+```
+
+## Append to an existing master TUFLOW log workbook
+
+[append_log_summary_to_master_workbook.py](log_processing/append_log_summary_to_master_workbook.py)
+requires an explicitly selected, existing `.xlsx` workbook: edit `MASTER_WORKBOOK`
+or supply `--master-workbook`. The default `WORKING_DIR = None` searches the
+current directory. Select `--working-directory` to scan a different result root;
+relative workbook paths use that effective working directory.
+
+The script skips rows already represented in the master, retains the dashboard
+through workbook publication and returns a nonzero exit for failed parsing,
+partial batches and failed saving. An incomplete-only batch with no completed
+new logs is SKIPPED without changing the workbook. A partial batch can append
+the successfully completed rows but still exits nonzero; check diagnostics.
+
+Saving uses a temporary sibling `.xlsx` and replaces the master only after
+successful writing. The master is intentionally modified, so keep a separate
+backup. The script refuses `.xlsm` rather than remove macros. It also refuses
+symbolic- or hard-linked workbook files, rather than silently replacing the
+link with a detached workbook. Mapped drive and UNC parent directories are
+not rejected merely because they are mapped paths. On Windows, a disposable
+same-directory calibration must distinguish genuine one-name and two-name
+hardlinks before the master can be replaced. Shares that cannot enumerate
+hardlinks reliably are **unsupported for master append** and fail before
+publication, even if ordinary file IDs or link counts appear valid. The tested
+SMB server has this limitation; use an unlinked local NTFS workbook instead.
+An exclusive `.master.xlsx.writing` claim covers discovery through publication
+and prevents cooperating writers losing rows. A crash can leave the claim;
+check its owner before removing it manually. External editors do not honor
+this claim; close Excel before appending. `PAUSE_ON_FINISH` is editable; `--no-pause` prevents
+interactive waiting. For an unattended invocation:
+
+```powershell
+py -3.14 .\log_processing\append_log_summary_to_master_workbook.py --master-workbook "D:\Hydraulics\master.xlsx" --working-directory "D:\Hydraulics\results" --no-live-dashboard --no-pause
 ```
 
 ## Wrapper folders
@@ -694,6 +806,41 @@ headless invocation, include `--no-pause`:
 py -3.14 .\log_processing\create_log_summary_report.py --working-directory "D:\Model\results" --no-pause
 py -3.14 .\po_and_timeseries\combine_pomm_results.py --export-mode parquet --no-pause
 ```
+
+## TUFLOW log-summary diagnostic fields and optional HPC observations
+
+The maintained [log-summary wrapper](log_processing/create_log_summary_report.py) extracts
+typed final-summary warning/CHECK, 1D-negative-depth and HPC repeat/NaN counters
+from the **main TLF** by default. Quadtree ZC/ZU/ZV/ZH mesh counts are also
+reported when explicitly present. Missing source fields stay empty; quadtree
+ZC cells must not be interpreted as HPC active 2D cells.
+
+The wrapper constant `INCLUDE_HPC_COMPANION_METRICS = False` controls a
+separate, **opt-in** full read of conventional, same-folder
+`<run-code>.hpc.tlf` companions. Set it to `True` only when extra read
+traffic is acceptable for that dataset/network location. From Python use
+`process_log_file(path, include_hpc_companion_metrics=True)` or
+`TLFProcessor(file_path=path).process(include_hpc_companion_metrics=True)`.
+Normal discovery still creates exactly one report row for each main TLF;
+HPC companions do not become standalone runs.
+
+When opted in, the report gives companion path/status, explicitly reported
+**active 2D**, **sealed-wall** and separately labelled **groundwater active**
+and **groundwater sealed-wall** populations (when present), the number of sampled `iStep` records and
+`HPC_nWet_Observed_Max`. This is a **maximum over logged samples**, not a
+guaranteed whole-run/per-timestep maximum. A successful main TLF alone
+does not prove the companion history is complete. Companion status is
+`missing`, `observed`, `incomplete`, `changed_during_read`,
+`multiple_domains` or `unreadable`; `observed` does not mean a
+complete timestep series. The reader uses bounded lines, skips partial
+last records, performs a non-exclusive read and checks for file changes.
+It never sums multiple-domain populations, invents zero-valued missing
+counts or touches unrelated `.hpc.dt.csv` or mass-balance files.
+
+Each field and its units are documented in the
+[data dictionary](../../ryan_library/classes/column_definitions.json).
+Windows/SMB active-writer I/O performance has not been benchmarked; the
+opt-in default must remain disabled until that acceptance is available.
 
 ## Check recent TUFLOW user activity
 
@@ -772,6 +919,79 @@ The reusable Python function `fetch_codemeter_snapshot()` also accepts `firm_cod
 unattributable quantity rows are suppressed with a warning rather than reported against the wrong vendor.
 
 ## POMM peak wrapper migration
+
+### Supported peak inputs
+
+The mean and median POMM peak reports accept `POMM` and `RLL_Qmx` by default and
+retain both source types in the raw POMM worksheet. Reporting-location line
+maximums retain their source `file`, `Chan ID`, signed `Q` (`Qmax`) and
+`Type = Q`; the common `Location` field is derived from `Chan ID`.
+POMM `Type = Flow` remains distinct from RLL `Type = Q`, so the reporting
+groups are not silently merged.
+
+For RLL, `AbsMax = abs(Qmax)` and `SignedAbsMax = Qmax`. This is the magnitude
+of the **reported signed maximum**, not a reconstructed absolute extremum
+across the entire time series. Unlike POMM `AbsMax`, which uses both the
+reported time-series maximum and minimum, an RLL file cannot supply an
+unreported negative minimum. Peak reports retain that measurement distinction;
+they must not be interpreted as proving the two input quantities have
+identical sampling semantics.
+
+### Finite TP populations, counts and source provenance
+
+POMM median and mean statistics rank only finite hydraulic values; valid zero
+values are retained. Each duration's `count_TP` is the number of finite
+contributing observations, not the size of the raw bin; `count_TP_aep` is
+their sum across durations, and `count_duration` is the number of duration
+bins with at least one finite observation. The separate unusable-TP/bin
+counts and `tp_population_status` (`OK`, `PARTIAL`, `UNUSABLE`) disclose
+observed invalid values. They do not infer unobserved runs or processing
+failures absent from the input inventory. All-invalid bins cannot govern a
+peak statistic.
+
+For ten finite TP records the median is the sixth sorted record (upper-middle
+rule), not the arithmetic midpoint of ranks five and six. The mean
+representative is the *observed* event closest to the arithmetic mean, and
+the final mean peak chooses the largest of these duration-level representative
+values. Mean-distance ties select the lower observed value; ties on the
+same value use increasing TP identifier, then run name/source filename.
+The selected `mean_TP`, `mean_Duration`, `mean_PeakFlow`,
+`mean_internalName` and `mean_file` all come from the same input row.
+Median `internalName` and `file` likewise refer to the upper-middle
+selected event. A final peak table preserves the contributing event count
+rather than overwriting it with the number of duration bins.
+
+Culvert discharge reports also require finite `Q`; a geometry-only
+`Height` field cannot become the governing peak metric. Duration-level
+culvert `count` represents finite-Q contributing observations,
+`count_total` the observed input rows and `count_unusable` their difference.
+The independent per-field maxima contract is unchanged: adopted flow,
+velocity and water levels are values from the selected representative run,
+not reconstructed coincident-timestep peak measurements.
+
+### Mean peak coverage findings
+
+`po_and_timeseries/create_pomm_mean_peak_report.py` adds coverage findings to `aep-mean-max`,
+independently for each AEP, PO location, result type and run/scenario. Existing peak selection is unchanged.
+The new columns show the minimum and maximum tested duration in minutes, the sampled duration list,
+missing intermediate durations, and separate warnings for:
+
+- A selected peak sourced from the shortest or longest tested duration (both when only one was tested).
+- Any duration bin with a sampled input count (finite contributors **plus** known non-finite samples) other than `EXPECTED_TP_COUNT` records (default 10), including non-winning bins.
+- Any duration bin with known non-finite samples, reported separately in `hydraulic_population_warning`; complete sampled input coverage does not imply complete valid hydraulic observations.
+- Missing standard durations between the tested bounds, unrecognised duration labels or non-standard durations.
+
+`findings_status` is `WARNING` if any check fires, otherwise `OK`. These are coverage findings, not a
+model-validity assessment. The expected TP coverage check counts observed records, while `count_TP` in the statistic tables counts only **finite contributing values**. The separate unusable counts and warning keep invalid values visible. Neither count proves that all temporal-pattern identities are distinct.
+For example, sampling 30, 60 and 120 minutes reports gaps at 45 and 90 minutes. Durations outside the
+sampled bounds are not labelled missing; the boundary warning identifies a potentially truncated peak search.
+
+The editable `STANDARD_DURATIONS_MINUTES` uses the
+[ARR Storm Generator duration sequence](https://help-innovyze.atlassian.net/wiki/spaces/arr2016/pages/14614606/Editing+the+Properties+of+ARR+Storms).
+Some listed durations are optional in downloaded ARR datasets: adopt the study's intended sequence explicitly
+when it differs. The effective schedule and expected ensemble size are recorded in the workbook data dictionary.
+Library callers can pass `standard_durations` and `expected_tp_count` to `export_mean_peak_report`,
+`save_peak_report_mean` or `find_aep_mean_max`. Updated wrappers require the matching updated library package.
 
 The maintained mean and median POMM peak wrappers use
 `ryan_library.orchestrators.tuflow.pomm_max_items` directly. The deprecated
@@ -944,6 +1164,54 @@ or change `ROOT_DIR` in the script.
 
 Verify first on a disposable copy of model results, particularly on network drives.
 
+## Crop an ordered TGC terrain stack
+
+Active `Read Grid Zpts` commands must be in the root TGC. Terrain commands
+loaded through `Read File` includes are rejected before planning or writing
+outputs; publishing patched include hierarchies is not supported.
+
+[`crop_tgc_terrains.py`](crop_tgc_terrains.py) creates smaller copies of the
+`Read Grid Zpts` rasters active for one scenario. PyTUFLOW evaluates the TGC's
+scenario scopes and preserves command order; the script does not implement a
+second TUFLOW conditional parser and intentionally accepts only one `-s1`
+scenario value.
+
+The supplied analysis box is a hard outer limit. Within it, later terrain reads
+have precedence. Lower layers retain their uniquely required area plus the
+default 50 m seam allowance, leaving deliberate overlap around dataset edges
+without retaining deep redundant overlap. Source elevations stay on their
+native grids and are not reprojected or resampled. Optional `|` polygon masks
+participate in coverage planning and remain on the corresponding patched TGC
+commands.
+
+The default is plan-only. `--write` creates new losslessly compressed rasters
+using the shared ryan-tools `tuflow` GeoTIFF profile: DEFLATE, predictor 2,
+conservative strips, GDAL threading and BigTIFF when safer. It also creates a
+new `_SCENARIO_cropped.tgc` beside the source TGC, a JSON manifest,
+and a `terrain_coverage_qa.gpkg` for review in QGIS. The QA GeoPackage
+contains original raster footprints, per-layer valid coverage within the
+analysis bounds, clipped-out portions, the requested minimum coverage extent,
+observed final clipped extent, remaining coverage gaps and any valid coverage
+lost during trimming. All valid-coverage comparisons use the **planning-grid
+resolution**, so they are not proof of exact native-resolution equivalence.
+Written-raster QA retains each original polygon clip, including where native
+pixels cross planning-cell boundaries. It refuses to overwrite any destination
+and never edits original rasters or TGCs.
+
+```powershell
+py -3.14 .\ryan-scripts\TUFLOW-python\crop_tgc_terrains.py `
+  --tgc "Q:\Project\TUFLOW\model\GEOM_01.tgc" `
+  --scenario EXG `
+  --bounds 700000 7400000 750000 7450000 `
+  --crs EPSG:28350 `
+  --buffer 50 `
+  --output-dir "Q:\Project\TUFLOW\terrain\cropped_EXG" `
+  --write --no-pause
+```
+
+The planning grid controls coverage-mask precision only; it does not change
+terrain resolution. Review the manifest and compare a TUFLOW `DEM_Z` check
+against the original stack before replacing a production TGC reference.
 
 ## Result-wrapper path and label-output safety
 

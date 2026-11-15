@@ -12,8 +12,11 @@ import sys
 import zipfile
 from collections import Counter
 from dataclasses import asdict, replace
+from importlib import metadata
 from pathlib import Path
 from typing import cast
+from urllib.parse import urlsplit
+from urllib.request import url2pathname
 
 import pytest
 
@@ -23,7 +26,7 @@ from ryan_library.orchestrators.tuflow.command_preflight import check_command_pl
 
 DATA = Path(__file__).absolute().parents[2] / "test_data/tuflow/example_input_preflight"
 REQUIREMENT = Path(__file__).absolute().parents[3] / "repo-scripts/pytuflow-requirement.txt"
-ARCHIVE_SHA256 = "e374c8e072679fc6c4dc11e63b270caa1101b6aebb84d70060872cdd1b0aa7d6"
+ARCHIVE_SHA256 = "4f90b77044b3247cf7bdb5154d84d1a74da6c669cd1d28d3f2e6089063f2d141"
 pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="Example BAT plans require native Windows paths")
 
 # The seven selected 1D BC defects and one rainfall-triangle defect in the
@@ -40,7 +43,7 @@ def example_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
     expected = {str(entry["path"]): entry for entry in entries}
     root = tmp_path_factory.mktemp("tuflow-examples")
     with zipfile.ZipFile(archive) as source:
-        assert len(source.namelist()) == len(expected) == 1464
+        assert len(source.namelist()) == len(expected) == 1465
         assert set(source.namelist()) == set(expected)
         for member in source.infolist():
             # Resolve deliberately: archive extraction must remain inside its temporary root across links.
@@ -122,8 +125,28 @@ def test_example_batch_inventory(example_plan: CommandPlan) -> None:
 def test_all_example_models_public_validation(example_plan: CommandPlan, tmp_path: Path) -> None:
     """Require clean preflight for all public example models with the updated validator."""
     diagnostic = require_validation_api().diagnostic
-    expected_source = REQUIREMENT.read_text(encoding="utf-8").strip().split("@", 1)[1].strip()
-    assert expected_source in diagnostic.source, diagnostic.message
+    # A local wheel must retain its installed archive URL AND accepted digest.
+    # Version equality or matching public methods alone cannot identify the fork.
+    relative_wheel = REQUIREMENT.read_text(encoding="utf-8").strip()
+    expected_wheel = (REQUIREMENT.parent.parent / relative_wheel).absolute()
+    assert expected_wheel.is_file()
+    raw_direct_url = metadata.distribution("pytuflow").read_text("direct_url.json")
+    assert raw_direct_url is not None, diagnostic.message
+    direct_url = cast(dict[str, object], json.loads(raw_direct_url))
+    source_url = direct_url.get("url")
+    assert isinstance(source_url, str), diagnostic.message
+    parts = urlsplit(source_url)
+    assert parts.scheme == "file", diagnostic.message
+    # Resolve deliberately to compare physical installed source with the checked wheel.
+    assert Path(url2pathname(parts.path)).resolve() == expected_wheel.resolve(), diagnostic.message
+    archive_info = direct_url.get("archive_info")
+    assert isinstance(archive_info, dict), diagnostic.message
+    source_info = cast(dict[str, object], archive_info)
+    hashes = source_info.get("hashes")
+    sha = cast(dict[str, object], hashes).get("sha256") if isinstance(hashes, dict) else None
+    accepted_sha = "41facdb3b220a9d032e7fb7e3a5ea94dee76a0e910fbeb0a5caf44289a6f4870"
+    assert sha == accepted_sha or source_info.get("hash") == f"sha256={accepted_sha}", diagnostic.message
+    assert expected_wheel.name in diagnostic.source, diagnostic.message
     output = Path(os.environ.get("TUFLOW_EXAMPLE_REPORT_DIR", str(tmp_path))).absolute()
     output.mkdir(parents=True, exist_ok=True)
     groups: dict[Path, list[PlannedRun]] = {}
@@ -135,9 +158,10 @@ def test_all_example_models_public_validation(example_plan: CommandPlan, tmp_pat
         plan = replace(example_plan, runs=tuple(runs))
         report = check_command_plan(plan)
         report.write_csv(output / f"{tcf.stem}-issues.csv")
-        if not report.passed or report.completed_runs != len(runs) or report.issues:
+        if not report.passed or report.completed_runs != len(runs) or report.issues or report.warnings:
             unexpected_failures.append(
-                f"{tcf.name}: {len(report.issues)} issue(s), {report.completed_runs}/{len(runs)} runs checked"
+                f"{tcf.name}: {len(report.issues)} issue(s), {len(report.warnings)} warning(s), "
+                f"{report.completed_runs}/{len(runs)} runs checked"
             )
         rows.append(
             {

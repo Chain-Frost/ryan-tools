@@ -21,10 +21,35 @@ from uuid import uuid4
 
 from loguru import logger
 
-from .command_plan import CommandPlan, CommandPlanError, PlannedRun, effective_executable, partition_model_arguments
+from .command_plan import (
+    CommandPlan,
+    CommandPlanError,
+    PlannedRun,
+    effective_executable,
+    normalize_plan_path,
+    partition_model_arguments,
+    validate_run_arguments,
+)
 
 SCHEMA_VERSION = "1"
 COLUMNS = (
+    "recorded_at",
+    "event",
+    "outcome",
+    "return_code",
+    "pid",
+    "error",
+    "arguments",
+    "tcf",
+    "working_directory",
+    "executable",
+    "run_key",
+    "attempt_id",
+    "schema_version",
+)
+# Both earlier column orders remain readable and appendable without rewriting
+# the operator's durable, append-only execution history.
+_PREVIOUS_COLUMNS = (
     "recorded_at",
     "event",
     "outcome",
@@ -54,7 +79,7 @@ _LEGACY_COLUMNS = (
     "pid",
     "error",
 )
-_SUPPORTED_COLUMN_ORDERS = (COLUMNS, _LEGACY_COLUMNS)
+_SUPPORTED_COLUMN_ORDERS = (COLUMNS, _PREVIOUS_COLUMNS, _LEGACY_COLUMNS)
 _HEX_SHA = re.compile(r"[0-9a-f]{64}")
 _HEX_ATTEMPT = re.compile(r"[0-9a-f]{32}")
 
@@ -105,6 +130,46 @@ def _canonical_arguments(run: PlannedRun) -> tuple[tuple[tuple[str, str], ...], 
     return tuple(sorted(flags)), tuple(token.casefold() for token in engine)
 
 
+def _display_tcf_path(run: PlannedRun) -> str:
+    """Show a TCF relative to its actual launch directory when contained there.
+
+    Use lexical path operations only: neither model files nor SMB paths are
+    accessed for logging. Windows drive letters and UNC shares are compared
+    with Windows path semantics, even in cross-platform tests.
+    """
+    tcf = normalize_plan_path(run.tcf)
+    directory = normalize_plan_path(run.working_directory)
+    if isinstance(tcf, PureWindowsPath) != isinstance(directory, PureWindowsPath):
+        return str(run.tcf)
+    try:
+        return str(tcf.relative_to(directory))
+    except ValueError:
+        return str(run.tcf)
+
+
+def _display_run_arguments(run: PlannedRun, readable_tcf: str) -> str:
+    """Format the diagnostic command without altering the executable run plan."""
+    arguments = list(run.arguments)
+    if readable_tcf == str(run.tcf):
+        return subprocess.list2cmdline(arguments)
+
+    # A TCF may occur before or after the switches, or be provided separately
+    # (a bare -eN/-sN command). Only replace an explicit TCF argument, never
+    # an event/scenario *value* that happens to end in .tcf.
+    _, explicit_tcf = validate_run_arguments(run.arguments)
+    if explicit_tcf is not None:
+        index = 0
+        while index < len(arguments):
+            if re.fullmatch(r"-[es][1-9]", arguments[index], flags=re.IGNORECASE):
+                index += 2
+                continue
+            if arguments[index] == explicit_tcf:
+                arguments[index] = readable_tcf
+                break
+            index += 1
+    return subprocess.list2cmdline(arguments)
+
+
 def identify_runs(plan: CommandPlan, *, fallback_executable: Path, base_directory: Path) -> dict[int, RunIdentity]:
     """Identify all logical occurrences *before* filtering for Resume.
 
@@ -131,12 +196,13 @@ def identify_runs(plan: CommandPlan, *, fallback_executable: Path, base_director
         ordinal = occurrences.get(payload, 0) + 1
         occurrences[payload] = ordinal
         key = hashlib.sha256(json.dumps([payload, ordinal], ensure_ascii=False).encode("utf-8")).hexdigest()
+        readable_tcf = _display_tcf_path(run)
         identities[run.index] = RunIdentity(
             key,
             executable,
-            str(run.tcf),
+            readable_tcf,
             str(run.working_directory),
-            subprocess.list2cmdline(list(run.arguments)),
+            _display_run_arguments(run, readable_tcf),
         )
     return identities
 

@@ -25,6 +25,8 @@ from ryan_library.classes.suffixes_and_dtypes import (
 from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 from ryan_library.functions.dataframe_helpers import reorder_long_columns
 
+from .source_fingerprint import source_signature
+
 
 # Custom Exceptions
 class ProcessorError(Exception):
@@ -73,6 +75,16 @@ class BaseProcessor(ABC):
     df: pd.DataFrame = field(default_factory=pd.DataFrame)
     raw_df: pd.DataFrame = field(default_factory=pd.DataFrame)
     processed: bool = field(default=False)
+    filtered_empty: bool = field(default=False, init=False)
+    selected_unusable: bool = field(default=False, init=False)
+    input_health: str = field(default="OK", init=False)
+    rejected_samples: int = field(default=0, init=False)
+    rejection_reasons: dict[str, int] = field(default_factory=lambda: cast("dict[str, int]", {}), init=False)
+    # An immutable input fingerprint captured before processing, not when exporting.
+    source_at_processing: dict[str, object] | None = field(default=None, init=False, repr=False)
+    source_entity_presence: dict[str, list[str]] = field(
+        default_factory=lambda: cast("dict[str, list[str]]", {}), init=False, repr=False
+    )
     include_path_columns: bool = field(default=True, repr=False)
     applied_location_filter: frozenset[str] | None = field(default=None, init=False, repr=False)
     applied_entity_filter: frozenset[str] | None = field(default=None, init=False, repr=False)
@@ -93,6 +105,9 @@ class BaseProcessor(ABC):
     def __post_init__(self) -> None:
         self.file_name = self.file_path.name
         self.resolved_file_path = self.file_path.absolute()  # Preserve public attribute name for existing callers.
+        self.source_at_processing = (
+            source_signature(self.resolved_file_path) if self.resolved_file_path.is_file() else None
+        )
         self.name_parser = TuflowStringParser(file_path=self.file_path)
         if self.name_parser.data_type is None:
             msg = "data_type was not set in TuflowStringParser for self.file_path.name"
@@ -292,7 +307,20 @@ class BaseProcessor(ABC):
             raise ConfigurationError(msg)
 
         # Depending on dataformat, load columns_to_use or expected_in_header
-        handled_formats: set[str] = {"Maximums", "ccA", "Timeseries", "POMM", "EOF", "TLF"}
+        handled_formats: set[str] = {
+            "Maximums",
+            "ccA",
+            "Timeseries",
+            "POMM",
+            "EOF",
+            "TLF",
+            "StructureState",
+            "SplitPO",
+            "LossCoefficient",
+            "NodeMassBalanceHistory",
+            "ModelMassBalanceHistory",
+            "NodeMassBalanceSummary",
+        }
 
         if self.dataformat in {"Maximums", "ccA", "POMM"}:
             self.columns_to_use: dict[str, str] = processing_parts.columns_to_use
@@ -324,6 +352,33 @@ class BaseProcessor(ABC):
         apply any bespoke transformations.
         """
 
+    def reset_processing_state(self) -> None:
+        """Clear outputs, outcomes and cached filters before a new processing attempt."""
+        self.df = pd.DataFrame()
+        self.raw_df = pd.DataFrame()
+        self.processed = False
+        self.filtered_empty = False
+        self.selected_unusable = False
+        self.applied_entity_filter = None
+        self.applied_location_filter = None
+        self.input_health = "OK"
+        self.rejected_samples = 0
+        self.rejection_reasons = {}
+        self.source_entity_presence = {}
+        # Refresh the source identity before each WP04 processing retry.
+        self.source_at_processing = (
+            source_signature(self.resolved_file_path) if self.resolved_file_path.is_file() else None
+        )
+
+    def record_rejections(self, reasons: dict[str, int]) -> None:
+        """Retain input-health evidence independently from hydraulic calculations."""
+        for reason, count in reasons.items():
+            if count > 0:
+                self.rejected_samples += count
+                self.rejection_reasons[reason] = self.rejection_reasons.get(reason, 0) + count
+        if self.rejected_samples:
+            self.input_health = "PARTIAL"
+
     def reorder_long_text_columns(self) -> None:
         """Move large width column names to the right side."""
         self.df = reorder_long_columns(df=self.df)
@@ -333,9 +388,6 @@ class BaseProcessor(ABC):
         """Return a normalized frozenset of non-empty locations."""
         if not locations:
             return frozenset()
-
-        if isinstance(locations, frozenset):
-            return locations
 
         normalized: set[str] = {str(location).strip() for location in locations if str(location).strip()}
         return frozenset(normalized)
@@ -356,8 +408,7 @@ class BaseProcessor(ABC):
 
         if self.df.empty:
             logger.debug("{}: DataFrame empty before entity filtering; skipping.", self.file_name)
-            self.applied_entity_filter = normalized_filter
-            return normalized_filter
+            return None
 
         candidate_column: str | None = next(
             (col for col in self.get_entity_id_columns() if col in self.df.columns), None
@@ -368,8 +419,7 @@ class BaseProcessor(ABC):
                 self.file_name,
                 self.get_entity_id_columns(),
             )
-            self.applied_entity_filter = normalized_filter
-            return normalized_filter
+            return None
 
         before_count: int = len(self.df)
         id_series: Series[str] = self.df[candidate_column].astype(str).str.strip()
@@ -411,7 +461,6 @@ class BaseProcessor(ABC):
 
         if self.df.empty:
             logger.debug("{}: DataFrame empty before location filtering; skipping.", self.file_name)
-            self.applied_location_filter = normalized_locations
             return normalized_locations
 
         identifier_column: str | None = (
@@ -424,7 +473,6 @@ class BaseProcessor(ABC):
                 "{}: Location filter provided but no supported identifier column is present; skipping filter.",
                 self.file_name,
             )
-            self.applied_location_filter = normalized_locations
             return normalized_locations
 
         before_count: int = len(self.df)
@@ -579,9 +627,18 @@ class BaseProcessor(ABC):
             raise
 
     def discard_raw_dataframe(self) -> None:
-        """Release the raw dataframe copy to reduce peak memory usage."""
+        """Release raw rows, retaining source-location evidence for later snapshots."""
         if self.raw_df.empty:
             return
+        if self.data_type in {"PO", "POMM"} and len(self.raw_df) > 1:
+            start_column = 1 if self.data_type == "PO" else 2
+            locations = {
+                str(item).strip()
+                for item in self.raw_df.iloc[1, start_column:].dropna()
+                if str(item).strip() and str(item).strip().casefold() != "time"
+            }
+            existing = set(self.source_entity_presence.get("Location", []))
+            self.source_entity_presence["Location"] = sorted(locations | existing)
         logger.debug("{}: Discarding raw_df with {} rows.", self.file_name, len(self.raw_df))
         self.raw_df = pd.DataFrame()
 
@@ -594,6 +651,9 @@ class BaseProcessor(ABC):
         """
         if self.df.empty:
             logger.warning(f"{self.file_name}: DataFrame is empty for file: {self.log_path}")
+            return False
+        if self.entity_filter and self.applied_entity_filter != self.normalize_locations(self.entity_filter):
+            logger.error("{}: Requested entity filter has not been applied to canonical IDs.", self.file_name)
             return False
         return True
 
@@ -663,7 +723,7 @@ class BaseProcessor(ABC):
                 filepath_or_buffer=self.file_path,
                 usecols=usecols,
                 header=0,
-                dtype=dtype,  # pyright: ignore[reportArgumentType]
+                dtype=dtype,
                 skipinitialspace=True,
             )
             logger.debug("CSV file '{}' read successfully with {} rows.", self.file_name, len(df))

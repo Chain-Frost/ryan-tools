@@ -1,7 +1,7 @@
 """Tests for path_stuff.py."""
 
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from ryan_library.functions.path_stuff import (
     convert_network_path_to_drive_letter,
@@ -42,7 +42,7 @@ def test_convert_to_relative_path_absolute_fallback():
 
 
 @patch("ryan_library.functions.path_stuff.is_relative_to_current_directory")
-def test_convert_to_relative_path_value_error_fallback(mock_is_relative):
+def test_convert_to_relative_path_value_error_fallback(mock_is_relative: MagicMock):
     # Force is_relative_to_current_directory to return True, but then relative_to raises ValueError
     mock_is_relative.return_value = True
     diff_path = Path("C:/non_existent_folder/file.txt")

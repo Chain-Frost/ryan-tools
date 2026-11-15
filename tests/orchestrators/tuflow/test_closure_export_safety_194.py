@@ -31,7 +31,7 @@ SUMMARY_REPORT = f"{REPORT_STEM}_Summary.parquet.gzip"
 
 class _FixedDateTime(datetime):
     @classmethod
-    def now(cls, tz: tzinfo | None = None) -> "_FixedDateTime":
+    def now(cls, tz: tzinfo | None = None) -> _FixedDateTime:
         return cls(2026, 11, 7, 12, 34, tzinfo=tz)
 
 

@@ -6,12 +6,14 @@ import logging
 import os
 import subprocess
 import sys
+import time
 from collections.abc import Callable, Collection, Generator
 from dataclasses import replace
 from datetime import datetime, timedelta
 from io import StringIO
+from itertools import pairwise
 from pathlib import Path
-from threading import Event
+from threading import Event, Timer
 from typing import cast
 
 import pytest
@@ -500,6 +502,212 @@ def test_import_and_generated_use_one_ordered_plan(tmp_path: Path) -> None:
     config = settings(tmp_path, mode="both", tcf=tmp_path / "Model A" / "one.tcf", input_files=(bat,))
     with pytest.raises(CommandPlanError, match="Python TCF"):
         runner.prepare_plan(config)
+
+
+@pytest.mark.parametrize("failed_first", [False, True])
+def test_interlaunch_spacing_includes_failed_start_attempts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failed_first: bool
+) -> None:
+    """Popen attempts are at least the requested interval apart across GPU slots."""
+    delay = 0.06
+    config = settings(
+        tmp_path,
+        run_variables={"e1": ["A", "B", "C"]},
+        gpu_devices=(("-pu0",), ("-pu1",)),
+        wait_time_after_run=delay,
+    )
+    plan = runner.prepare_plan(config)
+    monkeypatch.setattr(runner, "local_cuda_device_names", dict[int, str])
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    attempts: list[float] = []
+    gpu_assignments: list[str] = []
+
+    class HoldFirstProcess(FakeProcess):
+        def poll(self) -> int | None:
+            # Keep GPU0 occupied while the next queued run starts on GPU1.
+            if len(attempts) < 2:
+                return None
+            return super().poll()
+
+    def fake_popen(*, args: list[str], **_options: object) -> FakeProcess:
+        gpu = "-pu0" if "-pu0" in args else "-pu1"
+        assert gpu in args
+        gpu_assignments.append(gpu)
+        attempts.append(time.monotonic())
+        if failed_first and len(attempts) == 1:
+            message = "synthetic missing solver"
+            raise FileNotFoundError(message)
+        if not failed_first and len(attempts) == 1:
+            return HoldFirstProcess(801)
+        return FakeProcess(len(attempts) + 800)
+
+    outcome = runner.launch_plan(plan, config, popen=fake_popen)
+    assert len(attempts) == 3
+    assert all(second - first >= delay - 0.01 for first, second in pairwise(attempts))
+    if not failed_first:
+        assert gpu_assignments[:2] == ["-pu0", "-pu1"]
+    assert outcome.successful == (not failed_first)
+    assert sum(item.pid is None for item in outcome.outcomes) == int(failed_first)
+
+
+def test_failed_start_cooldown_does_not_wait_for_next_gpu_inspection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A failed Popen retries after the cooldown, not the 60-second GPU poll."""
+    config = settings(
+        tmp_path,
+        gpu_devices=(("-pu0",), ("-pu1",)),
+        wait_for_available_gpu=True,
+        gpu_check_interval_seconds=60.0,
+        wait_time_after_run=0.08,
+        use_live_dashboard=False,
+    )
+    plan = runner.prepare_plan(config)
+    monkeypatch.setattr(runner, "local_cuda_device_names", dict[int, str])
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+
+    def available_gpu(*_args: object, **_kwargs: object) -> runner.GpuAvailability:
+        return runner.GpuAvailability()
+
+    monkeypatch.setattr(runner, "_blocked_external_gpu_slots", available_gpu)
+    stop = Event()
+    raw_wait = stop.wait
+    waits: list[float] = []
+
+    def bounded_wait(timeout: float | None = None) -> bool:
+        assert timeout is not None
+        assert timeout <= 0.25, "GPU poll wait must not override a launch cooldown"
+        waits.append(timeout)
+        return raw_wait(timeout)
+
+    monkeypatch.setattr(stop, "wait", bounded_wait)
+    attempts: list[float] = []
+
+    def fake_popen(**_options: object) -> FakeProcess:
+        attempts.append(time.monotonic())
+        if len(attempts) == 1:
+            message = "synthetic startup failure"
+            raise FileNotFoundError(message)
+        return FakeProcess(802)
+
+    outcome = runner.launch_plan(plan, config, popen=fake_popen, interrupted=stop)
+    assert len(attempts) == 2
+    assert attempts[1] - attempts[0] >= config.wait_time_after_run - 0.01
+    assert waits
+    assert not outcome.successful
+    assert sum(item.pid is None for item in outcome.outcomes) == 1
+
+
+@pytest.mark.parametrize("exit_code", [0, 2])
+def test_next_launch_waits_after_observed_solver_completion(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, exit_code: int
+) -> None:
+    """A finished run starts a fresh cooldown even if its start was long ago."""
+    delay = 0.2
+    config = settings(
+        tmp_path,
+        run_variables={"e1": ["A", "B"]},
+        gpu_devices=(("-pu0",),),
+        wait_time_after_run=delay,
+    )
+    plan = runner.prepare_plan(config)
+    monkeypatch.setattr(runner, "local_cuda_device_names", dict[int, str])
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    launch_times: list[float] = []
+    finish_times: list[float] = []
+
+    class TimedProcess(FakeProcess):
+        def poll(self) -> int | None:
+            code = super().poll()
+            if code is not None and not finish_times:
+                finish_times.append(time.monotonic())
+            return code
+
+    def fake_popen(**_options: object) -> FakeProcess:
+        launch_times.append(time.monotonic())
+        if len(launch_times) == 1:
+            return TimedProcess(801, code=exit_code, polls_before_exit=3)
+        return FakeProcess(802)
+
+    outcome = runner.launch_plan(plan, config, popen=fake_popen)
+    assert len(launch_times) == 2
+    assert len(finish_times) == 1
+    assert launch_times[1] - finish_times[0] >= delay - 0.02
+    assert outcome.successful == (exit_code == 0)
+
+
+def test_zero_launch_delay_disables_start_and_completion_cooldowns(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Zero explicitly disables cooldowns even with multiple GPU slots."""
+    config = settings(
+        tmp_path,
+        run_variables={"e1": ["A", "B", "C"]},
+        gpu_devices=(("-pu0",), ("-pu1",)),
+        wait_time_after_run=0.0,
+    )
+    plan = runner.prepare_plan(config)
+    monkeypatch.setattr(runner, "local_cuda_device_names", dict[int, str])
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    stop = Event()
+    wait_calls: list[float | None] = []
+    actual_wait = stop.wait
+
+    def trace_wait(timeout: float | None = None) -> bool:
+        wait_calls.append(timeout)
+        return actual_wait(timeout)
+
+    monkeypatch.setattr(stop, "wait", trace_wait)
+    attempts: list[int] = []
+
+    def fake_popen(**_options: object) -> FakeProcess:
+        attempts.append(1)
+        return FakeProcess(900 + len(attempts))
+
+    outcome = runner.launch_plan(plan, config, popen=fake_popen, interrupted=stop)
+    assert outcome.successful
+    assert len(attempts) == 3
+    assert not wait_calls
+
+
+def test_interlaunch_wait_is_interruptible_without_starting_another_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An interrupt during the cooldown must not start the queued child."""
+    config = settings(
+        tmp_path,
+        gpu_devices=(("-pu0",), ("-pu1",)),
+        wait_time_after_run=2.0,
+    )
+    plan = runner.prepare_plan(config)
+    monkeypatch.setattr(runner, "local_cuda_device_names", dict[int, str])
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    stop = Event()
+    launched: list[int] = []
+    interrupt_timer: Timer | None = None
+
+    def fake_popen(**_options: object) -> FakeProcess:
+        nonlocal interrupt_timer
+        launched.append(1)
+        if len(launched) == 1:
+            # Signal during the two-second throttle, not before it begins.
+            interrupt_timer = Timer(0.05, stop.set)
+            interrupt_timer.start()
+        return FakeProcess(800 + len(launched))
+
+    start = time.monotonic()
+    try:
+        outcome = runner.launch_plan(plan, config, popen=fake_popen, interrupted=stop)
+    finally:
+        if interrupt_timer is not None:
+            interrupt_timer.join(timeout=1.0)
+    assert time.monotonic() - start < 1.0
+    assert outcome.interrupted
+    assert launched == [1]
 
 
 @pytest.mark.parametrize("source", ["-e1 A", 'SET "TCF=model.tcf"\\n-e1 A'])

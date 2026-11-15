@@ -1,7 +1,9 @@
 """Unit tests for ryan_library.processors.tuflow.base_processor."""
 
+from collections.abc import Callable
+from contextlib import AbstractContextManager
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
@@ -28,7 +30,7 @@ class MockProcessor(BaseProcessor):
 
 
 @pytest.fixture
-def mock_processor_file(tmp_path):
+def mock_processor_file(tmp_path: Path):
     # Create a file with a valid suffix that maps to a processor
     p = tmp_path / "Test_Run_001_1d_H.csv"
     p.touch()
@@ -61,14 +63,14 @@ class TestBaseProcessor:
             instance.aep = None
             yield instance
 
-    def test_base_processor_initialization(self, mock_processor_file):
+    def test_base_processor_initialization(self, mock_processor_file: Path):
         # We can instantiate MockProcessor directly
         processor = MockProcessor(file_path=mock_processor_file)
         assert processor.file_name == mock_processor_file.name
         assert processor.data_type == "H"  # Derived from suffix
         assert not processor.processed
 
-    def test_from_file_success(self, mock_suffixes_config, mock_parser):
+    def test_from_file_success(self, mock_suffixes_config: MagicMock, mock_parser: MagicMock):
         """Test factory method successfully creates a processor."""
         # Setup mocks
         mock_suffixes_config.get_definition_for_data_type.return_value = DataTypeDefinition(
@@ -85,19 +87,21 @@ class TestBaseProcessor:
                 processor = BaseProcessor.from_file(Path("test_file.csv"))
                 assert isinstance(processor, MockProcessor)
 
-    def test_from_file_no_data_type(self, mock_parser):
+    def test_from_file_no_data_type(self, mock_parser: MagicMock):
         """Test factory fails if no data type found."""
         mock_parser.data_type = None
         with pytest.raises(ValueError, match="No data type found"):
             BaseProcessor.from_file(Path("unknown.csv"))
 
-    def test_from_file_no_processor_class(self, mock_suffixes_config, mock_parser):
+    def test_from_file_no_processor_class(self, mock_suffixes_config: MagicMock, mock_parser: MagicMock):
         """Test factory fails if no processor class defined."""
         mock_suffixes_config.get_definition_for_data_type.return_value = None
         with pytest.raises(KeyError, match="No processor class specified"):
             BaseProcessor.from_file(Path("test.csv"))
 
-    def test_add_common_columns(self, mock_processor_file, change_cwd, tmp_path):
+    def test_add_common_columns(
+        self, mock_processor_file: Path, change_cwd: Callable[[Path], AbstractContextManager[None]], tmp_path: Path
+    ):
         with change_cwd(tmp_path):
             processor = MockProcessor(file_path=mock_processor_file)
             processor.process()  # Sets self.df
@@ -113,7 +117,7 @@ class TestBaseProcessor:
             assert processor.df["internalName"].iloc[0] == "Test_Run_001"
             assert processor.df["file"].iloc[0] == "Test_Run_001_1d_H.csv"
 
-    def test_filter_locations(self, mock_processor_file):
+    def test_filter_locations(self, mock_processor_file: Path):
         processor = MockProcessor(file_path=mock_processor_file)
         # Setup df with Location column
         processor.df = pd.DataFrame({"Location": ["LocA", "LocB", "LocC"], "Value": [1, 2, 3]})
@@ -143,7 +147,7 @@ class TestBaseProcessor:
         assert set(processor.df["Location"]) == {"LocA", "LocC"}
         assert processor.applied_location_filter == frozenset(locations)
 
-    def test_filter_locations_empty_filter(self, mock_processor_file):
+    def test_filter_locations_empty_filter(self, mock_processor_file: Path):
         processor = MockProcessor(file_path=mock_processor_file)
         processor.df = pd.DataFrame({"Location": ["A"], "Value": [1]})
 
@@ -153,7 +157,7 @@ class TestBaseProcessor:
         processor.filter_locations([])
         assert len(processor.df) == 1
 
-    def test_validate_data_default(self, mock_processor_file):
+    def test_validate_data_default(self, mock_processor_file: Path):
         processor = MockProcessor(file_path=mock_processor_file)
         processor.df = pd.DataFrame({"A": [1]})
         assert processor.validate_data() is True
@@ -161,7 +165,7 @@ class TestBaseProcessor:
         processor.df = pd.DataFrame()
         assert processor.validate_data() is False
 
-    def test_check_headers_match_columns_to_use(self, mock_processor_file):
+    def test_check_headers_match_columns_to_use(self, mock_processor_file: Path):
         processor = MockProcessor(file_path=mock_processor_file)
         # Manually set columns_to_use
         processor.columns_to_use = {"Col1": "float", "Col2": "string"}
@@ -178,7 +182,7 @@ class TestBaseProcessor:
         # Extra column
         assert processor.check_headers_match(["Col1", "Col2", "Extra"]) is False
 
-    def test_check_headers_match_expected_in_header(self, mock_processor_file):
+    def test_check_headers_match_expected_in_header(self, mock_processor_file: Path):
         processor = MockProcessor(file_path=mock_processor_file)
         processor.columns_to_use = {}  # Ensure this is empty
         processor.expected_in_header = ["Header1", "Header2"]
@@ -187,7 +191,7 @@ class TestBaseProcessor:
         assert processor.check_headers_match(["Header1"]) is False
 
     @patch("pandas.read_csv")
-    def test_read_maximums_csv_success(self, mock_read_csv, mock_processor_file):
+    def test_read_maximums_csv_success(self, mock_read_csv: MagicMock, mock_processor_file: MagicMock):
         """Test reading CSV successfully using BaseProcessor implementation."""
         mock_df = pd.DataFrame({"ColA": [1.0]})
         mock_read_csv.return_value = mock_df
@@ -203,7 +207,7 @@ class TestBaseProcessor:
         mock_read_csv.assert_called_once()
 
     @patch("pandas.read_csv")
-    def test_read_maximums_csv_empty(self, mock_read_csv, mock_processor_file):
+    def test_read_maximums_csv_empty(self, mock_read_csv: MagicMock, mock_processor_file: MagicMock):
         """Test reading empty CSV."""
         mock_read_csv.return_value = pd.DataFrame()
 
@@ -214,7 +218,7 @@ class TestBaseProcessor:
 
         assert status == ProcessorStatus.EMPTY_DATAFRAME
 
-    def test_apply_output_transformations(self, mock_processor_file):
+    def test_apply_output_transformations(self, mock_processor_file: Path):
         """Test applying output transformations."""
         processor = MockProcessor(file_path=mock_processor_file)
         processor.df = pd.DataFrame({"A": [1, 2], "B": ["3", "4"]})
@@ -225,7 +229,7 @@ class TestBaseProcessor:
         assert pd.api.types.is_float_dtype(processor.df["A"])
         assert pd.api.types.is_integer_dtype(processor.df["B"])
 
-    def test_load_configuration_error(self, mock_processor_file, mock_config):
+    def test_load_configuration_error(self, mock_processor_file: Path, mock_config: MagicMock):
         """Test configuration loading error."""
         # The code uses Config.get_instance().data_types.get(self.data_type)
         # mock_config is the return value of Config.get_instance()
@@ -237,7 +241,7 @@ class TestBaseProcessor:
         with pytest.raises(KeyError, match="not defined in the config"):
             MockProcessor(file_path=mock_processor_file)
 
-    def test_apply_entity_filter(self, mock_processor_file):
+    def test_apply_entity_filter(self, mock_processor_file: Path):
         processor = MockProcessor(file_path=mock_processor_file)
         processor.df = pd.DataFrame({"Chan ID": ["ID1", "ID2", "ID3"], "Value": [1, 2, 3]})
 
@@ -261,7 +265,7 @@ class TestBaseProcessor:
         processor.applied_entity_filter = None
         processor.apply_entity_filter()
 
-    def test_separate_metrics(self, mock_processor_file):
+    def test_separate_metrics(self, mock_processor_file: Path):
         processor = MockProcessor(file_path=mock_processor_file)
         processor.df = pd.DataFrame({"Q": [10, 20], "V": [5, 6]})
 
@@ -273,7 +277,7 @@ class TestBaseProcessor:
         assert list(reshaped["Value"]) == [10, 20, 5, 6]
         assert list(reshaped["Source"]) == ["Sim", "Sim", "Sim", "Sim"]
 
-    def test_apply_dtype_mapping(self, mock_processor_file):
+    def test_apply_dtype_mapping(self, mock_processor_file: Path):
         processor = MockProcessor(file_path=mock_processor_file)
         processor.df = pd.DataFrame({"A": ["1", "2"]})
 
@@ -287,7 +291,9 @@ class TestBaseProcessor:
         with pytest.raises(ImportProcessorError):
             BaseProcessor.get_processor_class("NonExistentClass")
 
-    def test_load_configuration_missing_sections(self, mock_processor_file, mock_config, mock_parser):
+    def test_load_configuration_missing_sections(
+        self, mock_processor_file: Path, mock_config: MagicMock, mock_parser: MagicMock
+    ):
         # Mock data type definition with missing sections
         mock_def = DataTypeDefinition(
             processor="MockProcessor",
@@ -300,7 +306,7 @@ class TestBaseProcessor:
         with pytest.raises(ConfigurationError, match="is missing columns_to_use"):
             MockProcessor(file_path=mock_processor_file)
 
-    def test_order_categorical_columns(self, mock_processor_file):
+    def test_order_categorical_columns(self, mock_processor_file: Path):
         processor = MockProcessor(file_path=mock_processor_file)
         processor.df = pd.DataFrame({"Cat": ["B", "A", "C"]})
         processor.df["Cat"] = processor.df["Cat"].astype("category")

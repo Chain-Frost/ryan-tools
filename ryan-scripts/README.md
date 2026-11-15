@@ -118,6 +118,48 @@ applies to **both** standalone scripts and wrappers.
 Do not demote a maintained script to "legacy" merely because it remains
 self-contained. Validation is proportional to what the script actually does.
 
+## CAD drawing to GeoPackage
+
+`cad-python/cad_to_gpkg.py` converts each DXF or DWG to a same-named GeoPackage
+containing `areas`, `lines`, and `points` layers. DXF inputs use GDAL directly.
+For newer DWG versions, `--autocad-export` deliberately allows an installed
+AutoCAD or DWG TrueView console to make a temporary DXF; the source drawing is
+never changed. Existing outputs require `--overwrite` and are replaced only
+after the new GeoPackage validates. Overwrite refuses SQLite journals and active
+readers/writers. It copies through SQLite under an exclusive lock, preserving the
+destination file identity instead of replacing a potentially live database file.
+
+```powershell
+python .\ryan-scripts\cad-python\cad_to_gpkg.py "D:\CAD\services.dxf"
+python .\ryan-scripts\cad-python\cad_to_gpkg.py "D:\CAD\services.dwg" --autocad-export
+```
+
+CAD coordinates are preserved unchanged. Use `--crs EPSG:7850` only when the
+drawing's coordinate reference system is known; this assigns metadata and does
+not transform coordinates.
+
+## QGIS project structural comparison (read-only)
+
+[other/compare_qgis_projects.py](other/compare_qgis_projects.py) compares two QGS/QGZ
+projects using their project XML without QGIS, opening linked data or editing
+either project. It reports added/removed layers and changes in stable layer IDs,
+names, provider identifiers, source URIs, layer CRS and project CRS. Layer
+ordering, groups, visibility, relations and cartography are **not** compared.
+Unknown providers are classified as **unknown**, not assumed to be local files.
+
+Use editable **DEFAULT_ORIGINAL_PROJECT** / **DEFAULT_UPDATED_PROJECT** settings,
+or provide the paths at the CLI (relative to **DEFAULT_WORKING_DIR** or
+**--working-directory**). JSON on stdout is available with **--format json**;
+text output is the default. Exit codes: **0** identical under supported fields,
+**2** differences, **1** input or parsing errors. The script never writes
+reports or project files.
+
+    python .\ryan-scripts\other\compare_qgis_projects.py --original old.qgz --updated new.qgz --format json --no-pause
+
+The original QGS/QGZ archive bytes, embedded QGD and unknown archive members
+are preserved. This does not replace the separate source audit or path repair.
+
+
 ## QGIS project source audit (read-only)
 
 [`other/audit_qgis_projects.py`](other/audit_qgis_projects.py) checks QGS/QGZ
@@ -288,8 +330,7 @@ log messages, prompts, and failures remain visible.
 | `pdf-python`, `docx-python` | PDF and Word document utilities. |
 | `point-cloud-python`, `raster-python` | XYZ/LAS and raster conversion or cleanup. |
 | `RORB-python` | RORB rainfall, hydrograph, peak, and closure-period processing. |
-| `TUFLOW-python` | TUFLOW result processing, GIS preparation, copying, and model checks; see its README for maintained-wrapper and shared-CLI conventions. |
-| `tuflow` | Standard TUFLOW project initialization; see the [project setup guide](tuflow/PROJECT_SETUP.md). |
+| `TUFLOW-python` | TUFLOW result processing, GIS preparation, copying, model checks and project initialization; see its README and [project setup guide](TUFLOW-python/model_management/PROJECT_SETUP.md) for maintained-wrapper and shared-CLI conventions. |
 | `powershell`, `GlobalMapper` | PowerShell helpers and Global Mapper scripts. |
 | `other` | Narrow utilities that do not fit a maintained workflow category; review each module docstring and implementation. |
 | `python-not-polished` | Experimental or project-specific scripts; treat these as examples, not stable tools. |
@@ -300,7 +341,7 @@ exists. Keep project-specific paths, globs, and output names in wrappers; reusab
 Maintained root-level hydraulic wrappers include:
 
 - `culvert.py` for culvert solve/analyse/design/rating workflows;
-- `tuflow/tuflow_culvert_from_maximums.py` and `tuflow/tuflow_culvert_from_1d_nwk.py` for TUFLOW culvert checks with an explicit `--engine hy8|ryan-culverts` selection; see [the engine guide](../docs/TUFLOW_CULVERT_ENGINES.md);
+- `TUFLOW-python/culvert_results/tuflow_culvert_from_maximums.py` and `TUFLOW-python/culvert_results/tuflow_culvert_from_1d_nwk.py` for TUFLOW culvert checks with an explicit `--engine hy8|ryan-culverts` selection; see [the engine guide](../docs/TUFLOW_CULVERT_ENGINES.md);
 - `floodway.py` for overtopping floodway formation assessment using a culvert project plus a separate versioned
   floodway formation JSON/TOML definition. Hydrograph/closure-duration processing is intentionally not part of this
   wrapper.

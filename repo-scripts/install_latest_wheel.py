@@ -8,22 +8,26 @@ import sys
 from importlib.metadata import PackageNotFoundError, distribution
 from pathlib import Path
 
+from vendor_pytuflow_wheel import SOURCE_COMMIT, WHEEL_NAME, WHEEL_PATH, verify_wheel
+
 GIS_WHEEL_INDEX: str = "https://gisidx.github.io/gwi"
 WHEEL_PATTERN: str = "ryan_tools-*.whl"
 # Install the current upstream bridge when the wheel-based developer path is used.
 QGIS_MCP_ARCHIVE: str = "https://github.com/nkarasiak/qgis-mcp/archive/refs/heads/main.zip"
 PYTUFLOW_REQUIREMENT_FILE = Path(__file__).absolute().with_name("pytuflow-requirement.txt")
-ACCEPTED_PYTUFLOW_SHA = "887534ea8c15b80d185a38a7ead1d42ab42a7167"
-ACCEPTED_PYTUFLOW_SOURCE = f"pytuflow @ https://github.com/Chain-Frost/PyTuflow/archive/{ACCEPTED_PYTUFLOW_SHA}.zip"
+# Requirements files are installed from the repository root; command-list installers
+# resolve the same wheel independently of the caller's working directory.
+ACCEPTED_PYTUFLOW_REQUIREMENT = (Path("repo-scripts") / "wheels" / "pytuflow" / SOURCE_COMMIT / WHEEL_NAME).as_posix()
 
 
 def _pytuflow_requirement() -> str:
-    """Read the single immutable PyTUFLOW PR63 source used for normal installs."""
+    """Verify the single accepted local PyTUFLOW wheel before creating pip commands."""
     requirement = PYTUFLOW_REQUIREMENT_FILE.read_text(encoding="utf-8").strip()
-    if requirement != ACCEPTED_PYTUFLOW_SOURCE:
+    if requirement != ACCEPTED_PYTUFLOW_REQUIREMENT:
         message = f"Invalid PyTUFLOW source requirement in {PYTUFLOW_REQUIREMENT_FILE}"
         raise ValueError(message)
-    return requirement
+    verify_wheel()
+    return str(WHEEL_PATH)
 
 
 def _latest_wheel(dist_dir: Path) -> Path:
@@ -104,6 +108,7 @@ def installation_verification_commands(*, disable_bytecode: bool = False) -> lis
     python = [sys.executable, *(["-B"] if disable_bytecode else [])]
     return [
         [*python, "-m", "pip", "check"],
+        [*python, str(Path(__file__).absolute().with_name("vendor_pytuflow_wheel.py")), "--installed"],
         [
             *python,
             "-c",

@@ -150,7 +150,7 @@ def _monitoring_detail_links(parser: _TableParser, *, firm_code: int) -> tuple[d
         try:
             link_firm = int(query["FirmCode"][0])
             product_code = int(query["ProductCode"][0])
-        except (KeyError, ValueError, IndexError):
+        except KeyError, ValueError, IndexError:
             continue
         if link_firm == firm_code:
             detail_urls[product_code] = href
@@ -301,7 +301,7 @@ def tuflow_licences_in_use(*, base_url: str = "http://127.0.0.1:22352", timeout_
         html_text = _fetch_text(
             urljoin(f"{base_url.rstrip('/')}/", "license_monitoring.html"), timeout_seconds=timeout_seconds
         )
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return None
     products, detail_urls = parse_license_monitoring_html(html_text)
     if not products or {item.product_code for item in products} != detail_urls.keys():

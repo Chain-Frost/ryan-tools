@@ -150,6 +150,9 @@ def _verify_external_dependencies(metadata: str, names: set[str]) -> None:
         ):
             msg = f"Wheel is missing the {distribution} PyPI dependency."
             raise ValueError(msg)
+    if any(name.casefold().endswith(".whl") for name in names):
+        msg = "ryan-tools wheel must not bundle dependency wheels."
+        raise ValueError(msg)
     for foreign_prefix in ("run_hy8/", "culvert_solver/"):
         if any(name.startswith(foreign_prefix) for name in names):
             msg = f"Wheel unexpectedly bundles upstream package {foreign_prefix}."

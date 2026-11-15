@@ -13,14 +13,14 @@ def styler():
     return tuflow_results_styling.TUFLOWResultsStyler()
 
 
-def test_get_file_mappings(styler):
+def test_get_file_mappings(styler: tuflow_results_styling.TUFLOWResultsStyler):
     mappings = styler.get_file_mappings()
     assert "d_Max" in mappings
     assert "d_HR_Max" in mappings
     assert mappings["d_Max"]["qml"].name == "depth_for_legend_max2m.qml"
 
 
-def test_get_qml_content_default(styler, tmp_path):
+def test_get_qml_content_default(styler: tuflow_results_styling.TUFLOWResultsStyler, tmp_path: Path):
     # Mock default styles path
     styler.default_styles_path = tmp_path
     (tmp_path / "test.qml").write_text("content")
@@ -29,7 +29,7 @@ def test_get_qml_content_default(styler, tmp_path):
     assert content == "content"
 
 
-def test_get_qml_content_user(styler, tmp_path):
+def test_get_qml_content_user(styler: tuflow_results_styling.TUFLOWResultsStyler, tmp_path: Path):
     user_qml = tmp_path / "user.qml"
     user_qml.write_text("user content")
 
@@ -37,7 +37,7 @@ def test_get_qml_content_user(styler, tmp_path):
     assert content == "user content"
 
 
-def test_process_data(styler, tmp_path):
+def test_process_data(styler: tuflow_results_styling.TUFLOWResultsStyler, tmp_path: Path):
     # Setup
     current_path = tmp_path / "data"
     current_path.mkdir()
@@ -54,7 +54,7 @@ def test_process_data(styler, tmp_path):
         assert expected_qml.read_text(encoding="utf-8") == "qml content"
 
 
-def test_tree_process(styler, tmp_path):
+def test_tree_process(styler: tuflow_results_styling.TUFLOWResultsStyler, tmp_path: Path):
     # Setup directory structure
     (tmp_path / "file_d_Max.tif").touch()
     (tmp_path / "subdir").mkdir()
@@ -74,7 +74,7 @@ def test_tree_process(styler, tmp_path):
         assert "file_h_Max.flt" in filenames
 
 
-def test_process_gpkg(styler, tmp_path):
+def test_process_gpkg(styler: tuflow_results_styling.TUFLOWResultsStyler, tmp_path: Path):
     gpkg_path = tmp_path / "test.gpkg"
     gpkg_path.touch()
 
@@ -89,7 +89,7 @@ def test_process_gpkg(styler, tmp_path):
         mock_cursor.execute.assert_called()
 
 
-def test_apply_styles(styler):
+def test_apply_styles(styler: tuflow_results_styling.TUFLOWResultsStyler):
     with patch.object(styler, "tree_process") as mock_tree:
         styler.apply_styles()
         mock_tree.assert_called_once()

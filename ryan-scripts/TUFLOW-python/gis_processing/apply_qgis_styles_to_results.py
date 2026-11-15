@@ -4,11 +4,12 @@
 This script acts as a mutable wrapper for `ryan_library.orchestrators.tuflow.tuflow_results_styling`.
 It applies QGIS styles (.qml) to TUFLOW results (rasters/vectors) found in the target directory.
 Users can define custom QML overrides in the `user_qml_overrides` dictionary within this file.
+1d_ccA layers are left to the built-in styling in the TUFLOW QGIS plugin.
 """
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-07.1"
+WRAPPER_VERSION = "2026-11-08.1"
 
 CONSOLE_LOG_LEVEL = "INFO"
 WORKING_DIR: Path = Path(__file__).absolute().parent

@@ -98,7 +98,7 @@ def _shares_cuda_namespace(process: psutil.Process) -> bool:
     """
     try:
         return _cuda_selection(process.environ()) == _cuda_selection(os.environ)
-    except (psutil.AccessDenied, OSError, ValueError):
+    except psutil.AccessDenied, OSError, ValueError:
         return False
 
 
@@ -193,7 +193,7 @@ def _bounded_gpu_inspection(exclude_pids: Collection[int], *, timeout_seconds: f
             f"Optional CodeMeter/GPU inspection exceeded the {_INSPECTION_BUDGET_SECONDS:g}-second budget; "
             "skipped, continuing launches."
         )
-    except (OSError, subprocess.SubprocessError, ValueError, TypeError, KeyError):
+    except OSError, subprocess.SubprocessError, ValueError, TypeError, KeyError:
         detail = "Optional CodeMeter/GPU inspection unavailable; skipped, continuing launches."
     return GpuOccupancySnapshot(
         assigned=(), unknown_pids=(), inspection_incomplete=True, detail=f"{detail}\n{_CODEMETER_TROUBLESHOOTING}"
@@ -230,9 +230,9 @@ def _inspect_local_gpu_processes(exclude_pids: Collection[int]) -> GpuOccupancyS
                     unknown.append(pid_value)
             except psutil.NoSuchProcess:
                 continue
-            except (psutil.AccessDenied, OSError, ValueError):
+            except psutil.AccessDenied, OSError, ValueError:
                 incomplete = True
-    except (psutil.AccessDenied, OSError, ValueError):
+    except psutil.AccessDenied, OSError, ValueError:
         incomplete = True
     return GpuOccupancySnapshot(
         assigned=tuple(sorted(assigned, key=lambda process: process.pid)),

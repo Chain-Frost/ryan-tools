@@ -63,7 +63,9 @@ def reshape_h_timeseries(df: pd.DataFrame, category_type: str, file_label: str) 
     # Ensure both columns exist
     for col in ["US_H", "DS_H"]:
         if col not in reshaped.columns:
-            reshaped[col] = pd.NA
+            # H cleaning/counting now happens before pivot; use a numeric
+            # missing value so final float64 conversion retains the usable end.
+            reshaped[col] = float("nan")
 
     # Enforce column order
     expected_order: list[str] = ["Time", category_type, "US_H", "DS_H"]

@@ -1,6 +1,11 @@
 """Tests for ryan_library.functions.dashboard_workflow."""
 
+# Unit tests intentionally exercise the implementation helpers under test.
+# pyright: reportPrivateUsage=false
+
 import queue
+from multiprocessing.pool import ApplyResult
+from typing import cast
 
 from ryan_library.functions import dashboard_workflow as dw
 from ryan_library.functions.live_dashboard import LiveWorkflowDashboard, WorkflowStatus
@@ -24,7 +29,7 @@ def detail_for_result(res: str) -> str:
 def test_serial_dashboard_workflow() -> None:
     dashboard = LiveWorkflowDashboard(title="Test", enabled=False)
     dashboard.set_tasks(["Task1", "Task2", "Task3"])
-    indexed_results = {}
+    indexed_results: dict[int, str] = {}
 
     dw._run_serial_dashboard_workflow(
         items=[1, 2, 0],
@@ -42,23 +47,27 @@ def test_serial_dashboard_workflow() -> None:
 
 
 class DummyProgressQueue:
-    def __init__(self):
-        self.q = queue.Queue()
+    def __init__(self) -> None:
+        self.q: queue.Queue[object] = queue.Queue()
 
-    def put(self, item, block=True, timeout=None):
-        self.q.put(item)
+    def put(self, obj: object, block: bool = True, timeout: float | None = None) -> None:
+        self.q.put(obj, block=block, timeout=timeout)
 
-    def get_nowait(self):
+    def get_nowait(self) -> object:
         return self.q.get_nowait()
 
 
 def test_worker_initializer_and_processor() -> None:
+    def process_object(item: object) -> str:
+        assert isinstance(item, int)
+        return dummy_process_item(item)
+
     q = DummyProgressQueue()
     dw._dashboard_worker_initializer(
-        log_queue=None, start_queue=q, worker_log_level="ERROR", process_item=dummy_process_item
+        log_queue=None, start_queue=q, worker_log_level="ERROR", process_item=process_object
     )
 
-    req = dw.IndexedWorkflowItem(index=5, item=42)
+    req = dw.IndexedWorkflowItem[object](index=5, item=42)
     res = dw._process_indexed_workflow_item(req)
 
     assert res == "processed_42"
@@ -83,17 +92,18 @@ def test_mark_started_dashboard_rows() -> None:
 
 
 class DummyApplyResult:
-    def __init__(self, ready, value=None, exception=None):
+    def __init__(self, ready: bool, value: str | None = None, exception: Exception | None = None) -> None:
         self._ready = ready
         self._value = value
         self._exception = exception
 
-    def ready(self):
+    def ready(self) -> bool:
         return self._ready
 
-    def get(self):
+    def get(self) -> str:
         if self._exception:
             raise self._exception
+        assert self._value is not None
         return self._value
 
 
@@ -101,14 +111,18 @@ def test_collect_finished_dashboard_results() -> None:
     dashboard = LiveWorkflowDashboard(title="Test", enabled=False)
     dashboard.set_tasks(["T1", "T2", "T3"])
 
-    pending = {
-        1: DummyApplyResult(True, "processed_1"),
-        2: DummyApplyResult(True, exception=ValueError("fail")),
-        3: DummyApplyResult(False),  # not ready
-    }
+    # The bounded double implements ready/get, the only ApplyResult API used.
+    pending = cast(
+        "dict[int, ApplyResult[str]]",
+        {
+            1: DummyApplyResult(True, "processed_1"),
+            2: DummyApplyResult(True, exception=ValueError("fail")),
+            3: DummyApplyResult(False),  # not ready
+        },
+    )
 
-    indexed = {}
-    completed = set()
+    indexed: dict[int, str] = {}
+    completed: set[int] = set()
 
     count = dw._collect_finished_dashboard_results(
         dashboard=dashboard,

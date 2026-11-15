@@ -129,6 +129,30 @@ def test_regression_against_snapshot(data_type: str, processed_results: dict[str
     expected_df = pd.read_parquet(snapshot_path)
     observed_df = processed_results[data_type]
 
+    # WP04 deliberately changes derived metrics for the dry structure levels
+    # in the original EG02 snapshot. Keep the snapshot's raw Value/Max/Min,
+    # every valid sample and every other metric unchanged. Explicit counts
+    # prevent this compatibility adjustment broadening to unrelated data.
+    structure_levels = (
+        expected_df["Type"].isin(["U/S Structure Water Level", "D/S Structure Water Level"])
+        if data_type in {"PO", "POMM"}
+        else None
+    )
+    if data_type == "PO":
+        assert structure_levels is not None
+        dry_levels = structure_levels & expected_df["Value"].eq(-99999)
+        assert int(dry_levels.sum()) == 88
+        expected_df.loc[dry_levels, "AbsValue"] = float("nan")
+    elif data_type == "POMM":
+        assert structure_levels is not None
+        dry_minima = structure_levels & expected_df["Min"].eq(-99999)
+        assert int(dry_minima.sum()) == 2
+        valid_maxima = expected_df.loc[dry_minima, "Max"]
+        assert valid_maxima.notna().all()
+        assert not valid_maxima.eq(-99999).any()
+        expected_df.loc[dry_minima, "AbsMax"] = valid_maxima.abs()
+        expected_df.loc[dry_minima, "SignedAbsMax"] = valid_maxima
+
     # Check for missing columns
     missing_cols = set(expected_df.columns) - set(observed_df.columns)
     if missing_cols:

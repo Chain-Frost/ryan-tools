@@ -1,6 +1,8 @@
 """Tests for ryan_library.functions.process_12D_culverts."""
 
-from unittest.mock import patch
+from pathlib import Path
+from typing import cast
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 
@@ -8,7 +10,7 @@ from ryan_library.functions import process_12D_culverts
 
 
 class TestHelpers:
-    def test_get_encoding(self, tmp_path):
+    def test_get_encoding(self, tmp_path: Path):
         f_utf8 = tmp_path / "utf8.txt"
         f_utf8.write_bytes(b"hello")
         assert process_12D_culverts.get_encoding(f_utf8) == "utf-8"
@@ -39,7 +41,7 @@ class TestHelpers:
 
 
 class TestFileParsing:
-    def test_parse_rpt_file(self, tmp_path):
+    def test_parse_rpt_file(self, tmp_path: Path):
         content = '   1.0 2.0 45°0\'0" 3.0 4.0 5.0 6.0 7.0 "Culvert A"'
         f = tmp_path / "test.rpt"
         f.write_text(content, encoding="utf-8")
@@ -49,7 +51,7 @@ class TestFileParsing:
         assert result[0]["Name"] == "Culvert A"
         assert result[0]["Angle_Degrees"] == 45.0
 
-    def test_parse_txt_file(self, tmp_path):
+    def test_parse_txt_file(self, tmp_path: Path):
         # Create a mock TXT file with headers and 2 lines (upstream/downstream)
         content = (
             "header1\t header2\n"
@@ -73,8 +75,11 @@ class TestFileParsing:
 
 class TestDataProcessing:
     def test_combine_data(self):
-        rpt_data = [{"Name": "C1", "Angle": "0°0'0\"", "Angle_Degrees": 0.0}]
-        txt_data = [{"Name": "C1", "US_X": 10.0}]
+        rpt_data: list[process_12D_culverts.RptCulvertRecord] = [
+            {"Name": "C1", "Angle": "0°0'0\"", "Angle_Degrees": 0.0}
+        ]
+        # This fixture deliberately contains only the columns exercised by this merge.
+        txt_data = [cast("process_12D_culverts.TxtCulvertRecord", {"Name": "C1", "US_X": 10.0})]
 
         df = process_12D_culverts.combine_data(rpt_data, txt_data)
         assert len(df) == 1
@@ -103,7 +108,7 @@ class TestDataProcessing:
 
 class TestIntegration:
     @patch("ryan_library.functions.process_12D_culverts.process_multiple_files")
-    def test_get_combined_df_from_files(self, mock_process, tmp_path):
+    def test_get_combined_df_from_files(self, mock_process: MagicMock, tmp_path: Path):
         mock_df = pd.DataFrame(
             {"Name": ["C1"], "US_X": [1.0], "DS_X": [2.0], "Angle": ["0°0'0\""], "Angle_Degrees": [0.0]}
         )
@@ -113,7 +118,7 @@ class TestIntegration:
         assert not result.empty
         assert result.iloc[0]["Name"] == "C1"
 
-    def test_get_combined_df_from_csv(self, tmp_path):
+    def test_get_combined_df_from_csv(self, tmp_path: Path):
         csv = tmp_path / "combined.csv"
         pd.DataFrame({"Name": ["C1"], "US_X": [1.0]}).to_csv(csv, index=False)
 
@@ -121,13 +126,13 @@ class TestIntegration:
         assert not result.empty
         assert result.iloc[0]["Name"] == "C1"
 
-    def test_get_combined_df_from_csv_error(self, tmp_path):
+    def test_get_combined_df_from_csv_error(self, tmp_path: Path):
         # Pass a non-existent file to trigger exception
         res = process_12D_culverts.get_combined_df_from_csv(tmp_path / "does_not_exist.csv")
         assert res.empty
 
     @patch("ryan_library.functions.process_12D_culverts.process_multiple_files")
-    def test_get_combined_df_from_files_empty(self, mock_process, tmp_path):
+    def test_get_combined_df_from_files_empty(self, mock_process: MagicMock, tmp_path: Path):
         mock_process.return_value = pd.DataFrame()
         res = process_12D_culverts.get_combined_df_from_files(tmp_path)
         assert res.empty
@@ -139,7 +144,7 @@ class TestExceptionsAndEdgeCases:
         res = process_12D_culverts.dms_to_decimal(None)
         assert res == 0.0
 
-    def test_parse_txt_file_edge_cases(self, tmp_path):
+    def test_parse_txt_file_edge_cases(self, tmp_path: Path):
         # Missing columns
         f_missing = tmp_path / "missing.txt"
         f_missing.write_text("header1\nCol1\tCol2\nunits\nval1\tval2\n", encoding="utf-8")
@@ -171,7 +176,7 @@ class TestExceptionsAndEdgeCases:
 
     @patch("ryan_library.functions.process_12D_culverts.parse_rpt_file")
     @patch("ryan_library.functions.process_12D_culverts.parse_txt_file")
-    def test_process_culvert_files_loops(self, mock_txt, mock_rpt, tmp_path):
+    def test_process_culvert_files_loops(self, mock_txt: MagicMock, mock_rpt: MagicMock, tmp_path: Path):
         f_rpt1 = tmp_path / "1.rpt"
         f_rpt2 = tmp_path / "2.rpt"
         f_txt1 = tmp_path / "1.txt"
@@ -201,6 +206,6 @@ class TestExceptionsAndEdgeCases:
         # Actually pandas to_numeric with coerce just returns NaN which fillna makes 0.0.
         # But we mock logger.error if pd.to_numeric throws.
         # By passing a weird type that pd.to_numeric can't coerce?
-        df["US_X"] = [{"a": 1}, {"b": 2}]
+        df["US_X"] = pd.Series([{"a": 1}, {"b": 2}], dtype=object)
         res = process_12D_culverts.clean_and_convert(df)
         assert res["US_X"].iloc[0] == 0.0

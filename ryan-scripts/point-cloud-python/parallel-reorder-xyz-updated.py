@@ -12,9 +12,17 @@ processing a large point-cloud collection.
 
 # pyright: reportUnknownParameterType=false, reportMissingParameterType=false, reportUnknownArgumentType=false
 
+from multiprocessing import Pool
+from pathlib import Path
+
+import pandas as pd
+
+from ryan_library.functions.misc_functions import calculate_pool_size
+from ryan_library.functions.wrapper_utils import pause_console
+
 
 # Updated 2025-11-18 to suit gdal_buildvrt point order, mulitprocessing instead of multithreading (much faster)
-def fill_missing_coordinates(df) -> pd.DataFrame:
+def fill_missing_coordinates(df: pd.DataFrame) -> pd.DataFrame:
     """Return a DataFrame where the full X/Y grid exists and missing Zs are filled with -9999."""
     import numpy as np
 
@@ -34,15 +42,6 @@ def fill_missing_coordinates(df) -> pd.DataFrame:
     merged_df["z"] = merged_df["z"].fillna(value=-9999)
 
     return merged_df
-
-
-from multiprocessing import Pool
-from pathlib import Path
-
-import pandas as pd
-
-from ryan_library.functions.misc_functions import calculate_pool_size
-from ryan_library.functions.wrapper_utils import pause_console
 
 
 def main() -> None:

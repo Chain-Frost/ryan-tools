@@ -5,16 +5,20 @@ Dependencies (install via pip if needed):
     pip install laspy numpy shapely fiona
 """
 
+# External optional keyword signatures are incomplete; exceptions stay on individual calls.
+
 from __future__ import annotations
 
 import argparse
 import sys
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from pathlib import Path
+from typing import cast
 
 import fiona
 import laspy
 import numpy as np
+from numpy.typing import ArrayLike, NDArray
 from shapely import vectorized as shapely_vectorized
 from shapely.geometry import shape
 from shapely.geometry.base import BaseGeometry
@@ -85,7 +89,7 @@ class PolygonClipper:
             msg = f"Shapefile not found: {shapefile_path}"
             raise FileNotFoundError(msg)
 
-        geometries = []
+        geometries: list[BaseGeometry] = []
         with fiona.open(shapefile_path) as src:
             for feature in src:
                 geom = feature.get("geometry")
@@ -101,21 +105,23 @@ class PolygonClipper:
         return unary_union(geometries)
 
     @staticmethod
-    def _pick_vectorized_func():
+    def _pick_vectorized_func() -> (
+        Callable[[BaseGeometry, NDArray[np.float64], NDArray[np.float64]], NDArray[np.bool_]] | None
+    ):
         if shapely_vectorized is None:
             return None
-        if hasattr(shapely_vectorized, "covers"):
-            return shapely_vectorized.covers
-        if hasattr(shapely_vectorized, "contains"):
-            return shapely_vectorized.contains
-        if hasattr(shapely_vectorized, "intersects"):
-            return shapely_vectorized.intersects
+        for name in ("covers", "contains", "intersects"):
+            if hasattr(shapely_vectorized, name):
+                return cast(
+                    "Callable[[BaseGeometry, NDArray[np.float64], NDArray[np.float64]], NDArray[np.bool_]]",
+                    getattr(shapely_vectorized, name),
+                )
         return None
 
-    def mask(self, xs: np.ndarray, ys: np.ndarray) -> np.ndarray:
+    def mask(self, xs: ArrayLike, ys: ArrayLike) -> NDArray[np.bool_]:
         """Return boolean mask of points that fall within the polygon (bounds-inclusive)."""
-        xs = np.asarray(xs)
-        ys = np.asarray(ys)
+        xs = np.asarray(xs, dtype=np.float64)
+        ys = np.asarray(ys, dtype=np.float64)
         if xs.size == 0:
             return np.array([], dtype=bool)
 
@@ -143,7 +149,7 @@ def discover_files(input_dir: Path, glob_pattern: str, include_laz: bool) -> Ite
     files = sorted(input_dir.glob(glob_pattern))
     if include_laz:
         files.extend(sorted(input_dir.glob("*.laz")))
-    seen = set()
+    seen: set[Path] = set()
     for file_path in files:
         if file_path.is_file() and file_path not in seen:
             seen.add(file_path)

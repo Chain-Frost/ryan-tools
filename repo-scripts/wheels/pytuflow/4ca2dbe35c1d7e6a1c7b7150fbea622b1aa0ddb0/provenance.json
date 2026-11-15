@@ -1,0 +1,17 @@
+{
+  "source_repository": "https://github.com/Chain-Frost/PyTuflow",
+  "source_commit": "4ca2dbe35c1d7e6a1c7b7150fbea622b1aa0ddb0",
+  "source_archive": "https://github.com/Chain-Frost/PyTuflow/archive/4ca2dbe35c1d7e6a1c7b7150fbea622b1aa0ddb0.zip",
+  "wheel_filename": "pytuflow-1.3.1-py3-none-any.whl",
+  "wheel_sha256": "41facdb3b220a9d032e7fb7e3a5ea94dee76a0e910fbeb0a5caf44289a6f4870",
+  "wheel_bytes": 984867,
+  "build_command": "python -m pip wheel --no-deps --no-cache-dir --no-build-isolation --wheel-dir <temp> <verified_git_checkout>",
+  "build_python": "3.14.6",
+  "build_pip": "26.1.2",
+  "build_hatchling": "1.32.0",
+  "acceptance_jobs": [],
+  "acceptance_references": [
+    "https://github.com/Chain-Frost/PyTuflow/blob/4ca2dbe35c1d7e6a1c7b7150fbea622b1aa0ddb0/tests/test_batch_validation_mvp.py",
+    "https://github.com/Chain-Frost/PyTuflow/blob/4ca2dbe35c1d7e6a1c7b7150fbea622b1aa0ddb0/tests/tmf/test_database.py"
+  ]
+}

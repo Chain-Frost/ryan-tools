@@ -1,7 +1,9 @@
 """Minimal local type surface for pyshp's read-only DBF and test fixture APIs.
 
-pyshp ships no type stubs. Keep this narrow and extend only with tested
-interfaces; it does not imply pyshp supports GIS feature typing generally.
+PyShp 3.x has inline annotations, but pyshp-stubs 0.0.2 only installs an empty
+marker and Pyright 1.1.414 still reports missing stubs/context-manager types.
+Keep this fallback narrow until the upstream integration passes the actual
+checker; it does not imply general GIS feature typing support.
 """
 
 from collections.abc import Iterator, Sequence

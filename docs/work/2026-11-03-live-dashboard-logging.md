@@ -1,11 +1,17 @@
+> **Current reconciliation (2026-11-10): scoped implementation delivered.** GitHub confirms [PR #208](https://github.com/Chain-Frost/ryan-tools/pull/208) merged at 2026-11-05T06:13:04Z (UTC), commit `5e5a14d2b67660f20b5eb871c35bccf7c4477816`, into `fix/codemeter-first-gpu-inspection`. Merged first into #206's branch, then delivered to main through #206 (10b71898220d). Existing real-user display acceptance is retained.
+>
+> Earlier pending-review, no-merge and next-action statements below are historical snapshots, not current delivery instructions.
+>
+> This reconciliation checks GitHub delivery and available final-head check conclusions; it does not rerun local/native tests or imply every wider engineering gate passed.
+
 # Live dashboard logging regression
 
 | Field | Value |
 | --- | --- |
-| Status | Ready for review; 26.11.5.9 real-user startup/input-check/Ctrl+C display acceptance passed |
+| Status | Complete - scoped implementation merged; see current reconciliation |
 | Owner | ChatGPT |
-| Created / Updated | 2026-11-03 / 2026-11-05 |
-| Next review | 2026-11-06 |
+| Created / Updated | 2026-11-03 / 2026-11-10 |
+| Next review | None - completed delivery |
 | Branch | `fix/dashboard-single-refresh`, stacked on PR #206 at `fffc13e3` |
 | Pull request | [#208](https://github.com/Chain-Frost/ryan-tools/pull/208); historical PR #192 is merged. |
 | Git delivery | Parser forwarding, wrapper, tests and verified version delivered on PR #208; final-head checks tracked separately. |

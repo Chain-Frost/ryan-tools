@@ -59,14 +59,14 @@ def test_init_notebook_logging() -> None:
 
 
 def test_resolve_parallel() -> None:
-    assert _resolve_parallel(True) is True  # pyright: ignore[reportPrivateUsage]
-    assert _resolve_parallel(False) is False  # pyright: ignore[reportPrivateUsage]
+    assert _resolve_parallel(True) is True
+    assert _resolve_parallel(False) is False
 
     with patch("ryan_library.functions.tuflow.notebook_helpers.is_notebook", return_value=True):
-        assert _resolve_parallel(None) is False  # pyright: ignore[reportPrivateUsage]
+        assert _resolve_parallel(None) is False
 
     with patch("ryan_library.functions.tuflow.notebook_helpers.is_notebook", return_value=False):
-        assert _resolve_parallel(None) is True  # pyright: ignore[reportPrivateUsage]
+        assert _resolve_parallel(None) is True
 
 
 class TestLoadTuflowData:

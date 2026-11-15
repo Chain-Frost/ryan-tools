@@ -237,7 +237,7 @@ def main(
         validate_dashboard_settings(refresh_per_second=LIVE_REFRESH_PER_SECOND, max_rows=LIVE_MAX_ROWS)
         jobs = _plan_jobs(targets, output)
         log_path = _log_path_for_jobs(jobs, write=effective_write)
-    except (OSError, ValueError, TypeError):
+    except OSError, ValueError, TypeError:
         logger.exception("Invalid workbook batch configuration")
         return 1
     with setup_logger(

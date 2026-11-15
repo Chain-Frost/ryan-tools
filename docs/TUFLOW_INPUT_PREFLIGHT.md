@@ -10,8 +10,10 @@ Input validation is not TUFLOW execution and never modifies model inputs.
 
 The supported temporary PyTUFLOW requirement is maintained in
 [`repo-scripts/pytuflow-requirement.txt`](../repo-scripts/pytuflow-requirement.txt).
-The selected source is a fixed contributor-fork commit, not an upstream release.
-It includes the public API and consolidated validation fixes proposed in upstream PR #17 (originally developed through fork PR #63). PyTuflow reports version 1.3.0, but the exact commit is required until upstream accepts the changes.
+The selected artifact is a verified local wheel built from a fixed contributor-fork commit, not an
+upstream release. It includes the public API and consolidated validation fixes proposed in upstream PR #17
+(originally developed through fork PR #63). PyTuflow reports version 1.3.0, but version equality is not
+sufficient: the committed binary has an immutable SHA-256 and explicit installed-wheel provenance checks.
 The pin also fixes implicit generic and machine-specific TCF override parsing,
 so the runner can discover redirected log folders through the public context API.
 It remains under review and requires native acceptance before release. Public package metadata retains the publishable
@@ -20,7 +22,7 @@ prove compatibility. Another PyTUFLOW 1.2.7 build lacks the batch validation API
 
 For normal Windows installation, run `install-ryan-tools.bat`. It uses the
 selected normal Python installation, installs the published package together
-with the accepted PyTUFLOW source, and checks the result. No separate parser
+with the accepted PyTuflow wheel, and checks the result. No separate parser
 installation or virtual environment is required. To preview the same PyPI route:
 
 ```powershell
@@ -50,8 +52,9 @@ py -3.14 -m pip install -r requirements.txt
 py -3.14 -m pip check
 ```
 
-The requirements file includes the same pinned PyTUFLOW source and resolves its
-dependencies. The preceding parser-only replacement is necessary because pip
+The requirements file references the same verified, root-relative PyTuflow wheel and
+resolves its dependencies. Run it from the repository root; the wheel also supports paths containing spaces.
+Plain `pip install ryan-tools` does not discover this local dependency wheel. The preceding parser-only replacement is necessary because pip
 can retain an existing incompatible build when its version number matches.
 Run the capability diagnostic below after installation. An existing PyPI
 installation without the public API is not supported for input checking.
@@ -260,7 +263,7 @@ workflow is retained because it checks the immutable accepted PyTUFLOW source,
 deliberately rejects an incompatible same-version build, and replays the entire
 public example archive. The standalone command-plan and CSV unit tests already
 run in the main Hosted tests; the separate scope-specific workflows are retired.
-This workflow installs the exact pinned PR63 archive and exercises real public
+This workflow installs the exact wheel from accepted PR #17 source and exercises real public
 file, selected-layer, BC CSV, GIS-linked-source and mapping checks, plus
 same-version incompatibility, broken transitive imports, shadowed packages,
 incomplete group results, lazy imports and installer dry-run commands.
@@ -294,16 +297,23 @@ contexts to pass**. The previous allowance for seven 1D boundary-schema errors
 and one rainfall-triangle Name error was removed with the fix consolidated in
 [PyTUFLOW PR #63](https://github.com/Chain-Frost/PyTuflow/pull/63).
 [ryan-tools #181](https://github.com/Chain-Frost/ryan-tools/issues/181)
-tracks this correction. Advisory CRS warnings are included in the JSON results
-but do not fail validation; blocking raster/header/BC issues do. The new pin
-needs fresh Windows/GDAL and installed-wheel acceptance; earlier green tests
-refer to the old parser. JSON results and per-model issue CSVs
-are uploaded even on failure.
-No BAT or TUFLOW executable is launched, and source inputs remain in the submodule;
-only a verified temporary extraction is inspected. This covers dependency validation,
-not solver execution, hydraulic correctness or raster-header checks.
+has now been reconciled against the accepted vendored PyTuflow 1.3.0 wheel.
+The [8 November 2026 Windows/Python 3.14 native regression](https://github.com/Chain-Frost/ryan-tools/actions/runs/42467929379)
+passed **161/161 TCFs and 174/174 run contexts**, with all runs accounted for,
+zero blocking findings and zero skips. The retained artifact contains 161
+per-model issue CSVs, `results.json` and passing JUnit XML. Its three
+non-blocking missing-CRS warnings are retained for `EG03_011.tcf`,
+`EG06_002.tcf` and `EG15_006.tcf`. Installed-wheel source path and SHA-256
+were verified by the same job. The accepted test, requirement, provenance and
+consumer files match those in current `main` and the #251 consolidation
+branch, so an unchanged archive campaign does not need repeating.
+JSON results and per-model issue CSVs are uploaded even on failure.
 
-This is not a replacement for final installed-wheel and copied-wrapper acceptance
-on the maintained Windows workstation. The
-[ongoing integration record](work/2026-10-23-tuflow-runner-model-checks.md)
-tracks that remaining validation and coordination with the runner/plan scopes.
+No BAT or TUFLOW executable is launched, and source inputs remain in the
+submodule; only a checksum-verified temporary extraction is inspected.
+This demonstrates dependency and selected raster-header input validation, not
+solver execution, hydraulic correctness or independent raster-pixel acceptance.
+Installed ryan-tools wheel/copied-wrapper acceptance was established separately
+on [#274](https://github.com/Chain-Frost/ryan-tools/pull/274), not by this
+archive test. Licensed runner and hardware acceptance are separate from #181.
+See the [reconciled work record](work/2026-10-23-tuflow-runner-model-checks.md).

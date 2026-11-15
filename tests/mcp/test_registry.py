@@ -111,8 +111,8 @@ def test_tuflow_culvert_native_workflows_are_catalogued_under_create_profile() -
     registry = WorkflowRegistry(repository_root=PROJECT_ROOT)
 
     expected = {
-        "tuflow_culvert_evaluate_maximums": "ryan-scripts/tuflow/tuflow_culvert_from_maximums.py",
-        "tuflow_culvert_evaluate_1d_nwk": "ryan-scripts/tuflow/tuflow_culvert_from_1d_nwk.py",
+        "tuflow_culvert_evaluate_maximums": "ryan-scripts/TUFLOW-python/culvert_results/tuflow_culvert_from_maximums.py",
+        "tuflow_culvert_evaluate_1d_nwk": "ryan-scripts/TUFLOW-python/culvert_results/tuflow_culvert_from_1d_nwk.py",
     }
     for workflow_id, script_path in expected.items():
         workflow = registry.get_workflow(workflow_id)
@@ -142,8 +142,8 @@ def test_tuflow_culvert_hy8_workflows_require_privileged_profile_and_approval() 
     )
 
     expected = {
-        "tuflow_culvert_evaluate_maximums_hy8": "ryan-scripts/tuflow/tuflow_culvert_from_maximums.py",
-        "tuflow_culvert_evaluate_1d_nwk_hy8": "ryan-scripts/tuflow/tuflow_culvert_from_1d_nwk.py",
+        "tuflow_culvert_evaluate_maximums_hy8": "ryan-scripts/TUFLOW-python/culvert_results/tuflow_culvert_from_maximums.py",
+        "tuflow_culvert_evaluate_1d_nwk_hy8": "ryan-scripts/TUFLOW-python/culvert_results/tuflow_culvert_from_1d_nwk.py",
     }
     for workflow_id, script_path in expected.items():
         workflow = registry.get_workflow(workflow_id)

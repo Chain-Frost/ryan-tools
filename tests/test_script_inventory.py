@@ -244,6 +244,27 @@ def test_documentation_indexes_track_live_inventory_counts() -> None:
     assert f"{tracked}-file lifecycle audit" in work
 
 
+def test_early_documentation_inventory_check_explains_mismatches(tmp_path: Path) -> None:
+    """The no-dependency preflight must match the hosted count contract."""
+    docs = tmp_path / "docs"
+    (docs / "work").mkdir(parents=True)
+    summary = docs / "README.md"
+    register = docs / "work" / "README.md"
+    summary.write_text("All 3 source paths; 2 selected and 1 excluded", encoding="utf-8")
+    register.write_text("The 3-file lifecycle audit", encoding="utf-8")
+    report = {"tracked_file_count": 3, "selected_file_count": 2}
+    assert inventory.documentation_index_findings(tmp_path, report) == []
+
+    summary.write_text("All 2 source paths; 2 selected and 0 excluded", encoding="utf-8")
+    register.write_text("The 3-file inventory", encoding="utf-8")
+    findings = inventory.documentation_index_findings(tmp_path, report)
+    assert len(findings) == 2
+    assert "docs/README.md" in findings[0]
+    assert "All 3 source paths; 2 selected and 1 excluded" in findings[0]
+    assert "docs/work/README.md" in findings[1]
+    assert "3-file lifecycle audit" in findings[1]
+
+
 def test_aliased_mutating_import_is_detected_without_execution() -> None:
     """Renaming a dangerous imported function must not evade import checks."""
     unsafe = inventory.analyse_python(

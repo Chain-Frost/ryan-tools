@@ -1,0 +1,3 @@
+# The CI-scope contracts use only pytest, the standard library and Git.
+# Install before test-data checkout and the Windows native/runtime environment.
+pytest

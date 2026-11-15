@@ -51,7 +51,7 @@ def test_shared_workflow_routes_results_to_supplied_public_exporter(use_live_das
     ):
         setup_logger.return_value.__enter__.return_value = Mock()
         execute_combination_workflow(
-            paths_to_process=[],
+            paths_to_process=[Path.cwd()],
             include_data_types=None,
             default_data_types=("PO",),
             accepted_data_types=frozenset({"PO"}),

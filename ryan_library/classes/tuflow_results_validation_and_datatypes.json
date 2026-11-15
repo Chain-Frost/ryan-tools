@@ -50,6 +50,155 @@
       "dataformat": "PO"
     }
   },
+  "SQ": {
+    "processor": "SQProcessor",
+    "suffixes": [
+      "_SQ.csv"
+    ],
+    "output_columns": {
+      "Time": "float",
+      "Location": "string",
+      "Type": "string",
+      "Value": "float",
+      "AbsValue": "float"
+    },
+    "processingParts": {
+      "dataformat": "PO",
+      "module": "other_processors"
+    }
+  },
+  "SHmx": {
+    "processor": "SHmxProcessor",
+    "suffixes": [
+      "_SHmx.csv"
+    ],
+    "output_columns": {
+      "Location": "string",
+      "Type": "string",
+      "Q Below": "float",
+      "Q Above": "float",
+      "Q Total": "float",
+      "A Below": "float",
+      "A Above": "float",
+      "A Total": "float",
+      "V Below": "float",
+      "V Above": "float",
+      "V Combined": "float",
+      "h U/S": "float",
+      "h D/S": "float",
+      "dh": "float",
+      "Time": "float"
+    },
+    "processingParts": {
+      "dataformat": "StructureState",
+      "module": "other_processors"
+    }
+  },
+  "RLL_Q": {
+    "processor": "RLLQProcessor",
+    "suffixes": [
+      "_RLL_Q.csv"
+    ],
+    "output_columns": {
+      "Time": "float",
+      "Location": "string",
+      "Type": "string",
+      "Value": "float",
+      "AbsValue": "float"
+    },
+    "processingParts": {
+      "dataformat": "PO",
+      "module": "other_processors"
+    }
+  },
+  "RLP_H": {
+    "processor": "RLPHProcessor",
+    "suffixes": [
+      "_RLP_H.csv"
+    ],
+    "output_columns": {
+      "Time": "float",
+      "Location": "string",
+      "Type": "string",
+      "Value": "float",
+      "AbsValue": "float"
+    },
+    "processingParts": {
+      "dataformat": "PO",
+      "module": "other_processors"
+    }
+  },
+  "RLP_Hmx": {
+    "processor": "RLPHmxProcessor",
+    "suffixes": [
+      "_RLP_Hmx.csv"
+    ],
+    "output_columns": {
+      "Location": "string",
+      "Type": "string",
+      "Hmax": "float",
+      "Time Hmax": "float",
+      "dHmax": "float",
+      "Time dHmax": "float",
+      "Q": "float"
+    },
+    "processingParts": {
+      "dataformat": "Maximums",
+      "module": "other_processors",
+      "columns_to_use": {
+        "ID": "string",
+        "Hmax": "float",
+        "Time Hmax": "float",
+        "dHmax": "float",
+        "Time dHmax": "float",
+        "Q": "float"
+      }
+    }
+  },
+  "RLR_Vol": {
+    "processor": "RLRVolProcessor",
+    "suffixes": [
+      "_RLR_Vol.csv"
+    ],
+    "output_columns": {
+      "Time": "float",
+      "Location": "string",
+      "Type": "string",
+      "Value": "float",
+      "AbsValue": "float"
+    },
+    "processingParts": {
+      "dataformat": "PO",
+      "module": "other_processors"
+    }
+  },
+  "RLR_Volmx": {
+    "processor": "RLRVolmxProcessor",
+    "suffixes": [
+      "_RLR_Volmx.csv"
+    ],
+    "output_columns": {
+      "Location": "string",
+      "Type": "string",
+      "Vol max": "float",
+      "Time Vol max": "float",
+      "dVolmax": "float",
+      "Time dVolmax": "float",
+      "H": "float"
+    },
+    "processingParts": {
+      "dataformat": "Maximums",
+      "module": "other_processors",
+      "columns_to_use": {
+        "ID": "string",
+        "Vol max": "float",
+        "Time Vol max": "float",
+        "dVolmax": "float",
+        "Time dVolmax": "float",
+        "H": "float"
+      }
+    }
+  },
   "Cmx": {
     "processor": "CmxProcessor",
     "suffixes": [
@@ -383,6 +532,156 @@
     "output_columns": {},
     "processingParts": {
       "dataformat": "Raster"
+    }
+  },
+  "2d_H": {
+    "processor": "Split2dHProcessor",
+    "suffixes": [
+      "_2d_H.csv"
+    ],
+    "output_columns": {
+      "Time": "float",
+      "Location": "string",
+      "Type": "string",
+      "Value": "float",
+      "AbsValue": "float"
+    },
+    "processingParts": {
+      "dataformat": "SplitPO",
+      "module": "other_processors"
+    }
+  },
+  "2d_Q": {
+    "processor": "Split2dQProcessor",
+    "suffixes": [
+      "_2d_Q.csv"
+    ],
+    "output_columns": {
+      "Time": "float",
+      "Location": "string",
+      "Type": "string",
+      "Value": "float",
+      "AbsValue": "float"
+    },
+    "processingParts": {
+      "dataformat": "SplitPO",
+      "module": "other_processors"
+    }
+  },
+  "2d_V": {
+    "processor": "Split2dVProcessor",
+    "suffixes": [
+      "_2d_V.csv"
+    ],
+    "output_columns": {
+      "Time": "float",
+      "Location": "string",
+      "Type": "string",
+      "Value": "float",
+      "AbsValue": "float"
+    },
+    "processingParts": {
+      "dataformat": "SplitPO",
+      "module": "other_processors"
+    }
+  },
+  "L": {
+    "processor": "LProcessor",
+    "suffixes": [
+      "_1d_L.csv"
+    ],
+    "output_columns": {
+      "Time": "float",
+      "Location": "string",
+      "Type": "string",
+      "Value": "float",
+      "AbsValue": "float"
+    },
+    "processingParts": {
+      "dataformat": "LossCoefficient",
+      "module": "other_processors"
+    }
+  },
+  "TSMB": {
+    "processor": "TSMBProcessor",
+    "suffixes": [
+      "_1d_TSMB.csv"
+    ],
+    "output_columns": {
+      "Time": "float",
+      "Location": "string",
+      "Type": "string",
+      "Value": "float",
+      "AbsValue": "float"
+    },
+    "processingParts": {
+      "dataformat": "NodeMassBalanceHistory",
+      "module": "other_processors"
+    }
+  },
+  "MB_Node": {
+    "processor": "MBNodeProcessor",
+    "suffixes": [
+      "_1d_MB.csv"
+    ],
+    "output_columns": {
+      "Location": "string",
+      "Type": "string",
+      "Cum %ME": "float",
+      "Cum VE": "float",
+      "Cum VQ": "float"
+    },
+    "processingParts": {
+      "dataformat": "NodeMassBalanceSummary",
+      "module": "other_processors"
+    }
+  },
+  "MB": {
+    "processor": "MBHistoryProcessor",
+    "suffixes": [
+      "_MB.csv"
+    ],
+    "output_columns": {
+      "Time": "float",
+      "Location": "string",
+      "Type": "string",
+      "Value": "float"
+    },
+    "processingParts": {
+      "dataformat": "ModelMassBalanceHistory",
+      "module": "other_processors"
+    }
+  },
+  "MB1D": {
+    "processor": "MBHistoryProcessor",
+    "suffixes": [
+      "_MB1D.csv"
+    ],
+    "output_columns": {
+      "Time": "float",
+      "Location": "string",
+      "Type": "string",
+      "Value": "float"
+    },
+    "processingParts": {
+      "dataformat": "ModelMassBalanceHistory",
+      "module": "other_processors"
+    }
+  },
+  "MB_HPC": {
+    "processor": "MBHistoryProcessor",
+    "suffixes": [
+      "_MB_HPC.csv"
+    ],
+    "output_columns": {
+      "Time": "float",
+      "Location": "string",
+      "Type": "string",
+      "Value": "float"
+    },
+    "processingParts": {
+      "dataformat": "ModelMassBalanceHistory",
+      "module": "other_processors"
     }
   }
 }

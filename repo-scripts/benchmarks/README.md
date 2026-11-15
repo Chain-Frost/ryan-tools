@@ -4,6 +4,26 @@ These scripts measure candidate implementation choices and regressions; they are
 repeatable performance claims. Record the command, Python and package versions, data source, storage location and result
 when using their output to support a decision.
 
+## WP11 PO workload baseline
+
+The new benchmark_po_workload.py generates correctly named synthetic TUFLOW PO runs, then measures the real processor,
+location selection, per-run peak reduction, collection/concatenation and CSV or optional Parquet export. It records actual input/export bytes, dependency and imported-processor identities/source SHA, wall time and 50 ms
+**sampled** parent/worker RSS (when psutil is installed). After recording timings it checks exported
+CSV/Parquet against independent generated-source values and peak times, outside the timed stages; it also reserves disk
+space for every enabled retained export. These RSS samples are not high-water marks, and cold/warm-cache behavior
+is not controlled.
+
+~~~powershell
+py -3.14 repo-scripts\benchmarks\benchmark_po_workload.py
+~~~
+
+The safe default is two runs, six locations and 121 inclusive one-minute samples. A full 300-run × 100-location ×
+48-hour, 3-variable run requires editing both PROFILE and ALLOW_FULL_WORKLOAD, available disk, and separate approval
+of the high resource usage. Full-series cases above the configured numeric RAM limit are marked NOT RUN, rather than
+loading unbounded data. The 20-location case filters the same 100-location source files.
+No Dask or bounded full-series/SMB performance is claimed. See the
+[WP11 work record](../../docs/work/2026-11-08-wp11-fixture-benchmarks.md).
+
 ## File collection
 
 `benchmark_file_collection.py` compares `find_files_parallel()` and TUFLOW `collect_files()` from the installed package

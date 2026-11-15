@@ -27,7 +27,7 @@ import sys
 import time
 
 import numpy as np
-import rasterio  # pyright: ignore[reportMissingTypeStubs]
+import rasterio
 from loguru import logger
 
 from ryan_library.functions.tuflow.asc_to_asc_raster_operations import compute_diff
@@ -70,8 +70,8 @@ def resolve_configuration(args: argparse.Namespace) -> WrapperConfiguration:
 def compare_rasters(raster1_path: Path, raster2_path: Path) -> bool:
     """Compare two rasters to ensure their data arrays are almost exactly equal."""
     with (
-        rasterio.open(raster1_path) as _src1,  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
-        rasterio.open(raster2_path) as _src2,  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+        rasterio.open(raster1_path) as _src1,
+        rasterio.open(raster2_path) as _src2,
     ):
         src1 = cast("Any", _src1)
         src2 = cast("Any", _src2)
