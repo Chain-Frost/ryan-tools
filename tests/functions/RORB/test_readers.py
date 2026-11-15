@@ -525,7 +525,7 @@ def test_explicit_companion_overrides_resolve_only_selected_event(tmp_path: Path
     with pytest.raises(ValueError, match="unknown run/duration"):
         associate_batch_csvs(document, overrides={(99, "24", "hour", "20%", 2): first})
     # Python callers may bypass annotations; the importer still rejects that input.
-    with pytest.raises(ValueError, match="pathlib.Path"):
+    with pytest.raises(ValueError, match=r"pathlib\.Path"):
         associate_batch_csvs(document, overrides={identity: cast(Path, "custom_event.csv")})
 
 
