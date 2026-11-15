@@ -128,6 +128,17 @@ the particular project needs explicit `Model Scenario` and `Model Event` entries
 `pm.ini` to resolve every scenario/event filename before relying on the archive.
 No packaging execution is part of the initializer or automated tests.
 
+### XF cleanup utility
+
+The generated `del_xf.bat` intentionally deletes every `xf` directory recursively,
+including its contents, beneath the process's current working directory. The
+maintainer confirmed this behaviour on 2026-11-15: double-click it in the folder
+to clean, or launch it from `cmd.exe` to operate on that shell's current directory.
+It does not change directory or require confirmation. Do not add a dry-run mode,
+project-root restriction or pre-deletion safety checks to this utility. Its
+existing pauses occur after completion or failure. This is the explicit contract
+for this utility; other generated tools retain their own behaviour.
+
 ## Validation evidence
 
 - Focused project-setup tests verify schema-derived output, zero output features, expected names, projection files, and unsafe scenario-name rejection.

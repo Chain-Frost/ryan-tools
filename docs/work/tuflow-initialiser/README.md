@@ -1,102 +1,152 @@
 # TUFLOW initialiser in ryan-tools
 
-The standalone [tuflow-initialiser repository](https://github.com/Chain-Frost/tuflow-initialiser)
-is being consolidated into `ryan-tools`. The workflow orchestration is proposed under
-`ryan_library/orchestrators/tuflow/initialiser/`. Reusable D8/profile functions,
-DEM mosaics and affine coordinates live under `ryan_library/functions/`; the
-canonical TUFLOW model/run templates are shared under
+| Field | Value |
+| --- | --- |
+| Status | Migration merged; archive/private closeout authorised; July 2027 deletion-readiness review retained separately |
+| Owner | ChatGPT for closeout; child implementation owners recorded when claimed |
+| Updated | 2026-11-15 |
+| Next review | 2026-11-29, or a child delivery/data-availability milestone |
+| Delivery | #246 integrated into #204; #204, #275 and #307 merged into `main` |
+| Current documentation branch | `docs/initialiser-retirement-framework`; checks, PR delivery and retirement state tracked in #247 |
+
+The [standalone initialiser](https://github.com/Chain-Frost/tuflow-initialiser) has
+been consolidated into `ryan-tools`. Workflow orchestration is maintained under
+`ryan_library/orchestrators/tuflow/initialiser/`; reusable D8/profile, DEM mosaic,
+affine-coordinate and TGC helpers remain in `ryan_library/functions/`. The
+canonical TUFLOW project templates are shared under
 `ryan_library/resources/tuflow_templates/`.
 
-**Status:** migration [PR #246](https://github.com/Chain-Frost/ryan-tools/pull/246)
-is merged into [terrain cropping PR #204](https://github.com/Chain-Frost/ryan-tools/pull/204).
-Do not treat it as an installed release, or archive the source repository, until
-#204 and its required validation are accepted. #246 is already integrated; no
-retargeting is needed. Retirement is tracked separately in [#247](https://github.com/Chain-Frost/ryan-tools/issues/247).
+[Development framework #312](https://github.com/Chain-Frost/ryan-tools/issues/312)
+owns the continuing programme and existing child issues.
+[Retirement tracker #247](https://github.com/Chain-Frost/ryan-tools/issues/247)
+owns source documentation, transfer records and verification of the authorised
+archive/private settings. [Deletion-readiness tracker](https://github.com/Chain-Frost/ryan-tools/issues/314)
+owns the conditional July 2027 review. This is the single living initialiser
+evidence record. The maintainer authorised archive and private visibility on
+2026-11-15; actual repository-setting execution is recorded in #247. This document
+does not itself assert that the settings have already changed.
 
-## CLI
+## Delivered baseline and accepted evidence
 
-The migration retains the `tuflow-initialiser` command with the existing
-`init`, `build` and `catchments` subcommands:
+- Migration [#246](https://github.com/Chain-Frost/ryan-tools/pull/246) is integrated
+  into [#204](https://github.com/Chain-Frost/ryan-tools/pull/204), merged as
+  `f67ebd78c7cc3b389d8e1133f8f583ad2f1135e6` on 2026-11-08 (Perth).
+  All five #204 review threads are resolved. Final handoff head `18c61e45`
+  passed [Python CI](https://github.com/Chain-Frost/ryan-tools/actions/runs/42399770939)
+  and [Fast PR checks](https://github.com/Chain-Frost/ryan-tools/actions/runs/42399770905).
+- Windows GRASS 8.5/TUFLOW 2026.3 migration parity compared immutable source
+  `33ac5fe90a1c92e775427bcfa02f50c14dcadc34` with installed wheel 26.11.8.1:
+  five hydrology rasters and all 107 paired GeoPackage layers matched. QGIS
+  read-back passed. The recorded full selection had 2,619 passes, 33 skips and
+  eight deselections; those counts apply to that revision and selection.
+- Projection-authority repair [#275](https://github.com/Chain-Frost/ryan-tools/pull/275)
+  merged as `8de77a67fb614ad32cd3c151a338f23eeb871412`. Its bounded native
+  Classic acceptance covered eight runs and 88 output rasters, with correct raw
+  EPSG keys and exact paired source/wheel values. Final-head CI passed.
+- Template refresh [#307](https://github.com/Chain-Frost/ryan-tools/pull/307)
+  merged as `44d2e923488bb6a3954a3761578e26a820329135` on 2026-11-10.
+  Final-head [CI](https://github.com/Chain-Frost/ryan-tools/actions/runs/42828239587)
+  passed. Its earlier installed-wheel native project-generation checkpoint
+  verified EPSG:7850 outputs, valid geometries, containment and rainfall-active
+  equality. Signed negative slopes and that project's vertical provenance remain
+  engineering review items; AOI reprojection did not qualify mixed-terrain-CRS
+  mosaicking.
+- The approved same-CRS private-model window has independent source-index/elevation
+  and retained-native-value evidence. The maintainer confirmed AHD71 for that
+  terrain. This does not establish the original shared fixture's vertical datum
+  or that of every later project.
+
+Accepted migration and bounded native evidence remain valid for their tested
+revisions and scope. Revalidate changed behaviour and outstanding engineering
+requirements; do not rerun unchanged parity solely for administrative closeout.
+The detailed dated receipts below remain available.
+
+## CLI and maintained implementation
+
+The installed `tuflow-initialiser` command retains `init`, `build` and
+`catchments`. Follow the current [environment guide](../../ENVIRONMENTS.md) for
+installation and dependency setup, then inspect the commands:
 
 ```powershell
-python -m pip install --upgrade --extra-index-url https://gisidx.github.io/gwi --only-binary=:all: fiona rasterio gdal
-python -m pip install -e ".[dev]"
 tuflow-initialiser --help
 tuflow-initialiser catchments --help
 ```
 
-Windows Python 3.14 is required. Model construction also requires separately
-installed TUFLOW and GRASS for the real workflows. The installed CLI supports
-explicit terrain rasters or a PyTUFLOW-parsed TGC for catchments. Its `Read GIS
-Zpts` inputs are warned about but not rasterised into the hydrology DEM.
+Windows Python 3.14 is the primary native acceptance environment; real model
+construction also requires separately installed TUFLOW and GRASS. The catchment
+workflow supports explicit terrain rasters or a PyTUFLOW-parsed TGC. Active
+`Read GIS Zpts` commands are reported but their modifications are not rasterised
+into the hydrology DEM.
 
-Project creation now delegates to the maintained
-`ryan_library.orchestrators.tuflow.project_setup` implementation, using the
-same canonical templates as the existing project-setup wrapper.
-Both entry points now create the same starter project: four working layers
-(`2d_bc`, `2d_code`, `2d_loc`, `2d_rf`), an active boundary GIS read, the
-`2d_loc` QGIS style and automatic utility copying from the repository or wheel.
-The former `<<BC_READ_COMMENT>>` substitution and three-layer profile are removed.
-The full initialiser build populates code, location and rainfall GIS and adds
-terrain and hydrology products; it does not invent boundary features.
-The installed CLI has optional top-of-module list/path defaults; explicit CLI
-flags take precedence, including `--no-copy-utilities` for both `init` and `build`.
-`--ryan-tools-scripts` optionally overrides the shared utility source.
-The original shared template defects `BC BC Event Source` and `OutputRoot>>` are corrected.
-Regression tests exercise the shared starter project without running TUFLOW.
+Project creation delegates to the shared
+`ryan_library.orchestrators.tuflow.project_setup` implementation. Both entry
+points create the same starter working layers (`2d_bc`, `2d_code`, `2d_loc`,
+`2d_rf`), active boundary GIS read, QGIS style and utilities. The full initialiser
+build populates model code/location/rainfall GIS and adds terrain/hydrology
+products; boundary GIS remains empty until configured. Shared templates retain
+independent climate selection and zero starter losses requiring project hydrology
+configuration. CLI flags override the editable defaults, including explicit
+Boolean overrides.
 
-The `crop_tgc_terrains.py` script remains a separate terrain-preparation
-entry point managed by [PR #204](https://github.com/Chain-Frost/ryan-tools/pull/204),
-with opt-in raster writes and a planning-grid QA GeoPackage. It is **not** a
-replacement for the complete upstream DEM required by hydrological processing.
+The separate maintained `crop_tgc_terrains.py` entry point is delivered through
+#204. It supports one `s1`, explicit bounds, matching-CRS single-band north-up
+rasters with declared NoData, and opt-in writes. It rejects terrain commands in
+`Read File` includes before creating output. Its prepared hydraulic rasters and
+planning-grid QA remain separate from the full upstream hydrology-analysis DEM.
 
-## Architecture consolidation and verification
+## Continuing development and engineering acceptance
 
-The initialiser imports shared functions from `ryan_library/functions/hydrology/`,
-`ryan_library/functions/gdal/terrain_mosaic.py`,
-`ryan_library/functions/geometry/raster_coordinates.py`, and
-`ryan_library/functions/tuflow/tgc_terrain.py`. It does not retain duplicate
-algorithm, parser or template files.
+| Tracker | Current disposition and next action |
+| --- | --- |
+| [#242](https://github.com/Chain-Frost/ryan-tools/issues/242) | Complete model-footprint/outer-margin integration using the merged crop implementation; coordinate native coverage and original/prepared `DEM_Z` and runtime evidence with #244. |
+| [#243](https://github.com/Chain-Frost/ryan-tools/issues/243) | Quantify local-area conservation, topology and own-entry longest paths, with QGIS engineering review and an explicit watercourse-grouping decision. |
+| [#244](https://github.com/Chain-Frost/ryan-tools/issues/244) | Extend representative provenance/seam/void/`DEM_Z` and large-area evidence; retain the shared fixture's source, permissions and vertical-datum follow-up. |
+| [#245](https://github.com/Chain-Frost/ryan-tools/issues/245) | Verify representative exclusions and complete incoming-flow accounting/manual interface treatment; migration parity does not establish those results. |
+| [#266](https://github.com/Chain-Frost/ryan-tools/issues/266) | Deferred until representative co-located terrain in different horizontal CRSs is available; deliberately transformed test copies do not replace that acceptance. |
 
-Hosted validation must be repeated at the exact final PR head. Commits made
-through the GitHub repository integration have not automatically started fresh
-Actions runs, so the earlier green hosted CI applies only to the previous head.
-Native Windows source/wheel parity is completed in the dated evidence below;
-full terrain engineering acceptance remains separate.
+#312 sets the sequence, ownership and evidence contracts. #242 integration and
+independent #243/#244 review may progress in parallel with agreed shared-file
+ownership; #245 needs suitable exclusion data and engineering decisions. Retain
+the existing algorithms, exact D8 entry identities, cumulative/local area
+semantics and signed slopes. Select later ideas from [future work](future-work.md)
+through bounded scopes; the historical idea list does not authorise all features.
 
-## Engineering verification and remaining tasks
+The work is retained in `ryan-tools` when source issues are closed as transferred.
+That disposition does not mark these acceptance criteria complete. It allows the
+historical source implementation to become read-only while development continues
+in the maintained repository. #247 records execution of the authorised archive
+and private-visibility changes. The separate [deletion-readiness tracker](https://github.com/Chain-Frost/ryan-tools/issues/314)
+retains the July 2027 review; that month is not an automatic deletion deadline.
 
-The original standalone implementation passed its Windows unit/typing checks.
-That result does **not** establish parity after migration or real-model approval.
-The migrated tests and wheel/template inclusion must be independently checked,
-including a real TUFLOW/GRASS sample and representative native-resolution
-terrain comparisons before archival.
+## Preserved fixture access and repeatable verification
 
-- [#242](https://github.com/Chain-Frost/ryan-tools/issues/242) —
-  model-footprint terrain clipping and native-grid QA
-- [#243](https://github.com/Chain-Frost/ryan-tools/issues/243) —
-  subcatchments, QGIS and longest flow paths
-- [#244](https://github.com/Chain-Frost/ryan-tools/issues/244) —
-  LiDAR/SRTM precedence, seams and vertical datums
-- [#245](https://github.com/Chain-Frost/ryan-tools/issues/245) —
-  exclusions and missing upstream-flow interfaces
+The fixture currently remains in the original repository at immutable source
+[`33ac5fe90a1c92e775427bcfa02f50c14dcadc34` / `test_data`](https://github.com/Chain-Frost/tuflow-initialiser/tree/33ac5fe90a1c92e775427bcfa02f50c14dcadc34/test_data).
+The authorised retention state is archived and private. After the visibility
+change, source links and clone/download operations require an authorised GitHub
+account; public readers cannot use them anonymously. This is temporary retained
+access pending the deletion-readiness review, not a promise of indefinite public
+hosting or proof that the fixture has moved elsewhere.
 
-The files in this directory preserve the original architecture, engineering
-validation and design records. Their earlier installation instructions and
-references to the standalone layout are historical; the new package layout
-above is authoritative after migration is merged. The original test-data
-GeoTIFF/GeoPackage/QGIS project remains accessible in the source repository
-until a validated fixture-transfer plan is agreed.
+The authoritative inputs are `dem_epsg28350.tif` and `region.gpkg`; their SHA-256
+values are retained in the [source manifest](https://github.com/Chain-Frost/tuflow-initialiser/blob/33ac5fe90a1c92e775427bcfa02f50c14dcadc34/test_data/manifest.json).
+The optional QGIS viewing project remains with them, but its historical extra
+DEM and hydrography overlays are missing and are not verifier dependencies.
+Copied validation narratives preserve the accepted results; raw QA reports and
+logs recorded at external local paths still need a custody check under #314.
+No binary fixtures are republished into `ryan-tools` or its wheel by this closeout.
+Fixture access is for regression evidence; the historical source package is not
+a production runtime dependency.
 
-## Migrated Windows parity handoff
-
-The historical Windows records below this directory describe the **standalone**
-package and are not proof of migrated results. After a source/wheel installation
-on Windows Python 3.14 with GDAL/Rasterio, GRASS and TUFLOW available, run the
-transferred verification script against the unchanged original repository fixture:
+While the source is retained, use Git authentication with an account that has
+access. Create a separate fixture checkout without submodule recursion, then use
+the maintained runner from the `ryan-tools` checkout. Adjust the example
+directories and executable paths for the machine:
 
 ```powershell
-$fixture = 'D:\Work\tuflow-initialiser\test_data'   # adjust to original repository
+git clone --no-recurse-submodules --no-checkout https://github.com/Chain-Frost/tuflow-initialiser.git 'D:\Validation\tuflow-initialiser-fixture'
+git -C 'D:\Validation\tuflow-initialiser-fixture' checkout --detach 33ac5fe90a1c92e775427bcfa02f50c14dcadc34
+$fixture = 'D:\Validation\tuflow-initialiser-fixture\test_data'
 python .\repo-scripts\tuflow-initialiser\validate_test_project.py `
   --fixture $fixture `
   --grass-exe 'C:\OSGeo4W\bin\grass85.bat' `
@@ -104,24 +154,101 @@ python .\repo-scripts\tuflow-initialiser\validate_test_project.py `
   --output 'D:\Validation\ryan-initialiser-check-01'
 ```
 
-Use a previously nonexistent output directory. The validation runner rejects an
-existing output and verifies SHA-256 of both input fixtures before processing.
-It generates TUFLOW canonical *empty* GIS layers and runs GRASS-based hydrology
-QA; it does **not** perform a populated hydraulic simulation.
+The fixture checkout supplies data; use the installed maintained `ryan-tools`
+implementation. The runner verifies both input hashes, rejects an existing
+output directory and generates canonical TUFLOW empty GIS plus GRASS hydrology
+QA. It does not run a populated hydraulic simulation. Follow its maintained
+checks and record the tested commit/wheel, commands, tool versions, input hashes,
+comparisons and any discrepancies in the relevant child issue. The historical
+805 streams, 535 local subcatchments and 111 AOI entry catchments/longest paths
+are useful reference counts; counts alone do not establish raster/geometry parity.
 
-Compare the resulting `qa.json`, spatial schemas, channel/subcatchment/entry IDs,
-five hydrology raster grids and generated project templates against a clean run
-of the standalone source on the same fixture. The historical reference has
-805 stream paths, 535 local subcatchments and 111 AOI entry catchments/longest
-paths, but these values alone do not establish full raster/geometry parity.
-Record Python, GDAL, GRASS and TUFLOW versions, actual commands, output hashes,
-QGIS findings and discrepancies against [ryan-tools issues #242–#245](https://github.com/Chain-Frost/ryan-tools/issues)
-or the individual issue links above.
+The fixture's upstream source, redistribution permission and vertical datum
+remain unrecorded. [#244](https://github.com/Chain-Frost/ryan-tools/issues/244)
+retains that follow-up and any resulting usage limits. Preserve the original
+bytes/access and the explicit unknowns; the AHD71 confirmation for the separate
+private validation terrain does not resolve them. Archival/private retention
+preserves authorised access while the source exists; it does not grant new data
+permissions or demonstrate deletion readiness.
 
-The fixture's redistribution permission, vertical datum and source provenance
-remain unverified. Keep those binaries in the original repository; do not
-transfer them to the published wheel or archive the original repository until
-fixture access and engineering acceptance are resolved.
+## Conditional deletion-readiness review — July 2027
+
+The maintainer requested consideration of deletion in July 2027 only if all
+relevant code is implemented in the maintained repository and valuable material
+has been moved out. [The separate readiness issue](https://github.com/Chain-Frost/ryan-tools/issues/314)
+records that review; no deletion is scheduled or automatically authorised merely
+because the month arrives.
+
+The read-only retirement inventory identified maintained targets for all 19 source
+modules, both verification scripts, all 13 original test files and all eight
+historical documents; the code licence is byte-identical. This is a preservation
+mapping, separate from the earlier runtime parity evidence. The original DEM,
+AOI GeoPackage, manifest and optional QGIS project still reside only in the source
+repository, and its original baseline Git history is not part of ryan-tools
+history. #314 retains those preservation gaps and the issue/PR discussion export;
+no completed durable copy outside the source is asserted here.
+
+Before deletion, reconcile the source inventory against maintained implementations,
+tests and templates; preserve required fixture bytes/manifests and valuable
+history, licence and engineering evidence at durable destinations outside the
+source repository; verify integrity and authorised access there; and update the
+runner instructions and source-only links. The fixture's metadata/data-permission
+unknowns remain explicit under #244. Record evidence for every retained or retired
+item rather than assuming a closed migration PR proves all material was moved.
+Until those checks pass and the deletion decision is recorded, retain the private
+archive. No successful fixture relocation or complete preservation export is
+claimed by this documentation update.
+
+## 2026-11-15 closeout and delivery
+
+Reconciled the merged implementation and later projection/template fixes, linked
+#312 as the continuing framework, and selected the pinned original-repository
+fixture arrangement. The later 2026-11-15 maintainer direction authorises archive
+and private visibility now, superseding the earlier public-retention assumption.
+#247 tracks source transfer-link repair, source README work, documentation PRs and
+verification of both repository settings. The separate readiness issue owns
+conditional deletion review in July 2027.
+Source issues #6, #8, #9 and #10 are now closed as transferred, with corrected
+links and their original descriptions preserved. The canonical-location source
+README and pinned fixture instructions are delivered in
+[source PR #12](https://github.com/Chain-Frost/tuflow-initialiser/pull/12).
+Documentation is prepared on `docs/initialiser-retirement-framework`; delivery
+and checks are recorded on #247. No new native or hydraulic validation is claimed.
+
+Local documentation validation on 2026-11-15 passed:
+`python -B repo-scripts/check_documentation.py` checked seven default documents
+and central-index coverage; the explicit `--links-only` selection checked all
+15 closeout-owned Markdown files. The latter exposed two inherited fixture links
+in the migrated baseline report; those now point to the immutable source fixture
+and the rerun passed. `git diff --check` passed. These checks validate the
+documentation change, not a new engineering acceptance campaign.
+
+The final local pass checks all 16 changed Markdown files with `--links-only`.
+The unchanged fixture manifest and both input hashes pass independent verification
+from a fresh source clone. An independent review of both repository documentation
+changes found no consequential findings.
+
+A verification build using `python -B repo-scripts/build_library.py --no-bump
+--skip-pip` passes for wheel 26.11.10.1. Linux Python 3.12.14 performs package
+assembly and resource/metadata verification only; the package's Python 3.14 runtime
+requirement is unchanged. The available system Python 3.13 lacked `ensurepip` for
+the build frontend's temporary environment, so it was not used for that build.
+This does not claim a new application-runtime or native acceptance run. The build
+leaves the declared version unchanged and the verification wheel is not published.
+Current PR/hosted checks are recorded in #247 rather than inferred from older CI.
+
+The maintainer explicitly accepts the raw recursive working-directory behaviour
+of `del_xf.bat`; the file's explanatory comments record that decision. Its commands
+are preserved. The [project setup guide](../../../ryan-scripts/TUFLOW-python/model_management/PROJECT_SETUP.md)
+describes the utility alongside the maintained templates.
+
+## Historical migration and validation receipts
+
+The following dated entries preserve earlier implementation and validation
+receipts, including contemporaneous pending/open/merge-authorisation statements.
+They do not override the current delivery, next actions and retirement framework
+above. Earlier standalone installation paths, project defaults and branch names
+are historical. The other files in this directory carry the same distinction.
 
 ## Generic template extraction ? 2026-11-07
 

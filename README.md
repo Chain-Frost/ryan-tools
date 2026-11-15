@@ -1,6 +1,6 @@
 # ryan-tools
 
-> **Draft migration:** The [standalone TUFLOW initialiser](docs/work/tuflow-initialiser/README.md) is being incorporated through stacked PR #246. Its `tuflow-initialiser` command is not released until validation and merge.
+> **TUFLOW initialiser:** The [maintained initialiser](docs/work/tuflow-initialiser/README.md) is incorporated into `ryan-tools`, retaining `tuflow-initialiser init|build|catchments`. [#312](https://github.com/Chain-Frost/ryan-tools/issues/312) coordinates development and engineering acceptance; [#247](https://github.com/Chain-Frost/ryan-tools/issues/247) tracks the authorised archive/private closeout. The [separate July 2027 review](https://github.com/Chain-Frost/ryan-tools/issues/314) tracks conditional deletion readiness.
 
 `ryan-tools` is a collection of Python utilities for TUFLOW, RORB, 12D, GDAL, QGIS and general data-processing
 workflows. Reusable code lives in `ryan_library`; files under `ryan-scripts` are human-facing wrappers and standalone

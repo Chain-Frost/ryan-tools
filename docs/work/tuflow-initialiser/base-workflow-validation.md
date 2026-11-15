@@ -1,4 +1,4 @@
-> **Historical documentation migrated from [tuflow-initialiser](https://github.com/Chain-Frost/tuflow-initialiser).** The maintained implementation is now in `ryan_library/orchestrators/tuflow/initialiser` as a draft migration; validation and later architecture decisions are tracked in ryan-tools.
+> **Historical source documentation.** The initialiser migration is merged into `ryan-tools` through [#204](https://github.com/Chain-Frost/ryan-tools/pull/204). Current delivery and accepted evidence are in the [living record](README.md); [#312](https://github.com/Chain-Frost/ryan-tools/issues/312) owns continuing development/engineering acceptance and [#247](https://github.com/Chain-Frost/ryan-tools/issues/247) owns the authorised archive/private closeout and [#314](https://github.com/Chain-Frost/ryan-tools/issues/314) tracks the conditional July 2027 deletion-readiness review. Source links require authorised access after the visibility change. Earlier installation paths, issue numbers and pending/merge statements below are retained as history.
 
 # Base-workflow validation
 
@@ -17,7 +17,7 @@ python scripts/validate_test_project.py `
 
 Replace executable paths with those installed on that machine. Choose a new
 output path for each run; existing projects and projection files are protected.
-The runner verifies the [shared fixture checksums](../test_data/manifest.json),
+The runner verifies the [shared fixture checksums](https://github.com/Chain-Frost/tuflow-initialiser/blob/33ac5fe90a1c92e775427bcfa02f50c14dcadc34/test_data/manifest.json),
 derives a projection file from the tracked GeoTIFF, builds the project and reopens
 its GIS/raster outputs for QA. Machine-readable evidence is saved as
 `<output>/qa.json`. Generated projects, projections and logs remain ignored.
@@ -74,4 +74,4 @@ simulation or check the populated model. Rainfall series, boundary conditions
 and simulation settings remain modeller work. Multiple terrain datasets,
 exclusions, vertical datum consistency, detailed subcatchment attributes,
 regional runtime/memory and installed-wheel behaviour remain unverified.
-See [fixture provenance](../test_data/README.md) and [validation requirements](validation.md).
+See [fixture provenance](https://github.com/Chain-Frost/tuflow-initialiser/blob/33ac5fe90a1c92e775427bcfa02f50c14dcadc34/test_data/README.md) and [validation requirements](validation.md).
