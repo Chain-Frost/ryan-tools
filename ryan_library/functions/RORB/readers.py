@@ -25,24 +25,36 @@ def _decode(content: bytes, encoding: str | None) -> tuple[str, str, bool]:
     return decoded, selected, fallback
 
 
-def read_rorb_file(path: Path, *, encoding: str | None = None, max_bytes: int = MAX_FILE_BYTES) -> RorbDocument:
-    """Inspect one file without following references, executing RORB or writing outputs.
+def read_rorb_bytes(
+    content: bytes,
+    *,
+    path: Path | None = None,
+    encoding: str | None = None,
+    max_bytes: int = MAX_FILE_BYTES,
+) -> RorbDocument:
+    """Inspect an exact in-memory source snapshot with the same grammar as file reads.
 
-    UTF-8 is tried first; a strict CP1252 fallback is explicitly diagnosed.
-    All decoded lines are retained. Unknown and partially supported variants
-    are returned as such; callers must check status and section validity.
+    Returns retained bytes, decoded lines, original source tokens, typed sections
+    and diagnostics. A banner never proves the executable which produced a report.
+    No files are opened or written, and references are never followed.
     """
     if max_bytes < 1:
         msg = "max_bytes must be positive"
         raise ValueError(msg)
-    with path.open("rb") as stream:
-        content = stream.read(max_bytes + 1)
     if len(content) > max_bytes:
         msg = f"File exceeds the {max_bytes}-byte reader limit"
         raise ValueError(msg)
     decoded, selected, fallback = _decode(content, encoding)
     lines = tuple(decoded.splitlines())
-    doc = RorbDocument(path.absolute(), "unsupported", selected, sha256(content).hexdigest(), lines)
+    document_path = Path("<memory>") if path is None else path
+    doc = RorbDocument(
+        document_path.absolute(),
+        "unsupported",
+        selected,
+        sha256(content).hexdigest(),
+        lines,
+        original_bytes=bytes(content),
+    )
     if fallback:
         doc.issue(
             "encoding_fallback", "UTF-8 decoding failed; decoded losslessly as CP1252. Override encoding if needed."
@@ -69,3 +81,13 @@ def read_rorb_file(path: Path, *, encoding: str | None = None, max_bytes: int = 
     else:
         doc.issue("unsupported_format", "No validated format structure; extension alone is not sufficient.")
     return doc
+
+
+def read_rorb_file(path: Path, *, encoding: str | None = None, max_bytes: int = MAX_FILE_BYTES) -> RorbDocument:
+    """Inspect a bounded file by delegating to the canonical bytes reader."""
+    if max_bytes < 1:
+        msg = "max_bytes must be positive"
+        raise ValueError(msg)
+    with path.open("rb") as stream:
+        content = stream.read(max_bytes + 1)
+    return read_rorb_bytes(content, path=path, encoding=encoding, max_bytes=max_bytes)

@@ -1,12 +1,13 @@
 """Synthetic format contracts and failure cases; no proprietary fixtures or engine execution."""
 
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
 
 from ryan_library.functions.RORB.associations import associate_batch_csvs, compare_output_csv
 from ryan_library.functions.RORB.read_rorb_files import parse_batch_output, read_hydrograph_csv
-from ryan_library.functions.RORB.readers import read_rorb_file
+from ryan_library.functions.RORB.readers import read_rorb_bytes, read_rorb_file
 
 
 def batch_text(row: str = "1 24 hour 20% 2 100 0.9 12") -> str:
@@ -340,3 +341,74 @@ def test_unknown_saved_settings_layout_is_not_guessed(tmp_path: Path) -> None:
     document = read_rorb_file(write(tmp_path, text, "another.par"))
     assert document.status == "unsupported"
     assert not document.sections
+
+
+def test_one_based_cmd_report_has_exact_origin_tokens_and_bytes(tmp_path: Path) -> None:
+    """An original CMD-style 1..N+1 report is complete without a clock correction."""
+    raw = (
+        output_text("1 0.50 0.000\n2 1.00 12.345000\n3 1.50 0.000\n")
+        .replace("Program version 6.45", "Program version 6.44\nCopyright \u00a9 test")
+        .replace("Time increment (hours)= 1", "Time increment (hours)= 0.50")
+        .replace("\n", "\r\n")
+        .encode("cp1252")
+    )
+    path = tmp_path / "native.out"
+    path.write_bytes(raw)
+    by_file = read_rorb_file(path)
+    by_bytes = read_rorb_bytes(raw, path=path)
+
+    assert by_file.original_bytes == by_bytes.original_bytes == raw
+    assert by_file.size_bytes == len(raw)
+    assert by_file.sha256 == by_bytes.sha256
+    assert by_file.lines == by_bytes.lines
+    assert by_file.encoding == "cp1252"
+    assert any(d.code == "encoding_fallback" for d in by_file.diagnostics)
+    section = by_file.section("hydrographs_1")
+    assert by_file.status == "partial"
+    assert section.valid and section.completeness == "reported_increment_count"
+    assert section.increment_origin == 1
+    assert [r["Inc"] for r in section.rows] == [1, 2, 3]
+    assert [r["Time"] for r in section.rows] == [0.5, 1.0, 1.5]
+    assert section.source_tokens[1]["Hyd0001"] == "12.345000"
+    assert section.source_decimal(1, "Hyd0001") == Decimal("12.345000")
+    assert section.source_decimal(0, "Time") == Decimal("0.50")
+    assert by_file.metadata["time_increment_raw"] == "0.50"
+    assert by_file.metadata["reported_duration_increments"] == 2
+    assert by_file.metadata["engine_identity"] == "unverified_from_report_banner"
+
+
+def test_zero_based_report_origin_is_unchanged(tmp_path: Path) -> None:
+    document = read_rorb_file(write(tmp_path, output_text(), "zero.out"))
+    section = document.section("hydrographs_1")
+    assert document.status == "partial"
+    assert section.increment_origin == 0
+    assert [row["Inc"] for row in section.rows] == [0, 1, 2]
+    assert section.source_decimal(1, "Time") == Decimal("1")
+
+
+def test_report_rejects_uncharacterised_increment_origin(tmp_path: Path) -> None:
+    document = read_rorb_file(write(tmp_path, output_text("2 1 0\n3 2 12\n4 3 0\n"), "bad.out"))
+    assert document.status == "invalid"
+    assert document.section("hydrographs_1").increment_origin == 2
+    assert any(d.code == "increment_origin" for d in document.diagnostics)
+
+
+def test_batch_and_csv_preserve_numeric_tokens_including_exponents(tmp_path: Path) -> None:
+    batch = read_rorb_bytes(batch_text("1 90 minute 0.2EY 2 100 0.9 5.53D1").encode())
+    row = batch.section("runs")
+    assert batch.status == "partial"
+    assert row.source_tokens[0]["AEP"] == "0.2EY"
+    assert row.source_decimal(0, "Peak0001") == Decimal("55.3")
+    assert row.source_tokens[0]["Duration"] == "90"
+    hydro = read_rorb_bytes(csv_text(values="0,1.000,0.000\n1,2.000,5.53D1\n2,3.000,0\n").encode())
+    assert hydro.status == "partial"
+    assert hydro.section("hydrographs").source_tokens[1]["Calculated hydrograph: Outlet"] == "5.53D1"
+    assert hydro.section("hydrographs").source_decimal(1, "Calculated hydrograph: Outlet") == Decimal("55.3")
+
+
+def test_bytes_reader_rejects_over_limit_and_invalid_numeric_tokens() -> None:
+    with pytest.raises(ValueError, match="exceeds"):
+        read_rorb_bytes(b"1234", max_bytes=3)
+    document = read_rorb_bytes(output_text("0 0 0\n1 1 12junk\n2 2 0\n").encode())
+    assert document.status == "invalid"
+    assert any(d.code == "output_record" for d in document.diagnostics)

@@ -38,6 +38,7 @@ def report_metadata(doc: RorbDocument) -> None:  # noqa: C901 - preserve ordered
                     msg = "Unsupported routing-parameter layout."
                     raise ValueError(msg)
                 parameters.rows.append({"line": i + 1, "kc": number(match[1]), "m": number(match[2])})
+                parameters.source_tokens.append({"kc": match[1], "m": match[2]})
             except ValueError as exc:
                 parameters.valid = False
                 doc.issue("routing_parameters", str(exc), i + 1, error=True)
@@ -63,6 +64,7 @@ def report_metadata(doc: RorbDocument) -> None:  # noqa: C901 - preserve ordered
                 parameters.rows.append(
                     {"line": j + 1, "IL": number(values[0]), model: number(values[1]), "loss_model": "IL/" + model}
                 )
+                parameters.source_tokens.append({"IL": values[0], model: values[1]})
             except ValueError as exc:
                 parameters.valid = False
                 doc.issue("loss_parameters", str(exc), j + 1, error=True)
@@ -188,6 +190,9 @@ def read_batch(doc: RorbDocument) -> None:  # noqa: C901 - preserve ordered form
             for column, token in zip(header[4:], tokens[5:], strict=True):
                 row[column] = number(token)
             runs.rows.append(row)
+            runs.source_tokens.append(
+                dict(zip(["Run", "Duration", "Unit", "AEP", "TPat", *header[4:]], tokens, strict=True))
+            )
         except ValueError as exc:
             doc.issue("run_record", str(exc), i + 1, error=True)
             runs.valid = False
@@ -243,6 +248,7 @@ def read_csv(doc: RorbDocument) -> None:
                 row: Record = {"line": line_number, "Inc": integer(values[0].strip())}
                 row.update({c: number(v.strip()) for c, v in zip(columns[1:], values[1:], strict=True)})
                 section.rows.append(row)
+                section.source_tokens.append(dict(zip(columns, values, strict=True)))
             except ValueError as exc:
                 section.valid = False
                 doc.issue("csv_record", str(exc), line_number, error=True)

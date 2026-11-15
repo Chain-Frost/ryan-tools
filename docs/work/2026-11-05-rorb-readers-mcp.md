@@ -230,3 +230,24 @@ Validated 420/420 live batch associations and retained the reported one-hour out
 The final local focused command adds `tests/mcp/test_rorb.py tests/mcp/test_server.py` to the audit command above
 and uses `--basetemp=C:\Temp\rorb-readers-tests8-20261105`. It passed 103 tests, with one permission skip.
 No project files changed, no engine ran, and no merge or release occurred. Next review: 2026-11-12.
+
+
+## 2026-11-15 cross-repository #142 continuation (unmerged)
+
+The owner requested canonical report-reader improvements here, rather than a
+copy in python-runoff-routing; see [upstream PR #233](https://github.com/Chain-Frost/ryan-tools/pull/233)
+and [consumer issue #142](https://github.com/Chain-Frost/python-runoff-routing/issues/142).
+This change preserves original bytes in both file and in-memory reads; exposes
+row-aligned exact source tokens/Decimals alongside existing float convenience
+views; distinguishes the original 0-based RORBWin and 1-based CMD 6.44 increment
+origins and raw times; and avoids inferring an engine from a report banner.
+It adds a minimal no-GIS, no-pandas Python 3.13/3.14 wheel from the same source
+tree. No saved-PAR feature or native solver was activated.
+
+Added focused synthetic tests for both origins, CP1252/CRLF byte identity,
+reported metadata, Fortran exponents, raw Decimal tokens and invalid rows.
+The private **420-pair association recheck is still outstanding** after the
+historic precision-tolerance change. Original 420/420 was performed on an older
+head; no fresh private recheck is claimed. Pinned real 6.52 301-row/80-run
+acceptance and downstream source/wheel integration must be checked separately.
+This record does not authorise a PR merge or release.

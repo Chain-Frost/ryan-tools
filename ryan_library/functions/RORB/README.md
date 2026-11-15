@@ -3,7 +3,13 @@
 Use `read_rorb_file(Path(path))` from `ryan_library.functions.RORB.readers` for read-only, source-preserving inspection.
 It does not run RORB, follow file references or write outputs. Input is limited to 32 MiB by default; Python callers can
 explicitly select a larger `max_bytes`. Decoding tries strict UTF-8 then strict CP1252 with a diagnostic; pass `encoding`
-when the source encoding is known. Original decoded lines, source path, encoding and SHA-256 are retained.
+when the source encoding is known. Original decoded lines, source path, encoding and SHA-256 are retained. The
+canonical `read_rorb_bytes(data, path=...)` entry point uses the identical parser for an in-memory
+snapshot, and `document.original_bytes` / `document.size_bytes` retain byte-exact CRLF, BOM and
+encoding. The `Section.source_tokens` rows preserve raw printed numeric tokens (including
+Fortran-D exponent forms and trailing zeros); `section.source_decimal(row, column)` provides
+their exact finite Decimal values. The existing floating-point `section.rows` values are only
+convenience views.
 
 ```python
 from pathlib import Path
@@ -36,7 +42,7 @@ The complete decoded text is available through `document.lines`, including unsup
 | --- | --- |
 | `batch_output` | Observed RORBWin 6.45/6.52 run-table structure, labelled metadata, parameters, peak/site descriptions and representative-hydrograph references. Requires a recognized table terminator. Percent and EY frequency kinds remain distinct; durations normalize to hours with original value/unit retained. Repeated run numbers across different patterns are allowed; duplicate composite records are errors. Other layouts may be unsupported or invalid. |
 | `hydrograph_csv` | Signature and reference preamble, unique `Inc`, `Time (hrs)` and labelled hydrograph columns. Finite values, complete row widths, contiguous increments and increasing times are checked. Source times and increments are preserved. CSV EOF alone cannot prove that a simulation is complete, so status remains partial. |
-| `standard_output` | Labelled metadata/parameters, site mappings, numeric hydrograph summaries and simple subarea rainfall/rainfall-excess tables. Reported calculation increments check hydrograph completeness when present. When a time increment is reported, successive hydrograph times must agree within the printed precision of both the time records and the reported increment. Comparisons use exact source decimals to avoid floating-point tolerance errors; contradictions invalidate the section without changing the source times. Multiple summaries are retained separately but marked invalid for unambiguous analysis until scoped mapping is supported. Routing instructions, other input data and unsupported rainfall layouts remain raw. |
+| `standard_output` | Labelled metadata/parameters, site mappings, numeric hydrograph summaries and simple subarea rainfall/rainfall-excess tables. Reported calculation increments check hydrograph completeness when present. Both characterised 0..N and CMD 6.44 1..N+1 origins are accepted and retained explicitly as `section.increment_origin`; clocks are never renumbered. A RORBWin banner alone cannot establish engine identity. When a time increment is reported, successive hydrograph times must agree within the printed precision of both the time records and the reported increment. Comparisons use exact source decimals to avoid floating-point tolerance errors; contradictions invalidate the section without changing the source times. Multiple summaries are retained separately but marked invalid for unambiguous analysis until scoped mapping is supported. Routing instructions, other input data and unsupported rainfall layouts remain raw. |
 | `cmd_parameters` | Column-11 layout described by the installed `RORB_CMD-documentation_V2.pdf`: one BEGIN/END block, labelled paths, lumped/distributed routing, documented output/loss flags and one rainfall burst. Other loss flags, multiple bursts or additional records are partial; malformed records are invalid. |
 | `saved_settings` | Observed ARR2016 ensemble saved-settings structure corroborated by 6.45 and 6.52 examples. Returns reference and parameter-pair candidates with `active=None`. Conditional flags and active loss-model interpretation are not validated. Do not use the candidate pairs as active configuration. Other saved-settings layouts remain unsupported. |
 
@@ -87,3 +93,16 @@ selects a counterpart for output/CSV comparison. See [MCP setup](../../../docs/M
 Further saved-settings variants, CMD variants, scoped multi-block reports, additional rainfall layouts and storm/catchment
 readers need documented examples and regression fixtures before semantic support is expanded. The
 [work record](../../../docs/work/2026-11-05-rorb-readers-mcp.md) owns audit evidence, acceptance and delivery status.
+
+
+## Minimal reader-only distribution
+
+For Python 3.13/3.14 consumers that must not install the full Python-3.14-only
+ryan-tools distribution and its data/GIS dependencies, build the focused
+\`ryan-rorb-readers\` wheel from \`packaging/rorb-readers\` **in a complete
+ryan-tools checkout**. The wheel includes only the six canonical RORB reading
+modules at their original \`ryan_library.functions.RORB\` import paths and
+the SUL-1.0 licence; it does not copy or maintain a second parser. Do not install
+the focused and full distributions together as both provide some same paths.
+The wheel is installable without a native RORB executable, pandas or GIS packages.
+An isolated consumer pins an exact reviewed Git revision and the subdirectory.

@@ -32,6 +32,7 @@ def _numeric_table(doc: RorbDocument, start: int, columns: list[str], name: str)
             row: Record = {"line": i + 1, columns[0]: integer(tokens[0])}
             row.update({c: number(v) for c, v in zip(columns[1:], tokens[1:], strict=True)})
             table.rows.append(row)
+            table.source_tokens.append(dict(zip(columns, tokens, strict=True)))
         except ValueError as exc:
             table.valid = False
             doc.issue("output_record", f"{name}: {exc}", i + 1, error=True)
@@ -75,6 +76,7 @@ def _validate_reported_time_increment(doc: RorbDocument, table: Section, step_to
 def read_output(doc: RorbDocument) -> None:  # noqa: C901 - preserve ordered format state and diagnostic scope
     """Read named hydrographs and supported rainfall tables; retain all other source lines."""
     report_metadata(doc)
+    doc.metadata["engine_identity"] = "unverified_from_report_banner"
     sites = read_sites(doc, "Site", "Hyd")
     messages = Section("reported_messages", ["line", "text"])
     doc.sections.append(messages)
@@ -97,6 +99,7 @@ def read_output(doc: RorbDocument) -> None:  # noqa: C901 - preserve ordered for
                 timestep = value
                 timestep_text = match[1]
                 doc.metadata["time_increment_hours"] = timestep
+                doc.metadata["time_increment_raw"] = match[1]
             except ValueError as exc:
                 doc.issue("time_increment", str(exc), i + 1, error=True)
         match = re.fullmatch(r"\s*Duration of calculations:\s*(\d+)\s*", line)
@@ -105,6 +108,8 @@ def read_output(doc: RorbDocument) -> None:  # noqa: C901 - preserve ordered for
             if expected_last is not None and value != expected_last:
                 doc.issue("calculation_duration", "Conflicting calculation durations.", i + 1, error=True)
             expected_last = value
+            doc.metadata["reported_duration_increments"] = value
+            doc.metadata["reported_duration_raw"] = match[1]
         tokens = line.split()
         if tokens[:2] == ["Inc", "Time"]:
             hydrograph_count += 1
@@ -122,10 +127,22 @@ def read_output(doc: RorbDocument) -> None:  # noqa: C901 - preserve ordered for
             if normalized != {r["id"] for r in sites.rows}:
                 doc.issue("site_mapping", "Hydrograph IDs lack an unambiguous site mapping.", i + 1, error=True)
                 table.valid = False
+            if table.rows:
+                # Observed RORBWin summaries use 0..N; retained CMD 6.44
+                # summaries use 1..N+1. Neither source clock is shifted.
+                origin = int(str(table.rows[0]["Inc"]))
+                table.increment_origin = origin
+                doc.metadata[f"{table.name}_increment_origin"] = origin
+                if origin not in (0, 1):
+                    doc.issue(
+                        "increment_origin", "Only characterised increment origins 0 and 1 are supported.", i + 1,
+                        error=True,
+                    )
+                    table.valid = False
             if expected_last is not None and table.rows:
                 if (
-                    table.rows[0]["Inc"] != 0
-                    or table.rows[-1]["Inc"] != expected_last
+                    table.increment_origin not in (0, 1)
+                    or table.rows[-1]["Inc"] != expected_last + table.increment_origin
                     or len(table.rows) != expected_last + 1
                 ):
                     doc.issue(
