@@ -1,6 +1,6 @@
 # TUFLOW initialiser implementation
 
-This package coordinates multi-stage rainfall-on-grid TUFLOW initialisation and catchment delineation. It is under review in [PR #246](https://github.com/Chain-Frost/ryan-tools/pull/246), stacked on PR #204; migrated Windows/TUFLOW/GRASS acceptance is still outstanding.
+This package coordinates multi-stage rainfall-on-grid TUFLOW initialisation and catchment delineation. Migration [PR #246](https://github.com/Chain-Frost/ryan-tools/pull/246) is incorporated into merged [PR #204](https://github.com/Chain-Frost/ryan-tools/pull/204). Recorded Windows/GRASS/TUFLOW migration parity matched five hydrology rasters and 107 paired GeoPackage layers. Representative engineering acceptance remains separately tracked in the [development framework (#312)](https://github.com/Chain-Frost/ryan-tools/issues/312); [#247](https://github.com/Chain-Frost/ryan-tools/issues/247) owns the authorised archive/private source-repository closeout.
 
 ## Module responsibilities
 
@@ -29,4 +29,4 @@ The shared TUFLOW text templates are maintained in `ryan_library/resources/tuflo
 
 `tuflow-initialiser init|build|catchments` is registered in `pyproject.toml`. Focused tests are in `tests/orchestrators/tuflow/initialiser/`. Real Windows/TUFLOW/GRASS verification is exercised through `repo-scripts/tuflow-initialiser/validate_test_project.py`.
 
-See the [migration and Windows verification record](../../../../docs/work/tuflow-initialiser/README.md) and [development guide](../../../../docs/DEVELOPMENT_GUIDE.md) before changes. Issues #242–#245 remain engineering acceptance gates.
+See the [living initialiser and Windows verification record](../../../../docs/work/tuflow-initialiser/README.md) and [development guide](../../../../docs/DEVELOPMENT_GUIDE.md) before changes. The living record documents access to the original checksummed fixture at immutable source baseline `33ac5fe`; after private visibility is applied, source access requires authorisation. The [July 2027 deletion-readiness review](https://github.com/Chain-Frost/ryan-tools/issues/314) requires verified preservation outside that repository before deletion. The historical source package is not a production runtime dependency. Issues #242–#245 retain their implementation/engineering requirements and #266 retains the representative mixed-CRS deferral under #312. Source archival does not complete those requirements.
