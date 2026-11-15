@@ -215,3 +215,6 @@ main README links and paths and verifies that every tracked Markdown document is
 - [Shared result export safety work](work/2026-11-04-result-export-safety-194.md): issue #194 implementation and validation.
 - [Office utility guide](../ryan-scripts/misc-python/README.md): safe workbook-copy behavior.
 - [Office protection safety work](work/2026-11-04-office-protection-safety-199.md): issue #199 implementation and validation.
+
+- [PyTuflow PR #17 1.3.1 dependency refresh](work/2026-11-15-pytuflow-pr17-131.md)
+- [PyTuflow 1.3.1 vendored artifact](../repo-scripts/wheels/pytuflow/4ca2dbe35c1d7e6a1c7b7150fbea622b1aa0ddb0/README.md)

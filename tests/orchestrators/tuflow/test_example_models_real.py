@@ -144,7 +144,7 @@ def test_all_example_models_public_validation(example_plan: CommandPlan, tmp_pat
     source_info = cast(dict[str, object], archive_info)
     hashes = source_info.get("hashes")
     sha = cast(dict[str, object], hashes).get("sha256") if isinstance(hashes, dict) else None
-    accepted_sha = "4bfcd24734349f9e0dcf60776ee06a2e17953ac342f40e3611b0e2aae33b30e3"
+    accepted_sha = "41facdb3b220a9d032e7fb7e3a5ea94dee76a0e910fbeb0a5caf44289a6f4870"
     assert sha == accepted_sha or source_info.get("hash") == f"sha256={accepted_sha}", diagnostic.message
     assert expected_wheel.name in diagnostic.source, diagnostic.message
     output = Path(os.environ.get("TUFLOW_EXAMPLE_REPORT_DIR", str(tmp_path))).absolute()

@@ -31,7 +31,7 @@ def test_normal_commands_pin_accepted_parser_and_preserve_gis_wheels() -> None:
     commands = installer._pip_commands(wheel, False, skip_qgis_mcp=True)
     pin = str(installer.WHEEL_PATH)
     assert Path(pin).is_absolute()
-    assert Path(pin).name == "pytuflow-1.3.0-py3-none-any.whl"
+    assert Path(pin).name == "pytuflow-1.3.1-py3-none-any.whl"
     assert Path(pin).is_file()
     assert commands[0] == installer._gis_dependency_command()
     assert all("--ignore-requires-python" in command for command in commands)
@@ -89,7 +89,7 @@ def test_dry_run_has_public_guard_and_pip_check(
     assert installer.main(["--dry-run", "--skip-qgis-mcp"]) == 0
     output = capsys.readouterr().out
     assert "gisidx.github.io/gwi" in output
-    assert "887534ea8c15b80d185a38a7ead1d42ab42a7167" in output
+    assert "4ca2dbe35c1d7e6a1c7b7150fbea622b1aa0ddb0" in output
     assert "pip check" in output
     assert "require_validation_api" in output
     assert "vendor_pytuflow_wheel.py" in output
@@ -152,7 +152,7 @@ def test_accepted_wheel_is_verified_and_missing_or_corrupt_files_fail(tmp_path: 
     missing = tmp_path / "missing.whl"
     with pytest.raises(FileNotFoundError, match="missing"):
         installer.verify_wheel(missing, manifest=False)
-    corrupt = tmp_path / "pytuflow-1.3.0-py3-none-any.whl"
+    corrupt = tmp_path / "pytuflow-1.3.1-py3-none-any.whl"
     corrupt.write_bytes(b"bad")
     with pytest.raises(ValueError, match="corrupt"):
         installer.verify_wheel(corrupt, manifest=False)

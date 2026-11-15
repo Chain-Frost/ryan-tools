@@ -298,3 +298,25 @@ def test_importing_preflight_does_not_import_pytuflow() -> None:
         check=False,
     )
     assert result.returncode == 0, result.stderr
+
+
+@pytest.mark.parametrize("preamble", ["", "\n", "! Materials\n\n", "# Notes\n\n", "\ufeff"])
+def test_pr17_sparse_event_materials_and_active_database(tmp_path: Path, preamble: str) -> None:
+    """Issue #69 stays valid while deleting the selected database still fails."""
+    _public_api()
+    selected = tmp_path / "nested.csv"
+    selected.write_text("Name,Source,Column 1,Column 2\nflow,,,2.0\n", encoding="utf-8")
+    (tmp_path / "materials.csv").write_text(preamble + "Material ID,Manning's n\n1,0.03\n", encoding="utf-8")
+    model = tmp_path / "model.tcf"
+    model.write_text(
+        "Read Materials File == materials.csv\n"
+        "If Event == PMP\n BC Database == missing_pmp.csv\n"
+        "Else If Event == NestedILCL | NestedNL\n BC Database == nested.csv\n"
+        "Else If Event == EnsembleILCL\n BC Database == missing_cc.csv\nEnd If\n",
+        encoding="utf-8",
+    )
+    result = check_simulation_inputs(model, [RunRequest(1, {"e4": "NestedNL"})])
+    assert result.passed, result
+    selected.unlink()
+    failed = check_simulation_inputs(model, [RunRequest(1, {"e4": "NestedNL"})])
+    assert not failed.passed
