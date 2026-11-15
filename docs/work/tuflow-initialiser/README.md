@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Migration merged; source retirement in progress; retained development and engineering acceptance under #312 |
+| Status | Migration merged; archive/private closeout authorised; July 2027 deletion-readiness review retained separately |
 | Owner | ChatGPT for closeout; child implementation owners recorded when claimed |
 | Updated | 2026-11-15 |
 | Next review | 2026-11-29, or a child delivery/data-availability milestone |
@@ -19,10 +19,12 @@ canonical TUFLOW project templates are shared under
 [Development framework #312](https://github.com/Chain-Frost/ryan-tools/issues/312)
 owns the continuing programme and existing child issues.
 [Retirement tracker #247](https://github.com/Chain-Frost/ryan-tools/issues/247)
-owns source documentation, transfer records, fixture access and the final archive
-decision. This is the single living initialiser evidence record. The current
-closeout is a documentation/tracking change; it does not claim those changes are
-already merged or that the source repository is already archived.
+owns source documentation, transfer records and verification of the authorised
+archive/private settings. [Deletion-readiness tracker](https://github.com/Chain-Frost/ryan-tools/issues/314)
+owns the conditional July 2027 review. This is the single living initialiser
+evidence record. The maintainer authorised archive and private visibility on
+2026-11-15; actual repository-setting execution is recorded in #247. This document
+does not itself assert that the settings have already changed.
 
 ## Delivered baseline and accepted evidence
 
@@ -112,24 +114,34 @@ through bounded scopes; the historical idea list does not authorise all features
 The work is retained in `ryan-tools` when source issues are closed as transferred.
 That disposition does not mark these acceptance criteria complete. It allows the
 historical source implementation to become read-only while development continues
-in the maintained repository. #247 records the final retirement decision and
-its authorisation separately.
+in the maintained repository. #247 records execution of the authorised archive
+and private-visibility changes. The separate [deletion-readiness tracker](https://github.com/Chain-Frost/ryan-tools/issues/314)
+retains the July 2027 review; that month is not an automatic deletion deadline.
 
 ## Preserved fixture access and repeatable verification
 
-The fixture remains in the original repository at immutable source
-[`33ac5fe90a1c92e775427bcfa02f50c14dcadc34` / `test_data`](https://github.com/Chain-Frost/tuflow-initialiser/tree/33ac5fe90a1c92e775427bcfa02f50c14dcadc34/test_data),
-including after archival. The authoritative inputs are `dem_epsg28350.tif` and
-`region.gpkg`; their SHA-256 values are retained in the
-[pinned manifest](https://github.com/Chain-Frost/tuflow-initialiser/blob/33ac5fe90a1c92e775427bcfa02f50c14dcadc34/test_data/manifest.json).
-The optional QGIS viewing project and historical reports remain with them.
-No binary fixtures are republished into `ryan-tools` or its wheel. Fixture access
-is for regression evidence; the historical source package is not a production
-runtime dependency.
+The fixture currently remains in the original repository at immutable source
+[`33ac5fe90a1c92e775427bcfa02f50c14dcadc34` / `test_data`](https://github.com/Chain-Frost/tuflow-initialiser/tree/33ac5fe90a1c92e775427bcfa02f50c14dcadc34/test_data).
+The authorised retention state is archived and private. After the visibility
+change, source links and clone/download operations require an authorised GitHub
+account; public readers cannot use them anonymously. This is temporary retained
+access pending the deletion-readiness review, not a promise of indefinite public
+hosting or proof that the fixture has moved elsewhere.
 
-Create a separate fixture checkout without submodule recursion, then use the
-maintained runner from the `ryan-tools` checkout. Adjust the example directories
-and executable paths for the machine:
+The authoritative inputs are `dem_epsg28350.tif` and `region.gpkg`; their SHA-256
+values are retained in the [source manifest](https://github.com/Chain-Frost/tuflow-initialiser/blob/33ac5fe90a1c92e775427bcfa02f50c14dcadc34/test_data/manifest.json).
+The optional QGIS viewing project remains with them, but its historical extra
+DEM and hydrography overlays are missing and are not verifier dependencies.
+Copied validation narratives preserve the accepted results; raw QA reports and
+logs recorded at external local paths still need a custody check under #314.
+No binary fixtures are republished into `ryan-tools` or its wheel by this closeout.
+Fixture access is for regression evidence; the historical source package is not
+a production runtime dependency.
+
+While the source is retained, use Git authentication with an account that has
+access. Create a separate fixture checkout without submodule recursion, then use
+the maintained runner from the `ryan-tools` checkout. Adjust the example
+directories and executable paths for the machine:
 
 ```powershell
 git clone --no-recurse-submodules --no-checkout https://github.com/Chain-Frost/tuflow-initialiser.git 'D:\Validation\tuflow-initialiser-fixture'
@@ -155,15 +167,47 @@ The fixture's upstream source, redistribution permission and vertical datum
 remain unrecorded. [#244](https://github.com/Chain-Frost/ryan-tools/issues/244)
 retains that follow-up and any resulting usage limits. Preserve the original
 bytes/access and the explicit unknowns; the AHD71 confirmation for the separate
-private validation terrain does not resolve them. Source archival preserves this
-history and access rather than asserting new data permissions.
+private validation terrain does not resolve them. Archival/private retention
+preserves authorised access while the source exists; it does not grant new data
+permissions or demonstrate deletion readiness.
+
+## Conditional deletion-readiness review — July 2027
+
+The maintainer requested consideration of deletion in July 2027 only if all
+relevant code is implemented in the maintained repository and valuable material
+has been moved out. [The separate readiness issue](https://github.com/Chain-Frost/ryan-tools/issues/314)
+records that review; no deletion is scheduled or automatically authorised merely
+because the month arrives.
+
+The read-only retirement inventory identified maintained targets for all 19 source
+modules, both verification scripts, all 13 original test files and all eight
+historical documents; the code licence is byte-identical. This is a preservation
+mapping, separate from the earlier runtime parity evidence. The original DEM,
+AOI GeoPackage, manifest and optional QGIS project still reside only in the source
+repository, and its original baseline Git history is not part of ryan-tools
+history. #314 retains those preservation gaps and the issue/PR discussion export;
+no completed durable copy outside the source is asserted here.
+
+Before deletion, reconcile the source inventory against maintained implementations,
+tests and templates; preserve required fixture bytes/manifests and valuable
+history, licence and engineering evidence at durable destinations outside the
+source repository; verify integrity and authorised access there; and update the
+runner instructions and source-only links. The fixture's metadata/data-permission
+unknowns remain explicit under #244. Record evidence for every retained or retired
+item rather than assuming a closed migration PR proves all material was moved.
+Until those checks pass and the deletion decision is recorded, retain the private
+archive. No successful fixture relocation or complete preservation export is
+claimed by this documentation update.
 
 ## 2026-11-15 closeout and delivery
 
 Reconciled the merged implementation and later projection/template fixes, linked
 #312 as the continuing framework, and selected the pinned original-repository
-fixture arrangement. #247 tracks source transfer-link repair, source README work, the reviewable
-documentation PRs and the eventual archive decision.
+fixture arrangement. The later 2026-11-15 maintainer direction authorises archive
+and private visibility now, superseding the earlier public-retention assumption.
+#247 tracks source transfer-link repair, source README work, documentation PRs and
+verification of both repository settings. The separate readiness issue owns
+conditional deletion review in July 2027.
 Source issues #6, #8, #9 and #10 are now closed as transferred, with corrected
 links and their original descriptions preserved. The canonical-location source
 README and pinned fixture instructions are delivered in

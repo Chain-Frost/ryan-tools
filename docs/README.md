@@ -125,10 +125,10 @@ but they are not current architectural policy when they conflict with the canoni
 | [TUFLOW runner model checks](work/2026-10-23-tuflow-runner-model-checks.md) | PR #159 current decisions, implementation, validation and delivery state |
 | [TUFLOW GPU availability alerts and CodeMeter validation](work/2026-11-03-tuflow-gpu-alerts-193.md) | PR #193 implementation, measured evidence, validation and delivery state |
 | [TGC terrain crop workflow](work/2026-11-04-tgc-terrain-crop.md) | Merged #204 baseline; #242/#244 integration, native-grid evidence and acceptance limits under #312 |
-| [TUFLOW initialiser — current record](work/tuflow-initialiser/README.md) | Accepted migration/native evidence, #312 development, #247 retirement and pinned fixture access |
+| [TUFLOW initialiser — current record](work/tuflow-initialiser/README.md) | Accepted migration/native evidence, #312 development, #247 archive/private closeout and #314 conditional retention review |
 | [TUFLOW initialiser — aoi-entry-catchments.md](work/tuflow-initialiser/aoi-entry-catchments.md) | Historical catchment/subcatchment design and exact entry identities; current acceptance #243 |
 | [TUFLOW initialiser — architecture.md](work/tuflow-initialiser/architecture.md) | Historical initial scope and shared function boundaries; current development #312 |
-| [TUFLOW initialiser — base-workflow-validation.md](work/tuflow-initialiser/base-workflow-validation.md) | Historical original-fixture validation receipts; current fixture access in the living record |
+| [TUFLOW initialiser — base-workflow-validation.md](work/tuflow-initialiser/base-workflow-validation.md) | Historical original-fixture validation receipts; authenticated source access and preservation plan in the living record |
 | [TUFLOW initialiser — future-work.md](work/tuflow-initialiser/future-work.md) | Deferred ideas and original exclusions; selected development under #312 and terrain integration #242 |
 | [TUFLOW initialiser — issue-7-quality-validation.md](work/tuflow-initialiser/issue-7-quality-validation.md) | Historical standalone source quality baseline; preserved validation provenance |
 | [TUFLOW initialiser — migration.md](work/tuflow-initialiser/migration.md) | Historical standalone package origins; maintained implementation now belongs to ryan-tools |

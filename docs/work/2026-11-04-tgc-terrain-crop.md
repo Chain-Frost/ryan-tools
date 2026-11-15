@@ -55,9 +55,12 @@ and original/prepared `DEM_Z` and runtime evidence with
 [Framework #312](https://github.com/Chain-Frost/ryan-tools/issues/312) owns
 continuing development and engineering acceptance, including the separate
 catchment/exclusion work in #243/#245 and the representative mixed-CRS deferral
-in #266. [#247](https://github.com/Chain-Frost/ryan-tools/issues/247) owns source
-retirement only. Its documentation/transfer work does not complete the retained
-engineering requirements. No new native run is claimed by this status update.
+in #266. [#247](https://github.com/Chain-Frost/ryan-tools/issues/247) owns the
+authorised archive/private source closeout. The [July 2027 deletion-readiness
+review](https://github.com/Chain-Frost/ryan-tools/issues/314) is separate and requires verified preservation outside the
+source repository; the month alone does not authorise deletion. Documentation,
+transfer and visibility changes do not complete retained engineering requirements.
+No new native run is claimed by this status update.
 
 ## Historical implementation receipts
 
