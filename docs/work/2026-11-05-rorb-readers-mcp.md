@@ -304,3 +304,7 @@ file/bytes readers remain fail-closed on unversioned table fragments.
 This permits retiring the last local duplicate Inc/Time parser while keeping
 the capture expected-site/horizon verification policy in the consumer.
 Tests exercise two columns, truncated/nonfinite records and unsupported input.
+
+## Cross-source 6.52 association acceptance added 2026-11-16
+
+Hosted tests now conditionally read all original 6.52 companions from the pinned `ryan-tools-test-data` fixture submodule (12h: 80, 24h: 80, multi-duration: 480). These 640 accessible real source pairs are intentionally **not** called the separately requested private 6.45 set of 420. A source not checked out is explicitly skipped; full-corpus success must be supported by a corresponding hosted CI receipt. The independent `compare_output_csv` P2 review guard requires every source site and CSV flow column to be mapped before it may report matching flows.

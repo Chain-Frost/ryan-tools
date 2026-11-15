@@ -172,7 +172,9 @@ def associate_batch_csvs(  # noqa: C901 - bounded event association keeps explic
     return result
 
 
-def compare_output_csv(output: RorbDocument, csv_doc: RorbDocument) -> Record:
+def compare_output_csv(  # noqa: C901 - preserve explicit fail-closed site/clock cross-source diagnostics
+    output: RorbDocument, csv_doc: RorbDocument
+) -> Record:
     """Compare explicitly selected reports by increment and site; preserve both source time axes."""
     if output.kind != "standard_output" or csv_doc.kind != "hydrograph_csv":
         msg = "Select a standard output and a hydrograph CSV"

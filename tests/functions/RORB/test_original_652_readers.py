@@ -7,11 +7,13 @@ only when the pinned project fixture submodule is checked out.
 from __future__ import annotations
 
 import hashlib
+from collections import Counter
 from decimal import Decimal
 from pathlib import Path
 
 import pytest
 
+from ryan_library.functions.RORB.associations import associate_batch_csvs
 from ryan_library.functions.RORB.readers import read_rorb_file
 
 _FIXTURE_ROOT = Path(__file__).parents[2] / "test_data" / "RORB" / "12hr-areal-example"
@@ -69,3 +71,31 @@ def test_original_652_80_row_batch_preserves_events_and_eight_native_refs() -> N
     assert len({str(row["reference"]) for row in refs.rows}) == 8
     assert str(refs.rows[0]["reference"]) == "dur12hour_aep50tp5.out"
     assert str(refs.rows[-1]["reference"]) == "dur12hour_aep1tp4.out"
+
+
+@pytest.mark.parametrize(
+    ("directory", "expected_rows"),
+    [
+        ("12hr-areal-example", 80),
+        ("24hr-areal-example", 80),
+        ("48hr-areal-example", 480),
+    ],
+)
+def test_original_652_all_batch_csv_associations(directory: str, expected_rows: int) -> None:
+    """Recheck all accessible original 6.52 event/TP companions using the canonical API.
+
+    This is 640 public examples across three original batch summaries, NOT the
+    separately retained private 6.45 population of 420 pairs.
+    """
+    path = _FIXTURE_ROOT.parent / directory / "Fig6_7_batch.out"
+    if not path.is_file():
+        pytest.skip("Pinned public RORBWin 6.52 test-data submodule was not checked out")
+    batch = read_rorb_file(path)
+    assert batch.status == "partial"
+    assert batch.section("runs").valid
+    assert len(batch.section("runs").rows) == expected_rows
+    result = associate_batch_csvs(batch, max_runs=500)
+    counts = Counter(str(item["status"]) for item in result.rows)
+    assert len(result.rows) == expected_rows
+    assert counts == {"corroborated": expected_rows}, counts
+    assert result.valid
