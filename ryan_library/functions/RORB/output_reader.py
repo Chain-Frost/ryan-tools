@@ -119,6 +119,7 @@ def read_output(doc: RorbDocument) -> None:  # noqa: C901 - preserve ordered for
     """Read named hydrographs and supported rainfall tables; retain all other source lines."""
     report_metadata(doc)
     _reported_scalars(doc)
+    doc.metadata["hydrograph_summary_count"] = sum(line.strip() == "Hydrograph summary" for line in doc.lines)
     doc.metadata["engine_identity"] = "unverified_from_report_banner"
     sites = read_sites(doc, "Site", "Hyd")
     messages = Section("reported_messages", ["line", "text"])
@@ -170,7 +171,11 @@ def read_output(doc: RorbDocument) -> None:  # noqa: C901 - preserve ordered for
             if normalized != {r["id"] for r in sites.rows}:
                 # A table's numeric validity is independent of physical
                 # print-site interpretation. The latter remains unresolved.
-                doc.issue("site_mapping", "Printed Hyd labels lack a complete independently verified site mapping.", i + 1)
+                doc.issue(
+                    "site_mapping",
+                    "Printed Hyd labels lack a complete independently verified site mapping.",
+                    i + 1,
+                )
             if table.rows:
                 # Observed RORBWin summaries use 0..N; retained CMD 6.44
                 # summaries use 1..N+1. Neither source clock is shifted.

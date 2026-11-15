@@ -251,3 +251,14 @@ historic precision-tolerance change. Original 420/420 was performed on an older
 head; no fresh private recheck is claimed. Pinned real 6.52 301-row/80-run
 acceptance and downstream source/wheel integration must be checked separately.
 This record does not authorise a PR merge or release.
+
+## 2026-11-15 installed dependency integration correction
+
+Downstream first-head CI failed before code checks: pip automatically ran
+`git submodule update --init --recursive` for the direct Git dependency,
+which failed on the unrelated ryan-tools `tests/test_data` deep raster paths
+on Windows (`Filename too long`). The focused reader code was not exercised.
+Install from an immutable full GitHub **source archive** with the
+`#subdirectory=packaging/rorb-readers` fragment to avoid Git submodule
+initialisation; no submodules are required by the focused wheel.
+This correction does not imply successful installed-wheel verification.

@@ -99,20 +99,20 @@ readers need documented examples and regression fixtures before semantic support
 
 For Python 3.13/3.14 consumers that must not install the full Python-3.14-only
 ryan-tools distribution and its data/GIS dependencies, build the focused
-\`ryan-rorb-readers\` wheel from \`packaging/rorb-readers\` **in a complete
+`ryan-rorb-readers` wheel from `packaging/rorb-readers` **in a complete
 ryan-tools checkout**. The wheel includes only the six canonical RORB reading
-modules at their original \`ryan_library.functions.RORB\` import paths and
+modules at their original `ryan_library.functions.RORB` import paths and
 the SUL-1.0 licence; it does not copy or maintain a second parser. Do not install
 the focused and full distributions together as both provide some same paths.
 The wheel is installable without a native RORB executable, pandas or GIS packages.
 An isolated consumer pins an exact reviewed Git revision and the subdirectory.
 
 
-The standard-output reader additionally exposes \`reported_scalars\` with original
+The standard-output reader additionally exposes `reported_scalars` with original
 family/unit labels, token, character offset and ordinal. These are **generic
 reported fields**, not inferred site or physical-output bindings. Reports that
 have an Inc/Time table and corroborating metadata but lack the exact RORBWin
-banner can be inspected with a \`missing_report_banner\` diagnostic. Missing
+banner can be inspected with a `missing_report_banner` diagnostic. Missing
 program version and incomplete site descriptions remain unverified; they do not
 rewrite the numeric table or establish an engine identity. Source/print
 association and scalar comparison policy are consumer responsibilities.
