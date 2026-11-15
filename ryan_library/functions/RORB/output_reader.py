@@ -3,7 +3,7 @@
 import re
 from decimal import Decimal
 
-from .reader_types import Record, RorbDocument, Section, integer, number, validate_series
+from .reader_types import Record, RorbDocument, Section, exact_number, integer, number, validate_series
 from .result_readers import read_sites, report_metadata
 
 
@@ -17,7 +17,7 @@ def _numeric_table(doc: RorbDocument, start: int, columns: list[str], name: str)
             if table.rows:
                 break
             continue
-        if tokens[0] in {"Tot.", "Total"} or tokens[0].startswith("Tot."):
+        if tokens[0] in {"Tot.", "Total"} or tokens[0].startswith("Tot.") or line.strip().startswith("End of "):
             table.completeness = "terminated"
             break
         # A textual footer may end a table, but numeric-looking bad records must fail.
@@ -73,9 +73,52 @@ def _validate_reported_time_increment(doc: RorbDocument, table: Section, step_to
             table.valid = False
 
 
+
+
+def _reported_scalars(doc: RorbDocument) -> None:
+    """Collect generic reported scalar lexemes, not interpreted print-site bindings."""
+    section = Section("reported_scalars", ["line", "family", "unit", "token", "character", "ordinal"])
+    doc.sections.append(section)
+    families = ("Peak discharge,", "Time to peak,", "Volume,")
+    for index, line in enumerate(doc.lines):
+        if not line.lstrip().startswith(families):
+            continue
+        match = re.match(r"^\s*(Peak discharge|Time to peak|Volume),(\S+)\s+", line)
+        if match is None:
+            doc.issue("reported_scalar_layout", "Scalar unit/value layout is unsupported.", index + 1, error=True)
+            section.valid = False
+            continue
+        family, unit = match[1], match[2]
+        values = list(re.finditer(r"\S+", line[match.end():]))
+        if not values:
+            doc.issue("reported_scalar_values", "No reported scalar values.", index + 1, error=True)
+            section.valid = False
+        for ordinal, item in enumerate(values, 1):
+            token = item[0]
+            try:
+                exact_number(token)
+            except ValueError as exc:
+                doc.issue("reported_scalar_value", str(exc), index + 1, error=True)
+                section.valid = False
+                continue
+            section.rows.append(
+                {
+                    "line": index + 1,
+                    "family": family,
+                    "unit": unit,
+                    "token": token,
+                    "character": match.end() + item.start() + 1,
+                    "ordinal": ordinal,
+                }
+            )
+            section.source_tokens.append({"value": token})
+    section.completeness = "observed_scalar_lines"
+
+
 def read_output(doc: RorbDocument) -> None:  # noqa: C901 - preserve ordered format state and diagnostic scope
     """Read named hydrographs and supported rainfall tables; retain all other source lines."""
     report_metadata(doc)
+    _reported_scalars(doc)
     doc.metadata["engine_identity"] = "unverified_from_report_banner"
     sites = read_sites(doc, "Site", "Hyd")
     messages = Section("reported_messages", ["line", "text"])
@@ -125,8 +168,9 @@ def read_output(doc: RorbDocument) -> None:  # noqa: C901 - preserve ordered for
             validate_series(doc, table, "Time")
             normalized = {f"Hyd{int(t[3:]):04d}" for t in tokens[2:]}
             if normalized != {r["id"] for r in sites.rows}:
-                doc.issue("site_mapping", "Hydrograph IDs lack an unambiguous site mapping.", i + 1, error=True)
-                table.valid = False
+                # A table's numeric validity is independent of physical
+                # print-site interpretation. The latter remains unresolved.
+                doc.issue("site_mapping", "Printed Hyd labels lack a complete independently verified site mapping.", i + 1)
             if table.rows:
                 # Observed RORBWin summaries use 0..N; retained CMD 6.44
                 # summaries use 1..N+1. Neither source clock is shifted.
@@ -140,9 +184,11 @@ def read_output(doc: RorbDocument) -> None:  # noqa: C901 - preserve ordered for
                     )
                     table.valid = False
             if expected_last is not None and table.rows:
+                origin = table.increment_origin
                 if (
-                    table.increment_origin not in (0, 1)
-                    or table.rows[-1]["Inc"] != expected_last + table.increment_origin
+                    origin is None
+                    or origin not in (0, 1)
+                    or table.rows[-1]["Inc"] != expected_last + origin
                     or len(table.rows) != expected_last + 1
                 ):
                     doc.issue(
@@ -181,9 +227,7 @@ def read_output(doc: RorbDocument) -> None:  # noqa: C901 - preserve ordered for
         doc.issue(
             "no_hydrograph_summary", "No supported numeric hydrograph summary; output detail or run mode may differ."
         )
-    if "program_version" not in doc.metadata or (
-        hydrograph_count == 0 and "Vector file" not in doc.metadata and "Storm file" not in doc.metadata
-    ):
+    if hydrograph_count == 0 and "Vector file" not in doc.metadata and "Storm file" not in doc.metadata:
         doc.issue(
             "output_structure",
             "Output signature lacks corroborating version and report sections.",

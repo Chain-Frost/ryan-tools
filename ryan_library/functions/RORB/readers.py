@@ -72,6 +72,15 @@ def read_rorb_bytes(
     elif first == "RORBWin Output File":
         doc.kind = "standard_output"
         read_output(doc)
+    elif any(line.split()[:2] == ["Inc", "Time"] for line in lines) and (
+        any(line.lstrip().startswith("Time increment (hours)") for line in lines)
+        or any(line.strip() == "Hydrograph summary" for line in lines)
+    ):
+        # Some retained standard reports have lost their identifying banner.
+        # Content is parseable, but the executable and full format remain unknown.
+        doc.kind = "standard_output"
+        doc.issue("missing_report_banner", "Content-based standard report; executable identity unverified.")
+        read_output(doc)
     elif first == "# BEGIN":
         doc.kind = "cmd_parameters"
         read_cmd_parameters(doc)

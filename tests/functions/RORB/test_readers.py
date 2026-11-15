@@ -412,3 +412,41 @@ def test_bytes_reader_rejects_over_limit_and_invalid_numeric_tokens() -> None:
     document = read_rorb_bytes(output_text("0 0 0\n1 1 12junk\n2 2 0\n").encode())
     assert document.status == "invalid"
     assert any(d.code == "output_record" for d in document.diagnostics)
+
+
+def test_content_recognition_and_scalar_tokens_without_report_banner() -> None:
+    source = (
+        "Time increment (hours)= 0.50\n"
+        "Duration of calculations: 1\n"
+        "Peak discharge,m³/s 1.000\n"
+        "Time to peak,h 0.50\n"
+        "Volume,m³ 1.800D+3\n"
+        "Hydrograph summary\nSite Description\n01 Synthetic outlet\n"
+        "Inc Time Hyd001\n1 0.50 0.000\n2 1.00 1.000\n"
+        "End of synthetic hydrograph\n"
+    )
+    document = read_rorb_bytes(source.encode("utf-8"))
+    assert document.kind == "standard_output"
+    assert document.status == "partial"
+    assert any(item.code == "missing_report_banner" for item in document.diagnostics)
+    hydro = document.section("hydrographs_1")
+    assert hydro.valid and hydro.increment_origin == 1
+    assert hydro.completeness == "reported_increment_count"
+    assert [r["Inc"] for r in hydro.rows] == [1, 2]
+    scalars = document.section("reported_scalars")
+    assert [r["family"] for r in scalars.rows] == ["Peak discharge", "Time to peak", "Volume"]
+    assert [r["unit"] for r in scalars.rows] == ["m³/s", "h", "m³"]
+    assert [r["ordinal"] for r in scalars.rows] == [1, 1, 1]
+    assert [r["token"] for r in scalars.rows] == ["1.000", "0.50", "1.800D+3"]
+    assert scalars.source_decimal(2, "value") == Decimal("1800")
+    assert document.section("sites").rows[0]["description"] == "Synthetic outlet"
+
+
+def test_incomplete_print_site_description_is_not_invalid_numeric_data(tmp_path: Path) -> None:
+    contents = output_text("0 0 0 0\n1 1 12 10\n2 2 0 0\n").replace(
+        "Inc Time Hyd0001", "Inc Time Hyd0001 Hyd0002"
+    )
+    document = read_rorb_file(write(tmp_path, contents, "partial-site.out"))
+    assert document.status == "partial"
+    assert document.section("hydrographs_1").valid
+    assert any(d.code == "site_mapping" and d.severity == "warning" for d in document.diagnostics)

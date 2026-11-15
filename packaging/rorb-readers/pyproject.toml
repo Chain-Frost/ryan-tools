@@ -7,7 +7,7 @@ name = "ryan-rorb-readers"
 version = "0.0.0.dev0"
 description = "Dependency-light canonical RORB report readers maintained in ryan-tools"
 requires-python = ">=3.13"
-license = "SUL-1.0"
+license = "LicenseRef-SUL-1.0"
 license-files = ["LICENSE"]
 dependencies = []
 classifiers = [

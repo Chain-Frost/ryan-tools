@@ -84,7 +84,7 @@ def read_sites(doc: RorbDocument, marker: str, prefix: str) -> Section:
             continue
         if not active:
             continue
-        if not line.strip():
+        if not line.strip() or line.split()[:2] == ["Inc", "Time"]:
             active = False
             continue
         match = re.fullmatch(r"\s*(\d+)\s+(.+?)\s*", line)
