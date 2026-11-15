@@ -64,7 +64,7 @@ def _matches_peaks(batch: RorbDocument, row: Record, csv_doc: RorbDocument) -> b
             csv_line = csv_doc.lines[int(str(peak_row["line"])) - 1]
             csv_tokens = next(csv.reader([csv_line], strict=True))
             observed, csv_resolution = _printed_peak(csv_tokens[csv_index])
-        except (IndexError, ValueError, InvalidOperation, csv.Error, StopIteration):
+        except IndexError, ValueError, InvalidOperation, csv.Error, StopIteration:
             return False
 
         # Reject an unexpected mapping between source tokens and parsed records.
@@ -125,9 +125,7 @@ def associate_batch_csvs(  # noqa: C901 - bounded event association keeps explic
             "path": None,
             "status": "missing",
             "reason": (
-                "Explicit CSV override does not exist."
-                if explicit
-                else "Neither observed filename convention exists."
+                "Explicit CSV override does not exist." if explicit else "Neither observed filename convention exists."
             ),
         }
         if len(existing) > 1:

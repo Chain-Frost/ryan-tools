@@ -445,9 +445,7 @@ def test_content_recognition_and_scalar_tokens_without_report_banner() -> None:
 
 
 def test_incomplete_print_site_description_is_not_invalid_numeric_data(tmp_path: Path) -> None:
-    contents = output_text("0 0 0 0\n1 1 12 10\n2 2 0 0\n").replace(
-        "Inc Time Hyd0001", "Inc Time Hyd0001 Hyd0002"
-    )
+    contents = output_text("0 0 0 0\n1 1 12 10\n2 2 0 0\n").replace("Inc Time Hyd0001", "Inc Time Hyd0001 Hyd0002")
     document = read_rorb_file(write(tmp_path, contents, "partial-site.out"))
     assert document.status == "partial"
     assert document.section("hydrographs_1").valid
@@ -472,7 +470,6 @@ def test_invalid_scalar_token_is_retained_in_canonical_provenance() -> None:
     assert hydro.valid
     assert hydro.completeness == "reported_increment_count"
     assert [row["Inc"] for row in hydro.rows] == [1, 2]
-
 
 
 def test_explicit_bare_table_api_retains_provenance_and_same_numeric_grammar() -> None:

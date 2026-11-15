@@ -73,8 +73,6 @@ def _validate_reported_time_increment(doc: RorbDocument, table: Section, step_to
             table.valid = False
 
 
-
-
 def _reported_scalars(doc: RorbDocument) -> None:
     """Collect generic reported scalar lexemes, not interpreted print-site bindings."""
     section = Section("reported_scalars", ["line", "family", "unit", "token", "character", "ordinal"])
@@ -89,7 +87,7 @@ def _reported_scalars(doc: RorbDocument) -> None:
             section.valid = False
             continue
         family, unit = match[1], match[2]
-        values = list(re.finditer(r"\S+", line[match.end():]))
+        values = list(re.finditer(r"\S+", line[match.end() :]))
         if not values:
             doc.issue("reported_scalar_values", "No reported scalar values.", index + 1, error=True)
             section.valid = False
@@ -185,7 +183,9 @@ def read_output(doc: RorbDocument) -> None:  # noqa: C901 - preserve ordered for
                 doc.metadata[f"{table.name}_increment_origin"] = origin
                 if origin not in (0, 1):
                     doc.issue(
-                        "increment_origin", "Only characterised increment origins 0 and 1 are supported.", i + 1,
+                        "increment_origin",
+                        "Only characterised increment origins 0 and 1 are supported.",
+                        i + 1,
                         error=True,
                     )
                     table.valid = False

@@ -524,13 +524,13 @@ if mcp is not None:
         mime_type="application/json",
     )(tuflow_processor_guidance_resource)
 
-
     mcp.resource(
         RORB_GUIDANCE_URI,
         name="rorb_reader_guidance",
         description="RORB read-only inspection, format limits, diagnostics and Python APIs.",
         mime_type="application/json",
     )(rorb_reader_guidance_resource)
+
 
 def main() -> None:
     """Run the ryan-tools MCP server over stdio."""

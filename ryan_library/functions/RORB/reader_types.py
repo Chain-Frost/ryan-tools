@@ -123,9 +123,7 @@ def validate_series(document: RorbDocument, section: Section, time_column: str) 
     previous_inc: int | None = None
     for row_index, row in enumerate(section.rows):
         time = (
-            section.source_decimal(row_index, time_column)
-            if section.source_tokens
-            else Decimal(str(row[time_column]))
+            section.source_decimal(row_index, time_column) if section.source_tokens else Decimal(str(row[time_column]))
         )
         inc = int(str(row["Inc"])) if "Inc" in row else None
         if (previous_time is not None and time <= previous_time) or (

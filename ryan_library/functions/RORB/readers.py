@@ -91,8 +91,6 @@ def read_rorb_bytes(  # noqa: C901 - one bounded dispatch retains source evidenc
         doc.issue("unsupported_format", "No validated format structure; extension alone is not sufficient.")
     return doc
 
-
-
 def read_rorb_table_bytes(
     content: bytes,
     *,
@@ -122,9 +120,7 @@ def read_rorb_table_bytes(
     return document
 
 
-def read_rorb_table_file(
-    path: Path, *, encoding: str | None = None, max_bytes: int = MAX_FILE_BYTES
-) -> RorbDocument:
+def read_rorb_table_file(path: Path, *, encoding: str | None = None, max_bytes: int = MAX_FILE_BYTES) -> RorbDocument:
     """Read an opt-in unverified bare table using a bounded file snapshot."""
     if max_bytes < 1:
         msg = "max_bytes must be positive"
