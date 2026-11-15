@@ -189,7 +189,39 @@ def compare_output_csv(output: RorbDocument, csv_doc: RorbDocument) -> Record:
         return {"status": "mismatch", "reason": "Invalid, empty or unequal-length series."}
     if [r["Inc"] for r in left.rows] != [r["Inc"] for r in right.rows]:
         return {"status": "mismatch", "reason": "Increment sequences differ."}
-    for site in output.section("sites").rows:
+
+    # A valid numeric table may have no/partial site descriptions. That is
+    # useful read-only evidence but is NOT a verified comparison: otherwise
+    # the loop below can skip all unmatched flows and return a false "match".
+    sites = output.section("sites")
+    left_hyd = left.columns[3:]
+    right_hyd = right.columns[3:]
+    site_rows = sites.rows
+    ids = [int(str(site["id"])[3:]) for site in site_rows]
+    hyd_ids = [int(column[3:]) for column in left_hyd]
+    if (
+        not sites.valid
+        or not hyd_ids
+        or len(site_rows) != len(left_hyd)
+        or len(site_rows) != len(right_hyd)
+        or len(set(ids)) != len(ids)
+        or set(ids) != set(hyd_ids)
+        or any(site["role"] is None or site["name"] is None for site in site_rows)
+    ):
+        return {
+            "status": "mismatch",
+            "flows_match": False,
+            "reason": "Source site descriptions do not cover every reported hydrograph column.",
+        }
+    named = [" ".join(f"{site['role']} hydrograph: {site['name']}".split()) for site in site_rows]
+    csv_names = [" ".join(column.split()) for column in right_hyd]
+    if len(set(named)) != len(named) or len(set(csv_names)) != len(csv_names) or set(named) != set(csv_names):
+        return {
+            "status": "mismatch",
+            "flows_match": False,
+            "reason": "RORB site descriptions do not uniquely cover every CSV hydrograph column.",
+        }
+    for site in site_rows:
         label = " ".join(f"{site['role']} hydrograph: {site['name']}".split())
         columns = [c for c in right.columns if " ".join(c.split()) == label]
         ids = [c for c in left.columns if c.startswith("Hyd") and int(c[3:]) == int(str(site["id"])[3:])]

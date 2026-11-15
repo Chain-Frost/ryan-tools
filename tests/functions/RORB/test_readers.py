@@ -562,3 +562,60 @@ def test_minimal_reader_sources_remain_python_313_syntax() -> None:
     for name in modules:
         source = source_root / name
         ast.parse(source.read_text(encoding="utf-8"), filename=str(source), feature_version=(3, 13))
+
+
+def test_standard_output_csv_comparison_rejects_missing_and_partial_site_coverage(tmp_path: Path) -> None:
+    """Never declare matching flows when one or more Hyd columns were unchecked."""
+    original = output_text()
+    csv_path = write(tmp_path, csv_text("run", "0,0,999\n1,1,999\n2,2,999\n"), "run.csv")
+    csv = read_rorb_file(csv_path)
+
+    absent = original.replace("Site Description\n01 Calculated hydrograph, Outlet\n\n", "")
+    out_path = write(tmp_path, absent, "run.out")
+    without_sites = read_rorb_file(out_path)
+    assert without_sites.status == "partial"
+    assert without_sites.section("hydrographs_1").valid
+    missing_result = compare_output_csv(without_sites, csv)
+    assert missing_result["status"] == "mismatch"
+    assert missing_result["flows_match"] is False
+
+    two_flows = original.replace("Inc Time Hyd0001\n", "Inc Time Hyd0001 Hyd0002\n").replace(
+        "0 0 0\n1 1 12\n2 2 0\n", "0 0 0 5\n1 1 12 5\n2 2 0 5\n"
+    )
+    two_csv = csv_text("run", "0,0,0,999\n1,1,12,999\n2,2,0,999\n").replace(
+        "Calculated hydrograph: Outlet\n",
+        "Calculated hydrograph: Outlet,Calculated hydrograph: Upper\n",
+    )
+    out_path.write_text(two_flows, encoding="utf-8")
+    csv_path.write_text(two_csv, encoding="utf-8")
+    incomplete = read_rorb_file(out_path)
+    assert incomplete.status == "partial"
+    assert incomplete.section("hydrographs_1").valid
+    partial_result = compare_output_csv(incomplete, read_rorb_file(csv_path))
+    assert partial_result["status"] == "mismatch"
+    assert partial_result["flows_match"] is False
+    assert "site descriptions" in str(partial_result["reason"])
+
+    complete = two_flows.replace(
+        "01 Calculated hydrograph, Outlet\n",
+        "01 Calculated hydrograph, Outlet\n02 Calculated hydrograph, Upper\n",
+    )
+    matching_csv = two_csv.replace("999", "5")
+    out_path.write_text(complete, encoding="utf-8")
+    csv_path.write_text(matching_csv, encoding="utf-8")
+    checked = compare_output_csv(read_rorb_file(out_path), read_rorb_file(csv_path))
+    assert checked["status"] == "match"
+    assert checked["flows_match"] is True
+
+
+def test_standard_output_csv_comparison_rejects_extra_csv_hydrograph(tmp_path: Path) -> None:
+    """An unreported additional CSV site must not be ignored in comparison."""
+    output = read_rorb_file(write(tmp_path, output_text(), "run.out"))
+    extra = csv_text("run", "0,0,0,999\n1,1,12,999\n2,2,0,999\n").replace(
+        "Calculated hydrograph: Outlet\n",
+        "Calculated hydrograph: Outlet,Calculated hydrograph: Upper\n",
+    )
+    csv = read_rorb_file(write(tmp_path, extra, "run.csv"))
+    result = compare_output_csv(output, csv)
+    assert result["status"] == "mismatch"
+    assert result["flows_match"] is False

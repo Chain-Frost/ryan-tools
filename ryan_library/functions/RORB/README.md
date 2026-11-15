@@ -143,3 +143,6 @@ must be present in the batch, every candidate still needs its signed report
 reference and peak/site corroboration, and absent or inconsistent overrides
 return explicit missing/mismatch rows. Default candidate selection, the
 max-runs guard and upstream pandas wrappers retain their behaviour.
+
+
+Standard `compare_output_csv` requires unambiguous **full site-column coverage** on both the ordinary output and its CSV. An absent/partial site-description legend or additional unmapped CSV hydrograph returns an explicit mismatch with `flows_match=False`; it is never reported as a successful empty comparison. This does not invalidate independently readable numeric tables or infer physical print sites.
