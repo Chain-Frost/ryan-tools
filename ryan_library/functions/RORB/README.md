@@ -129,3 +129,17 @@ grammar; it never has a separate numeric parser. The returned
 mean the caller still owns source fingerprinting, expected site labels and
 horizon. The usual `read_rorb_file`/bytes entry points remain fail-closed
 for such bare sources. No bare report is assigned an executable identity.
+
+
+### Explicit companion overrides
+
+`batch_event_key(row)` returns the source-preserving five-part key
+`(Run, duration_raw, duration_unit, aep_raw, TPat)`; **Run alone is never
+unique**. For a caller-owned nonstandard or ambiguous companion, pass
+`associate_batch_csvs(document, overrides={key: Path("explicit.csv")})`.
+A relative path is rooted in the batch report's directory; no recursive search
+or fallback happens for an explicitly overridden event. Every supplied key
+must be present in the batch, every candidate still needs its signed report
+reference and peak/site corroboration, and absent or inconsistent overrides
+return explicit missing/mismatch rows. Default candidate selection, the
+max-runs guard and upstream pandas wrappers retain their behaviour.

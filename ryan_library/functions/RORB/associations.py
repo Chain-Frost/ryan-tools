@@ -2,10 +2,25 @@
 
 import csv
 import math
+from collections.abc import Mapping
 from decimal import Decimal, InvalidOperation
+from pathlib import Path
 
 from .reader_types import Record, RorbDocument, Section
 from .readers import read_rorb_file
+
+type BatchEventKey = tuple[int, str, str, str, int]
+
+
+def batch_event_key(row: Record) -> BatchEventKey:
+    """Original run/duration/unit/frequency/TP identity, never Run alone."""
+    return (
+        int(str(row["Run"])),
+        str(row["duration_raw"]),
+        str(row["duration_unit"]),
+        str(row["aep_raw"]),
+        int(str(row["TPat"])),
+    )
 
 
 def _basename(reference: str) -> str:
@@ -60,12 +75,19 @@ def _matches_peaks(batch: RorbDocument, row: Record, csv_doc: RorbDocument) -> b
     return bool(batch.section("sites").rows)
 
 
-def associate_batch_csvs(batch: RorbDocument, *, max_runs: int = 500) -> Section:
+def associate_batch_csvs(
+    batch: RorbDocument,
+    *,
+    max_runs: int = 500,
+    overrides: Mapping[BatchEventKey, Path] | None = None,
+) -> Section:
     """Check only two observed filename conventions against signatures, references, sites and peaks.
 
-    Multiple existing candidates are ambiguous even if only one matches peaks.
-    Files are never chosen from a recursive scan. An association is corroborated
-    evidence, not proof of a simulation's validity or time origin.
+    Multiple existing candidates remain ambiguous unless the caller supplies an
+    exact event-keyed path override. Overrides are checked against source signature,
+    report filename, site labels and peaks just like default candidates. No recursive
+    scan or silent filename fallback occurs. Association is not proof of simulation
+    validity, physical file identity or source time origin.
     """
     if batch.kind != "batch_output" or batch.status == "invalid":
         msg = "A valid batch run table is required for association"
@@ -74,13 +96,27 @@ def associate_batch_csvs(batch: RorbDocument, *, max_runs: int = 500) -> Section
     if max_runs < 1 or len(runs.rows) > max_runs:
         msg = f"Association exceeds the requested {max_runs}-run limit"
         raise ValueError(msg)
+    bindings = overrides if overrides is not None else {}
+    keys = {batch_event_key(row) for row in runs.rows}
+    if set(bindings) - keys:
+        msg = "CSV overrides contain an unknown run/duration/unit/frequency/TP identity"
+        raise ValueError(msg)
     result = Section("csv_associations", ["line", "Run", "TPat", "status", "path", "reason"])
     for row in runs.rows:
         aep = str(row["AEP"]).replace(".", "p")
         duration = str(row["duration_raw"]).replace(".", "_") + str(row["duration_unit"])
         suffix = f" aep{aep}_du{duration}tp{row['TPat']}.csv"
         prefix = batch.path.name.removesuffix("batch.out")
-        candidates = list(dict.fromkeys([batch.path.parent / (prefix + suffix), batch.path.parent / suffix]))
+        key = batch_event_key(row)
+        explicit = key in bindings
+        if explicit:
+            selected = bindings[key]
+            if not isinstance(selected, Path):
+                msg = "CSV override must be a pathlib.Path"
+                raise ValueError(msg)
+            candidates = [selected if selected.is_absolute() else batch.path.parent / selected]
+        else:
+            candidates = list(dict.fromkeys([batch.path.parent / (prefix + suffix), batch.path.parent / suffix]))
         existing = [p for p in candidates if p.is_file()]
         record: Record = {
             "line": row["line"],
@@ -88,7 +124,11 @@ def associate_batch_csvs(batch: RorbDocument, *, max_runs: int = 500) -> Section
             "TPat": row["TPat"],
             "path": None,
             "status": "missing",
-            "reason": "Neither observed filename convention exists.",
+            "reason": (
+                "Explicit CSV override does not exist."
+                if explicit
+                else "Neither observed filename convention exists."
+            ),
         }
         if len(existing) > 1:
             record.update(status="ambiguous", reason="Multiple candidate files exist; no file selected.")
@@ -109,7 +149,13 @@ def associate_batch_csvs(batch: RorbDocument, *, max_runs: int = 500) -> Section
                 record.update(
                     status="corroborated",
                     path=str(candidate),
-                    reason="Event filename, CSV signature, output reference, site labels and rounded peaks agree; time origin unverified.",
+                    reason=(
+                        "Explicit override: CSV signature, output reference, site labels and rounded peaks agree;"
+                        " time origin unverified."
+                        if explicit
+                        else "Event filename, CSV signature, output reference, site labels and rounded peaks agree;"
+                        " time origin unverified."
+                    ),
                 )
             except (OSError, ValueError, UnicodeError, StopIteration) as exc:
                 record.update(status="mismatch", reason=str(exc))

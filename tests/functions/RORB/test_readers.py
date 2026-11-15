@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from ryan_library.functions.RORB.associations import associate_batch_csvs, compare_output_csv
+from ryan_library.functions.RORB.associations import associate_batch_csvs, batch_event_key, compare_output_csv
 from ryan_library.functions.RORB.read_rorb_files import parse_batch_output, read_hydrograph_csv
 from ryan_library.functions.RORB.readers import read_rorb_bytes, read_rorb_file, read_rorb_table_bytes
 
@@ -502,3 +502,42 @@ def test_explicit_bare_table_rejects_incomplete_and_invalid_rows() -> None:
     assert any(d.code == "output_record" for d in malformed.diagnostics)
     rejected = read_rorb_table_bytes(b"not a characterised report\n")
     assert rejected.status == "unsupported"
+
+
+def test_explicit_companion_overrides_resolve_only_selected_event(tmp_path: Path) -> None:
+    """A repeated Run requires original frequency/duration and TP identity."""
+    batch_path = write(tmp_path, batch_text("1 24 hour 20% 2 100 0.9 12\n1 24 hour 20% 3 100 0.9 12"))
+    first = write(tmp_path, csv_text("custom_event"), "custom_event.csv")
+    second = write(tmp_path, csv_text("other_event"), "other_event.csv")
+    identity = (1, "24", "hour", "20%", 2)
+    document = read_rorb_file(batch_path)
+    assert batch_event_key(document.section("runs").rows[0]) == identity
+    assert batch_event_key(document.section("runs").rows[1]) == (1, "24", "hour", "20%", 3)
+    outcome = associate_batch_csvs(document, overrides={identity: first})
+    assert outcome.rows[0]["status"] == "corroborated"
+    assert outcome.rows[0]["path"] == str(first.absolute())
+    assert "Explicit override" in str(outcome.rows[0]["reason"])
+    assert outcome.rows[1]["status"] == "missing"
+    assert outcome.rows[1]["path"] is None
+    assert second.is_file()
+    with pytest.raises(ValueError, match="unknown run/duration"):
+        associate_batch_csvs(document, overrides={(99, "24", "hour", "20%", 2): first})
+
+
+def test_explicit_override_is_fail_closed_and_can_break_ambiguity(tmp_path: Path) -> None:
+    batch_path = write(tmp_path, batch_text())
+    original = write(tmp_path, csv_text(), " aep20_du24hourtp2.csv")
+    prefixed = write(tmp_path, csv_text("model_ aep20_du24hourtp2"), "model_ aep20_du24hourtp2.csv")
+    identity = (1, "24", "hour", "20%", 2)
+    assert associate_batch_csvs(read_rorb_file(batch_path)).rows[0]["status"] == "ambiguous"
+    selected = associate_batch_csvs(read_rorb_file(batch_path), overrides={identity: prefixed})
+    assert selected.valid
+    assert selected.rows[0]["path"] == str(prefixed.absolute())
+    missing = associate_batch_csvs(read_rorb_file(batch_path), overrides={identity: tmp_path / "absent.csv"})
+    assert missing.rows[0]["status"] == "missing"
+    assert missing.rows[0]["path"] is None
+    mismatched = write(tmp_path, csv_text("wrong_name"), "mismatched.csv")
+    failed = associate_batch_csvs(read_rorb_file(batch_path), overrides={identity: mismatched})
+    assert failed.rows[0]["status"] == "mismatch"
+    assert failed.rows[0]["path"] is None
+    assert original.is_file()
