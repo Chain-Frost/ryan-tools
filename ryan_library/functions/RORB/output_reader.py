@@ -17,7 +17,7 @@ def _numeric_table(doc: RorbDocument, start: int, columns: list[str], name: str)
             if table.rows:
                 break
             continue
-        if tokens[0] in {"Tot.", "Total"} or tokens[0].startswith("Tot.") or line.strip().startswith("End of "):
+        if tokens[0] in {"Tot.", "Total", "End"} or tokens[0].startswith("Tot.") or line.strip().startswith("End of "):
             table.completeness = "terminated"
             break
         # A textual footer may end a table, but numeric-looking bad records must fail.
@@ -98,9 +98,10 @@ def _reported_scalars(doc: RorbDocument) -> None:
             try:
                 exact_number(token)
             except ValueError as exc:
+                # Keep the invalid original token: generic source evidence must
+                # never silently lose a failed scalar row.
                 doc.issue("reported_scalar_value", str(exc), index + 1, error=True)
                 section.valid = False
-                continue
             section.rows.append(
                 {
                     "line": index + 1,

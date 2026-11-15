@@ -450,3 +450,22 @@ def test_incomplete_print_site_description_is_not_invalid_numeric_data(tmp_path:
     assert document.status == "partial"
     assert document.section("hydrographs_1").valid
     assert any(d.code == "site_mapping" and d.severity == "warning" for d in document.diagnostics)
+
+
+def test_invalid_scalar_token_is_retained_in_canonical_provenance() -> None:
+    source = (
+        "RORBWin Output File\nProgram version 6.44\n"
+        "Time increment (hours)= 0.5\nDuration of calculations: 1\n"
+        "Peak discharge,m³/s NaN\n"
+        "Inc Time Hyd001\n1 0.50 0.000\n2 1.00 1.000\nEnd\n"
+    )
+    document = read_rorb_bytes(source.encode())
+    assert document.status == "invalid"
+    scalar = document.section("reported_scalars")
+    assert not scalar.valid
+    assert scalar.rows[0]["token"] == "NaN"
+    assert scalar.source_tokens[0]["value"] == "NaN"
+    assert any(d.code == "reported_scalar_value" and d.severity == "error" for d in document.diagnostics)
+    hydro = document.section("hydrographs_1")
+    assert hydro.valid and hydro.completeness == "reported_increment_count"
+    assert [row["Inc"] for row in hydro.rows] == [1, 2]

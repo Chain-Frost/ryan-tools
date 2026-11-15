@@ -279,3 +279,15 @@ dependency and passed Ruff checking/formatting, then Pyright reported
 now includes the existing PEP-561 `ryan_library/py.typed` root marker.
 This change is unverified on real downstream CI until the pinned consumer
 is updated and tested.
+
+## 2026-11-15 scalar and bare terminator fidelity
+
+Downstream Python 3.13 hosted checks reached **1,102 tests** (1,094 passing,
+eight failing). Reusable parser findings: original invalid scalar tokens were
+diagnosed but dropped from the generic scalar section, and the bounded
+synthetic native report grammar uses a terminal `End` line rather than
+`End of ...`. This commit retains invalid scalar lexemes with the error
+and `section.valid=False` while preserving independently valid hydrograph
+tables; it also accepts the characterised standalone `End` table boundary.
+No numeric defaults, reclassification of invalid scalar rows or physical
+site inference is introduced.
