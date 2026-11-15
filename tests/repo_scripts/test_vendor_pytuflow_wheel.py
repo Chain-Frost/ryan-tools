@@ -24,7 +24,7 @@ def test_committed_wheel_and_manifest_have_accepted_bytes() -> None:
     vendor = _vendor()
     vendor.verify_wheel()
     assert vendor.WHEEL_PATH.is_file()
-    assert vendor.WHEEL_PATH.stat().st_size == 976_447
+    assert vendor.WHEEL_PATH.stat().st_size == 984_867
     manifest = json.loads(vendor.MANIFEST_PATH.read_text(encoding="utf-8"))
     assert manifest["source_commit"] == vendor.SOURCE_COMMIT
     assert manifest["wheel_sha256"] == vendor.WHEEL_SHA256
@@ -34,7 +34,7 @@ def test_fail_closed_on_missing_or_corrupt_wheel(tmp_path: Path) -> None:
     vendor = _vendor()
     with pytest.raises(FileNotFoundError):
         vendor.verify_wheel(tmp_path / "absent.whl", manifest=False)
-    invalid = tmp_path / "pytuflow-1.3.0-py3-none-any.whl"
+    invalid = tmp_path / "pytuflow-1.3.1-py3-none-any.whl"
     invalid.write_bytes(b"not an accepted wheel")
     with pytest.raises(ValueError, match="corrupt"):
         vendor.verify_wheel(invalid, manifest=False)
@@ -52,7 +52,7 @@ def test_installed_provenance_requires_matching_archive_url_and_hash(monkeypatch
     vendor = _vendor()
 
     class FakeDistribution:
-        version = "1.3.0"
+        version = "1.3.1"
 
         def read_text(self, _name: str) -> str:
             return json.dumps(

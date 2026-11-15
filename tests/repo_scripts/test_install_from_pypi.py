@@ -78,7 +78,7 @@ def test_pypi_route_verifies_before_codex_setup(
     wheel_path = str((Path(installer.__file__).absolute().parents[1] / requirement).absolute())
     assert calls[1][-3:] == ["--force-reinstall", "--no-deps", wheel_path]
     assert calls[2][-2:] == ["ryan-tools[mcp]", wheel_path]
-    assert wheel_path.endswith("pytuflow-1.3.0-py3-none-any.whl")
+    assert wheel_path.endswith("pytuflow-1.3.1-py3-none-any.whl")
     # The PyPI route may use the explicitly accepted parser wheel, never a local ryan-tools wheel.
     assert not any(
         arg.casefold().endswith(".whl") and Path(arg).name.startswith("ryan_tools-")
@@ -136,7 +136,7 @@ def test_pypi_dry_run_prints_checks_without_running_them(
     output = captured.out
     assert "WARNING: Python" in captured.err
     assert "--ignore-requires-python" in output
-    assert "887534ea8c15b80d185a38a7ead1d42ab42a7167" in output
+    assert "4ca2dbe35c1d7e6a1c7b7150fbea622b1aa0ddb0" in output
     assert "-B -m pip check" in output
     assert "-B -c" in output
     assert "require_validation_api" in output

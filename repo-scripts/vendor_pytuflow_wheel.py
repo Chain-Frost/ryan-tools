@@ -17,19 +17,19 @@ from typing import cast
 from urllib.parse import urlsplit
 from urllib.request import url2pathname
 
-SOURCE_COMMIT = "887534ea8c15b80d185a38a7ead1d42ab42a7167"
+SOURCE_COMMIT = "4ca2dbe35c1d7e6a1c7b7150fbea622b1aa0ddb0"
 SOURCE_REPOSITORY = "https://github.com/Chain-Frost/PyTuflow"
 SOURCE_ARCHIVE = f"{SOURCE_REPOSITORY}/archive/{SOURCE_COMMIT}.zip"
-WHEEL_NAME = "pytuflow-1.3.0-py3-none-any.whl"
-WHEEL_SHA256 = "4bfcd24734349f9e0dcf60776ee06a2e17953ac342f40e3611b0e2aae33b30e3"
-WHEEL_BYTES = 976_447
+WHEEL_NAME = "pytuflow-1.3.1-py3-none-any.whl"
+WHEEL_SHA256 = "41facdb3b220a9d032e7fb7e3a5ea94dee76a0e910fbeb0a5caf44289a6f4870"
+WHEEL_BYTES = 984_867
 WHEEL_DIR = Path(__file__).absolute().parent / "wheels" / "pytuflow" / SOURCE_COMMIT
 WHEEL_PATH = WHEEL_DIR / WHEEL_NAME
 MANIFEST_PATH = WHEEL_DIR / "provenance.json"
-ACCEPTANCE_JOBS = (
-    "https://github.com/Chain-Frost/ryan-tools/actions/runs/42453824703/job/128648480823",
-    "https://github.com/Chain-Frost/ryan-tools/actions/runs/42453824693/job/128648567535",
-    "https://github.com/Chain-Frost/ryan-tools/actions/runs/42453824703/job/128648861058",
+ACCEPTANCE_JOBS: tuple[str, ...] = ()  # Current-head CI links are recorded in the consumer PR.
+ACCEPTANCE_REFERENCES = (
+    f"{SOURCE_REPOSITORY}/blob/{SOURCE_COMMIT}/tests/test_batch_validation_mvp.py",
+    f"{SOURCE_REPOSITORY}/blob/{SOURCE_COMMIT}/tests/tmf/test_database.py",
 )
 
 
@@ -47,7 +47,7 @@ def _verify_contents(archive: zipfile.ZipFile) -> None:
         message = f"PyTuflow wheel member has invalid checksum: {bad_member}"
         raise ValueError(message)
     names = set(archive.namelist())
-    dist = "pytuflow-1.3.0.dist-info/"
+    dist = "pytuflow-1.3.1.dist-info/"
     required = {
         "pytuflow/__init__.py",
         "pytuflow/py.typed",
@@ -68,7 +68,7 @@ def _verify_contents(archive: zipfile.ZipFile) -> None:
             raise ValueError(message)
     dist_metadata = archive.read(dist + "METADATA").decode("utf-8")
     entry_points = archive.read(dist + "entry_points.txt").decode("utf-8")
-    if "Name: pytuflow\n" not in dist_metadata or "Version: 1.3.0\n" not in dist_metadata:
+    if "Name: pytuflow\n" not in dist_metadata or "Version: 1.3.1\n" not in dist_metadata:
         message = "PyTuflow wheel has incorrect package metadata"
         raise ValueError(message)
     if "pytuflow-project" not in entry_points or "pytuflow-arr" not in entry_points:
@@ -117,8 +117,8 @@ def verify_installed() -> None:
     """Require pip's installed local archive URL and digest to match the vendored file."""
     verify_wheel()
     installed = metadata.distribution("pytuflow")
-    if installed.version != "1.3.0":
-        message = f"Expected installed PyTuflow 1.3.0, found {installed.version}"
+    if installed.version != "1.3.1":
+        message = f"Expected installed PyTuflow 1.3.1, found {installed.version}"
         raise ValueError(message)
     raw = installed.read_text("direct_url.json")
     if not raw:
@@ -162,11 +162,12 @@ def stage_wheel(candidate: Path) -> None:
         "wheel_filename": WHEEL_NAME,
         "wheel_sha256": WHEEL_SHA256,
         "wheel_bytes": WHEEL_BYTES,
-        "build_command": "python -m pip wheel --no-deps --no-cache-dir --no-build-isolation --wheel-dir <temp> <source_archive>",
+        "build_command": "python -m pip wheel --no-deps --no-cache-dir --no-build-isolation --wheel-dir <temp> <verified_git_checkout>",
         "build_python": sys.version.split()[0],
         "build_pip": metadata.version("pip"),
         "build_hatchling": metadata.version("hatchling"),
         "acceptance_jobs": list(ACCEPTANCE_JOBS),
+        "acceptance_references": list(ACCEPTANCE_REFERENCES),
     }
     MANIFEST_PATH.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
     verify_wheel()

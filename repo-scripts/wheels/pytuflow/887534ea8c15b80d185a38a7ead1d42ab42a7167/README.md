@@ -1,4 +1,4 @@
-# Temporary accepted PyTuflow dependency wheel
+# Historical superseded PyTuflow dependency wheel
 
 This distribution is a **dependency artifact**, not package data in the
 published ryan-tools wheel. Its immutable source is
@@ -25,3 +25,5 @@ Keep it outside `dist/`, LFS and package-data discovery.
 
 Remove the temporary pin and binary only when a **released** upstream build
 contains the needed fixes and passes consumer/public capability acceptance.
+
+Superseded by the [1.3.1 dependency](../4ca2dbe35c1d7e6a1c7b7150fbea622b1aa0ddb0/README.md). The old binary is retained only in Git history; this manifest and the evidence above describe the historical revision.
