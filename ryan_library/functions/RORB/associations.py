@@ -96,7 +96,7 @@ def associate_batch_csvs(  # noqa: C901 - bounded event association keeps explic
     if max_runs < 1 or len(runs.rows) > max_runs:
         msg = f"Association exceeds the requested {max_runs}-run limit"
         raise ValueError(msg)
-    bindings = overrides if overrides is not None else {}
+    bindings: Mapping[BatchEventKey, Path] = overrides if overrides is not None else {}
     keys = {batch_event_key(row) for row in runs.rows}
     if set(bindings) - keys:
         msg = "CSV overrides contain an unknown run/duration/unit/frequency/TP identity"
