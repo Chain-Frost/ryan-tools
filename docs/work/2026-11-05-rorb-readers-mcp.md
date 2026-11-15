@@ -262,3 +262,20 @@ Install from an immutable full GitHub **source archive** with the
 `#subdirectory=packaging/rorb-readers` fragment to avoid Git submodule
 initialisation; no submodules are required by the focused wheel.
 This correction does not imply successful installed-wheel verification.
+
+## 2026-11-15 original 6.52 and type-marker closeout
+
+Added optional original-source tests using the pinned test-data submodule
+rather than copying or rehosting original report bytes. Checks explicitly
+cover the 301-row zero-based ordinary report, 80-run eight-frequency/ten-TP
+population, separate `50%`/`0.5EY`/`0.2EY` labels, eight reported
+representative paths and original numeric tokens. These tests skip when the
+fixture submodule is absent and are **not represented as run passes** before
+execution.
+
+Downstream Python 3.13 CI successfully installed the focused archive
+dependency and passed Ruff checking/formatting, then Pyright reported
+`reportMissingTypeStubs` on the canonical package. The focused wheel
+now includes the existing PEP-561 `ryan_library/py.typed` root marker.
+This change is unverified on real downstream CI until the pinned consumer
+is updated and tested.

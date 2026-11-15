@@ -22,6 +22,9 @@ Repository = "https://github.com/Chain-Frost/ryan-tools"
 # Do not publish a source archive of this subdirectory in isolation.
 [tool.setuptools]
 include-package-data = false
+# Package the existing root PEP 561 marker and its original __init__.
+# The six canonical report modules below are still the only RORB modules.
+packages = ["ryan_library"]
 py-modules = [
   "ryan_library.functions.RORB.reader_types",
   "ryan_library.functions.RORB.readers",
@@ -32,3 +35,7 @@ py-modules = [
 ]
 [tool.setuptools.package-dir]
 "ryan_library.functions.RORB" = "../../ryan_library/functions/RORB"
+"ryan_library" = "../../ryan_library"
+
+[tool.setuptools.package-data]
+"ryan_library" = ["py.typed"]

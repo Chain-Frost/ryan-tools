@@ -32,3 +32,10 @@ co-install with full ryan-tools, which owns overlapping import paths.
 
 The licence is SUL-1.0, included as LICENSE. Original RORB output bytes and
 source values remain under the user's control. Reading never launches RORB.
+
+The distribution explicitly includes the existing `ryan_library/py.typed` marker
+and root `ryan_library/__init__.py`, so Pyright can type-check the inline
+reader annotations under PEP 561. These are packaged alongside the original
+six canonical modules, without copying or adding a second parser. The marker
+was verified in a clean local setuptools wheel-layout experiment; the real
+GitHub source-archive installed-wheel check remains an independent gate.
