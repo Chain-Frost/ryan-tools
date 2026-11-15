@@ -1,0 +1,63 @@
+name: RORB 6.45 original reader acceptance
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/rorb-645-reader-acceptance.yml"
+      - "tests/functions/RORB/test_original_645_readers.py"
+      - "ryan_library/functions/RORB/**"
+      - "packaging/rorb-readers/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  original-645-reader:
+    name: RORBWin 6.45 public 490 / Python ${{ matrix.python-version }}
+    runs-on: windows-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.13", "3.14"]
+    steps:
+      - name: Checkout candidate reader source (no submodules)
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Checkout exact public 490-event test-data commit
+        uses: actions/checkout@v6
+        with:
+          repository: Chain-Frost/ryan-tools-test-data
+          ref: af0d24b7640c6a40ed4384b8f04710a91b0e3a26
+          path: tests/test_data
+          persist-credentials: false
+          lfs: false
+
+      - name: Require immutable test-data identity and expected fixture files
+        shell: pwsh
+        run: |
+          $dataCommit = git -C tests/test_data rev-parse HEAD
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($dataCommit.Trim() -ne 'af0d24b7640c6a40ed4384b8f04710a91b0e3a26') {
+            throw 'Reader acceptance test-data checkout is not the pinned fixture commit.'
+          }
+          $fixture = 'tests/test_data/RORB/6.45-490-event-reader-example'
+          foreach ($name in @('manifest.json', 'validation.json', 'RORB_14141_batch.out')) {
+            if (!(Test-Path -Path (Join-Path $fixture $name) -PathType Leaf)) {
+              throw "Required source fixture missing: $name"
+            }
+          }
+
+      - name: Set up supported Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install only reader-acceptance test dependency
+        run: python -m pip install pytest
+
+      - name: Authenticate all source hashes and corroborate 490 associations
+        run: python -m pytest -q -rs --noconftest tests/functions/RORB/test_original_645_readers.py

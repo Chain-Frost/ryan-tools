@@ -308,3 +308,33 @@ Tests exercise two columns, truncated/nonfinite records and unsupported input.
 ## Cross-source 6.52 association acceptance added 2026-11-16
 
 Hosted tests now conditionally read all original 6.52 companions from the pinned `ryan-tools-test-data` fixture submodule (12h: 80, 24h: 80, multi-duration: 480). These 640 accessible real source pairs are intentionally **not** called the separately requested private 6.45 set of 420. A source not checked out is explicitly skipped; full-corpus success must be supported by a corresponding hosted CI receipt. The independent `compare_output_csv` P2 review guard requires every source site and CSV flow column to be mapped before it may report matching flows.
+
+## 2026-11-16 owner-authorised public RORBWin 6.45 alternative
+
+The owner authorised public inputs/outputs and accepted an alternative because
+the earlier 420-source population could not be located. The immutable
+[ryan-tools-test-data PR #4](https://github.com/Chain-Frost/ryan-tools-test-data/pull/4)
+at `af0d24b7640c6a40ed4384b8f04710a91b0e3a26` supplies the actual
+RORBWin-**reported** 6.45 batch (490 events), 490 CSVs, 490 output reports,
+491 storm files, distributed/original hash manifest and 490 keyed outcomes.
+The reported version is not an independently authenticated executable build;
+its CATG was not retained.
+
+The separate Windows 3.14.6 source-holder receipt runs the current reader
+at `598e5edea093df426cda64c3a528fd1c5784c612` and reports **490/490
+corroborated**, no missing, ambiguous or mismatched companion; original source
+and sanitised distribution both passed. This receipt is from the data owner's
+validation, **not yet an independently rerun hosted CI result**.
+
+This reader PR adds `tests/functions/RORB/test_original_645_readers.py` and
+an isolated Windows Python 3.13/3.14 acceptance workflow that explicitly
+checks out the immutable **data commit**, not an unmerged submodule pointer.
+The tests independently rehash all 1,472 *distributed* source files, compare
+all 490 five-part event keys and CSV association outcomes with the manifest
+and validation records, and confirm a 501-row original report/CSV flow
+comparison retains the observed **+0.5 hour CSV clock offset without correction**.
+The original 420-run receipt remains unrepeatable and is not relabelled
+490-as-420. This validation cannot qualify native numerical execution,
+physical output site identity, representative selection or critical duration.
+No native RORB execution, parent submodule gitlink edit, release or merge
+is part of this work. Review actual final-head CI before claiming success.
