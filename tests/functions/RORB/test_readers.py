@@ -1,5 +1,6 @@
 """Synthetic format contracts and failure cases; no proprietary fixtures or engine execution."""
 
+import ast
 from decimal import Decimal
 from pathlib import Path
 
@@ -541,3 +542,19 @@ def test_explicit_override_is_fail_closed_and_can_break_ambiguity(tmp_path: Path
     assert failed.rows[0]["status"] == "mismatch"
     assert failed.rows[0]["path"] is None
     assert original.is_file()
+
+
+def test_minimal_reader_sources_remain_python_313_syntax() -> None:
+    """The 3.14 whole-repository formatter must not break the >=3.13 reader wheel."""
+    source_root = Path(__file__).parents[3] / "ryan_library" / "functions" / "RORB"
+    modules = (
+        "reader_types.py",
+        "readers.py",
+        "output_reader.py",
+        "result_readers.py",
+        "parameter_reader.py",
+        "associations.py",
+    )
+    for name in modules:
+        source = source_root / name
+        ast.parse(source.read_text(encoding="utf-8"), filename=str(source), feature_version=(3, 13))

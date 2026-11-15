@@ -39,3 +39,10 @@ reader annotations under PEP 561. These are packaged alongside the original
 six canonical modules, without copying or adding a second parser. The marker
 was verified in a clean local setuptools wheel-layout experiment; the real
 GitHub source-archive installed-wheel check remains an independent gate.
+
+
+The full parent project targets Python 3.14, but **all six shipped reader
+sources must parse under Python 3.13**. The reader-suite AST regression pins
+that grammar independently of Ruff's whole-project 3.14 formatting target,
+including multi-exception handlers. A successful full ryan-tools build alone
+does not establish consumer Python 3.13 compatibility.

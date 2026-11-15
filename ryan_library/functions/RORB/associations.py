@@ -11,6 +11,10 @@ from .readers import read_rorb_file
 
 type BatchEventKey = tuple[int, str, str, str, int]
 
+# The focused wheel supports Python 3.13. Keep the exception tuple named:
+# Ruff targeting the full 3.14 distribution otherwise emits PEP 758 syntax.
+_PEAK_SOURCE_ERRORS = (IndexError, ValueError, InvalidOperation, csv.Error, StopIteration)
+
 
 def batch_event_key(row: Record) -> BatchEventKey:
     """Original run/duration/unit/frequency/TP identity, never Run alone."""
@@ -64,7 +68,7 @@ def _matches_peaks(batch: RorbDocument, row: Record, csv_doc: RorbDocument) -> b
             csv_line = csv_doc.lines[int(str(peak_row["line"])) - 1]
             csv_tokens = next(csv.reader([csv_line], strict=True))
             observed, csv_resolution = _printed_peak(csv_tokens[csv_index])
-        except IndexError, ValueError, InvalidOperation, csv.Error, StopIteration:
+        except _PEAK_SOURCE_ERRORS:
             return False
 
         # Reject an unexpected mapping between source tokens and parsed records.
