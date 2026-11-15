@@ -365,7 +365,8 @@ def test_one_based_cmd_report_has_exact_origin_tokens_and_bytes(tmp_path: Path) 
     assert any(d.code == "encoding_fallback" for d in by_file.diagnostics)
     section = by_file.section("hydrographs_1")
     assert by_file.status == "partial"
-    assert section.valid and section.completeness == "reported_increment_count"
+    assert section.valid
+    assert section.completeness == "reported_increment_count"
     assert section.increment_origin == 1
     assert [r["Inc"] for r in section.rows] == [1, 2, 3]
     assert [r["Time"] for r in section.rows] == [0.5, 1.0, 1.5]
@@ -383,7 +384,7 @@ def test_zero_based_report_origin_is_unchanged(tmp_path: Path) -> None:
     assert document.status == "partial"
     assert section.increment_origin == 0
     assert [row["Inc"] for row in section.rows] == [0, 1, 2]
-    assert section.source_decimal(1, "Time") == Decimal("1")
+    assert section.source_decimal(1, "Time") == Decimal(1)
 
 
 def test_report_rejects_uncharacterised_increment_origin(tmp_path: Path) -> None:
@@ -393,7 +394,7 @@ def test_report_rejects_uncharacterised_increment_origin(tmp_path: Path) -> None
     assert any(d.code == "increment_origin" for d in document.diagnostics)
 
 
-def test_batch_and_csv_preserve_numeric_tokens_including_exponents(tmp_path: Path) -> None:
+def test_batch_and_csv_preserve_numeric_tokens_including_exponents() -> None:
     batch = read_rorb_bytes(batch_text("1 90 minute 0.2EY 2 100 0.9 5.53D1").encode())
     row = batch.section("runs")
     assert batch.status == "partial"
@@ -430,7 +431,8 @@ def test_content_recognition_and_scalar_tokens_without_report_banner() -> None:
     assert document.status == "partial"
     assert any(item.code == "missing_report_banner" for item in document.diagnostics)
     hydro = document.section("hydrographs_1")
-    assert hydro.valid and hydro.increment_origin == 1
+    assert hydro.valid
+    assert hydro.increment_origin == 1
     assert hydro.completeness == "reported_increment_count"
     assert [r["Inc"] for r in hydro.rows] == [1, 2]
     scalars = document.section("reported_scalars")
@@ -438,7 +440,7 @@ def test_content_recognition_and_scalar_tokens_without_report_banner() -> None:
     assert [r["unit"] for r in scalars.rows] == ["m³/s", "h", "m³"]
     assert [r["ordinal"] for r in scalars.rows] == [1, 1, 1]
     assert [r["token"] for r in scalars.rows] == ["1.000", "0.50", "1.800D+3"]
-    assert scalars.source_decimal(2, "value") == Decimal("1800")
+    assert scalars.source_decimal(2, "value") == Decimal(1800)
     assert document.section("sites").rows[0]["description"] == "Synthetic outlet"
 
 
@@ -463,11 +465,12 @@ def test_invalid_scalar_token_is_retained_in_canonical_provenance() -> None:
     assert document.status == "invalid"
     scalar = document.section("reported_scalars")
     assert not scalar.valid
-    assert scalar.rows[0]["token"] == "NaN"
+    assert scalar.rows[0]["token"] == source.splitlines()[4].split()[-1]
     assert scalar.source_tokens[0]["value"] == "NaN"
     assert any(d.code == "reported_scalar_value" and d.severity == "error" for d in document.diagnostics)
     hydro = document.section("hydrographs_1")
-    assert hydro.valid and hydro.completeness == "reported_increment_count"
+    assert hydro.valid
+    assert hydro.completeness == "reported_increment_count"
     assert [row["Inc"] for row in hydro.rows] == [1, 2]
 
 

@@ -25,7 +25,7 @@ def _decode(content: bytes, encoding: str | None) -> tuple[str, str, bool]:
     return decoded, selected, fallback
 
 
-def read_rorb_bytes(
+def read_rorb_bytes(  # noqa: C901 - one bounded dispatch retains source evidence and exact format diagnostics
     content: bytes,
     *,
     path: Path | None = None,

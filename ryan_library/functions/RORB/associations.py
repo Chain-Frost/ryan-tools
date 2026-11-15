@@ -75,7 +75,7 @@ def _matches_peaks(batch: RorbDocument, row: Record, csv_doc: RorbDocument) -> b
     return bool(batch.section("sites").rows)
 
 
-def associate_batch_csvs(
+def associate_batch_csvs(  # noqa: C901 - bounded event association keeps explicit missing/ambiguous/mismatch cases
     batch: RorbDocument,
     *,
     max_runs: int = 500,

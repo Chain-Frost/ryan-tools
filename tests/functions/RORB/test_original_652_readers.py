@@ -55,7 +55,8 @@ def test_original_652_80_row_batch_preserves_events_and_eight_native_refs() -> N
     refs = document.section("representatives")
     assert document.status == "partial"
     assert document.metadata["program_version"] == "6.52"
-    assert run_table.valid and refs.valid
+    assert run_table.valid
+    assert refs.valid
     assert len(run_table.rows) == len(run_table.source_tokens) == 80
     assert len(refs.rows) == 8
     assert [row["Run"] for row in run_table.rows] == [run for run in range(1, 9) for _ in range(10)]
