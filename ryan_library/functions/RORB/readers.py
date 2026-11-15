@@ -91,6 +91,7 @@ def read_rorb_bytes(  # noqa: C901 - one bounded dispatch retains source evidenc
         doc.issue("unsupported_format", "No validated format structure; extension alone is not sufficient.")
     return doc
 
+
 def read_rorb_table_bytes(
     content: bytes,
     *,
