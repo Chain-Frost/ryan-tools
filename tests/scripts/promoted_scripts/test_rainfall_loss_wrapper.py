@@ -368,10 +368,12 @@ def test_offline_arr_config_rejects_missing_coordinates_only_in_live_mode(tmp_pa
 
 def test_source_durations_and_reporting_modes(capsys: pytest.CaptureFixture[str]) -> None:
     m = _wrapper()
+
     class Response:
         def ifd_table(self, baseline: int) -> dict[str, object]:
             assert baseline == 2030
             return {"index": [30.0, 45, 60, 90, 120, 180], "columns": [63.2, 50, 20], "data": []}
+
     assert m._datahub_durations(Response(), 2030) == [30, 45, 60, 90, 120, 180]
     assert m._durations([30, 45, 60, 90, 120, 180], [], arr=True) == [30, 45, 60, 90, 120, 180]
     assert m._source_decimals([30.200, 24.50, 33]) == 1
@@ -406,11 +408,13 @@ def test_arf_for_350_km2_uses_pytuflow_and_reports_frequent_unity() -> None:
         "h": 0,
         "i": 0,
     }
+
     class Response:
         def layer(self, name: str, required: bool = False) -> dict[str, float]:
             assert name == "ARFParams"
             assert required
             return params
+
     factors = m._bom_arf_factors(
         area=350,
         durations=[120, 1440],

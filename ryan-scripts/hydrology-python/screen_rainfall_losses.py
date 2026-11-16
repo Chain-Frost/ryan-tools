@@ -13,7 +13,7 @@ Examples:
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-17.2"
+WRAPPER_VERSION = "2026-11-17.3"
 
 WORKING_DIR: Path = Path(__file__).absolute().parent
 SOURCE = "arr"  # "arr" downloads ARR Data Hub 2026; "bom" uses the original BoM IFD CSV.
@@ -52,6 +52,7 @@ ARF_OVERRIDE: float | None = None  # Explicit constant ARF; None uses ARR/PyTUFL
 RAINFALL_FACTOR = 1.0  # BoM-only manual rainfall multiplier (e.g. 1.15); not a Data Hub SSP climate scenario.
 CLIMATE_SCENARIOS: list[str] = []  # ARR only: ["2050:SSP2", "2090:SSP5"]. Baseline is also calculated.
 SHOW_MATRIX = True  # Print duration rows by AEP columns, separated by climate scenario.
+SHOW_TP_DETAILS = False  # True prints one numerical excess row per evaluated temporal pattern.
 # Per-AEP losses may also be duration-keyed, e.g. {"1%": {"60": {"il_mm": 25, "cl_mm_per_hour": 5}}}.
 LOSS_OVERRIDES_BY_AEP: dict[str, object] = {}
 LOSS_OVERRIDES_JSON: Path | None = None  # JSON object using the same per-AEP format as above.
@@ -363,7 +364,6 @@ def _datahub_aeps(response: Any, baseline: int) -> list[str]:
     return [f"{float(str(column)):g}%" for column in cast("list[object]", columns)]
 
 
-
 def _datahub_durations(response: Any, baseline: int) -> list[int]:
     """Preserve source-provided IFD duration rows rather than a fixed curated list."""
     table = cast("dict[str, object]", response.ifd_table(baseline))
@@ -499,7 +499,6 @@ def _bom_patterns(
     point = selected_response.layer("PointTP", required=True)
     areal = selected_response.layer("ArealTP")
     return TemporalPatternSet.from_api_response(point["url"], areal["url"] if areal else None, catchment_area=area)
-
 
 
 def _bom_arf_factors(
@@ -794,7 +793,7 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
         climate_values = args.cc if args.cc is not None else list(CLIMATE_SCENARIOS)
         climate_scenarios = _parse_climate_scenarios(climate_values)
         show_matrix = args.matrix if args.matrix is not None else SHOW_MATRIX
-        show_tp_details = args.tp_details if args.tp_details is not None else False
+        show_tp_details = args.tp_details if args.tp_details is not None else SHOW_TP_DETAILS
         if not isfinite(rainfall_factor) or rainfall_factor <= 0:
             message = "RAINFALL_FACTOR must be finite and > 0."
             raise _error(message)
