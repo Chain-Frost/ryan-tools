@@ -644,7 +644,7 @@ def test_compact_headers_aep_group_lines_and_preburst_ratio_csv(
     assert table.rows[1].end_section is True
     assert table.rows[2].end_section is False
     assert any("\n" in str(column.header) for column in table.columns)
-    assert any("PB\nratio" == column.header for column in table.columns)
+    assert any(column.header == "PB\nratio" for column in table.columns)
     csv_text = output.read_text(encoding="utf-8")
     assert "preburst_ratio_fraction" in csv_text
     assert "0.015" in csv_text
