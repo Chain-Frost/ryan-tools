@@ -13,7 +13,7 @@ Examples:
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-17.8"
+WRAPPER_VERSION = "2026-11-17.9"
 
 WORKING_DIR: Path = Path(__file__).absolute().parent
 SOURCE = "arr"  # "arr" downloads ARR Data Hub 2026; "bom" uses the original BoM IFD CSV.
@@ -591,7 +591,8 @@ def _bom_arf_factors(
         raise _error(message)
     # PyTUFLOW's legacy ARF callable has untyped dict annotations; cast at the
     # external boundary rather than importing a partially unknown signature.
-    arf_calc = cast("Callable[..., Any]", getattr(import_module("pytuflow.arr.arf"), "arf_factors"))
+    arf_method: str = "arf_factors"
+    arf_calc = cast("Callable[..., Any]", getattr(import_module("pytuflow.arr.arf"), arf_method))
     params = response.layer("ARFParams", required=True)
     factors = arf_calc(area, durations, aeps, params, arf_frequent=False, min_arf=0)
     return {(aep, duration): float(str(factors.loc[duration, aep])) for aep in aeps for duration in durations}
