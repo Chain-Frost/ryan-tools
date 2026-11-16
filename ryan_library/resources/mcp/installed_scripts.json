@@ -82,6 +82,7 @@
     "gdal-python/recompress_geotiffs.py",
     "gdal-python/split_vector_by_attribute.py",
     "gdal-python/vacuum_geopackages.py",
+    "hydrology-python/screen_rainfall_losses.py",
     "misc-python/remove_excel_protection.py",
     "other/audit_qgis_projects.py",
     "other/repair_qgis_project_paths.py"

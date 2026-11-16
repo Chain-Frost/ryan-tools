@@ -8,7 +8,7 @@ it is not a statement about routed model discharge or unexamined patterns.
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from math import isclose, isfinite
@@ -316,7 +316,11 @@ def _pytuflow_preburst(preburst: object) -> Preburst:
 
 
 def screen_arr_events(
-    events: Iterable[object], *, runoff_coefficients_by_aep: Mapping[str, float] | None = None
+    events: Iterable[object],
+    *,
+    runoff_coefficients_by_aep: Mapping[str, float] | None = None,
+    losses_by_aep: Mapping[str, LossSpec | Mapping[int, LossSpec]] | None = None,
+    default_losses: LossSpec | None = None,
 ) -> tuple[PatternScreen, ...]:
     """Screen already assembled 'pytuflow.arr.engine.EventResult' instances.
 
@@ -329,8 +333,13 @@ def screen_arr_events(
         item = cast(Any, source)
         name = str(item.aep_name)
         coeff = runoff_coefficients_by_aep.get(name) if runoff_coefficients_by_aep is not None else None
+        selection = losses_by_aep.get(name) if losses_by_aep is not None else None
+        selected_losses = selection.get(int(item.duration)) if isinstance(selection, Mapping) else selection
+        override = selected_losses if selected_losses is not None else default_losses
         losses = (
-            LossSpec(float(item.initial_loss), runoff_coefficient=float(coeff))
+            override
+            if override is not None
+            else LossSpec(float(item.initial_loss), runoff_coefficient=float(coeff))
             if coeff is not None
             else LossSpec(float(item.initial_loss), continuing_loss_mm_per_hour=float(item.continuing_loss))
         )
@@ -368,6 +377,8 @@ def screen_bom_ifd(
     temporal_patterns: _PatternProvider | None = None,
     losses_by_aep: Mapping[str, LossSpec | Mapping[int, LossSpec]],
     default_losses: LossSpec | None = None,
+    aeps: Collection[str] | None = None,
+    durations_min: Collection[int] | None = None,
 ) -> tuple[PatternScreen, ...]:
     """Screen existing 'runoff_routing.bom_ifd.BoMIFD' using PyTUFLOW TPs.
 
@@ -379,8 +390,12 @@ def screen_bom_ifd(
     result: list[PatternScreen] = []
     for probability in imported_ifd.probabilities:
         name = probability.label
+        if aeps is not None and name not in aeps:
+            continue
         schedule = losses_by_aep.get(name, default_losses)
         for duration in imported_ifd.durations_min:
+            if durations_min is not None and duration not in durations_min:
+                continue
             if isinstance(schedule, Mapping):
                 losses = schedule.get(duration)
             else:
@@ -428,6 +443,8 @@ def screen_bom_ifd_csv(
     temporal_patterns: _PatternProvider | None = None,
     losses_by_aep: Mapping[str, LossSpec | Mapping[int, LossSpec]],
     default_losses: LossSpec | None = None,
+    aeps: Collection[str] | None = None,
+    durations_min: Collection[int] | None = None,
 ) -> tuple[PatternScreen, ...]:
     """Load BoM All Design/IFD CSV with the existing runoff-routing reader.
 
@@ -445,5 +462,10 @@ def screen_bom_ifd_csv(
         raise ImportError(msg) from exc
     source = cast(_BoMSource, read_bom_ifd_csv(Path(path)))
     return screen_bom_ifd(
-        source, temporal_patterns=temporal_patterns, losses_by_aep=losses_by_aep, default_losses=default_losses
+        source,
+        temporal_patterns=temporal_patterns,
+        losses_by_aep=losses_by_aep,
+        default_losses=default_losses,
+        aeps=aeps,
+        durations_min=durations_min,
     )
