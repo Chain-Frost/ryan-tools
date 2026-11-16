@@ -184,7 +184,8 @@ class _RejectingProvider:
         assert duration > 0
         assert aep_name
         assert output_notation
-        raise RuntimeError("No temporal pattern for this duration")
+        msg = "No temporal pattern for this duration"
+        raise RuntimeError(msg)
 
 
 def test_provider_error_does_not_convert_unknown_event_to_zero() -> None:
