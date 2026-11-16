@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from importlib import import_module
 from enum import StrEnum
+from importlib import import_module
 from math import isclose, isfinite
 from pathlib import Path
 from typing import Any, Protocol, cast
@@ -459,9 +459,10 @@ def screen_bom_ifd_csv(
     calling environment or use 'screen_bom_ifd' with an imported BoMIFD.
     """
     try:
+        reader_name: str = "read_bom_ifd_csv"
         reader = cast(
             "Callable[[Path], _BoMSource]",
-            getattr(import_module("runoff_routing.bom_ifd"), "read_bom_ifd_csv"),
+            getattr(import_module("runoff_routing.bom_ifd"), reader_name),
         )
     except ImportError as exc:
         msg = (

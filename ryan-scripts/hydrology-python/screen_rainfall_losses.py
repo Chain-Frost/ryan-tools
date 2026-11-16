@@ -255,7 +255,8 @@ def _arr_config(
     }
     if json_path is not None:
         data["response_json"] = str(json_path)
-    return cast(Any, getattr(ArrConfig, "from_dict")(data))
+    method_name: str = "from_dict"
+    return cast(Any, getattr(ArrConfig, method_name)(data))
 
 
 def _arr_response(config: Any, json_path: Path | None) -> Any:
@@ -318,6 +319,7 @@ def _print_report(
     _choice("VIEW", view, {"all", "zero", "keep"})
     events = summarize_events(screens)
     table = Table(title="Design rainfall loss screening (selected temporal patterns)", show_lines=False)
+    table.add_column("Decision", no_wrap=True)
     for header in (
         "AEP",
         "Duration (min)",
@@ -326,7 +328,6 @@ def _print_report(
         "Zero TP",
         "Positive TP",
         "Unknown TP",
-        "Decision",
     ):
         table.add_column(header, justify="right" if "TP" in header or "min" in header or "mm" in header else "left")
     records: list[list[str]] = []
@@ -357,7 +358,7 @@ def _print_report(
             decision,
         ]
         records.append(row)
-        table.add_row(*row)
+        table.add_row(row[-1], *row[:-1])
     console = Console()
     console.print(table)
     wiped = sum(e.status == ScreeningStatus.ZERO for e in events)
@@ -504,7 +505,8 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
             )
             from pytuflow.arr.engine import ArrEngine, EventResult
 
-            runner = cast("Callable[[], list[EventResult]]", getattr(ArrEngine(config, response), "run"))
+            run_method: str = "run"
+            runner = cast("Callable[[], list[EventResult]]", getattr(ArrEngine(config, response), run_method))
             events: list[EventResult] = runner()
             screens = screen_arr_events(events, losses_by_aep=overrides, default_losses=loss_default)
             for event in events:
@@ -532,7 +534,8 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
             if ifd_path is None or not ifd_path.is_file():
                 message = "BoM mode needs a readable --ifd depths_all_design.csv."
                 raise _error(message)
-            reader = cast("Callable[[Path], Any]", getattr(import_module("runoff_routing.bom_ifd"), "read_bom_ifd_csv"))
+            reader_name: str = "read_bom_ifd_csv"
+            reader = cast("Callable[[Path], Any]", getattr(import_module("runoff_routing.bom_ifd"), reader_name))
             imported: Any = reader(ifd_path)
             aeps = _aep_selection([p.label for p in imported.probabilities], aep_chosen, aep_mode)
             durations = _durations(list(imported.durations_min), duration_chosen, arr=False)
