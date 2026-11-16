@@ -437,6 +437,8 @@ def test_tp_preflight_point_only_is_expected_for_small_catchments() -> None:
 
 
 
+
+
 def test_preflight_preserves_deliberate_short_duration_point_tps() -> None:
     """Shorter-than-areal-start point TPs are not an areal fallback."""
     from pytuflow.arr.exceptions import ArrError
@@ -462,16 +464,22 @@ def test_preflight_preserves_deliberate_short_duration_point_tps() -> None:
 
     provider = Patterns()
     accepted = preflight_temporal_pattern_durations(
-        provider, durations=[5, 30, 120, 180], aeps=["63.2%", "1%"],
-        area_km2=350, allow_point_fallback=True,
+        provider,
+        durations=[5, 30, 120, 180],
+        aeps=["63.2%", "1%"],
+        area_km2=350,
+        allow_point_fallback=True,
     )
     assert accepted.included_durations == (30, 120, 180)
     assert accepted.omitted_durations == (5,)
     assert accepted.point_fallback_durations == (120,)
 
     disabled = preflight_temporal_pattern_durations(
-        provider, durations=[5, 30, 120, 180], aeps=["63.2%", "1%"],
-        area_km2=350, allow_point_fallback=False,
+        provider,
+        durations=[5, 30, 120, 180],
+        aeps=["63.2%", "1%"],
+        area_km2=350,
+        allow_point_fallback=False,
     )
     assert disabled.included_durations == (30, 180)
     assert disabled.omitted_durations == (5, 120)

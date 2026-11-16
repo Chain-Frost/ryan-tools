@@ -578,14 +578,8 @@ def _bom_arf_factors(
     from pytuflow.arr.arf import arf_factors
 
     params = response.layer("ARFParams", required=True)
-    factors = cast("Callable[..., Any]", arf_factors)(
-        area, durations, aeps, params, arf_frequent=False, min_arf=0
-    )
-    return {
-        (aep, duration): float(str(factors.loc[duration, aep]))
-        for aep in aeps
-        for duration in durations
-    }
+    factors = cast("Callable[..., Any]", arf_factors)(area, durations, aeps, params, arf_frequent=False, min_arf=0)
+    return {(aep, duration): float(str(factors.loc[duration, aep])) for aep in aeps for duration in durations}
 
 
 def _print_provenance(
