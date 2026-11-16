@@ -13,7 +13,7 @@ Examples:
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-17.6"
+WRAPPER_VERSION = "2026-11-17.7"
 
 WORKING_DIR: Path = Path(__file__).absolute().parent
 SOURCE = "arr"  # "arr" downloads ARR Data Hub 2026; "bom" uses the original BoM IFD CSV.
@@ -519,7 +519,6 @@ def _show_matrix(screens: Sequence[PatternScreen], *, enabled: bool) -> None:
     console.print("Matrix: [green]DROP[/green] = zero excess; [yellow]KEEP[/yellow] = positive excess; ? = unresolved.")
 
 
-
 def _bom_patterns(
     source: Any,
     latitude: float | None,
@@ -679,6 +678,7 @@ def _print_report(
         2 if any(abs(item[1] - item[0]) > 1e-9 for item in totals.values()) else 0,
     )
     show_unknown = any(event.unresolved_patterns > 0 for event in selected)
+    show_scenario = any(event.scenario is not None for event in selected)
     table = Table(
         title="Design rainfall loss screening (selected temporal patterns)",
         box=box.SQUARE,
@@ -688,7 +688,8 @@ def _print_report(
     table.add_column("Decision", no_wrap=True)
     table.add_column("AEP", no_wrap=True)
     table.add_column("Dur\n(min)", justify="right")
-    table.add_column("CC", no_wrap=True)
+    if show_scenario:
+        table.add_column("CC", no_wrap=True)
     table.add_column("Point\nIFD mm", justify="right")
     table.add_column("ARF", justify="right")
     table.add_column("Rain\nmm", justify="right")
@@ -717,9 +718,7 @@ def _print_report(
         )
         pb_ratio = preburst / point if preburst is not None and point > 0 else None
         pb_display = Text("—", style="grey50") if preburst is None else Text(f"{preburst:.4g}")
-        ratio_display = (
-            Text("—", style="grey50") if pb_ratio is None else Text(f"{100 * pb_ratio:.2f}%")
-        )
+        ratio_display = Text("—", style="grey50") if pb_ratio is None else Text(f"{100 * pb_ratio:.2f}%")
         zero_label = (
             Text("bound", style="grey70")
             if event.status == ScreeningStatus.ZERO and event.zero_patterns == 0
@@ -729,7 +728,7 @@ def _print_report(
             _decision_cell(event.status),
             event.aep,
             f"{event.duration_min:g}",
-            event.scenario or "base",
+            *([event.scenario or "base"] if show_scenario else []),
             f"{point:.{source_places}f}",
             _arf_cell(arf),
             f"{used:.{adjusted_places}f}",

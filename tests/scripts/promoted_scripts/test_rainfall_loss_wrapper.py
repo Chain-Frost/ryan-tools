@@ -611,9 +611,9 @@ def test_provenance_explains_arf_unity_for_632_percent(
     assert "ARF 1.0000" in capsys.readouterr().out
 
 
-
 def test_compact_headers_aep_group_lines_and_preburst_ratio_csv(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     from rich.table import Table
 
@@ -621,7 +621,9 @@ def test_compact_headers_aep_group_lines_and_preburst_ratio_csv(
     screens = [
         PatternScreen("20%", 60, "tp01", "arr_datahub", None, ScreeningStatus.ZERO, 0, 0, "zero", 0),
         PatternScreen("20%", 90, "tp01", "arr_datahub", None, ScreeningStatus.ZERO, 0, 0, "zero", 0),
-        PatternScreen("10%", 60, "tp01", "arr_datahub", None, ScreeningStatus.POSITIVE, 0.000001, 0.000001, "positive", 0.000001),
+        PatternScreen(
+            "10%", 60, "tp01", "arr_datahub", None, ScreeningStatus.POSITIVE, 0.000001, 0.000001, "positive", 0.000001
+        ),
     ]
     totals = {
         ("20%", 60, None): (20, 17.5, 0.875, 0.3, "IL 50; CL 5"),
@@ -645,6 +647,7 @@ def test_compact_headers_aep_group_lines_and_preburst_ratio_csv(
     assert table.rows[2].end_section is False
     assert any("\n" in str(column.header) for column in table.columns)
     assert any(column.header == "PB\nratio" for column in table.columns)
+    assert all(column.header != "CC" for column in table.columns)
     csv_text = output.read_text(encoding="utf-8")
     assert "preburst_ratio_fraction" in csv_text
     assert "0.015" in csv_text
