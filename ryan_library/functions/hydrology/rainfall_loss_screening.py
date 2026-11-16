@@ -245,12 +245,21 @@ def screen_event(event: DesignEvent) -> tuple[PatternScreen, ...]:
     if event.losses is None:
         return (make(ScreeningStatus.UNRESOLVED, "No losses supplied"),)
     losses = event.losses
-    if total_depth <= losses.initial_loss_mm:
-        return (
-            make(ScreeningStatus.ZERO, "Entire storm depth does not exceed initial loss", excess=0, peak=0, max_bin=0),
+    if total_depth <= losses.initial_loss_mm or losses.runoff_coefficient == 0:
+        reason = (
+            "Entire storm depth does not exceed initial loss"
+            if total_depth <= losses.initial_loss_mm
+            else "Runoff coefficient is zero"
         )
-    if losses.runoff_coefficient == 0:
-        return (make(ScreeningStatus.ZERO, "Runoff coefficient is zero", excess=0, peak=0, max_bin=0),)
+        # The bound certifies *every loaded pattern* without iterating its bins.
+        # A missing TP set still yields one pattern-independent certificate;
+        # reporting must not interpret that certificate as one evaluated TP.
+        if event.patterns:
+            return tuple(
+                make(ScreeningStatus.ZERO, reason, pattern.identity, excess=0, peak=0, max_bin=0)
+                for pattern in event.patterns
+            )
+        return (make(ScreeningStatus.ZERO, reason, excess=0, peak=0, max_bin=0),)
     if not event.patterns:
         return (make(ScreeningStatus.UNRESOLVED, "No applicable temporal patterns supplied"),)
 
@@ -284,7 +293,9 @@ def summarize_events(screens: Iterable[PatternScreen]) -> tuple[EventScreen, ...
     for (aep, duration, source, scenario), group in grouped.items():
         positives = sum(item.status == ScreeningStatus.POSITIVE for item in group)
         unresolved = sum(item.status == ScreeningStatus.UNRESOLVED for item in group)
-        zeros = sum(item.status == ScreeningStatus.ZERO for item in group)
+        # A pattern-independent zero bound has no TP identity and counts as
+        # zero evaluated TPs, not as an invented single selected pattern.
+        zeros = sum(item.status == ScreeningStatus.ZERO and item.pattern_id is not None for item in group)
         status = (
             ScreeningStatus.UNRESOLVED
             if unresolved

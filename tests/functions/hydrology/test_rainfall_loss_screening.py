@@ -480,3 +480,31 @@ def test_preflight_preserves_deliberate_short_duration_point_tps() -> None:
     )
     assert disabled.included_durations == (30, 180)
     assert disabled.omitted_durations == (5, 120)
+
+
+
+def test_pattern_independent_zero_reports_all_available_tps_without_inventing_missing_ones() -> None:
+    """Every supplied TP is certified zero, but an absent TP set is not one evaluated TP."""
+    tp_list = tuple(
+        TemporalPattern(f"TP{i:02d}", 999, (0.0,), i)
+        for i in range(1, 11)
+    )
+    with_patterns = DesignEvent(
+        "20%", 60, 23, LossSpec(30, continuing_loss_mm_per_hour=5), tp_list
+    )
+    screens = screen_event(with_patterns)
+    assert len(screens) == 10
+    assert all(item.status == ScreeningStatus.ZERO for item in screens)
+    assert [item.pattern_id for item in screens] == [f"TP{i:02d}" for i in range(1, 11)]
+    summary = summarize_events(screens)[0]
+    assert summary.zero_patterns == 10
+    assert summary.total_patterns == 10
+    assert summary.positive_patterns == 0
+
+    no_patterns = DesignEvent("20%", 60, 23, LossSpec(30, continuing_loss_mm_per_hour=5))
+    certified = screen_event(no_patterns)
+    assert len(certified) == 1
+    assert certified[0].pattern_id is None
+    summary_empty = summarize_events(certified)[0]
+    assert summary_empty.status == ScreeningStatus.ZERO
+    assert summary_empty.zero_patterns == 0

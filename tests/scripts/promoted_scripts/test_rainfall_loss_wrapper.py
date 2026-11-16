@@ -32,7 +32,7 @@ def _wrapper() -> Any:
 def test_common_aeps_and_explicit_selection() -> None:
     m = _wrapper()
     original = ["12EY", "6EY", "63.2%", "50%", "20%", "0.2EY", "10%", "1%", "1 in 200"]
-    assert m._aep_selection(original, [], "common") == ["63.2%", "50%", "20%", "10%", "1%", "1 in 200"]
+    assert m._aep_selection(original, [], "common") == ["50%", "20%", "10%", "1%", "1 in 200"]
     assert m._aep_selection(original, [], "all") == original
     assert m._aep_selection(original, ["12EY", "1 in 200"], "common") == ["12EY", "1 in 200"]
     with pytest.raises(ValueError, match="not in the source"):
@@ -454,7 +454,7 @@ def test_unknown_tp_column_hidden_when_all_resolved(
     shown = capsys.readouterr().out
     assert "Unknown TP" not in shown
     assert "DROP" in shown
-    assert "Max bin" in shown
+    assert "bin mm" in shown
     csv_path = tmp_path / "audit.csv"
     m._print_report(screens, totals, "all", csv_path, source_decimal_places=1)
     contents = csv_path.read_text(encoding="utf-8")
@@ -573,11 +573,11 @@ def test_excess_colour_depends_on_actual_value_not_display_rounding() -> None:
     small_positive = m._excess_cell(0.0004, places=3)
     missing = m._excess_cell(None, places=3)
     assert true_zero.plain == "0.000"
-    assert small_positive.plain == "0.000"
+    assert small_positive.plain == "<0.001"
     assert true_zero.style == "grey50"
-    assert small_positive.style == ""
-    assert missing.plain == "-"
-    assert missing.style == ""
+    assert small_positive.style == "white"
+    assert missing.plain == "—"
+    assert missing.style == "grey50"
 
 
 def test_provenance_explains_arf_unity_for_632_percent(
@@ -609,3 +609,54 @@ def test_provenance_explains_arf_unity_for_632_percent(
         climate="baseline only",
     )
     assert "ARF 1.0000" in capsys.readouterr().out
+
+
+
+def test_compact_headers_aep_group_lines_and_preburst_ratio_csv(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+) -> None:
+    from rich.table import Table
+
+    m = _wrapper()
+    screens = [
+        PatternScreen("20%", 60, "tp01", "arr_datahub", None, ScreeningStatus.ZERO, 0, 0, "zero", 0),
+        PatternScreen("20%", 90, "tp01", "arr_datahub", None, ScreeningStatus.ZERO, 0, 0, "zero", 0),
+        PatternScreen("10%", 60, "tp01", "arr_datahub", None, ScreeningStatus.POSITIVE, 0.000001, 0.000001, "positive", 0.000001),
+    ]
+    totals = {
+        ("20%", 60, None): (20, 17.5, 0.875, 0.3, "IL 50; CL 5"),
+        ("20%", 90, None): (24, 21.0, 0.875, 0.36, "IL 50; CL 5"),
+        ("10%", 60, None): (40, 35.5, 0.8875, None, "IL 50; CL 5"),
+    }
+    printed: list[Table] = []
+    original_print: Any = m.Console.print
+
+    def capture_print(console: Any, *objects: Any, **kwargs: Any) -> None:
+        printed.extend(item for item in objects if isinstance(item, Table))
+        original_print(console, *objects, **kwargs)
+
+    monkeypatch.setattr(m.Console, "print", capture_print)
+    output = tmp_path / "example.csv"
+    m._print_report(screens, totals, "all", output, source_decimal_places=1)
+    table = next(item for item in printed if "Design rainfall" in str(item.title))
+    assert len(table.rows) == 3
+    assert table.rows[0].end_section is False
+    assert table.rows[1].end_section is True
+    assert table.rows[2].end_section is False
+    assert any("\n" in str(column.header) for column in table.columns)
+    assert any("PB\nratio" == column.header for column in table.columns)
+    csv_text = output.read_text(encoding="utf-8")
+    assert "preburst_ratio_fraction" in csv_text
+    assert "0.015" in csv_text
+    assert "1e-06" in csv_text
+
+
+def test_arf_greyscale_and_decision_colours() -> None:
+    m = _wrapper()
+    assert m._arf_cell(1).style == "#ffffff"
+    assert m._arf_cell(0).style == "#6e6e6e"
+    assert m._arf_cell(0.5).style not in {"#ffffff", "#6e6e6e"}
+    assert m._decision_cell(ScreeningStatus.ZERO).style == "bold green"
+    assert m._decision_cell(ScreeningStatus.POSITIVE).style == "bold yellow"
+    assert m._excess_cell(0).style == "grey50"
+    assert m._excess_cell(0.00000001).style == "white"

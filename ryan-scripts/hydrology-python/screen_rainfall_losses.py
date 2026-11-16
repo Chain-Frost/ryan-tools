@@ -13,7 +13,7 @@ Examples:
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-17.5"
+WRAPPER_VERSION = "2026-11-17.6"
 
 WORKING_DIR: Path = Path(__file__).absolute().parent
 SOURCE = "arr"  # "arr" downloads ARR Data Hub 2026; "bom" uses the original BoM IFD CSV.
@@ -29,7 +29,6 @@ CATCHMENT_AREA_KM2 = 0.0  # Zero uses point rainfall/TP. Set actual area for are
 IFD_BASELINE_YEAR = 2030  # ARR Data Hub: 1990 historical or 2030 current baseline.
 AEP_MODE = "common"  # "common" or "all"; AEP_SELECTION overrides either mode.
 COMMON_AEPS: list[str] = [
-    "63.2%",
     "50%",
     "20%",
     "10%",
@@ -78,6 +77,7 @@ from importlib import import_module
 from math import isfinite
 from typing import Any, cast
 
+from rich import box
 from rich.console import Console
 from rich.table import Table
 from rich.text import Text
@@ -468,6 +468,23 @@ def _region_label(screens: Sequence[PatternScreen]) -> str:
     return ", ".join(found) if found else "Not resolved (pattern-independent bound or missing TP data)"
 
 
+def _decision_cell(status: ScreeningStatus) -> Text:
+    """Use the same visible decision colours in detailed and matrix summaries."""
+    if status == ScreeningStatus.ZERO:
+        return Text("DROP", style="bold green")
+    if status == ScreeningStatus.POSITIVE:
+        return Text("KEEP", style="bold yellow")
+    return Text("UNRESOLVED", style="bold red")
+
+
+def _arf_cell(arf: float) -> Text:
+    """Grey-to-white ARF intensity: stronger area reduction is darker."""
+    if not isfinite(arf) or not 0 <= arf <= 1:
+        return Text("—", style="grey50")
+    shade = round(110 + 145 * arf)
+    return Text(f"{arf:.4f}", style=f"#{shade:02x}{shade:02x}{shade:02x}")
+
+
 def _show_matrix(screens: Sequence[PatternScreen], *, enabled: bool) -> None:
     """Summarise keep/drop decisions by duration and AEP, one matrix per scenario."""
     if not enabled:
@@ -483,27 +500,24 @@ def _show_matrix(screens: Sequence[PatternScreen], *, enabled: bool) -> None:
         durations = sorted({int(event.duration_min) for event in group})
         indexed = {(int(event.duration_min), event.aep): event.status for event in group}
         matrix = Table(title=f"Duration by AEP event status — {scenario or 'baseline'}")
-        matrix.add_column("Duration (min)", justify="right")
+        matrix.add_column("Duration\n(min)", justify="right")
         for label in labels:
             matrix.add_column(label, justify="center")
         for duration in durations:
-            cells: list[str] = []
+            cells: list[str | Text] = []
             for aep in labels:
                 value = indexed.get((duration, aep))
                 cells.append(
-                    "KEEP"
-                    if value == ScreeningStatus.POSITIVE
-                    else "DROP"
-                    if value == ScreeningStatus.ZERO
-                    else "?"
+                    Text("?", style="bold red")
                     if value == ScreeningStatus.UNRESOLVED
-                    else "-"
+                    else _decision_cell(value)
+                    if value is not None
+                    else Text("—", style="grey50")
                 )
             matrix.add_row(str(duration), *cells)
         console.print(matrix)
-    console.print(
-        "Matrix: KEEP = one or more TPs have excess; DROP = all supplied TPs have zero excess; ? = unresolved."
-    )
+    console.print("Matrix: [green]DROP[/green] = zero excess; [yellow]KEEP[/yellow] = positive excess; ? = unresolved.")
+
 
 
 def _bom_patterns(
@@ -618,8 +632,8 @@ def _print_tp_details(screens: Sequence[PatternScreen], *, enabled: bool) -> Non
             item.aep,
             f"{item.duration_min:g}",
             item.scenario or "baseline",
-            item.pattern_id or "independent/unavailable",
-            item.status.value,
+            item.pattern_id or "pattern-independent bound",
+            _decision_cell(item.status),
             _excess_cell(item.excess_mm),
             _excess_cell(item.max_bin_excess_mm),
         )
@@ -627,11 +641,14 @@ def _print_tp_details(screens: Sequence[PatternScreen], *, enabled: bool) -> Non
 
 
 def _excess_cell(value: float | None, *, places: int = 4) -> Text:
-    """Dim only genuine numerical zero, never small positive values rounded to zero."""
-    if value is None:
-        return Text("-")
-    displayed = f"{value:.{places}f}"
-    return Text(displayed, style="grey50" if value == 0 else "")
+    """Grey only for exact zero; a rounded small positive remains visibly nonzero."""
+    if value is None or not isfinite(value):
+        return Text("—", style="grey50")
+    if value == 0:
+        return Text(f"{0:.{places}f}", style="grey50")
+    if 0 < value < 0.5 * 10 ** (-places):
+        return Text(f"<{10 ** (-places):.{places}f}", style="white")
+    return Text(f"{value:.{places}f}", style="white")
 
 
 def _print_report(
@@ -642,9 +659,16 @@ def _print_report(
     *,
     source_decimal_places: int | None = None,
 ) -> None:
-    """Report gross and ARF/CC-adjusted depths, and bin-level excess diagnostics."""
+    """Compact decision report with source-adjusted depths and separated AEP groups."""
     _choice("VIEW", view, {"all", "zero", "keep"})
     events = summarize_events(screens)
+    selected = [
+        event
+        for event in events
+        if view == "all"
+        or (view == "zero" and event.status == ScreeningStatus.ZERO)
+        or (view == "keep" and event.status != ScreeningStatus.ZERO)
+    ]
     source_places = (
         source_decimal_places
         if source_decimal_places is not None
@@ -654,40 +678,32 @@ def _print_report(
         source_places,
         2 if any(abs(item[1] - item[0]) > 1e-9 for item in totals.values()) else 0,
     )
-    table = Table(title="Design rainfall loss screening (selected temporal patterns)")
-    table.add_column("Decision", no_wrap=True)
-    table.add_column("AEP")
-    table.add_column("Dur (min)", justify="right")
-    table.add_column("Scenario")
-    table.add_column("Point IFD (mm)", justify="right")
-    table.add_column("ARF", justify="right")
-    table.add_column("Used rain (mm)", justify="right")
-    table.add_column("Loss / PB")
-    table.add_column("Zero TP", justify="right")
-    table.add_column("Positive TP", justify="right")
-    show_unknown = any(
-        item.unresolved_patterns > 0
-        for item in events
-        if (
-            view == "all"
-            or (view == "zero" and item.status == ScreeningStatus.ZERO)
-            or (view == "keep" and item.status != ScreeningStatus.ZERO)
-        )
+    show_unknown = any(event.unresolved_patterns > 0 for event in selected)
+    table = Table(
+        title="Design rainfall loss screening (selected temporal patterns)",
+        box=box.SQUARE,
+        show_lines=False,
+        padding=(0, 1),
     )
+    table.add_column("Decision", no_wrap=True)
+    table.add_column("AEP", no_wrap=True)
+    table.add_column("Dur\n(min)", justify="right")
+    table.add_column("CC", no_wrap=True)
+    table.add_column("Point\nIFD mm", justify="right")
+    table.add_column("ARF", justify="right")
+    table.add_column("Rain\nmm", justify="right")
+    table.add_column("IL / CL", no_wrap=True)
+    table.add_column("PB\nmm", justify="right")
+    table.add_column("PB\nratio", justify="right")
+    table.add_column("Zero\nTP", justify="right")
+    table.add_column("Pos\nTP", justify="right")
     if show_unknown:
-        table.add_column("Unknown TP", justify="right")
-    table.add_column("Max TP total (mm)", justify="right")
-    table.add_column("Max bin (mm)", justify="right")
+        table.add_column("Unknown\nTP", justify="right")
+    table.add_column("Max TP\nsum mm", justify="right")
+    table.add_column("Max\nbin mm", justify="right")
 
-    visible_events = [
-        event
-        for event in events
-        if view == "all"
-        or (view == "zero" and event.status == ScreeningStatus.ZERO)
-        or (view == "keep" and event.status != ScreeningStatus.ZERO)
-    ]
-    records: list[list[str]] = []
-    for index, event in enumerate(visible_events):
+    csv_records: list[list[str]] = []
+    for i, event in enumerate(selected):
         point, used, arf, preburst, loss_label = totals.get(
             (event.aep, int(event.duration_min), event.scenario),
             (float("nan"), float("nan"), float("nan"), None, "source data unavailable"),
@@ -699,36 +715,55 @@ def _print_report(
             if event.status == ScreeningStatus.POSITIVE
             else "UNRESOLVED"
         )
-        details = f"{loss_label}; PB {preburst:.4g} mm" if preburst is not None else loss_label
-        tp_total = "-" if event.max_tp_total_excess_mm is None else f"{event.max_tp_total_excess_mm:.4f}"
-        tp_bin = "-" if event.max_tp_bin_excess_mm is None else f"{event.max_tp_bin_excess_mm:.4f}"
-        row = [
-            decision,
+        pb_ratio = preburst / point if preburst is not None and point > 0 else None
+        pb_display = Text("—", style="grey50") if preburst is None else Text(f"{preburst:.4g}")
+        ratio_display = (
+            Text("—", style="grey50") if pb_ratio is None else Text(f"{100 * pb_ratio:.2f}%")
+        )
+        zero_label = (
+            Text("bound", style="grey70")
+            if event.status == ScreeningStatus.ZERO and event.zero_patterns == 0
+            else Text(str(event.zero_patterns))
+        )
+        row: list[str | Text] = [
+            _decision_cell(event.status),
             event.aep,
             f"{event.duration_min:g}",
-            event.scenario or "baseline",
+            event.scenario or "base",
             f"{point:.{source_places}f}",
-            f"{arf:.4f}",
+            _arf_cell(arf),
             f"{used:.{adjusted_places}f}",
-            details,
-            str(event.zero_patterns),
+            loss_label,
+            pb_display,
+            ratio_display,
+            zero_label,
             str(event.positive_patterns),
             *([str(event.unresolved_patterns)] if show_unknown else []),
-            tp_total,
-            tp_bin,
-        ]
-        records.append(row)
-        next_event = visible_events[index + 1] if index + 1 < len(visible_events) else None
-        end_group = next_event is not None and (next_event.aep != event.aep or next_event.scenario != event.scenario)
-        # Rich styles only the console rendering, not CSV values. Classify the
-        # underlying unrounded numbers, so 0.0001 rendered to 0.000 stays normal.
-        table.add_row(
-            *row[:-2],
             _excess_cell(event.max_tp_total_excess_mm),
             _excess_cell(event.max_tp_bin_excess_mm),
-            end_section=end_group,
+        ]
+        ends_group = i + 1 < len(selected) and selected[i + 1].aep != event.aep
+        table.add_row(*row, end_section=ends_group)
+        csv_records.append(
+            [
+                decision,
+                event.aep,
+                f"{event.duration_min:g}",
+                event.scenario or "baseline",
+                f"{point:.{source_places}f}",
+                f"{arf:.4f}",
+                f"{used:.{adjusted_places}f}",
+                loss_label,
+                "" if preburst is None else f"{preburst:.12g}",
+                "" if pb_ratio is None else f"{pb_ratio:.12g}",
+                str(event.zero_patterns),
+                str(event.positive_patterns),
+                *([str(event.unresolved_patterns)] if show_unknown else []),
+                "" if event.max_tp_total_excess_mm is None else f"{event.max_tp_total_excess_mm:.12g}",
+                "" if event.max_tp_bin_excess_mm is None else f"{event.max_tp_bin_excess_mm:.12g}",
+            ]
         )
-    console = Console(width=175)
+    console = Console()
     console.print(table)
     wiped = sum(e.status == ScreeningStatus.ZERO for e in events)
     unknown = sum(e.status == ScreeningStatus.UNRESOLVED for e in events)
@@ -737,12 +772,17 @@ def _print_report(
         f"{wiped} DROP; {len(events) - wiped - unknown} KEEP; {unknown} unresolved."
     )
     console.print(
-        "Max TP total = maximum over selected TPs of sum of positive excess-rainfall bins; "
-        "Max bin = maximum single-bin excess depth across those TPs (not flow)."
+        "ARF shade: darker grey = stronger reduction; white = 1.0. "
+        "Grey excess 0.0000 is exactly zero; white <0.0001 is positive."
     )
     console.print(
-        "A ZERO or KEEP applies to the selected patterns and loss profile only; "
-        "native-model parity and full TP completeness are not established."
+        "Max TP sum = greatest total excess depth in one TP; "
+        "Max bin = greatest single time-bin excess depth across all TPs. "
+        "These maxima may belong to different TPs."
+    )
+    console.print(
+        "DROP and KEEP depend on the selected patterns and loss profile. "
+        "Native-model parity and complete TP coverage are not established."
     )
     if csv_report is not None:
         csv_report.parent.mkdir(parents=True, exist_ok=True)
@@ -757,7 +797,9 @@ def _print_report(
                     "point_ifd_mm",
                     "arf",
                     "applied_rain_mm",
-                    "loss_preburst",
+                    "loss_parameters",
+                    "preburst_mm",
+                    "preburst_ratio_fraction",
                     "zero_tp",
                     "positive_tp",
                     *(["unknown_tp"] if show_unknown else []),
@@ -765,7 +807,7 @@ def _print_report(
                     "max_tp_bin_excess_mm",
                 ]
             )
-            writer.writerows(records)
+            writer.writerows(csv_records)
         console.print(f"CSV report created: {csv_report}")
 
 

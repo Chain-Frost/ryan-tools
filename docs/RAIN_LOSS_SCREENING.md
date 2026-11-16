@@ -76,7 +76,10 @@ ARR engine **before rainfall losses**; the point rainfall, actual
 per-AEP/per-duration ARF, and adjusted rainfall are printed in different
 columns. Note that **63.2% AEP is above the normal ARR 50%-AEP upper
 limit for ARF**, so the factor remains **1.0** by default, even at
-350 km². For e.g. 20% AEP at 120 minutes, the ARR short-duration
+350 km². **63.2% is removed from the default `COMMON_AEPS` selection**,
+but remains available using `--aep 63.2%` or `--aep-mode all`.
+PyTUFLOW permits a deliberate extension of ARF calculations above 50%
+AEP, outside the default policy. The wrapper does not enable it. For e.g. 20% AEP at 120 minutes, the ARR short-duration
 ARF at 350 km² is approximately 0.7814; the exact factor may vary
 with source selection and policy. An explicitly supplied
 `--arf-override` applies the same factor to every AEP/duration and
@@ -137,43 +140,78 @@ TP results and `--loss-timing full_increment` for a qualified
 sensitivity comparison, not as an unverified silent switch to
 RORB/TUFLOW equivalence.
 
-### Reporting and matrix
+### Reporting, TP counts and matrix
 
 The console prints source coordinates when available, catchment area,
-ARF method, requested loss timing and climate scenarios, plus the
-actual loaded **TP source and regional labels** (e.g.
-`point: Rangelands West`). TP regions are read from the input
-patterns, not inferred from the coordinates. Each AEP/duration row
-shows **point IFD**, **ARF**, **used rainfall depth**, applied losses
-and preburst, and the counts:
+ARF method, selected loss timing and climate scenarios, plus the
+actual **TP source and regional labels** (for example,
+`areal: Rangelands West`). TP regions come from the input
+patterns, not inferred from the coordinates.
 
-- `Zero TP`: selected TP evaluations returning zero excess.
-  A single zero with no TP identity can instead be a
-  **pattern-independent depth bound**; it is not proof that exactly
-  one TP was examined.
-- `Positive TP`: selected TP evaluations returning nonzero excess.
-  This means the event is **KEEP**, not that hydraulic flow is material.
-- `Unknown TP`: missing/invalid data or TP evaluations that could
-  not be decided; the column is omitted when it is zero for
-  every displayed row. Such events are not dropped.
+The detailed results table has **two-line column headings**, coloured
+`DROP` (green) and `KEEP` (yellow) decisions, and one horizontal
+divider **between successive AEP groups**. The duration-by-AEP status
+matrix uses the same decision colours.
 
-`DROP` replaces the previous `WIPE OUT` label. The duration-by-AEP
-status matrix shows `DROP`, `KEEP`, or `?`, with
-one matrix for each ARR climate scenario.
+Each row shows the point IFD, actual duration/AEP-specific ARF, adjusted
+rainfall, loss parameters, **preburst depth (PB mm)** and **applied
+preburst ratio (PB ratio)**. The reported ratio is calculated as:
 
-Two distinct excess diagnostics are shown:
+```text
+PB ratio = applied preburst depth / point IFD burst depth
+```
 
-- `Max TP total (mm)` is the maximum **sum of applied excess rainfall
-  increments** over one TP realization, taken across all selected TPs.
-  This is a total depth, not a peak flow.
-- `Max bin (mm)` is the largest single **excess depth in one TP bin**
-  across the selected TPs. It is not an hourly rate; TP bins can differ
-  in duration. For a per-TP table, use `--tp-details`.
+It is shown as a percentage. For example, 0.285 mm preburst over
+19.0 mm point burst is `1.50%`. A dash means no explicit preburst
+was included in that assembled event; it does **not** assert that the
+Data Hub's raw preburst-ratio table contains a zero.
 
-Source rainfall depth display decimals are derived from the maximum
-meaningful decimal precision in the source table; ARF is shown to
-four decimal places, and ARF/CC-adjusted rainfall retains enough
-precision to distinguish a marginal loss threshold.
+The TP counts mean:
+
+- `Zero TP`: the number of available TP patterns proven to have zero
+  excess. When the entire storm is at or below IL, the kernel proves
+  **all supplied patterns** zero at once. Thus if ten patterns were
+  supplied the table correctly shows 10, not 1. If no TPs were
+  supplied but the total-depth bound is sufficient, the table prints
+  `bound` instead of inventing a count of one evaluated TP.
+- `Pos TP`: selected TP patterns producing nonzero excess. These
+  events remain `KEEP`; a positive depth does not establish
+  material routed discharge.
+- `Unknown TP`: missing, malformed or incompatible TP inputs. This
+  column is omitted when every displayed combination is resolved.
+
+The ARF column uses a **grey-to-white scale**: lower factors
+(stronger rainfall reductions) appear darker grey; a factor of 1.0
+is white. Excess-rainfall cells have a distinct rule:
+**an exact zero is grey**, while any genuinely positive number stays
+white. Positive values below the four-decimal display resolution are
+shown as `<0.0001` rather than as a misleading grey `0.0000`.
+The CSV retains the unrounded positive excess values.
+
+### Maximum TP total versus maximum single bin
+
+- `Max TP sum (mm)` = the **largest sum of effective-rainfall increments
+  across one complete temporal pattern** for the event.
+- `Max bin (mm)` = the **largest effective-rainfall increment in any
+  single time bin across all selected temporal patterns**.
+
+These values can be from **different** patterns. Example, after losses:
+
+| TP | Excess bin 1 (mm) | Bin 2 | Bin 3 | Total (mm) | Max single bin (mm) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| TP01 | 1.0 | 2.0 | 0.0 | **3.0** | 2.0 |
+| TP02 | 0.0 | 0.0 | 2.5 | 2.5 | **2.5** |
+
+The event's `Max TP sum` is **3.0 mm** (TP01), but its
+`Max bin` is **2.5 mm** (TP02). If all runoff-producing rain
+falls within just one bin in a particular TP, its total and max
+bin are equal; they do not need to be equal across the ensemble.
+
+Neither measure is a peak flow. The full TP-by-TP diagnostic table
+is available with `--tp-details`. Display precision for point IFDs
+is source-derived, while adjusted rainfall retains at least two
+decimal places. Matrix columns contain only the selected AEPs.
+
 
 ### Materials rainfall losses vs soils ILCL infiltration in TUFLOW
 
@@ -349,9 +387,10 @@ retaining an auditable record of what was not screened.
 
 ### AEP and duration selection
 
-- `--aep-mode common` (the default) includes familiar percentages and
-  1-in-200/500 events but omits frequent EY classes and other unconventional
-  columns. Edit `COMMON_AEPS` in the wrapper to change the explicit list.
+- `--aep-mode common` (the default) includes standard design percentages
+  from **50% AEP and rarer** (plus listed 1-in-200/500 labels). **63.2%
+  is excluded by default**, but can still be explicitly requested with
+  `--aep 63.2%` or `--aep-mode all`. Edit `COMMON_AEPS` in the wrapper to change the explicit list.
 - `--aep-mode all` includes all labels provided by the source.
 - `--aep 20% 10% 1%` or `--aep "1 in 200"` overrides either mode. The
   requested names must exactly match source labels; no implicit ARI/EY
@@ -391,7 +430,7 @@ a rule after every event or a blank record into exported CSV data.
 
 The two rainfall-excess depth columns display **exact numerical zero in
 grey**. A positive depth that rounds to the displayed zero (for example,
-0.00004 mm shown to four decimals as 0.0000 mm) remains in the normal
+0.00004 mm shown to four decimals) is shown as `<0.0001` in the normal
 text colour, including the optional per-TP detail table. Colour is based on
 the **unrounded numerical value**, not the display string. Missing values
 continue to display a dash.
