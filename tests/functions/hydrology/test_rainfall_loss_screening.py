@@ -217,3 +217,28 @@ def test_provider_error_does_not_convert_unknown_event_to_zero() -> None:
     keyed = {(item.aep, item.duration_min): item for item in result}
     assert keyed["1%", 60].status == ScreeningStatus.ZERO
     assert keyed["1%", 1440].status == ScreeningStatus.UNRESOLVED
+
+
+def test_arr_duration_specific_loss_overrides() -> None:
+    pattern = SimpleNamespace(event_id=10, tp_number=1, timestep=60, increments=[100], source="point", region="west")
+    event = SimpleNamespace(
+        aep_name="1%",
+        duration=60,
+        depth_areal=37,
+        initial_loss=50,
+        continuing_loss=0,
+        patterns=[pattern],
+        preburst=None,
+        cc_scenario=None,
+    )
+    assert screen_arr_events([event])[0].status == ScreeningStatus.ZERO
+    custom = screen_arr_events(
+        [event],
+        losses_by_aep={"1%": {60: LossSpec(30, continuing_loss_mm_per_hour=0)}},
+    )
+    assert custom[0].excess_mm == pytest.approx(7)
+    wrong_duration = screen_arr_events(
+        [event],
+        losses_by_aep={"1%": {1440: LossSpec(30, continuing_loss_mm_per_hour=0)}},
+    )
+    assert wrong_duration[0].status == ScreeningStatus.ZERO

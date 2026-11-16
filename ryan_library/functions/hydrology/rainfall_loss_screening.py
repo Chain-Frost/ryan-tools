@@ -281,12 +281,16 @@ def summarize_events(screens: Iterable[PatternScreen]) -> tuple[EventScreen, ...
 
 
 class _BoMProbability(Protocol):
-    label: str
+    @property
+    def label(self) -> str: ...
 
 
 class _BoMSource(Protocol):
-    probabilities: Sequence[_BoMProbability]
-    durations_min: Sequence[int]
+    @property
+    def probabilities(self) -> Sequence[_BoMProbability]: ...
+
+    @property
+    def durations_min(self) -> Sequence[int]: ...
 
     def depth_mm_at(self, duration_min: int, probability: Any, *, convert_intensity: bool) -> object: ...
 
