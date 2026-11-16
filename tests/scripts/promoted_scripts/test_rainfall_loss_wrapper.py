@@ -6,7 +6,7 @@ import argparse
 import importlib.util
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -306,7 +306,7 @@ def test_offline_pytuflow_config_uses_local_json_and_temporal_patterns(
         calls.append((point_file, areal_file, point_url, areal_url))
         return object()
 
-    monkeypatch.setattr(patterns_module.TemporalPatternSet, "from_sources", classmethod(from_sources))
+    monkeypatch.setattr(patterns_module.TemporalPatternSet, "from_sources", cast(Any, classmethod(from_sources)))
     runner = engine_module.ArrEngine(config, saved)
     runner._tp_set_for_config()
     assert calls == [(str(point), str(areal), None, None)]
