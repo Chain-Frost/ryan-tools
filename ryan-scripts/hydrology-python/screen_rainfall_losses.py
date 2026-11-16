@@ -375,9 +375,7 @@ def _announce_tp_admission(admission: TemporalPatternAdmission, *, area: float) 
     console = Console(stderr=True)
     if admission.omitted_durations:
         durations = ", ".join(str(value) for value in admission.omitted_durations)
-        console.print(
-            f"WARNING: Missing TPs for {durations} min; skipped for all AEPs (NOT DROP)."
-        )
+        console.print(f"WARNING: Missing TPs for {durations} min; skipped for all AEPs (NOT DROP).")
     if admission.point_fallback_durations:
         durations = ", ".join(str(value) for value in admission.point_fallback_durations)
         console.print(
