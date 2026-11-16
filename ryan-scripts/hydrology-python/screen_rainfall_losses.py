@@ -80,6 +80,7 @@ from typing import Any, cast
 
 from rich.console import Console
 from rich.table import Table
+from rich.text import Text
 
 from ryan_library.functions.hydrology.rainfall_loss_screening import (
     LossSpec,
@@ -601,6 +602,8 @@ def _print_provenance(
     else:
         console.print("Requested coordinates: not provided; using the selected saved source")
     console.print(f"Catchment area: {area:g} km²; ARF: {arf_source}; loss timing: {loss_timing}; climate: {climate}")
+    if area > 1 and not arf_source.startswith("explicit factor") and any(item.aep == "63.2%" for item in screens):
+        console.print("ARF policy: 63.2% AEP is more frequent than 50%; no reduction (ARF 1.0000) by default.")
     console.print(f"Temporal pattern set(s): {', '.join(pattern_sets) if pattern_sets else _region_label(screens)}")
 
 
@@ -621,6 +624,14 @@ def _print_tp_details(screens: Sequence[PatternScreen], *, enabled: bool) -> Non
             "-" if item.max_bin_excess_mm is None else f"{item.max_bin_excess_mm:.4f}",
         )
     Console().print(table)
+
+
+def _excess_cell(value: float | None, *, places: int = 4) -> Text:
+    """Dim only genuine numerical zero, never small positive values rounded to zero."""
+    if value is None:
+        return Text("-")
+    displayed = f"{value:.{places}f}"
+    return Text(displayed, style="grey50" if value == 0 else "")
 
 
 def _print_report(
@@ -668,12 +679,15 @@ def _print_report(
     table.add_column("Max TP total (mm)", justify="right")
     table.add_column("Max bin (mm)", justify="right")
 
+    visible_events = [
+        event
+        for event in events
+        if view == "all"
+        or (view == "zero" and event.status == ScreeningStatus.ZERO)
+        or (view == "keep" and event.status != ScreeningStatus.ZERO)
+    ]
     records: list[list[str]] = []
-    for event in events:
-        if view == "zero" and event.status != ScreeningStatus.ZERO:
-            continue
-        if view == "keep" and event.status == ScreeningStatus.ZERO:
-            continue
+    for index, event in enumerate(visible_events):
         point, used, arf, preburst, loss_label = totals.get(
             (event.aep, int(event.duration_min), event.scenario),
             (float("nan"), float("nan"), float("nan"), None, "source data unavailable"),
@@ -704,7 +718,16 @@ def _print_report(
             tp_bin,
         ]
         records.append(row)
-        table.add_row(*row)
+        next_event = visible_events[index + 1] if index + 1 < len(visible_events) else None
+        end_group = next_event is not None and (next_event.aep != event.aep or next_event.scenario != event.scenario)
+        # Rich styles only the console rendering, not CSV values. Classify the
+        # underlying unrounded numbers, so 0.0001 rendered to 0.000 stays normal.
+        table.add_row(
+            *row[:-2],
+            _excess_cell(event.max_tp_total_excess_mm),
+            _excess_cell(event.max_tp_bin_excess_mm),
+            end_section=end_group,
+        )
     console = Console(width=175)
     console.print(table)
     wiped = sum(e.status == ScreeningStatus.ZERO for e in events)

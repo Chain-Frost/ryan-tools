@@ -121,6 +121,8 @@ def test_console_table_and_exclusive_csv(tmp_path: Path, capsys: pytest.CaptureF
     assert "DROP" in shown
     assert "KEEP" in shown
     assert "UNRESOLVED" in shown
+    # One Rich horizontal separator between each adjacent AEP group.
+    assert shown.count("├") == 2
     assert "1 DROP" in shown
     assert output.exists()
     with pytest.raises(FileExistsError):
@@ -562,3 +564,40 @@ def test_bom_point_fallback_no_areal_file(
     assert inputs == [(str(point), None, 350.0)]
     with pytest.raises(ValueError, match="fallback disabled"):
         m._bom_patterns(object(), None, None, 350.0, True, point, None, tmp_path, allow_point_fallback=False)
+
+
+def test_excess_colour_depends_on_actual_value_not_display_rounding() -> None:
+    """Exactly zero is grey; small nonzero rainfall excess stays undimmed."""
+    m = _wrapper()
+    true_zero = m._excess_cell(0.0, places=3)
+    small_positive = m._excess_cell(0.0004, places=3)
+    missing = m._excess_cell(None, places=3)
+    assert true_zero.plain == "0.000"
+    assert small_positive.plain == "0.000"
+    assert true_zero.style == "grey50"
+    assert small_positive.style == ""
+    assert missing.plain == "-"
+    assert missing.style == ""
+
+
+def test_provenance_explains_arf_unity_for_632_percent(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    m = _wrapper()
+    screens = [
+        PatternScreen(
+            "63.2%", 120, "point:Rangelands West:1:TP01", "arr_datahub", None,
+            ScreeningStatus.POSITIVE, 0.1, 0.1, "positive", 0.1,
+        )
+    ]
+    m._print_provenance(
+        latitude=-23.08632,
+        longitude=119.2755,
+        site="site",
+        area=350,
+        arf_source="PyTUFLOW ARR2019 Book 2 ARF, per AEP/duration",
+        screens=screens,
+        loss_timing="full_increment",
+        climate="baseline only",
+    )
+    assert "ARF 1.0000" in capsys.readouterr().out

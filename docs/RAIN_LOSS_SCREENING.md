@@ -385,6 +385,16 @@ by the Data Hub preburst calculator.
 
 ### Console result columns
 
+The detailed Rich console table draws a **horizontal rule between AEP
+groups**, and when the climate scenario group changes. It does not insert
+a rule after every event or a blank record into exported CSV data.
+
+The two rainfall-excess depth columns display **exact numerical zero in
+grey**. A positive depth that rounds to the displayed zero (for example,
+0.00004 mm shown to four decimals as 0.0000 mm) remains in the normal
+text colour. Colour is based on the **unrounded numerical value**, not the
+display string. Missing values continue to display a dash.
+
 Each AEP/duration row shows rainfall depth, effective losses/preburst
 information, zero/positive/unresolved selected TP counts, and one of
 `DROP`, `KEEP`, or `UNRESOLVED`. The summary includes total zero,
