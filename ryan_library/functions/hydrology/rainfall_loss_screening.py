@@ -294,9 +294,9 @@ class _BoMSource(Protocol):
 class _PatternProvider(Protocol):
     def patterns(self, duration: int, aep_name: str, output_notation: str = "aep") -> Sequence[object]: ...
 
+
 class _ArrRunner(Protocol):
     def run(self) -> list[object]: ...
-
 
 
 def _pytuflow_pattern(pattern: object) -> TemporalPattern:
