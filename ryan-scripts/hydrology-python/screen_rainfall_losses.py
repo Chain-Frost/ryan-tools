@@ -13,7 +13,7 @@ Examples:
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-17.4"
+WRAPPER_VERSION = "2026-11-17.5"
 
 WORKING_DIR: Path = Path(__file__).absolute().parent
 SOURCE = "arr"  # "arr" downloads ARR Data Hub 2026; "bom" uses the original BoM IFD CSV.
@@ -47,7 +47,7 @@ ARR_DURATIONS_MIN: list[int] = []  # Optional ARR-only explicit override; empty 
 INITIAL_LOSS_MM: float | None = None  # None uses Data Hub's losses for ARR; BoM is unresolved without losses.
 CONTINUING_LOSS_MM_PER_HOUR: float | None = None
 RUNOFF_COEFFICIENT: float | None = None  # Post-IL fraction; mutually exclusive with continuing loss.
-LOSS_TIMING = "fractional"  # "fractional" conservative default; "full_increment" experimental RORBwin 6.52 candidate.
+LOSS_TIMING = "full_increment"  # Experimental RORBwin 6.52 candidate; not TUFLOW-materials verified.
 ARF_OVERRIDE: float | None = None  # Explicit constant ARF; None uses ARR/PyTUFLOW duration/AEP-specific ARFs.
 RAINFALL_FACTOR = 1.0  # BoM-only manual rainfall multiplier (e.g. 1.15); not a Data Hub SSP climate scenario.
 CLIMATE_SCENARIOS: list[str] = []  # ARR only: ["2050:SSP2", "2090:SSP5"]. Baseline is also calculated.
@@ -62,6 +62,7 @@ STORM_MODE = "complete"
 PREBURST_PERCENTILE = "recommended"  # "recommended", "10%", "25%", "50%", "75%", "90%".
 BOM_PREBURST_DEPTH_MM: float | None = None  # Only explicit subtraction from a storm IL, NOT complete storm.
 FETCH_TPS_FOR_BOM = True  # Fetch ARR point/areal patterns using BoM file's requested coordinates.
+ALLOW_POINT_TP_FALLBACK = True  # Warn and use point TP if no matching areal TP exists.
 VIEW = "all"  # "all", "zero" (only excluded), "keep" (positive or unresolved).
 CSV_REPORT: Path | None = None  # Exclusive-create output; existing reports are never overwritten.
 CONSOLE_LOG_LEVEL = "WARNING"
@@ -88,7 +89,12 @@ from ryan_library.functions.hydrology.rainfall_loss_screening import (
     summarize_events,
 )
 from ryan_library.functions.wrapper_utils import change_working_directory, pause_console, print_wrapper_banner
-from ryan_library.orchestrators.hydrology.rainfall_loss_workflow import assemble_arr_events, assemble_bom_events
+from ryan_library.orchestrators.hydrology.rainfall_loss_workflow import (
+    TemporalPatternAdmission,
+    assemble_arr_events,
+    assemble_bom_events,
+    preflight_temporal_pattern_durations,
+)
 
 
 def _path(value: Path | None, directory: Path) -> Path | None:
@@ -331,17 +337,54 @@ def _validate_local_sources(
         raise _error(message)
 
 
-def _validate_offline_arr_patterns(response: Any, *, offline: bool, areal_tp_path: Path | None) -> None:
-    """Prevent an implicit areal-pattern URL download by PyTUFLOW's ARR engine."""
+def _validate_offline_arr_patterns(
+    response: Any,
+    *,
+    offline: bool,
+    areal_tp_path: Path | None,
+    allow_point_fallback: bool = False,
+) -> bool:
+    """Indicate if an advertised areal TP URL must be suppressed in offline mode."""
     if not offline or areal_tp_path is not None:
-        return
+        return False
     areal_layer = response.layer("ArealTP")
-    if areal_layer and areal_layer.get("url"):
-        message = (
-            "OFFLINE ARR response advertises an areal TP download URL; supply the local "
-            "--areal-tp / AREAL_TP_CSV. Do not silently download or omit areal patterns."
+    if not areal_layer or not areal_layer.get("url"):
+        return False
+    if allow_point_fallback:
+        return True
+    message = (
+        "OFFLINE ARR response advertises an areal TP download URL; supply a local "
+        "--areal-tp file or enable --point-tp-fallback."
+    )
+    raise _error(message)
+
+
+def _response_without_areal_tp(response: Any) -> Any:
+    """Copy the Data Hub response without its areal TP download link; do not edit source JSON."""
+    from pytuflow.arr.api_client import ArrApiResponse
+
+    raw = cast("dict[str, Any]", response.raw)
+    layers = cast("dict[str, Any]", raw["layers"])
+    retained = dict(layers)
+    retained.pop("ArealTP", None)
+    return ArrApiResponse({**raw, "layers": retained})
+
+
+def _announce_tp_admission(admission: TemporalPatternAdmission, *, area: float) -> None:
+    """Emit one warning for all unsupported durations and another for point fallback."""
+    console = Console(stderr=True)
+    if admission.omitted_durations:
+        durations = ", ".join(str(value) for value in admission.omitted_durations)
+        console.print(
+            f"WARNING: No suitable TPs for duration(s) {durations} min across the selected AEP bands. "
+            "Omitted those durations for ALL AEPs; none was classified DROP."
         )
-        raise _error(message)
+    if admission.point_fallback_durations:
+        durations = ", ".join(str(value) for value in admission.point_fallback_durations)
+        console.print(
+            f"WARNING: No applicable areal TPs for duration(s) {durations} min at {area:g} km². "
+            "Using point TPs instead; review suitability before removing runs."
+        )
 
 
 def _arr_response(config: Any, json_path: Path | None) -> Any:
@@ -475,15 +518,13 @@ def _bom_patterns(
     areal_csv: Path | None,
     directory: Path,
     response: Any | None = None,
+    allow_point_fallback: bool = True,
 ) -> Any:
     from pytuflow.arr.temporal_patterns import TemporalPatternSet
 
     if point_csv is not None:
-        if area >= 75 and areal_csv is None:
-            message = (
-                "Catchment area >=75 km² requires a matching areal TP increments CSV "
-                "when BoM point patterns are supplied locally; do not substitute point TPs."
-            )
+        if area >= 75 and areal_csv is None and not allow_point_fallback:
+            message = "No local areal TP increments CSV and point TP fallback disabled."
             raise _error(message)
         return TemporalPatternSet.from_files(
             str(point_csv), str(areal_csv) if areal_csv is not None else None, catchment_area=area
@@ -501,7 +542,21 @@ def _bom_patterns(
     selected_response = response if response is not None else _arr_response(config, None)
     point = selected_response.layer("PointTP", required=True)
     areal = selected_response.layer("ArealTP")
-    return TemporalPatternSet.from_api_response(point["url"], areal["url"] if areal else None, catchment_area=area)
+    areal_url = areal["url"] if areal else None
+    try:
+        return TemporalPatternSet.from_api_response(point["url"], areal_url, catchment_area=area)
+    except Exception as exc:  # noqa: BLE001 - only retry if the areal URL itself failed
+        if (
+            not allow_point_fallback
+            or areal_url is None
+            or "Failed to download temporal pattern zip" not in str(exc)
+            or areal_url not in str(exc)
+        ):
+            raise
+        Console(stderr=True).print(
+            "WARNING: Could not download areal TP increments. Using point TPs instead."
+        )
+        return TemporalPatternSet.from_api_response(point["url"], None, catchment_area=area)
 
 
 def _bom_arf_factors(
@@ -719,6 +774,12 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--point-tp", type=Path, help="Local ARR point temporal pattern increments CSV.")
     parser.add_argument("--areal-tp", type=Path, help="Local ARR areal temporal pattern increments CSV.")
     parser.add_argument("--fetch-tps", action=argparse.BooleanOptionalAction, default=None)
+    parser.add_argument(
+        "--point-tp-fallback",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Use point TPs if no areal TP is available, with a grouped warning.",
+    )
     parser.add_argument("--latitude", type=float)
     parser.add_argument("--longitude", type=float)
     parser.add_argument("--site", help="Site identifier.")
@@ -826,6 +887,9 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
         point_path = _path(args.point_tp if args.point_tp is not None else POINT_TP_CSV, directory)
         areal_path = _path(args.areal_tp if args.areal_tp is not None else AREAL_TP_CSV, directory)
         fetch_tps = args.fetch_tps if args.fetch_tps is not None else FETCH_TPS_FOR_BOM
+        allow_point_fallback = (
+            args.point_tp_fallback if args.point_tp_fallback is not None else ALLOW_POINT_TP_FALLBACK
+        )
         _validate_local_sources(
             source=source,
             offline=offline,
@@ -873,7 +937,18 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
                 arf_override=arf_override,
             )
             response = _arr_response(initial_cfg, response_path)
-            _validate_offline_arr_patterns(response, offline=offline, areal_tp_path=areal_path)
+            strip_areal = _validate_offline_arr_patterns(
+                response,
+                offline=offline,
+                areal_tp_path=areal_path,
+                allow_point_fallback=allow_point_fallback,
+            )
+            if strip_areal:
+                response = _response_without_areal_tp(response)
+                Console(stderr=True).print(
+                    "WARNING: Strict offline ARR response contains an areal TP URL but no local areal "
+                    "increments CSV. Using point TPs instead; no network request was made."
+                )
             available = _datahub_aeps(response, baseline)
             aeps = _aep_selection(available, aep_chosen, aep_mode)
             durations = _durations(_datahub_durations(response, baseline), duration_chosen, arr=True)
@@ -906,8 +981,45 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
             )
             from pytuflow.arr.engine import ArrEngine, EventResult
 
+            engine = ArrEngine(config, response)
+            tp_method: str = "_tp_set_for_config"
+            try:
+                tp_set = cast(Any, getattr(engine, tp_method)())
+            except Exception as exc:  # noqa: BLE001 - only retry a recognisable failed areal ZIP download
+                layer = response.layer("ArealTP")
+                url = layer.get("url") if layer else None
+                if (
+                    not allow_point_fallback
+                    or offline
+                    or areal_path is not None
+                    or url is None
+                    or "Failed to download temporal pattern zip" not in str(exc)
+                    or url not in str(exc)
+                ):
+                    raise
+                Console(stderr=True).print(
+                    "WARNING: Areal TP download failed; falling back to point TPs."
+                )
+                engine.response = _response_without_areal_tp(response)
+                tp_set = cast(Any, getattr(engine, tp_method)())
+
+            admission = preflight_temporal_pattern_durations(
+                tp_set,
+                durations=durations,
+                aeps=aeps,
+                area_km2=area,
+                allow_point_fallback=allow_point_fallback,
+            )
+            _announce_tp_admission(admission, area=area)
+            if not admission.included_durations:
+                message = (
+                    "No selected durations have applicable TPs. "
+                    "No events were screened or classified DROP."
+                )
+                raise _error(message)
+            cast(Any, engine).config.events.duration = list(admission.included_durations)
             run_method: str = "run"
-            runner = cast("Callable[[], list[EventResult]]", getattr(ArrEngine(config, response), run_method))
+            runner = cast("Callable[[], list[EventResult]]", getattr(engine, run_method))
             events: list[EventResult] = runner()
             bundle = assemble_arr_events(
                 events,
@@ -983,7 +1095,12 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
                     response_path,
                 )
                 response_for_bom = _arr_response(config_for_bom, response_path)
-                _validate_offline_arr_patterns(response_for_bom, offline=offline, areal_tp_path=areal_path)
+                _validate_offline_arr_patterns(
+                    response_for_bom,
+                    offline=offline,
+                    areal_tp_path=areal_path,
+                    allow_point_fallback=allow_point_fallback,
+                )
             factors = _bom_arf_factors(
                 area=area,
                 durations=durations,
@@ -1001,7 +1118,24 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
                 areal_path,
                 directory,
                 response=response_for_bom,
+                allow_point_fallback=allow_point_fallback,
             )
+            if patterns is not None:
+                admission = preflight_temporal_pattern_durations(
+                    patterns,
+                    durations=durations,
+                    aeps=aeps,
+                    area_km2=area,
+                    allow_point_fallback=allow_point_fallback,
+                )
+                _announce_tp_admission(admission, area=area)
+                if not admission.included_durations:
+                    message = (
+                        "No selected durations have applicable TPs. "
+                        "No events were screened or classified DROP."
+                    )
+                    raise _error(message)
+                durations = list(admission.included_durations)
             bundle = assemble_bom_events(
                 imported,
                 aeps=set(aeps),

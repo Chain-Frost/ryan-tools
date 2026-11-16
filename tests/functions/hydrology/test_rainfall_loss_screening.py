@@ -19,7 +19,11 @@ from ryan_library.functions.hydrology.rainfall_loss_screening import (
     screen_event,
     summarize_events,
 )
-from ryan_library.orchestrators.hydrology.rainfall_loss_workflow import assemble_arr_events, assemble_bom_events
+from ryan_library.orchestrators.hydrology.rainfall_loss_workflow import (
+    assemble_arr_events,
+    assemble_bom_events,
+    preflight_temporal_pattern_durations,
+)
 
 
 def _pattern(depth_count: int, increments: tuple[float, ...], *, identity: str = "1") -> TemporalPattern:
@@ -373,3 +377,52 @@ def test_orchestrator_bom_applies_arf_before_screening() -> None:
     assert len(bundle.patterns) == 2
     assert all(s.status == ScreeningStatus.ZERO for s in bundle.patterns)
     assert bundle.rainfall["20%", 1440, None] == (37.0, 18.5, 0.5, None, "IL 30; CL 0")
+
+
+
+def test_tp_preflight_groups_unsupported_durations_without_inventing_zeroes() -> None:
+    """All AEP bands missing 5-min data must be one omitted duration, not 2 DROP rows."""
+    from pytuflow.arr.exceptions import ArrError
+
+    class Patterns:
+        def patterns(self, duration: int, aep_name: str, output_notation: str = "aep") -> list[object]:
+            assert aep_name
+            assert output_notation == "aep"
+            if duration == 5:
+                msg = "No point temporal pattern available for duration 5.0 min, AEP band 'frequent'."
+                raise ArrError(msg)
+            if duration == 30:
+                return [SimpleNamespace(source="point", region="Rangelands West")]
+            return [SimpleNamespace(source="areal", region="Rangelands West")]
+
+    outcome = preflight_temporal_pattern_durations(
+        Patterns(), durations=[5, 30, 60], aeps=["63.2%", "1%"],
+        area_km2=350, allow_point_fallback=True,
+    )
+    assert outcome.included_durations == (30, 60)
+    assert outcome.omitted_durations == (5,)
+    assert outcome.point_fallback_durations == (30,)
+    assert outcome.missing_bands[5] == ("frequent", "rare")
+
+    no_fallback = preflight_temporal_pattern_durations(
+        Patterns(), durations=[5, 30, 60], aeps=["63.2%", "1%"],
+        area_km2=350, allow_point_fallback=False,
+    )
+    assert no_fallback.included_durations == (60,)
+    assert no_fallback.omitted_durations == (5, 30)
+    assert no_fallback.point_fallback_durations == ()
+
+
+def test_tp_preflight_point_only_is_expected_for_small_catchments() -> None:
+    class Patterns:
+        def patterns(self, duration: int, aep_name: str, output_notation: str = "aep") -> list[object]:
+            assert duration == 60
+            assert aep_name == "1%"
+            assert output_notation == "aep"
+            return [SimpleNamespace(source="point", region="Rangelands West")]
+
+    outcome = preflight_temporal_pattern_durations(
+        Patterns(), durations=[60], aeps=["1%"], area_km2=0,
+    )
+    assert outcome.included_durations == (60,)
+    assert outcome.point_fallback_durations == ()

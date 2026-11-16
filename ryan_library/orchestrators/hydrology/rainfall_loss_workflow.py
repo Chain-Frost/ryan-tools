@@ -52,6 +52,79 @@ def _pattern_sets(patterns: Iterable[object]) -> tuple[str, ...]:
     return tuple(sorted(found))
 
 
+@dataclass(frozen=True, slots=True)
+class TemporalPatternAdmission:
+    """TP preflight across selected AEP bands, without repeating errors for every AEP."""
+
+    included_durations: tuple[int, ...]
+    omitted_durations: tuple[int, ...]
+    missing_bands: dict[int, tuple[str, ...]]
+    point_fallback_durations: tuple[int, ...]
+
+
+def preflight_temporal_pattern_durations(
+    temporal_patterns: Any,
+    *,
+    durations: Collection[int],
+    aeps: Collection[str],
+    area_km2: float,
+    allow_point_fallback: bool = True,
+) -> TemporalPatternAdmission:
+    """Preflight source IFD durations before PyTUFLOW assembles event combinations.
+
+    A missing required AEP band excludes that *duration across all selected AEPs*.
+    This is a conservative omission, not a DROP verdict. Reuse PyTUFLOW's
+    exact band/areal/point selection, including its existing point fallback.
+    """
+    from pytuflow.arr.exceptions import ArrError
+    from pytuflow.arr.temporal_patterns import aep_band
+
+    bands: dict[str, str] = {}
+    for aep in aeps:
+        band = aep_band(aep, "aep")
+        bands.setdefault(band, aep)
+    if not bands:
+        msg = "TP preflight requires at least one selected AEP"
+        raise ValueError(msg)
+
+    accepted: list[int] = []
+    omitted: list[int] = []
+    missing: dict[int, tuple[str, ...]] = {}
+    fallback: list[int] = []
+    for duration in sorted(set(durations)):
+        absent: list[str] = []
+        used_point = False
+        for band, representative in bands.items():
+            try:
+                candidates = temporal_patterns.patterns(duration, representative, "aep")
+            except ArrError as exc:
+                if "No point temporal pattern available" not in str(exc):
+                    raise
+                absent.append(band)
+                continue
+            if not candidates:
+                absent.append(band)
+                continue
+            if any(str(cast(Any, item).source) == "point" for item in candidates):
+                used_point = True
+        if absent:
+            omitted.append(duration)
+            missing[duration] = tuple(sorted(absent))
+        elif used_point and area_km2 >= 75 and not allow_point_fallback:
+            omitted.append(duration)
+            missing[duration] = ("areal unavailable; point fallback disabled",)
+        else:
+            accepted.append(duration)
+            if used_point and area_km2 >= 75:
+                fallback.append(duration)
+    return TemporalPatternAdmission(
+        tuple(accepted),
+        tuple(omitted),
+        missing,
+        tuple(fallback),
+    )
+
+
 def assemble_arr_events(
     events: Iterable[object],
     *,

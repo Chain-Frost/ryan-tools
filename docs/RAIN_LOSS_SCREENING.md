@@ -63,7 +63,7 @@ INITIAL_LOSS_MM: float | None = 50.0
 CONTINUING_LOSS_MM_PER_HOUR: float | None = 5.0
 RUNOFF_COEFFICIENT: float | None = None
 ARF_OVERRIDE: float | None = None  # Use Data Hub ARF; do not force unity.
-LOSS_TIMING = "fractional"  # Or "full_increment" for qualified RORB experimental comparisons.
+LOSS_TIMING = "full_increment"  # Default experimental RORB profile; fractional remains optional.
 STORM_MODE = "complete"
 CLIMATE_SCENARIOS: list[str] = ["2050:SSP2"]
 AEP_MODE = "common"
@@ -190,10 +190,10 @@ is prorated within the computational timestep in which IL is exhausted
 or allowed a full timestep capacity**. The screening tool currently
 offers two *non-certified* assumptions:
 
-- `LOSS_TIMING="fractional"` (default): prorates CL by the post-IL
+- `LOSS_TIMING="fractional"` (alternative): prorates CL by the post-IL
   portion of the **temporal pattern bin**, generally giving a more
   conservative KEEP decision when events are near the threshold.
-- `LOSS_TIMING="full_increment"`: applies the complete TP-bin CL
+- `LOSS_TIMING="full_increment"` **(wrapper default)**: applies the complete TP-bin CL
   capacity after initial loss is consumed. This mirrors a bounded
   experimental RORBwin 6.52 candidate, **not proven TUFLOW behaviour**.
 
@@ -235,10 +235,12 @@ the corresponding live API/download source; they are read, never modified.
   preference to the corresponding Data Hub URL.
 - `OFFLINE=True` / `--offline`: **strict no-network mode**. For ARR mode,
   a readable response JSON and point CSV are mandatory. If that response
-  advertises an areal TP download link, the local areal increments CSV is
-  also mandatory, regardless of point/areal catchment selection, because
-  the current PyTUFLOW loader otherwise downloads that layer.
-  Missing files fail before event processing; **no silent network fallback**.
+  advertises an areal TP download link but the local areal increments CSV
+  is absent, the wrapper can explicitly use point TPs and print a warning
+  (default `ALLOW_POINT_TP_FALLBACK=True`). It removes only the areal URL
+  **in memory**, keeping the local source JSON unchanged and preventing
+  PyTUFLOW from downloading the missing dataset. If fallback is disabled,
+  the missing areal file is a hard error.
   A saved JSON may be used without specifying latitude/longitude because
   its contents already identify the data source, but users must verify that
   the saved dataset belongs to the intended catchment. Coordinates, when
@@ -294,10 +296,10 @@ When BoM IFD rainfall is combined with a catchment area >1 km²,
 regional ARF coefficients must be available from a matching Data Hub JSON
 (or obtained live) unless an explicit ARF override is supplied.
 In **strict offline** BoM mode, missing coefficients fail before a request
-rather than downloading silently. For **area ≥75 km²**, a BoM run using
-locally supplied point temporal patterns also requires a matching local
-areal TP increments CSV; point TPs must not silently replace the applicable
-areal set.
+rather than downloading silently. For **area ≥75 km²**, if the matching areal TP set cannot be obtained,
+point temporal patterns are permitted by default, but the wrapper prints
+a prominent warning for the affected durations. Use
+`--no-point-tp-fallback` to disable this substitution.
 
 A BoM burst-only IL supplied by `--il` is assumed **already adjusted for
 preburst**. To provide a storm IL plus a known preburst depth, use
@@ -307,6 +309,41 @@ This is a *user-selected simple reduction*, not the Data Hub recommended
 burst-loss methodology. Complete-storm preburst temporal patterns are
 supported via `--source arr --storm-mode complete`, not by inserting an
 arbitrary preburst into an unmatched BoM export.
+
+### Missing TP durations and point fallback
+
+ARR Data Hub RecIFD and BoM IFD can contain short durations that are
+**not available in the matching temporal-pattern set**. For example,
+a source IFD may contain a **5-minute** duration while the selected
+Rangelands West point data begin at a longer duration. The wrapper now
+preflights **all selected AEP bands per duration** before event assembly:
+
+- A duration with no suitable TP in any required AEP band is **omitted
+  from the event table and duration-by-AEP matrix**. One consolidated
+  WARNING lists all such durations **once at the top** of the output.
+  These events have **not** been evaluated, and are **not DROP**. If no
+  durations remain, the wrapper exits with a single clear error.
+- PyTUFLOW's own `TemporalPatternSet.patterns` prefers an applicable
+  areal TP and **falls back to point TPs** if the areal area bucket or
+  duration is unavailable. For catchment areas ≥75 km² the wrapper
+  reports all affected durations in one warning at the top.
+- For an offline ARR response that still advertises an areal TP URL but
+  lacks a local areal increments CSV, the wrapper suppresses that URL
+  **in memory**, uses the available local point CSV and warns. No
+  network request is made; the original JSON is preserved.
+- For a failed **areal-only ZIP download** in online ARR mode, the
+  wrapper can retry with point TPs. It does not suppress unrelated API,
+  point-TP or data-parsing errors.
+- Set `ALLOW_POINT_TP_FALLBACK = False` or use
+  `--no-point-tp-fallback` to disable fallback. A duration without its
+  required areal TP will then be omitted rather than silently retained
+  as a point event. Source rainfall depths and ARF policy are unchanged
+  by the TP fallback.
+
+Consolidated warnings are shown before the results table, **not once
+per AEP**. This avoids hundreds of repeated missing-duration rows while
+retaining an auditable record of what was not screened.
+
 
 ### AEP and duration selection
 
@@ -388,9 +425,9 @@ Choose exactly one `LossSpec` form:
 
 * `LossSpec(initial_loss_mm=30, continuing_loss_mm_per_hour=5)` uses sequential
   initial loss followed by continuing loss. Each temporal pattern increment is
-  assumed uniformly distributed across its timestep. The **fractional** default
-  uses the post-IL fraction of the IL-crossing increment for CL. Explicit
-  `continuing_loss_timing="full_increment"` uses the full TP-bin CL capacity
+  assumed uniformly distributed across its timestep. The library's **fractional** API default
+  uses the post-IL fraction of the IL-crossing increment for CL. The **wrapper's
+  `LOSS_TIMING="full_increment"` default** uses the full TP-bin CL capacity
   when IL has been exhausted, as a **separately qualified experimental
   RORBwin 6.52 candidate**, not an established TUFLOW method.
 * `LossSpec(initial_loss_mm=30, runoff_coefficient=0.25)` applies the constant

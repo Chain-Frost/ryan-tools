@@ -486,3 +486,81 @@ def test_complete_storm_default_and_renamed_burst_mode(tmp_path: Path, monkeypat
         m._arr_config(
             -23.08632, 119.2755, 350.0, "test site", ["1%"], [120], 2030, "burst", "recommended", tmp_path, None
         )
+
+
+
+def test_wrapper_defaults_to_full_increment_and_enables_point_tp_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    m = _wrapper()
+    assert m.LOSS_TIMING == "full_increment"
+    assert m.ALLOW_POINT_TP_FALLBACK is True
+    monkeypatch.setattr(sys, "argv", [str(SCRIPT), "--no-point-tp-fallback"])
+    assert m._arguments().point_tp_fallback is False
+    monkeypatch.setattr(sys, "argv", [str(SCRIPT), "--point-tp-fallback"])
+    assert m._arguments().point_tp_fallback is True
+
+
+def test_offline_arr_can_suppress_areal_url_without_modifying_saved_source() -> None:
+    api = pytest.importorskip("pytuflow.arr.api_client")
+    m = _wrapper()
+    original = api.ArrApiResponse({
+        "layers": {
+            "ArealTP": {"url": "https://example.test/areal.zip"},
+            "ARFParams": {"a": 0.2},
+        },
+        "title": "Original source",
+    })
+    assert m._validate_offline_arr_patterns(
+        original, offline=True, areal_tp_path=None, allow_point_fallback=True
+    ) is True
+    adjusted = m._response_without_areal_tp(original)
+    assert adjusted.layer("ArealTP") is None
+    assert original.layer("ArealTP") == {"url": "https://example.test/areal.zip"}
+    assert adjusted.layer("ARFParams") == {"a": 0.2}
+
+
+def test_preflight_warning_groups_missing_duration_once(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    m = _wrapper()
+    admission = m.TemporalPatternAdmission(
+        included_durations=(30, 60, 120),
+        omitted_durations=(1, 2, 5),
+        missing_bands={1: ("frequent", "rare"), 2: ("frequent",), 5: ("frequent", "intermediate")},
+        point_fallback_durations=(30, 60),
+    )
+    m._announce_tp_admission(admission, area=350)
+    captured = capsys.readouterr().err
+    assert captured.count("No suitable TPs for duration(s)") == 1
+    assert "1, 2, 5" in captured
+    assert "none was classified DROP" in captured
+    assert captured.count("Using point TPs instead") == 1
+
+
+def test_bom_point_fallback_no_areal_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    m = _wrapper()
+    tp_module = pytest.importorskip("pytuflow.arr.temporal_patterns")
+    point = tmp_path / "point_Increments.csv"
+    point.write_text("synthetic", encoding="utf-8")
+    inputs: list[tuple[str, str | None, float | None]] = []
+
+    def from_files(
+        _klass: object, point_path: str, areal_path: str | None = None,
+        catchment_area: float | None = None,
+    ) -> object:
+        inputs.append((point_path, areal_path, catchment_area))
+        return object()
+
+    monkeypatch.setattr(tp_module.TemporalPatternSet, "from_files", cast(Any, classmethod(from_files)))
+    provider = m._bom_patterns(
+        object(), None, None, 350.0, True, point, None, tmp_path, allow_point_fallback=True
+    )
+    assert provider is not None
+    assert inputs == [(str(point), None, 350.0)]
+    with pytest.raises(ValueError, match="fallback disabled"):
+        m._bom_patterns(
+            object(), None, None, 350.0, True, point, None, tmp_path, allow_point_fallback=False
+        )
