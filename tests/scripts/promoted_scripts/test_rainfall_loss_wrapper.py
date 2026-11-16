@@ -273,7 +273,7 @@ def test_offline_pytuflow_config_uses_local_json_and_temporal_patterns(
         ["1%"],
         [60],
         2030,
-        "burst",
+        "main-burst-only",
         "recommended",
         tmp_path,
         response,
@@ -328,7 +328,7 @@ def test_offline_arr_config_rejects_missing_coordinates_only_in_live_mode(tmp_pa
         ["1%"],
         [60],
         2030,
-        "burst",
+        "main-burst-only",
         "recommended",
         tmp_path,
         response,
@@ -344,7 +344,7 @@ def test_offline_arr_config_rejects_missing_coordinates_only_in_live_mode(tmp_pa
             ["1%"],
             [60],
             2030,
-            "burst",
+            "main-burst-only",
             "recommended",
             tmp_path,
             response,
@@ -359,7 +359,7 @@ def test_offline_arr_config_rejects_missing_coordinates_only_in_live_mode(tmp_pa
             ["1%"],
             [60],
             2030,
-            "burst",
+            "main-burst-only",
             "recommended",
             tmp_path,
             None,
@@ -458,3 +458,38 @@ def test_unknown_tp_column_hidden_when_all_resolved(
     contents = csv_path.read_text(encoding="utf-8")
     assert "unknown_tp" not in contents.splitlines()[0]
     assert "0.9000" in contents
+
+
+def test_complete_storm_default_and_renamed_burst_mode(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Do not silently interpret the former burst label as complete-storm mode."""
+    m = _wrapper()
+    assert m.STORM_MODE == "complete"
+    monkeypatch.setattr(
+        sys, "argv", [str(SCRIPT), "--source", "arr", "--storm-mode", "main-burst-only"]
+    )
+    assert m._arguments().storm_mode == "main-burst-only"
+    monkeypatch.setattr(sys, "argv", [str(SCRIPT), "--storm-mode", "complete"])
+    assert m._arguments().storm_mode == "complete"
+    monkeypatch.setattr(sys, "argv", [str(SCRIPT), "--storm-mode", "burst"])
+    with pytest.raises(SystemExit) as error:
+        m._arguments()
+    assert error.value.code == 2
+
+    pytest.importorskip("pytuflow.arr.config")
+    complete = m._arr_config(
+        -23.08632, 119.2755, 350.0, "test site", ["1%"], [120], 2030,
+        "complete", "recommended", tmp_path, None
+    )
+    main_only = m._arr_config(
+        -23.08632, 119.2755, 350.0, "test site", ["1%"], [120], 2030,
+        "main-burst-only", "recommended", tmp_path, None
+    )
+    assert complete.complete_storm is True
+    assert main_only.complete_storm is False
+    with pytest.raises(ValueError, match="STORM_MODE"):
+        m._arr_config(
+            -23.08632, 119.2755, 350.0, "test site", ["1%"], [120], 2030,
+            "burst", "recommended", tmp_path, None
+        )

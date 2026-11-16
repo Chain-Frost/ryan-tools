@@ -7,13 +7,13 @@ produces flow at an outlet, or that unexamined patterns can be omitted.
 
 Examples:
     py -3.14 screen_rainfall_losses.py --source arr --latitude -23.08632 --longitude 119.2755 --view zero --no-pause
-    py -3.14 screen_rainfall_losses.py --source bom --ifd "depths_hd4_temp_all_design.csv" --il 30 --cl 5 --no-pause
+    py -3.14 screen_rainfall_losses.py --source bom --storm-mode main-burst-only --ifd "depths_hd4_temp_all_design.csv" --il 30 --cl 5 --no-pause
     py -3.14 screen_rainfall_losses.py --source arr --offline --arr-response site.json --point-tp point_Increments.csv --areal-tp areal_Increments.csv --no-pause
 """
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-17.3"
+WRAPPER_VERSION = "2026-11-17.4"
 
 WORKING_DIR: Path = Path(__file__).absolute().parent
 SOURCE = "arr"  # "arr" downloads ARR Data Hub 2026; "bom" uses the original BoM IFD CSV.
@@ -56,9 +56,9 @@ SHOW_TP_DETAILS = False  # True prints one numerical excess row per evaluated te
 # Per-AEP losses may also be duration-keyed, e.g. {"1%": {"60": {"il_mm": 25, "cl_mm_per_hour": 5}}}.
 LOSS_OVERRIDES_BY_AEP: dict[str, object] = {}
 LOSS_OVERRIDES_JSON: Path | None = None  # JSON object using the same per-AEP format as above.
-# "burst" = design burst only with preburst-adjusted burst IL.
-# "complete" = preburst rainfall + design burst, with full storm IL applied once.
-STORM_MODE = "burst"
+# "complete" (default): preburst rainfall + main design burst; apply full storm IL once.
+# "main-burst-only": omit explicit preburst; use an already preburst-adjusted burst IL.
+STORM_MODE = "complete"
 PREBURST_PERCENTILE = "recommended"  # "recommended", "10%", "25%", "50%", "75%", "90%".
 BOM_PREBURST_DEPTH_MM: float | None = None  # Only explicit subtraction from a storm IL, NOT complete storm.
 FETCH_TPS_FOR_BOM = True  # Fetch ARR point/areal patterns using BoM file's requested coordinates.
@@ -257,6 +257,7 @@ def _arr_config(
 ) -> Any:
     from pytuflow.arr.config import ArrConfig
 
+    _choice("STORM_MODE", mode, {"complete", "main-burst-only"})
     if baseline not in {1990, 2030}:
         message = "IFD_BASELINE_YEAR must be 1990 or 2030."
         raise _error(message)
@@ -494,7 +495,10 @@ def _bom_patterns(
     if lat is None or lon is None:
         message = "BoM IFD has no requested coordinates; specify --latitude and --longitude or --no-fetch-tps."
         raise _error(message)
-    config = _arr_config(lat, lon, area, SITE_NAME, ["1%"], [60], 2030, "burst", "recommended", directory, None)
+    config = _arr_config(
+        lat, lon, area, SITE_NAME, ["1%"], [60], 2030,
+        "main-burst-only", "recommended", directory, None
+    )
     selected_response = response if response is not None else _arr_response(config, None)
     point = selected_response.layer("PointTP", required=True)
     areal = selected_response.layer("ArealTP")
@@ -699,8 +703,8 @@ def _arguments() -> argparse.Namespace:
         epilog=r"""Examples:
   py -3.14 screen_rainfall_losses.py --source arr --latitude -23.08632 --longitude 119.2755 --no-pause
   py -3.14 screen_rainfall_losses.py --source arr --offline --arr-response site.json --point-tp point_Increments.csv --areal-tp areal_Increments.csv --no-pause
-  py -3.14 screen_rainfall_losses.py --source bom --ifd "D:\Model\depths_all_design.csv" --il 30 --cl 5 --view zero --no-pause
-  py -3.14 screen_rainfall_losses.py --source bom --ifd "D:\Model\depths_all_design.csv" --aep 20% 10% 1% --no-pause""",
+  py -3.14 screen_rainfall_losses.py --source bom --storm-mode main-burst-only --ifd "D:\Model\depths_all_design.csv" --il 30 --cl 5 --view zero --no-pause
+  py -3.14 screen_rainfall_losses.py --source bom --storm-mode main-burst-only --ifd "D:\Model\depths_all_design.csv" --aep 20% 10% 1% --no-pause""",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("--source", choices=("arr", "bom"), help="Rainfall backend (ARR 2026 API or BoM CSV).")
@@ -745,7 +749,14 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--matrix", action=argparse.BooleanOptionalAction, default=None)
     parser.add_argument("--tp-details", action=argparse.BooleanOptionalAction, default=None)
     parser.add_argument("--losses-json", type=Path, help="Optional per-AEP or per-duration loss overrides JSON.")
-    parser.add_argument("--storm-mode", choices=("burst", "complete"), help="ARR burst-IL or complete preburst storm.")
+    parser.add_argument(
+        "--storm-mode",
+        choices=("complete", "main-burst-only"),
+        help=(
+            "complete (default): prepend preburst and use full storm IL; "
+            "main-burst-only: use design burst with preburst-adjusted burst IL."
+        ),
+    )
     parser.add_argument("--preburst-percentile", choices=("recommended", "10%", "25%", "50%", "75%", "90%"))
     parser.add_argument(
         "--bom-preburst-depth", type=float, help="Explicit BoM preburst depth to subtract from storm IL."
@@ -804,7 +815,7 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
         baseline = args.baseline_year if args.baseline_year is not None else IFD_BASELINE_YEAR
         storm_mode = args.storm_mode if args.storm_mode is not None else STORM_MODE
         percentile = args.preburst_percentile if args.preburst_percentile is not None else PREBURST_PERCENTILE
-        _choice("STORM_MODE", storm_mode, {"burst", "complete"})
+        _choice("STORM_MODE", storm_mode, {"complete", "main-burst-only"})
         _choice("PREBURST_PERCENTILE", percentile, {"recommended", "10%", "25%", "50%", "75%", "90%"})
         view = args.view if args.view is not None else VIEW
         report_path = _path(args.csv_report if args.csv_report is not None else CSV_REPORT, directory)
@@ -917,8 +928,12 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
             if climate_scenarios:
                 message = "ARR SSP climate scenarios require --source arr; for BoM use --rainfall-factor."
                 raise _error(message)
-            if storm_mode != "burst":
-                message = "BoM CSV mode only screens burst rainfall; use --source arr for complete preburst."
+            if storm_mode != "main-burst-only":
+                message = (
+                    "BoM CSV mode requires --storm-mode main-burst-only: the BoM IFD file "
+                    "does not contain a complete preburst hyetograph. "
+                    "Use --source arr for the default complete storm."
+                )
                 raise _error(message)
             ifd_path = _path(args.ifd if args.ifd is not None else IFD_CSV, directory)
             if ifd_path is None or not ifd_path.is_file():
@@ -963,7 +978,7 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
                     ["1%"],
                     [60],
                     baseline,
-                    "burst",
+                    "main-burst-only",
                     percentile,
                     directory,
                     response_path,
@@ -1039,9 +1054,15 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
             "allows a full bin's CL capacity. Neither guarantees TUFLOW soil-infiltration equivalence."
         )
         Console().print(
-            "Storm mode: burst = design burst only with preburst-adjusted burst IL; "
-            "complete = preburst rainfall is prepended and full storm IL applied once. "
-            "ARR may require complete-storm fallback for individual cells."
+            "Storm mode: complete (default) = explicit preburst + main burst with full storm IL once; "
+            "main-burst-only = main design burst only, with preburst-adjusted burst IL. "
+            "These are alternatives, not additive loss deductions."
+        )
+        Console().print(
+            "TUFLOW material losses remove rainfall BEFORE it reaches cells and stepped "
+            "rainfall holds the input RATE constant per interval. This tool evaluates CL on "
+            "TP bins. TUFLOW's exact IL-crossing-bin CL treatment is NOT verified: "
+            "neither fractional nor full_increment is certified as materials-file parity."
         )
     except Exception as exc:  # noqa: BLE001 - entry-point boundary: fail closed, preserve input
         Console(stderr=True).print(f"Rainfall screening failed: {exc}")

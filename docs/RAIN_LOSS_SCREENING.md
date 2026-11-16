@@ -29,7 +29,8 @@ py -3.14 ryan-scripts/hydrology-python/screen_rainfall_losses.py --source arr --
 The ARR backend is PyTUFLOW's `pytuflow.arr.api_client.ArrApiClient`
 and `ArrEngine`. This command queries the public Data Hub 2026 API at the
 *requested coordinate*, selects the Data Hub's **2030 RecIFD** by default,
-and uses its recommended, preburst-adjusted **burst initial losses**.
+and uses the **complete-storm method by default**: it prepends preburst rainfall
+before the design burst and applies full storm initial loss once.
 It is **not** the same as using the attached BoM CSV depths; 2030 RecIFD
 may differ from a 2016-methodology BoM export. To use the historical ARR
 1990 baseline, set `IFD_BASELINE_YEAR=1990` or `--baseline-year 1990`.
@@ -37,9 +38,11 @@ A catchment area of zero means **point rainfall only**; supply an actual
 `--catchment-area KM2` to use areal patterns/ARF as applicable. This is
 not an assumed physical project catchment area.
 
-`--storm-mode complete` instead requests explicit preburst rainfall
-before the design burst, using the full storm initial loss. The
-`--preburst-percentile recommended` default uses the Data Hub's preferred
+`--storm-mode complete` is the **default**, including preburst rainfall
+before the main design burst with full storm initial loss. Use
+`--storm-mode main-burst-only` to omit explicit preburst and instead
+use preburst-adjusted burst IL. The `--preburst-percentile recommended`
+default uses the Data Hub's preferred
 preburst ratio/shape subject to its jurisdictional availability. The
 selected initial-loss mode must match the intended hydraulic model.
 PyTUFLOW may automatically switch particular burst-loss cells to complete
@@ -61,7 +64,7 @@ CONTINUING_LOSS_MM_PER_HOUR: float | None = 5.0
 RUNOFF_COEFFICIENT: float | None = None
 ARF_OVERRIDE: float | None = None  # Use Data Hub ARF; do not force unity.
 LOSS_TIMING = "fractional"  # Or "full_increment" for qualified RORB experimental comparisons.
-STORM_MODE = "burst"
+STORM_MODE = "complete"
 CLIMATE_SCENARIOS: list[str] = ["2050:SSP2"]
 AEP_MODE = "common"
 DURATION_SELECTION_MIN: list[int] = []  # All available RecIFD durations.
@@ -98,21 +101,21 @@ corresponding baseline IFD, not from a manually assumed constant
 uplift. Each scenario is printed separately; the matrix is split
 by scenario to avoid mixing different climate periods.
 
-**Complete versus burst storm — two alternative loss conventions:**
+**Complete versus main-burst-only storm — two alternative loss conventions:**
 
-- `STORM_MODE = "burst"`: analyse the **design rainfall burst only**.
-  Apply the **burst initial loss**, which PyTUFLOW obtains using
-  the selected ARR preburst treatment. Do not prepend the preburst again.
-- `STORM_MODE = "complete"`: explicitly prepend the **preburst rainfall**
+- `STORM_MODE = "complete"` **(default)**: explicitly prepend the **preburst rainfall**
   (at its own temporal steps), then analyse the design burst. Apply
   the **full storm initial loss** once across this combined series.
+- `STORM_MODE = "main-burst-only"`: analyse only the **main design burst**.
+  Use a **burst IL** already reduced for preburst; do not subtract the preburst
+  a second time. This is not the default.
 - For ARR cells whose recommended burst IL is unavailable or would be
   negative, PyTUFLOW may require the complete-storm method even when
-  the user selected burst. The output shows the actual preburst depth
+  the user selected `main-burst-only`. The output shows the actual preburst depth
   where supplied; model equivalence is still subject to acceptance.
 - **User-specified** `--il 50 --cl 5` overrides the loss parameters
-  after ARR event assembly. In burst mode this is interpreted as
-  **burst IL**; in complete mode it is **full storm IL**. The wrapper
+  after ARR event assembly. In `main-burst-only` mode this is interpreted as
+  **burst IL**; in `complete` mode it is **full storm IL**. The wrapper
   does not automatically infer or reconcile those interpretations.
 
 ### Why CL can leave excess when total rain barely exceeds IL
@@ -174,9 +177,35 @@ precision to distinguish a marginal loss threshold.
 
 ### Materials rainfall losses vs soils ILCL infiltration in TUFLOW
 
-This screening model concerns **rainfall excess before applying
-rainfall as a hydrodynamic boundary**, as in TUFLOW materials-file
-initial/continuing rainfall losses. It is **not an infiltration model**:
+This screening model concerns **rainfall excess before applying rainfall
+to the 2D cells**, conceptually matching TUFLOW materials-based IL/CL.
+**Exact numerical parity with TUFLOW materials-file rainfall losses is
+NOT established.** TUFLOW's documented default rainfall interpolation
+is STEPPED: input hyetograph depths become rainfall rates (mm/h) held
+constant during each input interval. CL=5 mm/h represents 0.5 mm over
+a 6-minute interval, not 5 mm per time step.
+
+The official material-loss documentation does **not specify whether CL
+is prorated within the computational timestep in which IL is exhausted
+or allowed a full timestep capacity**. The screening tool currently
+offers two *non-certified* assumptions:
+
+- `LOSS_TIMING="fractional"` (default): prorates CL by the post-IL
+  portion of the **temporal pattern bin**, generally giving a more
+  conservative KEEP decision when events are near the threshold.
+- `LOSS_TIMING="full_increment"`: applies the complete TP-bin CL
+  capacity after initial loss is consumed. This mirrors a bounded
+  experimental RORBwin 6.52 candidate, **not proven TUFLOW behaviour**.
+
+The TP bin duration need not equal TUFLOW's hydrodynamic timestep.
+Before using DROP results to suppress actual TUFLOW runs, perform
+a short native comparison with [TUFLOW example EG05_002](https://wiki.tuflow.com/TUFLOW_Example_Models),
+comparing the
+available RFML (material rainfall losses), RFC (cumulative rainfall)
+and RFR (applied rainfall rate) outputs. Vary when IL is exhausted
+within a rainfall bin and retain the TUFLOW build/timestep evidence.
+
+It is **not an infiltration model**:
 TUFLOW `.tsoilf` `ILCL` applies water to cells first, then
 infiltrates into soil depending on water, wetting and soil conditions.
 A zero rainfall-excess verdict cannot automatically be used to
@@ -244,8 +273,12 @@ or a mismatched TP set is not automatically reconciled.
 ### Screen the original BoM CSV depths
 
 ```powershell
-py -3.14 ryan-scripts/hydrology-python/screen_rainfall_losses.py --source bom --ifd "depths_hd4_temp_all_design.csv" --il 30 --cl 5 --aep 20% 10% 1% --view zero --no-pause
+py -3.14 ryan-scripts/hydrology-python/screen_rainfall_losses.py --source bom --storm-mode main-burst-only --ifd "depths_hd4_temp_all_design.csv" --il 30 --cl 5 --aep 20% 10% 1% --view zero --no-pause
 ```
+
+BoM IFD CSV does not itself include the complete preburst hyetograph.
+Consequently, BoM mode **requires `--storm-mode main-burst-only`**;
+the default `complete` is reserved for ARR Data Hub event assembly.
 
 This mode uses **exact original BoM rainfall depths, durations, and AEP
 labels** through the `python-runoff-routing` reader and uses PyTUFLOW's
@@ -308,7 +341,7 @@ If no user losses are supplied in ARR mode, PyTUFLOW's selected Data Hub
 losses are retained. In BoM mode, missing loss entries produce **unresolved**
 statuses unless a pointwise total-depth upper bound proves zero. Explicit
 per-AEP overrides are interpreted as **storm IL** in complete-storm mode
-and **burst IL** in burst-only mode; an override is not itself adjusted
+and **burst IL** in `main-burst-only` mode; an override is not itself adjusted
 by the Data Hub preburst calculator.
 
 ### Console result columns
