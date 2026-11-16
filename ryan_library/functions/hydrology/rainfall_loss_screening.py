@@ -357,6 +357,7 @@ def screen_arr_datahub(config: object, response: object) -> tuple[PatternScreen,
     """
     from pytuflow.arr.api_client import ArrApiResponse
     from pytuflow.arr.engine import ArrEngine
+
     wrapped = response if isinstance(response, ArrApiResponse) else ArrApiResponse(cast(Any, response))
     return screen_arr_events(ArrEngine(cast(Any, config), wrapped).run())
 
