@@ -256,7 +256,7 @@ def _arr_config(
     if json_path is not None:
         data["response_json"] = str(json_path)
     method_name: str = "from_dict"
-    return cast(Any, getattr(ArrConfig, method_name)(data))
+    return getattr(ArrConfig, method_name)(data)
 
 
 def _arr_response(config: Any, json_path: Path | None) -> Any:
@@ -510,6 +510,7 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
             events: list[EventResult] = runner()
             screens = screen_arr_events(events, losses_by_aep=overrides, default_losses=loss_default)
             for event in events:
+                preburst = cast(Any, event).preburst
                 name = str(event.aep_name)
                 schedule = overrides.get(name)
                 effective = schedule.get(int(event.duration)) if isinstance(schedule, Mapping) else schedule
@@ -523,7 +524,7 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
                 )
                 totals[(name, int(event.duration), str(event.cc_scenario) if event.cc_scenario else None)] = (
                     float(event.depth_areal),
-                    float(event.preburst.depth) if event.preburst is not None else None,
+                    float(preburst.depth) if preburst is not None else None,
                     text,
                 )
         else:

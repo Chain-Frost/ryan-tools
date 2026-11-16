@@ -127,8 +127,9 @@ class _BoM:
     probabilities = (_Probability("20%"), _Probability("1%"))
     durations_min = (60, 1440)
 
-    def depth_mm_at(self, duration_min: int, probability: _Probability, *, convert_intensity: bool) -> float:
+    def depth_mm_at(self, duration_min: int, probability: object, *, convert_intensity: bool) -> float:
         assert convert_intensity
+        assert isinstance(probability, _Probability)
         assert probability.label
         return 23.0 if duration_min == 60 else 37.0
 
