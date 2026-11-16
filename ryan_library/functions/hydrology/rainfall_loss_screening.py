@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
-from math import isfinite, isclose
+from math import isclose, isfinite
 from pathlib import Path
 from typing import Any, Protocol, cast
 
@@ -25,7 +25,8 @@ class ScreeningStatus(StrEnum):
 def _nonnegative(value: float, name: str) -> float:
     result = float(value)
     if not isfinite(result) or result < 0:
-        raise ValueError(f"{name} must be finite and nonnegative")
+        msg = f"{name} must be finite and nonnegative"
+        raise ValueError(msg)
     return result
 
 
@@ -45,13 +46,15 @@ class LossSpec:
     def __post_init__(self) -> None:
         _nonnegative(self.initial_loss_mm, "initial loss")
         if (self.continuing_loss_mm_per_hour is None) == (self.runoff_coefficient is None):
-            raise ValueError("Specify exactly one of continuing loss or runoff coefficient")
+            msg = "Specify exactly one of continuing loss or runoff coefficient"
+            raise ValueError(msg)
         if self.continuing_loss_mm_per_hour is not None:
             _nonnegative(self.continuing_loss_mm_per_hour, "continuing loss")
         if self.runoff_coefficient is not None and (
             not isfinite(self.runoff_coefficient) or not 0 <= self.runoff_coefficient <= 1
         ):
-            raise ValueError("Runoff coefficient must be finite and between zero and one")
+            msg = "Runoff coefficient must be finite and between zero and one"
+            raise ValueError(msg)
 
 
 @dataclass(frozen=True, slots=True)
@@ -124,17 +127,20 @@ def reduced_burst_initial_loss(storm_initial_loss_mm: float, preburst_depth_mm: 
     initial = _nonnegative(storm_initial_loss_mm, "storm initial loss")
     depth = _nonnegative(preburst_depth_mm, "preburst depth")
     if depth > initial:
-        raise ValueError("Preburst exceeds storm initial loss; screen a complete storm instead")
+        msg = "Preburst exceeds storm initial loss; screen a complete storm instead"
+        raise ValueError(msg)
     return initial - depth
 
 
 def _fractions(increments: Sequence[float], name: str) -> tuple[float, ...]:
     if not increments:
-        raise ValueError(f"{name} has no increments")
+        msg = f"{name} has no increments"
+        raise ValueError(msg)
     values = tuple(_nonnegative(value, f"{name} increment") for value in increments)
     total = sum(values)
     if not 99.5 <= total <= 100.5:
-        raise ValueError(f"{name} increments must sum to 100% within 0.5 percentage points")
+        msg = f"{name} increments must sum to 100% within 0.5 percentage points"
+        raise ValueError(msg)
     # ARR temporal-pattern exports can have small decimal-rounding differences.
     # Normalise to avoid screening against rainfall smaller than the design depth.
     return tuple(value / total for value in values)
@@ -145,7 +151,8 @@ def _steps(
 ) -> tuple[tuple[float, float], ...]:
     depth = _nonnegative(depth_mm, f"{name} depth")
     if not isfinite(timestep_min) or timestep_min <= 0:
-        raise ValueError(f"{name} timestep must be finite and positive")
+        msg = f"{name} timestep must be finite and positive"
+        raise ValueError(msg)
     return tuple((depth * fraction, float(timestep_min)) for fraction in _fractions(increments, name))
 
 
@@ -168,13 +175,34 @@ def _rainfall_excess(
         if losses.runoff_coefficient is not None:
             excess = after_il * losses.runoff_coefficient
         else:
-            assert losses.continuing_loss_mm_per_hour is not None
+            continuing_loss = losses.continuing_loss_mm_per_hour
+            if continuing_loss is None:
+                msg = "Continuing loss must be supplied for IL/CL accounting"
+                raise ValueError(msg)
             post_il_fraction = after_il / rain if rain else 0.0
-            continuing_capacity = losses.continuing_loss_mm_per_hour * dt / 60.0 * post_il_fraction
+            continuing_capacity = continuing_loss * dt / 60.0 * post_il_fraction
             excess = after_il - min(after_il, continuing_capacity)
         total_excess += excess
         peak_rate = max(peak_rate, excess * 60.0 / dt)
     return total_excess, peak_rate
+
+
+def _event_excess(event: DesignEvent, pattern: TemporalPattern, losses: LossSpec) -> tuple[float, float]:
+    """Assemble a single complete-storm hyetograph for screening."""
+    burst = _steps(event.depth_mm, pattern.timestep_min, pattern.increments_percent, name="Burst")
+    if not isclose(len(burst) * pattern.timestep_min, event.duration_min, rel_tol=0, abs_tol=1e-6):
+        msg = "Temporal pattern timestep/increment count disagrees with design duration"
+        raise ValueError(msg)
+    preburst_steps: tuple[tuple[float, float], ...] = ()
+    if (pb := event.preburst) is not None:
+        increments = pb.increments_percent
+        if pb.per_tp_increments is not None:
+            if pattern.tp_number is None or pattern.tp_number not in pb.per_tp_increments:
+                msg = "No matching preburst temporal pattern number"
+                raise ValueError(msg)
+            increments = pb.per_tp_increments[pattern.tp_number]
+        preburst_steps = _steps(pb.depth_mm, pb.timestep_min, increments, name="Preburst")
+    return _rainfall_excess((*preburst_steps, *burst), losses)
 
 
 def screen_event(event: DesignEvent) -> tuple[PatternScreen, ...]:
@@ -185,7 +213,8 @@ def screen_event(event: DesignEvent) -> tuple[PatternScreen, ...]:
     """
     _nonnegative(event.depth_mm, "design burst depth")
     if not isfinite(event.duration_min) or event.duration_min <= 0:
-        raise ValueError("Design duration must be finite and positive")
+        msg = "Design duration must be finite and positive"
+        raise ValueError(msg)
     if event.preburst is not None:
         _nonnegative(event.preburst.depth_mm, "preburst depth")
     total_depth = event.depth_mm + (event.preburst.depth_mm if event.preburst is not None else 0)
@@ -210,18 +239,7 @@ def screen_event(event: DesignEvent) -> tuple[PatternScreen, ...]:
     screened: list[PatternScreen] = []
     for pattern in event.patterns:
         try:
-            burst = _steps(event.depth_mm, pattern.timestep_min, pattern.increments_percent, name="Burst")
-            if not isclose(len(burst) * pattern.timestep_min, event.duration_min, rel_tol=0, abs_tol=1e-6):
-                raise ValueError("Temporal pattern timestep/increment count disagrees with design duration")
-            preburst_steps: tuple[tuple[float, float], ...] = ()
-            if (pb := event.preburst) is not None:
-                increments = pb.increments_percent
-                if pb.per_tp_increments is not None:
-                    if pattern.tp_number is None or pattern.tp_number not in pb.per_tp_increments:
-                        raise ValueError("No matching preburst temporal pattern number")
-                    increments = pb.per_tp_increments[pattern.tp_number]
-                preburst_steps = _steps(pb.depth_mm, pb.timestep_min, increments, name="Preburst")
-            excess, peak = _rainfall_excess((*preburst_steps, *burst), losses)
+            excess, peak = _event_excess(event, pattern, losses)
         except (TypeError, ValueError, OverflowError) as exc:
             screened.append(make(ScreeningStatus.UNRESOLVED, str(exc), pattern.identity))
             continue
@@ -373,10 +391,11 @@ def screen_bom_ifd_csv(
     try:
         from runoff_routing.bom_ifd import read_bom_ifd_csv
     except ImportError as exc:
-        raise ImportError(
+        msg = (
             "BoM CSV import requires the existing python-runoff-routing BoM reader; "
             "install that package or pass its parsed object to screen_bom_ifd"
-        ) from exc
+        )
+        raise ImportError(msg) from exc
     source = cast(_BoMSource, read_bom_ifd_csv(Path(path)))
     return screen_bom_ifd(source, temporal_patterns=temporal_patterns,
                           losses_by_aep=losses_by_aep, default_losses=default_losses)

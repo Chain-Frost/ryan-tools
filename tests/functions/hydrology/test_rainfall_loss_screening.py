@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -123,11 +122,14 @@ class _BoM:
 
     def depth_mm_at(self, duration_min: int, probability: _Probability, *, convert_intensity: bool) -> float:
         assert convert_intensity
+        assert probability.label
         return 23.0 if duration_min == 60 else 37.0
 
 
 class _Provider:
     def patterns(self, duration: int, aep_name: str, output_notation: str = "aep") -> list[object]:
+        assert aep_name
+        assert output_notation
         if duration == 60:
             return []
         return [SimpleNamespace(source="point", region="west", event_id=100, tp_number=1,
@@ -179,6 +181,9 @@ def test_missing_tp_provider_is_unresolved_except_guaranteed_depth_bound() -> No
 
 class _RejectingProvider:
     def patterns(self, duration: int, aep_name: str, output_notation: str = "aep") -> list[object]:
+        assert duration > 0
+        assert aep_name
+        assert output_notation
         raise RuntimeError("No temporal pattern for this duration")
 
 
