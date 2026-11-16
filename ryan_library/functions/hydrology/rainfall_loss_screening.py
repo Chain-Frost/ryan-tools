@@ -156,9 +156,7 @@ def _steps(
     return tuple((depth * fraction, float(timestep_min)) for fraction in _fractions(increments, name))
 
 
-def _rainfall_excess(
-    steps: Sequence[tuple[float, float]], losses: LossSpec
-) -> tuple[float, float]:
+def _rainfall_excess(steps: Sequence[tuple[float, float]], losses: LossSpec) -> tuple[float, float]:
     """Sequential IL, then CL or coefficient; assume uniform rain within each interval.
 
     In an IL-crossing interval only the post-IL fraction of the time interval
@@ -220,11 +218,15 @@ def screen_event(event: DesignEvent) -> tuple[PatternScreen, ...]:
     total_depth = event.depth_mm + (event.preburst.depth_mm if event.preburst is not None else 0)
 
     def make(
-        status: ScreeningStatus, reason: str, pattern: str | None = None,
-        excess: float | None = None, peak: float | None = None,
+        status: ScreeningStatus,
+        reason: str,
+        pattern: str | None = None,
+        excess: float | None = None,
+        peak: float | None = None,
     ) -> PatternScreen:
-        return PatternScreen(event.aep, event.duration_min, pattern, event.source, event.scenario,
-                             status, excess, peak, reason)
+        return PatternScreen(
+            event.aep, event.duration_min, pattern, event.source, event.scenario, status, excess, peak, reason
+        )
 
     if event.losses is None:
         return (make(ScreeningStatus.UNRESOLVED, "No losses supplied"),)
@@ -244,8 +246,15 @@ def screen_event(event: DesignEvent) -> tuple[PatternScreen, ...]:
             screened.append(make(ScreeningStatus.UNRESOLVED, str(exc), pattern.identity))
             continue
         status = ScreeningStatus.POSITIVE if excess > 0 else ScreeningStatus.ZERO
-        screened.append(make(status, "Positive rainfall excess" if excess > 0 else "Losses absorb every interval",
-                             pattern.identity, excess, peak))
+        screened.append(
+            make(
+                status,
+                "Positive rainfall excess" if excess > 0 else "Losses absorb every interval",
+                pattern.identity,
+                excess,
+                peak,
+            )
+        )
     return tuple(screened)
 
 
@@ -259,7 +268,13 @@ def summarize_events(screens: Iterable[PatternScreen]) -> tuple[EventScreen, ...
         positives = sum(item.status == ScreeningStatus.POSITIVE for item in group)
         unresolved = sum(item.status == ScreeningStatus.UNRESOLVED for item in group)
         zeros = sum(item.status == ScreeningStatus.ZERO for item in group)
-        status = ScreeningStatus.UNRESOLVED if unresolved else ScreeningStatus.POSITIVE if positives else ScreeningStatus.ZERO
+        status = (
+            ScreeningStatus.UNRESOLVED
+            if unresolved
+            else ScreeningStatus.POSITIVE
+            if positives
+            else ScreeningStatus.ZERO
+        )
         results.append(EventScreen(aep, duration, source, scenario, status, len(group), zeros, positives, unresolved))
     return tuple(results)
 
@@ -284,15 +299,20 @@ def _pytuflow_pattern(pattern: object) -> TemporalPattern:
     # Runtime public dataclasses in PyTUFLOW currently expose these properties.
     item = cast(Any, pattern)
     identity = f"{item.source}:{item.region or 'default'}:{item.event_id}:TP{item.tp_number:02d}"
-    return TemporalPattern(identity, float(item.timestep), tuple(float(x) for x in item.increments),
-                           int(item.tp_number))
+    return TemporalPattern(
+        identity, float(item.timestep), tuple(float(x) for x in item.increments), int(item.tp_number)
+    )
 
 
 def _pytuflow_preburst(preburst: object) -> Preburst:
     item = cast(Any, preburst)
     per = item.per_tp_increments
-    return Preburst(float(item.depth), float(item.timestep), tuple(float(x) for x in item.increments),
-                    {int(k): tuple(float(x) for x in values) for k, values in per.items()} if per else None)
+    return Preburst(
+        float(item.depth),
+        float(item.timestep),
+        tuple(float(x) for x in item.increments),
+        {int(k): tuple(float(x) for x in values) for k, values in per.items()} if per else None,
+    )
 
 
 def screen_arr_events(
@@ -309,12 +329,21 @@ def screen_arr_events(
         item = cast(Any, source)
         name = str(item.aep_name)
         coeff = runoff_coefficients_by_aep.get(name) if runoff_coefficients_by_aep is not None else None
-        losses = (LossSpec(float(item.initial_loss), runoff_coefficient=float(coeff)) if coeff is not None
-                  else LossSpec(float(item.initial_loss), continuing_loss_mm_per_hour=float(item.continuing_loss)))
-        event = DesignEvent(name, float(item.duration), float(item.depth_areal), losses,
-                            tuple(_pytuflow_pattern(p) for p in item.patterns),
-                            _pytuflow_preburst(item.preburst) if item.preburst is not None else None,
-                            "arr_datahub", str(item.cc_scenario) if item.cc_scenario is not None else None)
+        losses = (
+            LossSpec(float(item.initial_loss), runoff_coefficient=float(coeff))
+            if coeff is not None
+            else LossSpec(float(item.initial_loss), continuing_loss_mm_per_hour=float(item.continuing_loss))
+        )
+        event = DesignEvent(
+            name,
+            float(item.duration),
+            float(item.depth_areal),
+            losses,
+            tuple(_pytuflow_pattern(p) for p in item.patterns),
+            _pytuflow_preburst(item.preburst) if item.preburst is not None else None,
+            "arr_datahub",
+            str(item.cc_scenario) if item.cc_scenario is not None else None,
+        )
         screens.extend(screen_event(event))
     return tuple(screens)
 
@@ -333,7 +362,9 @@ def screen_arr_datahub(config: object, response: object) -> tuple[PatternScreen,
 
 
 def screen_bom_ifd(
-    imported_ifd: _BoMSource, *, temporal_patterns: _PatternProvider | None = None,
+    imported_ifd: _BoMSource,
+    *,
+    temporal_patterns: _PatternProvider | None = None,
     losses_by_aep: Mapping[str, LossSpec | Mapping[int, LossSpec]],
     default_losses: LossSpec | None = None,
 ) -> tuple[PatternScreen, ...]:
@@ -357,20 +388,33 @@ def screen_bom_ifd(
             # A reader/TP combination can lack patterns for some very short durations.
             # These events remain unresolved unless their depth is provably below IL.
             patterns: tuple[TemporalPattern, ...] = ()
-            if (temporal_patterns is not None and losses is not None
-                    and depth_mm > losses.initial_loss_mm and losses.runoff_coefficient != 0):
+            if (
+                temporal_patterns is not None
+                and losses is not None
+                and depth_mm > losses.initial_loss_mm
+                and losses.runoff_coefficient != 0
+            ):
                 try:
-                    patterns = tuple(_pytuflow_pattern(p)
-                                     for p in temporal_patterns.patterns(duration, name))
-                except (LookupError, ValueError):
+                    patterns = tuple(_pytuflow_pattern(p) for p in temporal_patterns.patterns(duration, name))
+                except LookupError, ValueError:
                     pass
                 except Exception as exc:  # noqa: BLE001 - isolate external TP provider
                     # A provider may raise its own domain-specific missing-pattern
                     # exception (PyTUFLOW uses ArrError). Preserve the event as
                     # unresolved rather than incorrectly declaring it zero.
-                    result.append(PatternScreen(name, duration, None, "bom_ifd", None,
-                                                ScreeningStatus.UNRESOLVED, None, None,
-                                                f"Temporal patterns unavailable: {exc}"))
+                    result.append(
+                        PatternScreen(
+                            name,
+                            duration,
+                            None,
+                            "bom_ifd",
+                            None,
+                            ScreeningStatus.UNRESOLVED,
+                            None,
+                            None,
+                            f"Temporal patterns unavailable: {exc}",
+                        )
+                    )
                     continue
             event = DesignEvent(name, duration, depth_mm, losses, patterns, source="bom_ifd")
             result.extend(screen_event(event))
@@ -378,7 +422,9 @@ def screen_bom_ifd(
 
 
 def screen_bom_ifd_csv(
-    path: str | Path, *, temporal_patterns: _PatternProvider | None = None,
+    path: str | Path,
+    *,
+    temporal_patterns: _PatternProvider | None = None,
     losses_by_aep: Mapping[str, LossSpec | Mapping[int, LossSpec]],
     default_losses: LossSpec | None = None,
 ) -> tuple[PatternScreen, ...]:
@@ -397,5 +443,6 @@ def screen_bom_ifd_csv(
         )
         raise ImportError(msg) from exc
     source = cast(_BoMSource, read_bom_ifd_csv(Path(path)))
-    return screen_bom_ifd(source, temporal_patterns=temporal_patterns,
-                          losses_by_aep=losses_by_aep, default_losses=default_losses)
+    return screen_bom_ifd(
+        source, temporal_patterns=temporal_patterns, losses_by_aep=losses_by_aep, default_losses=default_losses
+    )

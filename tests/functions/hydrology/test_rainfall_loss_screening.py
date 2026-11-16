@@ -49,7 +49,10 @@ def test_late_concentrated_31mm_can_exceed_losses() -> None:
 
 def test_long_low_intensity_31mm_is_zero() -> None:
     event = DesignEvent(
-        "20%", 1440, 31, LossSpec(30, continuing_loss_mm_per_hour=5),
+        "20%",
+        1440,
+        31,
+        LossSpec(30, continuing_loss_mm_per_hour=5),
         (TemporalPattern("uniform", 60, (100 / 24,) * 24),),
     )
     assert screen_event(event)[0].status == ScreeningStatus.ZERO
@@ -58,8 +61,7 @@ def test_long_low_intensity_31mm_is_zero() -> None:
 def test_37mm_temporal_patterns_produce_opposite_results() -> None:
     uniform = TemporalPattern("uniform", 60, (100 / 24,) * 24)
     concentrated = TemporalPattern("burst", 60, (0,) * 23 + (100,))
-    event = DesignEvent("10%", 1440, 37, LossSpec(30, continuing_loss_mm_per_hour=5),
-                        (uniform, concentrated))
+    event = DesignEvent("10%", 1440, 37, LossSpec(30, continuing_loss_mm_per_hour=5), (uniform, concentrated))
     statuses = [s.status for s in screen_event(event)]
     assert statuses == [ScreeningStatus.ZERO, ScreeningStatus.POSITIVE]
     assert summarize_events(screen_event(event))[0].status == ScreeningStatus.POSITIVE
@@ -75,8 +77,7 @@ def test_runoff_coefficient_after_il_and_coefficient_zero() -> None:
 
 def test_explicit_preburst_uses_storm_il_without_double_reduction() -> None:
     burst = _pattern(1, (100,))
-    event = DesignEvent("1%", 60, 23, LossSpec(30, continuing_loss_mm_per_hour=0), (burst,),
-                        Preburst(10, 60, (100,)))
+    event = DesignEvent("1%", 60, 23, LossSpec(30, continuing_loss_mm_per_hour=0), (burst,), Preburst(10, 60, (100,)))
     result = screen_event(event)[0]
     assert result.excess_mm == pytest.approx(3)
     assert result.status == ScreeningStatus.POSITIVE
@@ -89,9 +90,14 @@ def test_preburst_overflow_requires_full_storm() -> None:
 
 
 def test_preburst_per_tp_increments_requires_matching_pattern() -> None:
-    event = DesignEvent("1%", 60, 31, LossSpec(30, continuing_loss_mm_per_hour=0),
-                        (TemporalPattern("tp1", 60, (100,), 1), TemporalPattern("tp2", 60, (100,), 2)),
-                        Preburst(1, 60, (100,), {1: (100,)}))
+    event = DesignEvent(
+        "1%",
+        60,
+        31,
+        LossSpec(30, continuing_loss_mm_per_hour=0),
+        (TemporalPattern("tp1", 60, (100,), 1), TemporalPattern("tp2", 60, (100,), 2)),
+        Preburst(1, 60, (100,), {1: (100,)}),
+    )
     zero, unresolved = screen_event(event)
     assert zero.status == ScreeningStatus.POSITIVE
     assert unresolved.status == ScreeningStatus.UNRESOLVED
@@ -99,8 +105,9 @@ def test_preburst_per_tp_increments_requires_matching_pattern() -> None:
 
 
 def test_invalid_increment_sum_marks_unresolved() -> None:
-    event = DesignEvent("1%", 60, 37, LossSpec(30, continuing_loss_mm_per_hour=0),
-                        (TemporalPattern("invalid", 60, (80,)),))
+    event = DesignEvent(
+        "1%", 60, 37, LossSpec(30, continuing_loss_mm_per_hour=0), (TemporalPattern("invalid", 60, (80,)),)
+    )
     assert screen_event(event)[0].status == ScreeningStatus.UNRESOLVED
 
 
@@ -132,16 +139,19 @@ class _Provider:
         assert output_notation
         if duration == 60:
             return []
-        return [SimpleNamespace(source="point", region="west", event_id=100, tp_number=1,
-                                timestep=60, increments=[100 / 24] * 24)]
+        return [
+            SimpleNamespace(
+                source="point", region="west", event_id=100, tp_number=1, timestep=60, increments=[100 / 24] * 24
+            )
+        ]
 
 
 def test_bom_existing_reader_objects_and_aep_duration_schedules() -> None:
     results = screen_bom_ifd(
-        _BoM(), temporal_patterns=_Provider(),
+        _BoM(),
+        temporal_patterns=_Provider(),
         losses_by_aep={
-            "20%": {60: LossSpec(30, continuing_loss_mm_per_hour=5),
-                    1440: LossSpec(30, continuing_loss_mm_per_hour=5)},
+            "20%": {60: LossSpec(30, continuing_loss_mm_per_hour=5), 1440: LossSpec(30, continuing_loss_mm_per_hour=5)},
             "1%": LossSpec(20, runoff_coefficient=0.3),
         },
     )
@@ -154,24 +164,33 @@ def test_bom_existing_reader_objects_and_aep_duration_schedules() -> None:
 
 
 def test_arr_pytuflow_event_adapter_reads_preburst_and_arfs() -> None:
-    pattern = SimpleNamespace(event_id=17, tp_number=1, timestep=60, increments=[100],
-                              source="point", region="West")
+    pattern = SimpleNamespace(event_id=17, tp_number=1, timestep=60, increments=[100], source="point", region="West")
     pb = SimpleNamespace(depth=10, timestep=60, increments=[100], per_tp_increments=None)
-    event = SimpleNamespace(aep_name="2%", duration=60, depth_areal=23, initial_loss=30,
-                            continuing_loss=0, patterns=[pattern], preburst=pb, cc_scenario=None)
+    event = SimpleNamespace(
+        aep_name="2%",
+        duration=60,
+        depth_areal=23,
+        initial_loss=30,
+        continuing_loss=0,
+        patterns=[pattern],
+        preburst=pb,
+        cc_scenario=None,
+    )
     assert screen_arr_events([event])[0].excess_mm == pytest.approx(3)
-    assert screen_arr_events([event], runoff_coefficients_by_aep={"2%": 0.25})[0].excess_mm == pytest.approx(.75)
+    assert screen_arr_events([event], runoff_coefficients_by_aep={"2%": 0.25})[0].excess_mm == pytest.approx(0.75)
 
 
 def test_guaranteed_zero_is_independent_of_missing_temporal_patterns() -> None:
-    bad = DesignEvent("2EY", 1, 0.1, LossSpec(0.2, continuing_loss_mm_per_hour=10),
-                      (TemporalPattern("unavailable", 42, (1,)),))
+    bad = DesignEvent(
+        "2EY", 1, 0.1, LossSpec(0.2, continuing_loss_mm_per_hour=10), (TemporalPattern("unavailable", 42, (1,)),)
+    )
     assert screen_event(bad)[0].status == ScreeningStatus.ZERO
 
 
 def test_missing_tp_provider_is_unresolved_except_guaranteed_depth_bound() -> None:
     result = screen_bom_ifd(
-        _BoM(), losses_by_aep={"20%": LossSpec(30, continuing_loss_mm_per_hour=5)},
+        _BoM(),
+        losses_by_aep={"20%": LossSpec(30, continuing_loss_mm_per_hour=5)},
     )
     keyed = {(item.aep, item.duration_min): item for item in result}
     assert keyed["20%", 60].status == ScreeningStatus.ZERO
@@ -190,7 +209,8 @@ class _RejectingProvider:
 
 def test_provider_error_does_not_convert_unknown_event_to_zero() -> None:
     result = screen_bom_ifd(
-        _BoM(), temporal_patterns=_RejectingProvider(),
+        _BoM(),
+        temporal_patterns=_RejectingProvider(),
         losses_by_aep={"1%": LossSpec(30, continuing_loss_mm_per_hour=5)},
     )
     keyed = {(item.aep, item.duration_min): item for item in result}
