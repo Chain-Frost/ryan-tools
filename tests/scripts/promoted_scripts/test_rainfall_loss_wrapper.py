@@ -586,8 +586,16 @@ def test_provenance_explains_arf_unity_for_632_percent(
     m = _wrapper()
     screens = [
         PatternScreen(
-            "63.2%", 120, "point:Rangelands West:1:TP01", "arr_datahub", None,
-            ScreeningStatus.POSITIVE, 0.1, 0.1, "positive", 0.1,
+            "63.2%",
+            120,
+            "point:Rangelands West:1:TP01",
+            "arr_datahub",
+            None,
+            ScreeningStatus.POSITIVE,
+            0.1,
+            0.1,
+            "positive",
+            0.1,
         )
     ]
     m._print_provenance(
