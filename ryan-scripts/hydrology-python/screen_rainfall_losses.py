@@ -147,9 +147,7 @@ def _loss_from_mapping(entry: object, *, loss_timing: str = "fractional") -> Los
     )
 
 
-def _loss_schedules(
-    raw: object, *, loss_timing: str = "fractional"
-) -> dict[str, LossSpec | dict[int, LossSpec]]:
+def _loss_schedules(raw: object, *, loss_timing: str = "fractional") -> dict[str, LossSpec | dict[int, LossSpec]]:
     if not isinstance(raw, dict):
         message = "LOSS_OVERRIDES_BY_AEP / --losses-json must contain a JSON object."
         raise _error(message)
@@ -418,11 +416,13 @@ def _source_decimals(values: Sequence[float]) -> int:
 
 def _region_label(screens: Sequence[PatternScreen]) -> str:
     """Use the pattern loader's exact source/region label; never infer from coordinates."""
-    found = sorted({
-        ":".join(item.pattern_id.split(":", maxsplit=2)[:2])
-        for item in screens
-        if item.pattern_id is not None and ":" in item.pattern_id
-    })
+    found = sorted(
+        {
+            ":".join(item.pattern_id.split(":", maxsplit=2)[:2])
+            for item in screens
+            if item.pattern_id is not None and ":" in item.pattern_id
+        }
+    )
     return ", ".join(found) if found else "Not resolved (pattern-independent bound or missing TP data)"
 
 
@@ -449,13 +449,19 @@ def _show_matrix(screens: Sequence[PatternScreen], *, enabled: bool) -> None:
             for aep in labels:
                 value = indexed.get((duration, aep))
                 cells.append(
-                    "KEEP" if value == ScreeningStatus.POSITIVE else
-                    "DROP" if value == ScreeningStatus.ZERO else
-                    "?" if value == ScreeningStatus.UNRESOLVED else "-"
+                    "KEEP"
+                    if value == ScreeningStatus.POSITIVE
+                    else "DROP"
+                    if value == ScreeningStatus.ZERO
+                    else "?"
+                    if value == ScreeningStatus.UNRESOLVED
+                    else "-"
                 )
             matrix.add_row(str(duration), *cells)
         console.print(matrix)
-    console.print("Matrix: KEEP = one or more TPs have excess; DROP = all supplied TPs have zero excess; ? = unresolved.")
+    console.print(
+        "Matrix: KEEP = one or more TPs have excess; DROP = all supplied TPs have zero excess; ? = unresolved."
+    )
 
 
 def _bom_patterns(
@@ -542,13 +548,8 @@ def _print_provenance(
         console.print(f"Requested coordinates (WGS84): {latitude:.6f}, {longitude:.6f}")
     else:
         console.print("Requested coordinates: not provided; using the selected saved source")
-    console.print(
-        f"Catchment area: {area:g} km²; ARF: {arf_source}; "
-        f"loss timing: {loss_timing}; climate: {climate}"
-    )
-    console.print(
-        f"Temporal pattern set(s): {', '.join(pattern_sets) if pattern_sets else _region_label(screens)}"
-    )
+    console.print(f"Catchment area: {area:g} km²; ARF: {arf_source}; loss timing: {loss_timing}; climate: {climate}")
+    console.print(f"Temporal pattern set(s): {', '.join(pattern_sets) if pattern_sets else _region_label(screens)}")
 
 
 def _print_tp_details(screens: Sequence[PatternScreen], *, enabled: bool) -> None:
@@ -582,7 +583,8 @@ def _print_report(
     _choice("VIEW", view, {"all", "zero", "keep"})
     events = summarize_events(screens)
     source_places = (
-        source_decimal_places if source_decimal_places is not None
+        source_decimal_places
+        if source_decimal_places is not None
         else _source_decimals([item[0] for item in totals.values()])
     )
     adjusted_places = max(
@@ -632,14 +634,8 @@ def _print_report(
             else "UNRESOLVED"
         )
         details = f"{loss_label}; PB {preburst:.4g} mm" if preburst is not None else loss_label
-        tp_total = (
-            "-" if event.max_tp_total_excess_mm is None
-            else f"{event.max_tp_total_excess_mm:.4f}"
-        )
-        tp_bin = (
-            "-" if event.max_tp_bin_excess_mm is None
-            else f"{event.max_tp_bin_excess_mm:.4f}"
-        )
+        tp_total = "-" if event.max_tp_total_excess_mm is None else f"{event.max_tp_total_excess_mm:.4f}"
+        tp_bin = "-" if event.max_tp_bin_excess_mm is None else f"{event.max_tp_bin_excess_mm:.4f}"
         row = [
             decision,
             event.aep,
@@ -679,11 +675,19 @@ def _print_report(
             writer = csv.writer(stream)
             writer.writerow(
                 [
-                    "decision", "aep", "duration_min", "climate_scenario",
-                    "point_ifd_mm", "arf", "applied_rain_mm", "loss_preburst",
-                    "zero_tp", "positive_tp",
+                    "decision",
+                    "aep",
+                    "duration_min",
+                    "climate_scenario",
+                    "point_ifd_mm",
+                    "arf",
+                    "applied_rain_mm",
+                    "loss_preburst",
+                    "zero_tp",
+                    "positive_tp",
                     *(["unknown_tp"] if show_unknown else []),
-                    "max_tp_total_excess_mm", "max_tp_bin_excess_mm",
+                    "max_tp_total_excess_mm",
+                    "max_tp_bin_excess_mm",
                 ]
             )
             writer.writerows(records)
@@ -725,7 +729,8 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--cl", type=float, help="Continuing loss in mm/hour.")
     parser.add_argument("--coefficient", type=float, help="Runoff coefficient after initial loss.")
     parser.add_argument(
-        "--loss-timing", choices=("fractional", "full_increment"),
+        "--loss-timing",
+        choices=("fractional", "full_increment"),
         help="How CL applies in the IL-exhaustion TP bin; full_increment is an experimental RORBwin 6.52 candidate.",
     )
     parser.add_argument("--arf-override", type=float, help="Explicit ARF [0..1] for every AEP/duration.")
@@ -733,7 +738,9 @@ def _arguments() -> argparse.Namespace:
         "--rainfall-factor", type=float, help="Manual multiplier for original BoM IFD rainfall (e.g. 1.15)."
     )
     parser.add_argument(
-        "--cc", action="append", metavar="YEAR:SSP",
+        "--cc",
+        action="append",
+        metavar="YEAR:SSP",
         help="ARR Data Hub climate scenario, e.g. --cc 2050:SSP2 --cc 2090:SSP5; baseline also reported.",
     )
     parser.add_argument("--matrix", action=argparse.BooleanOptionalAction, default=None)
@@ -825,7 +832,9 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
         source_places: int | None = None
         provenance_latitude = latitude
         provenance_longitude = longitude
-        provenance_arf = "Unity / point rainfall (catchment area <= 1 km²)" if area <= 1 else "Calculated per duration/AEP"
+        provenance_arf = (
+            "Unity / point rainfall (catchment area <= 1 km²)" if area <= 1 else "Calculated per duration/AEP"
+        )
         climate_note = ", ".join(climate_values) if climate_values else "baseline only"
         if source == "arr":
             if rainfall_factor != 1.0:
@@ -901,7 +910,8 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
             totals = bundle.rainfall
             pattern_sets = bundle.pattern_sets
             provenance_arf = (
-                f"explicit factor {arf_override:g} (all events)" if arf_override is not None
+                f"explicit factor {arf_override:g} (all events)"
+                if arf_override is not None
                 else "PyTUFLOW ARR2019 Book 2 ARF, per AEP/duration (frequent AEP may be unity)"
             )
         else:
@@ -921,22 +931,20 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
             aeps = _aep_selection([p.label for p in imported.probabilities], aep_chosen, aep_mode)
             durations = _durations(list(imported.durations_min), duration_chosen, arr=False)
             if latitude is None and longitude is None:
-                provenance_latitude = (
-                    float(imported.latitude) if imported.latitude is not None else None
-                )
-                provenance_longitude = (
-                    float(imported.longitude) if imported.longitude is not None else None
-                )
-            source_places = _source_decimals([
-                float(imported.depth_mm_at(duration, p, convert_intensity=True))
-                for p in imported.probabilities if p.label in aeps for duration in durations
-            ])
+                provenance_latitude = float(imported.latitude) if imported.latitude is not None else None
+                provenance_longitude = float(imported.longitude) if imported.longitude is not None else None
+            source_places = _source_decimals(
+                [
+                    float(imported.depth_mm_at(duration, p, convert_intensity=True))
+                    for p in imported.probabilities
+                    if p.label in aeps
+                    for duration in durations
+                ]
+            )
             pb_depth = args.bom_preburst_depth if args.bom_preburst_depth is not None else BOM_PREBURST_DEPTH_MM
             bom_default, bom_overrides = _apply_bom_preburst(loss_default, overrides, pb_depth)
             response_for_bom: Any | None = None
-            if (area > 1 and arf_override is None) or (
-                fetch_tps and point_path is None and response_path is not None
-            ):
+            if (area > 1 and arf_override is None) or (fetch_tps and point_path is None and response_path is not None):
                 query_latitude = provenance_latitude
                 query_longitude = provenance_longitude
                 if response_path is None and offline:
@@ -949,19 +957,36 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
                     message = "BoM ARF requires ARR Data Hub coordinates or a saved --arr-response JSON."
                     raise _error(message)
                 config_for_bom = _arr_config(
-                    query_latitude, query_longitude, area, site, ["1%"], [60],
-                    baseline, "burst", percentile, directory, response_path,
+                    query_latitude,
+                    query_longitude,
+                    area,
+                    site,
+                    ["1%"],
+                    [60],
+                    baseline,
+                    "burst",
+                    percentile,
+                    directory,
+                    response_path,
                 )
                 response_for_bom = _arr_response(config_for_bom, response_path)
-                _validate_offline_arr_patterns(
-                    response_for_bom, offline=offline, areal_tp_path=areal_path
-                )
+                _validate_offline_arr_patterns(response_for_bom, offline=offline, areal_tp_path=areal_path)
             factors = _bom_arf_factors(
-                area=area, durations=durations, aeps=aeps,
-                response=response_for_bom, override=arf_override,
+                area=area,
+                durations=durations,
+                aeps=aeps,
+                response=response_for_bom,
+                override=arf_override,
             )
             patterns = _bom_patterns(
-                imported, latitude, longitude, area, fetch_tps, point_path, areal_path, directory,
+                imported,
+                latitude,
+                longitude,
+                area,
+                fetch_tps,
+                point_path,
+                areal_path,
+                directory,
                 response=response_for_bom,
             )
             bundle = assemble_bom_events(
@@ -979,14 +1004,21 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
             totals = bundle.rainfall
             pattern_sets = bundle.pattern_sets
             provenance_arf = (
-                f"explicit factor {arf_override:g} (all events)" if arf_override is not None
-                else "PyTUFLOW ARR ARF from Data Hub coefficients" if area > 1
+                f"explicit factor {arf_override:g} (all events)"
+                if arf_override is not None
+                else "PyTUFLOW ARR ARF from Data Hub coefficients"
+                if area > 1
                 else "unity (area <= 1 km²)"
             )
         _print_provenance(
-            latitude=provenance_latitude, longitude=provenance_longitude, site=site,
-            area=area, arf_source=provenance_arf,
-            screens=screens, loss_timing=loss_timing, climate=climate_note,
+            latitude=provenance_latitude,
+            longitude=provenance_longitude,
+            site=site,
+            area=area,
+            arf_source=provenance_arf,
+            screens=screens,
+            loss_timing=loss_timing,
+            climate=climate_note,
             pattern_sets=pattern_sets,
         )
         _print_report(screens, totals, view, report_path, source_decimal_places=source_places)

@@ -263,9 +263,7 @@ def test_maximum_tp_bin_and_maximum_tp_total_are_distinct() -> None:
 def test_full_increment_cl_timing_can_wipe_120_min_storm_where_fractional_cannot() -> None:
     pattern = TemporalPattern("last-bin", 10, (0,) * 11 + (100,), 1)
     preburst = Preburst(0.3926, 10, (100,))
-    fractional = DesignEvent(
-        "63.2%", 120, 30.2, LossSpec(30, continuing_loss_mm_per_hour=5), (pattern,), preburst
-    )
+    fractional = DesignEvent("63.2%", 120, 30.2, LossSpec(30, continuing_loss_mm_per_hour=5), (pattern,), preburst)
     full_increment = DesignEvent(
         "63.2%",
         120,
@@ -330,16 +328,29 @@ def test_bom_arf_and_manual_cc_multiplier_precede_losses() -> None:
 
 def test_orchestrator_arr_records_arfs_and_tp_region() -> None:
     pattern = SimpleNamespace(
-        source="point", region="Rangelands West",
-        event_id=17, tp_number=1, timestep=60, increments=[100],
+        source="point",
+        region="Rangelands West",
+        event_id=17,
+        tp_number=1,
+        timestep=60,
+        increments=[100],
     )
     source = SimpleNamespace(
-        aep_name="1%", duration=60, depth_point=42.0,
-        arf=0.8, depth_areal=33.6, initial_loss=30.0,
-        continuing_loss=5.0, patterns=[pattern], preburst=None, cc_scenario="2050_SSP2",
+        aep_name="1%",
+        duration=60,
+        depth_point=42.0,
+        arf=0.8,
+        depth_areal=33.6,
+        initial_loss=30.0,
+        continuing_loss=5.0,
+        patterns=[pattern],
+        preburst=None,
+        cc_scenario="2050_SSP2",
     )
     bundle = assemble_arr_events(
-        [source], default_losses=None, losses_by_aep={},
+        [source],
+        default_losses=None,
+        losses_by_aep={},
         continuing_loss_timing="full_increment",
     )
     assert len(bundle.patterns) == 1

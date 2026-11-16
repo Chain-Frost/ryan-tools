@@ -246,7 +246,9 @@ def screen_event(event: DesignEvent) -> tuple[PatternScreen, ...]:
         return (make(ScreeningStatus.UNRESOLVED, "No losses supplied"),)
     losses = event.losses
     if total_depth <= losses.initial_loss_mm:
-        return (make(ScreeningStatus.ZERO, "Entire storm depth does not exceed initial loss", excess=0, peak=0, max_bin=0),)
+        return (
+            make(ScreeningStatus.ZERO, "Entire storm depth does not exceed initial loss", excess=0, peak=0, max_bin=0),
+        )
     if losses.runoff_coefficient == 0:
         return (make(ScreeningStatus.ZERO, "Runoff coefficient is zero", excess=0, peak=0, max_bin=0),)
     if not event.patterns:
@@ -381,7 +383,9 @@ def screen_arr_events(
         losses = (
             override
             if override is not None
-            else LossSpec(float(item.initial_loss), runoff_coefficient=float(coeff), continuing_loss_timing=continuing_loss_timing)
+            else LossSpec(
+                float(item.initial_loss), runoff_coefficient=float(coeff), continuing_loss_timing=continuing_loss_timing
+            )
             if coeff is not None
             else LossSpec(
                 float(item.initial_loss),

@@ -182,8 +182,12 @@ def test_strict_offline_input_requirements(tmp_path: Path) -> None:
     )
     # A saved ARR response is also allowed to provide BoM ARF coefficients.
     m._validate_local_sources(
-        source="bom", offline=False, response_path=response, point_tp_path=point,
-        areal_tp_path=None, fetch_bom_tps=False,
+        source="bom",
+        offline=False,
+        response_path=response,
+        point_tp_path=point,
+        areal_tp_path=None,
+        fetch_bom_tps=False,
     )
     with pytest.raises(ValueError, match="--no-fetch-tps"):
         m._validate_local_sources(
@@ -376,7 +380,9 @@ def test_source_durations_and_reporting_modes(capsys: pytest.CaptureFixture[str]
         m._parse_climate_scenarios(["2025:SSP2"])
     screens = [
         PatternScreen("20%", 60, None, "bom_ifd", None, ScreeningStatus.ZERO, 0, 0, "IL bound"),
-        PatternScreen("10%", 60, "point:Rangelands West:11:TP01", "bom_ifd", None, ScreeningStatus.POSITIVE, 2, 3, "positive", 1),
+        PatternScreen(
+            "10%", 60, "point:Rangelands West:11:TP01", "bom_ifd", None, ScreeningStatus.POSITIVE, 2, 3, "positive", 1
+        ),
     ]
     m._show_matrix(screens, enabled=True)
     output = capsys.readouterr().out
@@ -390,8 +396,15 @@ def test_arf_for_350_km2_uses_pytuflow_and_reports_frequent_unity() -> None:
     pytest.importorskip("pytuflow.arr.arf")
     m = _wrapper()
     params = {
-        "a": 0.297, "b": 0.234, "c": 0.449, "d": 0.344,
-        "e": 0.00142, "f": 0.216, "g": 0.129, "h": 0, "i": 0,
+        "a": 0.297,
+        "b": 0.234,
+        "c": 0.449,
+        "d": 0.344,
+        "e": 0.00142,
+        "f": 0.216,
+        "g": 0.129,
+        "h": 0,
+        "i": 0,
     }
     class Response:
         def layer(self, name: str, required: bool = False) -> dict[str, float]:
@@ -399,21 +412,28 @@ def test_arf_for_350_km2_uses_pytuflow_and_reports_frequent_unity() -> None:
             assert required
             return params
     factors = m._bom_arf_factors(
-        area=350, durations=[120, 1440],
-        aeps=["63.2%", "20%", "1%"], response=Response(), override=None,
+        area=350,
+        durations=[120, 1440],
+        aeps=["63.2%", "20%", "1%"],
+        response=Response(),
+        override=None,
     )
     assert factors["63.2%", 120] == pytest.approx(1.0)
     assert 0 < factors["20%", 120] < 1
     assert 0 < factors["1%", 1440] < 1
     asserted = m._bom_arf_factors(
-        area=350, durations=[120], aeps=["63.2%", "20%"],
-        response=None, override=0.8,
+        area=350,
+        durations=[120],
+        aeps=["63.2%", "20%"],
+        response=None,
+        override=0.8,
     )
     assert all(value == pytest.approx(0.8) for value in asserted.values())
 
 
 def test_unknown_tp_column_hidden_when_all_resolved(
-    capsys: pytest.CaptureFixture[str], tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
 ) -> None:
     m = _wrapper()
     screens = [
