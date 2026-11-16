@@ -208,7 +208,8 @@ def test_local_arr_response_precedes_network(
     data.write_text('{"title":"Local ARR dataset","layers":{"ArealTP":{"url":"https://example.test/a.zip"}}}', encoding="utf-8")
 
     def fail_fetch(_client: object, _config: object) -> None:
-        raise AssertionError("ARR API must not be queried when --arr-response is supplied")
+        message = "ARR API must not be queried when --arr-response is supplied"
+        raise AssertionError(message)
 
     monkeypatch.setattr(api.ArrApiClient, "fetch", fail_fetch)
     loaded = m._arr_response(object(), data)
@@ -250,6 +251,7 @@ def test_offline_pytuflow_config_uses_local_json_and_temporal_patterns(
         point_url: str | None, areal_url: str | None,
         catchment_area: float | None = None,
     ) -> Any:
+        assert catchment_area == 10.0
         calls.append((point_file, areal_file, point_url, areal_url))
         return object()
 
