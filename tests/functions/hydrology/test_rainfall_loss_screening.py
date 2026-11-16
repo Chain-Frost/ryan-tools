@@ -20,7 +20,6 @@ from ryan_library.functions.hydrology.rainfall_loss_screening import (
     summarize_events,
 )
 
-
 from ryan_library.orchestrators.hydrology.rainfall_loss_workflow import assemble_arr_events, assemble_bom_events
 
 
@@ -279,7 +278,8 @@ def test_full_increment_cl_timing_can_wipe_120_min_storm_where_fractional_cannot
     fractional_outcome = screen_event(fractional)[0]
     full_outcome = screen_event(full_increment)[0]
     assert fractional_outcome.status == ScreeningStatus.POSITIVE
-    assert fractional_outcome.excess_mm is not None and fractional_outcome.excess_mm > 0
+    assert fractional_outcome.excess_mm is not None
+    assert fractional_outcome.excess_mm > 0
     assert full_outcome.status == ScreeningStatus.ZERO
     assert full_outcome.excess_mm == pytest.approx(0)
 
