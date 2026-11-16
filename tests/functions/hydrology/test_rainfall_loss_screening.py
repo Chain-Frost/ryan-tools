@@ -434,3 +434,44 @@ def test_tp_preflight_point_only_is_expected_for_small_catchments() -> None:
     )
     assert outcome.included_durations == (60,)
     assert outcome.point_fallback_durations == ()
+
+
+
+def test_preflight_preserves_deliberate_short_duration_point_tps() -> None:
+    """Shorter-than-areal-start point TPs are not an areal fallback."""
+    from pytuflow.arr.exceptions import ArrError
+
+    class ArealDurations:
+        empty = False
+
+        def __getitem__(self, column: str) -> SimpleNamespace:
+            assert column == "duration"
+            return SimpleNamespace(min=lambda: 60)
+
+    class Patterns:
+        areal_tp = ArealDurations()
+
+        def patterns(self, duration: int, aep_name: str, output_notation: str = "aep") -> list[object]:
+            assert aep_name
+            assert output_notation == "aep"
+            if duration == 5:
+                msg = "No point temporal pattern available for duration 5.0 min, AEP band 'frequent'."
+                raise ArrError(msg)
+            source = "point" if duration in {30, 120} else "areal"
+            return [SimpleNamespace(source=source)]
+
+    provider = Patterns()
+    accepted = preflight_temporal_pattern_durations(
+        provider, durations=[5, 30, 120, 180], aeps=["63.2%", "1%"],
+        area_km2=350, allow_point_fallback=True,
+    )
+    assert accepted.included_durations == (30, 120, 180)
+    assert accepted.omitted_durations == (5,)
+    assert accepted.point_fallback_durations == (120,)
+
+    disabled = preflight_temporal_pattern_durations(
+        provider, durations=[5, 30, 120, 180], aeps=["63.2%", "1%"],
+        area_km2=350, allow_point_fallback=False,
+    )
+    assert disabled.included_durations == (30, 180)
+    assert disabled.omitted_durations == (5, 120)

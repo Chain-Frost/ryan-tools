@@ -486,7 +486,7 @@ def _show_matrix(screens: Sequence[PatternScreen], *, enabled: bool) -> None:
         for label in labels:
             matrix.add_column(label, justify="center")
         for duration in durations:
-            cells = []
+            cells: list[str] = []
             for aep in labels:
                 value = indexed.get((duration, aep))
                 cells.append(
@@ -578,8 +578,14 @@ def _bom_arf_factors(
     from pytuflow.arr.arf import arf_factors
 
     params = response.layer("ARFParams", required=True)
-    factors = arf_factors(area, durations, aeps, params, arf_frequent=False, min_arf=0)
-    return {(aep, duration): float(factors.loc[duration, aep]) for aep in aeps for duration in durations}
+    factors = cast("Callable[..., Any]", arf_factors)(
+        area, durations, aeps, params, arf_frequent=False, min_arf=0
+    )
+    return {
+        (aep, duration): float(str(factors.loc[duration, aep]))
+        for aep in aeps
+        for duration in durations
+    }
 
 
 def _print_provenance(
@@ -947,7 +953,13 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
             durations = _durations(_datahub_durations(response, baseline), duration_chosen, arr=True)
             source_data = cast("dict[str, object]", response.ifd_table(baseline)).get("data")
             if isinstance(source_data, list):
-                values = [float(str(v)) for row in source_data if isinstance(row, list) for v in row]
+                source_rows = cast("list[object]", source_data)
+                values = [
+                    float(str(value))
+                    for row in source_rows
+                    if isinstance(row, list)
+                    for value in cast("list[object]", row)
+                ]
                 source_places = _source_decimals(values)
             config = _arr_config(
                 latitude,
@@ -977,7 +989,7 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
             engine = ArrEngine(config, response)
             tp_method: str = "_tp_set_for_config"
             try:
-                tp_set = cast(Any, getattr(engine, tp_method)())
+                tp_set = getattr(engine, tp_method)()
             except Exception as exc:
                 layer = response.layer("ArealTP")
                 url = layer.get("url") if layer else None
@@ -992,7 +1004,7 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
                     raise
                 Console(stderr=True).print("WARNING: Areal TP download failed; falling back to point TPs.")
                 engine.response = _response_without_areal_tp(response)
-                tp_set = cast(Any, getattr(engine, tp_method)())
+                tp_set = getattr(engine, tp_method)()
 
             admission = preflight_temporal_pattern_durations(
                 tp_set,

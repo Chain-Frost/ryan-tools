@@ -9,9 +9,9 @@ hydrology functions respectively. No solver is executed.
 
 from __future__ import annotations
 
-from collections.abc import Collection, Iterable, Mapping
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Literal, cast
+from typing import Any, Literal, Protocol, cast
 
 from ...functions.hydrology.rainfall_loss_screening import (
     LossSpec,
@@ -62,6 +62,28 @@ class TemporalPatternAdmission:
     point_fallback_durations: tuple[int, ...]
 
 
+class _TPSource(Protocol):
+    @property
+    def source(self) -> str: ...
+
+
+def _areal_fallback_needed(temporal_patterns: Any, duration: int, area_km2: float) -> bool:
+    """Distinguish missing areal TPs from the intended short-duration point TPs.
+
+    PyTUFLOW deliberately uses point TPs below the shortest areal duration,
+    even when areal data are present. These are NOT fallback events.
+    """
+    if area_km2 < 75:
+        return False
+    areal: object = getattr(temporal_patterns, "areal_tp", None)
+    if areal is None:
+        return True
+    table = cast(Any, areal)
+    if bool(table.empty):
+        return True
+    return duration >= int(str(table["duration"].min()))
+
+
 def _probe_tp_bands(temporal_patterns: Any, duration: int, bands: Mapping[str, str]) -> tuple[tuple[str, ...], bool]:
     """Check one duration for every relevant AEP band; retain a single warning target."""
     from pytuflow.arr.exceptions import ArrError
@@ -70,7 +92,7 @@ def _probe_tp_bands(temporal_patterns: Any, duration: int, bands: Mapping[str, s
     used_point = False
     for band, representative in bands.items():
         try:
-            candidates = temporal_patterns.patterns(duration, representative, "aep")
+            candidates = cast("Sequence[object]", temporal_patterns.patterns(duration, representative, "aep"))
         except ArrError as exc:
             if "No point temporal pattern available" not in str(exc):
                 raise
@@ -79,7 +101,7 @@ def _probe_tp_bands(temporal_patterns: Any, duration: int, bands: Mapping[str, s
         if not candidates:
             absent.append(band)
             continue
-        used_point |= any(str(cast(Any, item).source) == "point" for item in candidates)
+        used_point |= any(cast("_TPSource", item).source == "point" for item in candidates)
     return tuple(sorted(absent)), used_point
 
 
@@ -112,15 +134,16 @@ def preflight_temporal_pattern_durations(
     fallback: list[int] = []
     for duration in sorted(set(durations)):
         absent, used_point = _probe_tp_bands(temporal_patterns, duration, bands)
+        needs_fallback = used_point and _areal_fallback_needed(temporal_patterns, duration, area_km2)
         if absent:
             omitted.append(duration)
             missing[duration] = absent
-        elif used_point and area_km2 >= 75 and not allow_point_fallback:
+        elif needs_fallback and not allow_point_fallback:
             omitted.append(duration)
             missing[duration] = ("areal unavailable; point fallback disabled",)
         else:
             accepted.append(duration)
-            if used_point and area_km2 >= 75:
+            if needs_fallback:
                 fallback.append(duration)
     return TemporalPatternAdmission(
         tuple(accepted),
@@ -156,7 +179,7 @@ def assemble_arr_events(
         selected = overrides.get(duration) if isinstance(overrides, Mapping) else overrides
         losses = selected if selected is not None else default_losses
         fallback = f"ARR IL {float(event.initial_loss):g}; CL {float(event.continuing_loss):g}"
-        pb = cast(Any, event.preburst)
+        pb = event.preburst
         totals[(aep, duration, scenario)] = (
             float(event.depth_point),
             float(event.depth_areal),

@@ -326,7 +326,9 @@ preflights **all selected AEP bands per duration** before event assembly:
 - PyTUFLOW's own `TemporalPatternSet.patterns` prefers an applicable
   areal TP and **falls back to point TPs** if the areal area bucket or
   duration is unavailable. For catchment areas ≥75 km² the wrapper
-  reports all affected durations in one warning at the top.
+  reports actual substitutions in one warning at the top. Point TPs
+  selected intentionally **below the shortest available areal TP
+  duration** are normal ARR behaviour, not fallback warnings.
 - For an offline ARR response that still advertises an areal TP URL but
   lacks a local areal increments CSV, the wrapper suppresses that URL
   **in memory**, uses the available local point CSV and warns. No
