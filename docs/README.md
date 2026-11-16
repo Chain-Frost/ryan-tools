@@ -119,6 +119,9 @@ but they are not current architectural policy when they conflict with the canoni
 | [Dashboard defaults and background file properties](work/2026-11-07-dashboard-file-properties.md) | Shared presentation defaults, nonblocking file-size metadata and preserved legacy banner calls |
 | [Offline wrapper revision warnings](work/2026-11-07-wrapper-version-warnings.md) | Shared installed-package comparison, stable script identities and maintained-script rollout |
 | [Batch dashboard foundation](work/2026-11-01-batch-dashboard-foundation-180.md) | #180 stacked PR 1: shared batch display/diagnostics, optional workflow metrics, log-summary reference and concrete consumer handoff |
+| [RORB reader audit and MCP scope](work/2026-11-05-rorb-readers-mcp.md) | Canonical source-aware RORB report/CSV readers, preservation, linked consumer and pending original 420-pair acceptance |
+| [RORB reader API and format limits](../ryan_library/functions/RORB/README.md) | Strict source-preserving report grammar, explicit statuses, companion associations, source clocks and DataFrame migration |
+| [RORB reader-only wheel](../packaging/rorb-readers/README.md) | Canonical-source Python 3.13/3.14 distribution with no full ryan-tools dependency; source snapshot and licence |
 | [TUFLOW result dashboard adoption](work/2026-11-01-tuflow-result-dashboards-180.md) | #180 stacked PR 2: scope six result wrappers immediately, wait for the implemented foundation, then integrate and validate |
 | [TUFLOW proposed-run input preflight](work/2026-10-21-tuflow-input-preflight.md) | PR #143 read-only PyTUFLOW checks, integrated simulation preflight and standalone wrapper; merged as bcc8e5c, with separate follow-up records |
 | [TUFLOW batch preflight optimisation](work/2026-10-22-tuflow-batch-preflight-optimisation.md) | Stacked draft against PR #143: consume PyTUFLOW batch API, share GIS/filesystem inspection, preserve parity and benchmark 500-run workloads |

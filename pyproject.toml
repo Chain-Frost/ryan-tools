@@ -82,6 +82,7 @@ include-package-data = true
 [tool.setuptools.package-data]
 "ryan_library.classes" = ["*.json"]
 "ryan_library.resources.mcp" = ["*.json"]
+"ryan_library.functions.RORB" = ["README.md"]
 "ryan_library.resources.qgis.tuflow" = ["*.qml"]
 "ryan_library.resources.tuflow_templates" = [
   ".vscode/*.json",
