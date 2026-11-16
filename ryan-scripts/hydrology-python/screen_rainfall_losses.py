@@ -271,7 +271,6 @@ def _arr_config(
     return getattr(ArrConfig, method_name)(data)
 
 
-
 def _validate_local_sources(
     *,
     source: str,
