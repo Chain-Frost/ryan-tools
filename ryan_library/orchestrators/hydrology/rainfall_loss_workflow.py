@@ -62,9 +62,7 @@ class TemporalPatternAdmission:
     point_fallback_durations: tuple[int, ...]
 
 
-def _probe_tp_bands(
-    temporal_patterns: Any, duration: int, bands: Mapping[str, str]
-) -> tuple[tuple[str, ...], bool]:
+def _probe_tp_bands(temporal_patterns: Any, duration: int, bands: Mapping[str, str]) -> tuple[tuple[str, ...], bool]:
     """Check one duration for every relevant AEP band; retain a single warning target."""
     from pytuflow.arr.exceptions import ArrError
 

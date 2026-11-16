@@ -379,7 +379,6 @@ def test_orchestrator_bom_applies_arf_before_screening() -> None:
     assert bundle.rainfall["20%", 1440, None] == (37.0, 18.5, 0.5, None, "IL 30; CL 0")
 
 
-
 def test_tp_preflight_groups_unsupported_durations_without_inventing_zeroes() -> None:
     """All AEP bands missing 5-min data must be one omitted duration, not 2 DROP rows."""
     from pytuflow.arr.exceptions import ArrError
@@ -396,8 +395,11 @@ def test_tp_preflight_groups_unsupported_durations_without_inventing_zeroes() ->
             return [SimpleNamespace(source="areal", region="Rangelands West")]
 
     outcome = preflight_temporal_pattern_durations(
-        Patterns(), durations=[5, 30, 60], aeps=["63.2%", "1%"],
-        area_km2=350, allow_point_fallback=True,
+        Patterns(),
+        durations=[5, 30, 60],
+        aeps=["63.2%", "1%"],
+        area_km2=350,
+        allow_point_fallback=True,
     )
     assert outcome.included_durations == (30, 60)
     assert outcome.omitted_durations == (5,)
@@ -405,8 +407,11 @@ def test_tp_preflight_groups_unsupported_durations_without_inventing_zeroes() ->
     assert outcome.missing_bands[5] == ("frequent", "rare")
 
     no_fallback = preflight_temporal_pattern_durations(
-        Patterns(), durations=[5, 30, 60], aeps=["63.2%", "1%"],
-        area_km2=350, allow_point_fallback=False,
+        Patterns(),
+        durations=[5, 30, 60],
+        aeps=["63.2%", "1%"],
+        area_km2=350,
+        allow_point_fallback=False,
     )
     assert no_fallback.included_durations == (60,)
     assert no_fallback.omitted_durations == (5, 30)
@@ -422,7 +427,10 @@ def test_tp_preflight_point_only_is_expected_for_small_catchments() -> None:
             return [SimpleNamespace(source="point", region="Rangelands West")]
 
     outcome = preflight_temporal_pattern_durations(
-        Patterns(), durations=[60], aeps=["1%"], area_km2=0,
+        Patterns(),
+        durations=[60],
+        aeps=["1%"],
+        area_km2=0,
     )
     assert outcome.included_durations == (60,)
     assert outcome.point_fallback_durations == ()

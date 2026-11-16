@@ -376,14 +376,13 @@ def _announce_tp_admission(admission: TemporalPatternAdmission, *, area: float) 
     if admission.omitted_durations:
         durations = ", ".join(str(value) for value in admission.omitted_durations)
         console.print(
-            f"WARNING: No suitable TPs for duration(s) {durations} min across the selected AEP bands. "
-            "Omitted those durations for ALL AEPs; none was classified DROP."
+            f"WARNING: Missing TPs for {durations} min; skipped for all AEPs (NOT DROP)."
         )
     if admission.point_fallback_durations:
         durations = ", ".join(str(value) for value in admission.point_fallback_durations)
         console.print(
-            f"WARNING: No applicable areal TPs for duration(s) {durations} min at {area:g} km². "
-            "Using point TPs instead; review suitability before removing runs."
+            f"WARNING: Areal TPs unavailable for {durations} min at {area:g} km²; "
+            "using point TPs instead (review suitability)."
         )
 
 
@@ -553,9 +552,7 @@ def _bom_patterns(
             or areal_url not in str(exc)
         ):
             raise
-        Console(stderr=True).print(
-            "WARNING: Could not download areal TP increments. Using point TPs instead."
-        )
+        Console(stderr=True).print("WARNING: Could not download areal TP increments. Using point TPs instead.")
         return TemporalPatternSet.from_api_response(point["url"], None, catchment_area=area)
 
 
@@ -887,9 +884,7 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
         point_path = _path(args.point_tp if args.point_tp is not None else POINT_TP_CSV, directory)
         areal_path = _path(args.areal_tp if args.areal_tp is not None else AREAL_TP_CSV, directory)
         fetch_tps = args.fetch_tps if args.fetch_tps is not None else FETCH_TPS_FOR_BOM
-        allow_point_fallback = (
-            args.point_tp_fallback if args.point_tp_fallback is not None else ALLOW_POINT_TP_FALLBACK
-        )
+        allow_point_fallback = args.point_tp_fallback if args.point_tp_fallback is not None else ALLOW_POINT_TP_FALLBACK
         _validate_local_sources(
             source=source,
             offline=offline,
@@ -997,9 +992,7 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
                     or url not in str(exc)
                 ):
                     raise
-                Console(stderr=True).print(
-                    "WARNING: Areal TP download failed; falling back to point TPs."
-                )
+                Console(stderr=True).print("WARNING: Areal TP download failed; falling back to point TPs.")
                 engine.response = _response_without_areal_tp(response)
                 tp_set = cast(Any, getattr(engine, tp_method)())
 
@@ -1012,10 +1005,7 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
             )
             _announce_tp_admission(admission, area=area)
             if not admission.included_durations:
-                message = (
-                    "No selected durations have applicable TPs. "
-                    "No events were screened or classified DROP."
-                )
+                message = "No selected durations have applicable TPs. No events were screened or classified DROP."
                 raise _error(message)
             cast(Any, engine).config.events.duration = list(admission.included_durations)
             run_method: str = "run"
@@ -1130,10 +1120,7 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
                 )
                 _announce_tp_admission(admission, area=area)
                 if not admission.included_durations:
-                    message = (
-                        "No selected durations have applicable TPs. "
-                        "No events were screened or classified DROP."
-                    )
+                    message = "No selected durations have applicable TPs. No events were screened or classified DROP."
                     raise _error(message)
                 durations = list(admission.included_durations)
             bundle = assemble_bom_events(
