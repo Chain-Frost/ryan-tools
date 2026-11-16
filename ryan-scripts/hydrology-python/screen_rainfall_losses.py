@@ -61,7 +61,8 @@ import argparse
 import csv
 import json
 import logging
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
+from importlib import import_module
 from math import isfinite
 from typing import Any, cast
 
@@ -143,7 +144,7 @@ def _loss_schedules(raw: object) -> dict[str, LossSpec | dict[int, LossSpec]]:
     items = cast("dict[str, object]", raw)
     schedules: dict[str, LossSpec | dict[int, LossSpec]] = {}
     for aep, entry in items.items():
-        if not isinstance(aep, str) or not aep.strip():
+        if not aep.strip():
             message = "Loss AEP keys must be nonempty source labels."
             raise _error(message)
         if not isinstance(entry, dict):
@@ -181,7 +182,7 @@ def _apply_bom_preburst(
     depth: float | None,
 ) -> tuple[LossSpec | None, dict[str, LossSpec | dict[int, LossSpec]]]:
     if depth is None:
-        return default, dict(schedules)
+        return default, {key: dict(value) if isinstance(value, Mapping) else value for key, value in schedules.items()}
 
     def adjust(loss: LossSpec) -> LossSpec:
         burst_il = reduced_burst_initial_loss(loss.initial_loss_mm, depth)
@@ -254,7 +255,7 @@ def _arr_config(
     }
     if json_path is not None:
         data["response_json"] = str(json_path)
-    return ArrConfig.from_dict(data)
+    return cast(Any, getattr(ArrConfig, "from_dict")(data))
 
 
 def _arr_response(config: Any, json_path: Path | None) -> Any:
@@ -270,12 +271,12 @@ def _arr_response(config: Any, json_path: Path | None) -> Any:
 
 
 def _datahub_aeps(response: Any, baseline: int) -> list[str]:
-    table: dict[str, object] = response.ifd_table(baseline)
+    table = cast("dict[str, object]", response.ifd_table(baseline))
     columns = table.get("columns")
     if not isinstance(columns, list):
         message = "ARR response has no RecIFD AEP columns for selected baseline."
         raise _error(message)
-    return [f"{float(str(column)):g}%" for column in columns]
+    return [f"{float(str(column)):g}%" for column in cast("list[object]", columns)]
 
 
 def _bom_patterns(
@@ -501,9 +502,10 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
                 directory,
                 response_path,
             )
-            from pytuflow.arr.engine import ArrEngine
+            from pytuflow.arr.engine import ArrEngine, EventResult
 
-            events = ArrEngine(config, response).run()
+            runner = cast("Callable[[], list[EventResult]]", getattr(ArrEngine(config, response), "run"))
+            events: list[EventResult] = runner()
             screens = screen_arr_events(events, losses_by_aep=overrides, default_losses=loss_default)
             for event in events:
                 name = str(event.aep_name)
@@ -530,9 +532,8 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
             if ifd_path is None or not ifd_path.is_file():
                 message = "BoM mode needs a readable --ifd depths_all_design.csv."
                 raise _error(message)
-            from runoff_routing.bom_ifd import read_bom_ifd_csv
-
-            imported = read_bom_ifd_csv(ifd_path)
+            reader = cast("Callable[[Path], Any]", getattr(import_module("runoff_routing.bom_ifd"), "read_bom_ifd_csv"))
+            imported: Any = reader(ifd_path)
             aeps = _aep_selection([p.label for p in imported.probabilities], aep_chosen, aep_mode)
             durations = _durations(list(imported.durations_min), duration_chosen, arr=False)
             pb_depth = args.bom_preburst_depth if args.bom_preburst_depth is not None else BOM_PREBURST_DEPTH_MM

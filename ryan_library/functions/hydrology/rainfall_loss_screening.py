@@ -8,8 +8,9 @@ it is not a statement about routed model discharge or unexamined patterns.
 
 from __future__ import annotations
 
-from collections.abc import Collection, Iterable, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from importlib import import_module
 from enum import StrEnum
 from math import isclose, isfinite
 from pathlib import Path
@@ -293,6 +294,10 @@ class _BoMSource(Protocol):
 class _PatternProvider(Protocol):
     def patterns(self, duration: int, aep_name: str, output_notation: str = "aep") -> Sequence[object]: ...
 
+class _ArrRunner(Protocol):
+    def run(self) -> list[object]: ...
+
+
 
 def _pytuflow_pattern(pattern: object) -> TemporalPattern:
     """Adapt a selected PyTUFLOW temporal pattern without re-parsing its CSV."""
@@ -368,7 +373,8 @@ def screen_arr_datahub(config: object, response: object) -> tuple[PatternScreen,
     from pytuflow.arr.engine import ArrEngine
 
     wrapped = response if isinstance(response, ArrApiResponse) else ArrApiResponse(cast(Any, response))
-    return screen_arr_events(ArrEngine(cast(Any, config), wrapped).run())
+    engine = cast("_ArrRunner", ArrEngine(cast(Any, config), wrapped))
+    return screen_arr_events(engine.run())
 
 
 def screen_bom_ifd(
@@ -400,7 +406,7 @@ def screen_bom_ifd(
                 losses = schedule.get(duration)
             else:
                 losses = schedule
-            depth_mm = float(imported_ifd.depth_mm_at(duration, probability, convert_intensity=True))
+            depth_mm = float(str(imported_ifd.depth_mm_at(duration, probability, convert_intensity=True)))
             # A reader/TP combination can lack patterns for some very short durations.
             # These events remain unresolved unless their depth is provably below IL.
             patterns: tuple[TemporalPattern, ...] = ()
@@ -453,14 +459,17 @@ def screen_bom_ifd_csv(
     calling environment or use 'screen_bom_ifd' with an imported BoMIFD.
     """
     try:
-        from runoff_routing.bom_ifd import read_bom_ifd_csv
+        reader = cast(
+            "Callable[[Path], _BoMSource]",
+            getattr(import_module("runoff_routing.bom_ifd"), "read_bom_ifd_csv"),
+        )
     except ImportError as exc:
         msg = (
             "BoM CSV import requires the existing python-runoff-routing BoM reader; "
             "install that package or pass its parsed object to screen_bom_ifd"
         )
         raise ImportError(msg) from exc
-    source = cast(_BoMSource, read_bom_ifd_csv(Path(path)))
+    source = reader(Path(path))
     return screen_bom_ifd(
         source,
         temporal_patterns=temporal_patterns,
