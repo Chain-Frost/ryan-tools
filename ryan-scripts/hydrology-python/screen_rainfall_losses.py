@@ -545,7 +545,7 @@ def _bom_patterns(
     areal_url = areal["url"] if areal else None
     try:
         return TemporalPatternSet.from_api_response(point["url"], areal_url, catchment_area=area)
-    except Exception as exc:  # noqa: BLE001 - only retry if the areal URL itself failed
+    except Exception as exc:
         if (
             not allow_point_fallback
             or areal_url is None
@@ -985,7 +985,7 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
             tp_method: str = "_tp_set_for_config"
             try:
                 tp_set = cast(Any, getattr(engine, tp_method)())
-            except Exception as exc:  # noqa: BLE001 - only retry a recognisable failed areal ZIP download
+            except Exception as exc:
                 layer = response.layer("ArealTP")
                 url = layer.get("url") if layer else None
                 if (
