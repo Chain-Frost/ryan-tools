@@ -218,8 +218,17 @@ def _durations(available: Sequence[int], chosen: Sequence[int], *, arr: bool) ->
 
 
 def _arr_config(
-    latitude: float, longitude: float, area: float, site: str, aeps: list[str], durations: list[int],
-    baseline: int, mode: str, percentile: str, directory: Path, json_path: Path | None,
+    latitude: float,
+    longitude: float,
+    area: float,
+    site: str,
+    aeps: list[str],
+    durations: list[int],
+    baseline: int,
+    mode: str,
+    percentile: str,
+    directory: Path,
+    json_path: Path | None,
 ) -> Any:
     from pytuflow.arr.config import ArrConfig
 
@@ -270,8 +279,14 @@ def _datahub_aeps(response: Any, baseline: int) -> list[str]:
 
 
 def _bom_patterns(
-    source: Any, latitude: float | None, longitude: float | None, area: float,
-    fetch_tps: bool, point_csv: Path | None, areal_csv: Path | None, directory: Path,
+    source: Any,
+    latitude: float | None,
+    longitude: float | None,
+    area: float,
+    fetch_tps: bool,
+    point_csv: Path | None,
+    areal_csv: Path | None,
+    directory: Path,
 ) -> Any:
     from pytuflow.arr.temporal_patterns import TemporalPatternSet
 
@@ -290,20 +305,28 @@ def _bom_patterns(
     response = _arr_response(config, None)
     point = response.layer("PointTP", required=True)
     areal = response.layer("ArealTP")
-    return TemporalPatternSet.from_api_response(
-        point["url"], areal["url"] if areal else None, catchment_area=area
-    )
+    return TemporalPatternSet.from_api_response(point["url"], areal["url"] if areal else None, catchment_area=area)
 
 
 def _print_report(
     screens: Sequence[PatternScreen],
     totals: Mapping[tuple[str, int, str | None], tuple[float, float | None, str]],
-    view: str, csv_report: Path | None,
+    view: str,
+    csv_report: Path | None,
 ) -> None:
     _choice("VIEW", view, {"all", "zero", "keep"})
     events = summarize_events(screens)
     table = Table(title="Design rainfall loss screening (selected temporal patterns)", show_lines=False)
-    for header in ("AEP", "Duration (min)", "Rain (mm)", "Loss / preburst", "Zero TP", "Positive TP", "Unknown TP", "Decision"):
+    for header in (
+        "AEP",
+        "Duration (min)",
+        "Rain (mm)",
+        "Loss / preburst",
+        "Zero TP",
+        "Positive TP",
+        "Unknown TP",
+        "Decision",
+    ):
         table.add_column(header, justify="right" if "TP" in header or "min" in header or "mm" in header else "left")
     records: list[list[str]] = []
     for event in events:
@@ -314,10 +337,24 @@ def _print_report(
         rainfall, preburst, losses = totals.get(
             (event.aep, int(event.duration_min), event.scenario), (float("nan"), None, "unknown")
         )
-        decision = "WIPE OUT" if event.status == ScreeningStatus.ZERO else "KEEP" if event.status == ScreeningStatus.POSITIVE else "UNRESOLVED"
+        decision = (
+            "WIPE OUT"
+            if event.status == ScreeningStatus.ZERO
+            else "KEEP"
+            if event.status == ScreeningStatus.POSITIVE
+            else "UNRESOLVED"
+        )
         details = f"{losses}; PB {preburst:g} mm" if preburst is not None else losses
-        row = [event.aep, f"{event.duration_min:g}", f"{rainfall:.3f}", details,
-               str(event.zero_patterns), str(event.positive_patterns), str(event.unresolved_patterns), decision]
+        row = [
+            event.aep,
+            f"{event.duration_min:g}",
+            f"{rainfall:.3f}",
+            details,
+            str(event.zero_patterns),
+            str(event.positive_patterns),
+            str(event.unresolved_patterns),
+            decision,
+        ]
         records.append(row)
         table.add_row(*row)
     console = Console()
@@ -328,12 +365,16 @@ def _print_report(
         f"{len(events)} AEP/duration/scenario combinations screened: "
         f"{wiped} wiped out; {len(events) - wiped - unknown} positive; {unknown} unresolved."
     )
-    console.print("A zero result applies to these assumptions and supplied patterns only; native-model parity is unverified.")
+    console.print(
+        "A zero result applies to these assumptions and supplied patterns only; native-model parity is unverified."
+    )
     if csv_report is not None:
         csv_report.parent.mkdir(parents=True, exist_ok=True)
         with csv_report.open("x", encoding="utf-8", newline="") as stream:
             writer = csv.writer(stream)
-            writer.writerow(["AEP", "duration_min", "rain_mm", "loss_preburst", "zero_tp", "positive_tp", "unknown_tp", "decision"])
+            writer.writerow(
+                ["AEP", "duration_min", "rain_mm", "loss_preburst", "zero_tp", "positive_tp", "unknown_tp", "decision"]
+            )
             writer.writerows(records)
         console.print(f"CSV report created: {csv_report}")
 
@@ -368,7 +409,9 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--losses-json", type=Path, help="Optional per-AEP or per-duration loss overrides JSON.")
     parser.add_argument("--storm-mode", choices=("burst", "complete"), help="ARR burst-IL or complete preburst storm.")
     parser.add_argument("--preburst-percentile", choices=("recommended", "10%", "25%", "50%", "75%", "90%"))
-    parser.add_argument("--bom-preburst-depth", type=float, help="Explicit BoM preburst depth to subtract from storm IL.")
+    parser.add_argument(
+        "--bom-preburst-depth", type=float, help="Explicit BoM preburst depth to subtract from storm IL."
+    )
     parser.add_argument("--view", choices=("all", "zero", "keep"))
     parser.add_argument("--csv-report", type=Path, help="New report CSV; existing files are not overwritten.")
     parser.add_argument("--console-log-level", choices=("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"))
@@ -384,9 +427,7 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
         wrapper_version=WRAPPER_VERSION,
     )
     args = args if args is not None else _arguments()
-    directory = (
-        args.working_directory if args.working_directory is not None else WORKING_DIR
-    ).absolute()
+    directory = (args.working_directory if args.working_directory is not None else WORKING_DIR).absolute()
     if not change_working_directory(target_dir=directory):
         return 1
     try:
@@ -431,16 +472,34 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
                 raise _error(message)
             response_path = _path(args.arr_response if args.arr_response is not None else ARR_RESPONSE_JSON, directory)
             initial_cfg = _arr_config(
-                latitude, longitude, area, site, ["1%"], [60], baseline, storm_mode,
-                percentile, directory, response_path,
+                latitude,
+                longitude,
+                area,
+                site,
+                ["1%"],
+                [60],
+                baseline,
+                storm_mode,
+                percentile,
+                directory,
+                response_path,
             )
             response = _arr_response(initial_cfg, response_path)
             available = _datahub_aeps(response, baseline)
             aeps = _aep_selection(available, aep_chosen, aep_mode)
             durations = _durations([], duration_chosen, arr=True)
             config = _arr_config(
-                latitude, longitude, area, site, aeps, durations, baseline,
-                storm_mode, percentile, directory, response_path,
+                latitude,
+                longitude,
+                area,
+                site,
+                aeps,
+                durations,
+                baseline,
+                storm_mode,
+                percentile,
+                directory,
+                response_path,
             )
             from pytuflow.arr.engine import ArrEngine
 
@@ -483,8 +542,12 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
             fetch_tps = args.fetch_tps if args.fetch_tps is not None else FETCH_TPS_FOR_BOM
             patterns = _bom_patterns(imported, latitude, longitude, area, fetch_tps, point_path, areal_path, directory)
             screens = screen_bom_ifd(
-                imported, temporal_patterns=patterns, losses_by_aep=bom_overrides,
-                default_losses=bom_default, aeps=set(aeps), durations_min=set(durations),
+                imported,
+                temporal_patterns=patterns,
+                losses_by_aep=bom_overrides,
+                default_losses=bom_default,
+                aeps=set(aeps),
+                durations_min=set(durations),
             )
             for probability in imported.probabilities:
                 if probability.label not in aeps:
