@@ -2,7 +2,7 @@
 
 **Owner:** hydrology implementation
 **Started:** 2026-11-16
-**Updated:** 2026-11-16
+**Updated:** 2026-11-17
 **Status:** Draft implementation; reference-engine, genuine-data, and installed-wheel acceptance OPEN.
 **Next review:** 2026-11-23
 
@@ -23,7 +23,10 @@
 - AEP selection: all, editable common set, or explicit exact source labels; optional duration filtering.
 - Console table with selected TP counts and zero/positive/unresolved verdicts; optional exclusive-create CSV export.
 - User-provided AEP/duration IL/CL or IL+coefficient JSON overrides.
-- Read-only sources, optional Data Hub and temporal pattern downloads.
+- Read-only sources; optional Data Hub and temporal pattern downloads.
+- ARR Data Hub JSON and independently saved point/areal TP increments CSVs override their remote sources.
+- Strict `OFFLINE=True` / `--offline` rejects missing local JSON/point CSV and any advertised but missing areal TP CSV, without network fallback; for BoM it requires local patterns or explicit no-pattern screening.
+- Saved Data Hub JSON works without coordinates; source attribution and catchment matching remain the operator's responsibility.
 
 ## Source evidence and blockers
 
@@ -37,9 +40,10 @@
 
 ## Acceptance and next actions
 
-1. Check draft PR #318 at final head: Ruff, strict Pyright, focused tests, bundle manifest and `--help`.
-2. Verify installed copied wrapper, sample BoM file, and live ARR 2026 request at **-23.08632, 119.2755** on a network-enabled Windows Python 3.14 environment.
-3. Compare preburst/IL/CL/event sequence against an accepted native reference before using the tool to suppress production design simulations.
-4. Keep the PR in draft and do not merge or trigger a release until explicit acceptance.
+1. Check draft PR #318 at final head: Ruff, strict Pyright, focused tests, wheel/installed wrapper, bundle manifest and `--help`. The 2026-11-16 head previously failed hosted tests because the installed-script evidence ledger lacked the new selected wrapper; the ledger is updated in the same PR.
+2. Verify offline/no-network acceptance with saved ARR JSON and both TP CSVs; test missing point/areal sources fail closed without accessing live URLs.
+3. Verify installed copied wrapper, sample BoM file, and live ARR 2026 request at **-23.08632, 119.2755** on a network-enabled Windows Python 3.14 environment.
+4. Compare preburst/IL/CL/event sequence against an accepted native reference before using the tool to suppress production design simulations.
+5. Keep the PR in draft and do not merge or trigger a release until explicit acceptance.
 
 `docs/RAIN_LOSS_SCREENING.md` owns user-facing options and limitations; do not copy its full manual here.

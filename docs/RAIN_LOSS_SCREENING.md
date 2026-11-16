@@ -45,6 +45,59 @@ selected initial-loss mode must match the intended hydraulic model.
 PyTUFLOW may automatically switch particular burst-loss cells to complete
 storm when a fixed burst IL is unavailable.
 
+### Saved ARR Data Hub inputs and strict offline mode
+
+The wrapper supports **local overrides** for both the Data Hub JSON response
+and ARR temporal-pattern increments. The local paths take precedence over
+the corresponding live API/download source; they are read, never modified.
+
+- `ARR_RESPONSE_JSON` / `--arr-response`: full downloaded **2026 Data Hub JSON**
+  containing the requested `RecIFD`/loss/preburst datasets. Local JSON replaces
+  the live Data Hub response; the data are passed to PyTUFLOW's existing
+  `ArrApiResponse` reader, not re-parsed using a second ARR implementation.
+- `POINT_TP_CSV` / `--point-tp`: saved point temporal-pattern
+  `*_Increments.csv` file, which replaces the point-pattern HTTP download.
+- `AREAL_TP_CSV` / `--areal-tp`: saved areal temporal-pattern
+  `*_Increments.csv` file, which replaces the areal-pattern HTTP download.
+  PyTUFLOW's `TemporalPatternSet.from_sources` uses each local CSV in
+  preference to the corresponding Data Hub URL.
+- `OFFLINE=True` / `--offline`: **strict no-network mode**. For ARR mode,
+  a readable response JSON and point CSV are mandatory. If that response
+  advertises an areal TP download link, the local areal increments CSV is
+  also mandatory, regardless of point/areal catchment selection, because
+  the current PyTUFLOW loader otherwise downloads that layer.
+  Missing files fail before event processing; **no silent network fallback**.
+  A saved JSON may be used without specifying latitude/longitude because
+  its contents already identify the data source, but users must verify that
+  the saved dataset belongs to the intended catchment. Coordinates, when
+  supplied, are not used to replace local source data.
+
+Example (offline, no coordinates required):
+
+```powershell
+py -3.14 ryan-scripts/hydrology-python/screen_rainfall_losses.py --source arr --offline --arr-response "D:\ARR\Site_ARR_response.json" --point-tp "D:\ARR\Point_Increments.csv" --areal-tp "D:\ARR\Areal_Increments.csv" --aep-mode common --no-pause
+```
+
+A **hybrid** run using `--arr-response` but without `--offline` is also
+supported: the JSON is local, but any unspecified temporal-pattern CSV may
+still be downloaded from the Data Hub. Similarly, local point/areal CSVs
+override the pattern downloads even with a live API JSON response.
+`--no-offline` overrides an edited `OFFLINE=True` default.
+
+For BoM CSV screening, `--offline --ifd <file> --point-tp <file>` uses
+the existing local BoM reader and PyTUFLOW pattern loader. If patterns
+are intentionally unavailable, use `--no-fetch-tps`: only events whose
+entire rainfall depth is proven below IL are excluded, and the remaining
+events are reported as unresolved. A standalone Data Hub JSON is not a
+substitute for the independent point/areal increments CSVs.
+
+**Supported local ARR input format:** the complete Data Hub **JSON**
+download, not the Data Hub human-readable text report or an individual
+IFD CSV. Keep the matching temporal-pattern CSVs and record their provenance,
+baseline year, catchment area, and date. A saved JSON from another site
+or a mismatched TP set is not automatically reconciled.
+
+
 ### Screen the original BoM CSV depths
 
 ```powershell
@@ -55,7 +108,7 @@ This mode uses **exact original BoM rainfall depths, durations, and AEP
 labels** through the `python-runoff-routing` reader and uses PyTUFLOW's
 point/areal temporal-pattern loader. If `FETCH_TPS_FOR_BOM=True` (default),
 it requests the 2026 pattern downloads for the BoM CSV's *requested*
-coordinates. For offline use, provide `--point-tp` (and optionally
+coordinates. To enforce no network access, use --offline with `--point-tp` (and optionally
 `--areal-tp`) or `--no-fetch-tps`; without patterns, rainfall above IL
 is unresolved rather than automatically excluded. The BoM reader is a
 separate optional development package and must be installed for this mode.

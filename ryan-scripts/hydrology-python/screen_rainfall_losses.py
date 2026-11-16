@@ -8,18 +8,20 @@ produces flow at an outlet, or that unexamined patterns can be omitted.
 Examples:
     py -3.14 screen_rainfall_losses.py --source arr --latitude -23.08632 --longitude 119.2755 --view zero --no-pause
     py -3.14 screen_rainfall_losses.py --source bom --ifd "depths_hd4_temp_all_design.csv" --il 30 --cl 5 --no-pause
+    py -3.14 screen_rainfall_losses.py --source arr --offline --arr-response site.json --point-tp point_Increments.csv --areal-tp areal_Increments.csv --no-pause
 """
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-16.1"
+WRAPPER_VERSION = "2026-11-17.1"
 
 WORKING_DIR: Path = Path(__file__).absolute().parent
 SOURCE = "arr"  # "arr" downloads ARR Data Hub 2026; "bom" uses the original BoM IFD CSV.
 IFD_CSV: Path | None = None
-ARR_RESPONSE_JSON: Path | None = None  # Optional offline JSON previously obtained from ARR Data Hub.
-POINT_TP_CSV: Path | None = None  # Optional PyTUFLOW ARR *_Increments.csv; primarily for offline BoM runs.
-AREAL_TP_CSV: Path | None = None
+ARR_RESPONSE_JSON: Path | None = None  # Saved ARR Data Hub JSON overrides online API retrieval when set.
+POINT_TP_CSV: Path | None = None  # PyTUFLOW ARR point *_Increments.csv; local TP overrides API download.
+AREAL_TP_CSV: Path | None = None  # PyTUFLOW ARR areal *_Increments.csv; required offline if response has ArealTP URL.
+OFFLINE = False  # True: disallow ALL Data Hub/API/TP downloads; require files needed for the chosen mode.
 LATITUDE: float | None = None  # E.g. -23.08632
 LONGITUDE: float | None = None  # E.g. 119.2755
 SITE_NAME = "Rainfall screening"
@@ -219,8 +221,8 @@ def _durations(available: Sequence[int], chosen: Sequence[int], *, arr: bool) ->
 
 
 def _arr_config(
-    latitude: float,
-    longitude: float,
+    latitude: float | None,
+    longitude: float | None,
     area: float,
     site: str,
     aeps: list[str],
@@ -230,6 +232,9 @@ def _arr_config(
     percentile: str,
     directory: Path,
     json_path: Path | None,
+    *,
+    point_tp_path: Path | None = None,
+    areal_tp_path: Path | None = None,
 ) -> Any:
     from pytuflow.arr.config import ArrConfig
 
@@ -239,10 +244,13 @@ def _arr_config(
     if not isfinite(area) or area < 0:
         message = "CATCHMENT_AREA_KM2 must be finite and nonnegative."
         raise _error(message)
-    if not isfinite(latitude) or not -90 <= latitude <= 90:
+    if (latitude is None) != (longitude is None):
+        message = "LATITUDE and LONGITUDE must either both be specified or both omitted."
+        raise _error(message)
+    if latitude is not None and (not isfinite(latitude) or not -90 <= latitude <= 90):
         message = "LATITUDE must be between -90 and 90."
         raise _error(message)
-    if not isfinite(longitude) or not -180 <= longitude <= 180:
+    if longitude is not None and (not isfinite(longitude) or not -180 <= longitude <= 180):
         message = "LONGITUDE must be between -180 and 180."
         raise _error(message)
     data: dict[str, object] = {
@@ -252,11 +260,67 @@ def _arr_config(
         "preburst": {"percentile": percentile, "pattern_method": "recommended"},
         "complete_storm": mode == "complete",
         "output": {"path": str(directory)},
+        "temporal_patterns": {
+            "point_tp_csv": str(point_tp_path) if point_tp_path is not None else None,
+            "areal_tp_csv": str(areal_tp_path) if areal_tp_path is not None else None,
+        },
     }
     if json_path is not None:
         data["response_json"] = str(json_path)
     method_name: str = "from_dict"
     return getattr(ArrConfig, method_name)(data)
+
+
+
+def _validate_local_sources(
+    *,
+    source: str,
+    offline: bool,
+    response_path: Path | None,
+    point_tp_path: Path | None,
+    areal_tp_path: Path | None,
+    fetch_bom_tps: bool,
+) -> None:
+    """Validate source precedence and fail before PyTUFLOW can download in offline mode."""
+    for label, path in (
+        ("ARR_RESPONSE_JSON", response_path),
+        ("POINT_TP_CSV", point_tp_path),
+        ("AREAL_TP_CSV", areal_tp_path),
+    ):
+        if path is not None and not path.is_file():
+            message = f"{label} requires an existing readable file: {path}"
+            raise _error(message)
+    if source == "bom" and response_path is not None:
+        message = "ARR_RESPONSE_JSON / --arr-response is an ARR-only source; use --source arr."
+        raise _error(message)
+    if not offline:
+        return
+    if source == "arr":
+        if response_path is None:
+            message = "OFFLINE ARR mode requires --arr-response / ARR_RESPONSE_JSON containing saved Data Hub JSON."
+            raise _error(message)
+        if point_tp_path is None:
+            message = "OFFLINE ARR mode requires --point-tp / POINT_TP_CSV (local point increments CSV)."
+            raise _error(message)
+    elif point_tp_path is None and fetch_bom_tps:
+        message = (
+            "OFFLINE BoM mode cannot fetch ARR temporal patterns: supply --point-tp "
+            "or --no-fetch-tps (the latter leaves events above IL unresolved)."
+        )
+        raise _error(message)
+
+
+def _validate_offline_arr_patterns(response: Any, *, offline: bool, areal_tp_path: Path | None) -> None:
+    """Prevent an implicit areal-pattern URL download by PyTUFLOW's ARR engine."""
+    if not offline or areal_tp_path is not None:
+        return
+    areal_layer = response.layer("ArealTP")
+    if areal_layer and areal_layer.get("url"):
+        message = (
+            "OFFLINE ARR response advertises an areal TP download URL; supply the local "
+            "--areal-tp / AREAL_TP_CSV. Do not silently download or omit areal patterns."
+        )
+        raise _error(message)
 
 
 def _arr_response(config: Any, json_path: Path | None) -> Any:
@@ -386,6 +450,7 @@ def _arguments() -> argparse.Namespace:
         description="Screen design rainfall AEP/duration/temporal-pattern events for zero rainfall excess.",
         epilog=r"""Examples:
   py -3.14 screen_rainfall_losses.py --source arr --latitude -23.08632 --longitude 119.2755 --no-pause
+  py -3.14 screen_rainfall_losses.py --source arr --offline --arr-response site.json --point-tp point_Increments.csv --areal-tp areal_Increments.csv --no-pause
   py -3.14 screen_rainfall_losses.py --source bom --ifd "D:\Model\depths_all_design.csv" --il 30 --cl 5 --view zero --no-pause
   py -3.14 screen_rainfall_losses.py --source bom --ifd "D:\Model\depths_all_design.csv" --aep 20% 10% 1% --no-pause""",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -393,7 +458,13 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--source", choices=("arr", "bom"), help="Rainfall backend (ARR 2026 API or BoM CSV).")
     parser.add_argument("--working-directory", type=Path)
     parser.add_argument("--ifd", type=Path, help="Original BoM IFD/All Design rainfall CSV.")
-    parser.add_argument("--arr-response", type=Path, help="Local ARR Data Hub JSON (offline ARR mode).")
+    parser.add_argument("--arr-response", type=Path, help="Saved ARR 2026 JSON; overrides a live API response.")
+    parser.add_argument(
+        "--offline",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Never access the network; require all necessary local ARR JSON and TP CSV files.",
+    )
     parser.add_argument("--point-tp", type=Path, help="Local ARR point temporal pattern increments CSV.")
     parser.add_argument("--areal-tp", type=Path, help="Local ARR areal temporal pattern increments CSV.")
     parser.add_argument("--fetch-tps", action=argparse.BooleanOptionalAction, default=None)
@@ -461,6 +532,19 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
         log_level = args.console_log_level if args.console_log_level is not None else CONSOLE_LOG_LEVEL
         _choice("CONSOLE_LOG_LEVEL", log_level, {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"})
         logging.basicConfig(level=getattr(logging, log_level))
+        offline = args.offline if args.offline is not None else OFFLINE
+        response_path = _path(args.arr_response if args.arr_response is not None else ARR_RESPONSE_JSON, directory)
+        point_path = _path(args.point_tp if args.point_tp is not None else POINT_TP_CSV, directory)
+        areal_path = _path(args.areal_tp if args.areal_tp is not None else AREAL_TP_CSV, directory)
+        fetch_tps = args.fetch_tps if args.fetch_tps is not None else FETCH_TPS_FOR_BOM
+        _validate_local_sources(
+            source=source,
+            offline=offline,
+            response_path=response_path,
+            point_tp_path=point_path,
+            areal_tp_path=areal_path,
+            fetch_bom_tps=fetch_tps,
+        )
         if report_path is not None and (report_path.exists() or report_path.is_symlink()):
             message = f"CSV_REPORT already exists; choose a new report path: {report_path}"
             raise _error(message)
@@ -469,10 +553,9 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
             if args.ifd is not None or IFD_CSV is not None:
                 message = "ARR mode uses the ARR 2026 RecIFD depths, not the BoM --ifd CSV; choose --source bom."
                 raise _error(message)
-            if latitude is None or longitude is None:
-                message = "ARR mode requires --latitude and --longitude, e.g. -23.08632 119.2755."
+            if response_path is None and (latitude is None or longitude is None):
+                message = "Live ARR mode requires --latitude and --longitude, e.g. -23.08632 119.2755."
                 raise _error(message)
-            response_path = _path(args.arr_response if args.arr_response is not None else ARR_RESPONSE_JSON, directory)
             initial_cfg = _arr_config(
                 latitude,
                 longitude,
@@ -485,8 +568,11 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
                 percentile,
                 directory,
                 response_path,
+                point_tp_path=point_path,
+                areal_tp_path=areal_path,
             )
             response = _arr_response(initial_cfg, response_path)
+            _validate_offline_arr_patterns(response, offline=offline, areal_tp_path=areal_path)
             available = _datahub_aeps(response, baseline)
             aeps = _aep_selection(available, aep_chosen, aep_mode)
             durations = _durations([], duration_chosen, arr=True)
@@ -502,6 +588,14 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
                 percentile,
                 directory,
                 response_path,
+                point_tp_path=point_path,
+                areal_tp_path=areal_path,
+            )
+            Console().print(
+                f"ARR inputs: {'offline' if offline else 'hybrid/local' if response_path is not None else 'online'}; "
+                f"response={response_path or 'live API'}; "
+                f"point TP={point_path or 'Data Hub URL'}; "
+                f"areal TP={areal_path or 'Data Hub URL (if supplied)'}"
             )
             from pytuflow.arr.engine import ArrEngine, EventResult
 
@@ -542,9 +636,6 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
             durations = _durations(list(imported.durations_min), duration_chosen, arr=False)
             pb_depth = args.bom_preburst_depth if args.bom_preburst_depth is not None else BOM_PREBURST_DEPTH_MM
             bom_default, bom_overrides = _apply_bom_preburst(loss_default, overrides, pb_depth)
-            point_path = _path(args.point_tp if args.point_tp is not None else POINT_TP_CSV, directory)
-            areal_path = _path(args.areal_tp if args.areal_tp is not None else AREAL_TP_CSV, directory)
-            fetch_tps = args.fetch_tps if args.fetch_tps is not None else FETCH_TPS_FOR_BOM
             patterns = _bom_patterns(imported, latitude, longitude, area, fetch_tps, point_path, areal_path, directory)
             screens = screen_bom_ifd(
                 imported,

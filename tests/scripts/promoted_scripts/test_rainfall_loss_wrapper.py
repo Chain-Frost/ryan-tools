@@ -125,3 +125,160 @@ def test_console_table_and_exclusive_csv(tmp_path: Path, capsys: pytest.CaptureF
     assert output.exists()
     with pytest.raises(FileExistsError):
         m._print_report(screens, depth, "all", output)
+
+
+
+def test_cli_offline_and_no_offline_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
+    m = _wrapper()
+    monkeypatch.setattr(sys, "argv", [str(SCRIPT), "--source", "arr", "--offline", "--no-pause"])
+    assert m._arguments().offline is True
+    monkeypatch.setattr(sys, "argv", [str(SCRIPT), "--source", "arr", "--no-offline", "--no-pause"])
+    assert m._arguments().offline is False
+    monkeypatch.setattr(sys, "argv", [str(SCRIPT), "--source", "arr"])
+    assert m._arguments().offline is None
+
+
+def test_strict_offline_input_requirements(tmp_path: Path) -> None:
+    m = _wrapper()
+    response = tmp_path / "arr.json"
+    response.write_text("{}", encoding="utf-8")
+    point = tmp_path / "point_Increments.csv"
+    point.write_text("placeholder", encoding="utf-8")
+    areal = tmp_path / "areal_Increments.csv"
+    areal.write_text("placeholder", encoding="utf-8")
+    with pytest.raises(ValueError, match="--arr-response"):
+        m._validate_local_sources(
+            source="arr", offline=True, response_path=None, point_tp_path=point,
+            areal_tp_path=areal, fetch_bom_tps=True,
+        )
+    with pytest.raises(ValueError, match="--point-tp"):
+        m._validate_local_sources(
+            source="arr", offline=True, response_path=response, point_tp_path=None,
+            areal_tp_path=areal, fetch_bom_tps=True,
+        )
+    with pytest.raises(ValueError, match="existing readable"):
+        m._validate_local_sources(
+            source="arr", offline=True, response_path=response, point_tp_path=tmp_path / "missing.csv",
+            areal_tp_path=areal, fetch_bom_tps=True,
+        )
+    m._validate_local_sources(
+        source="arr", offline=True, response_path=response, point_tp_path=point,
+        areal_tp_path=areal, fetch_bom_tps=True,
+    )
+    with pytest.raises(ValueError, match="ARR-only"):
+        m._validate_local_sources(
+            source="bom", offline=False, response_path=response, point_tp_path=point,
+            areal_tp_path=None, fetch_bom_tps=False,
+        )
+    with pytest.raises(ValueError, match="--no-fetch-tps"):
+        m._validate_local_sources(
+            source="bom", offline=True, response_path=None, point_tp_path=None,
+            areal_tp_path=None, fetch_bom_tps=True,
+        )
+    m._validate_local_sources(
+        source="bom", offline=True, response_path=None, point_tp_path=None,
+        areal_tp_path=None, fetch_bom_tps=False,
+    )
+    m._validate_local_sources(
+        source="bom", offline=True, response_path=None, point_tp_path=point,
+        areal_tp_path=None, fetch_bom_tps=True,
+    )
+
+
+def test_strict_offline_does_not_download_missing_areal_patterns() -> None:
+    m = _wrapper()
+
+    class Response:
+        def layer(self, name: str) -> dict[str, str] | None:
+            return {"url": "https://data.arr-software.org/areal.zip"} if name == "ArealTP" else None
+
+    response = Response()
+    with pytest.raises(ValueError, match="--areal-tp"):
+        m._validate_offline_arr_patterns(response, offline=True, areal_tp_path=None)
+    m._validate_offline_arr_patterns(response, offline=False, areal_tp_path=None)
+    m._validate_offline_arr_patterns(response, offline=True, areal_tp_path=Path("areal.csv"))
+
+
+def test_local_arr_response_precedes_network(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    api = pytest.importorskip("pytuflow.arr.api_client")
+    m = _wrapper()
+    data = tmp_path / "saved.json"
+    data.write_text('{"title":"Local ARR dataset","layers":{"ArealTP":{"url":"https://example.test/a.zip"}}}', encoding="utf-8")
+
+    def fail_fetch(_client: object, _config: object) -> None:
+        raise AssertionError("ARR API must not be queried when --arr-response is supplied")
+
+    monkeypatch.setattr(api.ArrApiClient, "fetch", fail_fetch)
+    loaded = m._arr_response(object(), data)
+    assert loaded.title == "Local ARR dataset"
+    assert loaded.layer("ArealTP")["url"] == "https://example.test/a.zip"
+
+
+def test_offline_pytuflow_config_uses_local_json_and_temporal_patterns(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    api = pytest.importorskip("pytuflow.arr.api_client")
+    engine_module = pytest.importorskip("pytuflow.arr.engine")
+    patterns_module = pytest.importorskip("pytuflow.arr.temporal_patterns")
+    m = _wrapper()
+    response = tmp_path / "site.json"
+    response.write_text("{}", encoding="utf-8")
+    point = tmp_path / "point_Increments.csv"
+    point.write_text("placeholder", encoding="utf-8")
+    areal = tmp_path / "areal_Increments.csv"
+    areal.write_text("placeholder", encoding="utf-8")
+    config = m._arr_config(
+        None, None, 10.0, "offline site", ["1%"], [60], 2030, "burst", "recommended",
+        tmp_path, response, point_tp_path=point, areal_tp_path=areal,
+    )
+    assert config.response_json == str(response)
+    assert config.site.latitude is None
+    assert config.temporal_patterns.point_tp_csv == str(point)
+    assert config.temporal_patterns.areal_tp_csv == str(areal)
+    saved = api.ArrApiResponse(
+        {"layers": {
+            "PointTP": {"url": "https://example.test/point.zip"},
+            "ArealTP": {"url": "https://example.test/areal.zip"},
+        }}
+    )
+    calls: list[tuple[str | None, str | None, str | None, str | None]] = []
+
+    def from_sources(
+        _class: object, point_file: str | None, areal_file: str | None,
+        point_url: str | None, areal_url: str | None,
+        catchment_area: float | None = None,
+    ) -> Any:
+        calls.append((point_file, areal_file, point_url, areal_url))
+        return object()
+
+    monkeypatch.setattr(patterns_module.TemporalPatternSet, "from_sources", classmethod(from_sources))
+    runner = engine_module.ArrEngine(config, saved)
+    runner._tp_set_for_config()
+    assert calls == [(str(point), str(areal), None, None)]
+
+
+def test_offline_arr_config_rejects_missing_coordinates_only_in_live_mode(tmp_path: Path) -> None:
+    pytest.importorskip("pytuflow.arr.config")
+    errors = pytest.importorskip("pytuflow.arr.exceptions")
+    m = _wrapper()
+    response = tmp_path / "site.json"
+    response.write_text("{}", encoding="utf-8")
+    point = tmp_path / "point_Increments.csv"
+    point.write_text("placeholder", encoding="utf-8")
+    config = m._arr_config(
+        None, None, 0.0, "offline site", ["1%"], [60], 2030, "burst",
+        "recommended", tmp_path, response, point_tp_path=point,
+    )
+    assert config.site.latitude is None
+    with pytest.raises(ValueError, match="both"):
+        m._arr_config(
+            -23.08632, None, 0.0, "site", ["1%"], [60], 2030,
+            "burst", "recommended", tmp_path, response, point_tp_path=point,
+        )
+    with pytest.raises(errors.ArrConfigError, match="latitude"):
+        m._arr_config(
+            None, None, 0.0, "live site", ["1%"], [60], 2030,
+            "burst", "recommended", tmp_path, None,
+        )
