@@ -436,9 +436,6 @@ def test_tp_preflight_point_only_is_expected_for_small_catchments() -> None:
     assert outcome.point_fallback_durations == ()
 
 
-
-
-
 def test_preflight_preserves_deliberate_short_duration_point_tps() -> None:
     """Shorter-than-areal-start point TPs are not an areal fallback."""
     from pytuflow.arr.exceptions import ArrError
