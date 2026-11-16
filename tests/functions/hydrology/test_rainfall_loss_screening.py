@@ -242,3 +242,85 @@ def test_arr_duration_specific_loss_overrides() -> None:
         losses_by_aep={"1%": {1440: LossSpec(30, continuing_loss_mm_per_hour=0)}},
     )
     assert wrong_duration[0].status == ScreeningStatus.ZERO
+
+
+def test_maximum_tp_bin_and_maximum_tp_total_are_distinct() -> None:
+    events = (
+        TemporalPattern("tp01", 60, (50, 50), 1),
+        TemporalPattern("tp02", 60, (75, 25), 2),
+    )
+    event = DesignEvent("1%", 120, 20, LossSpec(0, continuing_loss_mm_per_hour=0), events)
+    outcomes = screen_event(event)
+    assert [result.excess_mm for result in outcomes] == pytest.approx([20, 20])
+    assert [result.max_bin_excess_mm for result in outcomes] == pytest.approx([10, 15])
+    total = summarize_events(outcomes)[0]
+    assert total.max_tp_total_excess_mm == pytest.approx(20)
+    assert total.max_tp_bin_excess_mm == pytest.approx(15)
+    assert total.max_total_pattern == "tp01"
+
+
+def test_full_increment_cl_timing_can_wipe_120_min_storm_where_fractional_cannot() -> None:
+    pattern = TemporalPattern("last-bin", 10, (0,) * 11 + (100,), 1)
+    preburst = Preburst(0.3926, 10, (100,))
+    fractional = DesignEvent(
+        "63.2%", 120, 30.2, LossSpec(30, continuing_loss_mm_per_hour=5), (pattern,), preburst
+    )
+    full_increment = DesignEvent(
+        "63.2%",
+        120,
+        30.2,
+        LossSpec(30, continuing_loss_mm_per_hour=5, continuing_loss_timing="full_increment"),
+        (pattern,),
+        preburst,
+    )
+    fractional_outcome = screen_event(fractional)[0]
+    full_outcome = screen_event(full_increment)[0]
+    assert fractional_outcome.status == ScreeningStatus.POSITIVE
+    assert fractional_outcome.excess_mm is not None and fractional_outcome.excess_mm > 0
+    assert full_outcome.status == ScreeningStatus.ZERO
+    assert full_outcome.excess_mm == pytest.approx(0)
+
+
+def test_full_increment_is_not_a_guaranteed_zero_for_short_tp_bin() -> None:
+    pattern = TemporalPattern("last-bin", 6, (0,) * 19 + (100,), 1)
+    event = DesignEvent(
+        "63.2%",
+        120,
+        30.2,
+        LossSpec(30, continuing_loss_mm_per_hour=5, continuing_loss_timing="full_increment"),
+        (pattern,),
+        Preburst(0.3926, 6, (100,)),
+    )
+    result = screen_event(event)[0]
+    assert result.status == ScreeningStatus.POSITIVE
+    assert result.excess_mm == pytest.approx(0.0926)
+
+
+def test_bom_arf_and_manual_cc_multiplier_precede_losses() -> None:
+    losses = {"20%": LossSpec(30, continuing_loss_mm_per_hour=0)}
+    unadjusted = screen_bom_ifd(_BoM(), temporal_patterns=_Provider(), losses_by_aep=losses)
+    adjusted = screen_bom_ifd(
+        _BoM(),
+        temporal_patterns=_Provider(),
+        losses_by_aep=losses,
+        arf_by_event={("20%", 60): 1.0, ("20%", 1440): 0.5},
+        aeps={"20%"},
+    )
+    assert {(s.aep, s.duration_min): s.status for s in unadjusted}["20%", 1440] == ScreeningStatus.POSITIVE
+    assert {(s.aep, s.duration_min): s.status for s in adjusted}["20%", 1440] == ScreeningStatus.ZERO
+    scaled = screen_bom_ifd(
+        _BoM(),
+        temporal_patterns=_Provider(),
+        losses_by_aep=losses,
+        arf_by_event={("20%", 60): 1.0, ("20%", 1440): 0.5},
+        aeps={"20%"},
+        rainfall_multiplier=2.0,
+    )
+    assert {(s.aep, s.duration_min): s.status for s in scaled}["20%", 1440] == ScreeningStatus.POSITIVE
+    with pytest.raises(ValueError, match="invalid ARF"):
+        screen_bom_ifd(
+            _BoM(),
+            losses_by_aep=losses,
+            arf_by_event={("20%", 60): 1.0},
+            aeps={"20%"},
+        )

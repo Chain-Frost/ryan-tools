@@ -111,14 +111,14 @@ def test_console_table_and_exclusive_csv(tmp_path: Path, capsys: pytest.CaptureF
         PatternScreen("1%", 60, None, "bom_ifd", None, ScreeningStatus.UNRESOLVED, None, None, "no losses"),
     ]
     depth = {
-        ("20%", 60, None): (23, None, "IL 30; CL 5"),
-        ("10%", 60, None): (37, None, "IL 30; CL 5"),
-        ("1%", 60, None): (50, None, "missing"),
+        ("20%", 60, None): (23, 23, 1.0, None, "IL 30; CL 5"),
+        ("10%", 60, None): (37, 33.3, 0.9, None, "IL 30; CL 5"),
+        ("1%", 60, None): (50, 50, 1.0, None, "missing"),
     }
     output = tmp_path / "screen.csv"
     m._print_report(screens, depth, "all", output)
     shown = capsys.readouterr().out
-    assert "WIPE OUT" in shown
+    assert "DROP" in shown
     assert "KEEP" in shown
     assert "UNRESOLVED" in shown
     assert "1 wiped out" in shown
@@ -364,3 +364,77 @@ def test_offline_arr_config_rejects_missing_coordinates_only_in_live_mode(tmp_pa
             tmp_path,
             None,
         )
+
+
+def test_source_durations_and_reporting_modes(capsys: pytest.CaptureFixture[str]) -> None:
+    m = _wrapper()
+    class Response:
+        def ifd_table(self, baseline: int) -> dict[str, object]:
+            assert baseline == 2030
+            return {"index": [30.0, 45, 60, 90, 120, 180], "columns": [63.2, 50, 20], "data": []}
+    assert m._datahub_durations(Response(), 2030) == [30, 45, 60, 90, 120, 180]
+    assert m._durations([30, 45, 60, 90, 120, 180], [], arr=True) == [30, 45, 60, 90, 120, 180]
+    assert m._source_decimals([30.200, 24.50, 33]) == 1
+    assert m._parse_climate_scenarios(["2050:SSP2", "2090:SSP5"]) == ((2050, "SSP2"), (2090, "SSP5"))
+    with pytest.raises(ValueError, match="Unsupported climate"):
+        m._parse_climate_scenarios(["2025:SSP2"])
+    screens = [
+        PatternScreen("20%", 60, None, "bom_ifd", None, ScreeningStatus.ZERO, 0, 0, "IL bound"),
+        PatternScreen("10%", 60, "point:Rangelands West:11:TP01", "bom_ifd", None, ScreeningStatus.POSITIVE, 2, 3, "positive", 1),
+    ]
+    m._show_matrix(screens, enabled=True)
+    output = capsys.readouterr().out
+    assert "60" in output
+    assert "DROP" in output
+    assert "KEEP" in output
+    assert "Rangelands West" in m._region_label(screens)
+
+
+def test_arf_for_350_km2_uses_pytuflow_and_reports_frequent_unity() -> None:
+    pytest.importorskip("pytuflow.arr.arf")
+    m = _wrapper()
+    params = {
+        "a": 0.297, "b": 0.234, "c": 0.449, "d": 0.344,
+        "e": 0.00142, "f": 0.216, "g": 0.129, "h": 0, "i": 0,
+    }
+    class Response:
+        def layer(self, name: str, required: bool = False) -> dict[str, float]:
+            assert name == "ARFParams"
+            assert required
+            return params
+    factors = m._bom_arf_factors(
+        area=350, durations=[120, 1440],
+        aeps=["63.2%", "20%", "1%"], response=Response(), override=None,
+    )
+    assert factors["63.2%", 120] == pytest.approx(1.0)
+    assert 0 < factors["20%", 120] < 1
+    assert 0 < factors["1%", 1440] < 1
+    asserted = m._bom_arf_factors(
+        area=350, durations=[120], aeps=["63.2%", "20%"],
+        response=None, override=0.8,
+    )
+    assert all(value == pytest.approx(0.8) for value in asserted.values())
+
+
+def test_unknown_tp_column_hidden_when_all_resolved(
+    capsys: pytest.CaptureFixture[str], tmp_path: Path,
+) -> None:
+    m = _wrapper()
+    screens = [
+        PatternScreen("20%", 60, None, "bom_ifd", None, ScreeningStatus.ZERO, 0, 0, "IL bound", 0),
+        PatternScreen("10%", 60, "point:west:12:TP01", "bom_ifd", None, ScreeningStatus.POSITIVE, 1, 2, "rain", 1),
+    ]
+    totals = {
+        ("20%", 60, None): (23, 23, 1.0, None, "IL 30; CL 5"),
+        ("10%", 60, None): (37, 33.3, 0.9, None, "IL 30; CL 5"),
+    }
+    m._print_report(screens, totals, "all", None, source_decimal_places=1)
+    shown = capsys.readouterr().out
+    assert "Unknown TP" not in shown
+    assert "DROP" in shown
+    assert "Max bin" in shown
+    csv_path = tmp_path / "audit.csv"
+    m._print_report(screens, totals, "all", csv_path, source_decimal_places=1)
+    contents = csv_path.read_text(encoding="utf-8")
+    assert "unknown_tp" not in contents.splitlines()[0]
+    assert "0.9000" in contents

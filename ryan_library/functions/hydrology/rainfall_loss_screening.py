@@ -14,7 +14,7 @@ from enum import StrEnum
 from importlib import import_module
 from math import isclose, isfinite
 from pathlib import Path
-from typing import Any, Protocol, cast
+from typing import Any, Literal, Protocol, cast
 
 
 class ScreeningStatus(StrEnum):
@@ -43,9 +43,13 @@ class LossSpec:
     initial_loss_mm: float
     continuing_loss_mm_per_hour: float | None = None
     runoff_coefficient: float | None = None
+    continuing_loss_timing: Literal["fractional", "full_increment"] = "fractional"
 
     def __post_init__(self) -> None:
         _nonnegative(self.initial_loss_mm, "initial loss")
+        if self.continuing_loss_timing not in ("fractional", "full_increment"):
+            msg = "Continuing-loss timing must be fractional or full_increment"
+            raise ValueError(msg)
         if (self.continuing_loss_mm_per_hour is None) == (self.runoff_coefficient is None):
             msg = "Specify exactly one of continuing loss or runoff coefficient"
             raise ValueError(msg)
@@ -103,6 +107,7 @@ class PatternScreen:
     excess_mm: float | None
     max_excess_rate_mm_per_hour: float | None
     reason: str
+    max_bin_excess_mm: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,6 +121,9 @@ class EventScreen:
     zero_patterns: int
     positive_patterns: int
     unresolved_patterns: int
+    max_tp_total_excess_mm: float | None = None
+    max_tp_bin_excess_mm: float | None = None
+    max_total_pattern: str | None = None
 
 
 def reduced_burst_initial_loss(storm_initial_loss_mm: float, preburst_depth_mm: float) -> float:
@@ -157,16 +165,18 @@ def _steps(
     return tuple((depth * fraction, float(timestep_min)) for fraction in _fractions(increments, name))
 
 
-def _rainfall_excess(steps: Sequence[tuple[float, float]], losses: LossSpec) -> tuple[float, float]:
-    """Sequential IL, then CL or coefficient; assume uniform rain within each interval.
+def _rainfall_excess(steps: Sequence[tuple[float, float]], losses: LossSpec) -> tuple[float, float, float]:
+    """Compute each TP bin's effective rain and aggregate it across the whole storm.
 
-    In an IL-crossing interval only the post-IL fraction of the time interval
-    has continuing loss applied. This is a screening convention, not a claim
-    of numeric parity with RORBwin, TUFLOW, or an infiltration model.
+    Fractional CL timing uses the post-IL rainfall fraction of the crossing bin.
+    Explicit full_increment timing instead applies the *whole* bin's CL capacity
+    when IL is exhausted, following the separately researched experimental
+    RORBwin 6.52 candidate. Neither profile has full native-model acceptance.
     """
     il_remaining = losses.initial_loss_mm
     total_excess = 0.0
     peak_rate = 0.0
+    max_bin = 0.0
     for rain, dt in steps:
         consumed_il = min(il_remaining, rain)
         il_remaining -= consumed_il
@@ -179,14 +189,16 @@ def _rainfall_excess(steps: Sequence[tuple[float, float]], losses: LossSpec) -> 
                 msg = "Continuing loss must be supplied for IL/CL accounting"
                 raise ValueError(msg)
             post_il_fraction = after_il / rain if rain else 0.0
-            continuing_capacity = continuing_loss * dt / 60.0 * post_il_fraction
+            continuing_fraction = 1.0 if losses.continuing_loss_timing == "full_increment" else post_il_fraction
+            continuing_capacity = continuing_loss * dt / 60.0 * continuing_fraction
             excess = after_il - min(after_il, continuing_capacity)
         total_excess += excess
+        max_bin = max(max_bin, excess)
         peak_rate = max(peak_rate, excess * 60.0 / dt)
-    return total_excess, peak_rate
+    return total_excess, peak_rate, max_bin
 
 
-def _event_excess(event: DesignEvent, pattern: TemporalPattern, losses: LossSpec) -> tuple[float, float]:
+def _event_excess(event: DesignEvent, pattern: TemporalPattern, losses: LossSpec) -> tuple[float, float, float]:
     """Assemble a single complete-storm hyetograph for screening."""
     burst = _steps(event.depth_mm, pattern.timestep_min, pattern.increments_percent, name="Burst")
     if not isclose(len(burst) * pattern.timestep_min, event.duration_min, rel_tol=0, abs_tol=1e-6):
@@ -224,25 +236,26 @@ def screen_event(event: DesignEvent) -> tuple[PatternScreen, ...]:
         pattern: str | None = None,
         excess: float | None = None,
         peak: float | None = None,
+        max_bin: float | None = None,
     ) -> PatternScreen:
         return PatternScreen(
-            event.aep, event.duration_min, pattern, event.source, event.scenario, status, excess, peak, reason
+            event.aep, event.duration_min, pattern, event.source, event.scenario, status, excess, peak, reason, max_bin
         )
 
     if event.losses is None:
         return (make(ScreeningStatus.UNRESOLVED, "No losses supplied"),)
     losses = event.losses
     if total_depth <= losses.initial_loss_mm:
-        return (make(ScreeningStatus.ZERO, "Entire storm depth does not exceed initial loss", excess=0, peak=0),)
+        return (make(ScreeningStatus.ZERO, "Entire storm depth does not exceed initial loss", excess=0, peak=0, max_bin=0),)
     if losses.runoff_coefficient == 0:
-        return (make(ScreeningStatus.ZERO, "Runoff coefficient is zero", excess=0, peak=0),)
+        return (make(ScreeningStatus.ZERO, "Runoff coefficient is zero", excess=0, peak=0, max_bin=0),)
     if not event.patterns:
         return (make(ScreeningStatus.UNRESOLVED, "No applicable temporal patterns supplied"),)
 
     screened: list[PatternScreen] = []
     for pattern in event.patterns:
         try:
-            excess, peak = _event_excess(event, pattern, losses)
+            excess, peak, max_bin = _event_excess(event, pattern, losses)
         except (TypeError, ValueError, OverflowError) as exc:
             screened.append(make(ScreeningStatus.UNRESOLVED, str(exc), pattern.identity))
             continue
@@ -254,6 +267,7 @@ def screen_event(event: DesignEvent) -> tuple[PatternScreen, ...]:
                 pattern.identity,
                 excess,
                 peak,
+                max_bin,
             )
         )
     return tuple(screened)
@@ -276,7 +290,25 @@ def summarize_events(screens: Iterable[PatternScreen]) -> tuple[EventScreen, ...
             if positives
             else ScreeningStatus.ZERO
         )
-        results.append(EventScreen(aep, duration, source, scenario, status, len(group), zeros, positives, unresolved))
+        resolved = [item for item in group if item.excess_mm is not None]
+        worst = max(resolved, key=lambda item: item.excess_mm or 0) if resolved else None
+        max_bin_values = [item.max_bin_excess_mm for item in resolved if item.max_bin_excess_mm is not None]
+        results.append(
+            EventScreen(
+                aep,
+                duration,
+                source,
+                scenario,
+                status,
+                len(group),
+                zeros,
+                positives,
+                unresolved,
+                worst.excess_mm if worst is not None else None,
+                max(max_bin_values) if max_bin_values else None,
+                worst.pattern_id if worst is not None else None,
+            )
+        )
     return tuple(results)
 
 
@@ -330,6 +362,7 @@ def screen_arr_events(
     runoff_coefficients_by_aep: Mapping[str, float] | None = None,
     losses_by_aep: Mapping[str, LossSpec | Mapping[int, LossSpec]] | None = None,
     default_losses: LossSpec | None = None,
+    continuing_loss_timing: Literal["fractional", "full_increment"] = "fractional",
 ) -> tuple[PatternScreen, ...]:
     """Screen already assembled 'pytuflow.arr.engine.EventResult' instances.
 
@@ -348,9 +381,13 @@ def screen_arr_events(
         losses = (
             override
             if override is not None
-            else LossSpec(float(item.initial_loss), runoff_coefficient=float(coeff))
+            else LossSpec(float(item.initial_loss), runoff_coefficient=float(coeff), continuing_loss_timing=continuing_loss_timing)
             if coeff is not None
-            else LossSpec(float(item.initial_loss), continuing_loss_mm_per_hour=float(item.continuing_loss))
+            else LossSpec(
+                float(item.initial_loss),
+                continuing_loss_mm_per_hour=float(item.continuing_loss),
+                continuing_loss_timing=continuing_loss_timing,
+            )
         )
         event = DesignEvent(
             name,
@@ -389,6 +426,8 @@ def screen_bom_ifd(
     default_losses: LossSpec | None = None,
     aeps: Collection[str] | None = None,
     durations_min: Collection[int] | None = None,
+    arf_by_event: Mapping[tuple[str, int], float] | None = None,
+    rainfall_multiplier: float = 1.0,
 ) -> tuple[PatternScreen, ...]:
     """Screen existing 'runoff_routing.bom_ifd.BoMIFD' using PyTUFLOW TPs.
 
@@ -397,6 +436,9 @@ def screen_bom_ifd(
     must already account for preburst, or derive it explicitly with
     'reduced_burst_initial_loss'; to screen full storms use 'screen_event'.
     """
+    if not isfinite(rainfall_multiplier) or rainfall_multiplier <= 0:
+        msg = "Rainfall multiplier must be finite and positive"
+        raise ValueError(msg)
     result: list[PatternScreen] = []
     for probability in imported_ifd.probabilities:
         name = probability.label
@@ -410,7 +452,12 @@ def screen_bom_ifd(
                 losses = schedule.get(duration)
             else:
                 losses = schedule
+            arf = arf_by_event.get((name, duration)) if arf_by_event is not None else 1.0
+            if arf is None or not isfinite(arf) or not 0 <= arf <= 1:
+                msg = f"Missing or invalid ARF for {name}/{duration} minutes"
+                raise ValueError(msg)
             depth_mm = float(str(imported_ifd.depth_mm_at(duration, probability, convert_intensity=True)))
+            depth_mm *= arf * rainfall_multiplier
             # A reader/TP combination can lack patterns for some very short durations.
             # These events remain unresolved unless their depth is provably below IL.
             patterns: tuple[TemporalPattern, ...] = ()
@@ -455,6 +502,8 @@ def screen_bom_ifd_csv(
     default_losses: LossSpec | None = None,
     aeps: Collection[str] | None = None,
     durations_min: Collection[int] | None = None,
+    arf_by_event: Mapping[tuple[str, int], float] | None = None,
+    rainfall_multiplier: float = 1.0,
 ) -> tuple[PatternScreen, ...]:
     """Load BoM All Design/IFD CSV with the existing runoff-routing reader.
 
@@ -482,4 +531,6 @@ def screen_bom_ifd_csv(
         default_losses=default_losses,
         aeps=aeps,
         durations_min=durations_min,
+        arf_by_event=arf_by_event,
+        rainfall_multiplier=rainfall_multiplier,
     )

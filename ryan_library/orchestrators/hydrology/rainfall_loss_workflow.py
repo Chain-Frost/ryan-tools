@@ -1,0 +1,134 @@
+"""Coordinate BoM/ARR design-event rainfall loss screening and event-level evidence.
+
+The wrapper owns editable settings, user-facing presentation, paths and console
+banners. This orchestrator owns event assembly, screening dispatch, and numeric
+evidence records used by the console and CSV reports. Source parsers, ARF/TP
+selection and loss arithmetic remain in PyTUFLOW, runoff-routing, and shared
+hydrology functions respectively. No solver is executed.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Collection, Iterable, Mapping
+from dataclasses import dataclass
+from typing import Any, Literal, cast
+
+from ...functions.hydrology.rainfall_loss_screening import (
+    LossSpec,
+    PatternScreen,
+    screen_arr_events,
+    screen_bom_ifd,
+)
+
+type RainfallRecord = tuple[float, float, float, float | None, str]
+type RainfallRecordKey = tuple[str, int, str | None]
+
+
+@dataclass(frozen=True, slots=True)
+class ScreeningBundle:
+    """Per-pattern outcomes and event evidence used for audit/reporting."""
+
+    patterns: tuple[PatternScreen, ...]
+    rainfall: dict[RainfallRecordKey, RainfallRecord]
+    pattern_sets: tuple[str, ...]
+
+
+def _loss_label(loss: LossSpec | None, *, fallback: str) -> str:
+    if loss is None:
+        return fallback
+    if loss.continuing_loss_mm_per_hour is not None:
+        return f"IL {loss.initial_loss_mm:g}; CL {loss.continuing_loss_mm_per_hour:g}"
+    return f"IL {loss.initial_loss_mm:g}; C {loss.runoff_coefficient:g}"
+
+
+def _pattern_sets(patterns: Iterable[object]) -> tuple[str, ...]:
+    """Read actual TP regions/sources, not inferred climatological region names."""
+    found: set[str] = set()
+    for source in patterns:
+        p = cast(Any, source)
+        kind = str(p.source)
+        region = str(p.region) if p.region is not None else "unspecified region"
+        found.add(f"{kind}: {region}")
+    return tuple(sorted(found))
+
+
+def assemble_arr_events(
+    events: Iterable[object],
+    *,
+    losses_by_aep: Mapping[str, LossSpec | Mapping[int, LossSpec]],
+    default_losses: LossSpec | None,
+    continuing_loss_timing: Literal["fractional", "full_increment"],
+) -> ScreeningBundle:
+    """Coordinate PyTUFLOW event outcomes and preserve point/areal ARF evidence."""
+    sources = tuple(events)
+    screens = screen_arr_events(
+        sources,
+        losses_by_aep=losses_by_aep,
+        default_losses=default_losses,
+        continuing_loss_timing=continuing_loss_timing,
+    )
+    totals: dict[RainfallRecordKey, RainfallRecord] = {}
+    sets: set[str] = set()
+    for source in sources:
+        event = cast(Any, source)
+        aep = str(event.aep_name)
+        duration = int(event.duration)
+        scenario = str(event.cc_scenario) if event.cc_scenario is not None else None
+        overrides = losses_by_aep.get(aep)
+        selected = overrides.get(duration) if isinstance(overrides, Mapping) else overrides
+        losses = selected if selected is not None else default_losses
+        fallback = f"ARR IL {float(event.initial_loss):g}; CL {float(event.continuing_loss):g}"
+        pb = cast(Any, event.preburst)
+        totals[(aep, duration, scenario)] = (
+            float(event.depth_point),
+            float(event.depth_areal),
+            float(event.arf),
+            float(pb.depth) if pb is not None else None,
+            _loss_label(losses, fallback=fallback),
+        )
+        sets.update(_pattern_sets(cast("Iterable[object]", event.patterns)))
+    return ScreeningBundle(screens, totals, tuple(sorted(sets)))
+
+
+def assemble_bom_events(
+    imported_ifd: Any,
+    *,
+    aeps: Collection[str],
+    durations: Collection[int],
+    temporal_patterns: Any,
+    losses_by_aep: Mapping[str, LossSpec | Mapping[int, LossSpec]],
+    default_losses: LossSpec | None,
+    arf_by_event: Mapping[tuple[str, int], float],
+    rainfall_multiplier: float,
+    preburst_depth_mm: float | None,
+) -> ScreeningBundle:
+    """Apply ARFs and factors before a single pass through each selected BoM TP."""
+    screens = screen_bom_ifd(
+        imported_ifd,
+        temporal_patterns=temporal_patterns,
+        losses_by_aep=losses_by_aep,
+        default_losses=default_losses,
+        aeps=aeps,
+        durations_min=durations,
+        arf_by_event=arf_by_event,
+        rainfall_multiplier=rainfall_multiplier,
+    )
+    totals: dict[RainfallRecordKey, RainfallRecord] = {}
+    for source in cast("Iterable[Any]", imported_ifd.probabilities):
+        aep = str(source.label)
+        if aep not in aeps:
+            continue
+        schedule = losses_by_aep.get(aep, default_losses)
+        for duration in durations:
+            loss = schedule.get(duration) if isinstance(schedule, Mapping) else schedule
+            point = float(imported_ifd.depth_mm_at(duration, source, convert_intensity=True))
+            arf = arf_by_event[aep, duration]
+            totals[(aep, duration, None)] = (
+                point,
+                point * arf * rainfall_multiplier,
+                arf,
+                preburst_depth_mm,
+                _loss_label(loss, fallback="losses missing"),
+            )
+    sets = {": ".join(item.pattern_id.split(":", maxsplit=2)[:2]) for item in screens if item.pattern_id}
+    return ScreeningBundle(screens, totals, tuple(sorted(sets)))
