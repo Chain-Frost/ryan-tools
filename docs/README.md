@@ -47,6 +47,7 @@ These documents stay near the code they describe so that browsing a target direc
 | Area | Local document | Relevant work |
 | --- | --- | --- |
 | Missing TUFLOW runs | [Filename ensemble inference](../ryan-scripts/TUFLOW-python/model_management/MISSING_RUNS.md) | Folder scanning, inferred scenario/event permutations and reporting limits |
+| Rainfall design-storm screening | [Rainfall-loss screening](RAIN_LOSS_SCREENING.md) | BoM/ARR 2026 reader reuse, temporal-pattern and preburst loss conventions, zero-excess screening and acceptance limits |
 | Culvert analysis/design | [Culvert analysis and design workflow](CULVERT_WORKFLOW.md) | Project/scenario models, solver boundary, design search, rating curves, CLI and output contracts |
 | TUFLOW culvert engines | [Selectable TUFLOW culvert engines](TUFLOW_CULVERT_ENGINES.md) | TUFLOW Maximums/1d_nwk ingestion, HY-8 vs ryan-culverts dispatch, output and ownership boundaries |
 | TUFLOW initialiser | [Initialiser implementation](../ryan_library/orchestrators/tuflow/initialiser/README.md) | Maintained CLI, shared hydrology/project boundaries and #312 engineering framework |
