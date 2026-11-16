@@ -57,7 +57,7 @@ CSV_REPORT: Path | None = None  # Exclusive-create output; existing reports are 
 CONSOLE_LOG_LEVEL = "WARNING"
 PAUSE_ON_FINISH = True
 
-import argparse  # noqa: I001
+import argparse
 import csv
 import json
 import logging
@@ -92,34 +92,41 @@ def _error(message: str) -> ValueError:
 
 def _choice(name: str, value: str, allowed: set[str]) -> str:
     if value not in allowed:
-        raise _error(f"{name}={value!r} must be one of {sorted(allowed)}.")
+        message = f"{name}={value!r} must be one of {sorted(allowed)}."
+        raise _error(message)
     return value
 
 
 def _aep_selection(available: Sequence[str], chosen: Sequence[str], mode: str) -> list[str]:
     if len(set(available)) != len(available):
-        raise _error("Source contains duplicate AEP labels.")
+        message = "Source contains duplicate AEP labels."
+        raise _error(message)
     if len(set(chosen)) != len(chosen):
-        raise _error("AEP_SELECTION / --aep includes duplicate labels.")
+        message = "AEP_SELECTION / --aep includes duplicate labels."
+        raise _error(message)
     if chosen:
         unknown = [a for a in chosen if a not in available]
         if unknown:
-            raise _error(f"Requested AEP(s) not in the source: {unknown}. Available: {list(available)}")
+            message = f"Requested AEP(s) not in the source: {unknown}. Available: {list(available)}"
+            raise _error(message)
         return list(chosen)
     _choice("AEP_MODE", mode, {"common", "all"})
     matched = list(available) if mode == "all" else [a for a in available if a in COMMON_AEPS]
     if not matched:
-        raise _error(f"No AEPs matched AEP_MODE={mode!r}; use --aep-mode all or --aep.")
+        message = f"No AEPs matched AEP_MODE={mode!r}; use --aep-mode all or --aep."
+        raise _error(message)
     return matched
 
 
 def _loss_from_mapping(entry: object) -> LossSpec:
     if not isinstance(entry, dict):
-        raise _error("Each loss entry must be an object, e.g. {'il_mm':30,'cl_mm_per_hour':5}.")
+        message = "Each loss entry must be an object, e.g. {'il_mm':30,'cl_mm_per_hour':5}."
+        raise _error(message)
     values = cast("dict[str, object]", entry)
     valid = {"il_mm", "cl_mm_per_hour", "runoff_coefficient"}
     if not set(values) <= valid or "il_mm" not in values:
-        raise _error(f"Loss entries require 'il_mm' and 'cl_mm_per_hour' or 'runoff_coefficient': {values}")
+        message = f"Loss entries require 'il_mm' and 'cl_mm_per_hour' or 'runoff_coefficient': {values}"
+        raise _error(message)
     cl = values.get("cl_mm_per_hour")
     coefficient = values.get("runoff_coefficient")
     return LossSpec(
@@ -131,14 +138,17 @@ def _loss_from_mapping(entry: object) -> LossSpec:
 
 def _loss_schedules(raw: object) -> dict[str, LossSpec | dict[int, LossSpec]]:
     if not isinstance(raw, dict):
-        raise _error("LOSS_OVERRIDES_BY_AEP / --losses-json must contain a JSON object.")
+        message = "LOSS_OVERRIDES_BY_AEP / --losses-json must contain a JSON object."
+        raise _error(message)
     items = cast("dict[str, object]", raw)
     schedules: dict[str, LossSpec | dict[int, LossSpec]] = {}
     for aep, entry in items.items():
         if not isinstance(aep, str) or not aep.strip():
-            raise _error("Loss AEP keys must be nonempty source labels.")
+            message = "Loss AEP keys must be nonempty source labels."
+            raise _error(message)
         if not isinstance(entry, dict):
-            raise _error(f"AEP {aep!r} must contain a loss object or duration-keyed loss objects.")
+            message = f"AEP {aep!r} must contain a loss object or duration-keyed loss objects."
+            raise _error(message)
         data = cast("dict[str, object]", entry)
         if "il_mm" in data:
             schedules[aep] = _loss_from_mapping(data)
@@ -146,10 +156,12 @@ def _loss_schedules(raw: object) -> dict[str, LossSpec | dict[int, LossSpec]]:
             durations: dict[int, LossSpec] = {}
             for key, value in data.items():
                 if not key.isdecimal() or int(key) <= 0 or str(int(key)) != key:
-                    raise _error(f"Invalid duration key {key!r} for {aep!r}; use e.g. '60' in minutes.")
+                    message = f"Invalid duration key {key!r} for {aep!r}; use e.g. '60' in minutes."
+                    raise _error(message)
                 durations[int(key)] = _loss_from_mapping(value)
             if not durations:
-                raise _error(f"No losses specified for {aep!r}.")
+                message = f"No losses specified for {aep!r}."
+                raise _error(message)
             schedules[aep] = durations
     return schedules
 
@@ -157,7 +169,8 @@ def _loss_schedules(raw: object) -> dict[str, LossSpec | dict[int, LossSpec]]:
 def _default_loss(il: float | None, cl: float | None, coefficient: float | None) -> LossSpec | None:
     if il is None:
         if cl is not None or coefficient is not None:
-            raise _error("INITIAL_LOSS_MM / --il is required if --cl or --coefficient is supplied.")
+            message = "INITIAL_LOSS_MM / --il is required if --cl or --coefficient is supplied."
+            raise _error(message)
         return None
     return LossSpec(il, continuing_loss_mm_per_hour=cl, runoff_coefficient=coefficient)
 
@@ -186,18 +199,21 @@ def _apply_bom_preburst(
             else adjust(schedule)
         )
     if default is None and not selected:
-        raise _error("BOM_PREBURST_DEPTH_MM requires storm IL/CL or IL+coefficient inputs.")
+        message = "BOM_PREBURST_DEPTH_MM requires storm IL/CL or IL+coefficient inputs."
+        raise _error(message)
     return adjust(default) if default is not None else None, selected
 
 
 def _durations(available: Sequence[int], chosen: Sequence[int], *, arr: bool) -> list[int]:
     selected = list(chosen) if chosen else list(ARR_DURATIONS_MIN) if arr else list(available)
     if not selected or len(selected) != len(set(selected)) or any(t <= 0 for t in selected):
-        raise _error("Duration selection must have unique positive integer minutes.")
+        message = "Duration selection must have unique positive integer minutes."
+        raise _error(message)
     if not arr:
         unknown = [t for t in selected if t not in available]
         if unknown:
-            raise _error(f"Duration(s) not in BoM file: {unknown}. Available: {list(available)}")
+            message = f"Duration(s) not in BoM file: {unknown}. Available: {list(available)}"
+            raise _error(message)
     return selected
 
 
@@ -208,13 +224,17 @@ def _arr_config(
     from pytuflow.arr.config import ArrConfig
 
     if baseline not in {1990, 2030}:
-        raise _error("IFD_BASELINE_YEAR must be 1990 or 2030.")
+        message = "IFD_BASELINE_YEAR must be 1990 or 2030."
+        raise _error(message)
     if not isfinite(area) or area < 0:
-        raise _error("CATCHMENT_AREA_KM2 must be finite and nonnegative.")
+        message = "CATCHMENT_AREA_KM2 must be finite and nonnegative."
+        raise _error(message)
     if not isfinite(latitude) or not -90 <= latitude <= 90:
-        raise _error("LATITUDE must be between -90 and 90.")
+        message = "LATITUDE must be between -90 and 90."
+        raise _error(message)
     if not isfinite(longitude) or not -180 <= longitude <= 180:
-        raise _error("LONGITUDE must be between -180 and 180.")
+        message = "LONGITUDE must be between -180 and 180."
+        raise _error(message)
     data: dict[str, object] = {
         "site": {"name": site, "latitude": latitude, "longitude": longitude, "catchment_area": area},
         "ifd": {"baseline_year": baseline},
@@ -234,7 +254,8 @@ def _arr_response(config: Any, json_path: Path | None) -> Any:
     if json_path is not None:
         raw: object = json.loads(json_path.read_text(encoding="utf-8"))
         if not isinstance(raw, dict):
-            raise _error("ARR response JSON must have a JSON object at its root.")
+            message = "ARR response JSON must have a JSON object at its root."
+            raise _error(message)
         return ArrApiResponse(raw)
     return ArrApiClient().fetch(config)
 
@@ -243,7 +264,8 @@ def _datahub_aeps(response: Any, baseline: int) -> list[str]:
     table: dict[str, object] = response.ifd_table(baseline)
     columns = table.get("columns")
     if not isinstance(columns, list):
-        raise _error("ARR response has no RecIFD AEP columns for selected baseline.")
+        message = "ARR response has no RecIFD AEP columns for selected baseline."
+        raise _error(message)
     return [f"{float(str(column)):g}%" for column in columns]
 
 
@@ -262,7 +284,8 @@ def _bom_patterns(
     lat = latitude if latitude is not None else float(source.latitude) if source.latitude is not None else None
     lon = longitude if longitude is not None else float(source.longitude) if source.longitude is not None else None
     if lat is None or lon is None:
-        raise _error("BoM IFD has no requested coordinates; specify --latitude and --longitude or --no-fetch-tps.")
+        message = "BoM IFD has no requested coordinates; specify --latitude and --longitude or --no-fetch-tps."
+        raise _error(message)
     config = _arr_config(lat, lon, area, SITE_NAME, ["1%"], [60], 2030, "burst", "recommended", directory, None)
     response = _arr_response(config, None)
     point = response.layer("PointTP", required=True)
@@ -353,7 +376,7 @@ def _arguments() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main(args: argparse.Namespace | None = None) -> int:
+def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordinates two distinct data sources
     """Run read-only design event screening; return 1 on validation/processing errors."""
     print_wrapper_banner(
         wrapper_source="hydrology-python/screen_rainfall_losses.py",
@@ -396,13 +419,16 @@ def main(args: argparse.Namespace | None = None) -> int:
         _choice("CONSOLE_LOG_LEVEL", log_level, {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"})
         logging.basicConfig(level=getattr(logging, log_level))
         if report_path is not None and (report_path.exists() or report_path.is_symlink()):
-            raise _error(f"CSV_REPORT already exists; choose a new report path: {report_path}")
+            message = f"CSV_REPORT already exists; choose a new report path: {report_path}"
+            raise _error(message)
         totals: dict[tuple[str, int, str | None], tuple[float, float | None, str]] = {}
         if source == "arr":
             if args.ifd is not None or IFD_CSV is not None:
-                raise _error("ARR mode uses the ARR 2026 RecIFD depths, not the BoM --ifd CSV; choose --source bom.")
+                message = "ARR mode uses the ARR 2026 RecIFD depths, not the BoM --ifd CSV; choose --source bom."
+                raise _error(message)
             if latitude is None or longitude is None:
-                raise _error("ARR mode requires --latitude and --longitude, e.g. -23.08632 119.2755.")
+                message = "ARR mode requires --latitude and --longitude, e.g. -23.08632 119.2755."
+                raise _error(message)
             response_path = _path(args.arr_response if args.arr_response is not None else ARR_RESPONSE_JSON, directory)
             initial_cfg = _arr_config(
                 latitude, longitude, area, site, ["1%"], [60], baseline, storm_mode,
@@ -439,10 +465,12 @@ def main(args: argparse.Namespace | None = None) -> int:
                 )
         else:
             if storm_mode != "burst":
-                raise _error("BoM CSV mode only screens burst rainfall; use --source arr for complete preburst.")
+                message = "BoM CSV mode only screens burst rainfall; use --source arr for complete preburst."
+                raise _error(message)
             ifd_path = _path(args.ifd if args.ifd is not None else IFD_CSV, directory)
             if ifd_path is None or not ifd_path.is_file():
-                raise _error("BoM mode needs a readable --ifd depths_all_design.csv.")
+                message = "BoM mode needs a readable --ifd depths_all_design.csv."
+                raise _error(message)
             from runoff_routing.bom_ifd import read_bom_ifd_csv
 
             imported = read_bom_ifd_csv(ifd_path)
