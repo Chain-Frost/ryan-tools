@@ -454,7 +454,7 @@ def test_unknown_tp_column_hidden_when_all_resolved(
     shown = capsys.readouterr().out
     assert "Unknown TP" not in shown
     assert "DROP" in shown
-    assert "bin mm" in shown
+    # Rich may omit rightmost headings at narrow CI terminal widths.
     csv_path = tmp_path / "audit.csv"
     m._print_report(screens, totals, "all", csv_path, source_decimal_places=1)
     contents = csv_path.read_text(encoding="utf-8")
@@ -647,6 +647,7 @@ def test_compact_headers_aep_group_lines_and_preburst_ratio_csv(
     assert table.rows[2].end_section is False
     assert any("\n" in str(column.header) for column in table.columns)
     assert any(column.header == "PB\nratio" for column in table.columns)
+    assert any(column.header == "Max\nbin mm" for column in table.columns)
     assert all(column.header != "CC" for column in table.columns)
     csv_text = output.read_text(encoding="utf-8")
     assert "preburst_ratio_fraction" in csv_text
