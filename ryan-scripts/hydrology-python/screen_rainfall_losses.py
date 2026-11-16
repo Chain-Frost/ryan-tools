@@ -496,8 +496,7 @@ def _bom_patterns(
         message = "BoM IFD has no requested coordinates; specify --latitude and --longitude or --no-fetch-tps."
         raise _error(message)
     config = _arr_config(
-        lat, lon, area, SITE_NAME, ["1%"], [60], 2030,
-        "main-burst-only", "recommended", directory, None
+        lat, lon, area, SITE_NAME, ["1%"], [60], 2030, "main-burst-only", "recommended", directory, None
     )
     selected_response = response if response is not None else _arr_response(config, None)
     point = selected_response.layer("PointTP", required=True)

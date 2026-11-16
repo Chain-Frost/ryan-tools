@@ -460,15 +460,11 @@ def test_unknown_tp_column_hidden_when_all_resolved(
     assert "0.9000" in contents
 
 
-def test_complete_storm_default_and_renamed_burst_mode(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_complete_storm_default_and_renamed_burst_mode(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Do not silently interpret the former burst label as complete-storm mode."""
     m = _wrapper()
     assert m.STORM_MODE == "complete"
-    monkeypatch.setattr(
-        sys, "argv", [str(SCRIPT), "--source", "arr", "--storm-mode", "main-burst-only"]
-    )
+    monkeypatch.setattr(sys, "argv", [str(SCRIPT), "--source", "arr", "--storm-mode", "main-burst-only"])
     assert m._arguments().storm_mode == "main-burst-only"
     monkeypatch.setattr(sys, "argv", [str(SCRIPT), "--storm-mode", "complete"])
     assert m._arguments().storm_mode == "complete"
@@ -479,17 +475,14 @@ def test_complete_storm_default_and_renamed_burst_mode(
 
     pytest.importorskip("pytuflow.arr.config")
     complete = m._arr_config(
-        -23.08632, 119.2755, 350.0, "test site", ["1%"], [120], 2030,
-        "complete", "recommended", tmp_path, None
+        -23.08632, 119.2755, 350.0, "test site", ["1%"], [120], 2030, "complete", "recommended", tmp_path, None
     )
     main_only = m._arr_config(
-        -23.08632, 119.2755, 350.0, "test site", ["1%"], [120], 2030,
-        "main-burst-only", "recommended", tmp_path, None
+        -23.08632, 119.2755, 350.0, "test site", ["1%"], [120], 2030, "main-burst-only", "recommended", tmp_path, None
     )
     assert complete.complete_storm is True
     assert main_only.complete_storm is False
     with pytest.raises(ValueError, match="STORM_MODE"):
         m._arr_config(
-            -23.08632, 119.2755, 350.0, "test site", ["1%"], [120], 2030,
-            "burst", "recommended", tmp_path, None
+            -23.08632, 119.2755, 350.0, "test site", ["1%"], [120], 2030, "burst", "recommended", tmp_path, None
         )
