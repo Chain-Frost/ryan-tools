@@ -620,8 +620,8 @@ def _print_tp_details(screens: Sequence[PatternScreen], *, enabled: bool) -> Non
             item.scenario or "baseline",
             item.pattern_id or "independent/unavailable",
             item.status.value,
-            "-" if item.excess_mm is None else f"{item.excess_mm:.4f}",
-            "-" if item.max_bin_excess_mm is None else f"{item.max_bin_excess_mm:.4f}",
+            _excess_cell(item.excess_mm),
+            _excess_cell(item.max_bin_excess_mm),
         )
     Console().print(table)
 
