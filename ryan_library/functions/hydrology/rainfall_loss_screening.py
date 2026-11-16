@@ -418,6 +418,13 @@ def screen_arr_datahub(config: object, response: object) -> tuple[PatternScreen,
     return screen_arr_events(engine.run())
 
 
+def _validate_arf_factor(value: float | None, *, aep: str, duration: int) -> float:
+    if value is None or not isfinite(value) or not 0 <= value <= 1:
+        msg = f"Missing or invalid ARF for {aep}/{duration} minutes"
+        raise ValueError(msg)
+    return value
+
+
 def screen_bom_ifd(
     imported_ifd: _BoMSource,
     *,
@@ -452,10 +459,11 @@ def screen_bom_ifd(
                 losses = schedule.get(duration)
             else:
                 losses = schedule
-            arf = arf_by_event.get((name, duration)) if arf_by_event is not None else 1.0
-            if arf is None or not isfinite(arf) or not 0 <= arf <= 1:
-                msg = f"Missing or invalid ARF for {name}/{duration} minutes"
-                raise ValueError(msg)
+            arf = _validate_arf_factor(
+                arf_by_event.get((name, duration)) if arf_by_event is not None else 1.0,
+                aep=name,
+                duration=duration,
+            )
             depth_mm = float(str(imported_ifd.depth_mm_at(duration, probability, convert_intensity=True)))
             depth_mm *= arf * rainfall_multiplier
             # A reader/TP combination can lack patterns for some very short durations.

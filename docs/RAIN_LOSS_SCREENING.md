@@ -45,6 +45,149 @@ selected initial-loss mode must match the intended hydraulic model.
 PyTUFLOW may automatically switch particular burst-loss cells to complete
 storm when a fixed burst IL is unavailable.
 
+### Worked wrapper settings: 350 km² catchment
+
+The following is a **configuration example**, not a claim that the source
+coordinate has a precisely 350 km² catchment or any particular recommended
+losses. Edit these values near the top of the script:
+
+```python
+SOURCE = "arr"
+LATITUDE: float | None = -23.08632
+LONGITUDE: float | None = 119.2755
+CATCHMENT_AREA_KM2 = 350.0
+INITIAL_LOSS_MM: float | None = 50.0
+CONTINUING_LOSS_MM_PER_HOUR: float | None = 5.0
+RUNOFF_COEFFICIENT: float | None = None
+ARF_OVERRIDE: float | None = None  # Use Data Hub ARF; do not force unity.
+LOSS_TIMING = "fractional"  # Or "full_increment" for qualified RORB experimental comparisons.
+STORM_MODE = "burst"
+CLIMATE_SCENARIOS: list[str] = ["2050:SSP2"]
+AEP_MODE = "common"
+DURATION_SELECTION_MIN: list[int] = []  # All available RecIFD durations.
+SHOW_MATRIX = True
+```
+
+With `ARF_OVERRIDE=None`, PyTUFLOW's ARR ARF is applied by the
+ARR engine **before rainfall losses**; the point rainfall, actual
+per-AEP/per-duration ARF, and adjusted rainfall are printed in different
+columns. Note that **63.2% AEP is above the normal ARR 50%-AEP upper
+limit for ARF**, so the factor remains **1.0** by default, even at
+350 km². For e.g. 20% AEP at 120 minutes, the ARR short-duration
+ARF at 350 km² is approximately 0.7814; the exact factor may vary
+with source selection and policy. An explicitly supplied
+`--arf-override` applies the same factor to every AEP/duration and
+is labelled in the output.
+
+**BoM** screening also uses PyTUFLOW's ARF calculator, not a copied
+implementation. For a 350 km² catchment it needs ARR `ARFParams`
+from a saved `--arr-response` JSON or live Data Hub request.
+If a local JSON is available it overrides online lookup. A BoM-based
+rainfall multiplier (`RAINFALL_FACTOR` / `--rainfall-factor 1.15`)
+applies to rainfall depth **before IL/CL**; this is not a substitute
+for the ARR 2026 recommended climate-change dataset.
+
+### Climate-change rainfall
+
+For ARR Data Hub rainfall, `--cc 2050:SSP2 --cc 2090:SSP5`,
+or editable `CLIMATE_SCENARIOS = ["2050:SSP2", "2090:SSP5"]`,
+uses PyTUFLOW's climate-change engine to assemble both baseline
+and climate-adjusted rainfall/loss events. The engine derives
+the rainfall from the Data Hub's climate-change factors and
+corresponding baseline IFD, not from a manually assumed constant
+uplift. Each scenario is printed separately; the matrix is split
+by scenario to avoid mixing different climate periods.
+
+**Complete versus burst storm — two alternative loss conventions:**
+
+- `STORM_MODE = "burst"`: analyse the **design rainfall burst only**.
+  Apply the **burst initial loss**, which PyTUFLOW obtains using
+  the selected ARR preburst treatment. Do not prepend the preburst again.
+- `STORM_MODE = "complete"`: explicitly prepend the **preburst rainfall**
+  (at its own temporal steps), then analyse the design burst. Apply
+  the **full storm initial loss** once across this combined series.
+- For ARR cells whose recommended burst IL is unavailable or would be
+  negative, PyTUFLOW may require the complete-storm method even when
+  the user selected burst. The output shows the actual preburst depth
+  where supplied; model equivalence is still subject to acceptance.
+- **User-specified** `--il 50 --cl 5` overrides the loss parameters
+  after ARR event assembly. In burst mode this is interpreted as
+  **burst IL**; in complete mode it is **full storm IL**. The wrapper
+  does not automatically infer or reconcile those interpretations.
+
+### Why CL can leave excess when total rain barely exceeds IL
+
+Consider 30.2 mm of burst rainfall, 0.3926 mm of explicit
+preburst, 30 mm storm IL and 5 mm/h CL. The full-storm total is
+30.5926 mm, leaving **0.5926 mm** after IL, but whether CL removes
+the remainder depends on **the actual TP increment duration** and
+when IL is exhausted.
+
+If the crossing occurs in a 6-minute bin, full-bin CL capacity
+is only `5 × 6/60 = 0.5 mm`, leaving at least 0.0926 mm. If the
+crossing occurs in a 12-minute bin, the full-bin capacity is
+`1.0 mm`, which could remove the remainder. The default
+**fractional** treatment further reduces CL capacity within
+the crossing bin. Thus a positive result is possible despite
+a 5 mm/h continuing loss. Use `--tp-details` to see individual
+TP results and `--loss-timing full_increment` for a qualified
+sensitivity comparison, not as an unverified silent switch to
+RORB/TUFLOW equivalence.
+
+### Reporting and matrix
+
+The console prints source coordinates when available, catchment area,
+ARF method, requested loss timing and climate scenarios, plus the
+actual loaded **TP source and regional labels** (e.g.
+`point: Rangelands West`). TP regions are read from the input
+patterns, not inferred from the coordinates. Each AEP/duration row
+shows **point IFD**, **ARF**, **used rainfall depth**, applied losses
+and preburst, and the counts:
+
+- `Zero TP`: selected TP evaluations returning zero excess.
+  A single zero with no TP identity can instead be a
+  **pattern-independent depth bound**; it is not proof that exactly
+  one TP was examined.
+- `Positive TP`: selected TP evaluations returning nonzero excess.
+  This means the event is **KEEP**, not that hydraulic flow is material.
+- `Unknown TP`: missing/invalid data or TP evaluations that could
+  not be decided; the column is omitted when it is zero for
+  every displayed row. Such events are not dropped.
+
+`DROP` replaces the previous `WIPE OUT` label. The duration-by-AEP
+status matrix shows `DROP`, `KEEP`, or `?`, with
+one matrix for each ARR climate scenario.
+
+Two distinct excess diagnostics are shown:
+
+- `Max TP total (mm)` is the maximum **sum of applied excess rainfall
+  increments** over one TP realization, taken across all selected TPs.
+  This is a total depth, not a peak flow.
+- `Max bin (mm)` is the largest single **excess depth in one TP bin**
+  across the selected TPs. It is not an hourly rate; TP bins can differ
+  in duration. For a per-TP table, use `--tp-details`.
+
+Source rainfall depth display decimals are derived from the maximum
+meaningful decimal precision in the source table; ARF is shown to
+four decimal places, and ARF/CC-adjusted rainfall retains enough
+precision to distinguish a marginal loss threshold.
+
+### Materials rainfall losses vs soils ILCL infiltration in TUFLOW
+
+This screening model concerns **rainfall excess before applying
+rainfall as a hydrodynamic boundary**, as in TUFLOW materials-file
+initial/continuing rainfall losses. It is **not an infiltration model**:
+TUFLOW `.tsoilf` `ILCL` applies water to cells first, then
+infiltrates into soil depending on water, wetting and soil conditions.
+A zero rainfall-excess verdict cannot automatically be used to
+prune all TUFLOW soil-infiltration runs.
+
+See the [TUFLOW Classic/HPC 2026.3 rainfall-loss manual](https://docs.tuflow.com/classic-hpc/manual/2026.3/07-Boundaries-and-Initial-Conditions.html)
+and [soil versus material definitions](https://docs.tuflow.com/classic-hpc/manual/2026.3/06-2D-Domains.html)
+for the authoritative distinctions. In particular, a continuing
+loss rate of 5 mm/h does not mean 5 mm is removed **per TP bin**.
+
+
 ### Saved ARR Data Hub inputs and strict offline mode
 
 The wrapper supports **local overrides** for both the Data Hub JSON response
@@ -114,6 +257,15 @@ is unresolved rather than automatically excluded. The BoM reader is a
 separate optional development package and must be installed for this mode.
 There is no copy-pasted parser in `ryan-tools`.
 
+When BoM IFD rainfall is combined with a catchment area >1 km²,
+regional ARF coefficients must be available from a matching Data Hub JSON
+(or obtained live) unless an explicit ARF override is supplied.
+In **strict offline** BoM mode, missing coefficients fail before a request
+rather than downloading silently. For **area ≥75 km²**, a BoM run using
+locally supplied point temporal patterns also requires a matching local
+areal TP increments CSV; point TPs must not silently replace the applicable
+areal set.
+
 A BoM burst-only IL supplied by `--il` is assumed **already adjusted for
 preburst**. To provide a storm IL plus a known preburst depth, use
 `--bom-preburst-depth MM`; subtraction is applied once, using
@@ -134,9 +286,10 @@ arbitrary preburst into an unmatched BoM export.
   conversion.
 - `--duration 60 120 360 1440` selects minutes. An empty duration
   selection uses every BoM CSV row or the wrapper's editable
-  `ARR_DURATIONS_MIN` for Data Hub.
-- `--view all` shows the complete table; `--view zero` shows only
-  wiped-out combinations and `--view keep` shows the rest.
+  source RecIFD duration rows for the Data Hub. Set `ARR_DURATIONS_MIN`
+  only if an explicit ARR-specific default subset is intended.
+- `--view all` shows every combination; `--view zero` shows only
+  `DROP` combinations and `--view keep` shows the remaining items.
 
 Losses can vary by AEP and duration using the editable
 `LOSS_OVERRIDES_BY_AEP` dictionary or `--losses-json filename.json`:
@@ -162,8 +315,8 @@ by the Data Hub preburst calculator.
 
 Each AEP/duration row shows rainfall depth, effective losses/preburst
 information, zero/positive/unresolved selected TP counts, and one of
-`WIPE OUT`, `KEEP`, or `UNRESOLVED`. The summary includes total zero,
-positive and unresolved combinations. A zero verdict is conditional on
+`DROP`, `KEEP`, or `UNRESOLVED`. The summary includes total zero,
+positive and unresolved combinations and a duration-by-AEP matrix. A zero verdict is conditional on
 the selected TPs and stated loss convention; it does **not** indicate
 an independently verified RORB/TUFLOW no-flow result.
 
@@ -202,9 +355,11 @@ Choose exactly one `LossSpec` form:
 
 * `LossSpec(initial_loss_mm=30, continuing_loss_mm_per_hour=5)` uses sequential
   initial loss followed by continuing loss. Each temporal pattern increment is
-  assumed uniformly distributed across its timestep. In the increment that
-  exhausts IL, only the remaining fraction of that increment's time is
-  available for CL. CL does not act before IL is exhausted in this convention.
+  assumed uniformly distributed across its timestep. The **fractional** default
+  uses the post-IL fraction of the IL-crossing increment for CL. Explicit
+  `continuing_loss_timing="full_increment"` uses the full TP-bin CL capacity
+  when IL has been exhausted, as a **separately qualified experimental
+  RORBwin 6.52 candidate**, not an established TUFLOW method.
 * `LossSpec(initial_loss_mm=30, runoff_coefficient=0.25)` applies the constant
   coefficient to rainfall remaining after IL. The coefficient must be in [0,1].
 

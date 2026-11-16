@@ -51,11 +51,13 @@ LOSS_TIMING = "fractional"  # "fractional" conservative default; "full_increment
 ARF_OVERRIDE: float | None = None  # Explicit constant ARF; None uses ARR/PyTUFLOW duration/AEP-specific ARFs.
 RAINFALL_FACTOR = 1.0  # BoM-only manual rainfall multiplier (e.g. 1.15); not a Data Hub SSP climate scenario.
 CLIMATE_SCENARIOS: list[str] = []  # ARR only: ["2050:SSP2", "2090:SSP5"]. Baseline is also calculated.
-SHOW_MATRIX = True  # Print duration rows × AEP columns, separated by climate scenario.
+SHOW_MATRIX = True  # Print duration rows by AEP columns, separated by climate scenario.
 # Per-AEP losses may also be duration-keyed, e.g. {"1%": {"60": {"il_mm": 25, "cl_mm_per_hour": 5}}}.
 LOSS_OVERRIDES_BY_AEP: dict[str, object] = {}
 LOSS_OVERRIDES_JSON: Path | None = None  # JSON object using the same per-AEP format as above.
-STORM_MODE = "burst"  # ARR "burst" uses preburst-adjusted burst IL; "complete" prepends preburst.
+# "burst" = design burst only with preburst-adjusted burst IL.
+# "complete" = preburst rainfall + design burst, with full storm IL applied once.
+STORM_MODE = "burst"
 PREBURST_PERCENTILE = "recommended"  # "recommended", "10%", "25%", "50%", "75%", "90%".
 BOM_PREBURST_DEPTH_MM: float | None = None  # Only explicit subtraction from a storm IL, NOT complete storm.
 FETCH_TPS_FOR_BOM = True  # Fetch ARR point/areal patterns using BoM file's requested coordinates.
@@ -438,7 +440,7 @@ def _show_matrix(screens: Sequence[PatternScreen], *, enabled: bool) -> None:
         group = [event for event in all_events if event.scenario == scenario]
         durations = sorted({int(event.duration_min) for event in group})
         indexed = {(int(event.duration_min), event.aep): event.status for event in group}
-        matrix = Table(title=f"Duration × AEP event status — {scenario or 'baseline'}")
+        matrix = Table(title=f"Duration by AEP event status — {scenario or 'baseline'}")
         matrix.add_column("Duration (min)", justify="right")
         for label in labels:
             matrix.add_column(label, justify="center")
@@ -470,6 +472,12 @@ def _bom_patterns(
     from pytuflow.arr.temporal_patterns import TemporalPatternSet
 
     if point_csv is not None:
+        if area >= 75 and areal_csv is None:
+            message = (
+                "Catchment area >=75 km² requires a matching areal TP increments CSV "
+                "when BoM point patterns are supplied locally; do not substitute point TPs."
+            )
+            raise _error(message)
         return TemporalPatternSet.from_files(
             str(point_csv), str(areal_csv) if areal_csv is not None else None, catchment_area=area
         )
@@ -595,8 +603,11 @@ def _print_report(
     show_unknown = any(
         item.unresolved_patterns > 0
         for item in events
-        if (view == "all" or view == "zero" and item.status == ScreeningStatus.ZERO
-            or view == "keep" and item.status != ScreeningStatus.ZERO)
+        if (
+            view == "all"
+            or (view == "zero" and item.status == ScreeningStatus.ZERO)
+            or (view == "keep" and item.status != ScreeningStatus.ZERO)
+        )
     )
     if show_unknown:
         table.add_column("Unknown TP", justify="right")
@@ -646,13 +657,13 @@ def _print_report(
         ]
         records.append(row)
         table.add_row(*row)
-    console = Console()
+    console = Console(width=175)
     console.print(table)
     wiped = sum(e.status == ScreeningStatus.ZERO for e in events)
     unknown = sum(e.status == ScreeningStatus.UNRESOLVED for e in events)
     console.print(
         f"{len(events)} AEP/duration/scenario combinations screened: "
-        f"{wiped} wiped out; {len(events) - wiped - unknown} positive; {unknown} unresolved."
+        f"{wiped} DROP; {len(events) - wiped - unknown} KEEP; {unknown} unresolved."
     )
     console.print(
         "Max TP total = maximum over selected TPs of sum of positive excess-rainfall bins; "
@@ -928,6 +939,12 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
             ):
                 query_latitude = provenance_latitude
                 query_longitude = provenance_longitude
+                if response_path is None and offline:
+                    message = (
+                        "Strict offline BoM ARF requires --arr-response saved Data Hub JSON "
+                        "containing ARFParams, or an explicit --arf-override."
+                    )
+                    raise _error(message)
                 if response_path is None and (query_latitude is None or query_longitude is None):
                     message = "BoM ARF requires ARR Data Hub coordinates or a saved --arr-response JSON."
                     raise _error(message)

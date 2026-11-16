@@ -121,7 +121,7 @@ def test_console_table_and_exclusive_csv(tmp_path: Path, capsys: pytest.CaptureF
     assert "DROP" in shown
     assert "KEEP" in shown
     assert "UNRESOLVED" in shown
-    assert "1 wiped out" in shown
+    assert "1 DROP" in shown
     assert output.exists()
     with pytest.raises(FileExistsError):
         m._print_report(screens, depth, "all", output)
@@ -180,15 +180,11 @@ def test_strict_offline_input_requirements(tmp_path: Path) -> None:
         areal_tp_path=areal,
         fetch_bom_tps=True,
     )
-    with pytest.raises(ValueError, match="ARR-only"):
-        m._validate_local_sources(
-            source="bom",
-            offline=False,
-            response_path=response,
-            point_tp_path=point,
-            areal_tp_path=None,
-            fetch_bom_tps=False,
-        )
+    # A saved ARR response is also allowed to provide BoM ARF coefficients.
+    m._validate_local_sources(
+        source="bom", offline=False, response_path=response, point_tp_path=point,
+        areal_tp_path=None, fetch_bom_tps=False,
+    )
     with pytest.raises(ValueError, match="--no-fetch-tps"):
         m._validate_local_sources(
             source="bom",

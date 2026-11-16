@@ -21,6 +21,9 @@ from ryan_library.functions.hydrology.rainfall_loss_screening import (
 )
 
 
+from ryan_library.orchestrators.hydrology.rainfall_loss_workflow import assemble_arr_events, assemble_bom_events
+
+
 def _pattern(depth_count: int, increments: tuple[float, ...], *, identity: str = "1") -> TemporalPattern:
     return TemporalPattern(identity, 60.0 / depth_count, increments, 1)
 
@@ -324,3 +327,39 @@ def test_bom_arf_and_manual_cc_multiplier_precede_losses() -> None:
             arf_by_event={("20%", 60): 1.0},
             aeps={"20%"},
         )
+
+
+def test_orchestrator_arr_records_arfs_and_tp_region() -> None:
+    pattern = SimpleNamespace(
+        source="point", region="Rangelands West",
+        event_id=17, tp_number=1, timestep=60, increments=[100],
+    )
+    source = SimpleNamespace(
+        aep_name="1%", duration=60, depth_point=42.0,
+        arf=0.8, depth_areal=33.6, initial_loss=30.0,
+        continuing_loss=5.0, patterns=[pattern], preburst=None, cc_scenario="2050_SSP2",
+    )
+    bundle = assemble_arr_events(
+        [source], default_losses=None, losses_by_aep={},
+        continuing_loss_timing="full_increment",
+    )
+    assert len(bundle.patterns) == 1
+    assert bundle.rainfall["1%", 60, "2050_SSP2"] == (42.0, 33.6, 0.8, None, "ARR IL 30; CL 5")
+    assert bundle.pattern_sets == ("point: Rangelands West",)
+
+
+def test_orchestrator_bom_applies_arf_before_screening() -> None:
+    bundle = assemble_bom_events(
+        _BoM(),
+        aeps={"20%"},
+        durations={60, 1440},
+        temporal_patterns=_Provider(),
+        losses_by_aep={"20%": LossSpec(30, continuing_loss_mm_per_hour=0)},
+        default_losses=None,
+        arf_by_event={("20%", 60): 1.0, ("20%", 1440): 0.5},
+        rainfall_multiplier=1,
+        preburst_depth_mm=None,
+    )
+    assert len(bundle.patterns) == 2
+    assert all(s.status == ScreeningStatus.ZERO for s in bundle.patterns)
+    assert bundle.rainfall["20%", 1440, None] == (37.0, 18.5, 0.5, None, "IL 30; CL 0")
