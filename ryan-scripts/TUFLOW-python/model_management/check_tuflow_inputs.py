@@ -85,6 +85,7 @@ from collections.abc import Sequence
 from ryan_library.functions.tuflow.command_plan import CommandPlan, read_command_plans
 from ryan_library.functions.wrapper_utils import add_no_pause_cli_argument, pause_console, print_wrapper_banner
 from ryan_library.orchestrators.tuflow.command_preflight import (
+    CommandPreflightIssueGroup,
     CommandPreflightReport,
     check_command_plan,
     group_preflight_issues,
@@ -164,6 +165,20 @@ def _plan_manifest(plan: CommandPlan) -> dict[str, object]:
     }
 
 
+def _print_group_reference_count(group: CommandPreflightIssueGroup, *, advisory: bool = False) -> None:
+    """Describe repeated requests without dropping individual CSV rows."""
+    if len(group.issues) <= 1:
+        return
+    if advisory:
+        print(f"     Repeated references: {len(group.issues)}; full details in the findings CSV.")
+        return
+    print(
+        f"     Repeated references: {len(group.issues)} (same run, source, status and type; "
+        f"{len({item.finding.detail for item in group.issues})} distinct details)"
+    )
+    print("     Full per-boundary details: create a findings CSV with --report.")
+
+
 def _print_preflight(
     result: CommandPreflightReport,
     *,
@@ -218,12 +233,7 @@ def _print_preflight(
                 required = ", ".join(repr(column) for column in finding.csv_columns)
                 detail = f"{detail.rstrip('. ')}. Required CSV columns: {required}."
             print(f"     Detail   : {detail}")
-            if len(group.issues) > 1:
-                print(
-                    f"     Repeated references: {len(group.issues)} (same run, source, status and type; "
-                    f"{len({item.finding.detail for item in group.issues})} distinct details)"
-                )
-                print("     Full per-boundary details: create a findings CSV with --report.")
+            _print_group_reference_count(group)
 
     if result.warnings:
         _section("ADVISORY CRS WARNINGS")
@@ -235,8 +245,7 @@ def _print_preflight(
             print(f"  {number}. WARNING — {tcf} (run {warning.run.index}; {finding.kind or 'metadata'})")
             print(f"     Reference: {reference}")
             print(f"     Detail   : {finding.detail}")
-            if len(group.issues) > 1:
-                print(f"     Repeated references: {len(group.issues)}; full details in the findings CSV.")
+            _print_group_reference_count(group, advisory=True)
         print("  Advisory CRS warnings do not change the PASS/FAIL result.")
 
     _section("RESULT")
