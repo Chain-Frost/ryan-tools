@@ -35,6 +35,13 @@ This PR candidate implements only the **ryan-tools-owned reporting work**:
   checked runs, affected runs, blocking findings and advisories.
 - Synthetic grouping and CSV provenance, report collision, runner options,
   conservative run/source separation and aggregation tests were added.
+- 17 Nov additional request: add one blank console line between completed
+  `Missing:` summaries and the next scenario table in
+  `find_missing_tlf_runs.py`; coverage counts and summaries remain unchanged.
+- Hosted CI at `61ceb9c` found a synthetic preflight mock missing the
+  newly required inventory-counter fields (3,102 passed, 16 skipped, one
+  regression failure). Align the mock with the complete report contract;
+  do not weaken runtime validation or suppress missing-counter failures.
 
 ### Original measured baseline (not rerun)
 
@@ -93,6 +100,17 @@ The changed library also requires the normal
 eligible environment before a release. No merge or issue closure.
 
 ## Progress
+
+### 2026-11-17 — additional issue comment
+
+Added a presentation-only newline between successive ensemble scenario
+coverage groups, alongside a multi-scenario console regression test. The
+standalone wrapper revision is incremented; no filename inference, coverage
+counts, missing summaries, export semantics or parser behaviour changes.
+Updated the synthetic standalone preflight mock to include the public
+inspection counters, correcting the latest hosted regression without making
+unknown actual validator output pass as complete. Exact-head validation
+remains required; performance benchmarking remains outstanding.
 
 ### 2026-11-17
 
