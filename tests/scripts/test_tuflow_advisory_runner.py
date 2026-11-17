@@ -327,7 +327,10 @@ def test_repeated_bc_sources_have_compact_console_groups_without_losing_counts(
     result.context_seconds = 4.5
     result.inventory_seconds = 2.75
 
-    monkeypatch.setattr(command_preflight, "check_command_plan", lambda *_a, **_kw: result)
+    def return_report(*_args: object, **_kwargs: object) -> CommandPreflightReport:
+        return result
+
+    monkeypatch.setattr(command_preflight, "check_command_plan", return_report)
     caplog.set_level(logging.INFO)
     assert runner.check_plan_only(plan) is False
     grouped = [record.message for record in caplog.records if "Input check run" in record.message]
@@ -365,7 +368,10 @@ def test_preflight_csv_export_is_opt_in_and_no_overwrite(
         )
         for i in range(2)
     ]
-    monkeypatch.setattr(command_preflight, "check_command_plan", lambda *_a, **_kw: report)
+    def return_report(*_args: object, **_kwargs: object) -> CommandPreflightReport:
+        return report
+
+    monkeypatch.setattr(command_preflight, "check_command_plan", return_report)
     destination = tmp_path / "reports" / "findings.csv"
     caplog.set_level(logging.INFO)
     assert runner.check_plan_only(plan, report_csv=destination) is False

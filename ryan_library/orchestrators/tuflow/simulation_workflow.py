@@ -48,9 +48,6 @@ class WorkflowControls:
         if type(self.export_commands) is not bool or type(self.check_inputs) is not bool:
             message = "Workflow export_commands and check_inputs must be booleans."
             raise ValueError(message)
-        if self.preflight_report_csv is not None and not isinstance(self.preflight_report_csv, Path):
-            message = "Preflight report CSV must be a Path or None."
-            raise ValueError(message)
 
     @property
     def exporting(self) -> bool:
