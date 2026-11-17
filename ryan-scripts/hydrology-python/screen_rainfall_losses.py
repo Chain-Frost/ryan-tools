@@ -486,6 +486,18 @@ def _arf_cell(arf: float, *, flagged: bool = False) -> Text:
     return Text(f"{arf:.4f}{suffix}", style=f"#{shade:02x}{shade:02x}{shade:02x}")
 
 
+def _arf_area_duration_cautions(area: float, duration: int) -> tuple[str, ...]:
+    """Separate published area/duration applicability from AEP handling."""
+    notes: list[str] = []
+    if area > 1000 and duration <= 720:
+        notes.append("SHORT_AREA_GT_1000_UNSUPPORTED")
+    if area > 30000:
+        notes.append("AREA_GT_30000_UNSUPPORTED")
+    if duration > 10080:
+        notes.append("DURATION_GT_168_HOURS_UNSUPPORTED")
+    return tuple(notes)
+
+
 def _arf_policy_cautions(
     totals: Mapping[tuple[str, int, str | None], tuple[float, float, float, float | None, str]],
     *,
@@ -507,12 +519,7 @@ def _arf_policy_cautions(
                 notes.append("AEP_LT_0_05_UNITY" if arf == 1 else "AEP_LT_0_05_UNSUPPORTED")
             elif duration < 30:
                 notes.append("DURATION_LT_30_EXTRAPOLATED")
-            if area > 1000 and duration <= 720:
-                notes.append("SHORT_AREA_GT_1000_UNSUPPORTED")
-            if area > 30000:
-                notes.append("AREA_GT_30000_UNSUPPORTED")
-            if duration > 10080:
-                notes.append("DURATION_GT_168_HOURS_UNSUPPORTED")
+            notes.extend(_arf_area_duration_cautions(area, duration))
         if arf == 0:
             notes.append("ZERO_ARF_REVIEW")
         if notes:
@@ -590,7 +597,8 @@ def _arr_source_preburst_ratios(
             ratios[aep, duration, scenario] = None
             continue
         if not isfinite(ratio) or ratio < 0:
-            raise _error(f"Invalid ARR source preburst ratio for {aep}/{duration} min: {ratio}")
+            message = f"Invalid ARR source preburst ratio for {aep}/{duration} min: {ratio}"
+            raise _error(message)
         ratios[aep, duration, scenario] = ratio
     return ratios
 
@@ -734,9 +742,9 @@ def _print_provenance(
         console.print("WARNING: ARF not applied at 63.2% AEP (>50%); ARF 1.0000 is a unity fallback, not calculated.")
     if area > 1 and not arf_source.startswith("explicit factor"):
         if any(720 < item.duration_min < 1440 for item in screens):
-            console.print("ARF duration interpolation (12–24 h): ARR Eq. 2.4.3 (Ladson Table 2.4.1 correction).")
+            console.print("ARF duration interpolation (12-24 h): ARR Eq. 2.4.3 (Ladson Table 2.4.1 correction).")
         if area < 10:
-            console.print("ARF area interpolation (1–10 km²): ARR Eq. 2.4.4.")
+            console.print("ARF area interpolation (1-10 km²): ARR Eq. 2.4.4.")
     console.print(f"Temporal pattern set(s): {', '.join(pattern_sets) if pattern_sets else _region_label(screens)}")
 
 

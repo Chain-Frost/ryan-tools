@@ -717,9 +717,11 @@ def test_arf_cautions_grouped_above_50_below_30_and_zero(
         loss_timing="full_increment", climate="baseline only", arf_cautions=flags,
     )
     shown = capsys.readouterr().out
-    assert "63.2%" in shown and "unity fallback" in shown
+    assert "63.2%" in shown
+    assert "unity fallback" in shown
     assert "30-minute derivation limit" in shown
-    assert "zero" in shown.lower() and "ARF" in shown
+    assert "zero" in shown.lower()
+    assert "ARF" in shown
     csv_path = tmp_path / "cautions.csv"
     m._print_report(screens, totals, "all", csv_path, arf_cautions=flags)
     rows = list(csv.DictReader(io.StringIO(csv_path.read_text(encoding="utf-8"))))
