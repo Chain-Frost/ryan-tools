@@ -265,7 +265,7 @@ def test_arr_full_storm_il_override_when_engine_omits_negligible_preburst() -> N
         cc_scenario=None,
     )
     full_il = LossSpec(30.0, continuing_loss_mm_per_hour=0.0)
-    ratios = {("1%", 60, None): 0.005}
+    ratios: dict[tuple[str, int, str | None], float | None] = {("1%", 60, None): 0.005}
 
     screened = screen_arr_events([event], default_losses=full_il, complete_storm=True, source_preburst_ratios=ratios)
     assert screened[0].status == ScreeningStatus.POSITIVE
@@ -303,7 +303,12 @@ def test_arr_full_storm_il_override_fails_closed_when_omitted_preburst_is_uncert
         cc_scenario=None,
     )
     full_il = LossSpec(30.0, continuing_loss_mm_per_hour=0)
-    for ratios in (None, {}, {("1%", 60, None): 0.02}):
+    ratio_cases: tuple[dict[tuple[str, int, str | None], float | None] | None, ...] = (
+        None,
+        {},
+        {("1%", 60, None): 0.02},
+    )
+    for ratios in ratio_cases:
         result = screen_arr_events([event], default_losses=full_il, complete_storm=True, source_preburst_ratios=ratios)
         assert result[0].status == ScreeningStatus.UNRESOLVED
         assert "omitted preburst" in result[0].reason.lower()
