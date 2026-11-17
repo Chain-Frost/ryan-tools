@@ -140,18 +140,22 @@ def run_max_workflow(
         print(f"Dry run complete: {len(jobs)} maximum jobs resolved.")
         return 0
 
-    summary = run_raster_operation_stage(
-        jobs=jobs,
-        stage_name="raster maximum",
-        dashboard_title="Native Raster Maximums",
-        dashboard_subtitle=str(search_root),
-        workers=workers,
-        dashboard_options=DashboardOptions(
-            enabled=use_live_dashboard,
-            refresh_per_second=live_refresh_per_second,
-            max_rows=live_max_rows,
-            use_alternate_screen=live_use_alternate_screen,
-        ),
-    )
+    try:
+        summary = run_raster_operation_stage(
+            jobs=jobs,
+            stage_name="raster maximum",
+            dashboard_title="Native Raster Maximums",
+            dashboard_subtitle=str(search_root),
+            workers=workers,
+            dashboard_options=DashboardOptions(
+                enabled=use_live_dashboard,
+                refresh_per_second=live_refresh_per_second,
+                max_rows=live_max_rows,
+                use_alternate_screen=live_use_alternate_screen,
+            ),
+        )
+    except ValueError as error:
+        print(f"ERROR: {error}")
+        return 1
     print(f"Finished maximum stage: {summary.succeeded} succeeded; {summary.failed} failed.")
     return 0 if summary.ok else 1

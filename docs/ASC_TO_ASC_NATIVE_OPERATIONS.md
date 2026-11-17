@@ -13,6 +13,7 @@ Operation names and source-output terminology follow the
 | --- | --- |
 | `ryan_library/functions/tuflow/asc_to_asc_raster_operations.py` | Windowed Rasterio calculations, alignment validation, NoData policies and safe output replacement |
 | `ryan_library/functions/tuflow/asc_to_asc_runner.py` | Execute one native job or explicitly launch one ASC_to_ASC comparison job |
+| `ryan_library/functions/tuflow/raster_performance.py` | Per-process cache/chunk/thread settings, memory admission estimates and phase timings |
 | `ryan_library/functions/tuflow/tuflow_result_naming.py` | Parse, replace, format and validate TUFLOW result filename components |
 | `ryan_library/orchestrators/tuflow/asc_to_asc_batch.py` | Coordinate native jobs in a bounded process pool and report dashboard progress |
 
@@ -63,12 +64,16 @@ ID `0` (NoData), and their sum equals the number of valid source-ID cells.
 Counts are accumulated per raster window, without loading entire grids into
 memory. Per-result legend names avoid races and overwrites.
 
-For minimum, maximum and median, the source identifies the input supplying the
-value. Duplicate values select the first matching input. For either mean-value
-method, it identifies the closest contributing value; an equal-distance tie
-selects the higher value and then the first matching input. Cells that are
-NoData in the value raster receive source ID `0`, which is the source raster's
-NoData value.
+For minimum and maximum, the source identifies the first input supplying the
+selected value, with the valid-zero preference described below. Median uses a
+stable sort and selects the input at the upper-middle rank; duplicates retain
+their input order, so the selected rank can identify a later equal contributor.
+For `closest_source` and `arithmetic` means, provenance identifies the closest
+policy-adjusted contributing value; an equal-distance tie selects the higher
+value and then the first matching input. For `asc_to_asc` means, provenance
+identifies the lowest contributing value at or above the arithmetic mean, then
+the first matching input. Cells that are NoData in the value raster receive
+source ID `0`, which is the source raster's NoData value.
 
 The maintained mean-then-maximum and median-then-maximum wrappers enable source
 rasters/legends by default; `--no-source` or `WRITE_SOURCE_RASTERS = False`
@@ -82,7 +87,11 @@ propagated through both stages. Per-duration statistic source rasters identify
 the original temporal-pattern rasters. The maximum stage composes its
 intermediate selection with those source rasters, so the final source IDs and
 CSV legend point directly to the original temporal-pattern rasters rather than
-the generated mean or median files.
+the generated mean or median files. It reads each selected duration's source
+IDs alongside its value window and writes the final original-input IDs
+directly. A separate full-raster source rewrite is no longer required. The
+stored mean/median values and their precision still determine the maximum;
+this optimisation does not bypass the intermediate value rasters.
 
 Both workflows currently recalculate their prepared outputs when run; they do
 not yet expose a force/rebuild switch or validate existing outputs for an
@@ -92,7 +101,10 @@ incremental skip.
 
 Native GeoTIFF value rasters and auxiliary source rasters use the repository's
 shared TUFLOW creation profile by default: `COMPRESS=DEFLATE`, `PREDICTOR=2`,
-`BIGTIFF=IF_SAFER`, and `NUM_THREADS=ALL_CPUS`. This also applies when
+and `BIGTIFF=IF_SAFER`. Native operations use an explicit `NUM_THREADS`
+allowance from their execution options rather than each worker requesting all
+CPUs. A direct library call defaults to one thread; the maintained ensemble
+workflows divide the detected logical CPU budget across workers. This also applies when
 flattening the final maximum-of-means/medians source IDs: the input raster's
 `meta` does not include its compression creation options, so these are applied
 again explicitly rather than silently writing a large uncompressed source TIFF.
@@ -102,6 +114,58 @@ the integer width and enabling lossless compression changes storage only, not
 source selection, georeferencing, IDs, or legend `cell_count` values.
 Explicit `-co NAME=VALUE` creation options override value-raster defaults
 when another lossless profile is required.
+
+## Performance controls and diagnosis
+
+The maintained mean/median-then-maximum wrappers expose the following editable
+settings and matching CLI flags. Memory quantities are MiB (1,048,576 bytes).
+Source rasters and legends remain enabled by default.
+
+| Editable setting | CLI flag | Default and meaning |
+| --- | --- | --- |
+| `GDAL_CACHE_MB` | `--cache-mb` | `128`: decoded GDAL block cache per worker; passed to Rasterio in bytes |
+| `CHUNK_MEMORY_MB` | `--chunk-mb` | `256`: estimated NumPy working memory per processing window |
+| `TOTAL_MEMORY_BUDGET_MB` | `--memory-budget-mb` | `None`: use 75% of currently available RAM to admit workers |
+| `GDAL_THREADS` | `--gdal-threads` | `None`: divide available logical CPUs across active workers, subject to the memory estimate |
+| `VSI_CACHE_MB` | `--vsi-cache-mb` | `0`: additional raw per-input file caching disabled; account for every input when enabled |
+| `REPORT_PHASE_TIMINGS` | `--report-phases` / `--no-report-phases` | `True`: log phase times and the effective resource plan |
+
+`--workers` remains a requested upper limit. Each stage limits its worker count
+using job count, CPU availability and the memory estimate. The estimate includes
+the decoded cache, chunk workspace, optional per-input file caches, 128 MiB
+process overhead and 8 MiB per GDAL thread. Nested source rasters count as inputs
+in the maximum stage. This is an admission estimate, **not an OS-enforced RSS
+limit**: library/driver buffers and actual workload memory can vary. A budget
+that cannot fit one worker fails before the workflow starts producing outputs.
+
+For a twelve-worker run, start with the defaults and collect the phase report:
+
+```powershell
+python run_asc_to_asc_mean_then_maximum.py --workers 12 --report-phases --no-pause
+```
+
+The initial report records effective workers, cache/chunk budgets and threads.
+Each completed job reports dimensions, input block shape, window count and time
+spent reading values, reading independent masks, calculating values, selecting
+and counting sources, composing original-input provenance, writing, and closing
+the rasters. Close time includes deferred output compression/flush. Stage phase
+totals are **summed worker wall times**, which can exceed elapsed batch time when
+jobs overlap; the elapsed stage duration is reported separately. These
+workflows print their progress and timing reports to the console; redirect or
+capture console output to retain the report.
+
+Windows follow input blocks where the memory budget permits; striped input
+retains full-width row windows when possible. Values and necessary masks are
+read together. Only GDAL all-valid and NoData-only masks are skipped because
+their validity can be derived from the values; independent masks remain in use.
+Mean and median reuse a preallocated Float64 stack, while extrema stream through
+inputs. Output compression, source IDs, NoData rules and reduction semantics are
+preserved. With `--no-source`, arithmetic and ASC_to_ASC means also skip source
+selection; `closest_source` still needs that selection to calculate its value.
+
+For reproducible synthetic comparisons, see the
+[source-enabled raster benchmark](../repo-scripts/benchmarks/README.md#source-enabled-raster-statistics)
+and the [implementation work record](work/2026-11-18-raster-ensemble-performance.md).
 
 ## NoData policies
 

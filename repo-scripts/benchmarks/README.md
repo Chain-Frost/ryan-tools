@@ -4,6 +4,42 @@ These scripts measure candidate implementation choices and regressions; they are
 repeatable performance claims. Record the command, Python and package versions, data source, storage location and result
 when using their output to support a decision.
 
+## Source-enabled raster statistics
+
+`benchmark_raster_statistics.py` compares the maintained source-enabled pipeline
+with the raster implementation at a trusted local Git revision. It creates
+synthetic Float32 DEFLATE inputs, runs per-duration ASC_to_ASC-style means and
+the final maximum, and includes source rasters, original-input legend counts,
+output writing and closing in the timed work. The baseline includes its separate
+provenance rewrite; the candidate composes original TP IDs during maximum
+processing. Values, masks, source IDs, legends and metadata are compared exactly
+outside the measured interval.
+
+```powershell
+py -3.14 repo-scripts\benchmarks\benchmark_raster_statistics.py
+py -3.14 repo-scripts\benchmarks\benchmark_raster_statistics.py --width 16201 --height 512 --layout strips --repeats 3
+py -3.14 repo-scripts\benchmarks\benchmark_raster_statistics.py --width 16201 --height 512 --layout tiles --repeats 3
+```
+
+Defaults are two durations, ten TPs each, 1,024 by 512 cells, three alternating
+baseline/candidate runs, one candidate GDAL thread, 128 MiB decoded cache and
+256 MiB chunk memory. Every CLI option has an editable top-level setting.
+The default baseline is `fc33c109d1fbf62b37b0142576355b94966b1d7d`;
+`--baseline-ref` selects another **trusted** existing local revision. The script
+executes that revision's Python module and never fetches it from the network.
+Ensure the candidate `ryan_library` is importable from the intended checkout or
+matching installation; the JSON report records the imported module path and
+source SHA256 so stale installed packages can be detected.
+
+Inputs and outputs are temporary local files and are removed afterwards.
+Progress goes to stderr; stdout contains JSON with dependency/platform details,
+configuration, input size, individual timings, medians, candidate phase times
+and exact output-parity hashes. Runs are sequential, input data are freshly
+generated, and operating-system cache state is uncontrolled. Results do not
+establish full-resolution, twelve-process, Windows, network-storage or actual
+project performance. Use the real wrapper's phase report for those measurements.
+See the [raster performance work record](../../docs/work/2026-11-18-raster-ensemble-performance.md).
+
 ## WP11 PO workload baseline
 
 The new benchmark_po_workload.py generates correctly named synthetic TUFLOW PO runs, then measures the real processor,

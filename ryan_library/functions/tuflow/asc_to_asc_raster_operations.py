@@ -19,8 +19,8 @@ from __future__ import annotations
 
 import csv
 import time
-from collections.abc import Iterable
-from contextlib import ExitStack, closing
+from collections.abc import Generator, Iterable
+from contextlib import ExitStack, closing, contextmanager
 from pathlib import Path
 from typing import Any, Literal, Protocol, cast
 from uuid import uuid4
@@ -28,10 +28,11 @@ from uuid import uuid4
 import numpy as np
 import numpy.typing as npt
 import rasterio
-from numpy._typing._array_like import NDArray
+from rasterio.enums import MaskFlags
 from rasterio.windows import Window
 
-from ryan_library.functions.gdal.raster_processing import geotiff_creation_options
+from ..gdal.raster_processing import geotiff_creation_options
+from .raster_performance import RasterExecutionOptions, RasterOperationTimings
 
 type NodataPolicy = Literal["require_all", "zero", "exclude"]
 type MeanValueMethod = Literal["closest_source", "arithmetic", "asc_to_asc"]
@@ -136,13 +137,13 @@ def _creation_option_arguments(options: list[str]) -> list[str]:
     return [item for option in options for item in ("-co", option)]
 
 
-def _tuflow_creation_profile(reference: _RasterDataset) -> dict[str, object]:
+def _tuflow_creation_profile(reference: _RasterDataset, *, threads: str = "1") -> dict[str, object]:
     """Apply lossless GeoTIFF creation options explicitly: dataset.meta omits compression."""
     profile: dict[str, object] = reference.meta.copy()
     if str(profile.get("driver", "")).casefold() == "gtiff":
         profile.update(
             _parse_creation_options(
-                _creation_option_arguments(geotiff_creation_options(profile="tuflow", threads="ALL_CPUS"))
+                _creation_option_arguments(geotiff_creation_options(profile="tuflow", threads=threads))
             )
         )
     return profile
@@ -157,8 +158,10 @@ def _source_index_dtype(maximum_source_id: int) -> str:
     return "uint32"
 
 
-def _output_profile(reference: _RasterDataset, extra_args: list[str] | None) -> tuple[dict[str, object], float]:
-    profile = _tuflow_creation_profile(reference)
+def _output_profile(
+    reference: _RasterDataset, extra_args: list[str] | None, *, threads: str = "1"
+) -> tuple[dict[str, object], float]:
+    profile = _tuflow_creation_profile(reference, threads=threads)
     profile.update(_parse_creation_options(extra_args))
     profile["count"] = 1
     profile["dtype"] = "float64" if reference.dtypes[0].lower() == "float64" else "float32"
@@ -249,22 +252,69 @@ def _write_source_legend(legend_path: Path, input_paths: list[Path], source_coun
         temporary_path.unlink(missing_ok=True)
 
 
-def flatten_nested_source_provenance(
-    *,
-    output_file: str,
-    nested_source_files: list[str],
-    original_input_groups: list[list[str]],
-    source_output_file: str | None = None,
-    source_legend_file: str | None = None,
-) -> None:
-    """Replace an intermediate source mapping with original-input source IDs.
+@contextmanager
+def _raster_stack(options: RasterExecutionOptions, timings: RasterOperationTimings) -> Generator[ExitStack]:
+    """Keep final TIFF compression/flush time separate from individual writes."""
+    stack = ExitStack()
+    try:
+        stack.enter_context(rasterio.Env(**cast("dict[str, Any]", options.rasterio_env_options())))
+        yield stack
+    finally:
+        started = time.perf_counter()
+        try:
+            stack.close()
+        finally:
+            timings.close_seconds += time.perf_counter() - started
 
-    ``compute_stat`` initially records which intermediate input supplied each
-    output cell. Each intermediate input has its own source raster whose local
-    IDs identify the original rasters in the corresponding input group. This
-    function composes those two mappings into one 1-based source raster and a
-    legend that points directly to the original rasters.
-    """
+
+def _block_shape(dataset: _RasterDataset) -> tuple[int, int]:
+    shapes = cast("list[tuple[int, int]] | None", getattr(dataset, "block_shapes", None))
+    if shapes:
+        return max(1, shapes[0][0]), max(1, shapes[0][1])
+    return 1, dataset.width
+
+
+def _record_inputs(
+    datasets: list[_RasterDataset], options: RasterExecutionOptions, timings: RasterOperationTimings
+) -> None:
+    timings.width = datasets[0].width
+    timings.height = datasets[0].height
+    timings.input_count = len(datasets)
+    timings.block_shape = _block_shape(datasets[0])
+    timings.gdal_cache_bytes = options.gdal_cache_bytes
+    timings.gdal_threads = options.threads
+
+
+def _needs_independent_mask(dataset: _RasterDataset) -> bool:
+    """Only skip masks whose flags prove that the numeric validity test covers them."""
+    flags = cast("tuple[list[MaskFlags], ...] | None", getattr(dataset, "mask_flag_enums", None))
+    if not flags:
+        return True
+    band_flags = set(flags[0])
+    return band_flags not in ({MaskFlags.all_valid}, {MaskFlags.nodata})
+
+
+def _read_values_and_validity(
+    dataset: _RasterDataset,
+    window: object,
+    timings: RasterOperationTimings,
+    *,
+    independent_mask: bool,
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.bool_]]:
+    started = time.perf_counter()
+    values = np.asarray(dataset.read(1, window=window), dtype=np.float64)
+    timings.read_seconds += time.perf_counter() - started
+    started = time.perf_counter()
+    valid = _valid_mask(values, dataset.nodata)
+    if independent_mask:
+        valid &= dataset.read_masks(1, window=window) != 0
+    timings.mask_seconds += time.perf_counter() - started
+    return values, valid
+
+
+def _nested_originals(
+    nested_source_files: list[str], original_input_groups: list[list[str]]
+) -> tuple[list[Path], list[int]]:
     if not nested_source_files:
         msg = "At least one nested source raster is required"
         raise ValueError(msg)
@@ -274,111 +324,195 @@ def flatten_nested_source_provenance(
     if any(not group for group in original_input_groups):
         msg = "Every nested source raster must have at least one original input"
         raise ValueError(msg)
-
-    source_path, legend_path = source_output_paths(output_file, source_output_file, source_legend_file)
-    temporary_source_path: Path = _temporary_output(source_path)
-    original_paths: list[Path] = [Path(value).absolute() for group in original_input_groups for value in group]
-    missing_originals: list[Path] = [path for path in original_paths if not path.is_file()]
-    if missing_originals:
-        msg = f"Original source raster does not exist: {missing_originals[0]}"
+    original_paths = [Path(value).absolute() for group in original_input_groups for value in group]
+    missing = [path for path in original_paths if not path.is_file()]
+    if missing:
+        msg = f"Original source raster does not exist: {missing[0]}"
         raise FileNotFoundError(msg)
     if len(original_paths) > np.iinfo(np.int32).max:
         msg = "Too many original rasters for a 32-bit source-ID raster"
         raise ValueError(msg)
+    offsets: list[int] = []
+    running_offset = 0
+    for group in original_input_groups:
+        offsets.append(running_offset)
+        running_offset += len(group)
+    return original_paths, offsets
 
+
+def _flatten_source_window(
+    selected_groups: npt.NDArray[np.integer[Any]],
+    nested_sources: list[_RasterDataset],
+    original_input_groups: list[list[str]],
+    group_offsets: list[int],
+    window: object,
+    timings: RasterOperationTimings,
+) -> npt.NDArray[np.int32]:
+    """Compose IDs in memory, retaining the legacy zero-for-invalid-local-ID rule."""
+    started = time.perf_counter()
+    read_before = timings.read_seconds
+    flattened_ids = np.zeros(selected_groups.shape, dtype=np.int32)
+    for group_index, (nested_source, originals, offset) in enumerate(
+        zip(nested_sources, original_input_groups, group_offsets, strict=True), start=1
+    ):
+        group_cells = selected_groups == group_index
+        if not np.any(group_cells):
+            continue
+        read_started = time.perf_counter()
+        local_ids = np.asarray(nested_source.read(1, window=window), dtype=np.int64)
+        timings.read_seconds += time.perf_counter() - read_started
+        selected_cells = group_cells & (local_ids >= 1) & (local_ids <= len(originals))
+        flattened_ids[selected_cells] = np.asarray(offset + local_ids[selected_cells], dtype=np.int32)
+    timings.provenance_seconds += time.perf_counter() - started - (timings.read_seconds - read_before)
+    return flattened_ids
+
+
+def flatten_nested_source_provenance(
+    *,
+    output_file: str,
+    nested_source_files: list[str],
+    original_input_groups: list[list[str]],
+    source_output_file: str | None = None,
+    source_legend_file: str | None = None,
+    execution_options: RasterExecutionOptions | None = None,
+    timings: RasterOperationTimings | None = None,
+) -> None:
+    """Replace an intermediate source mapping with original-input source IDs.
+
+    ``compute_stat`` initially records which intermediate input supplied each
+    output cell. Each intermediate input has its own source raster whose local
+    IDs identify the original rasters in the corresponding input group. This
+    function composes those two mappings into one 1-based source raster and a
+    legend that points directly to the original rasters.
+    """
+    options = execution_options or RasterExecutionOptions()
+    measured = timings if timings is not None else RasterOperationTimings()
+    operation_started = time.perf_counter()
+    source_path, legend_path = source_output_paths(output_file, source_output_file, source_legend_file)
+    temporary_source_path: Path = _temporary_output(source_path)
+    original_paths, group_offsets = _nested_originals(nested_source_files, original_input_groups)
     source_counts = np.zeros(len(original_paths) + 1, dtype=np.int64)
     try:
-        with ExitStack() as stack:
-            stack.enter_context(rasterio.Env(GDAL_CACHEMAX=512, VSI_CACHE=True))
+        with _raster_stack(options, measured) as stack:
             _, datasets = _open_inputs(stack, [str(source_path), *nested_source_files])
+            _record_inputs(datasets, options, measured)
             selector, *nested_sources = datasets
             # Flattening creates a fresh TIFF: selector.meta does not retain
             # its DEFLATE compression settings, so reapply the shared profile.
-            profile = _tuflow_creation_profile(selector)
+            profile = _tuflow_creation_profile(selector, threads=options.threads_text)
             profile["count"] = 1
             profile["dtype"] = _source_index_dtype(len(original_paths))
             profile["nodata"] = 0
             destination = stack.enter_context(closing(_open_raster(temporary_source_path, "w", profile)))
 
-            group_offsets: list[int] = []
-            running_offset = 0
-            for group in original_input_groups:
-                group_offsets.append(running_offset)
-                running_offset += len(group)
-
-            for _, window in _chunk_windows(selector, num_datasets=len(datasets)):
+            for _, window in _chunk_windows(selector, memory_limit_mb=options.chunk_mb, bytes_per_pixel=64):
+                measured.windows += 1
+                started = time.perf_counter()
                 selected_groups = np.asarray(selector.read(1, window=window), dtype=np.int64)
-                flattened_ids = np.zeros(selected_groups.shape, dtype=np.int32)
-                for group_index, (nested_source, originals, offset) in enumerate(
-                    zip(nested_sources, original_input_groups, group_offsets, strict=True),
-                    start=1,
-                ):
-                    group_cells = selected_groups == group_index
-                    if not np.any(group_cells):
-                        continue
-                    local_ids = np.asarray(nested_source.read(1, window=window), dtype=np.int64)
-                    valid_local_ids = (local_ids >= 1) & (local_ids <= len(originals))
-                    selected_cells = group_cells & valid_local_ids
-                    flattened_ids[selected_cells] = np.asarray(offset + local_ids[selected_cells], dtype=np.int32)
+                measured.read_seconds += time.perf_counter() - started
+                flattened_ids = _flatten_source_window(
+                    selected_groups, nested_sources, original_input_groups, group_offsets, window, measured
+                )
+                started = time.perf_counter()
                 destination.write(flattened_ids, 1, window=window)
+                measured.write_seconds += time.perf_counter() - started
+                started = time.perf_counter()
                 source_counts += np.bincount(flattened_ids.ravel(), minlength=source_counts.size)
-
+                measured.source_seconds += time.perf_counter() - started
+        started = time.perf_counter()
         _replace_output(temporary_source_path, source_path)
         _write_source_legend(legend_path, original_paths, source_counts)
+        measured.write_seconds += time.perf_counter() - started
     finally:
         temporary_source_path.unlink(missing_ok=True)
+        measured.total_seconds += time.perf_counter() - operation_started
 
 
 def _chunk_windows(
-    dataset: _RasterDataset, num_datasets: int = 1, memory_limit_mb: int = 2048
+    dataset: _RasterDataset,
+    num_datasets: int = 1,
+    memory_limit_mb: int = 256,
+    *,
+    bytes_per_pixel: int | None = None,
 ) -> Iterable[tuple[tuple[int, int], object]]:
-    """Yield rectangular windows of rows to optimize I/O, safely bounded by a memory limit.
+    """Prefer full-width block rows; split tiled rows when needed to bound arrays.
 
-    The peak memory for a statistical operation on N aligned chunks of float64 data is
-    conservatively around 200 bytes per pixel per dataset (factoring in float64 arrays,
-    valid masks, np.stack allocations, and output arrays).
+    Output storage remains the conservative striped TUFLOW profile. Processing
+    windows follow input blocks where the workspace budget permits; an unusually
+    large single source block may require sub-block windows. GDAL's separately
+    budgeted cache retains decoded blocks across those windows.
     """
-    bytes_per_pixel_per_dataset = 200
-    max_pixels: int = (memory_limit_mb * 1024 * 1024) // (bytes_per_pixel_per_dataset * num_datasets)
-
-    height: int = dataset.height
-    width: int = dataset.width
-    # Ensure we always read at least 1 row, even if memory limit is tiny
-    chunk_rows: int = max(1, max_pixels // width)
-
+    pixel_bytes = bytes_per_pixel if bytes_per_pixel is not None else 96 + 17 * num_datasets
+    max_pixels = max(1, memory_limit_mb * 1024 * 1024 // pixel_bytes)
+    block_rows, block_cols = _block_shape(dataset)
+    width, height = dataset.width, dataset.height
+    full_width_rows = max_pixels // width
+    if full_width_rows >= min(block_rows, height):
+        chunk_cols = width
+        chunk_rows = max(block_rows, full_width_rows // block_rows * block_rows)
+    else:
+        chunk_rows = min(block_rows, height, max_pixels)
+        available_cols = max(1, max_pixels // chunk_rows)
+        chunk_cols = min(width, max(block_cols, available_cols // block_cols * block_cols))
+        if chunk_cols * chunk_rows > max_pixels:
+            chunk_cols = min(width, available_cols)
     for row_off in range(0, height, chunk_rows):
-        row_count: int = min(chunk_rows, height - row_off)
-        # Yield a dummy index (0, row_off) to match the signature of block_windows
-        yield ((0, row_off), Window(0, row_off, width, row_count))
+        row_count = min(chunk_rows, height - row_off)
+        for col_off in range(0, width, chunk_cols):
+            col_count = min(chunk_cols, width - col_off)
+            yield ((col_off, row_off), Window(col_off, row_off, col_count, row_count))
 
 
-def compute_max(input_files: list[str], output_file: str, extra_args: list[str] | None = None) -> None:
+def compute_max(
+    input_files: list[str],
+    output_file: str,
+    extra_args: list[str] | None = None,
+    *,
+    execution_options: RasterExecutionOptions | None = None,
+    timings: RasterOperationTimings | None = None,
+) -> None:
     """Write the cell-wise maximum of one or more aligned rasters."""
     output_path: Path = Path(output_file).absolute()
     temporary_path: Path = _temporary_output(output_path)
+    options = execution_options or RasterExecutionOptions()
+    measured = timings if timings is not None else RasterOperationTimings()
+    operation_started = time.perf_counter()
     try:
-        with ExitStack() as stack:
-            stack.enter_context(rasterio.Env(GDAL_CACHEMAX=512, VSI_CACHE=True))
+        with _raster_stack(options, measured) as stack:
             _, datasets = _open_inputs(stack, input_files)
-            profile, output_nodata = _output_profile(datasets[0], extra_args)
+            _record_inputs(datasets, options, measured)
+            profile, output_nodata = _output_profile(datasets[0], extra_args, threads=options.threads_text)
             destination: _RasterDataset = stack.enter_context(closing(_open_raster(temporary_path, "w", profile)))
-            for _, window in _chunk_windows(datasets[0], num_datasets=len(datasets)):
+            for _, window in _chunk_windows(datasets[0], memory_limit_mb=options.chunk_mb, bytes_per_pixel=64):
+                measured.windows += 1
                 maximum = None
                 any_valid = None
                 for dataset in datasets:
-                    data = np.asarray(dataset.read(1, window=window), dtype=np.float64)
-                    valid = _valid_mask(data, dataset.nodata)
-                    values = np.where(valid, data, -np.inf)
-                    maximum = values if maximum is None else np.maximum(maximum, values)
-                    any_valid = valid if any_valid is None else any_valid | valid
+                    data, valid = _read_values_and_validity(dataset, window, measured, independent_mask=False)
+                    started = time.perf_counter()
+                    np.copyto(data, -np.inf, where=~valid)
+                    if maximum is None or any_valid is None:
+                        maximum = data
+                        any_valid = valid
+                    else:
+                        np.maximum(maximum, data, out=maximum)
+                        np.logical_or(any_valid, valid, out=any_valid)
+                    measured.calculate_seconds += time.perf_counter() - started
                 if maximum is None or any_valid is None:
                     msg = "No raster values were read"
                     raise RuntimeError(msg)
-                result = np.where(any_valid, maximum, output_nodata)
-                destination.write(result, 1, window=window)
+                started = time.perf_counter()
+                maximum[~any_valid] = output_nodata
+                measured.calculate_seconds += time.perf_counter() - started
+                started = time.perf_counter()
+                destination.write(maximum, 1, window=window)
+                measured.write_seconds += time.perf_counter() - started
+        started = time.perf_counter()
         _replace_output(temporary_path, output_path)
+        measured.write_seconds += time.perf_counter() - started
     finally:
         temporary_path.unlink(missing_ok=True)
+        measured.total_seconds += time.perf_counter() - operation_started
 
 
 def compute_diff(
@@ -389,6 +523,9 @@ def compute_diff(
     nowetdry: bool = False,
     combine_wd: bool = False,
     extra_args: list[str] | None = None,
+    *,
+    execution_options: RasterExecutionOptions | None = None,
+    timings: RasterOperationTimings | None = None,
 ) -> None:
     """Write ``file1 - file2`` using ASC_to_ASC difference conventions.
 
@@ -402,12 +539,15 @@ def compute_diff(
     wet_dry_path: Path = output_path.with_name(f"{output_path.stem}_wd{output_path.suffix}")
     temporary_output: Path = _temporary_output(output_path)
     temporary_wet_dry: Path = _temporary_output(wet_dry_path)
+    options = execution_options or RasterExecutionOptions()
+    measured = timings if timings is not None else RasterOperationTimings()
+    operation_started = time.perf_counter()
     try:
-        with ExitStack() as stack:
-            stack.enter_context(cm=rasterio.Env(GDAL_CACHEMAX=512, VSI_CACHE=True))
+        with _raster_stack(options, measured) as stack:
             _, datasets = _open_inputs(stack, [file1, file2])
+            _record_inputs(datasets, options, measured)
             first, second = datasets
-            profile, output_nodata = _output_profile(first, extra_args)
+            profile, output_nodata = _output_profile(first, extra_args, threads=options.threads_text)
             destination: _RasterDataset = stack.enter_context(closing(_open_raster(temporary_output, "w", profile)))
             wet_dry_destination: _RasterDataset | None = (
                 None
@@ -415,12 +555,11 @@ def compute_diff(
                 else stack.enter_context(closing(_open_raster(temporary_wet_dry, "w", profile)))
             )
 
-            for _, window in _chunk_windows(first, num_datasets=len(datasets)):
-                first_data = np.asarray(first.read(1, window=window), dtype=np.float64)
-                second_data = np.asarray(second.read(1, window=window), dtype=np.float64)
-                first_valid: NDArray[np.bool_] = _valid_mask(first_data, first.nodata)
-                second_valid: NDArray[np.bool_] = _valid_mask(second_data, second.nodata)
-
+            for _, window in _chunk_windows(first, memory_limit_mb=options.chunk_mb, bytes_per_pixel=96):
+                measured.windows += 1
+                first_data, first_valid = _read_values_and_validity(first, window, measured, independent_mask=False)
+                second_data, second_valid = _read_values_and_validity(second, window, measured, independent_mask=False)
+                started = time.perf_counter()
                 if change:
                     difference = np.where(first_valid, first_data, 0.0) - np.where(second_valid, second_data, 0.0)
                     difference[~first_valid & ~second_valid] = output_nodata
@@ -433,20 +572,223 @@ def compute_diff(
                     difference[~first_valid & second_valid] = -99.0
                     difference[first_valid & ~second_valid] = 99.0
 
+                measured.calculate_seconds += time.perf_counter() - started
+                started = time.perf_counter()
                 destination.write(difference, 1, window=window)
-
+                measured.write_seconds += time.perf_counter() - started
                 if wet_dry_destination is not None:
+                    started = time.perf_counter()
                     wet_dry = np.full(first_data.shape, output_nodata, dtype=np.float64)
                     wet_dry[~first_valid & second_valid] = -99.0
                     wet_dry[first_valid & ~second_valid] = 99.0
+                    measured.calculate_seconds += time.perf_counter() - started
+                    started = time.perf_counter()
                     wet_dry_destination.write(wet_dry, 1, window=window)
-
+                    measured.write_seconds += time.perf_counter() - started
+        started = time.perf_counter()
         _replace_output(temporary_output, output_path)
         if not change and not nowetdry and not combine_wd:
             _replace_output(temporary_wet_dry, wet_dry_path)
+        measured.write_seconds += time.perf_counter() - started
     finally:
         temporary_output.unlink(missing_ok=True)
         temporary_wet_dry.unlink(missing_ok=True)
+        measured.total_seconds += time.perf_counter() - operation_started
+
+
+def _read_stat_values(
+    datasets: list[_RasterDataset],
+    mask_reads: list[bool],
+    window: object,
+    nodata_policy: NodataPolicy,
+    *,
+    median: bool,
+    timings: RasterOperationTimings,
+) -> tuple[
+    npt.NDArray[np.float64],
+    npt.NDArray[np.bool_] | None,
+    npt.NDArray[np.bool_],
+    int | npt.NDArray[np.intp],
+]:
+    """Fill one contiguous stack directly, without list/stack/adjusted-stack copies."""
+    raster_window = cast("Window", window)
+    shape = (int(raster_window.height), int(raster_window.width))
+    started = time.perf_counter()
+    values = np.empty((len(datasets), *shape), dtype=np.float64)
+    eligibility = None if nodata_policy == "zero" else np.empty(values.shape, dtype=np.bool_)
+    counts = np.zeros(shape, dtype=np.intp)
+    timings.calculate_seconds += time.perf_counter() - started
+    for index, (dataset, independent_mask) in enumerate(zip(datasets, mask_reads, strict=True)):
+        data, valid = _read_values_and_validity(dataset, window, timings, independent_mask=independent_mask)
+        started = time.perf_counter()
+        values[index] = data
+        np.copyto(values[index], np.inf if median and nodata_policy != "zero" else 0.0, where=~valid)
+        counts += valid
+        if eligibility is not None:
+            eligibility[index] = valid
+        timings.calculate_seconds += time.perf_counter() - started
+    started = time.perf_counter()
+    output_valid = counts == len(datasets) if nodata_policy == "require_all" else counts > 0
+    divisor = counts if nodata_policy == "exclude" else len(datasets)
+    timings.calculate_seconds += time.perf_counter() - started
+    return values, eligibility, output_valid, divisor
+
+
+def _sum_mean_values(
+    values: npt.NDArray[np.float64], reference: _RasterDataset, window: object
+) -> npt.NDArray[np.float64]:
+    """Retain the former reduction order even at new single-pixel tile corners.
+
+    NumPy uses a different summation path for a contiguous one-pixel reduction.
+    The former full-width windows used the constants below, so changing window
+    geometry alone must not change Float64 means or their selected source IDs.
+    """
+    legacy_rows = max(1, ((2048 * 1024 * 1024) // (200 * values.shape[0])) // reference.width)
+    all_legacy_singletons = reference.width == 1 and legacy_rows == 1
+    legacy_single_row = reference.height - 1 if reference.width == 1 and reference.height % legacy_rows == 1 else -1
+    raster_window = cast("Window", window)
+    row_offset = int(raster_window.row_off)
+    if values.shape[1:] == (1, 1) and not all_legacy_singletons and row_offset != legacy_single_row:
+        padded = np.zeros((values.shape[0], 1, 2), dtype=np.float64)
+        padded[:, :, :1] = values
+        return np.sum(padded, axis=0, dtype=np.float64)[:, :1].copy()
+    result = np.sum(values, axis=0, dtype=np.float64)
+    if all_legacy_singletons:
+        for local_row in range(values.shape[1]):
+            result[local_row, 0] = np.sum(values[:, local_row, 0], dtype=np.float64)
+        return result
+    if row_offset <= legacy_single_row < row_offset + values.shape[1]:
+        local_row = legacy_single_row - row_offset
+        result[local_row, 0] = np.sum(values[:, local_row, 0], dtype=np.float64)
+    return result
+
+
+def _mean_source_values(
+    values: npt.NDArray[np.float64],
+    eligibility: npt.NDArray[np.bool_] | None,
+    arithmetic_mean: npt.NDArray[np.float64],
+    method: MeanValueMethod,
+    *,
+    write_source: bool,
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.int32] | None]:
+    """Select mean sources with pixel-sized buffers and stable first-source ties."""
+    source_ids = np.ones(arithmetic_mean.shape, dtype=np.int32) if write_source else None
+    best_value = np.full(arithmetic_mean.shape, np.inf if method == "asc_to_asc" else -np.inf, dtype=np.float64)
+    best_distance = None if method == "asc_to_asc" else np.full(arithmetic_mean.shape, np.inf, dtype=np.float64)
+    for index, data in enumerate(values):
+        distance = None
+        if best_distance is None:
+            update = (data >= arithmetic_mean) & (data < best_value)
+        else:
+            distance = np.abs(data - arithmetic_mean)
+            update = (distance < best_distance) | ((distance == best_distance) & (data > best_value))
+        if eligibility is not None:
+            update &= eligibility[index]
+        if best_distance is None:
+            np.copyto(best_value, data, where=update)
+        elif distance is not None:
+            # The old np.max chose the last equal value's representation
+            # (signed zero), while np.argmax attributed it to the first input.
+            value_tie = (distance == best_distance) & (data == best_value)
+            if eligibility is not None:
+                value_tie &= eligibility[index]
+            np.copyto(best_value, data, where=update | value_tie)
+        if best_distance is not None and distance is not None:
+            np.copyto(best_distance, distance, where=update)
+        if source_ids is not None:
+            np.copyto(source_ids, index + 1, where=update)
+    return best_value, source_ids
+
+
+def _mean_or_median_window(
+    datasets: list[_RasterDataset],
+    mask_reads: list[bool],
+    window: object,
+    statistic_type: str,
+    nodata_policy: NodataPolicy,
+    mean_value_method: MeanValueMethod,
+    *,
+    write_source: bool,
+    timings: RasterOperationTimings,
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.bool_], npt.NDArray[np.int32] | None]:
+    median = statistic_type == "median"
+    values, eligibility, output_valid, counts = _read_stat_values(
+        datasets, mask_reads, window, nodata_policy, median=median, timings=timings
+    )
+    started = time.perf_counter()
+    if median:
+        sorted_indexes = np.argsort(values, axis=0, kind="stable")
+        upper_indexes = np.broadcast_to(np.asarray(counts // 2, dtype=np.int64), values.shape[1:])
+        source_indexes = np.take_along_axis(sorted_indexes, upper_indexes[np.newaxis, ...], axis=0)[0]
+        statistic = np.take_along_axis(values, source_indexes[np.newaxis, ...], axis=0)[0]
+        timings.calculate_seconds += time.perf_counter() - started
+        started = time.perf_counter()
+        source_ids = np.asarray(source_indexes + 1, dtype=np.int32) if write_source else None
+    else:
+        valid_sum = _sum_mean_values(values, datasets[0], window)
+        statistic = np.zeros(valid_sum.shape, dtype=np.float64)
+        np.divide(valid_sum, counts, out=statistic, where=output_valid)
+        timings.calculate_seconds += time.perf_counter() - started
+        started = time.perf_counter()
+        source_ids = None
+        if write_source or mean_value_method == "closest_source":
+            selected_values, source_ids = _mean_source_values(
+                values, eligibility, statistic, mean_value_method, write_source=write_source
+            )
+            if mean_value_method == "closest_source":
+                statistic = selected_values
+    timings.source_seconds += time.perf_counter() - started
+    return statistic, output_valid, source_ids
+
+
+def _extrema_window(
+    datasets: list[_RasterDataset],
+    mask_reads: list[bool],
+    window: object,
+    statistic_type: str,
+    nodata_policy: NodataPolicy,
+    *,
+    write_source: bool,
+    timings: RasterOperationTimings,
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.bool_], npt.NDArray[np.int32] | None]:
+    """Reduce extrema while retaining first-value ties and valid-zero provenance."""
+    statistic: npt.NDArray[np.float64] | None = None
+    output_valid: npt.NDArray[np.bool_] | None = None
+    selected_valid: npt.NDArray[np.bool_] | None = None
+    source_ids: npt.NDArray[np.int32] | None = None
+    invalid_value = 0.0 if nodata_policy == "zero" else (-np.inf if statistic_type == "max" else np.inf)
+    for index, (dataset, independent_mask) in enumerate(zip(datasets, mask_reads, strict=True)):
+        data, valid = _read_values_and_validity(dataset, window, timings, independent_mask=independent_mask)
+        started = time.perf_counter()
+        np.copyto(data, invalid_value, where=~valid)
+        if statistic is None or output_valid is None:
+            statistic = data
+            output_valid = valid.copy()
+            selected_valid = valid
+            source_ids = np.ones(data.shape, dtype=np.int32) if write_source else None
+            timings.calculate_seconds += time.perf_counter() - started
+            continue
+        better = data > statistic if statistic_type == "max" else data < statistic
+        np.copyto(statistic, data, where=better)
+        if nodata_policy == "require_all":
+            output_valid &= valid
+        else:
+            output_valid |= valid
+        timings.calculate_seconds += time.perf_counter() - started
+        if source_ids is not None:
+            started = time.perf_counter()
+            # A valid-zero tie changes only the ID, not the value selected
+            # earlier (including its signed zero), matching the old two passes.
+            update = better
+            if nodata_policy == "zero" and selected_valid is not None:
+                update = better | (valid & ~selected_valid & (data == statistic))
+                np.copyto(selected_valid, valid, where=update)
+            np.copyto(source_ids, index + 1, where=update)
+            timings.source_seconds += time.perf_counter() - started
+    if statistic is None or output_valid is None:
+        msg = "No raster values were read"
+        raise RuntimeError(msg)
+    return statistic, output_valid, source_ids
 
 
 def compute_stat(
@@ -459,6 +801,11 @@ def compute_stat(
     write_source: bool = False,
     source_output_file: str | None = None,
     source_legend_file: str | None = None,
+    *,
+    execution_options: RasterExecutionOptions | None = None,
+    timings: RasterOperationTimings | None = None,
+    nested_source_files: list[str] | None = None,
+    original_input_groups: list[list[str]] | None = None,
 ) -> None:
     """Write a supported cell-wise ASC_to_ASC-style statistic.
 
@@ -488,6 +835,11 @@ def compute_stat(
     output is disabled by default.
 
     Only mean, median, minimum and maximum statistics are supported.
+
+    For a maximum over duration statistics, ``nested_source_files`` and
+    ``original_input_groups`` compose the original TP IDs while writing the
+    source raster. This retains the intermediate value rasters and their
+    stored precision, but avoids a second complete source-raster rewrite.
     """
     normalized_stat: str = stat_type.lower().removeprefix("-stat")
     if normalized_stat not in {"mean", "median", "min", "max"}:
@@ -502,106 +854,105 @@ def compute_stat(
     if not write_source and (source_output_file is not None or source_legend_file is not None):
         msg = "Source output paths cannot be supplied when write_source is False"
         raise ValueError(msg)
+    if (nested_source_files is None) != (original_input_groups is None):
+        msg = "Nested source files and original input groups must be supplied together"
+        raise ValueError(msg)
+    if nested_source_files is not None and (normalized_stat != "max" or not write_source):
+        msg = "Nested source provenance requires a maximum statistic with source output enabled"
+        raise ValueError(msg)
+    if nested_source_files is not None and len(nested_source_files) != len(input_files):
+        msg = "Every intermediate value raster must have one nested source raster"
+        raise ValueError(msg)
 
+    options = execution_options or RasterExecutionOptions()
+    measured = timings if timings is not None else RasterOperationTimings()
+    operation_started = time.perf_counter()
     output_path: Path = Path(output_file).absolute()
     temporary_path: Path = _temporary_output(output_path)
     source_path, legend_path = _source_output_paths(output_path, source_output_file, source_legend_file)
     temporary_source_path: Path = _temporary_output(source_path)
     input_paths: list[Path] = []
     try:
-        with ExitStack() as stack:
-            stack.enter_context(rasterio.Env(GDAL_CACHEMAX=512, VSI_CACHE=True))
+        with _raster_stack(options, measured) as stack:
             input_paths, datasets = _open_inputs(stack, input_files)
             if len(datasets) > np.iinfo(np.int32).max:
                 msg = "Too many input rasters for a 32-bit source-ID raster"
                 raise ValueError(msg)
-            profile, output_nodata = _output_profile(datasets[0], extra_args)
+            nested_sources: list[_RasterDataset] = []
+            group_offsets: list[int] = []
+            legend_inputs = input_paths
+            if nested_source_files is not None and original_input_groups is not None:
+                legend_inputs, group_offsets = _nested_originals(nested_source_files, original_input_groups)
+                nested_paths, nested_sources = _open_inputs(stack, nested_source_files)
+                _validate_inputs([datasets[0], *nested_sources], [input_paths[0], *nested_paths])
+            _record_inputs([*datasets, *nested_sources], options, measured)
+            profile, output_nodata = _output_profile(datasets[0], extra_args, threads=options.threads_text)
             destination = stack.enter_context(closing(_open_raster(temporary_path, "w", profile)))
             source_destination: _RasterDataset | None = None
-            source_counts: npt.NDArray[np.int64] = np.zeros(len(datasets) + 1, dtype=np.int64)
+            source_counts = np.zeros(len(legend_inputs) + 1, dtype=np.int64)
             if write_source:
                 source_profile = profile.copy()
-                source_profile["dtype"] = _source_index_dtype(len(datasets))
+                source_profile["dtype"] = _source_index_dtype(len(legend_inputs))
                 source_profile["nodata"] = 0
                 source_destination = stack.enter_context(
                     closing(_open_raster(temporary_source_path, "w", source_profile))
                 )
-            for _, window in _chunk_windows(datasets[0], num_datasets=len(datasets)):
-                arrays = [np.asarray(dataset.read(1, window=window), dtype=np.float64) for dataset in datasets]
-                valid_arrays = [
-                    _valid_mask(data, dataset.nodata) & (dataset.read_masks(1, window=window) != 0)
-                    for data, dataset in zip(arrays, datasets, strict=True)
-                ]
-                stack_data = np.stack(arrays, axis=0)
-                stack_valid = np.stack(valid_arrays, axis=0)
-                if nodata_policy == "require_all":
-                    adjusted_data = stack_data
-                    eligible = stack_valid
-                    output_valid = np.all(stack_valid, axis=0)
-                    valid_count = np.full(stack_data.shape[1:], stack_data.shape[0], dtype=np.intp)
-                elif nodata_policy == "zero":
-                    adjusted_data = np.where(stack_valid, stack_data, 0.0)
-                    eligible = np.ones(stack_valid.shape, dtype=np.bool_)
-                    output_valid = np.any(stack_valid, axis=0)
-                    valid_count = np.full(stack_data.shape[1:], stack_data.shape[0], dtype=np.intp)
+            mask_reads = [_needs_independent_mask(dataset) for dataset in datasets]
+            pixel_bytes = (
+                96
+                if normalized_stat in {"max", "min"}
+                else 96 + len(datasets) * (17 if normalized_stat == "median" else 9)
+            )
+            for _, window in _chunk_windows(datasets[0], memory_limit_mb=options.chunk_mb, bytes_per_pixel=pixel_bytes):
+                measured.windows += 1
+                if normalized_stat in {"max", "min"}:
+                    statistic, output_valid, source_ids = _extrema_window(
+                        datasets,
+                        mask_reads,
+                        window,
+                        normalized_stat,
+                        nodata_policy,
+                        write_source=write_source,
+                        timings=measured,
+                    )
                 else:
-                    adjusted_data = stack_data
-                    eligible = stack_valid
-                    valid_count = np.sum(stack_valid, axis=0, dtype=np.intp)
-                    output_valid = valid_count > 0
-
-                if normalized_stat == "mean":
-                    valid_sum = np.sum(np.where(eligible, adjusted_data, 0.0), axis=0, dtype=np.float64)
-                    arithmetic_mean = np.zeros(valid_sum.shape, dtype=np.float64)
-                    np.divide(valid_sum, valid_count, out=arithmetic_mean, where=output_valid)
-                    if mean_value_method == "asc_to_asc":
-                        at_or_above = np.where(eligible & (adjusted_data >= arithmetic_mean), adjusted_data, np.inf)
-                        source_indexes = np.argmin(at_or_above, axis=0)
-                        statistic = arithmetic_mean
-                    else:
-                        distances = np.where(eligible, np.abs(adjusted_data - arithmetic_mean), np.inf)
-                        minimum_distance = np.min(distances, axis=0)
-                        closest = eligible & np.isclose(distances, minimum_distance, rtol=0.0, atol=0.0)
-                        closest_value = np.max(np.where(closest, adjusted_data, -np.inf), axis=0)
-                        selected = closest & (adjusted_data == closest_value)
-                        source_indexes = np.argmax(selected, axis=0)
-                        statistic = arithmetic_mean if mean_value_method == "arithmetic" else closest_value
-                elif normalized_stat in {"max", "min"}:
-                    if normalized_stat == "max":
-                        selectable = np.where(eligible, adjusted_data, -np.inf)
-                        source_indexes = np.argmax(selectable, axis=0)
-                    else:
-                        selectable = np.where(eligible, adjusted_data, np.inf)
-                        source_indexes = np.argmin(selectable, axis=0)
-                    statistic = np.take_along_axis(selectable, source_indexes[np.newaxis, ...], axis=0)[0]
-                    if nodata_policy == "zero":
-                        # An invalid contributing cell can represent zero in the
-                        # statistic, but if a real zero ties it, attribute the
-                        # source to the valid raster. Otherwise an all-NoData
-                        # duration could win a max tie and lose provenance.
-                        valid_ties = stack_valid & (selectable == statistic)
-                        preferred = np.argmax(valid_ties, axis=0)
-                        source_indexes = np.where(np.any(valid_ties, axis=0), preferred, source_indexes)
-                else:
-                    selectable = np.where(eligible, adjusted_data, np.inf)
-                    sorted_indexes = np.argsort(selectable, axis=0, kind="stable")
-                    upper_indexes: npt.NDArray[np.int64] = np.asarray(valid_count // 2, dtype=np.int64)
-                    expanded_upper_indexes: npt.NDArray[np.int64] = np.expand_dims(upper_indexes, axis=0)
-                    source_indexes = np.take_along_axis(sorted_indexes, expanded_upper_indexes, axis=0)[0]
-                    statistic = np.take_along_axis(selectable, source_indexes[np.newaxis, ...], axis=0)[0]
-
-                result: npt.NDArray[np.float64] = np.asarray(
-                    np.where(output_valid, statistic, output_nodata), dtype=np.float64
-                )
-                destination.write(result, 1, window=window)
-                if source_destination is not None:
-                    source_ids = np.asarray(np.where(output_valid, source_indexes + 1, 0), dtype=np.int32)
+                    statistic, output_valid, source_ids = _mean_or_median_window(
+                        datasets,
+                        mask_reads,
+                        window,
+                        normalized_stat,
+                        nodata_policy,
+                        mean_value_method,
+                        write_source=write_source,
+                        timings=measured,
+                    )
+                started = time.perf_counter()
+                statistic[~output_valid] = output_nodata
+                measured.calculate_seconds += time.perf_counter() - started
+                started = time.perf_counter()
+                destination.write(statistic, 1, window=window)
+                measured.write_seconds += time.perf_counter() - started
+                if source_destination is not None and source_ids is not None:
+                    started = time.perf_counter()
+                    source_ids[~output_valid] = 0
+                    measured.source_seconds += time.perf_counter() - started
+                    if nested_sources and original_input_groups is not None:
+                        source_ids = _flatten_source_window(
+                            source_ids, nested_sources, original_input_groups, group_offsets, window, measured
+                        )
+                    started = time.perf_counter()
                     source_destination.write(source_ids, 1, window=window)
+                    measured.write_seconds += time.perf_counter() - started
+                    started = time.perf_counter()
                     source_counts += np.bincount(source_ids.ravel(), minlength=source_counts.size)
+                    measured.source_seconds += time.perf_counter() - started
+        started = time.perf_counter()
         _replace_output(temporary_path, output_path)
         if write_source:
             _replace_output(temporary_source_path, source_path)
-            _write_source_legend(legend_path, input_paths, source_counts)
+            _write_source_legend(legend_path, legend_inputs, source_counts)
+        measured.write_seconds += time.perf_counter() - started
     finally:
         temporary_path.unlink(missing_ok=True)
         temporary_source_path.unlink(missing_ok=True)
+        measured.total_seconds += time.perf_counter() - operation_started

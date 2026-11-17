@@ -12,8 +12,9 @@ from __future__ import annotations
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+from time import perf_counter
 
-from ryan_library.functions.tuflow.asc_to_asc_raster_operations import (
+from .asc_to_asc_raster_operations import (
     MeanValueMethod,
     NodataPolicy,
     compute_max,
@@ -21,6 +22,7 @@ from ryan_library.functions.tuflow.asc_to_asc_raster_operations import (
     flatten_nested_source_provenance,
     source_output_paths,
 )
+from .raster_performance import RasterExecutionOptions, RasterOperationTimings
 
 
 @dataclass(slots=True, frozen=True)
@@ -37,7 +39,29 @@ class RasterOperationJob:
     original_input_groups: tuple[tuple[Path, ...], ...] | None = None
 
 
-def run_python_raster_job(*, job: RasterOperationJob) -> Path:
+@dataclass(slots=True, frozen=True)
+class RasterJobResult:
+    """Small serializable result returned by a profiled process-pool job."""
+
+    output_file: Path
+    timings: RasterOperationTimings
+
+
+def run_profiled_python_raster_job(
+    *, job: RasterOperationJob, execution_options: RasterExecutionOptions | None = None
+) -> RasterJobResult:
+    """Run the same native implementation and return its measured phases."""
+    timings = RasterOperationTimings()
+    output_file = run_python_raster_job(job=job, execution_options=execution_options, timings=timings)
+    return RasterJobResult(output_file=output_file, timings=timings)
+
+
+def run_python_raster_job(
+    *,
+    job: RasterOperationJob,
+    execution_options: RasterExecutionOptions | None = None,
+    timings: RasterOperationTimings | None = None,
+) -> Path:
     """Execute one supported native raster operation.
 
     Supported operations are ``-max`` and the ``-statMean``, ``-statMedian``,
@@ -45,13 +69,34 @@ def run_python_raster_job(*, job: RasterOperationJob) -> Path:
     Python-specific NoData and mean-value policies and also write source rasters
     and per-result source legends.
     """
-    job.output_file.parent.mkdir(parents=True, exist_ok=True)
+    started = perf_counter()
+    options = execution_options or RasterExecutionOptions()
     operation: str = job.operation.casefold()
+    if operation not in {"-max", "-statmean", "-statmedian", "-statmin", "-statmax"}:
+        msg = f"Unsupported native ASC_to_ASC operation: {job.operation}"
+        raise RuntimeError(msg)
+    job.output_file.parent.mkdir(parents=True, exist_ok=True)
     input_files: list[str] = [str(path) for path in job.input_files]
+    fused_provenance = operation == "-statmax" and job.write_source and job.original_input_groups is not None
+    nested_source_files = (
+        [str(source_output_paths(str(input_file))[0]) for input_file in job.input_files]
+        if job.write_source and job.original_input_groups is not None
+        else None
+    )
+    original_input_groups = (
+        [[str(original_input) for original_input in group] for group in job.original_input_groups]
+        if job.original_input_groups is not None
+        else None
+    )
 
     try:
         if operation == "-max":
-            compute_max(input_files=input_files, output_file=str(job.output_file))
+            compute_max(
+                input_files=input_files,
+                output_file=str(job.output_file),
+                execution_options=options,
+                timings=timings,
+            )
         elif operation in {"-statmean", "-statmedian", "-statmin", "-statmax"}:
             compute_stat(
                 stat_type=job.operation,
@@ -60,22 +105,27 @@ def run_python_raster_job(*, job: RasterOperationJob) -> Path:
                 nodata_policy=job.nodata_policy,
                 mean_value_method=job.mean_value_method,
                 write_source=job.write_source,
+                execution_options=options,
+                timings=timings,
+                nested_source_files=nested_source_files if fused_provenance else None,
+                original_input_groups=original_input_groups if fused_provenance else None,
             )
-            if job.write_source and job.original_input_groups is not None:
-                nested_source_files = [str(source_output_paths(str(input_file))[0]) for input_file in job.input_files]
+            if not fused_provenance and nested_source_files is not None and original_input_groups is not None:
+                provenance_started = perf_counter()
                 flatten_nested_source_provenance(
                     output_file=str(job.output_file),
                     nested_source_files=nested_source_files,
-                    original_input_groups=[
-                        [str(original_input) for original_input in group] for group in job.original_input_groups
-                    ],
+                    original_input_groups=original_input_groups,
+                    execution_options=options,
                 )
-        else:
-            msg = f"Unsupported native ASC_to_ASC operation: {job.operation}"
-            raise ValueError(msg)
+                if timings is not None:
+                    timings.provenance_seconds += perf_counter() - provenance_started
     except Exception as error:
         msg = f"Python {job.operation} computation failed: {error}"
         raise RuntimeError(msg) from error
+    finally:
+        if timings is not None:
+            timings.total_seconds = perf_counter() - started
 
     return job.output_file
 

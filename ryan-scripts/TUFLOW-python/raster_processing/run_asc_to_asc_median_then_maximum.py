@@ -23,7 +23,7 @@ excluded from the statistic.
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-09.1"
+WRAPPER_VERSION = "2026-11-18.1"
 
 WORKING_DIR: Path = Path(__file__).absolute().parent
 OUTPUT_DIRECTORY_NAME = "ensemble_statistics"
@@ -32,6 +32,13 @@ EXPECTED_TPS: list[int] = list(range(1, 11))
 SCENARIOS: list[str] = ["EXG", "DEV"]
 RESULT_TYPES: list[str] = ["d_HR_Max", "h_HR_Max", "V_Max"]
 WORKERS: int | None = None
+# Memory settings use MiB. None selects 75% of available RAM and shares CPU threads.
+GDAL_CACHE_MB = 128
+CHUNK_MEMORY_MB = 256
+TOTAL_MEMORY_BUDGET_MB: int | None = None
+GDAL_THREADS: int | None = None
+VSI_CACHE_MB = 0
+REPORT_PHASE_TIMINGS = True
 STRICT_INCOMPLETE_GROUPS = False
 WRITE_SOURCE_RASTERS = True
 USE_LIVE_DASHBOARD = True
@@ -60,6 +67,12 @@ class CliOptions:
     dry_run: bool
     strict: bool | None
     write_source: bool | None
+    cache_mb: int | None
+    chunk_mb: int | None
+    memory_budget_mb: int | None
+    gdal_threads: int | None
+    vsi_cache_mb: int | None
+    report_phases: bool | None
 
 
 def main(
@@ -69,6 +82,12 @@ def main(
     dry_run: bool = False,
     strict: bool | None = None,
     write_source: bool | None = None,
+    cache_mb: int | None = None,
+    chunk_mb: int | None = None,
+    memory_budget_mb: int | None = None,
+    gdal_threads: int | None = None,
+    vsi_cache_mb: int | None = None,
+    report_phases: bool | None = None,
     use_live_dashboard: bool | None = None,
     live_refresh_per_second: float | None = None,
     live_max_rows: int | None = None,
@@ -96,6 +115,12 @@ def main(
         dry_run=dry_run,
         strict=STRICT_INCOMPLETE_GROUPS if strict is None else strict,
         write_source=WRITE_SOURCE_RASTERS if write_source is None else write_source,
+        cache_mb=GDAL_CACHE_MB if cache_mb is None else cache_mb,
+        chunk_mb=CHUNK_MEMORY_MB if chunk_mb is None else chunk_mb,
+        memory_budget_mb=TOTAL_MEMORY_BUDGET_MB if memory_budget_mb is None else memory_budget_mb,
+        gdal_threads=GDAL_THREADS if gdal_threads is None else gdal_threads,
+        vsi_cache_mb=VSI_CACHE_MB if vsi_cache_mb is None else vsi_cache_mb,
+        report_phases=REPORT_PHASE_TIMINGS if report_phases is None else report_phases,
         use_live_dashboard=USE_LIVE_DASHBOARD if use_live_dashboard is None else use_live_dashboard,
         live_refresh_per_second=(
             LIVE_REFRESH_PER_SECOND if live_refresh_per_second is None else live_refresh_per_second
@@ -114,6 +139,28 @@ def _parse_cli_arguments() -> CliOptions:
     )
     add_common_cli_arguments(parser=parser)
     parser.add_argument("--workers", type=int, help="Parallel native raster processes.")
+    parser.add_argument("--cache-mb", type=int, help="Decoded GDAL cache per worker, in MiB (default 128).")
+    parser.add_argument(
+        "--chunk-mb", type=int, help="NumPy chunk working-memory target per worker, in MiB (default 256)."
+    )
+    parser.add_argument(
+        "--memory-budget-mb",
+        type=int,
+        help="Total raster-worker memory budget in MiB; automatic default is 75%% of available RAM.",
+    )
+    parser.add_argument(
+        "--gdal-threads", type=int, help="GDAL threads per worker; default shares logical CPUs across active workers."
+    )
+    parser.add_argument("--vsi-cache-mb", type=int, help="Additional raw-file cache per input, in MiB (default 0).")
+    phase_group = parser.add_mutually_exclusive_group()
+    phase_group.add_argument(
+        "--report-phases",
+        dest="report_phases",
+        action="store_true",
+        default=None,
+        help="Report per-job and stage timings, including final close/flush (default).",
+    )
+    phase_group.add_argument("--no-report-phases", dest="report_phases", action="store_false")
     parser.add_argument("--dry-run", action="store_true", help="Validate groups without creating rasters.")
     strict_group = parser.add_mutually_exclusive_group()
     strict_group.add_argument("--strict", dest="strict", action="store_true", default=None)
@@ -140,6 +187,12 @@ def _parse_cli_arguments() -> CliOptions:
         dry_run=args.dry_run,
         strict=args.strict,
         write_source=args.write_source,
+        cache_mb=args.cache_mb,
+        chunk_mb=args.chunk_mb,
+        memory_budget_mb=args.memory_budget_mb,
+        gdal_threads=args.gdal_threads,
+        vsi_cache_mb=args.vsi_cache_mb,
+        report_phases=args.report_phases,
     )
 
 
@@ -151,6 +204,12 @@ if __name__ == "__main__":
         dry_run=cli_options.dry_run,
         strict=cli_options.strict,
         write_source=cli_options.write_source,
+        cache_mb=cli_options.cache_mb,
+        chunk_mb=cli_options.chunk_mb,
+        memory_budget_mb=cli_options.memory_budget_mb,
+        gdal_threads=cli_options.gdal_threads,
+        vsi_cache_mb=cli_options.vsi_cache_mb,
+        report_phases=cli_options.report_phases,
         use_live_dashboard=cli_options.common.use_live_dashboard,
         live_refresh_per_second=cli_options.common.live_refresh_per_second,
         live_max_rows=cli_options.common.live_max_rows,
