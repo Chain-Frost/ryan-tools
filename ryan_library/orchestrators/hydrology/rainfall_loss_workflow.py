@@ -16,6 +16,7 @@ from typing import Any, Literal, Protocol, cast
 from ...functions.hydrology.rainfall_loss_screening import (
     LossSpec,
     PatternScreen,
+    reconcile_arr_full_storm_override,
     screen_arr_events,
     screen_bom_ifd,
 )
@@ -159,6 +160,8 @@ def assemble_arr_events(
     losses_by_aep: Mapping[str, LossSpec | Mapping[int, LossSpec]],
     default_losses: LossSpec | None,
     continuing_loss_timing: Literal["fractional", "full_increment"],
+    complete_storm: bool = False,
+    source_preburst_ratios: Mapping[tuple[str, int, str | None], float | None] | None = None,
 ) -> ScreeningBundle:
     """Coordinate PyTUFLOW event outcomes and preserve point/areal ARF evidence."""
     sources = tuple(events)
@@ -167,6 +170,8 @@ def assemble_arr_events(
         losses_by_aep=losses_by_aep,
         default_losses=default_losses,
         continuing_loss_timing=continuing_loss_timing,
+        complete_storm=complete_storm,
+        source_preburst_ratios=source_preburst_ratios,
     )
     totals: dict[RainfallRecordKey, RainfallRecord] = {}
     sets: set[str] = set()
@@ -180,12 +185,27 @@ def assemble_arr_events(
         losses = selected if selected is not None else default_losses
         fallback = f"ARR IL {float(event.initial_loss):g}; CL {float(event.continuing_loss):g}"
         pb = event.preburst
+        ratio = source_preburst_ratios.get((aep, duration, scenario)) if source_preburst_ratios is not None else None
+        applied = (
+            reconcile_arr_full_storm_override(
+                event, losses, complete_storm=complete_storm, source_preburst_ratio=ratio
+            )
+            if losses is not None
+            else None
+        )
+        loss_label = (
+            "UNRESOLVED full-storm IL / omitted preburst"
+            if losses is not None and applied is None
+            else _loss_label(applied, fallback=fallback)
+        )
+        if applied is not None and complete_storm and pb is None:
+            loss_label += " (burst IL after omitted preburst)"
         totals[(aep, duration, scenario)] = (
             float(event.depth_point),
             float(event.depth_areal),
             float(event.arf),
             float(pb.depth) if pb is not None else None,
-            _loss_label(losses, fallback=fallback),
+            loss_label,
         )
         sets.update(_pattern_sets(cast("Iterable[object]", event.patterns)))
     return ScreeningBundle(screens, totals, tuple(sorted(sets)))

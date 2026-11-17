@@ -569,6 +569,47 @@ def test_bom_point_fallback_no_areal_file(
         m._bom_patterns(object(), None, None, 350.0, True, point, None, tmp_path, allow_point_fallback=False)
 
 
+def test_bom_hybrid_point_download_preserves_explicit_local_areal_tp(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A local areal CSV must never be silently replaced by an online download."""
+    tp_module = pytest.importorskip("pytuflow.arr.temporal_patterns")
+    m = _wrapper()
+    areal = tmp_path / "areal_Increments.csv"
+    areal.write_text("authored local areal increments", encoding="utf-8")
+    calls: list[tuple[str | None, str | None, str | None, str | None, float | None]] = []
+    expected = object()
+
+    class Response:
+        def layer(self, name: str, required: bool = False) -> dict[str, str] | None:
+            if name == "PointTP":
+                assert required
+                return {"url": "https://example.invalid/point.zip"}
+            if name == "ArealTP":
+                return {"url": "https://example.invalid/areal.zip"}
+            raise AssertionError(name)
+
+    def from_sources(
+        _klass: object,
+        point_path: str | None,
+        areal_path: str | None,
+        point_url: str | None,
+        areal_url: str | None,
+        catchment_area: float | None = None,
+    ) -> object:
+        calls.append((point_path, areal_path, point_url, areal_url, catchment_area))
+        return expected
+
+    monkeypatch.setattr(tp_module.TemporalPatternSet, "from_sources", cast(Any, classmethod(from_sources)))
+    output = m._bom_patterns(
+        object(), -23.08632, 119.2755, 350.0, True, None, areal, tmp_path, response=Response()
+    )
+    assert output is expected
+    assert calls == [
+        (None, str(areal), "https://example.invalid/point.zip", "https://example.invalid/areal.zip", 350.0)
+    ]
+
+
 def test_excess_colour_depends_on_actual_value_not_display_rounding() -> None:
     """Exactly zero is grey; small nonzero rainfall excess stays undimmed."""
     m = _wrapper()

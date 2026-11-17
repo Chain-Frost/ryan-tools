@@ -249,6 +249,89 @@ def test_arr_duration_specific_loss_overrides() -> None:
     assert wrong_duration[0].status == ScreeningStatus.ZERO
 
 
+def test_arr_full_storm_il_override_when_engine_omits_negligible_preburst() -> None:
+    """An omitted preburst cannot turn a small positive excess into DROP."""
+    pattern = SimpleNamespace(event_id=4, tp_number=1, timestep=60, increments=[100], source="point", region="west")
+    event = SimpleNamespace(
+        aep_name="1%",
+        duration=60,
+        depth_point=29.9,
+        depth_areal=29.9,
+        initial_loss=29.8505,
+        continuing_loss=0.0,
+        patterns=[pattern],
+        preburst=None,
+        cc_scenario=None,
+    )
+    full_il = LossSpec(30.0, continuing_loss_mm_per_hour=0.0)
+    ratios = {("1%", 60, None): 0.005}
+
+    screened = screen_arr_events(
+        [event], default_losses=full_il, complete_storm=True, source_preburst_ratios=ratios
+    )
+    assert screened[0].status == ScreeningStatus.POSITIVE
+    assert screened[0].excess_mm == pytest.approx(0.0495)
+    bundle = assemble_arr_events(
+        [event],
+        losses_by_aep={},
+        default_losses=full_il,
+        continuing_loss_timing="full_increment",
+        complete_storm=True,
+        source_preburst_ratios=ratios,
+    )
+    assert bundle.patterns[0].excess_mm == pytest.approx(0.0495)
+    assert bundle.rainfall["1%", 60, None][-1].startswith("IL 29.8505; CL 0")
+    assert event.initial_loss == pytest.approx(29.8505)
+    assert full_il.initial_loss_mm == 30.0
+
+    # The historical explicitly burst-only override contract remains unchanged.
+    burst_only = screen_arr_events([event], default_losses=full_il, complete_storm=False)
+    assert burst_only[0].status == ScreeningStatus.ZERO
+
+
+def test_arr_full_storm_il_override_fails_closed_when_omitted_preburst_is_uncertain() -> None:
+    pattern = SimpleNamespace(event_id=4, tp_number=1, timestep=60, increments=[100], source="point", region="west")
+    event = SimpleNamespace(
+        aep_name="1%",
+        duration=60,
+        depth_point=29.9,
+        depth_areal=29.9,
+        initial_loss=29.8505,
+        continuing_loss=0.0,
+        patterns=[pattern],
+        preburst=None,
+        cc_scenario=None,
+    )
+    full_il = LossSpec(30.0, continuing_loss_mm_per_hour=0)
+    for ratios in (None, {}, {("1%", 60, None): 0.02}):
+        result = screen_arr_events(
+            [event], default_losses=full_il, complete_storm=True, source_preburst_ratios=ratios
+        )
+        assert result[0].status == ScreeningStatus.UNRESOLVED
+        assert "omitted preburst" in result[0].reason.lower()
+
+    # An omitted preburst larger than the full storm IL might itself run off,
+    # which cannot be established from the remaining design burst alone.
+    event.depth_point = 100.0
+    event.depth_areal = 100.0
+    result = screen_arr_events(
+        [event],
+        default_losses=LossSpec(0.1, continuing_loss_mm_per_hour=0),
+        complete_storm=True,
+        source_preburst_ratios={("1%", 60, None): 0.005},
+    )
+    assert result[0].status == ScreeningStatus.UNRESOLVED
+
+    # When the preburst period is present, the supplied full storm IL is
+    # applied to the complete event without a second reduction.
+    event.depth_point = 29.9
+    event.depth_areal = 29.9
+    event.preburst = SimpleNamespace(depth=0.1495, timestep=60, increments=[100], per_tp_increments=None)
+    result = screen_arr_events([event], default_losses=full_il, complete_storm=True)
+    assert result[0].status == ScreeningStatus.POSITIVE
+    assert result[0].excess_mm == pytest.approx(0.0495)
+
+
 def test_maximum_tp_bin_and_maximum_tp_total_are_distinct() -> None:
     events = (
         TemporalPattern("tp01", 60, (50, 50), 1),

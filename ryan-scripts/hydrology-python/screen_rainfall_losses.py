@@ -13,7 +13,7 @@ Examples:
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-17.10"
+WRAPPER_VERSION = "2026-11-17.11"
 
 WORKING_DIR: Path = Path(__file__).absolute().parent
 SOURCE = "arr"  # "arr" downloads ARR Data Hub 2026; "bom" uses the original BoM IFD CSV.
@@ -680,17 +680,24 @@ def _bom_patterns(
     areal = selected_response.layer("ArealTP")
     areal_url = areal["url"] if areal else None
     try:
-        return TemporalPatternSet.from_api_response(point["url"], areal_url, catchment_area=area)
+        return TemporalPatternSet.from_sources(
+            None,
+            str(areal_csv) if areal_csv is not None else None,
+            point["url"],
+            areal_url,
+            catchment_area=area,
+        )
     except Exception as exc:
         if (
             not allow_point_fallback
+            or areal_csv is not None
             or areal_url is None
             or "Failed to download temporal pattern zip" not in str(exc)
             or areal_url not in str(exc)
         ):
             raise
         Console(stderr=True).print("WARNING: Could not download areal TP increments. Using point TPs instead.")
-        return TemporalPatternSet.from_api_response(point["url"], None, catchment_area=area)
+        return TemporalPatternSet.from_sources(None, None, point["url"], None, catchment_area=area)
 
 
 def _bom_arf_factors(
@@ -1237,16 +1244,18 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
             run_method: str = "run"
             runner = cast("Callable[[], list[EventResult]]", getattr(engine, run_method))
             events: list[EventResult] = runner()
+            source_pb_ratios = _arr_source_preburst_ratios(engine.response, events, percentile)
             bundle = assemble_arr_events(
                 events,
                 losses_by_aep=overrides,
                 default_losses=loss_default,
                 continuing_loss_timing=cast(Any, loss_timing),
+                complete_storm=storm_mode == "complete",
+                source_preburst_ratios=source_pb_ratios,
             )
             screens = bundle.patterns
             totals = bundle.rainfall
             pattern_sets = bundle.pattern_sets
-            source_pb_ratios = _arr_source_preburst_ratios(engine.response, events, percentile)
             provenance_arf = (
                 f"explicit factor {arf_override:g} (all events)"
                 if arf_override is not None

@@ -211,6 +211,17 @@ explicit PB depth. In that case only, the ratio is derived as
 `applied_depth_over_point_ifd`. A missing original ARR ratio
 remains blank and is **never silently set to zero**.
 
+**Complete-storm IL overrides and omitted preburst:** PyTUFLOW may omit a
+preburst period when its original ratio is below 1%. The wrapper interprets
+user-supplied `--il` / per-AEP full-storm IL overrides as full-storm IL in
+`--storm-mode complete`. If PyTUFLOW omits such a small preburst, the wrapper
+subtracts its sourced preburst depth **once** to obtain an equivalent burst
+IL before screening. The applied IL is labelled in the report. If the
+original ratio or the conversion cannot be established (for example,
+preburst rainfall could already exceed the full-storm IL), the affected
+event is **UNRESOLVED, never DROP**. The existing
+`--storm-mode main-burst-only` override remains a burst IL and is not reduced.
+
 The CSV retains `preburst_mm` and `preburst_ratio_fraction` as
 distinct fields and now adds `preburst_ratio_basis`, which says
 whether the ratio is `arr_selected_source_ratio`, inferred,
@@ -339,6 +350,12 @@ Example (offline, no coordinates required):
 ```powershell
 py -3.14 ryan-scripts/hydrology-python/screen_rainfall_losses.py --source arr --offline --arr-response "D:\ARR\Site_ARR_response.json" --point-tp "D:\ARR\Point_Increments.csv" --areal-tp "D:\ARR\Areal_Increments.csv" --aep-mode common --no-pause
 ```
+
+In BoM mode, a supplied `--areal-tp` file is honoured **even if
+`--point-tp` is omitted and the point temporal patterns must be
+downloaded**. PyTUFLOW's `TemporalPatternSet.from_sources` handles the
+point and areal sources independently; an explicit local areal CSV is
+never replaced by the Data Hub URL when a point download is required.
 
 A **hybrid** run using `--arr-response` but without `--offline` is also
 supported: the JSON is local, but any unspecified temporal-pattern CSV may

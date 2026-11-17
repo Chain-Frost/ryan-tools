@@ -1,5 +1,6 @@
 """Focused tests for the TUFLOW project setup workflow."""
 
+import json
 import sqlite3
 import struct
 from collections.abc import Mapping
@@ -192,7 +193,8 @@ def test_project_layers_are_empty_derivatives_of_tuflow_empties(
     vscode_dir = result.project_dir / ".vscode"
     settings_text = (vscode_dir / "settings.json").read_text(encoding="utf-8")
     assert '"**/results/**": true' in settings_text
-    assert '"python-envs.defaultEnvManager": "ms-python.python:system"' in settings_text
+    settings_data = json.loads(settings_text)
+    assert "python-envs.defaultEnvManager" not in settings_data
     extensions_text = (vscode_dir / "extensions.json").read_text(encoding="utf-8")
     assert '"Chain-Frost.tuflow-path-validator"' in extensions_text
 

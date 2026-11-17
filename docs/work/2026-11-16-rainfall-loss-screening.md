@@ -60,6 +60,25 @@
   Ruff, modified-file strict Pyright and required installed-wrapper
   checks. Preserve draft PR #318; no merge or release authorized.
 
+## 17 November 2026: post-Codex corrections and approved VS Code setting removal
+
+- Codex on PR #318 `6c16518` identified two valid screening gaps:
+  applying full-storm user IL after a negligible preburst was omitted
+  could yield a false DROP, and hybrid BoM downloads ignored a supplied
+  local areal TP CSV. Both paths now have targeted regression tests.
+- Complete-storm override conversion subtracts only the omitted original
+  preburst depth from full-storm IL when the source ratio is available,
+  below the PyTUFLOW 1% omission threshold and within IL.
+  Unknown/unsafe conversions are UNRESOLVED. The main-burst-only
+  override contract remains unchanged.
+- The owner explicitly required `python-envs.defaultEnvManager` to remain
+  deleted from the TUFLOW VS Code settings template. The template is
+  valid strict JSON without the field, and the project-setup test now
+  verifies its absence, not the previous presence.
+- The prior review finding was acknowledged and marked resolved by
+  the owner, but exact-head tests and re-review must be checked before
+  a merge.
+
 ## Acceptance and next actions
 
 1. Check draft PR #318 at final head: Ruff, strict Pyright, focused tests, wheel/installed wrapper, bundle manifest and `--help`. The 2026-11-16 head previously failed hosted tests because the installed-script evidence ledger lacked the new selected wrapper; the ledger is updated in the same PR.

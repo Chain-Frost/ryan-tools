@@ -369,6 +369,41 @@ def _pytuflow_preburst(preburst: object) -> Preburst:
     )
 
 
+def reconcile_arr_full_storm_override(
+    event: object,
+    override: LossSpec,
+    *,
+    complete_storm: bool,
+    source_preburst_ratio: float | None,
+) -> LossSpec | None:
+    """Convert a full-storm override to burst IL if PyTUFLOW omits a tiny preburst.
+
+    With a complete preburst period the supplied loss is already full-storm IL.
+    The PyTUFLOW engine may omit a preburst when its original ratio is <0.01,
+    leaving a burst-only event. Subtract the omitted source preburst depth
+    once in that case. An unsupported or indeterminate conversion returns
+    None, so screening cannot certify a false zero-excess DROP.
+    """
+    if not complete_storm or getattr(event, "preburst", None) is not None:
+        return override
+    if source_preburst_ratio is None or not isfinite(source_preburst_ratio):
+        return None
+    if not 0 <= source_preburst_ratio < 0.01:
+        return None
+    point_raw = getattr(event, "depth_point", None)
+    if not isinstance(point_raw, int | float) or not isfinite(float(point_raw)) or point_raw < 0:
+        return None
+    omitted_depth = float(point_raw) * source_preburst_ratio
+    if not isfinite(omitted_depth) or omitted_depth > override.initial_loss_mm:
+        return None
+    return LossSpec(
+        initial_loss_mm=max(0.0, override.initial_loss_mm - omitted_depth),
+        continuing_loss_mm_per_hour=override.continuing_loss_mm_per_hour,
+        runoff_coefficient=override.runoff_coefficient,
+        continuing_loss_timing=override.continuing_loss_timing,
+    )
+
+
 def screen_arr_events(
     events: Iterable[object],
     *,
@@ -376,6 +411,8 @@ def screen_arr_events(
     losses_by_aep: Mapping[str, LossSpec | Mapping[int, LossSpec]] | None = None,
     default_losses: LossSpec | None = None,
     continuing_loss_timing: Literal["fractional", "full_increment"] = "fractional",
+    complete_storm: bool = False,
+    source_preburst_ratios: Mapping[tuple[str, int, str | None], float | None] | None = None,
 ) -> tuple[PatternScreen, ...]:
     """Screen already assembled 'pytuflow.arr.engine.EventResult' instances.
 
@@ -391,6 +428,32 @@ def screen_arr_events(
         selection = losses_by_aep.get(name) if losses_by_aep is not None else None
         selected_losses = selection.get(int(item.duration)) if isinstance(selection, Mapping) else selection
         override = selected_losses if selected_losses is not None else default_losses
+        scenario = str(item.cc_scenario) if item.cc_scenario is not None else None
+        if override is not None and complete_storm and item.preburst is None:
+            ratio = (
+                source_preburst_ratios.get((name, int(item.duration), scenario))
+                if source_preburst_ratios is not None
+                else None
+            )
+            adjusted = reconcile_arr_full_storm_override(
+                item, override, complete_storm=complete_storm, source_preburst_ratio=ratio
+            )
+            if adjusted is None:
+                screens.append(
+                    PatternScreen(
+                        name,
+                        float(item.duration),
+                        None,
+                        "arr_datahub",
+                        scenario,
+                        ScreeningStatus.UNRESOLVED,
+                        None,
+                        None,
+                        "Omitted preburst cannot be reconciled with full-storm IL override",
+                    )
+                )
+                continue
+            override = adjusted
         losses = (
             override
             if override is not None
