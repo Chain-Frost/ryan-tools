@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import importlib.util
+import io
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
@@ -664,3 +667,103 @@ def test_arf_greyscale_and_decision_colours() -> None:
     assert m._decision_cell(ScreeningStatus.POSITIVE).style == "bold yellow"
     assert m._excess_cell(0).style == "grey50"
     assert m._excess_cell(0.00000001).style == "white"
+
+
+
+def test_ladson_duration_area_interpolation_and_negative_floor_use_pytuflow() -> None:
+    arf = pytest.importorskip("pytuflow.arr.arf")
+    short = arf.arf_eqn241(10, 720, 0.01)
+    params = (0.158, 0.276, 0.372, 0.315, 0.000141, 0.41, 0.15, 0.01, -0.0027)
+    long_ = arf.arf_eqn242(10, 1440, 0.01, *params)
+    expected_medium = (short + long_) / 2
+    assert arf.arf_eqn243(1080, short, long_) == pytest.approx(expected_medium)
+    assert arf.arf_eqn244(5, expected_medium) == pytest.approx(
+        1 - 0.6614 * (1 - expected_medium) * (5**0.4 - 1)
+    )
+    # Ladson's 1000 km² / 1 min / 1% example produces a negative raw
+    # factor, which must be floored before it is used as rainfall.
+    assert arf.arf_eqn241(1000, 1, 0.01) < 0
+    factors = arf.arf_factors(
+        1000, [1], ["1%"],
+        dict(zip("abcdefghi", params, strict=True)),
+        min_arf=0,
+    )
+    assert float(factors.loc[1, "1%"]) == 0
+
+
+def test_arf_cautions_grouped_above_50_below_30_and_zero(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    pytest.importorskip("pytuflow.arr.arf")
+    m = _wrapper()
+    totals = {
+        ("63.2%", 10, None): (10.8, 10.8, 1.0, None, "IL 50; CL 5"),
+        ("50%", 10, None): (12.6, 5.84, 0.4633, None, "IL 50; CL 5"),
+        ("50%", 20, None): (18.5, 11.0, 0.5947, None, "IL 50; CL 5"),
+        ("1%", 60, None): (20.0, 0.0, 0.0, None, "IL 50; CL 5"),
+    }
+    flags = m._arf_policy_cautions(totals, area=350, override=None)
+    assert flags["63.2%", 10, None] == ("AEP_GT_50_UNITY",)
+    assert flags["50%", 10, None] == ("DURATION_LT_30_EXTRAPOLATED",)
+    assert flags["1%", 60, None] == ("ZERO_ARF_REVIEW",)
+    assert ("50%", 10, None) not in m._arf_policy_cautions(totals, area=350, override=0.8)
+    screens = [
+        PatternScreen(aep, duration, "tp01", "arr_datahub", None, ScreeningStatus.ZERO, 0, 0, "zero")
+        for aep, duration, _ in totals
+    ]
+    m._print_provenance(
+        latitude=-23.08632, longitude=119.2755, site="Test", area=350,
+        arf_source="PyTUFLOW ARR2019 Book 2 ARF", screens=screens,
+        loss_timing="full_increment", climate="baseline only", arf_cautions=flags,
+    )
+    shown = capsys.readouterr().out
+    assert "63.2%" in shown and "unity fallback" in shown
+    assert "30-minute derivation limit" in shown
+    assert "zero" in shown.lower() and "ARF" in shown
+    csv_path = tmp_path / "cautions.csv"
+    m._print_report(screens, totals, "all", csv_path, arf_cautions=flags)
+    rows = list(csv.DictReader(io.StringIO(csv_path.read_text(encoding="utf-8"))))
+    keyed = {(row["aep"], int(row["duration_min"])): row for row in rows}
+    assert keyed["50%", 10]["arf_cautions"] == "DURATION_LT_30_EXTRAPOLATED"
+    assert keyed["63.2%", 10]["arf_cautions"] == "AEP_GT_50_UNITY"
+    assert m._arf_cell(0.5, flagged=True).plain.endswith("*")
+
+
+def test_arr_source_preburst_ratio_stays_constant_when_applied_depth_changes(
+    tmp_path: Path,
+) -> None:
+    pytest.importorskip("pytuflow.arr.complete_storm")
+    m = _wrapper()
+
+    class Response:
+        def layer(self, name: str, required: bool = False) -> dict[str, object] | None:
+            if name == "RecPreburst":
+                return None  # Pilbara: 'recommended' falls back to Preburst50.
+            if name == "Preburst50":
+                return {"index": [60], "columns": [1.0], "data": [[0.015]]}
+            raise AssertionError((name, required))
+
+    events = [
+        SimpleNamespace(aep_name="1%", duration=60, cc_scenario=None, preburst=SimpleNamespace(depth=1.5)),
+        SimpleNamespace(aep_name="1%", duration=60, cc_scenario="2050_SSP2", preburst=SimpleNamespace(depth=2.1)),
+    ]
+    ratios = m._arr_source_preburst_ratios(Response(), events, "recommended")
+    assert ratios["1%", 60, None] == pytest.approx(0.015)
+    assert ratios["1%", 60, "2050_SSP2"] == pytest.approx(0.015)
+    screens = [
+        PatternScreen("1%", 60, "tp01", "arr_datahub", scenario, ScreeningStatus.POSITIVE, 0.1, 0.1, "positive")
+        for scenario in (None, "2050_SSP2")
+    ]
+    totals = {
+        ("1%", 60, None): (100.0, 85.0, 0.85, 1.5, "IL 50; CL 5"),
+        ("1%", 60, "2050_SSP2"): (140.0, 119.0, 0.85, 2.1, "IL 50; CL 5"),
+    }
+    output = tmp_path / "pb_source.csv"
+    m._print_report(screens, totals, "all", output, source_preburst_ratios=ratios)
+    rows = list(csv.DictReader(io.StringIO(output.read_text(encoding="utf-8"))))
+    assert [row["preburst_mm"] for row in rows] == ["1.5", "2.1"]
+    assert [row["preburst_ratio_fraction"] for row in rows] == ["0.015", "0.015"]
+    assert all(row["preburst_ratio_basis"] == "arr_selected_source_ratio" for row in rows)
+    # A suppressed/no-preburst event may still have a nonzero source ratio.
+    events[0].preburst = None
+    assert m._arr_source_preburst_ratios(Response(), events, "recommended")["1%", 60, None] == pytest.approx(0.015)

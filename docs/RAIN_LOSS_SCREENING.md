@@ -93,6 +93,40 @@ rainfall multiplier (`RAINFALL_FACTOR` / `--rainfall-factor 1.15`)
 applies to rainfall depth **before IL/CL**; this is not a substitute
 for the ARR 2026 recommended climate-change dataset.
 
+### ARF validity warnings and Ladson interpolation guidance
+
+The wrapper uses **PyTUFLOW's ARR ARF calculations**, not a second ARF
+implementation. The published [ARR Book 2 v4.2](https://www.arr-software.org/pdfs/ARR_190514_Book2_V4.2.pdf)
+and [Tony Ladson's ARF review](https://tonyladson.wordpress.com/2020/04/05/arr2019-areal-reduction-factors/)
+agree on the interpolation equations: **duration** interpolation for 12–24 h
+is Eq. **2.4.3**; **area** interpolation for 1–10 km² is Eq. **2.4.4**.
+For areas below 10 km² and durations 12–24 h, apply duration
+interpolation at 10 km² first, followed by area interpolation.
+Ladson notes that ARR Table 2.4.1 incorrectly refers to the wrong
+interpolation equation in some rows. PyTUFLOW uses the correct equations.
+
+Console warnings and per-event CSV flags now cover:
+
+- **AEP >50%**, including **63.2%**: normal PyTUFLOW policy leaves ARF
+  at **1.0000 (unity fallback)** rather than calculating an ARF outside
+  its published probability range. AEP below 0.05% also defaults to unity.
+- **Durations <30 min**: derived ARFs are extrapolations and must be
+  checked for plausible values. Do **not** automatically exclude
+  flagged DROP events on that basis.
+- **Short durations up to 12 h for area >1000 km²**, **areas
+  >30,000 km²**, or **durations >168 h**: published generalised
+  equation limits are exceeded.
+- **ARF = 0**: PyTUFLOW's selected `min_arf=0` floors unphysical
+  negative equation values at zero, or a user may have explicitly
+  selected zero. Verify zero-rainfall handling and the physical
+  plausibility of any DROP classification affected by a zero factor.
+
+Affected factors have an `*` in the ARF column; every CSV record
+includes semicolon-separated `arf_cautions` values. This is an
+**engineering review flag**, not an automatic rewrite of a factor
+or DROP/KEEP result. The wrapper's default common-AEP selection still
+omits 63.2% unless explicitly selected.
+
 ### Climate-change rainfall
 
 For ARR Data Hub rainfall, `--cc 2050:SSP2 --cc 2090:SSP5`,
@@ -153,18 +187,34 @@ The detailed results table has **two-line column headings**, coloured
 divider **between successive AEP groups**. The duration-by-AEP status
 matrix uses the same decision colours.
 
-Each row shows the point IFD, actual duration/AEP-specific ARF, adjusted
-rainfall, loss parameters, **preburst depth (PB mm)** and **applied
-preburst ratio (PB ratio)**. The reported ratio is calculated as:
+Each row shows the point IFD, ARF, adjusted rainfall, loss
+parameters, **applied preburst depth (PB mm)** and a separate
+**PB ratio**. For ARR mode, the ratio is selected from the
+**original Data Hub preburst-ratio layer** using PyTUFLOW's existing
+source/interpolation procedure: `RecPreburst` (where available),
+or the `Preburst50` fallback when `recommended` is selected.
+The adopted ratio is independent of climate-change rainfall magnitude;
+the **applied PB depth** uses the scenario's point IFD and therefore
+changes with rainfall. This includes cases where a preburst period
+is dropped as negligible: a nonzero source ratio can still be shown
+while applied PB mm is blank.
 
-```text
-PB ratio = applied preburst depth / point IFD burst depth
-```
+For example, a 1.50% selected source ratio with a 100 mm point
+storm produces 1.50 mm PB, while a 140 mm climate-adjusted point
+storm gives 2.10 mm PB **with the same 1.50% ratio**.
+The ratio may be interpolated by PyTUFLOW across the original ARR
+duration/AEP table; it is not necessarily a literal exported cell.
 
-It is shown as a percentage. For example, 0.285 mm preburst over
-19.0 mm point burst is `1.50%`. A dash means no explicit preburst
-was included in that assembled event; it does **not** assert that the
-Data Hub's raw preburst-ratio table contains a zero.
+Manual **BoM** mode has no ARR source ratio for its optional
+explicit PB depth. In that case only, the ratio is derived as
+`applied PB depth / point IFD`, and the CSV labels it
+`applied_depth_over_point_ifd`. A missing original ARR ratio
+remains blank and is **never silently set to zero**.
+
+The CSV retains `preburst_mm` and `preburst_ratio_fraction` as
+distinct fields and now adds `preburst_ratio_basis`, which says
+whether the ratio is `arr_selected_source_ratio`, inferred,
+unavailable or not applicable.
 
 The TP counts mean:
 

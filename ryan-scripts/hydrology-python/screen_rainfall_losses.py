@@ -13,7 +13,7 @@ Examples:
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-17.9"
+WRAPPER_VERSION = "2026-11-17.10"
 
 WORKING_DIR: Path = Path(__file__).absolute().parent
 SOURCE = "arr"  # "arr" downloads ARR Data Hub 2026; "bom" uses the original BoM IFD CSV.
@@ -477,12 +477,122 @@ def _decision_cell(status: ScreeningStatus) -> Text:
     return Text("UNRESOLVED", style="bold red")
 
 
-def _arf_cell(arf: float) -> Text:
+def _arf_cell(arf: float, *, flagged: bool = False) -> Text:
     """Grey-to-white ARF intensity: stronger area reduction is darker."""
     if not isfinite(arf) or not 0 <= arf <= 1:
         return Text("—", style="grey50")
     shade = round(110 + 145 * arf)
-    return Text(f"{arf:.4f}", style=f"#{shade:02x}{shade:02x}{shade:02x}")
+    suffix = "*" if flagged else ""
+    return Text(f"{arf:.4f}{suffix}", style=f"#{shade:02x}{shade:02x}{shade:02x}")
+
+
+def _arf_policy_cautions(
+    totals: Mapping[tuple[str, int, str | None], tuple[float, float, float, float | None, str]],
+    *,
+    area: float,
+    override: float | None,
+) -> dict[tuple[str, int, str | None], tuple[str, ...]]:
+    """Identify unsupported ARF inputs without silently changing PyTUFLOW factors."""
+    from pytuflow.arr.arf import aep_name_to_pct
+
+    cautions: dict[tuple[str, int, str | None], tuple[str, ...]] = {}
+    for key, (_, _, arf, _, _) in totals.items():
+        aep, duration, _scenario = key
+        notes: list[str] = []
+        if area > 1 and override is None:
+            percent = float(aep_name_to_pct(aep))
+            if percent > 50:
+                notes.append("AEP_GT_50_UNITY" if arf == 1 else "AEP_GT_50_UNSUPPORTED")
+            elif percent < 0.05:
+                notes.append("AEP_LT_0_05_UNITY" if arf == 1 else "AEP_LT_0_05_UNSUPPORTED")
+            elif duration < 30:
+                notes.append("DURATION_LT_30_EXTRAPOLATED")
+            if area > 1000 and duration <= 720:
+                notes.append("SHORT_AREA_GT_1000_UNSUPPORTED")
+            if area > 30000:
+                notes.append("AREA_GT_30000_UNSUPPORTED")
+            if duration > 10080:
+                notes.append("DURATION_GT_168_HOURS_UNSUPPORTED")
+        if arf == 0:
+            notes.append("ZERO_ARF_REVIEW")
+        if notes:
+            cautions[key] = tuple(notes)
+    return cautions
+
+
+def _show_arf_policy_warnings(cautions: Mapping[tuple[str, int, str | None], tuple[str, ...]]) -> None:
+    """Consolidate Ladson/ARR cautions before the table, rather than per row."""
+    console = Console()
+    frequent = sorted({a for (a, _, _), flags in cautions.items() if "AEP_GT_50_UNITY" in flags})
+    if frequent:
+        console.print(
+            "WARNING: ARF not applied for " + ", ".join(frequent)
+            + " (>50% AEP); 1.0000 is a unity fallback, NOT a calculated factor. "
+            "Ladson recommends checking any extension rather than assuming validity."
+        )
+    rare = sorted({a for (a, _, _), flags in cautions.items() if "AEP_LT_0_05_UNITY" in flags})
+    if rare:
+        console.print("WARNING: ARF not applied below 0.05% AEP for " + ", ".join(rare) + "; 1.0000 is a fallback.")
+    unsupported = sorted({
+        a for (a, _, _), flags in cautions.items()
+        if "AEP_GT_50_UNSUPPORTED" in flags or "AEP_LT_0_05_UNSUPPORTED" in flags
+    })
+    if unsupported:
+        console.print("WARNING: AEP outside ARR ARF equation limits with a non-unity factor: " + ", ".join(unsupported))
+    short = sorted({d for (_, d, _), flags in cautions.items() if "DURATION_LT_30_EXTRAPOLATED" in flags})
+    if short:
+        console.print(
+            "WARNING: ARF at " + ", ".join(str(d) for d in short)
+            + " minutes is extrapolated below the 30-minute derivation limit. "
+            "Check realism; do NOT automatically exclude flagged DROP events."
+        )
+    big_short = sorted({d for (_, d, _), flags in cautions.items() if "SHORT_AREA_GT_1000_UNSUPPORTED" in flags})
+    if big_short:
+        console.print(
+            "WARNING: short-duration ARF outside the 1000-km² area limit at "
+            + ", ".join(str(d) for d in big_short) + " minutes."
+        )
+    if any("AREA_GT_30000_UNSUPPORTED" in flags for flags in cautions.values()):
+        console.print("WARNING: catchment area exceeds the 30,000-km² ARF equation limit.")
+    if any("DURATION_GT_168_HOURS_UNSUPPORTED" in flags for flags in cautions.values()):
+        console.print("WARNING: duration exceeds the 168-hour ARF equation limit.")
+    zero = sorted({f"{a}/{d}min" for (a, d, _), flags in cautions.items() if "ZERO_ARF_REVIEW" in flags})
+    if zero:
+        console.print(
+            "WARNING: ARF = 0 for " + ", ".join(zero)
+            + ". PyTUFLOW floors negative ARF values at zero (or zero may be explicitly selected). "
+            "Check physical realism and downstream zero-rainfall handling before using DROP."
+        )
+
+
+def _arr_source_preburst_ratios(
+    response: Any, events: Sequence[object], percentile: str
+) -> dict[tuple[str, int, str | None], float | None]:
+    """Read the source ARR ratio using PyTUFLOW's existing interpolation code.
+
+    The helper is version-bound and internal to PyTUFLOW, as used by its own
+    complete-storm engine. Missing source values are not silently zero-filled.
+    """
+    from pytuflow.arr.arf import aep_name_to_pct
+    from pytuflow.arr.exceptions import ArrError
+
+    method = "_preburst_ratio"
+    calculator = cast("Callable[..., Any]", getattr(import_module("pytuflow.arr.complete_storm"), method))
+    ratios: dict[tuple[str, int, str | None], float | None] = {}
+    for item in events:
+        event = cast(Any, item)
+        aep = str(event.aep_name)
+        duration = int(event.duration)
+        scenario = str(event.cc_scenario) if event.cc_scenario is not None else None
+        try:
+            ratio = float(calculator(response, percentile, duration, float(aep_name_to_pct(aep))))
+        except ArrError:
+            ratios[aep, duration, scenario] = None
+            continue
+        if not isfinite(ratio) or ratio < 0:
+            raise _error(f"Invalid ARR source preburst ratio for {aep}/{duration} min: {ratio}")
+        ratios[aep, duration, scenario] = ratio
+    return ratios
 
 
 def _show_matrix(screens: Sequence[PatternScreen], *, enabled: bool) -> None:
@@ -609,6 +719,7 @@ def _print_provenance(
     loss_timing: str,
     climate: str,
     pattern_sets: Sequence[str] = (),
+    arf_cautions: Mapping[tuple[str, int, str | None], tuple[str, ...]] | None = None,
 ) -> None:
     console = Console()
     console.print(f"Site: {site}")
@@ -617,8 +728,15 @@ def _print_provenance(
     else:
         console.print("Requested coordinates: not provided; using the selected saved source")
     console.print(f"Catchment area: {area:g} km²; ARF: {arf_source}; loss timing: {loss_timing}; climate: {climate}")
-    if area > 1 and not arf_source.startswith("explicit factor") and any(item.aep == "63.2%" for item in screens):
-        console.print("ARF policy: 63.2% AEP is more frequent than 50%; no reduction (ARF 1.0000) by default.")
+    if arf_cautions is not None:
+        _show_arf_policy_warnings(arf_cautions)
+    elif area > 1 and not arf_source.startswith("explicit factor") and any(item.aep == "63.2%" for item in screens):
+        console.print("WARNING: ARF not applied at 63.2% AEP (>50%); ARF 1.0000 is a unity fallback, not calculated.")
+    if area > 1 and not arf_source.startswith("explicit factor"):
+        if any(720 < item.duration_min < 1440 for item in screens):
+            console.print("ARF duration interpolation (12–24 h): ARR Eq. 2.4.3 (Ladson Table 2.4.1 correction).")
+        if area < 10:
+            console.print("ARF area interpolation (1–10 km²): ARR Eq. 2.4.4.")
     console.print(f"Temporal pattern set(s): {', '.join(pattern_sets) if pattern_sets else _region_label(screens)}")
 
 
@@ -659,6 +777,8 @@ def _print_report(
     csv_report: Path | None,
     *,
     source_decimal_places: int | None = None,
+    arf_cautions: Mapping[tuple[str, int, str | None], tuple[str, ...]] | None = None,
+    source_preburst_ratios: Mapping[tuple[str, int, str | None], float | None] | None = None,
 ) -> None:
     """Compact decision report with source-adjusted depths and separated AEP groups."""
     _choice("VIEW", view, {"all", "zero", "keep"})
@@ -718,7 +838,14 @@ def _print_report(
             if event.status == ScreeningStatus.POSITIVE
             else "UNRESOLVED"
         )
-        pb_ratio = preburst / point if preburst is not None and point > 0 else None
+        key = (event.aep, int(event.duration_min), event.scenario)
+        caution_codes = arf_cautions.get(key, ()) if arf_cautions is not None else ()
+        if source_preburst_ratios is not None:
+            pb_ratio = source_preburst_ratios.get(key)
+            ratio_basis = "arr_selected_source_ratio" if pb_ratio is not None else "source_ratio_unavailable"
+        else:
+            pb_ratio = preburst / point if preburst is not None and point > 0 else None
+            ratio_basis = "applied_depth_over_point_ifd" if pb_ratio is not None else "not_applicable"
         pb_display = Text("—", style="grey50") if preburst is None else Text(f"{preburst:.4g}")
         ratio_display = Text("—", style="grey50") if pb_ratio is None else Text(f"{100 * pb_ratio:.2f}%")
         zero_label = (
@@ -732,7 +859,7 @@ def _print_report(
             f"{event.duration_min:g}",
             *([event.scenario or "base"] if show_scenario else []),
             f"{point:.{source_places}f}",
-            _arf_cell(arf),
+            _arf_cell(arf, flagged=bool(caution_codes)),
             f"{used:.{adjusted_places}f}",
             loss_label,
             pb_display,
@@ -757,6 +884,8 @@ def _print_report(
                 loss_label,
                 "" if preburst is None else f"{preburst:.12g}",
                 "" if pb_ratio is None else f"{pb_ratio:.12g}",
+                ratio_basis,
+                ";".join(caution_codes),
                 str(event.zero_patterns),
                 str(event.positive_patterns),
                 *([str(event.unresolved_patterns)] if show_unknown else []),
@@ -773,7 +902,7 @@ def _print_report(
         f"{wiped} DROP; {len(events) - wiped - unknown} KEEP; {unknown} unresolved."
     )
     console.print(
-        "ARF shade: darker grey = stronger reduction; white = 1.0. "
+        "ARF shade: darker grey = stronger reduction; white = 1.0; ARF * denotes a policy caution. "
         "Grey excess 0.0000 is exactly zero; white <0.0001 is positive."
     )
     console.print(
@@ -781,6 +910,16 @@ def _print_report(
         "Max bin = greatest single time-bin excess depth across all TPs. "
         "These maxima may belong to different TPs."
     )
+    console.print(
+        "ARR PB ratio = original selected/interpolated Data Hub ratio (not climate- or ARF-adjusted); "
+        "PB mm = applied preburst depth, which changes with point IFD. "
+        "BoM PB ratio is inferred from manual preburst depth / point IFD."
+    )
+    if source_preburst_ratios is not None and any(
+        source_preburst_ratios.get((event.aep, int(event.duration_min), event.scenario)) is None
+        for event in selected
+    ):
+        console.print("WARNING: Selected ARR preburst source ratios unavailable for some events; blank is not zero.")
     console.print(
         "DROP and KEEP depend on the selected patterns and loss profile. "
         "Native-model parity and complete TP coverage are not established."
@@ -801,6 +940,8 @@ def _print_report(
                     "loss_parameters",
                     "preburst_mm",
                     "preburst_ratio_fraction",
+                    "preburst_ratio_basis",
+                    "arf_cautions",
                     "zero_tp",
                     "positive_tp",
                     *(["unknown_tp"] if show_unknown else []),
@@ -961,6 +1102,7 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
             message = f"CSV_REPORT already exists; choose a new report path: {report_path}"
             raise _error(message)
         totals: dict[tuple[str, int, str | None], tuple[float, float, float, float | None, str]] = {}
+        source_pb_ratios: dict[tuple[str, int, str | None], float | None] | None = None
         source_places: int | None = None
         provenance_latitude = latitude
         provenance_longitude = longitude
@@ -1090,6 +1232,7 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
             screens = bundle.patterns
             totals = bundle.rainfall
             pattern_sets = bundle.pattern_sets
+            source_pb_ratios = _arr_source_preburst_ratios(engine.response, events, percentile)
             provenance_arf = (
                 f"explicit factor {arf_override:g} (all events)"
                 if arf_override is not None
@@ -1214,6 +1357,7 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
                 if area > 1
                 else "unity (area <= 1 km²)"
             )
+        arf_cautions = _arf_policy_cautions(totals, area=area, override=arf_override)
         _print_provenance(
             latitude=provenance_latitude,
             longitude=provenance_longitude,
@@ -1224,8 +1368,14 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
             loss_timing=loss_timing,
             climate=climate_note,
             pattern_sets=pattern_sets,
+            arf_cautions=arf_cautions,
         )
-        _print_report(screens, totals, view, report_path, source_decimal_places=source_places)
+        _print_report(
+            screens, totals, view, report_path,
+            source_decimal_places=source_places,
+            arf_cautions=arf_cautions,
+            source_preburst_ratios=source_pb_ratios,
+        )
         _show_matrix(screens, enabled=show_matrix)
         _print_tp_details(screens, enabled=show_tp_details)
         Console().print(

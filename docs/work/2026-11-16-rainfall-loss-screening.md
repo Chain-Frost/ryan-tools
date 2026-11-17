@@ -38,6 +38,28 @@
 - Obtain authentic Data Hub 2026 JSON/point TP and areal TP for the site; check source/probability units, preburst ratio choice, and selected IL/CL.
 - Native RORBwin 6.52 / TUFLOW loss semantics, IL crossing timestep, temporal-pattern completeness and runoff pruning parity remain **unproven**.
 
+## 17 November 2026: ARF policy cautions and source PB ratio
+
+- Verified Tony Ladson's ARR interpolation correction against PyTUFLOW:
+  Eq. 2.4.3 for 12–24-hour durations and Eq. 2.4.4 for area
+  interpolation between 1 and 10 km². No ARF equation was replaced.
+- Added grouped warnings for >50%-AEP unity fallback (including
+  63.2%), under-30-minute extrapolation, unsupported area/duration
+  ranges and zero ARF potentially floored from a negative result.
+  Console ARF factors are flagged with `*`; CSV retains per-event
+  caution codes without changing DROP/KEEP semantics.
+- The selected ARR preburst ratio is read using PyTUFLOW's existing
+  ratio selection/interpolation rather than inferred from applied
+  preburst depth. Baseline and climate-change rows may share the
+  ratio while reporting different applied PB depths. BoM's manual
+  preburst ratio remains explicitly inferred, with CSV provenance.
+- Focused regression tests added. Native RORBwin/TUFLOW acceptance
+  remains unassessed; do not use policy-flagged DROP events as
+  automatic exclusions without engineering review.
+- **Validation pending:** exact-head Windows Python 3.14 focused tests,
+  Ruff, modified-file strict Pyright and required installed-wrapper
+  checks. Preserve draft PR #318; no merge or release authorized.
+
 ## Acceptance and next actions
 
 1. Check draft PR #318 at final head: Ruff, strict Pyright, focused tests, wheel/installed wrapper, bundle manifest and `--help`. The 2026-11-16 head previously failed hosted tests because the installed-script evidence ledger lacked the new selected wrapper; the ledger is updated in the same PR.
