@@ -105,8 +105,20 @@ def test_cli_help_and_explicit_aep_group(monkeypatch: pytest.MonkeyPatch) -> Non
     assert exc.value.code == 0
 
 
-def test_console_table_and_exclusive_csv(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_console_table_and_exclusive_csv(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from rich.table import Table
+
     m = _wrapper()
+    printed_tables: list[Table] = []
+    original_print: Any = m.Console.print
+
+    def capture_print(console: Any, *objects: Any, **kwargs: Any) -> None:
+        printed_tables.extend(item for item in objects if isinstance(item, Table))
+        original_print(console, *objects, **kwargs)
+
+    monkeypatch.setattr(m.Console, "print", capture_print)
     screens = [
         PatternScreen("20%", 60, None, "bom_ifd", None, ScreeningStatus.ZERO, 0, 0, "IL bound"),
         PatternScreen("10%", 60, "tp1", "bom_ifd", None, ScreeningStatus.POSITIVE, 1, 5, "positive"),
@@ -124,8 +136,8 @@ def test_console_table_and_exclusive_csv(tmp_path: Path, capsys: pytest.CaptureF
     assert "DROP" in shown
     assert "KEEP" in shown
     assert "UNRESOLVED" in shown
-    # One Rich horizontal separator between each adjacent AEP group.
-    assert shown.count("├") == 2
+    # Check grouping metadata, not renderer-specific table border glyph counts.
+    assert [row.end_section for row in printed_tables[0].rows] == [True, True, False]
     assert "1 DROP" in shown
     assert output.exists()
     with pytest.raises(FileExistsError):
