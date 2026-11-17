@@ -229,6 +229,9 @@ instrumented `cProfile` run of 129.7 s is **not timing-comparable**.
 
 The dependency-collection hotspot belongs primarily to upstream
 [PyTUFLOW PR #17](https://github.com/TUFLOW-Support/PyTuflow/pull/17).
+A bounded optimisation is now proposed in [fork PyTUFLOW PR #73](https://github.com/Chain-Frost/PyTuflow/pull/73),
+stacked on PR #17 and linked to ryan-tools PR #321. The pinned PyTUFLOW
+wheel is unchanged pending full parity and Windows/SMB qualification.
 There is no new TUFLOW parser or cross-check filesystem cache in ryan-tools.
 Any proposed upstream speedup requires paired, repeated baseline/candidate
 tests under the same model, flag selections, storage and cache conditions,

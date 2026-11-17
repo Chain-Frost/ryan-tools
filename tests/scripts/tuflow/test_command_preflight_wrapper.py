@@ -172,7 +172,7 @@ def test_preflight_presentation_separates_summary_issue_detail_and_result(
     assert "Required CSV columns: 'Time', 'Flow'." in console
     assert "RESULT\n------" in console
     assert "FAIL: 1 issue(s) affect 1 planned run(s)." in console
-    assert "before relying on the planned simulations or their outputs" in console
+    assert "Review each issue group and its full per-reference CSV before relying on the planned simulations." in console
 
 
 def test_failed_plan_does_not_emit_a_partial_manifest(tmp_path: Path) -> None:

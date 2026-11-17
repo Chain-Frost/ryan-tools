@@ -39,9 +39,16 @@ This PR candidate implements only the **ryan-tools-owned reporting work**:
   `Missing:` summaries and the next scenario table in
   `find_missing_tlf_runs.py`; coverage counts and summaries remain unchanged.
 - Hosted CI at `61ceb9c` found a synthetic preflight mock missing the
-  newly required inventory-counter fields (3,102 passed, 16 skipped, one
-  regression failure). Align the mock with the complete report contract;
-  do not weaken runtime validation or suppress missing-counter failures.
+  newly required inventory-counter fields. The test mock was corrected
+  without weakening runtime validation. Hosted CI at `015db33` then
+  passed 3,102 tests but one outdated presentation-text assertion failed;
+  its expected message is corrected in this work branch.
+- Upstream dependency-collection changes are stacked in draft
+  [PyTUFLOW PR #73](https://github.com/Chain-Frost/PyTuflow/pull/73),
+  based on the original [PyTUFLOW PR #17](https://github.com/TUFLOW-Support/PyTuflow/pull/17).
+  #73 reuses immutable offset rebasing and duplicate BC source syntax
+  within an invocation, without caching filesystem existence.
+  The current ryan-tools pin/wheel is **unchanged** until qualification.
 
 ### Original measured baseline (not rerun)
 
@@ -63,19 +70,19 @@ profile is not a comparable unprofiled timing.
 
 ## Next action
 
-1. Validate exact proposed head using focused tests, Ruff format/check,
-   strict Pyright and current hosted CI; correct any failures.
-2. Run Windows Python 3.14 with the approved installed PyTUFLOW wheel
-   and copied-runner preflight; verify full report and report collisions.
-3. Compare repeated 1,040-run measurements against the original
-   baseline on the same model and storage, with identical per-run
-   findings before assessing performance. Record warm/cold state,
-   package revision, wall/stage times and I/O counters.
-4. Coordinate any measured dependency-assembly optimization with
-   [upstream PR #17](https://github.com/TUFLOW-Support/PyTuflow/pull/17),
-   retaining substitutions, active conditional BC selection, GIS
-   boundaries, source ownership and case semantics. Do not infer a
-   speedup from grouping alone.
+1. Review focused hosted parity and synthetic benchmark results in
+   [PyTUFLOW PR #73](https://github.com/Chain-Frost/PyTuflow/pull/73).
+   Correct defects without weakening fallback equality checks.
+2. Reconcile exact-head CI for ryan-tools #321 after the single
+   presentation expectation correction.
+3. Compare repeated baseline/optimised 1,040-run measurements on
+   Windows/SMB under the same package versions and model conditions.
+   Require exact per-run issue/provenance parity, including missing
+   and empty sources, before accepting the PyTUFLOW candidate.
+4. Only after qualifying the dependency revision, build/verify the
+   new pinned PyTUFLOW wheel and integrate that consumer update in
+   **the existing ryan-tools PR #321**, not a second ryan-tools PR.
+   Do not merge or release without explicit approval.
 
 ## Completion criteria
 
@@ -100,6 +107,22 @@ The changed library also requires the normal
 eligible environment before a release. No merge or issue closure.
 
 ## Progress
+
+### 2026-11-17 — PyTUFLOW optimisation stack
+
+Opened [PyTUFLOW draft PR #73](https://github.com/Chain-Frost/PyTuflow/pull/73),
+targeting the upstream PR #17 contributor branch. It adds run-scoped
+immutable command-offset rebasing and cached syntax-only BC source
+templates with distinct per-row CSV column/owner attribution. Synthetic
+fallback parity tests, failure-cache isolation and a 1,040-run benchmark
+harness are included. Targeted Linux Python 3.11/3.14 CI was initiated.
+There is no established speedup or approval to change the installed
+wheel, ryan-tools dependency pin, or upstream release.
+
+The recorded native UON candidate trial against the *existing* pin
+on PR #321 showed parse 1.05 s, context 27.20 s, inventory 8.01 s,
+and 133 affected/3,059 finding totals. It is **not** a comparison of
+the new PyTUFLOW optimisations; no performance improvement was established.
 
 ### 2026-11-17 — additional issue comment
 
