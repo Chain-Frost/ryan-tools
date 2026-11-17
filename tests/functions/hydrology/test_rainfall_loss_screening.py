@@ -266,9 +266,7 @@ def test_arr_full_storm_il_override_when_engine_omits_negligible_preburst() -> N
     full_il = LossSpec(30.0, continuing_loss_mm_per_hour=0.0)
     ratios = {("1%", 60, None): 0.005}
 
-    screened = screen_arr_events(
-        [event], default_losses=full_il, complete_storm=True, source_preburst_ratios=ratios
-    )
+    screened = screen_arr_events([event], default_losses=full_il, complete_storm=True, source_preburst_ratios=ratios)
     assert screened[0].status == ScreeningStatus.POSITIVE
     assert screened[0].excess_mm == pytest.approx(0.0495)
     bundle = assemble_arr_events(
@@ -304,9 +302,7 @@ def test_arr_full_storm_il_override_fails_closed_when_omitted_preburst_is_uncert
     )
     full_il = LossSpec(30.0, continuing_loss_mm_per_hour=0)
     for ratios in (None, {}, {("1%", 60, None): 0.02}):
-        result = screen_arr_events(
-            [event], default_losses=full_il, complete_storm=True, source_preburst_ratios=ratios
-        )
+        result = screen_arr_events([event], default_losses=full_il, complete_storm=True, source_preburst_ratios=ratios)
         assert result[0].status == ScreeningStatus.UNRESOLVED
         assert "omitted preburst" in result[0].reason.lower()
 

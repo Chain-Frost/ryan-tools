@@ -187,9 +187,7 @@ def assemble_arr_events(
         pb = event.preburst
         ratio = source_preburst_ratios.get((aep, duration, scenario)) if source_preburst_ratios is not None else None
         applied = (
-            reconcile_arr_full_storm_override(
-                event, losses, complete_storm=complete_storm, source_preburst_ratio=ratio
-            )
+            reconcile_arr_full_storm_override(event, losses, complete_storm=complete_storm, source_preburst_ratio=ratio)
             if losses is not None
             else None
         )

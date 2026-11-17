@@ -601,9 +601,7 @@ def test_bom_hybrid_point_download_preserves_explicit_local_areal_tp(
         return expected
 
     monkeypatch.setattr(tp_module.TemporalPatternSet, "from_sources", cast(Any, classmethod(from_sources)))
-    output = m._bom_patterns(
-        object(), -23.08632, 119.2755, 350.0, True, None, areal, tmp_path, response=Response()
-    )
+    output = m._bom_patterns(object(), -23.08632, 119.2755, 350.0, True, None, areal, tmp_path, response=Response())
     assert output is expected
     assert calls == [
         (None, str(areal), "https://example.invalid/point.zip", "https://example.invalid/areal.zip", 350.0)
