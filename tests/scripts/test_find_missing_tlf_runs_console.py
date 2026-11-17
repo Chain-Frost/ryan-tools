@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import runpy
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, cast
+from typing import cast
 
 import pytest
 
