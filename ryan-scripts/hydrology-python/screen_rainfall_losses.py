@@ -533,23 +533,28 @@ def _show_arf_policy_warnings(cautions: Mapping[tuple[str, int, str | None], tup
     frequent = sorted({a for (a, _, _), flags in cautions.items() if "AEP_GT_50_UNITY" in flags})
     if frequent:
         console.print(
-            "WARNING: ARF not applied for " + ", ".join(frequent)
+            "WARNING: ARF not applied for "
+            + ", ".join(frequent)
             + " (>50% AEP); 1.0000 is a unity fallback, NOT a calculated factor. "
             "Ladson recommends checking any extension rather than assuming validity."
         )
     rare = sorted({a for (a, _, _), flags in cautions.items() if "AEP_LT_0_05_UNITY" in flags})
     if rare:
         console.print("WARNING: ARF not applied below 0.05% AEP for " + ", ".join(rare) + "; 1.0000 is a fallback.")
-    unsupported = sorted({
-        a for (a, _, _), flags in cautions.items()
-        if "AEP_GT_50_UNSUPPORTED" in flags or "AEP_LT_0_05_UNSUPPORTED" in flags
-    })
+    unsupported = sorted(
+        {
+            a
+            for (a, _, _), flags in cautions.items()
+            if "AEP_GT_50_UNSUPPORTED" in flags or "AEP_LT_0_05_UNSUPPORTED" in flags
+        }
+    )
     if unsupported:
         console.print("WARNING: AEP outside ARR ARF equation limits with a non-unity factor: " + ", ".join(unsupported))
     short = sorted({d for (_, d, _), flags in cautions.items() if "DURATION_LT_30_EXTRAPOLATED" in flags})
     if short:
         console.print(
-            "WARNING: ARF at " + ", ".join(str(d) for d in short)
+            "WARNING: ARF at "
+            + ", ".join(str(d) for d in short)
             + " minutes is extrapolated below the 30-minute derivation limit. "
             "Check realism; do NOT automatically exclude flagged DROP events."
         )
@@ -557,7 +562,8 @@ def _show_arf_policy_warnings(cautions: Mapping[tuple[str, int, str | None], tup
     if big_short:
         console.print(
             "WARNING: short-duration ARF outside the 1000-km² area limit at "
-            + ", ".join(str(d) for d in big_short) + " minutes."
+            + ", ".join(str(d) for d in big_short)
+            + " minutes."
         )
     if any("AREA_GT_30000_UNSUPPORTED" in flags for flags in cautions.values()):
         console.print("WARNING: catchment area exceeds the 30,000-km² ARF equation limit.")
@@ -566,7 +572,8 @@ def _show_arf_policy_warnings(cautions: Mapping[tuple[str, int, str | None], tup
     zero = sorted({f"{a}/{d}min" for (a, d, _), flags in cautions.items() if "ZERO_ARF_REVIEW" in flags})
     if zero:
         console.print(
-            "WARNING: ARF = 0 for " + ", ".join(zero)
+            "WARNING: ARF = 0 for "
+            + ", ".join(zero)
             + ". PyTUFLOW floors negative ARF values at zero (or zero may be explicitly selected). "
             "Check physical realism and downstream zero-rainfall handling before using DROP."
         )
@@ -924,8 +931,7 @@ def _print_report(
         "BoM PB ratio is inferred from manual preburst depth / point IFD."
     )
     if source_preburst_ratios is not None and any(
-        source_preburst_ratios.get((event.aep, int(event.duration_min), event.scenario)) is None
-        for event in selected
+        source_preburst_ratios.get((event.aep, int(event.duration_min), event.scenario)) is None for event in selected
     ):
         console.print("WARNING: Selected ARR preburst source ratios unavailable for some events; blank is not zero.")
     console.print(
@@ -1379,7 +1385,10 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
             arf_cautions=arf_cautions,
         )
         _print_report(
-            screens, totals, view, report_path,
+            screens,
+            totals,
+            view,
+            report_path,
             source_decimal_places=source_places,
             arf_cautions=arf_cautions,
             source_preburst_ratios=source_pb_ratios,

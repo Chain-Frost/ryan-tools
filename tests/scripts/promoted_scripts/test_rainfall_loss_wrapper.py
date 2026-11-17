@@ -669,7 +669,6 @@ def test_arf_greyscale_and_decision_colours() -> None:
     assert m._excess_cell(0.00000001).style == "white"
 
 
-
 def test_ladson_duration_area_interpolation_and_negative_floor_use_pytuflow() -> None:
     arf = pytest.importorskip("pytuflow.arr.arf")
     short = arf.arf_eqn241(10, 720, 0.01)
@@ -677,23 +676,21 @@ def test_ladson_duration_area_interpolation_and_negative_floor_use_pytuflow() ->
     long_ = arf.arf_eqn242(10, 1440, 0.01, *params)
     expected_medium = (short + long_) / 2
     assert arf.arf_eqn243(1080, short, long_) == pytest.approx(expected_medium)
-    assert arf.arf_eqn244(5, expected_medium) == pytest.approx(
-        1 - 0.6614 * (1 - expected_medium) * (5**0.4 - 1)
-    )
+    assert arf.arf_eqn244(5, expected_medium) == pytest.approx(1 - 0.6614 * (1 - expected_medium) * (5**0.4 - 1))
     # Ladson's 1000 km² / 1 min / 1% example produces a negative raw
     # factor, which must be floored before it is used as rainfall.
     assert arf.arf_eqn241(1000, 1, 0.01) < 0
     factors = arf.arf_factors(
-        1000, [1], ["1%"],
+        1000,
+        [1],
+        ["1%"],
         dict(zip("abcdefghi", params, strict=True)),
         min_arf=0,
     )
     assert float(factors.loc[1, "1%"]) == 0
 
 
-def test_arf_cautions_grouped_above_50_below_30_and_zero(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_arf_cautions_grouped_above_50_below_30_and_zero(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     pytest.importorskip("pytuflow.arr.arf")
     m = _wrapper()
     totals = {
@@ -712,9 +709,15 @@ def test_arf_cautions_grouped_above_50_below_30_and_zero(
         for aep, duration, _ in totals
     ]
     m._print_provenance(
-        latitude=-23.08632, longitude=119.2755, site="Test", area=350,
-        arf_source="PyTUFLOW ARR2019 Book 2 ARF", screens=screens,
-        loss_timing="full_increment", climate="baseline only", arf_cautions=flags,
+        latitude=-23.08632,
+        longitude=119.2755,
+        site="Test",
+        area=350,
+        arf_source="PyTUFLOW ARR2019 Book 2 ARF",
+        screens=screens,
+        loss_timing="full_increment",
+        climate="baseline only",
+        arf_cautions=flags,
     )
     shown = capsys.readouterr().out
     assert "63.2%" in shown
