@@ -368,6 +368,7 @@ def test_preflight_csv_export_is_opt_in_and_no_overwrite(
         )
         for i in range(2)
     ]
+
     def return_report(*_args: object, **_kwargs: object) -> CommandPreflightReport:
         return report
 
