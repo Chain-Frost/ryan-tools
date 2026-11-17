@@ -127,6 +127,7 @@ but they are not current architectural policy when they conflict with the canoni
 | [TUFLOW result dashboard adoption](work/2026-11-01-tuflow-result-dashboards-180.md) | #180 stacked PR 2: scope six result wrappers immediately, wait for the implemented foundation, then integrate and validate |
 | [TUFLOW proposed-run input preflight](work/2026-10-21-tuflow-input-preflight.md) | PR #143 read-only PyTUFLOW checks, integrated simulation preflight and standalone wrapper; merged as bcc8e5c, with separate follow-up records |
 | [TUFLOW batch preflight optimisation](work/2026-10-22-tuflow-batch-preflight-optimisation.md) | Stacked draft against PR #143: consume PyTUFLOW batch API, share GIS/filesystem inspection, preserve parity and benchmark 500-run workloads |
+| [TUFLOW preflight grouping and scalability (#320)](work/2026-11-17-tuflow-preflight-scalability-320.md) | Current BC console grouping, complete report CSV, stage counters and outstanding native/SMB performance qualification |
 | [TUFLOW runner model checks](work/2026-10-23-tuflow-runner-model-checks.md) | PR #159 current decisions, implementation, validation and delivery state |
 | [TUFLOW GPU availability alerts and CodeMeter validation](work/2026-11-03-tuflow-gpu-alerts-193.md) | PR #193 implementation, measured evidence, validation and delivery state |
 | [TGC terrain crop workflow](work/2026-11-04-tgc-terrain-crop.md) | Merged #204 baseline; #242/#244 integration, native-grid evidence and acceptance limits under #312 |

@@ -178,6 +178,63 @@ shows a prominent warning for every affected source line and the JSON manifest
 records the same warnings. The marks are removed before parsing, so the warning
 states that planned runs and input-check outputs may be wrong.
 
+## Grouped findings, detailed CSV and timing diagnostics
+
+Large BC databases can reference the same event-substituted source multiple
+times. The runner and standalone checker group repeated **console findings**
+by original planned run, exact source spelling, status and finding type. Groups
+display the number of original references and distinct details. Grouping does
+not fold case, follow symlinks, merge across selected events, change preflight
+status or discard any finding. An empty or missing source still fails.
+
+The full report remains available through the standalone checker:
+
+```powershell
+py -3.14 check_tuflow_inputs.py --runs "runs.txt" --report "reports/preflight-findings.csv" --no-pause
+```
+
+The Python simulation runner also supports the following *strict
+preflight-only* invocation (no solver launch):
+
+```powershell
+py -3.14 run_tuflow_simulations.py --preflight-only --no-export --preflight-report "reports/preflight-findings.csv" --no-pause
+```
+
+Or edit the runner's `PREFLIGHT_REPORT_CSV = Path("reports/preflight-findings.csv")`
+setting. Relative report paths use `WORKING_DIR`. Reports are opt-in and
+must be new; an existing file is never overwritten. If a requested report
+cannot be created, strict preflight fails even if input inspection passes.
+Background advisory checks do not write a report.
+
+The combined per-reference CSV includes all blocking issues and non-blocking
+advisories, with an explicit severity. It retains each original command-file
+row, run, TCF, flags, status, origin, reference and detail, as well as the
+selected layer, source path and pattern, owning control file and line, BC
+database context, input UUID and command index. `csv_columns_json` retains
+the exact ordered list of required CSV column names, including embedded commas.
+The original eleven columns remain in their previous order.
+
+The runner logs **post-check** parsing, dependency-collection and physical
+inspection times alongside completed runs, affected runs, finding counts and
+inspection counters (files, GeoPackages, CSV headers and directory scans).
+These values are not live stage-progress estimates. The standalone checker
+prints the same stage measurements and inspection counters.
+
+### Issue #320 performance qualification
+
+The original single warm-state observation on 17 November 2026 was 40.58 s
+for 1,040 planned runs over Windows/SMB (parse 1.08 s, dependency assembly
+27.76 s, physical inspection 8.10 s, other 3.64 s). The separately
+instrumented `cProfile` run of 129.7 s is **not timing-comparable**.
+
+The dependency-collection hotspot belongs primarily to upstream
+[PyTUFLOW PR #17](https://github.com/TUFLOW-Support/PyTuflow/pull/17).
+There is no new TUFLOW parser or cross-check filesystem cache in ryan-tools.
+Any proposed upstream speedup requires paired, repeated baseline/candidate
+tests under the same model, flag selections, storage and cache conditions,
+with a full equality comparison of per-run findings and all BC provenance.
+No speedup is claimed from console grouping alone.
+
 ## Supported checks
 
 `check_simulation_inputs()` is the single physical-validation consumer.

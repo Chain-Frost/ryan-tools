@@ -84,7 +84,11 @@ from collections.abc import Sequence
 
 from ryan_library.functions.tuflow.command_plan import CommandPlan, read_command_plans
 from ryan_library.functions.wrapper_utils import add_no_pause_cli_argument, pause_console, print_wrapper_banner
-from ryan_library.orchestrators.tuflow.command_preflight import CommandPreflightReport, check_command_plan
+from ryan_library.orchestrators.tuflow.command_preflight import (
+    CommandPreflightReport,
+    check_command_plan,
+    group_preflight_issues,
+)
 
 
 def _section(title: str) -> None:
@@ -172,7 +176,12 @@ def _print_preflight(
     print(f"  Status            : {'PASS' if result.passed else 'FAIL'}")
     print(f"  Runs checked      : {result.completed_runs} of {result.run_count}")
     print(f"  Unique input paths: {len(result.checked_paths)}")
+    print(f"  Files examined    : {result.files_examined}")
+    print(f"  GeoPackages       : {result.geopackages_examined}")
+    print(f"  CSV headers       : {result.csv_headers_checked}")
+    print(f"  Directory scans   : {result.directories_scanned}")
     print(f"  Issues            : {len(result.issues)}")
+    print(f"  Issue groups      : {len(group_preflight_issues(result.issues))}")
     print(f"  Advisory warnings : {len(result.warnings)}")
     print(f"  Affected runs     : {result.affected_runs}")
     print("  Timing:")
@@ -185,7 +194,8 @@ def _print_preflight(
 
     if result.issues:
         _section("ISSUES")
-        for number, issue in enumerate(result.issues, 1):
+        for number, group in enumerate(group_preflight_issues(result.issues), 1):
+            issue = group.issues[0]
             finding = issue.finding
             issue_type = finding.kind or finding.origin or "input"
             tcf = _display_path(issue.run.tcf, base) if base is not None else str(issue.run.tcf)
@@ -208,16 +218,25 @@ def _print_preflight(
                 required = ", ".join(repr(column) for column in finding.csv_columns)
                 detail = f"{detail.rstrip('. ')}. Required CSV columns: {required}."
             print(f"     Detail   : {detail}")
+            if len(group.issues) > 1:
+                print(
+                    f"     Repeated references: {len(group.issues)} (same run, source, status and type; "
+                    f"{len({item.finding.detail for item in group.issues})} distinct details)"
+                )
+                print("     Full per-boundary details: create a findings CSV with --report.")
 
     if result.warnings:
         _section("ADVISORY CRS WARNINGS")
-        for number, warning in enumerate(result.warnings, 1):
+        for number, group in enumerate(group_preflight_issues(result.warnings), 1):
+            warning = group.issues[0]
             finding = warning.finding
             tcf = _display_path(warning.run.tcf, base) if base is not None else str(warning.run.tcf)
             reference = _display_path(finding.reference, base) if base is not None else finding.reference
             print(f"  {number}. WARNING — {tcf} (run {warning.run.index}; {finding.kind or 'metadata'})")
             print(f"     Reference: {reference}")
             print(f"     Detail   : {finding.detail}")
+            if len(group.issues) > 1:
+                print(f"     Repeated references: {len(group.issues)}; full details in the findings CSV.")
         print("  Advisory CRS warnings do not change the PASS/FAIL result.")
 
     _section("RESULT")
@@ -225,7 +244,7 @@ def _print_preflight(
         print("  PASS: All planned runs completed the supported input checks with no issues.")
     else:
         print(f"  FAIL: {len(result.issues)} issue(s) affect {result.affected_runs} planned run(s).")
-        print("  Review every issue above before relying on the planned simulations or their outputs.")
+        print("  Review each issue group and its full per-reference CSV before relying on the planned simulations.")
 
 
 def main(

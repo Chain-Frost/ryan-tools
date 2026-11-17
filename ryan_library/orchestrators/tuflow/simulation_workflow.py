@@ -39,6 +39,7 @@ class WorkflowControls:
     continuation: CONT = CONT.RESUME
     export_commands: bool = True
     check_inputs: bool = True
+    preflight_report_csv: Path | None = None
 
     def __post_init__(self) -> None:
         if type(self.operation) is not OP or type(self.continuation) is not CONT:
@@ -46,6 +47,9 @@ class WorkflowControls:
             raise ValueError(message)
         if type(self.export_commands) is not bool or type(self.check_inputs) is not bool:
             message = "Workflow export_commands and check_inputs must be booleans."
+            raise ValueError(message)
+        if self.preflight_report_csv is not None and not isinstance(self.preflight_report_csv, Path):
+            message = "Preflight report CSV must be a Path or None."
             raise ValueError(message)
 
     @property
@@ -176,7 +180,12 @@ def run_simulation_workflow(
         logger.success("Export-only: no solver processes, GPU scan or input checking.")
         return WorkflowOutcome(controls.operation, export_path=destination)
     if controls.operation is OP.PREFLIGHT_ONLY:
-        return WorkflowOutcome(controls.operation, export_path=destination, preflight_passed=check_plan_only(plan))
+        preflight_passed = (
+            check_plan_only(plan)
+            if controls.preflight_report_csv is None
+            else check_plan_only(plan, report_csv=controls.preflight_report_csv)
+        )
+        return WorkflowOutcome(controls.operation, export_path=destination, preflight_passed=preflight_passed)
     result, skipped = _run_with_history(plan, settings, controls, interruption=interruption)
     return WorkflowOutcome(controls.operation, export_path=destination, batch=result, skipped=skipped)
 
