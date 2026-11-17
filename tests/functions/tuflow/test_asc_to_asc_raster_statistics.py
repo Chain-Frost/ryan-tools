@@ -14,6 +14,7 @@ import pytest
 from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 from ryan_library.functions.gdal.raster_processing import read_raster_band
 from ryan_library.functions.tuflow.tuflow_result_naming import replace_filename_component
+from ryan_library.orchestrators.tuflow import asc2asc_max_by_search
 from ryan_library.orchestrators.tuflow.asc2asc_max_by_search import (
     build_max_searches,
 )
@@ -145,3 +146,22 @@ def test_configurable_max_search_discovers_both_filename_styles(raster_test_data
     assert len(jobs) == 6
     assert all(len(job.input_files) == 2 for job in jobs)
     assert any("+" in path.name for job in jobs for path in job.input_files)
+
+
+def test_max_workflow_reports_memory_admission_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    input_file = tmp_path / "input.tif"
+    input_file.touch()
+    search = asc2asc_max_by_search.MaxSearch("maximum", "input.tif", "maximum.tif")
+    admission_error = "Raster memory budget (100 MiB) cannot fit one worker"
+
+    def reject_stage(**_kwargs: object) -> None:
+        raise ValueError(admission_error)
+
+    monkeypatch.setattr(asc2asc_max_by_search, "run_raster_operation_stage", reject_stage)
+    result = asc2asc_max_by_search.run_max_workflow(search_root=tmp_path, searches=[search], use_live_dashboard=False)
+
+    assert result == 1
+    assert f"ERROR: {admission_error}" in capsys.readouterr().out
+    assert list(tmp_path.iterdir()) == [input_file]

@@ -586,6 +586,16 @@ select the closest contributing value or retain the arithmetic mean with
 closest-source provenance. Median uses the upper middle contributing value
 when the TP count is even.
 
+Both wrappers expose cache/chunk memory, a total worker-memory budget, GDAL
+threads, optional file caching and phase reports as editable settings and CLI
+flags. `--workers` is an upper limit; the workflow coordinates CPU and memory
+budgets across processes. Phase reporting is enabled by default and separates
+reading, masks, calculation, sources, provenance, writing and final close/flush.
+The final source IDs are written during the maximum calculation, avoiding the
+previous second source-raster pass. See
+[performance controls and diagnosis](../../docs/ASC_TO_ASC_NATIVE_OPERATIONS.md#performance-controls-and-diagnosis)
+for defaults, units and timing interpretation.
+
 [`plot_water_level_profiles.py`](po_and_timeseries/plot_water_level_profiles.py) creates terrain
 and TUFLOW water-level profile PNGs along GeoPackage lines.  CLI arguments can override paths and profile settings. The workflow validates CRS metadata and
 requires exactly one result raster for every requested AEP. Missing CRS metadata

@@ -18,17 +18,19 @@ from typing import Literal
 
 from loguru import logger
 
-from ryan_library.classes.tuflow_string_classes import TuflowStringParser
-from ryan_library.functions.tuflow.asc_to_asc_raster_operations import MeanValueMethod, NodataPolicy
-from ryan_library.functions.tuflow.asc_to_asc_runner import RasterOperationJob
-from ryan_library.functions.tuflow.tuflow_result_naming import (
+from ...classes.tuflow_string_classes import TuflowStringParser
+from ...functions.tuflow.asc_to_asc_raster_operations import MeanValueMethod, NodataPolicy
+from ...functions.tuflow.asc_to_asc_runner import RasterOperationJob
+from ...functions.tuflow.raster_performance import RasterExecutionOptions
+from ...functions.tuflow.tuflow_result_naming import (
     replace_filename_component,
     require_component_text,
     result_type_from_parser,
 )
-from ryan_library.orchestrators.tuflow.asc_to_asc_batch import (
+from .asc_to_asc_batch import (
     DashboardOptions,
     StageExecutionSummary,
+    plan_raster_operation_stage,
     run_raster_operation_stage,
 )
 
@@ -346,6 +348,12 @@ def run_stat_then_max_workflow(
     dry_run: bool = False,
     strict: bool = False,
     write_source: bool = False,
+    cache_mb: int = 128,
+    chunk_mb: int = 256,
+    memory_budget_mb: int | None = None,
+    gdal_threads: int | None = None,
+    vsi_cache_mb: int = 0,
+    report_phases: bool = True,
     use_live_dashboard: bool = True,
     live_refresh_per_second: float = 2.0,
     live_max_rows: int = 10,
@@ -359,6 +367,15 @@ def run_stat_then_max_workflow(
     """
     try:
         _statistic_settings(first_stage_statistic)
+        RasterExecutionOptions(
+            cache_mb=cache_mb, chunk_mb=chunk_mb, threads=gdal_threads or 1, vsi_cache_mb=vsi_cache_mb
+        )
+        if gdal_threads is not None and gdal_threads < 1:
+            msg = "GDAL threads must be at least 1"
+            raise ValueError(msg)
+        if memory_budget_mb is not None and memory_budget_mb < 1:
+            msg = "Total raster memory budget MiB must be at least 1"
+            raise ValueError(msg)
     except ValueError as error:
         print(f"ERROR: {error}")
         return 1
@@ -393,6 +410,17 @@ def run_stat_then_max_workflow(
             output_root=output_root,
             write_source=write_source,
         )
+        for stage_jobs in ([details.job for details in stat_jobs], [job for job, _ in max_job_data]):
+            if stage_jobs:
+                plan_raster_operation_stage(
+                    jobs=stage_jobs,
+                    workers=workers,
+                    cache_mb=cache_mb,
+                    chunk_mb=chunk_mb,
+                    memory_budget_mb=memory_budget_mb,
+                    gdal_threads=gdal_threads,
+                    vsi_cache_mb=vsi_cache_mb,
+                )
     except (FileNotFoundError, ValueError) as error:
         print(f"ERROR: {error}")
         return 1
@@ -425,14 +453,24 @@ def run_stat_then_max_workflow(
         max_rows=live_max_rows,
         use_alternate_screen=live_use_alternate_screen,
     )
-    statistic_summary: StageExecutionSummary = run_raster_operation_stage(
-        jobs=[details.job for details in stat_jobs],
-        stage_name=f"temporal-pattern {first_stage_statistic}",
-        dashboard_title="Native Ensemble Raster Statistics",
-        dashboard_subtitle=str(search_root),
-        workers=workers,
-        dashboard_options=dashboard_options,
-    )
+    try:
+        statistic_summary: StageExecutionSummary = run_raster_operation_stage(
+            jobs=[details.job for details in stat_jobs],
+            stage_name=f"temporal-pattern {first_stage_statistic}",
+            dashboard_title="Native Ensemble Raster Statistics",
+            dashboard_subtitle=str(search_root),
+            workers=workers,
+            dashboard_options=dashboard_options,
+            cache_mb=cache_mb,
+            chunk_mb=chunk_mb,
+            memory_budget_mb=memory_budget_mb,
+            gdal_threads=gdal_threads,
+            vsi_cache_mb=vsi_cache_mb,
+            report_phases=report_phases,
+        )
+    except ValueError as error:
+        print(f"ERROR: {error}")
+        return 1
     print(
         f"Finished {first_stage_statistic} stage: {statistic_summary.succeeded} succeeded; {statistic_summary.failed} failed."
     )
@@ -442,14 +480,24 @@ def run_stat_then_max_workflow(
             print(f"  - {label} failed: {error}")
         return 1
 
-    max_summary: StageExecutionSummary = run_raster_operation_stage(
-        jobs=[job for job, _ in max_job_data],
-        stage_name=f"maximum of {first_stage_statistic}s",
-        dashboard_title="Native Ensemble Raster Statistics",
-        dashboard_subtitle=str(search_root),
-        workers=workers,
-        dashboard_options=dashboard_options,
-    )
+    try:
+        max_summary: StageExecutionSummary = run_raster_operation_stage(
+            jobs=[job for job, _ in max_job_data],
+            stage_name=f"maximum of {first_stage_statistic}s",
+            dashboard_title="Native Ensemble Raster Statistics",
+            dashboard_subtitle=str(search_root),
+            workers=workers,
+            dashboard_options=dashboard_options,
+            cache_mb=cache_mb,
+            chunk_mb=chunk_mb,
+            memory_budget_mb=memory_budget_mb,
+            gdal_threads=gdal_threads,
+            vsi_cache_mb=vsi_cache_mb,
+            report_phases=report_phases,
+        )
+    except ValueError as error:
+        print(f"ERROR: {error}")
+        return 1
     print(f"Finished maximum stage: {max_summary.succeeded} succeeded; {max_summary.failed} failed.")
     if not max_summary.ok:
         print("ERROR: maximum stage completed with failures.")

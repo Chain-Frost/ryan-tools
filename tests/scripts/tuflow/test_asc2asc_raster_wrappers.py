@@ -102,3 +102,66 @@ def test_median_then_max_wrapper_dry_run_supports_nested_plus_names(
     )
 
     assert result == 0
+
+
+@pytest.mark.parametrize("wrapper", ["run_asc_to_asc_mean_then_maximum.py", "run_asc_to_asc_median_then_maximum.py"])
+def test_performance_cli_preserves_zero_and_false_overrides(
+    wrapper: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    module = _load_script(wrapper)
+    assert module.WRITE_SOURCE_RASTERS is True
+    monkeypatch.setattr(module, "VSI_CACHE_MB", 16)
+    monkeypatch.setattr(module, "REPORT_PHASE_TIMINGS", True)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            wrapper,
+            "--workers",
+            "12",
+            "--cache-mb",
+            "64",
+            "--chunk-mb",
+            "128",
+            "--memory-budget-mb",
+            "2048",
+            "--gdal-threads",
+            "2",
+            "--vsi-cache-mb",
+            "0",
+            "--no-report-phases",
+        ],
+    )
+    options = module._parse_cli_arguments()
+    assert (options.workers, options.cache_mb, options.chunk_mb) == (12, 64, 128)
+    assert (options.memory_budget_mb, options.gdal_threads, options.vsi_cache_mb) == (2048, 2, 0)
+    assert options.report_phases is False
+    received: dict[str, object] = {}
+
+    def capture_workflow(**kwargs: object) -> int:
+        received.update(kwargs)
+        return 0
+
+    monkeypatch.setattr(module, "run_stat_then_max_workflow", capture_workflow)
+    monkeypatch.chdir(tmp_path)
+    assert (
+        module.main(
+            working_directory=tmp_path,
+            workers=options.workers,
+            cache_mb=options.cache_mb,
+            chunk_mb=options.chunk_mb,
+            memory_budget_mb=options.memory_budget_mb,
+            gdal_threads=options.gdal_threads,
+            vsi_cache_mb=options.vsi_cache_mb,
+            report_phases=options.report_phases,
+        )
+        == 0
+    )
+    assert received["write_source"] is True
+    assert received["vsi_cache_mb"] == 0
+    assert received["report_phases"] is False
+    assert received["workers"] == 12
+    assert received["cache_mb"] == 64
+    assert received["chunk_mb"] == 128
+    assert received["memory_budget_mb"] == 2048
+    assert received["gdal_threads"] == 2

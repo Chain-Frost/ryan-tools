@@ -11,6 +11,7 @@ from ryan_library.functions.tuflow.asc_to_asc_runner import (
     run_asc_to_asc_job,
     run_python_raster_job,
 )
+from ryan_library.functions.tuflow.raster_performance import RasterExecutionOptions
 from ryan_library.functions.tuflow.tuflow_result_naming import (
     format_user_template,
     replace_filename_component,
@@ -140,6 +141,10 @@ def test_run_python_raster_job_does_not_require_executable(mock_compute: MagicMo
         nodata_policy="require_all",
         mean_value_method="closest_source",
         write_source=False,
+        execution_options=RasterExecutionOptions(),
+        timings=None,
+        nested_source_files=None,
+        original_input_groups=None,
     )
 
 

@@ -217,7 +217,7 @@ class TestWorkflow:
     def test_workflow_success(self, mock_stage, mock_max, mock_mean, mock_discover, tmp_path: Path):
         dummy_job = MagicMock()
         dummy_job.label = "lbl"
-        dummy_job.input_files = []
+        dummy_job.input_files = [tmp_path / "input.tif"]
 
         dummy_mean = MagicMock()
         dummy_mean.job = dummy_job
@@ -247,7 +247,7 @@ class TestWorkflow:
     def test_workflow_mean_failure(self, mock_stage, mock_max, mock_mean, mock_discover, tmp_path: Path):
         dummy_job = MagicMock()
         dummy_job.label = "lbl"
-        dummy_job.input_files = []
+        dummy_job.input_files = [tmp_path / "input.tif"]
 
         dummy_mean = MagicMock()
         dummy_mean.job = dummy_job
