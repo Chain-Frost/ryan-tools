@@ -547,7 +547,8 @@ def test_preflight_warning_groups_missing_duration_once(capsys: pytest.CaptureFi
         point_fallback_durations=(30, 60),
     )
     m._announce_tp_admission(admission, area=350)
-    captured = capsys.readouterr().err
+    # Rich can wrap warning text across terminal-width boundaries.
+    captured = " ".join(capsys.readouterr().err.split())
     assert captured.count("Missing TPs for") == 1
     assert "1, 2, 5" in captured
     assert "NOT DROP" in captured
@@ -662,7 +663,7 @@ def test_provenance_explains_arf_unity_for_632_percent(
         loss_timing="full_increment",
         climate="baseline only",
     )
-    assert "ARF 1.0000" in capsys.readouterr().out
+    assert "ARF 1.0000" in " ".join(capsys.readouterr().out.split())
 
 
 def test_compact_headers_aep_group_lines_and_preburst_ratio_csv(
@@ -770,7 +771,7 @@ def test_arf_cautions_grouped_above_50_below_30_and_zero(tmp_path: Path, capsys:
         climate="baseline only",
         arf_cautions=flags,
     )
-    shown = capsys.readouterr().out
+    shown = " ".join(capsys.readouterr().out.split())
     assert "63.2%" in shown
     assert "unity fallback" in shown
     assert "30-minute derivation limit" in shown
