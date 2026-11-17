@@ -399,8 +399,15 @@ def test_checker_groups_repeated_bc_rows_without_changing_total_findings(
         CommandPreflightIssue(
             selected.runs[0],
             PreflightIssue(
-                1, "-e1 A", "missing", "BC", f"{source} >> request_{i}", "file missing",
-                kind="bc_source", path=source, csv_columns=("Time", f"Q{i}"),
+                1,
+                "-e1 A",
+                "missing",
+                "BC",
+                f"{source} >> request_{i}",
+                "file missing",
+                kind="bc_source",
+                path=source,
+                csv_columns=("Time", f"Q{i}"),
             ),
         )
         for i in range(3)

@@ -969,9 +969,16 @@ def test_preflight_report_option_is_explicit_and_preserves_working_directory(
 
     monkeypatch.setattr(simulation_workflow, "check_plan_only", checked)
     arguments = [
-        "--working-directory", str(tmp_path), "--mode", "textfiles",
-        "--input-file", str(source), "--no-tcf", "--preflight-only",
-        "--no-export", "--no-pause",
+        "--working-directory",
+        str(tmp_path),
+        "--mode",
+        "textfiles",
+        "--input-file",
+        str(source),
+        "--no-tcf",
+        "--preflight-only",
+        "--no-export",
+        "--no-pause",
     ]
     assert wrapper.main([*arguments, "--preflight-report", "reports/findings.csv"]) == 1
     assert captured == [report_path]
@@ -987,8 +994,20 @@ def test_preflight_report_setting_fails_closed_outside_strict_preflight(
     module = sys.modules["tested_runner_wrapper"]
     monkeypatch.setattr(module, "PREFLIGHT_REPORT_CSV", "reports/findings.csv")
     source = _source(tmp_path)
-    assert wrapper.main([
-        "--working-directory", str(tmp_path), "--mode", "textfiles",
-        "--input-file", str(source), "--no-tcf", "--export-only", "--no-pause",
-    ]) == 1
+    assert (
+        wrapper.main(
+            [
+                "--working-directory",
+                str(tmp_path),
+                "--mode",
+                "textfiles",
+                "--input-file",
+                str(source),
+                "--no-tcf",
+                "--export-only",
+                "--no-pause",
+            ]
+        )
+        == 1
+    )
     assert not (tmp_path / "reports" / "findings.csv").exists()

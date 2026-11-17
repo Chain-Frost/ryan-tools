@@ -387,12 +387,8 @@ def test_grouping_keeps_run_status_type_and_source_spelling_distinct_and_csv_is_
         for number in (1, 2, 3)
     ]
     across_run = replace(repeated[0], run=run_b)
-    other_status = replace(
-        repeated[0], finding=replace(repeated[0].finding, status="unresolved", detail="cannot read")
-    )
-    other_case = replace(
-        repeated[0], finding=replace(repeated[0].finding, path=tmp_path / "RAIN_A.csv")
-    )
+    other_status = replace(repeated[0], finding=replace(repeated[0].finding, status="unresolved", detail="cannot read"))
+    other_case = replace(repeated[0], finding=replace(repeated[0].finding, path=tmp_path / "RAIN_A.csv"))
     report = subject.CommandPreflightReport(selected, completed_runs=2)
     report.issues = [*repeated, across_run, other_status, other_case]
     report.warnings = [

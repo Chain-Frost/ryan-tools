@@ -142,7 +142,9 @@ class CommandPreflightReport:
                             finding.database_kind or "",
                             finding.input_uuid,
                             finding.command_index,
-                            json.dumps(finding.csv_columns, ensure_ascii=False) if finding.csv_columns is not None else "",
+                            json.dumps(finding.csv_columns, ensure_ascii=False)
+                            if finding.csv_columns is not None
+                            else "",
                             str(finding.source_pattern) if finding.source_pattern is not None else "",
                             finding.command_text,
                             finding.line_number if finding.line_number is not None else "",

@@ -304,8 +304,15 @@ def test_repeated_bc_sources_have_compact_console_groups_without_losing_counts(
         CommandPreflightIssue(
             plan.runs[0],
             PreflightIssue(
-                1, "", "missing", "BC", f"{shared} >> boundary_{number}", "file not found",
-                kind="bc_source", path=shared, csv_columns=("Time", f"Q{number}"),
+                1,
+                "",
+                "missing",
+                "BC",
+                f"{shared} >> boundary_{number}",
+                "file not found",
+                kind="bc_source",
+                path=shared,
+                csv_columns=("Time", f"Q{number}"),
             ),
         )
         for number in range(12)
@@ -345,8 +352,15 @@ def test_preflight_csv_export_is_opt_in_and_no_overwrite(
         CommandPreflightIssue(
             plan.runs[0],
             PreflightIssue(
-                1, "", "missing", "BC", f"{source} >> BC_{i}", "missing",
-                kind="bc_source", path=source, csv_columns=("Time", f"Q{i}"),
+                1,
+                "",
+                "missing",
+                "BC",
+                f"{source} >> BC_{i}",
+                "missing",
+                kind="bc_source",
+                path=source,
+                csv_columns=("Time", f"Q{i}"),
             ),
         )
         for i in range(2)
