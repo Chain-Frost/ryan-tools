@@ -43,9 +43,7 @@ class BC:
 
 
 class Materials:
-    df = pd.DataFrame(
-        {"Rainfall Losses": ["30,5", "0,0"], "Fraction Impervious": [0.0, 0.5]}, index=[1, 2]
-    )
+    df = pd.DataFrame({"Rainfall Losses": ["30,5", "0,0"], "Fraction Impervious": [0.0, 0.5]}, index=[1, 2])
 
 
 class Soils:
@@ -170,7 +168,9 @@ def test_bad_explicit_bc_multiplier_is_unresolved(monkeypatch: pytest.MonkeyPatc
     class Bad(Context):
         def bc_dbase(self) -> BC:
             class BadBC(BC):
-                df = pd.DataFrame({"Source": ["event.csv"], "Column 2": ["TP01"], "Mult Col 2": ["broken"]}, index=["RF1"])
+                df = pd.DataFrame(
+                    {"Source": ["event.csv"], "Column 2": ["TP01"], "Mult Col 2": ["broken"]}, index=["RF1"]
+                )
 
             return BadBC()
 
@@ -183,9 +183,13 @@ def test_bad_explicit_bc_multiplier_is_unresolved(monkeypatch: pytest.MonkeyPatc
 
 
 def test_partial_rainfall_not_grouped() -> None:
-    boundary = audit_module.RainfallBoundary("RF1", "rain.csv", "TP01", "1", "0", None, None, 10, None, "bc-adjusted-only")
+    boundary = audit_module.RainfallBoundary(
+        "RF1", "rain.csv", "TP01", "1", "0", None, None, 10, None, "bc-adjusted-only"
+    )
     valid = audit_module.RunAudit(1, "a.tcf", (), "runs.txt:1", (boundary,), (), (), ())
-    partial = audit_module.RunAudit(2, "a.tcf", (), "runs.txt:2", (boundary,), (), (), (audit_module.Finding(2, "RF_BC_MISSING", "RF2"),))
+    partial = audit_module.RunAudit(
+        2, "a.tcf", (), "runs.txt:2", (boundary,), (), (), (audit_module.Finding(2, "RF_BC_MISSING", "RF2"),)
+    )
     assert list(factor_groups(audit_module.RainfallAudit((valid, partial))).values()) == [(1,)]
 
 

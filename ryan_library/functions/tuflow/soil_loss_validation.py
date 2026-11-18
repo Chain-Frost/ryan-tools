@@ -12,8 +12,15 @@ from decimal import Decimal, InvalidOperation
 
 _COMMON = frozenset(
     {
-        "porosity", "initial moisture", "max ponding depth", "horizontal conductivity",
-        "residual water content", "saturated water content", "alpha", "n", "l",
+        "porosity",
+        "initial moisture",
+        "max ponding depth",
+        "horizontal conductivity",
+        "residual water content",
+        "saturated water content",
+        "alpha",
+        "n",
+        "l",
     }
 )
 _REQUIRED: dict[str, frozenset[str]] = {
@@ -30,7 +37,9 @@ _ALLOWED: dict[str, frozenset[str]] = {
     "SCS": _REQUIRED["SCS"] | _COMMON,
     "NONE": frozenset(),
 }
-_FRACTIONS = frozenset({"porosity", "initial moisture", "residual water content", "saturated water content", "initial abstraction ratio"})
+_FRACTIONS = frozenset(
+    {"porosity", "initial moisture", "residual water content", "saturated water content", "initial abstraction ratio"}
+)
 
 
 def _normalize_value(method: str, key: str, raw: object) -> str:
@@ -38,10 +47,10 @@ def _normalize_value(method: str, key: str, raw: object) -> str:
         message = f"Unexpected parameter {key!r} for soil method {method}"
         raise ValueError(message)
     if key == "usda soil type":
-        if not isinstance(raw, str) or not raw.strip().strip('"\''):
+        if not isinstance(raw, str) or not raw.strip().strip("\"'"):
             message = "USDA Soil Type must be a nonempty named type"
             raise ValueError(message)
-        return raw.strip().strip('"\'').upper()
+        return raw.strip().strip("\"'").upper()
     try:
         number = Decimal(str(raw).strip())
     except InvalidOperation as exc:
