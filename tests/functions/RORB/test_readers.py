@@ -8,6 +8,7 @@ from typing import cast
 import pytest
 
 from ryan_library.functions.RORB.associations import associate_batch_csvs, batch_event_key, compare_output_csv
+from ryan_library.functions.RORB.output_reader import bind_output_site_columns
 from ryan_library.functions.RORB.read_rorb_files import parse_batch_output, read_hydrograph_csv
 from ryan_library.functions.RORB.readers import read_rorb_bytes, read_rorb_file, read_rorb_table_bytes
 
@@ -196,6 +197,85 @@ def test_csv_signature_alone_is_insufficient(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("rows", ["0 0 0\n1 1 12\n", "0 0 0\n1 1 ********\n2 2 0\n", "0 0 0\n1 1 12\n3 3 0\n"])
+@pytest.mark.parametrize("column", ["Hyd001", "Hyd0001", "Hyd00001"])
+def test_hydrograph_site_binding_preserves_zero_padded_raw_columns(column: str) -> None:
+    raw = output_text().replace("Hyd0001", column).encode()
+    document = read_rorb_bytes(raw)
+    assert document.status == "partial"
+    binding = bind_output_site_columns(document)
+    assert len(binding) == 1
+    assert binding[0].site_id == "Hyd0001"
+    assert binding[0].column == column
+    assert binding[0].physical_name == "Outlet"
+    assert binding[0].description == "Calculated hydrograph, Outlet"
+    assert document.section("hydrographs_1").source_tokens[1][column] == "12"
+    assert document.original_bytes == raw
+
+
+def test_hydrograph_binding_uses_numeric_identity_not_table_position() -> None:
+    source = output_text("0 0 0 0\n1 1 12 9\n2 2 0 0\n")
+    source = source.replace(
+        "01 Calculated hydrograph, Outlet",
+        "01 Calculated hydrograph, Upstream\n02 Calculated hydrograph, Outlet",
+    ).replace("Inc Time Hyd0001", "Inc Time Hyd002 Hyd001")
+    document = read_rorb_bytes(source.encode())
+    assert document.status == "partial"
+    matched = bind_output_site_columns(document)
+    assert [(site.site_id, site.column, site.physical_name) for site in matched] == [
+        ("Hyd0002", "Hyd002", "Outlet"),
+        ("Hyd0001", "Hyd001", "Upstream"),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        (
+            output_text("0 0 0 0\n1 1 12 9\n2 2 0 0\n").replace(
+                "Inc Time Hyd0001", "Inc Time Hyd001 Hyd0001"
+            ),
+            "valid parsed",
+        ),
+        (output_text().replace("Inc Time Hyd0001", "Inc Time Hyd0000"), "valid parsed"),
+        (output_text().replace("Inc Time Hyd0001", "Inc Time Hyd002"), "no matching physical site"),
+        (output_text().replace("Calculated hydrograph, Outlet", "Calculated hydrograph,"), "unnamed"),
+        (
+            output_text().replace(
+                "01 Calculated hydrograph, Outlet",
+                "01 Calculated hydrograph, Outlet\n01 Calculated hydrograph, Duplicate",
+            ),
+            "valid parsed",
+        ),
+        (
+            output_text().replace("Site Description\n01 Calculated hydrograph, Outlet\n", ""),
+            "physical sites",
+        ),
+        (
+            output_text("0 0 0 0\n1 1 12 9\n2 2 0 0\n").replace(
+                "01 Calculated hydrograph, Outlet",
+                "01 Calculated hydrograph, Outlet\n02 Calculated hydrograph, Outlet",
+            ).replace("Inc Time Hyd0001", "Inc Time Hyd001 Hyd002"),
+            "Ambiguous physical site names",
+        ),
+    ],
+)
+def test_hydrograph_binding_rejects_ambiguous_missing_physical_identities(
+    source: str, expected: str
+) -> None:
+    document = read_rorb_bytes(source.encode())
+    with pytest.raises(ValueError, match=expected):
+        bind_output_site_columns(document)
+
+
+def test_duplicate_zero_padded_hyd_ordinals_fail_at_reader_boundary() -> None:
+    text = output_text("0 0 0 0\n1 1 12 9\n2 2 0 0\n")
+    text = text.replace("Inc Time Hyd0001", "Inc Time Hyd001 Hyd0001")
+    document = read_rorb_bytes(text.encode())
+    assert document.status == "invalid"
+    assert not document.section("hydrographs_1").valid
+    assert any(item.code == "hydrograph_column_ambiguous" for item in document.diagnostics)
+
+
 def test_output_rejects_truncated_and_malformed_summaries(tmp_path: Path, rows: str) -> None:
     doc = read_rorb_file(write(tmp_path, output_text(rows), "run.out"))
     assert doc.status == "invalid"
