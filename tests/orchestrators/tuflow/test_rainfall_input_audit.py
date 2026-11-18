@@ -161,7 +161,7 @@ def test_selected_empty_soil_database_cannot_be_treated_as_absent() -> None:
     class EmptySoils:
         df: ClassVar[pd.DataFrame] = pd.DataFrame({"Method": []})
 
-    class EmptySoilContext(Context):
+    class EmptySoilContext:
         def soils_file(self) -> EmptySoils:
             return EmptySoils()
 
