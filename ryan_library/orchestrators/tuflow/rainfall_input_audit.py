@@ -203,6 +203,28 @@ def _gis_records(path: object) -> tuple[Mapping[str, object], ...]:
         return tuple(dict(record) for record in source)
 
 
+def _add_rainfall_location(
+    locations: dict[str, tuple[str | None, str | None]],
+    record: Mapping[str, object],
+    source: object,
+    index: int,
+    findings: list[Finding],
+) -> None:
+    item = {str(key).casefold(): val for key, val in record.items()}
+    name = _text(item.get("name"))
+    if not name:
+        findings.append(Finding(index, "BLANK_RF_NAME", f"Blank polygon rainfall name in {source}"))
+        return
+    factors = (_text(item.get("f1")) or None, _text(item.get("f2")) or None)
+    if name in locations and locations[name] != factors:
+        findings.append(Finding(index, "RF_FACTOR_CONFLICT", f"Different GIS factors for RF name {name}"))
+        return
+    for field, value in zip(("f1", "f2"), factors, strict=True):
+        if value is not None and _float(value) is None:
+            findings.append(Finding(index, "RF_FACTOR_UNRESOLVED", f"Non-numeric {field} for RF name {name}"))
+    locations.setdefault(name, factors)
+
+
 def _active_rainfall_names(context: Any, index: int, findings: list[Finding]) -> dict[str, tuple[str | None, str | None]]:
     """Get names from active GIS RF polygon features, not all BC database rows."""
     locations: dict[str, tuple[str | None, str | None]] = {}
@@ -219,27 +241,35 @@ def _active_rainfall_names(context: Any, index: int, findings: list[Finding]) ->
     for inp in rf_inputs:
         try:
             for path in inp.files:
-                for item in _gis_records(path):
-                    record = {str(k).casefold(): v for k, v in item.items()}
-                    name = _text(record.get("name"))
-                    if not name:
-                        findings.append(Finding(index, "BLANK_RF_NAME", f"Blank polygon rainfall name in {path}"))
-                        continue
-                    factors = (_text(record.get("f1")) or None, _text(record.get("f2")) or None)
-                    if name in locations and locations[name] != factors:
-                        findings.append(Finding(index, "RF_FACTOR_CONFLICT", f"Different GIS factors for RF name {name}"))
-                        # Preserve a finding and avoid treating the last polygon
-                        # as an authoritative replacement for an earlier factor.
-                        continue
-                    for field, value in zip(("f1", "f2"), factors, strict=True):
-                        if value is not None and _float(value) is None:
-                            findings.append(Finding(index, "RF_FACTOR_UNRESOLVED", f"Non-numeric {field} for RF name {name}"))
-                    locations.setdefault(name, factors)
+                for record in _gis_records(path):
+                    _add_rainfall_location(locations, record, path, index, findings)
         except (OSError, ValueError, AttributeError, ImportError) as exc:
             findings.append(Finding(index, "RF_GIS_UNRESOLVED", f"Cannot inspect {inp}: {exc}"))
     if not rf_inputs:
         findings.append(Finding(index, "NO_SUPPORTED_RF_GIS", "No Read GIS RF polygon found; other RF methods not inferred"))
     return locations
+
+
+def _bc_series_total(database: Any, name: str, row: Mapping[str, object], column: str) -> float:
+    """Delegate adjusted series to PyTUFLOW, rejecting its silent invalid-field fallbacks."""
+    for field in ("Mult Col 2", "Add Col 1", "Add Col 2"):
+        raw = _row_value(row, field)
+        if raw is not None and _text(raw) and _float(raw) is None:
+            message = f"Nonfinite/invalid explicit BC adjustment {field}={raw!r}"
+            raise ValueError(message)
+    resolved = database.value(name)
+    if not column or not hasattr(resolved, "columns"):
+        message = "Rainfall series or value column not resolved"
+        raise ValueError(message)
+    candidates = [key for key in resolved.columns if str(key).casefold() == column.casefold()]
+    if len(candidates) != 1:
+        message = f"Expected exactly one rainfall column {column!r}"
+        raise ValueError(message)
+    values = [float(val) for val in resolved[candidates[0]]]
+    if not values or not all(isfinite(val) for val in values):
+        message = "Nonfinite or empty rainfall values"
+        raise ValueError(message)
+    return sum(values)
 
 
 def _rainfall_rows(context: Any, findings: list[Finding], index: int) -> tuple[RainfallBoundary, ...]:
@@ -254,43 +284,17 @@ def _rainfall_rows(context: Any, findings: list[Finding], index: int) -> tuple[R
     by_name = {str(key).casefold(): row for key, row in _db_rows(database)}
     rainfall: list[RainfallBoundary] = []
     for name, (f1, f2) in sorted(selected.items()):
-        selector, group = (name.split("|", 1) if "|" in name else ("", name))
-        column_selector = selector.strip() if selector else ""
+        selector, group = name.split("|", 1) if "|" in name else ("", name)
         row = by_name.get(group.strip().casefold())
         if row is None:
             findings.append(Finding(index, "RF_BC_MISSING", f"No active BC database row for RF name {name}"))
             continue
         data_sum: float | None = None
-        column = _text(_row_value(row, "Column 2")) or column_selector
+        column = _text(_row_value(row, "Column 2")) or selector.strip()
         try:
-            # PyTUFLOW deliberately substitutes 1 or 0 when an explicitly
-            # specified BC multiplier/addition is invalid.  An input audit must
-            # instead reject the source setting as unresolved.
-            for field in ("Mult Col 2", "Add Col 1", "Add Col 2"):
-                raw = _row_value(row, field)
-                if raw is None or not _text(raw):
-                    continue
-                if _float(raw) is None:
-                    raise ValueError(f"Nonfinite/invalid explicit BC adjustment {field}={raw!r}")
-            resolved = database.value(name)
-            # PyTUFLOW applies the DB time shift, multiplication and addition.
-            if not column or not hasattr(resolved, "columns"):
-                message = "Rainfall series or value column not resolved"
-                raise ValueError(message)
-            candidates = [key for key in resolved.columns if str(key).casefold() == column.casefold()]
-            if len(candidates) != 1:
-                message = f"Expected exactly one rainfall column {column!r}"
-                raise ValueError(message)
-            values = [float(val) for val in resolved[candidates[0]]]
-            if not values or not all(isfinite(val) for val in values):
-                message = "Nonfinite or empty rainfall values"
-                raise ValueError(message)
-            data_sum = sum(values)
+            data_sum = _bc_series_total(database, name, row, column)
         except (ValueError, TypeError, KeyError, OSError, AttributeError) as exc:
             findings.append(Finding(index, "RF_SERIES_UNRESOLVED", f"{name}: {exc}"))
-        # GIS f1/f2 and TUFLOW global rainfall factors are recorded but NOT
-        # conflated with a verified applied rainfall total.
-        status = "bc-adjusted-only" if data_sum is not None else "unresolved"
         rainfall.append(
             RainfallBoundary(
                 name=name,
@@ -302,7 +306,7 @@ def _rainfall_rows(context: Any, findings: list[Finding], index: int) -> tuple[R
                 gis_f2=f2,
                 bc_adjusted_sum_mm=data_sum,
                 spatially_adjusted_sum_mm=None,
-                status=status,
+                status="bc-adjusted-only" if data_sum is not None else "unresolved",
             )
         )
     if rainfall:

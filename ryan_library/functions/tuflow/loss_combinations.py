@@ -207,9 +207,9 @@ def _check_raster_alignment(datasets: Sequence[object]) -> None:
         if any(
             getattr(dataset, attribute) != getattr(first, attribute)
             for attribute in ("crs", "transform", "width", "height")
-        ) or getattr(dataset, "count") != 1:
+        ) or dataset.count != 1:
             _fail("Check grids must be aligned single-band rasters with identical CRS and transforms")
-    if getattr(first, "crs") is None:
+    if first.crs is None:
         _fail("Check grid CRS is unavailable")
 
 
