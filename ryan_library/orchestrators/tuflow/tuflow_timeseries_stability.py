@@ -62,6 +62,15 @@ _QA_DASHBOARD_COLUMNS: tuple[WorkflowColumn, ...] = (
 )
 
 
+def _file_detail(*, rows: list[dict[str, object]], file_path: Path, status: WorkflowStatus) -> str:
+    """Format file-level dashboard detail and log the full path on failure."""
+    if status == "FAIL":
+        reason = describe_invalid_input(rows)
+        logger.error("Malformed CSV input {}: {}", file_path, reason)
+        return f"Invalid: {reason}"
+    return f"{len(rows)} diagnostic/result row(s)"
+
+
 def _file_outcome(rows: list[dict[str, object]]) -> WorkflowStatus:
     """Separate parser failures from successful QA findings and valid empty inputs."""
     if not rows:
@@ -211,11 +220,7 @@ def main_processing(
                             raise
                         status = _file_outcome(rows)
                         status_counts[status] += 1
-                        detail = f"{len(rows)} diagnostic/result row(s)"
-                        if status == "FAIL":
-                            reason = describe_invalid_input(rows)
-                            logger.error("Malformed CSV input {}: {}", files[index - 1][0], reason)
-                            detail = f"Invalid: {reason}"
+                        detail = _file_detail(rows=rows, file_path=files[index - 1][0], status=status)
                         dashboard.mark_finished(index=index, status=status, detail=detail)
                         if rows:
                             all_rows.extend(rows)
