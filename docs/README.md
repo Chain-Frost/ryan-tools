@@ -54,6 +54,7 @@ These documents stay near the code they describe so that browsing a target direc
 | TUFLOW processors | [Processor development notes](../ryan_library/processors/tuflow/README.md) | Processor lifecycle, collections, combinations, filtering, caching and extension |
 | TUFLOW wrappers | [TUFLOW Python wrappers](../ryan-scripts/TUFLOW-python/README.md) | Maintained entry points, shared CLI behavior and wrapper selection |
 | TUFLOW run preflight | [Proposed-run input preflight](TUFLOW_INPUT_PREFLIGHT.md) | Check event/scenario-dependent input references, boundary source CSVs and GPKG layers before launching simulations |
+| TUFLOW rainfall/loss audit | [Experimental input audit](TUFLOW_RAINFALL_INPUT_AUDIT.md) | Read-only scenario/event input audit for BC-adjusted rainfall, selected material/soil definitions and uncertainty |
 | TUFLOW GPU scheduling | [GPU and CodeMeter validation](TUFLOW_GPU_CODEMETER_VALIDATION.md) | Licensed two-GPU procedure, polling benchmark, measured limitations and scheduler evidence |
 | TUFLOW GPU hardware handoff | [Licensed two-GPU agent prompt](TUFLOW_GPU_HARDWARE_TEST_PROMPT.md) | Copy-ready prompt for completing PR #193 validation on suitable hardware |
 | TUFLOW runner progress handoff | [Local progress-validation prompt](TUFLOW_RUNNER_PROGRESS_HANDOFF.md) | Grouped TCF display, live model-time observations and Windows/SMB acceptance |
