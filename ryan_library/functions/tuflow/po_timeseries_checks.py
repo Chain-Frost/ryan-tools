@@ -23,6 +23,34 @@ from .sample_validity import clean_hydraulic_samples
 # TODO: make it more like the other orchestrators for options etc. I don't think it is using the common pipeline either.
 
 
+MALFORMED_INPUT_STATUSES: frozenset[str] = frozenset(
+    {
+        "EMPTY_FILE",
+        "NO_COLUMNS",
+        "DECODE_FAIL",
+        "CSV_PARSE_FAIL",
+        "BAD_HEADER",
+        "TIME_PARSE_FAIL",
+        "MALFORMED_ROW",
+        "INVALID_TIME_AXIS",
+    }
+)
+
+
+def describe_invalid_input(rows: Sequence[dict[str, object]]) -> str:
+    """Summarise distinct malformed-input reasons from one CSV's result rows."""
+    reasons: set[str] = set()
+    for row in rows:
+        status = str(row.get("status") or "INVALID_INPUT")
+        if row.get("input_health") != "INVALID" and status not in MALFORMED_INPUT_STATUSES:
+            continue
+        rejected = row.get("rejection_reasons")
+        if isinstance(rejected, str) and rejected:
+            status = f"{status} ({rejected})"
+        reasons.add(status)
+    return ", ".join(sorted(reasons)) if reasons else "INVALID_INPUT"
+
+
 @dataclass(frozen=True, slots=True)
 class PeakCheckConfig:
     datatype_include: Sequence[str]

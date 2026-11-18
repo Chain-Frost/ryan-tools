@@ -19,14 +19,16 @@ from pandas import DataFrame
 
 from ryan_library.functions.dashboard_workflow import await_future_with_dashboard_refresh
 from ryan_library.functions.excel_export import ExcelExporter
-from ryan_library.functions.live_dashboard import LiveWorkflowDashboard, WorkflowStatus
-from ryan_library.functions.loguru_helpers import setup_logger
+from ryan_library.functions.live_dashboard import LiveWorkflowDashboard, WorkflowColumn, WorkflowStatus
+from ryan_library.functions.loguru_helpers import setup_logger, worker_initializer
 from ryan_library.functions.tuflow.po_timeseries_checks import (
+    MALFORMED_INPUT_STATUSES,
     StabilityCheckConfig,
     StabilityCheckResult,
     analyze_stability_csv,
     analyze_stability_q_csv,
     collect_timeseries_files,
+    describe_invalid_input,
     flatten_stability_results,
     normalize_result_types,
 )
@@ -48,20 +50,16 @@ def _analyze_stability_worker(path_str: str, result_type: str, config: Stability
     return flatten_stability_results(results=results)
 
 
-_MALFORMED_INPUT_STATUSES: frozenset[str] = frozenset(
-    {
-        "EMPTY_FILE",
-        "NO_COLUMNS",
-        "DECODE_FAIL",
-        "CSV_PARSE_FAIL",
-        "BAD_HEADER",
-        "TIME_PARSE_FAIL",
-        "MALFORMED_ROW",
-        "INVALID_TIME_AXIS",
-    }
-)
 _NO_DATA_STATUSES: frozenset[str] = frozenset({"NO_DATA"})
 
+
+_QA_DASHBOARD_COLUMNS: tuple[WorkflowColumn, ...] = (
+    WorkflowColumn(header="#", source="index", justify="right", no_wrap=True),
+    WorkflowColumn(header="State", source="status", no_wrap=True),
+    WorkflowColumn(header="Duration", source="duration", no_wrap=True),
+    WorkflowColumn(header="CSV file", source="label", no_wrap=True, overflow="ellipsis"),
+    WorkflowColumn(header="Detail", source="detail", no_wrap=True, overflow="ellipsis"),
+)
 
 def _file_outcome(rows: list[dict[str, object]]) -> WorkflowStatus:
     """Separate parser failures from successful QA findings and valid empty inputs."""
@@ -70,7 +68,7 @@ def _file_outcome(rows: list[dict[str, object]]) -> WorkflowStatus:
     if any(row.get("input_health") == "INVALID" for row in rows):
         return "FAIL"
     statuses = {str(row.get("status", "")) for row in rows}
-    if statuses & _MALFORMED_INPUT_STATUSES:
+    if statuses & MALFORMED_INPUT_STATUSES:
         return "FAIL"
     if statuses <= _NO_DATA_STATUSES:
         return "SKIP"
@@ -142,8 +140,9 @@ def main_processing(
         enabled=use_live_dashboard,
         refresh_per_second=live_refresh_per_second,
         max_rows=live_max_rows,
+        columns=_QA_DASHBOARD_COLUMNS,
     )
-    with setup_logger(console_log_level=console_log_level):
+    with setup_logger(console_log_level=console_log_level) as log_queue:
         with dashboard:
             try:
                 dashboard.set_phase("Discovering")
@@ -158,7 +157,7 @@ def main_processing(
                     result_types=effective_result_types,
                     result_type_globs=result_type_globs,
                 )
-                dashboard.set_tasks(labels=[f"{result_type}: {path}" for path, result_type in files])
+                dashboard.set_tasks(labels=[f"{result_type}: {path.name}" for path, result_type in files], files=[path for path, _ in files])
                 if not files:
                     selected_patterns = [result_type_globs[result_type] for result_type in effective_result_types]
                     logger.info("No files matched {} in the provided directories.", selected_patterns)
@@ -177,7 +176,7 @@ def main_processing(
                 # thread waits on each blocking iterator result. The coordinator
                 # can then refresh the dashboard throughout slow-file processing.
                 with (
-                    cf.ProcessPoolExecutor(max_workers=max_workers) as executor,
+                    cf.ProcessPoolExecutor(max_workers=max_workers, initializer=worker_initializer, initargs=(log_queue,)) as executor,
                     cf.ThreadPoolExecutor(max_workers=1) as waiter,
                 ):
                     rows_iter = iter(
@@ -193,18 +192,23 @@ def main_processing(
                         dashboard.mark_running(index=index)
                         dashboard.refresh(force=True)
                         pending = waiter.submit(next, rows_iter)
-                        rows = await_future_with_dashboard_refresh(
-                            future=pending,
-                            dashboard=dashboard,
-                            refresh_per_second=live_refresh_per_second,
-                        )
+                        try:
+                            rows = await_future_with_dashboard_refresh(
+                                future=pending,
+                                dashboard=dashboard,
+                                refresh_per_second=live_refresh_per_second,
+                            )
+                        except Exception:
+                            logger.exception("Unable to process CSV file {}", files[index - 1][0])
+                            raise
                         status = _file_outcome(rows)
                         status_counts[status] += 1
-                        dashboard.mark_finished(
-                            index=index,
-                            status=status,
-                            detail=f"{len(rows)} diagnostic/result row(s)",
-                        )
+                        detail = f"{len(rows)} diagnostic/result row(s)"
+                        if status == "FAIL":
+                            reason = describe_invalid_input(rows)
+                            logger.error("Malformed CSV input {}: {}", files[index - 1][0], reason)
+                            detail = f"Invalid: {reason}"
+                        dashboard.mark_finished(index=index, status=status, detail=detail)
                         if rows:
                             all_rows.extend(rows)
 
