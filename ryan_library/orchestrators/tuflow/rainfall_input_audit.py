@@ -158,7 +158,9 @@ def _db_rows(db: Any) -> list[tuple[object, dict[str, object]]]:
         # The pinned PyTUFLOW reader may retain positional numeric column names
         # for a headerless materials CSV. Use only a recognised database schema.
         raw_schema: object = getattr(getattr(db, "bs", db), "COLUMN_NAMES", None)
-        schema: list[object] = list(cast("Sequence[object]", raw_schema)) if isinstance(raw_schema, (list, tuple)) else []
+        schema: list[object] = (
+            list(cast("Sequence[object]", raw_schema)) if isinstance(raw_schema, (list, tuple)) else []
+        )
         if (
             len(schema) >= len(columns)
             and all(isinstance(name, str) for name in schema)
