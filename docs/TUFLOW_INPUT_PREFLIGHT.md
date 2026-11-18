@@ -2,7 +2,7 @@
 
 The read-only input check uses the public PyTUFLOW batch validator from the
 [pinned upstream PyTUFLOW PR #17 source](https://github.com/TUFLOW-Support/PyTuflow/pull/17)
-(commit [`887534ea8c15`](https://github.com/Chain-Frost/PyTuflow/commit/0121101650fd8e931af8d09cadb23bd43f6fefbd)).
+(commit [`0121101650fd`](https://github.com/Chain-Frost/PyTuflow/commit/0121101650fd8e931af8d09cadb23bd43f6fefbd)).
 It validates the **actual planned runs**, not all possible combinations.
 Input validation is not TUFLOW execution and never modifies model inputs.
 
@@ -230,8 +230,8 @@ instrumented `cProfile` run of 129.7 s is **not timing-comparable**.
 The dependency-collection hotspot belongs primarily to upstream
 [PyTUFLOW PR #17](https://github.com/TUFLOW-Support/PyTuflow/pull/17).
 A bounded optimisation is now proposed in [fork PyTUFLOW PR #73](https://github.com/Chain-Frost/PyTuflow/pull/73),
-stacked on PR #17 and linked to ryan-tools PR #321. The pinned PyTUFLOW
-wheel is unchanged pending full parity and Windows/SMB qualification.
+stacked on PR #17 and linked to ryan-tools PR #321. The separate #73 performance optimisation remains outside the pinned PyTUFLOW
+wheel, pending full parity and Windows/SMB qualification.
 There is no new TUFLOW parser or cross-check filesystem cache in ryan-tools.
 Any proposed upstream speedup requires paired, repeated baseline/candidate
 tests under the same model, flag selections, storage and cache conditions,
@@ -357,7 +357,7 @@ contexts to pass**. The previous allowance for seven 1D boundary-schema errors
 and one rainfall-triangle Name error was removed with the fix consolidated in
 [PyTUFLOW PR #63](https://github.com/Chain-Frost/PyTuflow/pull/63).
 [ryan-tools #181](https://github.com/Chain-Frost/ryan-tools/issues/181)
-has now been reconciled against the accepted vendored PyTuflow 1.3.0 wheel.
+was reconciled against the then-accepted vendored PyTuflow 1.3.0 wheel.
 The [8 November 2026 Windows/Python 3.14 native regression](https://github.com/Chain-Frost/ryan-tools/actions/runs/42467929379)
 passed **161/161 TCFs and 174/174 run contexts**, with all runs accounted for,
 zero blocking findings and zero skips. The retained artifact contains 161
