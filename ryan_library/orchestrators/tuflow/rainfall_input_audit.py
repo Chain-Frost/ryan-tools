@@ -8,12 +8,13 @@ active cell assignments; no routing, loss simulation, or TUFLOW launch occurs.
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import asdict, dataclass
+from importlib import import_module
 from math import isfinite
 from numbers import Integral
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol, cast
 
 from ...functions.tuflow.command_plan import CommandPlan
 from ...functions.tuflow.soil_loss_validation import validated_soil_parameters
@@ -78,6 +79,16 @@ class RainfallAudit:
     def to_dict(self) -> dict[str, object]:
         """Return unambiguous structured evidence suitable for a JSON report."""
         return {"schema_version": 1, "model_execution": False, "runs": [asdict(run) for run in self.runs]}
+
+
+class _GISAttributeReader(Protocol):
+    """The read-only context manager exported by the installed PyTUFLOW GIS module."""
+
+    def __enter__(self) -> _GISAttributeReader: ...
+
+    def __exit__(self, exc_type: object, exc: object, traceback: object) -> object: ...
+
+    def __iter__(self) -> Iterator[Mapping[str, object]]: ...
 
 
 def _text(value: object) -> str:
@@ -146,14 +157,16 @@ def _db_rows(db: Any) -> list[tuple[object, dict[str, object]]]:
     if columns and all(isinstance(key, Integral) for key in frame.columns):
         # The pinned PyTUFLOW reader may retain positional numeric column names
         # for a headerless materials CSV. Use only a recognised database schema.
-        schema = getattr(getattr(db, "bs", db), "COLUMN_NAMES", None)
+        raw_schema: object = getattr(getattr(db, "bs", db), "COLUMN_NAMES", None)
+        schema: list[object] = (
+            list(cast("Sequence[object]", raw_schema)) if isinstance(raw_schema, (list, tuple)) else []
+        )
         if (
-            isinstance(schema, (tuple, list))
-            and len(schema) >= len(columns)
+            len(schema) >= len(columns)
             and all(isinstance(name, str) for name in schema)
             and ("Rainfall Losses" in schema or {"IL", "CL"}.issubset(schema))
         ):
-            columns = list(schema[: len(columns)])
+            columns = [str(value) for value in schema[: len(columns)]]
         else:
             return [(index, {"__schema_unresolved__": True}) for index, _ in frame.iterrows()]
     return [(index, dict(zip(columns, row.tolist(), strict=True))) for index, row in frame.iterrows()]
@@ -170,7 +183,7 @@ def _material_rows(context: Any, findings: list[Finding], index: int) -> tuple[M
     result: list[MaterialDefinition] = []
     for raw_id, row in _db_rows(mat):
         try:
-            result.append(_material_definition(int(raw_id), row))
+            result.append(_material_definition(int(str(raw_id)), row))
         except (TypeError, ValueError) as exc:
             findings.append(Finding(index, "MATERIAL_UNRESOLVED", f"Material ID {raw_id}: {exc}"))
     if any(m.status == "unresolved" for m in result):
@@ -186,12 +199,12 @@ def _soil_rows(context: Any, findings: list[Finding], index: int) -> tuple[SoilD
     result: list[SoilDefinition] = []
     for raw_id, _ in _db_rows(db):
         try:
-            soil_id = int(raw_id)
+            soil_id = int(str(raw_id))
             detail = db.value(soil_id)
-            if not isinstance(detail, Mapping):
+            if not isinstance(detail, Mapping) or any(not isinstance(key, str) for key in detail):
                 message = "PyTUFLOW did not return soil parameters"
                 raise ValueError(message)
-            definition = _soil_definition(soil_id, detail)
+            definition = _soil_definition(soil_id, cast("Mapping[str, object]", detail))
             result.append(definition)
             if definition.status != "defined":
                 findings.append(
@@ -208,9 +221,16 @@ def _soil_rows(context: Any, findings: list[Finding], index: int) -> tuple[SoilD
 
 def _gis_records(path: object) -> tuple[Mapping[str, object], ...]:
     """Read selected GIS attributes using PyTUFLOW's public context manager."""
-    from pytuflow.util.gis import GISAttributes
-
-    with GISAttributes(path) as source:
+    # PyTUFLOW exposes `gis` from pytuflow.util.__init__; there is no
+    # pytuflow.util.gis submodule on the pinned wheel. Resolve the published
+    # re-export and cast only at this untyped third-party boundary.
+    gis: object = getattr(import_module("pytuflow.util"), "gis", None)
+    reader: object = getattr(gis, "GISAttributes", None)
+    if not callable(reader):
+        message = "Installed PyTUFLOW does not provide util.gis.GISAttributes"
+        raise ImportError(message)
+    factory = cast("Callable[[object], _GISAttributeReader]", reader)
+    with factory(path) as source:
         return tuple(dict(record) for record in source)
 
 
