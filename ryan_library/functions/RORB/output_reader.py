@@ -8,7 +8,6 @@ from .reader_types import Record, RorbDocument, Section, exact_number, integer, 
 from .result_readers import read_sites, report_metadata
 
 
-
 @dataclass(frozen=True, slots=True)
 class HydrographSiteColumn:
     """Unambiguous physical site bound to one *original* printed numeric column."""
@@ -28,7 +27,7 @@ def _hyd_ordinal(token: str) -> int:
     return int(match[1])
 
 
-def bind_output_site_columns(
+def bind_output_site_columns(  # noqa: C901 -- strict physical identity and missing-data guards
     document: RorbDocument, *, table_name: str = "hydrographs_1"
 ) -> tuple[HydrographSiteColumn, ...]:
     """Match Hyd ordinals to named sites, never by order or guessed zero padding.
@@ -66,7 +65,7 @@ def bind_output_site_columns(
         if (
             not isinstance(physical_name, str)
             or not physical_name.strip()
-            or re.fullmatch(r"(?:calculated|observed)?\s*hydrograph\s*[:,]?", physical_name, re.I)
+            or re.fullmatch(r"(?:calculated|observed)?\s*hydrograph\s*[:,]?", physical_name, re.IGNORECASE)
         ):
             msg = "Native physical print location is unnamed"
             raise ValueError(msg)
