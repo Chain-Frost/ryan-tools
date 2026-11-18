@@ -38,7 +38,7 @@ class FileBatchProgress:
     succeeded: int = 0
     skipped: int = 0
     failed: int = 0
-    failed_inputs: list[tuple[Path, str]] = field(default_factory=list)
+    failed_inputs: list[tuple[Path, str]] = field(default_factory=lambda: cast("list[tuple[Path, str]]", []))
 
     def reset(self, scheduled: int) -> None:
         """Reset after an infrastructure retry, avoiding duplicate completions."""
@@ -99,8 +99,9 @@ def _failure_reason(processor: BaseProcessor | None, error: BaseException | None
         return "processor returned no usable result (see earlier parser diagnostics)"
     health = getattr(processor, "input_health", "OK")
     if health in {"INVALID", "IO_FAILURE", "INCOMPLETE"}:
-        rejected = getattr(processor, "rejection_reasons", {})
-        if isinstance(rejected, dict) and rejected:
+        raw_rejected: object = getattr(processor, "rejection_reasons", None)
+        if isinstance(raw_rejected, dict) and raw_rejected:
+            rejected = cast("dict[str, int]", raw_rejected)
             counts = ", ".join(f"{reason}={count}" for reason, count in sorted(rejected.items()))
             return f"{health} ({counts})"
         return f"{health} input"
