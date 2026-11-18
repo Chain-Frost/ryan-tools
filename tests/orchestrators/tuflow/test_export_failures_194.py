@@ -12,6 +12,7 @@ import pandas as pd
 import pytest
 
 from ryan_library.functions.live_dashboard import LiveWorkflowDashboard
+from ryan_library.functions.tuflow.tuflow_common import FileBatchProgress
 from ryan_library.orchestrators.tuflow import _combination_workflow as workflow
 from ryan_library.orchestrators.tuflow import po_combine
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
@@ -27,6 +28,13 @@ def test_real_write_failure_reaches_dashboard_and_wrapper(
     results = Mock(spec=ProcessorCollection)
     results.processors = [object()]
     results.po_combine.return_value = pd.DataFrame({"value": [1]})
+
+    def completed_batch(**kwargs: object) -> ProcessorCollection:
+        progress = kwargs["batch_progress"]
+        assert isinstance(progress, FileBatchProgress)
+        progress.reset(scheduled=1)
+        progress.observe("OK")
+        return cast("ProcessorCollection", results)
 
     def fail(*_args: object, **_kwargs: object) -> None:
         message = "synthetic export denial"
@@ -45,7 +53,7 @@ def test_real_write_failure_reaches_dashboard_and_wrapper(
         patch.object(workflow, "LiveWorkflowDashboard", return_value=dashboard),
         patch.object(workflow, "setup_logger", return_value=nullcontext(Mock())),
         patch.object(workflow, "collect_files", return_value=[tmp_path / "input_PO.csv"]),
-        patch.object(workflow, "process_files_in_parallel", return_value=cast("ProcessorCollection", results)),
+        patch.object(workflow, "process_files_in_parallel", side_effect=completed_batch),
     ):
         with pytest.raises(PermissionError, match="synthetic export denial"):
             po_combine.main_processing([tmp_path], export_mode=selected, use_live_dashboard=enabled)
