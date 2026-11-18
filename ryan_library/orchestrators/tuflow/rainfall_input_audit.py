@@ -92,7 +92,7 @@ def _float(value: object) -> float | None:
         return None
     try:
         number = float(str(value))
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return None
     return number if isfinite(number) else None
 
@@ -147,9 +147,12 @@ def _db_rows(db: Any) -> list[tuple[object, dict[str, object]]]:
         # The pinned PyTUFLOW reader may retain positional numeric column names
         # for a headerless materials CSV. Use only a recognised database schema.
         schema = getattr(getattr(db, "bs", db), "COLUMN_NAMES", None)
-        if isinstance(schema, (tuple, list)) and len(schema) >= len(columns) and all(
-            isinstance(name, str) for name in schema
-        ) and ("Rainfall Losses" in schema or {"IL", "CL"}.issubset(schema)):
+        if (
+            isinstance(schema, (tuple, list))
+            and len(schema) >= len(columns)
+            and all(isinstance(name, str) for name in schema)
+            and ("Rainfall Losses" in schema or {"IL", "CL"}.issubset(schema))
+        ):
             columns = list(schema[: len(columns)])
         else:
             return [(index, {"__schema_unresolved__": True}) for index, _ in frame.iterrows()]
@@ -160,7 +163,9 @@ def _material_rows(context: Any, findings: list[Finding], index: int) -> tuple[M
     try:
         mat = context.mat_file()
     except KeyError:
-        findings.append(Finding(index, "NO_MATERIAL_DATABASE", "No active materials file; material losses not established"))
+        findings.append(
+            Finding(index, "NO_MATERIAL_DATABASE", "No active materials file; material losses not established")
+        )
         return ()
     result: list[MaterialDefinition] = []
     for raw_id, row in _db_rows(mat):
@@ -189,7 +194,13 @@ def _soil_rows(context: Any, findings: list[Finding], index: int) -> tuple[SoilD
             definition = _soil_definition(soil_id, detail)
             result.append(definition)
             if definition.status != "defined":
-                findings.append(Finding(index, "SOIL_UNRESOLVED", f"Soil {soil_id}: invalid or incomplete {definition.method} parameters"))
+                findings.append(
+                    Finding(
+                        index,
+                        "SOIL_UNRESOLVED",
+                        f"Soil {soil_id}: invalid or incomplete {definition.method} parameters",
+                    )
+                )
         except (ValueError, TypeError, KeyError, NotImplementedError) as exc:
             findings.append(Finding(index, "SOIL_UNRESOLVED", f"Soil {raw_id}: {exc}"))
     return tuple(result)
@@ -225,7 +236,9 @@ def _add_rainfall_location(
     locations.setdefault(name, factors)
 
 
-def _active_rainfall_names(context: Any, index: int, findings: list[Finding]) -> dict[str, tuple[str | None, str | None]]:
+def _active_rainfall_names(
+    context: Any, index: int, findings: list[Finding]
+) -> dict[str, tuple[str | None, str | None]]:
     """Get names from active GIS RF polygon features, not all BC database rows."""
     locations: dict[str, tuple[str | None, str | None]] = {}
     inputs = context.find_input(recursive=True)
@@ -237,7 +250,9 @@ def _active_rainfall_names(context: Any, index: int, findings: list[Finding]) ->
         and inp not in rf_inputs
     ]
     if unsupported:
-        findings.append(Finding(index, "OTHER_RAINFALL_INPUT", "Unassessed rainfall commands: " + ", ".join(unsupported)))
+        findings.append(
+            Finding(index, "OTHER_RAINFALL_INPUT", "Unassessed rainfall commands: " + ", ".join(unsupported))
+        )
     for inp in rf_inputs:
         try:
             for path in inp.files:
@@ -246,7 +261,9 @@ def _active_rainfall_names(context: Any, index: int, findings: list[Finding]) ->
         except (OSError, ValueError, AttributeError, ImportError) as exc:
             findings.append(Finding(index, "RF_GIS_UNRESOLVED", f"Cannot inspect {inp}: {exc}"))
     if not rf_inputs:
-        findings.append(Finding(index, "NO_SUPPORTED_RF_GIS", "No Read GIS RF polygon found; other RF methods not inferred"))
+        findings.append(
+            Finding(index, "NO_SUPPORTED_RF_GIS", "No Read GIS RF polygon found; other RF methods not inferred")
+        )
     return locations
 
 
@@ -279,7 +296,9 @@ def _rainfall_rows(context: Any, findings: list[Finding], index: int) -> tuple[R
     try:
         database = context.bc_dbase()
     except KeyError:
-        findings.append(Finding(index, "NO_BC_DATABASE", "RF GIS names cannot be resolved without an active BC database"))
+        findings.append(
+            Finding(index, "NO_BC_DATABASE", "RF GIS names cannot be resolved without an active BC database")
+        )
         return ()
     by_name = {str(key).casefold(): row for key, row in _db_rows(database)}
     rainfall: list[RainfallBoundary] = []
@@ -311,7 +330,11 @@ def _rainfall_rows(context: Any, findings: list[Finding], index: int) -> tuple[R
         )
     if rainfall:
         findings.append(
-            Finding(index, "SPATIAL_RF_UNVERIFIED", "GIS/global factors and effective cell-level rainfall are not yet verified")
+            Finding(
+                index,
+                "SPATIAL_RF_UNVERIFIED",
+                "GIS/global factors and effective cell-level rainfall are not yet verified",
+            )
         )
     return tuple(rainfall)
 
@@ -346,7 +369,11 @@ def audit_command_plan(
             materials = _material_rows(context, findings, run.index)
             soils = _soil_rows(context, findings, run.index)
             findings.append(
-                Finding(run.index, "SPATIAL_COMBINATION_UNRESOLVED", "Defined material/soil rows are not proof of active cell pairings")
+                Finding(
+                    run.index,
+                    "SPATIAL_COMBINATION_UNRESOLVED",
+                    "Defined material/soil rows are not proof of active cell pairings",
+                )
             )
         except Exception as exc:  # noqa: BLE001 - external PyTUFLOW parsing errors are per-run findings
             findings.append(Finding(run.index, "MODEL_CONTEXT_UNRESOLVED", f"{type(exc).__name__}: {exc}"))
@@ -373,9 +400,16 @@ def factor_groups(audit: RainfallAudit) -> dict[tuple[tuple[str, str, str, str, 
         # factor-equivalent to complete runs that happen to share the
         # successfully resolved subset.
         invalid_codes = {
-            "BLANK_RF_NAME", "RF_FACTOR_CONFLICT", "RF_FACTOR_UNRESOLVED", "RF_GIS_UNRESOLVED",
-            "RF_BC_MISSING", "RF_SERIES_UNRESOLVED", "NO_BC_DATABASE", "NO_SUPPORTED_RF_GIS",
-            "OTHER_RAINFALL_INPUT", "MODEL_CONTEXT_UNRESOLVED",
+            "BLANK_RF_NAME",
+            "RF_FACTOR_CONFLICT",
+            "RF_FACTOR_UNRESOLVED",
+            "RF_GIS_UNRESOLVED",
+            "RF_BC_MISSING",
+            "RF_SERIES_UNRESOLVED",
+            "NO_BC_DATABASE",
+            "NO_SUPPORTED_RF_GIS",
+            "OTHER_RAINFALL_INPUT",
+            "MODEL_CONTEXT_UNRESOLVED",
         }
         if any(finding.code in invalid_codes for finding in run.findings):
             continue

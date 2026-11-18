@@ -94,7 +94,9 @@ def _print_report(report: object) -> None:
 
 def main(args: argparse.Namespace | None = None) -> int:
     options = args if args is not None else _arguments()
-    base = (options.working_directory if options.working_directory is not None else WORKING_DIR or Path.cwd()).absolute()
+    base = (
+        options.working_directory if options.working_directory is not None else WORKING_DIR or Path.cwd()
+    ).absolute()
     print_wrapper_banner(
         wrapper_file=Path(__file__),
         wrapper_source="TUFLOW-python/model_management/audit_tuflow_rainfall.py",
@@ -119,7 +121,11 @@ def main(args: argparse.Namespace | None = None) -> int:
         )
         report = audit_command_plan(plan)
         _print_report(report)
-        path = None if options.no_json_report else (options.json_report if options.json_report is not None else JSON_REPORT)
+        path = (
+            None
+            if options.no_json_report
+            else (options.json_report if options.json_report is not None else JSON_REPORT)
+        )
         if path is not None:
             output = path if path.is_absolute() else (base / path).absolute()
             with output.open("x", encoding="utf-8") as file:
