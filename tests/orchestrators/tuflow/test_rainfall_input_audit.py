@@ -1,5 +1,8 @@
 """Read-only TUFLOW rain/loss inventory fixture tests."""
 
+# Tests deliberately exercise internal validation and use of private helpers.
+# pyright: reportPrivateUsage=false
+
 import sys
 from collections.abc import Iterator
 from pathlib import Path
@@ -79,7 +82,11 @@ class Model:
 
 
 def test_selected_run_inventory_and_factor_groups(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(audit_module, "_gis_records", lambda path: path.gis_attributes())
+    def fake_gis_records(path: object) -> tuple[dict[str, object], ...]:
+        assert isinstance(path, GisPath)
+        return tuple(path.gis_attributes())
+
+    monkeypatch.setattr(audit_module, "_gis_records", fake_gis_records)
     runs = tuple(
         PlannedRun(
             index=number,
@@ -156,7 +163,10 @@ def test_ts1_group_uses_group_metadata_and_selected_column(monkeypatch: pytest.M
 
             return GroupBC()
 
-    monkeypatch.setattr(audit_module, "_active_rainfall_names", lambda *_args: {"N1|Group": (None, None)})
+    def selected_names(*_args: object) -> dict[str, tuple[str | None, str | None]]:
+        return {"N1|Group": (None, None)}
+
+    monkeypatch.setattr(audit_module, "_active_rainfall_names", selected_names)
     findings: list[audit_module.Finding] = []
     rows = audit_module._rainfall_rows(Groups(), findings, 1)
     assert rows[0].column == "N1"
@@ -174,7 +184,10 @@ def test_bad_explicit_bc_multiplier_is_unresolved(monkeypatch: pytest.MonkeyPatc
 
             return BadBC()
 
-    monkeypatch.setattr(audit_module, "_active_rainfall_names", lambda *_args: {"RF1": (None, None)})
+    def selected_names(*_args: object) -> dict[str, tuple[str | None, str | None]]:
+        return {"RF1": (None, None)}
+
+    monkeypatch.setattr(audit_module, "_active_rainfall_names", selected_names)
     findings: list[audit_module.Finding] = []
     rows = audit_module._rainfall_rows(Bad(), findings, 1)
     assert rows[0].status == "unresolved"
@@ -213,6 +226,7 @@ def test_gis_reader_uses_supported_context_manager_and_closes(monkeypatch: pytes
     util = ModuleType("pytuflow.util")
     gis = ModuleType("pytuflow.util.gis")
     gis.__dict__["GISAttributes"] = GISAttributes
+    util.__dict__["gis"] = gis
     monkeypatch.setitem(sys.modules, "pytuflow", root)
     monkeypatch.setitem(sys.modules, "pytuflow.util", util)
     monkeypatch.setitem(sys.modules, "pytuflow.util.gis", gis)
@@ -221,11 +235,10 @@ def test_gis_reader_uses_supported_context_manager_and_closes(monkeypatch: pytes
 
 
 def test_conflicting_gis_rainfall_factors_do_not_enter_equivalence_group(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        audit_module,
-        "_gis_records",
-        lambda _path: ({"Name": "RF1", "f1": 1.2}, {"Name": "RF1", "f1": 2.0}),
-    )
+    def conflicting_records(_path: object) -> tuple[dict[str, object], ...]:
+        return ({"Name": "RF1", "f1": 1.2}, {"Name": "RF1", "f1": 2.0})
+
+    monkeypatch.setattr(audit_module, "_gis_records", conflicting_records)
     run = PlannedRun(
         index=1,
         source=Path("runs.txt"),
