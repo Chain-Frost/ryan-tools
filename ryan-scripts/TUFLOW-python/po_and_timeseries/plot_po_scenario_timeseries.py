@@ -39,6 +39,7 @@ from matplotlib.colors import Normalize
 from matplotlib.figure import Figure
 from pandas import DataFrame, Series
 
+from ryan_library.functions.loguru_helpers import configure_serial_logging
 from ryan_library.functions.wrapper_utils import print_wrapper_banner
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.other_processors.POProcessor import POProcessor
@@ -63,7 +64,8 @@ SCENARIO_DIMENSION_MAP: dict[str, tuple[str, ...]] = dict(SCENARIO_DIMENSIONS)
 SCENARIO_VALUE_PLACEHOLDER = "Unknown"
 SCENARIO_LEGEND_TITLE = "Scenario (AEP | TP | DUR)"
 COLORBAR_LABEL = "AEP"
-SCRIPT_VERSION = "2026-11-08.1"
+SCRIPT_VERSION = "2026-11-18.1"
+CONSOLE_LOG_LEVEL = "INFO"
 REPLACE_PARQUET_CACHE = False  # Explicit opt-in to replace an existing cache after complete processing.
 MEASUREMENT_TYPES: list[str] | None = None  # e.g. ["Flow"]; None plots every type separately.
 SHOW_PLOTS = True
@@ -87,19 +89,33 @@ def process_files_sequentially(files: list[Path]) -> ProcessorCollection:
     normalized_locations: frozenset[str] = BaseProcessor.normalize_locations(LOCATION_FILTER)
     collection = ProcessorCollection()
     total: int = len(files)
+    failures: list[tuple[Path, str]] = []
     for index, file_path in enumerate(files, start=1):
         try:
             processor: BaseProcessor = BaseProcessor.from_file(file_path=file_path, entity_filter=normalized_locations)
             processor.process()
             if normalized_locations:
                 processor.filter_locations(locations=normalized_locations)
-            if processor.processed:
+            health = processor.input_health
+            if health in {"INVALID", "IO_FAILURE", "INCOMPLETE"}:
+                failures.append((file_path, f"invalid input ({health})"))
+            elif processor.processed:
                 collection.add_processor(processor=processor)
                 logger.success("({}/{}) Processed {}", index, total, processor.log_path)
+            elif processor.filtered_empty:
+                logger.info("({}/{}) No selected PO locations in {}", index, total, file_path)
             else:
-                logger.warning("({}/{}) Processor finished without data: {}", index, total, processor.log_path)
-        except Exception:
+                failures.append((file_path, "processor produced no usable data"))
+        except Exception as exc:
+            failures.append((file_path, f"{type(exc).__name__}: {exc}"))
             logger.exception("({}/{}) Failed to process {}", index, total, file_path)
+
+    if failures:
+        for file_path, reason in failures:
+            logger.error("PO scenario CSV failed: {} ({})", file_path, reason)
+        names = ", ".join(str(file_path) for file_path, _ in failures)
+        msg = f"{len(failures)}/{total} PO CSV input(s) failed; refusing partial plot cache: {names}"
+        raise RuntimeError(msg)
     return collection
 
 
@@ -544,6 +560,7 @@ def plot_timeseries(df: pd.DataFrame) -> None:
 
 
 def main() -> None:
+    configure_serial_logging(console_log_level=CONSOLE_LOG_LEVEL)
     # Maintain the original packaged identity even if this script is copied or renamed.
     print_wrapper_banner(
         wrapper_file=Path(__file__),

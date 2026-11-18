@@ -17,9 +17,14 @@ from loguru import logger
 from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
 from ryan_library.functions.excel_export import ExcelExporter
 from ryan_library.functions.file_utils import ensure_output_directory
-from ryan_library.functions.live_dashboard import LiveWorkflowDashboard, WorkflowMetric
+from ryan_library.functions.live_dashboard import LiveWorkflowDashboard, WorkflowColumn, WorkflowMetric
 from ryan_library.functions.loguru_helpers import setup_logger
-from ryan_library.functions.tuflow.tuflow_common import FileBatchProgress, collect_files, process_files_in_parallel
+from ryan_library.functions.tuflow.tuflow_common import (
+    FileBatchProgress,
+    collect_files,
+    log_failed_inputs,
+    process_files_in_parallel,
+)
 from ryan_library.functions.tuflow.wrapper_helpers import (
     normalize_data_types,
     validate_discovery_settings,
@@ -27,6 +32,15 @@ from ryan_library.functions.tuflow.wrapper_helpers import (
 )
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
+
+
+COMBINATION_DASHBOARD_COLUMNS: tuple[WorkflowColumn, ...] = (
+    WorkflowColumn(header="#", source="index", justify="right", no_wrap=True),
+    WorkflowColumn(header="State", source="status", no_wrap=True),
+    WorkflowColumn(header="Duration", source="duration", no_wrap=True),
+    WorkflowColumn(header="CSV file", source="label", no_wrap=True, overflow="ellipsis"),
+    WorkflowColumn(header="Detail", source="detail", no_wrap=True, overflow="ellipsis"),
+)
 
 
 class CombinationResults(Protocol):
@@ -83,6 +97,7 @@ def execute_combination_workflow(
         enabled=use_live_dashboard,
         refresh_per_second=live_refresh_per_second,
         max_rows=live_max_rows,
+        columns=COMBINATION_DASHBOARD_COLUMNS,
     )
     progress = FileBatchProgress()
     console_level = (
@@ -125,6 +140,17 @@ def execute_combination_workflow(
                     dashboard=dashboard if use_live_dashboard else None,
                     batch_progress=progress,
                 )
+                if (
+                    progress.failed
+                    or progress.scheduled != len(csv_file_list)
+                    or progress.completed != progress.scheduled
+                ):
+                    log_failed_inputs(progress=progress, context=context_name)
+                    msg = (
+                        f"{context_name}: {progress.failed}/{len(csv_file_list)} input(s) failed; "
+                        f"{progress.completed} completed; report not exported"
+                    )
+                    raise RuntimeError(msg)
                 dashboard.set_phase("Aggregating")
                 # Keep the established public exporter entry point, including
                 # calls made by clients without a dashboard.
@@ -139,9 +165,9 @@ def execute_combination_workflow(
                     context=f"{context_name} completed",
                 )
                 dashboard.set_phase("Complete")
-                outcome = "FAILED" if progress.failed else ("SKIPPED" if exported is False else "SUCCESS")
+                outcome = "SKIPPED" if exported is False else "SUCCESS"
                 dashboard.finish(outcome=outcome, detail="report exported" if exported is not False else "no output")
-                return outcome != "FAILED"
+                return True
             except KeyboardInterrupt:
                 dashboard.finish(outcome="INTERRUPTED", detail="processing interrupted")
                 raise

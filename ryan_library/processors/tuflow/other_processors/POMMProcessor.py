@@ -184,7 +184,10 @@ class POMMProcessor(BaseProcessor):
                 return
             # Mark success
             self.processed = True
-            logger.info(f"{self.log_path}: POMM processed successfully.")
+            if self.input_health in {"INVALID", "IO_FAILURE", "INCOMPLETE"}:
+                logger.error("{}: POMM input completed parsing but failed data validation.", self.log_path)
+            else:
+                logger.info("{}: POMM processed successfully.", self.log_path)
 
         except Exception:
             logger.exception(f"{self.log_path}: Failed in POMMProcessor.process()")

@@ -52,6 +52,9 @@ def test_serial_dashboard_keeps_order_and_marks_skip_failure() -> None:
     assert [call.kwargs["file_path"] for call in process.call_args_list] == paths
     assert (progress.scheduled, progress.succeeded, progress.skipped, progress.failed) == (4, 2, 1, 1)
     assert [dashboard._tasks[index].status for index in range(1, 5)] == ["OK", "SKIP", "FAIL", "OK"]
+    assert progress.failed_inputs == [
+        (paths[2], "processor returned no usable result (see earlier parser diagnostics)")
+    ]
     assert "Files finished" in dashboard._format_extra_metrics()
     assert "input size" not in dashboard._format_extra_metrics().lower()
 
@@ -151,6 +154,10 @@ def test_dashboard_transport_fallback_retries_original_files_once() -> None:
     assert (progress.scheduled, progress.succeeded, progress.skipped, progress.failed) == (2, 1, 0, 1)
     assert dashboard._phase == "Processing (serial fallback)"
     assert [dashboard._tasks[index].status for index in (1, 2)] == ["OK", "FAIL"]
+    assert dashboard._task_files == ((paths[0],), (paths[1],))
+    assert progress.failed_inputs == [
+        (paths[1], "processor returned no usable result (see earlier parser diagnostics)")
+    ]
 
 
 def test_legacy_pool_oserror_fallback_and_raw_frame_disposal() -> None:
@@ -299,3 +306,22 @@ def test_malformed_rll_qmx_with_filter_remains_failure() -> None:
     assert not processor.processed
     assert processor.df.empty
     assert common._result_status(processor) == "FAIL"
+
+def test_file_failure_reason_prioritises_invalid_health_over_filter_skip() -> None:
+    processor = _processed("invalid_PO.csv", processed=False, empty=True)
+    processor.input_health = "INVALID"
+    processor.filtered_empty = True
+    processor.rejection_reasons = {"non_numeric": 2}
+    assert common._result_status(processor) == "FAIL"
+    assert common._failure_reason(processor) == "INVALID (non_numeric=2)"
+
+
+def test_failed_paths_are_cleared_on_retry() -> None:
+    progress = common.FileBatchProgress()
+    progress.reset(scheduled=2)
+    progress.observe("FAIL")
+    progress.failed_inputs.append((Path("stale.csv"), "old attempt"))
+    progress.reset(scheduled=1)
+    progress.observe("OK")
+    assert progress.failed == 0
+    assert progress.failed_inputs == []
