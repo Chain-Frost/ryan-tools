@@ -84,7 +84,7 @@ existing wheel without rebuilding. These commands do not replace developer
 editable installs (`pip install -r requirements.txt`).
 
 The vendored dependency wheel is checked into ordinary Git under
-[`repo-scripts/wheels/pytuflow/`](../repo-scripts/wheels/pytuflow/4ca2dbe35c1d7e6a1c7b7150fbea622b1aa0ddb0/README.md).
+[`repo-scripts/wheels/pytuflow/`](../repo-scripts/wheels/pytuflow/0121101650fd8e931af8d09cadb23bd43f6fefbd/README.md).
 Run the repository requirements from the repository root, including if the checkout path contains spaces.
 A missing or corrupt wheel fails verification; installation never silently falls back to source code.
 Plain `pip install ryan-tools` resolves the published `pytuflow>=1.2,<2` version range through PyPI.

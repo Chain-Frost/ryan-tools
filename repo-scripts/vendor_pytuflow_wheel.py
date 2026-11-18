@@ -17,12 +17,12 @@ from typing import cast
 from urllib.parse import urlsplit
 from urllib.request import url2pathname
 
-SOURCE_COMMIT = "4ca2dbe35c1d7e6a1c7b7150fbea622b1aa0ddb0"
+SOURCE_COMMIT = "0121101650fd8e931af8d09cadb23bd43f6fefbd"
 SOURCE_REPOSITORY = "https://github.com/Chain-Frost/PyTuflow"
 SOURCE_ARCHIVE = f"{SOURCE_REPOSITORY}/archive/{SOURCE_COMMIT}.zip"
 WHEEL_NAME = "pytuflow-1.3.1-py3-none-any.whl"
-WHEEL_SHA256 = "41facdb3b220a9d032e7fb7e3a5ea94dee76a0e910fbeb0a5caf44289a6f4870"
-WHEEL_BYTES = 984_867
+WHEEL_SHA256 = "b223a803d5c900b85c50855fc18128855dde016ac60e191de63043b440538fc3"
+WHEEL_BYTES = 978_076
 WHEEL_DIR = Path(__file__).absolute().parent / "wheels" / "pytuflow" / SOURCE_COMMIT
 WHEEL_PATH = WHEEL_DIR / WHEEL_NAME
 MANIFEST_PATH = WHEEL_DIR / "provenance.json"

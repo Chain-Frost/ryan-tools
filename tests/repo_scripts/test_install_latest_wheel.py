@@ -89,7 +89,7 @@ def test_dry_run_has_public_guard_and_pip_check(
     assert installer.main(["--dry-run", "--skip-qgis-mcp"]) == 0
     output = capsys.readouterr().out
     assert "gisidx.github.io/gwi" in output
-    assert "4ca2dbe35c1d7e6a1c7b7150fbea622b1aa0ddb0" in output
+    assert "0121101650fd8e931af8d09cadb23bd43f6fefbd" in output
     assert "pip check" in output
     assert "require_validation_api" in output
     assert "vendor_pytuflow_wheel.py" in output

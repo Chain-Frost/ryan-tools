@@ -141,3 +141,7 @@ Reviewed current runner/checker and upstream dependency contract.
 Prepared compact presentation grouping, opt-in full CSV and timing
 counters with synthetic regression tests. Upstream dependency
 collection optimization and paired benchmark remain outstanding.
+
+## Corrected PyTuflow material parser wheel (19 November 2026)
+
+Consumer dependency pinned to upstream PR #17 commit 0121101650fd8e931af8d09cadb23bd43f6fefbd; SHA-256 b223a803d5c900b85c50855fc18128855dde016ac60e191de63043b440538fc3, 978,076 bytes. This is separate from the unaccepted performance changes in PyTuflow #73. No model run, native acceptance or release is claimed.
