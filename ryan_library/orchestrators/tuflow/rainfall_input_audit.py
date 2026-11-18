@@ -11,10 +11,12 @@ from collections import defaultdict
 from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass
 from math import isfinite
+from numbers import Integral
 from pathlib import Path
 from typing import Any
 
 from ...functions.tuflow.command_plan import CommandPlan
+from ...functions.tuflow.soil_loss_validation import validated_soil_parameters
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,6 +107,10 @@ def _material_definition(material_id: int, data: Mapping[str, object]) -> Materi
     Missing optional rainfall losses and fraction impervious mean 0, not an
     unknown value. Supplied but malformed values remain unresolved.
     """
+    if data.get("__schema_unresolved__"):
+        return MaterialDefinition(material_id, None, None, None, "unresolved")
+    if not any(key.casefold() in {"rainfall losses", "il", "cl"} for key in data):
+        return MaterialDefinition(material_id, None, None, None, "unresolved")
     pair = _text(_row_value(data, "Rainfall Losses"))
     if pair:
         values = pair.strip('"').split(",")
@@ -127,12 +133,27 @@ def _material_definition(material_id: int, data: Mapping[str, object]) -> Materi
 def _soil_definition(soil_id: int, data: Mapping[str, object]) -> SoilDefinition:
     method = _text(data.get("method")).upper()
     fields = tuple(sorted((str(key), _text(value)) for key, value in data.items() if str(key).casefold() != "method"))
-    return SoilDefinition(soil_id, method, fields, "defined" if method else "unresolved")
+    try:
+        validated_soil_parameters(method, data)
+    except ValueError:
+        return SoilDefinition(soil_id, method, fields, "unresolved")
+    return SoilDefinition(soil_id, method, fields, "defined")
 
 
 def _db_rows(db: Any) -> list[tuple[object, dict[str, object]]]:
     frame = db.df
-    return [(index, {str(key): val for key, val in row.items()}) for index, row in frame.iterrows()]
+    columns: list[str] = [str(key) for key in frame.columns]
+    if columns and all(isinstance(key, Integral) for key in frame.columns):
+        # The pinned PyTUFLOW reader may retain positional numeric column names
+        # for a headerless materials CSV. Use only a recognised database schema.
+        schema = getattr(getattr(db, "bs", db), "COLUMN_NAMES", None)
+        if isinstance(schema, (tuple, list)) and len(schema) >= len(columns) and all(
+            isinstance(name, str) for name in schema
+        ) and ("Rainfall Losses" in schema or {"IL", "CL"}.issubset(schema)):
+            columns = list(schema[: len(columns)])
+        else:
+            return [(index, {"__schema_unresolved__": True}) for index, _ in frame.iterrows()]
+    return [(index, dict(zip(columns, row.tolist(), strict=True))) for index, row in frame.iterrows()]
 
 
 def _material_rows(context: Any, findings: list[Finding], index: int) -> tuple[MaterialDefinition, ...]:
@@ -165,16 +186,27 @@ def _soil_rows(context: Any, findings: list[Finding], index: int) -> tuple[SoilD
             if not isinstance(detail, Mapping):
                 message = "PyTUFLOW did not return soil parameters"
                 raise ValueError(message)
-            result.append(_soil_definition(soil_id, detail))
+            definition = _soil_definition(soil_id, detail)
+            result.append(definition)
+            if definition.status != "defined":
+                findings.append(Finding(index, "SOIL_UNRESOLVED", f"Soil {soil_id}: invalid or incomplete {definition.method} parameters"))
         except (ValueError, TypeError, KeyError, NotImplementedError) as exc:
             findings.append(Finding(index, "SOIL_UNRESOLVED", f"Soil {raw_id}: {exc}"))
     return tuple(result)
 
 
+def _gis_records(path: object) -> tuple[Mapping[str, object], ...]:
+    """Read selected GIS attributes using PyTUFLOW's public context manager."""
+    from pytuflow.util.gis import GISAttributes
+
+    with GISAttributes(path) as source:
+        return tuple(dict(record) for record in source)
+
+
 def _active_rainfall_names(context: Any, index: int, findings: list[Finding]) -> dict[str, tuple[str | None, str | None]]:
     """Get names from active GIS RF polygon features, not all BC database rows."""
     locations: dict[str, tuple[str | None, str | None]] = {}
-    inputs = context.get_inputs()
+    inputs = context.find_input(recursive=True)
     rf_inputs = [inp for inp in inputs if _text(getattr(inp, "lhs", "")).casefold() == "read gis rf"]
     unsupported = [
         _text(getattr(inp, "lhs", ""))
@@ -187,7 +219,7 @@ def _active_rainfall_names(context: Any, index: int, findings: list[Finding]) ->
     for inp in rf_inputs:
         try:
             for path in inp.files:
-                for item in path.gis_attributes():
+                for item in _gis_records(path):
                     record = {str(k).casefold(): v for k, v in item.items()}
                     name = _text(record.get("name"))
                     if not name:
@@ -196,7 +228,13 @@ def _active_rainfall_names(context: Any, index: int, findings: list[Finding]) ->
                     factors = (_text(record.get("f1")) or None, _text(record.get("f2")) or None)
                     if name in locations and locations[name] != factors:
                         findings.append(Finding(index, "RF_FACTOR_CONFLICT", f"Different GIS factors for RF name {name}"))
-                    locations[name] = factors
+                        # Preserve a finding and avoid treating the last polygon
+                        # as an authoritative replacement for an earlier factor.
+                        continue
+                    for field, value in zip(("f1", "f2"), factors, strict=True):
+                        if value is not None and _float(value) is None:
+                            findings.append(Finding(index, "RF_FACTOR_UNRESOLVED", f"Non-numeric {field} for RF name {name}"))
+                    locations.setdefault(name, factors)
         except (OSError, ValueError, AttributeError, ImportError) as exc:
             findings.append(Finding(index, "RF_GIS_UNRESOLVED", f"Cannot inspect {inp}: {exc}"))
     if not rf_inputs:
@@ -216,15 +254,26 @@ def _rainfall_rows(context: Any, findings: list[Finding], index: int) -> tuple[R
     by_name = {str(key).casefold(): row for key, row in _db_rows(database)}
     rainfall: list[RainfallBoundary] = []
     for name, (f1, f2) in sorted(selected.items()):
-        row = by_name.get(name.casefold())
+        selector, group = (name.split("|", 1) if "|" in name else ("", name))
+        column_selector = selector.strip() if selector else ""
+        row = by_name.get(group.strip().casefold())
         if row is None:
             findings.append(Finding(index, "RF_BC_MISSING", f"No active BC database row for RF name {name}"))
             continue
         data_sum: float | None = None
+        column = _text(_row_value(row, "Column 2")) or column_selector
         try:
+            # PyTUFLOW deliberately substitutes 1 or 0 when an explicitly
+            # specified BC multiplier/addition is invalid.  An input audit must
+            # instead reject the source setting as unresolved.
+            for field in ("Mult Col 2", "Add Col 1", "Add Col 2"):
+                raw = _row_value(row, field)
+                if raw is None or not _text(raw):
+                    continue
+                if _float(raw) is None:
+                    raise ValueError(f"Nonfinite/invalid explicit BC adjustment {field}={raw!r}")
             resolved = database.value(name)
             # PyTUFLOW applies the DB time shift, multiplication and addition.
-            column = _text(_row_value(row, "Column 2"))
             if not column or not hasattr(resolved, "columns"):
                 message = "Rainfall series or value column not resolved"
                 raise ValueError(message)
@@ -246,7 +295,7 @@ def _rainfall_rows(context: Any, findings: list[Finding], index: int) -> tuple[R
             RainfallBoundary(
                 name=name,
                 source=_text(_row_value(row, "Source")),
-                column=_text(_row_value(row, "Column 2")),
+                column=column,
                 database_multiplier=_text(_row_value(row, "Mult Col 2")) or "1",
                 database_addition=_text(_row_value(row, "Add Col 2")) or "0",
                 gis_f1=f1,
@@ -316,9 +365,23 @@ def factor_groups(audit: RainfallAudit) -> dict[tuple[tuple[str, str, str, str, 
     """Group same selected factors, deliberately ignoring event-specific depths."""
     groups: dict[tuple[tuple[str, str, str, str, str], ...], list[int]] = defaultdict(list)
     for run in audit.runs:
+        # Incomplete spatial/BC inventories must never be treated as
+        # factor-equivalent to complete runs that happen to share the
+        # successfully resolved subset.
+        invalid_codes = {
+            "BLANK_RF_NAME", "RF_FACTOR_CONFLICT", "RF_FACTOR_UNRESOLVED", "RF_GIS_UNRESOLVED",
+            "RF_BC_MISSING", "RF_SERIES_UNRESOLVED", "NO_BC_DATABASE", "NO_SUPPORTED_RF_GIS",
+            "OTHER_RAINFALL_INPUT", "MODEL_CONTEXT_UNRESOLVED",
+        }
+        if any(finding.code in invalid_codes for finding in run.findings):
+            continue
+        if not run.rainfall or any(item.status != "bc-adjusted-only" for item in run.rainfall):
+            continue
         signature = tuple(
-            sorted((b.name, b.database_multiplier, b.database_addition, b.gis_f1 or "", b.gis_f2 or "") for b in run.rainfall)
+            sorted(
+                (b.name, b.database_multiplier, b.database_addition, b.gis_f1 or "", b.gis_f2 or "")
+                for b in run.rainfall
+            )
         )
-        if run.rainfall:
-            groups[signature].append(run.run_index)
+        groups[signature].append(run.run_index)
     return {key: tuple(values) for key, values in groups.items()}
