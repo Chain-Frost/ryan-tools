@@ -200,7 +200,10 @@ def _soil_rows(context: Any, findings: list[Finding], index: int) -> tuple[SoilD
     except KeyError:
         return ()  # No soil infiltration database selected.
     result: list[SoilDefinition] = []
-    for raw_id, _ in _db_rows(db):
+    rows = _db_rows(db)
+    if not rows:
+        findings.append(Finding(index, "SOIL_UNRESOLVED", "Selected soils database contains no usable definitions"))
+    for raw_id, _ in rows:
         try:
             soil_id = int(str(raw_id))
             detail = db.value(soil_id)

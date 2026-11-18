@@ -195,8 +195,11 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - user-fa
                 check_source = "paired-raster-check-grids"
             soil_definitions = {soil.soil_id: soil for soil in run.soils}
             if any(pair.soil_id == -1 for pair in observed):
-                if run.soils:
-                    message = "_grd_check has no Soil_ID assignment although an active soil database was selected"
+                unresolved_soil_inputs = any(
+                    issue.code in {"SOIL_UNRESOLVED", "MODEL_CONTEXT_UNRESOLVED"} for issue in run.findings
+                )
+                if run.soils or unresolved_soil_inputs:
+                    message = "_grd_check has no Soil_ID assignment while soil data may be active or unresolved"
                     raise ValueError(message)
                 from ryan_library.orchestrators.tuflow.rainfall_input_audit import SoilDefinition
 

@@ -157,6 +157,19 @@ def test_invalid_soil_parameters_cannot_be_reported_defined() -> None:
     assert _soil_definition(1, {"method": "ILCL", "IL": 0, "CL": 0}).status == "defined"
 
 
+def test_selected_empty_soil_database_cannot_be_treated_as_absent() -> None:
+    class EmptySoils:
+        df: ClassVar[pd.DataFrame] = pd.DataFrame({"Method": []})
+
+    class EmptySoilContext(Context):
+        def soils_file(self) -> EmptySoils:
+            return EmptySoils()
+
+    findings: list[audit_module.Finding] = []
+    assert not audit_module._soil_rows(EmptySoilContext(), findings, 1)
+    assert any(item.code == "SOIL_UNRESOLVED" for item in findings)
+
+
 def test_ts1_group_uses_group_metadata_and_selected_column(monkeypatch: pytest.MonkeyPatch) -> None:
     class Groups(Context):
         def bc_dbase(self) -> BC:
