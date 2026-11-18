@@ -17,3 +17,31 @@
   on a stacked PR; identify required public PyTUFLOW APIs for unresolved
   rainfall factors and native check-grid verification. Keep #319 separate.
 - Next review: 2026-11-23.
+
+## Stacked #324 checkpoint
+
+- Streamed, aligned check-grid co-location of material/soil IDs; optional
+  active-cell mask, explicit target run index for multi-run plans.
+- Normalize loss-relevant material and soil properties and collapse neutral
+  dimensions, including nonzero imperviousness influence when coupled.
+- Raw observed pairs, source rasters and loss group counts exposed in terminal
+  and optional JSON; independent check-grid/run provenance not claimed.
+- Six focused portable synthetic tests pass together. No Windows Python 3.14,
+  native check-grid, wheel or independent TUFLOW acceptance yet.
+- The extension is stacked on base #323, remains draft pending review.
+
+- Direct native TUFLOW `_grd_check` GIS reader added to stacked #324 (Code/Material/Soil_ID); synthetic GeoPackage tests cover active/inactive and absent soils. Default optional material IL/CL and imperviousness corrected against TUFLOW 2026.3 documentation.
+
+## 18 November: code-review corrections
+
+- Replaced unsupported PyTUFLOW run-context `get_inputs` and GIS path
+  `gis_attributes` usage with supported recursive `find_input` and managed
+  `GISAttributes` reads.
+- Fail closed for headerless materials with unrecognised schemas, malformed
+  BC adjustments, unresolved TS1 group metadata, nonfinite/partial soil
+  parameters, and incomplete/conflicting RF factor inventories.
+- Added shared finite method-specific soil validation for the base and stacked
+  spatial grouping code. Explicitly active raster cells with absent material
+  or soil IDs now raise rather than disappearing from group counts.
+- Keep source-only engineering qualifications separate from the required
+  exact-head Python 3.14 CI, installed-PyTUFLOW/API and native TUFLOW evidence.
