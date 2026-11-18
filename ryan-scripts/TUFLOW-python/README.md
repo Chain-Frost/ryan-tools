@@ -646,7 +646,7 @@ The combination dashboard keeps names and details to a single ellipsized line
 with source sizes (including serial fallback), without hiding the complete
 diagnostics in the console.
 
-The project-specific `plot_po_scenario_timeseries.py` uses the editable
+The project-specific [plot_po_scenario_timeseries.py](po_and_timeseries/plot_po_scenario_timeseries.py) uses the editable
 `CONSOLE_LOG_LEVEL` (default `INFO`) and refuses to publish a partial
 Parquet cache after any CSV processing error. It prints the failed paths.
 Its cache manifest continues to cover the complete source inventory.
