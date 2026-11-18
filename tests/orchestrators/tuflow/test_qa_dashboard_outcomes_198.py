@@ -333,9 +333,7 @@ def test_qa_invalid_input_reason_only_reports_actual_failures() -> None:
 
 
 @pytest.mark.parametrize(("workflow", "result_type"), [("peak", "PO"), ("stability", "PO"), ("stability", "Q")])
-def test_qa_worker_attributes_exception_to_actual_csv_path(
-    tmp_path: Path, workflow: str, result_type: str
-) -> None:
+def test_qa_worker_attributes_exception_to_actual_csv_path(tmp_path: Path, workflow: str, result_type: str) -> None:
     """A later failing item in a map chunk must identify itself, not the chunk's first input."""
     failing_path = tmp_path / ("second_1d_Q.csv" if result_type == "Q" else "second_PO.csv")
     error = OSError("synthetic failure in second CSV")
