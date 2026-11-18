@@ -4,7 +4,7 @@ import sys
 from collections.abc import Iterator
 from pathlib import Path
 from types import ModuleType
-from typing import ClassVar
+from typing import ClassVar, Self
 
 import pandas as pd
 import pytest
@@ -131,7 +131,7 @@ def test_missing_material_schema_is_unresolved() -> None:
     assert _material_definition(1, rows[0][1]).status == "unresolved"
 
     class MaterialWithSupportedColumns:
-        COLUMN_NAMES = ["Manning's n", "Rainfall Losses", "Fraction Impervious"]
+        COLUMN_NAMES: ClassVar[list[str]] = ["Manning's n", "Rainfall Losses", "Fraction Impervious"]
         df: ClassVar[pd.DataFrame] = pd.DataFrame([[0.03, "30,5", 0.5]], index=[1])
 
     parsed = _material_definition(1, audit_module._db_rows(MaterialWithSupportedColumns())[0][1])
@@ -196,7 +196,7 @@ def test_gis_reader_uses_supported_context_manager_and_closes(monkeypatch: pytes
         def __init__(self, path: object) -> None:
             assert path == "gis.gpkg >> rf_R"
 
-        def __enter__(self) -> "GISAttributes":
+        def __enter__(self) -> Self:
             return self
 
         def __exit__(self, *_args: object) -> None:
