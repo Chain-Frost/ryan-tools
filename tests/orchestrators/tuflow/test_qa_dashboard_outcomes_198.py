@@ -368,9 +368,13 @@ def test_qa_chunk_error_does_not_misidentify_first_file(tmp_path: Path, workflow
     files = [tmp_path / "first_PO.csv", tmp_path / "second_PO.csv"]
     discovery = files if workflow == "peak" else [(path, "PO") for path in files]
 
-    def failing_chunk():
-        raise OSError("synthetic failure on second item in chunk")
-        yield []  # pragma: no cover - a generator exception is raised on first next()
+    class FailingChunk:
+        def __iter__(self) -> FailingChunk:
+            return self
+
+        def __next__(self) -> list[dict[str, object]]:
+            message = "synthetic failure on second item in chunk"
+            raise OSError(message)
 
     with (
         patch.object(
@@ -380,10 +384,10 @@ def test_qa_chunk_error_does_not_misidentify_first_file(tmp_path: Path, workflow
         ),
         patch.object(module.cf, "ProcessPoolExecutor") as pool,
         patch.object(module.logger, "exception") as exception_log,
-        pytest.raises(OSError, match="synthetic failure"),
     ):
-        pool.return_value.__enter__.return_value.map.return_value = failing_chunk()
-        module.main_processing(paths_to_process=[tmp_path], chunksize=2, use_live_dashboard=False)
+        pool.return_value.__enter__.return_value.map.return_value = FailingChunk()
+        with pytest.raises(OSError, match="synthetic failure"):
+            module.main_processing(paths_to_process=[tmp_path], chunksize=2, use_live_dashboard=False)
 
     assert pool.return_value.__enter__.return_value.map.call_args.kwargs["chunksize"] == 2
     exception_log.assert_called_once_with(
