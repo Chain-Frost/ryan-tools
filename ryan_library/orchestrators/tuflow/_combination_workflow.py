@@ -33,7 +33,6 @@ from ryan_library.functions.tuflow.wrapper_helpers import (
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 
-
 COMBINATION_DASHBOARD_COLUMNS: tuple[WorkflowColumn, ...] = (
     WorkflowColumn(header="#", source="index", justify="right", no_wrap=True),
     WorkflowColumn(header="State", source="status", no_wrap=True),

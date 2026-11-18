@@ -338,7 +338,7 @@ def test_invalid_processed_plot_input_is_not_treated_as_success(
     with (
         patch.object(plotter.BaseProcessor, "from_file", return_value=invalid),
         patch.object(plotter, "ProcessorCollection") as collection,
-        pytest.raises(RuntimeError, match="invalid_PO.csv"),
+        pytest.raises(RuntimeError, match=r"invalid_PO\.csv"),
     ):
         plotter.process_files_sequentially([path])
     collection.return_value.add_processor.assert_not_called()
