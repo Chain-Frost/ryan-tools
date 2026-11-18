@@ -147,4 +147,4 @@ def test_combination_refuses_export_after_failed_or_missing_input(
     if incomplete:
         assert any("returned no outcome" in str(call) for call in error_log.call_args_list)
     else:
-        error_log.assert_any_call("PO combination: failed input {} ({})", paths[1], "INVALID (non_numeric=3)")
+        error_log.assert_any_call("{}: failed input {} ({})", "PO combination", paths[1], "INVALID (non_numeric=3)")
