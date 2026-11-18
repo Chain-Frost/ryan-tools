@@ -67,6 +67,8 @@ These documents stay near the code they describe so that browsing a target direc
 | Rock-protection lookup data | [Outlet rock-protection data](../ryan_library/functions/data/README.md) | Source, interpretation and limits of the bundled multi-pipe lookup tables |
 | Maintenance benchmarks | [Benchmark guide](../repo-scripts/benchmarks/README.md) | Running and interpreting file-collection or DataFrame backend benchmarks |
 | Accepted temporary PyTuflow wheel | [Vendored PyTuflow wheel and provenance](../repo-scripts/wheels/pytuflow/0121101650fd8e931af8d09cadb23bd43f6fefbd/README.md) | Immutable third-party parser wheel, checksum verification, Windows build provenance and retirement policy |
+| Superseded PyTuflow 1.3.1 wheel | [Prior 4ca2dbe provenance](../repo-scripts/wheels/pytuflow/4ca2dbe35c1d7e6a1c7b7150fbea622b1aa0ddb0/README.md) | Retained historical artifact; no longer selected for installation |
+| Superseded PyTuflow 1.3.0 wheel | [Prior 887534ea provenance](../repo-scripts/wheels/pytuflow/887534ea8c15b80d185a38a7ead1d42ab42a7167/README.md) | Retained historical artifact; no longer selected for installation |
 | 3D similarity transformations | [Similarity transform API](GEOMETRY_SIMILARITY.md) | Supported fit function, parameters and transform conventions |
 | Vendored algorithms | [Vendor inventory](../vendor/README.md) | Third-party PyHMA and simil source, licence, import and packaging policy |
 | Vendored `simil` | [`simil` upstream README](../vendor/simil/README.md) | Bundled similarity-transform implementation, usage and upstream attribution |
