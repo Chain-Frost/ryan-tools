@@ -79,9 +79,7 @@ def test_unsupported_soil_fails_closed() -> None:
         ("GA", (("USDA Soil Type", "CLAY"), ("Porosity", "0.4"))),
     ],
 )
-def test_missing_or_conflicting_method_parameters_fail_closed(
-    method: str, fields: tuple[tuple[str, str], ...]
-) -> None:
+def test_missing_or_conflicting_method_parameters_fail_closed(method: str, fields: tuple[tuple[str, str], ...]) -> None:
     with pytest.raises(UnresolvedLossCombinationError):
         effective_loss_signature(mat(1), Soil(1, method, fields, "defined"))
 
@@ -117,7 +115,18 @@ def test_raster_pairs_only_observed(tmp_path: Path) -> None:
 def test_explicitly_active_cell_missing_soil_fails_closed(tmp_path: Path) -> None:
     def raster(name: str, values: list[list[int]]) -> Path:
         path = tmp_path / name
-        with rasterio.open(path, "w", driver="GTiff", height=1, width=2, count=1, dtype="int16", crs="EPSG:28350", transform=from_origin(0, 1, 1, 1), nodata=-9999) as dst:
+        with rasterio.open(
+            path,
+            "w",
+            driver="GTiff",
+            height=1,
+            width=2,
+            count=1,
+            dtype="int16",
+            crs="EPSG:28350",
+            transform=from_origin(0, 1, 1, 1),
+            nodata=-9999,
+        ) as dst:
             dst.write(np.asarray(values, dtype="int16"), 1)
         return path
 

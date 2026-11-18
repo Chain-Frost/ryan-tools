@@ -109,7 +109,9 @@ def _print_report(report: object) -> None:
 
 def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - user-facing audit coordination
     options = args if args is not None else _arguments()
-    base = (options.working_directory if options.working_directory is not None else WORKING_DIR or Path.cwd()).absolute()
+    base = (
+        options.working_directory if options.working_directory is not None else WORKING_DIR or Path.cwd()
+    ).absolute()
     print_wrapper_banner(
         wrapper_file=Path(__file__),
         wrapper_source="TUFLOW-python/model_management/audit_tuflow_rainfall.py",
@@ -138,10 +140,19 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - user-fa
         grd_layer = options.grd_check_layer if options.grd_check_layer is not None else GRD_CHECK_LAYER
         grid_material = options.material_check_grid if options.material_check_grid is not None else MATERIAL_CHECK_GRID
         grid_soil = options.soil_check_grid if options.soil_check_grid is not None else SOIL_CHECK_GRID
-        grid_mask = options.active_cell_mask_grid if options.active_cell_mask_grid is not None else ACTIVE_CELL_MASK_GRID
+        grid_mask = (
+            options.active_cell_mask_grid if options.active_cell_mask_grid is not None else ACTIVE_CELL_MASK_GRID
+        )
         grid_index = options.grid_run_index if options.grid_run_index is not None else GRID_RUN_INDEX
         paired: dict[str, object] | None = None
-        if grd_source is not None or grd_layer is not None or grid_material is not None or grid_soil is not None or grid_mask is not None or grid_index is not None:
+        if (
+            grd_source is not None
+            or grd_layer is not None
+            or grid_material is not None
+            or grid_soil is not None
+            or grid_mask is not None
+            or grid_index is not None
+        ):
             if grd_source is not None and any(item is not None for item in (grid_material, grid_soil, grid_mask)):
                 message = "Choose either native --grd-check GIS or an aligned pair of raster checks"
                 raise ValueError(message)
@@ -217,7 +228,11 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - user-fa
                 "observed_pairs": [asdict(pair) for pair in observed],
                 "effective_loss_groups": [asdict(group) for group in groups],
             }
-        path = None if options.no_json_report else (options.json_report if options.json_report is not None else JSON_REPORT)
+        path = (
+            None
+            if options.no_json_report
+            else (options.json_report if options.json_report is not None else JSON_REPORT)
+        )
         if path is not None:
             output = path if path.is_absolute() else (base / path).absolute()
             document = report.to_dict()

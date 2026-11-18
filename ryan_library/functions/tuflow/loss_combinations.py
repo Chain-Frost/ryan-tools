@@ -204,10 +204,13 @@ def observed_pairs_from_check_grids(
 def _check_raster_alignment(datasets: Sequence[object]) -> None:
     first = datasets[0]
     for dataset in datasets:
-        if any(
-            getattr(dataset, attribute) != getattr(first, attribute)
-            for attribute in ("crs", "transform", "width", "height")
-        ) or dataset.count != 1:
+        if (
+            any(
+                getattr(dataset, attribute) != getattr(first, attribute)
+                for attribute in ("crs", "transform", "width", "height")
+            )
+            or dataset.count != 1
+        ):
             _fail("Check grids must be aligned single-band rasters with identical CRS and transforms")
     if first.crs is None:
         _fail("Check grid CRS is unavailable")
