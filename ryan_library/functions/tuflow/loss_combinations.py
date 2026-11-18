@@ -9,11 +9,12 @@ prediction of actual infiltration or material loss depth.
 from __future__ import annotations
 
 from collections import Counter, defaultdict
+from contextlib import ExitStack
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Literal, Protocol
+from typing import Literal, Never, Protocol
 
 
 class MaterialWithLoss(Protocol):
@@ -48,19 +49,23 @@ class EffectiveLossGroup:
     cell_count: int
 
 
-class UnresolvedLossCombination(ValueError):
+class UnresolvedLossCombinationError(ValueError):
     """Spatial IDs or loss parameters cannot be interpreted without guessing."""
+
+
+def _fail(message: str) -> Never:
+    raise UnresolvedLossCombinationError(message)
 
 
 def _number(value: str | float | int | None) -> str:
     if value is None:
-        raise UnresolvedLossCombination("Missing loss parameter")
+        _fail("Missing loss parameter")
     try:
         number = Decimal(str(value).strip())
-    except InvalidOperation as exc:
-        raise UnresolvedLossCombination(f"Invalid numeric loss parameter {value!r}") from exc
+    except InvalidOperation:
+        _fail(f"Invalid numeric loss parameter {value!r}")
     if not number.is_finite():
-        raise UnresolvedLossCombination(f"Nonfinite loss parameter {value!r}")
+        _fail(f"Nonfinite loss parameter {value!r}")
     if number.is_zero():
         return "0"
     return format(number.normalize(), "f")
@@ -69,7 +74,7 @@ def _number(value: str | float | int | None) -> str:
 def _soil_signature(soil: SoilWithLoss) -> tuple[str, ...]:
     method = soil.method.strip().upper()
     if soil.status != "defined":
-        raise UnresolvedLossCombination(f"Soil {soil.soil_id} is not resolved")
+        _fail(f"Soil {soil.soil_id} is not resolved")
     if method == "NONE":
         return ()
     values = {key.casefold(): val for key, val in soil.parameters}
@@ -77,11 +82,11 @@ def _soil_signature(soil: SoilWithLoss) -> tuple[str, ...]:
         il = _number(values.get("il"))
         cl = _number(values.get("cl"))
         if Decimal(il) < 0 or Decimal(cl) < 0:
-            raise UnresolvedLossCombination(f"Negative ILCL losses in soil {soil.soil_id}")
+            _fail(f"Negative ILCL losses in soil {soil.soil_id}")
         if il == "0" and cl == "0":
             return ()
     elif method not in {"GA", "HO", "CO", "SCS"}:
-        raise UnresolvedLossCombination(f"Unsupported soil method {method!r} for ID {soil.soil_id}")
+        _fail(f"Unsupported soil method {method!r} for ID {soil.soil_id}")
     # Preserve *all* supplied method-specific state/parameters for non-neutral
     # soils. Unrecognised blanks cannot be dismissed as a zero-loss method.
     details: list[str] = [f"method={method}"]
@@ -89,7 +94,7 @@ def _soil_signature(soil: SoilWithLoss) -> tuple[str, ...]:
         if val:
             try:
                 normal = _number(val)
-            except UnresolvedLossCombination:
+            except UnresolvedLossCombinationError:
                 normal = val.strip()
         else:
             normal = "<unspecified>"
@@ -99,11 +104,11 @@ def _soil_signature(soil: SoilWithLoss) -> tuple[str, ...]:
 
 def _material_signature(material: MaterialWithLoss, *, soil_active: bool) -> tuple[str, ...]:
     if material.status != "defined":
-        raise UnresolvedLossCombination(f"Material {material.material_id} is not resolved")
+        _fail(f"Material {material.material_id} is not resolved")
     il = _number(material.initial_loss_mm)
     cl = _number(material.continuing_loss_mm_h)
     if Decimal(il) < 0 or Decimal(cl) < 0:
-        raise UnresolvedLossCombination(f"Negative material loss for ID {material.material_id}")
+        _fail(f"Negative material loss for ID {material.material_id}")
     parts: list[str] = []
     if il != "0" or cl != "0":
         parts.extend([f"il={il}", f"cl={cl}"])
@@ -111,17 +116,18 @@ def _material_signature(material: MaterialWithLoss, *, soil_active: bool) -> tup
         # A material without rainfall IL/CL can still change infiltration by
         # its impervious fraction, so the fraction cannot be ignored.
         if material.fraction_impervious is None:
-            raise UnresolvedLossCombination(f"Material {material.material_id} has unspecified impervious fraction")
+            _fail(f"Material {material.material_id} has unspecified impervious fraction")
         fraction = _number(material.fraction_impervious)
         if Decimal(fraction) < 0 or Decimal(fraction) > 1:
-            raise UnresolvedLossCombination(f"Invalid impervious fraction for material {material.material_id}")
+            _fail(f"Invalid impervious fraction for material {material.material_id}")
         if fraction != "0":
             parts.append(f"impervious={fraction}")
     return tuple(parts)
 
 
 def effective_loss_signature(
-    material: MaterialWithLoss, soil: SoilWithLoss
+    material: MaterialWithLoss,
+    soil: SoilWithLoss,
 ) -> tuple[Literal["no-loss", "material-only", "soil-only", "coupled"], tuple[str, ...]]:
     """Normalize loss-relevant properties; ignore IDs and hydraulic roughness."""
     soil_part = _soil_signature(soil)
@@ -148,11 +154,11 @@ def group_observed_pairs(
     types: dict[tuple[str, ...], Literal["no-loss", "material-only", "soil-only", "coupled"]] = {}
     for item in pairs:
         if item.cell_count <= 0:
-            raise ValueError("Observed pair cell_count must be strictly positive")
+            _fail("Observed pair cell_count must be strictly positive")
         material = materials.get(item.material_id)
         soil = soils.get(item.soil_id)
         if material is None or soil is None:
-            raise UnresolvedLossCombination(f"Undefined active material/soil pair {item.material_id}/{item.soil_id}")
+            _fail(f"Undefined active material/soil pair {item.material_id}/{item.soil_id}")
         category, key = effective_loss_signature(material, soil)
         indexed[key].append(item)
         types[key] = category
@@ -184,19 +190,22 @@ def observed_pairs_from_check_grids(
     import rasterio
 
     with rasterio.open(material_grid) as mat, rasterio.open(soil_grid) as soil:
-        from contextlib import ExitStack
-
         with ExitStack() as stack:
             active = stack.enter_context(rasterio.open(active_mask_grid)) if active_mask_grid is not None else None
-            datasets = [mat, soil] + ([active] if active is not None else [])
+            datasets = [mat, soil]
+            if active is not None:
+                datasets.append(active)
             if any(
-                data.count != 1 or data.crs != mat.crs or data.transform != mat.transform or
-                data.width != mat.width or data.height != mat.height
+                data.count != 1
+                or data.crs != mat.crs
+                or data.transform != mat.transform
+                or data.width != mat.width
+                or data.height != mat.height
                 for data in datasets
             ):
-                raise ValueError("Check grids must be aligned single-band rasters with identical CRS and transforms")
+                _fail("Check grids must be aligned single-band rasters with identical CRS and transforms")
             if mat.crs is None:
-                raise ValueError("Check grid CRS is unavailable")
+                _fail("Check grid CRS is unavailable")
             counts: Counter[tuple[int, int]] = Counter()
             for _, window in mat.block_windows(1):
                 m = mat.read(1, window=window, masked=True)
@@ -210,12 +219,74 @@ def observed_pairs_from_check_grids(
                 if len(left) == 0:
                     continue
                 if not np.isfinite(left).all() or not np.isfinite(right).all():
-                    raise ValueError("Active material/soil grids contain nonfinite IDs")
+                    _fail("Active material/soil grids contain nonfinite IDs")
                 if not np.equal(left, np.floor(left)).all() or not np.equal(right, np.floor(right)).all():
-                    raise ValueError("Active material/soil IDs must be integers")
+                    _fail("Active material/soil IDs must be integers")
                 if (left < 0).any() or (right < 0).any():
-                    raise ValueError("Active material/soil IDs must be nonnegative")
-                ids, frequency = np.unique(np.stack([left.astype('int64'), right.astype('int64')], axis=1), axis=0, return_counts=True)
+                    _fail("Active material/soil IDs must be nonnegative")
+                combined = np.stack([left.astype("int64"), right.astype("int64")], axis=1)
+                ids, frequency = np.unique(combined, axis=0, return_counts=True)
                 for pair, count in zip(ids, frequency, strict=True):
                     counts[int(pair[0]), int(pair[1])] += int(count)
     return tuple(ObservedPair(a, b, count) for (a, b), count in sorted(counts.items()))
+
+
+def observed_pairs_from_grd_check(path: Path, *, layer: str | None = None) -> tuple[ObservedPair, ...]:
+    """Read the actual TUFLOW ``_grd_check`` cell attributes, without GIS intersection.
+
+    The TUFLOW check file contains one feature per grid cell, ``Material``,
+    ``Code`` and (if soil infiltration was selected) ``Soil_ID``. Only cells
+    with Code=1 are counted; Code=-1 is an inactive mesh cell. Without a
+    Soil_ID column, a synthetic soil ID -1 denotes no *active* soil method.
+
+    The caller is responsible for matching the check file to the run and
+    verifying whether its domain/SGS/Quadtree representation is complete.
+    """
+    import fiona
+
+    if path.suffix.casefold() not in {".gpkg", ".shp"}:
+        _fail("A TUFLOW grd_check source must be a .gpkg or .shp GIS file")
+    if path.suffix.casefold() == ".gpkg":
+        names: list[str] = list(fiona.listlayers(path))
+        if layer is None:
+            candidates = [name for name in names if name.casefold().endswith("_grd_check")]
+            if len(candidates) == 1:
+                layer = candidates[0]
+            elif len(names) == 1:
+                layer = names[0]
+            else:
+                message = f"Expected a unique _grd_check layer in {path}; available: {names}. Supply --grd-check-layer"
+                _fail(message)
+        elif layer not in names:
+            _fail(f"Layer {layer!r} absent from {path}; available: {names}")
+
+    def integer_id(raw: object, name: str, *, nonnegative: bool = True) -> int:
+        try:
+            parsed = Decimal(str(raw))
+        except InvalidOperation:
+            _fail(f"Invalid {name} {raw!r} in {path}")
+        if not parsed.is_finite() or parsed != parsed.to_integral_value():
+            _fail(f"Noninteger {name} {raw!r} in {path}")
+        value = int(parsed)
+        if nonnegative and value < 0:
+            _fail(f"Negative {name} {raw!r} in {path}")
+        return value
+
+    with fiona.open(path, layer=layer) as source:
+        fields = {name.casefold(): name for name in source.schema["properties"]}
+        if "material" not in fields or "code" not in fields:
+            message = f"TUFLOW grd_check requires Material and Code attributes; found {sorted(fields.values())}"
+            _fail(message)
+        soil_column = fields.get("soil_id")
+        counts: Counter[tuple[int, int]] = Counter()
+        for feature in source:
+            properties = feature["properties"]
+            code = integer_id(properties[fields["code"]], "Code", nonnegative=False)
+            if code == -1:
+                continue
+            if code != 1:
+                _fail(f"Unsupported _grd_check cell Code {code} in {path}")
+            material = integer_id(properties[fields["material"]], "Material")
+            soil = integer_id(properties[soil_column], "Soil_ID") if soil_column is not None else -1
+            counts[material, soil] += 1
+    return tuple(ObservedPair(material, soil, count) for (material, soil), count in sorted(counts.items()))

@@ -57,29 +57,78 @@ models with `.tlf` and TUFLOW check outputs before engineering use.
 Implementation issue: [#323](https://github.com/Chain-Frost/ryan-tools/issues/323).
 Dependent extension: [#324](https://github.com/Chain-Frost/ryan-tools/issues/324).
 
-
 ## Stacked #324: observed material × soil loss groups
 
-Supply spatially aligned single-band raster checks for material and soil IDs.
-For multiple runs, specify the exact run index to which the check grids apply:
+Supply the **aligned, same-run, single-band check-grid rasters** containing
+material and soil IDs, and optionally an active-cell mask (nonzero means
+active). The script does not infer/check which particular run generated
+the files: the operator must verify that provenance. For multi-run plans,
+identify exactly one run with `--grid-run-index`; it does **not** apply
+its check grids to the other scenarios automatically.
 
 ```powershell
-py -3.14 ryan-scripts/TUFLOW-python/model_management/audit_tuflow_rainfall.py --runs run_tuflow_simulations.txt --grid-run-index 1 --material-check-grid material.tif --soil-check-grid soil.tif --active-cell-mask-grid active.tif --json-report audit_pairs.json --no-pause
+py -3.14 ryan-scripts/TUFLOW-python/model_management/audit_tuflow_rainfall.py `
+  --runs run_tuflow_simulations.txt `
+  --grid-run-index 1 `
+  --material-check-grid check_material.tif `
+  --soil-check-grid check_soil.tif `
+  --active-cell-mask-grid check_active_cells.tif `
+  --json-report audit_pairs.json --no-pause
 ```
 
-The audit requires identical raster CRS, affine transform, dimensions and single-band
-configuration. It counts **observed raster-cell pairs**, not the Cartesian
-product of all defined material/soil IDs. It excludes masked/NoData cells
-and can optionally require an active-cell mask.
+Cell pairs are counted by matching raster indices, **not** by multiplying
+defined database IDs. Both raster grids must have identical extent, CRS,
+resolution and affine transform; masked/NoData cells are skipped. Without
+an active-cell mask, the check grids' own valid-cell masks are used, so a
+non-NoData raster pixel cannot alone certify an active TUFLOW 2D cell.
+The script retains original material and soil IDs, observed pairs and cell
+counts in JSON and aggregates **effective loss signatures**:
 
-Configurations are grouped by loss-relevant properties, collapsing zero
-material losses and provably neutral soil methods. When soil infiltration is
-active, material fraction impervious remains loss-relevant even if material
-IL and CL are zero. Unsupported soil methods, unresolved loss entries and
-unknown active IDs fail rather than being interpreted as zero.
+- Nonzero material rainfall loss + active soil infiltration: coupled group.
+- Zero material rainfall loss and no imperviousness influence: soil only.
+- Neutral soil (`NONE` or a supported zero-IL/zero-CL ILCL definition):
+  material only, or no-loss when the material is also neutral.
+- A zero-IL/zero-CL material with nonzero `Fraction Impervious` still changes
+  the signature when soil infiltration can operate underneath.
+- Method-specific GA/HO/CO/SCS parameters are retained, not interpreted as
+  zero losses because their IL/CL fields are absent. Unsupported methods,
+  missing numeric IL/CL, undefined IDs and missing impervious fractions for
+  coupled infiltration **fail closed**, rather than collapsing groups.
 
-**Limitations:** These externally supplied check grids are not automatically
-associated with a specific TUFLOW run; the caller must verify their provenance,
-active-cell representation and matching TCF/scenario. Raster co-location is
-not proof of the actual rainfall loss or infiltration depth. Native TUFLOW
-reconciliation remains outstanding under #319.
+Groups collapse equivalent **loss-related properties**, not IDs, and do not
+include Manning's roughness or unrelated material properties. A model with
+2 materials and 3 defined soils does **not** automatically have 6 applied
+combinations. Grouping is a *loss-potential configuration assessment* and
+is not native proof of the rainfall volume removed or soil water storage.
+
+Further validation needed: official TUFLOW check-grid naming/semantics,
+model active-cell provenance and imperviousness behaviour, layered soils,
+SGS/Quadtree domain interpretation, source rainfall footprints, installed
+PyTUFLOW compatibility and representative model numerical acceptance.
+
+### Direct native TUFLOW GIS check-file input
+
+TUFLOW's own `_grd_check` GIS layer contains a cell record with `Code`,
+`Material` and, when soil infiltration is activated, `Soil_ID`. This is the
+preferred input because the co-location is already resolved by TUFLOW:
+
+```powershell
+py -3.14 ryan-scripts/TUFLOW-python/model_management/audit_tuflow_rainfall.py `
+  --runs run_tuflow_simulations.txt `
+  --grid-run-index 1 --grd-check model_grd_check.gpkg `
+  --json-report audit_from_grd_check.json --no-pause
+```
+
+For a GeoPackage containing several candidate layers, pass
+`--grd-check-layer <layer-name>`. The parser streams `Code=1` active cell
+records, skips `Code=-1` null cells and rejects unknown code values.
+If `Soil_ID` is absent, the model did not have an active soil feature in
+that check layer; the report uses neutral soil sentinel -1 (not a listed
+soils-file ID). The operator must still verify that the supplied check
+file corresponds exactly to the audited simulation/domain.
+
+The material database parser uses the documented TUFLOW defaults for
+**omitted** optional values: no material rainfall losses (IL=0, CL=0) and
+fraction impervious=0. Explicitly malformed values stay unresolved rather
+than silently becoming zero. See [TUFLOW 2026.3 materials](https://docs.tuflow.com/classic-hpc/manual/2026.3/06-2D-Domains.html)
+and the [native `_grd_check` field descriptions](https://wiki.tuflow.com/Check_Files_2d_grd).

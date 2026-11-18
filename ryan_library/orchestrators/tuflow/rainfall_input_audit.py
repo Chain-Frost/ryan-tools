@@ -8,13 +8,13 @@ active cell assignments; no routing, loss simulation, or TUFLOW launch occurs.
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass
 from math import isfinite
 from pathlib import Path
 from typing import Any
 
-from ...functions.tuflow.command_plan import CommandPlan, PlannedRun
+from ...functions.tuflow.command_plan import CommandPlan
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,16 +100,26 @@ def _row_value(row: Mapping[str, object], name: str) -> object:
 
 
 def _material_definition(material_id: int, data: Mapping[str, object]) -> MaterialDefinition:
-    """Read the PyTUFLOW resolved material schema; never infer missing IL/CL as zero."""
+    """Read material IL/CL, applying only documented TUFLOW optional defaults.
+
+    Missing optional rainfall losses and fraction impervious mean 0, not an
+    unknown value. Supplied but malformed values remain unresolved.
+    """
     pair = _text(_row_value(data, "Rainfall Losses"))
     if pair:
         values = pair.strip('"').split(",")
-        il, cl = (_float(x) for x in values) if len(values) == 2 else (None, None)
+        il, cl = (_float(value) for value in values) if len(values) == 2 else (None, None)
     else:
-        il, cl = _float(_row_value(data, "IL")), _float(_row_value(data, "CL"))
-    impervious = _float(_row_value(data, "Fraction Impervious"))
+        raw_il = _text(_row_value(data, "IL"))
+        raw_cl = _text(_row_value(data, "CL"))
+        if raw_il or raw_cl:
+            il, cl = _float(raw_il), _float(raw_cl)
+        else:
+            il, cl = 0.0, 0.0  # Omitted material rainfall-loss fields default to no loss.
+    raw_impervious = _text(_row_value(data, "Fraction Impervious"))
+    impervious = _float(raw_impervious) if raw_impervious else 0.0
     valid = il is not None and cl is not None and il >= 0 and cl >= 0
-    if impervious is not None and not 0 <= impervious <= 1:
+    if impervious is None or not 0 <= impervious <= 1:
         valid = False
     return MaterialDefinition(material_id, il, cl, impervious, "defined" if valid else "unresolved")
 
@@ -120,14 +130,14 @@ def _soil_definition(soil_id: int, data: Mapping[str, object]) -> SoilDefinition
     return SoilDefinition(soil_id, method, fields, "defined" if method else "unresolved")
 
 
-def _db_rows(db: object) -> list[tuple[object, dict[str, object]]]:
-    frame = getattr(db, "df")
+def _db_rows(db: Any) -> list[tuple[object, dict[str, object]]]:
+    frame = db.df
     return [(index, {str(key): val for key, val in row.items()}) for index, row in frame.iterrows()]
 
 
-def _material_rows(context: object, findings: list[Finding], index: int) -> tuple[MaterialDefinition, ...]:
+def _material_rows(context: Any, findings: list[Finding], index: int) -> tuple[MaterialDefinition, ...]:
     try:
-        mat = getattr(context, "mat_file")()
+        mat = context.mat_file()
     except KeyError:
         findings.append(Finding(index, "NO_MATERIAL_DATABASE", "No active materials file; material losses not established"))
         return ()
@@ -142,28 +152,29 @@ def _material_rows(context: object, findings: list[Finding], index: int) -> tupl
     return tuple(result)
 
 
-def _soil_rows(context: object, findings: list[Finding], index: int) -> tuple[SoilDefinition, ...]:
+def _soil_rows(context: Any, findings: list[Finding], index: int) -> tuple[SoilDefinition, ...]:
     try:
-        db = getattr(context, "soils_file")()
+        db = context.soils_file()
     except KeyError:
         return ()  # No soil infiltration database selected.
     result: list[SoilDefinition] = []
     for raw_id, _ in _db_rows(db):
         try:
             soil_id = int(raw_id)
-            detail = getattr(db, "value")(soil_id)
+            detail = db.value(soil_id)
             if not isinstance(detail, Mapping):
-                raise ValueError("PyTUFLOW did not return soil parameters")
+                message = "PyTUFLOW did not return soil parameters"
+                raise ValueError(message)
             result.append(_soil_definition(soil_id, detail))
         except (ValueError, TypeError, KeyError, NotImplementedError) as exc:
             findings.append(Finding(index, "SOIL_UNRESOLVED", f"Soil {raw_id}: {exc}"))
     return tuple(result)
 
 
-def _active_rainfall_names(context: object, index: int, findings: list[Finding]) -> dict[str, tuple[str | None, str | None]]:
+def _active_rainfall_names(context: Any, index: int, findings: list[Finding]) -> dict[str, tuple[str | None, str | None]]:
     """Get names from active GIS RF polygon features, not all BC database rows."""
     locations: dict[str, tuple[str | None, str | None]] = {}
-    inputs = getattr(context, "get_inputs")()
+    inputs = context.get_inputs()
     rf_inputs = [inp for inp in inputs if _text(getattr(inp, "lhs", "")).casefold() == "read gis rf"]
     unsupported = [
         _text(getattr(inp, "lhs", ""))
@@ -175,7 +186,7 @@ def _active_rainfall_names(context: object, index: int, findings: list[Finding])
         findings.append(Finding(index, "OTHER_RAINFALL_INPUT", "Unassessed rainfall commands: " + ", ".join(unsupported)))
     for inp in rf_inputs:
         try:
-            for path in getattr(inp, "files"):
+            for path in inp.files:
                 for item in path.gis_attributes():
                     record = {str(k).casefold(): v for k, v in item.items()}
                     name = _text(record.get("name"))
@@ -193,12 +204,12 @@ def _active_rainfall_names(context: object, index: int, findings: list[Finding])
     return locations
 
 
-def _rainfall_rows(context: object, findings: list[Finding], index: int) -> tuple[RainfallBoundary, ...]:
+def _rainfall_rows(context: Any, findings: list[Finding], index: int) -> tuple[RainfallBoundary, ...]:
     selected = _active_rainfall_names(context, index, findings)
     if not selected:
         return ()
     try:
-        database = getattr(context, "bc_dbase")()
+        database = context.bc_dbase()
     except KeyError:
         findings.append(Finding(index, "NO_BC_DATABASE", "RF GIS names cannot be resolved without an active BC database"))
         return ()
@@ -211,17 +222,20 @@ def _rainfall_rows(context: object, findings: list[Finding], index: int) -> tupl
             continue
         data_sum: float | None = None
         try:
-            resolved = getattr(database, "value")(name)
+            resolved = database.value(name)
             # PyTUFLOW applies the DB time shift, multiplication and addition.
             column = _text(_row_value(row, "Column 2"))
             if not column or not hasattr(resolved, "columns"):
-                raise ValueError("Rainfall series or value column not resolved")
+                message = "Rainfall series or value column not resolved"
+                raise ValueError(message)
             candidates = [key for key in resolved.columns if str(key).casefold() == column.casefold()]
             if len(candidates) != 1:
-                raise ValueError(f"Expected exactly one rainfall column {column!r}")
+                message = f"Expected exactly one rainfall column {column!r}"
+                raise ValueError(message)
             values = [float(val) for val in resolved[candidates[0]]]
             if not values or not all(isfinite(val) for val in values):
-                raise ValueError("Nonfinite or empty rainfall values")
+                message = "Nonfinite or empty rainfall values"
+                raise ValueError(message)
             data_sum = sum(values)
         except (ValueError, TypeError, KeyError, OSError, AttributeError) as exc:
             findings.append(Finding(index, "RF_SERIES_UNRESOLVED", f"{name}: {exc}"))
