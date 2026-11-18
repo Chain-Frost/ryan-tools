@@ -276,8 +276,8 @@ def observed_pairs_from_grd_check(path: Path, *, layer: str | None = None) -> tu
     if path.suffix.casefold() == ".gpkg":
         layer = _grd_check_layer(path, layer, fiona.listlayers(path))
 
-    open_kwargs: dict[str, str] = {"layer": layer} if layer is not None else {}
-    with fiona.open(path, **open_kwargs) as source:
+    collection = fiona.open(path) if layer is None else fiona.open(path, layer=layer)
+    with collection as source:
         fields = {name.casefold(): name for name in source.schema["properties"]}
         if "material" not in fields or "code" not in fields:
             message = f"TUFLOW grd_check requires Material and Code attributes; found {sorted(fields.values())}"

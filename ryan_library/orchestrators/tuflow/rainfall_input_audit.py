@@ -120,7 +120,10 @@ def _material_definition(material_id: int, data: Mapping[str, object]) -> Materi
     """
     if data.get("__schema_unresolved__"):
         return MaterialDefinition(material_id, None, None, None, "unresolved")
-    if not any(key.casefold() in {"rainfall losses", "il", "cl"} for key in data):
+    # PyTUFLOW's recognized materials schema permits an ID and Manning's n
+    # alone. Optional rainfall losses and imperviousness then default to zero.
+    # An unrecognized column set must still fail closed, not imply no losses.
+    if not any(key.casefold() in {"manning's n", "rainfall losses", "il", "cl"} for key in data):
         return MaterialDefinition(material_id, None, None, None, "unresolved")
     pair = _text(_row_value(data, "Rainfall Losses"))
     if pair:
@@ -201,8 +204,12 @@ def _soil_rows(context: Any, findings: list[Finding], index: int) -> tuple[SoilD
         try:
             soil_id = int(str(raw_id))
             detail = db.value(soil_id)
-            if not isinstance(detail, Mapping) or any(not isinstance(key, str) for key in detail):
+            if not isinstance(detail, Mapping):
                 message = "PyTUFLOW did not return soil parameters"
+                raise ValueError(message)
+            keys = cast("Mapping[object, object]", detail)
+            if any(not isinstance(key, str) for key in keys):
+                message = "PyTUFLOW soil parameters contain non-string keys"
                 raise ValueError(message)
             definition = _soil_definition(soil_id, cast("Mapping[str, object]", detail))
             result.append(definition)
