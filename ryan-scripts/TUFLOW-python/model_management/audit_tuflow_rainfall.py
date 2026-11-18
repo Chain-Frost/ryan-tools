@@ -49,7 +49,9 @@ def _arguments() -> argparse.Namespace:
 def _print_report(report: object) -> None:
     from ryan_library.orchestrators.tuflow.rainfall_input_audit import RainfallAudit
 
-    assert isinstance(report, RainfallAudit)
+    if not isinstance(report, RainfallAudit):
+        message = "Expected a RainfallAudit report"
+        raise TypeError(message)
     c = Console()
     summary = Table(title="TUFLOW rainfall and loss input audit — definitions, not executed results")
     for name in ("Run", "TCF / flags", "Rainfall BCs", "Materials", "Soils", "Findings"):
@@ -102,7 +104,8 @@ def main(args: argparse.Namespace | None = None) -> int:
     try:
         files = options.runs if options.runs is not None else RUN_FILES
         if not files:
-            raise ValueError("Select at least one BAT/TXT run list using RUN_FILES or --runs")
+            message = "Select at least one BAT/TXT run list using RUN_FILES or --runs"
+            raise ValueError(message)
         sources = [p if p.is_absolute() else (base / p).absolute() for p in files]
         model = options.tcf if options.tcf is not None else TCF
         plan = read_command_plans(
