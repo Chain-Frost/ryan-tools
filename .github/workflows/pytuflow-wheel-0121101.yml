@@ -131,7 +131,7 @@ jobs:
           print(f'New wheel SHA-256={digest}, bytes={size}')
           PY
           python repo-scripts/vendor_pytuflow_wheel.py
-          python -m pytest -q tests/repo_scripts/test_vendor_pytuflow_wheel.py
+          python -m pytest -q --noconftest tests/repo_scripts/test_vendor_pytuflow_wheel.py
           git diff --check
       - name: Commit verified wheel only to existing PR branch
         shell: bash
