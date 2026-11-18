@@ -4,6 +4,7 @@ import sys
 from collections.abc import Iterator
 from pathlib import Path
 from types import ModuleType
+from typing import ClassVar
 
 import pandas as pd
 import pytest
@@ -124,14 +125,14 @@ def test_invalid_explicit_material_loss_remains_unresolved() -> None:
 
 def test_missing_material_schema_is_unresolved() -> None:
     class MaterialWithUnknownColumns:
-        df = pd.DataFrame([[0.03, "30,5", 0.5]], index=[1])
+        df: ClassVar[pd.DataFrame] = pd.DataFrame([[0.03, "30,5", 0.5]], index=[1])
 
     rows = audit_module._db_rows(MaterialWithUnknownColumns())
     assert _material_definition(1, rows[0][1]).status == "unresolved"
 
     class MaterialWithSupportedColumns:
         COLUMN_NAMES = ["Manning's n", "Rainfall Losses", "Fraction Impervious"]
-        df = pd.DataFrame([[0.03, "30,5", 0.5]], index=[1])
+        df: ClassVar[pd.DataFrame] = pd.DataFrame([[0.03, "30,5", 0.5]], index=[1])
 
     parsed = _material_definition(1, audit_module._db_rows(MaterialWithSupportedColumns())[0][1])
     assert parsed.initial_loss_mm == 30
@@ -157,7 +158,7 @@ def test_ts1_group_uses_group_metadata_and_selected_column(monkeypatch: pytest.M
 
             return GroupBC()
 
-    monkeypatch.setattr(audit_module, "_active_rainfall_names", lambda *args: {"N1|Group": (None, None)})
+    monkeypatch.setattr(audit_module, "_active_rainfall_names", lambda *_args: {"N1|Group": (None, None)})
     findings: list[audit_module.Finding] = []
     rows = audit_module._rainfall_rows(Groups(), findings, 1)
     assert rows[0].column == "N1"
@@ -173,7 +174,7 @@ def test_bad_explicit_bc_multiplier_is_unresolved(monkeypatch: pytest.MonkeyPatc
 
             return BadBC()
 
-    monkeypatch.setattr(audit_module, "_active_rainfall_names", lambda *args: {"RF1": (None, None)})
+    monkeypatch.setattr(audit_module, "_active_rainfall_names", lambda *_args: {"RF1": (None, None)})
     findings: list[audit_module.Finding] = []
     rows = audit_module._rainfall_rows(Bad(), findings, 1)
     assert rows[0].status == "unresolved"
@@ -207,7 +208,7 @@ def test_gis_reader_uses_supported_context_manager_and_closes(monkeypatch: pytes
     root = ModuleType("pytuflow")
     util = ModuleType("pytuflow.util")
     gis = ModuleType("pytuflow.util.gis")
-    setattr(gis, "GISAttributes", GISAttributes)
+    gis.__dict__["GISAttributes"] = GISAttributes
     monkeypatch.setitem(sys.modules, "pytuflow", root)
     monkeypatch.setitem(sys.modules, "pytuflow.util", util)
     monkeypatch.setitem(sys.modules, "pytuflow.util.gis", gis)
@@ -219,7 +220,7 @@ def test_conflicting_gis_rainfall_factors_do_not_enter_equivalence_group(monkeyp
     monkeypatch.setattr(
         audit_module,
         "_gis_records",
-        lambda path: ({"Name": "RF1", "f1": 1.2}, {"Name": "RF1", "f1": 2.0}),
+        lambda _path: ({"Name": "RF1", "f1": 1.2}, {"Name": "RF1", "f1": 2.0}),
     )
     run = PlannedRun(
         index=1,
