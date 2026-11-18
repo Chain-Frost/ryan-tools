@@ -61,6 +61,7 @@ _QA_DASHBOARD_COLUMNS: tuple[WorkflowColumn, ...] = (
     WorkflowColumn(header="Detail", source="detail", no_wrap=True, overflow="ellipsis"),
 )
 
+
 def _file_outcome(rows: list[dict[str, object]]) -> WorkflowStatus:
     """Separate parser failures from successful QA findings and valid empty inputs."""
     if not rows:
@@ -157,7 +158,10 @@ def main_processing(
                     result_types=effective_result_types,
                     result_type_globs=result_type_globs,
                 )
-                dashboard.set_tasks(labels=[f"{result_type}: {path.name}" for path, result_type in files], files=[path for path, _ in files])
+                dashboard.set_tasks(
+                    labels=[f"{result_type}: {path.name}" for path, result_type in files],
+                    files=[path for path, _ in files],
+                )
                 if not files:
                     selected_patterns = [result_type_globs[result_type] for result_type in effective_result_types]
                     logger.info("No files matched {} in the provided directories.", selected_patterns)
@@ -176,7 +180,11 @@ def main_processing(
                 # thread waits on each blocking iterator result. The coordinator
                 # can then refresh the dashboard throughout slow-file processing.
                 with (
-                    cf.ProcessPoolExecutor(max_workers=max_workers, initializer=worker_initializer, initargs=(log_queue,)) as executor,
+                    cf.ProcessPoolExecutor(
+                        max_workers=max_workers,
+                        initializer=worker_initializer,
+                        initargs=(log_queue,),
+                    ) as executor,
                     cf.ThreadPoolExecutor(max_workers=1) as waiter,
                 ):
                     rows_iter = iter(

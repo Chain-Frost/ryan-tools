@@ -266,7 +266,11 @@ def test_qa_logging_and_compact_dashboard_file_rows(tmp_path: Path, workflow: st
     expected_label = path.name if workflow == "peak" else f"PO: {path.name}"
     original_set_tasks = LiveWorkflowDashboard.set_tasks
     with (
-        patch.object(module, "collect_po_csv_files" if workflow == "peak" else "collect_timeseries_files", return_value=discovery),
+        patch.object(
+            module,
+            "collect_po_csv_files" if workflow == "peak" else "collect_timeseries_files",
+            return_value=discovery,
+        ),
         patch.object(module.cf, "ProcessPoolExecutor") as pool,
         patch.object(module, "ExcelExporter"),
         patch.object(LiveWorkflowDashboard, "set_tasks", autospec=True, side_effect=original_set_tasks) as set_tasks,
@@ -297,7 +301,11 @@ def test_qa_failure_logs_full_path_and_diagnostic_reasons(tmp_path: Path, workfl
         {"run_code": "run", "status": "NO_DATA", "input_health": "INVALID", "rejection_reasons": "non_numeric=3"},
     ]
     with (
-        patch.object(module, "collect_po_csv_files" if workflow == "peak" else "collect_timeseries_files", return_value=discovery),
+        patch.object(
+            module,
+            "collect_po_csv_files" if workflow == "peak" else "collect_timeseries_files",
+            return_value=discovery,
+        ),
         patch.object(module.cf, "ProcessPoolExecutor") as pool,
         patch.object(module, "ExcelExporter") as exporter,
         patch.object(module.logger, "error") as error,

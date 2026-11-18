@@ -50,6 +50,7 @@ _QA_DASHBOARD_COLUMNS: tuple[WorkflowColumn, ...] = (
     WorkflowColumn(header="Detail", source="detail", no_wrap=True, overflow="ellipsis"),
 )
 
+
 def _file_outcome(rows: list[dict[str, object]]) -> WorkflowStatus:
     """Separate parser failures from successful QA findings and valid empty inputs."""
     if not rows:
@@ -142,7 +143,11 @@ def main_processing(
                 # but wait on its blocking iterator in one helper thread so this
                 # coordinator can refresh Rich while a slow CSV is still running.
                 with (
-                    cf.ProcessPoolExecutor(max_workers=max_workers, initializer=worker_initializer, initargs=(log_queue,)) as executor,
+                    cf.ProcessPoolExecutor(
+                        max_workers=max_workers,
+                        initializer=worker_initializer,
+                        initargs=(log_queue,),
+                    ) as executor,
                     cf.ThreadPoolExecutor(max_workers=1) as waiter,
                 ):
                     rows_iter = iter(
