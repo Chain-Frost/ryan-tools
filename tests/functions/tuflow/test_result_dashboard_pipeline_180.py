@@ -307,6 +307,7 @@ def test_malformed_rll_qmx_with_filter_remains_failure() -> None:
     assert processor.df.empty
     assert common._result_status(processor) == "FAIL"
 
+
 def test_file_failure_reason_prioritises_invalid_health_over_filter_skip() -> None:
     processor = _processed("invalid_PO.csv", processed=False, empty=True)
     processor.input_health = "INVALID"

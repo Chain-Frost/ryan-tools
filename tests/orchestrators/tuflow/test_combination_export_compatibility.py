@@ -101,6 +101,7 @@ def test_pomm_export_results_delegates_to_shared_exporter() -> None:
     assert delegated.call_args.kwargs["results"] is results
     assert delegated.call_args.kwargs["export_prefix"] == "combined_POMM"
 
+
 @pytest.mark.parametrize("use_live_dashboard", [False, True])
 @pytest.mark.parametrize("incomplete", [False, True])
 def test_combination_refuses_export_after_failed_or_missing_input(

@@ -299,6 +299,7 @@ def test_headless_png_preserves_full_legend_bounds(
     assert len(images) == 1
     assert images[0].read_bytes().startswith(b"\x89PNG")
 
+
 def test_csv_error_prevents_partial_plot_cache_and_lists_failed_filename(
     plotter: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -327,9 +328,7 @@ def test_csv_error_prevents_partial_plot_cache_and_lists_failed_filename(
         write_cache.assert_not_called()
 
 
-def test_invalid_processed_plot_input_is_not_treated_as_success(
-    plotter: ModuleType, tmp_path: Path
-) -> None:
+def test_invalid_processed_plot_input_is_not_treated_as_success(plotter: ModuleType, tmp_path: Path) -> None:
     path = tmp_path / "invalid_PO.csv"
     invalid = MagicMock()
     invalid.processed = True
