@@ -35,8 +35,14 @@ from ryan_library.functions.tuflow.po_timeseries_checks import (
 
 
 def _analyze_peak_worker(path_str: str, config: PeakCheckConfig) -> list[dict[str, object]]:
-    results: list[PeakCheckResult] = analyze_peak_csv(path=Path(path_str), config=config)
-    return flatten_peak_results(results=results)
+    path = Path(path_str)
+    try:
+        results: list[PeakCheckResult] = analyze_peak_csv(path=path, config=config)
+        return flatten_peak_results(results=results)
+    except Exception:
+        # A chunked map failure cannot be attributed using the parent iterator index.
+        logger.exception("Failed to analyse CSV input {}", path)
+        raise
 
 
 _NO_DATA_STATUSES: frozenset[str] = frozenset({"NO_DATA"})
@@ -171,15 +177,11 @@ def main_processing(
                         dashboard.mark_running(index=index)
                         dashboard.refresh(force=True)
                         pending = waiter.submit(next, rows_iter)
-                        try:
-                            rows = await_future_with_dashboard_refresh(
-                                future=pending,
-                                dashboard=dashboard,
-                                refresh_per_second=live_refresh_per_second,
-                            )
-                        except Exception:
-                            logger.exception("Unable to process CSV file {}", files[index - 1])
-                            raise
+                        rows = await_future_with_dashboard_refresh(
+                            future=pending,
+                            dashboard=dashboard,
+                            refresh_per_second=live_refresh_per_second,
+                        )
                         status = _file_outcome(rows)
                         status_counts[status] += 1
                         detail = _file_detail(rows=rows, file_path=files[index - 1], status=status)

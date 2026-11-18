@@ -1,10 +1,12 @@
 """Dashboard lifecycle and export-failure regressions for PO QA workflows (#198)."""
 
+# pyright: reportPrivateUsage=false
+
 from __future__ import annotations
 
 from pathlib import Path
 from threading import Event
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -328,3 +330,62 @@ def test_qa_invalid_input_reason_only_reports_actual_failures() -> None:
         {"status": "NO_DATA", "input_health": "INVALID", "rejection_reasons": "bad_value=2"},
     ]
     assert describe_invalid_input(rows) == "CSV_PARSE_FAIL, NO_DATA (bad_value=2)"
+
+
+@pytest.mark.parametrize(("workflow", "result_type"), [("peak", "PO"), ("stability", "PO"), ("stability", "Q")])
+def test_qa_worker_attributes_exception_to_actual_csv_path(
+    tmp_path: Path, workflow: str, result_type: str
+) -> None:
+    """A later failing item in a map chunk must identify itself, not the chunk's first input."""
+    failing_path = tmp_path / ("second_1d_Q.csv" if result_type == "Q" else "second_PO.csv")
+    error = OSError("synthetic failure in second CSV")
+    if workflow == "peak":
+        with (
+            patch.object(peak, "analyze_peak_csv", side_effect=error),
+            patch.object(peak.logger, "exception") as exception_log,
+            pytest.raises(OSError, match="synthetic failure"),
+        ):
+            peak._analyze_peak_worker(str(failing_path), MagicMock())
+        exception_log.assert_called_once_with("Failed to analyse CSV input {}", failing_path)
+    else:
+        with (
+            patch.object(
+                stability,
+                "analyze_stability_q_csv" if result_type == "Q" else "analyze_stability_csv",
+                side_effect=error,
+            ),
+            patch.object(stability.logger, "exception") as exception_log,
+            pytest.raises(OSError, match="synthetic failure"),
+        ):
+            stability._analyze_stability_worker(str(failing_path), result_type, MagicMock())
+        exception_log.assert_called_once_with("Failed to analyse {} CSV input {}", result_type, failing_path)
+
+
+@pytest.mark.parametrize("workflow", ["peak", "stability"])
+def test_qa_chunk_error_does_not_misidentify_first_file(tmp_path: Path, workflow: str) -> None:
+    """If a later chunk item fails, the coordinator cannot know which item raised."""
+    module = peak if workflow == "peak" else stability
+    files = [tmp_path / "first_PO.csv", tmp_path / "second_PO.csv"]
+    discovery = files if workflow == "peak" else [(path, "PO") for path in files]
+
+    def failing_chunk():
+        raise OSError("synthetic failure on second item in chunk")
+        yield []  # pragma: no cover - a generator exception is raised on first next()
+
+    with (
+        patch.object(
+            module,
+            "collect_po_csv_files" if workflow == "peak" else "collect_timeseries_files",
+            return_value=discovery,
+        ),
+        patch.object(module.cf, "ProcessPoolExecutor") as pool,
+        patch.object(module.logger, "exception") as exception_log,
+        pytest.raises(OSError, match="synthetic failure"),
+    ):
+        pool.return_value.__enter__.return_value.map.return_value = failing_chunk()
+        module.main_processing(paths_to_process=[tmp_path], chunksize=2, use_live_dashboard=False)
+
+    assert pool.return_value.__enter__.return_value.map.call_args.kwargs["chunksize"] == 2
+    exception_log.assert_called_once_with(
+        "PO peak-check workflow failed." if workflow == "peak" else "Timeseries stability workflow failed."
+    )

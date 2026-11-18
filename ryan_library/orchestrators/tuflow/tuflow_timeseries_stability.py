@@ -43,11 +43,16 @@ RESULT_TYPE_GLOBS: dict[str, str] = {
 
 def _analyze_stability_worker(path_str: str, result_type: str, config: StabilityCheckConfig) -> list[dict[str, object]]:
     path = Path(path_str)
-    if result_type == "Q":
-        results: list[StabilityCheckResult] = analyze_stability_q_csv(path=path, config=config)
-    else:
-        results = analyze_stability_csv(path=path, config=config)
-    return flatten_stability_results(results=results)
+    try:
+        if result_type == "Q":
+            results: list[StabilityCheckResult] = analyze_stability_q_csv(path=path, config=config)
+        else:
+            results = analyze_stability_csv(path=path, config=config)
+        return flatten_stability_results(results=results)
+    except Exception:
+        # A chunked map failure cannot be attributed using the parent iterator index.
+        logger.exception("Failed to analyse {} CSV input {}", result_type, path)
+        raise
 
 
 _NO_DATA_STATUSES: frozenset[str] = frozenset({"NO_DATA"})
@@ -209,15 +214,11 @@ def main_processing(
                         dashboard.mark_running(index=index)
                         dashboard.refresh(force=True)
                         pending = waiter.submit(next, rows_iter)
-                        try:
-                            rows = await_future_with_dashboard_refresh(
-                                future=pending,
-                                dashboard=dashboard,
-                                refresh_per_second=live_refresh_per_second,
-                            )
-                        except Exception:
-                            logger.exception("Unable to process CSV file {}", files[index - 1][0])
-                            raise
+                        rows = await_future_with_dashboard_refresh(
+                            future=pending,
+                            dashboard=dashboard,
+                            refresh_per_second=live_refresh_per_second,
+                        )
                         status = _file_outcome(rows)
                         status_counts[status] += 1
                         detail = _file_detail(rows=rows, file_path=files[index - 1][0], status=status)
