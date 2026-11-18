@@ -14,24 +14,48 @@ from contextlib import ExitStack
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Literal, Never, Protocol
+from typing import Literal, Never, Protocol, cast
 
 from .soil_loss_validation import validated_soil_parameters
 
 
 class MaterialWithLoss(Protocol):
-    material_id: int
-    initial_loss_mm: float | None
-    continuing_loss_mm_h: float | None
-    fraction_impervious: float | None
-    status: str
+    @property
+    def material_id(self) -> int: ...
+
+    @property
+    def initial_loss_mm(self) -> float | None: ...
+
+    @property
+    def continuing_loss_mm_h(self) -> float | None: ...
+
+    @property
+    def fraction_impervious(self) -> float | None: ...
+
+    @property
+    def status(self) -> str: ...
 
 
 class SoilWithLoss(Protocol):
-    soil_id: int
-    method: str
-    parameters: tuple[tuple[str, str], ...]
-    status: str
+    @property
+    def soil_id(self) -> int: ...
+
+    @property
+    def method(self) -> str: ...
+
+    @property
+    def parameters(self) -> tuple[tuple[str, str], ...]: ...
+
+    @property
+    def status(self) -> str: ...
+
+
+class _RasterInfo(Protocol):
+    @property
+    def count(self) -> int: ...
+
+    @property
+    def crs(self) -> object: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -209,10 +233,10 @@ def _check_raster_alignment(datasets: Sequence[object]) -> None:
                 getattr(dataset, attribute) != getattr(first, attribute)
                 for attribute in ("crs", "transform", "width", "height")
             )
-            or dataset.count != 1
+            or cast("_RasterInfo", dataset).count != 1
         ):
             _fail("Check grids must be aligned single-band rasters with identical CRS and transforms")
-    if first.crs is None:
+    if cast("_RasterInfo", first).crs is None:
         _fail("Check grid CRS is unavailable")
 
 
@@ -252,7 +276,8 @@ def observed_pairs_from_grd_check(path: Path, *, layer: str | None = None) -> tu
     if path.suffix.casefold() == ".gpkg":
         layer = _grd_check_layer(path, layer, fiona.listlayers(path))
 
-    with fiona.open(path, layer=layer) as source:
+    open_kwargs: dict[str, str] = {"layer": layer} if layer is not None else {}
+    with fiona.open(path, **open_kwargs) as source:
         fields = {name.casefold(): name for name in source.schema["properties"]}
         if "material" not in fields or "code" not in fields:
             message = f"TUFLOW grd_check requires Material and Code attributes; found {sorted(fields.values())}"
