@@ -1,12 +1,18 @@
 """Read-only TUFLOW rain/loss inventory fixture tests."""
 
+import sys
+from collections.abc import Iterator
 from pathlib import Path
+from types import ModuleType
 
 import pandas as pd
+import pytest
 
+import ryan_library.orchestrators.tuflow.rainfall_input_audit as audit_module
 from ryan_library.functions.tuflow.command_plan import CommandPlan, PlannedRun
 from ryan_library.orchestrators.tuflow.rainfall_input_audit import (
     _material_definition,
+    _soil_definition,
     audit_command_plan,
     factor_groups,
 )
@@ -50,7 +56,8 @@ class Soils:
 
 
 class Context:
-    def get_inputs(self) -> list[GisInput]:
+    def find_input(self, *, recursive: bool = False) -> list[GisInput]:
+        assert recursive
         return [GisInput()]
 
     def bc_dbase(self) -> BC:
@@ -72,7 +79,8 @@ class Model:
         return Context()
 
 
-def test_selected_run_inventory_and_factor_groups() -> None:
+def test_selected_run_inventory_and_factor_groups(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(audit_module, "_gis_records", lambda path: path.gis_attributes())
     runs = tuple(
         PlannedRun(
             index=number,
@@ -112,3 +120,119 @@ def test_invalid_explicit_material_loss_remains_unresolved() -> None:
     material = _material_definition(1, {"Rainfall Losses": "invalid", "Fraction Impervious": 0.0})
     assert material.status == "unresolved"
     assert material.initial_loss_mm is None
+
+
+def test_missing_material_schema_is_unresolved() -> None:
+    class MaterialWithUnknownColumns:
+        df = pd.DataFrame([[0.03, "30,5", 0.5]], index=[1])
+
+    rows = audit_module._db_rows(MaterialWithUnknownColumns())
+    assert _material_definition(1, rows[0][1]).status == "unresolved"
+
+    class MaterialWithSupportedColumns:
+        COLUMN_NAMES = ["Manning's n", "Rainfall Losses", "Fraction Impervious"]
+        df = pd.DataFrame([[0.03, "30,5", 0.5]], index=[1])
+
+    parsed = _material_definition(1, audit_module._db_rows(MaterialWithSupportedColumns())[0][1])
+    assert parsed.initial_loss_mm == 30
+    assert parsed.continuing_loss_mm_h == 5
+    assert parsed.fraction_impervious == 0.5
+
+
+def test_invalid_soil_parameters_cannot_be_reported_defined() -> None:
+    assert _soil_definition(1, {"method": "ILCL", "IL": float("nan"), "CL": 2.0}).status == "unresolved"
+    assert _soil_definition(1, {"method": "GA", "Suction": 3}).status == "unresolved"
+    assert _soil_definition(1, {"method": "ILCL", "IL": 0, "CL": 0}).status == "defined"
+
+
+def test_ts1_group_uses_group_metadata_and_selected_column(monkeypatch: pytest.MonkeyPatch) -> None:
+    class Groups(Context):
+        def bc_dbase(self) -> BC:
+            class GroupBC(BC):
+                df = pd.DataFrame({"Source": ["rain.ts1"], "Column 2": [""], "Mult Col 2": [1.2]}, index=["Group"])
+
+                def value(self, name: str) -> pd.DataFrame:
+                    assert name == "N1|Group"
+                    return pd.DataFrame({"N1": [3.0, 4.0]})
+
+            return GroupBC()
+
+    monkeypatch.setattr(audit_module, "_active_rainfall_names", lambda *args: {"N1|Group": (None, None)})
+    findings: list[audit_module.Finding] = []
+    rows = audit_module._rainfall_rows(Groups(), findings, 1)
+    assert rows[0].column == "N1"
+    assert rows[0].bc_adjusted_sum_mm == 7
+    assert not any(item.code == "RF_BC_MISSING" for item in findings)
+
+
+def test_bad_explicit_bc_multiplier_is_unresolved(monkeypatch: pytest.MonkeyPatch) -> None:
+    class Bad(Context):
+        def bc_dbase(self) -> BC:
+            class BadBC(BC):
+                df = pd.DataFrame({"Source": ["event.csv"], "Column 2": ["TP01"], "Mult Col 2": ["broken"]}, index=["RF1"])
+
+            return BadBC()
+
+    monkeypatch.setattr(audit_module, "_active_rainfall_names", lambda *args: {"RF1": (None, None)})
+    findings: list[audit_module.Finding] = []
+    rows = audit_module._rainfall_rows(Bad(), findings, 1)
+    assert rows[0].status == "unresolved"
+    assert rows[0].bc_adjusted_sum_mm is None
+    assert any(item.code == "RF_SERIES_UNRESOLVED" for item in findings)
+
+
+def test_partial_rainfall_not_grouped() -> None:
+    boundary = audit_module.RainfallBoundary("RF1", "rain.csv", "TP01", "1", "0", None, None, 10, None, "bc-adjusted-only")
+    valid = audit_module.RunAudit(1, "a.tcf", (), "runs.txt:1", (boundary,), (), (), ())
+    partial = audit_module.RunAudit(2, "a.tcf", (), "runs.txt:2", (boundary,), (), (), (audit_module.Finding(2, "RF_BC_MISSING", "RF2"),))
+    assert list(factor_groups(audit_module.RainfallAudit((valid, partial))).values()) == [(1,)]
+
+
+def test_gis_reader_uses_supported_context_manager_and_closes(monkeypatch: pytest.MonkeyPatch) -> None:
+    closed: list[str] = []
+
+    class GISAttributes:
+        def __init__(self, path: object) -> None:
+            assert path == "gis.gpkg >> rf_R"
+
+        def __enter__(self) -> "GISAttributes":
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            closed.append("closed")
+
+        def __iter__(self) -> Iterator[dict[str, object]]:
+            yield {"Name": "RF1", "f1": 1.2}
+
+    root = ModuleType("pytuflow")
+    util = ModuleType("pytuflow.util")
+    gis = ModuleType("pytuflow.util.gis")
+    setattr(gis, "GISAttributes", GISAttributes)
+    monkeypatch.setitem(sys.modules, "pytuflow", root)
+    monkeypatch.setitem(sys.modules, "pytuflow.util", util)
+    monkeypatch.setitem(sys.modules, "pytuflow.util.gis", gis)
+    assert audit_module._gis_records("gis.gpkg >> rf_R") == ({"Name": "RF1", "f1": 1.2},)
+    assert closed == ["closed"]
+
+
+def test_conflicting_gis_rainfall_factors_do_not_enter_equivalence_group(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        audit_module,
+        "_gis_records",
+        lambda path: ({"Name": "RF1", "f1": 1.2}, {"Name": "RF1", "f1": 2.0}),
+    )
+    run = PlannedRun(
+        index=1,
+        source=Path("runs.txt"),
+        line_start=1,
+        line_end=1,
+        tcf=Path("model.tcf"),
+        working_directory=Path.cwd(),
+        flag_pairs=(("e1", "a"),),
+        arguments=("-e1", "a"),
+        executable=None,
+    )
+    plan = CommandPlan(Path("runs.txt"), (run,), (), 0, "commands")
+    audit = audit_command_plan(plan, model_factory=Model)
+    assert any(item.code == "RF_FACTOR_CONFLICT" for item in audit.runs[0].findings)
+    assert not factor_groups(audit)

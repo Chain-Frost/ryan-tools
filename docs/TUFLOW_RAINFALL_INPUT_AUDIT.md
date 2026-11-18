@@ -39,6 +39,10 @@ applied rainfall depth: GIS `f1`/`f2`, global rainfall factors, spatial overlap,
 interpolation, variable time steps and other rainfall inputs can further modify
 it. The wrapper records these fields and leaves
 `spatially_adjusted_sum_mm = null`; it does not claim a guessed product.
+Malformed explicit BC adjustments, unsupported or ambiguous rainfall GIS inputs,
+and incomplete boundary inventories prevent factor-equivalence grouping.
+Missing material schemas and required soil parameters are reported unresolved,
+not silently converted to zero losses.
 
 A defined material/soil database entry is not proof of assignment to a wet,
 active model cell. In particular, do **not** form a Cartesian product of all
@@ -81,6 +85,8 @@ defined database IDs. Both raster grids must have identical extent, CRS,
 resolution and affine transform; masked/NoData cells are skipped. Without
 an active-cell mask, the check grids' own valid-cell masks are used, so a
 non-NoData raster pixel cannot alone certify an active TUFLOW 2D cell.
+With an explicitly supplied active-cell mask, any active cell with a missing
+material or soil ID **fails the pairing operation**; it is not silently omitted.
 The script retains original material and soil IDs, observed pairs and cell
 counts in JSON and aggregates **effective loss signatures**:
 
@@ -94,6 +100,8 @@ counts in JSON and aggregates **effective loss signatures**:
   zero losses because their IL/CL fields are absent. Unsupported methods,
   missing numeric IL/CL, undefined IDs and missing impervious fractions for
   coupled infiltration **fail closed**, rather than collapsing groups.
+GA, HO, CO and SCS soils also require their respective finite, method-specific
+parameters; a method name alone is not a valid loss signature.
 
 Groups collapse equivalent **loss-related properties**, not IDs, and do not
 include Manning's roughness or unrelated material properties. A model with
@@ -122,10 +130,11 @@ py -3.14 ryan-scripts/TUFLOW-python/model_management/audit_tuflow_rainfall.py `
 For a GeoPackage containing several candidate layers, pass
 `--grd-check-layer <layer-name>`. The parser streams `Code=1` active cell
 records, skips `Code=-1` null cells and rejects unknown code values.
-If `Soil_ID` is absent, the model did not have an active soil feature in
-that check layer; the report uses neutral soil sentinel -1 (not a listed
-soils-file ID). The operator must still verify that the supplied check
-file corresponds exactly to the audited simulation/domain.
+If `Soil_ID` is absent, sentinel -1 is permitted only where the selected
+model context has **no active soils database**. When a soils database is
+selected, missing check-grid soil assignments are unresolved, not neutral.
+The operator must verify that the supplied check file corresponds exactly
+to the audited simulation/domain.
 
 The material database parser uses the documented TUFLOW defaults for
 **omitted** optional values: no material rainfall losses (IL=0, CL=0) and

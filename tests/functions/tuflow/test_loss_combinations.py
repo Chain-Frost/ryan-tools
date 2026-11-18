@@ -64,8 +64,26 @@ def test_unsupported_soil_fails_closed() -> None:
         effective_loss_signature(mat(1), Soil(1, "MYSTERY", (), "defined"))
     with pytest.raises(UnresolvedLossCombinationError):
         group_observed_pairs([ObservedPair(1, 99, 1)], {1: mat(1)}, {})
-    green_ampt = Soil(1, "GA", (("Suction", "40"), ("Hydraulic Conductivity", "3")), "defined")
+    green_ampt = Soil(1, "GA", (("Suction", "40"), ("Hydraulic Conductivity", "3"), ("Porosity", "0.4")), "defined")
     assert effective_loss_signature(mat(1), green_ampt)[0] == "soil-only"
+
+
+@pytest.mark.parametrize(
+    ("method", "fields"),
+    [
+        ("GA", (("Suction", "40"),)),
+        ("HO", (("IL", "1"), ("IL Rate", "3"))),
+        ("CO", (("Hydraulic Conductivity", "3"),)),
+        ("SCS", (("Curve Number", "80"),)),
+        ("ILCL", (("IL", "nan"), ("CL", "1"))),
+        ("GA", (("USDA Soil Type", "CLAY"), ("Porosity", "0.4"))),
+    ],
+)
+def test_missing_or_conflicting_method_parameters_fail_closed(
+    method: str, fields: tuple[tuple[str, str], ...]
+) -> None:
+    with pytest.raises(UnresolvedLossCombinationError):
+        effective_loss_signature(mat(1), Soil(1, method, fields, "defined"))
 
 
 def test_raster_pairs_only_observed(tmp_path: Path) -> None:
@@ -88,12 +106,26 @@ def test_raster_pairs_only_observed(tmp_path: Path) -> None:
 
     materials = write("mat.tif", [[1, 1, 2], [2, 2, -9999]])
     soils = write("soil.tif", [[3, 3, 4], [4, 3, 3]])
-    active = write("active.tif", [[1, 0, 1], [1, 1, 1]])
+    active = write("active.tif", [[1, 0, 1], [1, 1, 0]])
     assert observed_pairs_from_check_grids(materials, soils, active_mask_grid=active) == (
         ObservedPair(1, 3, 1),
         ObservedPair(2, 3, 1),
         ObservedPair(2, 4, 2),
     )
+
+
+def test_explicitly_active_cell_missing_soil_fails_closed(tmp_path: Path) -> None:
+    def raster(name: str, values: list[list[int]]) -> Path:
+        path = tmp_path / name
+        with rasterio.open(path, "w", driver="GTiff", height=1, width=2, count=1, dtype="int16", crs="EPSG:28350", transform=from_origin(0, 1, 1, 1), nodata=-9999) as dst:
+            dst.write(np.asarray(values, dtype="int16"), 1)
+        return path
+
+    mat_path = raster("mat.tif", [[1, 1]])
+    soil_path = raster("soil.tif", [[2, -9999]])
+    active_path = raster("active.tif", [[1, 1]])
+    with pytest.raises(UnresolvedLossCombinationError, match="missing material/soil"):
+        observed_pairs_from_check_grids(mat_path, soil_path, active_mask_grid=active_path)
 
 
 def test_native_grd_check_counts_active_colocated_pairs(tmp_path: Path) -> None:

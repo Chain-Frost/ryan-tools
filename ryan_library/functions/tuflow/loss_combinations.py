@@ -9,12 +9,14 @@ prediction of actual infiltration or material loss depth.
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from contextlib import ExitStack
 from collections.abc import Mapping, Sequence
+from contextlib import ExitStack
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Literal, Never, Protocol
+
+from .soil_loss_validation import validated_soil_parameters
 
 
 class MaterialWithLoss(Protocol):
@@ -77,29 +79,14 @@ def _soil_signature(soil: SoilWithLoss) -> tuple[str, ...]:
         _fail(f"Soil {soil.soil_id} is not resolved")
     if method == "NONE":
         return ()
-    values = {key.casefold(): val for key, val in soil.parameters}
-    if method == "ILCL":
-        il = _number(values.get("il"))
-        cl = _number(values.get("cl"))
-        if Decimal(il) < 0 or Decimal(cl) < 0:
-            _fail(f"Negative ILCL losses in soil {soil.soil_id}")
-        if il == "0" and cl == "0":
-            return ()
-    elif method not in {"GA", "HO", "CO", "SCS"}:
-        _fail(f"Unsupported soil method {method!r} for ID {soil.soil_id}")
-    # Preserve *all* supplied method-specific state/parameters for non-neutral
-    # soils. Unrecognised blanks cannot be dismissed as a zero-loss method.
-    details: list[str] = [f"method={method}"]
-    for key, val in sorted(soil.parameters, key=lambda item: item[0].casefold()):
-        if val:
-            try:
-                normal = _number(val)
-            except UnresolvedLossCombinationError:
-                normal = val.strip()
-        else:
-            normal = "<unspecified>"
-        details.append(f"{key.casefold()}={normal}")
-    return tuple(details)
+    try:
+        values = validated_soil_parameters(method, dict(soil.parameters))
+    except ValueError as exc:
+        _fail(f"Unresolved soil {soil.soil_id}: {exc}")
+    by_name = dict(values)
+    if method == "ILCL" and by_name.get("il") == by_name.get("cl") == "0":
+        return ()
+    return (f"method={method}", *(f"{key}={value}" for key, value in values))
 
 
 def _material_signature(material: MaterialWithLoss, *, soil_active: bool) -> tuple[str, ...]:
@@ -184,7 +171,8 @@ def observed_pairs_from_check_grids(
 
     The caller must verify the grids belong to the audited run; the function
     only proves aligned raster co-location. No implicit model/grid discovery.
-    Pixels with any invalid mask or optional active_mask==0 are excluded.
+    With an explicit active mask, a missing material/soil assignment inside an
+    active cell is a fatal error rather than a silently excluded cell.
     """
     import numpy as np
     import rasterio
@@ -195,40 +183,52 @@ def observed_pairs_from_check_grids(
             datasets = [mat, soil]
             if active is not None:
                 datasets.append(active)
-            if any(
-                data.count != 1
-                or data.crs != mat.crs
-                or data.transform != mat.transform
-                or data.width != mat.width
-                or data.height != mat.height
-                for data in datasets
-            ):
-                _fail("Check grids must be aligned single-band rasters with identical CRS and transforms")
-            if mat.crs is None:
-                _fail("Check grid CRS is unavailable")
+            _check_raster_alignment(datasets)
             counts: Counter[tuple[int, int]] = Counter()
             for _, window in mat.block_windows(1):
                 m = mat.read(1, window=window, masked=True)
                 s = soil.read(1, window=window, masked=True)
-                valid = ~np.ma.getmaskarray(m) & ~np.ma.getmaskarray(s)
+                missing = np.ma.getmaskarray(m) | np.ma.getmaskarray(s)
                 if active is not None:
                     a = active.read(1, window=window, masked=True)
-                    valid &= ~np.ma.getmaskarray(a) & (np.asarray(a.data) != 0)
-                left = np.asarray(m.data)[valid]
-                right = np.asarray(s.data)[valid]
-                if len(left) == 0:
-                    continue
-                if not np.isfinite(left).all() or not np.isfinite(right).all():
-                    _fail("Active material/soil grids contain nonfinite IDs")
-                if not np.equal(left, np.floor(left)).all() or not np.equal(right, np.floor(right)).all():
-                    _fail("Active material/soil IDs must be integers")
-                if (left < 0).any() or (right < 0).any():
-                    _fail("Active material/soil IDs must be nonnegative")
-                combined = np.stack([left.astype("int64"), right.astype("int64")], axis=1)
-                ids, frequency = np.unique(combined, axis=0, return_counts=True)
-                for pair, count in zip(ids, frequency, strict=True):
-                    counts[int(pair[0]), int(pair[1])] += int(count)
+                    selected = ~np.ma.getmaskarray(a) & (np.asarray(a.data) != 0)
+                    if bool(np.any(selected & missing)):
+                        _fail("Explicitly active cells have missing material/soil assignments")
+                    valid = selected & ~missing
+                else:
+                    valid = ~missing
+                _add_raster_pairs(counts, np.asarray(m.data)[valid], np.asarray(s.data)[valid])
     return tuple(ObservedPair(a, b, count) for (a, b), count in sorted(counts.items()))
+
+
+def _check_raster_alignment(datasets: Sequence[object]) -> None:
+    first = datasets[0]
+    for dataset in datasets:
+        if any(
+            getattr(dataset, attribute) != getattr(first, attribute)
+            for attribute in ("crs", "transform", "width", "height")
+        ) or getattr(dataset, "count") != 1:
+            _fail("Check grids must be aligned single-band rasters with identical CRS and transforms")
+    if getattr(first, "crs") is None:
+        _fail("Check grid CRS is unavailable")
+
+
+def _add_raster_pairs(counts: Counter[tuple[int, int]], left: object, right: object) -> None:
+    import numpy as np
+
+    a, b = np.asarray(left), np.asarray(right)
+    if not np.isfinite(a).all() or not np.isfinite(b).all():
+        _fail("Active material/soil grids contain nonfinite IDs")
+    if not np.equal(a, np.floor(a)).all() or not np.equal(b, np.floor(b)).all():
+        _fail("Active material/soil IDs must be integers")
+    if (a < 0).any() or (b < 0).any():
+        _fail("Active material/soil IDs must be nonnegative")
+    if a.size == 0:
+        return
+    combined = np.stack([a.astype("int64"), b.astype("int64")], axis=1)
+    ids, frequency = np.unique(combined, axis=0, return_counts=True)
+    for pair, count in zip(ids, frequency, strict=True):
+        counts[int(pair[0]), int(pair[1])] += int(count)
 
 
 def observed_pairs_from_grd_check(path: Path, *, layer: str | None = None) -> tuple[ObservedPair, ...]:
@@ -247,30 +247,7 @@ def observed_pairs_from_grd_check(path: Path, *, layer: str | None = None) -> tu
     if path.suffix.casefold() not in {".gpkg", ".shp"}:
         _fail("A TUFLOW grd_check source must be a .gpkg or .shp GIS file")
     if path.suffix.casefold() == ".gpkg":
-        names: list[str] = list(fiona.listlayers(path))
-        if layer is None:
-            candidates = [name for name in names if name.casefold().endswith("_grd_check")]
-            if len(candidates) == 1:
-                layer = candidates[0]
-            elif len(names) == 1:
-                layer = names[0]
-            else:
-                message = f"Expected a unique _grd_check layer in {path}; available: {names}. Supply --grd-check-layer"
-                _fail(message)
-        elif layer not in names:
-            _fail(f"Layer {layer!r} absent from {path}; available: {names}")
-
-    def integer_id(raw: object, name: str, *, nonnegative: bool = True) -> int:
-        try:
-            parsed = Decimal(str(raw))
-        except InvalidOperation:
-            _fail(f"Invalid {name} {raw!r} in {path}")
-        if not parsed.is_finite() or parsed != parsed.to_integral_value():
-            _fail(f"Noninteger {name} {raw!r} in {path}")
-        value = int(parsed)
-        if nonnegative and value < 0:
-            _fail(f"Negative {name} {raw!r} in {path}")
-        return value
+        layer = _grd_check_layer(path, layer, fiona.listlayers(path))
 
     with fiona.open(path, layer=layer) as source:
         fields = {name.casefold(): name for name in source.schema["properties"]}
@@ -281,12 +258,38 @@ def observed_pairs_from_grd_check(path: Path, *, layer: str | None = None) -> tu
         counts: Counter[tuple[int, int]] = Counter()
         for feature in source:
             properties = feature["properties"]
-            code = integer_id(properties[fields["code"]], "Code", nonnegative=False)
+            code = _integer_id(properties[fields["code"]], "Code", path, nonnegative=False)
             if code == -1:
                 continue
             if code != 1:
                 _fail(f"Unsupported _grd_check cell Code {code} in {path}")
-            material = integer_id(properties[fields["material"]], "Material")
-            soil = integer_id(properties[soil_column], "Soil_ID") if soil_column is not None else -1
+            material = _integer_id(properties[fields["material"]], "Material", path)
+            soil = _integer_id(properties[soil_column], "Soil_ID", path) if soil_column is not None else -1
             counts[material, soil] += 1
     return tuple(ObservedPair(material, soil, count) for (material, soil), count in sorted(counts.items()))
+
+
+def _grd_check_layer(path: Path, layer: str | None, names: Sequence[str]) -> str:
+    if layer is not None:
+        if layer not in names:
+            _fail(f"Layer {layer!r} absent from {path}; available: {list(names)}")
+        return layer
+    candidates = [name for name in names if name.casefold().endswith("_grd_check")]
+    if len(candidates) == 1:
+        return candidates[0]
+    if len(names) == 1:
+        return names[0]
+    _fail(f"Expected unique _grd_check layer in {path}; available: {list(names)}. Supply --grd-check-layer")
+
+
+def _integer_id(raw: object, name: str, path: Path, *, nonnegative: bool = True) -> int:
+    try:
+        parsed = Decimal(str(raw))
+    except InvalidOperation:
+        _fail(f"Invalid {name} {raw!r} in {path}")
+    if not parsed.is_finite() or parsed != parsed.to_integral_value():
+        _fail(f"Noninteger {name} {raw!r} in {path}")
+    value = int(parsed)
+    if nonnegative and value < 0:
+        _fail(f"Negative {name} {raw!r} in {path}")
+    return value
