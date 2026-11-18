@@ -196,7 +196,6 @@ def test_csv_signature_alone_is_insufficient(tmp_path: Path) -> None:
     assert read_rorb_file(write(tmp_path, text)).status == "invalid"
 
 
-@pytest.mark.parametrize("rows", ["0 0 0\n1 1 12\n", "0 0 0\n1 1 ********\n2 2 0\n", "0 0 0\n1 1 12\n3 3 0\n"])
 @pytest.mark.parametrize("column", ["Hyd001", "Hyd0001", "Hyd00001"])
 def test_hydrograph_site_binding_preserves_zero_padded_raw_columns(column: str) -> None:
     raw = output_text().replace("Hyd0001", column).encode()
@@ -274,6 +273,7 @@ def test_duplicate_zero_padded_hyd_ordinals_fail_at_reader_boundary() -> None:
     assert any(item.code == "hydrograph_column_ambiguous" for item in document.diagnostics)
 
 
+@pytest.mark.parametrize("rows", ["0 0 0\n1 1 12\n", "0 0 0\n1 1 ********\n2 2 0\n", "0 0 0\n1 1 12\n3 3 0\n"])
 def test_output_rejects_truncated_and_malformed_summaries(tmp_path: Path, rows: str) -> None:
     doc = read_rorb_file(write(tmp_path, output_text(rows), "run.out"))
     assert doc.status == "invalid"
