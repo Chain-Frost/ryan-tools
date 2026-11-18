@@ -1,0 +1,155 @@
+name: Stage corrected PyTuflow wheel for PR 321
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/pytuflow-wheel-0121101.yml"
+permissions:
+  contents: write
+jobs:
+  stage-wheel:
+    if: github.event.pull_request.number == 321 && github.event.pull_request.head.repo.full_name == 'Chain-Frost/ryan-tools'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout ryan-tools PR branch
+        uses: actions/checkout@v6
+        with:
+          ref: feat/tuflow-preflight-findings-320
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Checkout exact PyTuflow source
+        uses: actions/checkout@v6
+        with:
+          repository: Chain-Frost/PyTuflow
+          ref: 0121101650fd8e931af8d09cadb23bd43f6fefbd
+          path: .pytuflow-build/source
+          persist-credentials: false
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - name: Build and smoke-test corrected wheel
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C .pytuflow-build/source rev-parse HEAD)" = 0121101650fd8e931af8d09cadb23bd43f6fefbd
+          python -m pip install --disable-pip-version-check 'hatchling==1.32.0' pytest
+          python -m pip wheel --no-deps --no-cache-dir --no-build-isolation --wheel-dir .pytuflow-build/dist .pytuflow-build/source
+          test "$(find .pytuflow-build/dist -name 'pytuflow-1.3.1-py3-none-any.whl' | wc -l)" -eq 1
+          python -m pip install --disable-pip-version-check .pytuflow-build/dist/pytuflow-1.3.1-py3-none-any.whl
+          python -m pip check
+          python -m pytest -q .pytuflow-build/source/tests/tmf/test_database.py -k mat_csv
+      - name: Stage immutable wheel and update consumer pin
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib
+          import json
+          import shutil
+          import sys
+          from importlib import metadata
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          old = '4ca2dbe35c1d7e6a1c7b7150fbea622b1aa0ddb0'
+          new = '0121101650fd8e931af8d09cadb23bd43f6fefbd'
+          old_hash = '41facdb3b220a9d032e7fb7e3a5ea94dee76a0e910fbeb0a5caf44289a6f4870'
+          source_wheel = Path('.pytuflow-build/dist/pytuflow-1.3.1-py3-none-any.whl')
+          binary = source_wheel.read_bytes()
+          digest = hashlib.sha256(binary).hexdigest()
+          size = len(binary)
+          with ZipFile(source_wheel) as archive:
+              assert archive.testzip() is None
+              assert 'pytuflow/py.typed' in archive.namelist()
+              code = archive.read('pytuflow/_tmf/db/mat.py').decode('utf-8')
+              assert '_csv_header_options' in code and 'skipinitialspace' in code
+          dest = Path('repo-scripts/wheels/pytuflow') / new
+          dest.mkdir(parents=True, exist_ok=False)
+          shutil.copyfile(source_wheel, dest / source_wheel.name)
+
+          def update(path: str, changes: list[tuple[str, str]]) -> None:
+              file = Path(path)
+              value = file.read_text(encoding='utf-8')
+              for before, after in changes:
+                  assert before in value, f'{path}: missing {before!r}'
+                  value = value.replace(before, after)
+              file.write_text(value, encoding='utf-8')
+
+          update('repo-scripts/pytuflow-requirement.txt', [(old, new)])
+          update('repo-scripts/vendor_pytuflow_wheel.py', [
+              (old, new), (old_hash, digest), ('WHEEL_BYTES = 984_867', f'WHEEL_BYTES = {size:_}'),
+          ])
+          update('tests/repo_scripts/test_vendor_pytuflow_wheel.py', [('984_867', f'{size:_}')])
+          update('tests/orchestrators/tuflow/test_example_models_real.py', [(old_hash, digest)])
+          update('tests/repo_scripts/test_install_latest_wheel.py', [(old, new)])
+          update('tests/repo_scripts/test_install_from_pypi.py', [(old, new)])
+          update('docs/ENVIRONMENTS.md', [(old, new)])
+          update('docs/README.md', [
+              ('../repo-scripts/wheels/pytuflow/887534ea8c15b80d185a38a7ead1d42ab42a7167/README.md',
+               f'../repo-scripts/wheels/pytuflow/{new}/README.md'), (old, new),
+          ])
+          update('docs/TUFLOW_INPUT_PREFLIGHT.md', [
+              ('887534ea8c15b80d185a38a7ead1d42ab42a7167', new),
+              ('version 1.3.0', 'version 1.3.1'),
+          ])
+          manifest = json.loads((Path('repo-scripts/wheels/pytuflow') / old / 'provenance.json').read_text(encoding='utf-8'))
+          manifest.update({
+              'source_commit': new,
+              'source_archive': f'https://github.com/Chain-Frost/PyTuflow/archive/{new}.zip',
+              'wheel_sha256': digest, 'wheel_bytes': size,
+              'build_python': sys.version.split()[0],
+              'build_pip': metadata.version('pip'),
+              'build_hatchling': metadata.version('hatchling'),
+              'acceptance_jobs': [],
+              'acceptance_references': [
+                  f'https://github.com/Chain-Frost/PyTuflow/blob/{new}/tests/tmf/test_database.py',
+                  f'https://github.com/Chain-Frost/PyTuflow/blob/{new}/tests/test_batch_validation_mvp.py',
+              ],
+          })
+          (dest / 'provenance.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+          (dest / 'README.md').write_text(
+              '# PyTuflow 1.3.1 materials CSV correction wheel\n\n'
+              f'Source: [PR #17 at {new}](https://github.com/TUFLOW-Support/PyTuflow/pull/17). '
+              f'Supersedes {old}; this is not a released PyPI build.\n\n'
+              f'Wheel: {source_wheel.name}, {size:,} bytes. SHA-256: {digest}.\n\n'
+              f'Built with Python {sys.version.split()[0]} and hatchling {metadata.version("hatchling")}. '
+              'Synthetic materials CSV regressions passed on the installed build. '
+              'Actual owner-file acceptance (11 materials and 12 run selections) '
+              'is documented in fork PR #74, not rerun here. No hydraulic or native solver run.\n\n'
+              'Verify using python repo-scripts/vendor_pytuflow_wheel.py --installed '
+              'after installing from repo-scripts/pytuflow-requirement.txt.\n', encoding='utf-8',
+          )
+          work = Path('docs/work/2026-11-17-tuflow-preflight-scalability-320.md')
+          work.write_text(work.read_text(encoding='utf-8') + (
+              '\n## Corrected PyTuflow material parser wheel (19 November 2026)\n\n'
+              f'Consumer dependency pinned to upstream PR #17 commit {new}; '
+              f'SHA-256 {digest}, {size:,} bytes. This is separate from '
+              'the unaccepted performance changes in PyTuflow #73. '
+              'No model run, native acceptance or release is claimed.\n'
+          ), encoding='utf-8')
+          print(f'New wheel SHA-256={digest}, bytes={size}')
+          PY
+          python repo-scripts/vendor_pytuflow_wheel.py
+          python -m pytest -q tests/repo_scripts/test_vendor_pytuflow_wheel.py
+          git diff --check
+      - name: Commit verified wheel only to existing PR branch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add repo-scripts/pytuflow-requirement.txt repo-scripts/vendor_pytuflow_wheel.py \
+            repo-scripts/wheels/pytuflow/0121101650fd8e931af8d09cadb23bd43f6fefbd \
+            tests/repo_scripts/test_vendor_pytuflow_wheel.py \
+            tests/orchestrators/tuflow/test_example_models_real.py \
+            tests/repo_scripts/test_install_latest_wheel.py \
+            tests/repo_scripts/test_install_from_pypi.py \
+            docs/ENVIRONMENTS.md docs/README.md docs/TUFLOW_INPUT_PREFLIGHT.md \
+            docs/work/2026-11-17-tuflow-preflight-scalability-320.md
+          git diff --cached --check
+          git diff --cached --stat
+          git commit -m 'fix(deps): pin corrected PyTuflow materials CSV wheel at 0121101'
+          git -c http.extraheader="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)" push origin HEAD:refs/heads/feat/tuflow-preflight-findings-320
