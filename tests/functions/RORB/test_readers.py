@@ -231,9 +231,7 @@ def test_hydrograph_binding_uses_numeric_identity_not_table_position() -> None:
     ("source", "expected"),
     [
         (
-            output_text("0 0 0 0\n1 1 12 9\n2 2 0 0\n").replace(
-                "Inc Time Hyd0001", "Inc Time Hyd001 Hyd0001"
-            ),
+            output_text("0 0 0 0\n1 1 12 9\n2 2 0 0\n").replace("Inc Time Hyd0001", "Inc Time Hyd001 Hyd0001"),
             "valid parsed",
         ),
         (output_text().replace("Inc Time Hyd0001", "Inc Time Hyd0000"), "valid parsed"),
@@ -251,17 +249,17 @@ def test_hydrograph_binding_uses_numeric_identity_not_table_position() -> None:
             "physical sites",
         ),
         (
-            output_text("0 0 0 0\n1 1 12 9\n2 2 0 0\n").replace(
+            output_text("0 0 0 0\n1 1 12 9\n2 2 0 0\n")
+            .replace(
                 "01 Calculated hydrograph, Outlet",
                 "01 Calculated hydrograph, Outlet\n02 Calculated hydrograph, Outlet",
-            ).replace("Inc Time Hyd0001", "Inc Time Hyd001 Hyd002"),
+            )
+            .replace("Inc Time Hyd0001", "Inc Time Hyd001 Hyd002"),
             "Ambiguous physical site names",
         ),
     ],
 )
-def test_hydrograph_binding_rejects_ambiguous_missing_physical_identities(
-    source: str, expected: str
-) -> None:
+def test_hydrograph_binding_rejects_ambiguous_missing_physical_identities(source: str, expected: str) -> None:
     document = read_rorb_bytes(source.encode())
     with pytest.raises(ValueError, match=expected):
         bind_output_site_columns(document)

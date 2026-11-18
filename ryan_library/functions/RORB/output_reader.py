@@ -73,9 +73,7 @@ def bind_output_site_columns(  # noqa: C901 -- strict physical identity and miss
         if ordinal in identified or physical_name.casefold() in physical_names:
             msg = "Ambiguous physical site names or identifiers"
             raise ValueError(msg)
-        identified[ordinal] = HydrographSiteColumn(
-            site_id, "", physical_name, description, int(str(site["line"]))
-        )
+        identified[ordinal] = HydrographSiteColumn(site_id, "", physical_name, description, int(str(site["line"])))
         physical_names.add(physical_name.casefold())
 
     matched: list[HydrographSiteColumn] = []
@@ -91,9 +89,7 @@ def bind_output_site_columns(  # noqa: C901 -- strict physical identity and miss
             msg = f"Hydrograph column {column} has no matching physical site"
             raise ValueError(msg)
         matched.append(
-            HydrographSiteColumn(
-                site.site_id, column, site.physical_name, site.description, site.site_record_line
-            )
+            HydrographSiteColumn(site.site_id, column, site.physical_name, site.description, site.site_record_line)
         )
     if len(matched) != len(identified):
         msg = "Physical site list differs from the hydrograph table"
