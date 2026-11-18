@@ -120,6 +120,12 @@ def test_missing_optional_material_losses_and_impervious_default_to_zero() -> No
     assert material.initial_loss_mm == 0.0
     assert material.continuing_loss_mm_h == 0.0
     assert material.fraction_impervious == 0.0
+    roughness_only = _material_definition(2, {"Manning's n": 0.03})
+    assert roughness_only.status == "defined"
+    assert roughness_only.initial_loss_mm == 0.0
+    assert roughness_only.continuing_loss_mm_h == 0.0
+    assert roughness_only.fraction_impervious == 0.0
+    assert _material_definition(3, {"Unexpected": 0.03}).status == "unresolved"
 
 
 def test_invalid_explicit_material_loss_remains_unresolved() -> None:
