@@ -56,3 +56,30 @@ models with `.tlf` and TUFLOW check outputs before engineering use.
 
 Implementation issue: [#323](https://github.com/Chain-Frost/ryan-tools/issues/323).
 Dependent extension: [#324](https://github.com/Chain-Frost/ryan-tools/issues/324).
+
+
+## Stacked #324: observed material × soil loss groups
+
+Supply spatially aligned single-band raster checks for material and soil IDs.
+For multiple runs, specify the exact run index to which the check grids apply:
+
+```powershell
+py -3.14 ryan-scripts/TUFLOW-python/model_management/audit_tuflow_rainfall.py --runs run_tuflow_simulations.txt --grid-run-index 1 --material-check-grid material.tif --soil-check-grid soil.tif --active-cell-mask-grid active.tif --json-report audit_pairs.json --no-pause
+```
+
+The audit requires identical raster CRS, affine transform, dimensions and single-band
+configuration. It counts **observed raster-cell pairs**, not the Cartesian
+product of all defined material/soil IDs. It excludes masked/NoData cells
+and can optionally require an active-cell mask.
+
+Configurations are grouped by loss-relevant properties, collapsing zero
+material losses and provably neutral soil methods. When soil infiltration is
+active, material fraction impervious remains loss-relevant even if material
+IL and CL are zero. Unsupported soil methods, unresolved loss entries and
+unknown active IDs fail rather than being interpreted as zero.
+
+**Limitations:** These externally supplied check grids are not automatically
+associated with a specific TUFLOW run; the caller must verify their provenance,
+active-cell representation and matching TCF/scenario. Raster co-location is
+not proof of the actual rainfall loss or infiltration depth. Native TUFLOW
+reconciliation remains outstanding under #319.

@@ -17,3 +17,18 @@
   on a stacked PR; identify required public PyTUFLOW APIs for unresolved
   rainfall factors and native check-grid verification. Keep #319 separate.
 - Next review: 2026-11-23.
+
+
+## 18 November: stacked material/soil grouping
+
+- #324 implementation derives observed cell-centre pairs from externally supplied
+  aligned raster check grids (plus optional active mask) and groups by effective
+  loss configurations, omitting neutral dimensions rather than multiplying
+  all defined material and soil IDs.
+- A zero material IL/CL does not suppress material imperviousness when soil
+  infiltration remains active; unsupported methods/unknown IDs fail closed.
+- Six focused tests passed in local portable Python 3.13.5; Windows/Python
+  3.14, installed-wheel/PyTUFLOW and genuine native TUFLOW check-grid acceptance
+  remain outstanding. This does not certify rainfall or infiltration physics.
+- Stacked draft PR #324 targets the #323 implementation branch. No merge or
+  release is authorised; next review 2026-11-23.
