@@ -100,16 +100,26 @@ def _row_value(row: Mapping[str, object], name: str) -> object:
 
 
 def _material_definition(material_id: int, data: Mapping[str, object]) -> MaterialDefinition:
-    """Read the PyTUFLOW resolved material schema; never infer missing IL/CL as zero."""
+    """Read material IL/CL, applying only documented TUFLOW optional defaults.
+
+    Missing optional rainfall losses and fraction impervious mean 0, not an
+    unknown value. Supplied but malformed values remain unresolved.
+    """
     pair = _text(_row_value(data, "Rainfall Losses"))
     if pair:
         values = pair.strip('"').split(",")
-        il, cl = (_float(x) for x in values) if len(values) == 2 else (None, None)
+        il, cl = (_float(value) for value in values) if len(values) == 2 else (None, None)
     else:
-        il, cl = _float(_row_value(data, "IL")), _float(_row_value(data, "CL"))
-    impervious = _float(_row_value(data, "Fraction Impervious"))
+        raw_il = _text(_row_value(data, "IL"))
+        raw_cl = _text(_row_value(data, "CL"))
+        if raw_il or raw_cl:
+            il, cl = _float(raw_il), _float(raw_cl)
+        else:
+            il, cl = 0.0, 0.0  # Omitted material rainfall-loss fields default to no loss.
+    raw_impervious = _text(_row_value(data, "Fraction Impervious"))
+    impervious = _float(raw_impervious) if raw_impervious else 0.0
     valid = il is not None and cl is not None and il >= 0 and cl >= 0
-    if impervious is not None and not 0 <= impervious <= 1:
+    if impervious is None or not 0 <= impervious <= 1:
         valid = False
     return MaterialDefinition(material_id, il, cl, impervious, "defined" if valid else "unresolved")
 

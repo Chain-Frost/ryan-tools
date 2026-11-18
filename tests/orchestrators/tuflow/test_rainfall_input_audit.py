@@ -100,7 +100,15 @@ def test_selected_run_inventory_and_factor_groups() -> None:
     assert any(finding.code == "SPATIAL_COMBINATION_UNRESOLVED" for finding in audit.runs[0].findings)
 
 
-def test_unresolved_material_does_not_become_zero() -> None:
-    material = _material_definition(1, {"Rainfall Losses": "", "Fraction Impervious": 0.0})
+def test_missing_optional_material_losses_and_impervious_default_to_zero() -> None:
+    material = _material_definition(1, {"Manning's n": 0.03, "Rainfall Losses": ""})
+    assert material.status == "defined"
+    assert material.initial_loss_mm == 0.0
+    assert material.continuing_loss_mm_h == 0.0
+    assert material.fraction_impervious == 0.0
+
+
+def test_invalid_explicit_material_loss_remains_unresolved() -> None:
+    material = _material_definition(1, {"Rainfall Losses": "invalid", "Fraction Impervious": 0.0})
     assert material.status == "unresolved"
     assert material.initial_loss_mm is None
