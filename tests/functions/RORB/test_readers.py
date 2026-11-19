@@ -276,6 +276,20 @@ def test_valid_site_binding_preserves_independent_invalid_scalar_diagnostics() -
     assert bound[0].physical_name == "Outlet"
 
 
+def test_unnamed_site_can_be_bound_by_ordinal_only_with_explicit_opt_in() -> None:
+    source = output_text().replace("Calculated hydrograph, Outlet", "Calculated hydrograph,")
+    document = read_rorb_bytes(source.encode())
+    assert document.status == "partial"
+    with pytest.raises(ValueError, match="unnamed"):
+        bind_output_site_columns(document)
+    result = bind_output_site_columns(document, allow_unnamed=True)
+    assert len(result) == 1
+    assert result[0].site_id == "Hyd0001"
+    assert result[0].column == "Hyd0001"
+    assert result[0].physical_name is None
+    assert result[0].description == "Calculated hydrograph,"
+
+
 def test_duplicate_zero_padded_hyd_ordinals_fail_at_reader_boundary() -> None:
     text = output_text("0 0 0 0\n1 1 12 9\n2 2 0 0\n")
     text = text.replace("Inc Time Hyd0001", "Inc Time Hyd001 Hyd0001")
