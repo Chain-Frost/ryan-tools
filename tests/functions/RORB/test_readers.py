@@ -265,14 +265,15 @@ def test_hydrograph_binding_rejects_ambiguous_missing_physical_identities(source
 
 
 def test_valid_site_binding_preserves_independent_invalid_scalar_diagnostics() -> None:
-    source = output_text().replace("Hydrograph summary", "Peak discharge,m³/s NaN\\nHydrograph summary")
+    source = output_text().replace("Hydrograph summary", "Peak discharge,m³/s NaN\nHydrograph summary")
     document = read_rorb_bytes(source.encode())
     assert document.status == "invalid"
     assert any(item.code == "reported_scalar_value" for item in document.diagnostics)
     bound = bind_output_site_columns(document)
-    assert [(site.site_id, site.column, site.physical_name) for site in bound] == [
-        ("Hyd0001", "Hyd0001", "Outlet")
-    ]
+    assert len(bound) == 1
+    assert bound[0].site_id == "Hyd0001"
+    assert bound[0].column == "Hyd0001"
+    assert bound[0].physical_name == "Outlet"
 
 
 def test_duplicate_zero_padded_hyd_ordinals_fail_at_reader_boundary() -> None:
