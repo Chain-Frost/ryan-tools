@@ -29,7 +29,7 @@ from ...functions.tuflow.closure_durations_functions import (
     collect_po_data,
     summarise_results,
 )
-from ...functions.tuflow.tuflow_common import FileBatchProgress, bulk_read_and_merge_tuflow_csv
+from ...functions.tuflow.tuflow_common import FileBatchProgress, bulk_read_and_merge_tuflow_csv, log_failed_inputs
 from ...processors.tuflow.base_processor import BaseProcessor
 from ...processors.tuflow.processor_collection import ProcessorCollection
 
@@ -84,6 +84,7 @@ def run_closure_durations(
                     batch_progress=batch_progress,
                 )
                 if batch_progress.failed or batch_progress.completed != batch_progress.scheduled:
+                    log_failed_inputs(progress=batch_progress, context="Closure-duration report")
                     msg = (
                         f"Closure-duration report: {batch_progress.failed}/{batch_progress.scheduled} input(s) failed; "
                         f"{batch_progress.completed} completed; report not exported"

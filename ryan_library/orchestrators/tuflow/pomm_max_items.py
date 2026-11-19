@@ -25,7 +25,7 @@ from ryan_library.functions.tuflow.pomm_utils import (
     save_peak_report_mean,
     save_peak_report_median,
 )
-from ryan_library.functions.tuflow.tuflow_common import FileBatchProgress
+from ryan_library.functions.tuflow.tuflow_common import FileBatchProgress, log_failed_inputs
 from ryan_library.functions.tuflow.wrapper_helpers import (
     normalize_data_types,
     validate_discovery_settings,
@@ -118,6 +118,7 @@ def run_peak_report_workflow(
                 )
                 dashboard.set_phase("Aggregating")
                 if batch_progress.failed or batch_progress.completed != batch_progress.scheduled:
+                    log_failed_inputs(progress=batch_progress, context="POMM peak report")
                     msg = (
                         f"POMM peak report: {batch_progress.failed}/{batch_progress.scheduled} input(s) failed; "
                         f"{batch_progress.completed} completed; report not exported"

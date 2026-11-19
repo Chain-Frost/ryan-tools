@@ -7,6 +7,7 @@ from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
 from typing import Any, ClassVar, cast
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd
@@ -297,3 +298,60 @@ def test_headless_png_preserves_full_legend_bounds(
     images = list(tmp_path.glob("*.png"))
     assert len(images) == 1
     assert images[0].read_bytes().startswith(b"\x89PNG")
+
+
+def test_csv_error_prevents_partial_plot_cache_and_lists_failed_filename(
+    plotter: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    first = tmp_path / "first_PO.csv"
+    second = tmp_path / "second_PO.csv"
+    for path in (first, second):
+        path.write_text("test source", encoding="utf-8")
+    monkeypatch.setattr(plotter, "TUFLOW_RESULTS_ROOT", tmp_path)
+    monkeypatch.setattr(plotter, "FILE_PATTERN", "*_PO.csv")
+    monkeypatch.setattr(plotter, "PARQUET_PATH", tmp_path / "cache.parquet")
+    monkeypatch.setattr(plotter, "LOAD_FROM_PARQUET", False)
+    monkeypatch.setattr(plotter, "REPLACE_PARQUET_CACHE", False)
+
+    valid = MagicMock()
+    valid.processed = True
+    valid.input_health = "OK"
+    valid.log_path = str(first)
+    with (
+        patch.object(plotter.BaseProcessor, "from_file", side_effect=[valid, OSError("unreadable")]),
+        patch.object(plotter, "ProcessorCollection") as collection,
+        patch.object(plotter, "_write_parquet_cache") as write_cache,
+    ):
+        collection.return_value.processors = [valid]
+        with pytest.raises(RuntimeError, match=r"second_PO\.csv"):
+            plotter.load_po_dataframe()
+        write_cache.assert_not_called()
+
+
+def test_invalid_processed_plot_input_is_not_treated_as_success(plotter: ModuleType, tmp_path: Path) -> None:
+    path = tmp_path / "invalid_PO.csv"
+    invalid = MagicMock()
+    invalid.processed = True
+    invalid.filtered_empty = False
+    invalid.input_health = "INVALID"
+    with (
+        patch.object(plotter.BaseProcessor, "from_file", return_value=invalid),
+        patch.object(plotter, "ProcessorCollection") as collection,
+        pytest.raises(RuntimeError, match=r"invalid_PO\.csv"),
+    ):
+        plotter.process_files_sequentially([path])
+    collection.return_value.add_processor.assert_not_called()
+
+
+def test_plot_entrypoint_sets_configured_info_console_level(
+    plotter: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(plotter, "CONSOLE_LOG_LEVEL", "INFO")
+    with (
+        patch.object(plotter, "configure_serial_logging") as configure,
+        patch.object(plotter, "print_wrapper_banner"),
+        patch.object(plotter, "load_po_dataframe", return_value=sample_frame()),
+        patch.object(plotter, "plot_timeseries"),
+    ):
+        plotter.main()
+    configure.assert_called_once_with(console_log_level="INFO")
