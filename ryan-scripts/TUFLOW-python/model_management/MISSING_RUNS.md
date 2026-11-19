@@ -28,7 +28,8 @@ of a campaign, not defining a simulation plan before runs start. A present log d
 
 For TP-bearing filename families, console output shows one AEP-row/duration-column table per scenario combination.
 Cells count distinct TPs found, including active runs whose logs already exist: these are not completion counts.
-Each scenario table is followed by a compact missing summary. Repeated duration groups share TP ranges, for example
+Each scenario table is followed by a compact missing summary; a blank line separates it from the next scenario's
+table title when multiple scenarios are shown. Repeated duration groups share TP ranges, for example
 `01p: 060m,120m TP01-03,TP08`; `all TP` denotes an entirely absent set. The scenario prefix is not repeated.
 Complete cells are grey and incomplete cells red in terminals that support colour. The caption gives the expected TP
 count (normally 10; any additional observed TP codes also become expected). Entirely missing combinations show zero.

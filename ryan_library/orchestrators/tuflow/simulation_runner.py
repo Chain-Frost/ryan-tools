@@ -33,7 +33,7 @@ from ...functions.loguru_helpers import log_settings
 if TYPE_CHECKING:
     from ...functions.live_dashboard import LiveWorkflowDashboard, WorkflowAlert
     from ...functions.tuflow.run_progress import LogProgressSnapshot
-    from .command_preflight import CommandPreflightIssue, CommandPreflightReport
+    from .command_preflight import CommandPreflightIssue, CommandPreflightIssueGroup, CommandPreflightReport
 
 from ...functions.tuflow.command_plan import (
     CommandPlan,
@@ -49,6 +49,7 @@ from ...functions.tuflow.command_plan import (
     validate_run_arguments,
 )
 from ...functions.tuflow.gpu_devices import gpu_device_label, gpu_group_label, local_cuda_device_names
+from .command_preflight import group_preflight_issues
 from .run_progress import AdvisoryRunProgress, ProgressUpdate
 
 _FLAG = re.compile(r"[es][1-9]", re.IGNORECASE)
@@ -981,6 +982,38 @@ def _input_issue_message(issue: CommandPreflightIssue, *, advisory: bool = False
     )
 
 
+def _input_issue_group_message(group: CommandPreflightIssueGroup, *, advisory: bool = False) -> str:
+    """Display one source/run group, while acknowledging every original finding."""
+    message = _input_issue_message(group.issues[0], advisory=advisory)
+    if len(group.issues) == 1:
+        return message
+    details = len({issue.finding.detail for issue in group.issues})
+    columns = len({issue.finding.csv_columns for issue in group.issues})
+    return (
+        f"{message}\n"
+        f"  Repeated references: {len(group.issues):,} findings for this run and source "
+        f"({details:,} distinct details; {columns:,} column selections).\n"
+        "  All individual BC/boundary references are retained in the issue report; "
+        "use check_tuflow_inputs.py --report for a full CSV."
+    )
+
+
+def _input_check_statistics(report: CommandPreflightReport) -> str:
+    """Expose phase timings and separate issue, warning and coverage counts."""
+    return (
+        f"Input check statistics: {report.completed_runs:,}/{report.run_count:,} runs checked; "
+        f"{report.affected_runs:,} affected; {len(report.issues):,} blocking findings, "
+        f"{len(report.warnings):,} advisories. "
+        f"Stages: parse {report.parse_seconds:.2f} s, "
+        f"dependencies {report.context_seconds:.2f} s, "
+        f"physical inspection {report.inventory_seconds:.2f} s. "
+        f"Inventory: {report.files_examined:,} files, "
+        f"{report.geopackages_examined:,} GeoPackages, "
+        f"{report.csv_headers_checked:,} CSV headers, "
+        f"{report.directories_scanned:,} directory scans."
+    )
+
+
 def _input_check_summary(report: CommandPreflightReport) -> str:
     """Describe coverage and affected runs without presenting completion as failures."""
     affected = report.affected_runs
@@ -1023,19 +1056,14 @@ class AdvisoryInputCheck:
                 f"{'run' if report.affected_runs == 1 else 'runs'}"
             )
             messages: list[tuple[str, str]] = [
-                (
-                    "WARNING",
-                    _input_issue_message(issue),
-                )
-                for issue in report.issues
+                ("WARNING", _input_issue_group_message(group)) for group in group_preflight_issues(report.issues)
             ]
-            messages.extend(("WARNING", _input_issue_message(warning, advisory=True)) for warning in report.warnings)
-            messages.append(
-                (
-                    "SUCCESS" if report.passed else "WARNING",
-                    _input_check_summary(report),
-                )
+            messages.extend(
+                ("WARNING", _input_issue_group_message(group, advisory=True))
+                for group in group_preflight_issues(report.warnings)
             )
+            messages.append(("INFO", _input_check_statistics(report)))
+            messages.append(("SUCCESS" if report.passed else "WARNING", _input_check_summary(report)))
         except Exception as exc:  # noqa: BLE001 - advisory checks are never a launch prerequisite
             status = "Incomplete"
             messages = [("WARNING", f"Input checking unavailable or incomplete: {type(exc).__name__}: {exc}")]
@@ -1067,7 +1095,7 @@ class AdvisoryInputCheck:
         self.drain()
 
 
-def check_plan_only(plan: CommandPlan, *, check_gpkg_layers: bool = True) -> bool:
+def check_plan_only(plan: CommandPlan, *, check_gpkg_layers: bool = True, report_csv: Path | None = None) -> bool:
     """Blocking explicit preflight; failures and unavailable APIs are nonzero."""
     from .command_preflight import check_command_plan
 
@@ -1076,15 +1104,26 @@ def check_plan_only(plan: CommandPlan, *, check_gpkg_layers: bool = True) -> boo
     except Exception:  # noqa: BLE001 - explicit diagnostic mode returns a failed check
         logger.exception("Input checking failed or is unavailable.")
         return False
-    for issue in report.issues:
-        logger.warning("{}", _input_issue_message(issue))
-    for warning in report.warnings:
-        logger.warning("{}", _input_issue_message(warning, advisory=True))
+    for group in group_preflight_issues(report.issues):
+        logger.warning("{}", _input_issue_group_message(group))
+    for group in group_preflight_issues(report.warnings):
+        logger.warning("{}", _input_issue_group_message(group, advisory=True))
+    logger.info("{}", _input_check_statistics(report))
+    report_saved = True
+    if report_csv is not None:
+        try:
+            created = report.write_csv(report_csv)
+            logger.info("Full per-reference preflight report: {}", created)
+        except OSError as exc:
+            logger.error("Preflight CSV was not created; refusing an all-clear: {}", exc)
+            report_saved = False
     if not report.passed:
         logger.error("{}", _input_check_summary(report))
+    elif not report_saved:
+        logger.error("Input inspection passed, but required CSV reporting failed; strict preflight failed.")
     else:
         logger.success("{}", _input_check_summary(report))
-    return report.passed
+    return report.passed and report_saved
 
 
 def _apply_priority(pid: int, name: str) -> None:

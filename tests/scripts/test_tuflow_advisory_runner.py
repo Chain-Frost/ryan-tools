@@ -292,3 +292,101 @@ def test_no_external_models_message_never_claims_overcapacity(
         == logger.level("SUCCESS").no
     )
     assert "All configured GPU groups appear occupied" not in caplog.text
+
+
+def test_repeated_bc_sources_have_compact_console_groups_without_losing_counts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    plan = runner.prepare_plan(settings(tmp_path))
+    result = _complete_report(plan)
+    shared = tmp_path / "rain_A.csv"
+    result.issues = [
+        CommandPreflightIssue(
+            plan.runs[0],
+            PreflightIssue(
+                1,
+                "",
+                "missing",
+                "BC",
+                f"{shared} >> boundary_{number}",
+                "file not found",
+                kind="bc_source",
+                path=shared,
+                csv_columns=("Time", f"Q{number}"),
+            ),
+        )
+        for number in range(12)
+    ]
+    result.issues.append(
+        CommandPreflightIssue(
+            plan.runs[1],
+            PreflightIssue(2, "", "missing", "BC", str(shared), "file not found", kind="bc_source", path=shared),
+        )
+    )
+    result.parse_seconds = 1.25
+    result.context_seconds = 4.5
+    result.inventory_seconds = 2.75
+
+    def return_report(*_args: object, **_kwargs: object) -> CommandPreflightReport:
+        return result
+
+    monkeypatch.setattr(command_preflight, "check_command_plan", return_report)
+    caplog.set_level(logging.INFO)
+    assert runner.check_plan_only(plan) is False
+    grouped = [record.message for record in caplog.records if "Input check run" in record.message]
+    assert len(grouped) == 2
+    assert "Repeated references: 12 findings" in grouped[0]
+    assert "12 column selections" in grouped[0]
+    assert "Input check run 2" in grouped[1]
+    assert "13 blocking findings" in caplog.text
+    assert "2 affected" in caplog.text
+    assert "dependencies 4.50 s" in caplog.text
+
+
+def test_preflight_csv_export_is_opt_in_and_no_overwrite(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    import csv
+
+    plan = runner.prepare_plan(settings(tmp_path))
+    report = _complete_report(plan)
+    source = tmp_path / "missing.csv"
+    report.issues = [
+        CommandPreflightIssue(
+            plan.runs[0],
+            PreflightIssue(
+                1,
+                "",
+                "missing",
+                "BC",
+                f"{source} >> BC_{i}",
+                "missing",
+                kind="bc_source",
+                path=source,
+                csv_columns=("Time", f"Q{i}"),
+            ),
+        )
+        for i in range(2)
+    ]
+
+    def return_report(*_args: object, **_kwargs: object) -> CommandPreflightReport:
+        return report
+
+    monkeypatch.setattr(command_preflight, "check_command_plan", return_report)
+    destination = tmp_path / "reports" / "findings.csv"
+    caplog.set_level(logging.INFO)
+    assert runner.check_plan_only(plan, report_csv=destination) is False
+    with destination.open(encoding="utf-8-sig", newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    assert len(rows) == 2
+    assert [row["csv_columns_json"] for row in rows] == ['["Time", "Q0"]', '["Time", "Q1"]']
+    original = destination.read_bytes()
+    assert runner.check_plan_only(plan, report_csv=destination) is False
+    assert "CSV was not created" in caplog.text
+    assert destination.read_bytes() == original
+
+    report.issues.clear()
+    passed_csv = tmp_path / "passing.csv"
+    passed_csv.write_text("existing", encoding="utf-8")
+    assert runner.check_plan_only(plan, report_csv=passed_csv) is False
+    assert passed_csv.read_text(encoding="utf-8") == "existing"

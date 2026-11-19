@@ -172,7 +172,9 @@ def test_preflight_presentation_separates_summary_issue_detail_and_result(
     assert "Required CSV columns: 'Time', 'Flow'." in console
     assert "RESULT\n------" in console
     assert "FAIL: 1 issue(s) affect 1 planned run(s)." in console
-    assert "before relying on the planned simulations or their outputs" in console
+    assert (
+        "Review each issue group and its full per-reference CSV before relying on the planned simulations." in console
+    )
 
 
 def test_failed_plan_does_not_emit_a_partial_manifest(tmp_path: Path) -> None:
@@ -385,3 +387,39 @@ def test_cli_plan_only_accepts_repeated_runs_without_validation(
     assert exc.value.code == 0
     manifest = json.loads(output.read_text(encoding="utf-8"))
     assert [Path(run["tcf"]).name for run in manifest["runs"]] == ["first.tcf", "second.tcf"]
+
+
+def test_checker_groups_repeated_bc_rows_without_changing_total_findings(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    selected = parse_command_plan(
+        "-e1 A", source=tmp_path / "runs.bat", initial_directory=tmp_path, fallback_tcf="model.tcf"
+    )
+    source = tmp_path / "boundary.csv"
+    result = CommandPreflightReport(selected, completed_runs=1)
+    result.issues = [
+        CommandPreflightIssue(
+            selected.runs[0],
+            PreflightIssue(
+                1,
+                "-e1 A",
+                "missing",
+                "BC",
+                f"{source} >> request_{i}",
+                "file missing",
+                kind="bc_source",
+                path=source,
+                csv_columns=("Time", f"Q{i}"),
+            ),
+        )
+        for i in range(3)
+    ]
+    namespace = runpy.run_path(str(WRAPPER))
+    printer = cast(Callable[..., None], namespace["_print_preflight"])
+    printer(result, display_base=tmp_path)
+    output = capsys.readouterr().out
+    assert "Issues            : 3" in output
+    assert "Issue groups      : 1" in output
+    assert "Repeated references: 3" in output
+    assert output.count("1. MISSING") == 1
+    assert "create a findings CSV with --report" in output

@@ -55,7 +55,7 @@ For an end user, double-click [install-from-pypi.bat](../install-from-pypi.bat)
 
 This installs the current published `ryan-tools[mcp]` package from PyPI,
 the upstream QGIS MCP Python bridge and the [verified, local PyTuflow wheel](../repo-scripts/pytuflow-requirement.txt),
-built from exact contributor commit `4ca2dbe35c1d` for upstream PR #17,
+built from exact contributor commit `0121101650fd` for upstream PR #17,
 using the highest installed Python 3 by default (overrideable with `RYAN_TOOLS_PYTHON`). Every pip install step includes `--ignore-requires-python`, allowing Python 3.13 installations to bypass package metadata checks. Dependency wheels and runtime imports may still be incompatible.
 Both normal installers bootstrap binary Fiona, Rasterio and GDAL, explicitly
 reinstall only the accepted PyTuflow wheel, then resolve `ryan-tools` and the
@@ -84,7 +84,7 @@ existing wheel without rebuilding. These commands do not replace developer
 editable installs (`pip install -r requirements.txt`).
 
 The vendored dependency wheel is checked into ordinary Git under
-[`repo-scripts/wheels/pytuflow/`](../repo-scripts/wheels/pytuflow/4ca2dbe35c1d7e6a1c7b7150fbea622b1aa0ddb0/README.md).
+[`repo-scripts/wheels/pytuflow/`](../repo-scripts/wheels/pytuflow/0121101650fd8e931af8d09cadb23bd43f6fefbd/README.md).
 Run the repository requirements from the repository root, including if the checkout path contains spaces.
 A missing or corrupt wheel fails verification; installation never silently falls back to source code.
 Plain `pip install ryan-tools` resolves the published `pytuflow>=1.2,<2` version range through PyPI.

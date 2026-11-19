@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import csv
+import json
 import os
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path, PurePath, PureWindowsPath
 from typing import TYPE_CHECKING
@@ -22,6 +24,36 @@ class CommandPreflightIssue:
     finding: PreflightIssue
 
 
+@dataclass(frozen=True, slots=True)
+class CommandPreflightIssueGroup:
+    """Presentation grouping only: every attributed finding is preserved."""
+
+    issues: tuple[CommandPreflightIssue, ...]
+    source: str
+
+
+def group_preflight_issues(issues: Sequence[CommandPreflightIssue]) -> tuple[CommandPreflightIssueGroup, ...]:
+    """Combine identical run/source/status/type keys without resolving or folding paths.
+
+    A BC database may request one missing CSV many times. The exact findings
+    remain in the report and CSV, including the requested boundaries/columns.
+    Never group across distinct runs or statuses, or infer physical identity.
+    """
+    groups: dict[tuple[int, str, str, str], list[CommandPreflightIssue]] = {}
+    for issue in issues:
+        finding = issue.finding
+        source = (
+            str(finding.path)
+            if finding.path is not None
+            else str(finding.source_pattern)
+            if finding.source_pattern is not None
+            else finding.reference
+        )
+        key = (issue.run.index, finding.status, finding.kind or finding.origin, source)
+        groups.setdefault(key, []).append(issue)
+    return tuple(CommandPreflightIssueGroup(tuple(entries), key[3]) for key, entries in groups.items())
+
+
 @dataclass(slots=True)
 class CommandPreflightReport:
     """Aggregate results; an exception or partial group can never pass."""
@@ -35,6 +67,12 @@ class CommandPreflightReport:
     parse_seconds: float = 0.0
     context_seconds: float = 0.0
     inventory_seconds: float = 0.0
+    files_examined: int = 0
+    geopackages_examined: int = 0
+    csv_headers_checked: int = 0
+    directories_scanned: int = 0
+    gis_sources_added: int = 0
+    gis_files_scanned: int = 0
 
     @property
     def run_count(self) -> int:
@@ -49,7 +87,7 @@ class CommandPreflightReport:
         return len({issue.run.index for issue in self.issues})
 
     def write_csv(self, destination: Path) -> Path:
-        """Create a new private issue register; never overwrite an input/report."""
+        """Create a lossless per-reference register, never overwriting an existing file."""
         destination = destination.absolute()
         destination.parent.mkdir(parents=True, exist_ok=True)
         with destination.open("x", newline="", encoding="utf-8-sig") as output:
@@ -67,25 +105,52 @@ class CommandPreflightReport:
                     "origin",
                     "reference",
                     "detail",
+                    "kind",
+                    "path",
+                    "layer",
+                    "owner_control_file",
+                    "database_kind",
+                    "input_uuid",
+                    "command_index",
+                    "csv_columns_json",
+                    "source_pattern",
+                    "command_text",
+                    "line_number",
+                    "severity",
                 )
             )
-            for issue in self.issues:
-                run = issue.run
-                writer.writerow(
-                    (
-                        str(run.source),
-                        run.line_start,
-                        run.line_end,
-                        run.index,
-                        str(run.tcf),
-                        str(run.working_directory),
-                        " ".join(f"-{k} {v}" for k, v in run.flag_pairs),
-                        issue.finding.status,
-                        issue.finding.origin,
-                        issue.finding.reference,
-                        issue.finding.detail,
+            for severity, findings in (("error", self.issues), ("warning", self.warnings)):
+                for issue in findings:
+                    run, finding = issue.run, issue.finding
+                    writer.writerow(
+                        (
+                            str(run.source),
+                            run.line_start,
+                            run.line_end,
+                            run.index,
+                            str(run.tcf),
+                            str(run.working_directory),
+                            " ".join(f"-{k} {v}" for k, v in run.flag_pairs),
+                            finding.status,
+                            finding.origin,
+                            finding.reference,
+                            finding.detail,
+                            finding.kind,
+                            str(finding.path) if finding.path is not None else "",
+                            finding.layer or "",
+                            str(finding.owner_control_file) if finding.owner_control_file is not None else "",
+                            finding.database_kind or "",
+                            finding.input_uuid,
+                            finding.command_index,
+                            json.dumps(finding.csv_columns, ensure_ascii=False)
+                            if finding.csv_columns is not None
+                            else "",
+                            str(finding.source_pattern) if finding.source_pattern is not None else "",
+                            finding.command_text,
+                            finding.line_number if finding.line_number is not None else "",
+                            severity,
+                        )
                     )
-                )
         return destination
 
 
@@ -192,6 +257,12 @@ def check_command_plan(
             combined.parse_seconds += report.parse_seconds
             combined.context_seconds += report.context_seconds
             combined.inventory_seconds += report.inventory_seconds
+            combined.files_examined += report.files_examined
+            combined.geopackages_examined += report.geopackages_examined
+            combined.csv_headers_checked += report.csv_headers_checked
+            combined.directories_scanned += report.directories_scanned
+            combined.gis_sources_added += report.gis_sources_added
+            combined.gis_files_scanned += report.gis_files_scanned
             combined.completed_runs += len(runs)
             combined.groups_checked += 1
         except Exception as exc:  # noqa: BLE001 - every group failure invalidates all its runs; other groups still checked

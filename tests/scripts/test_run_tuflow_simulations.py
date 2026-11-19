@@ -954,3 +954,60 @@ def test_script_entrypoint_parses_arguments_once(
         runpy.run_path(wrapper.__file__, run_name="__main__")
     assert ended.value.code == 0
     assert calls == [1]
+
+
+def test_preflight_report_option_is_explicit_and_preserves_working_directory(
+    tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = _source(tmp_path)
+    report_path = tmp_path / "reports" / "findings.csv"
+    captured: list[Path | None] = []
+
+    def checked(_plan: CommandPlan, *, report_csv: Path | None = None) -> bool:
+        captured.append(report_csv)
+        return False
+
+    monkeypatch.setattr(simulation_workflow, "check_plan_only", checked)
+    arguments = [
+        "--working-directory",
+        str(tmp_path),
+        "--mode",
+        "textfiles",
+        "--input-file",
+        str(source),
+        "--no-tcf",
+        "--preflight-only",
+        "--no-export",
+        "--no-pause",
+    ]
+    assert wrapper.main([*arguments, "--preflight-report", "reports/findings.csv"]) == 1
+    assert captured == [report_path]
+    assert not report_path.exists()
+    captured.clear()
+    assert wrapper.main([*arguments, "--no-preflight-report"]) == 1
+    assert captured == [None]
+
+
+def test_preflight_report_setting_fails_closed_outside_strict_preflight(
+    tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = sys.modules["tested_runner_wrapper"]
+    monkeypatch.setattr(module, "PREFLIGHT_REPORT_CSV", "reports/findings.csv")
+    source = _source(tmp_path)
+    assert (
+        wrapper.main(
+            [
+                "--working-directory",
+                str(tmp_path),
+                "--mode",
+                "textfiles",
+                "--input-file",
+                str(source),
+                "--no-tcf",
+                "--export-only",
+                "--no-pause",
+            ]
+        )
+        == 1
+    )
+    assert not (tmp_path / "reports" / "findings.csv").exists()

@@ -66,7 +66,9 @@ These documents stay near the code they describe so that browsing a target direc
 | DataFrame examples | [DataFrame examples](../examples/dataframes/README.md) | Table assembly and Excel/Parquet export helpers |
 | Rock-protection lookup data | [Outlet rock-protection data](../ryan_library/functions/data/README.md) | Source, interpretation and limits of the bundled multi-pipe lookup tables |
 | Maintenance benchmarks | [Benchmark guide](../repo-scripts/benchmarks/README.md) | Running and interpreting file-collection or DataFrame backend benchmarks |
-| Accepted temporary PyTuflow wheel | [Vendored PyTuflow wheel and provenance](../repo-scripts/wheels/pytuflow/887534ea8c15b80d185a38a7ead1d42ab42a7167/README.md) | Immutable third-party parser wheel, checksum verification, Windows build provenance and retirement policy |
+| Accepted temporary PyTuflow wheel | [Vendored PyTuflow wheel and provenance](../repo-scripts/wheels/pytuflow/0121101650fd8e931af8d09cadb23bd43f6fefbd/README.md) | Immutable third-party parser wheel, checksum verification, GitHub Actions build provenance and retirement policy |
+| Superseded PyTuflow 1.3.1 wheel | [Prior 4ca2dbe provenance](../repo-scripts/wheels/pytuflow/4ca2dbe35c1d7e6a1c7b7150fbea622b1aa0ddb0/README.md) | Retained historical artifact; no longer selected for installation |
+| Superseded PyTuflow 1.3.0 wheel | [Prior 887534ea provenance](../repo-scripts/wheels/pytuflow/887534ea8c15b80d185a38a7ead1d42ab42a7167/README.md) | Retained historical artifact; no longer selected for installation |
 | 3D similarity transformations | [Similarity transform API](GEOMETRY_SIMILARITY.md) | Supported fit function, parameters and transform conventions |
 | Vendored algorithms | [Vendor inventory](../vendor/README.md) | Third-party PyHMA and simil source, licence, import and packaging policy |
 | Vendored `simil` | [`simil` upstream README](../vendor/simil/README.md) | Bundled similarity-transform implementation, usage and upstream attribution |
@@ -127,6 +129,7 @@ but they are not current architectural policy when they conflict with the canoni
 | [TUFLOW result dashboard adoption](work/2026-11-01-tuflow-result-dashboards-180.md) | #180 stacked PR 2: scope six result wrappers immediately, wait for the implemented foundation, then integrate and validate |
 | [TUFLOW proposed-run input preflight](work/2026-10-21-tuflow-input-preflight.md) | PR #143 read-only PyTUFLOW checks, integrated simulation preflight and standalone wrapper; merged as bcc8e5c, with separate follow-up records |
 | [TUFLOW batch preflight optimisation](work/2026-10-22-tuflow-batch-preflight-optimisation.md) | Stacked draft against PR #143: consume PyTUFLOW batch API, share GIS/filesystem inspection, preserve parity and benchmark 500-run workloads |
+| [TUFLOW preflight grouping and scalability (#320)](work/2026-11-17-tuflow-preflight-scalability-320.md) | Current BC console grouping, complete report CSV, stage counters and outstanding native/SMB performance qualification |
 | [TUFLOW runner model checks](work/2026-10-23-tuflow-runner-model-checks.md) | PR #159 current decisions, implementation, validation and delivery state |
 | [TUFLOW GPU availability alerts and CodeMeter validation](work/2026-11-03-tuflow-gpu-alerts-193.md) | PR #193 implementation, measured evidence, validation and delivery state |
 | [TGC terrain crop workflow](work/2026-11-04-tgc-terrain-crop.md) | Merged #204 baseline; #242/#244 integration, native-grid evidence and acceptance limits under #312 |
@@ -222,4 +225,4 @@ main README links and paths and verifies that every tracked Markdown document is
 - [Office protection safety work](work/2026-11-04-office-protection-safety-199.md): issue #199 implementation and validation.
 
 - [PyTuflow PR #17 1.3.1 dependency refresh](work/2026-11-15-pytuflow-pr17-131.md)
-- [PyTuflow 1.3.1 vendored artifact](../repo-scripts/wheels/pytuflow/4ca2dbe35c1d7e6a1c7b7150fbea622b1aa0ddb0/README.md)
+- [PyTuflow 1.3.1 vendored artifact](../repo-scripts/wheels/pytuflow/0121101650fd8e931af8d09cadb23bd43f6fefbd/README.md)

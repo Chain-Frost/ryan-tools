@@ -7,7 +7,7 @@ Example: python find_missing_tlf_runs.py "T:\results\04" --no-pause
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-07.7"
+WRAPPER_VERSION = "2026-11-17.1"
 # Relative paths use the launch directory. RESULTS_FOLDER selects the folder to scan.
 RESULTS_FOLDER: Path = Path.cwd()
 # None selects folder mode; otherwise select a CSV/XLSX/XLS tracking table.
@@ -176,7 +176,9 @@ def _validate_table(table: Path | None, sheet: object) -> None:
 def _show_inventory(inventory: EnsembleInventory) -> None:
     """Display TP coverage by scenario, retaining a fallback for filenames without TP."""
     console = Console()
-    for coverage in inventory.tp_tables:
+    for scenario_index, coverage in enumerate(inventory.tp_tables):
+        if scenario_index:
+            console.print()  # Separate each completed Missing summary from the next scenario table.
         # Split wide grids instead of truncating duration headings or cell counts.
         column_width = max(8, *(len(duration) + 2 for duration in coverage.durations))
         per_page = max(1, (console.width - 16) // (column_width + 1))

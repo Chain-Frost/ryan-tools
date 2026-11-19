@@ -24,7 +24,7 @@ def test_committed_wheel_and_manifest_have_accepted_bytes() -> None:
     vendor = _vendor()
     vendor.verify_wheel()
     assert vendor.WHEEL_PATH.is_file()
-    assert vendor.WHEEL_PATH.stat().st_size == 984_867
+    assert vendor.WHEEL_PATH.stat().st_size == 978_076
     manifest = json.loads(vendor.MANIFEST_PATH.read_text(encoding="utf-8"))
     assert manifest["source_commit"] == vendor.SOURCE_COMMIT
     assert manifest["wheel_sha256"] == vendor.WHEEL_SHA256

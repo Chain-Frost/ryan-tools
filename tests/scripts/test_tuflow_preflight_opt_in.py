@@ -37,6 +37,12 @@ class _SuccessfulGroup:
     parse_seconds: float = 0.0
     context_seconds: float = 0.0
     inventory_seconds: float = 0.0
+    files_examined: int = 0
+    geopackages_examined: int = 0
+    csv_headers_checked: int = 0
+    directories_scanned: int = 0
+    gis_sources_added: int = 0
+    gis_files_scanned: int = 0
 
     @property
     def passed(self) -> bool:

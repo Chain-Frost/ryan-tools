@@ -58,6 +58,9 @@ COMPUTATIONAL_PRIORITY: params.PrioritySetting = params.PRIO.LOW
 MINIMIZE_ON_LAUNCH = True  # True opens solver windows minimized; False shows them normally.
 EXPORT_COMMANDS = True  # True refreshes <wrapper_name>.txt, BAT format.
 CHECK_INPUTS = True  # Enable BACKGROUND model-input checks while TUFLOW runs.
+# Optional full per-reference CSV for PREFLIGHT_ONLY only; never overwrites.
+# Relative to WORKING_DIR. Example: Path("reports/preflight_issues.csv").
+PREFLIGHT_REPORT_CSV: params.PathLike | None = None
 USE_LIVE_DASHBOARD = True  # True shows the Rich live dashboard; False uses ordinary console logging.
 LIVE_REFRESH_PER_SECOND = 1.0
 LIVE_MAX_ROWS = 10  # Maximum task rows shown at once; all runs still execute and are tracked.
@@ -255,6 +258,22 @@ def main(argv: list[str] | None = None, *, _parsed_arguments: argparse.Namespace
             arguments.run_mode if arguments.run_mode is not None else CONTINUATION_MODE,
             params.CONT,
         )
+        report_setting = (
+            None
+            if arguments.no_preflight_report
+            else arguments.preflight_report
+            if arguments.preflight_report is not None
+            else PREFLIGHT_REPORT_CSV
+        )
+        preflight_report = (
+            runner_user_inputs.path("PREFLIGHT_REPORT_CSV", report_setting) if report_setting is not None else None
+        )
+        if preflight_report is not None:
+            if selected_operation is not params.OP.PREFLIGHT_ONLY:
+                message = "PREFLIGHT_REPORT_CSV requires preflight-only operation; no report was written."
+                raise ValueError(message)
+            if not preflight_report.is_absolute():
+                preflight_report = (run_settings.working_directory / preflight_report).absolute()
         controls = WorkflowControls(
             operation=selected_operation,
             continuation=selected_continuation,
@@ -264,6 +283,7 @@ def main(argv: list[str] | None = None, *, _parsed_arguments: argparse.Namespace
             check_inputs=runner_user_inputs.boolean(
                 "CHECK_INPUTS", CHECK_INPUTS if arguments.preflight is None else arguments.preflight
             ),
+            preflight_report_csv=preflight_report,
         )
         follow_up = runner_user_inputs.path("NEXT_RUN_FILE", NEXT_RUN_FILE) if NEXT_RUN_FILE is not None else None
         log_settings(
@@ -273,6 +293,7 @@ def main(argv: list[str] | None = None, *, _parsed_arguments: argparse.Namespace
                 "CONTINUATION_MODE": controls.continuation.value,
                 "EXPORT_COMMANDS": controls.exporting,
                 "CHECK_INPUTS": controls.checking_inputs,
+                "PREFLIGHT_REPORT_CSV": preflight_report,
                 "CONSOLE_LOG_LEVEL": log_level.upper(),
                 "PAUSE_ON_FINISH": (arguments.pause or PAUSE_ON_FINISH is True) and not arguments.no_pause,
                 "NEXT_RUN_FILE": NEXT_RUN_FILE,
@@ -282,6 +303,7 @@ def main(argv: list[str] | None = None, *, _parsed_arguments: argparse.Namespace
                 "CONTINUATION_MODE": "resume",
                 "EXPORT_COMMANDS": True,
                 "CHECK_INPUTS": True,
+                "PREFLIGHT_REPORT_CSV": None,
                 "CONSOLE_LOG_LEVEL": "INFO",
                 "PAUSE_ON_FINISH": True,
                 "NEXT_RUN_FILE": None,
@@ -357,6 +379,13 @@ def _arguments(argv: list[str] | None = None) -> argparse.Namespace:
         "--run-simulations", action="store_true", help="Launch solver processes (licence/output risk)."
     )
     operation.add_argument("--preflight-only", action="store_true", help="Check inputs strictly; never launch.")
+    preflight_report = parser.add_mutually_exclusive_group()
+    preflight_report.add_argument(
+        "--preflight-report", type=Path, help="Create a NEW full per-reference CSV in preflight-only mode."
+    )
+    preflight_report.add_argument(
+        "--no-preflight-report", action="store_true", help="Disable editable PREFLIGHT_REPORT_CSV."
+    )
     operation.add_argument("--export-only", action="store_true", help="Write TXT commands without launching.")
     parser.add_argument(
         "--export",
