@@ -10,11 +10,11 @@ from .result_readers import read_sites, report_metadata
 
 @dataclass(frozen=True, slots=True)
 class HydrographSiteColumn:
-    """Unambiguous physical site bound to one *original* printed numeric column."""
+    """Original column/ordinal association with an explicitly optional physical name."""
 
     site_id: str
     column: str
-    physical_name: str
+    physical_name: str | None
     description: str
     site_record_line: int
 
@@ -28,12 +28,13 @@ def _hyd_ordinal(token: str) -> int:
 
 
 def bind_output_site_columns(  # noqa: C901 -- strict physical identity and missing-data guards
-    document: RorbDocument, *, table_name: str = "hydrographs_1"
+    document: RorbDocument, *, table_name: str = "hydrographs_1", allow_unnamed: bool = False
 ) -> tuple[HydrographSiteColumn, ...]:
-    """Match Hyd ordinals to named sites, never by order or guessed zero padding.
+    """Match Hyd ordinals without guessing physical names or table positions.
 
-    This binding does not establish native executable identity or original
-    catchment geometry. Printed source tokens remain unchanged.
+    Unnamed sites reject by default. Explicit allow_unnamed is for numerical
+    source-token comparison only: the resulting physical_name is None and
+    physical identity remains unverified. Source tokens are unchanged.
     """
     # Scalar interpretation is independent of a complete numeric table and
     # physical-site legend. Preserve scalar-specific failures for consumers to
@@ -67,20 +68,25 @@ def bind_output_site_columns(  # noqa: C901 -- strict physical identity and miss
         if not isinstance(site_id, str) or not isinstance(description, str):
             msg = "Invalid physical site description"
             raise ValueError(msg)
-        physical_name = name if role is not None else description
+        raw_name = name if role is not None else description
         if (
-            not isinstance(physical_name, str)
-            or not physical_name.strip()
-            or re.fullmatch(r"(?:calculated|observed)?\s*hydrograph\s*[:,]?", physical_name, re.IGNORECASE)
+            isinstance(raw_name, str)
+            and raw_name.strip()
+            and re.fullmatch(r"(?:calculated|observed)?\s*hydrograph\s*[:,]?", raw_name, re.IGNORECASE) is None
         ):
+            physical_name: str | None = raw_name
+        elif allow_unnamed:
+            physical_name = None
+        else:
             msg = "Native physical print location is unnamed"
             raise ValueError(msg)
         ordinal = _hyd_ordinal(site_id)
-        if ordinal in identified or physical_name.casefold() in physical_names:
+        if ordinal in identified or (physical_name is not None and physical_name.casefold() in physical_names):
             msg = "Ambiguous physical site names or identifiers"
             raise ValueError(msg)
         identified[ordinal] = HydrographSiteColumn(site_id, "", physical_name, description, int(str(site["line"])))
-        physical_names.add(physical_name.casefold())
+        if physical_name is not None:
+            physical_names.add(physical_name.casefold())
 
     matched: list[HydrographSiteColumn] = []
     printed_ordinals: set[int] = set()
