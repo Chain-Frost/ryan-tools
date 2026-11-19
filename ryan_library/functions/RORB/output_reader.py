@@ -35,8 +35,14 @@ def bind_output_site_columns(  # noqa: C901 -- strict physical identity and miss
     This binding does not establish native executable identity or original
     catchment geometry. Printed source tokens remain unchanged.
     """
-    if document.kind != "standard_output" or document.status == "invalid":
-        msg = "Only a valid parsed standard output can bind physical sites"
+    # Scalar interpretation is independent of a complete numeric table and
+    # physical-site legend. Preserve scalar-specific failures for consumers to
+    # diagnose instead of hiding them behind an unrelated site-binding error.
+    scalar_errors = {"reported_scalar_value", "reported_scalar_values", "reported_scalar_layout"}
+    if document.kind != "standard_output" or any(
+        issue.severity == "error" and issue.code not in scalar_errors for issue in document.diagnostics
+    ):
+        msg = "Only a structurally valid parsed standard output can bind physical sites"
         raise ValueError(msg)
     if document.metadata.get("hydrograph_summary_count") != 1:
         msg = "Exactly one hydrograph summary is required for physical binding"
