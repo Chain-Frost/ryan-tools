@@ -49,8 +49,13 @@ binds the validated standard report's `Site Description` to **exact source**
 same ordinal, but source IDs/tokens, physical names and line numbers remain
 unaltered. Matching never uses the site or column position.
 
-Invalid/missing sites, unnamed or duplicated physical names, missing columns,
-and alternate-padding duplicate ordinals fail closed with `ValueError`.
+Invalid/missing sites, duplicated physical names, missing columns, and
+alternate-padding duplicate ordinals fail closed with `ValueError`. Unnamed
+sites also fail closed by default. For strictly quantitative source-token
+comparison, `allow_unnamed=True` preserves an ordinal association but returns
+`physical_name=None`: the physical print location is **not established** and
+consumer-specific single/multiple-output restrictions still apply.
+
 The binding does not establish native executable identity, catchment
 geometry or numerical equivalence. Pin a reviewed source commit in consumers;
 do not silently replace an installed-wheel dependency with an unmerged branch.
