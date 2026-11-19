@@ -20,36 +20,50 @@ from pandas import DataFrame
 
 from ryan_library.functions.dashboard_workflow import await_future_with_dashboard_refresh
 from ryan_library.functions.excel_export import ExcelExporter
-from ryan_library.functions.live_dashboard import LiveWorkflowDashboard, WorkflowStatus
-from ryan_library.functions.loguru_helpers import setup_logger
+from ryan_library.functions.live_dashboard import LiveWorkflowDashboard, WorkflowColumn, WorkflowStatus
+from ryan_library.functions.loguru_helpers import setup_logger, worker_initializer
 from ryan_library.functions.tuflow.po_timeseries_checks import (
+    MALFORMED_INPUT_STATUSES,
     PeakCheckConfig,
     PeakCheckResult,
     analyze_peak_csv,
     collect_po_csv_files,
+    describe_invalid_input,
     flatten_peak_results,
     order_dataframe_columns,
 )
 
 
 def _analyze_peak_worker(path_str: str, config: PeakCheckConfig) -> list[dict[str, object]]:
-    results: list[PeakCheckResult] = analyze_peak_csv(path=Path(path_str), config=config)
-    return flatten_peak_results(results=results)
+    path = Path(path_str)
+    try:
+        results: list[PeakCheckResult] = analyze_peak_csv(path=path, config=config)
+        return flatten_peak_results(results=results)
+    except Exception:
+        # A chunked map failure cannot be attributed using the parent iterator index.
+        logger.exception("Failed to analyse CSV input {}", path)
+        raise
 
 
-_MALFORMED_INPUT_STATUSES: frozenset[str] = frozenset(
-    {
-        "EMPTY_FILE",
-        "NO_COLUMNS",
-        "DECODE_FAIL",
-        "CSV_PARSE_FAIL",
-        "BAD_HEADER",
-        "TIME_PARSE_FAIL",
-        "MALFORMED_ROW",
-        "INVALID_TIME_AXIS",
-    }
-)
 _NO_DATA_STATUSES: frozenset[str] = frozenset({"NO_DATA"})
+
+
+_QA_DASHBOARD_COLUMNS: tuple[WorkflowColumn, ...] = (
+    WorkflowColumn(header="#", source="index", justify="right", no_wrap=True),
+    WorkflowColumn(header="State", source="status", no_wrap=True),
+    WorkflowColumn(header="Duration", source="duration", no_wrap=True),
+    WorkflowColumn(header="CSV file", source="label", no_wrap=True, overflow="ellipsis"),
+    WorkflowColumn(header="Detail", source="detail", no_wrap=True, overflow="ellipsis"),
+)
+
+
+def _file_detail(*, rows: list[dict[str, object]], file_path: Path, status: WorkflowStatus) -> str:
+    """Format file-level dashboard detail and log the full path on failure."""
+    if status == "FAIL":
+        reason = describe_invalid_input(rows)
+        logger.error("Malformed CSV input {}: {}", file_path, reason)
+        return f"Invalid: {reason}"
+    return f"{len(rows)} diagnostic/result row(s)"
 
 
 def _file_outcome(rows: list[dict[str, object]]) -> WorkflowStatus:
@@ -59,7 +73,7 @@ def _file_outcome(rows: list[dict[str, object]]) -> WorkflowStatus:
     if any(row.get("input_health") == "INVALID" for row in rows):
         return "FAIL"
     statuses = {str(row.get("status", "")) for row in rows}
-    if statuses & _MALFORMED_INPUT_STATUSES:
+    if statuses & MALFORMED_INPUT_STATUSES:
         return "FAIL"
     if statuses <= _NO_DATA_STATUSES:
         return "SKIP"
@@ -123,13 +137,14 @@ def main_processing(
         enabled=use_live_dashboard,
         refresh_per_second=live_refresh_per_second,
         max_rows=live_max_rows,
+        columns=_QA_DASHBOARD_COLUMNS,
     )
-    with setup_logger(console_log_level=console_log_level):
+    with setup_logger(console_log_level=console_log_level) as log_queue:
         with dashboard:
             try:
                 dashboard.set_phase("Discovering")
                 files: list[Path] = collect_po_csv_files(paths_to_process=paths_to_process, csv_glob=csv_glob)
-                dashboard.set_tasks(labels=[str(file) for file in files])
+                dashboard.set_tasks(labels=[file.name for file in files], files=files)
                 if not files:
                     logger.info("No files matched '{}' in the provided directories.", csv_glob)
                     dashboard.finish(outcome="SKIPPED", detail="no matching PO CSV files")
@@ -143,7 +158,11 @@ def main_processing(
                 # but wait on its blocking iterator in one helper thread so this
                 # coordinator can refresh Rich while a slow CSV is still running.
                 with (
-                    cf.ProcessPoolExecutor(max_workers=max_workers) as executor,
+                    cf.ProcessPoolExecutor(
+                        max_workers=max_workers,
+                        initializer=worker_initializer,
+                        initargs=(log_queue,),
+                    ) as executor,
                     cf.ThreadPoolExecutor(max_workers=1) as waiter,
                 ):
                     rows_iter = iter(
@@ -165,11 +184,8 @@ def main_processing(
                         )
                         status = _file_outcome(rows)
                         status_counts[status] += 1
-                        dashboard.mark_finished(
-                            index=index,
-                            status=status,
-                            detail=f"{len(rows)} diagnostic/result row(s)",
-                        )
+                        detail = _file_detail(rows=rows, file_path=files[index - 1], status=status)
+                        dashboard.mark_finished(index=index, status=status, detail=detail)
                         if rows:
                             all_rows.extend(rows)
 

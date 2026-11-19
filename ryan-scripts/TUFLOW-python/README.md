@@ -627,8 +627,14 @@ interpretation are in the [processor contract](../../ryan_library/processors/tuf
 [check_timeseries_stability.py](po_and_timeseries/check_timeseries_stability.py)
 support the shared Rich dashboard for interactive CSV batches, with editable
 `USE_LIVE_DASHBOARD`, `LIVE_REFRESH_PER_SECOND` and `LIVE_MAX_ROWS`
-and CLI overrides. `--no-live-dashboard` retains ordinary logging without
-changing file selection, result calculations or export formats.
+and CLI overrides. The dashboard shows short, single-line CSV filenames with
+ellipsis for long names, plus asynchronous input file sizes; the complete
+source paths remain in diagnostics and reports. Child-process logs use the
+configured console level (e.g. INFO does not show DEBUG). Malformed CSV inputs
+are reported individually with their full path and recorded diagnostic reason,
+and the partial report retains those diagnostic rows. `--no-live-dashboard`
+retains ordinary logging without changing file selection, result calculations
+or export formats.
 An empty selection or no matching data is a successful skip without output.
 Worker or exporter failures are logged, marked FAILED, and give nonzero exit
 without claiming a completed report. Existing output collisions remain protected
