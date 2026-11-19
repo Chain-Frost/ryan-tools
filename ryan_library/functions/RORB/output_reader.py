@@ -1,10 +1,112 @@
 """Section-aware reading of observed standard RORB output, without rewriting time or rainfall."""
 
 import re
+from dataclasses import dataclass
 from decimal import Decimal
 
 from .reader_types import Record, RorbDocument, Section, exact_number, integer, number, validate_series
 from .result_readers import read_sites, report_metadata
+
+
+@dataclass(frozen=True, slots=True)
+class HydrographSiteColumn:
+    """Original column/ordinal association with an explicitly optional physical name."""
+
+    site_id: str
+    column: str
+    physical_name: str | None
+    description: str
+    site_record_line: int
+
+
+def _hyd_ordinal(token: str) -> int:
+    match = re.fullmatch(r"Hyd(\d+)", token)
+    if match is None or int(match[1]) == 0:
+        msg = f"Invalid printed hydrograph identifier {token!r}"
+        raise ValueError(msg)
+    return int(match[1])
+
+
+def bind_output_site_columns(  # noqa: C901 -- strict physical identity and missing-data guards
+    document: RorbDocument, *, table_name: str = "hydrographs_1", allow_unnamed: bool = False
+) -> tuple[HydrographSiteColumn, ...]:
+    """Match Hyd ordinals without guessing physical names or table positions.
+
+    Unnamed sites reject by default. Explicit allow_unnamed is for numerical
+    source-token comparison only: the resulting physical_name is None and
+    physical identity remains unverified. Source tokens are unchanged.
+    """
+    # Scalar interpretation is independent of a complete numeric table and
+    # physical-site legend. Preserve scalar-specific failures for consumers to
+    # diagnose instead of hiding them behind an unrelated site-binding error.
+    scalar_errors = {"reported_scalar_value", "reported_scalar_values", "reported_scalar_layout"}
+    if document.kind != "standard_output" or any(
+        issue.severity == "error" and issue.code not in scalar_errors for issue in document.diagnostics
+    ):
+        msg = "Only a structurally valid parsed standard output can bind physical sites"
+        raise ValueError(msg)
+    if document.metadata.get("hydrograph_summary_count") != 1:
+        msg = "Exactly one hydrograph summary is required for physical binding"
+        raise ValueError(msg)
+    try:
+        sites = document.section("sites")
+        table = document.section(table_name)
+    except StopIteration as exc:
+        msg = "Missing physical site descriptions or hydrograph table"
+        raise ValueError(msg) from exc
+    if not sites.valid or not sites.rows or not table.valid or not table.rows:
+        msg = "Incomplete or invalid physical sites or hydrograph samples"
+        raise ValueError(msg)
+
+    identified: dict[int, HydrographSiteColumn] = {}
+    physical_names: set[str] = set()
+    for site in sites.rows:
+        site_id = site["id"]
+        description = site["description"]
+        name = site["name"]
+        role = site["role"]
+        if not isinstance(site_id, str) or not isinstance(description, str):
+            msg = "Invalid physical site description"
+            raise ValueError(msg)
+        raw_name = name if role is not None else description
+        if (
+            isinstance(raw_name, str)
+            and raw_name.strip()
+            and re.fullmatch(r"(?:calculated|observed)?\s*hydrograph\s*[:,]?", raw_name, re.IGNORECASE) is None
+        ):
+            physical_name: str | None = raw_name
+        elif allow_unnamed:
+            physical_name = None
+        else:
+            msg = "Native physical print location is unnamed"
+            raise ValueError(msg)
+        ordinal = _hyd_ordinal(site_id)
+        if ordinal in identified or (physical_name is not None and physical_name.casefold() in physical_names):
+            msg = "Ambiguous physical site names or identifiers"
+            raise ValueError(msg)
+        identified[ordinal] = HydrographSiteColumn(site_id, "", physical_name, description, int(str(site["line"])))
+        if physical_name is not None:
+            physical_names.add(physical_name.casefold())
+
+    matched: list[HydrographSiteColumn] = []
+    printed_ordinals: set[int] = set()
+    for column in table.columns[3:]:
+        ordinal = _hyd_ordinal(column)
+        if ordinal in printed_ordinals:
+            msg = "Duplicate hydrograph column ordinal with alternate zero padding"
+            raise ValueError(msg)
+        printed_ordinals.add(ordinal)
+        site = identified.get(ordinal)
+        if site is None:
+            msg = f"Hydrograph column {column} has no matching physical site"
+            raise ValueError(msg)
+        matched.append(
+            HydrographSiteColumn(site.site_id, column, site.physical_name, site.description, site.site_record_line)
+        )
+    if len(matched) != len(identified):
+        msg = "Physical site list differs from the hydrograph table"
+        raise ValueError(msg)
+    return tuple(matched)
 
 
 def _numeric_table(doc: RorbDocument, start: int, columns: list[str], name: str) -> Section:
@@ -166,7 +268,16 @@ def read_output(doc: RorbDocument) -> None:  # noqa: C901 - preserve ordered for
             table = _numeric_table(doc, i + 1, tokens, f"hydrographs_{hydrograph_count}")
             hydrograph_summaries.append(table)
             validate_series(doc, table, "Time")
-            normalized = {f"Hyd{int(t[3:]):04d}" for t in tokens[2:]}
+            ordinals = [int(token[3:]) for token in tokens[2:]]
+            if 0 in ordinals or len(set(ordinals)) != len(ordinals):
+                doc.issue(
+                    "hydrograph_column_ambiguous",
+                    "Repeated or zero Hyd ordinal with alternate zero padding.",
+                    i + 1,
+                    error=True,
+                )
+                table.valid = False
+            normalized = {f"Hyd{value:04d}" for value in ordinals}
             if normalized != {r["id"] for r in sites.rows}:
                 # A table's numeric validity is independent of physical
                 # print-site interpretation. The latter remains unresolved.

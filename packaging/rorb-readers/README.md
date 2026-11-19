@@ -41,6 +41,25 @@ was verified in a clean local setuptools wheel-layout experiment; the real
 GitHub source-archive installed-wheel check remains an independent gate.
 
 
+### Physical-site / printed-column binding
+
+`bind_output_site_columns(document)` in `ryan_library.functions.RORB.output_reader`
+binds the validated standard report's `Site Description` to **exact source**
+`HydNNN` hydrograph table column spellings. `Hyd001` and `Hyd0001` have the
+same ordinal, but source IDs/tokens, physical names and line numbers remain
+unaltered. Matching never uses the site or column position.
+
+Invalid/missing sites, duplicated physical names, missing columns, and
+alternate-padding duplicate ordinals fail closed with `ValueError`. Unnamed
+sites also fail closed by default. For strictly quantitative source-token
+comparison, `allow_unnamed=True` preserves an ordinal association but returns
+`physical_name=None`: the physical print location is **not established** and
+consumer-specific single/multiple-output restrictions still apply.
+
+The binding does not establish native executable identity, catchment
+geometry or numerical equivalence. Pin a reviewed source commit in consumers;
+do not silently replace an installed-wheel dependency with an unmerged branch.
+
 The full parent project targets Python 3.14, but **all six shipped reader
 sources must parse under Python 3.13**. The reader-suite AST regression pins
 that grammar independently of Ruff's whole-project 3.14 formatting target,
