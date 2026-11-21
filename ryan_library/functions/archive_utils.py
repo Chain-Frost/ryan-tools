@@ -6,10 +6,38 @@ import os
 import shutil
 import subprocess
 import tempfile
-from collections.abc import Sequence
+import uuid
+from contextlib import contextmanager
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
+
+
+@contextmanager
+def _archive_staging_directory(output_archive: Path) -> Iterator[str]:
+    """Stage beside the destination, inheriting Windows share permissions."""
+    prefix = f".{output_archive.name}.staging-"
+    if os.name != "nt":
+        with tempfile.TemporaryDirectory(prefix=prefix, dir=output_archive.parent) as directory:
+            yield directory
+        return
+
+    # tempfile.mkdtemp uses mode 0o700, which on Windows creates a protected
+    # ACL that can exclude the actual user on domain-backed network shares.
+    for _ in range(100):
+        directory = output_archive.parent / f"{prefix}{uuid.uuid4().hex}"
+        try:
+            directory.mkdir()
+        except FileExistsError:
+            continue
+        break
+    else:
+        raise FileExistsError(f"Could not create a unique archive staging directory in {output_archive.parent}")
+    try:
+        yield str(directory)
+    finally:
+        shutil.rmtree(directory)
 
 
 def find_7zip() -> Path | None:
@@ -160,10 +188,7 @@ def create_7zip_archive(
     try:
         with (
             lock,
-            tempfile.TemporaryDirectory(
-                prefix=f".{output_archive.name}.staging-",
-                dir=output_archive.parent,
-            ) as temp_directory,
+            _archive_staging_directory(output_archive) as temp_directory,
         ):
             staged_archive = Path(temp_directory) / output_archive.name
             _run_7zip_to_stage(
@@ -225,6 +250,7 @@ class FolderCompressionJob:
     excluded_folders: tuple[str, ...] = ()
     excluded_extensions: tuple[str, ...] = ()
     max_part_size_gib: int | None = None
+    excluded_relative_paths: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -248,6 +274,7 @@ def compress_folder_7zip(job: FolderCompressionJob) -> FolderCompressionResult:
         return FolderCompressionResult(job.folder, existing, "SKIPPED", "Output archive already exists")
 
     exclusions = [f"-xr!{folder}" for folder in job.excluded_folders]
+    exclusions.extend(f"-x!{path}" for path in job.excluded_relative_paths)
     for extension in job.excluded_extensions:
         normalized = extension if extension.startswith(".") else f".{extension}"
         exclusions.append(f"-xr!*{normalized}")
