@@ -130,4 +130,5 @@ def test_setup_logger_passes_both_sink_levels() -> None:
     kwargs = mock_context.call_args.kwargs
     assert kwargs["console_log_level"] == "INFO"
     assert kwargs["file_log_level"] == "TRACE"
+    assert kwargs["console_in_parent"] is False
     assert str(kwargs["log_file"]).endswith("test.log")

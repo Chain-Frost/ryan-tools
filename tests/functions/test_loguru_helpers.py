@@ -82,6 +82,21 @@ def test_multiprocessing_info_console_and_debug_file(tmp_path: Path) -> None:
     assert "loguru_helpers:listener_process" not in file_output
 
 
+def test_compact_console_keeps_info_messages_and_source_rich_file_log(tmp_path: Path) -> None:
+    log_file = tmp_path / "detail.log"
+    result = run_harness("--console-level", "INFO", "--compact-console", "--log-file", str(log_file))
+    assert "MAIN_INFO" in result.stdout
+    assert "WORKER_INFO" in result.stdout
+    assert "WORKER_WARNING" in result.stdout
+    assert "loguru_multiprocessing_harness:main" not in result.stdout
+    assert "loguru_multiprocessing_harness:emit_worker_logs" not in result.stdout
+    file_content = log_file.read_text(encoding="utf-8")
+    assert "MAIN_INFO" in file_content
+    assert "WORKER_INFO" in file_content
+    assert "loguru_multiprocessing_harness:main" in file_content
+    assert "loguru_multiprocessing_harness:emit_worker_logs" in file_content
+
+
 def test_success_level_is_low_context_mode() -> None:
     result = run_harness("--console-level", "SUCCESS")
 
