@@ -83,7 +83,11 @@ from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 
-from ryan_library.functions.hydrology.arr_user_climate_losses import ArrUserLossAdjustment, user_loss_adjustments
+from ryan_library.functions.hydrology.arr_user_climate_losses import (
+    ArrFactorProvider,
+    ArrUserLossAdjustment,
+    user_loss_adjustments,
+)
 from ryan_library.functions.hydrology.rainfall_loss_screening import (
     LossSpec,
     PatternScreen,
@@ -1318,12 +1322,14 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
             events: list[EventResult] = runner()
             source_pb_ratios = _arr_source_preburst_ratios(engine.response, events, percentile)
             if loss_default is not None or overrides:
+                # PyTUFLOW 1.3.1 annotates this method as bare tuple; its API contract is a float pair.
+                factor_method: str = "climate_change_loss_factors"
                 report_loss_adjustments = user_loss_adjustments(
                     events,
                     default_losses=loss_default,
                     losses_by_aep=overrides,
                     reference_year=loss_reference_year,
-                    factor_provider=engine.response.climate_change_loss_factors,
+                    factor_provider=cast("ArrFactorProvider", getattr(engine.response, factor_method)),
                     complete_storm=storm_mode == "complete",
                 )
             scenario_adjustments = report_loss_adjustments if climate_scenarios and native_user_losses is None else None
