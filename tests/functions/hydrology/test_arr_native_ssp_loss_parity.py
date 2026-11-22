@@ -166,7 +166,7 @@ def test_pinned_native_arr_engine_ssp_loss_parity_and_pb_safety(preburst_ratio: 
         default_losses=base_loss,
         losses_by_aep={},
         reference_year=1990,
-        factor_provider=cast(Any, response.climate_change_loss_factors),
+        factor_provider=response.climate_change_loss_factors,
         complete_storm=True,
     )
     cc_key = ("1%", 60, "2050_SSP2")
@@ -174,7 +174,10 @@ def test_pinned_native_arr_engine_ssp_loss_parity_and_pb_safety(preburst_ratio: 
     selected = native_omitted_preburst_adjustments(events, factors)
     assert (cc_key in selected) is (preburst_ratio == 0.005)
 
-    ratios = {("1%", 60, None): preburst_ratio, cc_key: preburst_ratio}
+    ratios: dict[tuple[str, int, str | None], float | None] = {
+        ("1%", 60, None): preburst_ratio,
+        cc_key: preburst_ratio,
+    }
     result = assemble_arr_events(
         events,
         losses_by_aep={},
