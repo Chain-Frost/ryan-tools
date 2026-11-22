@@ -433,7 +433,9 @@ def screen_arr_events(
         override = (
             losses_by_event[event_key]
             if losses_by_event is not None and event_key in losses_by_event
-            else selected_losses if selected_losses is not None else default_losses
+            else selected_losses
+            if selected_losses is not None
+            else default_losses
         )
         if override is not None and complete_storm and item.preburst is None:
             ratio = (
