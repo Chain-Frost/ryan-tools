@@ -72,7 +72,7 @@ import argparse
 import csv
 import json
 import logging
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from decimal import Decimal, InvalidOperation
 from importlib import import_module
 from math import isfinite
@@ -86,6 +86,7 @@ from rich.text import Text
 from ryan_library.functions.hydrology.arr_user_climate_losses import (
     ArrFactorProvider,
     ArrUserLossAdjustment,
+    native_omitted_preburst_adjustments,
     user_loss_adjustments,
 )
 from ryan_library.functions.hydrology.rainfall_loss_screening import (
@@ -819,6 +820,7 @@ def _print_report(
     source_preburst_ratios: Mapping[tuple[str, int, str | None], float | None] | None = None,
     loss_adjustments: Mapping[tuple[str, int, str | None], ArrUserLossAdjustment] | None = None,
     native_user_loss: bool = False,
+    native_reconciled_keys: Collection[tuple[str, int, str | None]] = (),
     source_kind: str = "unknown",
 ) -> None:
     """Compact decision report with source-adjusted depths and separated AEP groups."""
@@ -881,15 +883,21 @@ def _print_report(
         )
         key = (event.aep, int(event.duration_min), event.scenario)
         loss_audit = loss_adjustments.get(key) if loss_adjustments is not None else None
+        reconciled_native_pb = native_user_loss and key in native_reconciled_keys
         if loss_audit is not None and native_user_loss:
+            mode = "PyTUFLOW omitted-PB correction" if reconciled_native_pb else "PyTUFLOW"
             loss_label += (
-                f" [PyTUFLOW user {loss_audit.reference_year}; "
+                f" [{mode} user {loss_audit.reference_year}; "
                 f"ILx{loss_audit.il_multiplier:.5g}; CLx{loss_audit.cl_multiplier:.5g}]"
             )
         loss_origin = (
-            ("user_pytuflow_native" if native_user_loss else "user_scenario_override")
+            "user_pytuflow_omitted_pb_reconciled"
+            if reconciled_native_pb
+            else "user_pytuflow_native"
+            if native_user_loss and loss_audit is not None
+            else "user_scenario_override"
             if loss_audit is not None
-            else ("arr_datahub" if source_kind == "arr" else source_kind)
+            else "arr_datahub" if source_kind == "arr" else source_kind
         )
         caution_codes = arf_cautions.get(key, ()) if arf_cautions is not None else ()
         if source_preburst_ratios is not None:
@@ -959,7 +967,15 @@ def _print_report(
                     if loss_audit is not None and loss_audit.effective.continuing_loss_mm_per_hour is not None
                     else ""
                 ),
-                ("pytuflow_native_storm" if native_user_loss else loss_audit.method) if loss_audit is not None else "",
+                (
+                    "native_storm_omitted_pb_reconciled"
+                    if reconciled_native_pb
+                    else "pytuflow_native_storm"
+                    if native_user_loss
+                    else loss_audit.method
+                )
+                if loss_audit is not None
+                else "",
             ]
         )
     console = Console()
@@ -1191,6 +1207,7 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
         totals: dict[tuple[str, int, str | None], tuple[float, float, float, float | None, str]] = {}
         report_loss_adjustments: dict[tuple[str, int, str | None], ArrUserLossAdjustment] = {}
         native_user_losses: LossSpec | None = None
+        native_reconciled_keys: set[tuple[str, int, str | None]] = set()
         source_pb_ratios: dict[tuple[str, int, str | None], float | None] | None = None
         source_places: int | None = None
         provenance_latitude = latitude
@@ -1335,7 +1352,12 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
                     factor_provider=cast("ArrFactorProvider", getattr(engine.response, factor_method)),
                     complete_storm=storm_mode == "complete",
                 )
-            scenario_adjustments = report_loss_adjustments if climate_scenarios and native_user_losses is None else None
+            if native_user_losses is not None:
+                # Only absent PB needs correction: native storm IL is retained with an actual PB.
+                scenario_adjustments = native_omitted_preburst_adjustments(events, report_loss_adjustments)
+                native_reconciled_keys = set(scenario_adjustments)
+            else:
+                scenario_adjustments = report_loss_adjustments if climate_scenarios else None
             bundle = assemble_arr_events(
                 events,
                 losses_by_aep={} if native_user_losses is not None else overrides,
@@ -1495,6 +1517,7 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
             source_preburst_ratios=source_pb_ratios,
             loss_adjustments=report_loss_adjustments,
             native_user_loss=native_user_losses is not None,
+            native_reconciled_keys=native_reconciled_keys,
             source_kind=source,
         )
         _show_matrix(screens, enabled=show_matrix)
