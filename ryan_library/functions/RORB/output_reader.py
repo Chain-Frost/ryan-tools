@@ -10,13 +10,14 @@ from .result_readers import read_sites, report_metadata
 
 @dataclass(frozen=True, slots=True)
 class HydrographSiteColumn:
-    """Original column/ordinal association with an explicitly optional physical name."""
+    """Canonical site ID, raw legend token and printed column with optional physical name."""
 
     site_id: str
     column: str
     physical_name: str | None
     description: str
     site_record_line: int
+    site_id_token: str
 
 
 def _hyd_ordinal(token: str) -> int:
@@ -62,10 +63,11 @@ def bind_output_site_columns(  # noqa: C901 -- strict physical identity and miss
     physical_names: set[str] = set()
     for site in sites.rows:
         site_id = site["id"]
+        site_id_token = site.get("id_token")
         description = site["description"]
         name = site["name"]
         role = site["role"]
-        if not isinstance(site_id, str) or not isinstance(description, str):
+        if not isinstance(site_id, str) or not isinstance(site_id_token, str) or not isinstance(description, str):
             msg = "Invalid physical site description"
             raise ValueError(msg)
         raw_name = name if role is not None else description
@@ -84,7 +86,9 @@ def bind_output_site_columns(  # noqa: C901 -- strict physical identity and miss
         if ordinal in identified or (physical_name is not None and physical_name.casefold() in physical_names):
             msg = "Ambiguous physical site names or identifiers"
             raise ValueError(msg)
-        identified[ordinal] = HydrographSiteColumn(site_id, "", physical_name, description, int(str(site["line"])))
+        identified[ordinal] = HydrographSiteColumn(
+            site_id, "", physical_name, description, int(str(site["line"])), site_id_token
+        )
         if physical_name is not None:
             physical_names.add(physical_name.casefold())
 
@@ -101,7 +105,9 @@ def bind_output_site_columns(  # noqa: C901 -- strict physical identity and miss
             msg = f"Hydrograph column {column} has no matching physical site"
             raise ValueError(msg)
         matched.append(
-            HydrographSiteColumn(site.site_id, column, site.physical_name, site.description, site.site_record_line)
+            HydrographSiteColumn(
+                site.site_id, column, site.physical_name, site.description, site.site_record_line, site.site_id_token
+            )
         )
     if len(matched) != len(identified):
         msg = "Physical site list differs from the hydrograph table"
