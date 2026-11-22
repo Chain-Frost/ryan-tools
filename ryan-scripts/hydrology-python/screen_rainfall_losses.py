@@ -27,6 +27,7 @@ LONGITUDE: float | None = None  # E.g. 119.2755
 SITE_NAME = "Rainfall screening"
 CATCHMENT_AREA_KM2 = 0.0  # Zero uses point rainfall/TP. Set actual area for areal analysis.
 IFD_BASELINE_YEAR = 2030  # ARR Data Hub: 1990 historical or 2030 current baseline.
+LOSS_REFERENCE_YEAR = 1990  # Year of USER-supplied loss values: 1990 historical or 2030 current.
 AEP_MODE = "common"  # "common" or "all"; AEP_SELECTION overrides either mode.
 COMMON_AEPS: list[str] = [
     "50%",
@@ -82,6 +83,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 
+from ryan_library.functions.hydrology.arr_user_climate_losses import user_loss_adjustments
 from ryan_library.functions.hydrology.rainfall_loss_screening import (
     LossSpec,
     PatternScreen,
@@ -261,6 +263,7 @@ def _arr_config(
     areal_tp_path: Path | None = None,
     climate_scenarios: Sequence[tuple[int, str]] = (),
     arf_override: float | None = None,
+    user_losses: LossSpec | None = None,
 ) -> Any:
     from pytuflow.arr.config import ArrConfig
 
@@ -297,6 +300,15 @@ def _arr_config(
             "areal_tp_csv": str(areal_tp_path) if areal_tp_path is not None else None,
         },
     }
+    if user_losses is not None:
+        if user_losses.continuing_loss_mm_per_hour is None:
+            message = "PyTUFLOW native user losses require IL/CL, not a runoff coefficient."
+            raise _error(message)
+        data["losses"] = {
+            "user_initial_loss": user_losses.initial_loss_mm,
+            "user_continuing_loss": user_losses.continuing_loss_mm_per_hour,
+            "climate_change_method": "storm",
+        }
     if json_path is not None:
         data["response_json"] = str(json_path)
     method_name: str = "from_dict"
@@ -1008,6 +1020,10 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--site", help="Site identifier.")
     parser.add_argument("--catchment-area", type=float, metavar="KM2")
     parser.add_argument("--baseline-year", type=int, choices=(1990, 2030))
+    parser.add_argument(
+        "--loss-reference-year", type=int, choices=(1990, 2030),
+        help="Reference year for user IL/CL (independent of the IFD baseline year).",
+    )
     parser.add_argument("--aep-mode", choices=("all", "common"))
     parser.add_argument("--aep", nargs="+", action="append", help="Exact AEP labels, e.g. 20%% 1%% '1 in 200'.")
     parser.add_argument("--duration", nargs="+", type=int, help="Selected durations in minutes.")
@@ -1096,6 +1112,12 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
             raise _error(message)
         site = args.site if args.site is not None else SITE_NAME
         baseline = args.baseline_year if args.baseline_year is not None else IFD_BASELINE_YEAR
+        loss_reference_year = (
+            args.loss_reference_year if args.loss_reference_year is not None else LOSS_REFERENCE_YEAR
+        )
+        if loss_reference_year not in {1990, 2030}:
+            message = "LOSS_REFERENCE_YEAR must be 1990 or 2030."
+            raise _error(message)
         storm_mode = args.storm_mode if args.storm_mode is not None else STORM_MODE
         percentile = args.preburst_percentile if args.preburst_percentile is not None else PREBURST_PERCENTILE
         _choice("STORM_MODE", storm_mode, {"complete", "main-burst-only"})
@@ -1184,6 +1206,16 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
                     for value in cast("list[object]", row)
                 ]
                 source_places = _source_decimals(values)
+            native_user_losses = (
+                loss_default
+                if climate_scenarios
+                and storm_mode == "complete"
+                and loss_reference_year == 1990
+                and loss_default is not None
+                and loss_default.continuing_loss_mm_per_hour is not None
+                and not overrides
+                else None
+            )
             config = _arr_config(
                 latitude,
                 longitude,
@@ -1200,6 +1232,7 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
                 areal_tp_path=areal_path,
                 climate_scenarios=climate_scenarios,
                 arf_override=arf_override,
+                user_losses=native_user_losses,
             )
             Console().print(
                 f"ARR inputs: {'offline' if offline else 'hybrid/local' if response_path is not None else 'online'}; "
@@ -1245,10 +1278,23 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
             runner = cast("Callable[[], list[EventResult]]", getattr(engine, run_method))
             events: list[EventResult] = runner()
             source_pb_ratios = _arr_source_preburst_ratios(engine.response, events, percentile)
+            scenario_adjustments = (
+                user_loss_adjustments(
+                    events,
+                    default_losses=loss_default,
+                    losses_by_aep=overrides,
+                    reference_year=loss_reference_year,
+                    factor_provider=engine.response.climate_change_loss_factors,
+                    complete_storm=storm_mode == "complete",
+                )
+                if climate_scenarios and native_user_losses is None and (loss_default is not None or overrides)
+                else None
+            )
             bundle = assemble_arr_events(
                 events,
-                losses_by_aep=overrides,
-                default_losses=loss_default,
+                losses_by_aep={} if native_user_losses is not None else overrides,
+                default_losses=None if native_user_losses is not None else loss_default,
+                event_loss_adjustments=scenario_adjustments,
                 continuing_loss_timing=cast(Any, loss_timing),
                 complete_storm=storm_mode == "complete",
                 source_preburst_ratios=source_pb_ratios,
