@@ -19,9 +19,7 @@ def _event(
     duration: int = 60,
     rain: float = 40.0,
 ) -> SimpleNamespace:
-    pattern = SimpleNamespace(
-        event_id=1, tp_number=1, timestep=60, increments=[100], source="point", region="west"
-    )
+    pattern = SimpleNamespace(event_id=1, tp_number=1, timestep=60, increments=[100], source="point", region="west")
     return SimpleNamespace(
         aep_name=aep,
         duration=duration,
@@ -46,8 +44,12 @@ def test_historical_manual_loss_cc_applies_distinct_il_cl_and_preserves_baseline
 
     base = LossSpec(50.0, continuing_loss_mm_per_hour=5.0)
     changes = user_loss_adjustments(
-        events, default_losses=base, losses_by_aep={}, reference_year=1990,
-        factor_provider=factor, complete_storm=True,
+        events,
+        default_losses=base,
+        losses_by_aep={},
+        reference_year=1990,
+        factor_provider=factor,
+        complete_storm=True,
     )
     unchanged = changes["1%", 60, None]
     adjusted = changes["1%", 60, "2050_SSP2"]
@@ -108,24 +110,31 @@ def test_invalid_datahub_factors_fail_closed(bad_factors: tuple[float, float]) -
         user_loss_adjustments(
             [_event("2050_SSP2")],
             default_losses=LossSpec(30, continuing_loss_mm_per_hour=5),
-            losses_by_aep={}, reference_year=1990,
-            factor_provider=lambda _year, _ssp: bad_factors, complete_storm=True,
+            losses_by_aep={},
+            reference_year=1990,
+            factor_provider=lambda _year, _ssp: bad_factors,
+            complete_storm=True,
         )
 
 
 def test_missing_2030_denominator_and_unknown_scenario_fail_closed() -> None:
     with pytest.raises(ValueError, match="unavailable"):
         user_loss_adjustments(
-            [_event("2050_SSP2")], default_losses=LossSpec(30, continuing_loss_mm_per_hour=5),
-            losses_by_aep={}, reference_year=2030,
+            [_event("2050_SSP2")],
+            default_losses=LossSpec(30, continuing_loss_mm_per_hour=5),
+            losses_by_aep={},
+            reference_year=2030,
             factor_provider=lambda year, _ssp: (0.75, 1.25) if year == 2050 else _missing(),
             complete_storm=True,
         )
     with pytest.raises(ValueError, match="Unsupported ARR climate scenario"):
         user_loss_adjustments(
-            [_event("2050_other")], default_losses=LossSpec(30, continuing_loss_mm_per_hour=5),
-            losses_by_aep={}, reference_year=1990,
-            factor_provider=lambda _year, _ssp: (1, 1), complete_storm=True,
+            [_event("2050_other")],
+            default_losses=LossSpec(30, continuing_loss_mm_per_hour=5),
+            losses_by_aep={},
+            reference_year=1990,
+            factor_provider=lambda _year, _ssp: (1, 1),
+            complete_storm=True,
         )
 
 
@@ -137,14 +146,22 @@ def _missing() -> tuple[float, float]:
 def test_runoff_coefficient_climate_case_fails_without_inventing_scaling() -> None:
     base = LossSpec(30, runoff_coefficient=0.4)
     only_baseline = user_loss_adjustments(
-        [_event(None)], default_losses=base, losses_by_aep={}, reference_year=1990,
-        factor_provider=lambda _year, _ssp: (1, 1), complete_storm=False,
+        [_event(None)],
+        default_losses=base,
+        losses_by_aep={},
+        reference_year=1990,
+        factor_provider=lambda _year, _ssp: (1, 1),
+        complete_storm=False,
     )
     assert only_baseline["1%", 60, None].effective.runoff_coefficient == 0.4
     with pytest.raises(ValueError, match="runoff coefficient"):
         user_loss_adjustments(
-            [_event("2050_SSP2")], default_losses=base, losses_by_aep={}, reference_year=1990,
-            factor_provider=lambda _year, _ssp: (0.8, 1.1), complete_storm=False,
+            [_event("2050_SSP2")],
+            default_losses=base,
+            losses_by_aep={},
+            reference_year=1990,
+            factor_provider=lambda _year, _ssp: (0.8, 1.1),
+            complete_storm=False,
         )
 
 
@@ -152,12 +169,20 @@ def test_scenario_user_losses_reach_screening_without_mutating_native_event() ->
     events = [_event(None, rain=25), _event("2050_SSP2", rain=45)]
     base = LossSpec(30, continuing_loss_mm_per_hour=0)
     changes = user_loss_adjustments(
-        events, default_losses=base, losses_by_aep={}, reference_year=1990,
-        factor_provider=lambda _year, _ssp: (0.5, 1.5), complete_storm=False,
+        events,
+        default_losses=base,
+        losses_by_aep={},
+        reference_year=1990,
+        factor_provider=lambda _year, _ssp: (0.5, 1.5),
+        complete_storm=False,
     )
     result = assemble_arr_events(
-        events, default_losses=base, losses_by_aep={}, event_loss_adjustments=changes,
-        complete_storm=False, continuing_loss_timing="full_increment",
+        events,
+        default_losses=base,
+        losses_by_aep={},
+        event_loss_adjustments=changes,
+        complete_storm=False,
+        continuing_loss_timing="full_increment",
     )
     assert [row.status for row in result.patterns] == [ScreeningStatus.ZERO, ScreeningStatus.POSITIVE]
     assert result.patterns[1].excess_mm == pytest.approx(30)
