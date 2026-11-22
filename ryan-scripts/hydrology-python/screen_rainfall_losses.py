@@ -897,7 +897,9 @@ def _print_report(
             if native_user_loss and loss_audit is not None
             else "user_scenario_override"
             if loss_audit is not None
-            else "arr_datahub" if source_kind == "arr" else source_kind
+            else "arr_datahub"
+            if source_kind == "arr"
+            else source_kind
         )
         caution_codes = arf_cautions.get(key, ()) if arf_cautions is not None else ()
         if source_preburst_ratios is not None:
