@@ -882,7 +882,10 @@ def _print_report(
         key = (event.aep, int(event.duration_min), event.scenario)
         loss_audit = loss_adjustments.get(key) if loss_adjustments is not None else None
         if loss_audit is not None and native_user_loss:
-            loss_label += f" [PyTUFLOW user {loss_audit.reference_year}; SSP loss factors]"
+            loss_label += (
+                f" [PyTUFLOW user {loss_audit.reference_year}; "
+                f"ILx{loss_audit.il_multiplier:.5g}; CLx{loss_audit.cl_multiplier:.5g}]"
+            )
         loss_origin = (
             ("user_pytuflow_native" if native_user_loss else "user_scenario_override")
             if loss_audit is not None
