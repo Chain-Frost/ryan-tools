@@ -26,6 +26,11 @@ type RainfallRecord = tuple[float, float, float, float | None, str]
 type RainfallRecordKey = tuple[str, int, str | None]
 
 
+def _empty_arr_loss_audit() -> dict[ArrEventKey, ArrUserLossAdjustment]:
+    """Return a fully typed empty event-loss audit for non-ARR callers."""
+    return {}
+
+
 @dataclass(frozen=True, slots=True)
 class ScreeningBundle:
     """Per-pattern outcomes and event evidence used for audit/reporting."""
@@ -33,7 +38,7 @@ class ScreeningBundle:
     patterns: tuple[PatternScreen, ...]
     rainfall: dict[RainfallRecordKey, RainfallRecord]
     pattern_sets: tuple[str, ...]
-    loss_adjustments: dict[ArrEventKey, ArrUserLossAdjustment] = field(default_factory=dict)
+    loss_adjustments: dict[ArrEventKey, ArrUserLossAdjustment] = field(default_factory=_empty_arr_loss_audit)
 
 
 def _loss_label(loss: LossSpec | None, *, fallback: str) -> str:
