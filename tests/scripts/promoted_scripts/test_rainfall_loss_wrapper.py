@@ -897,6 +897,28 @@ def test_report_csv_retains_user_loss_reference_and_scenario_factors(tmp_path: P
     assert all(row["loss_source"] == "user_scenario_override" for row in rows)
     assert all(row["loss_adjustment_method"] == "full_storm" for row in rows)
 
+    native_path = tmp_path / "native_omitted_pb_audit.csv"
+    m._print_report(
+        screens,
+        totals,
+        "all",
+        native_path,
+        loss_adjustments=adjustments,
+        native_user_loss=True,
+        native_reconciled_keys={("1%", 60, "2050_SSP2")},
+        source_kind="arr",
+    )
+    with native_path.open(encoding="utf-8", newline="") as stream:
+        native_rows = list(csv.DictReader(stream))
+    assert [row["loss_source"] for row in native_rows] == [
+        "user_pytuflow_native",
+        "user_pytuflow_omitted_pb_reconciled",
+    ]
+    assert [row["loss_adjustment_method"] for row in native_rows] == [
+        "pytuflow_native_storm",
+        "native_storm_omitted_pb_reconciled",
+    ]
+
 
 def test_loss_reference_year_cli_is_independent_of_ifd_baseline(monkeypatch: pytest.MonkeyPatch) -> None:
     m = _wrapper()
