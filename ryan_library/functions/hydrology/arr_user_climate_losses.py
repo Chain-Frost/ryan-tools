@@ -131,6 +131,14 @@ def user_loss_adjustments(
         base = base if base is not None else default_losses
         if base is None:
             continue
+        if not complete_storm and event.preburst is not None:
+            msg = (
+                f"ARR {aep}/{duration} min ({scenario or 'baseline'}) supplied a manual burst IL, "
+                "but PyTUFLOW assembled a complete storm with preburst. "
+                "A burst IL cannot be applied as full-storm IL; choose complete-storm "
+                "loss inputs or exclude this event from the burst-only screen."
+            )
+            raise ValueError(msg)
         if scenario is not None and base.runoff_coefficient is not None:
             msg = (
                 f"Climate scenario {scenario}: user IL + runoff coefficient has no validated "
