@@ -103,7 +103,16 @@ def read_sites(doc: RorbDocument, marker: str, prefix: str) -> Section:
             )
             section.valid = False
         seen.add(identifier)
-        section.rows.append({"line": i + 1, "id": identifier, "id_token": match[1], "description": description, "role": role, "name": name})
+        section.rows.append(
+            {
+                "line": i + 1,
+                "id": identifier,
+                "id_token": match[1],
+                "description": description,
+                "role": role,
+                "name": name,
+            }
+        )
     return section
 
 
