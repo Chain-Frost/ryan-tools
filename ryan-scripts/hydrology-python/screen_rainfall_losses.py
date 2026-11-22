@@ -880,8 +880,10 @@ def _print_report(
         if loss_audit is not None and native_user_loss:
             loss_label += f" [PyTUFLOW user {loss_audit.reference_year}; SSP loss factors]"
         loss_origin = (
-            "user_pytuflow_native" if native_user_loss else "user_scenario_override"
-        ) if loss_audit is not None else ("arr_datahub" if source_kind == "arr" else source_kind)
+            ("user_pytuflow_native" if native_user_loss else "user_scenario_override")
+            if loss_audit is not None
+            else ("arr_datahub" if source_kind == "arr" else source_kind)
+        )
         caution_codes = arf_cautions.get(key, ()) if arf_cautions is not None else ()
         if source_preburst_ratios is not None:
             pb_ratio = source_preburst_ratios.get(key)
@@ -939,17 +941,18 @@ def _print_report(
                 f"{loss_audit.base.initial_loss_mm:.12g}" if loss_audit is not None else "",
                 (
                     f"{loss_audit.base.continuing_loss_mm_per_hour:.12g}"
-                    if loss_audit is not None and loss_audit.base.continuing_loss_mm_per_hour is not None else ""
+                    if loss_audit is not None and loss_audit.base.continuing_loss_mm_per_hour is not None
+                    else ""
                 ),
                 f"{loss_audit.il_multiplier:.12g}" if loss_audit is not None else "",
                 f"{loss_audit.cl_multiplier:.12g}" if loss_audit is not None else "",
                 f"{loss_audit.effective.initial_loss_mm:.12g}" if loss_audit is not None else "",
                 (
                     f"{loss_audit.effective.continuing_loss_mm_per_hour:.12g}"
-                    if loss_audit is not None and loss_audit.effective.continuing_loss_mm_per_hour is not None else ""
+                    if loss_audit is not None and loss_audit.effective.continuing_loss_mm_per_hour is not None
+                    else ""
                 ),
-                ("pytuflow_native_storm" if native_user_loss else loss_audit.method)
-                if loss_audit is not None else "",
+                ("pytuflow_native_storm" if native_user_loss else loss_audit.method) if loss_audit is not None else "",
             ]
         )
     console = Console()
@@ -1055,7 +1058,9 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--catchment-area", type=float, metavar="KM2")
     parser.add_argument("--baseline-year", type=int, choices=(1990, 2030))
     parser.add_argument(
-        "--loss-reference-year", type=int, choices=(1990, 2030),
+        "--loss-reference-year",
+        type=int,
+        choices=(1990, 2030),
         help="Reference year for user IL/CL (independent of the IFD baseline year).",
     )
     parser.add_argument("--aep-mode", choices=("all", "common"))
@@ -1146,9 +1151,7 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
             raise _error(message)
         site = args.site if args.site is not None else SITE_NAME
         baseline = args.baseline_year if args.baseline_year is not None else IFD_BASELINE_YEAR
-        loss_reference_year = (
-            args.loss_reference_year if args.loss_reference_year is not None else LOSS_REFERENCE_YEAR
-        )
+        loss_reference_year = args.loss_reference_year if args.loss_reference_year is not None else LOSS_REFERENCE_YEAR
         if loss_reference_year not in {1990, 2030}:
             message = "LOSS_REFERENCE_YEAR must be 1990 or 2030."
             raise _error(message)
@@ -1323,9 +1326,7 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
                     factor_provider=engine.response.climate_change_loss_factors,
                     complete_storm=storm_mode == "complete",
                 )
-            scenario_adjustments = (
-                report_loss_adjustments if climate_scenarios and native_user_losses is None else None
-            )
+            scenario_adjustments = report_loss_adjustments if climate_scenarios and native_user_losses is None else None
             bundle = assemble_arr_events(
                 events,
                 losses_by_aep={} if native_user_losses is not None else overrides,
