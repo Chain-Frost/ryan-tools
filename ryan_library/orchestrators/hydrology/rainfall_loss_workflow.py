@@ -10,9 +10,10 @@ hydrology functions respectively. No solver is executed.
 from __future__ import annotations
 
 from collections.abc import Collection, Iterable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol, cast
 
+from ...functions.hydrology.arr_user_climate_losses import ArrEventKey, ArrUserLossAdjustment
 from ...functions.hydrology.rainfall_loss_screening import (
     LossSpec,
     PatternScreen,
@@ -32,6 +33,7 @@ class ScreeningBundle:
     patterns: tuple[PatternScreen, ...]
     rainfall: dict[RainfallRecordKey, RainfallRecord]
     pattern_sets: tuple[str, ...]
+    loss_adjustments: dict[ArrEventKey, ArrUserLossAdjustment] = field(default_factory=dict)
 
 
 def _loss_label(loss: LossSpec | None, *, fallback: str) -> str:
@@ -162,6 +164,7 @@ def assemble_arr_events(
     continuing_loss_timing: Literal["fractional", "full_increment"],
     complete_storm: bool = False,
     source_preburst_ratios: Mapping[tuple[str, int, str | None], float | None] | None = None,
+    event_loss_adjustments: Mapping[ArrEventKey, ArrUserLossAdjustment] | None = None,
 ) -> ScreeningBundle:
     """Coordinate PyTUFLOW event outcomes and preserve point/areal ARF evidence."""
     sources = tuple(events)
@@ -169,6 +172,11 @@ def assemble_arr_events(
         sources,
         losses_by_aep=losses_by_aep,
         default_losses=default_losses,
+        losses_by_event=(
+            {key: audit.effective for key, audit in event_loss_adjustments.items()}
+            if event_loss_adjustments is not None
+            else None
+        ),
         continuing_loss_timing=continuing_loss_timing,
         complete_storm=complete_storm,
         source_preburst_ratios=source_preburst_ratios,
@@ -182,7 +190,8 @@ def assemble_arr_events(
         scenario = str(event.cc_scenario) if event.cc_scenario is not None else None
         overrides = losses_by_aep.get(aep)
         selected = overrides.get(duration) if isinstance(overrides, Mapping) else overrides
-        losses = selected if selected is not None else default_losses
+        audit = event_loss_adjustments.get((aep, duration, scenario)) if event_loss_adjustments else None
+        losses = audit.effective if audit is not None else selected if selected is not None else default_losses
         fallback = f"ARR IL {float(event.initial_loss):g}; CL {float(event.continuing_loss):g}"
         pb = event.preburst
         ratio = source_preburst_ratios.get((aep, duration, scenario)) if source_preburst_ratios is not None else None
@@ -198,6 +207,11 @@ def assemble_arr_events(
         )
         if applied is not None and complete_storm and pb is None:
             loss_label += " (burst IL after omitted preburst)"
+        if audit is not None:
+            loss_label += (
+                f" [user {audit.reference_year}; ILx{audit.il_multiplier:.5g}; "
+                f"CLx{audit.cl_multiplier:.5g}; {audit.method}]"
+            )
         totals[(aep, duration, scenario)] = (
             float(event.depth_point),
             float(event.depth_areal),
@@ -206,7 +220,7 @@ def assemble_arr_events(
             loss_label,
         )
         sets.update(_pattern_sets(cast("Iterable[object]", event.patterns)))
-    return ScreeningBundle(screens, totals, tuple(sorted(sets)))
+    return ScreeningBundle(screens, totals, tuple(sorted(sets)), dict(event_loss_adjustments or {}))
 
 
 def assemble_bom_events(
