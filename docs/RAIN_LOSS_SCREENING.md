@@ -121,12 +121,19 @@ which differs from the intended `CC storm IL - CC preburst`. This wrapper
 ratio and adjusted full storm IL; if that reconciliation cannot be established,
 the event is **UNRESOLVED** rather than an unsafe DROP. The CSV distinguishes
 native and omitted-preburst-corrected loss sources.
+
 For per-AEP/duration overrides and 2030
 user baselines the selected user values are adjusted per scenario from
 PyTUFLOW's response loss factors, with **full storm IL** adjusted before
 preburst reconciliation. In `main-burst-only` mode a user IL is explicitly
 interpreted as an already-reduced **burst IL** and scaled directly, which
 is not the same as PyTUFLOW's storm-loss-derived CC burst IL method.
+If PyTUFLOW automatically assembles a **complete storm** even though
+`main-burst-only` was selected, the wrapper refuses to apply a manually
+provided burst IL as though it were full-storm IL. The run fails with an
+explicit diagnostic; rerun with a justified full-storm loss basis rather
+than assuming the two loss conventions are interchangeable. Unmodified
+Data Hub losses remain governed by the native engine.
 
 User IL plus runoff coefficient is **not** treated as climate-adjusted IL/CL:
 a requested SSP scenario with such an override is rejected rather than
