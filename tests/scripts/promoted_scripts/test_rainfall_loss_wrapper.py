@@ -13,6 +13,7 @@ from typing import Any, cast
 
 import pytest
 
+from ryan_library.functions.hydrology.arr_user_climate_losses import ArrUserLossAdjustment
 from ryan_library.functions.hydrology.rainfall_loss_screening import (
     LossSpec,
     PatternScreen,
@@ -824,3 +825,86 @@ def test_arr_source_preburst_ratio_stays_constant_when_applied_depth_changes(
     # A suppressed/no-preburst event may still have a nonzero source ratio.
     events[0].preburst = None
     assert m._arr_source_preburst_ratios(Response(), events, "recommended")["1%", 60, None] == pytest.approx(0.015)
+
+
+def test_native_climate_user_losses_reach_pytuflow_configuration(tmp_path: Path) -> None:
+    """Use the existing native ARR user-loss path for a uniform storm IL/CL."""
+    pytest.importorskip("pytuflow.arr.config")
+    m = _wrapper()
+    config = m._arr_config(
+        -23.08632,
+        119.2755,
+        350.0,
+        "native user losses",
+        ["1%"],
+        [60],
+        2030,
+        "complete",
+        "recommended",
+        tmp_path,
+        None,
+        user_losses=LossSpec(50.0, continuing_loss_mm_per_hour=5.0),
+    )
+    assert config.losses.user_initial_loss == 50.0
+    assert config.losses.user_continuing_loss == 5.0
+    assert config.losses.climate_change_method == "storm"
+    with pytest.raises(ValueError, match="require IL/CL"):
+        m._arr_config(
+            -23.08632,
+            119.2755,
+            350.0,
+            "invalid native coefficient",
+            ["1%"],
+            [60],
+            2030,
+            "complete",
+            "recommended",
+            tmp_path,
+            None,
+            user_losses=LossSpec(50.0, runoff_coefficient=0.2),
+        )
+
+
+def test_report_csv_retains_user_loss_reference_and_scenario_factors(tmp_path: Path) -> None:
+    """Each row carries full-precision source loss year, factors and selected IL/CL."""
+    m = _wrapper()
+    base = LossSpec(30.0, continuing_loss_mm_per_hour=5.0)
+    adjusted = LossSpec(24.0, continuing_loss_mm_per_hour=6.0)
+    screens = [
+        PatternScreen("1%", 60, "tp1", "arr_datahub", None, ScreeningStatus.ZERO, 0, 0, "zero"),
+        PatternScreen("1%", 60, "tp1", "arr_datahub", "2050_SSP2", ScreeningStatus.POSITIVE, 14, 14, "positive"),
+    ]
+    totals = {
+        ("1%", 60, None): (25.0, 25.0, 1.0, None, "IL 30; CL 5"),
+        ("1%", 60, "2050_SSP2"): (40.0, 40.0, 1.0, None, "IL 24; CL 6"),
+    }
+    adjustments = {
+        ("1%", 60, None): ArrUserLossAdjustment(base, base, 1990, 1.0, 1.0, "full_storm"),
+        ("1%", 60, "2050_SSP2"): ArrUserLossAdjustment(base, adjusted, 1990, 0.8, 1.2, "full_storm"),
+    }
+    output = tmp_path / "scenario_audit.csv"
+    m._print_report(screens, totals, "all", output, loss_adjustments=adjustments, source_kind="arr")
+    with output.open(encoding="utf-8", newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    assert len(rows) == 2
+    assert [row["user_loss_reference_year"] for row in rows] == ["1990", "1990"]
+    assert [row["user_base_il_mm"] for row in rows] == ["30", "30"]
+    assert [row["user_il_multiplier"] for row in rows] == ["1", "0.8"]
+    assert [row["user_cl_multiplier"] for row in rows] == ["1", "1.2"]
+    assert [row["adjusted_user_il_mm"] for row in rows] == ["30", "24"]
+    assert [row["adjusted_user_cl_mm_per_hour"] for row in rows] == ["5", "6"]
+    assert [row["decision"] for row in rows] == ["DROP", "KEEP"]
+    assert all(row["loss_source"] == "user_scenario_override" for row in rows)
+    assert all(row["loss_adjustment_method"] == "full_storm" for row in rows)
+
+
+def test_loss_reference_year_cli_is_independent_of_ifd_baseline(monkeypatch: pytest.MonkeyPatch) -> None:
+    m = _wrapper()
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [str(SCRIPT), "--baseline-year", "1990", "--loss-reference-year", "2030"],
+    )
+    args = m._arguments()
+    assert args.baseline_year == 1990
+    assert args.loss_reference_year == 2030
