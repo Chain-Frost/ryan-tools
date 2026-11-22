@@ -112,8 +112,16 @@ unchanged. The two factors must not be combined with rainfall SSP factors.
 For one uniform historical IL/CL setting, no per-AEP overrides and
 `STORM_MODE="complete"`, the wrapper passes the user losses to PyTUFLOW's
 `ArrConfig.losses.user_initial_loss/user_continuing_loss` instead of
-overwriting the engine's climate-adjusted event losses. This preserves the
-engine's storm/preburst handling. For per-AEP/duration overrides and 2030
+overwriting the engine's climate-adjusted event losses. Where a preburst
+period remains present, screening uses the **native adjusted IL/CL**. When
+PyTUFLOW suppresses a very small preburst (<1% of point rainfall), the native
+burst IL may instead be `(baseline storm IL - baseline preburst) × CC factor`,
+which differs from the intended `CC storm IL - CC preburst`. This wrapper
+**reconciles only those omitted-preburst cases** against the source scenario
+ratio and adjusted full storm IL; if that reconciliation cannot be established,
+the event is **UNRESOLVED** rather than an unsafe DROP. The CSV distinguishes
+native and omitted-preburst-corrected loss sources.
+For per-AEP/duration overrides and 2030
 user baselines the selected user values are adjusted per scenario from
 PyTUFLOW's response loss factors, with **full storm IL** adjusted before
 preburst reconciliation. In `main-burst-only` mode a user IL is explicitly
