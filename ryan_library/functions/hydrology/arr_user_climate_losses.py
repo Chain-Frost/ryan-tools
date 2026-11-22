@@ -71,6 +71,32 @@ def _scenario_multipliers(
     return adjusted
 
 
+def native_omitted_preburst_adjustments(
+    events: Iterable[object],
+    adjustments: Mapping[ArrEventKey, ArrUserLossAdjustment],
+) -> dict[ArrEventKey, ArrUserLossAdjustment]:
+    """Override native IL only when a requested complete-storm preburst was omitted.
+
+    The ARR engine can replace the required CC burst IL of
+    `full_storm_IL * IL_factor - CC_preburst` with
+    `(baseline_storm_IL - baseline_preburst) * IL_factor` if it removes a
+    preburst below its inclusion threshold. Those operations do not commute.
+    Reconciliation in screen_arr_events must use the source CC preburst ratio
+    and refuse an uncertain event instead of silently accepting a false DROP.
+    Events retaining a preburst use their native initial and continuing losses.
+    """
+    selected: dict[ArrEventKey, ArrUserLossAdjustment] = {}
+    for raw in events:
+        event = cast(Any, raw)
+        if event.preburst is not None:
+            continue
+        scenario = str(event.cc_scenario) if event.cc_scenario is not None else None
+        key = str(event.aep_name), int(event.duration), scenario
+        if key in adjustments:
+            selected[key] = adjustments[key]
+    return selected
+
+
 def user_loss_adjustments(
     events: Iterable[object],
     *,
