@@ -111,9 +111,7 @@ def user_loss_adjustments(
                 "climate-adjusted runoff-coefficient interpretation; refusing a potentially false DROP."
             )
             raise ValueError(msg)
-        il_multiplier, cl_multiplier = _scenario_multipliers(
-            scenario, reference_year, factor_provider, factor_cache
-        )
+        il_multiplier, cl_multiplier = _scenario_multipliers(scenario, reference_year, factor_provider, factor_cache)
         effective = LossSpec(
             initial_loss_mm=base.initial_loss_mm * il_multiplier,
             continuing_loss_mm_per_hour=(
@@ -129,7 +127,11 @@ def user_loss_adjustments(
             msg = f"Duplicate ARR event with user loss selection: {key!r}"
             raise ValueError(msg)
         result[key] = ArrUserLossAdjustment(
-            base, effective, reference_year, il_multiplier, cl_multiplier,
+            base,
+            effective,
+            reference_year,
+            il_multiplier,
+            cl_multiplier,
             "full_storm" if complete_storm else "direct_burst",
         )
     return result
