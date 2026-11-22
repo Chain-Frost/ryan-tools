@@ -65,6 +65,7 @@ RUNOFF_COEFFICIENT: float | None = None
 ARF_OVERRIDE: float | None = None  # Use Data Hub ARF; do not force unity.
 LOSS_TIMING = "full_increment"  # Default experimental RORB profile; fractional remains optional.
 STORM_MODE = "complete"
+LOSS_REFERENCE_YEAR = 2030  # Current ARR 2026 Data Hub loss baseline; choose 1990 if using historical losses.
 CLIMATE_SCENARIOS: list[str] = ["2050:SSP2"]
 AEP_MODE = "common"
 DURATION_SELECTION_MIN: list[int] = []  # All available RecIFD durations.
@@ -92,6 +93,58 @@ If a local JSON is available it overrides online lookup. A BoM-based
 rainfall multiplier (`RAINFALL_FACTOR` / `--rainfall-factor 1.15`)
 applies to rainfall depth **before IL/CL**; this is not a substitute
 for the ARR 2026 recommended climate-change dataset.
+
+### Climate-adjusted user losses (ARR SSP)
+
+For ARR events, configure the climate scenarios near the baseline-year inputs,
+e.g. `CLIMATE_SCENARIOS = ["2050:SSP2"]`, or pass `--cc 2050:SSP2`.
+Baseline is always included. **User loss reference year** is a separate input:
+`LOSS_REFERENCE_YEAR = 2030` (the default) or
+`--loss-reference-year 1990` for historical 1961–1990 values. This does
+**not** change the IFD rainfall baseline `IFD_BASELINE_YEAR`. The ARR
+Data Hub 2026 update reports current (2030) storm losses scaled from its
+historical loss baseline; using those current values with a historical
+loss reference would over-adjust future SSP losses.
+
+The Data Hub's `ClimateChange.loss_factors` tables provide independent
+initial-loss and continuing-loss multipliers. A historical 1961–1990 user
+loss uses each scenario's factors. A loss input already referenced to **2030**
+uses the scenario/2030 **ratio for the same SSP**, and requires both values
+to exist in the saved/online Data Hub response. Baseline user inputs remain
+unchanged. The two factors must not be combined with rainfall SSP factors.
+
+For one uniform historical IL/CL setting, no per-AEP overrides and
+`STORM_MODE="complete"`, the wrapper passes the user losses to PyTUFLOW's
+`ArrConfig.losses.user_initial_loss/user_continuing_loss` instead of
+overwriting the engine's climate-adjusted event losses. Where a preburst
+period remains present, screening uses the **native adjusted IL/CL**. When
+PyTUFLOW suppresses a very small preburst (<1% of point rainfall), the native
+burst IL may instead be `(baseline storm IL - baseline preburst) × CC factor`,
+which differs from the intended `CC storm IL - CC preburst`. This wrapper
+**reconciles only those omitted-preburst cases** against the source scenario
+ratio and adjusted full storm IL; if that reconciliation cannot be established,
+the event is **UNRESOLVED** rather than an unsafe DROP. The CSV distinguishes
+native and omitted-preburst-corrected loss sources.
+
+For per-AEP/duration overrides and 2030
+user baselines the selected user values are adjusted per scenario from
+PyTUFLOW's response loss factors, with **full storm IL** adjusted before
+preburst reconciliation. In `main-burst-only` mode a user IL is explicitly
+interpreted as an already-reduced **burst IL** and scaled directly, which
+is not the same as PyTUFLOW's storm-loss-derived CC burst IL method.
+If PyTUFLOW automatically assembles a **complete storm** even though
+`main-burst-only` was selected, the wrapper refuses to apply a manually
+provided burst IL as though it were full-storm IL. The run fails with an
+explicit diagnostic; rerun with a justified full-storm loss basis rather
+than assuming the two loss conventions are interchangeable. Unmodified
+Data Hub losses remain governed by the native engine.
+
+User IL plus runoff coefficient is **not** treated as climate-adjusted IL/CL:
+a requested SSP scenario with such an override is rejected rather than
+scaling the coefficient or reporting an unjustified DROP. Missing,
+nonpositive or nonfinite required factors also fail closed, including
+offline runs. Do not replace unavailable factors with unity, and do not
+treat screening as native TUFLOW loss-timing qualification (#319).
 
 ### ARF validity warnings and Ladson interpolation guidance
 

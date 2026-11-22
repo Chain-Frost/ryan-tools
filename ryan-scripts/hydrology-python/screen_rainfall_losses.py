@@ -27,6 +27,7 @@ LONGITUDE: float | None = None  # E.g. 119.2755
 SITE_NAME = "Rainfall screening"
 CATCHMENT_AREA_KM2 = 0.0  # Zero uses point rainfall/TP. Set actual area for areal analysis.
 IFD_BASELINE_YEAR = 2030  # ARR Data Hub: 1990 historical or 2030 current baseline.
+LOSS_REFERENCE_YEAR = 2030  # Default user losses to current Data Hub year; use 1990 for historical values.
 AEP_MODE = "common"  # "common" or "all"; AEP_SELECTION overrides either mode.
 COMMON_AEPS: list[str] = [
     "50%",
@@ -71,7 +72,7 @@ import argparse
 import csv
 import json
 import logging
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from decimal import Decimal, InvalidOperation
 from importlib import import_module
 from math import isfinite
@@ -82,6 +83,12 @@ from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 
+from ryan_library.functions.hydrology.arr_user_climate_losses import (
+    ArrFactorProvider,
+    ArrUserLossAdjustment,
+    native_omitted_preburst_adjustments,
+    user_loss_adjustments,
+)
 from ryan_library.functions.hydrology.rainfall_loss_screening import (
     LossSpec,
     PatternScreen,
@@ -261,6 +268,7 @@ def _arr_config(
     areal_tp_path: Path | None = None,
     climate_scenarios: Sequence[tuple[int, str]] = (),
     arf_override: float | None = None,
+    user_losses: LossSpec | None = None,
 ) -> Any:
     from pytuflow.arr.config import ArrConfig
 
@@ -297,6 +305,15 @@ def _arr_config(
             "areal_tp_csv": str(areal_tp_path) if areal_tp_path is not None else None,
         },
     }
+    if user_losses is not None:
+        if user_losses.continuing_loss_mm_per_hour is None:
+            message = "PyTUFLOW native user losses require IL/CL, not a runoff coefficient."
+            raise _error(message)
+        data["losses"] = {
+            "user_initial_loss": user_losses.initial_loss_mm,
+            "user_continuing_loss": user_losses.continuing_loss_mm_per_hour,
+            "climate_change_method": "storm",
+        }
     if json_path is not None:
         data["response_json"] = str(json_path)
     method_name: str = "from_dict"
@@ -801,6 +818,10 @@ def _print_report(
     source_decimal_places: int | None = None,
     arf_cautions: Mapping[tuple[str, int, str | None], tuple[str, ...]] | None = None,
     source_preburst_ratios: Mapping[tuple[str, int, str | None], float | None] | None = None,
+    loss_adjustments: Mapping[tuple[str, int, str | None], ArrUserLossAdjustment] | None = None,
+    native_user_loss: bool = False,
+    native_reconciled_keys: Collection[tuple[str, int, str | None]] = (),
+    source_kind: str = "unknown",
 ) -> None:
     """Compact decision report with source-adjusted depths and separated AEP groups."""
     _choice("VIEW", view, {"all", "zero", "keep"})
@@ -861,6 +882,25 @@ def _print_report(
             else "UNRESOLVED"
         )
         key = (event.aep, int(event.duration_min), event.scenario)
+        loss_audit = loss_adjustments.get(key) if loss_adjustments is not None else None
+        reconciled_native_pb = native_user_loss and key in native_reconciled_keys
+        if loss_audit is not None and native_user_loss:
+            mode = "PyTUFLOW omitted-PB correction" if reconciled_native_pb else "PyTUFLOW"
+            loss_label += (
+                f" [{mode} user {loss_audit.reference_year}; "
+                f"ILx{loss_audit.il_multiplier:.5g}; CLx{loss_audit.cl_multiplier:.5g}]"
+            )
+        loss_origin = (
+            "user_pytuflow_omitted_pb_reconciled"
+            if reconciled_native_pb
+            else "user_pytuflow_native"
+            if native_user_loss and loss_audit is not None
+            else "user_scenario_override"
+            if loss_audit is not None
+            else "arr_datahub"
+            if source_kind == "arr"
+            else source_kind
+        )
         caution_codes = arf_cautions.get(key, ()) if arf_cautions is not None else ()
         if source_preburst_ratios is not None:
             pb_ratio = source_preburst_ratios.get(key)
@@ -913,6 +953,31 @@ def _print_report(
                 *([str(event.unresolved_patterns)] if show_unknown else []),
                 "" if event.max_tp_total_excess_mm is None else f"{event.max_tp_total_excess_mm:.12g}",
                 "" if event.max_tp_bin_excess_mm is None else f"{event.max_tp_bin_excess_mm:.12g}",
+                loss_origin,
+                str(loss_audit.reference_year) if loss_audit is not None else "",
+                f"{loss_audit.base.initial_loss_mm:.12g}" if loss_audit is not None else "",
+                (
+                    f"{loss_audit.base.continuing_loss_mm_per_hour:.12g}"
+                    if loss_audit is not None and loss_audit.base.continuing_loss_mm_per_hour is not None
+                    else ""
+                ),
+                f"{loss_audit.il_multiplier:.12g}" if loss_audit is not None else "",
+                f"{loss_audit.cl_multiplier:.12g}" if loss_audit is not None else "",
+                f"{loss_audit.effective.initial_loss_mm:.12g}" if loss_audit is not None else "",
+                (
+                    f"{loss_audit.effective.continuing_loss_mm_per_hour:.12g}"
+                    if loss_audit is not None and loss_audit.effective.continuing_loss_mm_per_hour is not None
+                    else ""
+                ),
+                (
+                    "native_storm_omitted_pb_reconciled"
+                    if reconciled_native_pb
+                    else "pytuflow_native_storm"
+                    if native_user_loss
+                    else loss_audit.method
+                )
+                if loss_audit is not None
+                else "",
             ]
         )
     console = Console()
@@ -968,6 +1033,15 @@ def _print_report(
                     *(["unknown_tp"] if show_unknown else []),
                     "max_tp_total_excess_mm",
                     "max_tp_bin_excess_mm",
+                    "loss_source",
+                    "user_loss_reference_year",
+                    "user_base_il_mm",
+                    "user_base_cl_mm_per_hour",
+                    "user_il_multiplier",
+                    "user_cl_multiplier",
+                    "adjusted_user_il_mm",
+                    "adjusted_user_cl_mm_per_hour",
+                    "loss_adjustment_method",
                 ]
             )
             writer.writerows(csv_records)
@@ -1008,6 +1082,12 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--site", help="Site identifier.")
     parser.add_argument("--catchment-area", type=float, metavar="KM2")
     parser.add_argument("--baseline-year", type=int, choices=(1990, 2030))
+    parser.add_argument(
+        "--loss-reference-year",
+        type=int,
+        choices=(1990, 2030),
+        help="Reference year for user IL/CL (independent of the IFD baseline year).",
+    )
     parser.add_argument("--aep-mode", choices=("all", "common"))
     parser.add_argument("--aep", nargs="+", action="append", help="Exact AEP labels, e.g. 20%% 1%% '1 in 200'.")
     parser.add_argument("--duration", nargs="+", type=int, help="Selected durations in minutes.")
@@ -1096,6 +1176,10 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
             raise _error(message)
         site = args.site if args.site is not None else SITE_NAME
         baseline = args.baseline_year if args.baseline_year is not None else IFD_BASELINE_YEAR
+        loss_reference_year = args.loss_reference_year if args.loss_reference_year is not None else LOSS_REFERENCE_YEAR
+        if loss_reference_year not in {1990, 2030}:
+            message = "LOSS_REFERENCE_YEAR must be 1990 or 2030."
+            raise _error(message)
         storm_mode = args.storm_mode if args.storm_mode is not None else STORM_MODE
         percentile = args.preburst_percentile if args.preburst_percentile is not None else PREBURST_PERCENTILE
         _choice("STORM_MODE", storm_mode, {"complete", "main-burst-only"})
@@ -1123,6 +1207,9 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
             message = f"CSV_REPORT already exists; choose a new report path: {report_path}"
             raise _error(message)
         totals: dict[tuple[str, int, str | None], tuple[float, float, float, float | None, str]] = {}
+        report_loss_adjustments: dict[tuple[str, int, str | None], ArrUserLossAdjustment] = {}
+        native_user_losses: LossSpec | None = None
+        native_reconciled_keys: set[tuple[str, int, str | None]] = set()
         source_pb_ratios: dict[tuple[str, int, str | None], float | None] | None = None
         source_places: int | None = None
         provenance_latitude = latitude
@@ -1184,6 +1271,16 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
                     for value in cast("list[object]", row)
                 ]
                 source_places = _source_decimals(values)
+            native_user_losses = (
+                loss_default
+                if climate_scenarios
+                and storm_mode == "complete"
+                and loss_reference_year == 1990
+                and loss_default is not None
+                and loss_default.continuing_loss_mm_per_hour is not None
+                and not overrides
+                else None
+            )
             config = _arr_config(
                 latitude,
                 longitude,
@@ -1200,6 +1297,7 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
                 areal_tp_path=areal_path,
                 climate_scenarios=climate_scenarios,
                 arf_override=arf_override,
+                user_losses=native_user_losses,
             )
             Console().print(
                 f"ARR inputs: {'offline' if offline else 'hybrid/local' if response_path is not None else 'online'}; "
@@ -1245,10 +1343,28 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
             runner = cast("Callable[[], list[EventResult]]", getattr(engine, run_method))
             events: list[EventResult] = runner()
             source_pb_ratios = _arr_source_preburst_ratios(engine.response, events, percentile)
+            if loss_default is not None or overrides:
+                # PyTUFLOW 1.3.1 annotates this method as bare tuple; its API contract is a float pair.
+                factor_method: str = "climate_change_loss_factors"
+                report_loss_adjustments = user_loss_adjustments(
+                    events,
+                    default_losses=loss_default,
+                    losses_by_aep=overrides,
+                    reference_year=loss_reference_year,
+                    factor_provider=cast("ArrFactorProvider", getattr(engine.response, factor_method)),
+                    complete_storm=storm_mode == "complete",
+                )
+            if native_user_losses is not None:
+                # Only absent PB needs correction: native storm IL is retained with an actual PB.
+                scenario_adjustments = native_omitted_preburst_adjustments(events, report_loss_adjustments)
+                native_reconciled_keys = set(scenario_adjustments)
+            else:
+                scenario_adjustments = report_loss_adjustments if climate_scenarios else None
             bundle = assemble_arr_events(
                 events,
-                losses_by_aep=overrides,
-                default_losses=loss_default,
+                losses_by_aep={} if native_user_losses is not None else overrides,
+                default_losses=None if native_user_losses is not None else loss_default,
+                event_loss_adjustments=scenario_adjustments,
                 continuing_loss_timing=cast(Any, loss_timing),
                 complete_storm=storm_mode == "complete",
                 source_preburst_ratios=source_pb_ratios,
@@ -1401,6 +1517,10 @@ def main(args: argparse.Namespace | None = None) -> int:  # noqa: C901 - coordin
             source_decimal_places=source_places,
             arf_cautions=arf_cautions,
             source_preburst_ratios=source_pb_ratios,
+            loss_adjustments=report_loss_adjustments,
+            native_user_loss=native_user_losses is not None,
+            native_reconciled_keys=native_reconciled_keys,
+            source_kind=source,
         )
         _show_matrix(screens, enabled=show_matrix)
         _print_tp_details(screens, enabled=show_tp_details)

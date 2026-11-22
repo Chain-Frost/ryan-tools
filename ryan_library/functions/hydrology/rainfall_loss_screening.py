@@ -410,6 +410,7 @@ def screen_arr_events(
     runoff_coefficients_by_aep: Mapping[str, float] | None = None,
     losses_by_aep: Mapping[str, LossSpec | Mapping[int, LossSpec]] | None = None,
     default_losses: LossSpec | None = None,
+    losses_by_event: Mapping[tuple[str, int, str | None], LossSpec] | None = None,
     continuing_loss_timing: Literal["fractional", "full_increment"] = "fractional",
     complete_storm: bool = False,
     source_preburst_ratios: Mapping[tuple[str, int, str | None], float | None] | None = None,
@@ -427,8 +428,15 @@ def screen_arr_events(
         coeff = runoff_coefficients_by_aep.get(name) if runoff_coefficients_by_aep is not None else None
         selection = losses_by_aep.get(name) if losses_by_aep is not None else None
         selected_losses = selection.get(int(item.duration)) if isinstance(selection, Mapping) else selection
-        override = selected_losses if selected_losses is not None else default_losses
         scenario = str(item.cc_scenario) if item.cc_scenario is not None else None
+        event_key = (name, int(item.duration), scenario)
+        override = (
+            losses_by_event[event_key]
+            if losses_by_event is not None and event_key in losses_by_event
+            else selected_losses
+            if selected_losses is not None
+            else default_losses
+        )
         if override is not None and complete_storm and item.preburst is None:
             ratio = (
                 source_preburst_ratios.get((name, int(item.duration), scenario))
