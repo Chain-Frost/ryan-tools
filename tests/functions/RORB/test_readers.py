@@ -204,7 +204,7 @@ def test_hydrograph_site_binding_preserves_zero_padded_raw_columns(column: str) 
     binding = bind_output_site_columns(document)
     assert len(binding) == 1
     assert binding[0].site_id == "Hyd0001"
-    assert binding[0].site_id_token == "01"
+    assert binding[0].site_id_token == "01"  # noqa: S105 -- source site identifier, not a secret
     assert binding[0].column == column
     assert binding[0].physical_name == "Outlet"
     assert binding[0].description == "Calculated hydrograph, Outlet"
@@ -214,7 +214,9 @@ def test_hydrograph_site_binding_preserves_zero_padded_raw_columns(column: str) 
 
 @pytest.mark.parametrize("legend_id", ["1", "01", "001", "0001"])
 def test_hydrograph_binding_preserves_original_site_legend_padding(legend_id: str) -> None:
-    raw = output_text().replace("01 Calculated hydrograph, Outlet", f"{legend_id} Calculated hydrograph, Outlet").encode()
+    raw = (
+        output_text().replace("01 Calculated hydrograph, Outlet", f"{legend_id} Calculated hydrograph, Outlet").encode()
+    )
     document = read_rorb_bytes(raw)
     assert document.status == "partial"
     assert document.section("sites").rows[0]["id_token"] == legend_id
