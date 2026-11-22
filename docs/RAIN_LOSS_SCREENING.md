@@ -99,8 +99,12 @@ for the ARR 2026 recommended climate-change dataset.
 For ARR events, configure the climate scenarios near the baseline-year inputs,
 e.g. `CLIMATE_SCENARIOS = ["2050:SSP2"]`, or pass `--cc 2050:SSP2`.
 Baseline is always included. **User loss reference year** is a separate input:
-`LOSS_REFERENCE_YEAR = 1990` or `--loss-reference-year 2030`. This does
-**not** change the IFD rainfall baseline `IFD_BASELINE_YEAR`.
+`LOSS_REFERENCE_YEAR = 2030` (the default) or
+`--loss-reference-year 1990` for historical 1961–1990 values. This does
+**not** change the IFD rainfall baseline `IFD_BASELINE_YEAR`. The ARR
+Data Hub 2026 update reports current (2030) storm losses scaled from its
+historical loss baseline; using those current values with a historical
+loss reference would over-adjust future SSP losses.
 
 The Data Hub's `ClimateChange.loss_factors` tables provide independent
 initial-loss and continuing-loss multipliers. A historical 1961–1990 user
