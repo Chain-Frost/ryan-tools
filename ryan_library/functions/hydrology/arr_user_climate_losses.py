@@ -45,6 +45,32 @@ def _factor_pair(provider: ArrFactorProvider, year: int, ssp: str) -> tuple[floa
     return result
 
 
+def _scenario_multipliers(
+    scenario: str | None,
+    reference_year: int,
+    provider: ArrFactorProvider,
+    cache: dict[tuple[int, str], tuple[float, float]],
+) -> tuple[float, float]:
+    if scenario is None:
+        return 1.0, 1.0
+    match = re.fullmatch(r"(\\d{4})_(SSP[1235])", scenario)
+    if match is None:
+        msg = f"Unsupported ARR climate scenario label {scenario!r}; cannot adjust user losses."
+        raise ValueError(msg)
+    year, ssp = int(match[1]), match[2]
+    for source_year in (year, *((2030,) if reference_year == 2030 else ())):
+        key = source_year, ssp
+        if key not in cache:
+            cache[key] = _factor_pair(provider, source_year, ssp)
+    numerator = cache[year, ssp]
+    denominator = cache[2030, ssp] if reference_year == 2030 else (1.0, 1.0)
+    adjusted = numerator[0] / denominator[0], numerator[1] / denominator[1]
+    if not all(isfinite(value) and value > 0 for value in adjusted):
+        msg = f"Invalid relative climate loss factors for {scenario} referenced to {reference_year}."
+        raise ValueError(msg)
+    return adjusted
+
+
 def user_loss_adjustments(
     events: Iterable[object],
     *,
@@ -79,29 +105,15 @@ def user_loss_adjustments(
         base = base if base is not None else default_losses
         if base is None:
             continue
-        il_multiplier = cl_multiplier = 1.0
-        if scenario is not None:
-            match = re.fullmatch(r"(\d{4})_(SSP[1235])", scenario)
-            if match is None:
-                msg = f"Unsupported ARR climate scenario label {scenario!r}; cannot adjust user losses."
-                raise ValueError(msg)
-            year, ssp = int(match[1]), match[2]
-            if base.runoff_coefficient is not None:
-                msg = (
-                    f"Climate scenario {scenario}: user IL + runoff coefficient has no validated "
-                    "climate-adjusted runoff-coefficient interpretation; refusing a potentially false DROP."
-                )
-                raise ValueError(msg)
-            for source_year in (year, *((2030,) if reference_year == 2030 else ())):
-                key = (source_year, ssp)
-                if key not in factor_cache:
-                    factor_cache[key] = _factor_pair(factor_provider, source_year, ssp)
-            numerator = factor_cache[year, ssp]
-            denominator = factor_cache[2030, ssp] if reference_year == 2030 else (1.0, 1.0)
-            il_multiplier, cl_multiplier = numerator[0] / denominator[0], numerator[1] / denominator[1]
-            if not all(isfinite(value) and value > 0 for value in (il_multiplier, cl_multiplier)):
-                msg = f"Invalid relative climate loss factors for {scenario} referenced to {reference_year}."
-                raise ValueError(msg)
+        if scenario is not None and base.runoff_coefficient is not None:
+            msg = (
+                f"Climate scenario {scenario}: user IL + runoff coefficient has no validated "
+                "climate-adjusted runoff-coefficient interpretation; refusing a potentially false DROP."
+            )
+            raise ValueError(msg)
+        il_multiplier, cl_multiplier = _scenario_multipliers(
+            scenario, reference_year, factor_provider, factor_cache
+        )
         effective = LossSpec(
             initial_loss_mm=base.initial_loss_mm * il_multiplier,
             continuing_loss_mm_per_hour=(
