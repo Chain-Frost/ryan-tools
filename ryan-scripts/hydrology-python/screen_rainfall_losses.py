@@ -27,7 +27,7 @@ LONGITUDE: float | None = None  # E.g. 119.2755
 SITE_NAME = "Rainfall screening"
 CATCHMENT_AREA_KM2 = 0.0  # Zero uses point rainfall/TP. Set actual area for areal analysis.
 IFD_BASELINE_YEAR = 2030  # ARR Data Hub: 1990 historical or 2030 current baseline.
-LOSS_REFERENCE_YEAR = 1990  # Year of USER-supplied loss values: 1990 historical or 2030 current.
+LOSS_REFERENCE_YEAR = 2030  # Default user losses to current Data Hub year; use 1990 for historical values.
 AEP_MODE = "common"  # "common" or "all"; AEP_SELECTION overrides either mode.
 COMMON_AEPS: list[str] = [
     "50%",
