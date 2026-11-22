@@ -136,7 +136,10 @@ class POProcessor(BaseProcessor):
             return
 
         self.processed = True
-        logger.info(f"Completed processing of PO file: {self.log_path}")
+        if self.input_health in {"INVALID", "IO_FAILURE", "INCOMPLETE"}:
+            logger.error("{}: PO input completed parsing but failed data validation.", self.log_path)
+        else:
+            logger.info("Completed processing of PO file: {}", self.log_path)
 
     def _parse_point_output(self, raw_df: pd.DataFrame) -> pd.DataFrame:
         """Convert the raw PO CSV structure into a long-form DataFrame."""

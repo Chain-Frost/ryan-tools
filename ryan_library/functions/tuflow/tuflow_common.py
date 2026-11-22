@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import multiprocessing.pool as multiprocessing_pool
 from collections.abc import Collection, Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from multiprocessing import Pool
 from pathlib import Path
 from typing import cast
@@ -38,11 +38,13 @@ class FileBatchProgress:
     succeeded: int = 0
     skipped: int = 0
     failed: int = 0
+    failed_inputs: list[tuple[Path, str]] = field(default_factory=lambda: cast("list[tuple[Path, str]]", []))
 
     def reset(self, scheduled: int) -> None:
         """Reset after an infrastructure retry, avoiding duplicate completions."""
         self.scheduled = scheduled
         self.succeeded = self.skipped = self.failed = 0
+        self.failed_inputs.clear()
 
     def observe(self, status: WorkflowStatus) -> None:
         """Record one terminal outcome, without changing result selection."""
@@ -62,10 +64,10 @@ def _result_status(processor: BaseProcessor | None) -> WorkflowStatus:
     """Classify only; adding processors retains the existing collection rules."""
     if processor is None:
         return "FAIL"
-    if processor.df.empty and getattr(processor, "filtered_empty", False):
-        return "SKIP"
     if getattr(processor, "input_health", "OK") in {"INVALID", "IO_FAILURE", "INCOMPLETE"}:
         return "FAIL"
+    if processor.df.empty and getattr(processor, "filtered_empty", False):
+        return "SKIP"
     if not processor.processed:
         return "FAIL"
     if processor.df.empty:
@@ -89,11 +91,32 @@ def _dashboard_status(processor: BaseProcessor | None) -> WorkflowStatus:
     return _result_status(processor)
 
 
+def _failure_reason(processor: BaseProcessor | None, error: BaseException | None = None) -> str:
+    """Provide failure details without rereading the input."""
+    if error is not None:
+        return f"{type(error).__name__}: {error}"
+    if processor is None:
+        return "processor returned no usable result (see earlier parser diagnostics)"
+    health = getattr(processor, "input_health", "OK")
+    if health in {"INVALID", "IO_FAILURE", "INCOMPLETE"}:
+        raw_rejected: object = getattr(processor, "rejection_reasons", None)
+        if isinstance(raw_rejected, dict) and raw_rejected:
+            rejected = cast("dict[str, int]", raw_rejected)
+            counts = ", ".join(f"{reason}={count}" for reason, count in sorted(rejected.items()))
+            return f"{health} ({counts})"
+        return f"{health} input"
+    if not processor.processed:
+        return "processing did not complete"
+    return "no usable result"
+
+
 def _dashboard_detail(processor: BaseProcessor | None) -> str:
     status = _result_status(processor)
     if status == "SKIP" and processor is not None and getattr(processor, "filtered_empty", False):
         return "no matching locations"
-    return {"OK": "processed", "SKIP": "empty result", "FAIL": "processing failed"}[status]
+    if status == "FAIL":
+        return _failure_reason(processor)
+    return {"OK": "processed", "SKIP": "empty result"}[status]
 
 
 def _record_file_outcome(
@@ -101,7 +124,14 @@ def _record_file_outcome(
     status: WorkflowStatus,
     progress: FileBatchProgress | None,
     dashboard: LiveWorkflowDashboard | None,
+    file_path: Path | None = None,
+    failure_reason: str = "",
 ) -> None:
+    if status == "FAIL" and file_path is not None:
+        reason = failure_reason or "processing failed"
+        logger.error("TUFLOW input failed: {} ({})", file_path, reason)
+        if progress is not None:
+            progress.failed_inputs.append((file_path, reason))
     if progress is not None:
         progress.observe(status)
         if dashboard is not None:
@@ -112,6 +142,18 @@ def _record_file_outcome(
                     )
                 ]
             )
+
+
+def log_failed_inputs(*, progress: FileBatchProgress, context: str) -> None:
+    """Print full source paths before refusing an incomplete report."""
+    for file_path, reason in progress.failed_inputs:
+        logger.error("{}: failed input {} ({})", context, file_path, reason)
+    unattributed = progress.failed - len(progress.failed_inputs)
+    if unattributed > 0:
+        logger.error("{}: {} failed input(s) without a path; inspect worker logs.", context, unattributed)
+    missing = progress.scheduled - progress.completed
+    if missing > 0:
+        logger.error("{}: {} input(s) returned no outcome; report not exported.", context, missing)
 
 
 def collect_files(
@@ -302,7 +344,15 @@ def process_files_in_parallel(
             requests = [(path, entity_filters, include_path_columns) for path in file_list]
 
             def on_outcome(outcome: WorkflowItemOutcome[BaseProcessor | None]) -> None:
-                _record_file_outcome(status=outcome.status, progress=progress, dashboard=dashboard)
+                processor = outcome.result if outcome.has_result else None
+                reason = _failure_reason(processor, outcome.error) if outcome.status == "FAIL" else ""
+                _record_file_outcome(
+                    status=outcome.status,
+                    progress=progress,
+                    dashboard=dashboard,
+                    file_path=file_list[outcome.index - 1],
+                    failure_reason=reason,
+                )
 
             report = run_dashboard_workflow_report(
                 items=requests,
@@ -326,9 +376,16 @@ def process_files_in_parallel(
                 (file_path, entity_filters, include_path_columns) for file_path in file_list
             ]
             coll = ProcessorCollection()
-            for proc in pool.starmap(func=process_file, iterable=task_args):
+            for file_path, proc in zip(file_list, pool.starmap(func=process_file, iterable=task_args), strict=True):
                 if progress is not None:
-                    _record_file_outcome(status=_result_status(proc), progress=progress, dashboard=None)
+                    status = _result_status(proc)
+                    _record_file_outcome(
+                        status=status,
+                        progress=progress,
+                        dashboard=None,
+                        file_path=file_path,
+                        failure_reason=_failure_reason(proc) if status == "FAIL" else "",
+                    )
                 if proc and proc.processed:
                     coll.add_processor(processor=proc)
             return coll
@@ -345,7 +402,7 @@ def process_files_in_parallel(
         progress.reset(scheduled=len(file_list))
     if dashboard is not None:
         dashboard.set_phase("Processing (serial fallback)")
-        dashboard.set_tasks(labels=[path.name for path in file_list])
+        dashboard.set_tasks(labels=[path.name for path in file_list], files=file_list)
         dashboard.set_metrics([WorkflowMetric(label="Files finished", value=0, total=len(file_list), unit="files")])
     return _process_files_serially(
         file_list=file_list,
@@ -377,7 +434,13 @@ def _process_files_serially(
             include_path_columns=include_path_columns,
         )
         status = _result_status(proc)
-        _record_file_outcome(status=status, progress=batch_progress, dashboard=dashboard)
+        _record_file_outcome(
+            status=status,
+            progress=batch_progress,
+            dashboard=dashboard,
+            file_path=file_path,
+            failure_reason=_failure_reason(proc) if status == "FAIL" else "",
+        )
         if dashboard is not None:
             dashboard.mark_finished(index=index, status=status, detail=_dashboard_detail(proc))
         if proc and proc.processed:

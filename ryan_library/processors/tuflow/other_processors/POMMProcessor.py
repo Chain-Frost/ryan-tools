@@ -85,6 +85,12 @@ class POMMProcessor(BaseProcessor):
             self._classify_selected_extrema()
         return selected
 
+    def _log_processing_result(self) -> None:
+        if self.input_health in {"INVALID", "IO_FAILURE", "INCOMPLETE"}:
+            logger.error("{}: POMM input completed parsing but failed data validation.", self.log_path)
+        else:
+            logger.info("{}: POMM processed successfully.", self.log_path)
+
     def process(self) -> None:
         """Read the raw POMM CSV, transpose + promote row 1 to header,
         rename the key columns, calculate AbsMax and SignedAbsMax,
@@ -184,7 +190,7 @@ class POMMProcessor(BaseProcessor):
                 return
             # Mark success
             self.processed = True
-            logger.info(f"{self.log_path}: POMM processed successfully.")
+            self._log_processing_result()
 
         except Exception:
             logger.exception(f"{self.log_path}: Failed in POMMProcessor.process()")

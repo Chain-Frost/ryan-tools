@@ -641,6 +641,22 @@ without claiming a completed report. Existing output collisions remain protected
 by the shared exporter. Headless use adds `--no-pause`; do not confuse console
 pausing with live-render enablement.
 
+## PO/POMM failed-input reporting and cache safety
+
+PO and POMM combinations refuse export when any discovered input fails or its
+processing outcome is missing. The shared worker pipeline logs every failed CSV
+with its full source path and available input-health/rejection reason; one-task
+closure-duration and POMM mean/median reports print a full-path failure
+summary before returning failure. Successfully filtered-out files remain skips.
+The combination dashboard keeps names and details to a single ellipsized line
+with source sizes (including serial fallback), without hiding the complete
+diagnostics in the console.
+
+The project-specific [plot_po_scenario_timeseries.py](po_and_timeseries/plot_po_scenario_timeseries.py) uses the editable
+`CONSOLE_LOG_LEVEL` (default `INFO`) and refuses to publish a partial
+Parquet cache after any CSV processing error. It prints the failed paths.
+Its cache manifest continues to cover the complete source inventory.
+
 ## POMM peak and closure-duration dashboards
 
 [create_pomm_mean_peak_report.py](po_and_timeseries/create_pomm_mean_peak_report.py),
