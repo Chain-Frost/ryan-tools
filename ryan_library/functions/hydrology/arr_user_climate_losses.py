@@ -53,7 +53,7 @@ def _scenario_multipliers(
 ) -> tuple[float, float]:
     if scenario is None:
         return 1.0, 1.0
-    match = re.fullmatch(r"(\\d{4})_(SSP[1235])", scenario)
+    match = re.fullmatch(r"(\d{4})_(SSP[1235])", scenario)
     if match is None:
         msg = f"Unsupported ARR climate scenario label {scenario!r}; cannot adjust user losses."
         raise ValueError(msg)
