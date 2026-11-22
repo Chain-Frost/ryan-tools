@@ -130,7 +130,8 @@ def test_missing_2030_denominator_and_unknown_scenario_fail_closed() -> None:
 
 
 def _missing() -> tuple[float, float]:
-    raise ValueError("2030 reference missing")
+    message = "2030 reference missing"
+    raise ValueError(message)
 
 
 def test_runoff_coefficient_climate_case_fails_without_inventing_scaling() -> None:
