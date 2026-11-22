@@ -46,8 +46,12 @@ GitHub source-archive installed-wheel check remains an independent gate.
 `bind_output_site_columns(document)` in `ryan_library.functions.RORB.output_reader`
 binds the validated standard report's `Site Description` to **exact source**
 `HydNNN` hydrograph table column spellings. `Hyd001` and `Hyd0001` have the
-same ordinal, but source IDs/tokens, physical names and line numbers remain
-unaltered. Matching never uses the site or column position.
+same ordinal. The `site_id` property is the **canonical**, zero-padded ID
+(e.g. `Hyd0001`), not the raw site-legend text. The new `site_id_token`
+property holds the exact numeric identifier printed in `Site Description`
+(e.g. `01` or `0001`); `column` retains the exact printed Hyd label.
+Physical names and line numbers are preserved. Matching never uses the site
+or column position.
 
 Invalid/missing sites, duplicated physical names, missing columns, and
 alternate-padding duplicate ordinals fail closed with `ValueError`. Unnamed
