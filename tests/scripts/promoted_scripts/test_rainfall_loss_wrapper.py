@@ -922,11 +922,13 @@ def test_report_csv_retains_user_loss_reference_and_scenario_factors(tmp_path: P
 
 def test_loss_reference_year_cli_is_independent_of_ifd_baseline(monkeypatch: pytest.MonkeyPatch) -> None:
     m = _wrapper()
+    assert m.LOSS_REFERENCE_YEAR == 2030
+    assert m.IFD_BASELINE_YEAR == 2030
     monkeypatch.setattr(
         sys,
         "argv",
-        [str(SCRIPT), "--baseline-year", "1990", "--loss-reference-year", "2030"],
+        [str(SCRIPT), "--baseline-year", "2030", "--loss-reference-year", "1990"],
     )
     args = m._arguments()
-    assert args.baseline_year == 1990
-    assert args.loss_reference_year == 2030
+    assert args.baseline_year == 2030
+    assert args.loss_reference_year == 1990
