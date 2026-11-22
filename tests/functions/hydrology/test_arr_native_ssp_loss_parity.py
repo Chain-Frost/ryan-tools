@@ -115,7 +115,12 @@ def test_pinned_native_arr_engine_ssp_loss_parity_and_pb_safety(preburst_ratio: 
     config_module = pytest.importorskip("pytuflow.arr.config")
     cfg = config_module.ArrConfig.from_dict(
         {
-            "site": {"name": "synthetic native parity", "latitude": -27.389, "longitude": 152.858, "catchment_area": 0.0},
+            "site": {
+                "name": "synthetic native parity",
+                "latitude": -27.389,
+                "longitude": 152.858,
+                "catchment_area": 0.0,
+            },
             "ifd": {"baseline_year": 1990},
             "events": {"aep": ["1%"], "duration": [60], "output_notation": "aep"},
             "complete_storm": True,
