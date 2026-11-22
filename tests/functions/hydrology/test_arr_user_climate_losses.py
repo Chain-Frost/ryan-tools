@@ -7,7 +7,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from ryan_library.functions.hydrology.arr_user_climate_losses import user_loss_adjustments
+from ryan_library.functions.hydrology.arr_user_climate_losses import (
+    native_omitted_preburst_adjustments,
+    user_loss_adjustments,
+)
 from ryan_library.functions.hydrology.rainfall_loss_screening import LossSpec, ScreeningStatus
 from ryan_library.orchestrators.hydrology.rainfall_loss_workflow import assemble_arr_events
 
@@ -189,3 +192,61 @@ def test_scenario_user_losses_reach_screening_without_mutating_native_event() ->
     assert "ILx0.5" in result.rainfall["1%", 60, "2050_SSP2"][-1]
     assert result.loss_adjustments["1%", 60, "2050_SSP2"].effective.initial_loss_mm == 15
     assert events[1].initial_loss == 99.0
+
+
+def test_native_omitted_preburst_cc_correction_prevents_false_zero_excess() -> None:
+    """Native (baseline burst IL * factor) can exceed corrected CC storm IL - CC PB."""
+    event = _event("2050_SSP2", rain=120.0)
+    event.depth_areal = 79.5
+    event.initial_loss = 79.6  # PyTUFLOW omitted PB: (100 - 100 * 0.005) * 0.8.
+    event.continuing_loss = 0.0
+    key = ("1%", 60, "2050_SSP2")
+    ratios: dict[tuple[str, int, str | None], float | None] = {key: 0.005}
+
+    native = assemble_arr_events(
+        [event],
+        default_losses=None,
+        losses_by_aep={},
+        continuing_loss_timing="full_increment",
+        complete_storm=True,
+        source_preburst_ratios=ratios,
+    )
+    assert native.patterns[0].status == ScreeningStatus.ZERO
+
+    audits = user_loss_adjustments(
+        [event],
+        default_losses=LossSpec(100, continuing_loss_mm_per_hour=0),
+        losses_by_aep={},
+        reference_year=1990,
+        factor_provider=lambda _year, _ssp: (0.8, 1),
+        complete_storm=True,
+    )
+    omitted = native_omitted_preburst_adjustments([event], audits)
+    assert set(omitted) == {key}
+    result = assemble_arr_events(
+        [event],
+        default_losses=None,
+        losses_by_aep={},
+        event_loss_adjustments=omitted,
+        continuing_loss_timing="full_increment",
+        complete_storm=True,
+        source_preburst_ratios=ratios,
+    )
+    assert result.patterns[0].status == ScreeningStatus.POSITIVE
+    assert result.patterns[0].excess_mm == pytest.approx(0.1)
+    assert result.loss_adjustments[key].effective.initial_loss_mm == pytest.approx(80)
+    assert event.initial_loss == pytest.approx(79.6)
+
+
+def test_native_keeps_preburst_events_out_of_manual_reconciliation() -> None:
+    event = _event("2050_SSP2")
+    event.preburst = SimpleNamespace(depth=5.0, timestep=60, increments=[100], per_tp_increments=None)
+    audits = user_loss_adjustments(
+        [event],
+        default_losses=LossSpec(50.0, continuing_loss_mm_per_hour=2),
+        losses_by_aep={},
+        reference_year=1990,
+        factor_provider=lambda _year, _ssp: (0.8, 1.2),
+        complete_storm=True,
+    )
+    assert native_omitted_preburst_adjustments([event], audits) == {}
