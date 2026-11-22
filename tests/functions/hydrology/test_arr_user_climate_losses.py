@@ -250,3 +250,34 @@ def test_native_keeps_preburst_events_out_of_manual_reconciliation() -> None:
         complete_storm=True,
     )
     assert native_omitted_preburst_adjustments([event], audits) == {}
+
+
+@pytest.mark.parametrize("scenario", [None, "2050_SSP2"])
+def test_manual_burst_il_rejects_engine_auto_complete_storm(scenario: str | None) -> None:
+    """Never reinterpret an already preburst-reduced user burst IL as a storm IL."""
+    event = _event(scenario)
+    event.preburst = SimpleNamespace(depth=9.0, timestep=60, increments=[100], per_tp_increments=None)
+    with pytest.raises(ValueError, match="burst IL cannot be applied as full-storm IL"):
+        user_loss_adjustments(
+            [event],
+            default_losses=LossSpec(20.0, continuing_loss_mm_per_hour=5.0),
+            losses_by_aep={},
+            reference_year=2030,
+            factor_provider=lambda _year, _ssp: (1.05, 1.1),
+            complete_storm=False,
+        )
+
+
+def test_auto_complete_storm_does_not_reject_datahub_selected_losses() -> None:
+    """Unmodified Data Hub results remain the PyTUFLOW engine's responsibility."""
+    event = _event("2050_SSP2")
+    event.preburst = SimpleNamespace(depth=9.0, timestep=60, increments=[100], per_tp_increments=None)
+    selected = user_loss_adjustments(
+        [event],
+        default_losses=None,
+        losses_by_aep={},
+        reference_year=2030,
+        factor_provider=lambda _year, _ssp: (1.05, 1.1),
+        complete_storm=False,
+    )
+    assert selected == {}
