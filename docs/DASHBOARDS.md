@@ -151,8 +151,16 @@ The default `worker_log_level=None` captures the lowest sink level (including
 DEBUG when a DEBUG file sink is configured). An explicit worker override which
 would drop a configured sink's records is rejected. Workers keep severity,
 location and exception tracebacks; warning/error records remain visible
-through the listener, during or after a live display. Do not replay all
-completed-file INFO records after the dashboard closes.
+through the listener, during or after a live display. With an explicitly
+selected INFO console level, the TUFLOW log summary keeps printing each
+completed-file line above the dashboard. Its console format drops source
+locations without affecting source-rich file logs. For an interactive
+dashboard, the listener routes console messages back to the parent through
+`console_in_parent=True`, so Rich clears/redraws around them instead of
+receiving competing writes from a separate process. Logs are drained before
+Rich exits. `clear_before_exit=True` blanks the final transient frame;
+other workflows retain their existing logging and display defaults. Do not
+replay completed-file INFO records after the dashboard closes.
 
 The parent is responsible for closing the dashboard and logging context, and
 for displaying one truthful final status. Run ordinary reporting through all
