@@ -5,6 +5,6 @@ openpyxl
 psutil
 rich
 colorama
-run-hy8>=2026.10.16.1
-ryan-culverts>=26.10.16.1
+run-hy8>=2026.11.24.1
+ryan-culverts>=26.11.24.1
 mcp[cli]>=2.1,<3
