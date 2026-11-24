@@ -33,6 +33,8 @@ are removed alongside their `.gitmodules` entries; do not reintroduce them or lo
 ## Coding conventions
 
 - Support Python 3.11–3.14 using Python 3.11-compatible syntax; prefer Python 3.14 for development.
+  Ordinary PR CI uses Python 3.11 only. Main-push CI uses Python 3.11 and 3.14 before release.
+  Python 3.12 and 3.13 remain supported but are not routine CI lanes. Manual compatibility matrices retain endpoint coverage.
 - Within `ryan_library`, prefer explicit relative imports for intra-package dependencies. Wrappers and other code outside
   the package should import `ryan_library` absolutely; import vendored packages through their public package paths.
 - Format Python with `ruff format` using the 120-character line length configured in `ruff.toml`.
