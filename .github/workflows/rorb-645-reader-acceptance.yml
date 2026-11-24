@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.13", "3.14"]
+        python-version: ${{ fromJSON(github.event_name == 'pull_request' && '["3.11"]' || '["3.11","3.14"]') }}
     steps:
       - name: Checkout candidate reader source (no submodules)
         uses: actions/checkout@v6
