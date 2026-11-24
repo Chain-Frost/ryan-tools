@@ -226,3 +226,5 @@ main README links and paths and verifies that every tracked Markdown document is
 
 - [PyTuflow PR #17 1.3.1 dependency refresh](work/2026-11-15-pytuflow-pr17-131.md)
 - [PyTuflow 1.3.1 vendored artifact](../repo-scripts/wheels/pytuflow/0121101650fd8e931af8d09cadb23bd43f6fefbd/README.md)
+
+- [Python 3.11–3.14 compatibility migration](work/2026-11-24-python311-compatibility.md) — current cross-repository delivery and validation.

@@ -11,7 +11,7 @@ import tempfile
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, cast
+from typing import Literal, TypeAlias, cast
 
 import geopandas as gpd
 import matplotlib.pyplot as plt
@@ -37,9 +37,9 @@ from ryan_library.functions.gdal.profiling import (
 )
 from ryan_library.functions.path_stuff import sanitize_windows_filename
 
-type DryAreaHandling = Literal["no_plot", "ground_level"]
-type DisconnectedLineHandling = Literal["error", "separate"]
-type FloatArray = NDArray[np.float64]
+DryAreaHandling: TypeAlias = Literal["no_plot", "ground_level"]
+DisconnectedLineHandling: TypeAlias = Literal["error", "separate"]
+FloatArray: TypeAlias = NDArray[np.float64]
 
 
 _AEP_ARI_PATTERN: re.Pattern[str] = re.compile(

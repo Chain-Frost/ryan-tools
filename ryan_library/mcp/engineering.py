@@ -10,9 +10,9 @@ import shutil
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Literal, TypeAlias
 
-type ProbeStatus = Literal["path_found_unverified", "not_found"]
+ProbeStatus: TypeAlias = Literal["path_found_unverified", "not_found"]
 
 
 @dataclass(frozen=True, slots=True)

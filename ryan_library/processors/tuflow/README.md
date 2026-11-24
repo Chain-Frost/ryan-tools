@@ -191,9 +191,7 @@ from ryan_library.processors.tuflow.processor_collection import ProcessorCollect
 dataset = Path("processed_tuflow.parquetdir")
 collection.to_parquet(dataset)  # No-clobber by default.
 restored = ProcessorCollection.from_parquet(dataset)
-selected = ProcessorCollection.from_parquet(
-    dataset, data_types=["PO", "POMM"], locations=["Culvert_01"]
-)
+selected = ProcessorCollection.from_parquet(dataset, data_types=["PO", "POMM"], locations=["Culvert_01"])
 ```
 
 A fresh directory contains **manifest.json**, `processors/000000.parquet`,

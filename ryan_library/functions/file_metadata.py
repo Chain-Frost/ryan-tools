@@ -6,8 +6,9 @@ from collections.abc import Sequence
 from pathlib import Path
 from queue import Empty, Full, Queue
 from threading import Event, Thread
+from typing import TypeAlias
 
-type TaskFiles = Path | Sequence[Path] | None
+TaskFiles: TypeAlias = Path | Sequence[Path] | None
 
 
 class FileSizeProbe:

@@ -45,7 +45,7 @@ def gps_position(path: Path) -> tuple[float, float] | None:
         longitude_values = gps[4]
         latitude_ref = str(gps[1]).upper()
         longitude_ref = str(gps[3]).upper()
-    except KeyError, TypeError:
+    except (KeyError, TypeError):
         return None
 
     latitude = sum(float(value) / (60**index) for index, value in enumerate(latitude_values))
@@ -180,7 +180,7 @@ def main() -> int:
 
         jobs.append((photo, output, relative, args.quality))
 
-    worker_count = args.workers if args.workers is not None else (os.process_cpu_count() or 1)
+    worker_count = args.workers if args.workers is not None else (getattr(os, "process_cpu_count", os.cpu_count)() or 1)
     if jobs:
         print(f"Processing {len(jobs)} photos with {worker_count} worker processes...")
         with ProcessPoolExecutor(max_workers=worker_count, initializer=initialize_worker) as executor:

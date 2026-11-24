@@ -5,10 +5,10 @@ import re
 from dataclasses import dataclass, field
 from decimal import Decimal
 from pathlib import Path
-from typing import Literal
+from typing import Literal, TypeAlias
 
-type Value = str | int | float | bool | None
-type Record = dict[str, Value]
+Value: TypeAlias = str | int | float | bool | None
+Record: TypeAlias = dict[str, Value]
 NUMBER = re.compile(r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[EeDd][-+]?\d+)?")
 
 

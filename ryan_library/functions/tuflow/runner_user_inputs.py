@@ -12,10 +12,12 @@ import re
 from collections.abc import Sequence
 from enum import StrEnum
 from pathlib import Path
-from typing import cast
+from typing import TypeVar, cast
+
+_CHOICE_T = TypeVar("_CHOICE_T", bound=StrEnum)
 
 
-def choice[T: StrEnum](name: str, value: object, options: type[T]) -> T:
+def choice(name: str, value: object, options: type[_CHOICE_T]) -> _CHOICE_T:
     """Accept short enum members or the equivalent raw string, case-insensitively."""
     if isinstance(value, options):
         return value

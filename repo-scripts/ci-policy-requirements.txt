@@ -1,3 +1,4 @@
+-c ci-typing-constraints.txt
 # Install from the repository root after the Windows binary GIS bootstrap.
 # Strict checking of arbitrary changed modules still needs the full runtime
 # import environment and the repository's canonical development/MCP extras.

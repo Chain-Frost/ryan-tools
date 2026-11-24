@@ -7,12 +7,16 @@ selections remain editable without changing library workflow code.
 
 import argparse
 from pathlib import Path
+from typing import TypeVar
 
 from rasterio.crs import CRS
 
 from .catchment_workflow import CatchmentConfig, build_catchments
 from .project_setup import TuflowProjectConfig, initialize_tuflow_project
 from .workflow import BuildConfig, build
+
+_CONFIGURED_T = TypeVar("_CONFIGURED_T")
+_REQUIRED_VALUE_T = TypeVar("_REQUIRED_VALUE_T")
 
 # Editable process-level settings. Keep incomplete paths unset until configured.
 OUTPUT_PATH: Path | None = None
@@ -48,12 +52,12 @@ SNAP_DISTANCE_M = 0.0
 ALLOW_PARTIAL = False
 
 
-def _configured[T](cli_value: T | None, editable_value: T) -> T:
+def _configured(cli_value: _CONFIGURED_T | None, editable_value: _CONFIGURED_T) -> _CONFIGURED_T:
     """Return an explicit CLI override or the editable entry-point setting."""
     return editable_value if cli_value is None else cli_value
 
 
-def _required_value[T](value: T | None, option: str) -> T:
+def _required_value(value: _REQUIRED_VALUE_T | None, option: str) -> _REQUIRED_VALUE_T:
     """Narrow required editable/CLI values after argparse processing."""
     if value is None:
         msg = f"Missing required initialiser option: {option}"

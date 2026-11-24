@@ -140,7 +140,7 @@ class PolygonClipper:
         from shapely.geometry import Point  # imported lazily to avoid overhead
 
         for i in idx:
-            pt = Point(xs[i], ys[i])
+            pt = Point(cast("float", xs[i]), cast("float", ys[i]))
             mask[i] = self.prepared.contains(pt) or self.prepared.touches(pt)
         return mask
 

@@ -1,6 +1,6 @@
 # Development and execution environments
 
-`ryan-tools` officially supports Python 3.14 or newer in the user's normal Python installation. Python 3.14 is the developer/CI baseline. The batch installers bypass pip's `Requires-Python` metadata for an explicitly selected older Python 3 interpreter, but compatibility is not guaranteed. Users are not expected to create, understand
+`ryan-tools` officially supports Python 3.11–3.14 in the user's normal Python installation. Python 3.14 is the developer/CI baseline. Python 3.14 remains preferred for development; installers enforce dependency Python metadata. Users are not expected to create, understand
 or activate a virtual environment. Wrappers copied into project folders use the same installed `ryan-tools` package.
 
 Some QGIS, OSGeo4W and GDAL workflows use their application's Python or command environment instead. An operation working
@@ -56,7 +56,7 @@ For an end user, double-click [install-from-pypi.bat](../install-from-pypi.bat)
 This installs the current published `ryan-tools[mcp]` package from PyPI,
 the upstream QGIS MCP Python bridge and the [verified, local PyTuflow wheel](../repo-scripts/pytuflow-requirement.txt),
 built from exact contributor commit `0121101650fd` for upstream PR #17,
-using the highest installed Python 3 by default (overrideable with `RYAN_TOOLS_PYTHON`). Every pip install step includes `--ignore-requires-python`, allowing Python 3.13 installations to bypass package metadata checks. Dependency wheels and runtime imports may still be incompatible.
+using the highest installed Python 3 by default (overrideable with `RYAN_TOOLS_PYTHON`). Pip enforces Python-version metadata; Python versions below 3.11 are unsupported.
 Both normal installers bootstrap binary Fiona, Rasterio and GDAL, explicitly
 reinstall only the accepted PyTuflow wheel, then resolve `ryan-tools` and the
 pinned parser together with their dependencies. This replaces an incompatible
@@ -69,7 +69,7 @@ the script safely configures its QGIS and ryan-tools MCP entries in the shared u
 it leaves Codex configuration untouched. Pass `--skip-codex` to disable automatic
 registration, `--skip-qgis-mcp` for headless/offline installation, or
 `--qgis-mcp-source <path>` to install the bridge from a local source.
-After updating Codex configuration, restart Codex or reload the Codex extension in VS Code. Python 3.14 or newer remains the supported runtime for `ryan-tools`; `ryan-culverts` remains an independent dependency. The QGIS desktop plugin
+After updating Codex configuration, restart Codex or reload the Codex extension in VS Code. Python 3.11–3.14 remains the supported runtime for `ryan-tools`; `ryan-culverts` remains an independent dependency. The QGIS desktop plugin
 must still be installed and started through QGIS Plugin Manager.
 
 For developers working from the checkout, keep the local verified-wheel workflow:
@@ -379,3 +379,12 @@ This is a terminal workaround, not a reason to change file encoding or rewrite t
 
 The optional repository MCP server has separate installation and client configuration requirements. See
 [`MCP_SETUP.md`](MCP_SETUP.md).
+
+## Python compatibility validation
+
+Python 3.11–3.14 is supported; Python 3.14 remains preferred for development.
+The hosted test matrix exercises every supported minor version. The required Hosted tests aggregate
+fails if any matrix lane or its MCP contracts fail. Publishing controls are unchanged.
+The CI Policy dependency profile uses [typing constraints](../repo-scripts/ci-typing-constraints.txt)
+to check the 3.11 API surface; runtime/test dependency groups remain complete and unconstrained by that file.
+See the [migration record](work/2026-11-24-python311-compatibility.md) for exact environments and limitations.

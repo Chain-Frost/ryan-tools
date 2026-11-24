@@ -12,9 +12,9 @@ import re
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
-from typing import Literal
+from typing import Literal, TypeAlias
 
-type Syntax = Literal["batch", "commands"]
+Syntax: TypeAlias = Literal["batch", "commands"]
 _FLAG = re.compile(r"-[es][1-9]", re.IGNORECASE)
 _GPU_OPTION = re.compile(r"-pu\d+", re.IGNORECASE)
 _VARIABLE = re.compile(r"%~dp0|%([^%\r\n]+)%", re.IGNORECASE)

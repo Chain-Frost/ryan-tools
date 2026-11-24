@@ -1,5 +1,6 @@
 """Focused error-path regressions for recursive file discovery."""
 
+import os
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -96,7 +97,7 @@ class TestFindFilesParallelErrors:
         def disappeared(path: Path, *, follow_symlinks: bool = True) -> bool:
             if path == target:
                 return False
-            return original_exists(path, follow_symlinks=follow_symlinks)
+            return original_exists(path) if follow_symlinks else os.path.lexists(path)
 
         monkeypatch.setattr(Path, "exists", disappeared)
         with pytest.raises(OSError, match="Matched file disappeared"):

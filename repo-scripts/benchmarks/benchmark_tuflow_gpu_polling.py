@@ -18,14 +18,15 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import TypeAlias
 
 import psutil
 
 from ryan_library.functions.tuflow.codemeter import fetch_codemeter_snapshot
 from ryan_library.functions.tuflow.gpu_occupancy import local_gpu_occupancy
 
-type JsonValue = bool | int | float | str | list[JsonValue] | JsonObject | None
-type JsonObject = dict[str, JsonValue]
+JsonValue: TypeAlias = "(bool | int | float | str | list[JsonValue] | JsonObject | None)"
+JsonObject: TypeAlias = dict[str, JsonValue]
 
 
 @dataclass(frozen=True, slots=True)

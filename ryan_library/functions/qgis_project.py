@@ -12,13 +12,13 @@ import shutil
 from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Literal, TypeAlias
 from urllib.parse import SplitResult, unquote, urlsplit
 from xml.etree import ElementTree as ET
 from zipfile import ZipFile
 
-type QgisAuditMode = Literal["existence", "cold-storage-ping"]
-type QgisDriveMappings = tuple[tuple[str, str], ...]
+QgisAuditMode: TypeAlias = Literal["existence", "cold-storage-ping"]
+QgisDriveMappings: TypeAlias = tuple[tuple[str, str], ...]
 
 _MAX_PROJECT_XML_BYTES = 64 * 1024 * 1024
 _REMOTE_PREFIXES = (

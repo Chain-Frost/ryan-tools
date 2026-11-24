@@ -2,6 +2,7 @@
 
 from collections.abc import Collection, Sequence
 from pathlib import Path
+from typing import TypeVar
 
 import pandas as pd
 import pytest
@@ -13,12 +14,14 @@ from ryan_library.processors.tuflow.other_processors.EOFProcessor import EOFProc
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 from ryan_library.processors.tuflow.timeseries_1d.QProcessor import QProcessor
 
+_PROCESS_FILE_PROCESSORT = TypeVar("_PROCESS_FILE_PROCESSORT", bound=BaseProcessor)
+
 RUN_CODE = "Selection_01.00p_00120m_TP01"
 
 
-def _process_file[ProcessorT: BaseProcessor](
-    directory: Path, suffix: str, content: str, processor_type: type[ProcessorT]
-) -> ProcessorT:
+def _process_file(
+    directory: Path, suffix: str, content: str, processor_type: type[_PROCESS_FILE_PROCESSORT]
+) -> _PROCESS_FILE_PROCESSORT:
     path = directory / f"{RUN_CODE}{suffix}"
     path.write_text(content, encoding="utf-8")
     processor = processor_type(file_path=path)

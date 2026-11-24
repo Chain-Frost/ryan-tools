@@ -21,8 +21,8 @@ Dependencies:
 """
 
 # External optional keyword signatures are incomplete; exceptions stay on individual calls.
-
 from pathlib import Path
+from typing import SupportsFloat, TypeAlias, cast
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -32,7 +32,7 @@ from scipy.interpolate import interp1d
 from scipy.optimize import brentq
 from shapely.geometry import Polygon
 
-type Intersection = tuple[float, float] | tuple[None, None]
+Intersection: TypeAlias = tuple[float, float] | tuple[None, None]
 
 
 def calc_slope_ea(x: NDArray[np.float64], y: NDArray[np.float64]) -> float:
@@ -234,12 +234,12 @@ def find_intersection(profile_df: pd.DataFrame, h: float) -> Intersection:
 
     # Define the difference function
     def calc_ydiff(x_val: float) -> float:
-        return float(profile_y_func(x_val) - slope_ea_y_func(x_val))
+        return float(cast("SupportsFloat", profile_y_func(x_val) - slope_ea_y_func(x_val)))
 
     # Attempt to find the root (intersection)
     try:
         x_int = brentq(calc_ydiff, profile_df["x"].iloc[1], profile_df["x"].max())
-        y_int = float(slope_ea_y_func(x_int))
+        y_int = float(cast("SupportsFloat", slope_ea_y_func(x_int)))
         print(f"Intersection found at x = {x_int:.4f} km, y = {y_int:.4f} m")
         return x_int, y_int
     except ValueError:
@@ -353,9 +353,9 @@ def main() -> None:
         print(f"A1 and A2 are equal: {np.isclose(A1, A2, atol=1e-6)}")
 
     # Calculate test slope
-    A_total = np.trapezoid(profile_df["y"] - profile_df["y"].min(), profile_df["x"])
+    A_total = cast("np.float64", np.trapezoid(profile_df["y"] - profile_df["y"].min(), profile_df["x"]))
     L = profile_df["x"].iloc[-1] - profile_df["x"].iloc[0]
-    test_slope_ea = (2 * A_total) / (1000 * L**2)  # Correct formula with 1000 factor
+    test_slope_ea = cast("float", (2 * A_total) / (1000 * L**2))  # Correct formula with 1000 factor
     print(f"Test Slope EA: {test_slope_ea:.6f} m/km")
 
     # Compare test_slope_ea with calculated slope_ea

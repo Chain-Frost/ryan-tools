@@ -7,7 +7,7 @@ import tempfile
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, TypeAlias, cast
 
 import fiona
 import numpy as np
@@ -24,7 +24,7 @@ from .geometry import check_dem
 from .grass_runner import process_terrain
 
 # Rasterio masked=True returns a MaskedArray; upstream currently declares ndarray.
-type MaskedBand = np.ma.MaskedArray[Any, np.dtype[np.number[Any]]]
+MaskedBand: TypeAlias = np.ma.MaskedArray[Any, np.dtype[np.number[Any]]]
 
 
 @dataclass(frozen=True, slots=True)

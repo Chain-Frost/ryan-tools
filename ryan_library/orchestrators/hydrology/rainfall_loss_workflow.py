@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Literal, Protocol, cast
+from typing import Any, Literal, Protocol, TypeAlias, cast
 
 from ...functions.hydrology.rainfall_loss_screening import (
     LossSpec,
@@ -21,8 +21,8 @@ from ...functions.hydrology.rainfall_loss_screening import (
     screen_bom_ifd,
 )
 
-type RainfallRecord = tuple[float, float, float, float | None, str]
-type RainfallRecordKey = tuple[str, int, str | None]
+RainfallRecord: TypeAlias = tuple[float, float, float, float | None, str]
+RainfallRecordKey: TypeAlias = tuple[str, int, str | None]
 
 
 @dataclass(frozen=True, slots=True)

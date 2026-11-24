@@ -225,7 +225,7 @@ def _run_culvert_statistic_report(
                     ]
                 )
 
-                timestamp: str = datetime.now().strftime(format="%Y%m%d-%H%M")
+                timestamp: str = datetime.now().strftime("%Y%m%d-%H%M")
                 output_name: str = f"{timestamp}_culvert_{output_suffix}_peaks.xlsx"
                 sheet_names: list[str] = [f"aep-dur-{output_suffix}", f"aep-{output_suffix}-max"]
                 sheet_frames: list[pd.DataFrame] = [aep_dur_stat, aep_stat_max]

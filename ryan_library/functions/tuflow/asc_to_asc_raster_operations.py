@@ -22,7 +22,7 @@ import time
 from collections.abc import Iterable
 from contextlib import ExitStack, closing
 from pathlib import Path
-from typing import Any, Literal, Protocol, cast
+from typing import Any, Literal, Protocol, TypeAlias, cast
 from uuid import uuid4
 
 import numpy as np
@@ -33,9 +33,9 @@ from rasterio.windows import Window
 
 from ryan_library.functions.gdal.raster_processing import geotiff_creation_options
 
-type NodataPolicy = Literal["require_all", "zero", "exclude"]
-type MeanValueMethod = Literal["closest_source", "arithmetic", "asc_to_asc"]
-type StatisticType = Literal["mean", "median", "min", "max"]
+NodataPolicy: TypeAlias = Literal["require_all", "zero", "exclude"]
+MeanValueMethod: TypeAlias = Literal["closest_source", "arithmetic", "asc_to_asc"]
+StatisticType: TypeAlias = Literal["mean", "median", "min", "max"]
 
 
 class _RasterDataset(Protocol):

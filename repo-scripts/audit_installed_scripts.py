@@ -12,6 +12,7 @@ import json
 import re
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any, cast
 
@@ -95,7 +96,8 @@ def _is_main_guard(test: ast.expr) -> bool:
 class _ImportTimeMutationVisitor(ast.NodeVisitor):
     """Walk only expressions and statements that can execute during import."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, deferred_annotations: bool) -> None:
+        self.deferred_annotations = deferred_annotations
         self.names: set[str] = set()
         # A name can refer to a mutator on one conditional path and a safe
         # callable on another. Union the possible dangerous bindings.
@@ -137,7 +139,8 @@ class _ImportTimeMutationVisitor(ast.NodeVisitor):
         if node.value is not None:
             self.visit(node.value)
             self._remember_binding(node.target, node.value)
-        # Python >=3.14 evaluates annotations lazily, not during import.
+        if not self.deferred_annotations:
+            self.visit(node.annotation)
 
     def visit_AugAssign(self, node: ast.AugAssign) -> None:
         self.visit(node.value)
@@ -147,7 +150,14 @@ class _ImportTimeMutationVisitor(ast.NodeVisitor):
         for expression in (*node.args.defaults, *node.args.kw_defaults):
             if expression is not None:
                 self.visit(expression)
-        # Annotations (including return types) are deferred on Python >=3.14.
+        if not self.deferred_annotations:
+            arguments = [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
+            arguments.extend(arg for arg in (node.args.vararg, node.args.kwarg) if arg is not None)
+            for argument in arguments:
+                if argument.annotation is not None:
+                    self.visit(argument.annotation)
+            if node.returns is not None:
+                self.visit(node.returns)
         for expression in node.decorator_list:
             self.visit(expression)
 
@@ -209,7 +219,13 @@ class _ImportTimeMutationVisitor(ast.NodeVisitor):
 
 def _import_time_call_names(module: ast.Module) -> list[str]:
     """Conservatively find import-time calls, without importing any script."""
-    visitor = _ImportTimeMutationVisitor()
+    postponed = sys.version_info >= (3, 14) or any(
+        isinstance(node, ast.ImportFrom)
+        and node.module == "__future__"
+        and any(alias.name == "annotations" for alias in node.names)
+        for node in module.body
+    )
+    visitor = _ImportTimeMutationVisitor(deferred_annotations=postponed)
     visitor.visit(module)
     return sorted(visitor.names)
 

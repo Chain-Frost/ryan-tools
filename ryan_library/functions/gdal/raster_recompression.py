@@ -32,6 +32,7 @@ import rasterio.crs
 import rasterio.io
 from rasterio.enums import MaskFlags
 from rasterio.windows import Window
+from typing_extensions import Buffer
 
 from ryan_library.functions import file_verification
 from ryan_library.functions.file_verification import FileSnapshot, hash_file
@@ -401,7 +402,7 @@ def _window_rows(width: int, height: int, max_window_cells: int) -> int:
 
 def _array_digest(values: np.ndarray) -> bytes:
     contiguous = np.ascontiguousarray(values)
-    return hashlib.sha256(memoryview(contiguous).cast("B")).digest()
+    return hashlib.sha256(memoryview(cast("Buffer", contiguous)).cast("B")).digest()
 
 
 def _clean_tags(tags: dict[str, str]) -> tuple[tuple[str, str], ...]:

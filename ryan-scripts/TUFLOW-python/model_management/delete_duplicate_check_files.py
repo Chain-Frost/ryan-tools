@@ -254,7 +254,8 @@ def find_check_folders(root_dir: Path) -> list[Path]:
     targets = {name.casefold() for name in CHECK_FOLDER_NAMES}
     matches = [
         parent / name
-        for parent, directory_names, _ in root_dir.walk()
+        for directory, directory_names, _ in os.walk(root_dir)
+        for parent in (Path(directory),)
         for name in directory_names
         if name.casefold() in targets
     ]

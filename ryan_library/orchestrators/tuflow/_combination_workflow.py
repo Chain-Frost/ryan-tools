@@ -5,6 +5,8 @@ This module extracts the shared workflow of parsing directories, executing proce
 and exporting combined datasets to keep the public orchestrator entry points focused.
 """
 
+from typing import TypeVar
+
 __lazy_modules__: list[str] = ["pandas"]
 
 from collections.abc import Callable, Collection, Sequence
@@ -32,6 +34,8 @@ from ryan_library.functions.tuflow.wrapper_helpers import (
 )
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
+
+_COMBINE_AND_EXPORT_RESULTS_T = TypeVar("_COMBINE_AND_EXPORT_RESULTS_T", bound="CombinationResults")
 
 COMBINATION_DASHBOARD_COLUMNS: tuple[WorkflowColumn, ...] = (
     WorkflowColumn(header="#", source="index", justify="right", no_wrap=True),
@@ -176,14 +180,14 @@ def execute_combination_workflow(
                 raise
 
 
-def combine_and_export_results[T: CombinationResults](
+def combine_and_export_results(
     *,
-    results: T,
+    results: _COMBINE_AND_EXPORT_RESULTS_T,
     export_mode: Literal["excel", "parquet", "both"],
     export_prefix: str,
     export_sheet_name: str,
     export_metadata: dict[str, str],
-    combine_callable: Callable[[T], pd.DataFrame],
+    combine_callable: Callable[[_COMBINE_AND_EXPORT_RESULTS_T], pd.DataFrame],
     dashboard: LiveWorkflowDashboard | None = None,
     row_metric_label: str | None = None,
 ) -> bool:

@@ -71,7 +71,7 @@ def test_pypi_route_verifies_before_codex_setup(
     assert installer.main(["--skip-qgis-mcp"]) == 0
     assert stages == ["bootstrap", "parser", "package", "dependencies", "provenance", "capabilities", "codex"]
     assert all(command[0] == sys.executable for command in calls)
-    assert all("--ignore-requires-python" in command for command in calls if "install" in command)
+    assert all("--ignore-requires-python" not in command for command in calls if "install" in command)
     assert [_stage(command) for command in calls if "--no-deps" in command] == ["parser"]
     assert installer.__file__ is not None
     requirement = Path(installer.__file__).with_name("pytuflow-requirement.txt").read_text(encoding="utf-8").strip()
@@ -131,16 +131,10 @@ def test_pypi_dry_run_prints_checks_without_running_them(
         return False
 
     monkeypatch.setattr(installer, "supported_python", unsupported_python)
-    assert installer.main(["--dry-run", "--skip-codex", "--skip-qgis-mcp", "--disable-bytecode"]) == 0
+    assert installer.main(["--dry-run", "--skip-codex", "--skip-qgis-mcp", "--disable-bytecode"]) == 2
     captured = capsys.readouterr()
-    output = captured.out
-    assert "WARNING: Python" in captured.err
-    assert "--ignore-requires-python" in output
-    assert "0121101650fd8e931af8d09cadb23bd43f6fefbd" in output
-    assert "-B -m pip check" in output
-    assert "-B -c" in output
-    assert "require_validation_api" in output
-    assert "no packages or validation capabilities were checked" in output
+    assert "minimum of 3.11" in captured.err
+    assert not captured.out
 
 
 def _wheel_bytes(name: str, version: str, source: str, *, dependency: str = "", requires_python: str = "") -> bytes:
@@ -181,17 +175,19 @@ def test_pinned_parser_replaces_same_version_before_full_dependency_resolution(
 
     dependency_name = "ryan_installer_dependency_probe"
     dependency = tmp_path / f"{dependency_name}-1.0-py3-none-any.whl"
-    dependency.write_bytes(_wheel_bytes(dependency_name, "1.0", "", requires_python=">=99"))
+    dependency.write_bytes(_wheel_bytes(dependency_name, "1.0", "", requires_python=">=3.11"))
     accepted = tmp_path / f"{name}-{version}-py3-none-any.whl"
     accepted.write_bytes(
-        _wheel_bytes(name, version, "ACCEPTED = True\n", dependency=f"{dependency_name}>=1,<2", requires_python=">=99")
+        _wheel_bytes(
+            name, version, "ACCEPTED = True\n", dependency=f"{dependency_name}>=1,<2", requires_python=">=3.11"
+        )
     )
     consumer_name = "ryan_installer_consumer_probe"
     consumer = tmp_path / f"{consumer_name}-1.0-py3-none-any.whl"
-    consumer.write_bytes(_wheel_bytes(consumer_name, "1.0", "", dependency=f"{name}>=1,<2", requires_python=">=99"))
+    consumer.write_bytes(_wheel_bytes(consumer_name, "1.0", "", dependency=f"{name}>=1,<2", requires_python=">=3.11"))
 
-    # Synthetic wheels require Python >=99, exercising the version override
-    # for the package and the dependency in the real offline pip resolver.
+    # Synthetic wheels use the supported floor; dependency Python metadata
+    # is enforced by the real offline pip resolver.
     # Unlike a local sdist, a same-version local wheel is retained without an
     # explicit reinstall, matching the remote source archive's pip behaviour.
     # Keep the real installer options, replacing only its package inputs.

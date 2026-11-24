@@ -138,7 +138,7 @@ def run_peak_report_workflow(
                     dashboard.finish(outcome="SKIPPED", detail="no report generated")
                     return True
 
-                timestamp = datetime.now().strftime(format="%Y%m%d-%H%M")
+                timestamp = datetime.now().strftime("%Y%m%d-%H%M")
                 dashboard.set_phase("Exporting")
                 exporter(
                     aggregated_df=aggregated_df,

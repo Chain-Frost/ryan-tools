@@ -10,7 +10,7 @@ import math
 from collections import deque
 from dataclasses import dataclass
 from itertools import pairwise
-from typing import cast
+from typing import TypeAlias, cast
 
 import numpy as np
 import rasterio
@@ -26,7 +26,7 @@ from shapely.ops import unary_union
 from ....functions.hydrology.d8 import OFFSETS, contributing_cells, next_cell
 from ....functions.hydrology.profiles import equal_area_slope
 
-type Cell = tuple[int, int]
+Cell: TypeAlias = tuple[int, int]
 
 
 @dataclass(frozen=True, slots=True)

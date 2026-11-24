@@ -7,6 +7,8 @@ model runs have not yet completed, based on a tracking table.
 
 from __future__ import annotations
 
+from typing import TypeAlias
+
 __lazy_modules__ = ["pandas"]
 
 from dataclasses import asdict, dataclass
@@ -29,7 +31,7 @@ EXPECTED_TPS: tuple[ExpectedTP, ...] = (
     "TP09",
     "TP10",
 )
-type DimensionValue = str | int | float
+DimensionValue: TypeAlias = str | int | float
 
 
 # ---------- Data classes ----------

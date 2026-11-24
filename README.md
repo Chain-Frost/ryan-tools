@@ -17,7 +17,7 @@ on 18 October 2026. Import maintained modules directly instead (breaking change)
 
 ## Project status
 
-Python 3.14 or newer remains the supported development, installation and CI baseline. The BAT installers can bypass pip's Python-version metadata for older Python 3 interpreters; this does not establish runtime compatibility. Maintained library code, orchestrators and unversioned wrappers follow the current
+Python 3.11–3.14 remains the supported development, installation and CI baseline. Python 3.14 remains the preferred development interpreter. Maintained library code, orchestrators and unversioned wrappers follow the current
 repository standards; older standalone, versioned and compatibility files remain where they still support migration or
 narrow workflows.
 
@@ -76,7 +76,7 @@ setting afterwards. This leaves LFS pointers available without downloading optio
 Git LFS binary downloads are **not required for routine source and CI checks**. Install Git LFS when you need an LFS-tracked workbook, then retrieve only the resources required for that task (for example, `git -C excel-resources lfs pull --include="*.xlsx"`). Avoid unconditional `git lfs pull` in every checkout: repeated downloads consume the account's LFS bandwidth allowance.
 
 The test suite requires `tests/test_data`; it does not download or substitute those fixtures automatically. Because
-`run_hy8` and `culvert_solver` are independent PyPI dependencies (`run-hy8` and `ryan-culverts`), not Git submodules or bundled code. Install `ryan-tools` with pip to resolve supported dependencies automatically. Python 3.14 or newer is the supported runtime for `ryan-tools` and its published dependencies; bypassing `Requires-Python` during installation does not make older interpreters compatible.
+`run_hy8` and `culvert_solver` are independent PyPI dependencies (`run-hy8` and `ryan-culverts`), not Git submodules or bundled code. Install `ryan-tools` with pip to resolve supported dependencies automatically. Python 3.11–3.14 is the supported runtime for `ryan-tools` and its published dependencies; Dependency Python metadata remains enforced.
 
 Install the repository requirements into the user's normal Python 3.14 installation. `ryan-tools` does not require or
 assume that users know how to create or activate a virtual environment:
@@ -140,7 +140,7 @@ the repository requirements when the accepted fork is needed. If Codex is detect
 configures the QGIS and ryan-tools MCP servers only as needed, preserving other
 settings and backing up any changed Codex configuration. `install-from-pypi.bat` is the explicit PyPI entry point;
 `install-ryan-tools.bat` forwards to it.
-The installers select the highest installed Python 3 release through the Windows launcher; override with `RYAN_TOOLS_PYTHON` to select a particular interpreter. All pip installation steps use `--ignore-requires-python` so Python 3.13 or another Python 3 version can attempt installation despite package metadata. Python versions below 3.14 are unsupported and may fail on dependencies, imports or runtime features. The PyPI installer also recognises the `openai.chatgpt` Codex extension in VS Code, even without the Codex CLI.
+The installers select the highest installed Python 3 release through the Windows launcher; override with `RYAN_TOOLS_PYTHON` to select a particular interpreter. Pip enforces Python-version metadata. Python versions below 3.11 are unsupported. The PyPI installer also recognises the `openai.chatgpt` Codex extension in VS Code, even without the Codex CLI.
 For developers, `build-and-install-local-wheel.bat` builds and installs a local wheel, including
 installing or updating its dependencies and the QGIS MCP bridge.
 `build-and-force-reinstall-local-wheel.bat` builds locally and forcibly reinstalls only that wheel

@@ -670,8 +670,8 @@ def test_explicit_override_is_fail_closed_and_can_break_ambiguity(tmp_path: Path
     assert original.is_file()
 
 
-def test_minimal_reader_sources_remain_python_313_syntax() -> None:
-    """The 3.14 whole-repository formatter must not break the >=3.13 reader wheel."""
+def test_minimal_reader_sources_remain_python_311_syntax() -> None:
+    """The standalone reader wheel must retain Python 3.11 syntax."""
     source_root = Path(__file__).parents[3] / "ryan_library" / "functions" / "RORB"
     modules = (
         "reader_types.py",
@@ -683,7 +683,7 @@ def test_minimal_reader_sources_remain_python_313_syntax() -> None:
     )
     for name in modules:
         source = source_root / name
-        ast.parse(source.read_text(encoding="utf-8"), filename=str(source), feature_version=(3, 13))
+        ast.parse(source.read_text(encoding="utf-8"), filename=str(source), feature_version=(3, 11))
 
 
 def test_standard_output_csv_comparison_rejects_missing_and_partial_site_coverage(tmp_path: Path) -> None:

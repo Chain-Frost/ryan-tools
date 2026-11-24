@@ -14,6 +14,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from ryan_library.functions.file_verification import is_junction
+
 # ==============================================================================
 # WRAPPER IDENTITY
 WRAPPER_VERSION = "2026-11-08.2"
@@ -92,7 +94,7 @@ def select_cutline_layer(cutline_path: Path) -> str | None:
 
 def _reject_links(path: Path) -> None:
     for component in (path, *path.parents):
-        if component.is_symlink() or component.is_junction():
+        if component.is_symlink() or is_junction(component):
             msg = f"Linked paths are not supported: {component}"
             raise ValueError(msg)
 
@@ -276,7 +278,7 @@ def main(
         )
         logger.success("Clipped {}/{} rasters", succeeded, len(plans))
         return 0 if succeeded == len(plans) else 1
-    except OSError, ValueError:
+    except (OSError, ValueError):
         logger.exception("Cutline batch preflight failed")
         return 1
 

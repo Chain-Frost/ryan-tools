@@ -5,11 +5,12 @@ import math
 from collections.abc import Mapping
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
+from typing import TypeAlias
 
 from .reader_types import Record, RorbDocument, Section
 from .readers import read_rorb_file
 
-type BatchEventKey = tuple[int, str, str, str, int]
+BatchEventKey: TypeAlias = tuple[int, str, str, str, int]
 
 # The focused wheel supports Python 3.13. Keep the exception tuple named:
 # Ruff targeting the full 3.14 distribution otherwise emits PEP 758 syntax.

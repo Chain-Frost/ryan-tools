@@ -352,7 +352,7 @@ def _launch_time(text: str) -> float | None:
         # TUFLOW and its runner use the same computer's local time; converting
         # here also accounts for the machine's timezone/DST rules.
         return value.timestamp()
-    except ValueError, OverflowError, OSError:
+    except (ValueError, OverflowError, OSError):
         return None
 
 
@@ -362,7 +362,7 @@ def _clock_hours(value: str) -> float | None:
         parts: list[str] = value.lstrip("+-").split(":")
         result: float = int(parts[0]) + int(parts[1]) / 60 + float(parts[2]) / 3600
         return _finite_number(-result if negative else result)
-    except ValueError, OverflowError:
+    except (ValueError, OverflowError):
         return None
 
 

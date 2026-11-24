@@ -6,7 +6,7 @@ import shutil
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, TypeAlias, cast
 
 import fiona
 import numpy as np
@@ -34,7 +34,7 @@ from .subcatchment_outputs import write_reach_subcatchment_summary, write_reach_
 from .subcatchments import delineate_reach_subcatchments
 
 # Rasterio masked=True returns a MaskedArray; upstream currently declares ndarray.
-type MaskedBand = np.ma.MaskedArray[Any, np.dtype[np.number[Any]]]
+MaskedBand: TypeAlias = np.ma.MaskedArray[Any, np.dtype[np.number[Any]]]
 
 
 @dataclass(frozen=True, slots=True)

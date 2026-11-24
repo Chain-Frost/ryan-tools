@@ -6,7 +6,7 @@ values before their user-editable settings.
 
 from enum import StrEnum
 from pathlib import Path
-from typing import Literal
+from typing import Literal, TypeAlias
 
 
 class OP(StrEnum):
@@ -77,12 +77,12 @@ class LOG(StrEnum):
     CRITICAL = "CRITICAL"
 
 
-type LogLevel = LOG | Literal["TRACE", "DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL"]
-type RunMode = OP | Literal["run", "export_only", "preflight_only"]
-type SourceMode = SRC | Literal["parameter_product", "textfiles", "both"]
-type ContMode = CONT | Literal["resume", "all"]
-type PrioritySetting = PRIO | Literal["LOW", "BELOWNORMAL", "NORMAL", "ABOVENORMAL", "HIGH", "REALTIME"]
-type PathLike = str | Path
+LogLevel: TypeAlias = LOG | Literal["TRACE", "DEBUG", "INFO", "SUCCESS", "WARNING", "ERROR", "CRITICAL"]
+RunMode: TypeAlias = OP | Literal["run", "export_only", "preflight_only"]
+SourceMode: TypeAlias = SRC | Literal["parameter_product", "textfiles", "both"]
+ContMode: TypeAlias = CONT | Literal["resume", "all"]
+PrioritySetting: TypeAlias = PRIO | Literal["LOW", "BELOWNORMAL", "NORMAL", "ABOVENORMAL", "HIGH", "REALTIME"]
+PathLike: TypeAlias = str | Path
 r"""A path string or `Path` object.
 
 Examples: `r"C:\Models\run.tcf"`, `r"Q:\Models"`,
@@ -93,9 +93,9 @@ invoking directory. See the individual setting for its file or directory require
 Mapped-drive and UNC paths are supported; links are not dereferenced merely
 to make a path absolute.
 """
-type InputFiles = PathLike | list[PathLike] | tuple[PathLike, ...] | None
-type GpuGroupSetting = str | list[str] | tuple[str, ...]
-type GPUS = str | list[GpuGroupSetting] | tuple[GpuGroupSetting, ...] | None
+InputFiles: TypeAlias = PathLike | list[PathLike] | tuple[PathLike, ...] | None
+GpuGroupSetting: TypeAlias = str | list[str] | tuple[str, ...]
+GPUS: TypeAlias = str | list[GpuGroupSetting] | tuple[GpuGroupSetting, ...] | None
 """GPU assignments: each outer entry is one concurrent simulation slot.
 
 - `"-pu1"`: 1 run on GPU 1.

@@ -64,6 +64,10 @@ def _replace_wrapper_posix(source: Path, target: Path) -> None:
     rename a child directory in an unsafe writable parent. POSIX staging and
     publication are relative to the already-open destination and stage dirs.
     """
+    if os.name != "posix":
+        message = "Descriptor-based wrapper publication requires POSIX."
+        raise OSError(message)
+
     directory_flags: int = os.O_RDONLY | cast("int", vars(os)["O_DIRECTORY"]) | cast("int", vars(os)["O_NOFOLLOW"])
     destination_fd = os.open(target.parent, directory_flags)
     try:

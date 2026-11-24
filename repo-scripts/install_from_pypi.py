@@ -38,7 +38,7 @@ def _vscode_codex_installed() -> bool:
                 check=False,
                 timeout=10,
             )
-        except OSError, subprocess.TimeoutExpired:
+        except (OSError, subprocess.TimeoutExpired):
             continue
         if result.returncode == 0 and "openai.chatgpt" in result.stdout.casefold().splitlines():
             return True
@@ -57,8 +57,8 @@ def codex_installed() -> bool:
 
 
 def supported_python(major: int, minor: int) -> bool:
-    """Report the supported runtime; installers can opt past this metadata restriction."""
-    return (major, minor) >= (3, 14)
+    """Report the supported runtime; dependency metadata remains authoritative."""
+    return (major, minor) >= (3, 11)
 
 
 def pip_commands(
@@ -124,10 +124,10 @@ def main(argv: list[str] | None = None) -> int:
     if not supported_python(sys.version_info.major, sys.version_info.minor):
         print(
             f"WARNING: Python {sys.version_info.major}.{sys.version_info.minor} is below the supported "
-            "ryan-tools minimum of 3.14. --ignore-requires-python bypasses package metadata "
-            "but cannot guarantee compatible dependencies or runtime behaviour.",
+            "ryan-tools minimum of 3.11. Select a supported interpreter; dependency metadata is enforced.",
             file=sys.stderr,
         )
+        return 2
 
     disable_bytecode = args.disable_bytecode or disable_bytecode_for_environment()
     sys.dont_write_bytecode = sys.dont_write_bytecode or disable_bytecode

@@ -188,6 +188,7 @@ jobs:
           cache-dependency-path: |
             pyproject.toml
             repo-scripts/ci-policy-requirements.txt
+            repo-scripts/ci-typing-constraints.txt
             repo-scripts/install_latest_wheel.py
             repo-scripts/ci_gis_bootstrap.py
             repo-scripts/pytuflow-requirement.txt
@@ -256,11 +257,11 @@ jobs:
           test "$HOSTED_RESULT" = success
           test "$MCP_CONTRACTS" = true
 
-  hosted-tests:
+  hosted-test-versions:
     needs: [fast-checks]
     # Unknown scope requests full validation; a failed required preflight blocks merging.
     if: ${{ !cancelled() && needs.fast-checks.result == 'success' && needs.fast-checks.outputs.full != 'false' }}
-    name: Hosted tests
+    name: Hosted tests (${{ matrix.python-version }})
     outputs:
       mcp_contracts: ${{ steps.mcp-contracts.outputs.passed }}
     runs-on: windows-latest
@@ -270,6 +271,11 @@ jobs:
       # A rerun of the same PR revision keeps complete diagnostics without a new push.
       PYTEST_ADDOPTS: ${{ github.event_name == 'pull_request' && github.run_attempt == 1 && '--maxfail=1' || '' }}
 
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -277,7 +283,7 @@ jobs:
       - name: Set up Python 3.14
         uses: actions/setup-python@v6
         with:
-          python-version: "3.14"
+          python-version: ${{ matrix.python-version }}
           cache: pip
           cache-dependency-path: |
             pyproject.toml
@@ -415,6 +421,23 @@ jobs:
           retention-days: 7
           path: test-results/*.xml
           if-no-files-found: warn
+
+  hosted-tests:
+    needs: [fast-checks, hosted-test-versions]
+    if: ${{ !cancelled() && needs.fast-checks.result == 'success' && needs.fast-checks.outputs.full != 'false' }}
+    name: Hosted tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      mcp_contracts: ${{ needs.hosted-test-versions.outputs.mcp_contracts }}
+    steps:
+      - name: Require every Python version and its MCP contracts
+        env:
+          MATRIX_RESULT: ${{ needs.hosted-test-versions.result }}
+          MCP_CONTRACTS: ${{ needs.hosted-test-versions.outputs.mcp_contracts }}
+        run: |
+          test "$MATRIX_RESULT" = success
+          test "$MCP_CONTRACTS" = true
 
   package:
     needs: [fast-checks]

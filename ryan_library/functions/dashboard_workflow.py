@@ -20,12 +20,26 @@ from multiprocessing import pool as multiprocessing_pool
 from multiprocessing.pool import ApplyResult
 from pathlib import Path
 from queue import Empty, Full
-from typing import TYPE_CHECKING, Protocol, cast, runtime_checkable
+from typing import TYPE_CHECKING, Generic, Protocol, cast, runtime_checkable
 
 from loguru import logger
+from typing_extensions import TypeVar
 
 from .live_dashboard import LiveWorkflowDashboard, WorkflowStatus
 from .loguru_helpers import LogQueue, normalize_log_level, worker_initializer
+
+TItem = TypeVar("TItem", infer_variance=True)
+TResult = TypeVar("TResult", infer_variance=True)
+_AWAIT_FUTURE_WITH_DASHBOARD_REFRESH_TRESULT = TypeVar("_AWAIT_FUTURE_WITH_DASHBOARD_REFRESH_TRESULT")
+_RUN_DASHBOARD_WORKFLOW_TITEM = TypeVar("_RUN_DASHBOARD_WORKFLOW_TITEM")
+_RUN_DASHBOARD_WORKFLOW_TRESULT = TypeVar("_RUN_DASHBOARD_WORKFLOW_TRESULT")
+_RUN_DASHBOARD_WORKFLOW_REPORT_TITEM = TypeVar("_RUN_DASHBOARD_WORKFLOW_REPORT_TITEM")
+_RUN_DASHBOARD_WORKFLOW_REPORT_TRESULT = TypeVar("_RUN_DASHBOARD_WORKFLOW_REPORT_TRESULT")
+_RUN_SERIAL_DASHBOARD_WORKFLOW_TITEM = TypeVar("_RUN_SERIAL_DASHBOARD_WORKFLOW_TITEM")
+_RUN_SERIAL_DASHBOARD_WORKFLOW_TRESULT = TypeVar("_RUN_SERIAL_DASHBOARD_WORKFLOW_TRESULT")
+_RUN_PARALLEL_DASHBOARD_WORKFLOW_TITEM = TypeVar("_RUN_PARALLEL_DASHBOARD_WORKFLOW_TITEM")
+_RUN_PARALLEL_DASHBOARD_WORKFLOW_TRESULT = TypeVar("_RUN_PARALLEL_DASHBOARD_WORKFLOW_TRESULT")
+_COLLECT_FINISHED_DASHBOARD_RESULTS_TRESULT = TypeVar("_COLLECT_FINISHED_DASHBOARD_RESULTS_TRESULT")
 
 if TYPE_CHECKING:
     from multiprocessing.queues import Queue as MPQueue
@@ -51,7 +65,7 @@ class DetachableProgressQueue(Protocol):
 
 
 @dataclass(slots=True, frozen=True)
-class IndexedWorkflowItem[TItem]:
+class IndexedWorkflowItem(Generic[TItem]):
     """One processing request plus its one-based dashboard row index."""
 
     index: int
@@ -63,7 +77,7 @@ _workflow_processor: Callable[[object], object] | None = None
 
 
 @dataclass(slots=True, frozen=True)
-class WorkflowItemOutcome[TResult]:
+class WorkflowItemOutcome(Generic[TResult]):
     """One-based input index and terminal outcome, including failed requests.
 
     A successful worker may legitimately return None; has_result distinguishes
@@ -78,7 +92,7 @@ class WorkflowItemOutcome[TResult]:
 
 
 @dataclass(slots=True, frozen=True)
-class WorkflowRunReport[TResult]:
+class WorkflowRunReport(Generic[TResult]):
     """Ordered per-input outcomes; infrastructure failures are raised, not hidden."""
 
     outcomes: tuple[WorkflowItemOutcome[TResult], ...]
@@ -93,12 +107,12 @@ class WorkflowRunReport[TResult]:
         return tuple(item for item in self.outcomes if item.status == "FAIL")
 
 
-def await_future_with_dashboard_refresh[TResult](
+def await_future_with_dashboard_refresh(
     *,
-    future: Future[TResult],
+    future: Future[_AWAIT_FUTURE_WITH_DASHBOARD_REFRESH_TRESULT],
     dashboard: LiveWorkflowDashboard,
     refresh_per_second: float,
-) -> TResult:
+) -> _AWAIT_FUTURE_WITH_DASHBOARD_REFRESH_TRESULT:
     """Wait for an ordered worker result without freezing the coordinator UI.
 
     A worker may itself raise TimeoutError; propagate that completed exception
@@ -114,20 +128,20 @@ def await_future_with_dashboard_refresh[TResult](
             dashboard.refresh(force=True)
 
 
-def run_dashboard_workflow[TItem, TResult](
+def run_dashboard_workflow(
     *,
-    items: Sequence[TItem],
-    process_item: Callable[[TItem], TResult],
+    items: Sequence[_RUN_DASHBOARD_WORKFLOW_TITEM],
+    process_item: Callable[[_RUN_DASHBOARD_WORKFLOW_TITEM], _RUN_DASHBOARD_WORKFLOW_TRESULT],
     dashboard: LiveWorkflowDashboard,
     pool_size: int,
-    status_for_result: Callable[[TResult], WorkflowStatus],
-    detail_for_result: Callable[[TResult], str],
+    status_for_result: Callable[[_RUN_DASHBOARD_WORKFLOW_TRESULT], WorkflowStatus],
+    detail_for_result: Callable[[_RUN_DASHBOARD_WORKFLOW_TRESULT], str],
     log_queue: LogQueue | None = None,
     worker_log_level: str | None = None,
     max_start_events: int | None = None,
     poll_interval: float = 0.1,
-    on_outcome: Callable[[WorkflowItemOutcome[TResult]], None] | None = None,
-) -> list[TResult]:
+    on_outcome: Callable[[WorkflowItemOutcome[_RUN_DASHBOARD_WORKFLOW_TRESULT]], None] | None = None,
+) -> list[_RUN_DASHBOARD_WORKFLOW_TRESULT]:
     """Compatibility list API; return values in input order, never silently lose exceptions.
 
     A returned domain result with status FAIL remains in the list, as before.
@@ -154,20 +168,20 @@ def run_dashboard_workflow[TItem, TResult](
     return report.results
 
 
-def run_dashboard_workflow_report[TItem, TResult](
+def run_dashboard_workflow_report(
     *,
-    items: Sequence[TItem],
-    process_item: Callable[[TItem], TResult],
+    items: Sequence[_RUN_DASHBOARD_WORKFLOW_REPORT_TITEM],
+    process_item: Callable[[_RUN_DASHBOARD_WORKFLOW_REPORT_TITEM], _RUN_DASHBOARD_WORKFLOW_REPORT_TRESULT],
     dashboard: LiveWorkflowDashboard,
     pool_size: int,
-    status_for_result: Callable[[TResult], WorkflowStatus],
-    detail_for_result: Callable[[TResult], str],
+    status_for_result: Callable[[_RUN_DASHBOARD_WORKFLOW_REPORT_TRESULT], WorkflowStatus],
+    detail_for_result: Callable[[_RUN_DASHBOARD_WORKFLOW_REPORT_TRESULT], str],
     log_queue: LogQueue | None = None,
     worker_log_level: str | None = None,
     max_start_events: int | None = None,
     poll_interval: float = 0.1,
-    on_outcome: Callable[[WorkflowItemOutcome[TResult]], None] | None = None,
-) -> WorkflowRunReport[TResult]:
+    on_outcome: Callable[[WorkflowItemOutcome[_RUN_DASHBOARD_WORKFLOW_REPORT_TRESULT]], None] | None = None,
+) -> WorkflowRunReport[_RUN_DASHBOARD_WORKFLOW_REPORT_TRESULT]:
     """Run a serial/spawn-safe batch and return explicit ordered item outcomes.
 
     The caller owns labels/metadata and phase/aggregate metrics. Only one
@@ -200,8 +214,8 @@ def run_dashboard_workflow_report[TItem, TResult](
             msg = "worker_log_level would discard records required by the configured logging sinks."
             raise ValueError(msg)
 
-    indexed_results: dict[int, TResult] = {}
-    indexed_outcomes: dict[int, WorkflowItemOutcome[TResult]] = {}
+    indexed_results: dict[int, _RUN_DASHBOARD_WORKFLOW_REPORT_TRESULT] = {}
+    indexed_outcomes: dict[int, WorkflowItemOutcome[_RUN_DASHBOARD_WORKFLOW_REPORT_TRESULT]] = {}
     # Path items identify file workflows without guessing from display labels.
     if any(isinstance(item, Path) for item in items):
         dashboard.set_task_files([item if isinstance(item, Path) else None for item in items])
@@ -242,16 +256,16 @@ def run_dashboard_workflow_report[TItem, TResult](
     return WorkflowRunReport(outcomes=tuple(indexed_outcomes[index] for index in range(1, len(items) + 1)))
 
 
-def _run_serial_dashboard_workflow[TItem, TResult](
+def _run_serial_dashboard_workflow(
     *,
-    items: Sequence[TItem],
-    process_item: Callable[[TItem], TResult],
+    items: Sequence[_RUN_SERIAL_DASHBOARD_WORKFLOW_TITEM],
+    process_item: Callable[[_RUN_SERIAL_DASHBOARD_WORKFLOW_TITEM], _RUN_SERIAL_DASHBOARD_WORKFLOW_TRESULT],
     dashboard: LiveWorkflowDashboard,
-    status_for_result: Callable[[TResult], WorkflowStatus],
-    detail_for_result: Callable[[TResult], str],
-    indexed_results: dict[int, TResult],
-    indexed_outcomes: dict[int, WorkflowItemOutcome[TResult]] | None = None,
-    on_outcome: Callable[[WorkflowItemOutcome[TResult]], None] | None = None,
+    status_for_result: Callable[[_RUN_SERIAL_DASHBOARD_WORKFLOW_TRESULT], WorkflowStatus],
+    detail_for_result: Callable[[_RUN_SERIAL_DASHBOARD_WORKFLOW_TRESULT], str],
+    indexed_results: dict[int, _RUN_SERIAL_DASHBOARD_WORKFLOW_TRESULT],
+    indexed_outcomes: dict[int, WorkflowItemOutcome[_RUN_SERIAL_DASHBOARD_WORKFLOW_TRESULT]] | None = None,
+    on_outcome: Callable[[WorkflowItemOutcome[_RUN_SERIAL_DASHBOARD_WORKFLOW_TRESULT]], None] | None = None,
 ) -> None:
     """Run work in-process, updating the dashboard around each call."""
     for index, item in enumerate(items, start=1):
@@ -259,11 +273,11 @@ def _run_serial_dashboard_workflow[TItem, TResult](
         # A serial item may block for minutes, with no polling to refresh it.
         dashboard.refresh(force=True)
         try:
-            result: TResult = process_item(item)
+            result: _RUN_SERIAL_DASHBOARD_WORKFLOW_TRESULT = process_item(item)
         except Exception as exc:
             logger.exception("Error processing workflow item index {}", index)
             dashboard.mark_finished(index=index, status="FAIL", detail=str(exc))
-            outcome = WorkflowItemOutcome[TResult](index=index, status="FAIL", error=exc)
+            outcome = WorkflowItemOutcome[_RUN_SERIAL_DASHBOARD_WORKFLOW_TRESULT](index=index, status="FAIL", error=exc)
         else:
             # Result adapters are caller code. Errors here are configuration/
             # programming faults, not failures of the work item itself.
@@ -278,21 +292,21 @@ def _run_serial_dashboard_workflow[TItem, TResult](
             on_outcome(outcome)
 
 
-def _run_parallel_dashboard_workflow[TItem, TResult](
+def _run_parallel_dashboard_workflow(
     *,
-    items: Sequence[TItem],
-    process_item: Callable[[TItem], TResult],
+    items: Sequence[_RUN_PARALLEL_DASHBOARD_WORKFLOW_TITEM],
+    process_item: Callable[[_RUN_PARALLEL_DASHBOARD_WORKFLOW_TITEM], _RUN_PARALLEL_DASHBOARD_WORKFLOW_TRESULT],
     dashboard: LiveWorkflowDashboard,
     pool_size: int,
-    status_for_result: Callable[[TResult], WorkflowStatus],
-    detail_for_result: Callable[[TResult], str],
-    indexed_results: dict[int, TResult],
+    status_for_result: Callable[[_RUN_PARALLEL_DASHBOARD_WORKFLOW_TRESULT], WorkflowStatus],
+    detail_for_result: Callable[[_RUN_PARALLEL_DASHBOARD_WORKFLOW_TRESULT], str],
+    indexed_results: dict[int, _RUN_PARALLEL_DASHBOARD_WORKFLOW_TRESULT],
     log_queue: LogQueue | None,
     worker_log_level: str | None,
     max_start_events: int | None,
     poll_interval: float,
-    indexed_outcomes: dict[int, WorkflowItemOutcome[TResult]] | None = None,
-    on_outcome: Callable[[WorkflowItemOutcome[TResult]], None] | None = None,
+    indexed_outcomes: dict[int, WorkflowItemOutcome[_RUN_PARALLEL_DASHBOARD_WORKFLOW_TRESULT]] | None = None,
+    on_outcome: Callable[[WorkflowItemOutcome[_RUN_PARALLEL_DASHBOARD_WORKFLOW_TRESULT]], None] | None = None,
 ) -> None:
     """Run work in a process pool and poll async results for dashboard updates."""
     completed_indexes: set[int] = set()
@@ -313,11 +327,11 @@ def _run_parallel_dashboard_workflow[TItem, TResult](
                 cast("Callable[[object], object]", process_item),
             ),
         ) as pool:
-            pending_results: dict[int, ApplyResult[TResult]] = {}
+            pending_results: dict[int, ApplyResult[_RUN_PARALLEL_DASHBOARD_WORKFLOW_TRESULT]] = {}
             for index, item in enumerate(items, start=1):
                 request: IndexedWorkflowItem[object] = IndexedWorkflowItem(index=index, item=item)
                 pending_results[index] = cast(
-                    "ApplyResult[TResult]",
+                    "ApplyResult[_RUN_PARALLEL_DASHBOARD_WORKFLOW_TRESULT]",
                     pool.apply_async(_process_indexed_workflow_item, args=(request,)),
                 )
 
@@ -408,16 +422,16 @@ def _mark_started_dashboard_rows(
     return started_count
 
 
-def _collect_finished_dashboard_results[TResult](
+def _collect_finished_dashboard_results(
     *,
     dashboard: LiveWorkflowDashboard,
-    pending_results: dict[int, ApplyResult[TResult]],
-    indexed_results: dict[int, TResult],
+    pending_results: dict[int, ApplyResult[_COLLECT_FINISHED_DASHBOARD_RESULTS_TRESULT]],
+    indexed_results: dict[int, _COLLECT_FINISHED_DASHBOARD_RESULTS_TRESULT],
     completed_indexes: set[int],
-    status_for_result: Callable[[TResult], WorkflowStatus],
-    detail_for_result: Callable[[TResult], str],
-    indexed_outcomes: dict[int, WorkflowItemOutcome[TResult]] | None = None,
-    on_outcome: Callable[[WorkflowItemOutcome[TResult]], None] | None = None,
+    status_for_result: Callable[[_COLLECT_FINISHED_DASHBOARD_RESULTS_TRESULT], WorkflowStatus],
+    detail_for_result: Callable[[_COLLECT_FINISHED_DASHBOARD_RESULTS_TRESULT], str],
+    indexed_outcomes: dict[int, WorkflowItemOutcome[_COLLECT_FINISHED_DASHBOARD_RESULTS_TRESULT]] | None = None,
+    on_outcome: Callable[[WorkflowItemOutcome[_COLLECT_FINISHED_DASHBOARD_RESULTS_TRESULT]], None] | None = None,
 ) -> int:
     """Collect completed async results and mark matching dashboard rows finished."""
     finished_count: int = 0
@@ -425,15 +439,17 @@ def _collect_finished_dashboard_results[TResult](
         if not async_result.ready():
             continue
         try:
-            result: TResult = async_result.get()
-        except MaybeEncodingError, OSError:
+            result: _COLLECT_FINISHED_DASHBOARD_RESULTS_TRESULT = async_result.get()
+        except (MaybeEncodingError, OSError):
             # Pool transport/serialization faults must reach the caller's
             # existing retry/fallback policy, including in the report API.
             raise
         except Exception as exc:
             logger.exception("Error processing workflow item index {}", index)
             dashboard.mark_finished(index=index, status="FAIL", detail=str(exc), refresh=False)
-            outcome = WorkflowItemOutcome[TResult](index=index, status="FAIL", error=exc)
+            outcome = WorkflowItemOutcome[_COLLECT_FINISHED_DASHBOARD_RESULTS_TRESULT](
+                index=index, status="FAIL", error=exc
+            )
         else:
             # Never hide invalid result statuses or caller adapter failures.
             status = _terminal_status(status_for_result(result))
