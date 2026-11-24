@@ -145,6 +145,7 @@ def test_check_discovery_prunes_junctions(utility: ModuleType, tmp_path: Path, m
     root = tmp_path / "root"
     linked = root / "checks"
     (linked / "nested" / "checks").mkdir(parents=True)
+
     def junction(path: Path) -> bool:
         return path == linked
 
