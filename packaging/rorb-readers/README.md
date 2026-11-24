@@ -69,3 +69,16 @@ The reader-suite AST regression pins Python 3.11 grammar independently of
 interpreter choice. The wheel includes only the canonical readers and their
 package initializers/PEP 561 marker; parent convenience modules are not collected.
 Build from a clean full checkout to avoid stale setuptools build products.
+
+## Standalone PyPI release
+
+Issue [#337](https://github.com/Chain-Frost/ryan-tools/issues/337) tracks the first standalone publication. The selected version is `26.11.24.1`. The dedicated [reader publisher](../../.github/workflows/rorb-readers-publish.yml) verifies the exact wheel on Windows with Python 3.11–3.14; it does not publish the full ryan-tools project or generate a subproject sdist. The full source checkout is the canonical build source.
+
+After successful publication, install the exact verified version from PyPI in an environment without the full ryan-tools distribution:
+
+```shell
+python -m pip install ryan-rorb-readers==26.11.24.1
+python -m pip check
+````
+
+The owner must register/verify a separate pending Trusted Publisher: project `ryan-rorb-readers`, owner `Chain-Frost`, repository `ryan-tools`, workflow `rorb-readers-publish.yml`, environment `pypi`. Verify the existing environment permits only main and retains required owner approval. On main, set `RORB_READERS_PUBLISH_ENABLED=true` only for the selected release, manually dispatch the workflow with the exact current main SHA, inspect the wheel receipt and approve the protected upload. After verifying the public wheel, remove or unset the enable variable. Existing root ryan-tools publication automation is unchanged; this standalone wheel has its own version and publisher. Until the release actually succeeds, consumers may use the immutable source-archive approach above.
