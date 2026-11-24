@@ -1,5 +1,7 @@
 """Stream-profile calculations and simple D8 reach extraction."""
 
+from typing import SupportsFloat, cast
+
 import numpy as np
 from numpy.typing import NDArray
 
@@ -24,7 +26,7 @@ def equal_area_slope(distances_m: NDArray[np.floating], elevations_m: NDArray[np
         msg = "Profile distances must start at zero and increase upstream"
         raise ValueError(msg)
     length = float(x[-1])
-    area = float(np.trapezoid(z - z[0], x))
+    area = float(cast("SupportsFloat", np.trapezoid(z - z[0], x)))
     return 2.0 * area / (length * length)
 
 

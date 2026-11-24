@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from itertools import pairwise
 from math import isfinite
+from typing import TypeAlias
 
 
 class CulvertMaterialName(StrEnum):
@@ -146,7 +147,7 @@ class HorizontalEllipseBarrelDefinition:
         object.__setattr__(self, "label", self.label.strip())
 
 
-type BarrelDefinition = RectangularBarrelDefinition | CircularBarrelDefinition | HorizontalEllipseBarrelDefinition
+BarrelDefinition: TypeAlias = RectangularBarrelDefinition | CircularBarrelDefinition | HorizontalEllipseBarrelDefinition
 
 
 @dataclass(frozen=True, slots=True)
@@ -239,7 +240,7 @@ class RoadwayProfileDefinition:
         return min(point.elevation for point in self.points)
 
 
-type RoadwayOvertoppingDefinition = RoadwayDefinition | RoadwayProfileDefinition
+RoadwayOvertoppingDefinition: TypeAlias = RoadwayDefinition | RoadwayProfileDefinition
 
 
 @dataclass(frozen=True, slots=True)

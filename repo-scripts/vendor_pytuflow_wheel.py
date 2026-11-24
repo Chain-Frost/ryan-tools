@@ -15,7 +15,7 @@ from importlib import metadata
 from pathlib import Path
 from typing import cast
 from urllib.parse import urlsplit
-from urllib.request import url2pathname
+from urllib.request import url2pathname  # pyright: ignore[reportDeprecated] -- Python 3.11 lacks Path.from_uri.
 
 SOURCE_COMMIT = "0121101650fd8e931af8d09cadb23bd43f6fefbd"
 SOURCE_REPOSITORY = "https://github.com/Chain-Frost/PyTuflow"
@@ -140,9 +140,9 @@ def verify_installed() -> None:
     if parts.scheme != "file":
         message = f"Installed PyTuflow is not the accepted local wheel: {url}"
         raise ValueError(message)
-    installed_path = Path(url2pathname(parts.path))
+    installed_path = Path(url2pathname(parts.path))  # pyright: ignore[reportDeprecated] -- Python 3.11 lacks Path.from_uri.
     if parts.netloc not in ("", "localhost"):
-        installed_path = Path(f"//{parts.netloc}{url2pathname(parts.path)}")
+        installed_path = Path(f"//{parts.netloc}{url2pathname(parts.path)}")  # pyright: ignore[reportDeprecated] -- Python 3.11 lacks Path.from_uri.
     # Resolve deliberately here: installed-wheel provenance must identify the same physical file.
     if installed_path.resolve() != WHEEL_PATH.resolve():
         message = f"Installed PyTuflow archive differs: {installed_path} != {WHEEL_PATH}"

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import sys
 from pathlib import Path
 from types import ModuleType
 
@@ -289,7 +290,7 @@ def test_aliased_mutating_import_is_detected_without_execution() -> None:
 
 
 def test_postponed_annotations_are_not_misclassified_as_import_effects() -> None:
-    """Python 3.14 defers annotations with or without the future import."""
+    """Future annotations are deferred; older default annotations execute eagerly."""
     source = (
         "from __future__ import annotations\n"
         "import shutil\n"
@@ -300,12 +301,12 @@ def test_postponed_annotations_are_not_misclassified_as_import_effects() -> None
     assert deferred["import_time_mutation_risk"] is False
 
     default_lazy = inventory.analyse_python(source.replace("from __future__ import annotations\n", ""))
-    assert default_lazy["import_time_mutation_risk"] is False
+    assert default_lazy["import_time_mutation_risk"] is (sys.version_info < (3, 14))
 
     annotated_assignment = inventory.analyse_python(
         "import shutil\nx: shutil.copy2('a', 'b') = None\nclass Container:\n    y: shutil.copy2('a', 'b') = None\n"
     )
-    assert annotated_assignment["import_time_mutation_risk"] is False
+    assert annotated_assignment["import_time_mutation_risk"] is (sys.version_info < (3, 14))
 
     defaults = inventory.analyse_python(source + "def g(value=shutil.copy2('a', 'b')):\n    pass\n")
     assert defaults["import_time_mutation_calls"] == ["copy2"]
@@ -344,8 +345,11 @@ def test_annotated_alias_and_rebinding_use_statement_order() -> None:
 def test_lazy_type_parameter_bounds_do_not_trigger_import_time_mutation() -> None:
     source = "import shutil\ndef f[T: shutil.copy2('a', 'b')]():\n    pass\n"
     record = inventory.analyse_python(source)
-    assert record["parse_status"] == "ok"
-    assert record["import_time_mutation_risk"] is False
+    if sys.version_info < (3, 12):
+        assert record["parse_status"] == "syntax_error"
+    else:
+        assert record["parse_status"] == "ok"
+        assert record["import_time_mutation_risk"] is False
 
 
 def test_conditional_aliases_preserve_possible_mutations() -> None:

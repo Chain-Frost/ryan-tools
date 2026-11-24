@@ -10,10 +10,16 @@ principles remain in [WRAPPER_STANDARD.md](../ryan-scripts/WRAPPER_STANDARD.md).
 
 ```python
 from ryan_library.functions.live_dashboard import (
-    LiveWorkflowDashboard, WorkflowColumn, WorkflowMetric, validate_dashboard_settings,
+    LiveWorkflowDashboard,
+    WorkflowColumn,
+    WorkflowMetric,
+    validate_dashboard_settings,
 )
 from ryan_library.functions.dashboard_workflow import (
-    WorkflowItemOutcome, WorkflowRunReport, run_dashboard_workflow, run_dashboard_workflow_report,
+    WorkflowItemOutcome,
+    WorkflowRunReport,
+    run_dashboard_workflow,
+    run_dashboard_workflow_report,
 )
 from ryan_library.functions.loguru_helpers import setup_logger
 ```

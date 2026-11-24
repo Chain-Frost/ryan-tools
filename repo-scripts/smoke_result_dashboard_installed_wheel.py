@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import TypeAlias
 
 from openpyxl import load_workbook
 
@@ -52,7 +53,7 @@ CASES = (
     Case("TUFLOW-python/po_and_timeseries/combine_pomm_results.py", "POMM", "combined_POMM"),
 )
 
-type WorkbookSnapshot = dict[str, tuple[tuple[str, ...], tuple[tuple[float, ...], ...]]]
+WorkbookSnapshot: TypeAlias = dict[str, tuple[tuple[str, ...], tuple[tuple[float, ...], ...]]]
 
 
 def _write_inputs(folder: Path) -> None:

@@ -1,5 +1,6 @@
 """Catchment-only workflow and resilient vector input checks."""
 
+import os
 import sqlite3
 from pathlib import Path
 
@@ -105,7 +106,7 @@ def test_catchment_publication_rejects_race_after_precheck(tmp_path: Path, monke
     def stale_precheck(path: Path, *, follow_symlinks: bool = True) -> bool:
         if path == destination:
             return False
-        return original_exists(path, follow_symlinks=follow_symlinks)
+        return original_exists(path) if follow_symlinks else os.path.lexists(path)
 
     monkeypatch.setattr(Path, "exists", stale_precheck)
     with pytest.raises(FileExistsError, match="appeared during processing"):

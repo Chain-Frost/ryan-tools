@@ -54,7 +54,7 @@ LOG_FILE: Path | None = None  # e.g. Path(__file__).with_suffix(".log") if a fil
 
 
 def derive_depth_path(velocity_path: Path) -> Path:
-    return velocity_path.with_name(name=velocity_path.name.replace("_V_Max", "_d_HR_Max", count=1))
+    return velocity_path.with_name(name=velocity_path.name.replace("_V_Max", "_d_HR_Max", 1))
 
 
 def derive_original_velocity_path(velocity_path: Path) -> Path:

@@ -359,6 +359,9 @@ def test_projection_files_preserve_authority_or_custom_grid(tmp_path: Path, epsg
     )
     prj = tmp_path / "input.prj"
     original = source.to_wkt(version="WKT1_ESRI")
+    # ESRI serialization can normalize an unnamed datum on older PROJ versions.
+    # The exported files must match the CRS actually supplied in the input file.
+    source = ProjCRS.from_wkt(original)
     prj.write_text(original, encoding="utf-8")
     project_setup._create_projection_files(prj_file=prj, gis_dir=tmp_path, overwrite=False)  # pyright: ignore[reportPrivateUsage]
     assert (tmp_path / "projection_input.prj").read_bytes() == prj.read_bytes()

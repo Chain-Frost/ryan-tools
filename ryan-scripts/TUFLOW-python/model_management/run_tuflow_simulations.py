@@ -234,7 +234,7 @@ def main(argv: list[str] | None = None, *, _parsed_arguments: argparse.Namespace
     )
     try:
         log_level = arguments.console_log_level if arguments.console_log_level is not None else CONSOLE_LOG_LEVEL
-        if not isinstance(log_level, str) or log_level.upper() not in params.LOG:
+        if not isinstance(log_level, str) or log_level.upper() not in tuple(params.LOG):
             choices = ", ".join(params.LOG)
             message = f"CONSOLE_LOG_LEVEL={log_level!r} is invalid; use {choices}."
             raise ValueError(message)
@@ -337,7 +337,7 @@ def main(argv: list[str] | None = None, *, _parsed_arguments: argparse.Namespace
         ):
             outcome_code = 1
         return outcome_code
-    except OSError, ValueError:
+    except (OSError, ValueError):
         logger.exception("Runner preparation or execution failed.")
         return 1
     except KeyboardInterrupt:

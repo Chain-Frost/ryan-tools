@@ -9,6 +9,8 @@ from math import prod
 from pathlib import Path
 from typing import Literal
 
+from .file_verification import is_junction
+
 VerificationStatus = Literal["RUNNING", "OK", "SKIP", "FAIL"]
 VerificationProgress = Callable[[int, Path, VerificationStatus], None]
 
@@ -235,7 +237,7 @@ def scan_ensemble_inventory(
         directories[:] = [
             name
             for name in directories
-            if not (Path(directory) / name).is_symlink() and not (Path(directory) / name).is_junction()
+            if not (Path(directory) / name).is_symlink() and not is_junction(Path(directory) / name)
         ]
         names.extend(name for name in files if name.lower().endswith(".tlf"))
         if verify_success:

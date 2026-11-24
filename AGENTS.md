@@ -32,7 +32,7 @@ are removed alongside their `.gitmodules` entries; do not reintroduce them or lo
 
 ## Coding conventions
 
-- Target Python 3.14 and use current Python 3.14+ annotation syntax.
+- Support Python 3.11–3.14 using Python 3.11-compatible syntax; prefer Python 3.14 for development.
 - Within `ryan_library`, prefer explicit relative imports for intra-package dependencies. Wrappers and other code outside
   the package should import `ryan_library` absolutely; import vendored packages through their public package paths.
 - Format Python with `ruff format` using the 120-character line length configured in `ruff.toml`.

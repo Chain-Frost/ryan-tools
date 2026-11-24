@@ -1,6 +1,6 @@
 @echo off
 setlocal
-REM End-user installer: bypass Requires-Python metadata; Python 3.14+ remains supported.
+REM End-user installer: enforce Requires-Python metadata; Python 3.11-3.14 supported.
 REM Set RYAN_TOOLS_PYTHON to an interpreter path to override automatic selection.
 set "PYTHON_CMD=py -3"
 if defined RYAN_TOOLS_PYTHON set "PYTHON_CMD="%RYAN_TOOLS_PYTHON%""

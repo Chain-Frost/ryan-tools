@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import TypeAlias
 
 import numpy as np
 from numpy.typing import NDArray
 
 from vendor.simil import find
 
-type FloatArray = NDArray[np.float64]
-type PointRows = Sequence[Sequence[float]] | FloatArray
+FloatArray: TypeAlias = NDArray[np.float64]
+PointRows: TypeAlias = Sequence[Sequence[float]] | FloatArray
 
 
 def find_similarity_transform(

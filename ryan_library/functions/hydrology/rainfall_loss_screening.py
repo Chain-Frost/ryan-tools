@@ -555,7 +555,7 @@ def screen_bom_ifd(
             ):
                 try:
                     patterns = tuple(_pytuflow_pattern(p) for p in temporal_patterns.patterns(duration, name))
-                except LookupError, ValueError:
+                except (LookupError, ValueError):
                     pass
                 except Exception as exc:  # noqa: BLE001 - isolate external TP provider
                     # A provider may raise its own domain-specific missing-pattern

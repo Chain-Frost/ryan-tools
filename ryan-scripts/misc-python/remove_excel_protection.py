@@ -9,6 +9,8 @@ Use --no-write to preview destinations. Requires the matching ryan-tools package
 
 from pathlib import Path
 
+from ryan_library.functions.file_verification import is_junction
+
 WRAPPER_VERSION = "2026-11-07.2"
 DEFAULT_INPUT_DIR = Path()
 # Relative output folders are based on each input directory.
@@ -46,7 +48,7 @@ SPREADSHEET_NAMESPACES = frozenset(
 
 def _reject_linked_path(path: Path) -> None:
     for part in (path, *path.parents):
-        if part.is_symlink() or part.is_junction():
+        if part.is_symlink() or is_junction(part):
             message = f"Linked paths are not supported for workbook publication: {part}"
             raise ValueError(message)
 
@@ -237,7 +239,7 @@ def main(
         validate_dashboard_settings(refresh_per_second=LIVE_REFRESH_PER_SECOND, max_rows=LIVE_MAX_ROWS)
         jobs = _plan_jobs(targets, output)
         log_path = _log_path_for_jobs(jobs, write=effective_write)
-    except OSError, ValueError, TypeError:
+    except (OSError, ValueError, TypeError):
         logger.exception("Invalid workbook batch configuration")
         return 1
     with setup_logger(

@@ -6,11 +6,13 @@ build-backend = "setuptools.build_meta"
 name = "ryan-rorb-readers"
 version = "0.0.0.dev0"
 description = "Dependency-light canonical RORB report readers maintained in ryan-tools"
-requires-python = ">=3.13"
+requires-python = ">=3.11"
 license = "LicenseRef-SUL-1.0"
 license-files = ["LICENSE"]
 dependencies = []
 classifiers = [
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
 ]
@@ -24,8 +26,9 @@ Repository = "https://github.com/Chain-Frost/ryan-tools"
 include-package-data = false
 # Package the existing root PEP 561 marker and its original __init__.
 # The six canonical report modules below are still the only RORB modules.
-packages = ["ryan_library", "ryan_library.functions"]
+packages = ["ryan_library"]
 py-modules = [
+  "ryan_library.functions.__init__",
   "ryan_library.functions.RORB.reader_types",
   "ryan_library.functions.RORB.readers",
   "ryan_library.functions.RORB.output_reader",

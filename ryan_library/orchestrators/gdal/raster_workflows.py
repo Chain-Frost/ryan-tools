@@ -9,7 +9,7 @@ allocation. Individual raster operations remain in
 from collections.abc import Callable, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Literal
+from typing import Literal, TypeVar
 
 from loguru import logger
 
@@ -22,6 +22,8 @@ from ryan_library.functions.gdal.raster_processing import (
     plan_gdal_concurrency,
     translate_to_geotiff,
 )
+
+_RUN_BATCH_T = TypeVar("_RUN_BATCH_T")
 
 DEFAULT_SOURCE_EXTENSIONS: tuple[str, ...] = (".flt", ".asc", ".rst", ".xyz")
 
@@ -172,14 +174,14 @@ def _find_sources(directory: Path, extensions: Sequence[str], recursive: bool) -
     )
 
 
-def _run_batch[T](items: Sequence[Path], workers: int, operation: Callable[[Path], T]) -> list[T]:
+def _run_batch(items: Sequence[Path], workers: int, operation: Callable[[Path], _RUN_BATCH_T]) -> list[_RUN_BATCH_T]:
     """Run one path operation serially or in a bounded thread pool."""
     if workers == 1:
         return [operation(item) for item in items]
 
-    results: list[T] = []
+    results: list[_RUN_BATCH_T] = []
     with ThreadPoolExecutor(max_workers=workers) as executor:
-        futures: dict[Future[T], Path] = {executor.submit(operation, item): item for item in items}
+        futures: dict[Future[_RUN_BATCH_T], Path] = {executor.submit(operation, item): item for item in items}
         for future in as_completed(futures):
             item: Path = futures[future]
             try:

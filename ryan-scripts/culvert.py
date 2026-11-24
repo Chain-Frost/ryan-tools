@@ -50,7 +50,7 @@ from __future__ import annotations
 import json
 from dataclasses import replace
 from pathlib import Path
-from typing import cast
+from typing import TypeVar, cast
 
 WRAPPER_VERSION = "2026-11-07.1"
 
@@ -115,8 +115,12 @@ from ryan_library.orchestrators.culvert.solve import solve_crossing_scenario
 from ryan_library.orchestrators.culvert.uncertainty import run_uncertainty_study, select_uncertainty_targets
 from ryan_library.orchestrators.culvert.uncertainty_report import render_uncertainty_markdown
 
+_SELECT_NAMED_T = TypeVar("_SELECT_NAMED_T")
 
-def _select_named[T](items: Sequence[T], name: str | None, *, get_name: Callable[[T], str]) -> T:
+
+def _select_named(
+    items: Sequence[_SELECT_NAMED_T], name: str | None, *, get_name: Callable[[_SELECT_NAMED_T], str]
+) -> _SELECT_NAMED_T:
     if not items:
         msg = "No selectable items are available."
         raise ValueError(msg)
@@ -447,7 +451,7 @@ def main(
                 msg = f"Unsupported command: {command}"
                 raise ValueError(msg)
             logger.success("Culvert workflow completed; outputs: {}", resolved_output)
-        except OSError, ValueError, RuntimeError:
+        except (OSError, ValueError, RuntimeError):
             logger.exception("Culvert workflow failed.")
             return 1
     return 0

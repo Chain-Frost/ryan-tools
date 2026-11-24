@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING, Any, cast
 import pandas as pd
 from pandas import DataFrame, MultiIndex
 
+from ...functions.file_verification import is_junction
 from .base_processor import BaseProcessor
 from .source_fingerprint import source_signature as _source_signature
 
@@ -456,7 +457,7 @@ def _validate_destination(collection: ProcessorCollection, destination: Path, *,
     if destination.suffix.casefold() in {".parquet", ".rtparquet"}:
         message = "Collection snapshots require a directory (e.g. results.parquetdir), not a Parquet file"
         raise ValueError(message)
-    if destination.is_symlink() or (hasattr(destination, "is_junction") and destination.is_junction()):
+    if destination.is_symlink() or is_junction(destination):
         message = f"Refusing linked Parquet directory destination: {destination}"
         raise ValueError(message)
     if destination.exists() and not destination.is_dir():
@@ -544,7 +545,7 @@ def _publish_new_directory(stage: Path, destination: Path) -> None:
 
 
 def _unsafe_link(path: Path) -> bool:
-    return path.is_symlink() or (hasattr(path, "is_junction") and path.is_junction())
+    return path.is_symlink() or is_junction(path)
 
 
 def _checked_members(directory: Path, entries: list[dict[str, Any]], lookup: dict[str, Any] | None) -> None:

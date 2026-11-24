@@ -6,7 +6,7 @@ from __future__ import annotations
 # pyright: reportUnknownArgumentType=false, reportUnknownMemberType=false, reportUnknownVariableType=false
 from math import ceil, isfinite
 from pathlib import Path
-from typing import Literal
+from typing import Literal, TypeAlias
 
 import numpy as np
 import rasterio
@@ -15,9 +15,9 @@ from loguru import logger
 from numpy.typing import NDArray
 from shapely.geometry import LineString
 
-type FloatArray = NDArray[np.float64]
-type BoolArray = NDArray[np.bool_]
-type SamplingMethod = Literal["bilinear", "bilinear_valid", "bilinear_masked", "nearest"]
+FloatArray: TypeAlias = NDArray[np.float64]
+BoolArray: TypeAlias = NDArray[np.bool_]
+SamplingMethod: TypeAlias = Literal["bilinear", "bilinear_valid", "bilinear_masked", "nearest"]
 
 
 class RasterSamplingError(RuntimeError):
@@ -248,7 +248,7 @@ def sample_raster_along_line(
                 if method == "bilinear_masked":
                     values[~_containing_cells_are_valid(band, rows, cols)] = np.nan
             return distances, values
-    except ValueError, RasterSamplingError:
+    except (ValueError, RasterSamplingError):
         raise
     except Exception as exc:
         msg = f"Failed to sample raster {source_path}: {exc}"

@@ -39,6 +39,7 @@ Examples::
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TypeVar
 
 from ryan_library.classes.culvert.project import CulvertProject
 from ryan_library.classes.floodway.models import FloodwayFormation
@@ -78,8 +79,12 @@ from ryan_library.orchestrators.floodway import (
     render_floodway_scenario_markdown,
 )
 
+_SELECT_NAMED_T = TypeVar("_SELECT_NAMED_T")
 
-def _select_named[T](items: Sequence[T], name: str | None, *, get_name: Callable[[T], str]) -> T:
+
+def _select_named(
+    items: Sequence[_SELECT_NAMED_T], name: str | None, *, get_name: Callable[[_SELECT_NAMED_T], str]
+) -> _SELECT_NAMED_T:
     if not items:
         msg = "No selectable items are available."
         raise ValueError(msg)
@@ -210,7 +215,7 @@ def main(
             )
             print(render_floodway_envelope_markdown(envelope))
             logger.success("Floodway assessment completed; outputs: {}", resolved_output)
-        except OSError, TypeError, ValueError, RuntimeError:
+        except (OSError, TypeError, ValueError, RuntimeError):
             logger.exception("Floodway assessment failed.")
             return 1
     return 0

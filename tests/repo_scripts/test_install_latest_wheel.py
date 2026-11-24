@@ -34,7 +34,7 @@ def test_normal_commands_pin_accepted_parser_and_preserve_gis_wheels() -> None:
     assert Path(pin).name == "pytuflow-1.3.1-py3-none-any.whl"
     assert Path(pin).is_file()
     assert commands[0] == installer._gis_dependency_command()
-    assert all("--ignore-requires-python" in command for command in commands)
+    assert all("--ignore-requires-python" not in command for command in commands)
     assert installer.GIS_WHEEL_INDEX == "https://gisidx.github.io/gwi"
     assert len(commands) == 3
     assert commands[-2][-3:] == ["--force-reinstall", "--no-deps", pin]
@@ -71,7 +71,7 @@ def test_no_dependency_recovery_does_not_claim_parser_installation() -> None:
     installer = _installer()
     commands = installer._pip_commands(Path("dist/local.whl"), True)
     assert len(commands) == 1
-    assert "--ignore-requires-python" in commands[0]
+    assert "--ignore-requires-python" not in commands[0]
     assert "--no-deps" in commands[0]
     assert "pytuflow" not in " ".join(commands[0]).casefold()
 
@@ -104,7 +104,7 @@ def test_dependency_only_dry_run_does_not_require_wheel(
     assert installer.main(["--dependencies-only", "--dry-run"]) == 0
     printed = capsys.readouterr().out
     assert "gisidx.github.io/gwi" in printed
-    assert "--ignore-requires-python" in printed
+    assert "--ignore-requires-python" not in printed
     assert "require_validation_api" not in printed
 
 

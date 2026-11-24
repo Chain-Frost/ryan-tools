@@ -32,6 +32,7 @@ from __future__ import annotations
 from collections.abc import Generator, Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TypeVar
 
 SCRIPT_VERSION = "2026-11-08.1"
 
@@ -63,6 +64,8 @@ from contextlib import closing, contextmanager
 from typing import Any
 
 from osgeo import gdal, ogr, osr
+
+_EFFECTIVE_CLI_VALUE_T = TypeVar("_EFFECTIVE_CLI_VALUE_T")
 
 SUPPORTED_SUFFIXES = frozenset({".dxf", ".dwg"})
 OUTPUT_LAYER_NAMES = {0: "points", 1: "lines", 2: "areas"}
@@ -766,7 +769,9 @@ def _parse_cli_arguments() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _effective_cli_value[T](cli_value: T | None, editable_value: T) -> T:
+def _effective_cli_value(
+    cli_value: _EFFECTIVE_CLI_VALUE_T | None, editable_value: _EFFECTIVE_CLI_VALUE_T
+) -> _EFFECTIVE_CLI_VALUE_T:
     return editable_value if cli_value is None else cli_value
 
 

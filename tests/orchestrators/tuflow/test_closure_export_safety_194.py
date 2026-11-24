@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 # pyright: reportPrivateUsage=false
 """Closure raw tables and formatted reports form one protected export batch."""
 

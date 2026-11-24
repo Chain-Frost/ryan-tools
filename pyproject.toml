@@ -7,10 +7,15 @@ authors = [
   {name = "Chain Frost", email = "chainfrost@outlook.com"},
 ]
 classifiers = [
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
   "Operating System :: Microsoft :: Windows",
 ]
 dependencies = [
+  "typing_extensions>=4.12",
+  "h5py>=3.14,<3.16; sys_platform == 'win32'",
   "numpy",
   "pandas",
   "scipy",
@@ -38,23 +43,24 @@ dependencies = [
   "ezdxf",
   "rich",
   "pytuflow>=1.2",
-  "run-hy8>=2026.11.9.1",
-  'ryan-culverts>=26.10.19.1',
+  "run-hy8 @ https://github.com/Chain-Frost/run-hy8/archive/ede1d29d4c30e9ac1ee863458958c44e1f8f4653.tar.gz",
+  "ryan-culverts @ https://github.com/Chain-Frost/ryan-culverts/archive/597ef2353fa2573639c869831a1ed1c6a45e8ce6.tar.gz",
 ]
 description = "Collection of TUFLOW and data processing functions."
 license = "SUL-1.0"
 name = "ryan-tools"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.11"
 version = "26.11.17.3"
 
 [project.optional-dependencies]
 dev = [
   "build",
-  "pandas-stubs>=3.1.0.261029",
+  "pandas-stubs>=3.1.0.261029; python_version >= '3.12'",
+  "pandas-stubs>=2.3,<3; python_version < '3.12'",
   "pyarrow-stubs",
   "types-psutil",
-  "types-rasterio>=1.5.2.20261029",
+  "types-rasterio>=1.5.2.20261029; python_version >= '3.12'",
   "scipy-stubs",
   "distributed",
   "pillow-heif>=1.8.0",
@@ -136,7 +142,7 @@ where = [".", "ryan-scripts/TUFLOW-python"]
 [tool.pyright]
 extraPaths = ["vendor"]
 include = ["ryan_library", "ryan-scripts"]
-pythonVersion = "3.14"
+pythonVersion = "3.11"
 reportUnnecessaryTypeIgnoreComment = "error"
 typeCheckingMode = "strict"
 

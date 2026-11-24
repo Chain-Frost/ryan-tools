@@ -184,7 +184,7 @@ def _geometry_length(row: dict[str, Any]) -> float:
     geometry = row.get("geometry")
     try:
         length = float(getattr(geometry, "length", float("nan")))
-    except AttributeError, TypeError, ValueError:
+    except (AttributeError, TypeError, ValueError):
         length = float("nan")
     if not isfinite(length) or length <= 0.0:
         msg = "Negative Len_or_ANA requires a feature geometry with a positive digitized length."

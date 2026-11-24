@@ -178,8 +178,10 @@ def test_pypi_installer_python_support_is_open_ended(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(sys, "path", [str(REPO / "repo-scripts"), *sys.path])
     pypi = runpy.run_path(str(REPO / "repo-scripts" / "install_from_pypi.py"))
     supported = cast(Callable[[int, int], bool], pypi["supported_python"])
-    assert not supported(3, 12)
-    assert not supported(3, 13)
+    assert not supported(3, 10)
+    assert supported(3, 11)
+    assert supported(3, 12)
+    assert supported(3, 13)
     assert supported(3, 14)
     assert supported(3, 15)
     assert supported(3, 16)
@@ -319,7 +321,7 @@ def test_codex_writer_refuses_symlink_without_replacing_it(tmp_path: Path) -> No
     target.write_text('model = "managed"\n', encoding="utf-8")
     try:
         link.symlink_to(target)
-    except OSError, NotImplementedError:
+    except (OSError, NotImplementedError):
         pytest.skip("Creating symbolic links is not permitted in this environment")
     with pytest.raises(ValueError, match="symlink"):
         write(link, 'model = "unsafe"\n', dry_run=False, expected_original=target.read_bytes())

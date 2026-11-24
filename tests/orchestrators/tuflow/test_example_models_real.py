@@ -16,7 +16,7 @@ from importlib import metadata
 from pathlib import Path
 from typing import cast
 from urllib.parse import urlsplit
-from urllib.request import url2pathname
+from urllib.request import url2pathname  # pyright: ignore[reportDeprecated] -- Python 3.11 lacks Path.from_uri.
 
 import pytest
 
@@ -138,7 +138,7 @@ def test_all_example_models_public_validation(example_plan: CommandPlan, tmp_pat
     parts = urlsplit(source_url)
     assert parts.scheme == "file", diagnostic.message
     # Resolve deliberately to compare physical installed source with the checked wheel.
-    assert Path(url2pathname(parts.path)).resolve() == expected_wheel.resolve(), diagnostic.message
+    assert Path(url2pathname(parts.path)).resolve() == expected_wheel.resolve(), diagnostic.message  # pyright: ignore[reportDeprecated] -- Python 3.11 lacks Path.from_uri.
     archive_info = direct_url.get("archive_info")
     assert isinstance(archive_info, dict), diagnostic.message
     source_info = cast(dict[str, object], archive_info)

@@ -117,7 +117,7 @@ def run_closure_durations(
                     dashboard.finish(outcome="SKIPPED", detail="no report generated")
                     return True
 
-                timestamp: str = datetime.now().strftime(format="%Y%m%d-%H%M")
+                timestamp: str = datetime.now().strftime("%Y%m%d-%H%M")
                 summary_df: DataFrame = summarise_results(df=result_df)
                 summary_df["AEP_sort_key"] = summary_df["AEP"].str.extract(r"([0-9]*\.?[0-9]+)")[0].astype(dtype=float)
                 summary_df = summary_df.sort_values(

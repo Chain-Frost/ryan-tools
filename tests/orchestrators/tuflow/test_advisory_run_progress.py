@@ -6,6 +6,7 @@ import time
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from threading import Event, current_thread
+from typing import TypeAlias
 
 import pytest
 
@@ -13,9 +14,9 @@ from ryan_library.functions.tuflow.command_plan import PlannedRun
 from ryan_library.functions.tuflow.run_progress import LogProgressSnapshot, RunLogPrediction
 from ryan_library.orchestrators.tuflow import run_progress as progress
 
-type Resolve = Callable[[Path, Mapping[str, str]], RunLogPrediction]
-type Poll = Callable[[Path], LogProgressSnapshot]
-type ReadOptions = tuple[Path, float, float | None, float | None, bool]
+Resolve: TypeAlias = Callable[[Path, Mapping[str, str]], RunLogPrediction]
+Poll: TypeAlias = Callable[[Path], LogProgressSnapshot]
+ReadOptions: TypeAlias = tuple[Path, float, float | None, float | None, bool]
 
 
 def _run(base: Path, index: int = 1, *, switches: tuple[str, ...] = ()) -> PlannedRun:

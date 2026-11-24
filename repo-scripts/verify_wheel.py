@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import tomllib
 import zipfile
 from pathlib import Path
@@ -144,11 +145,10 @@ def _verify_external_dependencies(metadata: str, names: set[str]) -> None:
     for distribution in ("run-hy8", "ryan-culverts", "scipy", "bottleneck"):
         normalized = distribution.replace("-", "_")
         if not any(
-            requirement.split(";", maxsplit=1)[0].split(">=", maxsplit=1)[0].strip().lower().replace("-", "_")
-            == normalized
+            re.split(r"[<>=!~; @\[]", requirement, maxsplit=1)[0].strip().lower().replace("-", "_") == normalized
             for requirement in declared_dependencies
         ):
-            msg = f"Wheel is missing the {distribution} PyPI dependency."
+            msg = f"Wheel is missing the {distribution} external dependency."
             raise ValueError(msg)
     if any(name.casefold().endswith(".whl") for name in names):
         msg = "ryan-tools wheel must not bundle dependency wheels."

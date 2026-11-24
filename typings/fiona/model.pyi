@@ -1,7 +1,7 @@
 from collections.abc import Mapping
-from typing import Literal, TypedDict, overload
+from typing import Literal, TypeAlias, TypedDict, overload
 
-type FieldValue = str | int | float | None
+FieldValue: TypeAlias = str | int | float | None
 
 class Geometry:
     @property

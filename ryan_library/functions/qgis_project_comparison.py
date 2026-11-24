@@ -9,13 +9,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Literal, TypeAlias
 from xml.etree import ElementTree as ET
 
 from .qgis_project import read_project_xml
 
-type QgisProviderCategory = Literal["file-capable", "service", "non-file", "unknown"]
-type QgisLayerChangeKind = Literal["added", "removed", "modified"]
+QgisProviderCategory: TypeAlias = Literal["file-capable", "service", "non-file", "unknown"]
+QgisLayerChangeKind: TypeAlias = Literal["added", "removed", "modified"]
 
 _FILE_CAPABLE_PROVIDERS = frozenset({"gdal", "ogr"})
 _SERVICE_PROVIDERS = frozenset(

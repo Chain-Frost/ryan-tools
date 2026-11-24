@@ -44,7 +44,7 @@ def test_calendar_version_rejects_clock_before_current_release() -> None:
 
 @pytest.mark.parametrize("version", ["26.09.13.1", "2026.9.13.1", "26.2.30.1", "26.9.13.0"])
 def test_calendar_version_rejects_invalid_or_non_normalized_values(version: str) -> None:
-    with pytest.raises(ValueError, match=r"normalized|must be in range"):
+    with pytest.raises(ValueError, match=r"normalized|must be in range|day is out of range for month"):
         build_library.parse_calendar_version(version)
 
 

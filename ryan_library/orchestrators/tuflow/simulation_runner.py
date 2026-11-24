@@ -24,7 +24,7 @@ from pathlib import Path, PurePath
 from queue import Empty, SimpleQueue
 from tempfile import NamedTemporaryFile
 from threading import Event, Lock, Thread
-from typing import TYPE_CHECKING, Literal, Protocol, cast
+from typing import TYPE_CHECKING, Literal, Protocol, TypeAlias, cast
 
 from loguru import logger
 
@@ -55,8 +55,8 @@ from .run_progress import AdvisoryRunProgress, ProgressUpdate
 _FLAG = re.compile(r"[es][1-9]", re.IGNORECASE)
 _PRIORITY = frozenset({"LOW", "BELOWNORMAL", "NORMAL", "ABOVENORMAL", "HIGH", "REALTIME"})
 _ENGINE = frozenset({"-b", "-x", "-t", "-nlc"})
-type RunMode = Literal["parameter_product", "textfiles", "both"]
-type GpuAvailabilityIssueKind = Literal["occupied", "unknown_assignment", "inspection_incomplete", "query_failed"]
+RunMode: TypeAlias = Literal["parameter_product", "textfiles", "both"]
+GpuAvailabilityIssueKind: TypeAlias = Literal["occupied", "unknown_assignment", "inspection_incomplete", "query_failed"]
 
 
 def _empty_run_variables() -> dict[str, str | Sequence[str]]:
@@ -154,8 +154,8 @@ class GpuAvailability:
 
 
 # Scope 04 supplies the persistence implementation, not another plan class.
-type BeforeLaunch = Callable[[PlannedRun], None]
-type ObservedCompletion = Callable[[RunOutcome], None]
+BeforeLaunch: TypeAlias = Callable[[PlannedRun], None]
+ObservedCompletion: TypeAlias = Callable[[RunOutcome], None]
 
 
 class _ProcessHandle(Protocol):
@@ -176,7 +176,7 @@ class _ProcessHandle(Protocol):
     def kill(self) -> None: ...
 
 
-type _ProcessFactory = Callable[..., _ProcessHandle]
+_ProcessFactory: TypeAlias = Callable[..., _ProcessHandle]
 
 
 @dataclass(slots=True)

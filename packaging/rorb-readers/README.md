@@ -3,7 +3,7 @@
 This subproject packages the **same six maintained Python modules**
 from `../../ryan_library/functions/RORB`. Do not copy them here.
 
-Build from the full Git checkout, from any supported Python 3.13/3.14 interpreter:
+Build from the full Git checkout, from any supported Python 3.11–3.14 interpreter:
 
 ```shell
 python -m pip wheel --no-deps -w dist ./packaging/rorb-readers
@@ -64,8 +64,8 @@ The binding does not establish native executable identity, catchment
 geometry or numerical equivalence. Pin a reviewed source commit in consumers;
 do not silently replace an installed-wheel dependency with an unmerged branch.
 
-The full parent project targets Python 3.14, but **all six shipped reader
-sources must parse under Python 3.13**. The reader-suite AST regression pins
-that grammar independently of Ruff's whole-project 3.14 formatting target,
-including multi-exception handlers. A successful full ryan-tools build alone
-does not establish consumer Python 3.13 compatibility.
+The full project and the six shipped readers support Python 3.11–3.14.
+The reader-suite AST regression pins Python 3.11 grammar independently of
+interpreter choice. The wheel includes only the canonical readers and their
+package initializers/PEP 561 marker; parent convenience modules are not collected.
+Build from a clean full checkout to avoid stale setuptools build products.
