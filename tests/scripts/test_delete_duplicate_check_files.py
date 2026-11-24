@@ -145,7 +145,10 @@ def test_check_discovery_prunes_junctions(utility: ModuleType, tmp_path: Path, m
     root = tmp_path / "root"
     linked = root / "checks"
     (linked / "nested" / "checks").mkdir(parents=True)
-    monkeypatch.setattr(utility, "is_junction", lambda path: path == linked)
+    def junction(path: Path) -> bool:
+        return path == linked
+
+    monkeypatch.setattr(utility, "is_junction", junction)
     assert utility.find_check_folders(root) == []
 
 
