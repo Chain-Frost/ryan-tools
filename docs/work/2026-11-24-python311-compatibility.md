@@ -98,3 +98,11 @@ Review of bf2d9c61 found two consequential migration regressions: matrix jobs sh
 and os.walk includes linked directories in dirnames whereas Path.walk does not. Corrective changes give
 reports per-version names and prune symlinks/junctions before discovery/descent, retaining file-level safeguards.
 Focused link-discovery regressions accompany the correction. Fresh final-head review and hosted checks follow.
+
+The hosted 3.11 GIS stack also exposed an older-PROJ synthetic-test assumption: ESRI WKT serialization
+normalizes an unnamed datum. Compare exports with the parsed input PRJ, preserving the original PRJ-byte,
+stored EPSG-authority and GeoKey assertions. Production projection code and numerical tolerances are unchanged.
+
+Final local parallel-version replay exposed an existing shared-fixture report collision. The three report-export
+tests now copy unchanged public POMM inputs into each test's temporary directory. Coverage is retained;
+no test/profile is removed, and submodule fixture directories are no longer used as mutable report destinations.
