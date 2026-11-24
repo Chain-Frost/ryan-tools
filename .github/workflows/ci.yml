@@ -417,7 +417,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: hosted-test-report
+          name: hosted-test-report-${{ matrix.python-version }}
           retention-days: 7
           path: test-results/*.xml
           if-no-files-found: warn

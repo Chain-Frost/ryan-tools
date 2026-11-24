@@ -62,6 +62,7 @@ from rich.progress import (
 from ryan_library.functions.file_verification import (
     FileSnapshot,
     has_linked_component,
+    is_junction,
     snapshot_is_unchanged,
 )
 from ryan_library.functions.file_verification import hash_file as shared_hash_file
@@ -252,13 +253,15 @@ def find_check_folders(root_dir: Path) -> list[Path]:
     """Find check/checks directories without stat-ing every file under the root."""
     root_dir = absolute_path(root_dir)
     targets = {name.casefold() for name in CHECK_FOLDER_NAMES}
-    matches = [
-        parent / name
-        for directory, directory_names, _ in os.walk(root_dir)
-        for parent in (Path(directory),)
-        for name in directory_names
-        if name.casefold() in targets
-    ]
+    matches: list[Path] = []
+    for directory, directory_names, _ in os.walk(root_dir, followlinks=False):
+        parent = Path(directory)
+        # Path.walk excludes directory symlinks from dirnames; os.walk does not.
+        # Prune before matching or descending, retaining the linked-path boundary.
+        directory_names[:] = [
+            name for name in directory_names if not (parent / name).is_symlink() and not is_junction(parent / name)
+        ]
+        matches.extend(parent / name for name in directory_names if name.casefold() in targets)
     return sorted(matches, key=lambda path: str(path).casefold())
 
 

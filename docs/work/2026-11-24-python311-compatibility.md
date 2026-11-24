@@ -91,3 +91,10 @@ Existing overdue work-register reviews were reported without starting those unre
 
 Publish the checked branch and compatibility PR, obtain fresh independent final-head review and verify hosted CI.
 Keep the issue open until the maintainer's integration decision; do not merge or publish packages automatically.
+
+## Independent review correction checkpoint
+
+Review of bf2d9c61 found two consequential migration regressions: matrix jobs shared an upload-artifact name,
+and os.walk includes linked directories in dirnames whereas Path.walk does not. Corrective changes give
+reports per-version names and prune symlinks/junctions before discovery/descent, retaining file-level safeguards.
+Focused link-discovery regressions accompany the correction. Fresh final-head review and hosted checks follow.
