@@ -33,10 +33,23 @@ jobs:
        github.sha == inputs.source_sha &&
        vars.RORB_READERS_PUBLISH_ENABLED == 'true')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     outputs:
       artifact_id: ${{ steps.upload.outputs.artifact-id }}
       wheel_sha: ${{ steps.inspect.outputs.wheel_sha }}
     steps:
+      - name: Require existing protected main-only publishing environment
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$GITHUB_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/environments/pypi" --jq \
+            '([.protection_rules[]? | select(.type == "required_reviewers") | .reviewers[]?] | length) == 1 and ([.protection_rules[]? | select(.type == "required_reviewers") | .reviewers[]? | select(.type == "User" and .reviewer.login == "Chain-Frost")] | length) == 1 and (.deployment_branch_policy.protected_branches == false) and (.deployment_branch_policy.custom_branch_policies == true)')" = true
+          test "$(gh api "repos/$GITHUB_REPOSITORY/environments/pypi/deployment-branch-policies?per_page=100" --jq \
+            '.total_count == 1 and (.branch_policies | length) == 1 and .branch_policies[0].name == "main" and .branch_policies[0].type == "branch"')" = true
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
@@ -190,6 +203,7 @@ jobs:
     environment: pypi
     permissions:
       contents: read
+      actions: read
       id-token: write
     steps:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
@@ -203,6 +217,10 @@ jobs:
           WHEEL_SHA: ${{ needs.build.outputs.wheel_sha }}
         run: |
           test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)" = "$GITHUB_SHA"
+          test "$(gh api "repos/$GITHUB_REPOSITORY/environments/pypi" --jq \
+            '([.protection_rules[]? | select(.type == "required_reviewers") | .reviewers[]?] | length) == 1 and ([.protection_rules[]? | select(.type == "required_reviewers") | .reviewers[]? | select(.type == "User" and .reviewer.login == "Chain-Frost")] | length) == 1 and (.deployment_branch_policy.protected_branches == false) and (.deployment_branch_policy.custom_branch_policies == true)')" = true
+          test "$(gh api "repos/$GITHUB_REPOSITORY/environments/pypi/deployment-branch-policies?per_page=100" --jq \
+            '.total_count == 1 and (.branch_policies | length) == 1 and .branch_policies[0].name == "main" and .branch_policies[0].type == "branch"')" = true
           python - <<'PY'
           import hashlib
           import os
