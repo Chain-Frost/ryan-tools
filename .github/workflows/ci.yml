@@ -506,7 +506,7 @@ jobs:
           python -m pip install --no-deps --target $target $wheel[0].FullName
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           # The ryan-tools wheel no longer contains these separately published packages.
-          python -m pip install --no-deps --target $target "run-hy8>=2026.10.16.1" "ryan-culverts>=26.10.16.1"
+          python -m pip install --no-deps --target $target "run-hy8>=2026.11.24.1" "ryan-culverts>=26.11.24.1"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
           $env:PYTHONPATH = $target

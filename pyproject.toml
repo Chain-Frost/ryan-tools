@@ -43,8 +43,8 @@ dependencies = [
   "ezdxf",
   "rich",
   "pytuflow>=1.2",
-  "run-hy8 @ https://github.com/Chain-Frost/run-hy8/archive/ede1d29d4c30e9ac1ee863458958c44e1f8f4653.tar.gz",
-  "ryan-culverts @ https://github.com/Chain-Frost/ryan-culverts/archive/597ef2353fa2573639c869831a1ed1c6a45e8ce6.tar.gz",
+  "run-hy8>=2026.11.24.1",
+  "ryan-culverts>=26.11.24.1",
 ]
 description = "Collection of TUFLOW and data processing functions."
 license = "SUL-1.0"
