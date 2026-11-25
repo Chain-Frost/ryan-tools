@@ -40,6 +40,23 @@ def _require_installed_below(module_file: str | None, expected_root: Path, packa
         raise RuntimeError(msg)
 
 
+def _check_installed_rorb_readers(expected_root: Path) -> None:
+    """Verify the six compatibility modules and canonical dependency are installed together."""
+    if importlib.metadata.version("pyrorb") != "26.11.24.1":
+        msg = "Unexpected PyRORB reader dependency version."
+        raise RuntimeError(msg)
+    for module_name in ("associations", "output_reader", "parameter_reader", "reader_types", "readers", "result_readers"):
+        legacy = importlib.import_module(f"ryan_library.functions.RORB.{module_name}")
+        canonical = importlib.import_module(f"runoff_routing.rorb_readers.{module_name}")
+        _require_installed_below(legacy.__file__, expected_root, legacy.__name__)
+        _require_installed_below(canonical.__file__, expected_root, canonical.__name__)
+        names = [name for name in vars(legacy) if not name.startswith("_")]
+        if not names or any(getattr(legacy, name) is not getattr(canonical, name) for name in names):
+            msg = f"Installed RORB compatibility exports differ from canonical PyRORB: {module_name}"
+            raise RuntimeError(msg)
+    print("Installed PyRORB reader version, origin and compatibility exports verified.")
+
+
 def _check_installed_import_isolation(expected_root: Path) -> None:
     """Verify lightweight imports in a fresh subprocess using only the wheel root."""
     environment = os.environ.copy()
@@ -488,6 +505,7 @@ def main(argv: list[str] | None = None) -> int:
             _require_installed_below(module_file, expected_root, package)
 
         _check_installed_import_isolation(expected_root)
+        _check_installed_rorb_readers(expected_root)
 
     resources = importlib.resources.files("ryan_library.resources")
     for relative_path in (

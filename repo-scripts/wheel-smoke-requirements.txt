@@ -7,4 +7,5 @@ rich
 colorama
 run-hy8>=2026.11.24.1
 ryan-culverts>=26.11.24.1
+pyrorb==26.11.24.1
 mcp[cli]>=2.1,<3

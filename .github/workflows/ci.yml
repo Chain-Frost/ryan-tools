@@ -509,6 +509,8 @@ jobs:
           # The ryan-tools wheel no longer contains these separately published packages.
           python -m pip install --no-deps --target $target "run-hy8>=2026.11.24.1" "ryan-culverts>=26.11.24.1"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pip --isolated install --index-url https://pypi.org/simple --only-binary=:all: --no-deps --target $target "pyrorb==26.11.24.1" "typing_extensions>=4.12"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
           $env:PYTHONPATH = $target
           Push-Location $env:RUNNER_TEMP

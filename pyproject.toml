@@ -45,6 +45,7 @@ dependencies = [
   "pytuflow>=1.2",
   "run-hy8>=2026.11.24.1",
   "ryan-culverts>=26.11.24.1",
+  "pyrorb==26.11.24.1",
 ]
 description = "Collection of TUFLOW and data processing functions."
 license = "SUL-1.0"

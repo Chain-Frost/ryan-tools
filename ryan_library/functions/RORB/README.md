@@ -95,17 +95,22 @@ readers need documented examples and regression fixtures before semantic support
 [work record](../../../docs/work/2026-11-05-rorb-readers-mcp.md) owns audit evidence, acceptance and delivery status.
 
 
-## Minimal reader-only distribution
+## Canonical reader distribution
 
-For Python 3.13/3.14 consumers that must not install the full Python-3.14-only
-ryan-tools distribution and its data/GIS dependencies, build the focused
-`ryan-rorb-readers` wheel from `packaging/rorb-readers` **in a complete
-ryan-tools checkout**. The wheel includes only the six canonical RORB reading
-modules at their original `ryan_library.functions.RORB` import paths and
-the SUL-1.0 licence; it does not copy or maintain a second parser. Do not install
-the focused and full distributions together as both provide some same paths.
-The wheel is installable without a native RORB executable, pandas or GIS packages.
-An isolated consumer pins an exact reviewed Git revision and the subdirectory.
+The six dependency-light reader modules are maintained in
+[PyRORB](https://github.com/Chain-Frost/pyrorb/tree/v26.11.24.1/src/runoff_routing/rorb_readers).
+This ryan-tools version declares the exact index-published `pyrorb==26.11.24.1` dependency.
+The existing `ryan_library.functions.RORB` reader imports explicitly re-export the same
+objects from `runoff_routing.rorb_readers`; there is no second parser or fallback.
+Pandas adapters, ensemble workflows and plotting remain here.
+
+Consumers that need only the readers can install `pyrorb==26.11.24.1` from PyPI
+on Python 3.11 or later and import `runoff_routing.rorb_readers` directly.
+The historical standalone `ryan-rorb-readers` packaging and publisher are superseded;
+do not build or publish that distribution or install it alongside ryan-tools.
+The original source remains in Git history. Reader changes and native Monte Carlo
+grammar belong to [PyRORB #231](https://github.com/Chain-Frost/pyrorb/issues/231)
+and [#232](https://github.com/Chain-Frost/pyrorb/issues/232), respectively.
 
 
 The standard-output reader additionally exposes `reported_scalars` with original

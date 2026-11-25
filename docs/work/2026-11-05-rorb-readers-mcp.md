@@ -2,13 +2,48 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Implementation validated; open PR awaiting maintainer merge decision |
+| Status | Phase B compatibility migration candidate; index and runtime acceptance pending |
 | Owner | ChatGPT / maintainer |
 | Created | 2026-11-05 |
-| Updated | 2026-11-07 |
-| Next review | 2026-11-12 |
+| Updated | 2026-11-25 |
+| Next review | 2026-11-26 |
 | Baseline | Local main at `10b71898220d11feaff8256618ffb8eeec35f4ef` |
-| Delivery | [PR #233](https://github.com/Chain-Frost/ryan-tools/pull/233), branch `feat/rorb-readers-mcp-20261105`; committed and pushed, unmerged |
+| Delivery | [#340](https://github.com/Chain-Frost/ryan-tools/issues/340), branch `refactor/pyrorb-reader-compatibility-340`; draft candidate; no merge or release |
+
+## 2026-11-25 downstream dependency reversal
+
+PyRORB [#233](https://github.com/Chain-Frost/pyrorb/pull/233) merged at
+`13d03c52d17e1559b3113791d9a99f86db000535`. The preliminary
+[v26.11.24.1 release](https://github.com/Chain-Frost/pyrorb/releases/tag/v26.11.24.1)
+has a successful [publication and disable receipt](https://github.com/Chain-Frost/pyrorb/actions/runs/45392180579).
+The Trusted Publisher attested the wheel SHA-256
+`d5987b0213fb4fc1b709f268c0c2f0ae2de0b643b97563a7d6f2a26463e703f1`. Release build logs record an isolated Python 3.13 wheel installation, not a new downstream index installation.
+Compared with ryan-tools main `de3e54289223f974cccf936ebc4fd2b7680d0a09`, the six release-tag
+modules are identical except for lint-only comments in four files.
+
+The draft changes exactly six reader modules to explicit canonical re-exports.
+The consumer inventory includes `read_rorb_files.py`, `ryan_library/mcp/rorb.py`,
+the original 6.45/6.52, focused reader and DataFrame tests, closure workflow and
+ensemble consumers. Preserve these consumers unchanged; the old standalone
+package and publisher are proposed for retirement in this same unmerged candidate.
+The public 6.45 490-event alternative and the three 6.52 batch populations
+(640 events) retain their original meanings and are not new native acceptance.
+
+The current checkout environment cannot reach GitHub or PyPI directly; the
+candidate uses an isolated GitHub branch. The exact wheel must still be retrieved
+from PyPI, authenticated, installed outside the checkout, and exercised with the
+compatibility, pandas, original-source and package-smoke checks. The dedicated
+original-reader workflow now performs the pinned index download and SHA-256 check.
+Python 3.11 PR and 3.11/3.14 main-push policy remains unchanged. No standalone
+publication, main merge, release or independent review completion is claimed.
+
+Next owner: implementation/validation agent and independent Codex reviewer.
+Obtain final-head CI and review, rebuild the current-version wheel, confirm
+the caller inventory with a complete Git search, and reconcile #337 and
+[PyRORB #231](https://github.com/Chain-Frost/pyrorb/issues/231) only after acceptance.
+Native MC grammar is separately owned by PyRORB #232. Keep the historical
+audit and original evidence below; the old standalone install instructions
+are historical, not current guidance.
 
 ## Outcome and scope
 

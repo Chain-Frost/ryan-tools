@@ -16,7 +16,8 @@ Support Python 3.11, 3.12, 3.13 and 3.14. Python 3.14 remains preferred for deve
 The owner's specific target is CPython **3.11.11**, matching the ArcGIS Pro version under consideration.
 Standalone Python acceptance does not establish installation inside ArcGIS Pro or change its environment.
 No scientific algorithm, golden fixture, numerical tolerance, publishing control or release version changes.
-The independent `ryan-rorb-readers` package continues to use the canonical RORB sources.
+At this historical compatibility milestone the standalone `ryan-rorb-readers` package used the canonical RORB sources.
+The subsequent ownership transfer to PyRORB and downstream compatibility migration are tracked in [#340](https://github.com/Chain-Frost/ryan-tools/issues/340); do not publish the standalone distribution.
 No merge or publication is authorized by this task.
 
 ## Implementation
