@@ -235,7 +235,8 @@ def load_tuflow_culvert_attributes(
         resolved_layer = _resolve_vector_layer(path, layer)
         frame = gpd.read_file(path, layer=resolved_layer)  # pyright: ignore[reportUnknownMemberType]
 
-    rows = cast("list[dict[str, Any]]", frame.where(frame.notna(), None).to_dict(orient="records"))
+    # pandas-stubs 2.x omits the runtime-supported None replacement on Python 3.11.
+    rows = cast("list[dict[str, Any]]", frame.where(frame.notna(), cast("Any", None)).to_dict(orient="records"))
     result: dict[str, TuflowCulvertAttributes] = {}
     for row_number, row in enumerate(rows, start=1):
         crossing_id = _first_text(row, ID_FIELDS)

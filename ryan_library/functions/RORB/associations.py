@@ -2,12 +2,16 @@
 
 from runoff_routing.rorb_readers.associations import (
     BatchEventKey,
-    Record,
-    RorbDocument,
-    Section,
     associate_batch_csvs,
     batch_event_key,
     compare_output_csv,
+)
+from runoff_routing.rorb_readers.reader_types import (
+    Record,
+    RorbDocument,
+    Section,
+)
+from runoff_routing.rorb_readers.readers import (
     read_rorb_file,
 )
 

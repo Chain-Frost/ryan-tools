@@ -6,3 +6,6 @@
 -e .[dev,mcp]
 # The separately installed qgis-mcp desktop bridge is not used by Policy.
 # Keep requirements.txt and normal user/developer installation behaviour intact.
+
+# Constraints do not install packages; Python 3.11 still needs the pinned GIS stubs.
+types-rasterio

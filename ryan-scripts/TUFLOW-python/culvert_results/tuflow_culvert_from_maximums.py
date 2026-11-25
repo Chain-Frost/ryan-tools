@@ -265,7 +265,8 @@ def _selected_rows(path: Path, sheet_name: str, crossing: str | None) -> list[di
     frame.loc[missing_run, "Run"] = frame.loc[missing_run, "internalName"]
     frame = frame.sort_values(["Chan ID", "Run", "aep_text", "Q"], ascending=[True, True, True, False])
     frame = frame.drop_duplicates(subset=["Chan ID", "Run", "aep_text"], keep="first")
-    records = frame.where(pd.notna(frame), None).to_dict(orient="records")
+    # pandas-stubs 2.x omits the runtime-supported None replacement on Python 3.11.
+    records = frame.where(pd.notna(frame), cast("Any", None)).to_dict(orient="records")
     return cast("list[dict[str, Any]]", records)
 
 
