@@ -41,6 +41,22 @@ The independent correction review reports no findings; final commit binding foll
 Final validation counts, final SHA, review receipt and check links are recorded in PR #344 and linked tracking issues
 once available; this pre-push record does not assert pending checks passed.
 
+### Static-tooling prerequisite correction
+
+The first follow-up head `98289cbd36acba80ed4fcfa5310eb0e7b2485971` passed
+[original-reader acceptance](https://github.com/Chain-Frost/ryan-tools/actions/runs/45714422032)
+but [Policy](https://github.com/Chain-Frost/ryan-tools/actions/runs/45714423200/job/139556864578)
+could not install Rasterio stubs on Python 3.11: every published `types-rasterio` distribution requires Python >=3.12.
+The final workflow correction runs **Policy static tooling only** on Python 3.14, retaining Pyright's configured
+Python 3.11 language/API target and the separate PR Python 3.11 / main-push Python 3.11 and 3.14 runtime tests.
+It does not change publisher workflows, package runtime requirements, supported Python versions or numerical policy.
+The full exact constrained Policy environment installs successfully locally with `pip check` clean;
+all 718 CI-selected strict typing files pass (zero errors/warnings) and all 57 CI-scope regressions pass before the final push.
+Reader/package code is unchanged by this workflow-only follow-up; source/wheel evidence above still applies.
+All 257 wheel `ryan_library` Python/typing files match source bytes; ordered name/content SHA-256 fingerprint:
+`3a31d70511a147bccafee61eb1b707c75dbbc3a8702ad0b478be0a0d451a7a78`.
+Final hosted results and independent review of this correction remain recorded on the exact final PR head.
+
 ### Complete caller inventory
 
 Searched both the audited base and candidate using `git grep -n -E`
