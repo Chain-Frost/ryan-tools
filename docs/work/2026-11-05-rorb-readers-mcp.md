@@ -2,13 +2,13 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Phase B compatibility migration candidate; index and runtime acceptance pending |
+| Status | Phase B candidate; index wheel and original reader acceptance pass; broader CI/review pending |
 | Owner | ChatGPT / maintainer |
 | Created | 2026-11-05 |
 | Updated | 2026-11-25 |
 | Next review | 2026-11-26 |
 | Baseline | Local main at `10b71898220d11feaff8256618ffb8eeec35f4ef` |
-| Delivery | [#340](https://github.com/Chain-Frost/ryan-tools/issues/340), branch `refactor/pyrorb-reader-compatibility-340`; draft candidate; no merge or release |
+| Delivery | [Draft PR #344](https://github.com/Chain-Frost/ryan-tools/pull/344), branch `refactor/pyrorb-reader-compatibility-340`; no merge or release |
 
 ## 2026-11-25 downstream dependency reversal
 
@@ -29,13 +29,18 @@ package and publisher are proposed for retirement in this same unmerged candidat
 The public 6.45 490-event alternative and the three 6.52 batch populations
 (640 events) retain their original meanings and are not new native acceptance.
 
-The current checkout environment cannot reach GitHub or PyPI directly; the
-candidate uses an isolated GitHub branch. The exact wheel must still be retrieved
-from PyPI, authenticated, installed outside the checkout, and exercised with the
-compatibility, pandas, original-source and package-smoke checks. The dedicated
-original-reader workflow now performs the pinned index download and SHA-256 check.
-Python 3.11 PR and 3.11/3.14 main-push policy remains unchanged. No standalone
-publication, main merge, release or independent review completion is claimed.
+The initial agent environment cannot reach GitHub or PyPI directly; the
+candidate uses an isolated GitHub branch. On substantive head
+`ef9dd6ad85f085f4d380112860f3c4e6728c3822`, the
+[dedicated Python 3.11 original-reader job](https://github.com/Chain-Frost/ryan-tools/actions/runs/45615203883/job/139208674656)
+downloaded the exact PyPI wheel, matched the attested SHA-256, installed it and
+passed all 10 compatibility/metadata/original 6.45 and 6.52 tests with no skips.
+The [initial Python CI](https://github.com/Chain-Frost/ryan-tools/actions/runs/45615203907)
+passed Ruff lint but failed the formatter for one tuple in the installed-wheel
+smoke script; that formatting is corrected in this follow-up. The broader
+pandas/MCP tests, root wheel smoke, final-head CI and independent review remain
+pending. Python 3.11 PR and 3.11/3.14 main-push policy remains unchanged.
+No standalone publication, main merge, release or independent review completion is claimed.
 
 Next owner: implementation/validation agent and independent Codex reviewer.
 Obtain final-head CI and review, rebuild the current-version wheel, confirm

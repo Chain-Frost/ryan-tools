@@ -45,7 +45,14 @@ def _check_installed_rorb_readers(expected_root: Path) -> None:
     if importlib.metadata.version("pyrorb") != "26.11.24.1":
         msg = "Unexpected PyRORB reader dependency version."
         raise RuntimeError(msg)
-    for module_name in ("associations", "output_reader", "parameter_reader", "reader_types", "readers", "result_readers"):
+    for module_name in (
+        "associations",
+        "output_reader",
+        "parameter_reader",
+        "reader_types",
+        "readers",
+        "result_readers",
+    ):
         legacy = importlib.import_module(f"ryan_library.functions.RORB.{module_name}")
         canonical = importlib.import_module(f"runoff_routing.rorb_readers.{module_name}")
         _require_installed_below(legacy.__file__, expected_root, legacy.__name__)
