@@ -442,7 +442,8 @@ def run(args: argparse.Namespace) -> int:
     if frame.empty:
         msg = f"No features found in {args.input_gis}."
         raise ValueError(msg)
-    frame = frame.where(frame.notna(), None)
+    # pandas-stubs 2.x omits the runtime-supported None replacement on Python 3.11.
+    frame = frame.where(frame.notna(), cast("Any", None))
     rows = cast("list[dict[str, Any]]", frame.to_dict(orient="records"))
     blockage_is_numeric = "pBlockage" not in frame.columns or is_numeric_dtype(frame["pBlockage"].dtype)
     for source_row, row in enumerate(rows, start=1):

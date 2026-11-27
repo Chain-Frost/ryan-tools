@@ -2,13 +2,136 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Implementation validated; open PR awaiting maintainer merge decision |
+| Status | Phase B local acceptance complete; corrected-head hosted CI and owner integration approval pending |
 | Owner | ChatGPT / maintainer |
 | Created | 2026-11-05 |
-| Updated | 2026-11-07 |
-| Next review | 2026-11-12 |
+| Updated | 2026-11-26 |
+| Next review | 2026-11-27 |
 | Baseline | Local main at `10b71898220d11feaff8256618ffb8eeec35f4ef` |
-| Delivery | [PR #233](https://github.com/Chain-Frost/ryan-tools/pull/233), branch `feat/rorb-readers-mcp-20261105`; committed and pushed, unmerged |
+| Delivery | [Draft PR #344](https://github.com/Chain-Frost/ryan-tools/pull/344), branch `refactor/pyrorb-reader-compatibility-340`; no merge or release |
+
+## 2026-11-26 final acceptance preparation
+
+Candidate started at `61040c20c7525f893223a136dbba9f9bd62ae90e`, unchanged from the supplied handoff;
+audited base and remote main are `de3e54289223f974cccf936ebc4fd2b7680d0a09`.
+An isolated detached worktree preserves both repositories' concurrent work. `tests/test_data` is initialized,
+at approved `4535ff86ea978666b990748d72d927695be2158c`; no recursive submodule inspection. The root wheel build also requires the pinned `qgis-resources` styles submodule, initialized only for that package prerequisite.
+
+The existing [general CI](https://github.com/Chain-Frost/ryan-tools/actions/runs/45615470994)
+passed hosted Python 3.11 tests, MCP, package/build/isolated installed-wheel, Ruff and POSIX security.
+Policy failed with 52 strict typing errors: 30 implicit canonical re-exports, missing Rasterio stubs and three
+pandas-stubs 2.x `None` argument errors. Corrections import existing symbols from their canonical defining
+modules, explicitly install the already constrained Rasterio stubs and type only the three runtime-supported
+`None` replacements through `Any`. No parser or computational change, fallback, version change or tolerance change.
+The [original-reader run](https://github.com/Chain-Frost/ryan-tools/actions/runs/45615470989/job/139209605928)
+passed 10 tests without skips, authenticating the exact public PyPI wheel and 490/640 retained populations.
+The prior [independent review receipt](https://github.com/Chain-Frost/ryan-tools/pull/344#issuecomment-7162666843)
+has no findings at the starting SHA; the corrected substantive head requires its own review and green CI.
+Local Windows 10 / Python 3.14.6 isolated-environment validation: requested focused pandas/MCP boundary
+**168 passed, one Windows symlink-permission skip**, dedicated compatibility/original corpus **10 passed, no skips**.
+Ruff 0.16.6 lint/format, strict Pyright 1.1.414 on all eight corrected Python files (explicit isolated interpreter),
+documentation links/paths and whitespace pass. Fresh isolated PyPI download matched the approved SHA-256.
+No-bump root build produced `ryan_tools-26.11.17.3-py3-none-any.whl`, SHA-256
+`c9a4dd6b0c15a353e8f0e2bc9c4693241ca9219dd3af9f6593b225f5e4723152`.
+Installed outside the checkout in a fresh target with the exact PyRORB wheel, the maintained smoke passed
+physical import isolation, all reader aliases, MCP and copied wrappers. Optional culvert-wrapper checks:
+85 passed, two Windows symlink-permission skips; no computational change was made there.
+The independent correction review reports no findings; final commit binding follows in the PR receipt.
+
+Final validation counts, final SHA, review receipt and check links are recorded in PR #344 and linked tracking issues
+once available; this pre-push record does not assert pending checks passed.
+
+### Static-tooling prerequisite correction
+
+The first follow-up head `98289cbd36acba80ed4fcfa5310eb0e7b2485971` passed
+[original-reader acceptance](https://github.com/Chain-Frost/ryan-tools/actions/runs/45714422032)
+but [Policy](https://github.com/Chain-Frost/ryan-tools/actions/runs/45714423200/job/139556864578)
+could not install Rasterio stubs on Python 3.11: every published `types-rasterio` distribution requires Python >=3.12.
+The final workflow correction runs **Policy static tooling only** on Python 3.14, retaining Pyright's configured
+Python 3.11 language/API target and the separate PR Python 3.11 / main-push Python 3.11 and 3.14 runtime tests.
+It does not change publisher workflows, package runtime requirements, supported Python versions or numerical policy.
+The full exact constrained Policy environment installs successfully locally with `pip check` clean;
+all 718 CI-selected strict typing files pass (zero errors/warnings) and all 57 CI-scope regressions pass before the final push.
+Reader/package code is unchanged by this workflow-only follow-up; source/wheel evidence above still applies.
+All 257 wheel `ryan_library` Python/typing files match source bytes; ordered name/content SHA-256 fingerprint:
+`3a31d70511a147bccafee61eb1b707c75dbbc3a8702ad0b478be0a0d451a7a78`.
+Final hosted results and independent review of this correction remain recorded on the exact final PR head.
+
+### Complete caller inventory
+
+Searched both the audited base and candidate using `git grep -n -E`
+`associations|output_reader|parameter_reader|reader_types|readers|result_readers|rorb_readers`
+across tracked Python, stubs, notebooks, Markdown, TOML and workflow YAML. Supplemented with searches for
+`read_rorb_files`, reader API names, relative imports, `import_module`, monkeypatch and mock patch targets.
+Git searches did not recurse into submodules. Unrelated English "readers"/"associations", TUFLOW/GDAL/CAD
+readers and their work notes were excluded. No actual reader notebook or stub caller was found.
+
+| Caller / reference (paths relative to repository) | Base ? candidate support |
+| --- | --- |
+| Six modules in `ryan_library/functions/RORB`: `associations`, `output_reader`, `parameter_reader`, `reader_types`, `readers`, `result_readers` | Original internal relative imports become explicit canonical imports. All 59 reader-owned exports retain object identity and legacy paths, including imported types/helpers; no wrapper classes. |
+| `ryan_library/functions/RORB/read_rorb_files.py` | Relative `associate_batch_csvs` / `read_rorb_file` imports remain; pandas `parse_batch_output`, `read_hydrograph_csv`, discovery and analysis remain downstream. |
+| `ryan_library/mcp/rorb.py` | Relative association/comparison and reader/MAX_FILE_BYTES imports remain; guidance import string unchanged. |
+| `ryan_library/mcp/server.py`, `tests/mcp/test_rorb.py`, `tests/mcp/test_server.py` | Indirect tool registration and read-only inspection remain through the MCP adapter. |
+| `tests/functions/RORB/test_readers.py` | Association/key/comparison, site binding, bytes/file/table reads and pandas adapter imports remain; six-file Python 3.11 syntax check retained. |
+| `tests/functions/RORB/test_original_645_readers.py`, `tests/functions/RORB/test_original_652_readers.py` | Same reader and association imports; immutable original populations retained. |
+| `tests/functions/RORB/test_read_rorb_files.py`, `tests/functions/RORB/test_rorb_v652_regression.py` | Same pandas/discovery/analysis convenience callers retained. |
+| `ryan_library/orchestrators/rorb/closure_durations.py`, `ryan-scripts/RORB-python/RORB-find-closure-durations.py` | Indirect pandas/discovery/analysis consumers remain through the unchanged orchestrator. |
+| `tests/scripts/RORB/test_rorb_closure_durations.py`, `tests/scripts/RORB/test_rorb_closure_duration_behavior.py` | Mock targets remain in the orchestrator (`find_batch_files`, `parse_batch_output`, `analyze_hydrograph` etc.); no relocated canonical-global patch target. |
+| `tests/scripts/promoted_scripts/test_rorb_ensemble_reader.py`, `tests/scripts/promoted_scripts/test_ensemble_boxplot.py`, `tests/scripts/test_repository_only_rorb_peaks.py`, `tests/scripts/test_rorb_hydrograph_wrapper.py` | Additional ensemble/plot/standalone regression boundary, not direct callers of transferred modules; retained unchanged. |
+| `tests/functions/RORB/test_reader_compatibility.py` (new), `repo-scripts/smoke_test_installed_wheel.py` (extended) | Dynamic imports enumerate all six legacy/canonical module pairs and verify class/function identity and installed origin. |
+| `README.md`, `ryan_library/functions/RORB/README.md`, `docs/MCP_SETUP.md` | Supported pandas/API examples and MCP guidance remain; canonical ownership/install guidance now points to qualified PyRORB. |
+| `docs/README.md`, `docs/work/README.md`, this record, `docs/work/2026-11-24-python311-compatibility.md` | Navigation/current ownership updated; unique historical source/corpus/clock evidence retained in this record. |
+| `packaging/rorb-readers/{README.md,pyproject.toml}`, [standalone publisher at audited base](https://github.com/Chain-Frost/ryan-tools/blob/de3e54289223f974cccf936ebc4fd2b7680d0a09/.github/workflows/rorb-readers-publish.yml) (base only) | Superseded standalone build/import/publication references retired in candidate after reader qualification; never dispatch publisher. |
+| `.github/workflows/rorb-645-reader-acceptance.yml` | Uses unchanged legacy imports with exact published PyRORB and approved original corpus; no standalone build dependency. |
+
+Dependency metadata and wheel verification/smoke requirements retain `pyrorb==26.11.24.1`;
+expected wheel SHA-256 is `d5987b0213fb4fc1b709f268c0c2f0ae2de0b643b97563a7d6f2a26463e703f1`.
+No editable PyRORB, Git dependency, fallback parser or newer release is admitted.
+
+Next owner: validation agent to finish local checks, independent final-head review and exact-head hosted CI;
+then Chain-Frost to approve merge. Keep `skip-release`. After explicit authorized merge, verify main-push
+Python 3.11/3.14, reconcile #337/#340 and record Phase B completion in PyRORB #231. Until then these issues remain open.
+Native MC grammar stays under PyRORB #232; this is software/reader acceptance, not new native/scientific qualification.
+
+## 2026-11-25 downstream dependency reversal
+
+PyRORB [#233](https://github.com/Chain-Frost/pyrorb/pull/233) merged at
+`13d03c52d17e1559b3113791d9a99f86db000535`. The preliminary
+[v26.11.24.1 release](https://github.com/Chain-Frost/pyrorb/releases/tag/v26.11.24.1)
+has a successful [publication and disable receipt](https://github.com/Chain-Frost/pyrorb/actions/runs/45392180579).
+The Trusted Publisher attested the wheel SHA-256
+`d5987b0213fb4fc1b709f268c0c2f0ae2de0b643b97563a7d6f2a26463e703f1`. Release build logs record an isolated Python 3.13 wheel installation, not a new downstream index installation.
+Compared with ryan-tools main `de3e54289223f974cccf936ebc4fd2b7680d0a09`, the six release-tag
+modules are identical except for lint-only comments in four files.
+
+The draft changes exactly six reader modules to explicit canonical re-exports.
+The consumer inventory includes `ryan_library/functions/RORB/read_rorb_files.py`, `ryan_library/mcp/rorb.py`,
+the original 6.45/6.52, focused reader and DataFrame tests, closure workflow and
+ensemble consumers. Preserve these consumers unchanged; the old standalone
+package and publisher are proposed for retirement in this same unmerged candidate.
+The public 6.45 490-event alternative and the three 6.52 batch populations
+(640 events) retain their original meanings and are not new native acceptance.
+
+The initial agent environment cannot reach GitHub or PyPI directly; the
+candidate uses an isolated GitHub branch. On substantive head
+`ef9dd6ad85f085f4d380112860f3c4e6728c3822`, the
+[dedicated Python 3.11 original-reader job](https://github.com/Chain-Frost/ryan-tools/actions/runs/45615203883/job/139208674656)
+downloaded the exact PyPI wheel, matched the attested SHA-256, installed it and
+passed all 10 compatibility/metadata/original 6.45 and 6.52 tests with no skips.
+The [initial Python CI](https://github.com/Chain-Frost/ryan-tools/actions/runs/45615203907)
+passed Ruff lint but failed the formatter for one tuple in the installed-wheel
+smoke script; that formatting is corrected in this follow-up. The broader
+pandas/MCP tests, root wheel smoke, final-head CI and independent review remain
+pending. Python 3.11 PR and 3.11/3.14 main-push policy remains unchanged.
+No standalone publication, main merge, release or independent review completion is claimed.
+
+Next owner: implementation/validation agent and independent Codex reviewer.
+Obtain final-head CI and review, rebuild the current-version wheel, confirm
+the caller inventory with a complete Git search, and reconcile #337 and
+[PyRORB #231](https://github.com/Chain-Frost/pyrorb/issues/231) only after acceptance.
+Native MC grammar is separately owned by PyRORB #232. Keep the historical
+audit and original evidence below; the old standalone install instructions
+are historical, not current guidance.
 
 ## Outcome and scope
 
