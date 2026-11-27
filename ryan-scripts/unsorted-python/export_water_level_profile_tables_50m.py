@@ -17,7 +17,7 @@ from __future__ import annotations
 # pyright: reportUnknownArgumentType=false, reportUnknownMemberType=false, reportUnknownVariableType=false
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, Literal, TypeAlias, cast
 
 import numpy as np
 import pandas as pd
@@ -78,7 +78,7 @@ WORD_DECIMAL_PLACES = 2
 REPORTING_AEP = "01.00p"
 SUMMARY_AEPS = ("20.00p", "01.00p")
 
-type FloatArray = NDArray[np.float64]
+FloatArray: TypeAlias = NDArray[np.float64]
 
 WORD_TABLE_COLUMNS: tuple[tuple[str, str], ...] = (
     ("Chainage (m)", "Chainage (m)"),

@@ -6,18 +6,18 @@ from __future__ import annotations
 # pyright: reportUnknownArgumentType=false, reportUnknownMemberType=false, reportUnknownVariableType=false
 from math import ceil, isfinite
 from pathlib import Path
-from typing import Literal
+from typing import Literal, TypeAlias
 
 import numpy as np
-import rasterio  # pyright: ignore[reportMissingTypeStubs]
-import rasterio.windows  # pyright: ignore[reportMissingTypeStubs]
+import rasterio
+import rasterio.windows
 from loguru import logger
 from numpy.typing import NDArray
 from shapely.geometry import LineString
 
-type FloatArray = NDArray[np.float64]
-type BoolArray = NDArray[np.bool_]
-type SamplingMethod = Literal["bilinear", "bilinear_valid", "bilinear_masked", "nearest"]
+FloatArray: TypeAlias = NDArray[np.float64]
+BoolArray: TypeAlias = NDArray[np.bool_]
+SamplingMethod: TypeAlias = Literal["bilinear", "bilinear_valid", "bilinear_masked", "nearest"]
 
 
 class RasterSamplingError(RuntimeError):

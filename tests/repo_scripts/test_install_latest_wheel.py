@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import sys
 from pathlib import Path
 from types import ModuleType
 
@@ -15,7 +16,12 @@ def _installer() -> ModuleType:
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    # Direct file loading does not automatically add repo-scripts to sys.path.
+    sys.path.insert(0, str(path.parent))
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.path.remove(str(path.parent))
     return module
 
 
@@ -23,8 +29,12 @@ def test_normal_commands_pin_accepted_parser_and_preserve_gis_wheels() -> None:
     installer = _installer()
     wheel = Path("dist/ryan_tools-26.10.31.1-py3-none-any.whl")
     commands = installer._pip_commands(wheel, False, skip_qgis_mcp=True)
-    pin = "pytuflow @ https://github.com/Chain-Frost/PyTuflow/archive/05e35476c02d6d8ed17c83caf1cb0d185ce51d1b.zip"
+    pin = str(installer.WHEEL_PATH)
+    assert Path(pin).is_absolute()
+    assert Path(pin).name == "pytuflow-1.3.1-py3-none-any.whl"
+    assert Path(pin).is_file()
     assert commands[0] == installer._gis_dependency_command()
+    assert all("--ignore-requires-python" not in command for command in commands)
     assert installer.GIS_WHEEL_INDEX == "https://gisidx.github.io/gwi"
     assert len(commands) == 3
     assert commands[-2][-3:] == ["--force-reinstall", "--no-deps", pin]
@@ -61,6 +71,7 @@ def test_no_dependency_recovery_does_not_claim_parser_installation() -> None:
     installer = _installer()
     commands = installer._pip_commands(Path("dist/local.whl"), True)
     assert len(commands) == 1
+    assert "--ignore-requires-python" not in commands[0]
     assert "--no-deps" in commands[0]
     assert "pytuflow" not in " ".join(commands[0]).casefold()
 
@@ -78,9 +89,11 @@ def test_dry_run_has_public_guard_and_pip_check(
     assert installer.main(["--dry-run", "--skip-qgis-mcp"]) == 0
     output = capsys.readouterr().out
     assert "gisidx.github.io/gwi" in output
-    assert "05e35476c02d6d8ed17c83caf1cb0d185ce51d1b" in output
+    assert "0121101650fd8e931af8d09cadb23bd43f6fefbd" in output
     assert "pip check" in output
     assert "require_validation_api" in output
+    assert "vendor_pytuflow_wheel.py" in output
+    assert "--installed" in output
     assert "no packages or validation capabilities were checked" in output
 
 
@@ -91,6 +104,7 @@ def test_dependency_only_dry_run_does_not_require_wheel(
     assert installer.main(["--dependencies-only", "--dry-run"]) == 0
     printed = capsys.readouterr().out
     assert "gisidx.github.io/gwi" in printed
+    assert "--ignore-requires-python" not in printed
     assert "require_validation_api" not in printed
 
 
@@ -120,3 +134,42 @@ def test_rejects_nonaccepted_same_version_source(tmp_path: Path, monkeypatch: py
     monkeypatch.setattr(installer, "PYTUFLOW_REQUIREMENT_FILE", candidate)
     with pytest.raises(ValueError, match="Invalid PyTUFLOW source"):
         installer._pytuflow_requirement()
+
+
+def test_batch_installers_allow_older_python_3_and_interpreter_override() -> None:
+    root = Path(__file__).absolute().parents[2]
+    for name in ("install-from-pypi.bat", "install-local-wheel.bat"):
+        batch = (root / name).read_text(encoding="utf-8")
+        assert "RYAN_TOOLS_PYTHON" in batch
+        assert "sys.version_info.major == 3" in batch
+        assert "sys.version_info >= (3, 14)" not in batch
+        assert "sys.version_info[1] >= 14" not in batch
+
+
+def test_accepted_wheel_is_verified_and_missing_or_corrupt_files_fail(tmp_path: Path) -> None:
+    installer = _installer()
+    installer.verify_wheel()
+    missing = tmp_path / "missing.whl"
+    with pytest.raises(FileNotFoundError, match="missing"):
+        installer.verify_wheel(missing, manifest=False)
+    corrupt = tmp_path / "pytuflow-1.3.1-py3-none-any.whl"
+    corrupt.write_bytes(b"bad")
+    with pytest.raises(ValueError, match="corrupt"):
+        installer.verify_wheel(corrupt, manifest=False)
+
+
+def test_parser_install_is_independent_of_cwd_and_supports_spaces(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    installer = _installer()
+    outside = tmp_path / "outside working folder"
+    outside.mkdir()
+    monkeypatch.chdir(outside)
+    commands = installer.normal_install_commands("ryan-tools[mcp]", skip_qgis_mcp=True)
+    assert commands[1][-1] == str(installer.WHEEL_PATH)
+    assert commands[2][-1] == str(installer.WHEEL_PATH)
+    assert Path(commands[1][-1]).is_file()
+    copied = tmp_path / "folder with spaces" / installer.WHEEL_PATH.name
+    copied.parent.mkdir(parents=True)
+    copied.write_bytes(installer.WHEEL_PATH.read_bytes())
+    installer.verify_wheel(copied, manifest=False)

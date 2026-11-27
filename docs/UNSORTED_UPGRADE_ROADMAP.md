@@ -64,7 +64,7 @@ Disposition decisions based on verified maintained files and the historical desc
 
 | Candidate | Maintained implementation / gap | Current disposition |
 | --- | --- | --- |
-| `raster_difference_manual_list_v2.py` | `ryan-scripts/TUFLOW-python/raster_processing/run_python_raster_calculations.py` uses the shared `compute_diff`. | Already migrated; do not duplicate. |
+| `raster_difference_manual_list_v2.py` | `ryan-scripts/TUFLOW-python/raster_processing/calculate_raster_differences.py` and the shared `compute_diff` provide the maintained path; `run_python_raster_calculations.py` is again experimental. | Do not duplicate the differencing engine; assess discovery and CLI improvements separately. |
 | `raster_difference_auto_v2.py` and `close_filenames_v1.py` | `calculate_raster_differences.py` and shared `compute_diff` handle computation. Automatic fuzzy EXG/DEV pairing and naming/cutoff behaviour have **not** been established as equivalent. | Retain one bounded discovery/pairing candidate; reuse the current engine, not another differencing implementation. |
 | `simil.py` / `simil-master/` | `vendor/simil/simil.py` with `vendor/simil/README.md` already supplies the upstream implementation. Published-wheel inclusion was not verified. | No second copy into `ryan_library/functions` planned; keep upstream provenance and licensing. |
 | `file_info_v1.py` | Reusable `ryan_library/functions/file_inventory.py` provides document/revision parsing, an integrated file inventory, existing discovery and SHA-256 snapshot reuse. `ryan-scripts/file-management-python/file_inventory.py` exports CSV and Excel using existing export infrastructure. | **Implemented on PR #138**, with focused tests; historical source disposition and final CI remain to be confirmed. MD5 was not carried over (SHA-256 is used optionally). |
@@ -204,6 +204,7 @@ These have clear reuse value, are substantial, and fit naturally into existing `
 - [x] **`raster_difference_manual_list_v2.py`** (7.6 KB) → `ryan-scripts/TUFLOW-python/raster_processing/run_python_raster_calculations.py`
   - Manual file-pair version of raster differencing using `rasterio`.
   - Uses the maintained native ASC_to_ASC-style API after focused alignment, NoData and output-safety validation.
+  - The generic launcher later returned to `unsorted-python`; use `calculate_raster_differences.py` for the maintained entry point.
 
 ### Excel protection removal
 
@@ -320,6 +321,7 @@ Worth upgrading eventually but less urgent. Can be picked up opportunistically.
   - Groups rasters by model/AEP/duration, generates asc_to_asc max/median commands.
 - [x] **`asc2asc_groups_diff_v5.py`** (18.8 KB) → merged with above
   - Same logic but for `-dif` (differencing) mode.
+  - The experimental grouped launcher later returned to `unsorted-python`; maintained statistic/maximum wrappers remain separate.
 
 ### RORB analysis
 

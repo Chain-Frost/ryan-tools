@@ -1,3 +1,0 @@
-"""Minimal affine transform constructor for test fixture generation."""
-
-def from_origin(west: float, north: float, xsize: float, ysize: float) -> object: ...

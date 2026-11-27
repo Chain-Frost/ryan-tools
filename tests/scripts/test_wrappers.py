@@ -1,6 +1,9 @@
+# External optional keyword signatures are incomplete; exceptions stay on individual calls.
 import os
 import sys
+from collections.abc import Iterator
 from pathlib import Path
+from types import ModuleType
 from unittest.mock import patch
 
 import pytest
@@ -19,7 +22,7 @@ if str(REPO_ROOT) not in sys.path:
 import importlib.util
 
 
-def import_script(path: Path):
+def import_script(path: Path) -> ModuleType:
     spec = importlib.util.spec_from_file_location(path.stem, path)
     if spec is None or spec.loader is None:
         msg = f"Could not import {path}"
@@ -34,7 +37,7 @@ SCRIPTS_DIR = REPO_ROOT / "ryan-scripts" / "TUFLOW-python"
 
 
 @pytest.fixture(autouse=True)
-def restore_working_directory():
+def restore_working_directory() -> Iterator[None]:
     """Keep wrapper tests from leaking their working directory into later tests."""
     original_directory = Path.cwd()
     yield
@@ -42,27 +45,27 @@ def restore_working_directory():
 
 
 @pytest.fixture
-def pomm_combine_script():
+def pomm_combine_script() -> ModuleType:
     return import_script(SCRIPTS_DIR / "po_and_timeseries" / "combine_pomm_results.py")
 
 
 @pytest.fixture
-def culvert_maximums_script():
+def culvert_maximums_script() -> ModuleType:
     return import_script(SCRIPTS_DIR / "culvert_results" / "combine_culvert_maximums.py")
 
 
 @pytest.fixture
-def log_summary_script():
+def log_summary_script() -> ModuleType:
     return import_script(SCRIPTS_DIR / "log_processing" / "create_log_summary_report.py")
 
 
 @pytest.fixture
-def closure_durations_script():
+def closure_durations_script() -> ModuleType:
     return import_script(SCRIPTS_DIR / "po_and_timeseries" / "calculate_po_closure_durations.py")
 
 
 @pytest.fixture
-def culvert_timeseries_script():
+def culvert_timeseries_script() -> ModuleType:
     return import_script(SCRIPTS_DIR / "culvert_results" / "combine_culvert_timeseries.py")
 
 
@@ -71,7 +74,7 @@ def culvert_timeseries_script():
 #     return import_script(SCRIPTS_DIR / "gis_processing" / "apply_qgis_styles_to_results.py")
 
 
-def test_pomm_combine_wrapper(pomm_combine_script, tmp_path):
+def test_pomm_combine_wrapper(pomm_combine_script: ModuleType, tmp_path: Path):
     """Test combine_pomm_results.py calls main_processing correctly."""
     with patch.object(pomm_combine_script, "main_processing") as mock_main_processing:
         # Call main with specific arguments
@@ -87,7 +90,7 @@ def test_pomm_combine_wrapper(pomm_combine_script, tmp_path):
         assert call_args.kwargs["paths_to_process"] == [tmp_path]
 
 
-def test_culvert_maximums_wrapper(culvert_maximums_script, tmp_path):
+def test_culvert_maximums_wrapper(culvert_maximums_script: ModuleType, tmp_path: Path):
     """Test combine_culvert_maximums.py calls main_processing correctly."""
     with patch.object(culvert_maximums_script, "main_processing") as mock_main_processing:
         culvert_maximums_script.main(console_log_level="INFO", working_directory=tmp_path)
@@ -101,7 +104,7 @@ def test_culvert_maximums_wrapper(culvert_maximums_script, tmp_path):
         assert "Nmx" in call_args.kwargs["include_data_types"]
 
 
-def test_log_summary_wrapper(log_summary_script, tmp_path):
+def test_log_summary_wrapper(log_summary_script: ModuleType, tmp_path: Path):
     """Test create_log_summary_report.py calls main_processing correctly."""
     with patch.object(log_summary_script, "main_processing") as mock_main_processing:
         log_summary_script.main(console_log_level="DEBUG", working_directory=tmp_path)
@@ -111,7 +114,7 @@ def test_log_summary_wrapper(log_summary_script, tmp_path):
         assert call_args.kwargs["console_log_level"] == "DEBUG"
 
 
-def test_closure_durations_wrapper(closure_durations_script, tmp_path):
+def test_closure_durations_wrapper(closure_durations_script: ModuleType, tmp_path: Path):
     """Test calculate_po_closure_durations.py calls run_closure_durations correctly."""
     with patch.object(closure_durations_script, "run_closure_durations") as mock_run:
         closure_durations_script.main(
@@ -125,7 +128,7 @@ def test_closure_durations_wrapper(closure_durations_script, tmp_path):
         assert call_args.kwargs["paths"] == [tmp_path]
 
 
-def test_culvert_timeseries_wrapper(culvert_timeseries_script, tmp_path):
+def test_culvert_timeseries_wrapper(culvert_timeseries_script: ModuleType, tmp_path: Path):
     """Test combine_culvert_timeseries.py calls main_processing correctly."""
     with patch.object(culvert_timeseries_script, "main_processing") as mock_main_processing:
         culvert_timeseries_script.main(console_log_level="DEBUG", working_directory=tmp_path)
@@ -137,7 +140,7 @@ def test_culvert_timeseries_wrapper(culvert_timeseries_script, tmp_path):
 
 
 # Functional test for combine_pomm_results
-def test_pomm_combine_functional(pomm_combine_script, tmp_path):
+def test_pomm_combine_functional(pomm_combine_script: ModuleType, tmp_path: Path):
     """Functionally test combine_pomm_results.py using real data."""
     # Setup: Copy test data to tmp_path
     import shutil
@@ -160,6 +163,6 @@ def test_pomm_combine_functional(pomm_combine_script, tmp_path):
     # Optional: Read the excel file to check contents
     import pandas as pd
 
-    df = pd.read_excel(output_files[0])
+    df = pd.read_excel(output_files[0])  # pyright: ignore[reportUnknownMemberType]
     assert not df.empty
     assert "file" in df.columns

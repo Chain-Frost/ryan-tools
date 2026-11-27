@@ -1,0 +1,482 @@
+# RORB reader audit and MCP implementation scope
+
+| Field | Value |
+| --- | --- |
+| Status | Phase B complete; owner-requested dependency-policy follow-up in PR #145 |
+| Owner | ChatGPT / maintainer |
+| Created | 2026-11-05 |
+| Updated | 2026-11-28 |
+| Next review | 2026-12-05 |
+| Baseline | Local main at `10b71898220d11feaff8256618ffb8eeec35f4ef` |
+| Delivery | [PR #344](https://github.com/Chain-Frost/ryan-tools/pull/344) merged; [v26.11.27.1](https://github.com/Chain-Frost/ryan-tools/releases/tag/v26.11.27.1) published; follow-up in [PR #145](https://github.com/Chain-Frost/ryan-tools/pull/145) |
+
+## 2026-11-28 release closeout and dependency policy
+
+Phase B completed in #344 at `5eda4f06cafbbdc5f528bb108909438302a13ce5`.
+[Main CI](https://github.com/Chain-Frost/ryan-tools/actions/runs/45960809675) passed on
+Python 3.11 and 3.14 (3,481 tests each). [Publishing](https://github.com/Chain-Frost/ryan-tools/actions/runs/45961961098)
+and [PyPI wheel verification](https://github.com/Chain-Frost/ryan-tools/actions/runs/45962214615)
+passed for v26.11.27.1; #337/#340 and PyRORB #231 closed. The exact version and hash below
+remain historical qualification evidence for that release.
+
+The owner explicitly requests a bare `pyrorb` dependency and continuation in existing
+[PR #145](https://github.com/Chain-Frost/ryan-tools/pull/145). The proposed change
+removes fixed-version gates from routine source and isolated-wheel installations,
+verifies the resolved public wheel against current PyPI filename, size and digest,
+and retains the same six reader compatibility modules, API identities, original
+fixture checks and metadata/physical-origin checks. Do not reinstate the standalone
+publisher or change reader grammar. The candidate still needs integrated-head CI
+and independent review; PR #145's calibration review and native acceptance gates
+remain separate. No merge or new release is authorised.
+
+## 2026-11-26 final acceptance preparation (historical)
+
+Candidate started at `61040c20c7525f893223a136dbba9f9bd62ae90e`, unchanged from the supplied handoff;
+audited base and remote main are `de3e54289223f974cccf936ebc4fd2b7680d0a09`.
+An isolated detached worktree preserves both repositories' concurrent work. `tests/test_data` is initialized,
+at approved `4535ff86ea978666b990748d72d927695be2158c`; no recursive submodule inspection. The root wheel build also requires the pinned `qgis-resources` styles submodule, initialized only for that package prerequisite.
+
+The existing [general CI](https://github.com/Chain-Frost/ryan-tools/actions/runs/45615470994)
+passed hosted Python 3.11 tests, MCP, package/build/isolated installed-wheel, Ruff and POSIX security.
+Policy failed with 52 strict typing errors: 30 implicit canonical re-exports, missing Rasterio stubs and three
+pandas-stubs 2.x `None` argument errors. Corrections import existing symbols from their canonical defining
+modules, explicitly install the already constrained Rasterio stubs and type only the three runtime-supported
+`None` replacements through `Any`. No parser or computational change, fallback, version change or tolerance change.
+The [original-reader run](https://github.com/Chain-Frost/ryan-tools/actions/runs/45615470989/job/139209605928)
+passed 10 tests without skips, authenticating the exact public PyPI wheel and 490/640 retained populations.
+The prior [independent review receipt](https://github.com/Chain-Frost/ryan-tools/pull/344#issuecomment-7162666843)
+has no findings at the starting SHA; the corrected substantive head requires its own review and green CI.
+Local Windows 10 / Python 3.14.6 isolated-environment validation: requested focused pandas/MCP boundary
+**168 passed, one Windows symlink-permission skip**, dedicated compatibility/original corpus **10 passed, no skips**.
+Ruff 0.16.6 lint/format, strict Pyright 1.1.414 on all eight corrected Python files (explicit isolated interpreter),
+documentation links/paths and whitespace pass. Fresh isolated PyPI download matched the approved SHA-256.
+No-bump root build produced `ryan_tools-26.11.17.3-py3-none-any.whl`, SHA-256
+`c9a4dd6b0c15a353e8f0e2bc9c4693241ca9219dd3af9f6593b225f5e4723152`.
+Installed outside the checkout in a fresh target with the exact PyRORB wheel, the maintained smoke passed
+physical import isolation, all reader aliases, MCP and copied wrappers. Optional culvert-wrapper checks:
+85 passed, two Windows symlink-permission skips; no computational change was made there.
+The independent correction review reports no findings; final commit binding follows in the PR receipt.
+
+Final validation counts, final SHA, review receipt and check links are recorded in PR #344 and linked tracking issues
+once available; this pre-push record does not assert pending checks passed.
+
+### Static-tooling prerequisite correction
+
+The first follow-up head `98289cbd36acba80ed4fcfa5310eb0e7b2485971` passed
+[original-reader acceptance](https://github.com/Chain-Frost/ryan-tools/actions/runs/45714422032)
+but [Policy](https://github.com/Chain-Frost/ryan-tools/actions/runs/45714423200/job/139556864578)
+could not install Rasterio stubs on Python 3.11: every published `types-rasterio` distribution requires Python >=3.12.
+The final workflow correction runs **Policy static tooling only** on Python 3.14, retaining Pyright's configured
+Python 3.11 language/API target and the separate PR Python 3.11 / main-push Python 3.11 and 3.14 runtime tests.
+It does not change publisher workflows, package runtime requirements, supported Python versions or numerical policy.
+The full exact constrained Policy environment installs successfully locally with `pip check` clean;
+all 718 CI-selected strict typing files pass (zero errors/warnings) and all 57 CI-scope regressions pass before the final push.
+Reader/package code is unchanged by this workflow-only follow-up; source/wheel evidence above still applies.
+All 257 wheel `ryan_library` Python/typing files match source bytes; ordered name/content SHA-256 fingerprint:
+`3a31d70511a147bccafee61eb1b707c75dbbc3a8702ad0b478be0a0d451a7a78`.
+Final hosted results and independent review of this correction remain recorded on the exact final PR head.
+
+### Complete caller inventory
+
+Searched both the audited base and candidate using `git grep -n -E`
+`associations|output_reader|parameter_reader|reader_types|readers|result_readers|rorb_readers`
+across tracked Python, stubs, notebooks, Markdown, TOML and workflow YAML. Supplemented with searches for
+`read_rorb_files`, reader API names, relative imports, `import_module`, monkeypatch and mock patch targets.
+Git searches did not recurse into submodules. Unrelated English "readers"/"associations", TUFLOW/GDAL/CAD
+readers and their work notes were excluded. No actual reader notebook or stub caller was found.
+
+| Caller / reference (paths relative to repository) | Base ? candidate support |
+| --- | --- |
+| Six modules in `ryan_library/functions/RORB`: `associations`, `output_reader`, `parameter_reader`, `reader_types`, `readers`, `result_readers` | Original internal relative imports become explicit canonical imports. All 59 reader-owned exports retain object identity and legacy paths, including imported types/helpers; no wrapper classes. |
+| `ryan_library/functions/RORB/read_rorb_files.py` | Relative `associate_batch_csvs` / `read_rorb_file` imports remain; pandas `parse_batch_output`, `read_hydrograph_csv`, discovery and analysis remain downstream. |
+| `ryan_library/mcp/rorb.py` | Relative association/comparison and reader/MAX_FILE_BYTES imports remain; guidance import string unchanged. |
+| `ryan_library/mcp/server.py`, `tests/mcp/test_rorb.py`, `tests/mcp/test_server.py` | Indirect tool registration and read-only inspection remain through the MCP adapter. |
+| `tests/functions/RORB/test_readers.py` | Association/key/comparison, site binding, bytes/file/table reads and pandas adapter imports remain; six-file Python 3.11 syntax check retained. |
+| `tests/functions/RORB/test_original_645_readers.py`, `tests/functions/RORB/test_original_652_readers.py` | Same reader and association imports; immutable original populations retained. |
+| `tests/functions/RORB/test_read_rorb_files.py`, `tests/functions/RORB/test_rorb_v652_regression.py` | Same pandas/discovery/analysis convenience callers retained. |
+| `ryan_library/orchestrators/rorb/closure_durations.py`, `ryan-scripts/RORB-python/RORB-find-closure-durations.py` | Indirect pandas/discovery/analysis consumers remain through the unchanged orchestrator. |
+| `tests/scripts/RORB/test_rorb_closure_durations.py`, `tests/scripts/RORB/test_rorb_closure_duration_behavior.py` | Mock targets remain in the orchestrator (`find_batch_files`, `parse_batch_output`, `analyze_hydrograph` etc.); no relocated canonical-global patch target. |
+| `tests/scripts/promoted_scripts/test_rorb_ensemble_reader.py`, `tests/scripts/promoted_scripts/test_ensemble_boxplot.py`, `tests/scripts/test_repository_only_rorb_peaks.py`, `tests/scripts/test_rorb_hydrograph_wrapper.py` | Additional ensemble/plot/standalone regression boundary, not direct callers of transferred modules; retained unchanged. |
+| `tests/functions/RORB/test_reader_compatibility.py` (new), `repo-scripts/smoke_test_installed_wheel.py` (extended) | Dynamic imports enumerate all six legacy/canonical module pairs and verify class/function identity and installed origin. |
+| `README.md`, `ryan_library/functions/RORB/README.md`, `docs/MCP_SETUP.md` | Supported pandas/API examples and MCP guidance remain; canonical ownership/install guidance now points to qualified PyRORB. |
+| `docs/README.md`, `docs/work/README.md`, this record, `docs/work/2026-11-24-python311-compatibility.md` | Navigation/current ownership updated; unique historical source/corpus/clock evidence retained in this record. |
+| `packaging/rorb-readers/{README.md,pyproject.toml}`, [standalone publisher at audited base](https://github.com/Chain-Frost/ryan-tools/blob/de3e54289223f974cccf936ebc4fd2b7680d0a09/.github/workflows/rorb-readers-publish.yml) (base only) | Superseded standalone build/import/publication references retired in candidate after reader qualification; never dispatch publisher. |
+| `.github/workflows/rorb-645-reader-acceptance.yml` | Uses unchanged legacy imports with exact published PyRORB and approved original corpus; no standalone build dependency. |
+
+Dependency metadata and wheel verification/smoke requirements retain `pyrorb==26.11.24.1`;
+expected wheel SHA-256 is `d5987b0213fb4fc1b709f268c0c2f0ae2de0b643b97563a7d6f2a26463e703f1`.
+No editable PyRORB, Git dependency, fallback parser or newer release is admitted.
+
+Next owner: validation agent to finish local checks, independent final-head review and exact-head hosted CI;
+then Chain-Frost to approve merge. Keep `skip-release`. After explicit authorized merge, verify main-push
+Python 3.11/3.14, reconcile #337/#340 and record Phase B completion in PyRORB #231. Until then these issues remain open.
+Native MC grammar stays under PyRORB #232; this is software/reader acceptance, not new native/scientific qualification.
+
+## 2026-11-25 downstream dependency reversal
+
+PyRORB [#233](https://github.com/Chain-Frost/pyrorb/pull/233) merged at
+`13d03c52d17e1559b3113791d9a99f86db000535`. The preliminary
+[v26.11.24.1 release](https://github.com/Chain-Frost/pyrorb/releases/tag/v26.11.24.1)
+has a successful [publication and disable receipt](https://github.com/Chain-Frost/pyrorb/actions/runs/45392180579).
+The Trusted Publisher attested the wheel SHA-256
+`d5987b0213fb4fc1b709f268c0c2f0ae2de0b643b97563a7d6f2a26463e703f1`. Release build logs record an isolated Python 3.13 wheel installation, not a new downstream index installation.
+Compared with ryan-tools main `de3e54289223f974cccf936ebc4fd2b7680d0a09`, the six release-tag
+modules are identical except for lint-only comments in four files.
+
+The draft changes exactly six reader modules to explicit canonical re-exports.
+The consumer inventory includes `ryan_library/functions/RORB/read_rorb_files.py`, `ryan_library/mcp/rorb.py`,
+the original 6.45/6.52, focused reader and DataFrame tests, closure workflow and
+ensemble consumers. Preserve these consumers unchanged; the old standalone
+package and publisher are proposed for retirement in this same unmerged candidate.
+The public 6.45 490-event alternative and the three 6.52 batch populations
+(640 events) retain their original meanings and are not new native acceptance.
+
+The initial agent environment cannot reach GitHub or PyPI directly; the
+candidate uses an isolated GitHub branch. On substantive head
+`ef9dd6ad85f085f4d380112860f3c4e6728c3822`, the
+[dedicated Python 3.11 original-reader job](https://github.com/Chain-Frost/ryan-tools/actions/runs/45615203883/job/139208674656)
+downloaded the exact PyPI wheel, matched the attested SHA-256, installed it and
+passed all 10 compatibility/metadata/original 6.45 and 6.52 tests with no skips.
+The [initial Python CI](https://github.com/Chain-Frost/ryan-tools/actions/runs/45615203907)
+passed Ruff lint but failed the formatter for one tuple in the installed-wheel
+smoke script; that formatting is corrected in this follow-up. The broader
+pandas/MCP tests, root wheel smoke, final-head CI and independent review remain
+pending. Python 3.11 PR and 3.11/3.14 main-push policy remains unchanged.
+No standalone publication, main merge, release or independent review completion is claimed.
+
+Next owner: implementation/validation agent and independent Codex reviewer.
+Obtain final-head CI and review, rebuild the current-version wheel, confirm
+the caller inventory with a complete Git search, and reconcile #337 and
+[PyRORB #231](https://github.com/Chain-Frost/pyrorb/issues/231) only after acceptance.
+Native MC grammar is separately owned by PyRORB #232. Keep the historical
+audit and original evidence below; the old standalone install instructions
+are historical, not current guidance.
+
+## Outcome and scope
+
+Inventory existing RORB functions and scripts, assess the supplied batch summary, standard output, CSV and parameter
+file, and define reliable read-only APIs before exposing them through MCP. This is an initial source-and-example audit,
+not certification of all RORB versions or run modes. Proprietary inputs remain outside Git. No RORB engine was launched.
+The excluded submodule was not inspected. Unrelated untracked `QGIS-TUFLOW-Plugin/` content was left untouched.
+
+## Current implementation
+
+2026-11-07 continuation: Standard-output hydrograph increments are validated against the reported step using exact
+source decimals and the printed precision of both the step and the time records. Tests cover contradictory, rounded and
+Fortran-exponent time values, including increment metadata after a summary. Closure processing raises on nonuniform or
+insufficient CSV time steps instead of silently omitting ensemble members. CSV/batch peak corroboration now derives
+rounding tolerances from both printed source values, including scientific notation. The RORB 6.52 regression expects
+the deliberate fail-fast exception. All four Codex review threads are resolved; the final review of `f3752ca` returned
+no findings. Current `main` (`5ad632c`) was integrated without losing MCP registration or package metadata. All six
+GitHub checks passed at `f3752ca`, including 2,580 hosted tests passed, 14 skipped and 8 deselected. This validation
+covers the code head before this documentation-only handoff; confirm GitHub's latest-head checks before merging.
+No engine runs, merge or release were performed.
+
+The user authorized implementation after the audit and clarified that CMD parameter layouts and executable feature
+support can differ. Implemented source-preserving readers, structured diagnostics, strict DataFrame adapters, batch/CSV
+association, output/CSV comparison and bounded MCP inspection. The [reader guide](../../ryan_library/functions/RORB/README.md)
+defines the exact supported subset and migration behavior. No RORB engine was launched and no project inputs were edited.
+
+- The supplied batch retains all 420 records and all 420 CSV associations are now corroborated using filename,
+  signature, report reference, named sites and rounded peaks. Ambiguity and mismatches remain explicit.
+- Standard output preserves 201 hydrograph rows and two 24-row rainfall tables. The CSV time offset remains reported
+  as +1 hour, without correcting either source. Mapped and UNC spellings preserve their supplied forms and read identical hashes.
+- The CMD reader implements the installed V2 single-burst layout, including lumped/distributed routing and IL/CL versus
+  IL/ROC. Other options, additional records and multi-burst variants remain explicit partial results. Parsing never
+  certifies executable compatibility. Saved RORBWin ARR2016 settings expose corroborated candidate records only;
+  activity and conditional interpretation remain unknown. Unknown settings layouts are not guessed.
+- `inspect_rorb_file` and `ryan-tools://guidance/rorb-readers` are registered in the actual MCP server. A live in-process
+  tool call against the supplied CSV returned bounded structured data. Default inspection follows no references.
+- Existing DataFrame callers now reject malformed input; unresolved CSV associations block closure processing before
+  hydrograph jobs. Missing parameters are null. Two closure metric definitions remain unchanged and documented.
+
+Validation: **103 focused reader/workflow/MCP tests passed**, with one Windows symlink-permission skip.
+Strict Pyright passed on all 15 modified Python files; documentation links and patch whitespace passed.
+The current-version wheel built successfully without a version bump. An isolated Q: wheel installation successfully
+read all four supplied file types, exercised MCP inspection and verified packaged guidance without importing the checkout.
+Hosted package/isolated-wheel, MCP smoke and POSIX security jobs passed on `062d0d24`. Hosted Ruff lint passed;
+Ruff lint and formatting both passed on `237ed132`, as did its clean-checkout package build and isolated-wheel smoke.
+Local Ruff remains blocked by Windows application control. A final local rebuild produced a wheel but failed source
+verification because concurrently edited `ryan_library/functions/tuflow/pomm_utils.py` differed from the packaged file.
+Do not distribute that shared-workspace wheel; use the verified hosted PR artifact. Earlier isolated RORB smoke evidence
+remains valid. Final documentation-head CI is pending; see the PR for current check results.
+
+The stages are delivered together on one coherent draft branch because the shared result contract, adapter migration
+and MCP surface need to remain consistent. Further formats can be stacked on this branch or added after merge; no merge
+or release is authorized. Storm/catchment readers remain the explicitly deferred follow-up scope from the audit.
+
+## Initial audit inventory (baseline before implementation)
+
+Paths below are relative to the repository root. These capabilities exist on the audited main commit.
+
+| Source | Functions / behavior | Limits and MCP suitability |
+| --- | --- | --- |
+| `ryan_library/functions/RORB/read_rorb_files.py` | `find_batch_files`, `parse_batch_output`, `read_hydrograph_csv`, `analyze_hydrograph` | Recursive batch discovery; run-table reader; CSV reader; sample-count threshold exceedance. Partial format support, diagnostics and association gaps described below. |
+| `ryan_library/functions/RORB/ensemble_analysis.py` | `read_rorb_parquet`, `calculate_peak_flows`, `calculate_closure_times` | Reads already transformed Parquet, groups maxima, calculates first-to-last exceedance span. Not a native RORB file parser. Source retains a production-validation caveat. |
+| `ryan_library/functions/RORB/ensemble_plotting.py` | `plot_peak_flow_distribution`, `plot_exceedance_duration` | PNG plotting helpers, not read-only inspection. |
+| `ryan_library/orchestrators/rorb/closure_durations.py` | `run_closure_durations` | Discovers batch files, associates CSVs, processes hydrographs and exports summaries. Depends on the incorrect filename assumption found here. |
+| `ryan_library/orchestrators/rorb/ensemble_plotting.py` | `orchestrate_ensemble_plotting` | Reads long-form ensemble data and writes plots. |
+| `ryan-scripts/RORB-python/RORB-find-closure-durations.py` | Maintained library-backed closure wrapper | MCP catalogue entry `rorb_closure_durations`, create profile. |
+| `ryan-scripts/RORB-python/plot_ensemble_results.py` | Maintained library-backed ensemble plotting wrapper | MCP catalogue entry `rorb_ensemble_plots`, create profile. |
+| `ryan-scripts/RORB-python/hydrograph_extract_rorb_csv.py` | Standalone `extract_metadata_from_filename`, `import_data`, `create_plot` | Excel/PNG exports; assumes creek/run-prefixed filenames and selects 12-hour files. Not a generic reader for the supplied unprefixed 24-hour CSV. |
+| `ryan-scripts/RORB-python/extract_rainfall-to-TUFLOW.py` | Standalone `parse_time_increment`, `collect_header_lines`, `build_column_names`, `fix_and_extract`, `process_out_files` | Reads a caller-selected row interval in standard output; transforms rainfall, including first-increment adjustment and a trailing zero row. Useful extraction logic, not a complete or lossless report reader. |
+| `ryan-scripts/RORB-python/rorb-peaks_v2.py` | Legacy repository-only batch-table parsing and higher-median peak/TP selection | Scans `.out` filenames but expects a batch run-table marker. Does not constitute a standard single-run output parser. |
+| `ryan-scripts/python-not-polished/hydrograph_extract_rorb_csv-opt2_132.py` | Experimental hydrograph combining/plotting variant | Not a stable MCP API. |
+
+The installed-script manifest selects the four non-versioned scripts in `RORB-python`; the legacy peaks script is not
+selected. Current MCP has two RORB workflow catalogue entries and **no focused RORB file-inspection tool**. Catalogue
+entries describe commands; they do not execute scripts or expose Python reading functions.
+
+No general `.par`, `.stm` or `.catg` parser was found in tracked first-party library/scripts on this baseline. There is
+also no complete standard `.out` reader on main. This negative finding excludes independent vendored/submodule content.
+
+[PR #145](https://github.com/Chain-Frost/ryan-tools/pull/145) is separate, open and unmerged, verified through GitHub on
+2026-11-05 at head `f404642bddf3b7bf8f5d71988cfa0d247d8a0e19`. It contains standalone calibration, command-line parameter
+generation and numeric output-table inspection/scoring. That is a reuse candidate, not an available main API or a
+general RORBWin `.par` parser. Its real-engine acceptance remains outstanding. The live PR is not marked draft despite
+older comments requesting draft status; this audit did not alter it or rerun its acceptance checks.
+
+## Supplied-file evidence
+
+Literal pasted paths first failed at the `1` directory. Parent enumeration established `1_RORB`, then
+`LongDurations_Ensembles_CC`; the actual filenames have underscores rather than the extra separators preceding them in
+the pasted text. The leading space in the single-run filenames is real and was preserved.
+
+Verified common directory:
+
+```text
+Q:\26\RP26188 HD4 TO HD1 PIPELINE - UON\1_RORB\CoondinerCreek\LongDurations_Ensembles_CC\Rest AEP
+```
+
+| Actual filename | Observation |
+| --- | --- |
+| `Updated_CoondinerCreek_batch.out` | 42,355 bytes, 532 lines; RORBWin 6.45; 420 rows, 42 run numbers, 10 temporal patterns, 7 durations, 6 AEP/EY labels. |
+| `LongDurations_IL53.9_CL4.3_CC.par` | 30,300 bytes, 754 lines; positional numeric/flag records, paths, ARR2016 markers and adjacent numeric/NaN fields. No parser currently available. |
+| ` aep20_du24hourtp2.out` | 15,666 bytes, 480 lines; RORBWin 6.45 standard output, input/data-check sections, routing information, parameters, named hydrographs and a 201-row numeric hydrograph summary. |
+| ` aep20_du24hourtp2.csv` | 8,524 bytes, 204 lines; two preamble lines, then 201 increments and two named hydrographs. Existing CSV function returns 201 rows and three columns after dropping `Inc`. |
+
+### Confirmed findings
+
+1. **Batch-to-CSV association fails for every row.** All 420 numeric/text run-table records agree field by field with an
+   independent split of the source table. However, zero of the 420 constructed CSV filenames exist. The reader prepends
+   the batch filename stem, while actual CSVs start with a space and `aep`. A successful DataFrame is therefore not
+   evidence that the downstream workflow can read its hydrographs.
+2. **Batch report information is discarded.** Peak identifiers map to named locations in the report, but the API retains
+   only `Peak0001`/`Peak0002`. It stops at the representative-hydrograph section, omitting those associations, elapsed
+   time, model/version information and rainfall configuration. `Run` repeats across patterns: it is not a unique row ID.
+3. **Missing parameters are represented as plausible values.** Defaults are IL/CL/kc/m = 0 and ROC = 1. The supplied file
+   reports IL/CL, yet the returned table also contains ROC = 1 without distinguishing not-applicable from reported.
+4. **Malformed input can look successful.** In-memory probes demonstrated: a table without RORB signature/parameters is
+   accepted; a malformed middle row is dropped while valid rows are returned; an unknown duration unit is divided by 60;
+   a numeric field `12garbage` becomes 12. Logs do not provide a structured completeness contract to an MCP caller.
+5. **CSV recognition is weak.** The reader skips two lines and accepts arbitrary column names. A controlled pandas-input
+   probe returned an unrelated `foo,bar` table. Time/finite-value/series-role validation belongs in the reader contract,
+   not only downstream analysis. The preamble's explicit `.out` reference and original increment are currently lost.
+6. **Standard-output and CSV time axes disagree in this example.** All 201 increments and both flow arrays match exactly,
+   but CSV times are 1..201 hours and `.out` times are 0..200 hours: an offset of +1 hour throughout. Preserve both source
+   axes and flag the conflict; the cause and correct interpretation are not established by this audit. Peak magnitudes
+   also agree with the corresponding batch row, but that does not validate timing.
+7. **Encoding needs an explicit policy.** The report contains non-UTF-8 text; the existing batch reader uses UTF-8 with
+   replacement. Audit inspection used CP1252 for readable text. Replacement must be reported rather than silently treated
+   as lossless, especially when parsing paths and location names.
+8. **Two closure definitions coexist.** `analyze_hydrograph` counts samples above threshold times the timestep;
+   `calculate_closure_times` measures first-to-last exceedance span, including gaps. They must not be exposed under one
+   ambiguous metric name. Definition reconciliation is an analysis follow-up, not prerequisite parser implementation.
+
+## Required reader contract
+
+These are proposed acceptance requirements, not claims about implemented behavior.
+
+- Identify format using signature, section structure and consistent fields; extension/one marker alone is insufficient.
+  Distinguish unsupported, malformed, incomplete and recognized input. Report supported sections independently from
+  whole-file completeness; unknown sections must not imply complete interpretation.
+- Preserve source path spelling, encoding, format/version evidence, raw labels, units and line/section provenance.
+  Keep missing, not-applicable and explicit zero distinct. Retain unknown records for bounded inspection.
+- Return structured diagnostics with line, severity and reason. Never silently discard a malformed numeric record or
+  fabricate a parameter. Any explicitly requested partial read must identify omissions and cannot claim full success.
+- Validate numeric tokens, overflow markers, non-finite values, dimensions, row counts, time ordering, repeated headers
+  and record boundaries. Support documented annotations explicitly, rather than accepting arbitrary numeric suffixes.
+- Preserve AEP percent, EY and other frequency conventions as different semantic kinds, with original text retained.
+  Validate duration units explicitly. Identify records by report/section/run/pattern context, not run number alone.
+- Preserve hydrograph IDs, names and reported roles. Never infer observed versus calculated from column order or `HydNNN`.
+- Resolve associated files from explicit references where possible. Filename candidates require verification and an
+  association reason; report missing/ambiguous/mismatched candidates rather than choosing the first match. Bound all
+  optional discovery and preserve leading spaces. File existence alone does not prove event identity.
+- Keep inspection read-only, bounded and independent of RORB execution. Existing DataFrame callers need an explicit
+  compatibility decision when adding richer results or making errors strict.
+
+## Needed capabilities and proposed PR stages
+
+Use this audit as the parent scope. Each stage can be reviewed separately; no requirement to wait for all format readers
+before exposing a fully validated subset. Stack only on code dependencies, and retarget after parent merges.
+
+| Stage | Needed work | Acceptance gate / dependency |
+| --- | --- | --- |
+| 0: audit and format corpus | This inventory; collect a version/run-mode matrix; identify authoritative format references and reusable portions of #145. | Current examples cover one 6.45 ensemble case plus existing 6.52 regression data, not every mode. |
+| 1: shared parsing contract and batch/CSV | Structured results and diagnostics; strict recognition; retain batch metadata/peak names/representative records; validated CSV metadata, increments and time; replace assumed file links with explicit association results. | Synthetic malformed/truncated/ambiguous fixtures, independent row/value checks, 6.45/6.52 cases, no source writes; retain or deliberately migrate existing callers. |
+| 2a: standard `.out` | Section-aware metadata, routing/loss settings, data-check messages, site/role mapping, numeric hydrographs and rainfall blocks where supported. Review #145 reuse without importing a wrapper into the library. | Multiple output verbosity/run variants; multiple or absent hydrograph blocks; malformed table rejection; `.out`/CSV cross-checks that flag the observed time offset. Depends on stage 1 contract. |
+| 2b: `.par` | Explicit format variants for RORBWin saved settings versus RORB_CMD inputs; conditional flags/blocks, routing/loss/rainfall configuration and referenced files. | Positional fields require documented layouts or corroborated fixtures; preserve inactive/unknown records and NaN tokens without interpreting them as active values. Depends on stage 1 contract. |
+| 3: focused MCP inspection | Proposed `inspect_rorb_file` with bounded section samples, filters and diagnostics; optionally a bounded collection/association tool once justified. Add API guidance, catalogue terms, server tests and setup documentation. | Expose only validated supported formats/sections; return total versus sampled counts, warnings and completeness; installed-wheel smoke and read-only checks. Depends on whichever readers it exposes. |
+| Later: storm and catchment inputs | `.stm` rainfall/hydrograph and spatial-pattern inspection; `.catg` network/subarea/output-location inspection; reference consistency checks. | Separate scoped formats and fixtures. Needed for full input auditing, but not all required for the first result-reader MCP release. |
+
+Reusable reading belongs under `ryan_library/functions/RORB` unless a demonstrated stateful lifecycle warrants a
+processor. Keep export workflows and CLI behavior separate. Do not automatically promote legacy plotting or narrow
+rainfall scripts. No package CLI duplication is needed merely to expose existing Python reading functions.
+
+The corpus matrix must cover observed versions and, where real examples are available, single-event, design/ensemble,
+calibration/command-line and other run modes; IL/CL versus IL/ROC and variable losses; differing output detail and
+hydrograph roles; minute/hour durations and percent/EY labels; encodings; missing/empty/truncated reports; overflow and
+non-finite fields; repeated/multiple blocks; filename variants and missing/ambiguous references. These are coverage
+targets to verify against documentation/examples, not an assertion that every combination exists in every version.
+Use synthetic distributable fixtures; keep proprietary models out of Git.
+
+## Initial audit validation and delivery (historical)
+
+- Python 3.14 source import confirmed from this checkout. Read-only execution of existing readers against the supplied
+  files, independent table/value and `.out`/CSV comparisons, and in-memory adverse-input probes produced the evidence above.
+- Focused tests: **24 passed**, one configuration warning (`cache_dir` with cache plugin disabled):
+
+  ```powershell
+  $env:PYTHONDONTWRITEBYTECODE='1'
+  python -B -m pytest tests/functions/RORB tests/scripts/RORB tests/scripts/promoted_scripts/test_rorb_ensemble_reader.py -q -p no:cacheprovider --rootdir=tests --confcutdir=tests --basetemp=C:\Temp\rorb-audit-20261105-tests
+  ```
+
+- Initial pytest run using a Q: temporary directory failed with network-share access errors. The rerun above kept source
+  execution on Q: and used a local disposable test directory. Passing existing tests does not close the uncovered findings.
+- Documentation validation passed: `python -B repo-scripts/check_documentation.py` (seven default files and tracked
+  index coverage), and explicit `--links-only` checks of this new record, `docs/work/README.md` and `docs/README.md`
+  (three files). `git diff --check` passed. The new record is explicitly checked without staging it.
+- No Python source changed, no new tests added, no package build needed. Documentation remains local: two existing
+  files edited and this record added; no staging, commit, push or PR. This provides the audit and proposed parent/stack
+  scope before implementation. No model runs, source model edits, merge or release are part of this audit.
+
+## Next action and completion criteria
+
+Review PR #233 and its latest-head checks before any merge or release. Preserve explicit partial/unsupported outcomes. Future semantic expansion of
+saved settings, other CMD variants, multi-block output and storm/catchment readers requires documented fixtures; it is
+not justified by a single pattern match or by successful parsing of the installed CMD example.
+
+## Progress
+
+### 2026-11-05
+
+Completed initial audit, supplied-file checks and focused regression run. Confirmed batch association failure, permissive
+parsing, missing input readers and the standard-output/CSV time discrepancy. Registered the work and retained unrelated
+work. Several older work-register entries have overdue reviews (including vendor integration, installed scripts, release
+automation and shared-filesystem validation); they were not resumed or advanced as part of this RORB audit.
+
+### Implementation delivery, 2026-11-05
+
+Implemented the supported reader contract, adapter migration and bounded MCP surface together in draft PR #233.
+Validated 420/420 live batch associations and retained the reported one-hour output/CSV discrepancy.
+The final local focused command adds `tests/mcp/test_rorb.py tests/mcp/test_server.py` to the audit command above
+and uses `--basetemp=C:\Temp\rorb-readers-tests8-20261105`. It passed 103 tests, with one permission skip.
+No project files changed, no engine ran, and no merge or release occurred. Next review: 2026-11-12.
+
+
+## 2026-11-15 cross-repository #142 continuation (unmerged)
+
+The owner requested canonical report-reader improvements here, rather than a
+copy in python-runoff-routing; see [upstream PR #233](https://github.com/Chain-Frost/ryan-tools/pull/233)
+and [consumer issue #142](https://github.com/Chain-Frost/python-runoff-routing/issues/142).
+This change preserves original bytes in both file and in-memory reads; exposes
+row-aligned exact source tokens/Decimals alongside existing float convenience
+views; distinguishes the original 0-based RORBWin and 1-based CMD 6.44 increment
+origins and raw times; and avoids inferring an engine from a report banner.
+It adds a minimal no-GIS, no-pandas Python 3.13/3.14 wheel from the same source
+tree. No saved-PAR feature or native solver was activated.
+
+Added focused synthetic tests for both origins, CP1252/CRLF byte identity,
+reported metadata, Fortran exponents, raw Decimal tokens and invalid rows.
+The private **420-pair association recheck is still outstanding** after the
+historic precision-tolerance change. Original 420/420 was performed on an older
+head; no fresh private recheck is claimed. Pinned real 6.52 301-row/80-run
+acceptance and downstream source/wheel integration must be checked separately.
+This record does not authorise a PR merge or release.
+
+## 2026-11-15 installed dependency integration correction
+
+Downstream first-head CI failed before code checks: pip automatically ran
+`git submodule update --init --recursive` for the direct Git dependency,
+which failed on the unrelated ryan-tools `tests/test_data` deep raster paths
+on Windows (`Filename too long`). The focused reader code was not exercised.
+Install from an immutable full GitHub **source archive** with the
+`#subdirectory=packaging/rorb-readers` fragment to avoid Git submodule
+initialisation; no submodules are required by the focused wheel.
+This correction does not imply successful installed-wheel verification.
+
+## 2026-11-15 original 6.52 and type-marker closeout
+
+Added optional original-source tests using the pinned test-data submodule
+rather than copying or rehosting original report bytes. Checks explicitly
+cover the 301-row zero-based ordinary report, 80-run eight-frequency/ten-TP
+population, separate `50%`/`0.5EY`/`0.2EY` labels, eight reported
+representative paths and original numeric tokens. These tests skip when the
+fixture submodule is absent and are **not represented as run passes** before
+execution.
+
+Downstream Python 3.13 CI successfully installed the focused archive
+dependency and passed Ruff checking/formatting, then Pyright reported
+`reportMissingTypeStubs` on the canonical package. The focused wheel
+now includes the existing PEP-561 `ryan_library/py.typed` root marker.
+This change is unverified on real downstream CI until the pinned consumer
+is updated and tested.
+
+## 2026-11-15 scalar and bare terminator fidelity
+
+Downstream Python 3.13 hosted checks reached **1,102 tests** (1,094 passing,
+eight failing). Reusable parser findings: original invalid scalar tokens were
+diagnosed but dropped from the generic scalar section, and the bounded
+synthetic native report grammar uses a terminal `End` line rather than
+`End of ...`. This commit retains invalid scalar lexemes with the error
+and `section.valid=False` while preserving independently valid hydrograph
+tables; it also accepts the characterised standalone `End` table boundary.
+No numeric defaults, reclassification of invalid scalar rows or physical
+site inference is introduced.
+
+## 2026-11-15 explicit partial-source table entry point
+
+The remaining python-runoff-routing legacy capture helper needs to inspect
+unversioned bare `Inc Time Hyd...` tables supplied by captured synthetic
+reference tests. Added `read_rorb_table_bytes` as a deliberately opt-in
+canonical-grammar adapter: same decoder, source bytes, numeric table validator
+and diagnostics; explicitly returns `isolated_hydrograph_table` with
+`unverified_table_source`, not a claimed full standard report. The default
+file/bytes readers remain fail-closed on unversioned table fragments.
+This permits retiring the last local duplicate Inc/Time parser while keeping
+the capture expected-site/horizon verification policy in the consumer.
+Tests exercise two columns, truncated/nonfinite records and unsupported input.
+
+## Cross-source 6.52 association acceptance added 2026-11-16
+
+Hosted tests now conditionally read all original 6.52 companions from the pinned `ryan-tools-test-data` fixture submodule (12h: 80, 24h: 80, multi-duration: 480). These 640 accessible real source pairs are intentionally **not** called the separately requested private 6.45 set of 420. A source not checked out is explicitly skipped; full-corpus success must be supported by a corresponding hosted CI receipt. The independent `compare_output_csv` P2 review guard requires every source site and CSV flow column to be mapped before it may report matching flows.
+
+## 2026-11-16 owner-authorised public RORBWin 6.45 alternative
+
+The owner authorised public inputs/outputs and accepted an alternative because
+the earlier 420-source population could not be located. The immutable
+[ryan-tools-test-data PR #4](https://github.com/Chain-Frost/ryan-tools-test-data/pull/4)
+at `af0d24b7640c6a40ed4384b8f04710a91b0e3a26` supplies the actual
+RORBWin-**reported** 6.45 batch (490 events), 490 CSVs, 490 output reports,
+491 storm files, distributed/original hash manifest and 490 keyed outcomes.
+The reported version is not an independently authenticated executable build;
+its CATG was not retained.
+
+The separate Windows 3.14.6 source-holder receipt runs the current reader
+at `598e5edea093df426cda64c3a528fd1c5784c612` and reports **490/490
+corroborated**, no missing, ambiguous or mismatched companion; original source
+and sanitised distribution both passed. This receipt is from the data owner's
+validation, **not yet an independently rerun hosted CI result**.
+
+This reader PR adds `tests/functions/RORB/test_original_645_readers.py` and
+an isolated Windows Python 3.13/3.14 acceptance workflow that explicitly
+checks out the immutable **data commit**, not an unmerged submodule pointer.
+The tests independently rehash all 1,472 *distributed* source files, compare
+all 490 five-part event keys and CSV association outcomes with the manifest
+and validation records, and confirm a 501-row original report/CSV flow
+comparison retains the observed **+0.5 hour CSV clock offset without correction**.
+The original 420-run receipt remains unrepeatable and is not relabelled
+490-as-420. This validation cannot qualify native numerical execution,
+physical output site identity, representative selection or critical duration.
+No native RORB execution, parent submodule gitlink edit, release or merge
+is part of this work. Review actual final-head CI before claiming success.

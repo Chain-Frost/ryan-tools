@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import multiprocessing.pool as multiprocessing_pool
 from collections.abc import Collection, Iterable, Mapping
+from dataclasses import dataclass, field
 from multiprocessing import Pool
 from pathlib import Path
 from typing import cast
@@ -11,12 +12,15 @@ from loguru import logger
 
 from ryan_library.classes.suffixes_and_dtypes import SuffixesConfig
 from ryan_library.classes.tuflow_string_classes import TuflowStringParser
+from ryan_library.functions.dashboard_workflow import WorkflowItemOutcome, run_dashboard_workflow_report
 from ryan_library.functions.file_utils import (
     find_files_parallel,
     is_non_zero_file,
 )
+from ryan_library.functions.live_dashboard import LiveWorkflowDashboard, WorkflowMetric, WorkflowStatus
 from ryan_library.functions.loguru_helpers import LogQueue, worker_initializer
 from ryan_library.functions.multiprocessing_helpers import calculate_pool_size
+from ryan_library.functions.tuflow.wrapper_helpers import validate_discovery_settings
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 
@@ -26,75 +30,189 @@ MaybeEncodingError: type[Exception] = cast(
 )
 
 
+@dataclass(slots=True)
+class FileBatchProgress:
+    """Optional, display-independent accounting for unique final file outcomes."""
+
+    scheduled: int = 0
+    succeeded: int = 0
+    skipped: int = 0
+    failed: int = 0
+    failed_inputs: list[tuple[Path, str]] = field(default_factory=lambda: cast("list[tuple[Path, str]]", []))
+
+    def reset(self, scheduled: int) -> None:
+        """Reset after an infrastructure retry, avoiding duplicate completions."""
+        self.scheduled = scheduled
+        self.succeeded = self.skipped = self.failed = 0
+        self.failed_inputs.clear()
+
+    def observe(self, status: WorkflowStatus) -> None:
+        """Record one terminal outcome, without changing result selection."""
+        if status == "OK":
+            self.succeeded += 1
+        elif status == "SKIP":
+            self.skipped += 1
+        elif status == "FAIL":
+            self.failed += 1
+
+    @property
+    def completed(self) -> int:
+        return self.succeeded + self.skipped + self.failed
+
+
+def _result_status(processor: BaseProcessor | None) -> WorkflowStatus:
+    """Classify only; adding processors retains the existing collection rules."""
+    if processor is None:
+        return "FAIL"
+    if getattr(processor, "input_health", "OK") in {"INVALID", "IO_FAILURE", "INCOMPLETE"}:
+        return "FAIL"
+    if processor.df.empty and getattr(processor, "filtered_empty", False):
+        return "SKIP"
+    if not processor.processed:
+        return "FAIL"
+    if processor.df.empty:
+        return "SKIP"
+    return "OK"
+
+
+def _dashboard_process_file(
+    request: tuple[Path, Mapping[str, Collection[str]] | Collection[str] | None, bool],
+) -> BaseProcessor | None:
+    """Spawn-importable adapter using the same process_file as the legacy pool."""
+    file_path, filters, include_path_columns = request
+    return process_file(
+        file_path=file_path,
+        entity_filters=filters,
+        include_path_columns=include_path_columns,
+    )
+
+
+def _dashboard_status(processor: BaseProcessor | None) -> WorkflowStatus:
+    return _result_status(processor)
+
+
+def _failure_reason(processor: BaseProcessor | None, error: BaseException | None = None) -> str:
+    """Provide failure details without rereading the input."""
+    if error is not None:
+        return f"{type(error).__name__}: {error}"
+    if processor is None:
+        return "processor returned no usable result (see earlier parser diagnostics)"
+    health = getattr(processor, "input_health", "OK")
+    if health in {"INVALID", "IO_FAILURE", "INCOMPLETE"}:
+        raw_rejected: object = getattr(processor, "rejection_reasons", None)
+        if isinstance(raw_rejected, dict) and raw_rejected:
+            rejected = cast("dict[str, int]", raw_rejected)
+            counts = ", ".join(f"{reason}={count}" for reason, count in sorted(rejected.items()))
+            return f"{health} ({counts})"
+        return f"{health} input"
+    if not processor.processed:
+        return "processing did not complete"
+    return "no usable result"
+
+
+def _dashboard_detail(processor: BaseProcessor | None) -> str:
+    status = _result_status(processor)
+    if status == "SKIP" and processor is not None and getattr(processor, "filtered_empty", False):
+        return "no matching locations"
+    if status == "FAIL":
+        return _failure_reason(processor)
+    return {"OK": "processed", "SKIP": "empty result"}[status]
+
+
+def _record_file_outcome(
+    *,
+    status: WorkflowStatus,
+    progress: FileBatchProgress | None,
+    dashboard: LiveWorkflowDashboard | None,
+    file_path: Path | None = None,
+    failure_reason: str = "",
+) -> None:
+    if status == "FAIL" and file_path is not None:
+        reason = failure_reason or "processing failed"
+        logger.error("TUFLOW input failed: {} ({})", file_path, reason)
+        if progress is not None:
+            progress.failed_inputs.append((file_path, reason))
+    if progress is not None:
+        progress.observe(status)
+        if dashboard is not None:
+            dashboard.set_metrics(
+                [
+                    WorkflowMetric(
+                        label="Files finished", value=progress.completed, total=progress.scheduled, unit="files"
+                    )
+                ]
+            )
+
+
+def log_failed_inputs(*, progress: FileBatchProgress, context: str) -> None:
+    """Print full source paths before refusing an incomplete report."""
+    for file_path, reason in progress.failed_inputs:
+        logger.error("{}: failed input {} ({})", context, file_path, reason)
+    unattributed = progress.failed - len(progress.failed_inputs)
+    if unattributed > 0:
+        logger.error("{}: {} failed input(s) without a path; inspect worker logs.", context, unattributed)
+    missing = progress.scheduled - progress.completed
+    if missing > 0:
+        logger.error("{}: {} input(s) returned no outcome; report not exported.", context, missing)
+
+
 def collect_files(
     paths_to_process: Iterable[Path],
     include_data_types: Iterable[str],
     suffixes_config: SuffixesConfig,
 ) -> list[Path]:
-    """Return all non-empty files matching ``include_data_types`` underneath ``paths_to_process``."""
-    normalized_roots: list[Path] = []
-    seen_roots: set[Path] = set()
-    for candidate in paths_to_process:
-        path: Path = Path(candidate).expanduser()
-        normalized: Path = path.absolute()
-        if normalized in seen_roots:
-            continue
-        seen_roots.add(normalized)
-        normalized_roots.append(normalized)
+    """Return matching nonempty files; raise on invalid or incomplete discovery.
 
-    deduped_types: list[str] = []
-    seen_types: set[str] = set()
-    for data_type in include_data_types:
-        if data_type in seen_types:
-            continue
-        seen_types.add(data_type)
-        deduped_types.append(data_type)
-
-    if not deduped_types:
-        logger.error("No data types were supplied for file collection.")
-        return []
-
+    A valid directory with no matching files returns [] (an intentional skip).
+    Missing roots, unsupported types, zero-byte files and traversal errors do not
+    appear as a complete empty batch or as a partial successful batch.
+    """
+    normalized_roots: list[Path] = list(dict.fromkeys(Path(path).expanduser().absolute() for path in paths_to_process))
+    deduped_types: list[str] = list(dict.fromkeys(include_data_types))
     data_map: dict[str, list[str]] = suffixes_config.invert_suffix_to_type()
+    validate_discovery_settings(
+        paths_to_process=normalized_roots,
+        selected_data_types=deduped_types,
+        accepted_data_types=data_map.keys(),
+        context="TUFLOW file discovery",
+    )
     suffixes: list[str] = []
     for data_type in deduped_types:
-        dt_suffixes: list[str] | None = data_map.get(data_type)
-        if not dt_suffixes:
-            logger.error(f"No suffixes for data type '{data_type}'. Skipping.")
-            continue
-        suffixes.extend(dt_suffixes)
+        configured = data_map[data_type]
+        if not configured:
+            message = f"TUFLOW file discovery: no suffixes configured for {data_type!r}"
+            raise ValueError(message)
+        suffixes.extend(configured)
 
-    suffixes = list(dict.fromkeys(suffixes))
-    if not suffixes:
-        logger.error("No suffixes found for the requested data types.")
-        return []
-
-    patterns: list[str] = [f"*{suffix}" for suffix in suffixes]
+    patterns: list[str] = [f"*{suffix}" for suffix in dict.fromkeys(suffixes)]
     logger.debug("Collecting files with patterns: {}", patterns)
-    roots: list[Path] = [p for p in normalized_roots if p.is_dir()]
-    logger.debug("Searching in roots: {}", roots)
-    invalid_roots: list[Path] = [p for p in normalized_roots if not p.is_dir()]
-    for bad_root in invalid_roots:
-        logger.warning(f"Skipping non-directory path {bad_root}")
+    files: list[Path] = find_files_parallel(root_dirs=normalized_roots, patterns=patterns)
+    logger.debug("Found {} matching files before validation.", len(files))
 
-    if not roots:
-        logger.warning("No valid directories were supplied for file collection.")
-        return []
-
-    files: list[Path] = find_files_parallel(root_dirs=roots, patterns=patterns)
-    logger.debug("find_files_parallel found {} files.", len(files))
+    # A generic pattern such as *_MB.csv also matches the more specific *_1d_MB.csv.
+    # Match the factory's first registered suffix before checking file availability:
+    # an unrequested zero-byte companion must not fail an otherwise valid batch.
+    canonical_suffixes: tuple[tuple[str, str], ...] = tuple(
+        (suffix.lower(), data_type) for data_type, type_suffixes in data_map.items() for suffix in type_suffixes
+    )
+    selected_types = set(deduped_types)
     filtered_files: list[Path] = []
-    seen_files: set[Path] = set()
-    for file_path in files:
-        if file_path in seen_files:
+    for file_path in dict.fromkeys(files):
+        lower_name = file_path.name.lower()
+        canonical_type = next(
+            (data_type for suffix, data_type in canonical_suffixes if lower_name.endswith(suffix)), None
+        )
+        if canonical_type is not None and canonical_type not in selected_types:
+            logger.debug("Skipping unselected canonical type '{}' for {}", canonical_type, file_path)
             continue
-        seen_files.add(file_path)
         if not is_non_zero_file(file_path):
-            continue
+            message = f"TUFLOW file discovery: matched input empty, unavailable or unreadable: {file_path}"
+            raise OSError(message)
         filtered_files.append(file_path)
     return filtered_files
 
 
-def _summarize_file_batch(file_list: list[Path]) -> tuple[int, int, Path | None, int]:
+def _summarize_file_batch(file_list: list[Path]) -> tuple[int, int, Path | None, int]:  # pyright: ignore[reportUnusedFunction] - retained for legacy callers/tests
     """Return count, total bytes, largest path, largest size for ``file_list``."""
     total_bytes: int = 0
     largest_file: Path | None = None
@@ -111,7 +229,7 @@ def _summarize_file_batch(file_list: list[Path]) -> tuple[int, int, Path | None,
     return len(file_list), total_bytes, largest_file, largest_bytes
 
 
-def _format_bytes(size: int) -> str:
+def _format_bytes(size: int) -> str:  # pyright: ignore[reportUnusedFunction] - retained for legacy callers/tests
     """Convert ``size`` to a human-readable string."""
     if size <= 0:
         return "0 B"
@@ -160,10 +278,14 @@ def process_file(
             include_path_columns=include_path_columns,
         )
         proc.process()
-        if proc.validate_data():
-            logger.debug("Processed {}", proc.log_path)
+        if getattr(proc, "filtered_empty", False):
+            logger.debug("{}: Valid input excluded by location filter.", proc.log_path)
+        elif not proc.validate_data():
+            logger.warning("Validation failed {}", proc.log_path)
+            proc.discard_raw_dataframe()
+            return None
         else:
-            logger.warning(f"Validation failed {proc.log_path}")
+            logger.debug("Processed {}", proc.log_path)
         proc.discard_raw_dataframe()
         return proc
     except Exception:
@@ -182,48 +304,112 @@ def process_files_in_parallel(
     entity_filters: Mapping[str, Collection[str]] | Collection[str] | None = None,
     *,
     include_path_columns: bool = True,
+    dashboard: LiveWorkflowDashboard | None = None,
+    batch_progress: FileBatchProgress | None = None,
 ) -> ProcessorCollection:
-    # ``log_level`` is retained for caller compatibility. The queue now carries
+    # log_level is retained for caller compatibility. The queue carries
     # the lowest capture level required by its independently filtered sinks.
     del log_level
     size: int = calculate_pool_size(num_files=len(file_list))
-    logger.info(f"Spawning pool with {size} workers")
-    file_count, total_bytes, largest_file, largest_bytes = _summarize_file_batch(file_list=file_list)
-    largest_desc: str = f"{largest_file.name} ({_format_bytes(largest_bytes)})" if largest_file else "n/a"
-    logger.info(
-        f"Preparing to process {file_count} files (~{_format_bytes(total_bytes)} on disk; largest {largest_desc}).",
+    logger.info("Spawning pool with {} workers", size)
+    # File sizes are optional background dashboard metadata; avoid a blocking
+    # stat sweep of cold/network inputs before processing can start.
+    file_count = len(file_list)
+    logger.info("Preparing to process {} files.", file_count)
+    dataset_summary: str = f"{file_count} files"
+
+    progress = (
+        batch_progress if batch_progress is not None else (FileBatchProgress() if dashboard is not None else None)
     )
-    dataset_summary: str = f"{file_count} files (~{_format_bytes(total_bytes)} on disk; largest {largest_desc})"
+    if progress is not None:
+        progress.reset(scheduled=len(file_list))
+    if dashboard is not None:
+        dashboard.set_tasks(labels=[path.name for path in file_list], files=file_list)
+        dashboard.set_metrics([WorkflowMetric(label="Files finished", value=0, total=len(file_list), unit="files")])
+
     if size <= 1:
         logger.info("Pool size is 1; processing files sequentially.")
         return _process_files_serially(
             file_list=file_list,
             entity_filters=entity_filters,
             include_path_columns=include_path_columns,
+            dashboard=dashboard,
+            batch_progress=progress,
         )
 
     try:
+        if dashboard is not None:
+            # Reuse the foundation adapter for incremental results and worker
+            # diagnostics. File content is not read again for presentation.
+            requests = [(path, entity_filters, include_path_columns) for path in file_list]
+
+            def on_outcome(outcome: WorkflowItemOutcome[BaseProcessor | None]) -> None:
+                processor = outcome.result if outcome.has_result else None
+                reason = _failure_reason(processor, outcome.error) if outcome.status == "FAIL" else ""
+                _record_file_outcome(
+                    status=outcome.status,
+                    progress=progress,
+                    dashboard=dashboard,
+                    file_path=file_list[outcome.index - 1],
+                    failure_reason=reason,
+                )
+
+            report = run_dashboard_workflow_report(
+                items=requests,
+                process_item=_dashboard_process_file,
+                dashboard=dashboard,
+                pool_size=size,
+                status_for_result=_dashboard_status,
+                detail_for_result=_dashboard_detail,
+                log_queue=log_queue,
+                on_outcome=on_outcome,
+            )
+            coll = ProcessorCollection()
+            for proc in report.results:
+                if proc and proc.processed:
+                    coll.add_processor(processor=proc)
+            return coll
+
+        # Preserve the established starmap path when the display is disabled.
         with Pool(processes=size, initializer=worker_initializer, initargs=(log_queue,)) as pool:
             task_args: list[tuple[Path, Mapping[str, Collection[str]] | Collection[str] | None, bool]] = [
                 (file_path, entity_filters, include_path_columns) for file_path in file_list
             ]
             coll = ProcessorCollection()
-            for proc in pool.starmap(func=process_file, iterable=task_args):
+            for file_path, proc in zip(file_list, pool.starmap(func=process_file, iterable=task_args), strict=True):
+                if progress is not None:
+                    status = _result_status(proc)
+                    _record_file_outcome(
+                        status=status,
+                        progress=progress,
+                        dashboard=None,
+                        file_path=file_path,
+                        failure_reason=_failure_reason(proc) if status == "FAIL" else "",
+                    )
                 if proc and proc.processed:
                     coll.add_processor(processor=proc)
             return coll
-    except MaybeEncodingError as exc:
+    except (MaybeEncodingError, OSError) as exc:
         logger.warning(
-            f"Multiprocessing failed to return processor results ({exc!s}). Falling back to sequential execution. Dataset footprint: {dataset_summary}",
+            "Multiprocessing could not return results ({}). Falling back to sequential execution. Dataset footprint: {}",
+            exc,
+            dataset_summary,
         )
-    except OSError as exc:
-        logger.warning(
-            f"Multiprocessing encountered an OSError ({exc}). Falling back to sequential execution. Dataset footprint: {dataset_summary}",
-        )
+
+    # The complete original input list is retried, just as before. Reset
+    # display counters and rows so partially returned attempts are not counted.
+    if progress is not None:
+        progress.reset(scheduled=len(file_list))
+    if dashboard is not None:
+        dashboard.set_phase("Processing (serial fallback)")
+        dashboard.set_tasks(labels=[path.name for path in file_list], files=file_list)
+        dashboard.set_metrics([WorkflowMetric(label="Files finished", value=0, total=len(file_list), unit="files")])
     return _process_files_serially(
         file_list=file_list,
         entity_filters=entity_filters,
         include_path_columns=include_path_columns,
+        dashboard=dashboard,
+        batch_progress=progress,
     )
 
 
@@ -232,17 +418,35 @@ def _process_files_serially(
     entity_filters: Mapping[str, Collection[str]] | Collection[str] | None = None,
     *,
     include_path_columns: bool = True,
+    dashboard: LiveWorkflowDashboard | None = None,
+    batch_progress: FileBatchProgress | None = None,
 ) -> ProcessorCollection:
     logger.info("Processing {} files sequentially.", len(file_list))
     coll = ProcessorCollection()
-    for file_path in file_list:
+    for index, file_path in enumerate(file_list, start=1):
+        if dashboard is not None:
+            dashboard.mark_running(index=index, refresh=False)
+            # Live has no refresh thread, so render before the blocking read.
+            dashboard.refresh(force=True)
         proc: BaseProcessor | None = process_file(
             file_path=file_path,
             entity_filters=entity_filters,
             include_path_columns=include_path_columns,
         )
+        status = _result_status(proc)
+        _record_file_outcome(
+            status=status,
+            progress=batch_progress,
+            dashboard=dashboard,
+            file_path=file_path,
+            failure_reason=_failure_reason(proc) if status == "FAIL" else "",
+        )
+        if dashboard is not None:
+            dashboard.mark_finished(index=index, status=status, detail=_dashboard_detail(proc))
         if proc and proc.processed:
             coll.add_processor(processor=proc)
+    if dashboard is not None:
+        dashboard.refresh(force=True)
     return coll
 
 
@@ -254,6 +458,8 @@ def bulk_read_and_merge_tuflow_csv(
     entity_filters: Mapping[str, Collection[str]] | Collection[str] | None = None,
     *,
     include_path_columns: bool = True,
+    dashboard: LiveWorkflowDashboard | None = None,
+    batch_progress: FileBatchProgress | None = None,
 ) -> ProcessorCollection:
     logger.info("Starting TUFLOW culvert processing")
     files: list[Path] = collect_files(
@@ -262,15 +468,20 @@ def bulk_read_and_merge_tuflow_csv(
         suffixes_config=SuffixesConfig.get_instance(),
     )
     if not files:
-        logger.error("No files found")
+        # A validated empty scan is a normal skip, not a processing failure.
+        logger.info("No matching TUFLOW files found; skipping processing.")
         return ProcessorCollection()
 
+    if dashboard is not None:
+        dashboard.set_phase("Processing")
     results: ProcessorCollection = process_files_in_parallel(
         file_list=files,
         log_queue=log_queue,
         log_level=console_log_level,
         entity_filters=entity_filters,
         include_path_columns=include_path_columns,
+        dashboard=dashboard,
+        batch_progress=batch_progress,
     )
     # tell the queue “no more data” and wait for its feeder thread to finish
     return results

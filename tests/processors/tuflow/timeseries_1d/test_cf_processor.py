@@ -1,7 +1,7 @@
 """Unit tests for ryan_library.processors.tuflow.timeseries_1d.CFProcessor."""
 
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
@@ -26,13 +26,13 @@ class TestCFProcessor:
             return processor
 
     @patch("ryan_library.processors.tuflow.timeseries_1d.CFProcessor.CFProcessor._process_timeseries_pipeline")
-    def test_process(self, mock_pipeline, mock_processor):
+    def test_process(self, mock_pipeline: MagicMock, mock_processor: MagicMock):
         """Test process method delegates correctly."""
         mock_processor.process()
         mock_pipeline.assert_called_once_with(data_type="CF")
 
     @patch("ryan_library.processors.tuflow.timeseries_1d.CFProcessor.CFProcessor._normalise_value_dataframe")
-    def test_process_timeseries_raw_dataframe(self, mock_normalise, mock_processor):
+    def test_process_timeseries_raw_dataframe(self, mock_normalise: MagicMock, mock_processor: MagicMock):
         """Test process_timeseries_raw_dataframe delegates correctly."""
         mock_normalise.return_value = ProcessorStatus.SUCCESS
         status = mock_processor.process_timeseries_raw_dataframe()
@@ -40,14 +40,14 @@ class TestCFProcessor:
         assert status == ProcessorStatus.SUCCESS
 
     @patch("ryan_library.processors.tuflow.timeseries_processor.TimeSeriesProcessor._clean_column_names")
-    def test_clean_column_names(self, mock_super_clean, mock_processor):
+    def test_clean_column_names(self, mock_super_clean: MagicMock, mock_processor: MagicMock):
         """Test _clean_column_names delegates with correct data_type."""
         columns = pd.Index(["A", "B"])
         mock_processor._clean_column_names(columns, "CF")
         mock_super_clean.assert_called_once_with(columns=columns, data_type="F")
 
     @patch("ryan_library.processors.tuflow.timeseries_1d.CFProcessor.CFProcessor.apply_dtype_mapping")
-    def test_apply_final_transformations(self, mock_apply, mock_processor):
+    def test_apply_final_transformations(self, mock_apply: MagicMock, mock_processor: MagicMock):
         """Test _apply_final_transformations applies correct mapping."""
         mock_processor._apply_final_transformations("CF")
         mock_apply.assert_called_once_with(

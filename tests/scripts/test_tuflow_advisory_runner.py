@@ -105,6 +105,7 @@ def test_launches_during_held_advisory_and_delivers_all_findings(
     advisory.start()
     try:
         assert started.wait(2)
+        assert advisory.status == "Running"
 
         def popen(**_kwargs: object) -> FakeProcess:
             assert not release.is_set()
@@ -116,9 +117,11 @@ def test_launches_during_held_advisory_and_delivers_all_findings(
         assert len(launched) == 2
         release.set()
         assert advisory.finished.wait(3)
+        assert advisory.status == "Issues: 25 across 1 run"
         advisory.drain()
         assert sum("Input check run" in record.message for record in caplog.records) == 25
-        assert "passed for" not in caplog.text
+        assert "Input check completed for all 2 runs; 1 run has issues." in caplog.text
+        assert "failed or incomplete for 2/2" not in caplog.text
     finally:
         release.set()
         advisory.close()
@@ -143,6 +146,7 @@ def test_shutdown_never_waits_for_slow_io_or_produces_late_all_clear(
         assert started.wait(2)
         advisory.close()
         assert "incomplete at shutdown" in caplog.text
+        assert advisory.status == "Incomplete"
     finally:
         release.set()
         assert advisory.finished.wait(2)
@@ -167,6 +171,11 @@ def test_preflight_only_reports_every_finding_and_fails_closed(
     caplog.set_level(logging.INFO)
     assert runner.check_plan_only(plan) is False
     assert sum("Input check run" in record.message for record in caplog.records) == 13
+    assert "Control file:" in caplog.text
+    assert "Source      :" in caplog.text
+    assert "Command     : Full command not provided by validator" in caplog.text
+    assert str(plan.runs[0].tcf.name) in caplog.text
+    assert "Input check completed for all 2 runs; 1 run has issues." in caplog.text
 
     def unavailable(*_args: object, **_kwargs: object) -> CommandPreflightReport:
         message = "public API unavailable"
@@ -175,6 +184,52 @@ def test_preflight_only_reports_every_finding_and_fails_closed(
     monkeypatch.setattr(command_preflight, "check_command_plan", unavailable)
     assert runner.check_plan_only(plan) is False
     assert "public API unavailable" in caplog.text
+
+
+def test_input_check_summary_distinguishes_incomplete_coverage_from_issues(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    plan = runner.prepare_plan(settings(tmp_path))
+    report = CommandPreflightReport(plan, completed_runs=1)
+    report.issues = [
+        CommandPreflightIssue(plan.runs[0], PreflightIssue(1, "", "missing", "test", "file", "unavailable"))
+    ]
+
+    def return_report(*_args: object, **_kwargs: object) -> CommandPreflightReport:
+        return report
+
+    monkeypatch.setattr(command_preflight, "check_command_plan", return_report)
+    caplog.set_level(logging.INFO)
+
+    assert runner.check_plan_only(plan) is False
+    assert "Input check incomplete: checked 1 of 2 runs; 1 run has issues." in caplog.text
+
+
+def test_input_check_summary_reports_unchecked_runs_without_claiming_they_were_checked(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    plan = runner.prepare_plan(settings(tmp_path))
+    report = CommandPreflightReport(plan, completed_runs=0)
+    report.issues = [
+        CommandPreflightIssue(
+            run, PreflightIssue(run.index, "", "unresolved", "test", "validator", "validation failed")
+        )
+        for run in plan.runs
+    ]
+
+    def return_report(*_args: object, **_kwargs: object) -> CommandPreflightReport:
+        return report
+
+    monkeypatch.setattr(command_preflight, "check_command_plan", return_report)
+    caplog.set_level(logging.INFO)
+
+    assert runner.check_plan_only(plan) is False
+    assert "Input check incomplete: checked 0 of 2 runs; 2 runs have issues." in caplog.text
+
+    caplog.clear()
+    report.completed_runs = 1
+    assert runner.check_plan_only(plan) is False
+    assert "Input check incomplete: checked 1 of 2 runs; 2 runs have issues." in caplog.text
 
 
 def test_gpu_inspected_only_once_and_inspection_uncertainty_is_not_all_clear(
@@ -194,7 +249,7 @@ def test_gpu_inspected_only_once_and_inspection_uncertainty_is_not_all_clear(
 
     monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", snapshot)
     monkeypatch.setattr(runner, "_apply_priority", _no_op)
-    config = settings(tmp_path, gpu_devices=(("-pu0",),))
+    config = settings(tmp_path, gpu_devices=(("-pu0",),), wait_for_available_gpu=False)
     plan = runner.prepare_plan(config)
     caplog.set_level(logging.INFO)
     count: list[int] = []
@@ -221,11 +276,117 @@ def test_no_external_models_message_never_claims_overcapacity(
     monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", lambda: GpuOccupancySnapshot((), (), False))
     monkeypatch.setattr(runner, "_apply_priority", _no_op)
     config = settings(tmp_path)
-    caplog.set_level(logging.INFO)
+    caplog.set_level(logger.level("SUCCESS").no)
 
     def popen(**_kwargs: object) -> FakeProcess:
         return FakeProcess(123)
 
     runner.launch_plan(runner.prepare_plan(config), config, popen=popen)
     assert "No other running local TUFLOW models detected" in caplog.text
+    assert (
+        next(
+            record.levelno
+            for record in caplog.records
+            if "No other running local TUFLOW models detected" in record.message
+        )
+        == logger.level("SUCCESS").no
+    )
     assert "All configured GPU groups appear occupied" not in caplog.text
+
+
+def test_repeated_bc_sources_have_compact_console_groups_without_losing_counts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    plan = runner.prepare_plan(settings(tmp_path))
+    result = _complete_report(plan)
+    shared = tmp_path / "rain_A.csv"
+    result.issues = [
+        CommandPreflightIssue(
+            plan.runs[0],
+            PreflightIssue(
+                1,
+                "",
+                "missing",
+                "BC",
+                f"{shared} >> boundary_{number}",
+                "file not found",
+                kind="bc_source",
+                path=shared,
+                csv_columns=("Time", f"Q{number}"),
+            ),
+        )
+        for number in range(12)
+    ]
+    result.issues.append(
+        CommandPreflightIssue(
+            plan.runs[1],
+            PreflightIssue(2, "", "missing", "BC", str(shared), "file not found", kind="bc_source", path=shared),
+        )
+    )
+    result.parse_seconds = 1.25
+    result.context_seconds = 4.5
+    result.inventory_seconds = 2.75
+
+    def return_report(*_args: object, **_kwargs: object) -> CommandPreflightReport:
+        return result
+
+    monkeypatch.setattr(command_preflight, "check_command_plan", return_report)
+    caplog.set_level(logging.INFO)
+    assert runner.check_plan_only(plan) is False
+    grouped = [record.message for record in caplog.records if "Input check run" in record.message]
+    assert len(grouped) == 2
+    assert "Repeated references: 12 findings" in grouped[0]
+    assert "12 column selections" in grouped[0]
+    assert "Input check run 2" in grouped[1]
+    assert "13 blocking findings" in caplog.text
+    assert "2 affected" in caplog.text
+    assert "dependencies 4.50 s" in caplog.text
+
+
+def test_preflight_csv_export_is_opt_in_and_no_overwrite(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    import csv
+
+    plan = runner.prepare_plan(settings(tmp_path))
+    report = _complete_report(plan)
+    source = tmp_path / "missing.csv"
+    report.issues = [
+        CommandPreflightIssue(
+            plan.runs[0],
+            PreflightIssue(
+                1,
+                "",
+                "missing",
+                "BC",
+                f"{source} >> BC_{i}",
+                "missing",
+                kind="bc_source",
+                path=source,
+                csv_columns=("Time", f"Q{i}"),
+            ),
+        )
+        for i in range(2)
+    ]
+
+    def return_report(*_args: object, **_kwargs: object) -> CommandPreflightReport:
+        return report
+
+    monkeypatch.setattr(command_preflight, "check_command_plan", return_report)
+    destination = tmp_path / "reports" / "findings.csv"
+    caplog.set_level(logging.INFO)
+    assert runner.check_plan_only(plan, report_csv=destination) is False
+    with destination.open(encoding="utf-8-sig", newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    assert len(rows) == 2
+    assert [row["csv_columns_json"] for row in rows] == ['["Time", "Q0"]', '["Time", "Q1"]']
+    original = destination.read_bytes()
+    assert runner.check_plan_only(plan, report_csv=destination) is False
+    assert "CSV was not created" in caplog.text
+    assert destination.read_bytes() == original
+
+    report.issues.clear()
+    passed_csv = tmp_path / "passing.csv"
+    passed_csv.write_text("existing", encoding="utf-8")
+    assert runner.check_plan_only(plan, report_csv=passed_csv) is False
+    assert passed_csv.read_text(encoding="utf-8") == "existing"

@@ -47,7 +47,7 @@ class HProcessor(TimeSeriesProcessor):
             logger.debug("{}: Using '{}' as the identifier column for 'H' values.", self.file_name, identifier_column)
 
             initial_row_count: int = len(self.df)
-            self.df.dropna(subset=["US_H", "DS_H"], how="all", inplace=True)  # pyright: ignore[reportUnknownMemberType]
+            self.df.dropna(subset=["US_H", "DS_H"], how="all", inplace=True)
             dropped_rows: int = initial_row_count - len(self.df)
             if dropped_rows:
                 logger.debug("{}: Dropped {} rows with missing 'H' values.", self.file_name, dropped_rows)

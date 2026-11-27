@@ -5,6 +5,7 @@ from __future__ import annotations
 
 __lazy_modules__ = ["numpy", "pandas"]
 
+import csv
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -17,7 +18,37 @@ from pandas import DataFrame, Series
 
 from ryan_library.classes import tuflow_string_classes as tsc
 
+from .sample_validity import clean_hydraulic_samples
+
 # TODO: make it more like the other orchestrators for options etc. I don't think it is using the common pipeline either.
+
+
+MALFORMED_INPUT_STATUSES: frozenset[str] = frozenset(
+    {
+        "EMPTY_FILE",
+        "NO_COLUMNS",
+        "DECODE_FAIL",
+        "CSV_PARSE_FAIL",
+        "BAD_HEADER",
+        "TIME_PARSE_FAIL",
+        "MALFORMED_ROW",
+        "INVALID_TIME_AXIS",
+    }
+)
+
+
+def describe_invalid_input(rows: Sequence[dict[str, object]]) -> str:
+    """Summarise distinct malformed-input reasons from one CSV's result rows."""
+    reasons: set[str] = set()
+    for row in rows:
+        status = str(row.get("status") or "INVALID_INPUT")
+        if row.get("input_health") != "INVALID" and status not in MALFORMED_INPUT_STATUSES:
+            continue
+        rejected = row.get("rejection_reasons")
+        if isinstance(rejected, str) and rejected:
+            status = f"{status} ({rejected})"
+        reasons.add(status)
+    return ", ".join(sorted(reasons)) if reasons else "INVALID_INPUT"
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,6 +95,10 @@ class PeakCheckResult:
     peak_above_start: float | None
     end_pct_of_peak: float | None
     status: str
+    input_health: str = "OK"
+    rejected_samples: int = 0
+    rejection_reasons: str = ""
+    hydraulic_status: str | None = None
 
 
 @dataclass(slots=True)
@@ -88,6 +123,10 @@ class StabilityCheckResult:
     end_value: float | None
     max_abs_step: float | None
     mean_abs_step: float | None
+    input_health: str = "OK"
+    rejected_samples: int = 0
+    rejection_reasons: str = ""
+    hydraulic_status: str | None = None
 
 
 @dataclass(slots=True)
@@ -155,6 +194,49 @@ def _location_allowed(loc_name: str, include_set: set[str], exclude_set: set[str
     return inc_ok and not exc_hit
 
 
+def _has_malformed_width(path: Path) -> bool:
+    """Reject truncated and surplus-width records that pandas may silently ignore."""
+    with path.open(encoding="utf-8", newline="") as source:
+        expected: int | None = None
+        for row in csv.reader(source, strict=True):
+            if not row:
+                continue
+            if expected is None:
+                expected = len(row)
+            elif len(row) != expected:
+                return True
+    return False
+
+
+def _valid_time_axis(time_hours: Series) -> bool:
+    values = time_hours.to_numpy(dtype="float64", na_value=np.nan)
+    return bool(np.isfinite(values).all() and (np.diff(values) > 0).all())
+
+
+def _check_peak_config(config: PeakCheckConfig) -> None:
+    values = (config.warn_1hour, config.warn_2hours, config.flat_tol)
+    if not all(np.isfinite(value) and value >= 0 for value in values):
+        message = "Peak warning thresholds and flat tolerance must be finite and nonnegative."
+        raise ValueError(message)
+    if config.warn_1hour > config.warn_2hours:
+        message = "The one-hour warning threshold cannot exceed the two-hour threshold."
+        raise ValueError(message)
+
+
+def _check_stability_config(config: StabilityCheckConfig) -> None:
+    values = (config.flat_tol, config.diff_rel_tol, config.diff_abs_tol)
+    if not all(np.isfinite(value) and value >= 0 for value in values):
+        message = "Stability tolerances must be finite and nonnegative."
+        raise ValueError(message)
+    if config.min_points < 2 or config.max_sign_changes < 0:
+        message = "Minimum points must be >= 2 and allowed sign changes nonnegative."
+        raise ValueError(message)
+
+
+def _rejection_summary(reasons: dict[str, int]) -> str:
+    return ", ".join(f"{reason}={count}" for reason, count in sorted(reasons.items()) if count)
+
+
 def _parse_po_csv(path: Path) -> tuple[PoCsvData | None, str | None, bool]:
     try:
         if path.stat().st_size == 0:
@@ -163,12 +245,14 @@ def _parse_po_csv(path: Path) -> tuple[PoCsvData | None, str | None, bool]:
         pass
 
     try:
+        if _has_malformed_width(path):
+            return None, "MALFORMED_ROW", True
         df: DataFrame = pd.read_csv(
             filepath_or_buffer=path,
             header=[0, 1],
             low_memory=False,
             dtype=str,
-            on_bad_lines="skip",
+            on_bad_lines="error",
             engine="c",
         )
     except pd.errors.EmptyDataError:
@@ -195,6 +279,9 @@ def _parse_po_csv(path: Path) -> tuple[PoCsvData | None, str | None, bool]:
     if time_valid.empty:
         return None, "TIME_PARSE_FAIL", True
 
+    if not _valid_time_axis(time_hours):
+        return None, "INVALID_TIME_AXIS", True
+
     end_row_idx = int(time_valid.index[-1])
     end_hours = float(time_valid.iloc[-1])
     return PoCsvData(df=df, time_hours=time_hours, end_row_idx=end_row_idx, end_hours=end_hours), None, False
@@ -208,6 +295,8 @@ def _parse_q_csv(path: Path) -> tuple[QCsvData | None, str | None, bool]:
         pass
 
     try:
+        if _has_malformed_width(path):
+            return None, "MALFORMED_ROW", True
         df: DataFrame = pd.read_csv(
             filepath_or_buffer=path,
             header=0,
@@ -215,7 +304,7 @@ def _parse_q_csv(path: Path) -> tuple[QCsvData | None, str | None, bool]:
             dtype=str,
             skipinitialspace=True,
             encoding="utf-8",
-            on_bad_lines="skip",
+            on_bad_lines="error",
             engine="c",
         )
     except pd.errors.EmptyDataError:
@@ -262,6 +351,8 @@ def _parse_q_csv(path: Path) -> tuple[QCsvData | None, str | None, bool]:
     time_hours: Series = pd.to_numeric(df["Time"], errors="coerce")
     if time_hours.dropna().empty:
         return None, "TIME_PARSE_FAIL", True
+    if not _valid_time_axis(time_hours):
+        return None, "INVALID_TIME_AXIS", True
 
     value_columns: list[str] = [column for column in df.columns if column != "Time"]
     if not value_columns:
@@ -301,10 +392,11 @@ def _build_empty_stability_result(
         end_value=None,
         max_abs_step=None,
         mean_abs_step=None,
+        input_health="OK" if status == "NO_DATA" else "INVALID",
     )
 
 
-def _evaluate_stability_series(
+def _evaluate_stability_series_unchecked(
     *,
     path: Path,
     run_code: str,
@@ -432,7 +524,41 @@ def _evaluate_stability_series(
     )
 
 
+def _evaluate_stability_series(
+    *,
+    path: Path,
+    run_code: str,
+    run_meta: dict[str, str],
+    datatype: str,
+    location: str,
+    values_raw: Series,
+    time_hours: Series,
+    config: StabilityCheckConfig,
+) -> StabilityCheckResult:
+    """Keep input integrity separate from the whole-record sign-change heuristic."""
+    clean, rejected = clean_hydraulic_samples(values_raw, measurement=datatype)
+    result = _evaluate_stability_series_unchecked(
+        path=path,
+        run_code=run_code,
+        run_meta=run_meta,
+        datatype=datatype,
+        location=location,
+        values_raw=clean,
+        time_hours=time_hours,
+        config=config,
+    )
+    result.hydraulic_status = result.status
+    result.rejected_samples = sum(rejected.values())
+    result.rejection_reasons = _rejection_summary(rejected)
+    if result.rejected_samples:
+        result.input_health = "PARTIAL" if result.points else "INVALID"
+        if result.points and result.status in {"OK", "FLAT"}:
+            result.status = "PARTIAL_DATA"
+    return result
+
+
 def analyze_peak_csv(path: Path, config: PeakCheckConfig) -> list[PeakCheckResult]:
+    _check_peak_config(config)
     results: list[PeakCheckResult] = []
 
     run_meta: dict[str, str] = parse_run_meta_from_filename(path)
@@ -459,6 +585,7 @@ def analyze_peak_csv(path: Path, config: PeakCheckConfig) -> list[PeakCheckResul
                     peak_above_start=None,
                     end_pct_of_peak=None,
                     status=parse_status,
+                    input_health="OK" if parse_status == "NO_DATA" else "INVALID",
                 )
             )
         return results
@@ -492,7 +619,8 @@ def analyze_peak_csv(path: Path, config: PeakCheckConfig) -> list[PeakCheckResul
         ):
             continue
 
-        values_raw: Series = pd.to_numeric(df.iloc[:, j], errors="coerce")
+        values_raw, rejected = clean_hydraulic_samples(df.iloc[:, j], measurement=dtype_str)
+        rejected_count = sum(rejected.values())
         if values_raw.notna().sum() == 0:
             results.append(
                 PeakCheckResult(
@@ -512,6 +640,9 @@ def analyze_peak_csv(path: Path, config: PeakCheckConfig) -> list[PeakCheckResul
                     peak_above_start=None,
                     end_pct_of_peak=None,
                     status="NO_DATA",
+                    input_health="INVALID" if rejected_count else "OK",
+                    rejected_samples=rejected_count,
+                    rejection_reasons=_rejection_summary(rejected),
                 )
             )
             continue
@@ -582,7 +713,11 @@ def analyze_peak_csv(path: Path, config: PeakCheckConfig) -> list[PeakCheckResul
                 end_minus_start=end_minus_start,
                 peak_above_start=peak_above_start,
                 end_pct_of_peak=end_pct_of_peak,
-                status=peak_status,
+                status="PARTIAL_DATA" if rejected_count else peak_status,
+                input_health="PARTIAL" if rejected_count else "OK",
+                rejected_samples=rejected_count,
+                rejection_reasons=_rejection_summary(rejected),
+                hydraulic_status=peak_status,
             )
         )
 
@@ -590,6 +725,7 @@ def analyze_peak_csv(path: Path, config: PeakCheckConfig) -> list[PeakCheckResul
 
 
 def analyze_stability_csv(path: Path, config: StabilityCheckConfig) -> list[StabilityCheckResult]:
+    _check_stability_config(config)
     results: list[StabilityCheckResult] = []
 
     run_meta: dict[str, str] = parse_run_meta_from_filename(path)
@@ -646,6 +782,7 @@ def analyze_stability_csv(path: Path, config: StabilityCheckConfig) -> list[Stab
 
 
 def analyze_stability_q_csv(path: Path, config: StabilityCheckConfig) -> list[StabilityCheckResult]:
+    _check_stability_config(config)
     results: list[StabilityCheckResult] = []
 
     run_meta: dict[str, str] = parse_run_meta_from_filename(path)

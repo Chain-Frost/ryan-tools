@@ -9,19 +9,27 @@ from collections import Counter
 from collections.abc import Iterable
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-from typing import Any, Protocol, cast
+from typing import Annotated, Any, Protocol, cast
 
 from pandas import DataFrame, to_numeric
 
 try:
     from mcp.server import MCPServer
+    from pydantic import Strict
 except ImportError:
-    MCPServer = None  # type: ignore[assignment, misc]
+    MCPServer = None
+    _overview_validation = None
+else:
+    # The optional MCP SDK supplies Pydantic. Reject coercion before the tool runs,
+    # while keeping direct Python helpers usable without the MCP extra.
+    _overview_validation = Strict()
 
 from ..classes.tuflow_string_classes import TuflowStringParser
+from ..functions.tuflow.tuflow_common import _result_status  # pyright: ignore[reportPrivateUsage]
 from ..processors.tuflow.base_processor import BaseProcessor
 from ..processors.tuflow.processor_collection import ProcessorCollection
 from .registry import WorkflowRegistry, WorkflowRegistryError
+from .rorb import RORB_GUIDANCE_URI, inspect_rorb_file, rorb_reader_guidance_resource
 
 REGISTRY = WorkflowRegistry()
 MAX_SAMPLE_ROWS = 20
@@ -62,7 +70,8 @@ if MCPServer is not None:
             "details. Review help_command, mutation metadata, paths, and approval requirement before running the "
             "CLI command through the client shell. Use inspect_tuflow_result or inspect_tuflow_collection for bounded, "
             "read-only result queries, and consult the TUFLOW processor guidance resource for advanced Python analysis. "
-            "This MCP server discovers scripts; it does not execute them."
+            "Use inspect_rorb_file for read-only RORB sections and diagnostics; consult the RORB reader guidance "
+            "resource for partial-format limits. This MCP server discovers scripts; it does not execute them."
         ),
     )
 else:
@@ -179,6 +188,10 @@ def _processor_summary(
         "dataformat": processor.dataformat,
         "raw_run_code": processor.name_parser.raw_run_code,
         "processed": processor.processed,
+        "workflow_status": _result_status(processor),
+        "input_health": processor.input_health,
+        "rejected_samples": processor.rejected_samples,
+        "rejection_reasons": dict(processor.rejection_reasons),
         "applied_entity_filter": sorted(processor.applied_entity_filter or ()),
         **_dataframe_summary(processor.df, sample_rows=sample_rows),
     }
@@ -349,7 +362,7 @@ def list_workflows(
     query: str | None = None,
     limit: int = DEFAULT_WORKFLOW_LIMIT,
     offset: int = 0,
-    overview: bool = False,
+    overview: Annotated[bool, _overview_validation] = False,
 ) -> dict[str, Any]:
     """List workflows or domain overview (up to three examples/domain); paginate the selected rows."""
     if type(limit) is not int or not 1 <= limit <= MAX_WORKFLOW_LIMIT:
@@ -494,6 +507,7 @@ if mcp is not None:
     mcp.tool()(inspect_tuflow_result)
     mcp.tool()(inspect_tuflow_collection)
     mcp.tool()(inspect_raster_metadata)
+    mcp.tool()(inspect_rorb_file)
     mcp.tool()(check_repo_health)
     mcp.tool()(list_workflows)
     mcp.tool()(get_workflow)
@@ -509,6 +523,13 @@ if mcp is not None:
         description="Supported MCP queries and Python extension points for TUFLOW processors and collections.",
         mime_type="application/json",
     )(tuflow_processor_guidance_resource)
+
+    mcp.resource(
+        RORB_GUIDANCE_URI,
+        name="rorb_reader_guidance",
+        description="RORB read-only inspection, format limits, diagnostics and Python APIs.",
+        mime_type="application/json",
+    )(rorb_reader_guidance_resource)
 
 
 def main() -> None:

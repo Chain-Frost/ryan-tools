@@ -25,11 +25,12 @@ Do not run on active outputs; file metadata snapshots do not lock files.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
 # ---------------------------------------------------------------------------
 # Embedded wrapper identity and editable user settings
 # ---------------------------------------------------------------------------
-WRAPPER_VERSION = "2026-10-16.3"
+WRAPPER_VERSION = "2026-11-07.1"
 ROOT_DIR = Path.cwd()
 TIF_ROOT_DIR: Path | None = None  # None means TIFs alongside FLT/ASC files
 DELETE_FILES = False  # Verification/proposal only unless set True or --delete
@@ -50,6 +51,8 @@ from uuid import uuid4
 
 import numpy as np
 import rasterio
+import rasterio.crs
+import rasterio.io
 from rasterio.errors import RasterioError
 from rich.progress import BarColumn, Progress, TaskID, TaskProgressColumn, TextColumn, TimeRemainingColumn
 
@@ -173,8 +176,8 @@ def raster_metadata_mismatch(original: rasterio.io.DatasetReader, converted: ras
         return "Grid geotransform differs"
     if original.scales != converted.scales or original.offsets != converted.offsets:
         return "Raster band value scales or offsets differ"
-    if original.crs is not None:
-        if converted.crs is None:
+    if cast("rasterio.crs.CRS | None", original.crs) is not None:
+        if cast("rasterio.crs.CRS | None", converted.crs) is None:
             return f"GeoTIFF is missing the declared source CRS: {original.crs}"
         # Strict CRS equality is intentional: do not ignore axis-order differences
         # (for example, OGC:CRS84 versus EPSG:4326) or normalise away discrepancies.
@@ -199,7 +202,10 @@ def compare_rasters(
         metadata_difference = raster_metadata_mismatch(original, converted)
         if metadata_difference is not None:
             return metadata_difference, None
-        warning = crs_warning(source_missing=original.crs is None, tif_missing=converted.crs is None)
+        warning = crs_warning(
+            source_missing=cast("rasterio.crs.CRS | None", original.crs) is None,
+            tif_missing=cast("rasterio.crs.CRS | None", converted.crs) is None,
+        )
 
         rows = max(1, min(original.height, MAX_WINDOW_CELLS // max(1, original.width)))
         if progress is not None and task_id is not None:
@@ -528,7 +534,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--no-progress", action="store_true", help="Disable live raster progress")
     parser.add_argument("--no-pause", action="store_true", help="Skip the interactive completion pause")
     args = parser.parse_args(argv)
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="TUFLOW-python/model_management/verify_converted_tuflow_rasters.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+    )
 
     root: Path = args.root.expanduser().absolute()
     tif_root: Path = args.tif_root.expanduser().absolute() if args.tif_root is not None else root
@@ -613,7 +623,12 @@ def main(argv: list[str] | None = None) -> int:
         proposal, errors, warnings = write_reports(results, root)
     except OSError as exc:
         print(f"Could not write reports; deletion cancelled: {exc}", file=sys.stderr)
-        print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+        print_wrapper_banner(
+            wrapper_source="TUFLOW-python/model_management/verify_converted_tuflow_rasters.py",
+            wrapper_file=Path(__file__),
+            wrapper_version=WRAPPER_VERSION,
+            leading_blank_line=True,
+        )
         return 2
     matched = sum(result.eligible for result in results)
     unverified_crs = sum(result.status == "MATCH_CRS_UNVERIFIED" for result in results)
@@ -628,7 +643,12 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Error report: {errors}")
     print(f"CRS warning report: {warnings}")
     exit_code = finish_deletion(results, len(sources), allow_delete=DELETE_FILES or args.delete)
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+    print_wrapper_banner(
+        wrapper_source="TUFLOW-python/model_management/verify_converted_tuflow_rasters.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        leading_blank_line=True,
+    )
     return exit_code
 
 

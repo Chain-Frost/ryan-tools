@@ -7,6 +7,12 @@ separate PyPI project and its existing Trusted Publisher is **not** sufficient
 to publish `ryan-tools`. Uninstall the former distribution before installing
 the renamed package because both own `ryan_library` files.
 
+The separate standalone RORB reader publication plan is superseded by
+[PyRORB #231](https://github.com/Chain-Frost/pyrorb/issues/231) and
+[ryan-tools #340](https://github.com/Chain-Frost/ryan-tools/issues/340).
+Do not activate or publish the standalone reader distribution. The normal
+ryan-tools publication process remains separate and owner-controlled.
+
 ## Prerequisites
 
 Register a **new Trusted Publisher for the `ryan-tools` PyPI project** (or

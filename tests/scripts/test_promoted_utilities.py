@@ -48,6 +48,7 @@ def _gdalwarp_fails(
     cutline_path: Path,
     cutline_layer: str,
     crs: str,
+    **_kwargs: object,
 ) -> bool:
     del input_file, output_file, cutline_path, cutline_layer, crs
     return False
@@ -139,7 +140,7 @@ def test_remove_excel_protection_main_reports_processing_failure(
     script = _load_script("remove_excel_protection")
     (tmp_path / "input.xlsx").touch()
     monkeypatch.setattr(script, "DEFAULT_OUTPUT_DIR", tmp_path / "output")
-    monkeypatch.setattr(script, "change_working_directory", _change_working_directory_succeeds)
+    monkeypatch.setattr(script, "LOG_FILE", tmp_path / "batch.log")
     monkeypatch.setattr(script, "process_excel_file", _excel_processing_fails)
 
     assert script.main(input_directories=tmp_path) == 1

@@ -194,6 +194,11 @@ foreach ($startup in $reportedStartups) {
             Sort-Object TimeCreated
     )
     $osStops = @($sessionStops | Where-Object { $_.Id -eq 13 })
+    $isCurrentSession = $false
+    if ($nextStartup.Count -eq 0 -and $null -ne $lastBootTime) {
+        $bootOffsetMinutes = ($startupTime - $lastBootTime).TotalMinutes
+        $isCurrentSession = $bootOffsetMinutes -ge -2 -and $bootOffsetMinutes -le 2
+    }
     $uptime = "Unknown (no shutdown time recorded)"
     if ($osStops.Count -gt 0) {
         $uptime = Format-Duration -Duration ($osStops[0].TimeCreated - $startupTime)
@@ -201,8 +206,7 @@ foreach ($startup in $reportedStartups) {
     elseif ($sessionStops.Count -gt 0) {
         $uptime = "{0} (approximate; clean event-log stop)" -f (Format-Duration -Duration ($sessionStops[0].TimeCreated - $startupTime))
     }
-    elseif ($nextStartup.Count -eq 0 -and $null -ne $lastBootTime -and
-            [math]::Abs(($startupTime - $lastBootTime).TotalMinutes) -le 2) {
+    elseif ($isCurrentSession) {
         # Event 12 is logged shortly after OS boot; CIM identifies the live session.
         $uptime = "{0} (current session)" -f (Format-Duration -Duration ($reportTime - $lastBootTime))
     }

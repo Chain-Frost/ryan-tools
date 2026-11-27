@@ -7,10 +7,15 @@ authors = [
   {name = "Chain Frost", email = "chainfrost@outlook.com"},
 ]
 classifiers = [
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
   "Operating System :: Microsoft :: Windows",
 ]
 dependencies = [
+  "typing_extensions>=4.12",
+  "h5py>=3.14,<3.16; sys_platform == 'win32'",
   "numpy",
   "pandas",
   "scipy",
@@ -27,6 +32,7 @@ dependencies = [
   "laspy[lazrs]",
   "tqdm",
   "rasterio",
+  "shapely>=2",
   "seaborn",
   "requests",
   "openpyxl",
@@ -36,22 +42,31 @@ dependencies = [
   "cryptography>=3.1",
   "ezdxf",
   "rich",
-  "pytuflow>=1.2,<2",
-  "run-hy8>=2026.10.16.1",
-  'ryan-culverts>=26.10.16.1',
+  "pytuflow>=1.2",
+  "run-hy8>=2026.11.24.1",
+  "ryan-culverts>=26.11.24.1",
+  "pyrorb",
 ]
 description = "Collection of TUFLOW and data processing functions."
 license = "SUL-1.0"
 name = "ryan-tools"
 readme = "README.md"
-requires-python = ">=3.14"
-version = "26.11.2.1"
+requires-python = ">=3.11"
+version = "26.11.17.3"
 
 [project.optional-dependencies]
 dev = [
   "build",
-  "pandas-stubs",
-  "pyright",
+  "pandas-stubs>=3.1.0.261029; python_version >= '3.12'",
+  "pandas-stubs>=2.3,<3; python_version < '3.12'",
+  "pyarrow-stubs",
+  "types-psutil",
+  "types-rasterio>=1.5.2.20261029; python_version >= '3.12'",
+  "scipy-stubs",
+  "distributed",
+  "pillow-heif>=1.8.0",
+  "python-docx",
+  "pyright>=1.1.414",
   "pytest",
   "pytest-cov",
   "ruff==0.16.6",
@@ -63,6 +78,7 @@ mcp = [
 [project.scripts]
 ryan-mcp = "ryan_library.mcp.server:main"
 ryan-scripts = "ryan_library.mcp.installed_scripts:main"
+tuflow-initialiser = "ryan_library.orchestrators.tuflow.initialiser.cli:main"
 
 [project.urls]
 Repository = "https://github.com/Chain-Frost/ryan-tools"
@@ -71,13 +87,16 @@ Repository = "https://github.com/Chain-Frost/ryan-tools"
 include-package-data = true
 
 [tool.setuptools.package-data]
-"vendor" = ["README.md"]
-"vendor.PyHMA" = ["README.md", "LICENSE"]
-"vendor.simil" = ["README.md", "LICENSE"]
 "ryan_library.classes" = ["*.json"]
 "ryan_library.resources.mcp" = ["*.json"]
+"ryan_library.functions.RORB" = ["README.md"]
 "ryan_library.resources.qgis.tuflow" = ["*.qml"]
 "ryan_library.resources.tuflow_templates" = [
+  ".vscode/*.json",
+  "*.bat",
+  "*.ini",
+  "*.png",
+  "model/*.trd",
   ".gitignore",
   "model/*.csv",
   "model/*.tbc",
@@ -88,6 +107,9 @@ include-package-data = true
   "runs/*.tcf",
   "runs/*.trd",
 ]
+"vendor" = ["README.md"]
+"vendor.PyHMA" = ["README.md", "LICENSE"]
+"vendor.simil" = ["README.md", "LICENSE"]
 
 [tool.setuptools.packages.find]
 exclude = [
@@ -121,5 +143,28 @@ where = [".", "ryan-scripts/TUFLOW-python"]
 [tool.pyright]
 extraPaths = ["vendor", "ryan-scripts/RORB-python"]
 include = ["ryan_library", "ryan-scripts"]
-pythonVersion = "3.14"
+pythonVersion = "3.11"
+reportUnnecessaryTypeIgnoreComment = "error"
 typeCheckingMode = "strict"
+
+[[tool.pyright.executionEnvironments]]
+extraPaths = ["repo-scripts", ".", "vendor"]
+root = "repo-scripts"
+
+[[tool.pyright.executionEnvironments]]
+extraPaths = [
+  ".",
+  "vendor",
+  "ryan-scripts/TUFLOW-python",
+  "ryan-scripts/TUFLOW-python/raster_processing",
+  "ryan-scripts/unsorted-python",
+  "ryan-scripts/gdal-python",
+  "ryan-scripts/RORB-python",
+  "ryan-scripts/hydrology-python",
+  "ryan-scripts/other",
+]
+root = "tests/scripts/promoted_scripts"
+
+[[tool.pyright.executionEnvironments]]
+extraPaths = ["vendor", "ryan-scripts/RORB-python"]
+root = "."

@@ -42,8 +42,11 @@ SAFE_HELP_WRAPPERS: tuple[str, ...] = (
     "gdal-python/recompress_geotiffs.py",
     "misc-python/remove_excel_protection.py",
     "other/repair_qgis_project_paths.py",
-    "tuflow/init_tuflow_project.py",
-    "tuflow/tuflow_to_hy8.py",
+    "TUFLOW-python/model_management/find_missing_tlf_runs.py",
+    "TUFLOW-python/model_management/init_tuflow_project.py",
+    "TUFLOW-python/culvert_results/tuflow_culvert_from_1d_nwk.py",
+    "TUFLOW-python/culvert_results/tuflow_culvert_from_maximums.py",
+    "TUFLOW-python/culvert_results/tuflow_to_hy8.py",
 )
 
 

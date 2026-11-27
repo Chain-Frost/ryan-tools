@@ -12,6 +12,7 @@ import json
 import re
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any, cast
 
@@ -95,7 +96,8 @@ def _is_main_guard(test: ast.expr) -> bool:
 class _ImportTimeMutationVisitor(ast.NodeVisitor):
     """Walk only expressions and statements that can execute during import."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, deferred_annotations: bool) -> None:
+        self.deferred_annotations = deferred_annotations
         self.names: set[str] = set()
         # A name can refer to a mutator on one conditional path and a safe
         # callable on another. Union the possible dangerous bindings.
@@ -137,7 +139,8 @@ class _ImportTimeMutationVisitor(ast.NodeVisitor):
         if node.value is not None:
             self.visit(node.value)
             self._remember_binding(node.target, node.value)
-        # Python >=3.14 evaluates annotations lazily, not during import.
+        if not self.deferred_annotations:
+            self.visit(node.annotation)
 
     def visit_AugAssign(self, node: ast.AugAssign) -> None:
         self.visit(node.value)
@@ -147,7 +150,14 @@ class _ImportTimeMutationVisitor(ast.NodeVisitor):
         for expression in (*node.args.defaults, *node.args.kw_defaults):
             if expression is not None:
                 self.visit(expression)
-        # Annotations (including return types) are deferred on Python >=3.14.
+        if not self.deferred_annotations:
+            arguments = [*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs]
+            arguments.extend(arg for arg in (node.args.vararg, node.args.kwarg) if arg is not None)
+            for argument in arguments:
+                if argument.annotation is not None:
+                    self.visit(argument.annotation)
+            if node.returns is not None:
+                self.visit(node.returns)
         for expression in node.decorator_list:
             self.visit(expression)
 
@@ -209,7 +219,13 @@ class _ImportTimeMutationVisitor(ast.NodeVisitor):
 
 def _import_time_call_names(module: ast.Module) -> list[str]:
     """Conservatively find import-time calls, without importing any script."""
-    visitor = _ImportTimeMutationVisitor()
+    postponed = sys.version_info >= (3, 14) or any(
+        isinstance(node, ast.ImportFrom)
+        and node.module == "__future__"
+        and any(alias.name == "annotations" for alias in node.names)
+        for node in module.body
+    )
+    visitor = _ImportTimeMutationVisitor(deferred_annotations=postponed)
     visitor.visit(module)
     return sorted(visitor.names)
 
@@ -354,6 +370,26 @@ def audit_repository(root: Path) -> dict[str, Any]:
     }
 
 
+def documentation_index_findings(root: Path, report: dict[str, Any]) -> list[str]:
+    """Check script inventory documentation counts without pytest or GIS imports."""
+    tracked = report["tracked_file_count"]
+    selected = report["selected_file_count"]
+    expected = (
+        (Path("docs/README.md"), f"All {tracked} source paths; {selected} selected and {tracked - selected} excluded"),
+        (Path("docs/work/README.md"), f"{tracked}-file lifecycle audit"),
+    )
+    findings: list[str] = []
+    for relative, phrase in expected:
+        try:
+            content = (root / relative).read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as error:
+            findings.append(f"{relative.as_posix()}: cannot read documentation: {error}")
+            continue
+        if phrase not in content:
+            findings.append(f"{relative.as_posix()}: expected inventory text {phrase!r}")
+    return findings
+
+
 def _markdown_row(entry: dict[str, Any]) -> str:
     """Format one statically inspected script without implying runtime approval."""
     path = str(entry["path"]).replace("|", "\\|").replace("`", "")
@@ -447,8 +483,22 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--check", action="store_true", help="Fail on missing wheel/MCP paths or unsafe selected Python entry points."
     )
+    parser.add_argument(
+        "--check-docs", action="store_true", help="Check script inventory counts in documentation before hosted tests."
+    )
     args = parser.parse_args(argv)
     report = audit_repository(args.root.absolute())
+    if args.check_docs:
+        findings = documentation_index_findings(args.root.absolute(), report)
+        for finding in findings:
+            print(f"::error::{finding}")
+        if findings:
+            return 1
+        print(
+            f"Script inventory documentation matches {report['tracked_file_count']} tracked, "
+            f"{report['selected_file_count']} selected files."
+        )
+        return 0
     payload = (
         render_markdown(report)
         if args.format == "markdown"

@@ -118,7 +118,7 @@ def run_max_workflow(
     dry_run: bool = False,
     use_live_dashboard: bool = True,
     live_refresh_per_second: float = 2.0,
-    live_max_rows: int = 25,
+    live_max_rows: int = 10,
     live_use_alternate_screen: bool = False,
 ) -> int:
     """Validate, report, and optionally run configured raster-maximum jobs."""

@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import hashlib
+import os
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -11,6 +14,7 @@ from ryan_library.functions.file_verification import (
     FileSnapshot,
     has_linked_component,
     hash_file,
+    is_junction,
     snapshot_file,
     snapshot_is_unchanged,
 )
@@ -97,3 +101,30 @@ def test_relative_snapshot_is_absolute_without_following_links(tmp_path: Path, m
     assert record.path != file
     assert has_linked_component(relative)
     assert snapshot_is_unchanged(record)
+
+
+def test_junction_rejection_survives_missing_target(tmp_path: Path) -> None:
+    if os.name != "nt":
+        pytest.skip("Windows junction contract")
+    target = tmp_path / "target"
+    target.mkdir()
+    junction = tmp_path / "junction"
+    executable = shutil.which("cmd.exe")
+    if executable is None:
+        pytest.skip("Windows command interpreter unavailable")
+    command = subprocess.run(
+        [executable, "/c", "mklink", "/J", str(junction), str(target)],
+        capture_output=True,
+        check=False,
+    )
+    if command.returncode:
+        pytest.skip("Junction creation unavailable")
+    try:
+        assert is_junction(junction)
+        assert has_linked_component(junction / "new.bin")
+        target.rmdir()
+        assert is_junction(junction)
+        assert has_linked_component(junction / "new.bin")
+        assert not is_junction(tmp_path / "absent")
+    finally:
+        junction.rmdir()

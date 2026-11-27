@@ -63,7 +63,7 @@ Record the outcome, remaining scope, decisions, blockers and one concrete next a
 commands, environment, date and results; distinguish passed, failed, not run and historical evidence.
 
 Record paths, branch/commit and whether changes are untracked, unstaged, staged, committed or pushed. Separate parent
-and submodule state and identify unrelated changes to preserve. Never stage or commit merely to save a handoff.
+and submodule state and identify unrelated changes to preserve. Scoped handoff updates may be staged, committed and pushed with the requested work; preserve unrelated changes.
 Keep completion criteria and a next review date while open. Avoid terminal transcripts, sensitive project data and
 vague next steps such as "continue cleanup". After an interrupted session, reconstruct status from current evidence.
 

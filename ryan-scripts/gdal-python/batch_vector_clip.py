@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-16.2"
+WRAPPER_VERSION = "2026-11-07.1"
 DEFAULT_INPUTS = [Path("input.shp")]
 DEFAULT_EXTENTS = [Path("extent.shp")]
 DEFAULT_OUTPUT_DIR: Path | None = None
@@ -253,7 +253,9 @@ def build_output_jobs(inputs: list[Path], extents: list[Path], output_dir: Path)
 
 def main(args: argparse.Namespace) -> int:
     """Validate inputs, execute bounded clipping jobs and report partial failure."""
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="gdal-python/batch_vector_clip.py", wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION
+    )
     input_values = args.inputs or DEFAULT_INPUTS
     extent_values = args.extents or DEFAULT_EXTENTS
     output_value = args.output_dir if args.output_dir is not None else DEFAULT_OUTPUT_DIR
@@ -323,7 +325,12 @@ if __name__ == "__main__":
     except Exception:
         logger.exception("Wrapper failed.")
         result = 1
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+    print_wrapper_banner(
+        wrapper_source="gdal-python/batch_vector_clip.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        leading_blank_line=True,
+    )
     if not cli_args.no_pause:
         pause_console(collect_before_pause=True)
     raise SystemExit(result)

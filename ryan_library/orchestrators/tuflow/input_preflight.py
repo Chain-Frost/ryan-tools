@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import csv
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Literal, Protocol, cast
 
@@ -22,6 +22,7 @@ class _Finding(Protocol):
     run_index: int
     flags: str
     status: str
+    severity: str
     kind: str
     path: Path | None
     detail: str
@@ -35,9 +36,18 @@ class _Finding(Protocol):
     csv_columns: tuple[str, ...] | None
 
 
+class _InputCommand(Protocol):
+    input_uuid: str
+    command_index: int
+    owner_control_file: Path | None
+    line_number: int
+    command_text: str
+
+
 class _DependencyRun(Protocol):
     index: int
     error: str | None
+    ordered_inputs: tuple[_InputCommand, ...]
 
 
 class _Dependencies(Protocol):
@@ -103,16 +113,19 @@ class PreflightIssue:
     command_index: int = -1
     csv_columns: tuple[str, ...] | None = None
     source_pattern: Path | None = None
+    command_text: str = ""
+    line_number: int | None = None
 
 
 @dataclass(slots=True)
 class PreflightReport:
-    """Only a complete upstream run set with no findings can pass."""
+    """Only a complete run set with no blocking findings can pass."""
 
     run_count: int
     completed_runs: int = 0
     upstream_passed: bool = False
     issues: list[PreflightIssue] = field(default_factory=list[PreflightIssue])
+    warnings: list[PreflightIssue] = field(default_factory=list[PreflightIssue])
     checked_paths: set[str] = field(default_factory=set[str])
     files_examined: int = 0
     geopackages_examined: int = 0
@@ -231,12 +244,12 @@ def check_simulation_inputs(  # noqa: C901 - fail-closed public result validatio
     io_workers: int = 4,
     maximum_directory_entries: int = 50_000,
 ) -> PreflightReport:
-    """Validate exact ordered runs with PyTUFLOW PR17's public API.
+    """Validate exact ordered runs using the pinned public PyTUFLOW API.
 
     Every run retains its supplied global identity. Validation is only invoked
-    explicitly; no import of PyTUFLOW occurs during help, planning or export.
-    Existing raster files are checked as input paths, not decoded for headers
-    or pixel contents. The caller owns grouping, model cwd and error policy.
+    explicitly; help, planning and export do not import PyTUFLOW. The pinned
+    validator inspects raster headers and advisory CRS metadata without reading
+    pixels or changing the caller-owned grouping and execution policy.
     """
     if not runs:
         message = "No simulations were supplied for input preflight"
@@ -297,11 +310,33 @@ def check_simulation_inputs(  # noqa: C901 - fail-closed public result validatio
         if type(position) is not int or position not in by_position:
             message = f"PyTUFLOW finding refers to unknown batch position: {position!r}"
             raise ValueError(message)
+        severity = getattr(finding, "severity", "error")
+        if severity not in {"error", "warning"}:
+            message = f"Unknown PyTUFLOW finding severity: {severity!r}"
+            raise ValueError(message)
         if getattr(finding, "status", None) == "present":
+            if severity != "error":
+                message = "PyTUFLOW reported a present finding as a warning"
+                raise ValueError(message)
             if finding.path is not None:
                 report.checked_paths.add(str(finding.path))
             continue
-        report.issues.append(_issue(finding, by_position[position]))
+        issue = _issue(finding, by_position[position])
+        commands = cast(tuple[_InputCommand, ...], getattr(run_results[indices.index(position)], "ordered_inputs", ()))
+        matches = [
+            command
+            for command in commands
+            if command.input_uuid == finding.input_uuid
+            and command.command_index == finding.command_index
+            and command.owner_control_file == finding.owner_control_file
+        ]
+        if len(matches) == 1:
+            command = matches[0]
+            issue = replace(issue, command_text=command.command_text.strip(), line_number=command.line_number)
+        if severity == "warning":
+            report.warnings.append(issue)
+        else:
+            report.issues.append(issue)
         if finding.path is not None:
             report.checked_paths.add(str(finding.path))
 

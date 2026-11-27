@@ -25,6 +25,8 @@ from ryan_library.mcp.models import (
     profile_allows,
 )
 
+from ..functions.file_verification import is_junction
+
 DEFAULT_PROFILE: CapabilityProfile = CapabilityProfile.CREATE
 PROFILE_ENVIRONMENT_VARIABLE = "RYAN_MCP_PROFILE"
 REPOSITORY_ROOT_ENVIRONMENT_VARIABLE = "RYAN_TOOLS_REPOSITORY_ROOT"
@@ -260,7 +262,7 @@ class WorkflowRegistry:
         if current != root and root not in current.parents:
             return True
         while True:
-            if current.is_symlink() or current.is_junction():
+            if current.is_symlink() or is_junction(current):
                 return True
             if current == root:
                 break

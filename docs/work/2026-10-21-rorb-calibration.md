@@ -2,12 +2,28 @@
 
 | Field | Value |
 | --- | --- |
-| Status | In local validation |
+| Status | Existing calibration review and native acceptance outstanding; dependency follow-up prepared |
 | Owner | ChatGPT / local maintainer agent |
 | Created | 2026-10-21 |
-| Updated | 2026-11-02 (PR review follow-up) |
-| Next review | After exact-head CI and permitted local RORB_CMD execution |
-| Baseline | main; feature/rorb-parameter-calibration-20261021 |
+| Updated | 2026-11-28 |
+| Next review | 2026-12-05 |
+| Baseline | main `5eda4f06cafbbdc5f528bb108909438302a13ce5`; existing branch `feature/rorb-parameter-calibration-20261021` |
+
+## 2026-11-28 integration and dependency follow-up
+
+The owner selected this existing PR for removal of the PyRORB exact version pin.
+Reconcile current main with the prior calibration head `f404642bddf3b7bf8f5d71988cfa0d247d8a0e19`, preserving the
+calibration source/tests and all current main changes. Runtime dependency is now
+`pyrorb` with no minimum, maximum or exact constraint in the proposed metadata.
+Routine validation resolves a compatible public wheel and checks its identity,
+provenance and reader behaviour, without changing the numerical method.
+
+The previous independent review still has two P1 findings (editable operational
+settings and explicit execution opt-in). The existing permitted Windows RORB_CMD
+single-run gate remains unfulfilled. This packaging-only follow-up does not resolve
+these findings or authorise a solver run, merge or release. Next: verify integrated
+CI and independent review for the dependency change; the calibration owner must
+address the retained findings and original native acceptance before merge.
 
 ## Outcome and scope
 

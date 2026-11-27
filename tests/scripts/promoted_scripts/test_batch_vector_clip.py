@@ -1,3 +1,6 @@
+# Unit tests intentionally exercise implementation helpers.
+# pyright: reportPrivateUsage=false
+
 from __future__ import annotations
 
 # conftest.py supplies standalone script directories to pytest at runtime.

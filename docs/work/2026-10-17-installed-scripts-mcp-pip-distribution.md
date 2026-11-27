@@ -320,3 +320,40 @@ Addressed the three findings on pushed head `40a50ef` locally:
 Validation: 15 focused archive tests pass, including native relative-executable regression and bracketed-name success, collision and cleanup checks. Ruff lint/format, strict Pyright on all five modified Python files, Loguru policy and diff whitespace checks pass. Synthetic PowerShell queries return exit 0 for no matching events and exit 1 for access/query failure. Package build and verification pass for 26.11.2.1; a copied wrapper outside the checkout creates a native split archive with a bracketed filename and relative executable using the rebuilt wheel. The first native regression attempt picked up the older installed package; source tests were rerun with the source environment, and the separate wheel check verifies the rebuilt package.
 
 Delivery: maintainer authorises commit/push on 2026-11-02. The review-fix commit carries this record; new-head hosted CI must be verified after pushing. All six hosted checks pass for `40a50ef`, which predates these fixes. Next action: verify new-head CI, then respond to and resolve the three threads. No merge or release authorised. Next review: 2026-11-08.
+
+
+### 2026-11-03 PR #190 raster-script lifecycle correction
+
+The maintainer returned `run_grouped_asc_to_asc_statistics.py` and
+`run_python_raster_calculations.py` to `ryan-scripts/unsorted-python`. They are no longer packaged or MCP-catalogued.
+The maintained mean and median statistic-then-maximum wrappers intentionally remain separate project-editable entry
+points over their shared generic orchestrator. The current 156-row inventory contains 83 wheel-selected files,
+73 excluded files and 33 existing MCP script paths. Focused MCP, installed-script and packaging validation passes with
+97 tests passed and 10 skipped. Documentation link validation and the 26.11.3.1 package build/verification pass. Ruff
+could not launch under the workstation's application-control policy and remains an exact-head CI check. Git delivery
+is recorded on PR #190.
+
+### PR #190 CI repair - 3 November 2026
+
+Reconciled current remote head `2dffddb4` before repair. The raster-script moves
+left the promoted-script test import configuration pointing at the old folder,
+causing three hosted collection errors. Added the repository-owned
+`ryan-scripts/unsorted-python` import directory (not the excluded `unsorted`
+submodule), formatted the changed MCP registry test, and corrected two stale
+documentation references. Focused validation: 101 passed, 2 existing skips;
+strict Pyright clean on the two changed test files; Ruff lint/format passes on
+all 14 PR-changed Python files; seven-document and Loguru policy checks pass.
+No package implementation or metadata changed; no wheel rebuild required.
+Delivery: repair to PR #190; hosted final-head validation pending. Next action:
+verify terminal CI on the pushed repair; next review 2026-11-03. No merge.
+
+The first repair head `8c6f56a2` passed Fast PR checks, Policy, Package, MCP
+smoke, POSIX security and all three TUFLOW jobs. Hosted tests completed with
+1,957 passed, 14 skipped, 8 deselected and one stale documentation-inventory
+count failure. Corrected the central index to 83 selected / 73 excluded and
+restored the work-register lifecycle-audit wording required by its contract.
+The 22 inventory tests now pass. The requested runner log-level enum also
+passes the 68 focused runner tests (90 combined passes); Ruff, strict Pyright,
+documentation and logging policy pass. Wheel 26.11.3.2 is built and verified,
+including a non-editable installed-wheel enum and copied-wrapper help smoke.
+Final pushed-head CI remains pending; no merge is authorised.

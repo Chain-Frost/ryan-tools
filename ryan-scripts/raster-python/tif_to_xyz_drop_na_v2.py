@@ -22,7 +22,7 @@ from datetime import datetime
 from pathlib import Path
 
 import numpy as np
-import rasterio  # type: ignore
+import rasterio
 from affine import Affine
 
 from ryan_library.functions.gdal.raster_processing import read_raster_band
@@ -37,7 +37,7 @@ TARGET_CELLS_PER_CHUNK = 500_000  # Limits memory use to ~20-30 MB per chunk
 
 
 def _is_north_up(transform: Affine) -> bool:
-    return np.isclose(transform.b, 0.0) and np.isclose(transform.d, 0.0)
+    return bool(np.isclose(transform.b, 0.0) and np.isclose(transform.d, 0.0))
 
 
 def _coordinate_vectors_for_chunk(

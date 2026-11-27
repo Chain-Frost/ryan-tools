@@ -14,33 +14,35 @@ ASC_to_ASC. Choose another ``MEAN_VALUE_METHOD`` or use
 Input globs may contain wildcards, but output naming templates must render
 concrete filenames and must not rediscover generated outputs.
 
-Source rasters are disabled by default. Set ``WRITE_SOURCE_RASTERS`` or use
-``--source`` to create per-duration source outputs and final source outputs
-whose CSV IDs link directly to the original temporal-pattern rasters.
+Source rasters and CSV legends with per-source ``cell_count`` are enabled
+by default for both stages. Set ``WRITE_SOURCE_RASTERS = False`` or use
+``--no-source`` to disable them. Final legend IDs link directly to the
+original temporal-pattern rasters.
 
-For ``d_HR_Max`` and ``V_Max``, NoData contributes zero to both statistics.
-For elevation results ``h_Max`` and ``h_HR_Max``, NoData is excluded and an
-output cell remains NoData only when every contributing cell is NoData.
+For ``d_HR_Max`` and ``V_Max``, NoData contributes zero where some
+other input has a valid cell; all-NoData locations remain NoData in both
+stages. For elevation results ``h_Max`` and ``h_HR_Max``, NoData is
+excluded from the statistic.
 """
 
 from pathlib import Path
 from typing import Literal
 
-WRAPPER_VERSION = "2026-09-10.1"
+WRAPPER_VERSION = "2026-11-09.1"
 
 WORKING_DIR: Path = Path(__file__).absolute().parent
 OUTPUT_DIRECTORY_NAME = "ensemble_statistics"
 INPUT_GLOB = "*.tif"
-EXPECTED_TPS: frozenset[int] = frozenset(range(1, 11))
-SCENARIOS = ("EXG", "DEV")
-RESULT_TYPES = ("d_HR_Max", "h_HR_Max", "V_Max")
+EXPECTED_TPS: list[int] = list(range(1, 11))
+SCENARIOS: list[str] = ["EXG", "DEV"]
+RESULT_TYPES: list[str] = ["d_HR_Max", "h_HR_Max", "V_Max"]
 MEAN_VALUE_METHOD: Literal["asc_to_asc", "closest_source", "arithmetic"] = "asc_to_asc"
 WORKERS: int | None = None
 STRICT_INCOMPLETE_GROUPS = False
-WRITE_SOURCE_RASTERS = False
+WRITE_SOURCE_RASTERS = True
 USE_LIVE_DASHBOARD = True
 LIVE_REFRESH_PER_SECOND = 2.0
-LIVE_MAX_ROWS = 25
+LIVE_MAX_ROWS = 10
 LIVE_USE_ALTERNATE_SCREEN = False
 
 import argparse
@@ -82,7 +84,11 @@ def main(
     live_use_alternate_screen: bool | None = None,
 ) -> int:
     """Resolve wrapper settings and run the mean-then-maximum orchestrator."""
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="TUFLOW-python/raster_processing/run_asc_to_asc_mean_then_maximum.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+    )
     search_root: Path = working_directory or WORKING_DIR
     if not change_working_directory(target_dir=search_root):
         return 1
@@ -92,9 +98,9 @@ def main(
         search_root=search_root,
         output_root=search_root / OUTPUT_DIRECTORY_NAME,
         input_glob=INPUT_GLOB,
-        expected_tps=EXPECTED_TPS,
-        scenarios=SCENARIOS,
-        result_types=RESULT_TYPES,
+        expected_tps=frozenset(EXPECTED_TPS),
+        scenarios=tuple(SCENARIOS),
+        result_types=tuple(RESULT_TYPES),
         mean_value_method=mean_value_method or MEAN_VALUE_METHOD,
         workers=workers if workers is not None else WORKERS,
         dry_run=dry_run,
@@ -131,12 +137,20 @@ def _parse_cli_arguments() -> CliOptions:
     strict_group = parser.add_mutually_exclusive_group()
     strict_group.add_argument("--strict", dest="strict", action="store_true", default=None)
     strict_group.add_argument("--no-strict", dest="strict", action="store_false")
-    parser.add_argument(
+    source_group = parser.add_mutually_exclusive_group()
+    source_group.add_argument(
         "--source",
         dest="write_source",
         action="store_true",
         default=None,
-        help="Write source rasters and CSV legends linked to the original input rasters.",
+        help="Write source rasters and CSV legends with per-source cell counts (default).",
+    )
+    source_group.add_argument(
+        "--no-source",
+        dest="write_source",
+        action="store_false",
+        default=None,
+        help="Disable source rasters and CSV legends.",
     )
     args: argparse.Namespace = parser.parse_args()
     return CliOptions(
@@ -163,6 +177,7 @@ if __name__ == "__main__":
         live_max_rows=cli_options.common.live_max_rows,
     )
     print_wrapper_banner(
+        wrapper_source="TUFLOW-python/raster_processing/run_asc_to_asc_mean_then_maximum.py",
         wrapper_file=Path(__file__),
         wrapper_version=WRAPPER_VERSION,
         leading_blank_line=True,

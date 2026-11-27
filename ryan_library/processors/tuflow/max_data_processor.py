@@ -47,6 +47,7 @@ class MaxDataProcessor(BaseProcessor):
         if usecols:
             df = df.loc[:, usecols]
 
+        # Callers must apply the entity filter after transforming identifiers:
+        # Nmx '.1' / '.2' nodes and Chan 'Channel' are not yet canonical here.
         self.df = df
-        self.apply_entity_filter()
         return ProcessorStatus.SUCCESS

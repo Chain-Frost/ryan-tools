@@ -3,6 +3,8 @@
 from pathlib import Path
 from typing import Any
 
+from loguru import logger
+
 from ryan_library.functions.parse_tlf import (
     finalise_data,
     get_log_lines,
@@ -11,6 +13,7 @@ from ryan_library.functions.parse_tlf import (
     search_for_completion,
 )
 from ryan_library.functions.path_stuff import convert_to_relative_path
+from ryan_library.functions.tuflow.hpc_companion import read_hpc_companion_metrics
 from ryan_library.processors.tuflow.base_processor import BaseProcessor
 
 
@@ -22,7 +25,12 @@ class TLFProcessor(BaseProcessor):
     efficient tail-reading for large files to minimise network transfer.
     """
 
-    def process(self) -> None:
+    def _append_hpc_companion_metrics(self) -> None:
+        """Add optional HPC companion fields without changing core log validity."""
+        for field, value in read_hpc_companion_metrics(self.file_path).items():
+            self.df[field] = value
+
+    def process(self, *, include_hpc_companion_metrics: bool = False) -> None:
         """Process the TLF file and populate the internal DataFrame (self.df).
 
         Reads the log file (using efficient tail-reading for files > 10MB).
@@ -30,6 +38,7 @@ class TLFProcessor(BaseProcessor):
         to extract build info, start time, variables, and scenario/event
         combinations.
         """
+        self.reset_processing_state()
         sim_complete: int = 0
         success: int = 0
         spec_events: bool = False
@@ -38,20 +47,23 @@ class TLFProcessor(BaseProcessor):
         data_dict: dict[str, Any] = {}
         current_section: str | None = None
 
-        file_size: int = self.file_path.stat().st_size
-        is_large_file: bool = file_size > 10 * 1024 * 1024  # 10 MB
-
-        # get_log_lines returns the entire file for small files (lines),
-        # and only the tail (last_lines) for large files to avoid memory/network spikes.
-        lines: list[str]
-        last_lines: list[str]
-        lines, last_lines = get_log_lines(
-            logfile_path=self.file_path,
-            is_large_file=is_large_file,
-        )
+        try:
+            file_size: int = self.file_path.stat().st_size
+            is_large_file: bool = file_size > 10 * 1024 * 1024  # 10 MB
+            # Small logs are read whole; large logs use the bounded tail.
+            lines: list[str]
+            last_lines: list[str]
+            lines, last_lines = get_log_lines(
+                logfile_path=self.file_path,
+                is_large_file=is_large_file,
+            )
+        except OSError as exc:
+            self.input_health = "IO_FAILURE"
+            logger.error("{}: Failed to read log: {}", self.file_name, exc)
+            return
 
         if not lines and not last_lines:
-            self.processed = False
+            self.input_health = "INCOMPLETE"
             return
 
         runcode: str = self.file_path.stem
@@ -93,4 +105,11 @@ class TLFProcessor(BaseProcessor):
                     logfile_path=self.file_path,
                 )
                 if not self.df.empty:
+                    if include_hpc_companion_metrics:
+                        self._append_hpc_companion_metrics()
                     self.processed = True
+                else:
+                    self.input_health = "INVALID"
+
+        if not self.processed and self.input_health == "OK":
+            self.input_health = "INCOMPLETE"

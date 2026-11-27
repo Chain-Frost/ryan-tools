@@ -1,0 +1,393 @@
+"""Dashboard lifecycle and export-failure regressions for PO QA workflows (#198)."""
+
+# pyright: reportPrivateUsage=false
+
+from __future__ import annotations
+
+from pathlib import Path
+from threading import Event
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from ryan_library.functions.live_dashboard import LiveWorkflowDashboard
+from ryan_library.functions.loguru_helpers import worker_initializer
+from ryan_library.functions.tuflow.po_timeseries_checks import describe_invalid_input
+from ryan_library.orchestrators.tuflow import peak_check_po_csvs as peak
+from ryan_library.orchestrators.tuflow import tuflow_timeseries_stability as stability
+
+
+@pytest.mark.parametrize("workflow", ["peak", "stability"])
+def test_qa_dashboard_refreshes_during_slow_ordered_worker(tmp_path: Path, workflow: str) -> None:
+    """The coordinator must refresh while the next pool result is blocked."""
+    started = Event()
+    release = Event()
+    refreshed_while_waiting: list[bool] = []
+    rows: list[dict[str, object]] = [{"run_code": "run1", "status": "OK", "points": 5}]
+    module = peak if workflow == "peak" else stability
+    file_path = tmp_path / "input_PO.csv"
+
+    class DelayedResults:
+        def __iter__(self) -> DelayedResults:
+            return self
+
+        def __next__(self) -> list[dict[str, object]]:
+            started.set()
+            assert release.wait(timeout=5), "Coordinator did not refresh while worker blocked"
+            return rows
+
+    def on_refresh(_dashboard: LiveWorkflowDashboard, *, force: bool = False) -> None:
+        if force and started.is_set():
+            refreshed_while_waiting.append(True)
+            if len(refreshed_while_waiting) >= 2:
+                release.set()
+
+    with (
+        patch.object(module, "collect_po_csv_files" if workflow == "peak" else "collect_timeseries_files") as find,
+        patch.object(module.cf, "ProcessPoolExecutor") as pool,
+        patch.object(module, "ExcelExporter") as exporter,
+        patch.object(LiveWorkflowDashboard, "refresh", autospec=True, side_effect=on_refresh),
+    ):
+        find.return_value = [file_path] if workflow == "peak" else [(file_path, "PO")]
+        pool.return_value.__enter__.return_value.map.return_value = DelayedResults()
+        assert module.main_processing(
+            paths_to_process=[tmp_path], use_live_dashboard=True, live_refresh_per_second=100.0
+        )
+        exporter.return_value.save_to_excel.assert_called_once()
+
+    assert started.is_set()
+    assert release.is_set()
+    assert len(refreshed_while_waiting) >= 2
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+def test_po_peak_dashboard_export_is_not_early_success(tmp_path: Path, enabled: bool) -> None:
+    path = tmp_path / "model_PO.csv"
+    with (
+        patch.object(peak, "collect_po_csv_files", return_value=[path]),
+        patch.object(peak.cf, "ProcessPoolExecutor") as pool,
+        patch.object(peak, "ExcelExporter") as exporter,
+        patch.object(LiveWorkflowDashboard, "finish", autospec=True) as finish,
+    ):
+        pool.return_value.__enter__.return_value.map.return_value = [
+            [{"run_code": "run1", "status": "OK", "peak_time": 1.0}]
+        ]
+        assert peak.main_processing(paths_to_process=[tmp_path], use_live_dashboard=enabled)
+        exporter.return_value.save_to_excel.assert_called_once()
+        assert finish.call_args is not None
+        assert finish.call_args.kwargs["outcome"] == "SUCCESS"
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+def test_stability_dashboard_export_is_not_early_success(tmp_path: Path, enabled: bool) -> None:
+    path = tmp_path / "model_1d_Q.csv"
+    with (
+        patch.object(stability, "collect_timeseries_files", return_value=[(path, "Q")]),
+        patch.object(stability.cf, "ProcessPoolExecutor") as pool,
+        patch.object(stability, "ExcelExporter") as exporter,
+        patch.object(LiveWorkflowDashboard, "finish", autospec=True) as finish,
+    ):
+        pool.return_value.__enter__.return_value.map.return_value = [
+            [{"run_code": "run1", "status": "OK", "points": 5}]
+        ]
+        assert stability.main_processing(paths_to_process=[tmp_path], result_types=["Q"], use_live_dashboard=enabled)
+        exporter.return_value.save_to_excel.assert_called_once()
+        assert finish.call_args is not None
+        assert finish.call_args.kwargs["outcome"] == "SUCCESS"
+
+
+@pytest.mark.parametrize("workflow", ["peak", "stability"])
+def test_qa_failure_never_reports_success_or_writes_result(tmp_path: Path, workflow: str) -> None:
+    path = tmp_path / "input.csv"
+    if workflow == "peak":
+        with (
+            patch.object(peak, "collect_po_csv_files", return_value=[path]),
+            patch.object(peak.cf, "ProcessPoolExecutor") as pool,
+            patch.object(peak, "ExcelExporter") as exporter,
+            patch.object(LiveWorkflowDashboard, "finish", autospec=True) as finish,
+        ):
+            pool.return_value.__enter__.return_value.map.side_effect = OSError("worker failure")
+            with pytest.raises(OSError, match="worker failure"):
+                peak.main_processing(paths_to_process=[tmp_path], use_live_dashboard=False)
+            exporter.assert_not_called()
+            assert finish.call_args is not None
+            assert finish.call_args.kwargs["outcome"] == "FAILED"
+    else:
+        with (
+            patch.object(stability, "collect_timeseries_files", return_value=[(path, "PO")]),
+            patch.object(stability.cf, "ProcessPoolExecutor") as pool,
+            patch.object(stability, "ExcelExporter") as exporter,
+            patch.object(LiveWorkflowDashboard, "finish", autospec=True) as finish,
+        ):
+            pool.return_value.__enter__.return_value.map.side_effect = OSError("worker failure")
+            with pytest.raises(OSError, match="worker failure"):
+                stability.main_processing(paths_to_process=[tmp_path], use_live_dashboard=False)
+            exporter.assert_not_called()
+            assert finish.call_args is not None
+            assert finish.call_args.kwargs["outcome"] == "FAILED"
+
+
+@pytest.mark.parametrize("workflow", ["peak", "stability"])
+def test_qa_export_failure_marks_dashboard_failed(tmp_path: Path, workflow: str) -> None:
+    path = tmp_path / "input.csv"
+    if workflow == "peak":
+        with (
+            patch.object(peak, "collect_po_csv_files", return_value=[path]),
+            patch.object(peak.cf, "ProcessPoolExecutor") as pool,
+            patch.object(peak, "ExcelExporter") as exporter,
+            patch.object(LiveWorkflowDashboard, "finish", autospec=True) as finish,
+        ):
+            pool.return_value.__enter__.return_value.map.return_value = [[{"run_code": "run1"}]]
+            exporter.return_value.save_to_excel.side_effect = OSError("locked output")
+            with pytest.raises(OSError, match="locked output"):
+                peak.main_processing(paths_to_process=[tmp_path], use_live_dashboard=False)
+            assert finish.call_args is not None
+            assert finish.call_args.kwargs["outcome"] == "FAILED"
+    else:
+        with (
+            patch.object(stability, "collect_timeseries_files", return_value=[(path, "PO")]),
+            patch.object(stability.cf, "ProcessPoolExecutor") as pool,
+            patch.object(stability, "ExcelExporter") as exporter,
+            patch.object(LiveWorkflowDashboard, "finish", autospec=True) as finish,
+        ):
+            pool.return_value.__enter__.return_value.map.return_value = [[{"run_code": "run1"}]]
+            exporter.return_value.save_to_excel.side_effect = OSError("locked output")
+            with pytest.raises(OSError, match="locked output"):
+                stability.main_processing(paths_to_process=[tmp_path], use_live_dashboard=False)
+            assert finish.call_args is not None
+            assert finish.call_args.kwargs["outcome"] == "FAILED"
+
+
+@pytest.mark.parametrize("workflow", ["peak", "stability"])
+def test_qa_no_files_is_a_skip_not_success(tmp_path: Path, workflow: str) -> None:
+    if workflow == "peak":
+        with (
+            patch.object(peak, "collect_po_csv_files", return_value=[]),
+            patch.object(peak, "ExcelExporter") as exporter,
+            patch.object(LiveWorkflowDashboard, "finish", autospec=True) as finish,
+        ):
+            assert peak.main_processing(paths_to_process=[tmp_path], use_live_dashboard=False)
+            exporter.assert_not_called()
+            assert finish.call_args is not None
+            assert finish.call_args.kwargs["outcome"] == "SKIPPED"
+    else:
+        with (
+            patch.object(stability, "collect_timeseries_files", return_value=[]),
+            patch.object(stability, "ExcelExporter") as exporter,
+            patch.object(LiveWorkflowDashboard, "finish", autospec=True) as finish,
+        ):
+            assert stability.main_processing(paths_to_process=[tmp_path], use_live_dashboard=False)
+            exporter.assert_not_called()
+            assert finish.call_args is not None
+            assert finish.call_args.kwargs["outcome"] == "SKIPPED"
+
+
+@pytest.mark.parametrize("workflow", ["peak", "stability"])
+def test_qa_rejects_bad_live_settings_before_discovery(tmp_path: Path, workflow: str) -> None:
+    if workflow == "peak":
+        with patch.object(peak, "collect_po_csv_files") as find, pytest.raises(ValueError, match="live_max_rows"):
+            peak.main_processing(paths_to_process=[tmp_path], live_max_rows=0)
+        find.assert_not_called()
+    else:
+        with (
+            patch.object(stability, "collect_timeseries_files") as find,
+            pytest.raises(ValueError, match="live_max_rows"),
+        ):
+            stability.main_processing(paths_to_process=[tmp_path], live_max_rows=0)
+        find.assert_not_called()
+
+
+@pytest.mark.parametrize("workflow", ["peak", "stability"])
+@pytest.mark.parametrize("statuses", [["OK", "TIME_PARSE_FAIL"], ["CSV_PARSE_FAIL"], ["EMPTY_FILE"], ["NO_COLUMNS"]])
+def test_qa_malformed_input_never_claims_full_success(tmp_path: Path, workflow: str, statuses: list[str]) -> None:
+    files = [tmp_path / f"run_{index}_PO.csv" for index in range(len(statuses))]
+    diagnostic_rows = [
+        [{"run_code": path.stem, "status": status}] for path, status in zip(files, statuses, strict=True)
+    ]
+    if workflow == "peak":
+        with (
+            patch.object(peak, "collect_po_csv_files", return_value=files),
+            patch.object(peak.cf, "ProcessPoolExecutor") as pool,
+            patch.object(peak, "ExcelExporter") as exporter,
+            patch.object(LiveWorkflowDashboard, "finish", autospec=True) as finish,
+        ):
+            pool.return_value.__enter__.return_value.map.return_value = diagnostic_rows
+            assert peak.main_processing(paths_to_process=[tmp_path], use_live_dashboard=False) is False
+            exporter.return_value.save_to_excel.assert_called_once()
+            assert finish.call_args is not None
+            assert finish.call_args.kwargs["outcome"] == "FAILED"
+    else:
+        with (
+            patch.object(stability, "collect_timeseries_files", return_value=[(path, "PO") for path in files]),
+            patch.object(stability.cf, "ProcessPoolExecutor") as pool,
+            patch.object(stability, "ExcelExporter") as exporter,
+            patch.object(LiveWorkflowDashboard, "finish", autospec=True) as finish,
+        ):
+            pool.return_value.__enter__.return_value.map.return_value = diagnostic_rows
+            assert stability.main_processing(paths_to_process=[tmp_path], use_live_dashboard=False) is False
+            exporter.return_value.save_to_excel.assert_called_once()
+            assert finish.call_args is not None
+            assert finish.call_args.kwargs["outcome"] == "FAILED"
+
+
+@pytest.mark.parametrize("workflow", ["peak", "stability"])
+def test_qa_no_data_diagnostic_export_is_a_skip(tmp_path: Path, workflow: str) -> None:
+    path = tmp_path / "empty_PO.csv"
+    if workflow == "peak":
+        with (
+            patch.object(peak, "collect_po_csv_files", return_value=[path]),
+            patch.object(peak.cf, "ProcessPoolExecutor") as pool,
+            patch.object(peak, "ExcelExporter") as exporter,
+            patch.object(LiveWorkflowDashboard, "finish", autospec=True) as finish,
+        ):
+            pool.return_value.__enter__.return_value.map.return_value = [[{"status": "NO_DATA"}]]
+            assert peak.main_processing(paths_to_process=[tmp_path], use_live_dashboard=False)
+            exporter.return_value.save_to_excel.assert_called_once()
+            assert finish.call_args is not None
+            assert finish.call_args.kwargs["outcome"] == "SKIPPED"
+    else:
+        with (
+            patch.object(stability, "collect_timeseries_files", return_value=[(path, "PO")]),
+            patch.object(stability.cf, "ProcessPoolExecutor") as pool,
+            patch.object(stability, "ExcelExporter") as exporter,
+            patch.object(LiveWorkflowDashboard, "finish", autospec=True) as finish,
+        ):
+            pool.return_value.__enter__.return_value.map.return_value = [[{"status": "NO_DATA"}]]
+            assert stability.main_processing(paths_to_process=[tmp_path], use_live_dashboard=False)
+            exporter.return_value.save_to_excel.assert_called_once()
+            assert finish.call_args is not None
+            assert finish.call_args.kwargs["outcome"] == "SKIPPED"
+
+
+@pytest.mark.parametrize("workflow", ["peak", "stability"])
+def test_qa_logging_and_compact_dashboard_file_rows(tmp_path: Path, workflow: str) -> None:
+    """Workers must inherit the selected console threshold and rows must not wrap full paths."""
+    module = peak if workflow == "peak" else stability
+    path = tmp_path / "nested" / "a_really_long_model_name_TP01_PO.csv"
+    discovery = [path] if workflow == "peak" else [(path, "PO")]
+    expected_label = path.name if workflow == "peak" else f"PO: {path.name}"
+    original_set_tasks = LiveWorkflowDashboard.set_tasks
+    with (
+        patch.object(
+            module,
+            "collect_po_csv_files" if workflow == "peak" else "collect_timeseries_files",
+            return_value=discovery,
+        ),
+        patch.object(module.cf, "ProcessPoolExecutor") as pool,
+        patch.object(module, "ExcelExporter"),
+        patch.object(LiveWorkflowDashboard, "set_tasks", autospec=True, side_effect=original_set_tasks) as set_tasks,
+    ):
+        pool.return_value.__enter__.return_value.map.return_value = [[{"run_code": "run", "status": "OK"}]]
+        assert module.main_processing(paths_to_process=[tmp_path], use_live_dashboard=False, console_log_level="INFO")
+
+    assert pool.call_args is not None
+    assert pool.call_args.kwargs["initializer"] is worker_initializer
+    assert pool.call_args.kwargs["initargs"][0].capture_log_level == "INFO"
+    assert set_tasks.call_args is not None
+    assert set_tasks.call_args.kwargs["labels"] == [expected_label]
+    assert set_tasks.call_args.kwargs["files"] == [path]
+    dashboard = set_tasks.call_args.args[0]
+    display_columns = [column for column in dashboard.columns if column.source in {"label", "detail"}]
+    assert len(display_columns) == 2
+    assert all(column.no_wrap and column.overflow == "ellipsis" for column in display_columns)
+
+
+@pytest.mark.parametrize("workflow", ["peak", "stability"])
+def test_qa_failure_logs_full_path_and_diagnostic_reasons(tmp_path: Path, workflow: str) -> None:
+    """A malformed file must be identifiable even if its dashboard row scrolls away."""
+    module = peak if workflow == "peak" else stability
+    path = tmp_path / "nested" / "a_really_long_model_name_TP01_PO.csv"
+    discovery = [path] if workflow == "peak" else [(path, "PO")]
+    invalid_rows = [
+        {"run_code": "run", "status": "CSV_PARSE_FAIL", "input_health": "INVALID"},
+        {"run_code": "run", "status": "NO_DATA", "input_health": "INVALID", "rejection_reasons": "non_numeric=3"},
+    ]
+    with (
+        patch.object(
+            module,
+            "collect_po_csv_files" if workflow == "peak" else "collect_timeseries_files",
+            return_value=discovery,
+        ),
+        patch.object(module.cf, "ProcessPoolExecutor") as pool,
+        patch.object(module, "ExcelExporter") as exporter,
+        patch.object(module.logger, "error") as error,
+    ):
+        pool.return_value.__enter__.return_value.map.return_value = [invalid_rows]
+        assert module.main_processing(paths_to_process=[tmp_path], use_live_dashboard=False) is False
+        exporter.return_value.save_to_excel.assert_called_once()
+
+    error.assert_any_call(
+        "Malformed CSV input {}: {}",
+        path,
+        "CSV_PARSE_FAIL, NO_DATA (non_numeric=3)",
+    )
+
+
+def test_qa_invalid_input_reason_only_reports_actual_failures() -> None:
+    rows: list[dict[str, object]] = [
+        {"status": "OK"},
+        {"status": "CSV_PARSE_FAIL"},
+        {"status": "NO_DATA", "input_health": "INVALID", "rejection_reasons": "bad_value=2"},
+    ]
+    assert describe_invalid_input(rows) == "CSV_PARSE_FAIL, NO_DATA (bad_value=2)"
+
+
+@pytest.mark.parametrize(("workflow", "result_type"), [("peak", "PO"), ("stability", "PO"), ("stability", "Q")])
+def test_qa_worker_attributes_exception_to_actual_csv_path(tmp_path: Path, workflow: str, result_type: str) -> None:
+    """A later failing item in a map chunk must identify itself, not the chunk's first input."""
+    failing_path = tmp_path / ("second_1d_Q.csv" if result_type == "Q" else "second_PO.csv")
+    error = OSError("synthetic failure in second CSV")
+    if workflow == "peak":
+        with (
+            patch.object(peak, "analyze_peak_csv", side_effect=error),
+            patch.object(peak.logger, "exception") as exception_log,
+            pytest.raises(OSError, match="synthetic failure"),
+        ):
+            peak._analyze_peak_worker(str(failing_path), MagicMock())
+        exception_log.assert_called_once_with("Failed to analyse CSV input {}", failing_path)
+    else:
+        with (
+            patch.object(
+                stability,
+                "analyze_stability_q_csv" if result_type == "Q" else "analyze_stability_csv",
+                side_effect=error,
+            ),
+            patch.object(stability.logger, "exception") as exception_log,
+            pytest.raises(OSError, match="synthetic failure"),
+        ):
+            stability._analyze_stability_worker(str(failing_path), result_type, MagicMock())
+        exception_log.assert_called_once_with("Failed to analyse {} CSV input {}", result_type, failing_path)
+
+
+@pytest.mark.parametrize("workflow", ["peak", "stability"])
+def test_qa_chunk_error_does_not_misidentify_first_file(tmp_path: Path, workflow: str) -> None:
+    """If a later chunk item fails, the coordinator cannot know which item raised."""
+    module = peak if workflow == "peak" else stability
+    files = [tmp_path / "first_PO.csv", tmp_path / "second_PO.csv"]
+    discovery = files if workflow == "peak" else [(path, "PO") for path in files]
+
+    class FailingChunk:
+        def __iter__(self) -> FailingChunk:
+            return self
+
+        def __next__(self) -> list[dict[str, object]]:
+            message = "synthetic failure on second item in chunk"
+            raise OSError(message)
+
+    with (
+        patch.object(
+            module,
+            "collect_po_csv_files" if workflow == "peak" else "collect_timeseries_files",
+            return_value=discovery,
+        ),
+        patch.object(module.cf, "ProcessPoolExecutor") as pool,
+        patch.object(module.logger, "exception") as exception_log,
+    ):
+        pool.return_value.__enter__.return_value.map.return_value = FailingChunk()
+        with pytest.raises(OSError, match="synthetic failure"):
+            module.main_processing(paths_to_process=[tmp_path], chunksize=2, use_live_dashboard=False)
+
+    assert pool.return_value.__enter__.return_value.map.call_args.kwargs["chunksize"] == 2
+    exception_log.assert_called_once_with(
+        "PO peak-check workflow failed." if workflow == "peak" else "Timeseries stability workflow failed."
+    )

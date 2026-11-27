@@ -5,9 +5,8 @@ from __future__ import annotations
 
 __lazy_modules__: list[str] = ["pandas"]
 
-from typing import override
-
 import pandas as pd
+from typing_extensions import override
 
 from ..base_processor import ProcessorStatus
 from ..timeseries_processor import TimeSeriesProcessor

@@ -1,5 +1,7 @@
 """Generate a golden snapshot of processed EG02 data for regression testing."""
 
+# External optional keyword signatures are incomplete; exceptions stay on individual calls.
+
 from pathlib import Path
 
 import pandas as pd
@@ -11,6 +13,7 @@ from ryan_library.functions.file_utils import ensure_output_directory
 from ryan_library.functions.loguru_helpers import setup_logger
 from ryan_library.functions.tuflow.pomm_utils import process_files_in_parallel
 from ryan_library.functions.tuflow.tuflow_common import collect_files
+from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 
 # Constants
@@ -82,7 +85,7 @@ def generate_snapshot() -> None:
         # Or we can use the ProcessorCollection's combine methods.
 
         # Let's try to group by the 'data_type' attribute of the processors.
-        processors_by_type = {}
+        processors_by_type: dict[str, list[BaseProcessor]] = {}
         for p in results.processors:
             p_type: str = p.data_type
             if p_type not in processors_by_type:
@@ -138,7 +141,7 @@ def generate_snapshot() -> None:
                     # Save to Excel sheet
                     # Sheet name length limit is 31 chars
                     sheet_name = p_type[:31]
-                    combined_df.to_excel(writer, sheet_name=sheet_name, index=False)
+                    combined_df.to_excel(writer, sheet_name=sheet_name, index=False)  # pyright: ignore[reportUnknownMemberType]
                     logger.info(f"Added sheet '{sheet_name}' to {excel_path}")
                 else:
                     logger.warning(f"No data to save for type {p_type}")

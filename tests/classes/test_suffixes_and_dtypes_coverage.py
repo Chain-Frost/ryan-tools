@@ -1,6 +1,7 @@
 """Additional coverage tests for ryan_library.classes.suffixes_and_dtypes."""
 
 import json
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -15,7 +16,7 @@ from ryan_library.classes.suffixes_and_dtypes import (
 
 
 class TestConfigLoaderCoverage:
-    def test_load_json_config_success(self, tmp_path):
+    def test_load_json_config_success(self, tmp_path: Path):
         """Test successful JSON load."""
         f = tmp_path / "config.json"
         data = {"test": "data"}
@@ -24,20 +25,20 @@ class TestConfigLoaderCoverage:
         loader = ConfigLoader(f)
         assert loader.config_data == data
 
-    def test_load_json_config_not_found(self, tmp_path):
+    def test_load_json_config_not_found(self, tmp_path: Path):
         """Test FileNotFoundError."""
         f = tmp_path / "nonexistent.json"
         with pytest.raises(FileNotFoundError):
             ConfigLoader(f)
 
-    def test_load_json_config_decode_error(self, tmp_path):
+    def test_load_json_config_decode_error(self, tmp_path: Path):
         """Test JSONDecodeError."""
         f = tmp_path / "bad.json"
         f.write_text("{invalid json", encoding="utf-8")
         with pytest.raises(ValueError):
             ConfigLoader(f)
 
-    def test_get_data_types_invalid(self, tmp_path):
+    def test_get_data_types_invalid(self, tmp_path: Path):
         """Test get_data_types with invalid structure."""
         f = tmp_path / "config.json"
         # Top level is list, expected dict
@@ -48,7 +49,7 @@ class TestConfigLoaderCoverage:
 
 class TestProcessingPartsCoverage:
     @patch("ryan_library.classes.suffixes_and_dtypes.logger")
-    def test_from_dict_invalid_module(self, mock_logger):
+    def test_from_dict_invalid_module(self, mock_logger: MagicMock):
         """Test invalid module value."""
         data = {"module": 123}  # Not a string
         with pytest.raises(ValueError):
@@ -56,7 +57,7 @@ class TestProcessingPartsCoverage:
         mock_logger.error.assert_called()
 
     @patch("ryan_library.classes.suffixes_and_dtypes.logger")
-    def test_from_dict_dataformat_invalid_category(self, mock_logger):
+    def test_from_dict_dataformat_invalid_category(self, mock_logger: MagicMock):
         """Test invalid dataformat category."""
         data = {"dataformat": {"category": 123}}
         with pytest.raises(ValueError):
@@ -64,7 +65,7 @@ class TestProcessingPartsCoverage:
         mock_logger.error.assert_called()
 
     @patch("ryan_library.classes.suffixes_and_dtypes.logger")
-    def test_from_dict_invalid_dataformat_type(self, mock_logger):
+    def test_from_dict_invalid_dataformat_type(self, mock_logger: MagicMock):
         """Test invalid dataformat type (not str or dict)."""
         data = {"dataformat": 123}
         with pytest.raises(ValueError):
@@ -72,10 +73,10 @@ class TestProcessingPartsCoverage:
         mock_logger.error.assert_called()
 
     @patch("ryan_library.classes.suffixes_and_dtypes.logger")
-    def test_from_dict_invalid_columns_to_use(self, mock_logger):
+    def test_from_dict_invalid_columns_to_use(self, mock_logger: MagicMock):
         """Test invalid columns_to_use."""
         # Case 1: Not a dict
-        data = {"columns_to_use": []}
+        data: dict[str, object] = {"columns_to_use": []}
         with pytest.raises(ValueError):
             ProcessingParts.from_dict(data, "TestType")
         mock_logger.error.assert_called()
@@ -88,7 +89,7 @@ class TestProcessingPartsCoverage:
         mock_logger.error.assert_called()
 
     @patch("ryan_library.classes.suffixes_and_dtypes.logger")
-    def test_from_dict_invalid_expected_in_header(self, mock_logger):
+    def test_from_dict_invalid_expected_in_header(self, mock_logger: MagicMock):
         """Test invalid expected_in_header."""
         data = {"expected_in_header": "not a list"}
         with pytest.raises(ValueError):
@@ -98,7 +99,7 @@ class TestProcessingPartsCoverage:
 
 class TestDataTypeDefinitionCoverage:
     @patch("ryan_library.classes.suffixes_and_dtypes.logger")
-    def test_from_dict_invalid_fields(self, mock_logger):
+    def test_from_dict_invalid_fields(self, mock_logger: MagicMock):
         """Test invalid fields in DataTypeDefinition."""
         data = {
             "processor": 123,  # Invalid
@@ -123,7 +124,7 @@ class TestSuffixesConfigCoverage:
         assert inverted["TypeB"] == [".c"]
 
     @patch("ryan_library.classes.suffixes_and_dtypes.logger")
-    def test_get_definition_for_data_type_missing(self, mock_logger):
+    def test_get_definition_for_data_type_missing(self, mock_logger: MagicMock):
         """Test get_definition_for_data_type with missing type."""
         config = MagicMock(spec=Config)
         config.data_types = {}
@@ -133,7 +134,7 @@ class TestSuffixesConfigCoverage:
         mock_logger.error.assert_called()
 
     @patch("ryan_library.classes.suffixes_and_dtypes.logger")
-    def test_get_processor_class_missing(self, mock_logger):
+    def test_get_processor_class_missing(self, mock_logger: MagicMock):
         """Test get_processor_class_for_data_type with missing type."""
         config = MagicMock(spec=Config)
         config.data_types = {}
@@ -145,7 +146,7 @@ class TestSuffixesConfigCoverage:
 
 class TestConfigCoverage:
     @patch("ryan_library.classes.suffixes_and_dtypes.logger")
-    def test_load_invalid_data_type_entry(self, mock_logger, tmp_path):
+    def test_load_invalid_data_type_entry(self, mock_logger: MagicMock, tmp_path: Path):
         """Test loading config with invalid data type entry (not a dict)."""
         f = tmp_path / "config.json"
         data = {"InvalidType": "not a dict"}

@@ -14,7 +14,20 @@ import pytest
 
 REPO = Path(__file__).absolute().parents[2]
 codex: dict[str, Any] = runpy.run_path(str(REPO / "repo-scripts" / "setup_codex_mcp.py"))
-installer: dict[str, Any] = runpy.run_path(str(REPO / "repo-scripts" / "install_latest_wheel.py"))
+
+
+def _load_installer() -> dict[str, Any]:
+    # runpy does not add the target script's directory to sys.path. Recreate
+    # ordinary script execution so its sibling wheel-verification import works.
+    script_directory = str(REPO / "repo-scripts")
+    sys.path.insert(0, script_directory)
+    try:
+        return runpy.run_path(str(REPO / "repo-scripts" / "install_latest_wheel.py"))
+    finally:
+        sys.path.remove(script_directory)
+
+
+installer: dict[str, Any] = _load_installer()
 render = cast(Callable[[str, Path, Path, str], str], codex["render_config"])
 pip_commands = cast(Callable[..., list[list[str]]], installer["_pip_commands"])
 
@@ -67,7 +80,7 @@ def test_wheel_installer_includes_qgis_mcp(tmp_path: Path) -> None:
     commands = pip_commands(wheel, False)
     assert len(commands) == 4
     assert "nkarasiak/qgis-mcp" in commands[1][-1]
-    parser = cast(str, installer["ACCEPTED_PYTUFLOW_SOURCE"])
+    parser = str(cast(Path, installer["WHEEL_PATH"]))
     assert commands[-1][-2:] == [f"{wheel}[mcp]", parser]
 
 
@@ -127,8 +140,15 @@ def test_pypi_installer_commands_use_distribution_not_local_wheel(
     assert "fiona" in commands[0]
     assert "nkarasiak/qgis-mcp" in commands[1][-1]
     assert commands[-1][-2] == "ryan-tools[mcp]"
-    assert commands[-1][-1] == installer["ACCEPTED_PYTUFLOW_SOURCE"]
-    assert all(not any(".whl" in argument for argument in command) for command in commands)
+    accepted_parser = str(cast(Path, installer["WHEEL_PATH"]))
+    assert commands[-1][-1] == accepted_parser
+    # This remains the PyPI installer for ryan-tools; only the approved
+    # PyTuflow dependency wheel is supplied from the repository.
+    assert not any(
+        Path(argument).name.startswith("ryan_tools-") and argument.casefold().endswith(".whl")
+        for command in commands
+        for argument in command
+    )
     assert len(commands_fn(skip_qgis_mcp=True)) == 3
 
 
@@ -158,18 +178,21 @@ def test_pypi_installer_python_support_is_open_ended(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(sys, "path", [str(REPO / "repo-scripts"), *sys.path])
     pypi = runpy.run_path(str(REPO / "repo-scripts" / "install_from_pypi.py"))
     supported = cast(Callable[[int, int], bool], pypi["supported_python"])
-    assert not supported(3, 12)
-    assert not supported(3, 13)
+    assert not supported(3, 10)
+    assert supported(3, 11)
+    assert supported(3, 12)
+    assert supported(3, 13)
     assert supported(3, 14)
     assert supported(3, 15)
     assert supported(3, 16)
 
 
-def test_pypi_batch_launcher_accepts_supported_versions() -> None:
+def test_pypi_batch_launcher_accepts_python_3_without_minor_version_gate() -> None:
     script = (REPO / "install-from-pypi.bat").read_text(encoding="utf-8")
     assert 'set "PYTHON_CMD=py -3"' in script
     assert "RYAN_TOOLS_PYTHON" in script
-    assert "sys.version_info >= (3, 14)" in script
+    assert "sys.version_info.major == 3" in script
+    assert "sys.version_info >= (3, 14)" not in script
     assert "py -3.14" not in script
 
 
@@ -401,8 +424,10 @@ def test_pypi_installer_migrates_automatically_after_resolution(monkeypatch: pyt
     assert main_fn(["--skip-codex", "--skip-qgis-mcp"]) == 0
     assert "--dry-run" in calls[0]
     assert "--force-reinstall" in calls[0]
-    assert calls[-4][-3:] == ["uninstall", "--yes", "ryan_functions"]
-    assert "ryan-tools[mcp]" in calls[-3]
-    assert "--force-reinstall" in calls[-3]
-    assert calls[-2][-2:] == ["pip", "check"]
+    assert calls[-5][-3:] == ["uninstall", "--yes", "ryan_functions"]
+    assert "ryan-tools[mcp]" in calls[-4]
+    assert "--force-reinstall" in calls[-4]
+    assert calls[-3][-2:] == ["pip", "check"]
+    assert Path(calls[-2][-2]).name == "vendor_pytuflow_wheel.py"
+    assert calls[-2][-1] == "--installed"
     assert "require_validation_api" in calls[-1][-1]

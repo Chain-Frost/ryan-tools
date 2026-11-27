@@ -19,25 +19,25 @@ from __future__ import annotations
 
 from pathlib import Path
 
-SCRIPT_VERSION = "2026-11-02.1"
+SCRIPT_VERSION = "2026-11-07.1"
 
 # ---------------------------------------------------------------------------
 # Editable settings (command-line arguments override these values)
 # ---------------------------------------------------------------------------
 MAX_ARCHIVE_PART_SIZE_GIB = 5
 MAX_ARCHIVE_PART_SIZE_BYTES = MAX_ARCHIVE_PART_SIZE_GIB * 1024**3
-DEFAULT_INPUT_PATHS: tuple[Path, ...] = (
+DEFAULT_INPUT_PATHS: list[Path] = [
     Path(r"Q:\BGER\PER\RP20181.498 GD AND FORTESCUE RIVER GAP RAIL HYDROLOGY MDL - RTIO\TUFLOW_MLGD\results\v06"),
     Path(r"Q:\BGER\PER\RP20181.498 GD AND FORTESCUE RIVER GAP RAIL HYDROLOGY MDL - RTIO\TUFLOW_MLGD\results\v07"),
     Path(r"Q:\BGER\PER\RP20181.498 GD AND FORTESCUE RIVER GAP RAIL HYDROLOGY MDL - RTIO\TUFLOW_MLGD\results\v12"),
-)
+]
 DEFAULT_OUTPUT_PATH = Path(
     r"P:\BGER\PER\RP20181.498 GD AND FORTESCUE RIVER GAP RAIL HYDROLOGY MDL - RTIO"
     r"\7 DOCUMENT CONTROL\Documents_History\Results.zip"
 )
 DEFAULT_7ZIP_EXE: Path | None = None  # None = auto-discover 7z.exe
-DEFAULT_EXCLUDED_FOLDERS: tuple[str, ...] = ()
-DEFAULT_EXCLUDED_EXTENSIONS: tuple[str, ...] = ()
+DEFAULT_EXCLUDED_FOLDERS: list[str] = []
+DEFAULT_EXCLUDED_EXTENSIONS: list[str] = []
 DEFAULT_DRY_RUN = False
 DEFAULT_SHOW_PROGRESS = True
 # ---------------------------------------------------------------------------
@@ -348,11 +348,11 @@ def main(
             None if force_auto_discovery else seven_zip_exe if seven_zip_exe is not None else DEFAULT_7ZIP_EXE
         )
         executable = configured_exe.absolute() if configured_exe is not None else find_7zip()
-        configured_excluded_folders = (
-            tuple(excluded_folders) if excluded_folders is not None else DEFAULT_EXCLUDED_FOLDERS
+        configured_excluded_folders = tuple(
+            excluded_folders if excluded_folders is not None else DEFAULT_EXCLUDED_FOLDERS
         )
-        configured_excluded_extensions = (
-            tuple(excluded_extensions) if excluded_extensions is not None else DEFAULT_EXCLUDED_EXTENSIONS
+        configured_excluded_extensions = tuple(
+            excluded_extensions if excluded_extensions is not None else DEFAULT_EXCLUDED_EXTENSIONS
         )
         configured_dry_run = dry_run if dry_run is not None else DEFAULT_DRY_RUN
         configured_show_progress = show_progress if show_progress is not None else DEFAULT_SHOW_PROGRESS

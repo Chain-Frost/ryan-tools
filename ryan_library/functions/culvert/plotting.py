@@ -4,13 +4,22 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol, cast
 
 from ...classes.culvert.results import CrossingRatingResult, ScenarioResult
 
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
+    from matplotlib.lines import Line2D
+
+
+class _AxesLineView(Protocol):
+    """Matplotlib's lines property contains Line2D instances, not arbitrary artists."""
+
+    @property
+    def lines(self) -> Sequence[Line2D]: ...
 
 
 def _notice_text(result: ScenarioResult) -> str:
@@ -88,7 +97,7 @@ def plot_rating_curve(result: CrossingRatingResult) -> Figure:
     )
     velocity_axis.set_ylabel("Outlet velocity (m/s)")
     headwater_axis.grid(visible=True, alpha=0.25)
-    lines = [*headwater_axis.lines, *velocity_axis.lines]
+    lines = [*cast("_AxesLineView", headwater_axis).lines, *cast("_AxesLineView", velocity_axis).lines]
     headwater_axis.legend(lines, [str(line.get_label()) for line in lines])
     warning_codes = tuple(dict.fromkeys(warning.code.value for point in points for warning in point.warnings))
     notice = "No hydraulic warnings" if not warning_codes else "Warnings: " + ", ".join(warning_codes)

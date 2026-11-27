@@ -111,8 +111,8 @@ def test_tuflow_culvert_native_workflows_are_catalogued_under_create_profile() -
     registry = WorkflowRegistry(repository_root=PROJECT_ROOT)
 
     expected = {
-        "tuflow_culvert_evaluate_maximums": "ryan-scripts/tuflow/tuflow_culvert_from_maximums.py",
-        "tuflow_culvert_evaluate_1d_nwk": "ryan-scripts/tuflow/tuflow_culvert_from_1d_nwk.py",
+        "tuflow_culvert_evaluate_maximums": "ryan-scripts/TUFLOW-python/culvert_results/tuflow_culvert_from_maximums.py",
+        "tuflow_culvert_evaluate_1d_nwk": "ryan-scripts/TUFLOW-python/culvert_results/tuflow_culvert_from_1d_nwk.py",
     }
     for workflow_id, script_path in expected.items():
         workflow = registry.get_workflow(workflow_id)
@@ -142,8 +142,8 @@ def test_tuflow_culvert_hy8_workflows_require_privileged_profile_and_approval() 
     )
 
     expected = {
-        "tuflow_culvert_evaluate_maximums_hy8": "ryan-scripts/tuflow/tuflow_culvert_from_maximums.py",
-        "tuflow_culvert_evaluate_1d_nwk_hy8": "ryan-scripts/tuflow/tuflow_culvert_from_1d_nwk.py",
+        "tuflow_culvert_evaluate_maximums_hy8": "ryan-scripts/TUFLOW-python/culvert_results/tuflow_culvert_from_maximums.py",
+        "tuflow_culvert_evaluate_1d_nwk_hy8": "ryan-scripts/TUFLOW-python/culvert_results/tuflow_culvert_from_1d_nwk.py",
     }
     for workflow_id, script_path in expected.items():
         workflow = registry.get_workflow(workflow_id)
@@ -312,10 +312,7 @@ def test_workflow_reports_provenance_and_declared_hy8_prerequisite() -> None:
 
 def test_tuflow_external_prerequisites_are_declared_without_claiming_readiness() -> None:
     registry = WorkflowRegistry(configured_profile=CapabilityProfile.PRIVILEGED, repository_root=PROJECT_ROOT)
-    for workflow_id, program in (
-        ("run_tuflow_batch", "TUFLOW executable configured by wrapper"),
-        ("tuflow_asc2asc_groups", "asc_to_asc_w64.exe"),
-    ):
+    for workflow_id, program in (("run_tuflow_batch", "TUFLOW executable configured by wrapper"),):
         prerequisite = registry.get_workflow(workflow_id)["external_prerequisites"]
         assert prerequisite["status"] == "not_verified"
         assert prerequisite["declared_program"] == program

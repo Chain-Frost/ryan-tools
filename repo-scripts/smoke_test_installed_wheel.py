@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import csv
 import importlib.metadata
 import importlib.resources
@@ -14,11 +15,12 @@ import sys
 from contextlib import closing
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any
+from typing import Any, cast
 
 import culvert_solver
 import numpy as np
 import run_hy8
+from mcp.server.mcpserver.exceptions import ToolError
 
 import ryan_library
 import vendor
@@ -28,7 +30,7 @@ from ryan_library.functions.path_stuff import sanitize_windows_filename
 from ryan_library.mcp.installed_scripts import available_wrappers, copy_wrapper
 from ryan_library.mcp.registry import WorkflowRegistry
 from ryan_library.mcp.server import REGISTRY as SERVER_REGISTRY
-from ryan_library.mcp.server import list_workflows
+from ryan_library.mcp.server import list_workflows, mcp
 
 
 def _require_installed_below(module_file: str | None, expected_root: Path, package: str) -> None:
@@ -36,6 +38,54 @@ def _require_installed_below(module_file: str | None, expected_root: Path, packa
     if module_file is None or not Path(module_file).resolve().is_relative_to(expected_root):
         msg = f"{package} resolved outside the expected install root: {module_file}"
         raise RuntimeError(msg)
+
+
+def _check_installed_rorb_readers(expected_root: Path) -> None:
+    """Verify the six compatibility modules and canonical dependency are installed together."""
+    version = importlib.metadata.version("pyrorb")
+    for module_name in (
+        "associations",
+        "output_reader",
+        "parameter_reader",
+        "reader_types",
+        "readers",
+        "result_readers",
+    ):
+        legacy = importlib.import_module(f"ryan_library.functions.RORB.{module_name}")
+        canonical = importlib.import_module(f"runoff_routing.rorb_readers.{module_name}")
+        _require_installed_below(legacy.__file__, expected_root, legacy.__name__)
+        _require_installed_below(canonical.__file__, expected_root, canonical.__name__)
+        names = [name for name in vars(legacy) if not name.startswith("_")]
+        if not names or any(getattr(legacy, name) is not getattr(canonical, name) for name in names):
+            msg = f"Installed RORB compatibility exports differ from canonical PyRORB: {module_name}"
+            raise RuntimeError(msg)
+    print(f"Installed PyRORB {version} reader origin and compatibility exports verified.")
+
+
+def _check_installed_import_isolation(expected_root: Path) -> None:
+    """Verify lightweight imports in a fresh subprocess using only the wheel root."""
+    environment = os.environ.copy()
+    environment["PYTHONPATH"] = str(expected_root)
+    environment["PYTHONNOUSERSITE"] = "1"
+    environment.pop("RYAN_TOOLS_REPOSITORY_ROOT", None)
+    probe = Path(__file__).with_name("check_compatibility_imports.py")
+    with TemporaryDirectory(prefix="ryan-wheel-import-isolation-") as directory:
+        result = subprocess.run(
+            [sys.executable, "-B", str(probe), "--expected-root", str(expected_root)],
+            cwd=directory,
+            env=environment,
+            check=False,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
+            stdin=subprocess.DEVNULL,
+        )
+    if result.returncode != 0:
+        msg = f"Wheel import isolation failed: {(result.stdout + result.stderr)[-1600:]}"
+        raise RuntimeError(msg)
+    print("Wheel import-isolation and physical-origin check passed.")
 
 
 def _check_installed_scripts() -> None:
@@ -106,6 +156,45 @@ def _check_installed_keyword_discovery() -> None:
     print("Wheel-only MCP keyword search and domain overview passed.")
 
 
+async def _check_installed_overview_validation() -> None:
+    """Reject coercion at the actual installed tool's SDK validation boundary."""
+    if mcp is None:
+        msg = "Registered-tool wheel acceptance requires the optional MCP SDK."
+        raise RuntimeError(msg)
+    installed_server = cast("Any", mcp)
+    tools: list[Any] = await installed_server.list_tools()
+    tool = next(tool for tool in tools if tool.name == "list_workflows")
+    schema = tool.input_schema["properties"]["overview"]
+    if schema["type"] != "boolean" or schema["default"] is not False:
+        msg = f"Installed MCP overview schema changed: {schema}"
+        raise RuntimeError(msg)
+    for mode in ({}, {"overview": False}, {"overview": True}):
+        response = await installed_server.call_tool(
+            "list_workflows", {"domain": "gdal", "query": "crop", "include_unavailable": True, **mode}
+        )
+        result = response.structured_content
+        if mode.get("overview", False):
+            workflows = result["domain_overview"][0]["examples"]
+            valid_mode = result["overview"] is True and "workflows" not in result
+        else:
+            workflows = result["workflows"]
+            valid_mode = "overview" not in result
+        if not valid_mode or result["workflow_count"] != 1 or workflows[0]["id"] != "clip_rasters_to_polygon":
+            msg = "Installed MCP tool did not preserve normal and overview crop discovery."
+            raise RuntimeError(msg)
+    for invalid in (0, 1, "true", "false", None):
+        try:
+            await installed_server.call_tool("list_workflows", {"overview": invalid})
+        except ToolError as exc:
+            if "overview" not in str(exc):
+                msg = "Installed MCP tool failed outside overview argument validation."
+                raise RuntimeError(msg) from exc
+        else:
+            msg = f"Installed MCP tool accepted non-boolean overview: {invalid!r}"
+            raise RuntimeError(msg)
+    print("Wheel-only registered MCP overview boolean validation passed.")
+
+
 def _check_installed_wrapper_copy() -> None:
     """Check wrapper discovery and a byte-for-byte copy from the installed wheel."""
     if "culvert.py" not in available_wrappers():
@@ -116,6 +205,24 @@ def _check_installed_wrapper_copy() -> None:
         source = Path(ryan_library.__file__).absolute().parent.parent / "ryan-scripts" / "culvert.py"
         if target.read_bytes() != source.read_bytes():
             msg = "Installed wrapper copy differs from the packaged source."
+            raise RuntimeError(msg)
+
+        from contextlib import redirect_stdout
+        from io import StringIO
+
+        from ryan_library.functions.wrapper_utils import print_wrapper_banner
+
+        renamed = target.with_name("my_project_culverts.py")
+        target.rename(renamed)
+        original_bytes = renamed.read_bytes()
+        output = StringIO()
+        with redirect_stdout(output):
+            print_wrapper_banner(wrapper_file=renamed, wrapper_version="2000-01-01.1", wrapper_source="culvert.py")
+        if "WARNING:" not in output.getvalue() or "culvert.py (" not in output.getvalue():
+            msg = "Installed wrapper banner did not warn about an older renamed copy."
+            raise RuntimeError(msg)
+        if renamed.read_bytes() != original_bytes:
+            msg = "Installed wrapper banner changed a user's copied script."
             raise RuntimeError(msg)
 
 
@@ -320,6 +427,37 @@ def _check_vendored_similarity() -> None:
         raise RuntimeError(msg)
 
 
+def _check_installed_initialiser_resources() -> None:
+    """Require the migrated CLI registration and all canonical templates in the wheel."""
+    distribution = importlib.metadata.distribution("ryan-tools")
+    scripts = [
+        entry.value
+        for entry in distribution.entry_points
+        if entry.group == "console_scripts" and entry.name == "tuflow-initialiser"
+    ]
+    expected = "ryan_library.orchestrators.tuflow.initialiser.cli:main"
+    if scripts != [expected]:
+        msg = f"Installed wheel initialiser entry point differs from {expected}: {scripts}"
+        raise RuntimeError(msg)
+    templates = importlib.resources.files("ryan_library.resources.tuflow_templates")
+    for filename in (
+        "model/BOUND_01.tbc",
+        "model/EVENTS_01.tef",
+        "model/GEOM_01.tgc",
+        "model/Materials_01.csv",
+        "model/Soil_01.tsoilf",
+        "runs/Create_Empties.tcf",
+        "runs/__project___01_~s2~_~s1~_~e1~_~e2~_~e4~_~e3~_~e5~_~s4~.tcf",
+        "runs/empties.bat",
+        "runs/model_cell_sizes_01.trd",
+        "runs/run_times_01.trd",
+    ):
+        if not templates.joinpath(filename).is_file():
+            msg = f"Installed wheel is missing initialiser template {filename}"
+            raise RuntimeError(msg)
+    print("Installed initialiser entry point and canonical TUFLOW templates verified.")
+
+
 def _check_installed_script_help() -> None:
     """Run only help for representative installed CLI wrappers, without a checkout."""
     if importlib.util.find_spec("geopandas") is None:
@@ -356,7 +494,7 @@ def main(argv: list[str] | None = None) -> int:
 
     installed_version = importlib.metadata.version("ryan-tools")
     metadata = importlib.metadata.metadata("ryan-tools")
-    if metadata["Requires-Python"] != ">=3.14":
+    if metadata["Requires-Python"] != ">=3.11":
         msg = "Installed wheel does not declare the supported Python baseline."
         raise RuntimeError(msg)
 
@@ -370,6 +508,9 @@ def main(argv: list[str] | None = None) -> int:
             ("vendor.simil", vendor_simil.__file__),
         ):
             _require_installed_below(module_file, expected_root, package)
+
+        _check_installed_import_isolation(expected_root)
+        _check_installed_rorb_readers(expected_root)
 
     resources = importlib.resources.files("ryan_library.resources")
     for relative_path in (
@@ -392,8 +533,10 @@ def main(argv: list[str] | None = None) -> int:
         msg = "Installed run_hy8 public API is incomplete."
         raise RuntimeError(msg)
 
+    _check_installed_initialiser_resources()
     _check_installed_scripts()
     _check_installed_keyword_discovery()
+    asyncio.run(_check_installed_overview_validation())
     _check_installed_wrapper_copy()
     if args.expected_root is not None:
         _check_installed_wrapper_behaviour(args.expected_root.resolve())

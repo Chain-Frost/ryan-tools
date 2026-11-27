@@ -1,6 +1,51 @@
+> **Current reconciliation (2026-11-10): scoped implementation delivered.** GitHub confirms [PR #188](https://github.com/Chain-Frost/ryan-tools/pull/188) merged at 2026-11-02T02:42:34Z (UTC), commit `b6ace51d232035ea2fcac6d520b3a1d227de6f1e`, into `main`. Policy PR #135 also merged. GitHub Release v26.11.2.2 was published on 2 November; its wheel digest matches PyPI metadata: c03a4c8ee5b6fc976ce583c9ea3dd1d55735e22f340bead05d9682dbb3dc0c1c. This checks publication metadata, not a fresh downloaded-wheel installation.
+>
+> Earlier pending-review, no-merge and next-action statements below are historical snapshots, not current delivery instructions.
+>
+> This reconciliation checks GitHub delivery and available final-head check conclusions; it does not rerun local/native tests or imply every wider engineering gate passed.
+
 # Merge-only PyPI release policy follow-up, 2026-10-18
 
-Status: Needs review. Owner: Unassigned. Next review: 2026-10-19.
+Status: Complete - repair merged and publication metadata verified. Owner: ChatGPT / maintainer. Updated: 2026-11-10. Next review: None.
+
+## Current release repair, 2026-11-02
+
+Baseline: clean parent checkout on `main`, `4a919b2b` (PR #187).
+The policy implementation below is historical; the merge-only workflows are now on main.
+
+Confirmed publisher run 41225969873 failed its installed-wheel smoke with missing
+`openpyxl`. Release decision 41331080668 failed creating `v26.11.2.2` with HTTP 422.
+Live tag ruleset 25169344 required the obsolete `Python 3.13 compatibility and MCP`.
+Replaced only that check with `MCP smoke`, then re-read the API to confirm all other
+rules, strict/create enforcement, integration IDs and bypass actors were retained.
+The stale check explains the blocked tag, though the generic HTTP 422 alone does not
+prove the rule responsible. Actual workflow-token tag creation remains to be verified.
+
+Both package CI and publication now install the shared
+`repo-scripts/wheel-smoke-requirements.txt`, including openpyxl, psutil, rich and
+colorama previously missing from publication. No package source or metadata changed.
+No MCP discovery change is needed for repository-only release infrastructure.
+
+Validation: checksum-verified Actionlint 1.7.12 passed; focused release-policy,
+calendar-version and preparation tests passed (50 tests, Python 3.14.6 / Windows).
+PyPI still reports `26.10.31.1`. Full application/GIS tests were not run.
+Retained wheel `26.11.2.1` passed the full installed-wheel smoke outside the checkout
+with the shared requirements installed into a temporary target (including resolved
+transitive dependencies). The initial no-dependencies local install failed on NumPy;
+the corrected install passed. This verifies the existing wheel, not a new hosted
+release build. The existing vendored simil ComplexWarning remains visible.
+Default documentation checks, explicit links for all three touched documents and
+`git diff --check` passed. No package rebuild was required for workflow-only changes.
+
+Delivery: submission authorized on 2026-11-02, using branch
+`fix/pypi-release-smoke-dependencies`, committed and pushed as
+[PR #188](https://github.com/Chain-Frost/ryan-tools/pull/188).
+The tag ruleset correction is already live.
+The PR targets main and deliberately retains release eligibility (no skip-release
+label or merge-message opt-out). Hosted exact-head CI and maintainer merge remain
+the next gates; no merge, tag or publication has been performed. Observe tag creation,
+Windows wheel build/smoke, OIDC PyPI upload and checksum-verified Release attachment
+for that new merge before marking this repair complete. Do not backfill old releases.
 
 ## Current work
 
@@ -83,11 +128,11 @@ remains valid, while its same asset-selector repair needs a separate follow-up.
 
 | Field | Value |
 | --- | --- |
-| Status | Complete |
+| Status | Complete - scoped implementation merged; see current reconciliation |
 | Owner | ChatGPT |
 | Created | 2026-10-15 |
-| Updated | 2026-10-16 |
-| Next review | None |
+| Updated | 2026-11-10 |
+| Next review | None - completed delivery |
 | Baseline | feature/pypi-trusted-publishing at 2d1c978; PR #122 merged as 915b0eb; clean parent worktree before edits |
 
 ## Outcome and scope

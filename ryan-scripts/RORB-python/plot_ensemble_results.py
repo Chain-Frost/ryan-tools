@@ -8,7 +8,7 @@ from pathlib import Path
 
 # ==============================================================================
 # WRAPPER IDENTITY
-WRAPPER_VERSION = "2026-10-16.1"
+WRAPPER_VERSION = "2026-11-07.1"
 
 # EDITABLE DEFAULTS
 DEFAULT_INPUT = Path()
@@ -48,7 +48,11 @@ def main(args: argparse.Namespace, *, working_directory: Path | None = None) -> 
 
     target_output.mkdir(parents=True, exist_ok=True)
 
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="RORB-python/plot_ensemble_results.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+    )
 
     try:
         orchestrate_ensemble_plotting(
@@ -116,6 +120,7 @@ if __name__ == "__main__":
         return_code = main(cli_args)
 
     print_wrapper_banner(
+        wrapper_source="RORB-python/plot_ensemble_results.py",
         wrapper_file=Path(__file__),
         wrapper_version=WRAPPER_VERSION,
         leading_blank_line=True,

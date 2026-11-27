@@ -16,20 +16,54 @@ Examples:
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-16.1"
+WRAPPER_VERSION = "2026-11-08.1"
+
+EXPECTED_TP_COUNT: int = 10
+# Check missing durations only within each group's sampled range.
+# Edit this list to match the study's adopted ARR duration schedule (minutes).
+STANDARD_DURATIONS_MINUTES: list[int] = [
+    10,
+    15,
+    20,
+    25,
+    30,
+    45,
+    60,
+    90,
+    120,
+    180,
+    270,
+    360,
+    540,
+    720,
+    1080,
+    1440,
+    1800,
+    2160,
+    2880,
+    4320,
+    5760,
+    7200,
+    8640,
+    10080,
+]
 
 CONSOLE_LOG_LEVEL = "INFO"  # or "DEBUG"
+USE_LIVE_DASHBOARD = True
+LIVE_REFRESH_PER_SECOND = 2.0
+LIVE_MAX_ROWS = 10
+PAUSE_ON_FINISH = True
 # Toggle to include the combined POMM sheet in the Excel export.
 INCLUDE_POMM: bool = False
-# Update this tuple to restrict processing to specific PO/Location values.
+# Update this list to restrict processing to specific PO/Location values.
 # Leave empty to include every location found in the POMM files.
-LOCATIONS_TO_INCLUDE: tuple[str, ...] = ()
+LOCATIONS_TO_INCLUDE: list[str] = []
 # Toggle which data types are included; defaults cover POMM peaks and RLL_Qmx.
-INCLUDE_DATA_TYPES: tuple[str, ...] = ("POMM", "RLL_Qmx")
+INCLUDE_DATA_TYPES: list[str] = ["POMM", "RLL_Qmx"]
 # Change the working directory
 WORKING_DIR: Path = Path(__file__).absolute().parent
 # Optional explicit folder roots to scan. If left empty, the wrapper scans WORKING_DIR recursively.
-PATHS_TO_PROCESS: tuple[Path, ...] = ()
+PATHS_TO_PROCESS: list[Path] = []
 # WORKING_DIR: Path = Path(r"E:\path\to\custom\directory")
 
 import argparse
@@ -54,6 +88,9 @@ def main(
     locations_to_include: tuple[str, ...] | None = None,
     paths_to_process: tuple[Path, ...] | None = None,
     working_directory: Path | None = None,
+    use_live_dashboard: bool | None = None,
+    live_refresh_per_second: float | None = None,
+    live_max_rows: int | None = None,
 ) -> int:
     """Main entry point for mean peak reporting.
 
@@ -67,30 +104,46 @@ def main(
         paths_to_process: Explicit folder roots to scan for result files.
         working_directory: Overrides the default WORKING_DIR.
     """
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
-    target_directory: Path = (working_directory or WORKING_DIR).absolute()
+    print_wrapper_banner(
+        wrapper_source="TUFLOW-python/po_and_timeseries/create_pomm_mean_peak_report.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+    )
+    target_directory: Path = (WORKING_DIR if working_directory is None else working_directory).expanduser().absolute()
     if not change_working_directory(target_dir=target_directory):
         return 1
 
-    effective_data_types: tuple[str, ...] = INCLUDE_DATA_TYPES if include_data_types is None else include_data_types
-    effective_locations: tuple[str, ...] = (
+    effective_data_types: tuple[str, ...] = tuple(
+        INCLUDE_DATA_TYPES if include_data_types is None else include_data_types
+    )
+    effective_locations: tuple[str, ...] = tuple(
         LOCATIONS_TO_INCLUDE if locations_to_include is None else locations_to_include
     )
-    effective_paths: tuple[Path, ...] = PATHS_TO_PROCESS if paths_to_process is None else paths_to_process
+    effective_paths: tuple[Path, ...] = tuple(PATHS_TO_PROCESS if paths_to_process is None else paths_to_process)
 
     try:
-        export_mean_peak_report(
+        outcome = export_mean_peak_report(
             script_directory=target_directory,
-            paths_to_process=effective_paths or None,
-            log_level=console_log_level or CONSOLE_LOG_LEVEL,
+            paths_to_process=effective_paths if paths_to_process is not None or PATHS_TO_PROCESS else None,
+            log_level=CONSOLE_LOG_LEVEL if console_log_level is None else console_log_level,
             include_pomm=INCLUDE_POMM,
             locations_to_include=effective_locations or None,
-            include_data_types=effective_data_types or None,
+            include_data_types=effective_data_types,
+            use_live_dashboard=USE_LIVE_DASHBOARD if use_live_dashboard is None else use_live_dashboard,
+            live_refresh_per_second=(
+                LIVE_REFRESH_PER_SECOND if live_refresh_per_second is None else live_refresh_per_second
+            ),
+            live_max_rows=LIVE_MAX_ROWS if live_max_rows is None else live_max_rows,
+            standard_durations=STANDARD_DURATIONS_MINUTES,
+            expected_tp_count=EXPECTED_TP_COUNT,
         )
+    except KeyboardInterrupt:
+        logger.warning("POMM mean peak report interrupted.")
+        return 130
     except Exception:
         logger.exception("POMM mean peak report failed.")
         return 1
-    return 0
+    return 1 if outcome is False else 0
 
 
 def _parse_cli_arguments() -> CommonWrapperOptions:
@@ -121,12 +174,16 @@ if __name__ == "__main__":
         include_data_types=common_options.data_types,
         locations_to_include=common_options.locations_to_include,
         working_directory=common_options.working_directory,
+        use_live_dashboard=common_options.use_live_dashboard,
+        live_refresh_per_second=common_options.live_refresh_per_second,
+        live_max_rows=common_options.live_max_rows,
     )
     print_wrapper_banner(
+        wrapper_source="TUFLOW-python/po_and_timeseries/create_pomm_mean_peak_report.py",
         wrapper_file=Path(__file__),
         wrapper_version=WRAPPER_VERSION,
         leading_blank_line=True,
     )
-    if not common_options.no_pause:
+    if PAUSE_ON_FINISH and not common_options.no_pause:
         pause_console()
     raise SystemExit(result)

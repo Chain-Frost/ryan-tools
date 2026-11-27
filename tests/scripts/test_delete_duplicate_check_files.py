@@ -128,6 +128,31 @@ def test_find_check_folders_walks_nested_directories_only(utility: ModuleType, t
     assert utility.find_check_folders(root) == sorted((first, second, third), key=lambda path: str(path).casefold())
 
 
+def test_check_discovery_excludes_linked_directories(utility: ModuleType, tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    outside = tmp_path / "outside"
+    (outside / "checks").mkdir(parents=True)
+    alias = root / "checks"
+    try:
+        alias.symlink_to(outside, target_is_directory=True)
+    except (OSError, NotImplementedError) as exc:
+        pytest.skip(f"Directory symlinks unavailable: {exc}")
+    assert utility.find_check_folders(root) == []
+
+
+def test_check_discovery_prunes_junctions(utility: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    root = tmp_path / "root"
+    linked = root / "checks"
+    (linked / "nested" / "checks").mkdir(parents=True)
+
+    def junction(path: Path) -> bool:
+        return path == linked
+
+    monkeypatch.setattr(utility, "is_junction", junction)
+    assert utility.find_check_folders(root) == []
+
+
 def test_nested_check_folders_scan_each_file_once(utility: ModuleType, tmp_path: Path) -> None:
     """Nested check directories must not make a file its own duplicate."""
     outer = tmp_path / "result" / "check"

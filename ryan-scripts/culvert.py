@@ -50,9 +50,9 @@ from __future__ import annotations
 import json
 from dataclasses import replace
 from pathlib import Path
-from typing import cast
+from typing import TypeVar, cast
 
-WRAPPER_VERSION = "2026-10-16.1"
+WRAPPER_VERSION = "2026-11-07.1"
 
 WORKING_DIR: Path = Path(__file__).absolute().parent
 DEFAULT_PROJECT_FILE = Path("culvert_project.json")
@@ -115,8 +115,12 @@ from ryan_library.orchestrators.culvert.solve import solve_crossing_scenario
 from ryan_library.orchestrators.culvert.uncertainty import run_uncertainty_study, select_uncertainty_targets
 from ryan_library.orchestrators.culvert.uncertainty_report import render_uncertainty_markdown
 
+_SELECT_NAMED_T = TypeVar("_SELECT_NAMED_T")
 
-def _select_named[T](items: Sequence[T], name: str | None, *, get_name: Callable[[T], str]) -> T:
+
+def _select_named(
+    items: Sequence[_SELECT_NAMED_T], name: str | None, *, get_name: Callable[[_SELECT_NAMED_T], str]
+) -> _SELECT_NAMED_T:
     if not items:
         msg = "No selectable items are available."
         raise ValueError(msg)
@@ -212,9 +216,7 @@ def _run_design(
             diameters_mm=diameters_mm or (template_barrel.diameter_mm,),
             quantities=design_quantities,
         )
-    elif isinstance(  # pyright: ignore[reportUnnecessaryIsInstance]
-        template_barrel, RectangularBarrelDefinition
-    ):
+    elif isinstance(template_barrel, RectangularBarrelDefinition):
         candidates = generate_rectangular_candidates(
             crossing,
             spans_mm=spans_mm or (template_barrel.span_mm,),
@@ -361,7 +363,7 @@ def main(
     study_name: str | None = None,
 ) -> int:
     """Resolve wrapper settings and execute the requested shared culvert workflow."""
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(wrapper_source="culvert.py", wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
     target_directory = (working_directory or WORKING_DIR).absolute()
     configured_project = project_file or DEFAULT_PROJECT_FILE
     project_path = (
@@ -513,6 +515,7 @@ if __name__ == "__main__":
         study_name=args.study,
     )
     print_wrapper_banner(
+        wrapper_source="culvert.py",
         wrapper_file=Path(__file__),
         wrapper_version=WRAPPER_VERSION,
         leading_blank_line=True,

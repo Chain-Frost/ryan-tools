@@ -11,7 +11,9 @@ from pathlib import Path
 
 try:
     from PIL import Image, ImageOps
-    from pillow_heif import register_heif_opener
+    from pillow_heif import (
+        register_heif_opener,  # pyright: ignore[reportUnknownVariableType] - upstream optional kwargs are untyped
+    )
 except ImportError as exc:
     msg = "The selected Python environment needs Pillow and pillow-heif."
     raise SystemExit(msg) from exc
@@ -43,7 +45,7 @@ def gps_position(path: Path) -> tuple[float, float] | None:
         longitude_values = gps[4]
         latitude_ref = str(gps[1]).upper()
         longitude_ref = str(gps[3]).upper()
-    except KeyError, TypeError:
+    except (KeyError, TypeError):
         return None
 
     latitude = sum(float(value) / (60**index) for index, value in enumerate(latitude_values))
@@ -65,7 +67,6 @@ def convert_heic(source: Path, destination: Path, quality: int) -> None:
                 image = image.convert("RGB")
 
             save_options: dict[str, object] = {
-                "format": "JPEG",
                 "quality": quality,
                 "optimize": True,
                 "exif": image.getexif().tobytes(),
@@ -74,7 +75,7 @@ def convert_heic(source: Path, destination: Path, quality: int) -> None:
                 save_options["icc_profile"] = opened.info["icc_profile"]
             if opened.info.get("xmp"):
                 save_options["xmp"] = opened.info["xmp"]
-            image.save(temporary, **save_options)
+            image.save(temporary, format="JPEG", **save_options)
 
         source_gps = gps_position(source)
         output_gps = gps_position(temporary)
@@ -179,7 +180,7 @@ def main() -> int:
 
         jobs.append((photo, output, relative, args.quality))
 
-    worker_count = args.workers if args.workers is not None else (os.process_cpu_count() or 1)
+    worker_count = args.workers if args.workers is not None else (getattr(os, "process_cpu_count", os.cpu_count)() or 1)
     if jobs:
         print(f"Processing {len(jobs)} photos with {worker_count} worker processes...")
         with ProcessPoolExecutor(max_workers=worker_count, initializer=initialize_worker) as executor:

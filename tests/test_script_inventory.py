@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import sys
 from pathlib import Path
 from types import ModuleType
 
@@ -244,6 +245,27 @@ def test_documentation_indexes_track_live_inventory_counts() -> None:
     assert f"{tracked}-file lifecycle audit" in work
 
 
+def test_early_documentation_inventory_check_explains_mismatches(tmp_path: Path) -> None:
+    """The no-dependency preflight must match the hosted count contract."""
+    docs = tmp_path / "docs"
+    (docs / "work").mkdir(parents=True)
+    summary = docs / "README.md"
+    register = docs / "work" / "README.md"
+    summary.write_text("All 3 source paths; 2 selected and 1 excluded", encoding="utf-8")
+    register.write_text("The 3-file lifecycle audit", encoding="utf-8")
+    report = {"tracked_file_count": 3, "selected_file_count": 2}
+    assert inventory.documentation_index_findings(tmp_path, report) == []
+
+    summary.write_text("All 2 source paths; 2 selected and 0 excluded", encoding="utf-8")
+    register.write_text("The 3-file inventory", encoding="utf-8")
+    findings = inventory.documentation_index_findings(tmp_path, report)
+    assert len(findings) == 2
+    assert "docs/README.md" in findings[0]
+    assert "All 3 source paths; 2 selected and 1 excluded" in findings[0]
+    assert "docs/work/README.md" in findings[1]
+    assert "3-file lifecycle audit" in findings[1]
+
+
 def test_aliased_mutating_import_is_detected_without_execution() -> None:
     """Renaming a dangerous imported function must not evade import checks."""
     unsafe = inventory.analyse_python(
@@ -268,7 +290,7 @@ def test_aliased_mutating_import_is_detected_without_execution() -> None:
 
 
 def test_postponed_annotations_are_not_misclassified_as_import_effects() -> None:
-    """Python 3.14 defers annotations with or without the future import."""
+    """Future annotations are deferred; older default annotations execute eagerly."""
     source = (
         "from __future__ import annotations\n"
         "import shutil\n"
@@ -279,12 +301,12 @@ def test_postponed_annotations_are_not_misclassified_as_import_effects() -> None
     assert deferred["import_time_mutation_risk"] is False
 
     default_lazy = inventory.analyse_python(source.replace("from __future__ import annotations\n", ""))
-    assert default_lazy["import_time_mutation_risk"] is False
+    assert default_lazy["import_time_mutation_risk"] is (sys.version_info < (3, 14))
 
     annotated_assignment = inventory.analyse_python(
         "import shutil\nx: shutil.copy2('a', 'b') = None\nclass Container:\n    y: shutil.copy2('a', 'b') = None\n"
     )
-    assert annotated_assignment["import_time_mutation_risk"] is False
+    assert annotated_assignment["import_time_mutation_risk"] is (sys.version_info < (3, 14))
 
     defaults = inventory.analyse_python(source + "def g(value=shutil.copy2('a', 'b')):\n    pass\n")
     assert defaults["import_time_mutation_calls"] == ["copy2"]
@@ -323,8 +345,11 @@ def test_annotated_alias_and_rebinding_use_statement_order() -> None:
 def test_lazy_type_parameter_bounds_do_not_trigger_import_time_mutation() -> None:
     source = "import shutil\ndef f[T: shutil.copy2('a', 'b')]():\n    pass\n"
     record = inventory.analyse_python(source)
-    assert record["parse_status"] == "ok"
-    assert record["import_time_mutation_risk"] is False
+    if sys.version_info < (3, 12):
+        assert record["parse_status"] == "syntax_error"
+    else:
+        assert record["parse_status"] == "ok"
+        assert record["import_time_mutation_risk"] is False
 
 
 def test_conditional_aliases_preserve_possible_mutations() -> None:
@@ -377,7 +402,7 @@ def test_individual_lifecycle_ledger_tracks_manifest_and_mcp_targets() -> None:
         if not line.startswith("| `"):
             continue
         cells = [cell.strip() for cell in line.strip("|").split("|")]
-        assert len(cells) == 6, line
+        assert len(cells) == 7, line
         path = cells[0].strip("`")
         assert path not in parsed, f"Duplicate source in audit ledger: {path}"
         parsed[path] = cells
@@ -388,7 +413,7 @@ def test_individual_lifecycle_ledger_tracks_manifest_and_mcp_targets() -> None:
         cells = parsed[path]
         assert cells[1] == ("Yes" if entry["in_wheel"] else "No"), path
         assert cells[2] == ("Yes" if entry["mcp_workflow_ids"] else "No"), path
-        assert all(cells[i] for i in (3, 4, 5)), path
+        assert all(cells[i] for i in (3, 4, 5, 6)), path
         assert cells[3] != "Not assessed", path
         assert cells[4] != "Not assessed", path
         assert cells[5] != "Not assessed", path

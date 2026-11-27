@@ -56,27 +56,26 @@ def test_analyze_hydrograph_rejects_non_uniform_time_steps(tmp_path: Path) -> No
     hydrograph_path = tmp_path / "hydrograph.csv"
     _write_hydrograph(hydrograph_path, times="0.0,0.0\n1.0,10.0\n2.5,0.0")
 
-    result = analyze_hydrograph(
-        aep="1",
-        duration="12",
-        tp=1,
-        csv_path=hydrograph_path,
-        out_path=tmp_path / "batch.out",
-        thresholds=[5.0],
-    )
-
-    assert result.empty
+    with pytest.raises(ValueError, match="RORB hydrograph has non-uniform time steps"):
+        analyze_hydrograph(
+            aep="1",
+            duration="12",
+            tp=1,
+            csv_path=hydrograph_path,
+            out_path=tmp_path / "batch.out",
+            thresholds=[5.0],
+        )
 
 
 def test_parse_batch_output_handles_ey_aep_and_minutes(tmp_path: Path) -> None:
     batch_path = tmp_path / "example_batch.out"
     batch_path.write_text(
-        "Peak  Description\n"
+        "RORBWin Batch Run Summary\nPeak  Description\n"
         "  01  Calculated hydrograph:\n"
         "\n"
         " Run        Duration   Unit   AEP   TPat  Rain(mm)  ARF  PbDepth  Peak0001\n"
         "  1         90 minute  0.2EY  3     40.20     0.93 0.30     55.3\n"
-        "Run,    Representative hydrograph\n",
+        "Run,    Representative hydrograph\n1 dur90minute_aep0p2EYtp3.out\n",
         encoding="utf-8",
     )
 
@@ -86,7 +85,8 @@ def test_parse_batch_output_handles_ey_aep_and_minutes(tmp_path: Path) -> None:
     assert result.loc[0, "Duration"] == pytest.approx(1.5)
     assert result.loc[0, "AEP"] == "0.2EY"
     assert result.loc[0, "TPat"] == 3
-    assert Path(str(result.loc[0, "csv"])).name == "example_ aep0p2EY_du90minutetp3.csv"
+    assert result.loc[0, "csv"] is None
+    assert result.loc[0, "csv_status"] == "missing"
 
 
 def test_supplied_rorb_v652_example_parses_and_analyzes() -> None:
@@ -98,13 +98,13 @@ def test_supplied_rorb_v652_example_parses_and_analyzes() -> None:
     assert {"0.5EY", "0.2EY"}.issubset(set(batch["AEP"].astype(str)))
     assert all(Path(path).is_file() for path in batch["csv"].astype(str))
     first_run = batch.iloc[0]
-    assert [float(str(first_run[name])) for name in ("IL", "CL", "kc", "m", "ROC")] == [
+    assert [float(str(first_run[name])) for name in ("IL", "CL", "kc", "m")] == [
         12.0,
         1.9,
         10.0,
         0.8,
-        1.0,
     ]
+    assert first_run["ROC"] is None
 
     example_row = batch[(batch["AEP"] == "0.2EY") & (batch["TPat"] == 1)].iloc[0]
     result = analyze_hydrograph(

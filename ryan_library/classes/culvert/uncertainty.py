@@ -3,10 +3,11 @@
 from dataclasses import dataclass
 from enum import StrEnum
 from math import isfinite
+from typing import TypeAlias
 
 from culvert_solver import BoundedParameterSpec, HydraulicResultStatus, UniformParameterSpec
 
-type UncertaintyParameterSpec = BoundedParameterSpec | UniformParameterSpec
+UncertaintyParameterSpec: TypeAlias = BoundedParameterSpec | UniformParameterSpec
 
 
 class UncertaintySamplingMode(StrEnum):

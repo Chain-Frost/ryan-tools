@@ -25,6 +25,7 @@ import sys
 import zipfile
 from collections import Counter, defaultdict
 from dataclasses import dataclass
+from inspect import signature
 from pathlib import Path
 from typing import cast
 from xml.etree import ElementTree as ET
@@ -36,6 +37,20 @@ NS = {"w": W_NS}
 HARDCODED_DOCX_PATH: Path | None = Path(
     r"C:\Users\Ryan.Brook\Downloads\N-0001894-5000-C-REP-10003_A ABH Constructability Report.docx"
 )
+
+
+SCRIPT_VERSION = "2026-11-07.2"
+
+# Standalone use remains supported without installing ryan-tools.
+try:
+    from ryan_library.functions.wrapper_utils import print_wrapper_banner
+except ModuleNotFoundError as exc:
+    if exc.name not in {"ryan_library", "ryan_library.functions", "ryan_library.functions.wrapper_utils"}:
+        raise
+    print_wrapper_banner = None
+else:
+    if "wrapper_source" not in signature(print_wrapper_banner).parameters:
+        print_wrapper_banner = None
 
 
 def qn(tag: str) -> str:
@@ -441,6 +456,14 @@ def write_outputs(
 
 
 def main(argv: list[str]) -> int:
+    if print_wrapper_banner is not None:
+        print_wrapper_banner(
+            wrapper_file=Path(__file__),
+            wrapper_version=SCRIPT_VERSION,
+            wrapper_source="docx-python/word_style_audit.py",
+        )
+    else:
+        print(f"Script: {Path(__file__).absolute()} (version {SCRIPT_VERSION})")
     ap = argparse.ArgumentParser(description="Audit Word DOCX styles (defined + applied).")
     ap.add_argument("docx", type=Path, nargs="?", help="Path to .docx file")
     ap.add_argument("--out-dir", type=Path, default=Path("style_audit_report"), help="Output directory")

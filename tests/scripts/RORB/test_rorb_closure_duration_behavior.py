@@ -5,6 +5,7 @@
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from ryan_library.orchestrators.rorb.closure_durations import (
     _default_thresholds,
@@ -30,7 +31,9 @@ def test_worker_count_respects_explicit_limit() -> None:
 def test_process_hydrographs_can_run_serially(tmp_path: Path) -> None:
     hydrograph_path = tmp_path / "hydrograph.csv"
     hydrograph_path.write_text(
-        "Header\nHeader\nInc,Time (hrs),Calculated hydrograph:  L1\n0,0,0\n1,1,10\n",
+        "RORBWin CSV Output File\n"
+        "Refer output file for complete listing of inputs and outputs\n"
+        "Inc,Time (hrs),Calculated hydrograph:  L1\n0,0,0\n1,1,10\n",
         encoding="utf-8",
     )
     batch = pd.DataFrame(
@@ -89,3 +92,34 @@ def test_summary_uses_the_middle_record_for_an_odd_pattern_count() -> None:
 
     assert row["Central_Value"] == 2.0
     assert row["Critical_Tp"] == 3
+
+
+@pytest.mark.parametrize(
+    "invalid_rows",
+    [
+        "0,0,0\n1,1,12\n2,3,0\n",
+        "0,0,0\n",
+    ],
+)
+def test_closure_workflow_rejects_invalid_csv_time_axis(tmp_path: Path, invalid_rows: str) -> None:
+    """Do not export a partial ensemble when one validated CSV cannot supply a timestep."""
+    preamble = (
+        "RORBWin CSV Output File\n"
+        "Refer output file for complete listing of inputs and outputs\n"
+        "Inc,Time (hrs),Calculated hydrograph: Outlet\n"
+    )
+    valid_path = tmp_path / "valid.csv"
+    invalid_path = tmp_path / "invalid.csv"
+    valid_path.write_text(preamble + "0,0,0\n1,1,12\n", encoding="utf-8")
+    invalid_path.write_text(preamble + invalid_rows, encoding="utf-8")
+    batch = pd.DataFrame(
+        {
+            "AEP": ["1", "1"],
+            "Duration": [12.0, 12.0],
+            "TPat": [1, 2],
+            "csv": [str(valid_path), str(invalid_path)],
+            "Path": ["batch.out", "batch.out"],
+        }
+    )
+    with pytest.raises(ValueError, match=r"RORB hydrograph has .*time steps"):
+        _process_hydrographs(batch, [5.0], pool_size=1)

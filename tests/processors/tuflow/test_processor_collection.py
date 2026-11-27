@@ -1,5 +1,8 @@
 """Unit tests for ryan_library.processors.tuflow.processor_collection."""
 
+# Unit tests intentionally exercise the implementation helpers under test.
+# pyright: reportPrivateUsage=false
+
 from unittest.mock import MagicMock
 
 import pandas as pd
@@ -24,27 +27,27 @@ class TestProcessorCollection:
         processor.applied_location_filter = None
         return processor
 
-    def test_add_processor_success(self, mock_processor):
+    def test_add_processor_success(self, mock_processor: MagicMock):
         """Test adding a valid processor."""
         collection = ProcessorCollection()
         collection.add_processor(mock_processor)
         assert len(collection.processors) == 1
 
-    def test_add_processor_empty(self, mock_processor):
+    def test_add_processor_empty(self, mock_processor: MagicMock):
         """Test adding a processor with empty dataframe."""
         mock_processor.df = pd.DataFrame()
         collection = ProcessorCollection()
         collection.add_processor(mock_processor)
         assert len(collection.processors) == 0
 
-    def test_add_processor_unprocessed(self, mock_processor):
+    def test_add_processor_unprocessed(self, mock_processor: MagicMock):
         """Test adding an unprocessed processor."""
         mock_processor.processed = False
         collection = ProcessorCollection()
         collection.add_processor(mock_processor)
         assert len(collection.processors) == 0
 
-    def test_filter_locations(self, mock_processor):
+    def test_filter_locations(self, mock_processor: MagicMock):
         """Test filtering locations across processors."""
         collection = ProcessorCollection()
         collection.add_processor(mock_processor)
@@ -269,7 +272,7 @@ class TestProcessorCollection:
         row_eof = combined[combined["internalName"] == "Run1"].iloc[0]
         assert row_eof["Area_Culv"] == 5.0
 
-    def test_combine_raw(self, mock_processor):
+    def test_combine_raw(self, mock_processor: MagicMock):
         """Test raw combination."""
         p2 = MagicMock()
         p2.processed = True
@@ -321,7 +324,7 @@ class TestProcessorCollection:
         collection = ProcessorCollection()
         assert collection.po_combine().empty
 
-    def test_get_processors_by_data_type(self, mock_processor):
+    def test_get_processors_by_data_type(self, mock_processor: MagicMock):
         """Test filtering by data type."""
         collection = ProcessorCollection()
         collection.add_processor(mock_processor)  # Type "Timeseries"
@@ -357,7 +360,7 @@ class TestProcessorCollection:
         assert ("Run1", "TypeA") in duplicates
         assert len(duplicates[("Run1", "TypeA")]) == 2
 
-    def test_check_duplicates_none(self, mock_processor):
+    def test_check_duplicates_none(self, mock_processor: MagicMock):
         """Test duplicate detection with no duplicates."""
         collection = ProcessorCollection()
         collection.add_processor(mock_processor)

@@ -1,17 +1,29 @@
 """Tests for ryan_library.functions.tuflow.logsummary_excel_append."""
 
+# pyright: reportPrivateUsage=false
+
 from pathlib import Path
 
 import pandas as pd
+import pytest
 from openpyxl import Workbook
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
 from ryan_library.functions.tuflow import logsummary_excel_append as lsea
 
 
+def _link_count(*, path: Path) -> int:
+    return path.stat().st_nlink
+
+
+def _misleading_link_count(*, path: Path) -> int:
+    return int(path.exists())
+
+
 def create_dummy_workbook(path: Path, with_table: bool = True) -> None:
     wb = Workbook()
     ws = wb.active
+    assert ws is not None
     ws.title = "Summary"
     # Add headers
     ws.append(["Runcode", "orig_log_path", "Other"])
@@ -71,6 +83,94 @@ class TestExistingLogSummaryRows:
         filtered = lsea.filter_new_log_files(files=files, existing_rows=existing)
         assert len(filtered) == 1
         assert filtered[0].name == "run4.tlf"
+
+
+def test_exclusive_master_claim_blocks_competing_publication(tmp_path: Path) -> None:
+    path = tmp_path / "master.xlsx"
+    create_dummy_workbook(path)
+    original = path.read_bytes()
+    claim = path.with_name(f".{path.name}.writing")
+    new_rows = pd.DataFrame({"Runcode": ["run3"], "orig_log_path": ["run3.tlf"]})
+
+    with lsea.master_workbook_claim(workbook_path=path):
+        assert claim.is_file()
+        with pytest.raises(FileExistsError, match="already being updated"):
+            lsea.append_dataframe_to_workbook_table(
+                data_frame=new_rows, workbook_path=path, sheet_name="Summary", table_name=None
+            )
+        assert path.read_bytes() == original
+
+    assert not claim.exists()
+    lsea.append_dataframe_to_workbook_table(
+        data_frame=new_rows, workbook_path=path, sheet_name="Summary", table_name=None
+    )
+    assert not claim.exists()
+
+
+def test_windows_link_enumeration_calibrates_single_and_alias_names(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "master.xlsx"
+    create_dummy_workbook(path)
+    initial = path.read_bytes()
+    monkeypatch.setattr(lsea, "_windows_hardlink_count", _link_count)
+
+    lsea._verify_windows_hardlinks(workbook_path=path)
+
+    assert path.read_bytes() == initial
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["master.xlsx"]
+
+
+def test_windows_link_enumeration_refusal_explains_unsupported_filesystem(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "master.xlsx"
+    create_dummy_workbook(path)
+    original = path.read_bytes()
+
+    def unsupported(*, path: Path) -> int:
+        del path
+        raise OSError(50, "Enumeration unsupported")
+
+    monkeypatch.setattr(lsea, "_windows_hardlink_count", unsupported)
+    with pytest.raises(ValueError, match="unsupported on this filesystem") as failure:
+        lsea._verify_windows_hardlinks(workbook_path=path)
+    assert isinstance(failure.value.__cause__, OSError)
+    assert path.read_bytes() == original
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["master.xlsx"]
+
+
+def test_windows_link_enumeration_fails_closed_for_misleading_smb_count(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "master.xlsx"
+    create_dummy_workbook(path)
+    initial = path.read_bytes()
+    # Model an SMB server/API that reports one link even for two real names.
+    monkeypatch.setattr(lsea, "_windows_hardlink_count", _misleading_link_count)
+
+    with pytest.raises(ValueError, match="unreliable"):
+        lsea._verify_windows_hardlinks(workbook_path=path)
+
+    assert path.read_bytes() == initial
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["master.xlsx"]
+
+
+def test_windows_link_enumeration_refuses_linked_master_after_valid_probe(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "master.xlsx"
+    create_dummy_workbook(path)
+    alias = tmp_path / "alias.xlsx"
+    alias.hardlink_to(path)
+    initial = path.read_bytes()
+    monkeypatch.setattr(lsea, "_windows_hardlink_count", _link_count)
+
+    with pytest.raises(ValueError, match="Hard-linked master"):
+        lsea._verify_windows_hardlinks(workbook_path=path)
+
+    assert path.read_bytes() == alias.read_bytes() == initial
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["alias.xlsx", "master.xlsx"]
 
 
 class TestAppendDataframe:

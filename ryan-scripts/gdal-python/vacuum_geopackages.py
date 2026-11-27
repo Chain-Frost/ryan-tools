@@ -11,7 +11,7 @@ from pathlib import Path
 
 # ==============================================================================
 # WRAPPER IDENTITY
-WRAPPER_VERSION = "2026-10-16.1"
+WRAPPER_VERSION = "2026-11-07.2"
 
 # EDITABLE DEFAULTS
 DEFAULT_INPUT_DIR = Path()
@@ -95,12 +95,15 @@ def _parse_cli_arguments() -> argparse.Namespace:
 
 if __name__ == "__main__":
     args: argparse.Namespace = _parse_cli_arguments()
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="gdal-python/vacuum_geopackages.py", wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION
+    )
 
-    with setup_logger(console_log_level="SUCCESS", log_file="vacuum_geopackages.log", file_log_level="DEBUG"):
+    with setup_logger(console_log_level="SUCCESS", log_file="vacuum_geopackages.log", file_log_level="INFO"):
         result: int = main(input_directories=args.input_directories)
 
     print_wrapper_banner(
+        wrapper_source="gdal-python/vacuum_geopackages.py",
         wrapper_file=Path(__file__),
         wrapper_version=WRAPPER_VERSION,
         leading_blank_line=True,

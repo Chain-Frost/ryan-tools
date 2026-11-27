@@ -1,5 +1,8 @@
 """Additional coverage tests for ProcessorCollection."""
 
+# Unit tests intentionally exercise the implementation helpers under test.
+# pyright: reportPrivateUsage=false
+
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -9,14 +12,14 @@ from ryan_library.processors.tuflow.processor_collection import ProcessorCollect
 
 class TestProcessorCollectionCoverage:
     @patch("ryan_library.processors.tuflow.processor_collection.logger")
-    def test_filter_locations_logging(self, mock_logger):
+    def test_filter_locations_logging(self, mock_logger: MagicMock):
         """Test logging in filter_locations."""
         p1 = MagicMock()
         p1.df = pd.DataFrame({"Location": ["Loc1", "Loc2"]})
         p1.applied_location_filter = None
 
         # Simulate filtering reducing rows
-        def side_effect(locs):
+        def side_effect(locs: list[str]) -> None:
             p1.df = pd.DataFrame({"Location": ["Loc1"]})
             p1.applied_location_filter = locs
 
@@ -35,13 +38,13 @@ class TestProcessorCollectionCoverage:
         assert kwargs["after"] == 1
 
     @patch("ryan_library.processors.tuflow.processor_collection.logger")
-    def test_filter_locations_removed_processor(self, mock_logger):
+    def test_filter_locations_removed_processor(self, mock_logger: MagicMock):
         """Test logging when a processor is removed due to empty df."""
         p1 = MagicMock()
         p1.df = pd.DataFrame({"Location": ["Loc2"]})
         p1.applied_location_filter = None
 
-        def side_effect(locs):
+        def side_effect(locs: list[str]) -> None:
             p1.df = pd.DataFrame()  # Empty
             p1.applied_location_filter = locs
 
@@ -58,7 +61,7 @@ class TestProcessorCollectionCoverage:
         assert found
 
     @patch("ryan_library.processors.tuflow.processor_collection.logger")
-    def test_check_duplicates_logging(self, mock_logger):
+    def test_check_duplicates_logging(self, mock_logger: MagicMock):
         """Test logging for duplicates."""
         p1 = MagicMock()
         p1.processed = True
@@ -84,7 +87,7 @@ class TestProcessorCollectionCoverage:
         assert "Potential duplicate group" in mock_logger.warning.call_args[0][0]
 
     @patch("ryan_library.processors.tuflow.processor_collection.logger")
-    def test_merge_with_eof_data_logging_missing_cols(self, mock_logger):
+    def test_merge_with_eof_data_logging_missing_cols(self, mock_logger: MagicMock):
         """Test logging when columns are missing during EOF merge."""
         collection = ProcessorCollection()
 
@@ -109,7 +112,7 @@ class TestProcessorCollectionCoverage:
         assert found
 
     @patch("ryan_library.processors.tuflow.processor_collection.logger")
-    def test_merge_chan_and_eof_logging(self, mock_logger):
+    def test_merge_chan_and_eof_logging(self, mock_logger: MagicMock):
         """Test logging in static merge function."""
         # Missing Chan ID in one
         chan_df = pd.DataFrame({"Val": [1]})

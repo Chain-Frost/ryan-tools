@@ -20,7 +20,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
-WRAPPER_VERSION = "2026-10-31.6"
+WRAPPER_VERSION = "2026-11-07.2"
 
 # Project directory; Path() uses the directory from which the script was run.
 # For example, set Path(r"Q:\Project\GIS") or Path(r"\\server\share\GIS").
@@ -35,9 +35,9 @@ DEFAULT_PROJECT: Path | None = None
 DEFAULT_AUDIT_MODE: Literal["existence", "cold-storage-ping"] = "existence"
 
 # Explicit drive-to-UNC aliases for equivalent network shares (empty means none).
-# Example: (("Q:", r"\\server\share"),) or add ("R:", r"\\other\gis").
+# Example: [["Q:", r"\\server\share"], ["R:", r"\\other\gis"]].
 # This does not probe mapped drives or modify the original QGIS project.
-DEFAULT_DRIVE_MAPPINGS: tuple[tuple[str, str], ...] = ()
+DEFAULT_DRIVE_MAPPINGS: list[list[str]] = []
 
 # True: read QGD table/column/record metadata; False: skip QGD inspection.
 DEFAULT_AUXILIARY_REPORT = False
@@ -56,6 +56,7 @@ import argparse
 import os
 import sqlite3
 import sys
+from collections.abc import Sequence
 from xml.etree import ElementTree as ET
 from zipfile import BadZipFile, LargeZipFile
 
@@ -165,7 +166,7 @@ def main(
     mode: QgisAuditMode = DEFAULT_AUDIT_MODE,
     auxiliary_report: bool = DEFAULT_AUXILIARY_REPORT,
     sample_rows: int = DEFAULT_SAMPLE_ROWS,
-    drive_mappings: QgisDriveMappings = DEFAULT_DRIVE_MAPPINGS,
+    drive_mappings: Sequence[Sequence[str]] | None = None,
 ) -> int:
     """Read-only source audit; return 0 on success and 1 on processing errors."""
     directory = (working_directory if working_directory is not None else DEFAULT_WORKING_DIR).absolute()
@@ -178,14 +179,18 @@ def main(
         logger.error("Valid --sample-rows (1-5) requires --auxiliary-report")
         return 1
     try:
-        validate_drive_mappings(drive_mappings)
+        selected_mappings = DEFAULT_DRIVE_MAPPINGS if drive_mappings is None else drive_mappings
+        mappings: QgisDriveMappings = tuple((drive, unc) for drive, unc in selected_mappings)
+        validate_drive_mappings(mappings)
     except ValueError as error:
         logger.error("Invalid drive-to-UNC mapping: {}", error)
         return 1
     if not change_working_directory(target_dir=directory):
         return 1
 
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="other/audit_qgis_projects.py", wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION
+    )
     projects = [selected] if selected is not None else find_qgis_projects(directory)
     if not projects:
         logger.warning("No QGS or QGZ project files found in {}", directory)
@@ -195,7 +200,7 @@ def main(
         mode=mode,
         auxiliary_report=auxiliary_report,
         sample_rows=sample_rows,
-        drive_mappings=drive_mappings,
+        drive_mappings=mappings,
     )
 
 
@@ -257,13 +262,14 @@ if __name__ == "__main__":
         mode=args.mode if args.mode is not None else DEFAULT_AUDIT_MODE,
         auxiliary_report=(args.auxiliary_report if args.auxiliary_report is not None else DEFAULT_AUXILIARY_REPORT),
         sample_rows=args.sample_rows if args.sample_rows is not None else DEFAULT_SAMPLE_ROWS,
-        drive_mappings=(
-            tuple((drive, unc) for drive, unc in args.drive_map)
-            if args.drive_map is not None
-            else DEFAULT_DRIVE_MAPPINGS
-        ),
+        drive_mappings=args.drive_map if args.drive_map is not None else DEFAULT_DRIVE_MAPPINGS,
     )
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+    print_wrapper_banner(
+        wrapper_source="other/audit_qgis_projects.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        leading_blank_line=True,
+    )
     no_pause = args.no_pause if args.no_pause is not None else DEFAULT_NO_PAUSE
     if not no_pause:
         pause_console()

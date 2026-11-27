@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import tomllib
 import zipfile
 from pathlib import Path
@@ -141,16 +142,26 @@ def _verify_script_allowlist(archive: zipfile.ZipFile, names: set[str]) -> None:
 def _verify_external_dependencies(metadata: str, names: set[str]) -> None:
     """Check declared third-party requirements and separately published engines."""
     declared_dependencies = _metadata_field(metadata, "Requires-Dist")
-    for distribution in ("run-hy8", "ryan-culverts", "scipy", "bottleneck"):
+    for distribution in ("run-hy8", "ryan-culverts", "pyrorb", "scipy", "bottleneck"):
         normalized = distribution.replace("-", "_")
         if not any(
-            requirement.split(";", maxsplit=1)[0].split(">=", maxsplit=1)[0].strip().lower().replace("-", "_")
-            == normalized
+            re.split(r"[<>=!~; @\[]", requirement, maxsplit=1)[0].strip().lower().replace("-", "_") == normalized
             for requirement in declared_dependencies
         ):
-            msg = f"Wheel is missing the {distribution} PyPI dependency."
+            msg = f"Wheel is missing the {distribution} external dependency."
             raise ValueError(msg)
-    for foreign_prefix in ("run_hy8/", "culvert_solver/"):
+    pyrorb_requirements = [
+        requirement
+        for requirement in declared_dependencies
+        if re.split(r"[<>=!~; @\[]", requirement, maxsplit=1)[0].strip().lower() == "pyrorb"
+    ]
+    if pyrorb_requirements != ["pyrorb"]:
+        msg = "Wheel must declare one unconstrained PyRORB dependency."
+        raise ValueError(msg)
+    if any(name.casefold().endswith(".whl") for name in names):
+        msg = "ryan-tools wheel must not bundle dependency wheels."
+        raise ValueError(msg)
+    for foreign_prefix in ("run_hy8/", "culvert_solver/", "runoff_routing/"):
         if any(name.startswith(foreign_prefix) for name in names):
             msg = f"Wheel unexpectedly bundles upstream package {foreign_prefix}."
             raise ValueError(msg)

@@ -1,5 +1,8 @@
 """Unit tests for ryan_library.processors.tuflow.timeseries_processor."""
 
+# Unit tests intentionally exercise the implementation helpers under test.
+# pyright: reportPrivateUsage=false
+
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -57,7 +60,7 @@ def mock_processor():
             return processor
 
 
-def test_read_and_process_timeseries_csv_success(mock_processor):
+def test_read_and_process_timeseries_csv_success(mock_processor: ConcreteTimeSeriesProcessor):
     # Mock read_csv to return a DataFrame
     with patch("pandas.read_csv") as mock_read_csv:
         # Return a DF that needs cleaning (first col dropped)
@@ -76,7 +79,7 @@ def test_read_and_process_timeseries_csv_success(mock_processor):
         mock_read_csv.assert_called_once()
 
 
-def test_read_and_process_timeseries_csv_empty(mock_processor):
+def test_read_and_process_timeseries_csv_empty(mock_processor: ConcreteTimeSeriesProcessor):
     with patch("pandas.read_csv") as mock_read_csv:
         mock_read_csv.return_value = pd.DataFrame()
 
@@ -86,7 +89,7 @@ def test_read_and_process_timeseries_csv_empty(mock_processor):
         # self.df might not be empty if it initializes to empty DF, but the status is key.
 
 
-def test_read_and_process_timeseries_csv_failure(mock_processor):
+def test_read_and_process_timeseries_csv_failure(mock_processor: ConcreteTimeSeriesProcessor):
     with patch("pandas.read_csv") as mock_read_csv:
         mock_read_csv.side_effect = Exception("Read error")
 
@@ -95,7 +98,7 @@ def test_read_and_process_timeseries_csv_failure(mock_processor):
         assert status == ProcessorStatus.FAILURE
 
 
-def test_reshape_timeseries_df_success(mock_processor):
+def test_reshape_timeseries_df_success(mock_processor: ConcreteTimeSeriesProcessor):
     # Setup cleaned dataframe
     df_clean = pd.DataFrame({"Time": [0.0, 1.0], "Chan1": [10.0, 11.0], "Chan2": [20.0, 21.0]})
 
@@ -112,7 +115,7 @@ def test_reshape_timeseries_df_success(mock_processor):
     assert len(df_melted) == 4
 
 
-def test_reshape_timeseries_df_missing_time(mock_processor):
+def test_reshape_timeseries_df_missing_time(mock_processor: ConcreteTimeSeriesProcessor):
     # Setup dataframe without Time column
     df_clean = pd.DataFrame({"Chan1": [10.0, 11.0]})
 
@@ -125,7 +128,7 @@ def test_reshape_timeseries_df_missing_time(mock_processor):
         mock_processor._reshape_timeseries_df(df=df_clean, data_type="Q")
 
 
-def test_clean_headers(mock_processor):
+def test_clean_headers(mock_processor: ConcreteTimeSeriesProcessor):
     """Test header cleaning."""
     df = pd.DataFrame({"Descriptor": ["D"], "Time (h)": [0.0], "Q Chan1": [10.0]})
 
@@ -136,7 +139,7 @@ def test_clean_headers(mock_processor):
     assert "Chan1" in cleaned.columns  # Q prefix stripped
 
 
-def test_clean_headers_missing_time(mock_processor):
+def test_clean_headers_missing_time(mock_processor: ConcreteTimeSeriesProcessor):
     """Test header cleaning fails if Time is missing."""
     df = pd.DataFrame({"Descriptor": ["D"], "Val": [10.0]})
 
@@ -144,7 +147,7 @@ def test_clean_headers_missing_time(mock_processor):
         mock_processor._clean_headers(df, data_type="Q")
 
 
-def test_clean_column_names(mock_processor):
+def test_clean_column_names(mock_processor: ConcreteTimeSeriesProcessor):
     """Test column name cleaning."""
     cols = pd.Index(["Q Chan1", "Q ds1 [M11_5m_001]", "Other"])
     cleaned = mock_processor._clean_column_names(cols, data_type="Q")
@@ -152,7 +155,7 @@ def test_clean_column_names(mock_processor):
     assert cleaned == ["Chan1", "ds1", "Other"]
 
 
-def test_normalise_value_dataframe_success(mock_processor):
+def test_normalise_value_dataframe_success(mock_processor: ConcreteTimeSeriesProcessor):
     """Test normalisation of value dataframe."""
     mock_processor.df = pd.DataFrame({"Time": [0.0, 1.0], "Chan ID": ["C1", "C1"], "Q": [10.0, 11.0]})
     mock_processor.file_name = "Test_1d_Q.csv"
@@ -165,7 +168,7 @@ def test_normalise_value_dataframe_success(mock_processor):
     assert list(mock_processor.df.columns) == ["Time", "Chan ID", "Q"]
 
 
-def test_normalise_value_dataframe_missing_columns(mock_processor):
+def test_normalise_value_dataframe_missing_columns(mock_processor: ConcreteTimeSeriesProcessor):
     """Test normalisation fails with missing columns."""
     mock_processor.df = pd.DataFrame(
         {
@@ -178,7 +181,7 @@ def test_normalise_value_dataframe_missing_columns(mock_processor):
     assert status == ProcessorStatus.FAILURE
 
 
-def test_normalise_value_dataframe_multiple_identifiers(mock_processor):
+def test_normalise_value_dataframe_multiple_identifiers(mock_processor: ConcreteTimeSeriesProcessor):
     """Test normalisation fails with multiple identifiers."""
     mock_processor.df = pd.DataFrame({"Time": [0.0], "Chan ID": ["C1"], "OtherID": ["O1"], "Q": [10.0]})
 
@@ -186,7 +189,7 @@ def test_normalise_value_dataframe_multiple_identifiers(mock_processor):
     assert status == ProcessorStatus.FAILURE
 
 
-def test_process_pipeline_success(mock_processor):
+def test_process_pipeline_success(mock_processor: ConcreteTimeSeriesProcessor):
     """Test the full process pipeline."""
     with (
         patch.object(
@@ -209,14 +212,14 @@ def test_process_pipeline_success(mock_processor):
                 mock_validate.assert_called_once()
 
 
-def test_process_pipeline_read_failure(mock_processor):
+def test_process_pipeline_read_failure(mock_processor: ConcreteTimeSeriesProcessor):
     """Test pipeline aborts on read failure."""
     with patch.object(mock_processor, "read_and_process_timeseries_csv", return_value=ProcessorStatus.FAILURE):
         mock_processor.process()
         assert mock_processor.processed is False
 
 
-def test_process_pipeline_raw_process_failure(mock_processor):
+def test_process_pipeline_raw_process_failure(mock_processor: ConcreteTimeSeriesProcessor):
     """Test pipeline aborts on raw process failure."""
     with patch.object(mock_processor, "read_and_process_timeseries_csv", return_value=ProcessorStatus.SUCCESS):
         with patch.object(mock_processor, "process_timeseries_raw_dataframe", return_value=ProcessorStatus.FAILURE):
@@ -224,7 +227,7 @@ def test_process_pipeline_raw_process_failure(mock_processor):
             assert mock_processor.processed is False
 
 
-def test_process_pipeline_validation_failure(mock_processor):
+def test_process_pipeline_validation_failure(mock_processor: ConcreteTimeSeriesProcessor):
     """Test pipeline aborts on validation failure."""
     with patch.object(mock_processor, "read_and_process_timeseries_csv", return_value=ProcessorStatus.SUCCESS):
         with patch.object(mock_processor, "process_timeseries_raw_dataframe", return_value=ProcessorStatus.SUCCESS):

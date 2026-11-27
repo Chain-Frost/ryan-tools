@@ -22,8 +22,8 @@ SCRIPT = (
 
 class ArchiveModule(Protocol):
     DEFAULT_7ZIP_EXE: Path | None
-    DEFAULT_EXCLUDED_FOLDERS: tuple[str, ...]
-    DEFAULT_EXCLUDED_EXTENSIONS: tuple[str, ...]
+    DEFAULT_EXCLUDED_FOLDERS: list[str]
+    DEFAULT_EXCLUDED_EXTENSIONS: list[str]
     DEFAULT_DRY_RUN: bool
     DEFAULT_SHOW_PROGRESS: bool
 
@@ -65,8 +65,8 @@ def script() -> ArchiveModule:
 
 def test_editable_defaults_and_bidirectional_cli(script: ArchiveModule) -> None:
     assert script.DEFAULT_7ZIP_EXE is None
-    assert script.DEFAULT_EXCLUDED_FOLDERS == ()
-    assert script.DEFAULT_EXCLUDED_EXTENSIONS == ()
+    assert script.DEFAULT_EXCLUDED_FOLDERS == []
+    assert script.DEFAULT_EXCLUDED_EXTENSIONS == []
     assert script.DEFAULT_DRY_RUN is False
     assert script.DEFAULT_SHOW_PROGRESS is True
 

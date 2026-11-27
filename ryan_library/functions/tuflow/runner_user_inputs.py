@@ -12,10 +12,12 @@ import re
 from collections.abc import Sequence
 from enum import StrEnum
 from pathlib import Path
-from typing import cast
+from typing import TypeVar, cast
+
+_CHOICE_T = TypeVar("_CHOICE_T", bound=StrEnum)
 
 
-def choice[T: StrEnum](name: str, value: object, options: type[T]) -> T:
+def choice(name: str, value: object, options: type[_CHOICE_T]) -> _CHOICE_T:
     """Accept short enum members or the equivalent raw string, case-insensitively."""
     if isinstance(value, options):
         return value
@@ -114,6 +116,14 @@ def finite_number(name: str, value: object, *, positive: bool) -> float:
         message = f"{name} must be {'greater than zero' if positive else 'nonnegative'}, not {value!r}."
         raise ValueError(message)
     return float(value)
+
+
+def positive_integer(name: str, value: object) -> int:
+    """Require an actual positive integer, without bool-as-int coercion."""
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        message = f"{name} must be a positive integer (>=1), not {value!r}."
+        raise ValueError(message)
+    return value
 
 
 def _nonempty_variable_list(key: str, entries: Sequence[object]) -> list[str]:

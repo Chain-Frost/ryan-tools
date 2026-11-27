@@ -36,6 +36,7 @@ The default MCP surface stays deliberately small:
 | `inspect_tuflow_result` | Process one supported TUFLOW result or log, with optional location and processed-time bounds, and return bounded metadata and sample rows. |
 | `inspect_tuflow_collection` | Process up to 50 supported TUFLOW files and query their `ProcessorCollection` by location, data type and processed-time bounds. |
 | `inspect_raster_metadata` | Inspect raster dimensions, resolution, CRS, transform, bounds, bands and NoData metadata. |
+| `inspect_rorb_file` | Read one RORB report, CSV or supported parameter layout, returning bounded sections and explicit format/completeness diagnostics. |
 | `check_repo_health` | Report package versions, configured profile, checkout discovery and catalogue status. |
 | `list_workflows` | Search paginated workflow summaries or request a compact, filtered domain overview. |
 | `get_workflow` | Resolve one workflow's installed module or repository script, help command, scenarios and safety metadata. |
@@ -44,6 +45,20 @@ The complete visible catalogue is also available as the read-only resource
 `ryan-tools://workflows/catalogue`. The read-only `ryan-tools://guidance/tuflow-processors` resource tells an agent
 which Python processor factory, collection methods, registry and source files to use for queries beyond the bounded MCP
 tools.
+
+The `ryan-tools://guidance/rorb-readers` resource describes supported RORB layouts and the
+[Python reader API](../ryan_library/functions/RORB/README.md). Start with `inspect_rorb_file(file_path=...)` to see
+section counts and diagnostics, then select `section="runs"`, `section="hydrographs"` or another returned section name.
+`section="raw"` returns numbered source lines. Use `offset` and `limit` (0 to 20) for pages. Strings are bounded to 300
+characters, tables to 30 columns, and diagnostics/section listings to 20 entries, with counts and truncation flags.
+Metadata is bounded to 40 entries. Python callers retain complete source text and full records.
+
+RORB inspection does not launch an engine or follow references by default. Explicit `resolve_csv=True` checks at most
+500 batch-row CSV associations using two same-directory naming conventions and content corroboration. Explicit
+`comparison_path` compares a standard output/CSV pair and reports time-axis disagreements without repairing them.
+Parsing a CMD parameter layout does not establish that an executable supports its options. Saved RORBWin parameter
+pairs are candidates with unknown activity, not certified active settings. Treat `invalid` sections as diagnostic
+evidence only; `partial` means some interpretation or completeness remains unverified.
 
 ### Discover workflows in small pages
 
@@ -157,7 +172,7 @@ or that its CLI works; verify those in the real application environment before r
 
 ## Prerequisites
 
-1. Python 3.14+ with the `ryan-tools` package installed, including `ryan-culverts`. Upgrade Python if dependency compatibility problems occur.
+1. Python 3.11–3.14 (3.14 preferred) with the `ryan-tools` package installed, including `ryan-culverts`. Upgrade Python if dependency compatibility problems occur.
 2. Install the MCP extra:
 
    ```bat
@@ -205,7 +220,7 @@ from its dock. The Python bridge and QGIS plugin must be compatible.
 ## Set up both servers in Codex
 
 Run this from the repository root in Windows PowerShell. The launcher selects
-an available Python 3.14+ interpreter by default and discovers the checkout
+an available Python 3.11–3.14 (3.14 preferred) interpreter by default and discovers the checkout
 relative to `repo-scripts`. For Codex running **natively on Windows**, the
 user-level Codex config is shared with the extension in VS Code; restart or
 reload the extension after changes.

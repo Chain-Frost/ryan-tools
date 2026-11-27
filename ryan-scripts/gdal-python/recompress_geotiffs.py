@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-15.1"
+WRAPPER_VERSION = "2026-11-07.1"
 WORKING_DIR = Path(__file__).absolute().parent
 PROFILE = "tuflow"
 STRATEGY = "auto"
@@ -44,7 +44,11 @@ def main(
     staging_directory: Path | None = None,
 ) -> int:
     """Audit by default; replace only after explicit confirmation."""
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="gdal-python/recompress_geotiffs.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+    )
     target = (working_directory or WORKING_DIR).absolute()
     if not change_working_directory(target_dir=target):
         return 1
@@ -121,6 +125,7 @@ if __name__ == "__main__":
         staging_directory=args.staging_directory,
     )
     print_wrapper_banner(
+        wrapper_source="gdal-python/recompress_geotiffs.py",
         wrapper_file=Path(__file__),
         wrapper_version=WRAPPER_VERSION,
         leading_blank_line=True,

@@ -20,6 +20,7 @@ import argparse
 import csv
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 
 import matplotlib as mpl
 
@@ -376,7 +377,7 @@ def load_curve_data(
     if not len(flow):
         msg = f"No valid flow/water-level/depth rows in {source}"
         raise RuntimeError(msg)
-    has_zero_origin = bool(np.any(np.isclose(flow, 0.0) & np.isclose(depth, 0.0)))
+    has_zero_origin = bool(np.any(cast("np.ndarray", np.isclose(flow, 0.0) & np.isclose(depth, 0.0))))
 
     moving_average_samples = moving_average_sample_count(time, moving_average_minutes)
     flow = centered_moving_average(flow, moving_average_samples)

@@ -6,16 +6,22 @@ import logging
 import os
 import subprocess
 import sys
-from collections.abc import Callable, Generator
+import time
+from collections.abc import Callable, Collection, Generator
 from dataclasses import replace
+from datetime import datetime, timedelta
 from io import StringIO
+from itertools import pairwise
 from pathlib import Path
-from threading import Event
+from threading import Event, Timer
 from typing import cast
 
 import pytest
 from loguru import logger
+from rich.console import Console, RenderableType
 
+from ryan_library.functions import live_dashboard
+from ryan_library.functions.live_dashboard import WorkflowAlert, WorkflowTask
 from ryan_library.functions.tuflow.command_plan import (
     CommandPlanError,
     PlannedRun,
@@ -24,7 +30,9 @@ from ryan_library.functions.tuflow.command_plan import (
 )
 from ryan_library.functions.tuflow.execution_history import identify_runs
 from ryan_library.functions.tuflow.gpu_occupancy import GpuOccupancySnapshot
+from ryan_library.functions.tuflow.run_progress import LogProgressSnapshot
 from ryan_library.orchestrators.tuflow import simulation_runner as runner
+from ryan_library.orchestrators.tuflow.run_progress import ProgressUpdate
 
 
 @pytest.fixture(autouse=True)
@@ -48,7 +56,9 @@ def settings(base: Path, **changes: object) -> runner.RunnerSettings:
         run_variables={"e1": ["A", "B"]},
         batch_commands="-b",
         wait_time_after_run=0,
+        wait_for_available_gpu=False,  # Existing lifecycle tests deliberately exclude external scheduling.
         use_live_dashboard=False,
+        monitor_progress=False,  # Focused lifecycle tests do not inspect logs or start monitoring threads.
     )
     return replace(initial, **changes)
 
@@ -89,6 +99,18 @@ def _no_op(*_args: object) -> None:
     """Suppress unrelated GPU/priority behaviour in focused scheduler tests."""
 
 
+def _inline_gpu_inspection(exclude_pids: Collection[int], *, timeout_seconds: float) -> GpuOccupancySnapshot:
+    """Keep worker mocks in-process while separate regressions cover the deadline."""
+    from ryan_library.functions.tuflow import gpu_occupancy
+
+    del timeout_seconds
+    query = cast(
+        Callable[[Collection[int]], GpuOccupancySnapshot],
+        getattr(gpu_occupancy, "_local_gpu_occupancy"),  # noqa: B009 - exercise the worker integration
+    )
+    return query(exclude_pids)
+
+
 def _unexpected_gpu_scan(*_args: object) -> None:
     pytest.fail("GPU scanned during export")
 
@@ -108,6 +130,160 @@ def _command(run: PlannedRun, config: runner.RunnerSettings, gpu: tuple[str, ...
         getattr(runner, "_command"),  # noqa: B009 - explicitly exercise the internal test contract
     )
     return build(run, config, gpu)
+
+
+def _gpu_alert(
+    availability: runner.GpuAvailability,
+    groups: tuple[tuple[str, ...], ...],
+    *,
+    interval_seconds: float,
+    device_names: dict[int, str] | None = None,
+) -> WorkflowAlert | None:
+    factory = cast(
+        Callable[..., WorkflowAlert | None],
+        getattr(runner, "_gpu_dashboard_alert"),  # noqa: B009 - test the scheduler/display adapter
+    )
+    return factory(availability, groups, interval_seconds=interval_seconds, device_names=device_names)
+
+
+def _capture_dashboards(
+    monkeypatch: pytest.MonkeyPatch, *, width: int = 180, height: int = 80
+) -> list[live_dashboard.LiveWorkflowDashboard]:
+    """Keep the real renderer and lifecycle without opening an interactive Live."""
+    displays: list[live_dashboard.LiveWorkflowDashboard] = []
+
+    def enter(dashboard: live_dashboard.LiveWorkflowDashboard) -> live_dashboard.LiveWorkflowDashboard:
+        dashboard.enabled = False
+        dashboard.console = Console(file=StringIO(), record=True, width=width, height=height, color_system=None)
+        displays.append(dashboard)
+        return dashboard
+
+    monkeypatch.setattr(live_dashboard.LiveWorkflowDashboard, "__enter__", enter)
+    monkeypatch.setattr(runner, "local_cuda_device_names", dict[int, str])
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    monkeypatch.setattr(runner.time, "sleep", _no_op)
+    return displays
+
+
+def _dashboard_tasks(dashboard: live_dashboard.LiveWorkflowDashboard) -> dict[int, WorkflowTask]:
+    """Inspect the real renderer's retained lifecycle state in integration tests."""
+    return cast(dict[int, WorkflowTask], getattr(dashboard, "_tasks"))  # noqa: B009 - intentional test introspection
+
+
+def _render_dashboard(dashboard: live_dashboard.LiveWorkflowDashboard) -> str:
+    render = cast(Callable[[], RenderableType], getattr(dashboard, "_render"))  # noqa: B009 - render without Live
+    dashboard.console.print(render())
+    return dashboard.console.export_text(clear=True)
+
+
+class ProgressProbe:
+    """Deterministic observations without filesystem reads or a worker thread."""
+
+    def __init__(self, snapshot: LogProgressSnapshot) -> None:
+        self.snapshot = snapshot
+        self.pending: list[ProgressUpdate] = []
+        self.registered: list[tuple[PlannedRun, int, float]] = []
+        self.discarded: list[int] = []
+        self.finished: list[tuple[int, int]] = []
+        self.started = False
+        self.closed = False
+
+    def start(self) -> None:
+        self.started = True
+
+    def register(self, run: PlannedRun, *, pid: int, started_at: float) -> None:
+        self.registered.append((run, pid, started_at))
+        self.pending.append(ProgressUpdate(run_index=run.index, pid=pid, snapshot=self.snapshot))
+
+    def discard(self, run_index: int) -> None:
+        self.discarded.append(run_index)
+
+    def finish(self, run_index: int, *, pid: int) -> ProgressUpdate | None:
+        self.finished.append((run_index, pid))
+        latest: ProgressUpdate | None = None
+        for update in self.pending.copy():
+            if update.run_index == run_index and update.pid == pid:
+                latest = update
+                self.pending.remove(update)
+        return latest
+
+    def drain(self) -> tuple[ProgressUpdate, ...]:
+        updates = tuple(self.pending)
+        self.pending.clear()
+        return updates
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class FailingProgressProbe(ProgressProbe):
+    """Inject one runtime failure, including after a child has been launched."""
+
+    def __init__(self, snapshot: LogProgressSnapshot, *, failure: str) -> None:
+        super().__init__(snapshot)
+        self.failure = failure
+        self.message = f"synthetic {failure} failure"
+        self.drain_count = 0
+
+    def drain(self) -> tuple[ProgressUpdate, ...]:
+        self.drain_count += 1
+        if self.failure == "drain" and self.drain_count > 1:
+            raise RuntimeError(self.message)
+        return super().drain()
+
+    def register(self, run: PlannedRun, *, pid: int, started_at: float) -> None:
+        if self.failure == "register":
+            raise RuntimeError(self.message)
+        super().register(run, pid=pid, started_at=started_at)
+
+    def discard(self, run_index: int) -> None:
+        if self.failure == "discard":
+            raise RuntimeError(self.message)
+        super().discard(run_index)
+
+    def finish(self, run_index: int, *, pid: int) -> ProgressUpdate | None:
+        if self.failure == "finish":
+            raise RuntimeError(self.message)
+        update = super().finish(run_index, pid=pid)
+        if self.failure == "finish_snapshot":
+            return ProgressUpdate(
+                run_index=run_index,
+                pid=pid,
+                snapshot=replace(self.snapshot, model_hours=cast(float, "malformed final model time")),
+            )
+        return update
+
+    def close(self) -> None:
+        super().close()
+        if self.failure == "close":
+            raise RuntimeError(self.message)
+
+
+@pytest.mark.parametrize("invalid", [0, -1, True, 1.5])
+def test_dashboard_rows_require_a_positive_integer(tmp_path: Path, invalid: object) -> None:
+    with pytest.raises(CommandPlanError, match="Dashboard row limit"):
+        runner.prepare_plan(settings(tmp_path, live_max_rows=invalid))
+
+
+def test_imported_order_and_first_occurrence_are_unchanged_by_priority_order(tmp_path: Path) -> None:
+    first = tmp_path / "first.bat"
+    second = tmp_path / "second.bat"
+    first.write_text("TUFLOW.exe -e1 B model.tcf\nTUFLOW.exe -e1 A model.tcf\n", encoding="utf-8")
+    second.write_text("TUFLOW.exe -e1 A model.tcf\nTUFLOW.exe -e1 C model.tcf\n", encoding="utf-8")
+    plan = runner.prepare_plan(
+        settings(
+            tmp_path,
+            mode="textfiles",
+            tcf=None,
+            run_variables={},
+            input_files=(first, second),
+            priority_order="e1",
+        )
+    )
+    assert [run.flags["e1"] for run in plan.runs] == ["B", "A", "C"]
+    assert [run.source for run in plan.runs] == [first, first, second]
+    assert plan.duplicates_dropped == 1
 
 
 def test_parameter_product_discards_repeated_selections_in_order(tmp_path: Path) -> None:
@@ -328,6 +504,212 @@ def test_import_and_generated_use_one_ordered_plan(tmp_path: Path) -> None:
         runner.prepare_plan(config)
 
 
+@pytest.mark.parametrize("failed_first", [False, True])
+def test_interlaunch_spacing_includes_failed_start_attempts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failed_first: bool
+) -> None:
+    """Popen attempts are at least the requested interval apart across GPU slots."""
+    delay = 0.06
+    config = settings(
+        tmp_path,
+        run_variables={"e1": ["A", "B", "C"]},
+        gpu_devices=(("-pu0",), ("-pu1",)),
+        wait_time_after_run=delay,
+    )
+    plan = runner.prepare_plan(config)
+    monkeypatch.setattr(runner, "local_cuda_device_names", dict[int, str])
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    attempts: list[float] = []
+    gpu_assignments: list[str] = []
+
+    class HoldFirstProcess(FakeProcess):
+        def poll(self) -> int | None:
+            # Keep GPU0 occupied while the next queued run starts on GPU1.
+            if len(attempts) < 2:
+                return None
+            return super().poll()
+
+    def fake_popen(*, args: list[str], **_options: object) -> FakeProcess:
+        gpu = "-pu0" if "-pu0" in args else "-pu1"
+        assert gpu in args
+        gpu_assignments.append(gpu)
+        attempts.append(time.monotonic())
+        if failed_first and len(attempts) == 1:
+            message = "synthetic missing solver"
+            raise FileNotFoundError(message)
+        if not failed_first and len(attempts) == 1:
+            return HoldFirstProcess(801)
+        return FakeProcess(len(attempts) + 800)
+
+    outcome = runner.launch_plan(plan, config, popen=fake_popen)
+    assert len(attempts) == 3
+    assert all(second - first >= delay - 0.01 for first, second in pairwise(attempts))
+    if not failed_first:
+        assert gpu_assignments[:2] == ["-pu0", "-pu1"]
+    assert outcome.successful == (not failed_first)
+    assert sum(item.pid is None for item in outcome.outcomes) == int(failed_first)
+
+
+def test_failed_start_cooldown_does_not_wait_for_next_gpu_inspection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A failed Popen retries after the cooldown, not the 60-second GPU poll."""
+    config = settings(
+        tmp_path,
+        gpu_devices=(("-pu0",), ("-pu1",)),
+        wait_for_available_gpu=True,
+        gpu_check_interval_seconds=60.0,
+        wait_time_after_run=0.08,
+        use_live_dashboard=False,
+    )
+    plan = runner.prepare_plan(config)
+    monkeypatch.setattr(runner, "local_cuda_device_names", dict[int, str])
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+
+    def available_gpu(*_args: object, **_kwargs: object) -> runner.GpuAvailability:
+        return runner.GpuAvailability()
+
+    monkeypatch.setattr(runner, "_blocked_external_gpu_slots", available_gpu)
+    stop = Event()
+    raw_wait = stop.wait
+    waits: list[float] = []
+
+    def bounded_wait(timeout: float | None = None) -> bool:
+        assert timeout is not None
+        assert timeout <= 0.25, "GPU poll wait must not override a launch cooldown"
+        waits.append(timeout)
+        return raw_wait(timeout)
+
+    monkeypatch.setattr(stop, "wait", bounded_wait)
+    attempts: list[float] = []
+
+    def fake_popen(**_options: object) -> FakeProcess:
+        attempts.append(time.monotonic())
+        if len(attempts) == 1:
+            message = "synthetic startup failure"
+            raise FileNotFoundError(message)
+        return FakeProcess(802)
+
+    outcome = runner.launch_plan(plan, config, popen=fake_popen, interrupted=stop)
+    assert len(attempts) == 2
+    assert attempts[1] - attempts[0] >= config.wait_time_after_run - 0.01
+    assert waits
+    assert not outcome.successful
+    assert sum(item.pid is None for item in outcome.outcomes) == 1
+
+
+@pytest.mark.parametrize("exit_code", [0, 2])
+def test_next_launch_waits_after_observed_solver_completion(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, exit_code: int
+) -> None:
+    """A finished run starts a fresh cooldown even if its start was long ago."""
+    delay = 0.2
+    config = settings(
+        tmp_path,
+        run_variables={"e1": ["A", "B"]},
+        gpu_devices=(("-pu0",),),
+        wait_time_after_run=delay,
+    )
+    plan = runner.prepare_plan(config)
+    monkeypatch.setattr(runner, "local_cuda_device_names", dict[int, str])
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    launch_times: list[float] = []
+    finish_times: list[float] = []
+
+    class TimedProcess(FakeProcess):
+        def poll(self) -> int | None:
+            code = super().poll()
+            if code is not None and not finish_times:
+                finish_times.append(time.monotonic())
+            return code
+
+    def fake_popen(**_options: object) -> FakeProcess:
+        launch_times.append(time.monotonic())
+        if len(launch_times) == 1:
+            return TimedProcess(801, code=exit_code, polls_before_exit=3)
+        return FakeProcess(802)
+
+    outcome = runner.launch_plan(plan, config, popen=fake_popen)
+    assert len(launch_times) == 2
+    assert len(finish_times) == 1
+    assert launch_times[1] - finish_times[0] >= delay - 0.02
+    assert outcome.successful == (exit_code == 0)
+
+
+def test_zero_launch_delay_disables_start_and_completion_cooldowns(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Zero explicitly disables cooldowns even with multiple GPU slots."""
+    config = settings(
+        tmp_path,
+        run_variables={"e1": ["A", "B", "C"]},
+        gpu_devices=(("-pu0",), ("-pu1",)),
+        wait_time_after_run=0.0,
+    )
+    plan = runner.prepare_plan(config)
+    monkeypatch.setattr(runner, "local_cuda_device_names", dict[int, str])
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    stop = Event()
+    wait_calls: list[float | None] = []
+    actual_wait = stop.wait
+
+    def trace_wait(timeout: float | None = None) -> bool:
+        wait_calls.append(timeout)
+        return actual_wait(timeout)
+
+    monkeypatch.setattr(stop, "wait", trace_wait)
+    attempts: list[int] = []
+
+    def fake_popen(**_options: object) -> FakeProcess:
+        attempts.append(1)
+        return FakeProcess(900 + len(attempts))
+
+    outcome = runner.launch_plan(plan, config, popen=fake_popen, interrupted=stop)
+    assert outcome.successful
+    assert len(attempts) == 3
+    assert not wait_calls
+
+
+def test_interlaunch_wait_is_interruptible_without_starting_another_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An interrupt during the cooldown must not start the queued child."""
+    config = settings(
+        tmp_path,
+        gpu_devices=(("-pu0",), ("-pu1",)),
+        wait_time_after_run=2.0,
+    )
+    plan = runner.prepare_plan(config)
+    monkeypatch.setattr(runner, "local_cuda_device_names", dict[int, str])
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    stop = Event()
+    launched: list[int] = []
+    interrupt_timer: Timer | None = None
+
+    def fake_popen(**_options: object) -> FakeProcess:
+        nonlocal interrupt_timer
+        launched.append(1)
+        if len(launched) == 1:
+            # Signal during the two-second throttle, not before it begins.
+            interrupt_timer = Timer(0.05, stop.set)
+            interrupt_timer.start()
+        return FakeProcess(800 + len(launched))
+
+    start = time.monotonic()
+    try:
+        outcome = runner.launch_plan(plan, config, popen=fake_popen, interrupted=stop)
+    finally:
+        if interrupt_timer is not None:
+            interrupt_timer.join(timeout=1.0)
+    assert time.monotonic() - start < 1.0
+    assert outcome.interrupted
+    assert launched == [1]
+
+
 @pytest.mark.parametrize("source", ["-e1 A", 'SET "TCF=model.tcf"\\n-e1 A'])
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows command export requires native Windows paths")
 def test_abbreviated_input_launches_and_roundtrips(
@@ -500,6 +882,357 @@ def test_per_child_directory_argument_list_and_runtime_gpu_policy(
     assert len(snapshots) == 1
 
 
+def test_claimed_gpu_slots_are_reused_without_reinspection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Once every GPU has launched a child, no further occupancy probe is useful."""
+    from ryan_library.functions.tuflow import gpu_occupancy
+
+    config = settings(
+        tmp_path,
+        run_variables={"e1": ("A", "B", "C", "D", "E")},
+        gpu_devices=(("-pu0",), ("-pu1",)),
+        wait_for_available_gpu=True,
+        gpu_check_interval_seconds=60.0,
+        use_live_dashboard=True,
+    )
+    plan = runner.prepare_plan(config)
+    displays = _capture_dashboards(monkeypatch)
+    checks = 0
+    launched: list[list[str]] = []
+
+    def inspect(*, exclude_pids: set[int]) -> GpuOccupancySnapshot:
+        nonlocal checks
+        checks += 1
+        assert checks == 1, "Batch-owned GPUs must not be re-inspected between runs"
+        assert exclude_pids == set()
+        return GpuOccupancySnapshot((), (), True, "Synthetic startup inspection uncertainty")
+
+    def popen(*, args: list[str], **_options: object) -> FakeProcess:
+        launched.append(args)
+        return FakeProcess(100 + len(launched), polls_before_exit=3)
+
+    monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
+    assert runner.launch_plan(plan, config, popen=popen).successful
+    assert len(launched) == 5
+    assert checks == 1
+    assert {"-pu0", "-pu1"} == {flag for args in launched for flag in args if flag.startswith("-pu")}
+    assert "GPU INSPECTION WARNING - CONTINUING" in caplog.text
+    # Initial uncertainty must not persist as a misleading warning after
+    # every GPU has been claimed by the batch.
+    dashboard_text = _render_dashboard(displays[0])
+    assert "GPU INSPECTION WARNING - CONTINUING" not in dashboard_text
+    assert "2/2 claimed" in dashboard_text
+
+
+def test_external_inspection_only_considers_never_claimed_gpu_slots(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from ryan_library.functions.tuflow import gpu_occupancy
+    from ryan_library.functions.tuflow.gpu_occupancy import TuflowGpuProcess
+
+    config = settings(
+        tmp_path,
+        run_variables={"e1": ("A", "B", "C", "D")},
+        gpu_devices=(("-pu0",), ("-pu1",)),
+        wait_for_available_gpu=True,
+        gpu_check_interval_seconds=0.001,
+    )
+    plan = runner.prepare_plan(config)
+    scanned: list[set[int]] = []
+    launched: list[list[str]] = []
+
+    def inspect(*, exclude_pids: set[int]) -> GpuOccupancySnapshot:
+        scanned.append(set(exclude_pids))
+        assert len(scanned) <= 3, "No scans after both GPUs are claimed"
+        if len(scanned) == 1:
+            # GPU 1 was occupied before the batch started.
+            return GpuOccupancySnapshot((TuflowGpuProcess(901, frozenset({1})),), ())
+        if len(scanned) == 2:
+            # A separate process now appears on GPU 0. The batch already
+            # claimed that GPU, so only the unclaimed GPU 1 matters.
+            return GpuOccupancySnapshot(
+                (TuflowGpuProcess(902, frozenset({0})), TuflowGpuProcess(901, frozenset({1}))),
+                (),
+            )
+        return GpuOccupancySnapshot((TuflowGpuProcess(902, frozenset({0})),), ())
+
+    def popen(*, args: list[str], **_options: object) -> FakeProcess:
+        launched.append(args)
+        return FakeProcess(100 + len(launched), polls_before_exit=3)
+
+    monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
+    monkeypatch.setattr(runner, "local_cuda_device_names", dict)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    assert runner.launch_plan(plan, config, popen=popen).successful
+    assert len(scanned) == 3
+    assert len(launched) == 4
+    assert "-pu0" in launched[0]
+    assert any("-pu1" in args for args in launched)
+
+
+def test_external_gpu_probe_ignores_claimed_slot_conflicts(monkeypatch: pytest.MonkeyPatch) -> None:
+    from ryan_library.functions.tuflow import gpu_occupancy
+    from ryan_library.functions.tuflow.gpu_occupancy import TuflowGpuProcess
+
+    checks = 0
+
+    def inspect(*, exclude_pids: set[int]) -> GpuOccupancySnapshot:
+        nonlocal checks
+        checks += 1
+        assert exclude_pids == set()
+        return GpuOccupancySnapshot(
+            (TuflowGpuProcess(100, frozenset({0})), TuflowGpuProcess(200, frozenset({1}))),
+            (300,),
+        )
+
+    monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
+    inspect_gpu_slots = cast(
+        Callable[..., runner.GpuAvailability],
+        getattr(runner, "_blocked_external_gpu_slots"),  # noqa: B009 - exercise targeted slot inspection
+    )
+    selected = inspect_gpu_slots((("-pu0",), ("-pu1",)), exclude_pids=set(), eligible_slots=frozenset({1}))
+    assert selected.blocked_slots == frozenset({1})
+    assert selected.issues
+    assert all(issue.slot_indexes == frozenset({1}) for issue in selected.issues)
+    empty = inspect_gpu_slots((("-pu0",), ("-pu1",)), exclude_pids=set(), eligible_slots=frozenset())
+    assert not empty.issues
+    assert not empty.blocked_slots
+    assert checks == 1
+
+
+def test_waits_until_selected_gpu_is_externally_free(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    from ryan_library.functions.tuflow import gpu_occupancy
+    from ryan_library.functions.tuflow.gpu_occupancy import TuflowGpuProcess
+
+    config = settings(
+        tmp_path,
+        run_variables={"e1": ["A"]},
+        gpu_devices=(("-pu0",),),
+        wait_for_available_gpu=True,
+        gpu_check_interval_seconds=0.01,
+    )
+    plan = runner.prepare_plan(config)
+    snapshots = [
+        GpuOccupancySnapshot((TuflowGpuProcess(999, frozenset({0})),), (), False),
+        GpuOccupancySnapshot((TuflowGpuProcess(999, frozenset({0})),), (), False),
+        GpuOccupancySnapshot((), (), False),
+    ]
+    checked: list[object] = []
+
+    def inspect(*, exclude_pids: object = ()) -> GpuOccupancySnapshot:
+        checked.append(exclude_pids)
+        return snapshots.pop(0) if snapshots else GpuOccupancySnapshot((), (), False)
+
+    def popen(*, args: list[str], **_options: object) -> FakeProcess:
+        assert len(checked) >= 3  # No launch on either occupied snapshot.
+        assert "-pu0" in args
+        return FakeProcess(123)
+
+    monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    outcome = runner.launch_plan(plan, config, popen=popen)
+    assert outcome.successful
+    assert len(checked) >= 3
+    errors = [record.message for record in caplog.records if record.levelname == "ERROR"]
+    assert len(errors) == 1
+    assert "GPU AVAILABILITY ERROR" in errors[0]
+    assert "external TUFLOW PID 999" in errors[0]
+    assert "ALL CONFIGURED GPU SLOTS BLOCKED" in errors[0]
+    assert "Next availability check in 0.01 seconds" in errors[0]
+    assert "restriction is unchanged" in caplog.text
+    assert "queued scheduling may resume" in caplog.text
+
+
+def test_busy_gpu_group_is_not_used_when_another_slot_is_free(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from ryan_library.functions.tuflow import gpu_occupancy
+    from ryan_library.functions.tuflow.gpu_occupancy import TuflowGpuProcess
+
+    config = settings(
+        tmp_path,
+        run_variables={"e1": ["A", "B", "C"]},
+        gpu_devices=(("-pu0", "-pu1"), ("-pu2",)),
+        wait_for_available_gpu=True,
+        gpu_check_interval_seconds=0.01,
+    )
+    plan = runner.prepare_plan(config)
+    checked: list[set[int]] = []
+    launched: list[list[str]] = []
+
+    def inspect(*, exclude_pids: set[int]) -> GpuOccupancySnapshot:
+        checked.append(set(exclude_pids))
+        return GpuOccupancySnapshot((TuflowGpuProcess(999, frozenset({1})),), (), False)
+
+    def popen(*, args: list[str], **_options: object) -> FakeProcess:
+        launched.append(args)
+        return FakeProcess(100 + len(launched))
+
+    monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    outcome = runner.launch_plan(plan, config, popen=popen)
+    assert outcome.successful
+    assert len(launched) == 3
+    assert checked
+    assert all("-pu2" in args and "-pu0" not in args and "-pu1" not in args for args in launched)
+
+
+@pytest.mark.parametrize("uncertainty", ["unknown", "incomplete", "error"])
+def test_gpu_guard_reports_uncertainty_without_blocking(monkeypatch: pytest.MonkeyPatch, uncertainty: str) -> None:
+    from ryan_library.functions.tuflow import gpu_occupancy
+
+    def inspect(*, exclude_pids: object = ()) -> GpuOccupancySnapshot:
+        del exclude_pids
+        if uncertainty == "error":
+            message = "Access denied"
+            raise OSError(message)
+        return GpuOccupancySnapshot((), (42,) if uncertainty == "unknown" else (), uncertainty == "incomplete")
+
+    monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
+    groups = (("-pu0",), ("-pu1",))
+    inspect_gpu_slots = cast(
+        Callable[..., runner.GpuAvailability],
+        getattr(runner, "_blocked_external_gpu_slots"),  # noqa: B009 - test a private scheduler policy
+    )
+    availability = inspect_gpu_slots(groups, exclude_pids=set())
+    assert availability.blocked_slots == frozenset()
+    assert availability.issues
+    expected_kind = {
+        "unknown": "unknown_assignment",
+        "incomplete": "inspection_incomplete",
+        "error": "query_failed",
+    }[uncertainty]
+    assert availability.issues[0].kind == expected_kind
+
+
+def test_gpu_dashboard_alert_distinguishes_occupied_capacity_and_unknown_status() -> None:
+    groups = (("-pu0",), ("-pu1",))
+    occupied = runner.GpuAvailability(
+        blocked_slots=frozenset({0}),
+        issues=(
+            runner.GpuAvailabilityIssue(
+                kind="occupied",
+                slot_indexes=frozenset({0}),
+                gpu_ids=frozenset({0}),
+                pids=(12345,),
+            ),
+        ),
+    )
+    alert = _gpu_alert(occupied, groups, interval_seconds=60, device_names={0: "RTX 3090", 1: "RTX 3080"})
+    assert alert is not None
+    assert "Excluded from scheduling: -pu0 (RTX 3090)" in alert.lines
+    assert alert.title == "GPU AVAILABILITY ERROR"
+    assert "TUFLOW -pu0: OCCUPIED - external TUFLOW PID 12345" in alert.lines
+    assert "Eligible GPU slot(s) may continue: -pu1 (RTX 3080)" in alert.lines
+
+    unknown = runner.GpuAvailability(
+        issues=(
+            runner.GpuAvailabilityIssue(
+                kind="query_failed",
+                slot_indexes=frozenset({0, 1}),
+                detail="Local TUFLOW process query failed: access denied",
+            ),
+        ),
+    )
+    alert = _gpu_alert(unknown, groups, interval_seconds=60)
+    assert alert is not None
+    assert alert.title == "GPU INSPECTION WARNING - CONTINUING"
+    assert alert.border_style == "yellow"
+    assert any("continuing without verified availability" in line for line in alert.lines)
+
+
+def test_external_gpu_wait_is_interruptible_without_launch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    from ryan_library.functions.tuflow import gpu_occupancy
+    from ryan_library.functions.tuflow.gpu_occupancy import TuflowGpuProcess
+
+    config = settings(tmp_path, gpu_devices=(("-pu0",),), wait_for_available_gpu=True)
+    plan = runner.prepare_plan(config)
+    stop = Event()
+
+    def inspect(*, exclude_pids: object = ()) -> GpuOccupancySnapshot:
+        del exclude_pids
+        stop.set()
+        return GpuOccupancySnapshot((TuflowGpuProcess(321, frozenset({0})),), (), False)
+
+    def popen(**_options: object) -> FakeProcess:
+        pytest.fail("The runner launched while a GPU was occupied or after interruption")
+
+    monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
+    outcome = runner.launch_plan(plan, config, interrupted=stop, popen=popen)
+    assert outcome.interrupted
+    assert not outcome.outcomes
+    assert "Next availability check in 60 seconds" in caplog.text
+    assert "Run 1: FAIL" not in caplog.text
+
+
+def test_one_minute_gpu_poll_wait_does_not_busy_wait_or_rescan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from ryan_library.functions.tuflow import gpu_occupancy
+    from ryan_library.functions.tuflow.gpu_occupancy import TuflowGpuProcess
+
+    config = settings(tmp_path, gpu_devices=(("-pu0",),), wait_for_available_gpu=True)
+    plan = runner.prepare_plan(config)
+    scans = 0
+
+    def inspect(*, exclude_pids: object = ()) -> GpuOccupancySnapshot:
+        nonlocal scans
+        del exclude_pids
+        scans += 1
+        return GpuOccupancySnapshot((TuflowGpuProcess(321, frozenset({0})),), (), False)
+
+    class CapturedStop:
+        def __init__(self) -> None:
+            self.timeouts: list[float] = []
+            self.stopped = False
+
+        def is_set(self) -> bool:
+            return self.stopped
+
+        def wait(self, timeout: float | None = None) -> bool:
+            assert timeout is not None
+            self.timeouts.append(timeout)
+            self.stopped = True
+            return True
+
+    stop = CapturedStop()
+    monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
+
+    def popen(**_options: object) -> FakeProcess:
+        pytest.fail("The runner launched instead of waiting for the configured GPU")
+
+    outcome = runner.launch_plan(plan, config, interrupted=cast(Event, stop), popen=popen)
+    assert outcome.interrupted
+    assert not outcome.outcomes
+    assert scans == 1
+    assert len(stop.timeouts) == 1
+    assert 59.0 <= stop.timeouts[0] <= 60.0
+
+
+def test_explicitly_disabled_gpu_wait_preserves_warning_only_launch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from ryan_library.functions.tuflow import gpu_occupancy
+
+    config = settings(tmp_path, gpu_devices=(("-pu0",),), wait_for_available_gpu=False)
+    plan = runner.prepare_plan(config)
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+
+    def inspect(*, exclude_pids: object = ()) -> GpuOccupancySnapshot:
+        del exclude_pids
+        pytest.fail("GPU scheduling inspection ran even though WAIT_FOR_AVAILABLE_GPU is False")
+
+    monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
+
+    def popen(**_options: object) -> FakeProcess:
+        return FakeProcess(123)
+
+    outcome = runner.launch_plan(plan, config, popen=popen)
+    assert outcome.successful
+
+
 @pytest.mark.parametrize(
     ("gpu_devices", "expected_capacity"),
     [((), 1), ((("-pu0",),), 1), ((("-pu0",), ("-pu1",)), 2), ((("-pu0", "-pu1"),), 1)],
@@ -563,14 +1296,42 @@ def test_launch_failure_and_priority_failure_cannot_lose_scheduler_slot(
 def test_out_of_order_completion_callback_precedes_ordered_output(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    config = settings(tmp_path, gpu_devices=(("-pu0",), ("-pu1",)))
+    config = settings(tmp_path, gpu_devices=(("-pu0",), ("-pu1",)), monitor_progress=True, use_live_dashboard=True)
     plan = runner.prepare_plan(config)
+    displays = _capture_dashboards(monkeypatch)
     monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
     monkeypatch.setattr(runner, "_apply_priority", _no_op)
-    processes = iter((FakeProcess(1, polls_before_exit=5), FakeProcess(2)))
+    mixed_frames: list[str] = []
+
+    class CapturedProcess(FakeProcess):
+        def poll(self) -> int | None:
+            dashboard = displays[0]
+            tasks = _dashboard_tasks(dashboard)
+            if tasks[1].status == "RUNNING" and tasks[2].status == "OK":
+                mixed_frames.append(_render_dashboard(dashboard))
+            return super().poll()
+
+    processes = iter((CapturedProcess(1, polls_before_exit=5), FakeProcess(2)))
     observed: list[int] = []
     began: list[int] = []
     caplog.set_level(logging.INFO)
+
+    class CompletionProbe(ProgressProbe):
+        def finish(self, run_index: int, *, pid: int) -> ProgressUpdate | None:
+            super().finish(run_index, pid=pid)
+            return ProgressUpdate(
+                run_index=run_index,
+                pid=pid,
+                snapshot=LogProgressSnapshot(model_hours=float(run_index), state="live"),
+            )
+
+    probe = CompletionProbe(LogProgressSnapshot(state="live"))
+
+    def monitor(*, interval_seconds: float) -> ProgressProbe:
+        del interval_seconds
+        return probe
+
+    monkeypatch.setattr(runner, "AdvisoryRunProgress", monitor)
 
     def popen(**_options: object) -> FakeProcess:
         return next(processes)
@@ -593,6 +1354,35 @@ def test_out_of_order_completion_callback_precedes_ordered_output(
     assert observed == [2, 1]
     assert [record.run.index for record in outcome.outcomes] == [2, 1]
     assert caplog.text.index("Run 1: OK") < caplog.text.index("Run 2: OK")
+    completion_messages = [record.message for record in caplog.records if ": OK (exit" in record.message]
+    assert completion_messages[0].endswith(" | Model 1.000 h")
+    assert completion_messages[1].endswith(" | Model 2.000 h")
+    assert mixed_frames
+    for frame in mixed_frames:
+        run_rows = [
+            tokens
+            for line in frame.splitlines()
+            if len(tokens := line.split()) > 2 and tokens[:2] == ["│", "│"] and tokens[2].isdigit()
+        ]
+        assert [row[2] for row in run_rows] == ["2", "1"]
+        assert "OK" in run_rows[0]
+        assert "RUNNING" in run_rows[1]
+
+
+@pytest.mark.parametrize("model_hours", [None, 3.0, float("nan"), float("inf")])
+def test_completion_timing_preserves_observed_runtime_and_unknown_model_clock(
+    tmp_path: Path, model_hours: float | None
+) -> None:
+    run = runner.prepare_plan(settings(tmp_path)).runs[0]
+    started = datetime(2026, 11, 6, 1, 0)
+    result = runner.RunOutcome(run, 0, started, started + timedelta(hours=27, minutes=2, seconds=43), 501)
+    progress = ProgressUpdate(run_index=run.index, pid=501, snapshot=LogProgressSnapshot(model_hours=model_hours))
+    timing = runner._completion_timing(result, progress)  # pyright: ignore[reportPrivateUsage] - test completion presentation
+    expected_model = "3.000 h" if model_hours == 3.0 else "--"
+    assert timing == f"Runtime 27:02:43 | Model {expected_model}"
+    assert runner._completion_timing(result, None) == "Runtime 27:02:43 | Model --"  # pyright: ignore[reportPrivateUsage]
+    failed = replace(result, pid=None, started_at=None, return_code=None, error="Launch failed")
+    assert runner._completion_timing(failed, None) == "Runtime -- | Model --"  # pyright: ignore[reportPrivateUsage]
 
 
 def test_interruption_terminates_owned_child_without_imaginary_success(
@@ -842,17 +1632,72 @@ def test_export_rechecks_destination_alias_before_atomic_replacement(
     assert not tuple(tmp_path.glob(".*.tmp"))
 
 
+def test_plan_preview_lists_all_runs_and_effective_settings(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level("INFO")
+    config = settings(
+        tmp_path,
+        run_variables={"e1": [str(i) for i in range(1, 481)], "e2": ["00030m"]},
+        gpu_devices=(("-pu0",), ("-pu1",)),
+    )
+    plan = runner.prepare_plan(config)
+    output = caplog.text
+    assert "Runner settings:" in output
+    assert "  RUN_VARIABLES: {\n    'e1': [" in output
+    assert "\n    'e2': ['00030m'],\n  }\n  BATCH_COMMANDS:" in output
+    assert "GPU_DEVICES: (('-pu0',), ('-pu1',))" in output
+    assert "CONCURRENT_SLOTS: 2" in output
+    assert "WAIT_TIME_AFTER_RUN (seconds): 0" in output
+    assert "SHOW_PROGRESS_DIAGNOSTICS: True" in output
+    assert "Simulation plan: 480 unique runs" in output
+    assert "before Resume filtering; GPU slots assigned at launch" in output
+    rows = [record.message for record in caplog.records if record.message.startswith("Run ")]
+    assert len(rows) == len(plan.runs) == 480
+    assert "Run 001: -b -e1 1 -e2 00030m" in rows[0]
+    assert "Run 480: -b -e1 480 -e2 00030m" in rows[-1]
+    assert f"source {config.wrapper_file.name}" in rows[-1]
+    assert not list(tmp_path.glob("*_runs.csv"))
+
+
+@pytest.mark.parametrize(
+    ("gpu_devices", "gpu_text"),
+    [((), "Auto"), ((("-pu0",),), "-pu0"), ((("-pu0", "-pu1"),), "-pu0 -pu1")],
+)
 def test_shared_dashboard_shows_middle_active_run_and_original_resume_index(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    gpu_devices: tuple[tuple[str, ...], ...],
+    gpu_text: str,
 ) -> None:
     from collections.abc import Sequence
 
-    from rich.console import Console, RenderableType
+    monkeypatch.setattr(runner, "local_cuda_device_names", lambda: {0: "RTX 3090", 1: "RTX 3080"})
 
-    from ryan_library.functions import live_dashboard
-
-    config = settings(tmp_path, run_variables={"e1": [str(i) for i in range(1, 401)]}, use_live_dashboard=True)
+    config = settings(
+        tmp_path,
+        run_variables={"e1": [str(i) for i in range(1, 401)], "e2": ["00030m"], "s1": ["BigModel"]},
+        use_live_dashboard=True,
+        gpu_devices=gpu_devices,
+        batch_commands="-b -t -pu9",
+    )
     full = runner.prepare_plan(config)
+    # A skipped run is the only source of s9; the last pending run alone has e3.
+    full = replace(
+        full,
+        runs=(
+            replace(
+                full.runs[0],
+                flag_pairs=(*full.runs[0].flag_pairs, ("s9", "Skipped")),
+                arguments=(*full.runs[0].arguments[:-1], "-s9", "Skipped", full.runs[0].arguments[-1]),
+            ),
+            *full.runs[1:-1],
+            replace(
+                full.runs[-1],
+                flag_pairs=(*full.runs[-1].flag_pairs, ("e3", "TP10")),
+                arguments=(*full.runs[-1].arguments[:-1], "-e3", "TP10", full.runs[-1].arguments[-1]),
+            ),
+        ),
+    )
     plan = replace(full, runs=full.runs[100:])
     rendered: list[str] = []
     displays: list[live_dashboard.LiveWorkflowDashboard] = []
@@ -860,13 +1705,50 @@ def test_shared_dashboard_shows_middle_active_run_and_original_resume_index(
     actual_type = live_dashboard.LiveWorkflowDashboard
 
     def display(
-        *, title: str, refresh_per_second: float, transient: bool, columns: Sequence[live_dashboard.WorkflowColumn]
+        *,
+        title: str,
+        subtitle: str,
+        refresh_per_second: float,
+        max_rows: int,
+        transient: bool,
+        columns: Sequence[live_dashboard.WorkflowColumn],
+        group_by: str,
+        group_label_key: str,
+        newest_first: bool,
     ) -> live_dashboard.LiveWorkflowDashboard:
         assert transient is False
+        assert max_rows == config.live_max_rows == 10
+        assert group_by == "tcf_key"
+        assert group_label_key == "tcf_label"
+        assert newest_first is True
+        assert [column.header for column in columns] == [
+            "Run",
+            "e1",
+            "e2",
+            "e3",
+            "s1",
+            "s9",
+            "Status",
+            "GPU",
+            "End (h)",
+            "Model (h)",
+            "%",
+            "Elapsed",
+            "Detail",
+        ]
         result = actual_type(
-            title=title, refresh_per_second=refresh_per_second, transient=transient, columns=columns, enabled=False
+            title=title,
+            subtitle=subtitle,
+            refresh_per_second=refresh_per_second,
+            max_rows=max_rows,
+            transient=transient,
+            columns=columns,
+            enabled=False,
+            group_by=group_by,
+            group_label_key=group_label_key,
+            newest_first=newest_first,
         )
-        result.console = Console(file=StringIO(), record=True, width=100, height=25, color_system=None)
+        result.console = Console(file=StringIO(), record=True, width=160, height=25, color_system=None)
         displays.append(result)
         return result
 
@@ -890,13 +1772,582 @@ def test_shared_dashboard_shows_middle_active_run_and_original_resume_index(
     monkeypatch.setattr(live_dashboard, "LiveWorkflowDashboard", display)
     monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
     monkeypatch.setattr(runner, "_apply_priority", _no_op)
-    outcome = runner.launch_plan(plan, config, popen=popen, on_observed_completion=finished)
+    outcome = runner.launch_plan(plan, config, popen=popen, on_observed_completion=finished, proposed_plan=full)
     assert outcome.successful
     assert observed == list(range(101, 401))
     assert len(displays) == 1
     assert rendered
     assert "250" in rendered[0]
     assert "RUNNING" in rendered[0]
+    assert "e1" in rendered[0]
+    assert "e2" in rendered[0]
+    assert "s1" in rendered[0]
+    assert "250 00030m BigModel" in " ".join(rendered[0].split())
+    assert plan.runs[0].tcf.name in rendered[0]
+    assert gpu_text in rendered[0]
+    assert "RTX" not in rendered[0]
+    assert "Local CUDA device mapping for this launch environment: -pu0 (RTX 3090); -pu1 (RTX 3080)" in caplog.text
+    launch_messages = [
+        record.message for record in caplog.records if record.message.startswith("Run ") and " | PID " in record.message
+    ]
+    assert len(launch_messages) == len(plan.runs)
+    assert all(f"[{gpu_text}]" in message for message in launch_messages)
+    assert all("RTX" not in message for message in launch_messages)
+    assert "Batch: -b -t" in rendered[0]
+    assert "-pu9" not in rendered[0]
+    # The same selected values remain visible after a run finishes.
+    dashboard = displays[0]
+    render = cast(Callable[[], RenderableType], getattr(dashboard, "_render"))  # noqa: B009
+    dashboard.console.print(render())
+    completed = dashboard.console.export_text()
+    assert "400 00030m TP10 BigModel" in " ".join(completed.split())
+    assert "Skipped" not in completed
+    assert "OK" in completed
+    assert gpu_text in completed
+    assert "RTX" not in completed
+    assert "Batch: -b -t" in completed
+
+
+@pytest.mark.parametrize("invalid", [None, 0, 1, "False"])
+def test_progress_diagnostics_requires_an_explicit_boolean(tmp_path: Path, invalid: object) -> None:
+    with pytest.raises(CommandPlanError, match="SHOW_PROGRESS_DIAGNOSTICS must be True or False"):
+        runner.prepare_plan(settings(tmp_path, show_progress_diagnostics=invalid))
+
+
+@pytest.mark.parametrize("show_diagnostics", [True, False])
+@pytest.mark.parametrize(
+    ("phase", "label"),
+    [("initialising", "Initialising"), ("solving", "Solving"), ("writing_results", "Writing results")],
+)
+def test_progress_detail_keeps_phase_when_optional_diagnostics_are_disabled(
+    phase: str, label: str, show_diagnostics: bool
+) -> None:
+    snapshot = replace(
+        LogProgressSnapshot(state="live", timestep_seconds=0.674, final_mass_error_percent=-0.00000025),
+        phase=phase,
+    )
+    detail = cast(
+        Callable[..., str],
+        getattr(runner, "_progress_detail"),  # noqa: B009 - test the observational display adapter
+    )(ProgressUpdate(run_index=1, pid=501, snapshot=snapshot), stale_after=60.0, show_diagnostics=show_diagnostics)
+    assert detail.startswith(label)
+    assert "PID 501" in detail
+    if show_diagnostics:
+        assert "dt 0.674s / ME -2.5e-07%" in detail
+    else:
+        assert "dt " not in detail
+        assert "ME " not in detail
+    assert "ETA" not in detail
+
+
+@pytest.mark.parametrize(
+    ("timestep", "mass_error"),
+    [(0.0, float("nan")), (-1.0, float("inf")), (float("nan"), float("-inf")), (float("inf"), None), (None, None)],
+)
+def test_invalid_or_unknown_diagnostics_are_omitted(timestep: float | None, mass_error: float | None) -> None:
+    snapshot = LogProgressSnapshot(
+        state="live", phase="solving", timestep_seconds=timestep, final_mass_error_percent=mass_error
+    )
+    detail = cast(
+        Callable[..., str],
+        getattr(runner, "_progress_detail"),  # noqa: B009 - test the observational display adapter
+    )(ProgressUpdate(run_index=1, pid=501, snapshot=snapshot), stale_after=60.0)
+    assert detail == "Solving; PID 501"
+
+
+@pytest.mark.parametrize(
+    ("snapshot", "expected"),
+    [
+        (LogProgressSnapshot(state="waiting"), "waiting log"),
+        (LogProgressSnapshot(state="unverified"), "log unverified"),
+        (LogProgressSnapshot(state="unavailable"), "progress unavailable"),
+        (LogProgressSnapshot(state="live", last_log_update=100.0), "log 15m old"),
+    ],
+)
+def test_phase_diagnostics_do_not_hide_log_observation_limits(
+    monkeypatch: pytest.MonkeyPatch, snapshot: LogProgressSnapshot, expected: str
+) -> None:
+    monkeypatch.setattr(runner.time, "time", lambda: 1000.0)
+    detail = cast(
+        Callable[..., str],
+        getattr(runner, "_progress_detail"),  # noqa: B009 - test the observational display adapter
+    )(
+        ProgressUpdate(run_index=1, pid=501, snapshot=replace(snapshot, phase="solving", timestep_seconds=0.674)),
+        stale_after=60.0,
+    )
+    assert detail.startswith(f"Solving; {expected}")
+    assert "dt 0.674s" in detail
+
+
+def test_expected_initialisation_detail_is_not_a_log_warning() -> None:
+    snapshot = LogProgressSnapshot(state="live", phase="initialising", detail="Waiting for model-time output")
+    detail = cast(
+        Callable[..., str],
+        getattr(runner, "_progress_detail"),  # noqa: B009 - test the observational display adapter
+    )(ProgressUpdate(run_index=1, pid=501, snapshot=snapshot), stale_after=60.0)
+    assert detail == "Initialising; PID 501"
+
+
+@pytest.mark.parametrize("show_diagnostics", [True, False])
+@pytest.mark.parametrize("exit_code", [0, 7])
+def test_completion_consumes_pending_snapshot_after_callback_and_keeps_actual_exit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    show_diagnostics: bool,
+    exit_code: int,
+) -> None:
+    config = settings(
+        tmp_path,
+        run_variables={"e1": ["A"]},
+        use_live_dashboard=True,
+        monitor_progress=True,
+        show_progress_diagnostics=show_diagnostics,
+    )
+    plan = runner.prepare_plan(config)
+    displays = _capture_dashboards(monkeypatch)
+    probe = ProgressProbe(
+        LogProgressSnapshot(start_hours=0.0, end_hours=2.0, model_hours=0.5, state="live", phase="solving")
+    )
+    final_snapshot = replace(
+        probe.snapshot,
+        model_hours=2.0,
+        phase="writing_results",
+        timestep_seconds=0.674,
+        final_mass_error_percent=-0.00000025,
+    )
+    completed: list[runner.RunOutcome] = []
+
+    def monitor(*, interval_seconds: float) -> ProgressProbe:
+        del interval_seconds
+        return probe
+
+    class FinalSampleProcess(FakeProcess):
+        def poll(self) -> int | None:
+            code = super().poll()
+            if code is not None:
+                # Simulate the worker publishing between the main loop's last
+                # drain and its process-exit observation. No terminal file read.
+                probe.pending.append(
+                    ProgressUpdate(run_index=1, pid=self.pid, snapshot=final_snapshot, warning="cached log warning")
+                )
+            return code
+
+    def popen(**_options: object) -> FakeProcess:
+        return FinalSampleProcess(501, code=exit_code, polls_before_exit=2)
+
+    def observed(result: runner.RunOutcome) -> None:
+        assert not probe.finished
+        assert probe.pending
+        task = _dashboard_tasks(displays[0])[1]
+        assert task.status == "RUNNING"
+        assert task.detail.startswith("Solving")
+        completed.append(result)
+
+    monkeypatch.setattr(runner, "AdvisoryRunProgress", monitor)
+    outcome = runner.launch_plan(plan, config, popen=popen, on_observed_completion=observed)
+    assert outcome.successful is (exit_code == 0)
+    assert [result.return_code for result in completed] == [exit_code]
+    task = _dashboard_tasks(displays[0])[1]
+    assert task.status == ("OK" if exit_code == 0 else "FAIL")
+    assert task.detail.startswith(f"Exit {exit_code}; log warning")
+    assert task.metadata["progress"] == "100.0"
+    assert task.metadata["model_hours"] == "2.000"
+    if show_diagnostics:
+        assert "dt 0.674s / ME -2.5e-07%" in task.detail
+    else:
+        assert "dt " not in task.detail
+        assert "ME " not in task.detail
+    assert probe.finished == [(1, 501)]
+    assert not probe.pending
+    completion_messages = [record.message for record in caplog.records if record.message.startswith("Run 1:")]
+    assert len(completion_messages) == 1
+    assert f"(exit {exit_code})" in completion_messages[0]
+    assert " | Runtime " in completion_messages[0]
+    assert completion_messages[0].endswith(" | Model 2.000 h")
+    warnings = [record.message for record in caplog.records if "cached log warning" in record.message]
+    assert warnings == ["Run 1 log observation: cached log warning"]
+
+
+@pytest.mark.parametrize(("wrong_index", "wrong_pid"), [(2, 501), (1, 999)])
+def test_completion_rejects_another_invocations_pending_snapshot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, wrong_index: int, wrong_pid: int
+) -> None:
+    config = settings(tmp_path, run_variables={"e1": ["A"]}, use_live_dashboard=True, monitor_progress=True)
+    plan = runner.prepare_plan(config)
+    displays = _capture_dashboards(monkeypatch)
+    snapshot = LogProgressSnapshot(start_hours=0.0, end_hours=2.0, model_hours=0.5, state="live")
+
+    class WrongInvocationProbe(ProgressProbe):
+        def finish(self, run_index: int, *, pid: int) -> ProgressUpdate:
+            super().finish(run_index, pid=pid)
+            return ProgressUpdate(
+                run_index=wrong_index,
+                pid=wrong_pid,
+                snapshot=replace(snapshot, model_hours=2.0, final_mass_error_percent=999.0),
+            )
+
+    probe = WrongInvocationProbe(snapshot)
+
+    def monitor(*, interval_seconds: float) -> ProgressProbe:
+        del interval_seconds
+        return probe
+
+    def popen(**_options: object) -> FakeProcess:
+        return FakeProcess(501, polls_before_exit=1)
+
+    monkeypatch.setattr(runner, "AdvisoryRunProgress", monitor)
+    assert runner.launch_plan(plan, config, popen=popen).successful
+    task = _dashboard_tasks(displays[0])[1]
+    assert task.metadata["progress"] == "25.0"
+    assert task.detail == "Exit 0"
+
+
+@pytest.mark.parametrize(
+    ("start", "end", "model", "expected_percent", "exit_code"),
+    [(2.0, 6.0, 3.0, "25.0", 0), (-2.0, 2.0, -1.0, "25.0", 0), (0.0, 2.0, 2.0, "100.0", 7)],
+)
+def test_progress_observations_preserve_lifecycle_and_real_exit_outcome(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    start: float,
+    end: float,
+    model: float,
+    expected_percent: str,
+    exit_code: int,
+) -> None:
+    config = settings(
+        tmp_path,
+        run_variables={"e1": ["A"]},
+        use_live_dashboard=True,
+        monitor_progress=True,
+        progress_poll_interval_seconds=30.0,
+    )
+    plan = runner.prepare_plan(config)
+    displays = _capture_dashboards(monkeypatch)
+    phase = "writing_results" if model >= end else "solving"
+    probe = ProgressProbe(
+        LogProgressSnapshot(
+            start_hours=start,
+            end_hours=end,
+            model_hours=model,
+            state="live",
+            phase=phase,
+            timestep_seconds=0.674,
+            final_mass_error_percent=-0.25,
+        )
+    )
+
+    def monitor(*, interval_seconds: float) -> ProgressProbe:
+        assert interval_seconds == 30.0
+        return probe
+
+    monkeypatch.setattr(runner, "AdvisoryRunProgress", monitor)
+    original_started: datetime | None = None
+    observations: list[dict[str, str]] = []
+
+    class ObservedProcess(FakeProcess):
+        def poll(self) -> int | None:
+            nonlocal original_started
+            task = _dashboard_tasks(displays[0])[1]
+            if original_started is None:
+                original_started = task.started_time
+            if task.metadata["model_hours"] != "--":
+                assert task.status == "RUNNING"
+                assert task.started_time == original_started
+                assert task.finished_time is None
+                assert task.detail.startswith("Writing results" if phase == "writing_results" else "Solving")
+                assert "dt 0.674s / ME -0.25%" in task.detail
+                observations.append(task.metadata.copy())
+            return super().poll()
+
+    def popen(**_options: object) -> FakeProcess:
+        return ObservedProcess(501, code=exit_code, polls_before_exit=1)
+
+    completed: list[runner.RunOutcome] = []
+    outcome = runner.launch_plan(plan, config, popen=popen, on_observed_completion=completed.append)
+    assert outcome.successful is (exit_code == 0)
+    assert len(completed) == 1
+    assert completed[0].return_code == exit_code
+    assert observations
+    assert observations[-1]["model_hours"] == f"{model:.3f}"
+    assert observations[-1]["end_hours"] == f"{end:.3f}"
+    assert observations[-1]["progress"] == expected_percent
+    task = _dashboard_tasks(displays[0])[1]
+    assert task.status == ("OK" if exit_code == 0 else "FAIL")
+    assert task.started_time == original_started
+    assert task.detail == f"Exit {exit_code}; dt 0.674s / ME -0.25%"
+    assert task.metadata["progress"] == expected_percent
+    assert probe.started
+    assert probe.closed
+    assert [(run.index, pid) for run, pid, _started_at in probe.registered] == [(1, 501)]
+    assert probe.finished == [(1, 501)]
+    assert probe.discarded == []
+
+
+@pytest.mark.parametrize(("monitor_progress", "use_live_dashboard"), [(False, True), (True, False), (False, False)])
+def test_disabled_progress_or_dashboard_never_starts_monitor(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    monitor_progress: bool,
+    use_live_dashboard: bool,
+) -> None:
+    config = settings(
+        tmp_path,
+        run_variables={"e1": ["A"]},
+        use_live_dashboard=use_live_dashboard,
+        monitor_progress=monitor_progress,
+    )
+    plan = runner.prepare_plan(config)
+    _capture_dashboards(monkeypatch)
+
+    def forbidden_monitor(*, interval_seconds: float) -> ProgressProbe:
+        del interval_seconds
+        pytest.fail("Disabled monitoring created a progress worker")
+
+    def popen(**_options: object) -> FakeProcess:
+        return FakeProcess(501)
+
+    monkeypatch.setattr(runner, "AdvisoryRunProgress", forbidden_monitor)
+    assert runner.launch_plan(plan, config, popen=popen).successful
+
+
+@pytest.mark.parametrize("failure", ["construct", "start"])
+def test_monitor_initialization_failure_warns_and_still_runs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    failure: str,
+) -> None:
+    config = settings(tmp_path, run_variables={"e1": ["A"]}, use_live_dashboard=True, monitor_progress=True)
+    plan = runner.prepare_plan(config)
+    _capture_dashboards(monkeypatch)
+    probe = ProgressProbe(LogProgressSnapshot())
+    message = "monitor unavailable"
+
+    def unavailable() -> None:
+        raise RuntimeError(message)
+
+    def monitor(*, interval_seconds: float) -> ProgressProbe:
+        del interval_seconds
+        if failure == "construct":
+            raise RuntimeError(message)
+        return probe
+
+    def popen(**_options: object) -> FakeProcess:
+        return FakeProcess(501)
+
+    monkeypatch.setattr(probe, "start", unavailable)
+    monkeypatch.setattr(runner, "AdvisoryRunProgress", monitor)
+    outcome = runner.launch_plan(plan, config, popen=popen)
+    assert outcome.successful
+    assert len(outcome.outcomes) == 1
+    assert "Run progress monitoring unavailable; continuing simulations: monitor unavailable" in caplog.text
+    assert probe.closed is (failure == "start")
+
+
+@pytest.mark.parametrize("failure", ["drain", "register", "finish", "close", "snapshot", "finish_snapshot"])
+def test_runtime_monitor_failure_never_terminates_children_or_loses_completion(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    failure: str,
+) -> None:
+    config = settings(tmp_path, use_live_dashboard=True, monitor_progress=True)
+    plan = runner.prepare_plan(config)
+    displays = _capture_dashboards(monkeypatch)
+    snapshot = LogProgressSnapshot(start_hours=0.0, end_hours=2.0, model_hours=0.5, state="live")
+    if failure == "snapshot":
+        # Deliberately violate the observer contract to prove an unexpected
+        # presentation-conversion error cannot terminate an owned solver.
+        snapshot = replace(snapshot, model_hours=cast(float, "malformed model time"))
+    probe = FailingProgressProbe(snapshot, failure=failure)
+
+    def monitor(*, interval_seconds: float) -> ProgressProbe:
+        assert interval_seconds == config.progress_poll_interval_seconds
+        return probe
+
+    monkeypatch.setattr(runner, "AdvisoryRunProgress", monitor)
+    children: list[FakeProcess] = []
+
+    def popen(**_options: object) -> FakeProcess:
+        child = FakeProcess(501 + len(children), polls_before_exit=2)
+        children.append(child)
+        return child
+
+    completed: list[runner.RunOutcome] = []
+    outcome = runner.launch_plan(plan, config, popen=popen, on_observed_completion=completed.append)
+    assert outcome.successful
+    assert len(children) == 2
+    assert all(not child.terminated for child in children)
+    assert [(result.run.index, result.return_code) for result in completed] == [(1, 0), (2, 0)]
+    assert [task.status for task in _dashboard_tasks(displays[0]).values()] == ["OK", "OK"]
+    warnings = [record.message for record in caplog.records if record.message.startswith("Run progress monitoring")]
+    assert len(warnings) == 1
+    if failure in {"finish", "finish_snapshot"}:
+        assert "recorded outcome unchanged" in warnings[0]
+    else:
+        assert "continuing simulations" in warnings[0]
+    assert probe.closed
+
+
+def test_monitor_discard_failure_does_not_replace_a_launch_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    config = settings(tmp_path, run_variables={"e1": ["A"]}, use_live_dashboard=True, monitor_progress=True)
+    plan = runner.prepare_plan(config)
+    displays = _capture_dashboards(monkeypatch)
+    probe = FailingProgressProbe(LogProgressSnapshot(), failure="discard")
+
+    def monitor(*, interval_seconds: float) -> ProgressProbe:
+        del interval_seconds
+        return probe
+
+    def popen(**_options: object) -> FakeProcess:
+        message = "solver executable unavailable"
+        raise OSError(message)
+
+    monkeypatch.setattr(runner, "AdvisoryRunProgress", monitor)
+    completed: list[runner.RunOutcome] = []
+    outcome = runner.launch_plan(plan, config, popen=popen, on_observed_completion=completed.append)
+    assert not outcome.successful
+    assert len(completed) == 1
+    assert completed[0].pid is None
+    assert completed[0].error == "Launch failed: solver executable unavailable"
+    task = _dashboard_tasks(displays[0])[1]
+    assert task.status == "FAIL"
+    assert task.detail == completed[0].error
+    assert task.metadata["gpu"] == "Not launched"
+    assert not probe.finished
+    assert "synthetic discard failure" in caplog.text
+
+
+def test_multiple_tcf_panels_preserve_launch_order_and_one_global_row_cap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    first = tmp_path / "project-b" / "model.tcf"
+    second = tmp_path / "project-a" / "model.tcf"
+    source = tmp_path / "runs.txt"
+    source.write_text(
+        f'TUFLOW.exe -e1 B "{first}"\nTUFLOW.exe -e1 A "{second}"\nTUFLOW.exe -e1 C "{first}"\n',
+        encoding="utf-8",
+    )
+    config = settings(
+        tmp_path,
+        mode="textfiles",
+        tcf=None,
+        input_files=(source,),
+        gpu_devices=(("-pu0",), ("-pu1",)),
+        use_live_dashboard=True,
+        live_max_rows=2,
+    )
+    plan = runner.prepare_plan(config)
+    displays = _capture_dashboards(monkeypatch)
+    launches: list[tuple[str, str]] = []
+    active_frames: list[str] = []
+
+    class CapturedProcess(FakeProcess):
+        def poll(self) -> int | None:
+            dashboard = displays[0]
+            tasks = _dashboard_tasks(dashboard)
+            if tasks[1].status == tasks[2].status == "RUNNING":
+                active_frames.append(_render_dashboard(dashboard))
+            return super().poll()
+
+    def popen(**options: object) -> FakeProcess:
+        args = cast(list[str], options["args"])
+        launches.append((args[-1], args[args.index("-e1") + 1]))
+        return CapturedProcess(len(launches) + 500, polls_before_exit=2)
+
+    outcome = runner.launch_plan(plan, config, popen=popen)
+    assert outcome.successful
+    assert launches == [(str(first), "B"), (str(second), "A"), (str(first), "C")]
+    assert active_frames
+    dashboard = displays[0]
+    assert dashboard.max_rows == 2
+    tasks = _dashboard_tasks(dashboard)
+    assert tasks[1].metadata["tcf_key"] == tasks[3].metadata["tcf_key"]
+    assert tasks[1].metadata["tcf_key"] != tasks[2].metadata["tcf_key"]
+    assert tasks[1].metadata["tcf_label"] == str(first.relative_to(tmp_path))
+    assert tasks[2].metadata["tcf_label"] == str(second.relative_to(tmp_path))
+    first_frame = active_frames[0]
+    assert first_frame.index(tasks[2].metadata["tcf_label"]) < first_frame.index(tasks[1].metadata["tcf_label"])
+    assert first_frame.count("RUNNING") == 2
+    assert first_frame.count("model.tcf") == 2
+    visible = cast(Callable[[], list[WorkflowTask]], getattr(dashboard, "_visible_tasks"))  # noqa: B009
+    assert [task.index for task in visible()] == [3, 2]
+
+
+@pytest.mark.parametrize("width", [100, 120])
+def test_narrow_grouped_runner_keeps_selected_active_rows_in_terminal_height(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, width: int
+) -> None:
+    source = tmp_path / "runs.txt"
+    arguments = "-e2 00720m -e3 Dummy -e4 NestedNL -e5 CCNear -s1 EXG -s2 Coondiner -s4 08M"
+    commands: list[str] = []
+    for index in range(1, 5):
+        model = "first.tcf" if index < 3 else "second.tcf"
+        commands.append(f'TUFLOW.exe -e1 0{index}.0p {arguments} "{tmp_path / model}"\n')
+    source.write_text("".join(commands), encoding="utf-8")
+    config = settings(
+        tmp_path,
+        mode="textfiles",
+        tcf=None,
+        input_files=(source,),
+        gpu_devices=(("-pu0",), ("-pu1",), ("-pu2",), ("-pu3",)),
+        use_live_dashboard=True,
+        monitor_progress=True,
+        live_max_rows=10,
+    )
+    plan = runner.prepare_plan(config)
+    displays = _capture_dashboards(monkeypatch, width=width, height=24)
+    probe = ProgressProbe(
+        LogProgressSnapshot(
+            start_hours=-2.0,
+            end_hours=2.0,
+            model_hours=1.5,
+            state="live",
+            phase="writing_results",
+            timestep_seconds=0.674,
+            final_mass_error_percent=-0.00000025,
+        )
+    )
+
+    def monitor(*, interval_seconds: float) -> ProgressProbe:
+        del interval_seconds
+        return probe
+
+    monkeypatch.setattr(runner, "AdvisoryRunProgress", monitor)
+    active_frames: list[str] = []
+    launched = 0
+
+    class CapturedProcess(FakeProcess):
+        def poll(self) -> int | None:
+            dashboard = displays[0]
+            tasks = _dashboard_tasks(dashboard)
+            if all(task.status == "RUNNING" and task.metadata["progress"] == "87.5" for task in tasks.values()):
+                assert all(task.detail.startswith("Writing results") for task in tasks.values())
+                assert all("ME -2.5e-07%" in task.detail for task in tasks.values())
+                active_frames.append(_render_dashboard(dashboard))
+            return super().poll()
+
+    def popen(**_options: object) -> FakeProcess:
+        nonlocal launched
+        launched += 1
+        return CapturedProcess(launched + 50330, polls_before_exit=10)
+
+    assert runner.launch_plan(plan, config, popen=popen).successful
+    assert active_frames
+    for frame in active_frames:
+        assert len(frame.splitlines()) <= 24
+        # Selection/detail fields may shorten, but row identity and status must
+        # remain readable and both panels must fit inside the live region.
+        assert frame.count("RUNNING") == 4
+        for gpu in ("-pu0", "-pu1", "-pu2", "-pu3"):
+            assert frame.count(gpu) == 1
+        run_rows = [line for line in frame.splitlines() if "RUNNING" in line]
+        assert [line.split()[2] for line in run_rows] == ["4", "3", "2", "1"]
+        assert frame.index("second.tcf") < frame.index("first.tcf")
 
 
 def test_imported_start_executable_and_directory_never_control_launch(tmp_path: Path) -> None:
@@ -1028,3 +2479,170 @@ def test_windows_real_python_child_is_terminated_on_interrupt(tmp_path: Path, mo
             if process.poll() is None:
                 process.kill()
             process.wait(timeout=5)
+
+
+@pytest.mark.parametrize("external_selection", ["0,1", "1,0", "unreadable"])
+def test_guard_checks_cuda_namespace_before_intersecting_ordinals(
+    monkeypatch: pytest.MonkeyPatch, external_selection: str
+) -> None:
+    from collections.abc import Iterator
+
+    from ryan_library.functions.tuflow import gpu_occupancy
+
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "1,0")
+    monkeypatch.delenv("CUDA_DEVICE_ORDER", raising=False)
+
+    monkeypatch.setattr(gpu_occupancy, "tuflow_licences_in_use", lambda: True)
+    monkeypatch.setattr(gpu_occupancy, "_bounded_gpu_inspection", _inline_gpu_inspection)
+
+    class ExternalProcess:
+        def __init__(self) -> None:
+            self.info: dict[str, object] = {
+                "pid": 99,
+                "name": "TUFLOW_iSP_w64.exe",
+                "cmdline": ["TUFLOW_iSP_w64.exe", "-pu1", "model.tcf"],
+            }
+
+        def cmdline(self) -> list[str]:
+            return ["TUFLOW_iSP_w64.exe", "-pu1", "model.tcf"]
+
+        def environ(self) -> dict[str, str]:
+            if external_selection == "unreadable":
+                raise gpu_occupancy.psutil.AccessDenied(pid=99)
+            return {"CUDA_VISIBLE_DEVICES": external_selection}
+
+    def fake_process_iter(**_kwargs: object) -> Iterator[ExternalProcess]:
+        return iter([ExternalProcess()])
+
+    monkeypatch.setattr(gpu_occupancy.psutil, "process_iter", fake_process_iter)
+    inspect_gpu_slots = cast(
+        Callable[..., runner.GpuAvailability],
+        getattr(runner, "_blocked_external_gpu_slots"),  # noqa: B009 - exercise the real occupancy integration
+    )
+    result = inspect_gpu_slots((("-pu0",), ("-pu1",)), exclude_pids=set())
+    if external_selection == "1,0":
+        assert result.blocked_slots == frozenset({1})
+        assert result.issues[0].kind == "occupied"
+    else:
+        # With opposite order, external -pu1 can physically be runner -pu0.
+        # Report uncertainty without blocking computation or claiming it is free.
+        assert result.blocked_slots == frozenset()
+        assert result.issues[0].kind == "unknown_assignment"
+        assert result.issues[0].pids == (99,)
+
+
+@pytest.mark.parametrize("failure", ["unknown", "incomplete", "query_failed", "names_failed", "mixed"])
+def test_optional_gpu_inspection_cannot_stall_computation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, failure: str
+) -> None:
+    from ryan_library.functions.tuflow import gpu_occupancy
+    from ryan_library.functions.tuflow.gpu_occupancy import TuflowGpuProcess
+
+    config = settings(tmp_path, gpu_devices=(("-pu0",), ("-pu1",)), wait_for_available_gpu=True)
+    plan = runner.prepare_plan(config)
+    launched: list[list[str]] = []
+
+    def inspect(*, exclude_pids: object = ()) -> GpuOccupancySnapshot:
+        del exclude_pids
+        if failure == "query_failed":
+            message = "inspection unavailable"
+            raise OSError(message)
+        return GpuOccupancySnapshot(
+            (TuflowGpuProcess(99, frozenset({0})),) if failure == "mixed" else (),
+            (77,) if failure in {"unknown", "mixed"} else (),
+            failure == "incomplete",
+        )
+
+    def names() -> dict[int, str]:
+        if failure == "names_failed":
+            message = "name discovery unavailable"
+            raise RuntimeError(message)
+        return {}
+
+    def popen(*, args: list[str], **_options: object) -> FakeProcess:
+        launched.append(args)
+        return FakeProcess(100 + len(launched))
+
+    monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
+    monkeypatch.setattr(runner, "local_cuda_device_names", names)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    outcome = runner.launch_plan(plan, config, popen=popen)
+    assert outcome.successful
+    assert len(launched) == len(plan.runs)
+    if failure == "mixed":
+        assert all("-pu1" in args and "-pu0" not in args for args in launched)
+        assert "inspection uncertain" in caplog.text
+    elif failure == "names_failed":
+        assert "GPU name inspection failed" in caplog.text
+    else:
+        assert "GPU INSPECTION WARNING - CONTINUING" in caplog.text
+
+
+@pytest.mark.parametrize("usage", [False, None])
+@pytest.mark.parametrize("guard", [False, True])
+def test_codemeter_idle_or_failure_ignores_parallel_process_scan(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    usage: bool | None,
+    guard: bool,
+) -> None:
+    from ryan_library.functions.tuflow import gpu_occupancy
+
+    config = settings(tmp_path, gpu_devices=(("-pu0",),), wait_for_available_gpu=guard)
+    plan = runner.prepare_plan(config)
+    launched: list[list[str]] = []
+
+    from ryan_library.functions.tuflow.gpu_occupancy import TuflowGpuProcess
+
+    def scan(_exclude_pids: object) -> GpuOccupancySnapshot:
+        # The parallel scan can observe a busy GPU. CodeMeter's idle/unknown
+        # status still prevents its result from blocking scheduling.
+        return GpuOccupancySnapshot((TuflowGpuProcess(999, frozenset({0})),), ())
+
+    def popen(*, args: list[str], **_options: object) -> FakeProcess:
+        launched.append(args)
+        return FakeProcess(100 + len(launched))
+
+    monkeypatch.setattr(gpu_occupancy, "tuflow_licences_in_use", lambda: usage)
+    monkeypatch.setattr(gpu_occupancy, "_bounded_gpu_inspection", _inline_gpu_inspection)
+    monkeypatch.setattr(gpu_occupancy, "_inspect_local_gpu_processes", scan)
+    monkeypatch.setattr(runner, "local_cuda_device_names", dict)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    assert runner.launch_plan(plan, config, popen=popen).successful
+    assert len(launched) == len(plan.runs)
+    if usage is None:
+        assert "CodeMeter usage is unavailable or unverified" in caplog.text
+        assert "http://127.0.0.1:22352" in caplog.text
+        assert "services.msc" in caplog.text
+        assert "CmWebAdmin.exe" in caplog.text
+        assert "Startup type to Automatic" in caplog.text
+    elif not guard:
+        assert "CodeMeter reports no TUFLOW licences in use" in caplog.text
+        assert "services.msc" not in caplog.text
+
+
+@pytest.mark.parametrize("guard", [False, True])
+def test_optional_check_timeout_still_launches_all_runs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, guard: bool
+) -> None:
+    from ryan_library.functions.tuflow import gpu_occupancy
+
+    config = settings(tmp_path, gpu_devices=(("-pu0",),), wait_for_available_gpu=guard)
+    plan = runner.prepare_plan(config)
+    launched: list[list[str]] = []
+
+    def timeout(*_args: object, **_kwargs: object) -> None:
+        command = "optional GPU worker"
+        raise subprocess.TimeoutExpired(command, 1.9)
+
+    def popen(*, args: list[str], **_options: object) -> FakeProcess:
+        launched.append(args)
+        return FakeProcess(100 + len(launched))
+
+    monkeypatch.setattr(gpu_occupancy.subprocess, "run", timeout)
+    monkeypatch.setattr(runner, "local_cuda_device_names", dict)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    assert runner.launch_plan(plan, config, popen=popen).successful
+    assert len(launched) == len(plan.runs)
+    assert "exceeded the 2-second budget" in caplog.text

@@ -12,8 +12,11 @@ import sys
 import zipfile
 from collections import Counter
 from dataclasses import asdict, replace
+from importlib import metadata
 from pathlib import Path
 from typing import cast
+from urllib.parse import urlsplit
+from urllib.request import url2pathname  # pyright: ignore[reportDeprecated] -- Python 3.11 lacks Path.from_uri.
 
 import pytest
 
@@ -23,27 +26,11 @@ from ryan_library.orchestrators.tuflow.command_preflight import check_command_pl
 
 DATA = Path(__file__).absolute().parents[2] / "test_data/tuflow/example_input_preflight"
 REQUIREMENT = Path(__file__).absolute().parents[3] / "repo-scripts/pytuflow-requirement.txt"
-ARCHIVE_SHA256 = "e374c8e072679fc6c4dc11e63b270caa1101b6aebb84d70060872cdd1b0aa7d6"
+ARCHIVE_SHA256 = "4f90b77044b3247cf7bdb5154d84d1a74da6c669cd1d28d3f2e6089063f2d141"
 pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="Example BAT plans require native Windows paths")
 
-# Temporary, pinned-PyTUFLOW 05e35476 findings. See upstream PR #60 and
-# ryan-tools #181. Match the entire observed finding, never just a TCF name:
-# a changed/additional issue or an unexpected recovery must fail this test.
-_ONE_D_SCHEMA_GAP = "Unsupported GIS BC/SA/RF layer schema"
-_EXPECTED_VALIDATOR_GAPS: dict[str, tuple[str, str, str]] = {
-    "EG02_013.tcf": ("Read GIS BC", "1d_bc_EG14_001_P", _ONE_D_SCHEMA_GAP),
-    "EG03_009.tcf": (
-        "Read GIS RF Triangle",
-        "2d_rf_EG03_009_R",
-        "Cannot inspect GIS attributes: Missing or unexpanded BC Name in 2d_rf_EG03_009_R: ''",
-    ),
-    "EG04_004.tcf": ("Read GIS BC", "1d_bc_EG04_004_P", _ONE_D_SCHEMA_GAP),
-    "EG04_005.tcf": ("Read GIS BC", "1d_bc_EG14_001_P", _ONE_D_SCHEMA_GAP),
-    "EG04_006.tcf": ("Read GIS BC", "1d_bc_EG04_006_P", _ONE_D_SCHEMA_GAP),
-    "EG14_001.tcf": ("Read GIS BC", "1d_bc_EG14_001_P", _ONE_D_SCHEMA_GAP),
-    "EG14_002.tcf": ("Read GIS BC", "1d_bc_EG14_002_R", _ONE_D_SCHEMA_GAP),
-    "EG14_003.tcf": ("Read GIS BC", "1d_bc_EG14_003_R", _ONE_D_SCHEMA_GAP),
-}
+# The seven selected 1D BC defects and one rainfall-triangle defect in the
+# earlier pin are fixed by PyTUFLOW PR #63. All runs must now validate cleanly.
 
 
 @pytest.fixture(scope="module")
@@ -56,7 +43,7 @@ def example_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
     expected = {str(entry["path"]): entry for entry in entries}
     root = tmp_path_factory.mktemp("tuflow-examples")
     with zipfile.ZipFile(archive) as source:
-        assert len(source.namelist()) == len(expected) == 1464
+        assert len(source.namelist()) == len(expected) == 1465
         assert set(source.namelist()) == set(expected)
         for member in source.infolist():
             # Resolve deliberately: archive extraction must remain inside its temporary root across links.
@@ -136,54 +123,46 @@ def test_example_batch_inventory(example_plan: CommandPlan) -> None:
 
 @pytest.mark.gdal
 def test_all_example_models_public_validation(example_plan: CommandPlan, tmp_path: Path) -> None:
-    """Check all models; permit only exact known upstream defects in the pinned validator."""
+    """Require clean preflight for all public example models with the updated validator."""
     diagnostic = require_validation_api().diagnostic
-    expected_source = REQUIREMENT.read_text(encoding="utf-8").strip().split("@", 1)[1].strip()
-    assert expected_source in diagnostic.source, diagnostic.message
+    # A local wheel must retain its installed archive URL AND accepted digest.
+    # Version equality or matching public methods alone cannot identify the fork.
+    relative_wheel = REQUIREMENT.read_text(encoding="utf-8").strip()
+    expected_wheel = (REQUIREMENT.parent.parent / relative_wheel).absolute()
+    assert expected_wheel.is_file()
+    raw_direct_url = metadata.distribution("pytuflow").read_text("direct_url.json")
+    assert raw_direct_url is not None, diagnostic.message
+    direct_url = cast(dict[str, object], json.loads(raw_direct_url))
+    source_url = direct_url.get("url")
+    assert isinstance(source_url, str), diagnostic.message
+    parts = urlsplit(source_url)
+    assert parts.scheme == "file", diagnostic.message
+    # Resolve deliberately to compare physical installed source with the checked wheel.
+    assert Path(url2pathname(parts.path)).resolve() == expected_wheel.resolve(), diagnostic.message  # pyright: ignore[reportDeprecated] -- Python 3.11 lacks Path.from_uri.
+    archive_info = direct_url.get("archive_info")
+    assert isinstance(archive_info, dict), diagnostic.message
+    source_info = cast(dict[str, object], archive_info)
+    hashes = source_info.get("hashes")
+    sha = cast(dict[str, object], hashes).get("sha256") if isinstance(hashes, dict) else None
+    accepted_sha = "b223a803d5c900b85c50855fc18128855dde016ac60e191de63043b440538fc3"
+    assert sha == accepted_sha or source_info.get("hash") == f"sha256={accepted_sha}", diagnostic.message
+    assert expected_wheel.name in diagnostic.source, diagnostic.message
     output = Path(os.environ.get("TUFLOW_EXAMPLE_REPORT_DIR", str(tmp_path))).absolute()
     output.mkdir(parents=True, exist_ok=True)
     groups: dict[Path, list[PlannedRun]] = {}
     for run in example_plan.runs:
         groups.setdefault(Path(str(run.tcf)), []).append(run)
     rows: list[dict[str, object]] = []
-    observed_known: list[str] = []
     unexpected_failures: list[str] = []
-    unexpectedly_passing: list[str] = []
     for tcf, runs in groups.items():
         plan = replace(example_plan, runs=tuple(runs))
         report = check_command_plan(plan)
         report.write_csv(output / f"{tcf.stem}-issues.csv")
-
-        expected = _EXPECTED_VALIDATOR_GAPS.get(tcf.name)
-        if expected is None:
-            if not report.passed or report.completed_runs != len(runs):
-                unexpected_failures.append(
-                    f"{tcf.name}: {len(report.issues)} unexpected issue(s), "
-                    f"{report.completed_runs}/{len(runs)} runs checked"
-                )
-        elif report.passed:
-            unexpectedly_passing.append(tcf.name)
-        elif len(runs) != 1 or report.completed_runs != 1 or len(report.issues) != 1:
+        if not report.passed or report.completed_runs != len(runs) or report.issues or report.warnings:
             unexpected_failures.append(
-                f"{tcf.name}: expected exactly one attributed unresolved finding, "
-                f"got {len(report.issues)} finding(s), {report.completed_runs}/{len(runs)} runs checked"
+                f"{tcf.name}: {len(report.issues)} issue(s), {len(report.warnings)} warning(s), "
+                f"{report.completed_runs}/{len(runs)} runs checked"
             )
-        else:
-            issue = report.issues[0]
-            finding = issue.finding
-            actual = (finding.origin, finding.layer, finding.detail)
-            if (
-                issue.run.index != runs[0].index
-                or finding.status != "unresolved"
-                or finding.kind != "attribute"
-                or finding.path is None
-                or finding.path.name != f"{finding.layer}.shp"
-                or actual != expected
-            ):
-                unexpected_failures.append(f"{tcf.name}: changed pinned-validator finding: {actual!r}")
-            else:
-                observed_known.append(tcf.name)
-
         rows.append(
             {
                 "tcf": tcf.name,
@@ -195,6 +174,7 @@ def test_all_example_models_public_validation(example_plan: CommandPlan, tmp_pat
                 "checked_path_inventory": sorted(report.checked_paths),
                 "commands": plan.manifest(),
                 "issues": [asdict(issue) for issue in report.issues],
+                "warnings": [asdict(warning) for warning in report.warnings],
             }
         )
     summary = {
@@ -206,18 +186,11 @@ def test_all_example_models_public_validation(example_plan: CommandPlan, tmp_pat
         "passed_tcfs": sum(row["passed"] is True for row in rows),
         "passed_runs": sum(len(groups[tcf]) for tcf, row in zip(groups, rows, strict=True) if row["passed"] is True),
         "results": rows,
-        "expected_known_gaps": sorted(_EXPECTED_VALIDATOR_GAPS),
-        "verified_known_gaps": sorted(observed_known),
         "unexpected_failures": unexpected_failures,
-        "unexpectedly_passing": unexpectedly_passing,
     }
     (output / "results.json").write_text(json.dumps(summary, indent=2, default=str), encoding="utf-8")
-
-    assert not unexpected_failures, f"Unexpected or changed model findings: {unexpected_failures}; reports: {output}"
-    assert not unexpectedly_passing, (
-        f"Pinned PyTUFLOW gap unexpectedly fixed for {unexpectedly_passing}; "
-        "remove its temporary allowance (ryan-tools #181)"
+    assert not unexpected_failures, (
+        f"Expected all 161 TCFs / 174 runs to pass: {unexpected_failures}; reports: {output}"
     )
-    assert set(observed_known) == set(_EXPECTED_VALIDATOR_GAPS), (
-        f"Expected exactly the eight recorded upstream defects; verified {observed_known}"
-    )
+    assert summary["passed_tcfs"] == 161
+    assert summary["passed_runs"] == 174

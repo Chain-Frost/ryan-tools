@@ -35,10 +35,17 @@ def _issue(
 class FakeReport:
     run_count: int
     issues: Sequence[PreflightIssue] = ()
+    warnings: Sequence[PreflightIssue] = ()
     checked_paths: set[str] = field(default_factory=lambda: {"shared"})
     parse_seconds: float = 1.0
     context_seconds: float = 2.0
     inventory_seconds: float = 3.0
+    files_examined: int = 50
+    geopackages_examined: int = 3
+    csv_headers_checked: int = 25
+    directories_scanned: int = 2
+    gis_sources_added: int = 4
+    gis_files_scanned: int = 5
     passed_override: bool | None = None
 
     @property
@@ -72,7 +79,27 @@ def test_interleaved_tcf_groups_preserve_global_indices_and_options(
     assert report.parse_seconds == 2.0
     assert report.context_seconds == 4.0
     assert report.inventory_seconds == 6.0
+    assert report.files_examined == 100
+    assert report.geopackages_examined == 6
+    assert report.csv_headers_checked == 50
+    assert report.directories_scanned == 4
+    assert report.gis_sources_added == 8
+    assert report.gis_files_scanned == 10
     assert report.checked_paths == {"shared"}
+
+
+def test_advisory_warning_survives_grouping_without_failing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def checker(runs: tuple[PlannedRun, ...], **_options: object) -> FakeReport:
+        result = outcome(runs)
+        result.warnings = [_issue(runs[0].index, status="unresolved", origin="TCF Projection", detail="Missing")]
+        return result
+
+    monkeypatch.setattr(subject, "_check_group", checker)
+    report = subject.check_command_plan(plan(tmp_path))
+    assert report.passed
+    assert report.issues == []
+    assert len(report.warnings) == 2
+    assert [item.run.index for item in report.warnings] == [1, 2]
 
 
 def test_one_failed_model_invalidates_its_runs_and_does_not_drop_other_models(
@@ -332,3 +359,67 @@ def test_grouped_finding_retains_complete_upstream_details(tmp_path: Path, monke
     assert report.issues[0].finding is original
     assert report.issues[0].finding.owner_control_file == tmp_path / "nested.tbc"
     assert report.issues[0].finding.csv_columns == ("Time", "Flow")
+
+
+def test_grouping_keeps_run_status_type_and_source_spelling_distinct_and_csv_is_lossless(tmp_path: Path) -> None:
+    selected = plan(tmp_path, "-e1 A a.tcf\n-e1 B a.tcf")
+    run_a, run_b = selected.runs
+    source = tmp_path / "rain_A.csv"
+    owner = tmp_path / "gis" / "boundary.tbc"
+    repeated = [
+        subject.CommandPreflightIssue(
+            run_a,
+            replace(
+                _issue(run_a.index, reference=f"{source} >> boundary_{number}"),
+                kind="bc_source",
+                path=source,
+                layer=f"boundary_{number}",
+                owner_control_file=owner,
+                database_kind="BC",
+                input_uuid=f"boundary-{number}",
+                command_index=number,
+                csv_columns=("Time", "Q,01") if number == 1 else ("Time", "Flow"),
+                command_text=f"BC Database == boundary_{number}",
+                line_number=number,
+                source_pattern=tmp_path / "rain_~e1~.csv",
+            ),
+        )
+        for number in (1, 2, 3)
+    ]
+    across_run = replace(repeated[0], run=run_b)
+    other_status = replace(repeated[0], finding=replace(repeated[0].finding, status="unresolved", detail="cannot read"))
+    other_case = replace(repeated[0], finding=replace(repeated[0].finding, path=tmp_path / "RAIN_A.csv"))
+    report = subject.CommandPreflightReport(selected, completed_runs=2)
+    report.issues = [*repeated, across_run, other_status, other_case]
+    report.warnings = [
+        replace(repeated[0], finding=replace(repeated[0].finding, status="unresolved", detail="CRS advisory"))
+    ]
+    groups = subject.group_preflight_issues(report.issues)
+    assert [len(group.issues) for group in groups] == [3, 1, 1, 1]
+    assert groups[0].issues == tuple(repeated)
+    assert report.affected_runs == 2
+    assert len(report.issues) == 6
+
+    target = report.write_csv(tmp_path / "full-findings.csv")
+    with target.open(encoding="utf-8-sig", newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    assert len(rows) == 7
+    assert [row["severity"] for row in rows] == ["error"] * 6 + ["warning"]
+    assert rows[0]["owner_control_file"] == str(owner)
+    assert rows[0]["path"] == str(source)
+    assert rows[0]["layer"] == "boundary_1"
+    assert rows[0]["database_kind"] == "BC"
+    assert rows[0]["input_uuid"] == "boundary-1"
+    assert rows[0]["command_index"] == "1"
+    assert rows[0]["command_text"] == "BC Database == boundary_1"
+    assert rows[0]["line_number"] == "1"
+    assert rows[0]["source_pattern"] == str(tmp_path / "rain_~e1~.csv")
+    assert rows[0]["csv_columns_json"] == '["Time", "Q,01"]'
+    assert rows[1]["csv_columns_json"] == '["Time", "Flow"]'
+    assert rows[3]["run_index"] == "2"
+    assert rows[4]["status"] == "unresolved"
+    assert rows[5]["path"].endswith("RAIN_A.csv")
+    before = target.read_bytes()
+    with pytest.raises(FileExistsError):
+        report.write_csv(target)
+    assert target.read_bytes() == before
