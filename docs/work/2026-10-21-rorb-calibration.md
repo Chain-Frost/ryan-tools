@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Existing calibration review and native acceptance outstanding; dependency follow-up prepared |
+| Status | Calibration safety corrections implemented; integrated CI/review and native acceptance outstanding |
 | Owner | ChatGPT / local maintainer agent |
 | Created | 2026-10-21 |
 | Updated | 2026-11-28 |
@@ -18,12 +18,21 @@ calibration source/tests and all current main changes. Runtime dependency is now
 Routine validation resolves a compatible public wheel and checks its identity,
 provenance and reader behaviour, without changing the numerical method.
 
-The previous independent review still has two P1 findings (editable operational
-settings and explicit execution opt-in). The existing permitted Windows RORB_CMD
-single-run gate remains unfulfilled. This packaging-only follow-up does not resolve
-these findings or authorise a solver run, merge or release. Next: verify integrated
-CI and independent review for the dependency change; the calibration owner must
-address the retained findings and original native acceptance before merge.
+The original integrated head `eb5486728c5f6280d56778bd09652e380073647b` passed
+[reader acceptance](https://github.com/Chain-Frost/ryan-tools/actions/runs/46039211889)
+(10 tests, no skips), with the unconstrained dependency resolving the authenticated
+26.11.24.1 wheel. [General CI](https://github.com/Chain-Frost/ryan-tools/actions/runs/46039211929)
+stopped on a single formatting difference; that difference is corrected.
+
+The follow-up addresses both P1 calibration review findings: editable top-level
+settings for operational options, including explicit false/zero CLI overrides;
+read-only preflight by default, with explicit `--execute` or `EXECUTE = True` needed
+for native launches. Dry-run takes precedence, and archive inspection/scoring
+never invokes RORB. Added mocked/no-write regression checks and updated the
+guide. No change to the calibration metrics, parameter rendering or parser.
+Fresh integrated CI and independent review are pending. The previously blocked
+permitted Windows single-run and archive acceptance remain required. No native
+launch, merge or publication is authorised here.
 
 ## Outcome and scope
 
@@ -60,7 +69,7 @@ At PR review, an incomplete or nonnumeric hydrograph row could previously end ta
 Local maintainer: first use `--score-output` on the verified archived 15/10/5 `.out` to confirm
 RMSE 95.12064, peaks and plot using the new shared scoring path; run the focused Python 3.14 tests, Ruff and Pyright
 on the current PR head. Then launch the installed unsigned `C:\Program Files\RORBWin\RORB_CMD.exe` from a permitted
-interactive context, rerun one actual 15/10/5 simulation with one worker and compare the new `.out` and metrics
+interactive context, rerun one actual 15/10/5 simulation with one worker using `--execute` only after preflight, and compare the new `.out` and metrics
 with the archive before widening the parameter sweep.
 
 ## Completion criteria

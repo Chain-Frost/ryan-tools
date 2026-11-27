@@ -25,9 +25,10 @@ removes fixed-version gates from routine source and isolated-wheel installations
 verifies the resolved public wheel against current PyPI filename, size and digest,
 and retains the same six reader compatibility modules, API identities, original
 fixture checks and metadata/physical-origin checks. Do not reinstate the standalone
-publisher or change reader grammar. The candidate still needs integrated-head CI
-and independent review; PR #145's calibration review and native acceptance gates
-remain separate. No merge or new release is authorised.
+publisher or change reader grammar. The first integrated head passed 10 original-reader
+and compatibility checks; general CI identified one formatting difference, corrected in the
+follow-up. Final CI and independent review remain required. PR #145's calibration safety
+corrections and native acceptance remain separate. No merge or new release is authorised.
 
 ## 2026-11-26 final acceptance preparation (historical)
 

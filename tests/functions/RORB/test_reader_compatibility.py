@@ -111,4 +111,6 @@ def test_published_pyrorb_dependency_metadata() -> None:
         assert SpecifierSet(requires_python).contains(platform.python_version(), prereleases=True)
     requirements = [Requirement(item) for item in package.requires or []]
     assert all(requirement.url is None for requirement in requirements)
-    assert all(canonicalize_name(requirement.name) not in {"ryan-tools", "ryan-rorb-readers"} for requirement in requirements)
+    assert all(
+        canonicalize_name(requirement.name) not in {"ryan-tools", "ryan-rorb-readers"} for requirement in requirements
+    )

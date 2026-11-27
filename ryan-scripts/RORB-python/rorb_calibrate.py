@@ -27,7 +27,39 @@ from pathlib import Path
 from statistics import mean
 from typing import Any, cast
 
-SCRIPT_VERSION = "2026-11-02.1"
+SCRIPT_VERSION = "2026-11-28.1"
+
+# Editable settings. Paths are relative to the invocation directory unless absolute.
+# Leave both report paths unset for calibration; choose only one observation source.
+CATG_FILE: Path | None = None
+STM_FILE: Path | None = None
+RORB_EXECUTABLE = "RORB_CMD.exe"
+KC_VALUES = "15:20:5"
+IL_VALUES = "10:20:5"
+CONTINUING_VALUES = "5:10:5"
+EXPONENT = "0.8"
+LOSS_MODEL = 1  # 1 = IL/CL, 2 = IL/RoC
+SIM_COLUMN: str | None = None
+OBS_COLUMN: str | None = None
+OBSERVED_CSV: Path | None = None
+OBS_TIME = "Time"
+OBS_FLOW = "Flow"
+INSPECT_OUTPUT: Path | None = None
+SCORE_OUTPUT: Path | None = None
+OUTPUT_PARENT = Path("rorb_calibration")
+WORKERS = 1
+TIMEOUT_SECONDS = 1800.0
+MAX_RUNS = 1000
+PLOTS = False
+HMA = False
+HMA_WEIGHT = 4.0
+HMA_WINDOW = 50
+
+# External simulation requires intentional opt-in. Keep False for preflight.
+# DRY_RUN also suppresses archive exports and overrides EXECUTE.
+EXECUTE = False
+DRY_RUN = False
+
 HEADER = re.compile(r"\bInc\s+Time\b", re.IGNORECASE)
 
 
@@ -333,44 +365,72 @@ def run_one(
 
 def parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--catg", type=Path, help="RORB catchment file (.catg)")
-    p.add_argument("--stm", type=Path, help="RORB rainfall/storm file (.stm)")
-    p.add_argument("--rorb", default="RORB_CMD.exe", help="RORB_CMD executable or executable on PATH")
-    p.add_argument("--kc", default="15:20:5", help="Kc values or inclusive start:end:step")
-    p.add_argument("--il", default="10:20:5", help="IL values or inclusive start:end:step")
-    p.add_argument("--continuing", default="5:10:5", help="CL or RoC values or inclusive range")
-    p.add_argument("--m", default="0.8", help="RORB exponent m")
-    p.add_argument("--loss-model", type=int, choices=[1, 2], default=1, help="1 = IL/CL; 2 = IL/RoC")
-    p.add_argument("--sim-column", help="Modelled column in RORB output, e.g. Hyd001")
-    p.add_argument("--obs-column", help="Observed column in RORB output; explicitly verify source")
-    p.add_argument("--observed-csv", type=Path, help="Alternative CSV of observed time and flow")
-    p.add_argument("--obs-time", default="Time", help="Time column of observed CSV")
-    p.add_argument("--obs-flow", default="Flow", help="Flow column of observed CSV")
-    p.add_argument("--inspect-output", type=Path, help="List columns of existing RORB .out and exit")
-    p.add_argument(
+    p.add_argument("--catg", type=Path, default=CATG_FILE, help="RORB catchment file (.catg)")
+    p.add_argument("--stm", type=Path, default=STM_FILE, help="RORB rainfall/storm file (.stm)")
+    p.add_argument("--rorb", default=RORB_EXECUTABLE, help="RORB_CMD executable or executable on PATH")
+    p.add_argument("--kc", default=KC_VALUES, help="Kc values or inclusive start:end:step")
+    p.add_argument("--il", default=IL_VALUES, help="IL values or inclusive start:end:step")
+    p.add_argument("--continuing", default=CONTINUING_VALUES, help="CL or RoC values or inclusive range")
+    p.add_argument("--m", default=EXPONENT, help="RORB exponent m")
+    p.add_argument("--loss-model", type=int, choices=[1, 2], default=LOSS_MODEL, help="1 = IL/CL; 2 = IL/RoC")
+    p.add_argument("--sim-column", default=SIM_COLUMN, help="Modelled column in RORB output, e.g. Hyd001")
+    observations = p.add_mutually_exclusive_group()
+    observations.add_argument("--obs-column", help="Observed column in RORB output; explicitly verify source")
+    observations.add_argument("--observed-csv", type=Path, help="Alternative CSV of observed time and flow")
+    p.add_argument("--obs-time", default=OBS_TIME, help="Time column of observed CSV")
+    p.add_argument("--obs-flow", default=OBS_FLOW, help="Flow column of observed CSV")
+    modes = p.add_mutually_exclusive_group()
+    modes.add_argument("--inspect-output", type=Path, help="List columns of existing RORB .out and exit")
+    modes.add_argument(
         "--score-output",
         type=Path,
         help="Score an archived RORB .out without launching RORB_CMD or requiring .catg/.stm",
     )
-    p.add_argument("--output", type=Path, default=Path("rorb_calibration"), help="Output parent folder")
-    p.add_argument("--workers", type=int, default=1, help="RORB processes; 1 safest for licence/shared files")
-    p.add_argument("--timeout", type=float, default=1800, help="Seconds per RORB process")
-    p.add_argument("--max-runs", type=int, default=1000, help="Guard against unbounded sweeps")
-    p.add_argument("--plots", action="store_true", help="Save comparison hydrograph PNGs")
-    p.add_argument("--hma", action="store_true", help="Also calculate optional vendored PyHMA match index")
-    p.add_argument("--hma-weight", type=float, default=4.0, help="PyHMA timing-error weight (default: 4)")
-    p.add_argument("--hma-window", type=int, default=50, help="PyHMA maximum lead/lag in time increments")
+    modes.add_argument("--calibrate", action="store_true", help="Select calibration instead of an editable report mode")
+    p.add_argument("--output", type=Path, default=OUTPUT_PARENT, help="Output parent folder")
+    p.add_argument("--workers", type=int, default=WORKERS, help="RORB processes; 1 safest for licence/shared files")
+    p.add_argument("--timeout", type=float, default=TIMEOUT_SECONDS, help="Seconds per RORB process")
+    p.add_argument("--max-runs", type=int, default=MAX_RUNS, help="Guard against unbounded sweeps")
+    p.add_argument("--plots", action=argparse.BooleanOptionalAction, default=PLOTS, help="Save comparison PNGs")
+    p.add_argument("--hma", action=argparse.BooleanOptionalAction, default=HMA, help="Calculate optional PyHMA index")
+    p.add_argument("--hma-weight", type=float, default=HMA_WEIGHT, help="PyHMA timing-error weight")
+    p.add_argument("--hma-window", type=int, default=HMA_WINDOW, help="PyHMA maximum lead/lag in time increments")
     p.add_argument(
-        "--dry-run", "--preflight", action="store_true", help="Validate inputs/parameters; do not execute RORB"
+        "--execute",
+        action=argparse.BooleanOptionalAction,
+        default=EXECUTE,
+        help="Explicitly enable live RORB execution; calibration otherwise performs preflight only",
     )
-    p.add_argument("--no-pause", action="store_true", help="Noninteractive mode; accepted for wrapper compatibility")
+    p.add_argument(
+        "--dry-run",
+        "--preflight",
+        action=argparse.BooleanOptionalAction,
+        default=DRY_RUN,
+        help="Validate without launching RORB or writing results; overrides execution",
+    )
+    # This compatibility switch never changes the always-noninteractive script.
+    p.add_argument("--no-pause", action="store_true", help="Accepted for compatibility; the script never pauses")
     p.add_argument("--version", action="version", version=f"%(prog)s {SCRIPT_VERSION}")
     return p
 
 
+def resolve_arguments(p: argparse.ArgumentParser, argv: list[str] | None) -> argparse.Namespace:
+    """Apply editable defaults only when the corresponding CLI choice is absent."""
+    args = p.parse_args(argv)
+    if not args.calibrate and args.inspect_output is None and args.score_output is None:
+        if INSPECT_OUTPUT is not None and SCORE_OUTPUT is not None:
+            p.error("Set only one of INSPECT_OUTPUT or SCORE_OUTPUT, or select a mode explicitly")
+        args.inspect_output = INSPECT_OUTPUT
+        args.score_output = SCORE_OUTPUT
+    if args.obs_column is None and args.observed_csv is None:
+        args.obs_column = OBS_COLUMN
+        args.observed_csv = OBSERVED_CSV
+    return args
+
+
 def main(argv: list[str] | None = None) -> int:  # noqa: C901 -- standalone CLI dispatch
     p = parser()
-    args = p.parse_args(argv)
+    args = resolve_arguments(p, argv)
     try:
         package_version = version("ryan-tools")
     except PackageNotFoundError:
@@ -455,7 +515,7 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901 -- standalone CLI 
             print(f"Results: {archive_root / 'metrics.csv'}")
             return 0
         if not args.catg or not args.stm:
-            p.error("--catg and --stm are required unless --inspect-output is used")
+            p.error("--catg and --stm are required in calibration mode")
         catg, stm = args.catg.absolute(), args.stm.absolute()
         for path in (catg, stm):
             if not path.is_file():
@@ -486,8 +546,9 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901 -- standalone CLI 
         executable = exe.absolute() if exe.is_file() else Path(path_on_system).absolute() if path_on_system else None
         print(f"Catchment: {catg}\nStorm: {stm}\nRORB executable: {executable or 'NOT FOUND'}")
         print(f"Runs: {len(runs)} | workers: {args.workers} | loss model: {args.loss_model}")
-        if args.dry_run:
+        if args.dry_run or not args.execute:
             print("Preflight only: no processes launched and no output files created.")
+            print("Live calibration requires --execute or an intentional EXECUTE setting.")
             return 0 if executable is not None else 1
         if executable is None:
             message = "RORB_CMD.exe not found; supply --rorb or add it to PATH"

@@ -13,7 +13,24 @@ other projects must still verify their own labels and source data. The local Cod
 of the installed unsigned RORB_CMD before it started, so a newly generated executable-level comparison remains
 outstanding.
 
-It generates a Cartesian product of **Kc × IL × CL/RoC**, writes an isolated RORB .par per combination, launches RORB_CMD, parses the returned labelled hydrograph table, and ranks successful simulations by *correctly calculated* RMSE. It also reports NSE, signed mean bias, modelled/observed peak flows and peak times, and optional PyHMA scores and hydrograph PNGs.
+When explicitly enabled, it generates a Cartesian product of **Kc × IL × CL/RoC**, writes an isolated RORB .par per combination, launches RORB_CMD, parses the returned labelled hydrograph table, and ranks successful simulations by *correctly calculated* RMSE. It also reports NSE, signed mean bias, modelled/observed peak flows and peak times, and optional PyHMA scores and hydrograph PNGs.
+
+### Editable settings and execution permission
+
+Every operational input and default is exposed near the top of the script. Leave
+`INSPECT_OUTPUT` and `SCORE_OUTPUT` unset for calibration; set one for the corresponding
+offline mode. Choose either `OBS_COLUMN` or `OBSERVED_CSV` for comparison. Explicit CLI
+mode and observation-source selections replace the corresponding editable choice.
+Use `--calibrate` to override an editable report mode.
+
+Calibration defaults to read-only preflight, even with valid input paths and
+hydrograph labels. Launching RORB_CMD requires `--execute` or an intentional
+edit of `EXECUTE = True`. `--no-execute` overrides that edit; `--dry-run` always
+takes precedence over execution and prevents result writes. `--no-dry-run`,
+`--no-plots` and `--no-hma` explicitly override their editable defaults.
+Archived scoring never launches RORB and may write new results unless dry-run is
+selected. The script is always noninteractive; `--no-pause` is retained for
+CLI compatibility.
 
 ### Score archived output without running RORB_CMD
 
@@ -62,7 +79,7 @@ From the repository root, using the normal Python 3.14 installation:
 4. After verifying the columns, start with **one** combination and **one** worker:
 
    ```powershell
-   py -3.14 .\ryan-scripts\RORB-python\rorb_calibrate.py --catg "Q:\model\catchment.catg" --stm "Q:\model\event.stm" --rorb "Q:\tools\RORB_CMD.exe" --kc 15 --il 10 --continuing 5 --sim-column Hyd001 --obs-column Hyd002 --workers 1 --plots --no-pause
+   py -3.14 .\ryan-scripts\RORB-python\rorb_calibrate.py --catg "Q:\model\catchment.catg" --stm "Q:\model\event.stm" --rorb "Q:\tools\RORB_CMD.exe" --kc 15 --il 10 --continuing 5 --sim-column Hyd001 --obs-column Hyd002 --workers 1 --execute --plots --no-pause
    ```
 
    **Column names above are illustrative, not verified as modelled versus observed.** Substitute the labels established in step 2. If the real observed flow is not a RORB output column, use an independently validated `--observed-csv` with matching Time and Flow values instead of `--obs-column`.
@@ -74,10 +91,10 @@ The input files are read from their existing paths, using `Path.absolute()` rath
 ### Larger sweep
 
 ```powershell
-py -3.14 .\ryan-scripts\RORB-python\rorb_calibrate.py --catg "Q:\model\catchment.catg" --stm "Q:\model\event.stm" --rorb "Q:\tools\RORB_CMD.exe" --kc 15:20:5 --il 10:20:5 --continuing 5:10:5 --sim-column Hyd001 --observed-csv "Q:\model\gauged_flow.csv" --workers 1 --plots --no-pause
+py -3.14 .\ryan-scripts\RORB-python\rorb_calibrate.py --catg "Q:\model\catchment.catg" --stm "Q:\model\event.stm" --rorb "Q:\tools\RORB_CMD.exe" --kc 15:20:5 --il 10:20:5 --continuing 5:10:5 --sim-column Hyd001 --observed-csv "Q:\model\gauged_flow.csv" --workers 1 --execute --plots --no-pause
 ```
 
-Ranges are inclusive `start:end:step` or comma-separated values; use decimal numbers freely. The example runs 12 combinations. The default maximum is 1,000 combinations. Multi-process RORB operation is **opt-in** via `--workers`; use one process until concurrency, licensing and file isolation are proven. When using external observed CSV, `--obs-time` and `--obs-flow` select the exact named columns and times must match RORB's numeric time values without interpolation. No automatic conversion of units or time references is performed.
+Ranges are inclusive `start:end:step` or comma-separated values; use decimal numbers freely. The example explicitly authorises 12 combinations. The default maximum is 1,000 combinations. Multi-process RORB operation is **opt-in** via `--workers`; use one process until concurrency, licensing and file isolation are proven. When using external observed CSV, `--obs-time` and `--obs-flow` select the exact named columns and times must match RORB's numeric time values without interpolation. No automatic conversion of units or time references is performed.
 
 Set `--loss-model 2` for IL/RoC and adjust continuing-loss values accordingly. Optional `--hma` invokes the installed `vendor.PyHMA` from ryan-tools; `--hma-window` (time increments) and `--hma-weight` control scoring. PyHMA is not required for the default RMSE/NSE workflow.
 
@@ -94,4 +111,4 @@ Set `--loss-model 2` for IL/RoC and adjust continuing-loss values accordingly. O
 - PyHMA scoring is optional and may need numerical and version validation for the local Python/RORB versions.
 - Success in synthetic tests does **not** establish hydraulic validity or agreement with the historic calibrated outputs.
 
-Tests: `py -3.14 -m pytest tests/test_rorb_calibrate.py -q` (from the repository root). This script does not require installation as an entry point, does not update package metadata, and should remain a draft PR until the local single-run comparison is accepted.
+Tests: `py -3.14 -m pytest tests/test_rorb_calibrate.py -q` (from the repository root). The calibration script remains repository-only; PR #145 also contains the separate unconstrained PyRORB dependency follow-up. Keep the PR unmerged until the local single-run comparison and final review are accepted.

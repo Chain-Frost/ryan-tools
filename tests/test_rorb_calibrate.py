@@ -71,6 +71,95 @@ def test_preflight_does_not_write(tmp_path: Path) -> None:
     assert not out.exists()
 
 
+@pytest.mark.parametrize(
+    ("configured_execute", "flags"),
+    [(False, []), (True, ["--no-execute"]), (True, ["--dry-run"]), (False, ["--execute", "--dry-run"])],
+)
+def test_calibration_preflight_requires_execution_opt_in(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, configured_execute: bool, flags: list[str]
+) -> None:
+    catg, stm = tmp_path / "a.catg", tmp_path / "b.stm"
+    catg.write_text("a")
+    stm.write_text("b")
+    out = tmp_path / "results"
+
+    def prohibited_run(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        pytest.fail("Preflight must never launch an external process")
+
+    monkeypatch.setattr(calibration, "CATG_FILE", catg)
+    monkeypatch.setattr(calibration, "STM_FILE", stm)
+    monkeypatch.setattr(calibration, "RORB_EXECUTABLE", sys.executable)
+    monkeypatch.setattr(calibration, "OUTPUT_PARENT", out)
+    monkeypatch.setattr(calibration, "SIM_COLUMN", "Hyd001")
+    monkeypatch.setattr(calibration, "OBS_COLUMN", "Hyd002")
+    monkeypatch.setattr(calibration, "EXECUTE", configured_execute)
+    monkeypatch.setattr(calibration.subprocess, "run", prohibited_run)
+
+    assert calibration.main(flags) == 0
+    assert not out.exists()
+
+
+def test_editable_settings_and_explicit_cli_overrides(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    default_catg = tmp_path / "default.catg"
+    cli_catg = tmp_path / "override.catg"
+    default_report = tmp_path / "inspect.out"
+    cli_report = tmp_path / "score.out"
+    cli_csv = tmp_path / "observed.csv"
+    monkeypatch.setattr(calibration, "CATG_FILE", default_catg)
+    monkeypatch.setattr(calibration, "INSPECT_OUTPUT", default_report)
+    monkeypatch.setattr(calibration, "OBS_COLUMN", "Hyd002")
+    monkeypatch.setattr(calibration, "KC_VALUES", "12")
+    monkeypatch.setattr(calibration, "PLOTS", True)
+    monkeypatch.setattr(calibration, "HMA", True)
+    monkeypatch.setattr(calibration, "EXECUTE", True)
+    monkeypatch.setattr(calibration, "DRY_RUN", True)
+
+    defaults = calibration.resolve_arguments(calibration.parser(), [])
+    assert defaults.catg == default_catg
+    assert defaults.inspect_output == default_report
+    assert defaults.obs_column == "Hyd002"
+    assert defaults.kc == "12"
+    assert defaults.plots
+    assert defaults.hma
+    assert defaults.execute
+    assert defaults.dry_run
+
+    override = calibration.resolve_arguments(
+        calibration.parser(),
+        [
+            "--catg",
+            str(cli_catg),
+            "--score-output",
+            str(cli_report),
+            "--observed-csv",
+            str(cli_csv),
+            "--kc",
+            "15",
+            "--hma-window",
+            "0",
+            "--no-plots",
+            "--no-hma",
+            "--no-execute",
+            "--no-dry-run",
+        ],
+    )
+    assert override.catg == cli_catg
+    assert override.inspect_output is None
+    assert override.score_output == cli_report
+    assert override.obs_column is None
+    assert override.observed_csv == cli_csv
+    assert override.kc == "15"
+    assert override.hma_window == 0
+    assert not override.plots
+    assert not override.hma
+    assert not override.execute
+    assert not override.dry_run
+
+    live = calibration.resolve_arguments(calibration.parser(), ["--calibrate"])
+    assert live.inspect_output is None
+    assert live.score_output is None
+
+
 def test_synthetic_rorb_execution(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     catg, stm = tmp_path / "a.catg", tmp_path / "b.stm"
     catg.write_text("a")
@@ -105,6 +194,7 @@ def test_synthetic_rorb_execution(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
                 "Hyd001",
                 "--obs-column",
                 "Hyd002",
+                "--execute",
             ]
         )
         == 0
@@ -288,6 +378,7 @@ def test_malformed_live_output_marks_run_failed(tmp_path: Path, monkeypatch: pyt
                 "Hyd001",
                 "--obs-column",
                 "Hyd002",
+                "--execute",
             ]
         )
         == 1
