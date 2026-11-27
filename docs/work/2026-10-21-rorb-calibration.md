@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Calibration safety corrections implemented; integrated CI/review and native acceptance outstanding |
+| Status | Blocked on verified inputs on another computer; CI typing correction checked locally |
 | Owner | ChatGPT / local maintainer agent |
 | Created | 2026-10-21 |
 | Updated | 2026-11-28 |
@@ -30,9 +30,10 @@ read-only preflight by default, with explicit `--execute` or `EXECUTE = True` ne
 for native launches. Dry-run takes precedence, and archive inspection/scoring
 never invokes RORB. Added mocked/no-write regression checks and updated the
 guide. No change to the calibration metrics, parameter rendering or parser.
-Fresh integrated CI and independent review are pending. The previously blocked
-permitted Windows single-run and archive acceptance remain required. No native
-launch, merge or publication is authorised here.
+Independent review of 974f03ec676f42766262260c722c52688b58594b found no major issues.
+The permitted Windows single-run and archive acceptance remain required. The current
+owner request authorises the bounded single run subject to input verification and
+Windows application controls; merge and publication remain unauthorised.
 
 ## Outcome and scope
 
@@ -116,3 +117,45 @@ synthetic regression tests and included RORB exponent, loss model, reference pro
 in the sweep CSV for traceability. Changes committed to PR #145. No fresh executable-level run, Python 3.14,
 Ruff, strict Pyright or focused pytest validation has been performed on these follow-up commits; this remains
 a local-acceptance blocker rather than an assumed pass.
+
+## 2026-11-28 acceptance refresh on a different Windows computer
+
+Validated source revision 974f03ec676f42766262260c722c52688b58594b in an isolated
+worktree, E:/Github/ryan-tools-pr145-acceptance, preserving the main checkout and
+concurrent PyRORB work. Windows / normal Python 3.14.6: all 23 calibration tests
+passed, requested Ruff lint/format and strict Pyright passed; help/version passed.
+Only the required `tests/test_data` submodule was initialised.
+
+Reused [original-reader acceptance](https://github.com/Chain-Frost/ryan-tools/actions/runs/46040244171)
+and the [independent exact-head review](https://github.com/Chain-Frost/ryan-tools/pull/145#issuecomment-7224217939).
+[General CI](https://github.com/Chain-Frost/ryan-tools/actions/runs/46040244162)
+passed Ruff/whitespace, POSIX security and Package; Policy failed on four typing
+diagnostics at the reader dependency test's PackageMetadata.get call. Hosted
+tests were still in progress at inspection. Replaced that call with the supported
+indexed metadata lookup, preserving the optional-field check and bare pyrorb
+dependency. After installing the bare public dependency (resolved 26.11.24.1) in
+the normal user environment, all 25 calibration/reader compatibility tests passed;
+Ruff lint/format and strict Pyright passed on all three Python files. This does
+not replace the already successful authenticated original-reader workflow.
+
+**Native acceptance is blocked by unavailable verified inputs.** The owner confirmed
+that the historical model/report are on a different computer. The old local
+staging folder and historical project drive are unavailable here. The installed
+RORB_CMD exists, but no native process was launched and no project data was
+modified or committed. Archive scoring, input-specific default no-write preflight,
+new output location, complete native hydrograph, metrics and input integrity are
+**not_run**, not passing. Synthetic no-launch/no-write tests passed. No broader
+sweep, application-control workaround, merge or publication was performed.
+
+The owner request says observed peak 101.09 at 1.5 h; the retained historical
+record and script guide say **11.5 h**. Do not change the reference or claim either
+time freshly verified without the original report/storm series. Calculated peak
+467.856 at 5.75 h and RMSE 95.12064 likewise remain historical values only.
+
+Next action: provide the verified archive on this computer or resume on its host;
+authenticate source series and input hashes, score the archive, confirm default
+preflight causes no launch/write, then run exactly one 15/10/5 case with one worker
+and explicit --execute --no-pause. Reconcile the observed peak clock against the
+original series. Final pushed-head CI/review and owner acceptance remain required.
+The historical P1 threads have implementation fixes and a clean independent review;
+no native or engineering acceptance follows from resolving software review.

@@ -106,7 +106,7 @@ def test_published_pyrorb_dependency_metadata() -> None:
     package = distribution("pyrorb")
     assert canonicalize_name(package.metadata["Name"]) == "pyrorb"
     assert package.version
-    requires_python = package.metadata.get("Requires-Python")
+    requires_python = package.metadata["Requires-Python"]
     if requires_python:
         assert SpecifierSet(requires_python).contains(platform.python_version(), prereleases=True)
     requirements = [Requirement(item) for item in package.requires or []]
