@@ -30,11 +30,7 @@ def test_loading_and_depth_checks() -> None:
     assert front.gross_mm == (4, 2, 1, 1)
     assert middle.gross_mm == (1, 2, 4, 1)
     assert back.gross_mm == (1, 1, 2, 4)
-    assert [(check.duration_min, check.maximum_rolling_mm) for check in middle.depth_checks] == [
-        (1, 4),
-        (2, 6),
-        (4, 8),
-    ]
+    assert [(check.duration_min, check.maximum_rolling_mm) for check in middle.depth_checks] == [(1, 4), (2, 6), (4, 8)]
 
 
 def test_arf_and_rainfall_factors_apply_at_each_anchor() -> None:
@@ -81,7 +77,9 @@ def test_event_specific_preburst_and_cc_losses() -> None:
 
 def test_continuing_loss_adjustment_and_timing() -> None:
     storm = generate_storm(
-        _curve(), 4, loading="FL",
+        _curve(),
+        4,
+        loading="FL",
         losses=EventLosses(LossSpec(2, continuing_loss_mm_per_hour=60), continuing_loss_factor=0.5),
     )
     assert storm.excess_mm == pytest.approx((1.75, 1.5, 0.5, 0.5))
@@ -134,7 +132,6 @@ def test_csv_gross_and_excess_are_explicit_and_no_clobber(tmp_path: Path) -> Non
     write_tuflow_csv(tmp_path / "excess.csv", {"long": storm}, kind="excess")
 
 
-
 def test_proportional_loss_before_il_cl_preserves_gross_series() -> None:
     spec = LossSpec(2, continuing_loss_mm_per_hour=30, continuing_loss_timing="full_increment")
     result = generate_storm(
@@ -159,9 +156,7 @@ def test_proportional_loss_before_il_cl_preserves_gross_series() -> None:
 
 
 def test_initial_loss_does_not_reset_after_dry_gap() -> None:
-    curve = RainfallCurve(
-        "1%", "synthetic", (DepthAnchor(1, 4), DepthAnchor(2, 4), DepthAnchor(3, 6))
-    )
+    curve = RainfallCurve("1%", "synthetic", (DepthAnchor(1, 4), DepthAnchor(2, 4), DepthAnchor(3, 6)))
     result = generate_storm(
         curve,
         3,

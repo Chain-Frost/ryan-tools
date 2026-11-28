@@ -10,7 +10,7 @@ import csv
 from bisect import bisect_left
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from itertools import accumulate
+from itertools import accumulate, pairwise
 from math import fsum, isclose, isfinite
 from pathlib import Path
 from typing import Any, Literal, Protocol
@@ -81,6 +81,7 @@ class RainfallCurve:
     source: str
     anchors: tuple[DepthAnchor, ...]
     scenario: str | None = None
+    cautions: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.aep.strip() or not self.source.strip() or not self.anchors:
@@ -132,9 +133,9 @@ class EventLosses:
         if self.preburst_ratio is not None:
             _nonnegative(self.preburst_ratio, "Preburst ratio")
         valid = (
-            self.mode == "burst" and supplied == 0 and not self.preburst_increments_mm
-            or self.mode == "storm_reduce" and supplied == 1 and not self.preburst_increments_mm
-            or self.mode == "complete" and supplied == 0 and bool(self.preburst_increments_mm)
+            (self.mode == "burst" and supplied == 0 and not self.preburst_increments_mm)
+            or (self.mode == "storm_reduce" and supplied == 1 and not self.preburst_increments_mm)
+            or (self.mode == "complete" and supplied == 0 and bool(self.preburst_increments_mm))
         )
         if not valid:
             msg = "Choose exactly one preburst convention: burst, storm_reduce or complete"
@@ -154,7 +155,9 @@ class EventLosses:
         return (
             LossSpec(
                 initial,
-                continuing_loss_mm_per_hour=continuing * self.continuing_loss_factor if continuing is not None else None,
+                continuing_loss_mm_per_hour=(
+                    continuing * self.continuing_loss_factor if continuing is not None else None
+                ),
                 runoff_coefficient=self.spec.runoff_coefficient,
                 continuing_loss_timing=self.spec.continuing_loss_timing,
             ),
@@ -206,6 +209,24 @@ def _interval_order(duration_min: int, timestep_min: int, loading: Loading) -> t
     return order
 
 
+def _interpolate_increments(
+    times: tuple[int, ...], depths: tuple[float, ...], duration_min: int, timestep_min: int
+) -> tuple[float, ...]:
+    edges = [0.0]
+    for minute in range(timestep_min, duration_min + 1, timestep_min):
+        index = bisect_left(times, minute)
+        if minute == times[index]:
+            edges.append(depths[index])
+        else:
+            fraction = (minute - times[index - 1]) / (times[index] - times[index - 1])
+            edges.append(depths[index - 1] + fraction * (depths[index] - depths[index - 1]))
+    increments = tuple(right - left for left, right in pairwise(edges))
+    if any(value < 0 for value in increments):
+        msg = "Interpolation produced negative rainfall"
+        raise ArithmeticError(msg)
+    return increments
+
+
 def _burst(
     curve: RainfallCurve, duration_min: int, timestep_min: int, loading: Loading, arf_override: float | None
 ) -> tuple[tuple[float, ...], tuple[DepthCheck, ...], DepthAnchor]:
@@ -222,21 +243,10 @@ def _burst(
         raise ValueError(msg)
     times = (0, *(anchor.duration_min for anchor in anchors))
     depths = (0.0, *(anchor.adjusted_mm(arf_override) for anchor in anchors))
-    if any(right < left for left, right in zip(depths[:-1], depths[1:], strict=True)):
+    if any(right < left for left, right in pairwise(depths)):
         msg = "Adjusted cumulative depths decrease; check ARF/CC factors and input IFD"
         raise ValueError(msg)
-    edges = [0.0]
-    for minute in range(timestep_min, duration_min + 1, timestep_min):
-        index = bisect_left(times, minute)
-        if minute == times[index]:
-            edges.append(depths[index])
-        else:
-            fraction = (minute - times[index - 1]) / (times[index] - times[index - 1])
-            edges.append(depths[index - 1] + fraction * (depths[index] - depths[index - 1]))
-    increments = tuple(right - left for left, right in zip(edges[:-1], edges[1:], strict=True))
-    if any(value < 0 for value in increments):
-        msg = "Interpolation produced negative rainfall"
-        raise ArithmeticError(msg)
+    increments = _interpolate_increments(times, depths, duration_min, timestep_min)
     burst = tuple(increments[index] for index in _interval_order(duration_min, timestep_min, loading))
     if not isclose(fsum(burst), depths[-1], rel_tol=1e-12, abs_tol=1e-10):
         msg = "Nested storm mass balance failed"
@@ -268,9 +278,7 @@ def generate_storm(
     """
     burst, checks, target = _burst(curve, duration_min, timestep_min, loading, arf_override)
     if losses is None:
-        return StormResult(
-            curve, duration_min, timestep_min, loading, arf_override, burst, None, None, None, 0.0, 0, checks
-        )
+        return StormResult(curve, duration_min, timestep_min, loading, arf_override, burst, None, None, None, 0.0, 0, checks)
     applied, preburst = losses.applied(target.scenario_point_mm)
     gross = (*losses.preburst_increments_mm, *burst)
     retained = 1 - losses.proportional_loss_fraction
