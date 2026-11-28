@@ -6,7 +6,7 @@
 | Owner | #118 maintainer |
 | Updated | 2026-11-28 |
 | Next review | 2026-12-05 |
-| Delivery | [Existing PR #118](https://github.com/Chain-Frost/ryan-tools/pull/118), branch `fix/rorb-stm-rainfall-and-library-integration`. Public conversion evidence uses reconciled implementation `97122284`. |
+| Delivery | [PR #118](https://github.com/Chain-Frost/ryan-tools/pull/118), branch `fix/rorb-stm-rainfall-and-library-integration`. Merged into main as `5a237cb94841dfff250b30a376451c26680440c8`. Public conversion evidence uses reconciled implementation `97122284`. |
 
 ## Public producer data
 
@@ -44,4 +44,4 @@ public outputs above. For the 12-bin example, canonical text matched after norma
 The installed RORBwin 6.52 executable is available. A matched native reference for these public rainfall inputs was
 unavailable, so peak flow, peak time, recession and adequacy of the 200-increment horizon await a paired native run.
 Retain the existing writer until a qualified released wheel contains the direct-depth API, then repeat producer and
-installed-wrapper checks on the existing branch. [Consumer tracking #346](https://github.com/Chain-Frost/ryan-tools/issues/346)
+installed-wrapper checks under #346. [Consumer tracking #346](https://github.com/Chain-Frost/ryan-tools/issues/346)

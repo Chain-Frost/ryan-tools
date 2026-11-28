@@ -150,8 +150,13 @@ def _verify_external_dependencies(metadata: str, names: set[str]) -> None:
         ):
             msg = f"Wheel is missing the {distribution} external dependency."
             raise ValueError(msg)
-    if "pyrorb==26.11.24.1" not in declared_dependencies:
-        msg = "Wheel does not declare the exact qualified PyRORB reader release."
+    pyrorb_requirements = [
+        requirement
+        for requirement in declared_dependencies
+        if re.split(r"[<>=!~; @\[]", requirement, maxsplit=1)[0].strip().lower() == "pyrorb"
+    ]
+    if pyrorb_requirements != ["pyrorb"]:
+        msg = "Wheel must declare one unconstrained PyRORB dependency."
         raise ValueError(msg)
     if any(name.casefold().endswith(".whl") for name in names):
         msg = "ryan-tools wheel must not bundle dependency wheels."

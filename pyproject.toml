@@ -45,7 +45,7 @@ dependencies = [
   "pytuflow>=1.2",
   "run-hy8>=2026.11.24.1",
   "ryan-culverts>=26.11.24.1",
-  "pyrorb==26.11.24.1",
+  "pyrorb",
 ]
 description = "Collection of TUFLOW and data processing functions."
 license = "SUL-1.0"
@@ -141,7 +141,7 @@ namespaces = true
 where = [".", "ryan-scripts/TUFLOW-python"]
 
 [tool.pyright]
-extraPaths = ["vendor"]
+extraPaths = ["vendor", "ryan-scripts/RORB-python"]
 include = ["ryan_library", "ryan-scripts"]
 pythonVersion = "3.11"
 reportUnnecessaryTypeIgnoreComment = "error"
@@ -166,5 +166,5 @@ extraPaths = [
 root = "tests/scripts/promoted_scripts"
 
 [[tool.pyright.executionEnvironments]]
-extraPaths = ["vendor"]
+extraPaths = ["vendor", "ryan-scripts/RORB-python"]
 root = "."

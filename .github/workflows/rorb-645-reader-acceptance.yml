@@ -69,20 +69,28 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Download and authenticate the exact index-published PyRORB wheel
+      - name: Resolve and authenticate the index-published PyRORB wheel
         shell: pwsh
         run: |
-          $wheelDir = Join-Path $env:RUNNER_TEMP 'qualified-pyrorb-reader'
+          $wheelDir = Join-Path $env:RUNNER_TEMP ('qualified-pyrorb-reader-' + [guid]::NewGuid().ToString('N'))
           New-Item -ItemType Directory -Force -Path $wheelDir | Out-Null
-          python -m pip --isolated download --index-url https://pypi.org/simple --no-cache-dir --only-binary=:all: --no-deps --dest $wheelDir "pyrorb==26.11.24.1"
+          python -m pip --isolated download --index-url https://pypi.org/simple --no-cache-dir --only-binary=:all: --no-deps --dest $wheelDir pyrorb
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $wheel = Join-Path $wheelDir 'pyrorb-26.11.24.1-py3-none-any.whl'
-          $digest = (Get-FileHash -Algorithm SHA256 -LiteralPath $wheel).Hash.ToLowerInvariant()
-          if ($digest -ne 'd5987b0213fb4fc1b709f268c0c2f0ae2de0b643b97563a7d6f2a26463e703f1') {
-            throw "PyRORB published wheel SHA-256 mismatch: $digest"
+          $wheels = @(Get-ChildItem -LiteralPath $wheelDir -Filter 'pyrorb-*.whl' -File)
+          if ($wheels.Count -ne 1) { throw 'Expected exactly one resolved PyRORB wheel.' }
+          $wheel = $wheels[0]
+          $version = ($wheel.Name -split '-')[1]
+          $registry = Invoke-RestMethod -Uri ("https://pypi.org/pypi/pyrorb/" + [uri]::EscapeDataString($version) + "/json") -TimeoutSec 30
+          $records = @($registry.urls | Where-Object { $_.filename -ceq $wheel.Name -and $_.packagetype -eq 'bdist_wheel' })
+          if ($records.Count -ne 1 -or $records[0].yanked) {
+            throw "Missing, ambiguous or yanked PyPI wheel: $($wheel.Name)"
           }
-          Write-Host "Authenticated PyPI wheel: $wheel SHA-256 $digest"
-          python -m pip --isolated install --index-url https://pypi.org/simple --only-binary=:all: $wheel pytest
+          $digest = (Get-FileHash -Algorithm SHA256 -LiteralPath $wheel.FullName).Hash.ToLowerInvariant()
+          if ($digest -ne $records[0].digests.sha256 -or $wheel.Length -ne $records[0].size) {
+            throw "PyRORB published wheel SHA-256 or size mismatch: $digest"
+          }
+          Write-Host "Authenticated PyPI wheel: $($wheel.Name) SHA-256 $digest"
+          python -m pip --isolated install --index-url https://pypi.org/simple --only-binary=:all: $wheel.FullName pytest
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Verify installed reader provenance, compatibility and original 6.45/6.52 populations

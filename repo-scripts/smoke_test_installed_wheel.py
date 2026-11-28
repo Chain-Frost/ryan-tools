@@ -42,9 +42,7 @@ def _require_installed_below(module_file: str | None, expected_root: Path, packa
 
 def _check_installed_rorb_readers(expected_root: Path) -> None:
     """Verify the six compatibility modules and canonical dependency are installed together."""
-    if importlib.metadata.version("pyrorb") != "26.11.24.1":
-        msg = "Unexpected PyRORB reader dependency version."
-        raise RuntimeError(msg)
+    version = importlib.metadata.version("pyrorb")
     for module_name in (
         "associations",
         "output_reader",
@@ -61,7 +59,7 @@ def _check_installed_rorb_readers(expected_root: Path) -> None:
         if not names or any(getattr(legacy, name) is not getattr(canonical, name) for name in names):
             msg = f"Installed RORB compatibility exports differ from canonical PyRORB: {module_name}"
             raise RuntimeError(msg)
-    print("Installed PyRORB reader version, origin and compatibility exports verified.")
+    print(f"Installed PyRORB {version} reader origin and compatibility exports verified.")
 
 
 def _check_installed_import_isolation(expected_root: Path) -> None:

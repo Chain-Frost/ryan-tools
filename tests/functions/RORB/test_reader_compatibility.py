@@ -3,8 +3,13 @@
 from __future__ import annotations
 
 import importlib
+import platform
 from importlib.metadata import distribution
 from pathlib import Path
+
+from packaging.requirements import Requirement
+from packaging.specifiers import SpecifierSet
+from packaging.utils import canonicalize_name
 
 _EXPORTS: dict[str, tuple[str, ...]] = {
     "associations": (
@@ -97,11 +102,15 @@ def test_legacy_reader_exports_are_canonical() -> None:
 
 
 def test_published_pyrorb_dependency_metadata() -> None:
-    """Check the selected index release has no reverse dependency or direct URL."""
+    """Check the resolved release supports this interpreter and has no reverse or URL dependency."""
     package = distribution("pyrorb")
-    assert package.version == "26.11.24.1"
-    assert package.metadata["Requires-Python"] == ">=3.11"
-    requirements = package.requires or []
-    assert [item for item in requirements if ";" not in item] == ["typing_extensions>=4.12"]
-    assert all("@" not in item for item in requirements)
-    assert all("ryan-tools" not in item.lower() and "ryan-rorb-readers" not in item.lower() for item in requirements)
+    assert canonicalize_name(package.metadata["Name"]) == "pyrorb"
+    assert package.version
+    requires_python = package.metadata["Requires-Python"]
+    if requires_python:
+        assert SpecifierSet(requires_python).contains(platform.python_version(), prereleases=True)
+    requirements = [Requirement(item) for item in package.requires or []]
+    assert all(requirement.url is None for requirement in requirements)
+    assert all(
+        canonicalize_name(requirement.name) not in {"ryan-tools", "ryan-rorb-readers"} for requirement in requirements
+    )

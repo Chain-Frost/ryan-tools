@@ -2,15 +2,35 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Phase B local acceptance complete; corrected-head hosted CI and owner integration approval pending |
+| Status | Phase B complete; owner-requested dependency-policy follow-up in PR #145 |
 | Owner | ChatGPT / maintainer |
 | Created | 2026-11-05 |
-| Updated | 2026-11-26 |
-| Next review | 2026-11-27 |
+| Updated | 2026-11-28 |
+| Next review | 2026-12-05 |
 | Baseline | Local main at `10b71898220d11feaff8256618ffb8eeec35f4ef` |
-| Delivery | [Draft PR #344](https://github.com/Chain-Frost/ryan-tools/pull/344), branch `refactor/pyrorb-reader-compatibility-340`; no merge or release |
+| Delivery | [PR #344](https://github.com/Chain-Frost/ryan-tools/pull/344) merged; [v26.11.27.1](https://github.com/Chain-Frost/ryan-tools/releases/tag/v26.11.27.1) published; follow-up in [PR #145](https://github.com/Chain-Frost/ryan-tools/pull/145) |
 
-## 2026-11-26 final acceptance preparation
+## 2026-11-28 release closeout and dependency policy
+
+Phase B completed in #344 at `5eda4f06cafbbdc5f528bb108909438302a13ce5`.
+[Main CI](https://github.com/Chain-Frost/ryan-tools/actions/runs/45960809675) passed on
+Python 3.11 and 3.14 (3,481 tests each). [Publishing](https://github.com/Chain-Frost/ryan-tools/actions/runs/45961961098)
+and [PyPI wheel verification](https://github.com/Chain-Frost/ryan-tools/actions/runs/45962214615)
+passed for v26.11.27.1; #337/#340 and PyRORB #231 closed. The exact version and hash below
+remain historical qualification evidence for that release.
+
+The owner explicitly requests a bare `pyrorb` dependency and continuation in existing
+[PR #145](https://github.com/Chain-Frost/ryan-tools/pull/145). The proposed change
+removes fixed-version gates from routine source and isolated-wheel installations,
+verifies the resolved public wheel against current PyPI filename, size and digest,
+and retains the same six reader compatibility modules, API identities, original
+fixture checks and metadata/physical-origin checks. Do not reinstate the standalone
+publisher or change reader grammar. The first integrated head passed 10 original-reader
+and compatibility checks; general CI identified one formatting difference, corrected in the
+follow-up. Final CI and independent review remain required. PR #145's calibration safety
+corrections and native acceptance remain separate. No merge or new release is authorised.
+
+## 2026-11-26 final acceptance preparation (historical)
 
 Candidate started at `61040c20c7525f893223a136dbba9f9bd62ae90e`, unchanged from the supplied handoff;
 audited base and remote main are `de3e54289223f974cccf936ebc4fd2b7680d0a09`.
