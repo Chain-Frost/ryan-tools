@@ -374,9 +374,7 @@ def _validate_events(events: Sequence[IFDEvent]) -> None:
         raise ValueError(msg)
 
 
-def inspect_cache(
-    spec: GridSpec, source: IFDSource, cache: PointCache, events: Sequence[IFDEvent]
-) -> CacheCoverage:
+def inspect_cache(spec: GridSpec, source: IFDSource, cache: PointCache, events: Sequence[IFDEvent]) -> CacheCoverage:
     """Report missing coordinates; corrupt, wrong-source or unsupported data raise.
 
     This does not contact the network or count unvalidated cached payloads as

@@ -76,7 +76,7 @@ def _grid_extent(spec: GridSpec) -> Polygon:
     )
 
 
-def _validate_catchment(spec: GridSpec, catchment: Polygon | MultiPolygon) -> None:
+def _validate_catchment(spec: GridSpec, catchment: BaseGeometry) -> None:
     if not isinstance(catchment, (Polygon, MultiPolygon)) or catchment.is_empty or not catchment.is_valid:
         msg = "Catchment must be a valid nonempty Polygon or MultiPolygon"
         raise ValueError(msg)
@@ -92,7 +92,7 @@ def _validate_catchment(spec: GridSpec, catchment: Polygon | MultiPolygon) -> No
         raise ValueError(msg)
 
 
-def catchment_weights(spec: GridSpec, catchment: Polygon | MultiPolygon) -> CatchmentWeights:
+def catchment_weights(spec: GridSpec, catchment: BaseGeometry) -> CatchmentWeights:
     """Calculate ellipsoidal areas of every cell/catchment intersection in m².
 
     Input coordinates must already be EPSG:4326, longitude then latitude, with

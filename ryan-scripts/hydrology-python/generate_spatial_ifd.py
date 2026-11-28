@@ -112,7 +112,10 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--inspect-cache", action=argparse.BooleanOptionalAction, default=INSPECT_CACHE)
     parser.add_argument("--max-new-points", type=int, default=MAX_NEW_POINTS, help="Default zero: no network access")
     parser.add_argument(
-        "--output", type=Path, default=OUTPUT, help="New .asc/.tif file (one event) or existing output directory (batch)"
+        "--output",
+        type=Path,
+        default=OUTPUT,
+        help="New .asc/.tif file (one event) or existing output directory (batch)",
     )
     parser.add_argument(
         "--reference-depth-mm", type=float, default=REFERENCE_DEPTH_MM, help="Export depth ratios instead"
@@ -236,7 +239,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, wrapper_source=_WRAPPER_SOURCE)
     try:
         _run(options)
-    except (OSError, ValueError, ArithmeticError, RuntimeError, sqlite3.Error, RasterioError, FionaError, ShapelyError) as exc:
+    except (
+        OSError,
+        ValueError,
+        ArithmeticError,
+        RuntimeError,
+        sqlite3.Error,
+        RasterioError,
+        FionaError,
+        ShapelyError,
+    ) as exc:
         print(f"Spatial IFD failed: {exc}")
         return 1
     finally:

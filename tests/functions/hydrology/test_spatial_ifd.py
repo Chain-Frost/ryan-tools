@@ -191,7 +191,5 @@ def test_batch_preflights_cached_events_before_fetching(tmp_path: Path) -> None:
 def test_missing_event_is_not_admitted_to_cache(tmp_path: Path) -> None:
     cache = PointCache(tmp_path / "ifd.sqlite3")
     with pytest.raises(ValueError, match="not tabulated"):
-        collect_grids(
-            GRID, SOURCE, cache, (IFDEvent(60, 1), IFDEvent(90, 1)), max_new_points=4, fetcher=response
-        )
+        collect_grids(GRID, SOURCE, cache, (IFDEvent(60, 1), IFDEvent(90, 1)), max_new_points=4, fetcher=response)
     assert inspect_cache(GRID, SOURCE, cache, (IFDEvent(60, 1),)).cached_cells == 0
