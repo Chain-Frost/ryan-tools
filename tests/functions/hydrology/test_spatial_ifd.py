@@ -1,0 +1,227 @@
+"""Synthetic spatial IFD regression tests; no BoM equivalence claim."""
+
+import json
+from dataclasses import replace
+from decimal import Decimal
+from pathlib import Path
+
+import numpy as np
+import pytest
+
+from ryan_library.functions.hydrology.spatial_ifd import (
+    GridSpec,
+    IFDEvent,
+    IFDSource,
+    Point,
+    PointCache,
+    collect_grid,
+    collect_grids,
+    inspect_cache,
+    parse_ifd,
+    write_ascii_grid,
+)
+
+# Artificial source keys, not asserted to be the production API's keys.
+SOURCE = IFDSource(("AllIFDDatasets", "Synthetic unadjusted IFD"), "test-v1")
+GRID = GridSpec(Decimal("-23.000"), Decimal("119.000"), 2, 2, crs="EPSG:4326")
+
+
+def response(point: Point) -> bytes:
+    depth = 100 + float((point.longitude - Decimal(119)) * 400) - float((point.latitude + 23) * 800)
+    table = {"index": [60, 120], "columns": [1, 10], "data": [[depth, depth / 2], [depth * 2, depth]]}
+    return json.dumps(
+        {
+            "input_data": {"Latitude": float(point.latitude), "Longitude": float(point.longitude)},
+            "layers": {"AllIFDDatasets": {"Synthetic unadjusted IFD": table}},
+        }
+    ).encode()
+
+
+def test_resume_overlap_and_offline_events(tmp_path: Path) -> None:
+    path = tmp_path / "ifd.sqlite3"
+    seen: list[Point] = []
+
+    def interrupted(point: Point) -> bytes:
+        seen.append(point)
+        if len(seen) == 3:
+            msg = "interrupted"
+            raise OSError(msg)
+        return response(point)
+
+    with pytest.raises(OSError, match="interrupted"):
+        collect_grid(GRID, SOURCE, PointCache(path), 60, 1, max_new_points=4, fetcher=interrupted)
+
+    seen.clear()
+
+    def fetch(point: Point) -> bytes:
+        seen.append(point)
+        return response(point)
+
+    result = collect_grid(GRID, SOURCE, PointCache(path), 60, 1, max_new_points=2, fetcher=fetch)
+    assert (result.cached_cells, result.fetched_cells) == (2, 2)
+    assert len(seen) == 2
+    np.testing.assert_allclose(result.depths_mm, [[100, 110], [120, 130]])
+    np.testing.assert_allclose(result.multipliers(100), [[1, 1.1], [1.2, 1.3]])
+
+    seen.clear()
+    offline = collect_grid(GRID, SOURCE, PointCache(path), 120, 10, fetcher=fetch)
+    np.testing.assert_array_equal(offline.depths_mm, result.depths_mm)
+    assert offline.cached_cells == 4
+    assert not seen
+
+    overlap = GridSpec(Decimal(-23), Decimal("119.025"), 2, 1, crs="EPSG:4326")
+    subset = collect_grid(overlap, SOURCE, PointCache(path), 60, 1, fetcher=fetch)
+    np.testing.assert_array_equal(subset.depths_mm, [[110], [130]])
+    assert not seen
+
+
+def test_budget_preflight_and_new_snapshot(tmp_path: Path) -> None:
+    cache = PointCache(tmp_path / "ifd.sqlite3")
+    seen: list[Point] = []
+
+    def fetch(point: Point) -> bytes:
+        seen.append(point)
+        return response(point)
+
+    with pytest.raises(ValueError, match="budget"):
+        collect_grid(GRID, SOURCE, cache, 60, 1, max_new_points=3, fetcher=fetch)
+    assert not seen
+    collect_grid(GRID, SOURCE, cache, 60, 1, max_new_points=4, fetcher=fetch)
+    new_source = IFDSource(SOURCE.table_path, "test-v2")
+    with pytest.raises(ValueError, match="budget"):
+        collect_grid(GRID, new_source, cache, 60, 1, fetcher=fetch)
+    assert len(seen) == 4
+
+
+def test_invalid_responses_never_admitted(tmp_path: Path) -> None:
+    cache = PointCache(tmp_path / "ifd.sqlite3")
+    point = Point(Decimal(-23), Decimal(119))
+    other = Point(Decimal(-24), Decimal(119))
+    for raw in (b"<html>error</html>", b"{}", response(other)):
+        with pytest.raises(ValueError):
+            cache.store(point, SOURCE, raw)
+        assert cache.get(point, SOURCE) is None
+    wrong = IFDSource(("AllIFDDatasets", "Other dataset"), SOURCE.snapshot)
+    with pytest.raises(ValueError, match="Missing exact"):
+        cache.store(point, wrong, response(point))
+    assert cache.get(point, SOURCE) is None
+
+
+def test_exact_events_and_immutable_snapshot(tmp_path: Path) -> None:
+    cache = PointCache(tmp_path / "ifd.sqlite3")
+    point = Point(Decimal("-23.000"), Decimal("119.000"))
+    raw = response(point)
+    table = parse_ifd(raw, point, SOURCE)
+    with pytest.raises(ValueError, match="not tabulated"):
+        table.depth(90, 1)
+    with pytest.raises(ValueError, match="not tabulated"):
+        table.depth(60, 0.01)
+    cache.store(point, SOURCE, raw)
+    replacement = raw.replace(b"100.0", b"101.0")
+    assert cache.store(point, SOURCE, replacement).depth(60, 1) == 100
+    assert cache.get(Point(Decimal(-23), Decimal(119)), SOURCE) == raw
+
+
+def test_ascii_orientation_and_no_overwrite(tmp_path: Path) -> None:
+    rasterio = pytest.importorskip("rasterio")
+    path = tmp_path / "depth.asc"
+    values = np.array([[100.0, 110.0], [120.0, 130.0]])
+    write_ascii_grid(path, GRID, values)
+    original = path.read_bytes()
+    with rasterio.open(path) as dataset:
+        np.testing.assert_array_equal(dataset.read(1), values)
+        assert dataset.xy(0, 0) == pytest.approx((119, -23))
+        assert dataset.xy(1, 1) == pytest.approx((119.025, -23.025))
+        assert dataset.res == pytest.approx((0.025, 0.025))
+    with pytest.raises(FileExistsError):
+        write_ascii_grid(path, GRID, values)
+    assert path.read_bytes() == original
+
+
+def test_reject_recommended_and_invalid_grid() -> None:
+    with pytest.raises(ValueError, match="Recommended"):
+        IFDSource(("RecIFD", "Default Historical (1961-1990) Baseline"), "test")
+    with pytest.raises(ValueError, match="cells"):
+        GridSpec(Decimal(-23), Decimal(119), 101, 100)
+
+
+def test_batch_fetches_once_per_point_and_reuses_all_events(tmp_path: Path) -> None:
+    cache = PointCache(tmp_path / "ifd.sqlite3")
+    events = (IFDEvent(60, 1), IFDEvent(60, 10), IFDEvent(120, 1))
+    seen: list[Point] = []
+
+    def fetch(point: Point) -> bytes:
+        seen.append(point)
+        return response(point)
+
+    coverage = inspect_cache(GRID, SOURCE, cache, events)
+    assert coverage.cached_cells == 0
+    assert len(coverage.missing_points) == 4
+    first, second, third = collect_grids(GRID, SOURCE, cache, events, max_new_points=4, fetcher=fetch)
+    assert len(seen) == 4
+    np.testing.assert_allclose(first.depths_mm, [[100, 110], [120, 130]])
+    np.testing.assert_allclose(second.depths_mm, first.depths_mm / 2)
+    np.testing.assert_allclose(third.depths_mm, first.depths_mm * 2)
+    coverage = inspect_cache(GRID, SOURCE, cache, events)
+    assert coverage.cached_cells == 4
+    assert not coverage.missing_points
+    offline = collect_grids(GRID, SOURCE, cache, events, fetcher=fetch)
+    assert len(seen) == 4
+    assert all(grid.cached_cells == 4 for grid in offline)
+
+
+def test_batch_preflights_cached_events_before_fetching(tmp_path: Path) -> None:
+    cache = PointCache(tmp_path / "ifd.sqlite3")
+    cached_point = Point(Decimal("-23.025"), Decimal("119.025"))
+    cache.store(cached_point, SOURCE, response(cached_point))
+    seen: list[Point] = []
+
+    def fetch(point: Point) -> bytes:
+        seen.append(point)
+        return response(point)
+
+    events = (IFDEvent(60, 1), IFDEvent(90, 1))
+    with pytest.raises(ValueError, match="not tabulated"):
+        collect_grids(GRID, SOURCE, cache, events, max_new_points=4, fetcher=fetch)
+    assert not seen
+    with pytest.raises(ValueError, match="unique"):
+        collect_grids(GRID, SOURCE, cache, (events[0], events[0]), max_new_points=4, fetcher=fetch)
+    assert not seen
+
+
+def test_missing_event_is_not_admitted_to_cache(tmp_path: Path) -> None:
+    cache = PointCache(tmp_path / "ifd.sqlite3")
+    with pytest.raises(ValueError, match="not tabulated"):
+        collect_grids(GRID, SOURCE, cache, (IFDEvent(60, 1), IFDEvent(90, 1)), max_new_points=4, fetcher=response)
+    assert inspect_cache(GRID, SOURCE, cache, (IFDEvent(60, 1),)).cached_cells == 0
+
+
+def test_gda94_grid_requires_explicit_request_crs(tmp_path: Path) -> None:
+    spec = GridSpec(Decimal(-23), Decimal(119), 2, 2)
+    assert spec.crs == "EPSG:4283"
+    cache = PointCache(tmp_path / "ifd.sqlite3")
+    events = (IFDEvent(60, 1),)
+    with pytest.raises(ValueError, match="explicit ARR request CRS"):
+        inspect_cache(spec, SOURCE, cache, events)
+    with pytest.raises(ValueError, match="explicit ARR request CRS"):
+        collect_grids(spec, SOURCE, cache, events, max_new_points=4, fetcher=response)
+    source = replace(SOURCE, request_crs="EPSG:4283")
+    grid = collect_grid(spec, source, cache, 60, 1, max_new_points=4, fetcher=response)
+    assert grid.spec.crs == "EPSG:4283"
+    np.testing.assert_array_equal(grid.depths_mm, [[100, 110], [120, 130]])
+    assert inspect_cache(spec, source, cache, events).cached_cells == 4
+
+
+def test_gda94_grid_wgs84_request_mapping(tmp_path: Path) -> None:
+    spec = GridSpec(Decimal(-23), Decimal(119), 1, 1)
+    source = replace(SOURCE, request_crs="EPSG:4326")
+    cache = PointCache(tmp_path / "ifd.sqlite3")
+    coverage = inspect_cache(spec, source, cache, (IFDEvent(60, 1),))
+    assert len(coverage.missing_points) == 1
+    point = coverage.missing_points[0]
+    assert float(point.latitude) == pytest.approx(-23, abs=0.0001)
+    assert float(point.longitude) == pytest.approx(119, abs=0.0001)
+    grid = collect_grid(spec, source, cache, 60, 1, max_new_points=1, fetcher=response)
+    assert grid.spec == spec
+    assert cache.get(point, source) is not None
+    assert inspect_cache(spec, source, cache, (IFDEvent(60, 1),)).cached_cells == 1

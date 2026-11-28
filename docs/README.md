@@ -109,6 +109,7 @@ but they are not current architectural policy when they conflict with the canoni
 | Document | Scope and status |
 | --- | --- |
 | [Rainfall-loss screening development](work/2026-11-16-rainfall-loss-screening.md) | Draft #317/#318 wrapper, BoM/ARR 2026 adapters, outstanding genuine-data and engine-acceptance gates |
+| [Spatial IFD rainfall grids](work/2026-11-28-spatial-ifd-grids.md) | Resumable point cache, verified ARR point source and Windows validation; BoM raster comparison pending |
 | [WP13 QGIS project structural comparison](work/2026-11-08-wp13-qgis-project-comparison.md) | Selected read-only #169 structural layer comparison, focused tests, review and Windows acceptance gates for draft #283 |
 | [WP06 owned-output publication](work/2026-11-08-wp06-publication.md) | Profile PNG staging, archive and GDAL output safety, validation and stacked PR delivery |
 | [WP01 TLF parser metadata reliability](work/2026-11-08-tlf-parser-wp01.md) | Staged #239/#224/#231 implementation, linked PRs and acceptance record |
@@ -156,7 +157,7 @@ but they are not current architectural policy when they conflict with the canoni
 | [Installed scripts and distribution rename](work/2026-10-18-installed-scripts.md) | PR #120 wheel scripts, automatic MCP resolution, removed import shim and PyPI name migration |
 | [Installed scripts and MCP requirements](work/2026-10-17-installed-scripts-mcp-pip-distribution.md) | PR #130/#137: corrected wrapper copying, provisional packaging and outstanding engineering acceptance |
 | [Original script distribution requirements](audits/2026-10-17-installed-scripts-original-requirements.md) | Preserved original A–F requirements |
-| [Installed script inventory](audits/2026-10-19-installed-scripts-inventory.md) | All 162 source paths; 84 selected and 78 excluded; lifecycle sign-off outstanding |
+| [Installed script inventory](audits/2026-10-19-installed-scripts-inventory.md) | All 163 source paths; 84 selected and 79 excluded; lifecycle sign-off outstanding |
 | [Script remediation backlog](audits/2026-10-22-script-remediation-backlog.md) | 47 AB items: open/deferred work plus accepted-closed HY-8 evidence (AB-023); triaged safety, engineering and lifecycle tasks |
 | [CI resource efficiency and Windows acceptance](work/2026-11-08-ci-resource-efficiency.md) | Merged #272 implementation, post-merge validation and coordinated adoption by active stacks |
 | [CI dependency and PyTuflow wheel implementation](work/2026-11-08-ci-dependency-groups.md) | Completed #274/#272 wheel delivery and accepted Windows coverage; deferred, bounded dependency follow-up |
