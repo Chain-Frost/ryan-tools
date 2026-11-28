@@ -133,10 +133,14 @@ class IFDTable:
 
 
 def _mapping(value: object) -> dict[str, object]:
-    if not isinstance(value, dict) or not all(isinstance(key, str) for key in value):
+    if not isinstance(value, dict):
         msg = "Expected a JSON object"
         raise ValueError(msg)
-    return cast("dict[str, object]", value)
+    mapping = cast("dict[object, object]", value)
+    if not all(isinstance(key, str) for key in mapping):
+        msg = "JSON object keys must be strings"
+        raise ValueError(msg)
+    return cast("dict[str, object]", mapping)
 
 
 def _array(value: object) -> list[object]:

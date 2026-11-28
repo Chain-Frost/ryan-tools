@@ -2,13 +2,15 @@
 
 from dataclasses import replace
 from decimal import Decimal
+from pathlib import Path
 
+import fiona
 import numpy as np
 import pytest
-from shapely.geometry import MultiPolygon, Polygon, box
+from shapely.geometry import MultiPolygon, Polygon, box, mapping
 
 from ryan_library.functions.hydrology.spatial_ifd import GridSpec, IFDSource, SpatialIFDGrid
-from ryan_library.functions.hydrology.spatial_ifd_catchments import catchment_weights
+from ryan_library.functions.hydrology.spatial_ifd_catchments import catchment_weights, read_catchment_polygon
 
 GRID = GridSpec(Decimal(-23), Decimal(119), 2, 2)
 
@@ -63,3 +65,22 @@ def test_reject_partial_extent_and_invalid_polygon() -> None:
     invalid = Polygon([(119, -23), (119.02, -23.02), (119, -23.02), (119.02, -23)])
     with pytest.raises(ValueError, match="valid"):
         catchment_weights(GRID, invalid)
+
+
+def test_vector_union_and_explicit_crs(tmp_path: Path) -> None:
+    path = tmp_path / "catchment.gpkg"
+    first = box(118.99, -23.01, 119.01, -22.99)
+    second = box(119.02, -23.03, 119.03, -23.02)
+    schema = {"geometry": "Polygon", "properties": {}}
+    with fiona.open(path, "w", driver="GPKG", layer="basin", schema=schema, crs="EPSG:4326") as sink:
+        sink.write({"geometry": mapping(first), "properties": {}})
+        sink.write({"geometry": mapping(second), "properties": {}})
+    result = read_catchment_polygon(path)
+    assert result.equals(MultiPolygon([first, second]))
+    assert catchment_weights(GRID, result).covered_area_m2 > 0
+
+    wrong = tmp_path / "projected.gpkg"
+    with fiona.open(wrong, "w", driver="GPKG", layer="basin", schema=schema, crs="EPSG:3577") as sink:
+        sink.write({"geometry": mapping(first), "properties": {}})
+    with pytest.raises(ValueError, match="WGS84"):
+        read_catchment_polygon(wrong)

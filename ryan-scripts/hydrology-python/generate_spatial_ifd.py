@@ -11,7 +11,7 @@ from __future__ import annotations
 from decimal import Decimal
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-28.2"
+WRAPPER_VERSION = "2026-11-28.3"
 WORKING_DIR = Path.cwd()
 REFERENCE: Path | None = None
 ASSUME_WGS84 = False
@@ -29,6 +29,8 @@ INSPECT_CACHE = False
 MAX_NEW_POINTS = 0
 OUTPUT: Path | None = None
 REFERENCE_DEPTH_MM: float | None = None
+CATCHMENT: Path | None = None  # WGS84 polygon layer; normalize to each event's catchment mean.
+CATCHMENT_LAYER: str | None = None
 PAUSE_ON_FINISH = False
 
 import argparse
@@ -36,7 +38,9 @@ import sqlite3
 from collections.abc import Sequence
 from math import isfinite
 
+from fiona.errors import FionaError
 from rasterio.errors import RasterioError
+from shapely.errors import ShapelyError
 
 from ryan_library.functions.hydrology.spatial_ifd import (
     GridSpec,
@@ -47,6 +51,11 @@ from ryan_library.functions.hydrology.spatial_ifd import (
     collect_grids,
     inspect_cache,
     write_ascii_grid,
+)
+from ryan_library.functions.hydrology.spatial_ifd_catchments import (
+    CatchmentWeights,
+    catchment_weights,
+    read_catchment_polygon,
 )
 from ryan_library.functions.hydrology.spatial_ifd_rasters import (
     ReferenceGrid,
@@ -77,6 +86,8 @@ class _Options(argparse.Namespace):
     max_new_points: int
     output: Path | None
     reference_depth_mm: float | None
+    catchment: Path | None
+    catchment_layer: str | None
     pause: bool
 
 
@@ -100,10 +111,14 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--aep-percent", type=float, nargs="+", default=AEP_PERCENT)
     parser.add_argument("--inspect-cache", action=argparse.BooleanOptionalAction, default=INSPECT_CACHE)
     parser.add_argument("--max-new-points", type=int, default=MAX_NEW_POINTS, help="Default zero: no network access")
-    parser.add_argument("--output", type=Path, default=OUTPUT, help="New .asc/.tif file (one event) or existing output directory (batch)")
+    parser.add_argument(
+        "--output", type=Path, default=OUTPUT, help="New .asc/.tif file (one event) or existing output directory (batch)"
+    )
     parser.add_argument(
         "--reference-depth-mm", type=float, default=REFERENCE_DEPTH_MM, help="Export depth ratios instead"
     )
+    parser.add_argument("--catchment", type=Path, default=CATCHMENT, help="WGS84 polygon file; export catchment ratios")
+    parser.add_argument("--catchment-layer", default=CATCHMENT_LAYER, help="Required when the file has multiple layers")
     parser.add_argument("--pause", action=argparse.BooleanOptionalAction, default=PAUSE_ON_FINISH)
     return parser
 
@@ -147,7 +162,7 @@ def _output_paths(options: _Options, events: tuple[IFDEvent, ...]) -> tuple[Path
         if not path.is_dir():
             msg = "Batch output must be an existing directory"
             raise ValueError(msg)
-        prefix = "depth" if options.reference_depth_mm is None else "factor"
+        prefix = "depth" if options.reference_depth_mm is None and options.catchment is None else "factor"
         outputs = tuple(path / f"{prefix}_{event.aep_percent}pct_{event.duration_min}min.tif" for event in events)
     for output in outputs:
         if output.exists() or output.is_symlink():
@@ -158,18 +173,34 @@ def _output_paths(options: _Options, events: tuple[IFDEvent, ...]) -> tuple[Path
     return outputs
 
 
-def _write_output(path: Path, grid: SpatialIFDGrid, reference_depth_mm: float | None) -> None:
+def _write_output(path: Path, grid: SpatialIFDGrid, reference_depth_mm: float | None, area_m2: float | None) -> None:
     if path.suffix.lower() == ".asc":
         values = grid.depths_mm if reference_depth_mm is None else grid.multipliers(reference_depth_mm)
         write_ascii_grid(path, grid.spec, values)
     else:
-        write_geotiff(path, grid, reference_depth_mm=reference_depth_mm)
+        write_geotiff(path, grid, reference_depth_mm=reference_depth_mm, catchment_area_m2=area_m2)
     print(f"Created {path}")
+
+
+def _weights(options: _Options, spec: GridSpec) -> CatchmentWeights | None:
+    if options.catchment is None:
+        if options.catchment_layer is not None:
+            msg = "A catchment layer requires a catchment file"
+            raise ValueError(msg)
+        return None
+    if options.reference_depth_mm is not None:
+        msg = "Choose either a fixed reference depth or catchment normalization"
+        raise ValueError(msg)
+    polygon = read_catchment_polygon(
+        (options.working_dir / options.catchment).absolute(), layer=options.catchment_layer
+    )
+    return catchment_weights(spec, polygon)
 
 
 def _run(options: _Options) -> None:
     spec, reference = _spec(options)
     events = _events(options)
+    weights = _weights(options, spec)
     source = IFDSource(tuple(options.source_path), options.snapshot)
     cache = PointCache((options.working_dir / options.cache).absolute())
     if options.inspect_cache:
@@ -179,10 +210,11 @@ def _run(options: _Options) -> None:
             print(f"Missing: {point.latitude}, {point.longitude}")
         return
     outputs = _output_paths(options, events)
-    if options.reference_depth_mm is not None:
-        if not isfinite(options.reference_depth_mm) or options.reference_depth_mm <= 0:
-            msg = "Reference depth must be finite and positive"
-            raise ValueError(msg)
+    if options.reference_depth_mm is not None and (
+        not isfinite(options.reference_depth_mm) or options.reference_depth_mm <= 0
+    ):
+        msg = "Reference depth must be finite and positive"
+        raise ValueError(msg)
     grids = collect_grids(spec, source, cache, events, max_new_points=options.max_new_points)
     print(f"Completed {spec.rows} x {spec.cols} grid for {len(grids)} events")
     print(f"Cached={grids[0].cached_cells}, fetched={grids[0].fetched_cells}")
@@ -191,7 +223,11 @@ def _run(options: _Options) -> None:
         print("Numerical comparison only; source equivalence and acceptance tolerance require independent review.")
     if outputs:
         for output, grid in zip(outputs, grids, strict=True):
-            _write_output(output, grid, options.reference_depth_mm)
+            depth = options.reference_depth_mm if weights is None else weights.mean_depth(grid)
+            area = None if weights is None else weights.catchment_area_m2
+            if weights is not None:
+                print(f"{grid.aep_percent}% / {grid.duration_min} min: catchment mean = {depth} mm, area = {area} m²")
+            _write_output(output, grid, depth, area)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -200,7 +236,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, wrapper_source=_WRAPPER_SOURCE)
     try:
         _run(options)
-    except (OSError, ValueError, ArithmeticError, RuntimeError, sqlite3.Error, RasterioError) as exc:
+    except (OSError, ValueError, ArithmeticError, RuntimeError, sqlite3.Error, RasterioError, FionaError, ShapelyError) as exc:
         print(f"Spatial IFD failed: {exc}")
         return 1
     finally:

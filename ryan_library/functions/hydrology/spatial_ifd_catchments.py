@@ -10,13 +10,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from math import fsum, isclose, isfinite
+from pathlib import Path
 
+import fiona
 import numpy as np
 import numpy.typing as npt
 from pyproj import Geod
-from shapely.geometry import GeometryCollection, MultiPolygon, Polygon, box
+from rasterio.crs import CRS
+from shapely.geometry import GeometryCollection, MultiPolygon, Polygon, box, shape
 from shapely.geometry.base import BaseGeometry
 from shapely.geometry.polygon import orient
+from shapely.ops import unary_union
 
 from .spatial_ifd import GridSpec, SpatialIFDGrid
 from .spatial_ifd_rasters import weighted_depth
@@ -112,3 +116,37 @@ def catchment_weights(spec: GridSpec, catchment: Polygon | MultiPolygon) -> Catc
         msg = f"Catchment intersection area closure failed: total={total}, covered={covered} m²"
         raise ValueError(msg)
     return CatchmentWeights(spec, areas, total, covered)
+
+
+def read_catchment_polygon(path: Path, *, layer: str | None = None) -> Polygon | MultiPolygon:
+    """Read and explicitly union all polygon features of one WGS84 vector layer.
+
+    Reject missing CRS, nonpolygon or invalid features and ambiguous layer
+    selection. Reproject other datums/projected inputs explicitly before use.
+    Use separate calls/inputs to retain distinct subcatchment identities.
+    """
+    if layer is None:
+        layers = fiona.listlayers(path)
+        if len(layers) != 1:
+            msg = "Select one vector layer explicitly"
+            raise ValueError(msg)
+        layer = layers[0]
+    polygons: list[Polygon | MultiPolygon] = []
+    with fiona.open(path, layer=layer) as source:
+        if not source.crs_wkt or CRS.from_wkt(source.crs_wkt) != CRS.from_epsg(4326):
+            msg = "Catchment layer must have an explicit WGS84 (EPSG:4326) CRS"
+            raise ValueError(msg)
+        for feature in source:
+            if feature.geometry is None:
+                msg = "Catchment layer contains a missing geometry"
+                raise ValueError(msg)
+            geometry = shape(feature.geometry)
+            if not isinstance(geometry, (Polygon, MultiPolygon)) or geometry.is_empty or not geometry.is_valid:
+                msg = "Catchment layer must contain valid nonempty polygons only"
+                raise ValueError(msg)
+            polygons.append(geometry)
+    result = unary_union(polygons)
+    if not isinstance(result, (Polygon, MultiPolygon)) or result.is_empty or not result.is_valid:
+        msg = "Catchment union must be a valid nonempty polygon"
+        raise ValueError(msg)
+    return result

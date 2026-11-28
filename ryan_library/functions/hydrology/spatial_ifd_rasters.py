@@ -155,13 +155,24 @@ def weighted_depth(grid: SpatialIFDGrid, areas_m2: npt.NDArray[np.float64]) -> f
     return float(np.average(grid.depths_mm[valid], weights=weights))
 
 
-def write_geotiff(path: Path, grid: SpatialIFDGrid, *, reference_depth_mm: float | None = None) -> None:
+def write_geotiff(
+    path: Path,
+    grid: SpatialIFDGrid,
+    *,
+    reference_depth_mm: float | None = None,
+    catchment_area_m2: float | None = None,
+) -> None:
     """Export depth or multiplier with explicit WGS84 CRS and provenance tags.
 
     Stage a complete single-file GeoTIFF beside the destination, then publish
     via a hard link (atomic no-clobber). A filesystem without hard-link support
     fails closed. No sidecars or existing files are replaced.
     """
+    if catchment_area_m2 is not None and (
+        reference_depth_mm is None or not isfinite(catchment_area_m2) or catchment_area_m2 <= 0
+    ):
+        msg = "Catchment normalization requires a positive area and reference depth"
+        raise ValueError(msg)
     spec = grid.spec
     values = grid.depths_mm if reference_depth_mm is None else grid.multipliers(reference_depth_mm)
     _validate_depths(spec, values, np.ones(values.shape, dtype=np.bool_))
@@ -206,6 +217,7 @@ def write_geotiff(path: Path, grid: SpatialIFDGrid, *, reference_depth_mm: float
                 IFD_AEP_PERCENT=str(grid.aep_percent),
                 IFD_UNITS="mm" if reference_depth_mm is None else "dimensionless",
                 IFD_REFERENCE_DEPTH_MM="" if reference_depth_mm is None else str(reference_depth_mm),
+                IFD_CATCHMENT_AREA_M2="" if catchment_area_m2 is None else str(catchment_area_m2),
                 IFD_ATTRIBUTION="ARR Data Hub; BoM 2016 IFD material: Commonwealth of Australia 2016, CC BY 4.0",
             )
         path.hardlink_to(staged)
