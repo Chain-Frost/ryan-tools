@@ -2,12 +2,32 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Bounded native acceptance passed locally; isolation correction awaits final-head CI and independent review |
+| Status | Parent #145 reviewed with green CI. Child PAR writer checked locally and submitted for review |
 | Owner | ChatGPT / local maintainer agent |
 | Created | 2026-10-21 |
 | Updated | 2026-11-28 |
 | Next review | 2026-12-05 |
 | Baseline | main `5eda4f06cafbbdc5f528bb108909438302a13ce5`; existing branch `feature/rorb-parameter-calibration-20261021` |
+
+## 2026-11-28 PyRORB ownership follow-up
+
+[PR #145](https://github.com/Chain-Frost/ryan-tools/pull/145) at `4578e223` has final-head hosted CI and independent
+review. Its single-case native CMD receipt below applies to that parent. The child branch
+`refactor/rorb-calibration-pyrorb` uses the published PyRORB CMD PAR serializer for both loss models.
+It rejects mode-2 coefficients outside 0..1 before creating runs. Existing archive scoring and per-run staging remain
+covered by the focused tests. On Windows 10 / Python 3.14.6 with installed PyRORB 26.11.24.1,
+`python -m pytest -q tests/test_rorb_calibrate.py` passed 27 tests. A separate comparison wrote 72 PAR files per
+revision and found byte-for-byte agreement between parent and child, including the 15/10/5 calibration case.
+Ruff lint, format and strict Pyright passed on the two changed Python files. This child was checked without a native
+launch. The child PR owns the pushed revision and hosted results.
+
+[Consumer handoff #346](https://github.com/Chain-Frost/ryan-tools/issues/346) owns the report-reader migration.
+The existing bare-table test accepts lowercase `end`; released PyRORB reports `table_boundary` for that input.
+Verify the accepted archive on the custody host when switching readers. PyRORB owns the
+[RORB-to-TUFLOW rainfall export](https://github.com/Chain-Frost/pyrorb/issues/249) and
+[direct-depth STM format](https://github.com/Chain-Frost/pyrorb/issues/250) for the reverse converter in
+[#118](https://github.com/Chain-Frost/ryan-tools/pull/118). Recheck both mains and the installed PyRORB API when
+retargeting or integrating the children after #145.
 
 ## 2026-11-28 other-PC native acceptance (#345)
 

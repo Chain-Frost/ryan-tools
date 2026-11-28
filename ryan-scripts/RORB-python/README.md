@@ -98,7 +98,10 @@ py -3.14 .\ryan-scripts\RORB-python\rorb_calibrate.py --catg "Q:\model\catchment
 
 Ranges are inclusive `start:end:step` or comma-separated values; use decimal numbers freely. The example explicitly authorises 12 combinations. The default maximum is 1,000 combinations. Multi-process RORB operation is **opt-in** via `--workers`; use one process until concurrency, licensing and file isolation are proven. When using external observed CSV, `--obs-time` and `--obs-flow` select the exact named columns and times must match RORB's numeric time values without interpolation. No automatic conversion of units or time references is performed.
 
-Set `--loss-model 2` for IL/RoC and adjust continuing-loss values accordingly. Optional `--hma` invokes the installed `vendor.PyHMA` from ryan-tools; `--hma-window` (time increments) and `--hma-weight` control scoring. PyHMA is not required for the default RMSE/NSE workflow.
+Live trials generate their CMD parameter files with PyRORB's published serializer. Install `pyrorb` if running
+a copied script outside a ryan-tools installation. Archived inspection and scoring use the local report adapter.
+Set `--loss-model 2` for IL/RoC and supply a dimensionless runoff coefficient between 0 and 1 with `--continuing`.
+For loss model 1, `--continuing` is a continuing loss in mm/h. Optional `--hma` invokes the installed `vendor.PyHMA` from ryan-tools; `--hma-window` (time increments) and `--hma-weight` control scoring. PyHMA is not required for the default RMSE/NSE workflow.
 
 ### Limitations and local acceptance
 
