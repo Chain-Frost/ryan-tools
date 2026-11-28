@@ -348,7 +348,9 @@ def constant_preburst_increments(
 def apply_arr_loss_factors(response: ArrResponse, losses: EventLosses, climate: tuple[int, str]) -> EventLosses:
     """Apply source factors to baseline user-supplied IL/CL before PB reduction."""
     if (
-        losses.climate_factors_source is not None or losses.initial_loss_factor != 1 or losses.continuing_loss_factor != 1
+        losses.climate_factors_source is not None
+        or losses.initial_loss_factor != 1
+        or losses.continuing_loss_factor != 1
     ):
         msg = "Do not combine ARR climate loss factors with additional loss factors"
         raise ValueError(msg)

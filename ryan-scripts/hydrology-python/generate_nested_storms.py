@@ -130,9 +130,7 @@ def _source_curve(
     return curve, response, climate
 
 
-def _select_loss_spec(
-    data: dict[str, Any], response: ArrResponse | None, aep: str, *, regional: bool
-) -> None:
+def _select_loss_spec(data: dict[str, Any], response: ArrResponse | None, aep: str, *, regional: bool) -> None:
     if regional:
         if response is None or "spec" in data:
             msg = "Regional losses require ARR data and no user spec"

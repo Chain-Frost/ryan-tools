@@ -132,9 +132,7 @@ def test_regional_losses_are_full_storm_values() -> None:
     assert (ratio, layer) == (0.1, "Preburst50")
     curve = curve_from_arr_response(response, "1%", source="site", climate=(2050, "SSP2"))
     selected = EventLosses(spec, "storm_reduce", preburst_ratio=ratio, source=source)
-    storm = generate_storm(
-        curve, 60, timestep_min=5, losses=apply_arr_loss_factors(response, selected, (2050, "SSP2"))
-    )
+    storm = generate_storm(curve, 60, timestep_min=5, losses=apply_arr_loss_factors(response, selected, (2050, "SSP2")))
     assert storm.applied_losses is not None
     assert storm.applied_losses.initial_loss_mm == pytest.approx(21.6)
     assert storm.applied_losses.continuing_loss_mm_per_hour == 2
