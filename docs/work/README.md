@@ -9,7 +9,7 @@ Current script inventory scope with #118 and #350: 165-file lifecycle audit (84 
 
 | Work front / status record | Status | Owner | Updated | Next review | Next action / dependency |
 | --- | --- | --- | --- | --- | --- |
-| [Nested frequency storms](2026-11-28-nested-frequency-storms.md) | Active; experimental draft | Unassigned | 2026-11-28 | 2026-12-12 | Corrected independent ARF reference values and BoM AEP label compatibility; verify exact-head CI and native TUFLOW. No merge authorized. |
+| [Nested frequency storms](2026-11-28-nested-frequency-storms.md) | Active; experimental draft | Unassigned | 2026-11-28 | 2026-12-12 | Integrated core CI green at 7593ee1; pinned PyTUFLOW CSV/TEF/BC readback tests added; verify exact-head CI and native TUFLOW. No merge authorized. |
 | [TUFLOW rainfall to RORB STM](2026-11-28-rorb-storm-conversion.md) | Public rainfall conversion verified; native and upstream release pending | #118 maintainer | 2026-11-28 | 2026-12-05 | Compare a matching RORBwin 6.52 reference, then adopt the released #252 codec on #118. |
 | [RORB readers and MCP cross-repo adoption](2026-11-05-rorb-readers-mcp.md) | Active; caller audit complete, final typing corrections under validation | #340 validation agent / maintainer | 2026-11-26 | 2026-11-27 | #344 retains published dependency and original corpus acceptance; complete corrected-head CI/review, then owner merge approval; #337/#340 and PyRORB #231 closeout follow main 3.11/3.14 checks. |
 | [Python 3.11 compatibility](2026-11-24-python311-compatibility.md) | Needs review; local four-version acceptance passes | Compatibility migration | 2026-11-24 | 2026-11-25 | #335: publish checked PR, independent final-head review and hosted matrix; standalone readers feed PyRORB #226. |
