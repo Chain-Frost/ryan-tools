@@ -121,4 +121,6 @@ def test_pytuflow_reads_workbook_style_combined_csv(tmp_path: Path, kind: RainKi
     database = pytuflow.BCDatabase(database_path).context()
     total_rows = max(len(storm.gross_mm) + 2 for storm in storms.values())
     for name, storm in storms.items():
-        _check_parsed_series(database.value(name), name, _series(storm, kind), storm.timestep_min, total_rows=total_rows)
+        _check_parsed_series(
+            database.value(name), name, _series(storm, kind), storm.timestep_min, total_rows=total_rows
+        )
