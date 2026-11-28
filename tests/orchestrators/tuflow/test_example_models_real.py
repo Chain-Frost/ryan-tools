@@ -1,0 +1,196 @@
+"""Replay the complete public example archive through the current consumer API.
+
+BAT files are read as fixture text, never executed. This is dependency validation,
+not hydraulic acceptance or an eager/deferred comparator.
+"""
+
+import csv
+import hashlib
+import json
+import os
+import sys
+import zipfile
+from collections import Counter
+from dataclasses import asdict, replace
+from importlib import metadata
+from pathlib import Path
+from typing import cast
+from urllib.parse import urlsplit
+from urllib.request import url2pathname  # pyright: ignore[reportDeprecated] -- Python 3.11 lacks Path.from_uri.
+
+import pytest
+
+from ryan_library.functions.tuflow.command_plan import CommandPlan, PlannedRun, parse_command_plan
+from ryan_library.functions.tuflow.pytuflow_compatibility import require_validation_api
+from ryan_library.orchestrators.tuflow.command_preflight import check_command_plan
+
+DATA = Path(__file__).absolute().parents[2] / "test_data/tuflow/example_input_preflight"
+REQUIREMENT = Path(__file__).absolute().parents[3] / "repo-scripts/pytuflow-requirement.txt"
+ARCHIVE_SHA256 = "4f90b77044b3247cf7bdb5154d84d1a74da6c669cd1d28d3f2e6089063f2d141"
+pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="Example BAT plans require native Windows paths")
+
+# The seven selected 1D BC defects and one rainfall-triangle defect in the
+# earlier pin are fixed by PyTUFLOW PR #63. All runs must now validate cleanly.
+
+
+@pytest.fixture(scope="module")
+def example_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Verify every original member and extract once, outside the data submodule."""
+    archive = DATA / "examples.zip"
+    assert hashlib.sha256(archive.read_bytes()).hexdigest() == ARCHIVE_SHA256
+    manifest = cast(dict[str, object], json.loads((DATA / "manifest.json").read_text(encoding="utf-8")))
+    entries = cast(list[dict[str, str | int]], manifest["files"])
+    expected = {str(entry["path"]): entry for entry in entries}
+    root = tmp_path_factory.mktemp("tuflow-examples")
+    with zipfile.ZipFile(archive) as source:
+        assert len(source.namelist()) == len(expected) == 1465
+        assert set(source.namelist()) == set(expected)
+        for member in source.infolist():
+            # Resolve deliberately: archive extraction must remain inside its temporary root across links.
+            target = (root / member.filename).resolve()
+            assert target.is_relative_to(root.resolve()), member.filename
+            content = source.read(member)
+            entry = expected[member.filename]
+            assert len(content) == entry["size"], member.filename
+            assert hashlib.sha256(content).hexdigest() == entry["sha256"], member.filename
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(content)
+    return root
+
+
+def _fixture_batch_plan(path: Path) -> CommandPlan:
+    """Extract declared launches, bypassing only the aggregators' executable guard.
+
+    The pinned Run_All/Run_GPKG fixtures contain a fixed IF/EXIT executable
+    guard unsupported by the production planner. Do not generalise shell handling:
+    assert its exact non-launch statements and preserve physical line numbers.
+    """
+    lines = path.read_text(encoding="utf-8-sig").splitlines()
+    if path.name in {"Run_All_Examples.bat", "Run_GPKG_Examples.bat"}:
+        guard = {
+            "setlocal",
+            'if not exist "%tuflow_exe%" (',
+            'echo error: "%tuflow_exe%" not found. update run_all_examples.bat with the correct path.',
+            "exit /b 1",
+            ")",
+            "echo.",
+            "echo all tuflow example runs completed.",
+        }
+        lines = ["" if line.strip().casefold() in guard else line for line in lines]
+    return parse_command_plan(
+        "\n".join(lines), source=path, initial_directory=path.parent, environment={}, syntax="batch"
+    )
+
+
+@pytest.fixture(scope="module")
+def example_plan(example_root: Path) -> CommandPlan:
+    """Derive unique model contexts from every simulation BAT, plus unlisted TCFs."""
+    runs: dict[tuple[str, tuple[tuple[str, str], ...]], PlannedRun] = {}
+    batches = sorted(example_root.rglob("*.bat"))
+    assert len(batches) == 22
+    for batch in batches:
+        # This is an empty-GIS generation utility, not a simulation; no TCF is supplied.
+        if batch.name == "Create_empties_run.bat":
+            assert "Create_Empties" in batch.read_text(encoding="utf-8-sig")
+            continue
+        for run in _fixture_batch_plan(batch).runs:
+            relative = Path(str(run.tcf)).relative_to(example_root).as_posix()
+            key = (relative, tuple(sorted(run.flag_pairs)))
+            runs.setdefault(key, run)
+    listed = {key[0] for key in runs}
+    for tcf in sorted(example_root.rglob("*.tcf")):
+        relative = tcf.relative_to(example_root).as_posix()
+        if relative not in listed:
+            # Retain explicit no-flag coverage for controls absent from every batch.
+            plan = parse_command_plan(
+                f'"{tcf.name}"', source=tcf, initial_directory=tcf.parent, environment={}, syntax="commands"
+            )
+            runs[(relative, ())] = plan.runs[0]
+    actual = Counter(key[0] for key in runs)
+    with (DATA / "baseline.csv").open(newline="", encoding="utf-8-sig") as source:
+        expected = {row["tcf"]: int(row["runs"]) for row in csv.DictReader(source)}
+    assert actual == expected, f"BAT-derived coverage differs: actual={actual}, expected={expected}"
+    assert len(actual) == 161
+    assert sum(actual.values()) == 174
+    ordered = tuple(replace(run, index=index) for index, run in enumerate(runs.values(), 1))
+    return CommandPlan(batches[0], ordered, (), 0, "mixed", tuple(batches))
+
+
+def test_example_batch_inventory(example_plan: CommandPlan) -> None:
+    """No omitted model, extra context or duplicate aggregate launch goes unnoticed."""
+    assert len(example_plan.runs) == 174
+
+
+@pytest.mark.gdal
+def test_all_example_models_public_validation(example_plan: CommandPlan, tmp_path: Path) -> None:
+    """Require clean preflight for all public example models with the updated validator."""
+    diagnostic = require_validation_api().diagnostic
+    # A local wheel must retain its installed archive URL AND accepted digest.
+    # Version equality or matching public methods alone cannot identify the fork.
+    relative_wheel = REQUIREMENT.read_text(encoding="utf-8").strip()
+    expected_wheel = (REQUIREMENT.parent.parent / relative_wheel).absolute()
+    assert expected_wheel.is_file()
+    raw_direct_url = metadata.distribution("pytuflow").read_text("direct_url.json")
+    assert raw_direct_url is not None, diagnostic.message
+    direct_url = cast(dict[str, object], json.loads(raw_direct_url))
+    source_url = direct_url.get("url")
+    assert isinstance(source_url, str), diagnostic.message
+    parts = urlsplit(source_url)
+    assert parts.scheme == "file", diagnostic.message
+    # Resolve deliberately to compare physical installed source with the checked wheel.
+    assert Path(url2pathname(parts.path)).resolve() == expected_wheel.resolve(), diagnostic.message  # pyright: ignore[reportDeprecated] -- Python 3.11 lacks Path.from_uri.
+    archive_info = direct_url.get("archive_info")
+    assert isinstance(archive_info, dict), diagnostic.message
+    source_info = cast(dict[str, object], archive_info)
+    hashes = source_info.get("hashes")
+    sha = cast(dict[str, object], hashes).get("sha256") if isinstance(hashes, dict) else None
+    accepted_sha = "b223a803d5c900b85c50855fc18128855dde016ac60e191de63043b440538fc3"
+    assert sha == accepted_sha or source_info.get("hash") == f"sha256={accepted_sha}", diagnostic.message
+    assert expected_wheel.name in diagnostic.source, diagnostic.message
+    output = Path(os.environ.get("TUFLOW_EXAMPLE_REPORT_DIR", str(tmp_path))).absolute()
+    output.mkdir(parents=True, exist_ok=True)
+    groups: dict[Path, list[PlannedRun]] = {}
+    for run in example_plan.runs:
+        groups.setdefault(Path(str(run.tcf)), []).append(run)
+    rows: list[dict[str, object]] = []
+    unexpected_failures: list[str] = []
+    for tcf, runs in groups.items():
+        plan = replace(example_plan, runs=tuple(runs))
+        report = check_command_plan(plan)
+        report.write_csv(output / f"{tcf.stem}-issues.csv")
+        if not report.passed or report.completed_runs != len(runs) or report.issues or report.warnings:
+            unexpected_failures.append(
+                f"{tcf.name}: {len(report.issues)} issue(s), {len(report.warnings)} warning(s), "
+                f"{report.completed_runs}/{len(runs)} runs checked"
+            )
+        rows.append(
+            {
+                "tcf": tcf.name,
+                "runs": len(runs),
+                "passed": report.passed,
+                "completed_runs": report.completed_runs,
+                "groups_checked": report.groups_checked,
+                "checked_paths": len(report.checked_paths),
+                "checked_path_inventory": sorted(report.checked_paths),
+                "commands": plan.manifest(),
+                "issues": [asdict(issue) for issue in report.issues],
+                "warnings": [asdict(warning) for warning in report.warnings],
+            }
+        )
+    summary = {
+        "consumer_revision": os.environ.get("GITHUB_SHA", "local working tree; record Git HEAD alongside this report"),
+        "parser": asdict(diagnostic),
+        "archive_sha256": ARCHIVE_SHA256,
+        "tcfs": len(rows),
+        "runs": sum(len(runs) for runs in groups.values()),
+        "passed_tcfs": sum(row["passed"] is True for row in rows),
+        "passed_runs": sum(len(groups[tcf]) for tcf, row in zip(groups, rows, strict=True) if row["passed"] is True),
+        "results": rows,
+        "unexpected_failures": unexpected_failures,
+    }
+    (output / "results.json").write_text(json.dumps(summary, indent=2, default=str), encoding="utf-8")
+    assert not unexpected_failures, (
+        f"Expected all 161 TCFs / 174 runs to pass: {unexpected_failures}; reports: {output}"
+    )
+    assert summary["passed_tcfs"] == 161
+    assert summary["passed_runs"] == 174

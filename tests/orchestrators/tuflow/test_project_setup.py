@@ -1,15 +1,18 @@
 """Focused tests for the TUFLOW project setup workflow."""
 
+import json
 import sqlite3
+import struct
 from collections.abc import Mapping
 from contextlib import closing
 from pathlib import Path
-from typing import cast
 from unittest.mock import MagicMock
 
-import fiona  # pyright: ignore[reportMissingTypeStubs]
+import fiona
 import pytest
-from rasterio.crs import CRS  # pyright: ignore[reportMissingTypeStubs, reportUnknownVariableType]
+import rasterio
+from pyproj import CRS as ProjCRS
+from rasterio.crs import CRS
 
 from ryan_library.orchestrators.tuflow import project_setup
 from ryan_library.orchestrators.tuflow.project_setup import (
@@ -28,7 +31,7 @@ def _write_source_empty(
     feature_geometry: Mapping[str, object] | None = None,
 ) -> None:
     schema: dict[str, object] = {"geometry": geometry, "properties": properties}
-    with fiona.open(  # pyright: ignore[reportUnknownMemberType]
+    with fiona.open(
         path,
         mode="w",
         driver="GPKG",
@@ -41,9 +44,7 @@ def _write_source_empty(
                 name: 1 if field_type == "int" else 1.0 if field_type == "float" else "x"
                 for name, field_type in properties.items()
             }
-            collection.write(  # pyright: ignore[reportUnknownMemberType]
-                {"geometry": feature_geometry, "properties": values}
-            )
+            collection.write({"geometry": feature_geometry, "properties": values})
 
 
 def _fake_tuflow_generation(*, control_file: Path, expected_empty_dir: Path, **_kwargs: object) -> None:
@@ -114,7 +115,7 @@ def test_project_layers_are_empty_derivatives_of_tuflow_empties(
 ) -> None:
     templates_dir = Path(project_setup.__file__).parents[2] / "resources" / "tuflow_templates"
     prj_file = tmp_path / "MGA94_Zone_51.prj"
-    projection_wkt = cast("str", CRS.from_epsg(28351).to_wkt())  # pyright: ignore[reportUnknownMemberType]
+    projection_wkt = CRS.from_epsg(28351).to_wkt()
     prj_file.write_text(projection_wkt, encoding="utf-8")
     tuflow_executable = tmp_path / "TUFLOW_iSP_w64.exe"
     tuflow_executable.touch()
@@ -186,8 +187,23 @@ def test_project_layers_are_empty_derivatives_of_tuflow_empties(
     assert not list((result.project_dir / "model" / "gis" / "baseModel").glob("*__scenario__*"))
 
     runs_dir: Path = result.project_dir / "runs"
-    main_tcf: Path = runs_dir / "Example_01_~s2~_~s1~_~e1~_~e2~_~e4~_~e3~_~s4~.tcf"
+    main_tcf: Path = runs_dir / "Example_01_~s2~_~s1~_~e1~_~e2~_~e4~_~e3~_~e5~_~s4~.tcf"
     assert main_tcf.is_file()
+    assert (result.project_dir / "ARR Tool.png").read_bytes() == (templates_dir / "ARR Tool.png").read_bytes()
+    vscode_dir = result.project_dir / ".vscode"
+    settings_text = (vscode_dir / "settings.json").read_text(encoding="utf-8")
+    assert '"**/results/**": true' in settings_text
+    settings_data = json.loads(settings_text)
+    assert "python-envs.defaultEnvManager" not in settings_data
+    extensions_text = (vscode_dir / "extensions.json").read_text(encoding="utf-8")
+    assert '"Chain-Frost.tuflow-path-validator"' in extensions_text
+
+    batch_text = (result.project_dir / "package_model.bat").read_text(encoding="utf-8")
+    assert f'"TUFLOW_EXE={tuflow_executable.absolute()}"' in batch_text
+    assert f"runs\\{main_tcf.name}" in batch_text
+    assert '-pmAllini "pm.ini" -xf0' in batch_text
+    assert (result.project_dir / "pm.ini").read_text(encoding="utf-8") == "Copy Destination == C:\\Temp\\Example\n"
+
     assert not (runs_dir / "Example_01.tcf").exists()
     tcf_text: str = main_tcf.read_text(encoding="utf-8")
     normalized_tcf_lines = tuple(" ".join(line.split()) for line in tcf_text.splitlines())
@@ -247,8 +263,8 @@ def test_project_layers_are_empty_derivatives_of_tuflow_empties(
     )
     for duration in required_durations:
         assert f"Define Event == {duration}" in events_text
-        assert f"BC Event Source == ~StormDuration~ | {duration}" in events_text
-        assert f"BC Event Source == ~DUR~ | {duration}" in events_text
+        assert f"BC Event Source == ~DUR5~ | {duration}" in events_text
+        assert f"BC Event Source == ~DUR4~ | {int(duration[:-1]):04}m" in " ".join(events_text.split())
 
 
 def test_invalid_scenario_name_is_rejected_before_writes(tmp_path: Path) -> None:
@@ -329,3 +345,48 @@ def test_populated_empty_source_is_rejected(tmp_path: Path) -> None:
         )
 
     assert not (scenario_dir / "2d_bc_baseModel_01_L.gpkg").exists()
+
+
+@pytest.mark.parametrize("epsg", [*range(28349, 28357), *range(7849, 7857), None])
+def test_projection_files_preserve_authority_or_custom_grid(tmp_path: Path, epsg: int | None) -> None:
+    """Inspect stored authority codes: CRS equivalence alone missed this regression."""
+    source = (
+        ProjCRS.from_epsg(epsg)
+        if epsg is not None
+        else ProjCRS.from_proj4(
+            "+proj=tmerc +lat_0=0 +lon_0=117.123 +k=0.9996 +x_0=500000 +y_0=10000000 +ellps=GRS80 +units=m"
+        )
+    )
+    prj = tmp_path / "input.prj"
+    original = source.to_wkt(version="WKT1_ESRI")
+    # ESRI serialization can normalize an unnamed datum on older PROJ versions.
+    # The exported files must match the CRS actually supplied in the input file.
+    source = ProjCRS.from_wkt(original)
+    prj.write_text(original, encoding="utf-8")
+    project_setup._create_projection_files(prj_file=prj, gis_dir=tmp_path, overwrite=False)  # pyright: ignore[reportPrivateUsage]
+    assert (tmp_path / "projection_input.prj").read_bytes() == prj.read_bytes()
+    with closing(sqlite3.connect(tmp_path / "projection_input.gpkg")) as connection:
+        row = connection.execute(
+            "SELECT s.organization, s.organization_coordsys_id, s.definition "
+            "FROM gpkg_geometry_columns g JOIN gpkg_spatial_ref_sys s ON g.srs_id=s.srs_id"
+        ).fetchone()
+        assert row is not None
+        if epsg is not None:
+            assert row[:2] == ("EPSG", epsg)
+        assert ProjCRS.from_wkt(row[2]).equals(source, ignore_axis_order=True)
+    tif = tmp_path / "projection_input.tif"
+    with rasterio.open(tif) as dataset:
+        assert dataset.crs is not None
+        assert ProjCRS.from_wkt(dataset.crs.to_wkt()).equals(source, ignore_axis_order=True)
+    # Read the actual GeoKeyDirectory instead of letting GDAL infer an EPSG code.
+    with tif.open("rb") as stream:
+        header = stream.read(8)
+        endian = "<" if header[:2] == b"II" else ">"
+        stream.seek(struct.unpack(endian + "I", header[4:])[0])
+        count = struct.unpack(endian + "H", stream.read(2))[0]
+        entries = [struct.unpack(endian + "HHII", stream.read(12)) for _ in range(count)]
+        key_entry = next(entry for entry in entries if entry[0] == 34735)
+        stream.seek(key_entry[3])
+        values = struct.unpack(endian + str(key_entry[2]) + "H", stream.read(key_entry[2] * 2))
+        keys = {values[i]: values[i + 3] for i in range(4, len(values), 4)}
+        assert keys[3072] == (epsg if epsg is not None else 32767)

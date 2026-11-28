@@ -1,14 +1,14 @@
 # ryan_library/functions/path_stuff.py
-
 import json
 import re
 from collections.abc import Iterable
 from pathlib import Path
+from typing import TypeAlias
 
 from loguru import logger
 
-type PathLike = str | Path
-type PathOrList = PathLike | Iterable[PathLike]
+PathLike: TypeAlias = str | Path
+PathOrList: TypeAlias = PathLike | Iterable[PathLike]
 
 _WINDOWS_RESERVED_NAMES: set[str] = {
     "AUX",

@@ -16,6 +16,7 @@ class CmxProcessor(MaxDataProcessor):
 
     def process(self) -> None:
         """Process the '_1d_Cmx.csv' file and save to the class df variable."""
+        self.reset_processing_state()
         logger.info(f"Starting processing of CMX file: {self.log_path}")
 
         try:
@@ -33,6 +34,10 @@ class CmxProcessor(MaxDataProcessor):
             self._handle_malformed_data()
 
             self.apply_entity_filter()
+            if self.applied_entity_filter and self.df.empty:
+                self.filtered_empty = True
+                logger.info("{}: No requested channels found; skipping file.", self.file_name)
+                return
             # Proceed with common processing steps from BaseProcessor
             self.add_common_columns()
             self.apply_output_transformations()

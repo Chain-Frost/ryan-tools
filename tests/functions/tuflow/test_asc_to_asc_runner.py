@@ -90,7 +90,7 @@ def test_validate_output_filename() -> None:
 
 
 @patch("ryan_library.functions.tuflow.asc_to_asc_runner.subprocess.run")
-def test_run_asc_to_asc_job(mock_run, tmp_path: Path) -> None:
+def test_run_asc_to_asc_job(mock_run: MagicMock, tmp_path: Path) -> None:
     exe = tmp_path / "asc_to_asc.exe"
     exe.touch()
     out_file = tmp_path / "out.asc"
@@ -122,7 +122,7 @@ def test_run_asc_to_asc_job(mock_run, tmp_path: Path) -> None:
 
 
 @patch("ryan_library.functions.tuflow.asc_to_asc_runner.compute_stat")
-def test_run_python_raster_job_does_not_require_executable(mock_compute, tmp_path: Path) -> None:
+def test_run_python_raster_job_does_not_require_executable(mock_compute: MagicMock, tmp_path: Path) -> None:
     output = tmp_path / "mean.tif"
     job = RasterOperationJob(
         label="mean",
@@ -144,14 +144,14 @@ def test_run_python_raster_job_does_not_require_executable(mock_compute, tmp_pat
 
 
 @patch("ryan_library.functions.tuflow.asc_to_asc_runner.subprocess.run")
-def test_run_asc_to_asc_stat_job_normalizes_suffixed_comparison_output(mock_run, tmp_path: Path) -> None:
+def test_run_asc_to_asc_stat_job_normalizes_suffixed_comparison_output(mock_run: MagicMock, tmp_path: Path) -> None:
     executable = tmp_path / "asc_to_asc.exe"
     executable.touch()
     requested_output = tmp_path / "comparison.tif"
     suffixed_output = tmp_path / "comparison_Mean_Val.tif"
     job = RasterOperationJob("mean", "-statMean", (tmp_path / "input.tif",), tmp_path / "native.tif")
 
-    def create_external_output(*args, **kwargs):
+    def create_external_output(*args: object, **kwargs: object) -> MagicMock:
         suffixed_output.touch()
         completed = MagicMock()
         completed.returncode = 0

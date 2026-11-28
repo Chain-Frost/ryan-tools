@@ -1,27 +1,5 @@
-# ryan_library/__init__.py
+"""Shared Python library for ryan-tools.
 
-
-from importlib import import_module
-from types import ModuleType
-
-_SCRIPT_MODULES: frozenset[str] = frozenset(
-    {
-        "tuflow_culverts_merge",
-        "tuflow_culverts_timeseries",
-        "tuflow_logsummary",
-        "tuflow_results_styling",
-        "pomm_combine",
-        "closure_durations",
-    }
-)
-
-
-def __getattr__(name: str) -> ModuleType:
-    """Load deprecated script aliases only when legacy package-level access is requested."""
-    if name not in _SCRIPT_MODULES:
-        msg = f"module {__name__!r} has no attribute {name!r}"
-        raise AttributeError(msg)
-
-    module: ModuleType = import_module(f"{__name__}.scripts.tuflow.{name}")
-    globals()[name] = module
-    return module
+Import maintained classes, functions, processors and orchestrators from their
+public modules. Deprecated script forwarding aliases were removed on 2026-10-18.
+"""

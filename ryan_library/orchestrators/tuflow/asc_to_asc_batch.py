@@ -18,7 +18,7 @@ class DashboardOptions:
 
     enabled: bool = True
     refresh_per_second: float = 2.0
-    max_rows: int = 25
+    max_rows: int = 10
     use_alternate_screen: bool = False
 
 
@@ -63,7 +63,7 @@ def run_raster_operation_stage(
         max_rows=dashboard_options.max_rows,
         screen=dashboard_options.use_alternate_screen,
     )
-    dashboard.set_tasks(labels=[job.label for job in jobs])
+    dashboard.set_tasks(labels=[job.label for job in jobs], files=[job.input_files for job in jobs])
     dashboard.set_extra_metrics(metrics={"stage": stage_name, "workers": worker_count, "PID": os.getpid()})
 
     failed_jobs: list[tuple[str, str]] = []
@@ -90,7 +90,7 @@ def run_raster_operation_stage(
         dashboard.refresh(force=True)
 
         while future_jobs:
-            completed, _ = wait(future_jobs, return_when=FIRST_COMPLETED)
+            completed, _ = wait(future_jobs, timeout=0.1, return_when=FIRST_COMPLETED)
             for future in completed:
                 index, job = future_jobs.pop(future)
                 try:
@@ -103,7 +103,7 @@ def run_raster_operation_stage(
                     dashboard.print(f"ERROR: {job.label} failed: {error_message}")
                 submit_next()
             dashboard.set_active_count(count=len(future_jobs), refresh=False)
-            dashboard.refresh(force=True)
+            dashboard.refresh(force=bool(completed))
 
     failed_count: int = len(failed_jobs)
     return StageExecutionSummary(

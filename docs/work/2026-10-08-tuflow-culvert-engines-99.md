@@ -2,11 +2,11 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Active |
+| Status | Complete |
 | Owner | Unassigned |
 | Created | 2026-10-08 |
 | Updated | 2026-10-17 |
-| Next review | 2026-10-24 |
+| Next review | None |
 | Baseline | `feature/issue-99-tuflow-culvert-engines`; repairs committed and pushed in `5ec678b` |
 
 ## Outcome and scope
@@ -17,6 +17,15 @@ Finish validation of [PR #100](https://github.com/Chain-Frost/ryan-tools/pull/10
 [issue #103](https://github.com/Chain-Frost/ryan-tools/issues/103).
 
 ## Current state
+
+- PR #100 is merged: squash commit `6283a9cb5fc03c59f9f25352d9a787eeaba1f96e`, 2026-10-17 22:05 Perth.
+  Exact repair head `8b386d8b7e4db14c8e9d459a7544ec0a956d13fc` passed all five checks: Python CI
+  [39038922290](https://github.com/Chain-Frost/ryan-tools/actions/runs/39038922290) and fast checks
+  [39038922332](https://github.com/Chain-Frost/ryan-tools/actions/runs/39038922332).
+  All 34 review threads were resolved. The user-authorized manual squash merge was independently confirmed via
+  GitHub's MERGED state and merge SHA. Source fixes, regressions and behavioral documentation are in the merge;
+  this post-merge status closure is carried in existing draft PR #130. No dependent run-hy8 PR was merged.
+
 
 - Both final-review findings are corrected: Maximums reads crossing/run identifiers as text, and both wrappers
   reject outputs referring to primary or attribute inputs by canonical path or physical file identity. Checks run
@@ -73,9 +82,8 @@ Finish validation of [PR #100](https://github.com/Chain-Frost/ryan-tools/pull/10
 
 ## Next action
 
-Publish the validated final-review fixes, confirm all five hosted checks on that exact head, and perform the
-user-authorized manual merge of PR #100. Remaining model-dependent work in #102/#103 stays deferred; do not merge
-dependent run-hy8 PR #6 under this authorization.
+None for the revised migration scope. Engineering follow-ups #102/#103 remain open and deferred; dependent run-hy8
+PR #6 may be selected separately. The post-merge status closure is included in existing draft PR #130; that planning PR remains deferred.
 
 ## Completion criteria
 

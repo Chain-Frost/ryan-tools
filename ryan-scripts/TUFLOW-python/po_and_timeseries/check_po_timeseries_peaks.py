@@ -9,23 +9,27 @@ import os
 from pathlib import Path
 from typing import Literal
 
-WRAPPER_VERSION = "2026-08-02.1"
+WRAPPER_VERSION = "2026-11-08.1"
+PAUSE_ON_FINISH = True
 
 # TODO: make it more like the other wrappers, more CLI options.
 
 CONSOLE_LOG_LEVEL = "INFO"
+USE_LIVE_DASHBOARD = True
+LIVE_REFRESH_PER_SECOND = 2.0
+LIVE_MAX_ROWS = 10
 WORKING_DIR: Path = Path(__file__).absolute().parent
 # Optional explicit folder roots to scan. If left empty, the wrapper scans WORKING_DIR recursively.
-PATHS_TO_PROCESS: tuple[Path, ...] = ()
+PATHS_TO_PROCESS: list[Path] = []
 CSV_GLOB: str = "**/*_PO.csv"
 
 # Datatype filter (include-list). Default: only 'Flow'.
-DATATYPE_INCLUDE: tuple[str, ...] = ("Flow",)
+DATATYPE_INCLUDE: list[str] = ["Flow"]
 DATATYPE_CASE_SENSITIVE: bool = False
 
 # Location filter (exact include-list). Empty => no include filter.
-LOCATION_INCLUDE: tuple[str, ...] = ()  # e.g. ("PO-009", "PO-010", "PO-011")
-LOCATION_EXCLUDE: tuple[str, ...] = ()
+LOCATION_INCLUDE: list[str] = []  # e.g. ["PO-009", "PO-010", "PO-011"]
+LOCATION_EXCLUDE: list[str] = []
 LOCATION_CASE_SENSITIVE: bool = False
 
 # Warning thresholds (hours from end)
@@ -43,6 +47,8 @@ CHUNKSIZE: int = 1
 EXPORT_MODE: Literal["excel", "parquet", "both"] = "excel"
 
 import argparse
+
+from loguru import logger
 
 from ryan_library.functions.wrapper_utils import (
     CommonWrapperOptions,
@@ -64,6 +70,9 @@ def main(
     export_mode: Literal["excel", "parquet", "both"] | None = None,
     paths_to_process: tuple[Path, ...] | None = None,
     working_directory: Path | None = None,
+    use_live_dashboard: bool | None = None,
+    live_refresh_per_second: float | None = None,
+    live_max_rows: int | None = None,
 ) -> int:
     """Run peak checks on PO CSVs using wrapper defaults and optional CLI overrides.
 
@@ -75,36 +84,63 @@ def main(
         paths_to_process: Explicit folder roots to scan for result files.
         working_directory: Overrides WORKING_DIR.
     """
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="TUFLOW-python/po_and_timeseries/check_po_timeseries_peaks.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+    )
 
-    script_directory: Path = working_directory or WORKING_DIR
+    script_directory: Path = (
+        Path(working_directory if working_directory is not None else WORKING_DIR).expanduser().absolute()
+    )
+    configured_paths = PATHS_TO_PROCESS if paths_to_process is None else paths_to_process
+    effective_paths_to_process = [
+        path.absolute() if path.is_absolute() else (script_directory / path).absolute()
+        for configured_path in (configured_paths or (script_directory,))
+        for path in (Path(configured_path).expanduser(),)
+    ]
     if not change_working_directory(target_dir=script_directory):
         return 1
 
-    effective_console_log_level: str = console_log_level or CONSOLE_LOG_LEVEL
-    effective_data_types: tuple[str, ...] = include_data_types or DATATYPE_INCLUDE
-    effective_locations: tuple[str, ...] | tuple[()] = locations_to_include or (LOCATION_INCLUDE or ())
-    effective_export_mode: Literal["excel", "parquet", "both"] = export_mode or EXPORT_MODE
-    effective_paths_to_process: list[Path] = list(paths_to_process or PATHS_TO_PROCESS or (script_directory,))
-
-    main_processing(
-        paths_to_process=effective_paths_to_process,
-        csv_glob=CSV_GLOB,
-        datatype_include=effective_data_types,
-        datatype_case_sensitive=DATATYPE_CASE_SENSITIVE,
-        location_include=effective_locations,
-        location_exclude=LOCATION_EXCLUDE,
-        location_case_sensitive=LOCATION_CASE_SENSITIVE,
-        warn_2hours=WARN_2HOURS,
-        warn_1hour=WARN_1HOUR,
-        flat_tol=FLAT_TOL,
-        max_workers=MAX_WORKERS,
-        chunksize=CHUNKSIZE,
-        console_log_level=effective_console_log_level,
-        export_mode=effective_export_mode,
+    effective_console_log_level: str = CONSOLE_LOG_LEVEL if console_log_level is None else console_log_level
+    effective_use_live_dashboard: bool = USE_LIVE_DASHBOARD if use_live_dashboard is None else use_live_dashboard
+    effective_live_refresh_per_second: float = (
+        LIVE_REFRESH_PER_SECOND if live_refresh_per_second is None else live_refresh_per_second
     )
+    effective_live_max_rows: int = LIVE_MAX_ROWS if live_max_rows is None else live_max_rows
+    effective_data_types: tuple[str, ...] = tuple(
+        DATATYPE_INCLUDE if include_data_types is None else include_data_types
+    )
+    effective_locations: tuple[str, ...] = tuple(
+        LOCATION_INCLUDE if locations_to_include is None else locations_to_include
+    )
+    effective_export_mode: Literal["excel", "parquet", "both"] = export_mode or EXPORT_MODE
 
-    return 0
+    try:
+        outcome = main_processing(
+            paths_to_process=effective_paths_to_process,
+            csv_glob=CSV_GLOB,
+            datatype_include=effective_data_types,
+            datatype_case_sensitive=DATATYPE_CASE_SENSITIVE,
+            location_include=effective_locations,
+            location_exclude=tuple(LOCATION_EXCLUDE),
+            location_case_sensitive=LOCATION_CASE_SENSITIVE,
+            warn_2hours=WARN_2HOURS,
+            warn_1hour=WARN_1HOUR,
+            flat_tol=FLAT_TOL,
+            max_workers=MAX_WORKERS,
+            chunksize=CHUNKSIZE,
+            console_log_level=effective_console_log_level,
+            export_mode=effective_export_mode,
+            use_live_dashboard=effective_use_live_dashboard,
+            live_refresh_per_second=effective_live_refresh_per_second,
+            live_max_rows=effective_live_max_rows,
+        )
+    except Exception:  # noqa: BLE001 - wrapper boundary turns any failure into nonzero exit
+        logger.exception("TUFLOW PO peak-check wrapper failed.")
+        return 1
+
+    return 1 if outcome is False else 0
 
 
 def _parse_cli_arguments() -> argparse.Namespace:
@@ -128,12 +164,17 @@ if __name__ == "__main__":
         locations_to_include=common_options.locations_to_include,
         export_mode=args.export_mode,
         working_directory=common_options.working_directory,
+        use_live_dashboard=common_options.use_live_dashboard,
+        live_refresh_per_second=common_options.live_refresh_per_second,
+        live_max_rows=common_options.live_max_rows,
     )
     print_wrapper_banner(
+        wrapper_source="TUFLOW-python/po_and_timeseries/check_po_timeseries_peaks.py",
         wrapper_file=Path(__file__),
         wrapper_version=WRAPPER_VERSION,
         leading_blank_line=True,
     )
-    if not common_options.no_pause:
+    should_pause = PAUSE_ON_FINISH if common_options.pause_on_finish is None else common_options.pause_on_finish
+    if should_pause:
         pause_console()
     raise SystemExit(result)

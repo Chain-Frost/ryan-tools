@@ -1,7 +1,10 @@
+# Unit tests intentionally exercise implementation helpers.
+# pyright: reportPrivateUsage=false
+
 """Unit tests for ryan_library.processors.tuflow.other_processors.RLLQmxProcessor."""
 
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
@@ -26,7 +29,7 @@ class TestRLLQmxProcessor:
             processor.data_type = "RLLQmx"
             return processor
 
-    def test_reshape_rll_qmx_data_success(self, mock_processor):
+    def test_reshape_rll_qmx_data_success(self, mock_processor: RLLQmxProcessor):
         """Test successful reshaping of RLL Qmx data."""
         mock_processor.df = pd.DataFrame(
             {"ID": ["L1"], "Qmax": [10.0], "Time Qmax": [1.0], "dQmax": [0.0], "Time dQmax": [1.0], "H": [5.0]}
@@ -44,7 +47,7 @@ class TestRLLQmxProcessor:
         assert row["Chan ID"] == "L1"
         assert row["Q"] == 10.0
 
-    def test_reshape_rll_qmx_data_missing_columns(self, mock_processor):
+    def test_reshape_rll_qmx_data_missing_columns(self, mock_processor: RLLQmxProcessor):
         """Test reshaping fails with missing columns."""
         mock_processor.df = pd.DataFrame(
             {
@@ -62,7 +65,14 @@ class TestRLLQmxProcessor:
         "ryan_library.processors.tuflow.other_processors.RLLQmxProcessor.RLLQmxProcessor.apply_output_transformations"
     )
     @patch("ryan_library.processors.tuflow.other_processors.RLLQmxProcessor.RLLQmxProcessor.validate_data")
-    def test_process_success(self, mock_validate, mock_apply, mock_add, mock_read, mock_processor):
+    def test_process_success(
+        self,
+        mock_validate: MagicMock,
+        mock_apply: MagicMock,
+        mock_add: MagicMock,
+        mock_read: MagicMock,
+        mock_processor: MagicMock,
+    ):
         """Test full process flow success."""
         mock_read.return_value = ProcessorStatus.SUCCESS
         mock_validate.return_value = True
@@ -78,7 +88,7 @@ class TestRLLQmxProcessor:
         mock_add.assert_called_once()
 
     @patch("ryan_library.processors.tuflow.other_processors.RLLQmxProcessor.RLLQmxProcessor.read_maximums_csv")
-    def test_process_read_failure(self, mock_read, mock_processor):
+    def test_process_read_failure(self, mock_read: MagicMock, mock_processor: MagicMock):
         """Test process aborts when read fails."""
         mock_read.return_value = ProcessorStatus.FAILURE
 
@@ -93,7 +103,14 @@ class TestRLLQmxProcessor:
         "ryan_library.processors.tuflow.other_processors.RLLQmxProcessor.RLLQmxProcessor.apply_output_transformations"
     )
     @patch("ryan_library.processors.tuflow.other_processors.RLLQmxProcessor.RLLQmxProcessor.validate_data")
-    def test_process_validation_failure(self, mock_validate, mock_apply, mock_add, mock_read, mock_processor):
+    def test_process_validation_failure(
+        self,
+        mock_validate: MagicMock,
+        mock_apply: MagicMock,
+        mock_add: MagicMock,
+        mock_read: MagicMock,
+        mock_processor: MagicMock,
+    ):
         """Test process aborts when validation fails."""
         mock_read.return_value = ProcessorStatus.SUCCESS
         mock_validate.return_value = False
@@ -108,7 +125,7 @@ class TestRLLQmxProcessor:
         assert mock_processor.df.empty
 
     @patch("ryan_library.processors.tuflow.other_processors.RLLQmxProcessor.RLLQmxProcessor.read_maximums_csv")
-    def test_process_exception(self, mock_read, mock_processor):
+    def test_process_exception(self, mock_read: MagicMock, mock_processor: MagicMock):
         """Test process handles exceptions."""
         mock_read.side_effect = Exception("Test Error")
 

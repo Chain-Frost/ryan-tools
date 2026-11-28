@@ -2,9 +2,6 @@
 branch = True
 source =
     ryan_library
-omit =
-    ryan_library/scripts/*
-
 [report]
 exclude_also =
     if TYPE_CHECKING:

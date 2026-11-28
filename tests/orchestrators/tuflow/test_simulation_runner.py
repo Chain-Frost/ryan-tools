@@ -1,0 +1,2648 @@
+"""Scope 03 acceptance: deterministic fake solver processes, no TUFLOW execution."""
+
+from __future__ import annotations
+
+import logging
+import os
+import subprocess
+import sys
+import time
+from collections.abc import Callable, Collection, Generator
+from dataclasses import replace
+from datetime import datetime, timedelta
+from io import StringIO
+from itertools import pairwise
+from pathlib import Path
+from threading import Event, Timer
+from typing import cast
+
+import pytest
+from loguru import logger
+from rich.console import Console, RenderableType
+
+from ryan_library.functions import live_dashboard
+from ryan_library.functions.live_dashboard import WorkflowAlert, WorkflowTask
+from ryan_library.functions.tuflow.command_plan import (
+    CommandPlanError,
+    PlannedRun,
+    parse_command_plan,
+    read_command_plan,
+)
+from ryan_library.functions.tuflow.execution_history import identify_runs
+from ryan_library.functions.tuflow.gpu_occupancy import GpuOccupancySnapshot
+from ryan_library.functions.tuflow.run_progress import LogProgressSnapshot
+from ryan_library.orchestrators.tuflow import simulation_runner as runner
+from ryan_library.orchestrators.tuflow.run_progress import ProgressUpdate
+
+
+@pytest.fixture(autouse=True)
+def capture_loguru(caplog: pytest.LogCaptureFixture) -> Generator[None]:
+    # Other workflow tests can leave this namespace disabled. A new sink alone
+    # does not restore emission, so establish the capture configuration here.
+    logger.enable("ryan_library")
+    sink = logger.add(caplog.handler, format="{message}")
+    try:
+        yield
+    finally:
+        logger.remove(sink)
+
+
+def settings(base: Path, **changes: object) -> runner.RunnerSettings:
+    initial = runner.RunnerSettings(
+        wrapper_file=base / "run_tuflow_simulations.py",
+        working_directory=base,
+        executable=base / "TUFLOW_iSP_w64.exe",
+        tcf=Path("runs/model_~e1~.tcf"),
+        run_variables={"e1": ["A", "B"]},
+        batch_commands="-b",
+        wait_time_after_run=0,
+        wait_for_available_gpu=False,  # Existing lifecycle tests deliberately exclude external scheduling.
+        use_live_dashboard=False,
+        monitor_progress=False,  # Focused lifecycle tests do not inspect logs or start monitoring threads.
+    )
+    return replace(initial, **changes)
+
+
+class FakeProcess:
+    """Process whose completion is controlled by the test, not an operating system."""
+
+    def __init__(self, pid: int, code: int = 0, polls_before_exit: int = 0) -> None:
+        self.pid = pid
+        self.returncode: int | None = None
+        self.code = code
+        self.polls_before_exit = polls_before_exit
+        self.terminated = False
+
+    def poll(self) -> int | None:
+        if self.terminated:
+            self.returncode = -15
+        elif self.polls_before_exit:
+            self.polls_before_exit -= 1
+        else:
+            self.returncode = self.code
+        return self.returncode
+
+    def terminate(self) -> None:
+        self.terminated = True
+
+    def wait(self, timeout: float | None = None) -> int:
+        del timeout
+        self.terminated = True
+        self.returncode = -15
+        return -15
+
+    def kill(self) -> None:
+        self.terminated = True
+
+
+def _no_op(*_args: object) -> None:
+    """Suppress unrelated GPU/priority behaviour in focused scheduler tests."""
+
+
+def _inline_gpu_inspection(exclude_pids: Collection[int], *, timeout_seconds: float) -> GpuOccupancySnapshot:
+    """Keep worker mocks in-process while separate regressions cover the deadline."""
+    from ryan_library.functions.tuflow import gpu_occupancy
+
+    del timeout_seconds
+    query = cast(
+        Callable[[Collection[int]], GpuOccupancySnapshot],
+        getattr(gpu_occupancy, "_local_gpu_occupancy"),  # noqa: B009 - exercise the worker integration
+    )
+    return query(exclude_pids)
+
+
+def _unexpected_gpu_scan(*_args: object) -> None:
+    pytest.fail("GPU scanned during export")
+
+
+def _logical_signature(run: PlannedRun, config: runner.RunnerSettings) -> tuple[object, ...]:
+    """Exercise the internal roundtrip contract with explicit, typed test access."""
+    signature = cast(
+        Callable[[PlannedRun, runner.RunnerSettings], tuple[object, ...]],
+        getattr(runner, "_logical_signature"),  # noqa: B009 - explicitly exercise the internal test contract
+    )
+    return signature(run, config)
+
+
+def _command(run: PlannedRun, config: runner.RunnerSettings, gpu: tuple[str, ...]) -> list[str]:
+    build = cast(
+        Callable[[PlannedRun, runner.RunnerSettings, tuple[str, ...]], list[str]],
+        getattr(runner, "_command"),  # noqa: B009 - explicitly exercise the internal test contract
+    )
+    return build(run, config, gpu)
+
+
+def _gpu_alert(
+    availability: runner.GpuAvailability,
+    groups: tuple[tuple[str, ...], ...],
+    *,
+    interval_seconds: float,
+    device_names: dict[int, str] | None = None,
+) -> WorkflowAlert | None:
+    factory = cast(
+        Callable[..., WorkflowAlert | None],
+        getattr(runner, "_gpu_dashboard_alert"),  # noqa: B009 - test the scheduler/display adapter
+    )
+    return factory(availability, groups, interval_seconds=interval_seconds, device_names=device_names)
+
+
+def _capture_dashboards(
+    monkeypatch: pytest.MonkeyPatch, *, width: int = 180, height: int = 80
+) -> list[live_dashboard.LiveWorkflowDashboard]:
+    """Keep the real renderer and lifecycle without opening an interactive Live."""
+    displays: list[live_dashboard.LiveWorkflowDashboard] = []
+
+    def enter(dashboard: live_dashboard.LiveWorkflowDashboard) -> live_dashboard.LiveWorkflowDashboard:
+        dashboard.enabled = False
+        dashboard.console = Console(file=StringIO(), record=True, width=width, height=height, color_system=None)
+        displays.append(dashboard)
+        return dashboard
+
+    monkeypatch.setattr(live_dashboard.LiveWorkflowDashboard, "__enter__", enter)
+    monkeypatch.setattr(runner, "local_cuda_device_names", dict[int, str])
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    monkeypatch.setattr(runner.time, "sleep", _no_op)
+    return displays
+
+
+def _dashboard_tasks(dashboard: live_dashboard.LiveWorkflowDashboard) -> dict[int, WorkflowTask]:
+    """Inspect the real renderer's retained lifecycle state in integration tests."""
+    return cast(dict[int, WorkflowTask], getattr(dashboard, "_tasks"))  # noqa: B009 - intentional test introspection
+
+
+def _render_dashboard(dashboard: live_dashboard.LiveWorkflowDashboard) -> str:
+    render = cast(Callable[[], RenderableType], getattr(dashboard, "_render"))  # noqa: B009 - render without Live
+    dashboard.console.print(render())
+    return dashboard.console.export_text(clear=True)
+
+
+class ProgressProbe:
+    """Deterministic observations without filesystem reads or a worker thread."""
+
+    def __init__(self, snapshot: LogProgressSnapshot) -> None:
+        self.snapshot = snapshot
+        self.pending: list[ProgressUpdate] = []
+        self.registered: list[tuple[PlannedRun, int, float]] = []
+        self.discarded: list[int] = []
+        self.finished: list[tuple[int, int]] = []
+        self.started = False
+        self.closed = False
+
+    def start(self) -> None:
+        self.started = True
+
+    def register(self, run: PlannedRun, *, pid: int, started_at: float) -> None:
+        self.registered.append((run, pid, started_at))
+        self.pending.append(ProgressUpdate(run_index=run.index, pid=pid, snapshot=self.snapshot))
+
+    def discard(self, run_index: int) -> None:
+        self.discarded.append(run_index)
+
+    def finish(self, run_index: int, *, pid: int) -> ProgressUpdate | None:
+        self.finished.append((run_index, pid))
+        latest: ProgressUpdate | None = None
+        for update in self.pending.copy():
+            if update.run_index == run_index and update.pid == pid:
+                latest = update
+                self.pending.remove(update)
+        return latest
+
+    def drain(self) -> tuple[ProgressUpdate, ...]:
+        updates = tuple(self.pending)
+        self.pending.clear()
+        return updates
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class FailingProgressProbe(ProgressProbe):
+    """Inject one runtime failure, including after a child has been launched."""
+
+    def __init__(self, snapshot: LogProgressSnapshot, *, failure: str) -> None:
+        super().__init__(snapshot)
+        self.failure = failure
+        self.message = f"synthetic {failure} failure"
+        self.drain_count = 0
+
+    def drain(self) -> tuple[ProgressUpdate, ...]:
+        self.drain_count += 1
+        if self.failure == "drain" and self.drain_count > 1:
+            raise RuntimeError(self.message)
+        return super().drain()
+
+    def register(self, run: PlannedRun, *, pid: int, started_at: float) -> None:
+        if self.failure == "register":
+            raise RuntimeError(self.message)
+        super().register(run, pid=pid, started_at=started_at)
+
+    def discard(self, run_index: int) -> None:
+        if self.failure == "discard":
+            raise RuntimeError(self.message)
+        super().discard(run_index)
+
+    def finish(self, run_index: int, *, pid: int) -> ProgressUpdate | None:
+        if self.failure == "finish":
+            raise RuntimeError(self.message)
+        update = super().finish(run_index, pid=pid)
+        if self.failure == "finish_snapshot":
+            return ProgressUpdate(
+                run_index=run_index,
+                pid=pid,
+                snapshot=replace(self.snapshot, model_hours=cast(float, "malformed final model time")),
+            )
+        return update
+
+    def close(self) -> None:
+        super().close()
+        if self.failure == "close":
+            raise RuntimeError(self.message)
+
+
+@pytest.mark.parametrize("invalid", [0, -1, True, 1.5])
+def test_dashboard_rows_require_a_positive_integer(tmp_path: Path, invalid: object) -> None:
+    with pytest.raises(CommandPlanError, match="Dashboard row limit"):
+        runner.prepare_plan(settings(tmp_path, live_max_rows=invalid))
+
+
+def test_imported_order_and_first_occurrence_are_unchanged_by_priority_order(tmp_path: Path) -> None:
+    first = tmp_path / "first.bat"
+    second = tmp_path / "second.bat"
+    first.write_text("TUFLOW.exe -e1 B model.tcf\nTUFLOW.exe -e1 A model.tcf\n", encoding="utf-8")
+    second.write_text("TUFLOW.exe -e1 A model.tcf\nTUFLOW.exe -e1 C model.tcf\n", encoding="utf-8")
+    plan = runner.prepare_plan(
+        settings(
+            tmp_path,
+            mode="textfiles",
+            tcf=None,
+            run_variables={},
+            input_files=(first, second),
+            priority_order="e1",
+        )
+    )
+    assert [run.flags["e1"] for run in plan.runs] == ["B", "A", "C"]
+    assert [run.source for run in plan.runs] == [first, first, second]
+    assert plan.duplicates_dropped == 1
+
+
+def test_parameter_product_discards_repeated_selections_in_order(tmp_path: Path) -> None:
+    config = settings(tmp_path, run_variables={"e1": ["A", "A", "B"]})
+    plan = runner.prepare_plan(config)
+    assert [run.index for run in plan.runs] == [1, 2]
+    assert [run.flags for run in plan.runs] == [{"e1": "A"}, {"e1": "B"}]
+    assert plan.duplicates_dropped == 1
+    assert all(run.working_directory == tmp_path for run in plan.runs)
+    assert all(run.source == config.wrapper_file for run in plan.runs)
+
+
+def test_generated_values_warn_for_embedded_space_and_underscore_once_per_value(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A suspicious value is advisory, not a reason to alter the run plan."""
+    caplog.set_level(logging.WARNING)
+    config = settings(
+        tmp_path,
+        tcf=Path("runs/model_~e1~_~s1~.tcf"),
+        run_variables={"e1": ["Wet_Season Group"], "s1": ["Existing", "Proposed"]},
+    )
+    plan = runner.prepare_plan(config)
+    assert len(plan.runs) == 2
+    assert all(run.flags["e1"] == "Wet_Season Group" for run in plan.runs)
+    suspicious = [record.getMessage() for record in caplog.records if "Are you sure you want" in record.getMessage()]
+    assert len(suspicious) == 2
+    assert any("a space (' ') character" in warning and "-e1?" in warning for warning in suspicious)
+    assert any("an underscore ('_') character" in warning and "-e1?" in warning for warning in suspicious)
+    assert all("Wet_Season Group" in warning for warning in suspicious)
+
+
+def test_imported_values_warn_with_flag_and_preserve_selected_text(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.WARNING)
+    source = tmp_path / "input.txt"
+    source.write_text(
+        'TUFLOW.exe -e1 "Wet Season" -s1 Existing_Case model_~e1~_~s1~.tcf\n',
+        encoding="utf-8",
+    )
+    config = settings(tmp_path, mode="textfiles", tcf=None, input_files=(source,))
+    plan = runner.prepare_plan(config)
+    assert len(plan.runs) == 1
+    assert plan.runs[0].flags == {"e1": "Wet Season", "s1": "Existing_Case"}
+    suspicious = [record.getMessage() for record in caplog.records if "Are you sure you want" in record.getMessage()]
+    assert len(suspicious) == 2
+    assert any("a space (' ') character" in warning and "-e1?" in warning for warning in suspicious)
+    assert any("an underscore ('_') character" in warning and "-s1?" in warning for warning in suspicious)
+
+
+def test_delimited_raw_values_and_tcf_filename_underscores_do_not_warn(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.WARNING)
+    config = settings(
+        tmp_path,
+        tcf=Path("runs/model_~e1~_~s1~.tcf"),
+        run_variables={"e1": "01.0p 02.0p", "s1": "Existing"},
+    )
+    plan = runner.prepare_plan(config)
+    assert len(plan.runs) == 2
+    assert "Are you sure you want" not in caplog.text
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows command export requires native Windows paths")
+def test_generated_quoted_model_value_roundtrip(tmp_path: Path) -> None:
+    config = settings(tmp_path, run_variables={"e1": ["A with spaces", "B"]})
+    plan = runner.prepare_plan(config)
+    exported = tmp_path / "editable.bat"
+    text = runner.render_batch_commands(plan, config, destination=exported)
+    assert "%BCMD%" in text
+    assert "%TUFLOW_EXE%" in text
+    assert "%TCF%" in text
+    assert '-e1 "A with spaces"' in text
+    parsed = parse_command_plan(text, source=exported, initial_directory=tmp_path)
+    assert [run.flags for run in parsed.runs] == [run.flags for run in plan.runs]
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="UNC rendering uses native Windows path objects")
+def test_generated_unc_plan_roundtrips_as_inert_txt() -> None:
+    # Rendering and reparsing are lexical; this share need not exist and no
+    # network access, command execution or solver inspection is performed.
+    directory = Path(r"\\server\share\Model")
+    config = settings(directory, executable=Path(r"C:\TUFLOW\TUFLOW.exe"))
+    plan = runner.prepare_plan(config)
+    output = directory / "commands.txt"
+    text = runner.render_batch_commands(plan, config, destination=output)
+    replay = parse_command_plan(text, source=output, initial_directory=directory, syntax="commands")
+    assert [run.tcf for run in replay.runs] == [run.tcf for run in plan.runs]
+    assert all(run.working_directory == directory for run in replay.runs)
+    assert [_logical_signature(run, config) for run in replay.runs] == [
+        _logical_signature(run, config) for run in plan.runs
+    ]
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="UNC imports use native Windows path objects")
+def test_runner_imports_bat_from_unc_cwd_as_inert_selections(tmp_path: Path) -> None:
+    directory = Path(r"\\server\share\Model")
+    selected_directory = directory / "alternate"
+    source = tmp_path / "input.bat"
+    source.write_text(f'CD /D "{selected_directory}"\nTUFLOW.exe -e1 A model.tcf\n', encoding="utf-8")
+    config = settings(directory, mode="textfiles", input_files=(source,), tcf=None)
+    plan = runner.prepare_plan(config)
+    assert plan.runs[0].tcf == selected_directory / "model.tcf"
+    assert plan.runs[0].working_directory == directory
+    output = tmp_path / "commands.txt"
+    output.write_text(runner.render_batch_commands(plan, config, destination=output), encoding="utf-8")
+    replay = runner.prepare_plan(replace(config, input_files=(output,)))
+    assert [_logical_signature(run, config) for run in replay.runs] == [
+        _logical_signature(run, config) for run in plan.runs
+    ]
+
+
+def test_parent_components_roundtrip_without_changing_launch_spelling(tmp_path: Path) -> None:
+    directory = tmp_path / "unused" / ".." / "project" / "scripts"
+    config = settings(
+        directory,
+        tcf=Path("../runs/model_~e1~.tcf"),
+        executable=Path("../engine/TUFLOW.exe"),
+    )
+    plan = runner.prepare_plan(config)
+    output = runner.export_batch_commands(plan, config, tmp_path / "commands.txt")
+    replay = read_command_plan(output, initial_directory=directory)
+    assert all(run.tcf == tmp_path / "project" / "runs" / "model_~e1~.tcf" for run in replay.runs)
+    assert all(run.working_directory == tmp_path / "project" / "scripts" for run in replay.runs)
+    assert [run.flags for run in replay.runs] == [run.flags for run in plan.runs]
+    assert all(run.working_directory == directory for run in plan.runs)
+    command = _command(plan.runs[0], config, ())
+    assert command[0] == str(directory / ".." / "engine" / "TUFLOW.exe")
+    assert command[-1] == str(directory / ".." / "runs" / "model_~e1~.tcf")
+
+
+def test_parent_relative_import_and_generated_selection_are_deduplicated(tmp_path: Path) -> None:
+    directory = tmp_path / "scripts"
+    directory.mkdir()
+    source = directory / "input.txt"
+    source.write_text('TUFLOW.exe -e1 A "../runs/model.tcf"\n', encoding="utf-8")
+    config = settings(
+        directory,
+        mode="both",
+        input_files=(source,),
+        tcf=Path("../runs/model.tcf"),
+        run_variables={"e1": ["A"]},
+    )
+    plan = runner.prepare_plan(config)
+    assert len(plan.runs) == 1
+    assert plan.duplicates_dropped == 1
+    assert plan.runs[0].source == source
+    assert plan.runs[0].tcf == tmp_path / "runs" / "model.tcf"
+
+
+@pytest.mark.parametrize("value", ["Wet & Dry", "Storm(2)", "Rain|Wind", "Event>Base"])
+def test_bat_export_quotes_supported_cmd_metacharacters(tmp_path: Path, value: str) -> None:
+    project = tmp_path / "Hydrology & Drainage"
+    project.mkdir()
+    config = settings(project, tcf=Path("runs/model.tcf"), run_variables={"e1": [value]})
+    plan = runner.prepare_plan(config)
+    text = runner.render_batch_commands(plan, config, destination=project / "commands.txt")
+    assert f'-e1 "{value}"' in text
+    assert f'/D "{project}"' in text
+    replay = parse_command_plan(text, source=project / "commands.txt", initial_directory=project)
+    assert [run.flags for run in replay.runs] == [run.flags for run in plan.runs]
+
+
+@pytest.mark.parametrize("value", ["Embedded%Env", "Delayed!Expansion", "Caret^Escape", 'Quote"Value'])
+def test_bat_export_rejects_unrepresentable_values(tmp_path: Path, value: str) -> None:
+    config = settings(tmp_path, tcf=Path("runs/model.tcf"), run_variables={"e1": [value]})
+    with pytest.raises(CommandPlanError, match="Cannot safely represent BAT argument"):
+        runner.render_batch_commands(runner.prepare_plan(config), config, destination=tmp_path / "commands.txt")
+
+
+def _make_import(base: Path) -> Path:
+    first, second = base / "Model A", base / "Model B"
+    first.mkdir()
+    second.mkdir()
+    bat = base / "input.bat"
+    bat.write_text(
+        f'set "TCF_A={first / "one.tcf"}"\n'
+        f'set "TCF_B={second / "two.tcf"}"\n'
+        f'START /D "{first}" /LOW /MIN /WAIT "" "TUFLOW.exe" -b -pu0 -e1 A "%TCF_A%"\n'
+        f'START /D "{second}" /LOW /MIN /WAIT "" "TUFLOW.exe" -b -pu1 -e1 B "%TCF_B%"\n'
+        f'START /D "{first}" /LOW /MIN /WAIT "" "TUFLOW.exe" -b -pu0 -e1 A "%TCF_A%"\n',
+        encoding="utf-8",
+    )
+    return bat
+
+
+def test_import_multi_tcf_ignores_source_launch_context_and_duplicates(tmp_path: Path) -> None:
+    bat = _make_import(tmp_path)
+    config = settings(tmp_path, mode="textfiles", tcf=None, input_files=(bat,))
+    plan = runner.prepare_plan(config)
+    assert len(plan.runs) == 2
+    assert plan.duplicates_dropped == 1
+    assert [run.tcf.name for run in plan.runs] == ["one.tcf", "two.tcf"]
+    assert all(run.working_directory == tmp_path for run in plan.runs)
+    assert [run.line_start for run in plan.runs] == [3, 4]
+    assert all(run.source == bat for run in plan.runs)
+    assert all(run.executable == str(config.executable) for run in plan.runs)
+
+
+def test_late_conflict_fails_before_export_or_execution(tmp_path: Path) -> None:
+    bat = _make_import(tmp_path)
+    expected = tmp_path / "Model A" / "one.tcf"
+    config = settings(tmp_path, mode="textfiles", tcf=expected, input_files=(bat,))
+    with pytest.raises(CommandPlanError, match=r"input\.bat.*Python TCF.*two\.tcf"):
+        runner.prepare_plan(config)
+    assert list(tmp_path.glob("*.bat")) == [bat]
+
+
+def test_import_and_generated_use_one_ordered_plan(tmp_path: Path) -> None:
+    bat = _make_import(tmp_path)
+    config = settings(tmp_path, mode="both", tcf=None, input_files=(bat,))
+    with pytest.raises(CommandPlanError, match="Generated parameter-product runs require"):
+        runner.prepare_plan(config)
+    config = settings(tmp_path, mode="both", tcf=tmp_path / "Model A" / "one.tcf", input_files=(bat,))
+    with pytest.raises(CommandPlanError, match="Python TCF"):
+        runner.prepare_plan(config)
+
+
+@pytest.mark.parametrize("failed_first", [False, True])
+def test_interlaunch_spacing_includes_failed_start_attempts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failed_first: bool
+) -> None:
+    """Popen attempts are at least the requested interval apart across GPU slots."""
+    delay = 0.06
+    config = settings(
+        tmp_path,
+        run_variables={"e1": ["A", "B", "C"]},
+        gpu_devices=(("-pu0",), ("-pu1",)),
+        wait_time_after_run=delay,
+    )
+    plan = runner.prepare_plan(config)
+    monkeypatch.setattr(runner, "local_cuda_device_names", dict[int, str])
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    attempts: list[float] = []
+    gpu_assignments: list[str] = []
+
+    class HoldFirstProcess(FakeProcess):
+        def poll(self) -> int | None:
+            # Keep GPU0 occupied while the next queued run starts on GPU1.
+            if len(attempts) < 2:
+                return None
+            return super().poll()
+
+    def fake_popen(*, args: list[str], **_options: object) -> FakeProcess:
+        gpu = "-pu0" if "-pu0" in args else "-pu1"
+        assert gpu in args
+        gpu_assignments.append(gpu)
+        attempts.append(time.monotonic())
+        if failed_first and len(attempts) == 1:
+            message = "synthetic missing solver"
+            raise FileNotFoundError(message)
+        if not failed_first and len(attempts) == 1:
+            return HoldFirstProcess(801)
+        return FakeProcess(len(attempts) + 800)
+
+    outcome = runner.launch_plan(plan, config, popen=fake_popen)
+    assert len(attempts) == 3
+    assert all(second - first >= delay - 0.01 for first, second in pairwise(attempts))
+    if not failed_first:
+        assert gpu_assignments[:2] == ["-pu0", "-pu1"]
+    assert outcome.successful == (not failed_first)
+    assert sum(item.pid is None for item in outcome.outcomes) == int(failed_first)
+
+
+def test_failed_start_cooldown_does_not_wait_for_next_gpu_inspection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A failed Popen retries after the cooldown, not the 60-second GPU poll."""
+    config = settings(
+        tmp_path,
+        gpu_devices=(("-pu0",), ("-pu1",)),
+        wait_for_available_gpu=True,
+        gpu_check_interval_seconds=60.0,
+        wait_time_after_run=0.08,
+        use_live_dashboard=False,
+    )
+    plan = runner.prepare_plan(config)
+    monkeypatch.setattr(runner, "local_cuda_device_names", dict[int, str])
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+
+    def available_gpu(*_args: object, **_kwargs: object) -> runner.GpuAvailability:
+        return runner.GpuAvailability()
+
+    monkeypatch.setattr(runner, "_blocked_external_gpu_slots", available_gpu)
+    stop = Event()
+    raw_wait = stop.wait
+    waits: list[float] = []
+
+    def bounded_wait(timeout: float | None = None) -> bool:
+        assert timeout is not None
+        assert timeout <= 0.25, "GPU poll wait must not override a launch cooldown"
+        waits.append(timeout)
+        return raw_wait(timeout)
+
+    monkeypatch.setattr(stop, "wait", bounded_wait)
+    attempts: list[float] = []
+
+    def fake_popen(**_options: object) -> FakeProcess:
+        attempts.append(time.monotonic())
+        if len(attempts) == 1:
+            message = "synthetic startup failure"
+            raise FileNotFoundError(message)
+        return FakeProcess(802)
+
+    outcome = runner.launch_plan(plan, config, popen=fake_popen, interrupted=stop)
+    assert len(attempts) == 2
+    assert attempts[1] - attempts[0] >= config.wait_time_after_run - 0.01
+    assert waits
+    assert not outcome.successful
+    assert sum(item.pid is None for item in outcome.outcomes) == 1
+
+
+@pytest.mark.parametrize("exit_code", [0, 2])
+def test_next_launch_waits_after_observed_solver_completion(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, exit_code: int
+) -> None:
+    """A finished run starts a fresh cooldown even if its start was long ago."""
+    delay = 0.2
+    config = settings(
+        tmp_path,
+        run_variables={"e1": ["A", "B"]},
+        gpu_devices=(("-pu0",),),
+        wait_time_after_run=delay,
+    )
+    plan = runner.prepare_plan(config)
+    monkeypatch.setattr(runner, "local_cuda_device_names", dict[int, str])
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    launch_times: list[float] = []
+    finish_times: list[float] = []
+
+    class TimedProcess(FakeProcess):
+        def poll(self) -> int | None:
+            code = super().poll()
+            if code is not None and not finish_times:
+                finish_times.append(time.monotonic())
+            return code
+
+    def fake_popen(**_options: object) -> FakeProcess:
+        launch_times.append(time.monotonic())
+        if len(launch_times) == 1:
+            return TimedProcess(801, code=exit_code, polls_before_exit=3)
+        return FakeProcess(802)
+
+    outcome = runner.launch_plan(plan, config, popen=fake_popen)
+    assert len(launch_times) == 2
+    assert len(finish_times) == 1
+    assert launch_times[1] - finish_times[0] >= delay - 0.02
+    assert outcome.successful == (exit_code == 0)
+
+
+def test_zero_launch_delay_disables_start_and_completion_cooldowns(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Zero explicitly disables cooldowns even with multiple GPU slots."""
+    config = settings(
+        tmp_path,
+        run_variables={"e1": ["A", "B", "C"]},
+        gpu_devices=(("-pu0",), ("-pu1",)),
+        wait_time_after_run=0.0,
+    )
+    plan = runner.prepare_plan(config)
+    monkeypatch.setattr(runner, "local_cuda_device_names", dict[int, str])
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    stop = Event()
+    wait_calls: list[float | None] = []
+    actual_wait = stop.wait
+
+    def trace_wait(timeout: float | None = None) -> bool:
+        wait_calls.append(timeout)
+        return actual_wait(timeout)
+
+    monkeypatch.setattr(stop, "wait", trace_wait)
+    attempts: list[int] = []
+
+    def fake_popen(**_options: object) -> FakeProcess:
+        attempts.append(1)
+        return FakeProcess(900 + len(attempts))
+
+    outcome = runner.launch_plan(plan, config, popen=fake_popen, interrupted=stop)
+    assert outcome.successful
+    assert len(attempts) == 3
+    assert not wait_calls
+
+
+def test_interlaunch_wait_is_interruptible_without_starting_another_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An interrupt during the cooldown must not start the queued child."""
+    config = settings(
+        tmp_path,
+        gpu_devices=(("-pu0",), ("-pu1",)),
+        wait_time_after_run=2.0,
+    )
+    plan = runner.prepare_plan(config)
+    monkeypatch.setattr(runner, "local_cuda_device_names", dict[int, str])
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    stop = Event()
+    launched: list[int] = []
+    interrupt_timer: Timer | None = None
+
+    def fake_popen(**_options: object) -> FakeProcess:
+        nonlocal interrupt_timer
+        launched.append(1)
+        if len(launched) == 1:
+            # Signal during the two-second throttle, not before it begins.
+            interrupt_timer = Timer(0.05, stop.set)
+            interrupt_timer.start()
+        return FakeProcess(800 + len(launched))
+
+    start = time.monotonic()
+    try:
+        outcome = runner.launch_plan(plan, config, popen=fake_popen, interrupted=stop)
+    finally:
+        if interrupt_timer is not None:
+            interrupt_timer.join(timeout=1.0)
+    assert time.monotonic() - start < 1.0
+    assert outcome.interrupted
+    assert launched == [1]
+
+
+@pytest.mark.parametrize("source", ["-e1 A", 'SET "TCF=model.tcf"\\n-e1 A'])
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows command export requires native Windows paths")
+def test_abbreviated_input_launches_and_roundtrips(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, source: str
+) -> None:
+    commands = tmp_path / "input.txt"
+    commands.write_text(source.replace("\\n", "\n") + "\n", encoding="utf-8")
+    use_python_tcf = source.startswith("-")
+    config = settings(
+        tmp_path,
+        mode="textfiles",
+        input_files=(commands,),
+        tcf=Path("model.tcf") if use_python_tcf else None,
+    )
+    plan = runner.prepare_plan(config)
+    assert len(plan.runs) == 1
+    assert plan.runs[0].arguments == ("-b", "-e1", "A", str(tmp_path / "model.tcf"))
+    assert plan.runs[0].tcf == tmp_path / "model.tcf"
+
+    exported = runner.render_batch_commands(plan, config, destination=tmp_path / "out.bat")
+    reparsed = parse_command_plan(exported, source=tmp_path / "out.bat", initial_directory=tmp_path)
+    assert _logical_signature(plan.runs[0], config) == _logical_signature(reparsed.runs[0], config)
+
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    commands_seen: list[list[str]] = []
+
+    def fake_popen(*, args: list[str], **_options: object) -> FakeProcess:
+        commands_seen.append(args)
+        return FakeProcess(4455)
+
+    result = runner.launch_plan(plan, config, popen=fake_popen)
+    assert result.successful
+    assert commands_seen == [[str(config.executable), "-b", "-e1", "A", str(tmp_path / "model.tcf")]]
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows command export requires native Windows paths")
+def test_text_flag_list_uses_configured_tcf_and_survives_csv_identity_export(tmp_path: Path) -> None:
+    """A text file can list runs without repeating the Python-configured TCF."""
+    commands = tmp_path / "run_list.txt"
+    commands.write_text("-e1 100 -e2 creek -s4 dam\\n".replace("\\n", "\n"), encoding="utf-8")
+    config = settings(
+        tmp_path,
+        mode="textfiles",
+        tcf=Path("model.tcf"),
+        input_files=(commands,),
+    )
+    plan = runner.prepare_plan(config)
+    assert len(plan.runs) == 1
+    run = plan.runs[0]
+    assert run.tcf == tmp_path / "model.tcf"
+    assert run.flags == {"e1": "100", "e2": "creek", "s4": "dam"}
+    assert run.arguments == ("-b", "-e1", "100", "-e2", "creek", "-s4", "dam", str(tmp_path / "model.tcf"))
+    assert run.executable == str(config.executable)
+    identities = identify_runs(plan, fallback_executable=config.executable, base_directory=tmp_path)
+    assert identities[run.index].key
+
+    exported = runner.render_batch_commands(plan, config, destination=tmp_path / "export.bat")
+    reparsed = parse_command_plan(exported, source=tmp_path / "export.bat", initial_directory=tmp_path)
+    assert _logical_signature(run, config) == _logical_signature(reparsed.runs[0], config)
+    assert (
+        identify_runs(reparsed, fallback_executable=config.executable, base_directory=tmp_path)[1].key
+        == identities[run.index].key
+    )
+    with pytest.raises(CommandPlanError, match="No effective TCF"):
+        runner.prepare_plan(replace(config, tcf=None))
+
+
+def test_nonterminal_tcf_argument_roundtrips_without_losing_flags(tmp_path: Path) -> None:
+    commands = tmp_path / "input.txt"
+    commands.write_text('TUFLOW.exe "model.tcf" -e1 A -s1 B\\n'.replace("\\n", "\n"), encoding="utf-8")
+    config = settings(tmp_path, mode="textfiles", tcf=None, input_files=(commands,))
+    plan = runner.prepare_plan(config)
+    assert plan.runs[0].arguments[:2] == ("-b", "-e1")
+    assert _command(plan.runs[0], config, ()) == [
+        str(config.executable),
+        "-b",
+        "-e1",
+        "A",
+        "-s1",
+        "B",
+        str(tmp_path / "model.tcf"),
+    ]
+    bat = runner.render_batch_commands(plan, config, destination=tmp_path / "out.bat")
+    reparsed = parse_command_plan(bat, source=tmp_path / "out.bat", initial_directory=tmp_path)
+    assert _logical_signature(plan.runs[0], config) == _logical_signature(reparsed.runs[0], config)
+
+
+def test_scenario_value_ending_in_tcf_is_not_control_file(tmp_path: Path) -> None:
+    commands = tmp_path / "input.txt"
+    commands.write_text("-e1 event.tcf\\n".replace("\\n", "\n"), encoding="utf-8")
+    config = settings(tmp_path, mode="textfiles", input_files=(commands,), tcf=Path("model.tcf"))
+    run = runner.prepare_plan(config).runs[0]
+    assert _command(run, config, ()) == [
+        str(config.executable),
+        "-b",
+        "-e1",
+        "event.tcf",
+        str(tmp_path / "model.tcf"),
+    ]
+
+
+def test_import_roundtrip_preserves_python_executable_cwd_and_unique_runs(tmp_path: Path) -> None:
+    bat = _make_import(tmp_path)
+    config = settings(tmp_path, mode="textfiles", tcf=None, input_files=(bat,))
+    plan = runner.prepare_plan(config)
+    output = tmp_path / "copied_commands.txt"
+    text = runner.render_batch_commands(plan, config, destination=output)
+    assert "TCF_1" in text
+    assert "TCF_2" in text
+    assert f'set "TUFLOW_EXE={config.executable}"' in text
+    assert 'set "BCMD=-b"' in text
+    assert text.count("START /D") == 2
+    new = runner.export_batch_commands(plan, config, output)
+    reparsed = runner.prepare_plan(replace(config, input_files=(new,)))
+    assert [_logical_signature(run, config) for run in plan.runs] == [
+        _logical_signature(run, config) for run in reparsed.runs
+    ]
+    first = output.read_bytes()
+    runner.export_batch_commands(plan, config, output)
+    assert output.read_bytes() == first
+    with pytest.raises(CommandPlanError, match=r"\.txt"):
+        runner.export_batch_commands(plan, config, bat)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows command export requires native Windows paths")
+def test_export_without_solver_or_gpu_inspection(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    config = settings(tmp_path, executable=tmp_path / "TUFLOW_missing.exe")
+    monkeypatch.setattr(runner, "_gpu_startup_message", _unexpected_gpu_scan)
+    output = tmp_path / "runs.txt"
+    runner.export_batch_commands(runner.prepare_plan(config), config, output)
+    assert output.exists()
+
+
+def test_per_child_directory_argument_list_and_runtime_gpu_policy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bat = _make_import(tmp_path)
+    config = settings(
+        tmp_path,
+        mode="textfiles",
+        tcf=None,
+        input_files=(bat,),
+        gpu_devices=(("-pu2",), ("-pu3",)),
+    )
+    plan = runner.prepare_plan(config)
+    launched: list[tuple[list[str], str]] = []
+    snapshots: list[int] = []
+
+    def inspect() -> GpuOccupancySnapshot:
+        snapshots.append(1)
+        return GpuOccupancySnapshot((), (), False)
+
+    from ryan_library.functions.tuflow import gpu_occupancy
+
+    monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+
+    def popen(*, args: list[str], cwd: str, **_kwargs: object) -> FakeProcess:
+        launched.append((args, cwd))
+        return FakeProcess(len(launched), polls_before_exit=5 if len(launched) == 1 else 0)
+
+    outcome = runner.launch_plan(plan, config, popen=popen)
+    assert outcome.successful
+    assert len(launched) == 2
+    assert [cwd for _, cwd in launched] == [str(config.working_directory)] * 2
+    assert all(isinstance(args, list) and args[0] == str(config.executable) for args, _ in launched)
+    assert all(sum(arg.startswith("-pu") for arg in args) == 1 for args, _ in launched)
+    assert {arg for args, _ in launched for arg in args if arg.startswith("-pu")} == {"-pu2", "-pu3"}
+    assert len(snapshots) == 1
+
+
+def test_claimed_gpu_slots_are_reused_without_reinspection(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Once every GPU has launched a child, no further occupancy probe is useful."""
+    from ryan_library.functions.tuflow import gpu_occupancy
+
+    config = settings(
+        tmp_path,
+        run_variables={"e1": ("A", "B", "C", "D", "E")},
+        gpu_devices=(("-pu0",), ("-pu1",)),
+        wait_for_available_gpu=True,
+        gpu_check_interval_seconds=60.0,
+        use_live_dashboard=True,
+    )
+    plan = runner.prepare_plan(config)
+    displays = _capture_dashboards(monkeypatch)
+    checks = 0
+    launched: list[list[str]] = []
+
+    def inspect(*, exclude_pids: set[int]) -> GpuOccupancySnapshot:
+        nonlocal checks
+        checks += 1
+        assert checks == 1, "Batch-owned GPUs must not be re-inspected between runs"
+        assert exclude_pids == set()
+        return GpuOccupancySnapshot((), (), True, "Synthetic startup inspection uncertainty")
+
+    def popen(*, args: list[str], **_options: object) -> FakeProcess:
+        launched.append(args)
+        return FakeProcess(100 + len(launched), polls_before_exit=3)
+
+    monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
+    assert runner.launch_plan(plan, config, popen=popen).successful
+    assert len(launched) == 5
+    assert checks == 1
+    assert {"-pu0", "-pu1"} == {flag for args in launched for flag in args if flag.startswith("-pu")}
+    assert "GPU INSPECTION WARNING - CONTINUING" in caplog.text
+    # Initial uncertainty must not persist as a misleading warning after
+    # every GPU has been claimed by the batch.
+    dashboard_text = _render_dashboard(displays[0])
+    assert "GPU INSPECTION WARNING - CONTINUING" not in dashboard_text
+    assert "2/2 claimed" in dashboard_text
+
+
+def test_external_inspection_only_considers_never_claimed_gpu_slots(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from ryan_library.functions.tuflow import gpu_occupancy
+    from ryan_library.functions.tuflow.gpu_occupancy import TuflowGpuProcess
+
+    config = settings(
+        tmp_path,
+        run_variables={"e1": ("A", "B", "C", "D")},
+        gpu_devices=(("-pu0",), ("-pu1",)),
+        wait_for_available_gpu=True,
+        gpu_check_interval_seconds=0.001,
+    )
+    plan = runner.prepare_plan(config)
+    scanned: list[set[int]] = []
+    launched: list[list[str]] = []
+
+    def inspect(*, exclude_pids: set[int]) -> GpuOccupancySnapshot:
+        scanned.append(set(exclude_pids))
+        assert len(scanned) <= 3, "No scans after both GPUs are claimed"
+        if len(scanned) == 1:
+            # GPU 1 was occupied before the batch started.
+            return GpuOccupancySnapshot((TuflowGpuProcess(901, frozenset({1})),), ())
+        if len(scanned) == 2:
+            # A separate process now appears on GPU 0. The batch already
+            # claimed that GPU, so only the unclaimed GPU 1 matters.
+            return GpuOccupancySnapshot(
+                (TuflowGpuProcess(902, frozenset({0})), TuflowGpuProcess(901, frozenset({1}))),
+                (),
+            )
+        return GpuOccupancySnapshot((TuflowGpuProcess(902, frozenset({0})),), ())
+
+    def popen(*, args: list[str], **_options: object) -> FakeProcess:
+        launched.append(args)
+        return FakeProcess(100 + len(launched), polls_before_exit=3)
+
+    monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
+    monkeypatch.setattr(runner, "local_cuda_device_names", dict)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    assert runner.launch_plan(plan, config, popen=popen).successful
+    assert len(scanned) == 3
+    assert len(launched) == 4
+    assert "-pu0" in launched[0]
+    assert any("-pu1" in args for args in launched)
+
+
+def test_external_gpu_probe_ignores_claimed_slot_conflicts(monkeypatch: pytest.MonkeyPatch) -> None:
+    from ryan_library.functions.tuflow import gpu_occupancy
+    from ryan_library.functions.tuflow.gpu_occupancy import TuflowGpuProcess
+
+    checks = 0
+
+    def inspect(*, exclude_pids: set[int]) -> GpuOccupancySnapshot:
+        nonlocal checks
+        checks += 1
+        assert exclude_pids == set()
+        return GpuOccupancySnapshot(
+            (TuflowGpuProcess(100, frozenset({0})), TuflowGpuProcess(200, frozenset({1}))),
+            (300,),
+        )
+
+    monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
+    inspect_gpu_slots = cast(
+        Callable[..., runner.GpuAvailability],
+        getattr(runner, "_blocked_external_gpu_slots"),  # noqa: B009 - exercise targeted slot inspection
+    )
+    selected = inspect_gpu_slots((("-pu0",), ("-pu1",)), exclude_pids=set(), eligible_slots=frozenset({1}))
+    assert selected.blocked_slots == frozenset({1})
+    assert selected.issues
+    assert all(issue.slot_indexes == frozenset({1}) for issue in selected.issues)
+    empty = inspect_gpu_slots((("-pu0",), ("-pu1",)), exclude_pids=set(), eligible_slots=frozenset())
+    assert not empty.issues
+    assert not empty.blocked_slots
+    assert checks == 1
+
+
+def test_waits_until_selected_gpu_is_externally_free(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    from ryan_library.functions.tuflow import gpu_occupancy
+    from ryan_library.functions.tuflow.gpu_occupancy import TuflowGpuProcess
+
+    config = settings(
+        tmp_path,
+        run_variables={"e1": ["A"]},
+        gpu_devices=(("-pu0",),),
+        wait_for_available_gpu=True,
+        gpu_check_interval_seconds=0.01,
+    )
+    plan = runner.prepare_plan(config)
+    snapshots = [
+        GpuOccupancySnapshot((TuflowGpuProcess(999, frozenset({0})),), (), False),
+        GpuOccupancySnapshot((TuflowGpuProcess(999, frozenset({0})),), (), False),
+        GpuOccupancySnapshot((), (), False),
+    ]
+    checked: list[object] = []
+
+    def inspect(*, exclude_pids: object = ()) -> GpuOccupancySnapshot:
+        checked.append(exclude_pids)
+        return snapshots.pop(0) if snapshots else GpuOccupancySnapshot((), (), False)
+
+    def popen(*, args: list[str], **_options: object) -> FakeProcess:
+        assert len(checked) >= 3  # No launch on either occupied snapshot.
+        assert "-pu0" in args
+        return FakeProcess(123)
+
+    monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    outcome = runner.launch_plan(plan, config, popen=popen)
+    assert outcome.successful
+    assert len(checked) >= 3
+    errors = [record.message for record in caplog.records if record.levelname == "ERROR"]
+    assert len(errors) == 1
+    assert "GPU AVAILABILITY ERROR" in errors[0]
+    assert "external TUFLOW PID 999" in errors[0]
+    assert "ALL CONFIGURED GPU SLOTS BLOCKED" in errors[0]
+    assert "Next availability check in 0.01 seconds" in errors[0]
+    assert "restriction is unchanged" in caplog.text
+    assert "queued scheduling may resume" in caplog.text
+
+
+def test_busy_gpu_group_is_not_used_when_another_slot_is_free(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from ryan_library.functions.tuflow import gpu_occupancy
+    from ryan_library.functions.tuflow.gpu_occupancy import TuflowGpuProcess
+
+    config = settings(
+        tmp_path,
+        run_variables={"e1": ["A", "B", "C"]},
+        gpu_devices=(("-pu0", "-pu1"), ("-pu2",)),
+        wait_for_available_gpu=True,
+        gpu_check_interval_seconds=0.01,
+    )
+    plan = runner.prepare_plan(config)
+    checked: list[set[int]] = []
+    launched: list[list[str]] = []
+
+    def inspect(*, exclude_pids: set[int]) -> GpuOccupancySnapshot:
+        checked.append(set(exclude_pids))
+        return GpuOccupancySnapshot((TuflowGpuProcess(999, frozenset({1})),), (), False)
+
+    def popen(*, args: list[str], **_options: object) -> FakeProcess:
+        launched.append(args)
+        return FakeProcess(100 + len(launched))
+
+    monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    outcome = runner.launch_plan(plan, config, popen=popen)
+    assert outcome.successful
+    assert len(launched) == 3
+    assert checked
+    assert all("-pu2" in args and "-pu0" not in args and "-pu1" not in args for args in launched)
+
+
+@pytest.mark.parametrize("uncertainty", ["unknown", "incomplete", "error"])
+def test_gpu_guard_reports_uncertainty_without_blocking(monkeypatch: pytest.MonkeyPatch, uncertainty: str) -> None:
+    from ryan_library.functions.tuflow import gpu_occupancy
+
+    def inspect(*, exclude_pids: object = ()) -> GpuOccupancySnapshot:
+        del exclude_pids
+        if uncertainty == "error":
+            message = "Access denied"
+            raise OSError(message)
+        return GpuOccupancySnapshot((), (42,) if uncertainty == "unknown" else (), uncertainty == "incomplete")
+
+    monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
+    groups = (("-pu0",), ("-pu1",))
+    inspect_gpu_slots = cast(
+        Callable[..., runner.GpuAvailability],
+        getattr(runner, "_blocked_external_gpu_slots"),  # noqa: B009 - test a private scheduler policy
+    )
+    availability = inspect_gpu_slots(groups, exclude_pids=set())
+    assert availability.blocked_slots == frozenset()
+    assert availability.issues
+    expected_kind = {
+        "unknown": "unknown_assignment",
+        "incomplete": "inspection_incomplete",
+        "error": "query_failed",
+    }[uncertainty]
+    assert availability.issues[0].kind == expected_kind
+
+
+def test_gpu_dashboard_alert_distinguishes_occupied_capacity_and_unknown_status() -> None:
+    groups = (("-pu0",), ("-pu1",))
+    occupied = runner.GpuAvailability(
+        blocked_slots=frozenset({0}),
+        issues=(
+            runner.GpuAvailabilityIssue(
+                kind="occupied",
+                slot_indexes=frozenset({0}),
+                gpu_ids=frozenset({0}),
+                pids=(12345,),
+            ),
+        ),
+    )
+    alert = _gpu_alert(occupied, groups, interval_seconds=60, device_names={0: "RTX 3090", 1: "RTX 3080"})
+    assert alert is not None
+    assert "Excluded from scheduling: -pu0 (RTX 3090)" in alert.lines
+    assert alert.title == "GPU AVAILABILITY ERROR"
+    assert "TUFLOW -pu0: OCCUPIED - external TUFLOW PID 12345" in alert.lines
+    assert "Eligible GPU slot(s) may continue: -pu1 (RTX 3080)" in alert.lines
+
+    unknown = runner.GpuAvailability(
+        issues=(
+            runner.GpuAvailabilityIssue(
+                kind="query_failed",
+                slot_indexes=frozenset({0, 1}),
+                detail="Local TUFLOW process query failed: access denied",
+            ),
+        ),
+    )
+    alert = _gpu_alert(unknown, groups, interval_seconds=60)
+    assert alert is not None
+    assert alert.title == "GPU INSPECTION WARNING - CONTINUING"
+    assert alert.border_style == "yellow"
+    assert any("continuing without verified availability" in line for line in alert.lines)
+
+
+def test_external_gpu_wait_is_interruptible_without_launch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    from ryan_library.functions.tuflow import gpu_occupancy
+    from ryan_library.functions.tuflow.gpu_occupancy import TuflowGpuProcess
+
+    config = settings(tmp_path, gpu_devices=(("-pu0",),), wait_for_available_gpu=True)
+    plan = runner.prepare_plan(config)
+    stop = Event()
+
+    def inspect(*, exclude_pids: object = ()) -> GpuOccupancySnapshot:
+        del exclude_pids
+        stop.set()
+        return GpuOccupancySnapshot((TuflowGpuProcess(321, frozenset({0})),), (), False)
+
+    def popen(**_options: object) -> FakeProcess:
+        pytest.fail("The runner launched while a GPU was occupied or after interruption")
+
+    monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
+    outcome = runner.launch_plan(plan, config, interrupted=stop, popen=popen)
+    assert outcome.interrupted
+    assert not outcome.outcomes
+    assert "Next availability check in 60 seconds" in caplog.text
+    assert "Run 1: FAIL" not in caplog.text
+
+
+def test_one_minute_gpu_poll_wait_does_not_busy_wait_or_rescan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from ryan_library.functions.tuflow import gpu_occupancy
+    from ryan_library.functions.tuflow.gpu_occupancy import TuflowGpuProcess
+
+    config = settings(tmp_path, gpu_devices=(("-pu0",),), wait_for_available_gpu=True)
+    plan = runner.prepare_plan(config)
+    scans = 0
+
+    def inspect(*, exclude_pids: object = ()) -> GpuOccupancySnapshot:
+        nonlocal scans
+        del exclude_pids
+        scans += 1
+        return GpuOccupancySnapshot((TuflowGpuProcess(321, frozenset({0})),), (), False)
+
+    class CapturedStop:
+        def __init__(self) -> None:
+            self.timeouts: list[float] = []
+            self.stopped = False
+
+        def is_set(self) -> bool:
+            return self.stopped
+
+        def wait(self, timeout: float | None = None) -> bool:
+            assert timeout is not None
+            self.timeouts.append(timeout)
+            self.stopped = True
+            return True
+
+    stop = CapturedStop()
+    monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
+
+    def popen(**_options: object) -> FakeProcess:
+        pytest.fail("The runner launched instead of waiting for the configured GPU")
+
+    outcome = runner.launch_plan(plan, config, interrupted=cast(Event, stop), popen=popen)
+    assert outcome.interrupted
+    assert not outcome.outcomes
+    assert scans == 1
+    assert len(stop.timeouts) == 1
+    assert 59.0 <= stop.timeouts[0] <= 60.0
+
+
+def test_explicitly_disabled_gpu_wait_preserves_warning_only_launch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from ryan_library.functions.tuflow import gpu_occupancy
+
+    config = settings(tmp_path, gpu_devices=(("-pu0",),), wait_for_available_gpu=False)
+    plan = runner.prepare_plan(config)
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+
+    def inspect(*, exclude_pids: object = ()) -> GpuOccupancySnapshot:
+        del exclude_pids
+        pytest.fail("GPU scheduling inspection ran even though WAIT_FOR_AVAILABLE_GPU is False")
+
+    monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
+
+    def popen(**_options: object) -> FakeProcess:
+        return FakeProcess(123)
+
+    outcome = runner.launch_plan(plan, config, popen=popen)
+    assert outcome.successful
+
+
+@pytest.mark.parametrize(
+    ("gpu_devices", "expected_capacity"),
+    [((), 1), ((("-pu0",),), 1), ((("-pu0",), ("-pu1",)), 2), ((("-pu0", "-pu1"),), 1)],
+)
+def test_concurrency_is_one_process_per_gpu_group_or_one_automatic_slot(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    gpu_devices: tuple[tuple[str, ...], ...],
+    expected_capacity: int,
+) -> None:
+    config = settings(tmp_path, run_variables={"e1": ["A", "B", "C", "D"]}, gpu_devices=gpu_devices)
+    plan = runner.prepare_plan(config)
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    monkeypatch.setattr(runner.time, "sleep", _no_op)
+    processes: list[FakeProcess] = []
+    peak_active = 0
+
+    def popen(**_options: object) -> FakeProcess:
+        nonlocal peak_active
+        process = FakeProcess(len(processes) + 1, polls_before_exit=10)
+        processes.append(process)
+        peak_active = max(peak_active, sum(child.returncode is None for child in processes))
+        return process
+
+    outcome = runner.launch_plan(plan, config, popen=popen)
+    assert outcome.successful
+    assert len(processes) == 4
+    assert peak_active == expected_capacity
+
+
+def test_launch_failure_and_priority_failure_cannot_lose_scheduler_slot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = settings(tmp_path, gpu_devices=(("-pu0",),))
+    plan = runner.prepare_plan(config)
+    attempts: list[int] = []
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
+
+    def popen(**_options: object) -> FakeProcess:
+        attempts.append(len(attempts))
+        if len(attempts) == 1:
+            message = "fake launch failure"
+            raise FileNotFoundError(message)
+        return FakeProcess(321)
+
+    def failed_priority(*_args: object) -> None:
+        message = "fake priority denial"
+        raise PermissionError(message)
+
+    monkeypatch.setattr(runner, "_apply_priority", failed_priority)
+    outcome = runner.launch_plan(plan, config, popen=popen)
+    assert attempts == [0, 1]
+    assert len(outcome.outcomes) == 2
+    assert not outcome.successful
+    assert outcome.exit_code == 1
+    assert [item.return_code for item in outcome.outcomes] == [None, 0]
+    assert "fake launch failure" in str(outcome.outcomes[0].error)
+
+
+def test_out_of_order_completion_callback_precedes_ordered_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    config = settings(tmp_path, gpu_devices=(("-pu0",), ("-pu1",)), monitor_progress=True, use_live_dashboard=True)
+    plan = runner.prepare_plan(config)
+    displays = _capture_dashboards(monkeypatch)
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    mixed_frames: list[str] = []
+
+    class CapturedProcess(FakeProcess):
+        def poll(self) -> int | None:
+            dashboard = displays[0]
+            tasks = _dashboard_tasks(dashboard)
+            if tasks[1].status == "RUNNING" and tasks[2].status == "OK":
+                mixed_frames.append(_render_dashboard(dashboard))
+            return super().poll()
+
+    processes = iter((CapturedProcess(1, polls_before_exit=5), FakeProcess(2)))
+    observed: list[int] = []
+    began: list[int] = []
+    caplog.set_level(logging.INFO)
+
+    class CompletionProbe(ProgressProbe):
+        def finish(self, run_index: int, *, pid: int) -> ProgressUpdate | None:
+            super().finish(run_index, pid=pid)
+            return ProgressUpdate(
+                run_index=run_index,
+                pid=pid,
+                snapshot=LogProgressSnapshot(model_hours=float(run_index), state="live"),
+            )
+
+    probe = CompletionProbe(LogProgressSnapshot(state="live"))
+
+    def monitor(*, interval_seconds: float) -> ProgressProbe:
+        del interval_seconds
+        return probe
+
+    monkeypatch.setattr(runner, "AdvisoryRunProgress", monitor)
+
+    def popen(**_options: object) -> FakeProcess:
+        return next(processes)
+
+    def on_before_launch(run: PlannedRun) -> None:
+        began.append(run.index)
+
+    def on_observed_completion(record: runner.RunOutcome) -> None:
+        observed.append(record.run.index)
+
+    outcome = runner.launch_plan(
+        plan,
+        config,
+        popen=popen,
+        on_before_launch=on_before_launch,
+        on_observed_completion=on_observed_completion,
+    )
+    assert outcome.successful
+    assert began == [1, 2]
+    assert observed == [2, 1]
+    assert [record.run.index for record in outcome.outcomes] == [2, 1]
+    assert caplog.text.index("Run 1: OK") < caplog.text.index("Run 2: OK")
+    completion_messages = [record.message for record in caplog.records if ": OK (exit" in record.message]
+    assert completion_messages[0].endswith(" | Model 1.000 h")
+    assert completion_messages[1].endswith(" | Model 2.000 h")
+    assert mixed_frames
+    for frame in mixed_frames:
+        run_rows = [
+            tokens
+            for line in frame.splitlines()
+            if len(tokens := line.split()) > 2 and tokens[:2] == ["│", "│"] and tokens[2].isdigit()
+        ]
+        assert [row[2] for row in run_rows] == ["2", "1"]
+        assert "OK" in run_rows[0]
+        assert "RUNNING" in run_rows[1]
+
+
+@pytest.mark.parametrize("model_hours", [None, 3.0, float("nan"), float("inf")])
+def test_completion_timing_preserves_observed_runtime_and_unknown_model_clock(
+    tmp_path: Path, model_hours: float | None
+) -> None:
+    run = runner.prepare_plan(settings(tmp_path)).runs[0]
+    started = datetime(2026, 11, 6, 1, 0)
+    result = runner.RunOutcome(run, 0, started, started + timedelta(hours=27, minutes=2, seconds=43), 501)
+    progress = ProgressUpdate(run_index=run.index, pid=501, snapshot=LogProgressSnapshot(model_hours=model_hours))
+    timing = runner._completion_timing(result, progress)  # pyright: ignore[reportPrivateUsage] - test completion presentation
+    expected_model = "3.000 h" if model_hours == 3.0 else "--"
+    assert timing == f"Runtime 27:02:43 | Model {expected_model}"
+    assert runner._completion_timing(result, None) == "Runtime 27:02:43 | Model --"  # pyright: ignore[reportPrivateUsage]
+    failed = replace(result, pid=None, started_at=None, return_code=None, error="Launch failed")
+    assert runner._completion_timing(failed, None) == "Runtime -- | Model --"  # pyright: ignore[reportPrivateUsage]
+
+
+def test_interruption_terminates_owned_child_without_imaginary_success(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    config = settings(tmp_path)
+    plan = runner.prepare_plan(config)
+    stop = Event()
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    owned: list[FakeProcess] = []
+
+    def start(**_options: object) -> FakeProcess:
+        process = FakeProcess(1, polls_before_exit=999)
+        owned.append(process)
+        stop.set()
+        return process
+
+    outcome = runner.launch_plan(plan, config, interrupted=stop, popen=start)
+    assert outcome.interrupted
+    assert not outcome.successful
+    assert len(owned) == 1
+    assert owned[0].terminated
+    assert [record.return_code for record in outcome.outcomes] == [-15]
+
+
+def test_generated_tcf_requires_all_named_event_scenario_inputs(tmp_path: Path) -> None:
+    config = settings(
+        tmp_path,
+        tcf=Path("runs/model_~e1~_~s1~.tcf"),
+        run_variables={"e1": ["A"]},
+    )
+    with pytest.raises(CommandPlanError, match="s1"):
+        runner.prepare_plan(config)
+    plan = runner.prepare_plan(replace(config, run_variables={"e1": ["A"], "s1": ["EXG"], "e2": ["Extra"]}))
+    assert len(plan.runs) == 1
+    assert plan.runs[0].flags == {"e1": "A", "s1": "EXG", "e2": "Extra"}
+    # A missing physical TCF does not block command planning or export.
+    assert not (tmp_path / "runs/model_~e1~_~s1~.tcf").exists()
+
+
+def test_imported_tcf_requires_all_named_event_scenario_inputs(tmp_path: Path) -> None:
+    source = tmp_path / "runs.txt"
+    source.write_text("TUFLOW.exe -e1 A model_~e1~_~s1~.tcf\n", encoding="utf-8")
+    config = settings(tmp_path, mode="textfiles", tcf=None, input_files=(source,))
+    with pytest.raises(CommandPlanError, match="s1"):
+        runner.prepare_plan(config)
+    source.write_text("TUFLOW.exe -e1 A -s1 EXG model_~e1~_~s1~.tcf\n", encoding="utf-8")
+    plan = runner.prepare_plan(config)
+    assert len(plan.runs) == 1
+    assert plan.runs[0].flags == {"e1": "A", "s1": "EXG"}
+
+
+@pytest.mark.parametrize(
+    "tcf",
+    [
+        Path("runs/model_~e0~.tcf"),
+        Path("runs/model_~event~.tcf"),
+        Path("runs/model_~s1.tcf"),
+        Path("runs/model_~e1~.txt"),
+    ],
+)
+def test_bad_tcf_filename_placeholders_fail_with_actionable_errors(tmp_path: Path, tcf: Path) -> None:
+    with pytest.raises(CommandPlanError, match="TCF"):
+        runner.prepare_plan(settings(tmp_path, tcf=tcf))
+
+
+def test_blank_generated_flag_values_fail_instead_of_being_silently_skipped(tmp_path: Path) -> None:
+    with pytest.raises(CommandPlanError, match="RUN_VARIABLES_RAW"):
+        runner.prepare_plan(settings(tmp_path, run_variables={"e1": ""}))
+
+
+def test_empty_plan_and_invalid_settings_rejected(tmp_path: Path) -> None:
+    config = settings(tmp_path, mode="textfiles", input_files=())
+    with pytest.raises(CommandPlanError, match="Input BAT/text"):
+        runner.prepare_plan(config)
+    with pytest.raises(CommandPlanError, match="GPU group"):
+        runner.prepare_plan(settings(tmp_path, gpu_devices=(("-puA",),)))
+    with pytest.raises(CommandPlanError, match="GPU group"):
+        runner.prepare_plan(settings(tmp_path, gpu_devices=(("-pu0,1",),)))
+    with pytest.raises(CommandPlanError, match="Duplicate GPU"):
+        runner.prepare_plan(settings(tmp_path, gpu_devices=(("-pu0",), ("-pu00",))))
+    with pytest.raises(CommandPlanError, match="Duplicate GPU"):
+        runner.prepare_plan(settings(tmp_path, gpu_devices=(("-pu0", "-pu0"),)))
+    with pytest.raises(CommandPlanError, match="priority"):
+        runner.prepare_plan(settings(tmp_path, computational_priority="INVALID"))
+
+
+@pytest.mark.parametrize("batch", ["-b", "-b -t -nlc"])
+@pytest.mark.parametrize("complete_command", [False, True])
+def test_python_engine_switches_replace_imported_modes_before_identity(
+    tmp_path: Path, batch: str, complete_command: bool
+) -> None:
+    source = tmp_path / "input.txt"
+    prefix, suffix = ("TUFLOW.exe ", " model.tcf") if complete_command else ("", "")
+    source.write_text(f"{prefix}-t -x -nlc -pu7 -e1 A -et1{suffix}\n", encoding="utf-8")
+    config = settings(tmp_path, mode="textfiles", input_files=(source,), tcf=Path("model.tcf"), batch_commands=batch)
+    plan = runner.prepare_plan(config)
+    expected = (*batch.split(), "-e1", "A", "-et1", str(tmp_path / "model.tcf"))
+    assert plan.runs[0].arguments == expected
+    assert _command(plan.runs[0], config, ("-pu2",))[1:] == [*expected[:-1], "-pu2", expected[-1]]
+    identities = identify_runs(plan, fallback_executable=config.executable, base_directory=tmp_path)
+
+    # Source execution switches have no effect on a runner's logical identity.
+    source.write_text(f"{prefix}-b -pu9 -e1 A -et1{suffix}\n", encoding="utf-8")
+    replanned = runner.prepare_plan(config)
+    assert identify_runs(replanned, fallback_executable=config.executable, base_directory=tmp_path) == identities
+    changed = runner.prepare_plan(replace(config, batch_commands="-x"))
+    assert (
+        identify_runs(changed, fallback_executable=config.executable, base_directory=tmp_path)[1].key
+        != identities[1].key
+    )
+
+
+def test_export_uses_python_engine_switches_and_preserves_model_options(tmp_path: Path) -> None:
+    source = tmp_path / "source.txt"
+    source.write_text("TUFLOW.exe -t -pu7 -e1 A -et1 model.tcf\n", encoding="utf-8")
+    config = settings(tmp_path, mode="textfiles", input_files=(source,), tcf=None, batch_commands="-b -t -nlc -pu2")
+    plan = runner.prepare_plan(config)
+    output = runner.export_batch_commands(plan, config, tmp_path / "commands.TXT")
+    text = output.read_text(encoding="utf-8")
+    assert 'set "BCMD=-b -t -nlc -pu2"' in text
+    assert "-pu7" not in text
+    assert "-et1" in text
+    assert _command(plan.runs[0], config, ("-pu3",)) == [
+        str(config.executable),
+        "-b",
+        "-t",
+        "-nlc",
+        "-e1",
+        "A",
+        "-et1",
+        "-pu3",
+        str(tmp_path / "model.tcf"),
+    ]
+
+
+def test_imported_environment_variables_are_available(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    source = tmp_path / "environment.bat"
+    source.write_text('TUFLOW.exe -e1 "%RUN_EVENT%" "%MODEL_TCF%"\n', encoding="utf-8")
+    monkeypatch.setenv("RUN_EVENT", "A with spaces")
+    monkeypatch.setenv("MODEL_TCF", "model.tcf")
+    plan = runner.prepare_plan(settings(tmp_path, mode="textfiles", input_files=(source,), tcf=None))
+    assert plan.runs[0].flags == {"e1": "A with spaces"}
+    assert plan.runs[0].tcf == tmp_path / "model.tcf"
+
+
+@pytest.mark.parametrize("suffix", [".bat", ".CMD", ".csv"])
+def test_export_refuses_executable_or_unrelated_extensions(tmp_path: Path, suffix: str) -> None:
+    source = _make_import(tmp_path)
+    config = settings(tmp_path, mode="textfiles", input_files=(source,), tcf=None)
+    target = tmp_path / f"commands{suffix}"
+    with pytest.raises(CommandPlanError, match=r"\.txt"):
+        runner.export_batch_commands(runner.prepare_plan(config), config, target)
+    assert not target.exists()
+
+
+@pytest.mark.parametrize("kind", ["source", "wrapper", "history", "model", "executable"])
+def test_export_refuses_hardlink_aliases_of_protected_files(tmp_path: Path, kind: str) -> None:
+    source = _make_import(tmp_path)
+    config = settings(tmp_path, mode="textfiles", input_files=(source,), tcf=None)
+    plan = runner.prepare_plan(config)
+    protected = {
+        "source": source,
+        "wrapper": config.wrapper_file,
+        "history": config.wrapper_file.with_name(f"{config.wrapper_file.stem}_runs.csv"),
+        "model": Path(str(plan.runs[0].tcf)),
+        "executable": config.executable,
+    }[kind]
+    if not protected.exists():
+        protected.write_bytes(b"protected content\n")
+    previous = protected.read_bytes()
+    target = tmp_path / "commands.txt"
+    target.hardlink_to(protected)
+    with pytest.raises(CommandPlanError, match="Refusing to overwrite"):
+        runner.export_batch_commands(plan, config, target)
+    assert protected.read_bytes() == previous
+    assert target.samefile(protected)
+
+
+@pytest.mark.parametrize("parent_alias", [False, True])
+def test_export_refuses_symbolic_link_source_aliases(tmp_path: Path, parent_alias: bool) -> None:
+    original = _make_import(tmp_path)
+    source = tmp_path / "source.txt"
+    source.write_bytes(original.read_bytes())
+    config = settings(tmp_path, mode="textfiles", input_files=(source,), tcf=None)
+    plan = runner.prepare_plan(config)
+    link = tmp_path / ("directory_alias" if parent_alias else "commands.txt")
+    try:
+        link.symlink_to(tmp_path if parent_alias else source, target_is_directory=parent_alias)
+    except OSError as exc:
+        if os.name == "nt" and exc.winerror in {5, 1314}:
+            pytest.skip("Windows symlink creation requires an enabled privilege")
+        raise
+    target = link / source.name if parent_alias else link
+    previous = source.read_bytes()
+    with pytest.raises(CommandPlanError, match="Refusing to overwrite"):
+        runner.export_batch_commands(plan, config, target)
+    assert source.read_bytes() == previous
+
+
+@pytest.mark.parametrize("failure", ["fsync", "replace", "render"])
+def test_failed_export_preserves_previous_output_and_cleans_temporary_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str
+) -> None:
+    source = _make_import(tmp_path)
+    config = settings(tmp_path, mode="textfiles", input_files=(source,), tcf=None)
+    plan = runner.prepare_plan(config)
+    target = runner.export_batch_commands(plan, config, tmp_path / "commands.txt")
+    previous, files = target.read_bytes(), set(tmp_path.iterdir())
+
+    def fail(*_args: object, **_kwargs: object) -> None:
+        message = "Synthetic export failure"
+        raise OSError(message)
+
+    if failure == "fsync":
+        monkeypatch.setattr(runner.os, "fsync", fail)
+    elif failure == "replace":
+        monkeypatch.setattr(Path, "replace", fail)
+    else:
+        monkeypatch.setattr(runner, "parse_command_plan", fail)
+    with pytest.raises(OSError, match="Synthetic export failure"):
+        runner.export_batch_commands(plan, config, target)
+    assert target.read_bytes() == previous
+    assert set(tmp_path.iterdir()) == files
+
+
+def test_export_rechecks_destination_alias_before_atomic_replacement(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = _make_import(tmp_path)
+    config = settings(tmp_path, mode="textfiles", input_files=(source,), tcf=None)
+    plan = runner.prepare_plan(config)
+    target = tmp_path / "commands.txt"
+    original = source.read_bytes()
+    real_fsync = os.fsync
+
+    def redirect(_descriptor: int) -> None:
+        real_fsync(_descriptor)
+        target.hardlink_to(source)
+
+    monkeypatch.setattr(runner.os, "fsync", redirect)
+    with pytest.raises(CommandPlanError, match="Refusing to overwrite"):
+        runner.export_batch_commands(plan, config, target)
+    assert target.samefile(source)
+    assert source.read_bytes() == original
+    assert not tuple(tmp_path.glob(".*.tmp"))
+
+
+def test_plan_preview_lists_all_runs_and_effective_settings(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level("INFO")
+    config = settings(
+        tmp_path,
+        run_variables={"e1": [str(i) for i in range(1, 481)], "e2": ["00030m"]},
+        gpu_devices=(("-pu0",), ("-pu1",)),
+    )
+    plan = runner.prepare_plan(config)
+    output = caplog.text
+    assert "Runner settings:" in output
+    assert "  RUN_VARIABLES: {\n    'e1': [" in output
+    assert "\n    'e2': ['00030m'],\n  }\n  BATCH_COMMANDS:" in output
+    assert "GPU_DEVICES: (('-pu0',), ('-pu1',))" in output
+    assert "CONCURRENT_SLOTS: 2" in output
+    assert "WAIT_TIME_AFTER_RUN (seconds): 0" in output
+    assert "SHOW_PROGRESS_DIAGNOSTICS: True" in output
+    assert "Simulation plan: 480 unique runs" in output
+    assert "before Resume filtering; GPU slots assigned at launch" in output
+    rows = [record.message for record in caplog.records if record.message.startswith("Run ")]
+    assert len(rows) == len(plan.runs) == 480
+    assert "Run 001: -b -e1 1 -e2 00030m" in rows[0]
+    assert "Run 480: -b -e1 480 -e2 00030m" in rows[-1]
+    assert f"source {config.wrapper_file.name}" in rows[-1]
+    assert not list(tmp_path.glob("*_runs.csv"))
+
+
+@pytest.mark.parametrize(
+    ("gpu_devices", "gpu_text"),
+    [((), "Auto"), ((("-pu0",),), "-pu0"), ((("-pu0", "-pu1"),), "-pu0 -pu1")],
+)
+def test_shared_dashboard_shows_middle_active_run_and_original_resume_index(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    gpu_devices: tuple[tuple[str, ...], ...],
+    gpu_text: str,
+) -> None:
+    from collections.abc import Sequence
+
+    monkeypatch.setattr(runner, "local_cuda_device_names", lambda: {0: "RTX 3090", 1: "RTX 3080"})
+
+    config = settings(
+        tmp_path,
+        run_variables={"e1": [str(i) for i in range(1, 401)], "e2": ["00030m"], "s1": ["BigModel"]},
+        use_live_dashboard=True,
+        gpu_devices=gpu_devices,
+        batch_commands="-b -t -pu9",
+    )
+    full = runner.prepare_plan(config)
+    # A skipped run is the only source of s9; the last pending run alone has e3.
+    full = replace(
+        full,
+        runs=(
+            replace(
+                full.runs[0],
+                flag_pairs=(*full.runs[0].flag_pairs, ("s9", "Skipped")),
+                arguments=(*full.runs[0].arguments[:-1], "-s9", "Skipped", full.runs[0].arguments[-1]),
+            ),
+            *full.runs[1:-1],
+            replace(
+                full.runs[-1],
+                flag_pairs=(*full.runs[-1].flag_pairs, ("e3", "TP10")),
+                arguments=(*full.runs[-1].arguments[:-1], "-e3", "TP10", full.runs[-1].arguments[-1]),
+            ),
+        ),
+    )
+    plan = replace(full, runs=full.runs[100:])
+    rendered: list[str] = []
+    displays: list[live_dashboard.LiveWorkflowDashboard] = []
+    observed: list[int] = []
+    actual_type = live_dashboard.LiveWorkflowDashboard
+
+    def display(
+        *,
+        title: str,
+        subtitle: str,
+        refresh_per_second: float,
+        max_rows: int,
+        transient: bool,
+        columns: Sequence[live_dashboard.WorkflowColumn],
+        group_by: str,
+        group_label_key: str,
+        newest_first: bool,
+    ) -> live_dashboard.LiveWorkflowDashboard:
+        assert transient is False
+        assert max_rows == config.live_max_rows == 10
+        assert group_by == "tcf_key"
+        assert group_label_key == "tcf_label"
+        assert newest_first is True
+        assert [column.header for column in columns] == [
+            "Run",
+            "e1",
+            "e2",
+            "e3",
+            "s1",
+            "s9",
+            "Status",
+            "GPU",
+            "End (h)",
+            "Model (h)",
+            "%",
+            "Elapsed",
+            "Detail",
+        ]
+        result = actual_type(
+            title=title,
+            subtitle=subtitle,
+            refresh_per_second=refresh_per_second,
+            max_rows=max_rows,
+            transient=transient,
+            columns=columns,
+            enabled=False,
+            group_by=group_by,
+            group_label_key=group_label_key,
+            newest_first=newest_first,
+        )
+        result.console = Console(file=StringIO(), record=True, width=160, height=25, color_system=None)
+        displays.append(result)
+        return result
+
+    class CapturedProcess(FakeProcess):
+        def poll(self) -> int | None:
+            if self.pid == 250:
+                dashboard = displays[0]
+                render = cast(Callable[[], RenderableType], getattr(dashboard, "_render"))  # noqa: B009
+                dashboard.console.print(render())
+                rendered.append(dashboard.console.export_text())
+            return super().poll()
+
+    runs = iter(plan.runs)
+
+    def popen(**_options: object) -> FakeProcess:
+        return CapturedProcess(next(runs).index)
+
+    def finished(result: runner.RunOutcome) -> None:
+        observed.append(result.run.index)
+
+    monkeypatch.setattr(live_dashboard, "LiveWorkflowDashboard", display)
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    outcome = runner.launch_plan(plan, config, popen=popen, on_observed_completion=finished, proposed_plan=full)
+    assert outcome.successful
+    assert observed == list(range(101, 401))
+    assert len(displays) == 1
+    assert rendered
+    assert "250" in rendered[0]
+    assert "RUNNING" in rendered[0]
+    assert "e1" in rendered[0]
+    assert "e2" in rendered[0]
+    assert "s1" in rendered[0]
+    assert "250 00030m BigModel" in " ".join(rendered[0].split())
+    assert plan.runs[0].tcf.name in rendered[0]
+    assert gpu_text in rendered[0]
+    assert "RTX" not in rendered[0]
+    assert "Local CUDA device mapping for this launch environment: -pu0 (RTX 3090); -pu1 (RTX 3080)" in caplog.text
+    launch_messages = [
+        record.message for record in caplog.records if record.message.startswith("Run ") and " | PID " in record.message
+    ]
+    assert len(launch_messages) == len(plan.runs)
+    assert all(f"[{gpu_text}]" in message for message in launch_messages)
+    assert all("RTX" not in message for message in launch_messages)
+    assert "Batch: -b -t" in rendered[0]
+    assert "-pu9" not in rendered[0]
+    # The same selected values remain visible after a run finishes.
+    dashboard = displays[0]
+    render = cast(Callable[[], RenderableType], getattr(dashboard, "_render"))  # noqa: B009
+    dashboard.console.print(render())
+    completed = dashboard.console.export_text()
+    assert "400 00030m TP10 BigModel" in " ".join(completed.split())
+    assert "Skipped" not in completed
+    assert "OK" in completed
+    assert gpu_text in completed
+    assert "RTX" not in completed
+    assert "Batch: -b -t" in completed
+
+
+@pytest.mark.parametrize("invalid", [None, 0, 1, "False"])
+def test_progress_diagnostics_requires_an_explicit_boolean(tmp_path: Path, invalid: object) -> None:
+    with pytest.raises(CommandPlanError, match="SHOW_PROGRESS_DIAGNOSTICS must be True or False"):
+        runner.prepare_plan(settings(tmp_path, show_progress_diagnostics=invalid))
+
+
+@pytest.mark.parametrize("show_diagnostics", [True, False])
+@pytest.mark.parametrize(
+    ("phase", "label"),
+    [("initialising", "Initialising"), ("solving", "Solving"), ("writing_results", "Writing results")],
+)
+def test_progress_detail_keeps_phase_when_optional_diagnostics_are_disabled(
+    phase: str, label: str, show_diagnostics: bool
+) -> None:
+    snapshot = replace(
+        LogProgressSnapshot(state="live", timestep_seconds=0.674, final_mass_error_percent=-0.00000025),
+        phase=phase,
+    )
+    detail = cast(
+        Callable[..., str],
+        getattr(runner, "_progress_detail"),  # noqa: B009 - test the observational display adapter
+    )(ProgressUpdate(run_index=1, pid=501, snapshot=snapshot), stale_after=60.0, show_diagnostics=show_diagnostics)
+    assert detail.startswith(label)
+    assert "PID 501" in detail
+    if show_diagnostics:
+        assert "dt 0.674s / ME -2.5e-07%" in detail
+    else:
+        assert "dt " not in detail
+        assert "ME " not in detail
+    assert "ETA" not in detail
+
+
+@pytest.mark.parametrize(
+    ("timestep", "mass_error"),
+    [(0.0, float("nan")), (-1.0, float("inf")), (float("nan"), float("-inf")), (float("inf"), None), (None, None)],
+)
+def test_invalid_or_unknown_diagnostics_are_omitted(timestep: float | None, mass_error: float | None) -> None:
+    snapshot = LogProgressSnapshot(
+        state="live", phase="solving", timestep_seconds=timestep, final_mass_error_percent=mass_error
+    )
+    detail = cast(
+        Callable[..., str],
+        getattr(runner, "_progress_detail"),  # noqa: B009 - test the observational display adapter
+    )(ProgressUpdate(run_index=1, pid=501, snapshot=snapshot), stale_after=60.0)
+    assert detail == "Solving; PID 501"
+
+
+@pytest.mark.parametrize(
+    ("snapshot", "expected"),
+    [
+        (LogProgressSnapshot(state="waiting"), "waiting log"),
+        (LogProgressSnapshot(state="unverified"), "log unverified"),
+        (LogProgressSnapshot(state="unavailable"), "progress unavailable"),
+        (LogProgressSnapshot(state="live", last_log_update=100.0), "log 15m old"),
+    ],
+)
+def test_phase_diagnostics_do_not_hide_log_observation_limits(
+    monkeypatch: pytest.MonkeyPatch, snapshot: LogProgressSnapshot, expected: str
+) -> None:
+    monkeypatch.setattr(runner.time, "time", lambda: 1000.0)
+    detail = cast(
+        Callable[..., str],
+        getattr(runner, "_progress_detail"),  # noqa: B009 - test the observational display adapter
+    )(
+        ProgressUpdate(run_index=1, pid=501, snapshot=replace(snapshot, phase="solving", timestep_seconds=0.674)),
+        stale_after=60.0,
+    )
+    assert detail.startswith(f"Solving; {expected}")
+    assert "dt 0.674s" in detail
+
+
+def test_expected_initialisation_detail_is_not_a_log_warning() -> None:
+    snapshot = LogProgressSnapshot(state="live", phase="initialising", detail="Waiting for model-time output")
+    detail = cast(
+        Callable[..., str],
+        getattr(runner, "_progress_detail"),  # noqa: B009 - test the observational display adapter
+    )(ProgressUpdate(run_index=1, pid=501, snapshot=snapshot), stale_after=60.0)
+    assert detail == "Initialising; PID 501"
+
+
+@pytest.mark.parametrize("show_diagnostics", [True, False])
+@pytest.mark.parametrize("exit_code", [0, 7])
+def test_completion_consumes_pending_snapshot_after_callback_and_keeps_actual_exit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    show_diagnostics: bool,
+    exit_code: int,
+) -> None:
+    config = settings(
+        tmp_path,
+        run_variables={"e1": ["A"]},
+        use_live_dashboard=True,
+        monitor_progress=True,
+        show_progress_diagnostics=show_diagnostics,
+    )
+    plan = runner.prepare_plan(config)
+    displays = _capture_dashboards(monkeypatch)
+    probe = ProgressProbe(
+        LogProgressSnapshot(start_hours=0.0, end_hours=2.0, model_hours=0.5, state="live", phase="solving")
+    )
+    final_snapshot = replace(
+        probe.snapshot,
+        model_hours=2.0,
+        phase="writing_results",
+        timestep_seconds=0.674,
+        final_mass_error_percent=-0.00000025,
+    )
+    completed: list[runner.RunOutcome] = []
+
+    def monitor(*, interval_seconds: float) -> ProgressProbe:
+        del interval_seconds
+        return probe
+
+    class FinalSampleProcess(FakeProcess):
+        def poll(self) -> int | None:
+            code = super().poll()
+            if code is not None:
+                # Simulate the worker publishing between the main loop's last
+                # drain and its process-exit observation. No terminal file read.
+                probe.pending.append(
+                    ProgressUpdate(run_index=1, pid=self.pid, snapshot=final_snapshot, warning="cached log warning")
+                )
+            return code
+
+    def popen(**_options: object) -> FakeProcess:
+        return FinalSampleProcess(501, code=exit_code, polls_before_exit=2)
+
+    def observed(result: runner.RunOutcome) -> None:
+        assert not probe.finished
+        assert probe.pending
+        task = _dashboard_tasks(displays[0])[1]
+        assert task.status == "RUNNING"
+        assert task.detail.startswith("Solving")
+        completed.append(result)
+
+    monkeypatch.setattr(runner, "AdvisoryRunProgress", monitor)
+    outcome = runner.launch_plan(plan, config, popen=popen, on_observed_completion=observed)
+    assert outcome.successful is (exit_code == 0)
+    assert [result.return_code for result in completed] == [exit_code]
+    task = _dashboard_tasks(displays[0])[1]
+    assert task.status == ("OK" if exit_code == 0 else "FAIL")
+    assert task.detail.startswith(f"Exit {exit_code}; log warning")
+    assert task.metadata["progress"] == "100.0"
+    assert task.metadata["model_hours"] == "2.000"
+    if show_diagnostics:
+        assert "dt 0.674s / ME -2.5e-07%" in task.detail
+    else:
+        assert "dt " not in task.detail
+        assert "ME " not in task.detail
+    assert probe.finished == [(1, 501)]
+    assert not probe.pending
+    completion_messages = [record.message for record in caplog.records if record.message.startswith("Run 1:")]
+    assert len(completion_messages) == 1
+    assert f"(exit {exit_code})" in completion_messages[0]
+    assert " | Runtime " in completion_messages[0]
+    assert completion_messages[0].endswith(" | Model 2.000 h")
+    warnings = [record.message for record in caplog.records if "cached log warning" in record.message]
+    assert warnings == ["Run 1 log observation: cached log warning"]
+
+
+@pytest.mark.parametrize(("wrong_index", "wrong_pid"), [(2, 501), (1, 999)])
+def test_completion_rejects_another_invocations_pending_snapshot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, wrong_index: int, wrong_pid: int
+) -> None:
+    config = settings(tmp_path, run_variables={"e1": ["A"]}, use_live_dashboard=True, monitor_progress=True)
+    plan = runner.prepare_plan(config)
+    displays = _capture_dashboards(monkeypatch)
+    snapshot = LogProgressSnapshot(start_hours=0.0, end_hours=2.0, model_hours=0.5, state="live")
+
+    class WrongInvocationProbe(ProgressProbe):
+        def finish(self, run_index: int, *, pid: int) -> ProgressUpdate:
+            super().finish(run_index, pid=pid)
+            return ProgressUpdate(
+                run_index=wrong_index,
+                pid=wrong_pid,
+                snapshot=replace(snapshot, model_hours=2.0, final_mass_error_percent=999.0),
+            )
+
+    probe = WrongInvocationProbe(snapshot)
+
+    def monitor(*, interval_seconds: float) -> ProgressProbe:
+        del interval_seconds
+        return probe
+
+    def popen(**_options: object) -> FakeProcess:
+        return FakeProcess(501, polls_before_exit=1)
+
+    monkeypatch.setattr(runner, "AdvisoryRunProgress", monitor)
+    assert runner.launch_plan(plan, config, popen=popen).successful
+    task = _dashboard_tasks(displays[0])[1]
+    assert task.metadata["progress"] == "25.0"
+    assert task.detail == "Exit 0"
+
+
+@pytest.mark.parametrize(
+    ("start", "end", "model", "expected_percent", "exit_code"),
+    [(2.0, 6.0, 3.0, "25.0", 0), (-2.0, 2.0, -1.0, "25.0", 0), (0.0, 2.0, 2.0, "100.0", 7)],
+)
+def test_progress_observations_preserve_lifecycle_and_real_exit_outcome(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    start: float,
+    end: float,
+    model: float,
+    expected_percent: str,
+    exit_code: int,
+) -> None:
+    config = settings(
+        tmp_path,
+        run_variables={"e1": ["A"]},
+        use_live_dashboard=True,
+        monitor_progress=True,
+        progress_poll_interval_seconds=30.0,
+    )
+    plan = runner.prepare_plan(config)
+    displays = _capture_dashboards(monkeypatch)
+    phase = "writing_results" if model >= end else "solving"
+    probe = ProgressProbe(
+        LogProgressSnapshot(
+            start_hours=start,
+            end_hours=end,
+            model_hours=model,
+            state="live",
+            phase=phase,
+            timestep_seconds=0.674,
+            final_mass_error_percent=-0.25,
+        )
+    )
+
+    def monitor(*, interval_seconds: float) -> ProgressProbe:
+        assert interval_seconds == 30.0
+        return probe
+
+    monkeypatch.setattr(runner, "AdvisoryRunProgress", monitor)
+    original_started: datetime | None = None
+    observations: list[dict[str, str]] = []
+
+    class ObservedProcess(FakeProcess):
+        def poll(self) -> int | None:
+            nonlocal original_started
+            task = _dashboard_tasks(displays[0])[1]
+            if original_started is None:
+                original_started = task.started_time
+            if task.metadata["model_hours"] != "--":
+                assert task.status == "RUNNING"
+                assert task.started_time == original_started
+                assert task.finished_time is None
+                assert task.detail.startswith("Writing results" if phase == "writing_results" else "Solving")
+                assert "dt 0.674s / ME -0.25%" in task.detail
+                observations.append(task.metadata.copy())
+            return super().poll()
+
+    def popen(**_options: object) -> FakeProcess:
+        return ObservedProcess(501, code=exit_code, polls_before_exit=1)
+
+    completed: list[runner.RunOutcome] = []
+    outcome = runner.launch_plan(plan, config, popen=popen, on_observed_completion=completed.append)
+    assert outcome.successful is (exit_code == 0)
+    assert len(completed) == 1
+    assert completed[0].return_code == exit_code
+    assert observations
+    assert observations[-1]["model_hours"] == f"{model:.3f}"
+    assert observations[-1]["end_hours"] == f"{end:.3f}"
+    assert observations[-1]["progress"] == expected_percent
+    task = _dashboard_tasks(displays[0])[1]
+    assert task.status == ("OK" if exit_code == 0 else "FAIL")
+    assert task.started_time == original_started
+    assert task.detail == f"Exit {exit_code}; dt 0.674s / ME -0.25%"
+    assert task.metadata["progress"] == expected_percent
+    assert probe.started
+    assert probe.closed
+    assert [(run.index, pid) for run, pid, _started_at in probe.registered] == [(1, 501)]
+    assert probe.finished == [(1, 501)]
+    assert probe.discarded == []
+
+
+@pytest.mark.parametrize(("monitor_progress", "use_live_dashboard"), [(False, True), (True, False), (False, False)])
+def test_disabled_progress_or_dashboard_never_starts_monitor(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    monitor_progress: bool,
+    use_live_dashboard: bool,
+) -> None:
+    config = settings(
+        tmp_path,
+        run_variables={"e1": ["A"]},
+        use_live_dashboard=use_live_dashboard,
+        monitor_progress=monitor_progress,
+    )
+    plan = runner.prepare_plan(config)
+    _capture_dashboards(monkeypatch)
+
+    def forbidden_monitor(*, interval_seconds: float) -> ProgressProbe:
+        del interval_seconds
+        pytest.fail("Disabled monitoring created a progress worker")
+
+    def popen(**_options: object) -> FakeProcess:
+        return FakeProcess(501)
+
+    monkeypatch.setattr(runner, "AdvisoryRunProgress", forbidden_monitor)
+    assert runner.launch_plan(plan, config, popen=popen).successful
+
+
+@pytest.mark.parametrize("failure", ["construct", "start"])
+def test_monitor_initialization_failure_warns_and_still_runs(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    failure: str,
+) -> None:
+    config = settings(tmp_path, run_variables={"e1": ["A"]}, use_live_dashboard=True, monitor_progress=True)
+    plan = runner.prepare_plan(config)
+    _capture_dashboards(monkeypatch)
+    probe = ProgressProbe(LogProgressSnapshot())
+    message = "monitor unavailable"
+
+    def unavailable() -> None:
+        raise RuntimeError(message)
+
+    def monitor(*, interval_seconds: float) -> ProgressProbe:
+        del interval_seconds
+        if failure == "construct":
+            raise RuntimeError(message)
+        return probe
+
+    def popen(**_options: object) -> FakeProcess:
+        return FakeProcess(501)
+
+    monkeypatch.setattr(probe, "start", unavailable)
+    monkeypatch.setattr(runner, "AdvisoryRunProgress", monitor)
+    outcome = runner.launch_plan(plan, config, popen=popen)
+    assert outcome.successful
+    assert len(outcome.outcomes) == 1
+    assert "Run progress monitoring unavailable; continuing simulations: monitor unavailable" in caplog.text
+    assert probe.closed is (failure == "start")
+
+
+@pytest.mark.parametrize("failure", ["drain", "register", "finish", "close", "snapshot", "finish_snapshot"])
+def test_runtime_monitor_failure_never_terminates_children_or_loses_completion(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    failure: str,
+) -> None:
+    config = settings(tmp_path, use_live_dashboard=True, monitor_progress=True)
+    plan = runner.prepare_plan(config)
+    displays = _capture_dashboards(monkeypatch)
+    snapshot = LogProgressSnapshot(start_hours=0.0, end_hours=2.0, model_hours=0.5, state="live")
+    if failure == "snapshot":
+        # Deliberately violate the observer contract to prove an unexpected
+        # presentation-conversion error cannot terminate an owned solver.
+        snapshot = replace(snapshot, model_hours=cast(float, "malformed model time"))
+    probe = FailingProgressProbe(snapshot, failure=failure)
+
+    def monitor(*, interval_seconds: float) -> ProgressProbe:
+        assert interval_seconds == config.progress_poll_interval_seconds
+        return probe
+
+    monkeypatch.setattr(runner, "AdvisoryRunProgress", monitor)
+    children: list[FakeProcess] = []
+
+    def popen(**_options: object) -> FakeProcess:
+        child = FakeProcess(501 + len(children), polls_before_exit=2)
+        children.append(child)
+        return child
+
+    completed: list[runner.RunOutcome] = []
+    outcome = runner.launch_plan(plan, config, popen=popen, on_observed_completion=completed.append)
+    assert outcome.successful
+    assert len(children) == 2
+    assert all(not child.terminated for child in children)
+    assert [(result.run.index, result.return_code) for result in completed] == [(1, 0), (2, 0)]
+    assert [task.status for task in _dashboard_tasks(displays[0]).values()] == ["OK", "OK"]
+    warnings = [record.message for record in caplog.records if record.message.startswith("Run progress monitoring")]
+    assert len(warnings) == 1
+    if failure in {"finish", "finish_snapshot"}:
+        assert "recorded outcome unchanged" in warnings[0]
+    else:
+        assert "continuing simulations" in warnings[0]
+    assert probe.closed
+
+
+def test_monitor_discard_failure_does_not_replace_a_launch_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    config = settings(tmp_path, run_variables={"e1": ["A"]}, use_live_dashboard=True, monitor_progress=True)
+    plan = runner.prepare_plan(config)
+    displays = _capture_dashboards(monkeypatch)
+    probe = FailingProgressProbe(LogProgressSnapshot(), failure="discard")
+
+    def monitor(*, interval_seconds: float) -> ProgressProbe:
+        del interval_seconds
+        return probe
+
+    def popen(**_options: object) -> FakeProcess:
+        message = "solver executable unavailable"
+        raise OSError(message)
+
+    monkeypatch.setattr(runner, "AdvisoryRunProgress", monitor)
+    completed: list[runner.RunOutcome] = []
+    outcome = runner.launch_plan(plan, config, popen=popen, on_observed_completion=completed.append)
+    assert not outcome.successful
+    assert len(completed) == 1
+    assert completed[0].pid is None
+    assert completed[0].error == "Launch failed: solver executable unavailable"
+    task = _dashboard_tasks(displays[0])[1]
+    assert task.status == "FAIL"
+    assert task.detail == completed[0].error
+    assert task.metadata["gpu"] == "Not launched"
+    assert not probe.finished
+    assert "synthetic discard failure" in caplog.text
+
+
+def test_multiple_tcf_panels_preserve_launch_order_and_one_global_row_cap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    first = tmp_path / "project-b" / "model.tcf"
+    second = tmp_path / "project-a" / "model.tcf"
+    source = tmp_path / "runs.txt"
+    source.write_text(
+        f'TUFLOW.exe -e1 B "{first}"\nTUFLOW.exe -e1 A "{second}"\nTUFLOW.exe -e1 C "{first}"\n',
+        encoding="utf-8",
+    )
+    config = settings(
+        tmp_path,
+        mode="textfiles",
+        tcf=None,
+        input_files=(source,),
+        gpu_devices=(("-pu0",), ("-pu1",)),
+        use_live_dashboard=True,
+        live_max_rows=2,
+    )
+    plan = runner.prepare_plan(config)
+    displays = _capture_dashboards(monkeypatch)
+    launches: list[tuple[str, str]] = []
+    active_frames: list[str] = []
+
+    class CapturedProcess(FakeProcess):
+        def poll(self) -> int | None:
+            dashboard = displays[0]
+            tasks = _dashboard_tasks(dashboard)
+            if tasks[1].status == tasks[2].status == "RUNNING":
+                active_frames.append(_render_dashboard(dashboard))
+            return super().poll()
+
+    def popen(**options: object) -> FakeProcess:
+        args = cast(list[str], options["args"])
+        launches.append((args[-1], args[args.index("-e1") + 1]))
+        return CapturedProcess(len(launches) + 500, polls_before_exit=2)
+
+    outcome = runner.launch_plan(plan, config, popen=popen)
+    assert outcome.successful
+    assert launches == [(str(first), "B"), (str(second), "A"), (str(first), "C")]
+    assert active_frames
+    dashboard = displays[0]
+    assert dashboard.max_rows == 2
+    tasks = _dashboard_tasks(dashboard)
+    assert tasks[1].metadata["tcf_key"] == tasks[3].metadata["tcf_key"]
+    assert tasks[1].metadata["tcf_key"] != tasks[2].metadata["tcf_key"]
+    assert tasks[1].metadata["tcf_label"] == str(first.relative_to(tmp_path))
+    assert tasks[2].metadata["tcf_label"] == str(second.relative_to(tmp_path))
+    first_frame = active_frames[0]
+    assert first_frame.index(tasks[2].metadata["tcf_label"]) < first_frame.index(tasks[1].metadata["tcf_label"])
+    assert first_frame.count("RUNNING") == 2
+    assert first_frame.count("model.tcf") == 2
+    visible = cast(Callable[[], list[WorkflowTask]], getattr(dashboard, "_visible_tasks"))  # noqa: B009
+    assert [task.index for task in visible()] == [3, 2]
+
+
+@pytest.mark.parametrize("width", [100, 120])
+def test_narrow_grouped_runner_keeps_selected_active_rows_in_terminal_height(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, width: int
+) -> None:
+    source = tmp_path / "runs.txt"
+    arguments = "-e2 00720m -e3 Dummy -e4 NestedNL -e5 CCNear -s1 EXG -s2 Coondiner -s4 08M"
+    commands: list[str] = []
+    for index in range(1, 5):
+        model = "first.tcf" if index < 3 else "second.tcf"
+        commands.append(f'TUFLOW.exe -e1 0{index}.0p {arguments} "{tmp_path / model}"\n')
+    source.write_text("".join(commands), encoding="utf-8")
+    config = settings(
+        tmp_path,
+        mode="textfiles",
+        tcf=None,
+        input_files=(source,),
+        gpu_devices=(("-pu0",), ("-pu1",), ("-pu2",), ("-pu3",)),
+        use_live_dashboard=True,
+        monitor_progress=True,
+        live_max_rows=10,
+    )
+    plan = runner.prepare_plan(config)
+    displays = _capture_dashboards(monkeypatch, width=width, height=24)
+    probe = ProgressProbe(
+        LogProgressSnapshot(
+            start_hours=-2.0,
+            end_hours=2.0,
+            model_hours=1.5,
+            state="live",
+            phase="writing_results",
+            timestep_seconds=0.674,
+            final_mass_error_percent=-0.00000025,
+        )
+    )
+
+    def monitor(*, interval_seconds: float) -> ProgressProbe:
+        del interval_seconds
+        return probe
+
+    monkeypatch.setattr(runner, "AdvisoryRunProgress", monitor)
+    active_frames: list[str] = []
+    launched = 0
+
+    class CapturedProcess(FakeProcess):
+        def poll(self) -> int | None:
+            dashboard = displays[0]
+            tasks = _dashboard_tasks(dashboard)
+            if all(task.status == "RUNNING" and task.metadata["progress"] == "87.5" for task in tasks.values()):
+                assert all(task.detail.startswith("Writing results") for task in tasks.values())
+                assert all("ME -2.5e-07%" in task.detail for task in tasks.values())
+                active_frames.append(_render_dashboard(dashboard))
+            return super().poll()
+
+    def popen(**_options: object) -> FakeProcess:
+        nonlocal launched
+        launched += 1
+        return CapturedProcess(launched + 50330, polls_before_exit=10)
+
+    assert runner.launch_plan(plan, config, popen=popen).successful
+    assert active_frames
+    for frame in active_frames:
+        assert len(frame.splitlines()) <= 24
+        # Selection/detail fields may shorten, but row identity and status must
+        # remain readable and both panels must fit inside the live region.
+        assert frame.count("RUNNING") == 4
+        for gpu in ("-pu0", "-pu1", "-pu2", "-pu3"):
+            assert frame.count(gpu) == 1
+        run_rows = [line for line in frame.splitlines() if "RUNNING" in line]
+        assert [line.split()[2] for line in run_rows] == ["4", "3", "2", "1"]
+        assert frame.index("second.tcf") < frame.index("first.tcf")
+
+
+def test_imported_start_executable_and_directory_never_control_launch(tmp_path: Path) -> None:
+    source_cwd = tmp_path / "Source-Only"
+    source_cwd.mkdir()
+    batch = tmp_path / "source.bat"
+    batch.write_text(
+        f'START /D "{source_cwd}" /HIGH /WAIT "" "TUFLOW.exe" -t -pu7 -e1 A "{tmp_path / "model.tcf"}"\n',
+        encoding="utf-8",
+    )
+    config = settings(tmp_path, mode="textfiles", tcf=None, input_files=(batch,))
+    plan = runner.prepare_plan(config)
+    run = plan.runs[0]
+    assert run.executable == str(config.executable)
+    assert run.working_directory == tmp_path
+    assert run.arguments == ("-b", "-e1", "A", str(tmp_path / "model.tcf"))
+    assert _command(run, config, ("-pu2",))[0] == str(config.executable)
+    assert "-pu7" not in _command(run, config, ("-pu2",))
+
+
+def test_configured_solver_must_exist_for_actual_execution(tmp_path: Path) -> None:
+    config = settings(tmp_path, executable=tmp_path / "unavailable.exe")
+    plan = runner.prepare_plan(config)
+    with pytest.raises(CommandPlanError, match="Configured Python TUFLOW_EXE does not exist"):
+        runner.validate_launch_executable(plan, config)
+    config.executable.write_bytes(b"synthetic solver placeholder")
+    runner.validate_launch_executable(plan, config)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Native Windows subprocess lifecycle smoke")
+@pytest.mark.parametrize("child_exit_code", [0, 7])
+def test_windows_real_python_child_exit_and_callbacks(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, child_exit_code: int
+) -> None:
+    """Exercise the real OS/Popen path with harmless Python, never TUFLOW or BAT."""
+    base = tmp_path / "Model With Spaces"
+    base.mkdir()
+    config = settings(base, run_variables={"e1": ("A",)}, minimize_on_launch=False)
+    plan = runner.prepare_plan(config)
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+
+    expected = [str(config.executable), "-b", "-e1", "A", str(plan.runs[0].tcf)]
+    calls: list[tuple[list[str], str]] = []
+    started: list[int] = []
+    completed: list[runner.RunOutcome] = []
+    marker = base / "harmless-python-child.txt"
+    script = (
+        "from pathlib import Path; import sys; "
+        f"Path('harmless-python-child.txt').write_text('child ran', encoding='utf-8'); sys.exit({child_exit_code})"
+    )
+
+    def spawn(
+        *,
+        args: list[str],
+        cwd: str,
+        creationflags: int,
+        startupinfo: subprocess.STARTUPINFO | None,
+    ) -> subprocess.Popen[bytes]:
+        # Verify the runner's TUFLOW argv without executing it.
+        calls.append((args, cwd))
+        return subprocess.Popen(
+            [sys.executable, "-c", script],
+            cwd=cwd,
+            creationflags=creationflags,
+            startupinfo=startupinfo,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+    result = runner.launch_plan(
+        plan,
+        config,
+        popen=spawn,
+        on_before_launch=lambda run: started.append(run.index),
+        on_observed_completion=completed.append,
+    )
+    assert calls == [(expected, str(base))]
+    assert marker.read_text(encoding="utf-8") == "child ran"
+    assert started == [1]
+    assert len(completed) == len(result.outcomes) == 1
+    assert completed[0] is result.outcomes[0]
+    assert completed[0].pid is not None
+    assert completed[0].return_code == child_exit_code
+    assert result.successful is (child_exit_code == 0)
+    assert result.exit_code == (0 if child_exit_code == 0 else 1)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Native Windows subprocess lifecycle smoke")
+def test_windows_real_python_child_is_terminated_on_interrupt(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Reap a real sleeping Python child; record no unobserved success."""
+    config = settings(tmp_path, run_variables={"e1": ("A",)}, minimize_on_launch=False)
+    plan = runner.prepare_plan(config)
+    stop = Event()
+    processes: list[subprocess.Popen[bytes]] = []
+    monkeypatch.setattr(runner, "_gpu_startup_message", _no_op)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+
+    def spawn(
+        *,
+        args: list[str],
+        cwd: str,
+        creationflags: int,
+        startupinfo: subprocess.STARTUPINFO | None,
+    ) -> subprocess.Popen[bytes]:
+        assert args[0] == str(config.executable)
+        process = subprocess.Popen(
+            [sys.executable, "-c", "import time; time.sleep(30)"],
+            cwd=cwd,
+            creationflags=creationflags,
+            startupinfo=startupinfo,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        processes.append(process)
+        stop.set()
+        return process
+
+    try:
+        result = runner.launch_plan(plan, config, interrupted=stop, popen=spawn)
+        assert result.interrupted
+        assert result.exit_code == 1
+        assert len(processes) == len(result.outcomes) == 1
+        assert result.outcomes[0].pid == processes[0].pid
+        assert result.outcomes[0].return_code not in {None, 0}
+        assert processes[0].poll() is not None
+    finally:
+        for process in processes:
+            if process.poll() is None:
+                process.kill()
+            process.wait(timeout=5)
+
+
+@pytest.mark.parametrize("external_selection", ["0,1", "1,0", "unreadable"])
+def test_guard_checks_cuda_namespace_before_intersecting_ordinals(
+    monkeypatch: pytest.MonkeyPatch, external_selection: str
+) -> None:
+    from collections.abc import Iterator
+
+    from ryan_library.functions.tuflow import gpu_occupancy
+
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "1,0")
+    monkeypatch.delenv("CUDA_DEVICE_ORDER", raising=False)
+
+    monkeypatch.setattr(gpu_occupancy, "tuflow_licences_in_use", lambda: True)
+    monkeypatch.setattr(gpu_occupancy, "_bounded_gpu_inspection", _inline_gpu_inspection)
+
+    class ExternalProcess:
+        def __init__(self) -> None:
+            self.info: dict[str, object] = {
+                "pid": 99,
+                "name": "TUFLOW_iSP_w64.exe",
+                "cmdline": ["TUFLOW_iSP_w64.exe", "-pu1", "model.tcf"],
+            }
+
+        def cmdline(self) -> list[str]:
+            return ["TUFLOW_iSP_w64.exe", "-pu1", "model.tcf"]
+
+        def environ(self) -> dict[str, str]:
+            if external_selection == "unreadable":
+                raise gpu_occupancy.psutil.AccessDenied(pid=99)
+            return {"CUDA_VISIBLE_DEVICES": external_selection}
+
+    def fake_process_iter(**_kwargs: object) -> Iterator[ExternalProcess]:
+        return iter([ExternalProcess()])
+
+    monkeypatch.setattr(gpu_occupancy.psutil, "process_iter", fake_process_iter)
+    inspect_gpu_slots = cast(
+        Callable[..., runner.GpuAvailability],
+        getattr(runner, "_blocked_external_gpu_slots"),  # noqa: B009 - exercise the real occupancy integration
+    )
+    result = inspect_gpu_slots((("-pu0",), ("-pu1",)), exclude_pids=set())
+    if external_selection == "1,0":
+        assert result.blocked_slots == frozenset({1})
+        assert result.issues[0].kind == "occupied"
+    else:
+        # With opposite order, external -pu1 can physically be runner -pu0.
+        # Report uncertainty without blocking computation or claiming it is free.
+        assert result.blocked_slots == frozenset()
+        assert result.issues[0].kind == "unknown_assignment"
+        assert result.issues[0].pids == (99,)
+
+
+@pytest.mark.parametrize("failure", ["unknown", "incomplete", "query_failed", "names_failed", "mixed"])
+def test_optional_gpu_inspection_cannot_stall_computation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, failure: str
+) -> None:
+    from ryan_library.functions.tuflow import gpu_occupancy
+    from ryan_library.functions.tuflow.gpu_occupancy import TuflowGpuProcess
+
+    config = settings(tmp_path, gpu_devices=(("-pu0",), ("-pu1",)), wait_for_available_gpu=True)
+    plan = runner.prepare_plan(config)
+    launched: list[list[str]] = []
+
+    def inspect(*, exclude_pids: object = ()) -> GpuOccupancySnapshot:
+        del exclude_pids
+        if failure == "query_failed":
+            message = "inspection unavailable"
+            raise OSError(message)
+        return GpuOccupancySnapshot(
+            (TuflowGpuProcess(99, frozenset({0})),) if failure == "mixed" else (),
+            (77,) if failure in {"unknown", "mixed"} else (),
+            failure == "incomplete",
+        )
+
+    def names() -> dict[int, str]:
+        if failure == "names_failed":
+            message = "name discovery unavailable"
+            raise RuntimeError(message)
+        return {}
+
+    def popen(*, args: list[str], **_options: object) -> FakeProcess:
+        launched.append(args)
+        return FakeProcess(100 + len(launched))
+
+    monkeypatch.setattr(gpu_occupancy, "local_gpu_occupancy", inspect)
+    monkeypatch.setattr(runner, "local_cuda_device_names", names)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    outcome = runner.launch_plan(plan, config, popen=popen)
+    assert outcome.successful
+    assert len(launched) == len(plan.runs)
+    if failure == "mixed":
+        assert all("-pu1" in args and "-pu0" not in args for args in launched)
+        assert "inspection uncertain" in caplog.text
+    elif failure == "names_failed":
+        assert "GPU name inspection failed" in caplog.text
+    else:
+        assert "GPU INSPECTION WARNING - CONTINUING" in caplog.text
+
+
+@pytest.mark.parametrize("usage", [False, None])
+@pytest.mark.parametrize("guard", [False, True])
+def test_codemeter_idle_or_failure_ignores_parallel_process_scan(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    usage: bool | None,
+    guard: bool,
+) -> None:
+    from ryan_library.functions.tuflow import gpu_occupancy
+
+    config = settings(tmp_path, gpu_devices=(("-pu0",),), wait_for_available_gpu=guard)
+    plan = runner.prepare_plan(config)
+    launched: list[list[str]] = []
+
+    from ryan_library.functions.tuflow.gpu_occupancy import TuflowGpuProcess
+
+    def scan(_exclude_pids: object) -> GpuOccupancySnapshot:
+        # The parallel scan can observe a busy GPU. CodeMeter's idle/unknown
+        # status still prevents its result from blocking scheduling.
+        return GpuOccupancySnapshot((TuflowGpuProcess(999, frozenset({0})),), ())
+
+    def popen(*, args: list[str], **_options: object) -> FakeProcess:
+        launched.append(args)
+        return FakeProcess(100 + len(launched))
+
+    monkeypatch.setattr(gpu_occupancy, "tuflow_licences_in_use", lambda: usage)
+    monkeypatch.setattr(gpu_occupancy, "_bounded_gpu_inspection", _inline_gpu_inspection)
+    monkeypatch.setattr(gpu_occupancy, "_inspect_local_gpu_processes", scan)
+    monkeypatch.setattr(runner, "local_cuda_device_names", dict)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    assert runner.launch_plan(plan, config, popen=popen).successful
+    assert len(launched) == len(plan.runs)
+    if usage is None:
+        assert "CodeMeter usage is unavailable or unverified" in caplog.text
+        assert "http://127.0.0.1:22352" in caplog.text
+        assert "services.msc" in caplog.text
+        assert "CmWebAdmin.exe" in caplog.text
+        assert "Startup type to Automatic" in caplog.text
+    elif not guard:
+        assert "CodeMeter reports no TUFLOW licences in use" in caplog.text
+        assert "services.msc" not in caplog.text
+
+
+@pytest.mark.parametrize("guard", [False, True])
+def test_optional_check_timeout_still_launches_all_runs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, guard: bool
+) -> None:
+    from ryan_library.functions.tuflow import gpu_occupancy
+
+    config = settings(tmp_path, gpu_devices=(("-pu0",),), wait_for_available_gpu=guard)
+    plan = runner.prepare_plan(config)
+    launched: list[list[str]] = []
+
+    def timeout(*_args: object, **_kwargs: object) -> None:
+        command = "optional GPU worker"
+        raise subprocess.TimeoutExpired(command, 1.9)
+
+    def popen(*, args: list[str], **_options: object) -> FakeProcess:
+        launched.append(args)
+        return FakeProcess(100 + len(launched))
+
+    monkeypatch.setattr(gpu_occupancy.subprocess, "run", timeout)
+    monkeypatch.setattr(runner, "local_cuda_device_names", dict)
+    monkeypatch.setattr(runner, "_apply_priority", _no_op)
+    assert runner.launch_plan(plan, config, popen=popen).successful
+    assert len(launched) == len(plan.runs)
+    assert "exceeded the 2-second budget" in caplog.text

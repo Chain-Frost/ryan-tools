@@ -4,6 +4,12 @@ Use these snippets for small custom workflows and exploratory work. The maintain
 [`ryan-scripts/TUFLOW-python`](../../ryan-scripts/TUFLOW-python/README.md) are the preferred entry points for established
 reports because they already provide editable defaults, command-line options, logging, exports and exit handling.
 
+The [supported TUFLOW result contract](../../ryan_library/processors/tuflow/README.md#supported-run-identifiers-and-culvert-maximums)
+requires distinct simulations to have distinct full raw run codes; related `Q`/`V`/`H`/`Chan`/`EOF`
+companion files legitimately use the same raw code. For the example below, `TuflowStringParser` returns raw code
+`M11_01p_00120m_TP01`, AEP `01p`, duration `00120m`, TP `TP01` and trimmed ensemble key `M11`.
+These fields do not mean that independently reported Q/V/H maxima occurred simultaneously.
+
 ## Process one result
 
 `BaseProcessor.from_file()` selects the concrete processor from the configured filename suffix:

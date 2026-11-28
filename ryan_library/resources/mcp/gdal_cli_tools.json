@@ -1,17 +1,17 @@
 {
   "schema_version": "1.0",
   "catalogue": "Curated ryan-tools GDAL command-line wrappers",
-  "catalogue_updated": "2026-10-15",
+  "catalogue_updated": "2026-11-08",
   "selection_policy": "Stable, reusable workflows with recurring agent-facing value; basic and narrowly scoped wrappers remain available through normal script discovery.",
   "wrapper_versions": {
-    "gdal_translate_TIF_ovr.py": "2026-08-02.4",
-    "recompress_geotiffs.py": "2026-10-15.1",
-    "gdaladdo_tif_pyramids.py": "2026-08-02.4",
-    "gdal_raster_footprint.py": "2026-08-02.3",
-    "batch_vector_clip.py": "2026-08-20.1",
-    "gdal_stage_storage.py": "2026-08-20.2",
-    "gdalwarp_clip_to_polygon.py": "2026-08-20.1",
-    "split_vector_by_attribute.py": "2026-08-20.1"
+    "gdal_translate_TIF_ovr.py": "2026-11-07.2",
+    "recompress_geotiffs.py": "2026-11-07.1",
+    "gdaladdo_tif_pyramids.py": "2026-11-07.2",
+    "gdal_raster_footprint.py": "2026-11-07.1",
+    "batch_vector_clip.py": "2026-11-07.1",
+    "gdal_stage_storage.py": "2026-11-07.1",
+    "gdalwarp_clip_to_polygon.py": "2026-11-08.2",
+    "split_vector_by_attribute.py": "2026-11-07.1"
   },
   "repository_scripts_relative_to_root": "ryan-scripts/gdal-python",
   "agent_guidance": {
@@ -121,6 +121,7 @@
     },
     {
       "id": "build_external_overviews",
+      "keywords": ["pyramids"],
       "script": "gdaladdo_tif_pyramids.py",
       "purpose": "Create or refresh external overview sidecars for existing GeoTIFFs.",
       "mutation": "creates_or_replaces_sidecars",
@@ -204,7 +205,9 @@
       "id": "batch_vector_clip",
       "script": "batch_vector_clip.py",
       "purpose": "Clip multiple vector datasets to one or more extent datasets with bounded ogr2ogr workers.",
-      "mutation": "creates_outputs",
+      "mutation": "executes_external",
+      "requires_explicit_approval": true,
+      "external_program": "ogr2ogr",
       "defaults": {"workers": 4, "overwrite": false, "dry_run": false},
       "help_arguments": ["batch_vector_clip.py", "--help"]
     },
@@ -218,10 +221,11 @@
     },
     {
       "id": "clip_rasters_to_polygon",
+      "keywords": ["crop", "cropping"],
       "script": "gdalwarp_clip_to_polygon.py",
-      "purpose": "Clip TIFF rasters to an unambiguous vector cutline layer.",
+      "purpose": "Clip TIFF rasters using source CRS metadata, an independent target CRS and owned no-clobber staging. Preflight all batch destinations; overwrite is explicit.",
       "mutation": "creates_outputs",
-      "defaults": {"output_directory": "clipped"},
+      "defaults": {"output_directory": "clipped", "target_crs": "EPSG:28350", "source_crs": null, "overwrite": false, "dry_run": false},
       "help_arguments": ["gdalwarp_clip_to_polygon.py", "--help"]
     },
     {

@@ -1,6 +1,8 @@
 # ryan_library/functions/terrain_processing.py
 """Shared GeoTIFF-to-tabular terrain processing helpers."""
 
+from typing import TypeAlias
+
 __lazy_modules__ = ["numpy", "pandas", "rasterio"]
 
 from collections.abc import Callable, Sequence
@@ -12,20 +14,20 @@ from typing import Any, Protocol, cast
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
-import rasterio  # pyright: ignore[reportMissingTypeStubs]
+import rasterio
 from loguru import logger
 from tqdm import tqdm
 
 from .loguru_helpers import LogQueue, worker_initializer
 
-type NodataValue = int | float
-type NodataValues = NodataValue | Sequence[NodataValue] | None
-type TerrainTile = tuple[tuple[int, int], pd.DataFrame]
-type FullSaveFunction = Callable[[pd.DataFrame, Path, str], None]
-type TileSaveFunction = Callable[[pd.DataFrame, Path, str, int, int], None]
-type SaveFunction = FullSaveFunction | TileSaveFunction
-type TerrainTaskArguments = tuple[str, Path, NodataValues, float | None]
-type TerrainTask = tuple[TerrainTaskArguments, SaveFunction]
+NodataValue: TypeAlias = int | float
+NodataValues: TypeAlias = NodataValue | Sequence[NodataValue] | None
+TerrainTile: TypeAlias = tuple[tuple[int, int], pd.DataFrame]
+FullSaveFunction: TypeAlias = Callable[[pd.DataFrame, Path, str], None]
+TileSaveFunction: TypeAlias = Callable[[pd.DataFrame, Path, str, int, int], None]
+SaveFunction: TypeAlias = FullSaveFunction | TileSaveFunction
+TerrainTaskArguments: TypeAlias = tuple[str, Path, NodataValues, float | None]
+TerrainTask: TypeAlias = tuple[TerrainTaskArguments, SaveFunction]
 
 
 class RasterReader(Protocol):
@@ -40,7 +42,15 @@ class RasterReader(Protocol):
     ) -> tuple[Sequence[float], Sequence[float]]: ...
 
 
-type RasterContext = AbstractContextManager[RasterReader]
+class _MaskedRaster(Protocol):
+    """Float raster masking surface across supported NumPy typing releases."""
+
+    mask: npt.NDArray[np.bool_]
+
+    def compressed(self) -> npt.NDArray[np.float64]: ...
+
+
+RasterContext: TypeAlias = AbstractContextManager[RasterReader]
 
 
 def read_geotiff(filename: str | Path, nodata_values: NodataValues = None) -> pd.DataFrame:
@@ -49,7 +59,7 @@ def read_geotiff(filename: str | Path, nodata_values: NodataValues = None) -> pd
     try:
         open_raster = cast(
             "Callable[[str | Path], RasterContext]",
-            rasterio.open,  # pyright: ignore[reportUnknownMemberType]
+            rasterio.open,
         )
         with open_raster(filename) as f:
             source_band = f.read(1)
@@ -66,7 +76,8 @@ def read_geotiff(filename: str | Path, nodata_values: NodataValues = None) -> pd
             band: npt.NDArray[np.float64] = source_band.astype(np.float64)
             for value in normalized_nodata_values:
                 band = np.where(band == value, np.nan, band)
-            masked_band = np.ma.masked_invalid(band)
+            mask_invalid = cast("Callable[[npt.NDArray[np.float64]], _MaskedRaster]", getattr(np.ma, "masked_invalid"))  # noqa: B009 -- NumPy 2.3 stubs omit this public callable signature.
+            masked_band = mask_invalid(band)
 
             # Get coordinates
             row, col = np.where(~masked_band.mask)

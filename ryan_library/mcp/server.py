@@ -6,36 +6,72 @@ from __future__ import annotations
 import json
 import sys
 from collections import Counter
+from collections.abc import Iterable
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-from typing import Any, cast
+from typing import Annotated, Any, Protocol, cast
 
 from pandas import DataFrame, to_numeric
 
 try:
     from mcp.server import MCPServer
+    from pydantic import Strict
 except ImportError:
-    MCPServer = None  # type: ignore[assignment, misc]
+    MCPServer = None
+    _overview_validation = None
+else:
+    # The optional MCP SDK supplies Pydantic. Reject coercion before the tool runs,
+    # while keeping direct Python helpers usable without the MCP extra.
+    _overview_validation = Strict()
 
 from ..classes.tuflow_string_classes import TuflowStringParser
+from ..functions.tuflow.tuflow_common import _result_status  # pyright: ignore[reportPrivateUsage]
 from ..processors.tuflow.base_processor import BaseProcessor
 from ..processors.tuflow.processor_collection import ProcessorCollection
 from .registry import WorkflowRegistry, WorkflowRegistryError
+from .rorb import RORB_GUIDANCE_URI, inspect_rorb_file, rorb_reader_guidance_resource
 
 REGISTRY = WorkflowRegistry()
 MAX_SAMPLE_ROWS = 20
 MAX_COLLECTION_FILES = 50
+DEFAULT_WORKFLOW_LIMIT = 10
+MAX_WORKFLOW_LIMIT = 25
 TUFLOW_PROCESSOR_GUIDANCE_URI = "ryan-tools://guidance/tuflow-processors"
+
+
+# Rasterio's Cython dataset metadata is incompletely visible to strict Pyright.
+class _RasterBounds(Protocol):
+    left: float
+    bottom: float
+    right: float
+    top: float
+
+
+class _RasterMetadata(Protocol):
+    driver: str
+    width: int
+    height: int
+    count: int
+    dtypes: tuple[str, ...]
+    crs: object
+    res: tuple[float, float]
+    transform: Iterable[float]
+    bounds: _RasterBounds
+    nodata: float | int | None
+
 
 if MCPServer is not None:
     mcp = MCPServer(
         "ryan-tools",
         instructions=(
-            "Use list_workflows to discover enabled ryan-tools CLI workflows, then call get_workflow for the selected "
-            "id. Review its help_command, mutation metadata, paths, and approval requirement before running the returned "
+            "When the domain is unclear, start with list_workflows(overview=True) for compact domain counts and up to "
+            "three examples each; otherwise search directly. Use list_workflows(domain='gdal', query='crop') to narrow "
+            "results and follow next_offset for more pages. Call get_workflow('clip_rasters_to_polygon') for selected "
+            "details. Review help_command, mutation metadata, paths, and approval requirement before running the "
             "CLI command through the client shell. Use inspect_tuflow_result or inspect_tuflow_collection for bounded, "
             "read-only result queries, and consult the TUFLOW processor guidance resource for advanced Python analysis. "
-            "This MCP server discovers scripts; it does not execute them."
+            "Use inspect_rorb_file for read-only RORB sections and diagnostics; consult the RORB reader guidance "
+            "resource for partial-format limits. This MCP server discovers scripts; it does not execute them."
         ),
     )
 else:
@@ -152,6 +188,10 @@ def _processor_summary(
         "dataformat": processor.dataformat,
         "raw_run_code": processor.name_parser.raw_run_code,
         "processed": processor.processed,
+        "workflow_status": _result_status(processor),
+        "input_health": processor.input_health,
+        "rejected_samples": processor.rejected_samples,
+        "rejection_reasons": dict(processor.rejection_reasons),
         "applied_entity_filter": sorted(processor.applied_entity_filter or ()),
         **_dataframe_summary(processor.df, sample_rows=sample_rows),
     }
@@ -291,7 +331,8 @@ def inspect_raster_metadata(raster_path: str) -> dict[str, Any]:
     try:
         import rasterio
 
-        with rasterio.open(path) as source:
+        with rasterio.open(path) as dataset:
+            source = cast("_RasterMetadata", dataset)
             return {
                 "file_name": path.name,
                 "driver": source.driver,
@@ -318,16 +359,49 @@ def list_workflows(
     domain: str | None = None,
     profile: str | None = None,
     include_unavailable: bool = False,
+    query: str | None = None,
+    limit: int = DEFAULT_WORKFLOW_LIMIT,
+    offset: int = 0,
+    overview: Annotated[bool, _overview_validation] = False,
 ) -> dict[str, Any]:
-    """List CLI workflows enabled by the configured MCP profile; optionally filter by domain or lower profile."""
+    """List workflows or domain overview (up to three examples/domain); paginate the selected rows."""
+    if type(limit) is not int or not 1 <= limit <= MAX_WORKFLOW_LIMIT:
+        return {"error": f"limit must be an integer between 1 and {MAX_WORKFLOW_LIMIT}."}
+    if type(offset) is not int or offset < 0:
+        return {"error": "offset must be a nonnegative integer."}
+    if type(overview) is not bool:
+        return {"error": "overview must be a boolean."}
     try:
-        return REGISTRY.list_workflows(
+        listing = REGISTRY.list_workflows(
             domain=domain,
+            query=query,
             maximum_profile=profile,
             include_unavailable=include_unavailable,
+            overview=overview,
         )
     except WorkflowRegistryError as error:
         return {"error": str(error)}
+    page_field = "domain_overview" if overview else "workflows"
+    matches: list[dict[str, Any]] = listing[page_field]
+    page = matches[offset : offset + limit]
+    next_offset = offset + len(page)
+    has_more = next_offset < len(matches)
+    listing.update(
+        {
+            page_field: page,
+            "returned_count": len(page),
+            "limit": limit,
+            "offset": offset,
+            "has_more": has_more,
+            "next_offset": next_offset if has_more else None,
+            "next_step": (
+                "Narrow query/domain, follow next_offset, or call get_workflow with a returned id."
+                if not overview
+                else "Narrow to a domain or query, follow next_offset for more domains, then call get_workflow."
+            ),
+        }
+    )
+    return listing
 
 
 def get_workflow(workflow_id: str) -> dict[str, Any]:
@@ -343,17 +417,27 @@ def check_repo_health() -> dict[str, Any]:
     return {
         "python_version": sys.version,
         "python_executable": sys.executable,
-        "ryan_library_version": _distribution_version("ryan_functions"),
+        "ryan_library_version": _distribution_version("ryan-tools"),
         "mcp_sdk_version": _distribution_version("mcp"),
         "package_directory": str(package_directory),
         "root_directory": str(package_directory),
         "repository_root": str(REGISTRY.repository_root) if REGISTRY.repository_root else None,
+        "scripts_directory": str(REGISTRY.scripts_directory) if REGISTRY.scripts_directory else None,
         "configured_profile": REGISTRY.configured_profile.value,
         "catalogue_schema_version": REGISTRY.schema_version,
         "catalogue_updated": REGISTRY.catalogue_updated,
         "workflow_count_total": REGISTRY.total_workflow_count,
         "workflow_count_visible": visible["workflow_count"],
         "workflow_count_available": available["workflow_count"],
+        "workflow_availability_scope": "entry_point_only",
+        "external_prerequisite_validation": "not_performed",
+        "active_script_source": (
+            "repository_checkout"
+            if REGISTRY.repository_root is not None
+            else "installed_distribution"
+            if REGISTRY.scripts_directory is not None
+            else "unavailable"
+        ),
         "warnings": list(REGISTRY.warnings),
     }
 
@@ -423,6 +507,7 @@ if mcp is not None:
     mcp.tool()(inspect_tuflow_result)
     mcp.tool()(inspect_tuflow_collection)
     mcp.tool()(inspect_raster_metadata)
+    mcp.tool()(inspect_rorb_file)
     mcp.tool()(check_repo_health)
     mcp.tool()(list_workflows)
     mcp.tool()(get_workflow)
@@ -438,6 +523,13 @@ if mcp is not None:
         description="Supported MCP queries and Python extension points for TUFLOW processors and collections.",
         mime_type="application/json",
     )(tuflow_processor_guidance_resource)
+
+    mcp.resource(
+        RORB_GUIDANCE_URI,
+        name="rorb_reader_guidance",
+        description="RORB read-only inspection, format limits, diagnostics and Python APIs.",
+        mime_type="application/json",
+    )(rorb_reader_guidance_resource)
 
 
 def main() -> None:

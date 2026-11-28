@@ -26,3 +26,6 @@ empty/
 fort.902
 **/ss/
 *.bak
+*.zip
+*.7z
+__pycache__/

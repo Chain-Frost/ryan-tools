@@ -21,7 +21,7 @@ from typing import Literal
 from ryan_library.classes.tuflow_string_classes import TuflowStringParser
 from ryan_library.functions.tuflow.tuflow_result_naming import validate_output_filename
 
-type TerminalZeroPolicy = Literal["auto", "keep", "drop"]
+TerminalZeroPolicy = Literal["auto", "keep", "drop"]
 
 MAX_RORB_INCREMENTS = 2000
 DEFAULT_RUN_INCREMENTS = 200  # RORBwin 6.52 default; may be too short for long routing tails.

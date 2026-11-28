@@ -88,7 +88,9 @@ def test_calculate_threshold_durations_missing_location() -> None:
 def test_calculate_threshold_durations_no_timestep() -> None:
     df = pd.DataFrame({"Type": ["Flow", "Flow"], "Time": [0, 0], "Value": [10, 20], "Location": ["Loc1", "Loc1"]})
     res = cdf.calculate_threshold_durations(df, [5], "Flow")
-    assert res.empty
+    assert len(res) == 1
+    assert res.iloc[0]["Event_Status"] == "UNUSABLE"
+    assert pd.isna(res.iloc[0]["Duration_Exceeding"])
 
 
 def test_summarise_results() -> None:

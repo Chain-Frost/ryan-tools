@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-16.1"
+WRAPPER_VERSION = "2026-11-07.1"
 DEFAULT_INPUT_DIRECTORY = Path()
 DEFAULT_PATTERNS = ["*.tif"]
 DEFAULT_RECURSIVE = False
@@ -76,8 +76,8 @@ def convert_raster(
         if not temporary_path.is_file():
             logger.error("gdal2xyz reported success without creating {}", temporary_path)
             return False
-        if overwrite:
-            output_path.unlink(missing_ok=True)
+        # Path.replace uses os.replace: keep the existing destination intact
+        # until the staged file can be promoted in a single filesystem operation.
         temporary_path.replace(output_path)
         logger.success("Created {}", output_path)
         return True
@@ -111,7 +111,9 @@ def main(args: argparse.Namespace) -> int:
     target_directory = Path(args.working_directory).absolute() if args.working_directory else input_directory
     if not change_working_directory(target_dir=target_directory):
         return 1
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="gdal-python/gdal_raster_to_xyz.py", wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION
+    )
 
     if not input_directory.is_dir():
         logger.error("Input directory does not exist: {}", input_directory)
@@ -174,7 +176,12 @@ if __name__ == "__main__":
         except Exception:
             logger.exception("Wrapper failed.")
             result = 1
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+    print_wrapper_banner(
+        wrapper_source="gdal-python/gdal_raster_to_xyz.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        leading_blank_line=True,
+    )
     if not cli_args.no_pause:
         pause_console()
     raise SystemExit(result)

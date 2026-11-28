@@ -72,9 +72,9 @@ class CleanSummary:
     doc_level_ocproperties_removed: bool = False
     protected_cover_page_removed: bool = False
     decrypt_status: str = "not encrypted"
-    warnings: list[str] = field(default_factory=list)
-    errors: list[str] = field(default_factory=list)
-    page_notes: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list[str])
+    errors: list[str] = field(default_factory=list[str])
+    page_notes: list[str] = field(default_factory=list[str])
 
 
 def _writer_add_object(writer: PdfWriter, obj: Any) -> Any:

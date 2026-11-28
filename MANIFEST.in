@@ -1,0 +1,2 @@
+recursive-include ryan-scripts *.py *.md *.bat *.ps1 *.gms *.xces
+global-exclude *.pyc *.pyo

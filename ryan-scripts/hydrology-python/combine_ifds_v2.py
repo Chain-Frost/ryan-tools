@@ -84,10 +84,10 @@ lookup_data: list[dict[str, str | float] | dict[str, str | float | int]] = [
 ]
 
 # Convert lookup_data to a DataFrame for easy merging
-lookup_df = pd.DataFrame(lookup_data)
+lookup_df: pd.DataFrame = pd.DataFrame(lookup_data)
 
 # Optional: If there are duplicate 'raw' entries, ensure uniqueness
-lookup_df: pd.DataFrame = lookup_df.drop_duplicates(subset=["raw"])
+lookup_df = lookup_df.drop_duplicates(subset=["raw"])
 
 
 def process_coordinate(coord: str, coord_type: str) -> float:

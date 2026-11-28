@@ -1,7 +1,9 @@
+import shutil
 import sys
 from pathlib import Path
 
 import pandas as pd
+import pytest
 from pandas import DataFrame
 
 sys.path.insert(0, str(Path(__file__).absolute().parents[2]))
@@ -14,6 +16,17 @@ from ryan_library.functions.tuflow.pomm_utils import (
 from ryan_library.orchestrators.tuflow.pomm_max_items import export_mean_peak_report, export_median_peak_report
 
 DATA_DIR: Path = Path(__file__).absolute().parent.parent / "test_data" / "tuflow" / "tutorials"
+
+
+@pytest.fixture
+def report_directory(tmp_path: Path) -> Path:
+    """Give each interpreter/test its own mutable report directory."""
+    source = DATA_DIR / "Module_01" / "results"
+    target = tmp_path / "results"
+    target.mkdir()
+    for path in source.glob("*_POMM.csv"):
+        shutil.copy2(path, target / path.name)
+    return target
 
 
 def test_aggregated_from_paths_module01() -> None:
@@ -48,8 +61,8 @@ def test_find_aep_dur_median_and_max() -> None:
     assert row_a["duration_text"] == "D2"
 
 
-def test_run_median_peak_report_creates_excel() -> None:
-    src_dir: Path = DATA_DIR / "Module_01" / "results"
+def test_run_median_peak_report_creates_excel(report_directory: Path) -> None:
+    src_dir = report_directory
     export_median_peak_report(script_directory=src_dir, log_level="INFO")
     excel_files: list[Path] = list(src_dir.glob("*_med_peaks.xlsx"))
     assert excel_files
@@ -70,8 +83,8 @@ def test_run_median_peak_report_creates_excel() -> None:
             pass  # Best effort cleanup
 
 
-def test_run_median_peak_report_skips_pomm_sheet_when_disabled() -> None:
-    src_dir: Path = DATA_DIR / "Module_01" / "results"
+def test_run_median_peak_report_skips_pomm_sheet_when_disabled(report_directory: Path) -> None:
+    src_dir = report_directory
     export_median_peak_report(script_directory=src_dir, log_level="INFO", include_pomm=False)
     excel_files: list[Path] = list(src_dir.glob("*_med_peaks.xlsx"))
     assert excel_files
@@ -85,8 +98,8 @@ def test_run_median_peak_report_skips_pomm_sheet_when_disabled() -> None:
             pass
 
 
-def test_run_mean_peak_report_creates_excel_with_mean_only_columns() -> None:
-    src_dir: Path = DATA_DIR / "Module_01" / "results"
+def test_run_mean_peak_report_creates_excel_with_mean_only_columns(report_directory: Path) -> None:
+    src_dir = report_directory
     export_mean_peak_report(script_directory=src_dir, log_level="INFO")
     excel_files: list[Path] = list(src_dir.glob("*_mean_peaks.xlsx"))
     assert excel_files

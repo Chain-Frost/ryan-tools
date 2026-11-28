@@ -4,8 +4,8 @@ TUFLOW-specific culvert ingestion and batch orchestration are owned by `ryan-too
 Hydraulic calculations are delegated to one of two independent engines:
 
 - `hy8` uses the public `run_hy8` package and the external HY-8 executable.
-- `ryan-culverts` uses the public `culvert_solver` API vendored from
-  `ryan-culverts` and does not require HY-8.
+- `ryan-culverts` uses the public `culvert_solver` API installed from
+  the independent `ryan-culverts` PyPI distribution and does not require HY-8.
 
 This replaces the TUFLOW-specific computation demos formerly kept in `run-hy8`.
 Generic HY-8 examples remain upstream.
@@ -13,10 +13,10 @@ Generic HY-8 examples remain upstream.
 ## Maximums workbook
 
 ```powershell
-python ryan-scripts/tuflow/tuflow_culvert_from_maximums.py maximums.xlsx --engine ryan-culverts
-python ryan-scripts/tuflow/tuflow_culvert_from_maximums.py maximums.xlsx --engine hy8 --hy8-exe C:\Path\HY864.exe
-python ryan-scripts/tuflow/tuflow_culvert_from_maximums.py maximums.xlsx --culvert-attributes culvert-attributes.csv --engine hy8
-python ryan-scripts/tuflow/tuflow_culvert_from_maximums.py maximums.xlsx --culvert-attributes model.gpkg --attributes-layer 1d_nwk --engine ryan-culverts
+python ryan-scripts/TUFLOW-python/culvert_results/tuflow_culvert_from_maximums.py maximums.xlsx --engine ryan-culverts
+python ryan-scripts/TUFLOW-python/culvert_results/tuflow_culvert_from_maximums.py maximums.xlsx --engine hy8 --hy8-exe C:\Path\HY864.exe
+python ryan-scripts/TUFLOW-python/culvert_results/tuflow_culvert_from_maximums.py maximums.xlsx --culvert-attributes culvert-attributes.csv --engine hy8
+python ryan-scripts/TUFLOW-python/culvert_results/tuflow_culvert_from_maximums.py maximums.xlsx --culvert-attributes model.gpkg --attributes-layer 1d_nwk --engine ryan-culverts
 ```
 
 The workflow retains the useful scenarios from the former
@@ -35,6 +35,14 @@ contain the actual culvert length, upstream/downstream inverts and a positive
 Manning roughness; the maintained wrapper does not invent fallback geometry or
 roughness when these merged source attributes are missing.
 
+The Maximums input contains **independent** peak discharge, velocity and upstream/downstream water levels.
+Their extrema may occur at different timesteps even within the selected governing simulation. In particular,
+`Q`, `V`, `US_h` and `DS_h` are not one concurrent hydraulic observation; the chosen
+`internalName` records the adopted simulation, not a common timestamp. Do not interpret a row containing these
+fields as a coincident flow/depth/velocity state. The report conventions, supported `.1`/`.2` end nodes
+and full-run-code requirement are detailed in the
+[processor contract](../ryan_library/processors/tuflow/README.md#supported-run-identifiers-and-culvert-maximums).
+
 Physical configuration is explicit and is **not inferred from Manning roughness
 or TUFLOW loss coefficients**. A mixed network can supply per-crossing
 `Material` and `Inlet Configuration` through `--culvert-attributes`, using a
@@ -50,9 +58,9 @@ separately in `TuflowLossParameters`.
 ## TUFLOW 1d_nwk
 
 ```powershell
-python ryan-scripts/tuflow/tuflow_culvert_from_1d_nwk.py model.gpkg --engine ryan-culverts
-python ryan-scripts/tuflow/tuflow_culvert_from_1d_nwk.py model.gpkg --layer 1d_nwk --engine hy8
-python ryan-scripts/tuflow/tuflow_culvert_from_1d_nwk.py model.gpkg --layer 1d_nwk --culvert-attributes material-map.csv --engine hy8
+python ryan-scripts/TUFLOW-python/culvert_results/tuflow_culvert_from_1d_nwk.py model.gpkg --engine ryan-culverts
+python ryan-scripts/TUFLOW-python/culvert_results/tuflow_culvert_from_1d_nwk.py model.gpkg --layer 1d_nwk --engine hy8
+python ryan-scripts/TUFLOW-python/culvert_results/tuflow_culvert_from_1d_nwk.py model.gpkg --layer 1d_nwk --culvert-attributes material-map.csv --engine hy8
 ```
 
 The default inverse checks are HW/D 1.5 and 2.0. Use `--headwater-ratios`
@@ -144,7 +152,7 @@ path currently fails closed for HDPE because the TUFLOW adapter does not yet sup
 an explicit native HDPE inlet-coefficient set; it does not borrow concrete or CSP
 coefficients. The migration deliberately does not infer missing box width, material
 or inlet configuration. Unsupported source combinations fail closed. Broader
-project-export mapping in [`tuflow_to_hy8.py`](../ryan-scripts/tuflow/tuflow_to_hy8.py)
+project-export mapping in [`tuflow_to_hy8.py`](../ryan-scripts/TUFLOW-python/culvert_results/tuflow_to_hy8.py)
 remains a separate workflow.
 
 **TODO (deferred, out of scope of this PR):** Complete native HDPE support before
@@ -204,6 +212,14 @@ raw/effective EntryC, remaining losses and scenario tailwater elevation.
 Failed inputs and scenarios remain visible rather than being silently dropped.
 A native result whose solver status is `unresolved` is retained in the CSV but
 causes a non-zero wrapper exit status.
+
+The HY-8 inverse adapter requires `run-hy8>=2026.11.9.1`, which fails closed
+with `FlowSearchError` when rounded RST headwaters cannot distinguish trial
+discharges. Both maintained TUFLOW culvert wrappers report a `failed` scenario
+with an explicit diagnostic, **no computed discharge**, and a nonzero exit
+code. A near-target minimum-flow seed is not proof of a resolved inverse.
+This preserves the upstream 0.01 m reported-headwater tolerance; it does
+not demonstrate TUFLOW-equivalent hydraulic behavior.
 
 ## Repository boundary
 

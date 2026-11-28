@@ -1,10 +1,26 @@
 # Development and execution environments
 
-`ryan-tools` is installed into the user's normal Python 3.14 installation. Users are not expected to create, understand
-or activate a virtual environment. Wrappers copied into project folders use the same installed `ryan_functions` package.
+`ryan-tools` officially supports Python 3.11–3.14 in the user's normal Python installation. Python 3.14 is the developer/CI baseline. Python 3.14 remains preferred for development; installers enforce dependency Python metadata. Users are not expected to create, understand
+or activate a virtual environment. Wrappers copied into project folders use the same installed `ryan-tools` package.
 
 Some QGIS, OSGeo4W and GDAL workflows use their application's Python or command environment instead. An operation working
 with the normal Python installation does not prove that it works inside those application environments, or conversely.
+
+## Distribution migration
+
+The distribution is now named `ryan-tools`; maintained Python imports remain `ryan_library`.
+The PyPI and local-wheel installers automatically migrate an existing `ryan_functions` installation.
+They validate the replacement first (verify the local wheel, or resolve the PyPI install with pip's `--dry-run`),
+run any dependency bootstrap commands, then uninstall the old distribution immediately before reinstalling `ryan-tools`.
+The force path retains `--no-deps`. No migration flag is needed in calling BAT files. Installer dry runs only print commands.
+When using pip directly instead of these installers, uninstall the old distribution first:
+
+```powershell
+python -m pip uninstall ryan_functions
+```
+
+Do not uninstall the old distribution after installing the new one: that can remove files shared by both distributions.
+The `ryan_functions` import alias is removed; replace those imports with `ryan_library.functions`.
 
 ## Install for repository development
 
@@ -13,28 +29,90 @@ From the repository root, install the checkout and development requirements into
 ```powershell
 py -3.14 -m pip install --upgrade pip
 py -3.14 repo-scripts\install_latest_wheel.py --dependencies-only
+py -3.14 repo-scripts\vendor_pytuflow_wheel.py
+py -3.14 -m pip install --force-reinstall --no-deps -r repo-scripts\pytuflow-requirement.txt
 py -3.14 -m pip install -r requirements.txt
+py -3.14 -m pip check
+py -3.14 repo-scripts\vendor_pytuflow_wheel.py --installed
+py -3.14 -c "from ryan_library.functions.tuflow.pytuflow_compatibility import require_validation_api; print(require_validation_api().diagnostic.message)"
 ```
 
-`requirements.txt` installs the repository in editable mode with its development dependencies. Python then imports the
-current checkout while developers and agents edit `ryan_library`. The dependency-only command installs binary Fiona,
-Rasterio and GDAL packages from the configured geospatial wheel index. It supersedes the former single-package batch
-installers and can be previewed with `--dry-run`.
+`requirements.txt` installs the repository in editable mode with its development and MCP dependencies, plus
+the current QGIS MCP Python bridge from upstream GitHub main. Python then imports the current checkout while developers and agents
+edit `ryan_library`. The dependency-only command installs binary Fiona, Rasterio and GDAL packages from the
+configured geospatial wheel index. It supersedes the former single-package batch installers and can be previewed with
+`--dry-run`. The parser-only reinstall replaces an incompatible official PyTUFLOW build even when its version matches
+the accepted source; the following requirements install resolves all dependencies normally. The final checks verify
+dependency consistency and the required public API. For managed or offline environments, use the local approved source with
+`repo-scripts/setup_codex_mcp.ps1 -Install -QgisSource <path>` instead of the GitHub-based requirements command.
 
-The normal user-facing Windows entry point builds and installs the package:
+For an end user, double-click [install-from-pypi.bat](../install-from-pypi.bat)
+([install-ryan-tools.bat](../install-ryan-tools.bat) is an alias):
 
 ```powershell
-.\package_and_install.bat
+.\install-ryan-tools.bat
 ```
 
-To install the newest existing wheel without rebuilding it:
+This installs the current published `ryan-tools[mcp]` package from PyPI,
+the upstream QGIS MCP Python bridge and the [verified, local PyTuflow wheel](../repo-scripts/pytuflow-requirement.txt),
+built from exact contributor commit `0121101650fd` for upstream PR #17,
+using the highest installed Python 3 by default (overrideable with `RYAN_TOOLS_PYTHON`). Pip enforces Python-version metadata; Python versions below 3.11 are unsupported.
+Both normal installers bootstrap binary Fiona, Rasterio and GDAL, explicitly
+reinstall only the accepted PyTuflow wheel, then resolve `ryan-tools` and the
+pinned parser together with their dependencies. This replaces an incompatible
+official parser even when its package version matches, without forcing a
+reinstall of the GIS dependencies. Installation succeeds only after `pip check`,
+installed wheel-origin/digest verification and the public PyTUFLOW capability guard pass; a failure stops before Codex registration. Dry runs print
+these checks without claiming that they passed.
+If Codex or its VS Code extension is installed,
+the script safely configures its QGIS and ryan-tools MCP entries in the shared user-level Codex config. Without Codex,
+it leaves Codex configuration untouched. Pass `--skip-codex` to disable automatic
+registration, `--skip-qgis-mcp` for headless/offline installation, or
+`--qgis-mcp-source <path>` to install the bridge from a local source.
+After updating Codex configuration, restart Codex or reload the Codex extension in VS Code. Python 3.11–3.14 remains the supported runtime for `ryan-tools`; `ryan-culverts` remains an independent dependency. The QGIS desktop plugin
+must still be installed and started through QGIS Plugin Manager.
+
+For developers working from the checkout, keep the local verified-wheel workflow:
 
 ```powershell
-.\install-latest-wheel.bat
+.\build-and-install-local-wheel.bat
+.\install-local-wheel.bat
 ```
 
-Both commands use the user's available Python installation. Users should not need to change interpreters or activate an
-environment before running the installed wrappers.
+The first builds and installs the latest local wheel; the second installs an
+existing wheel without rebuilding. These commands do not replace developer
+editable installs (`pip install -r requirements.txt`).
+
+The vendored dependency wheel is checked into ordinary Git under
+[`repo-scripts/wheels/pytuflow/`](../repo-scripts/wheels/pytuflow/0121101650fd8e931af8d09cadb23bd43f6fefbd/README.md).
+Run the repository requirements from the repository root, including if the checkout path contains spaces.
+A missing or corrupt wheel fails verification; installation never silently falls back to source code.
+Plain `pip install ryan-tools` resolves the published `pytuflow>=1.2,<2` version range through PyPI.
+It does **not** automatically discover the wheel stored beside these repository scripts.
+That normal PyPI contract is unchanged; use the repository installer to require the accepted fork.
+
+## Disable Python bytecode for the Windows user
+
+To opt out of `.pyc` writes across Python installations for your Windows user, run:
+
+```powershell
+.\disable-python-bytecode.bat
+```
+
+The standalone [disable-python-bytecode.bat](../disable-python-bytecode.bat) uses
+`setx PYTHONDONTWRITEBYTECODE 1` without administrator rights.
+It is not run automatically by the installer. Preview with `--dry-run`.
+Restart terminals, editors and Codex to inherit the saved setting. When called from an existing
+`cmd.exe` session, the batch file also sets the variable in that session; a parent PowerShell session
+must be restarted or use `$env:PYTHONDONTWRITEBYTECODE = '1'` for immediate effect.
+Existing `.pyc` files are retained. This controls ordinary Python import caching, not explicit compilation commands.
+
+To undo the persistent setting in PowerShell, then restart applications:
+
+```powershell
+[Environment]::SetEnvironmentVariable('PYTHONDONTWRITEBYTECODE', $null, 'User')
+Remove-Item Env:PYTHONDONTWRITEBYTECODE -ErrorAction SilentlyContinue
+```
 
 ## VS Code interpreter and tasks
 
@@ -55,7 +133,7 @@ Windows PowerShell, and an `OSGeo4W Cmd` profile is available for workflows that
 
 ## Installed package and copied wrappers
 
-Wrappers copied into project folders import the installed `ryan_functions` distribution. They do not add the repository
+Wrappers copied into project folders import the installed `ryan-tools` distribution. They do not add the repository
 to `sys.path`, so the package must be installed into the same Python installation used to run the wrapper.
 
 Maintained wrappers print both their embedded wrapper version and the installed library version. This helps distinguish
@@ -64,7 +142,7 @@ an older copied wrapper from an older installed package.
 After changing `ryan_library` or package metadata, rebuild and install before validating a copied-wrapper workflow:
 
 ```powershell
-.\package_and_install.bat
+.\build-and-install-local-wheel.bat
 ```
 
 The underlying build command is:
@@ -87,19 +165,112 @@ py -3.14 repo-scripts\verify_wheel.py
 
 ## GitHub Actions CI
 
-The enabled `.github/workflows/ci.yml` workflow runs on pull requests and pushes to `main` using Windows and Python
-3.14, with a separate Python 3.13 compatibility and MCP job. Its independent jobs mean a policy failure does not hide
-runtime or packaging results.
+Windows/Python 3.14 is the primary runtime, typing and installed-package acceptance environment. Ubuntu runs
+inexpensive portable checks and the existing focused POSIX filesystem-security regressions. Linux success is not
+substitute evidence for Windows, QGIS, OSGeo4W or other native applications.
 
-The hosted test job initialises only `qgis-resources` and
-`tests/test_data`. The QGIS repository is used only as test/resource data; no QGIS application is launched. The job
-installs the repository's binary GIS dependency bootstrap, sets `MPLBACKEND=Agg`, and runs:
+[`ci.yml`](../.github/workflows/ci.yml) runs on pull requests, every push to `main`, and manual dispatch. Its
+`Ruff and whitespace` preflight is a prerequisite for expensive jobs; the former independent Fast PR workflow has
+been consolidated into it. Script-inventory documentation counts are checked immediately after Python setup, using
+only the standard library and Git. A lint, workflow, documentation or logging failure therefore stops Windows installation
+from starting. The required `Policy` check also explicitly fails if preflight fails.
+
+| Check | Environment and responsibility |
+| --- | --- |
+| Ruff and whitespace | Ubuntu/Python 3.14; complete-PR file scope, patch whitespace, pinned Ruff, actionlint, documentation and logging checks |
+| Policy | Windows/Python 3.14 strict typing when Python inputs changed; inexpensive Ubuntu status reporting otherwise |
+| Hosted tests | Windows/Python 3.14; early CI-scope contracts, full hosted selection, explicit MCP profiling, compilation and export checks |
+| MCP smoke | Inexpensive status gate requiring successful Windows Hosted tests and explicit MCP acceptance output |
+| Package | Windows/Python 3.14; real wheel construction, verification and isolated installed-package/copied-wrapper acceptance |
+| POSIX wrapper security | Small Ubuntu/Python 3.14 static inventory, SQLite locking and descriptor-safety checks |
+
+The scope helper compares the complete PR base-to-head diff with rename detection disabled. Moving Python code to a
+Markdown filename still requires full runtime validation. Only a known, nonempty, entirely Markdown PR diff can skip
+runtime/package/POSIX jobs. Main pushes and manual runs always request full validation. An unavailable comparison
+selects all first-party static inputs and full validation; patch whitespace is reported as unavailable. A helper
+execution failure fails required preflight rather than reporting a successful empty scope.
+
+Changed-file typing uses the cumulative PR diff. All maintained code, including the TUFLOW initialiser,
+uses the shared strict configuration in `pyproject.toml`, maintained dependency
+typing (including official `types-rasterio`) and the remaining narrow fallbacks in `typings`.
+Scope lists use a JSON
+manifest rather than large Windows environment variables; large Pyright argument lists are checked in bounded
+batches. Changes to lint/type configuration expand the corresponding static-check scope. A committed
+`pyproject.toml` change can retain changed-file static checks only when both TOML documents are readable, the
+numeric release-version strings differ and every other parsed value and value type is identical. This exception
+does not skip runtime or package validation. Dependency, tool, Python-target and other metadata changes still
+expand static checks; nested project files and unavailable or invalid comparisons keep the conservative behaviour.
+
+PR concurrency cancels superseded runs. Every main push keeps its own release-validation run. On the first PR
+attempt, ordinary hosted pytest stops at the first failure; rerunning the same revision retains complete diagnostics.
+All required final-commit checks still apply to draft PRs. Batch related changes into one locally checked push.
+See the [CI work record](work/2026-11-08-ci-resource-efficiency.md) for delivery and validation evidence.
+
+### CI dependency profiles
+
+Windows CI runs [`ci_gis_bootstrap.py`](../repo-scripts/ci_gis_bootstrap.py) around the existing binary GIS installation
+command. A failed download qualifies for recovery only when pip reports HTTP 502, 503 or 504 for a Fiona, Rasterio or
+GDAL wheel in `cgohlke/geospatial-wheels`. The helper resolves that exact release tag and filename through GitHub's
+public API, requires the official asset size and SHA-256 digest, and verifies the download before installing it.
+Recovery is limited to one asset per distribution and four normal bootstrap attempts in total. The final attempt
+must resolve all dependencies successfully; repeated failures, other errors and invalid artifacts fail the job.
+Downloads and subprocesses have time and size bounds. Normal user installers and dependency declarations are unchanged.
+
+Normal user/developer installation remains [`requirements.txt`](../requirements.txt), with the unchanged runtime
+metadata in [`pyproject.toml`](../pyproject.toml). CI profiles are narrower installation inputs for their particular
+checks, not replacements for the expected user environment.
+
+| Profile | Installation | Scope |
+| --- | --- | --- |
+| CI helpers | `python -m pip install -r repo-scripts/ci-helper-requirements.txt` before fixtures and GIS installation | Pytest only; real-Git CI-scope contracts use the standard library and Git |
+| Hosted tests | `python -m pip install -r repo-scripts/ci-test-requirements.txt` | All declared runtime dependencies, the MCP extra, pytest and the immutable accepted PyTuflow wheel; omits unused development tools and the separate QGIS MCP bridge |
+| Strict typing | `python -m pip install -r repo-scripts/ci-policy-requirements.txt` | Runtime, development and MCP extras plus immutable accepted PyTuflow wheel; omits the separate QGIS MCP bridge |
+| Package smoke | Existing `repo-scripts/wheel-smoke-requirements.txt` workflow | Focused isolated wheel dependencies; real build and copied-wrapper checks remain |
+
+Run these commands from the repository root. Install the full hosted and strict-typing profiles after the Windows
+binary GIS bootstrap. The hosted profile includes the helper requirements, so both phases use the same pytest
+requirement without maintaining a second copy. The hosted command does not invoke Ruff, Pyright, pandas-stubs,
+pytest-cov or the build frontend; those tools are retained where needed by static checks or the Package job.
+First-party tests do not import the interactive QGIS MCP bridge. Its normal installation/configuration contract is
+unchanged. Build isolation still installs the declared build backend.
+
+Do not remove runtime/GIS dependencies based only on an import search. Pandas loads Excel/Parquet engines dynamically,
+hydraulic packages have transitive dependencies, and `importorskip` can silently hide coverage. Any narrower Windows
+test group must demonstrate matching collected nodes, deselections, skip reasons and native capabilities against the
+same source and fixture revisions. Extra groups also repeat setup; compare total runner minutes as well as elapsed
+time before adopting a split. Pip caches store downloaded packages, not a ready-installed environment or test results.
+
+### Hosted test and package boundaries
+
+The hosted test job first compiles the supported sources, installs the pytest-only helper profile and runs the
+CI-scope contracts on Windows before fixture checkout or native installation:
+
+```powershell
+python -m pytest -q tests/repo_scripts/test_ci_scope.py `
+  --confcutdir=tests/repo_scripts -rs `
+  --junitxml=test-results/ci-scope.xml
+```
+
+Create `test-results` before running these commands. CI sets `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1` only for this helper
+step. The scope contracts need no project imports or fixture submodules; `--confcutdir` excludes the parent
+test-data availability hook while retaining the root pytest configuration. On the first PR attempt, a failure stops
+this Hosted job before submodule/GIS work. Main/manual runs and PR reruns continue through the remaining broad suite
+for full diagnostics; an explicit check of the helper step's original outcome then fails Hosted even when that
+step used `continue-on-error`. The required MCP gate rejects the unsuccessful Hosted result. Policy and Package remain
+independent jobs after the shared preflight; this helper stage does not cancel their work.
+
+The successful job then initialises only `qgis-resources` and `tests/test_data`. The QGIS repository supplies
+test/resource data; no QGIS application is launched. It installs the binary GIS bootstrap and full hosted dependency
+profile, sets `MPLBACKEND=Agg`, and runs the remaining hosted selection. Only the already-executed scope file is added
+to the existing ignore list, so each scope contract runs once:
 
 ```powershell
 python -m pytest tests `
+  --ignore=tests/repo_scripts/test_ci_scope.py `
   --ignore=tests/functions/gdal `
   --ignore=tests/orchestrators/gdal `
   --ignore=tests/scripts/gdal/test_gdal_flood_extent.py `
+  --ignore=tests/scripts/gdal/test_cutline_publication_200.py `
   --ignore=tests/scripts/test_promoted_utilities.py `
   --ignore=tests/scripts/test_archive_compress.py `
   -m "not gdal and not gui and not external" `
@@ -108,73 +279,40 @@ python -m pytest tests `
   -rs `
   --durations=15 `
   --junitxml=test-results/hosted-tests.xml
+python -m pytest tests/functions/gdal/test_profiling.py -m "not gui and not external" `
+  --junitxml=test-results/mcp-profiling.xml
 ```
 
-The ignored modules import `osgeo` directly or through production modules during collection, so marker deselection alone
-cannot make them a valid normal-Python hosted boundary. Rasterio/Fiona tests, native ASC processing, wrapper dry runs,
-mocked subprocess behavior remain in the hosted set. The real 7-Zip archive integration module is deliberately
-excluded from hosted CI and remains an optional local check. Tests marked `external` require an explicitly supplied
-application or executable; the ASC_to_ASC parity tests remain local and use `ASC_TO_ASC_EXE`.
+The workflow also asserts the MCP module/tool exports. Most previous MCP tests already belong to the broad hosted
+selection; the explicit profiling command preserves the former MCP job's unique test file despite the broad
+command's directory exclusion. Default-environment profiling and MCP acceptance precede the separate pandas 2.3.3
+compatibility phase. The helper and broad JUnit reports together describe the original hosted test boundary;
+compare their union, not the smaller broad-suite count alone. All reports produced are retained after a test failure;
+a first-attempt helper failure may produce only `ci-scope.xml` because the broad suite does not start.
 
-Create `test-results` before running this command. The two temporary floodway deselections predate the fast-check work;
-their review is tracked in the [exclusion record](work/2026-10-16-floodway-ci-exclusions.md).
+The ignored modules import `osgeo` directly or through production modules during collection, so marker deselection
+alone cannot define this hosted boundary. Rasterio/Fiona tests, native ASC processing, wrapper dry runs and mocked
+subprocess behaviour remain. The real 7-Zip integration module remains an optional local check. Tests marked
+`external` require an explicitly supplied application or executable; ASC_to_ASC parity uses `ASC_TO_ASC_EXE` locally.
+The two pre-existing floodway deselections remain in their
+[exclusion record](work/2026-10-16-floodway-ci-exclusions.md).
 
-The package job initialises `qgis-resources` and installs the two PyPI hydraulics dependencies, builds and verifies a fresh wheel,
-performs a `--no-bump` rebuild, verifies the rebuilt artifact, confirms the declared version is unchanged, then
-installs the wheel into a temporary target and runs the installed-wheel smoke test
-outside the checkout with `--expected-root`. The verified wheel and hosted JUnit report are uploaded as workflow
-artifacts.
+Package initialises `qgis-resources`, installs its focused smoke prerequisites, builds and verifies a fresh wheel,
+performs a `--no-bump` rebuild, confirms the declared version is unchanged, and checks isolated installation outside
+the checkout with `--expected-root`. Installed MCP behaviour and copied wrappers remain independently verified.
+Hosted JUnit and POSIX audit evidence are retained for seven days; the verified wheel is retained for 14 days.
 
-Real `osgeo`/GDAL integration is deliberately not claimed by this initial workflow. Run those tests in a compatible
-GDAL/QGIS/OSGeo4W environment until a reliable Python 3.14 hosted GDAL installation is established.
+Real QGIS/OSGeo4W acceptance remains a native-environment task. The hosted GIS bootstrap does not establish that every
+application-specific GDAL workflow is supported. Historical independent-workflow timings are preserved in the
+[17 October work record](work/2026-10-17-fast-pr-checks-129.md); they do not describe the consolidated workflow.
 
-### Fast PR checks and measured runtime (17 October 2026)
+### TUFLOW input regression
 
-[`fast-pr.yml`](../.github/workflows/fast-pr.yml) runs independently of the full
-Windows [`ci.yml`](../.github/workflows/ci.yml) on pull requests and main pushes.
-Its only installed development tool is the Ruff version already pinned in
-`pyproject.toml`. It checks whitespace in the changed patch and lint/formatting
-for changed first-party Python files, without checking out submodules or installing
-GDAL/geospatial packages. Ruff and strict Pyright also remain in `Policy`, with the normal
-Python 3.14/GIS dependencies, preserving the established release gate. Repository documentation and logging checks, Python
-3.13 compatibility, hosted tests, and wheel verification are unchanged.
-
-The fast workflow does **not** gate or precede the full workflow: it provides an
-earlier independent failure signal without adding to successful CI wall-clock
-time. When changing Python files, both checks must pass.
-
-Baseline from five recent GitHub Actions runs on 16 October 2026:
-
-| Job | Measured duration | Main cost |
-| --- | --- | --- |
-| Hosted tests | 2:40–3:37 | Install dependencies 60–67 s; pytest 60–104 s |
-| Policy | 1:30–2:06 | GIS package installation and static analysis |
-| Python 3.13 compatibility and MCP | 1:18–2:00 | Package and MCP dependency installation 40–74 s |
-| Package | 1:01–1:25 | Checkout, submodules, setup, and wheel prerequisites |
-
-The existing `setup-python` pip cache reuses downloaded packages, not installed
-site-packages, so dependency installations remain costly even when pip's cache
-is warm. The new fast workflow needs only Ruff and produces earlier results without
-waiting for a GIS install. The existing `Policy` job deliberately retains its
-Ruff checks because release automation depends on the Python CI workflow's
-success. Leave the actual Windows tests and GIS dependency bootstrap in place
-until replacements are tested. Re-measure after several successful workflow runs before introducing
-parallel pytest workers or a prebuilt GIS environment.
-
-Verified PR #129 head `eaf4b0e` on 17 October 2026:
-[Fast PR checks](https://github.com/Chain-Frost/ryan-tools/actions/runs/39001435683) and all four
-[Python CI jobs](https://github.com/Chain-Frost/ryan-tools/actions/runs/39001435924) passed.
-Runner logs span approximately 9 seconds for the fast job, 34 seconds for Policy and 146 seconds for hosted tests.
-The fast job finished at 04:08:38 UTC, before Policy at 04:09:03 UTC and hosted tests at 04:10:56 UTC.
-This YAML/Markdown-only PR skipped conditional Ruff installation, lint/format and Pyright execution in both workflows;
-it validates early patch feedback, while a Python-changing PR is still needed to measure early Ruff feedback.
-
-Hosted installation step boundaries show approximately 3 seconds for pip upgrade, 13 seconds for GIS bootstrap and
-39 seconds for development/test dependencies. Pytest reported 1057 passed, 7 deselected and 63 warnings in 56.83 seconds,
-with the slowest test call taking 9.46 seconds. These are one run's measurements, not an overall CI speedup claim.
-Collect several Python-changing runs before choosing a setup optimization or test parallelism change: dependency setup
-and test execution remain comparable costs. Delivery and follow-up are tracked in the
-[fast-check work record](work/2026-10-17-fast-pr-checks-129.md).
+[`tuflow-input-validation.yml`](../.github/workflows/tuflow-input-validation.yml) keeps its targeted PR paths and
+manual trigger. The full 161-TCF regression starts only after the public-API and incompatible-parser rejection
+checks pass. Each dependency profile has a distinct pip-cache hash; lightweight jobs cannot freeze the native GIS
+profile's cache before its wheels are downloaded. Superseded PR runs are cancelled. All model reports remain
+available, with seven-day artifact retention; this exhaustive regression does not stop at the first finding.
 
 ## QGIS, OSGeo4W and GDAL
 
@@ -209,13 +347,16 @@ Initialise only the specific repository submodules required by the selected test
 build surfaces:
 
 ```powershell
-git submodule update --init excel-resources qgis-resources tests/test_data
-git lfs pull
+git submodule update --init qgis-resources tests/test_data
 ```
 
-`tests/test_data` is a required submodule. Resource submodules may also require their own Git LFS pull. Tests do not
-automatically download unavailable proprietary data, and new committed fixtures should be synthetic unless sharing the
-source data is permitted.
+Source review, documentation and static checks need no submodules. Initialise `excel-resources` separately when a
+specific workbook task needs it. For source-only automation, set `GIT_LFS_SKIP_SMUDGE=1` for checkout/submodule commands
+and restore the prior environment setting afterwards. Fetch a needed LFS asset explicitly, for example
+`git -C excel-resources lfs pull --include="*.xlsx"`; do not download every reference binary for routine CI.
+
+`tests/test_data` is required for the broad hosted suite. Tests do not automatically download unavailable proprietary
+data, and new committed fixtures should be synthetic unless sharing the source data is permitted.
 
 Never initialise, inspect or validate the `unsorted` submodule. Recursive submodule checkout is prohibited because it
 would include that excluded repository.
@@ -238,3 +379,12 @@ This is a terminal workaround, not a reason to change file encoding or rewrite t
 
 The optional repository MCP server has separate installation and client configuration requirements. See
 [`MCP_SETUP.md`](MCP_SETUP.md).
+
+## Python compatibility validation
+
+Python 3.11–3.14 is supported; Python 3.14 remains preferred for development.
+The hosted test matrix exercises every supported minor version. The required Hosted tests aggregate
+fails if any matrix lane or its MCP contracts fail. Publishing controls are unchanged.
+The CI Policy dependency profile uses [typing constraints](../repo-scripts/ci-typing-constraints.txt)
+to check the 3.11 API surface; runtime/test dependency groups remain complete and unconstrained by that file.
+See the [migration record](work/2026-11-24-python311-compatibility.md) for exact environments and limitations.

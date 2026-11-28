@@ -1,0 +1,6 @@
+# Type-check the Python 3.11 API surface with compatible NumPy annotations.
+# NumPy 2.5+ annotations expose stdlib types absent from Python 3.11.
+# Runtime/test jobs and the declared user/developer environment remain unconstrained.
+numpy==2.3.5
+# Keep the accepted stub revision; newer uploads require newer typeshed aliases.
+types-rasterio==1.5.2.20261029

@@ -57,7 +57,7 @@ with Shapefile available as an option.
 
 Each wrapper contains a `WRAPPER_VERSION` in `YYYY-MM-DD.N` form and prints it
 with the resolved path of the running file. That identity remains with a
-wrapper copied into a job folder. The separately printed `ryan_functions`
+wrapper copied into a job folder. The separately printed `ryan-tools`
 version identifies the installed shared library that performs the work. Both
 identities are printed at the start and end of processing, so the closing
 details remain visible after lengthy output and beside the interactive pause.
@@ -101,6 +101,9 @@ intended; the catalogue's `mutation` field identifies tools that create, replace
 # Recursively convert FLT/ASC/RST beside each source.
 python gdal_translate_TIF_ovr.py "D:\Terrain" --extensions flt asc rst
 
+# Convert one explicitly selected raster.
+python gdal_translate_TIF_ovr.py --input-file "D:\Terrain\surface.asc"
+
 # Produce *_compress.tif, including from existing TIFF inputs.
 python gdal_translate_TIF_ovr.py "D:\Terrain" --extensions flt asc rst tif tiff --output-suffix _compress
 
@@ -111,6 +114,40 @@ python gdal_translate_TIF_ovr.py "D:\XYZ" --extensions xyz --output-directory "D
 When `--output-directory` is used, source subdirectories are preserved below
 the output root. This avoids filename collisions when identically named XYZ
 files exist in different source subdirectories.
+
+`--input-file` and the editable `INPUT_FILE` must name an existing file;
+directories and missing paths fail before processing. Positional paths accept
+either a file or a directory, and `--working-directory` retains directory discovery.
+
+### Cutline clipping
+
+`gdalwarp_clip_to_polygon.py` clips `.tif` files using each raster's source CRS
+metadata. `--target-crs` independently selects the output CRS (default
+`EPSG:28350`). Use `--source-crs` only to correct missing or incorrect source
+metadata; untagged rasters require this explicit correction. It does not select the output CRS.
+
+```powershell
+python gdalwarp_clip_to_polygon.py -i "D:\Rasters" --cutline "D:\Boundary\clip.gpkg" --target-crs EPSG:7850 --dry-run --no-pause
+python gdalwarp_clip_to_polygon.py -i "D:\Rasters" --cutline "D:\Boundary\clip.gpkg" --target-crs EPSG:7850 --no-pause
+```
+
+Relative cutlines are based on the first input directory; a relative
+`--output-directory` is based on each input directory. An absolute output
+directory combines the selected roots and rejects duplicate destination names.
+All batch input/output identities and case collisions are checked before any
+output directory is created. Existing outputs fail by default; `--overwrite`
+explicitly permits replacing an output but never an input. `--no-overwrite`
+can override an edited `OVERWRITE = True` setting.
+
+Each TIFF is rendered in a unique owned directory beside its destination,
+closed and reopened before publication. Default publication cannot replace a
+late concurrent creator. Linked paths (including Windows junctions), existing
+output sidecars and staged outputs requiring sidecars are refused. A failed
+warp or publication preserves the previous output and removes only owned
+staging. Outputs publish individually: earlier successful TIFFs remain if a
+later raster fails. File locks can prevent publication and return a failure;
+they are never bypassed. Physical identity checks follow mapped-drive/UNC
+aliases without changing the paths shown to the user.
 
 ### Existing TIFF overviews
 

@@ -16,14 +16,17 @@ input first.
 
 import os
 import subprocess
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures._base import Future
 from datetime import datetime
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 import pandas as pd
-import rasterio  # type: ignore
+import rasterio
+import rasterio.transform
 
 # Set this flag to True if you want to drop rows with missing z values
 DROP_NA = True  # Change to True to drop rows with missing z's instead of filling them
@@ -73,7 +76,9 @@ def process_tif_file(file: Path) -> None:
             # Create a grid of column and row indices
             col_indices, row_indices = np.meshgrid(np.arange(cols), np.arange(rows))
             # Convert indices to spatial coordinates using rasterio.transform.xy
-            xs, ys = rasterio.transform.xy(transform, row_indices, col_indices)
+            xs, ys = rasterio.transform.xy(
+                transform, cast("Sequence[int]", row_indices), cast("Sequence[int]", col_indices)
+            )
             xs = np.array(xs)
             ys = np.array(ys)
 

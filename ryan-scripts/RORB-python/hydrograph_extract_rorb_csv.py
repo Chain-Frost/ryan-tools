@@ -6,15 +6,19 @@ duration, and temporal-pattern convention documented by
 ``extract_metadata_from_filename``. Run ``python hydrograph_extract_rorb_csv.py``.
 
 The script writes a timestamped Excel workbook and PNG plot beside itself, then
-waits for Enter. Review filename parsing and plotted hydrograph selection when
-adapting it to a different RORB naming convention.
+waits for Enter for interactive runs. Use ``--no-pause`` for headless execution
+and ``--input-directory`` to process a disposable or project folder instead.
+Review filename parsing and plotted hydrograph selection when adapting it to a
+different RORB naming convention.
 """
 
 # pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false
 
+import argparse
 import re
 import sys
 from datetime import datetime
+from inspect import signature
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -25,6 +29,20 @@ import pandas as pd
 # Specify the hydrograph to process. Set to None to trigger dynamic selection.
 selected_hydrograph: str | None = "Calculated hydrograph:  Outlet"  # Example: "Calculated hydrograph: Outlet"
 # --- End of User Configuration ---
+
+
+SCRIPT_VERSION = "2026-11-07.2"
+
+# Standalone use remains supported without installing ryan-tools.
+try:
+    from ryan_library.functions.wrapper_utils import print_wrapper_banner
+except ModuleNotFoundError as exc:
+    if exc.name not in {"ryan_library", "ryan_library.functions", "ryan_library.functions.wrapper_utils"}:
+        raise
+    print_wrapper_banner = None
+else:
+    if "wrapper_source" not in signature(print_wrapper_banner).parameters:
+        print_wrapper_banner = None
 
 
 def extract_metadata_from_filename(file_name: str) -> tuple[str | None, str | None, str | None, str | None]:
@@ -310,9 +328,17 @@ def create_plot(
         sys.exit(1)
 
 
-def main() -> None:
-    # Get the directory where the script is located
-    script_directory = Path(__file__).absolute().parent
+def main(*, input_directory: Path | None = None) -> None:
+    if print_wrapper_banner is not None:
+        print_wrapper_banner(
+            wrapper_file=Path(__file__),
+            wrapper_version=SCRIPT_VERSION,
+            wrapper_source="RORB-python/hydrograph_extract_rorb_csv.py",
+        )
+    else:
+        print(f"Script: {Path(__file__).absolute()} (version {SCRIPT_VERSION})")
+    # Preserve the original script-adjacent default; permit explicit CLI override.
+    script_directory = Path(__file__).absolute().parent if input_directory is None else input_directory.absolute()
 
     # Define specific combinations of AEP and TP to process
     selected_combinations: list[tuple[str, str]] = [
@@ -347,6 +373,23 @@ def main() -> None:
     create_plot(combined_df, aep_mapping, creek_name, script_directory)
 
 
+def _parse_cli_arguments(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Combine and plot selected RORB hydrograph CSVs.")
+    parser.add_argument(
+        "--input-directory",
+        type=Path,
+        default=None,
+        help="Directory containing input CSVs and receiving reports; defaults to this script's directory.",
+    )
+    parser.add_argument("--no-pause", action="store_true", help="Exit without waiting for Enter.")
+    return parser.parse_args(argv)
+
+
 if __name__ == "__main__":
-    main()
-    input("Press Enter to exit...")
+    cli_args = _parse_cli_arguments()
+    if cli_args.input_directory is not None and not cli_args.input_directory.is_dir():
+        print(f"ERROR: Input directory does not exist: {cli_args.input_directory}", file=sys.stderr)
+        raise SystemExit(2)
+    main(input_directory=cli_args.input_directory)
+    if not cli_args.no_pause:
+        input("Press Enter to exit...")

@@ -7,6 +7,8 @@ Callers must enforce their own validation, confirmation and dependency rules.
 from __future__ import annotations
 
 import hashlib
+import os
+import stat
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -36,11 +38,26 @@ def snapshot_is_unchanged(snapshot: FileSnapshot) -> bool:
         return False
 
 
+def is_junction(path: Path) -> bool:
+    """Detect Windows mount-point reparse tags without following the target.
+
+    Path.is_junction was added in Python 3.12. lstat retains the same protection
+    on Python 3.11, including junctions whose targets are unavailable.
+    """
+    if os.name != "nt":
+        return False
+    try:
+        info = path.lstat()
+    except OSError:
+        return False
+    return getattr(info, "st_reparse_tag", 0) == stat.IO_REPARSE_TAG_MOUNT_POINT
+
+
 def has_linked_component(path: Path) -> bool:
     """Identify links in the absolute path or any parent without dereferencing them."""
     absolute_path = path.absolute()
     components = (absolute_path, *absolute_path.parents)
-    return any(component.is_symlink() or component.is_junction() for component in components)
+    return any(component.is_symlink() or is_junction(component) for component in components)
 
 
 def hash_file(

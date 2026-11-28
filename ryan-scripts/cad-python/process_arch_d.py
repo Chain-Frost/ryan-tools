@@ -7,9 +7,13 @@ Requires:
     pip install fiona ezdxf
 """
 
+# External optional keyword signatures are incomplete; exceptions stay on individual calls.
+
 # ---------- USER SETTINGS ----------
 import os
 from pathlib import Path
+
+from ezdxf.filemanagement import new
 
 # Path to the .arch_d file
 INPUT_FILE = Path(
@@ -27,8 +31,8 @@ import csv
 import re
 from typing import Any
 
-import ezdxf
 import fiona
+from ezdxf import units
 from fiona.crs import CRS
 
 # ---------- Helpers ----------
@@ -202,18 +206,18 @@ def save_to_gpkg(features: list[dict[str, Any]], output_path: Path, layer_name: 
 
 def save_to_dxf(features: list[dict[str, Any]], output_path: Path) -> None:
     """Write 3D polylines to DXF (units in metres, no closure)."""
-    doc = ezdxf.new(setup=True)
-    doc.units = ezdxf.units.M
+    doc = new(setup=True)
+    doc.units = units.M
     msp = doc.modelspace()
 
     for feat in features:
         layer_name = clean_layer_name(feat["properties"]["Layer"])
         if layer_name not in doc.layers:
-            doc.layers.add(layer_name)
+            doc.layers.add(layer_name)  # pyright: ignore[reportUnknownMemberType]
         coords_xyz = feat["properties"]["coords_3d"]
-        msp.add_polyline3d(coords_xyz, dxfattribs={"layer": layer_name})
+        msp.add_polyline3d(coords_xyz, dxfattribs={"layer": layer_name})  # pyright: ignore[reportUnknownMemberType]
 
-    doc.saveas(output_path)
+    doc.saveas(output_path)  # pyright: ignore[reportUnknownMemberType]
 
 
 # ---------- Runner ----------

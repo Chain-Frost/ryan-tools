@@ -1,15 +1,19 @@
 # ryan_library/functions/wrapper_utils.py
 """Utility functions shared by wrapper scripts."""
 
+import ast
+import json
 import os
+import re
 import sys
-import warnings
 from argparse import ArgumentParser, Namespace
-from collections.abc import Collection, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import date
 from importlib.metadata import PackageNotFoundError, version
+from importlib.resources import files
 from pathlib import Path
-from typing import Protocol
+from typing import cast
 
 
 @dataclass(slots=True)
@@ -18,10 +22,13 @@ class CommonWrapperOptions:
 
     console_log_level: str | None = None
     data_types: tuple[str, ...] | None = None
+    file_log_level: str | None = None
+    log_file: Path | None = None
     live_max_rows: int | None = None
     live_refresh_per_second: float | None = None
     locations_to_include: tuple[str, ...] | None = None
     no_pause: bool = False
+    pause_on_finish: bool | None = None
     paths_to_process: tuple[Path, ...] | None = None
     use_live_dashboard: bool | None = None
     working_directory: Path | None = None
@@ -80,7 +87,7 @@ def change_working_directory(target_dir: Path) -> bool:
     return True
 
 
-def print_library_version(package_name: str = "ryan_functions") -> None:
+def print_library_version(package_name: str = "ryan-tools") -> None:
     """Display the installed version of *package_name* if available."""
     try:
         print(f"{package_name} version: {version(distribution_name=package_name)}")
@@ -88,35 +95,132 @@ def print_library_version(package_name: str = "ryan_functions") -> None:
         print(f"{package_name} version: unknown")
 
 
-def print_wrapper_identity(*, wrapper_file: Path, wrapper_version: str) -> None:
+def print_wrapper_identity(*, wrapper_file: Path, wrapper_version: str, display_base: Path | None = None) -> None:
     """Display the running wrapper path and its embedded revision.
 
     The revision is stored in the wrapper itself, so it remains available when
     that file is copied away from the repository and loses its Git history.
     """
-    print(f"Wrapper: {wrapper_file.absolute()} (version {wrapper_version})")
+    display_path = wrapper_file.absolute()
+    if display_base is not None:
+        try:
+            display_path = display_path.relative_to(display_base.absolute())
+        except ValueError:
+            pass
+    print(f"Wrapper: {display_path} (version {wrapper_version})")
 
 
 def print_wrapper_banner(
     *,
-    wrapper_file: Path,
-    wrapper_version: str,
+    wrapper_file: Path | None = None,
+    wrapper_version: str | None = None,
     leading_blank_line: bool = False,
-    package_name: str = "ryan_functions",
+    package_name: str = "ryan-tools",
+    wrapper_source: str | None = None,
+    display_base: Path | None = None,
 ) -> None:
     """Display the wrapper identity and installed library version together.
 
     Args:
-        wrapper_file: ``__file__`` from the calling wrapper.
-        wrapper_version: Embedded revision from the calling wrapper.
+        wrapper_file: ``__file__`` from the calling wrapper. Legacy calls that
+            omit this fall back to the process entry point and print a warning.
+        wrapper_version: Embedded revision from the calling wrapper. Missing or
+            unsupported revisions print a warning without blocking execution.
         leading_blank_line: Print a blank separator before the banner. Use this
             for the closing banner after ``main()`` returns.
         package_name: Installed distribution whose version should be displayed.
+        wrapper_source: Original path relative to ``ryan-scripts``. Supply this
+            for renamed copies; otherwise a unique installed filename is used.
+        display_base: Optionally display the wrapper relative to this directory.
     """
     if leading_blank_line:
         print()
-    print_wrapper_identity(wrapper_file=wrapper_file, wrapper_version=wrapper_version)
+    actual_file = wrapper_file if isinstance(wrapper_file, Path) else Path(sys.argv[0])
+    actual_version = wrapper_version if isinstance(wrapper_version, str) else "unknown"
+    print_wrapper_identity(wrapper_file=actual_file, wrapper_version=actual_version, display_base=display_base)
     print_library_version(package_name=package_name)
+    if package_name == "ryan-tools":
+        if wrapper_file is None or _wrapper_revision(actual_version) is None or not wrapper_source:
+            print(
+                "WARNING: This script uses an outdated banner interface or unsupported revision. "
+                "Update the script to supply its original script path and embedded revision. "
+                "Execution will continue."
+            )
+        _warn_if_wrapper_is_older(
+            wrapper_file=actual_file, wrapper_version=actual_version, wrapper_source=wrapper_source
+        )
+
+
+def _wrapper_revision(value: str) -> tuple[date, int] | None:
+    """Parse the maintained wrapper revision numerically, including its date."""
+    match = re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})\.([1-9]\d*)", value)
+    if match is None:
+        return None
+    try:
+        return date(int(match[1]), int(match[2]), int(match[3])), int(match[4])
+    except ValueError:
+        return None
+
+
+def _warn_if_wrapper_is_older(*, wrapper_file: Path, wrapper_version: str, wrapper_source: str | None) -> None:
+    """Compare allowlisted installed source without executing it or using a network."""
+    current = _wrapper_revision(wrapper_version)
+    if current is None:
+        return
+    try:
+        resource = files("ryan_library.resources.mcp").joinpath("installed_scripts.json")
+        metadata: object = json.loads(resource.read_text(encoding="utf-8"))
+        if not isinstance(metadata, dict):
+            return
+        manifest = cast("dict[str, object]", metadata)
+        if manifest.get("schema_version") != 1:
+            return
+        entries: object = manifest.get("installed_files")
+        if not isinstance(entries, list):
+            return
+        candidates = [
+            entry
+            for entry in cast("list[object]", entries)
+            if isinstance(entry, str)
+            and entry.endswith(".py")
+            and (entry == wrapper_source if wrapper_source is not None else Path(entry).name == wrapper_file.name)
+        ]
+        if len(candidates) != 1:
+            return
+        source = candidates[0]
+        relative = Path(source)
+        if relative.is_absolute() or ".." in relative.parts:
+            return
+        original = Path(__file__).absolute().parents[2] / "ryan-scripts" / relative
+        latest_text = _read_wrapper_revision(original)
+        latest = _wrapper_revision(latest_text) if latest_text is not None else None
+        if latest is not None and current < latest:
+            print(
+                f"WARNING: This wrapper ({wrapper_version}) is older than the installed package's "
+                f"{source} ({latest_text}). Copy the newer script and transfer your settings before using it."
+            )
+    except (OSError, UnicodeError, ValueError, SyntaxError, RecursionError):
+        # A best-effort banner check must not prevent the wrapper from running.
+        return
+
+
+def _read_wrapper_revision(original: Path) -> str | None:
+    """Read a literal script revision without importing a human-facing entry point."""
+    tree = ast.parse(original.read_text(encoding="utf-8"))
+    for statement in tree.body:
+        if isinstance(statement, ast.Assign):
+            targets = statement.targets
+            value = statement.value
+        elif isinstance(statement, ast.AnnAssign):
+            targets = [statement.target]
+            value = statement.value
+        else:
+            continue
+        if any(
+            isinstance(target, ast.Name) and target.id in {"WRAPPER_VERSION", "SCRIPT_VERSION"} for target in targets
+        ):
+            return value.value if isinstance(value, ast.Constant) and isinstance(value.value, str) else None
+    return None
 
 
 def add_common_cli_arguments(parser: ArgumentParser) -> None:
@@ -213,13 +317,17 @@ def parse_common_cli_arguments(args: Namespace) -> CommonWrapperOptions:
     """Map argparse results to :class:`CommonWrapperOptions`."""
     locations_argument = getattr(args, "locations", None)
     data_types_argument = getattr(args, "data_types", None)
+    raw_no_pause = getattr(args, "no_pause", None)
     return CommonWrapperOptions(
         console_log_level=getattr(args, "console_log_level", None),
         data_types=_coerce_sequence_argument(raw_values=data_types_argument),
+        file_log_level=getattr(args, "file_log_level", None),
+        log_file=getattr(args, "log_file", None),
         live_max_rows=getattr(args, "live_max_rows", None),
         live_refresh_per_second=getattr(args, "live_refresh_per_second", None),
         locations_to_include=_coerce_locations_argument(raw_locations=locations_argument),
-        no_pause=bool(getattr(args, "no_pause", False)),
+        no_pause=bool(raw_no_pause),
+        pause_on_finish=False if raw_no_pause else None,
         use_live_dashboard=getattr(args, "use_live_dashboard", None),
         working_directory=getattr(args, "working_directory", None),
     )
@@ -236,97 +344,3 @@ def _coerce_sequence_argument(raw_values: Sequence[str] | None) -> tuple[str, ..
         return None
     normalized: tuple[str, ...] = tuple(value.strip() for value in raw_values if value.strip())
     return normalized or None
-
-
-# Deprecated POMM compatibility API. Maintained wrappers call the POMM
-# orchestrator directly; these names remain available for copied older wrappers
-# until 31 December 2026.
-_POMM_WRAPPER_COMPATIBILITY_END = "31 December 2026"
-
-
-def _warn_deprecated_pomm_wrapper_api(api_name: str) -> None:
-    warnings.warn(
-        (
-            f"ryan_library.functions.wrapper_utils.{api_name} is deprecated. "
-            "Maintained POMM wrappers now call "
-            "ryan_library.orchestrators.tuflow.pomm_max_items directly. "
-            f"Backwards compatibility is supported until {_POMM_WRAPPER_COMPATIBILITY_END}."
-        ),
-        DeprecationWarning,
-        stacklevel=3,
-    )
-
-
-class PeakReportExporter(Protocol):
-    """Legacy callable signature retained for older POMM wrappers.
-
-    .. deprecated:: 2026-12-31
-       Maintained wrappers call the POMM orchestrator directly.
-    """
-
-    def __call__(
-        self,
-        *,
-        script_directory: Path,
-        paths_to_process: Sequence[Path] | None,
-        log_level: str,
-        include_pomm: bool,
-        locations_to_include: Collection[str] | None,
-        include_data_types: Collection[str] | None,
-    ) -> None: ...
-
-
-@dataclass(slots=True, frozen=True)
-class PommPeakWrapperDefaults:
-    """Legacy default container retained for older POMM wrappers.
-
-    .. deprecated:: 2026-12-31
-       Keep editable defaults in each maintained wrapper.
-    """
-
-    console_log_level: str
-    include_pomm: bool
-    include_data_types: tuple[str, ...]
-    locations_to_include: tuple[str, ...]
-    paths_to_process: tuple[Path, ...]
-    working_directory: Path
-
-    def __post_init__(self) -> None:
-        _warn_deprecated_pomm_wrapper_api(api_name=type(self).__name__)
-
-
-def run_pomm_peak_report_wrapper(
-    *,
-    exporter: PeakReportExporter,
-    defaults: PommPeakWrapperDefaults,
-    overrides: CommonWrapperOptions,
-) -> int:
-    """Run an older POMM peak wrapper.
-
-    .. deprecated:: 2026-12-31
-       Maintained wrappers call the POMM orchestrator directly.
-    """
-    _warn_deprecated_pomm_wrapper_api(api_name=run_pomm_peak_report_wrapper.__name__)
-
-    script_directory: Path = overrides.working_directory or defaults.working_directory
-    if not change_working_directory(target_dir=script_directory):
-        return 1
-
-    effective_console_log_level: str = overrides.console_log_level or defaults.console_log_level
-    effective_data_types: tuple[str, ...] | None = overrides.data_types or defaults.include_data_types or None
-    effective_locations: tuple[str, ...] | None = overrides.locations_to_include or (
-        defaults.locations_to_include or None
-    )
-    effective_paths_to_process: tuple[Path, ...] | None = (
-        overrides.paths_to_process or defaults.paths_to_process or None
-    )
-
-    exporter(
-        script_directory=script_directory,
-        paths_to_process=effective_paths_to_process,
-        log_level=effective_console_log_level,
-        include_pomm=defaults.include_pomm,
-        locations_to_include=effective_locations,
-        include_data_types=list(effective_data_types) if effective_data_types else None,
-    )
-    return 0

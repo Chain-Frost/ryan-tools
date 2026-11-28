@@ -10,25 +10,40 @@ matrix.
 - `ryan_library/functions`: reusable algorithms, transformations and focused I/O helpers.
 - `ryan_library/processors`: stateful handlers for supported file and result formats.
 - `ryan_library/orchestrators`: complete workflow coordination, including discovery, processing, logging and export.
-- `ryan-scripts`: human-facing maintained wrappers, project-specific entry points and older standalone utilities.
-- `ryan_library/scripts` and `ryan_functions`: deprecated import-compatibility namespaces; do not add new behaviour.
+- `ryan-scripts`: human-facing maintained standalone scripts and library-backed wrappers, project-specific entry points and older utilities.
+- `ryan_library/scripts` and legacy GDAL/data-processing and POMM shim APIs: removed on 2026-10-18; do not recreate these obsolete compatibility boundaries.
+- `ryan_functions`: removed import alias; use `ryan_library.functions`. The distribution is named `ryan-tools`.
 - `vendor`, `tests/test_data`, `excel-resources`, `qgis-resources` and `unsorted`: vendored content or submodules; preserve
   their independent state.
 - `unsorted` is excluded from all automated work. Do not initialise, inspect, traverse, search, lint, test, validate or
   otherwise check that submodule for any reason.
 
-Classify the target before changing it. Do not automatically modernise a standalone, project-specific or legacy script
-into library code. Reuse must be demonstrated, not inferred solely because code could technically be shared.
+Classify the target before changing it. A maintained standalone script is a
+first-class supported entry point: do not automatically split it into a wrapper,
+functions and an orchestrator. Reuse or meaningful complexity must justify a
+new library boundary. Apply the shared maintained-script CLI, versioning,
+configuration, safety and validation principles regardless of architecture.
+Do not automatically modernise project-specific or legacy scripts.
+
+`run_hy8` and `culvert_solver` are supplied by the independent PyPI distributions `run-hy8` and
+`ryan-culverts`. Both obsolete gitlinks `vendor/run_hy8` and `vendor/ryan_culverts`
+are removed alongside their `.gitmodules` entries; do not reintroduce them or local
+`PYTHONPATH` overrides. Other retained `vendor` code (notably PyHMA) is a separate inventory.
 
 ## Coding conventions
 
-- Target Python 3.14 and use current Python 3.14+ annotation syntax.
+- Support Python 3.11–3.14 using Python 3.11-compatible syntax; prefer Python 3.14 for development.
+  Ordinary PR CI uses Python 3.11 only. Main-push CI uses Python 3.11 and 3.14 before release.
+  Python 3.12 and 3.13 remain supported but are not routine CI lanes. Manual compatibility matrices retain endpoint coverage.
 - Within `ryan_library`, prefer explicit relative imports for intra-package dependencies. Wrappers and other code outside
   the package should import `ryan_library` absolutely; import vendored packages through their public package paths.
 - Format Python with `ruff format` using the 120-character line length configured in `ruff.toml`.
 - Run Pyright in strict mode only on modified Python files.
 - Add type annotations to public functions and methods.
-- Preserve unrelated worktree and submodule changes. Do not stage or commit unless explicitly asked.
+- Preserve unrelated worktree and submodule changes. Stage and commit task-related changes when appropriate without
+  requiring a separate request. After making a task-related commit, pushing it to the appropriate GitHub branch is
+  permitted without a separate request. Respect explicit user restrictions on commits or pushes; do not force-push
+  or push unrelated commits. Merge only when explicitly instructed by the user.
 
 ### Filesystem paths
 
@@ -47,8 +62,9 @@ into library code. Reuse must be demonstrated, not inferred solely because code 
   before Loguru receives them.
 - Log visibility is controlled by sink levels, not by eager versus parameterized message formatting. Do not treat
   `SUCCESS` as a formatting exception.
-- Wrappers and top-level orchestrators own configuration; reusable functions and processors only emit records.
-- Use console level `SUCCESS` for concise AI/MCP output while retaining detailed records in a `DEBUG` file sink.
+- Standalone scripts and wrappers own user configuration and logging setup; orchestrators may coordinate library workflows but reusable functions and processors do not configure process logging.
+- Use console level `SUCCESS` for concise AI/MCP output. File sinks default to `INFO`; select `DEBUG` explicitly
+  when detailed diagnostics are needed, and preserve those records independently of console visibility.
 - Notebook logging must be safe to reconfigure when cells are rerun and must not require multiprocessing.
 - Do not expose internal helper names in user-facing output.
 - Run `python repo-scripts/check_loguru_formatting.py` after changing Loguru calls. See `docs/LOGGING.md` for the full
@@ -56,13 +72,39 @@ into library code. Reuse must be demonstrated, not inferred solely because code 
 
 ## Architecture rules
 
-- Keep project paths, filename prefixes, input globs, output templates and frequently edited settings in wrappers.
-- Keep reusable processing and validation in `ryan_library/functions` or processors.
-- Keep end-to-end workflow coordination in `ryan_library/orchestrators`.
-- Keep pausing, banners, CLI parsing, working-directory selection and `SystemExit` at the wrapper process boundary.
-- Library helpers and orchestrators must not pause the console or terminate the interpreter.
-- Follow [`ryan-scripts/WRAPPER_STANDARD.md`](ryan-scripts/WRAPPER_STANDARD.md) for maintained library-backed wrappers.
-- Do not add repository-root `sys.path` manipulation to copied wrappers; require the matching package installation.
+- Follow the [shared maintained-script principles](ryan-scripts/README.md#shared-principles-for-maintained-scripts-and-wrappers)
+  for both maintained standalone scripts and library-backed wrappers: clear
+  purpose/version, editable settings, CLI precedence, safe defaults, diagnostics,
+  exit codes, path handling and proportionate verification.
+- Expose **every user-facing operational CLI option** as a top-level,
+  user-editable setting in maintained scripts and wrappers, including paths,
+  selection, modes, output/write, console logging and pause. Choose concise,
+  descriptive constant names that suit the script; `DEFAULT_*` is optional,
+  not required. CLI flags override the editable values (including explicit
+  `False`/`0`).
+  Ship safe defaults; an intentional edit may opt into chargeable operations
+  but may not bypass file-overwrite protections or independent confirmations.
+  Clear setting names and values can be sufficient documentation: do not
+  require an adjacent comment or docstring when purpose and valid edits are
+  reliably obvious. Use brief comments or shared notes for non-obvious choices,
+  units, `None`/path semantics, dependencies and structured values, with
+  copy-ready examples where useful. Keep cost, mutation and safety warnings
+  explicit even when an identifier seems self-explanatory.
+- A self-contained script may keep its processing in guarded `main()` with local
+  helpers; **a library-backed wrapper does not require an orchestrator**.
+- Put genuinely reusable processing and validation in `ryan_library/functions`
+  or processors; wrappers may call them directly. Introduce
+  `ryan_library/orchestrators` only for substantial reusable workflow coordination.
+  Do not add pass-through modules merely to satisfy an architecture diagram.
+- Keep pausing, banners, CLI parsing, working-directory selection and
+  `SystemExit` at the script/wrapper process boundary. Library helpers and
+  orchestrators must not pause the console or terminate the interpreter.
+- Follow [`ryan-scripts/WRAPPER_STANDARD.md`](ryan-scripts/WRAPPER_STANDARD.md)
+  for maintained library-backed wrappers; the
+  [standalone standard](ryan-scripts/README.md#minimal-standard-for-maintained-standalone-scripts)
+  applies to maintained self-contained scripts.
+- Do not add repository-root `sys.path` manipulation to copied scripts that
+  depend on `ryan_library`; require the matching package installation.
 
 ## Testing and validation
 
@@ -75,6 +117,32 @@ Use the change-type matrix in [`docs/DEVELOPMENT_GUIDE.md`](docs/DEVELOPMENT_GUI
   forwarding or warning checks.
 - Use synthetic fixtures where proprietary project data cannot be shared.
 - For documentation-only changes, verify links, commands, paths and behavioural claims against the current repository.
+- Windows with Python 3.14 is the primary acceptance environment. Use Ubuntu for inexpensive portable checks or a
+  specific POSIX compatibility contract when it reduces cost or latency; Linux success does not replace Windows,
+  installed-wheel or native application acceptance.
+- CI may use task-specific dependency profiles. Preserve the declared user/developer environment in `pyproject.toml`
+  and `requirements.txt`. Before narrowing a test profile, compare collected tests, deselections, skips and capability
+  probes on Windows; fewer collected tests or new dependency-related skips are not a saving.
+
+### Batch pushes to control CI usage
+
+- Make local commits as useful, but push one coherent, locally checked batch at a review or hosted-validation
+  milestone. A series of local commits can share one push. Do not push every edited file, formatting fix or work-note
+  update separately.
+- Run the applicable inexpensive checks before pushing. Include code, tests and documentation for the checkpoint in
+  that batch. Record subsequent CI results in the PR description when no source correction is needed.
+- Continue the assigned PR branch. With GitHub APIs, create one tree and commit for the related changes, then update
+  the branch once; avoid one Contents API commit per file.
+- Before editing shared CI workflows or helpers, inspect current main and open CI-maintenance PRs for an existing
+  fix. Use a linked PR stack to share an in-flight fix across simultaneous work fronts, and record that dependency
+  in the handoff. Re-read the relevant remote heads immediately before publishing the checked batch.
+- For a diagnosed transient CI failure, rerun the failed jobs on the same revision. Do not create empty commits or
+  repeatedly rerun already successful jobs. For complete test diagnostics, rerun all jobs on the same PR revision;
+  first-attempt early stopping is disabled on subsequent attempts.
+- Keep required validation on the final pushed commit. Do not use skip-CI markers or draft status to bypass it.
+  Preserve every main push's release validation and existing release concurrency policy.
+- Initialise only submodules required for the chosen check. Use source-only checkouts for routine repository work;
+  retrieve a specific LFS asset only when its bytes are needed. Never use recursive submodule checkout.
 
 ## Build workflow
 
@@ -89,8 +157,8 @@ dependency is already installed. In an environment that cannot save binary artif
 supported and state that a maintainer must rebuild the wheel locally. Use `--no-bump` for a verification rebuild of the
 current declared version; it must not modify `pyproject.toml`.
 
-After a local build, inspect Git status for version, wheel and index changes. Preserve working-tree changes and do not
-leave files staged unless the user asked for staging or a commit.
+After a local build, inspect Git status for version, wheel and index changes. Preserve unrelated working-tree and
+index changes; staging and committing the requested work and its build artifacts are permitted.
 
 ## Environment notes
 
@@ -163,7 +231,7 @@ nearest local README or workflow document when it defines a more specific contra
   Keep one authoritative status record per work front, normally a dated file under `docs/work/`, and register it.
 - Before handing back unfinished work, and at milestones, blockers or completion, update the record and register row
   with current status, next action, validation evidence, Git delivery state and next review date. Preserve unrelated
-  records and staged changes. Do not stage or commit just to save a handoff.
+  records and staged changes. Scoped staging and commits may include handoff updates; preserve unrelated work.
 - Link new records directly from [`docs/README.md`](docs/README.md). Local READMEs and the repository roadmap should
   point to the record where useful, rather than duplicate its session history. Small completed fixes need no new file.
 

@@ -23,7 +23,8 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-import rasterio  # pyright: ignore[reportMissingTypeStubs]
+import rasterio
+import rasterio.windows
 from loguru import logger
 
 from ryan_library.functions.file_utils import ensure_output_directory

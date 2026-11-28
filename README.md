@@ -1,14 +1,23 @@
 # ryan-tools
 
+> **TUFLOW initialiser:** The [maintained initialiser](docs/work/tuflow-initialiser/README.md) is incorporated into `ryan-tools`, retaining `tuflow-initialiser init|build|catchments`. [#312](https://github.com/Chain-Frost/ryan-tools/issues/312) coordinates development and engineering acceptance; [#247](https://github.com/Chain-Frost/ryan-tools/issues/247) tracks the authorised archive/private closeout. The [separate July 2027 review](https://github.com/Chain-Frost/ryan-tools/issues/314) tracks conditional deletion readiness.
+
 `ryan-tools` is a collection of Python utilities for TUFLOW, RORB, 12D, GDAL, QGIS and general data-processing
 workflows. Reusable code lives in `ryan_library`; files under `ryan-scripts` are human-facing wrappers and standalone
 utilities.
 
-The distribution is named `ryan_functions`, while maintained imports normally use `ryan_library`.
+The distribution is named `ryan-tools`, while maintained imports use `ryan_library`. The wheel also installs
+`ryan-scripts` beside `ryan_library`, so MCP workflows do not require a Git checkout.
+
+The PyPI and local-wheel installers automatically migrate the old distribution. When using pip directly, run
+`python -m pip uninstall ryan_functions` before installing `ryan-tools`. The removed `ryan_functions` import alias must be replaced with `ryan_library.functions`.
+See the [migration policy](docs/COMPATIBILITY_POLICY.md#removed-ryan_functions-import-namespace--2026-10-18).
+The `ryan_library.scripts` import namespace and its six root-level forwarding aliases were retired
+on 18 October 2026. Import maintained modules directly instead (breaking change).
 
 ## Project status
 
-The repository targets Python 3.14. Maintained library code, orchestrators and unversioned wrappers follow the current
+Python 3.11–3.14 remains the supported development, installation and CI baseline. Python 3.14 remains the preferred development interpreter. Maintained library code, orchestrators and unversioned wrappers follow the current
 repository standards; older standalone, versioned and compatibility files remain where they still support migration or
 narrow workflows.
 
@@ -30,8 +39,7 @@ ryan-tools/
 |   |-- classes/               # Configuration, metadata and filename parsing
 |   |-- functions/             # Reusable algorithms and focused I/O helpers
 |   |-- orchestrators/         # Complete workflow controllers
-|   |-- processors/            # Stateful processors for supported result formats
-|   `-- scripts/               # Deprecated import-compatibility wrappers
+|   `-- processors/            # Stateful processors for supported result formats
 |-- ryan-scripts/              # Human-facing wrappers and standalone utilities
 |-- docs/                      # Development guidance, plans and setup documentation
 |-- examples/                  # Example notebooks and supporting demonstrations
@@ -47,28 +55,28 @@ ryan-tools/
 
 ## Set up the repository
 
-This repository uses Git submodules and Git LFS for workbook resources. Install Git LFS, then clone recursively:
+The repository uses Git submodules and Git LFS for optional workbook resources. **Do not use recursive submodule checkout**: the `unsorted` submodule is excluded from all automated work. Initialise only the required, maintained submodules.
 
 ```powershell
-git lfs install
-git clone --recurse-submodules https://github.com/Chain-Frost/ryan-tools.git
+git clone https://github.com/Chain-Frost/ryan-tools.git
 cd ryan-tools
-git lfs pull
-git -C qgis-resources lfs pull
-git -C excel-resources lfs pull
 ```
 
-For an existing clone:
+Source review, documentation and static checks need no submodules. Initialise the maintained fixtures only when the
+selected test or build needs them. The hosted test suite uses:
 
 ```powershell
-git submodule update --init --recursive
-git lfs pull
-git -C qgis-resources lfs pull
-git -C excel-resources lfs pull
+git submodule update --init tests/test_data qgis-resources
 ```
+
+Initialise `excel-resources` separately when working with its workbook resources. For source-only automation where Git
+LFS is installed, set `GIT_LFS_SKIP_SMUDGE=1` for checkout and submodule commands, then restore the prior environment
+setting afterwards. This leaves LFS pointers available without downloading optional binaries.
+
+Git LFS binary downloads are **not required for routine source and CI checks**. Install Git LFS when you need an LFS-tracked workbook, then retrieve only the resources required for that task (for example, `git -C excel-resources lfs pull --include="*.xlsx"`). Avoid unconditional `git lfs pull` in every checkout: repeated downloads consume the account's LFS bandwidth allowance.
 
 The test suite requires `tests/test_data`; it does not download or substitute those fixtures automatically. Because
-`run_hy8` and `culvert_solver` are independent PyPI dependencies (`run-hy8` and `ryan-culverts`), not Git submodules or bundled code. Install `ryan_functions` with pip to resolve them automatically on Python 3.14+. Until the planned Python 3.14-only migration, Python 3.13 installs omit `ryan-culverts` and therefore cannot use culvert-solver features.
+`run_hy8` and `culvert_solver` are independent PyPI dependencies (`run-hy8` and `ryan-culverts`), not Git submodules or bundled code. Install `ryan-tools` with pip to resolve supported dependencies automatically. Python 3.11–3.14 is the supported runtime for `ryan-tools` and its published dependencies; Dependency Python metadata remains enforced.
 
 Install the repository requirements into the user's normal Python 3.14 installation. `ryan-tools` does not require or
 assume that users know how to create or activate a virtual environment:
@@ -76,13 +84,19 @@ assume that users know how to create or activate a virtual environment:
 ```powershell
 py -3.14 -m pip install --upgrade pip
 py -3.14 repo-scripts\install_latest_wheel.py --dependencies-only
+py -3.14 repo-scripts\vendor_pytuflow_wheel.py
+py -3.14 -m pip install --force-reinstall --no-deps -r repo-scripts\pytuflow-requirement.txt
 py -3.14 -m pip install -r requirements.txt
 ```
 
 `requirements.txt` installs the checkout and development tools into that Python installation. Installing the project is
 important when running wrappers copied outside the repository because they import the shared implementation from the
-installed `ryan_functions` distribution. The dependency bootstrap installs binary Fiona, Rasterio and GDAL packages
+installed `ryan-tools` distribution. The dependency bootstrap installs binary Fiona, Rasterio and GDAL packages
 from the configured geospatial wheel index, avoiding a local source build on Windows.
+The parser-only replacement handles incompatible PyTUFLOW builds with the same
+version number; the following requirements install resolves dependencies normally.
+See [installation verification](docs/ENVIRONMENTS.md#install-for-repository-development)
+for the dependency and public-API checks.
 
 ## Build and install
 
@@ -108,11 +122,35 @@ python repo-scripts/verify_wheel.py
 Windows convenience entry points are:
 
 ```powershell
-.\package_and_install.bat
-.\install-latest-wheel.bat
+.\install-ryan-tools.bat
+.\build-and-install-local-wheel.bat
+.\install-local-wheel.bat
 ```
 
-The first builds and installs the package; the second installs the newest existing wheel.
+`install-ryan-tools.bat` installs the latest published `ryan-tools[mcp]` release
+directly from PyPI, along with upstream QGIS MCP and the [locally vendored PyTuflow dependency wheel](repo-scripts/pytuflow-requirement.txt)
+built from exact contributor commit `4ca2dbe35c1d` proposed in upstream PR #17. The verified
+dependency wheel is distinct from the built `ryan-tools` wheel.
+It keeps the binary GIS bootstrap, replaces incompatible same-version PyTUFLOW
+builds, and checks installed dependencies and the public validation API before
+reporting success. The local-wheel installer uses the same dependency setup and
+verification, including the installed parser wheel's source path and SHA-256. Plain `pip install ryan-tools`
+does **not** discover the wheel stored alongside these repository scripts: use the supplied installer or
+the repository requirements when the accepted fork is needed. If Codex is detected, the PyPI installer
+configures the QGIS and ryan-tools MCP servers only as needed, preserving other
+settings and backing up any changed Codex configuration. `install-from-pypi.bat` is the explicit PyPI entry point;
+`install-ryan-tools.bat` forwards to it.
+The installers select the highest installed Python 3 release through the Windows launcher; override with `RYAN_TOOLS_PYTHON` to select a particular interpreter. Pip enforces Python-version metadata. Python versions below 3.11 are unsupported. The PyPI installer also recognises the `openai.chatgpt` Codex extension in VS Code, even without the Codex CLI.
+For developers, `build-and-install-local-wheel.bat` builds and installs a local wheel, including
+installing or updating its dependencies and the QGIS MCP bridge.
+`build-and-force-reinstall-local-wheel.bat` builds locally and forcibly reinstalls only that wheel
+with `--no-deps`, leaving dependency installation to the normal installer.
+Both use the local `dist/` wheel for `ryan-tools`; dependencies may still be downloaded.
+`install-local-wheel.bat` installs an existing local wheel without rebuilding.
+`force-reinstall-local-wheel.bat` reinstalls that wheel with `--no-deps`.
+`build-local-wheel.bat` builds and verifies a local wheel without installing it.
+The ambiguous installer and packager filenames have been renamed; update saved shortcuts accordingly.
+QGIS itself and its QGIS MCP desktop plugin must be installed separately.
 
 ## License
 
@@ -137,7 +175,7 @@ Run the complete suite through the repository runner:
 cmd.exe /C repo-scripts\run_tests.bat
 ```
 
-The runner configures the source and bundled HY-8 import paths, uses a repository-local base temporary directory and
+The runner uses installed PyPI hydraulic dependencies and a repository-local base temporary directory, and
 generates terminal, HTML and XML coverage reports. See the [development guide](docs/DEVELOPMENT_GUIDE.md#validation-by-change-type)
 for proportional validation expectations.
 

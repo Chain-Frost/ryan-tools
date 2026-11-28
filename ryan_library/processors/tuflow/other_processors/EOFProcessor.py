@@ -15,6 +15,7 @@ class EOFProcessor(BaseProcessor):
 
     def process(self) -> None:
         """Process the '.eof' file and extract CULVERT AND PIPE DATA."""
+        self.reset_processing_state()
         logger.info(f"Starting processing of EOF file: {self.log_path}")
 
         try:
@@ -131,6 +132,10 @@ class EOFProcessor(BaseProcessor):
                 self.df["Ent/Exit Losses"] = pd.to_numeric(self.df["Ent/Exit Losses"], errors="coerce")
 
             self.apply_entity_filter()
+            if self.applied_entity_filter and self.df.empty:
+                self.filtered_empty = True
+                logger.info("{}: No requested channels found; skipping file.", self.file_name)
+                return
             # Proceed with common processing steps
             self.add_common_columns()
             self.apply_output_transformations()

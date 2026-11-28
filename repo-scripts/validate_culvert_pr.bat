@@ -11,7 +11,8 @@ set "SKIP_BUILD=0"
 if /I "%~1"=="--skip-build" set "SKIP_BUILD=1"
 if not "%~1"=="" if /I not "%~1"=="--skip-build" goto :usage
 
-set "PYTHONPATH=%CD%;%CD%\vendor\run_hy8\src;%CD%\vendor\ryan_culverts\src;%PYTHONPATH%"
+REM run-hy8 and ryan-culverts resolve from installed pip dependencies.
+set "PYTHONPATH=%CD%;%PYTHONPATH%"
 
 echo ============================================================
 echo Culvert PR validation

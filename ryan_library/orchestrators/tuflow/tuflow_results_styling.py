@@ -61,7 +61,6 @@ class TUFLOWResultsStyler:
         Allows user to override default QML paths.
         """
         raster_exts: list[str] = ["flt", "tif"]
-        vector_exts: list[str] = ["shp", "gpkg"]
 
         mapping_dict: dict[str, MappingEntry] = {
             "d_Max": {
@@ -80,15 +79,10 @@ class TUFLOWResultsStyler:
                 "exts": raster_exts,
                 "qml": self.default_styles_path / "hillshade.qml",
             },
-            # No standalone 1d_ccA_L mapping is needed because TUFLOW now supplies a default style via the tuflow plugin.
+            # The TUFLOW QGIS plugin supplies 1d_ccA styles, including Results1D GeoPackage layers.
             "DIFF_P2-P1": {
                 "exts": raster_exts,
                 "qml": self.default_styles_path / "Depth Diff GOOOD.qml",
-            },
-            "Results1D": {
-                "exts": vector_exts,
-                "layer_name": "1d_ccA_L",
-                "qml": self.default_styles_path / "_1d_ccA_L.qml",
             },
         }
 

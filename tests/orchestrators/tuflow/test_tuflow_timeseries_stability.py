@@ -1,5 +1,9 @@
 """Tests for ryan_library.orchestrators.tuflow.tuflow_timeseries_stability."""
 
+# Unit tests intentionally exercise the implementation helpers under test.
+# pyright: reportPrivateUsage=false
+
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from ryan_library.functions.tuflow.po_timeseries_checks import (
@@ -29,7 +33,7 @@ class TestNormalizeResultTypes:
 
 
 class TestCollectFiles:
-    def test_collect_files(self, tmp_path):
+    def test_collect_files(self, tmp_path: Path):
         d1 = tmp_path / "dir1"
         d1.mkdir()
         (d1 / "test_PO.csv").touch()
@@ -51,7 +55,7 @@ class TestAnalyzeWorker:
     @patch("ryan_library.orchestrators.tuflow.tuflow_timeseries_stability.analyze_stability_q_csv")
     @patch("ryan_library.orchestrators.tuflow.tuflow_timeseries_stability.analyze_stability_csv")
     @patch("ryan_library.orchestrators.tuflow.tuflow_timeseries_stability.flatten_stability_results")
-    def test_worker_routing(self, mock_flatten, mock_csv, mock_q, tmp_path):
+    def test_worker_routing(self, mock_flatten: MagicMock, mock_csv: MagicMock, mock_q: MagicMock, tmp_path: Path):
         config = MagicMock()
         mock_flatten.return_value = [{"res": 1}]
 
@@ -73,14 +77,14 @@ class TestAnalyzeWorker:
 
 class TestMainProcessing:
     @patch("ryan_library.orchestrators.tuflow.tuflow_timeseries_stability.collect_timeseries_files")
-    def test_main_no_files(self, mock_collect, tmp_path):
+    def test_main_no_files(self, mock_collect: MagicMock, tmp_path: Path):
         mock_collect.return_value = []
         main_processing(paths_to_process=[tmp_path], result_types=["PO"])
         # Should return without exception
 
     @patch("ryan_library.orchestrators.tuflow.tuflow_timeseries_stability.collect_timeseries_files")
     @patch("ryan_library.orchestrators.tuflow.tuflow_timeseries_stability.ExcelExporter")
-    def test_main_no_rows_returned(self, mock_exporter, mock_collect, tmp_path):
+    def test_main_no_rows_returned(self, mock_exporter: MagicMock, mock_collect: MagicMock, tmp_path: Path):
         mock_collect.return_value = [(tmp_path / "a.csv", "PO")]
         with patch(
             "ryan_library.orchestrators.tuflow.tuflow_timeseries_stability.cf.ProcessPoolExecutor"
@@ -93,7 +97,7 @@ class TestMainProcessing:
 
     @patch("ryan_library.orchestrators.tuflow.tuflow_timeseries_stability.collect_timeseries_files")
     @patch("ryan_library.orchestrators.tuflow.tuflow_timeseries_stability.ExcelExporter")
-    def test_main_success(self, mock_exporter, mock_collect, tmp_path):
+    def test_main_success(self, mock_exporter: MagicMock, mock_collect: MagicMock, tmp_path: Path):
         mock_collect.return_value = [(tmp_path / "a.csv", "PO")]
 
         with patch(

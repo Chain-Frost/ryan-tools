@@ -5,6 +5,27 @@ repository CLI workflows. The MCP server discovers scripts and returns safe comm
 catalogued scripts. The agent runs a selected script through its normal shell after reviewing the script's current
 `--help`, input and output paths, mutation metadata and approval requirements.
 
+## C/F integration and engineering acceptance
+
+The [33-target MCP safety assessment](mcp-handoff/2026-10-21-cf-target-assessment.md)
+records curated workflow paths, profiles, destructive flags and remaining readiness gates.
+The [Windows engineering acceptance checklist](mcp-handoff/2026-10-21-cf-windows-acceptance.md)
+includes safe automated checks, an isolated-wheel discovery probe and opt-in
+mapped-drive/UNC/QGIS/GDAL/TUFLOW/HY-8 checks. These do **not** imply that
+an installed executable has been tested or that a real model has run.
+
+The `batch_vector_clip` wrapper launches `ogr2ogr` subprocesses and therefore
+is also `privileged`, requires explicit approval and reports the executable
+as declared but unverified. Its `--overwrite` option requires separate
+output-preservation review; do not use it on production sources.
+
+For GDAL recompression, the curated workflow includes a source-replacing
+`--replace --yes` scenario and therefore now requires the `privileged` profile
+and explicit approval. Users can continue to invoke the underlying audit-only
+script outside MCP without replacement flags. Legacy TUFLOW batch and duplicate
+deletion scripts do not have safe `--help` execution; MCP deliberately suppresses
+their generated help commands.
+
 ## Default tools
 
 The default MCP surface stays deliberately small:
@@ -15,14 +36,62 @@ The default MCP surface stays deliberately small:
 | `inspect_tuflow_result` | Process one supported TUFLOW result or log, with optional location and processed-time bounds, and return bounded metadata and sample rows. |
 | `inspect_tuflow_collection` | Process up to 50 supported TUFLOW files and query their `ProcessorCollection` by location, data type and processed-time bounds. |
 | `inspect_raster_metadata` | Inspect raster dimensions, resolution, CRS, transform, bounds, bands and NoData metadata. |
+| `inspect_rorb_file` | Read one RORB report, CSV or supported parameter layout, returning bounded sections and explicit format/completeness diagnostics. |
 | `check_repo_health` | Report package versions, configured profile, checkout discovery and catalogue status. |
-| `list_workflows` | Discover CLI workflows enabled by the configured profile, optionally filtered by domain. |
+| `list_workflows` | Search paginated workflow summaries or request a compact, filtered domain overview. |
 | `get_workflow` | Resolve one workflow's installed module or repository script, help command, scenarios and safety metadata. |
 
 The complete visible catalogue is also available as the read-only resource
 `ryan-tools://workflows/catalogue`. The read-only `ryan-tools://guidance/tuflow-processors` resource tells an agent
 which Python processor factory, collection methods, registry and source files to use for queries beyond the bounded MCP
 tools.
+
+The `ryan-tools://guidance/rorb-readers` resource describes supported RORB layouts and the
+[Python reader API](../ryan_library/functions/RORB/README.md). Start with `inspect_rorb_file(file_path=...)` to see
+section counts and diagnostics, then select `section="runs"`, `section="hydrographs"` or another returned section name.
+`section="raw"` returns numbered source lines. Use `offset` and `limit` (0 to 20) for pages. Strings are bounded to 300
+characters, tables to 30 columns, and diagnostics/section listings to 20 entries, with counts and truncation flags.
+Metadata is bounded to 40 entries. Python callers retain complete source text and full records.
+
+RORB inspection does not launch an engine or follow references by default. Explicit `resolve_csv=True` checks at most
+500 batch-row CSV associations using two same-directory naming conventions and content corroboration. Explicit
+`comparison_path` compares a standard output/CSV pair and reports time-axis disagreements without repairing them.
+Parsing a CMD parameter layout does not establish that an executable supports its options. Saved RORBWin parameter
+pairs are candidates with unknown activity, not certified active settings. Treat `invalid` sections as diagnostic
+evidence only; `partial` means some interpretation or completeness remains unverified.
+
+### Discover workflows in small pages
+
+When the relevant domain is unclear, call `list_workflows(overview=True)` to receive a compact overview. Agents who
+already know the domain or task can search directly; an overview call is not mandatory.
+For example, `list_workflows(domain="gdal", query="crop")` discovers the existing
+`clip_rasters_to_polygon` workflow (also found by `cropping`). A query for `pyramids` discovers
+`build_external_overviews`, and `logs` finds `tuflow_log_summary`. Then call
+`get_workflow("clip_rasters_to_polygon")` to inspect the canonical ID's details, declared keywords, safety metadata,
+help command and scenarios before any normal client-shell execution. Search terms cannot be used as workflow IDs.
+
+Search is **case-insensitive literal substring matching**, not fuzzy search or global synonym replacement. All
+whitespace-separated query words must appear somewhere in the combined workflow ID, title, domain, purpose or curated
+keywords. Multiword keywords are supported; they do not change IDs. `domain` is an exact case-insensitive domain
+filter. Configured profile ceilings, lower requested profiles and `include_unavailable` apply before any result is
+counted. Availability checks only whether the entry point is available, not external GDAL/TUFLOW/HY-8 binaries.
+
+In normal mode, `list_workflows` returns workflow summaries in stable domain/title/ID order. It returns at most
+**10 workflow summaries by default**; `limit` must be 1–25 and `offset` nonnegative. `workflow_count` counts all
+matching workflows **before pagination**, `returned_count` counts summaries on the current workflow page, and
+`has_more`/`next_offset` paginate workflows. `domains` remains the sorted list of matching domain-name strings.
+The normal listing does not include the extra keyword arrays, command arrays or full scenario metadata.
+
+With `overview=True`, the same `limit` and `offset` instead paginate **domains** in alphabetical order. The
+response includes `overview: true`, total filtered `workflow_count`, total `domain_count`, the complete sorted
+string list `domains`, and the current page `domain_overview`. Each domain row contains `domain`, its full filtered
+`workflow_count`, and at most **three** workflow examples in stable ordering; each example contains only `id`,
+`title` and `available`. The `workflows` field is omitted. `returned_count`, `has_more` and `next_offset`
+describe the **domain page**. An empty query result or an offset past the last domain returns no rows while retaining
+complete filtered totals. Repeat the same filters and limit with `offset=next_offset` when `has_more` is true.
+
+Health counts and the explicitly requested full catalogue resource are never truncated. Neither the catalogue nor
+script contents are preloaded into server startup instructions.
 
 ### TUFLOW result queries
 
@@ -50,8 +119,8 @@ Set the maximum profile with `RYAN_MCP_PROFILE`. A tool call cannot request a pr
 Workflows declare their lifecycle and mutation class, and privileged workflows also declare that explicit approval is
 required.
 
-The generic workflow catalogue and authoritative curated GDAL metadata are packaged with `ryan_functions`. Catalogued
-workflows resolve through their existing maintained repository wrappers so their CLI behavior has one source of truth.
+The generic workflow catalogue and authoritative curated GDAL metadata are packaged with `ryan-tools`. Catalogued
+workflows resolve through their existing maintained wrappers so their CLI behavior has one source of truth.
 The `culvert_analysis_design` workflow exposes the maintained solve, analyse, compare, design, rating and saved-report
 commands, plus a bounded or seeded `uncertainty_study` scenario, as output-creating hydraulic workflows.
 Project-driven scenarios require an explicit versioned JSON or TOML path; saved-report rendering consumes existing
@@ -77,26 +146,127 @@ wrapper at execution time rather than inferred from Manning roughness. The HY-8
 catalogue entries retain `creates_or_replaces` as output-mutation metadata while
 external execution remains the governing privileged safety classification.
 
-## Repository workflow resolution
+## Installed scripts and development checkouts
 
-Catalogued workflows target human-facing repository scripts. The server resolves a checkout in this order:
+The wheel installs **selected** `ryan-scripts` files beside `ryan_library` in `site-packages`, preserving their original relative layout. The [wheel script manifest](../ryan_library/resources/mcp/installed_scripts.json) lists the current, **provisionally selected** files (see the [outstanding individual audit](audits/2026-10-19-installed-scripts-inventory.md)); legacy and unreviewed scripts remain repository-only.
+MCP locates that sibling folder automatically; users do not need a checkout or `RYAN_TOOLS_REPOSITORY_ROOT`.
+The selected wheel files include Python wrappers and their required local documentation; the full source tree (including historical BAT/GMS/XCES helpers) is **not** installed automatically. To inspect or copy one installed wrapper without executing it, use `ryan-scripts list` and `ryan-scripts copy <relative-script-path> <existing-project-directory> [--dry-run]`. Existing targets require explicit `--overwrite`.
+Packaging a script does not make it a supported MCP workflow: the curated catalogue and capability profiles still
+control discovery. Mandatory Python dependencies, including `ryan-culverts` (imported as `culvert_solver`), are supplied
+by the `ryan-tools` installation and are not probed separately for each workflow. Script availability indicates that
+the CLI file exists, not that every runtime dependency or external application has been validated.
+Application-specific dependencies such as QGIS, GDAL and HY-8 may require additional environment setup and are not
+executed by MCP.
+The server reports the installed folder as `scripts_directory` in health and workflow-list responses.
 
-1. The explicit `RYAN_TOOLS_REPOSITORY_ROOT` environment variable.
-2. The source tree containing the imported package during repository development.
-3. The current directory or one of its parents.
+For development, an explicit `RYAN_TOOLS_REPOSITORY_ROOT` or an automatically discovered checkout takes precedence
+over the installed scripts. Checkout discovery checks the package source tree, then the working directory and its parents.
+If a selected checkout is missing a script, MCP reports it unavailable rather than silently running a wheel copy.
+The MCP server returns commands and metadata; it does not execute scripts.
+`get_workflow` also returns the selected `script_source`, `installed_distribution_version` and
+`external_prerequisites` status. `check_repo_health` labels availability as
+`entry_point_only` and external executable validation as `not_performed`.
+A discoverable script is not proof that HY-8/TUFLOW/GDAL/QGIS binaries are present
+or that its CLI works; verify those in the real application environment before running.
 
-When no checkout is found, the MCP server still starts and its focused direct helpers remain available. Catalogued
-workflows are reported as unavailable, while their packaged discovery metadata remains inspectable. Health and
-workflow-list responses explain how to configure the root.
 
 ## Prerequisites
 
-1. Python 3.14+ with the `ryan_functions` package installed.
+1. Python 3.11–3.14 (3.14 preferred) with the `ryan-tools` package installed, including `ryan-culverts`. Upgrade Python if dependency compatibility problems occur.
 2. Install the MCP extra:
 
    ```bat
    python -m pip install ".[mcp]"
    ```
+
+## Install both MCP servers
+
+The recommended end-user launcher (`install-from-pypi.bat`, also available through
+the `install-ryan-tools.bat` alias) installs the newest published
+`ryan-tools[mcp]` release **from PyPI**, without requiring a local wheel.
+It also installs the external QGIS MCP Python bridge from upstream `main`.
+If Codex is detected (CLI, existing user configuration, or the OpenAI `openai.chatgpt` VS Code extension), it automatically
+adds/refreshes the QGIS and ryan-tools MCP registrations, preserving unrelated
+settings and backing up changed configuration. If Codex is absent, no Codex
+configuration is created.
+
+`build-and-install-local-wheel.bat` and `install-local-wheel.bat` retain the
+local verified-wheel workflow for developers. The QGIS bridge remains a
+separate pip installation, not an embedded dependency of `ryan-tools`.
+Development `requirements.txt` installs the checkout and upstream QGIS MCP.
+
+To use the approved local QGIS MCP source instead of downloading from GitHub:
+
+```powershell
+.\install-ryan-tools.bat --qgis-mcp-source "Q:\BGER\PER\RPRT\qgis-mcp"
+```
+
+For machines without QGIS or access to the upstream source:
+
+```powershell
+.\install-ryan-tools.bat --skip-qgis-mcp
+```
+
+The developer `force-reinstall-local-wheel.bat` still uses a local wheel with
+`--no-deps`; `install_latest_wheel.py --dependencies-only` remains a
+binary GIS dependency bootstrap. Use `install-ryan-tools.bat --skip-codex`
+to leave Codex untouched. Skipping QGIS MCP also skips automatic Codex
+configuration; run the setup helper separately when both servers are installed.
+
+**The QGIS desktop plugin is not installed by pip.** Install/update it in QGIS
+through Plugins > Manage and Install Plugins > QGIS MCP, then start the server
+from its dock. The Python bridge and QGIS plugin must be compatible.
+
+## Set up both servers in Codex
+
+Run this from the repository root in Windows PowerShell. The launcher selects
+an available Python 3.11–3.14 (3.14 preferred) interpreter by default and discovers the checkout
+relative to `repo-scripts`. For Codex running **natively on Windows**, the
+user-level Codex config is shared with the extension in VS Code; restart or
+reload the extension after changes.
+
+**WSL exception:** If VS Code is configured to run Codex inside WSL, the
+Windows batch installer configures the Windows Python and Codex environment,
+not WSL's separate interpreter or `~/.codex/config.toml`. Set up both
+servers in WSL explicitly instead and verify the active config using the
+Codex sidebar's Settings > Open config.toml.
+
+```powershell
+.\repo-scripts\setup_codex_mcp.ps1 -DryRun
+.\repo-scripts\setup_codex_mcp.ps1
+```
+
+To install/update the Python MCP packages at the same time, run:
+
+```powershell
+.\repo-scripts\setup_codex_mcp.ps1 -Install -QgisSource "Q:\BGER\PER\RPRT\qgis-mcp"
+```
+
+Without `-QgisSource`, `-Install` installs upstream QGIS MCP from `main`. The `-Install` option installs the checkout in editable
+mode with the MCP extra. Omitting `-Install` only updates Codex registration.
+
+The setup preserves unrelated Codex settings and MCP servers, retains QGIS
+environment settings such as `QGIS_MCP_TOKEN`, refuses symlinked Codex config
+files rather than replacing dotfiles-managed links, detects edits made after
+reading or while staging the replacement, and backs up
+`%USERPROFILE%\.codex\config.toml` before changes, and can be rerun.
+Set `-Python` to override the interpreter. Existing `CODEX_HOME` is
+respected by the Python utility. The default ryan-tools profile is `create`;
+use `-Profile analysis` for read-only workflow discovery. Setup no longer writes a checkout path by default and removes
+a previous generated `RYAN_TOOLS_REPOSITORY_ROOT`. Use `--repository-root <path>` with the Python helper or
+`-RepositoryRoot <path>` with the PowerShell helper to explicitly select a development checkout.
+
+Bytecode suppression defaults to off. Setup automatically disables `.pyc` writes when `USERDNSDOMAIN`,
+`USERDOMAIN` or the host DNS suffix identifies `bge-resources.com` (including the `BGER` domain).
+For other restricted environments, pass `--disable-bytecode` to `install-ryan-tools.bat` or
+`setup_codex_mcp.py`, or `-DisableBytecode` to `setup_codex_mcp.ps1`.
+This adds `-B` and `PYTHONDONTWRITEBYTECODE = "1"` to both MCP registrations.
+Rerunning setup outside BGE without the flag removes these bytecode restrictions from both registrations;
+unrelated environment settings are preserved. If domain/DNS detection is unavailable, use the explicit flag.
+
+Restart Codex and check `codex mcp list`. In the running QGIS session,
+start the plugin bridge, then invoke QGIS `ping` and `diagnose`; also run
+ryan-tools `check_repo_health`.
 
 ## Running the server
 
@@ -128,7 +298,7 @@ PYTHONUTF8 = '1'
 RYAN_MCP_PROFILE = 'create'
 ```
 
-During the staged migration, add `RYAN_TOOLS_REPOSITORY_ROOT` when repository-only workflows are needed:
+For an optional development checkout override, add `RYAN_TOOLS_REPOSITORY_ROOT`:
 
 ```toml
 RYAN_TOOLS_REPOSITORY_ROOT = 'E:\Library\Automation\ryan-tools'
@@ -167,5 +337,5 @@ The MCP server never invokes the returned command itself.
 | A repository workflow is unavailable | Set `RYAN_TOOLS_REPOSITORY_ROOT` to a checkout containing `pyproject.toml` and `ryan-scripts`. Installed-module workflows do not need it. |
 | A workflow is unknown under `create` | It may be privileged; inspect the packaged catalogue and explicitly opt into `privileged` if appropriate. |
 | A GDAL repository wrapper is unavailable | Configure the repository root. The packaged GDAL catalogue remains discoverable, but its existing wrappers require the checkout. |
-| Script imports fail | Install the matching `ryan_functions` package version used by the checkout. |
+| Script imports fail | Install the matching `ryan-tools` package version used by the checkout. |
 | Changes do not appear in the client | Restart the MCP client so it reloads tool definitions and environment variables. |

@@ -76,4 +76,15 @@ class TestPommMaxItems:
 
         mock_workflow.assert_called_once()
         _, kwargs = mock_workflow.call_args
-        assert kwargs["exporter"] == pomm_max_items.save_peak_report_mean
+        exporter = kwargs["exporter"]
+        assert exporter.func == pomm_max_items.save_peak_report_mean
+        assert exporter.keywords["expected_tp_count"] == 10
+        assert exporter.keywords["standard_durations"] == pomm_max_items.STANDARD_DURATIONS_MINUTES
+
+    @patch("ryan_library.orchestrators.tuflow.pomm_max_items.run_peak_report_workflow")
+    def test_mean_coverage_settings_forwarded(self, mock_workflow: MagicMock) -> None:
+        pomm_max_items.export_mean_peak_report(standard_durations=[30, 60, 120], expected_tp_count=5)
+        _, kwargs = mock_workflow.call_args
+        exporter = kwargs["exporter"]
+        assert exporter.keywords["expected_tp_count"] == 5
+        assert exporter.keywords["standard_durations"] == [30, 60, 120]

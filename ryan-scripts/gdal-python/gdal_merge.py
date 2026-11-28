@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-16.1"
+WRAPPER_VERSION = "2026-11-07.1"
 
 WORKING_DIR: Path = Path(__file__).absolute().parent
 CONSOLE_LOG_LEVEL = "INFO"
@@ -65,7 +65,9 @@ def main(
     overwrite: bool | None = None,
 ) -> int:
     """Resolve wrapper settings and merge matching rasters through the shared library."""
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="gdal-python/gdal_merge.py", wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION
+    )
     target_directory: Path = (working_directory or WORKING_DIR).absolute()
     configured_basename: str | None = output_basename or OUTPUT_BASENAME
     default_tif: Path | None = target_directory / f"{configured_basename}.tif" if configured_basename else None
@@ -143,6 +145,7 @@ if __name__ == "__main__":
         overwrite=args.overwrite,
     )
     print_wrapper_banner(
+        wrapper_source="gdal-python/gdal_merge.py",
         wrapper_file=Path(__file__),
         wrapper_version=WRAPPER_VERSION,
         leading_blank_line=True,

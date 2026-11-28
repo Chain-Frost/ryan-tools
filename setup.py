@@ -1,14 +1,16 @@
 """Setuptools entry point and wheel resource staging."""
 
+import json
 import shutil
 from pathlib import Path
+from typing import cast
 
 from setuptools import setup  # pyright: ignore[reportMissingModuleSource]
 from setuptools.command.build_py import build_py  # pyright: ignore[reportMissingModuleSource]
 
 
 class _BuildPyWithQgisStyles(build_py):
-    """Copy the pinned TUFLOW QML styles into the built package."""
+    """Stage QGIS styles and the standalone script tree in the wheel."""
 
     def run(self) -> None:
         """Build Python modules, then stage QML files from the resource submodule."""
@@ -28,6 +30,40 @@ class _BuildPyWithQgisStyles(build_py):
         target_dir.mkdir(parents=True, exist_ok=True)
         for qml_file in qml_files:
             shutil.copy2(src=qml_file, dst=target_dir / qml_file.name)
+
+        scripts_source = project_root / "ryan-scripts"
+        manifest = project_root / "ryan_library" / "resources" / "mcp" / "installed_scripts.json"
+        raw_policy: object = json.loads(manifest.read_text(encoding="utf-8"))
+        if not isinstance(raw_policy, dict):
+            msg = f"Invalid installed script manifest: {manifest}"
+            raise RuntimeError(msg)
+        policy = cast("dict[str, object]", raw_policy)
+        raw_entries: object = policy.get("installed_files")
+        entries = cast("list[object]", raw_entries) if isinstance(raw_entries, list) else []
+        if policy.get("schema_version") != 1 or not entries:
+            msg = f"Invalid installed script manifest: {manifest}"
+            raise RuntimeError(msg)
+        if not all(isinstance(item, str) for item in entries) or len(entries) != len(set(entries)):
+            msg = f"Duplicate or invalid script paths in {manifest}"
+            raise RuntimeError(msg)
+
+        # A previous build may have staged additional scripts. Remove only the
+        # build output copy, never the authoritative source tree.
+        target_root = Path(self.build_lib) / "ryan-scripts"
+        if target_root.exists():
+            shutil.rmtree(target_root)
+        for item in cast("list[str]", entries):
+            relative = Path(item)
+            if relative.is_absolute() or not relative.parts or ".." in relative.parts:
+                msg = f"Unsafe installed script manifest path: {item}"
+                raise RuntimeError(msg)
+            source = scripts_source / relative
+            if not source.is_file() or source.is_symlink():
+                msg = f"Missing or symlinked installed script: {source}"
+                raise RuntimeError(msg)
+            destination = target_root / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, destination)
 
 
 if __name__ == "__main__":

@@ -6,12 +6,14 @@ from __future__ import annotations
 
 import importlib.util
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 from types import ModuleType
+from unittest.mock import Mock
 
 import pytest
-import rasterio  # pyright: ignore[reportMissingTypeStubs]
+import rasterio
 
 SCRIPTS_DIRECTORY = Path(__file__).parents[3] / "ryan-scripts" / "gdal-python"
 
@@ -34,6 +36,48 @@ def _copy_tifs(source: Path, destination: Path) -> None:
         shutil.copy2(path, destination / path.name)
 
 
+@pytest.mark.parametrize("editable_default", [False, True])
+@pytest.mark.parametrize("existing_directory", [False, True])
+def test_translate_wrapper_rejects_invalid_single_file_before_side_effects(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, editable_default: bool, existing_directory: bool
+) -> None:
+    module = _load_script("gdal_translate_TIF_ovr.py")
+    monkeypatch.chdir(tmp_path)
+    source = tmp_path / "source"
+    if existing_directory:
+        source.mkdir()
+        (source / "surface.asc").touch()
+    change_directory = Mock()
+    convert = Mock()
+    monkeypatch.setattr(module, "change_working_directory", change_directory)
+    monkeypatch.setattr(module, "convert_rasters", convert)
+    if editable_default:
+        monkeypatch.setattr(module, "INPUT_FILE", source)
+        result = module.main()
+    else:
+        result = module.main(input_file=source)
+
+    assert result == 1
+    assert Path.cwd() == tmp_path
+    change_directory.assert_not_called()
+    convert.assert_not_called()
+    if existing_directory:
+        assert list(source.iterdir()) == [source / "surface.asc"]
+
+
+def test_translate_wrapper_directory_override_supersedes_editable_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = _load_script("gdal_translate_TIF_ovr.py")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(module, "INPUT_FILE", tmp_path / "missing.asc")
+    convert = Mock(return_value=[])
+    monkeypatch.setattr(module, "convert_rasters", convert)
+
+    assert module.main(working_directory=tmp_path) == 0
+    assert convert.call_args.kwargs["directory"] == tmp_path
+
+
 def test_translate_wrapper_converts_asc_fixture(
     raster_test_data: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -49,6 +93,36 @@ def test_translate_wrapper_converts_asc_fixture(
     result = module.main(
         working_directory=source_directory,
         extensions=("asc",),
+        output_directory=output_directory,
+        build_overviews=False,
+        workers=1,
+    )
+
+    assert result == 0
+    output = output_directory / "surface.tif"
+    with rasterio.open(output) as dataset:
+        assert dataset.shape == (64, 64)
+        assert dataset.dtypes == ("float32",)
+        assert dataset.crs is not None
+        assert dataset.crs.to_epsg() == 7850
+
+
+def test_translate_wrapper_converts_single_asc_fixture(
+    raster_test_data: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    conversion = raster_test_data / "conversion"
+    source_directory = tmp_path / "source"
+    output_directory = tmp_path / "output"
+    source_directory.mkdir()
+    output_directory.mkdir()
+    for filename in ("surface.asc", "surface.prj"):
+        shutil.copy2(conversion / filename, source_directory / filename)
+    source = source_directory / "surface.asc"
+    module = _load_script("gdal_translate_TIF_ovr.py")
+    monkeypatch.chdir(tmp_path)
+
+    result = module.main(
+        input_file=source,
         output_directory=output_directory,
         build_overviews=False,
         workers=1,
@@ -189,3 +263,61 @@ def test_flood_extent_wrapper_creates_raster_and_vector(
     assert result == 0
     assert copied.with_name(f"{copied.stem}_FE_005m.tif").is_file()
     assert copied.with_name(f"{copied.stem}_FE_005m.gpkg").is_file()
+
+
+@pytest.mark.parametrize("tile_size", [[], [100], [100, 200, 300]])
+def test_retile_wrapper_rejects_edited_tile_size_before_side_effects(
+    tile_size: list[int], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = _load_script("gdal_retile_wrapper.py")
+    source = tmp_path / "input.tif"
+    source.touch()
+    output = tmp_path / "tiles"
+    monkeypatch.setattr(module, "DEFAULT_INPUTS", [source])
+    monkeypatch.setattr(module, "DEFAULT_OUTPUT_DIR", output)
+    monkeypatch.setattr(module, "DEFAULT_TILE_SIZE", tile_size)
+    run_process = Mock()
+    monkeypatch.setattr(module.subprocess, "run", run_process)
+
+    result = module.main(module._parse_cli_arguments([]))
+
+    assert result == 2
+    assert not output.exists()
+    run_process.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("default_size", "cli_args", "expected_size"),
+    [
+        ([320, 640], [], ["320", "640"]),
+        ([320, 640], ["--tile-size", "100", "200"], ["100", "200"]),
+        ([100], ["--tile-size", "100", "200"], ["100", "200"]),
+    ],
+)
+def test_retile_wrapper_passes_selected_tile_size_to_command(
+    default_size: list[int],
+    cli_args: list[str],
+    expected_size: list[str],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    module = _load_script("gdal_retile_wrapper.py")
+    source = tmp_path / "input.tif"
+    source.touch()
+    output = tmp_path / "tiles"
+    original_default = default_size.copy()
+    monkeypatch.setattr(module, "DEFAULT_INPUTS", [source])
+    monkeypatch.setattr(module, "DEFAULT_OUTPUT_DIR", output)
+    monkeypatch.setattr(module, "DEFAULT_TILE_SIZE", default_size)
+    run_process = Mock(return_value=subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr=""))
+    monkeypatch.setattr(module.subprocess, "run", run_process)
+
+    result = module.main(module._parse_cli_arguments(cli_args))
+
+    assert result == 0
+    assert output.is_dir()
+    run_process.assert_called_once()
+    command = run_process.call_args.args[0]
+    tile_size_index = command.index("-ps")
+    assert command[tile_size_index + 1 : tile_size_index + 3] == expected_size
+    assert original_default == module.DEFAULT_TILE_SIZE

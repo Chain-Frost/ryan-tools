@@ -119,7 +119,7 @@ def study_summary_record(summary: StudySummary) -> dict[str, object]:
 def uncertainty_result_record(result: UncertaintyStudyResult) -> dict[str, object]:
     """Serialize complete input policy, outcome matrix and conditional statistics."""
     try:
-        package_version: str | None = version("ryan_functions")
+        package_version: str | None = version("ryan-tools")
     except PackageNotFoundError:
         package_version = None
     return {

@@ -1,6 +1,7 @@
 """Bounded execution of project uncertainty studies through authoritative hydraulics."""
 
 from collections.abc import Callable, Sequence
+from typing import TypeVar
 
 from ...classes.culvert.alternative import Alternative
 from ...classes.culvert.crossing import CrossingDefinition
@@ -11,8 +12,12 @@ from ...functions.culvert.uncertainty import generate_study_samples
 from ...functions.culvert.uncertainty_evaluation import evaluate_crossing_sample
 from ...functions.culvert.uncertainty_statistics import aggregate_study_evaluations
 
+_SELECT_T = TypeVar("_SELECT_T")
 
-def _select[T](items: Sequence[T], names: tuple[str, ...], get_name: Callable[[T], str]) -> tuple[T, ...]:
+
+def _select(
+    items: Sequence[_SELECT_T], names: tuple[str, ...], get_name: Callable[[_SELECT_T], str]
+) -> tuple[_SELECT_T, ...]:
     available = {get_name(item): item for item in items}
     if missing := set(names) - available.keys():
         msg = f"Unknown study selection(s): {', '.join(sorted(missing))}. Available: {', '.join(available)}"

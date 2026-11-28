@@ -1,0 +1,89 @@
+name: RORB 6.45 original reader acceptance
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/rorb-645-reader-acceptance.yml"
+      - "tests/functions/RORB/test_original_645_readers.py"
+      - "tests/functions/RORB/test_original_652_readers.py"
+      - "tests/functions/RORB/test_reader_compatibility.py"
+      - "ryan_library/functions/RORB/**"
+      - "pyproject.toml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  original-645-reader:
+    name: RORBWin 6.45 public 490 / Python ${{ matrix.python-version }}
+    runs-on: windows-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ${{ fromJSON(github.event_name == 'pull_request' && '["3.11"]' || '["3.11","3.14"]') }}
+    steps:
+      - name: Checkout candidate reader source (no submodules)
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Checkout exact approved public reader test-data commit
+        uses: actions/checkout@v6
+        with:
+          repository: Chain-Frost/ryan-tools-test-data
+          ref: 4535ff86ea978666b990748d72d927695be2158c
+          path: tests/test_data
+          persist-credentials: false
+          lfs: false
+          sparse-checkout: RORB
+
+      - name: Require immutable test-data identity and expected fixture files
+        shell: pwsh
+        run: |
+          $dataCommit = git -C tests/test_data rev-parse HEAD
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($dataCommit.Trim() -ne '4535ff86ea978666b990748d72d927695be2158c') {
+            throw 'Reader acceptance test-data checkout is not the pinned fixture commit.'
+          }
+          $fixture = 'tests/test_data/RORB'
+          foreach ($name in @(
+            '6.45-490-event-reader-example/manifest.json',
+            '6.45-490-event-reader-example/validation.json',
+            '6.45-490-event-reader-example/RORB_14141_batch.out',
+            '6.45-490-event-reader-example/RORB_14141_ aep10_du12hourtp1.out',
+            '6.45-490-event-reader-example/RORB_14141_ aep10_du12hourtp1.csv',
+            '12hr-areal-example/Fig6_7_batch.out',
+            '24hr-areal-example/Fig6_7_batch.out',
+            '48hr-areal-example/Fig6_7_batch.out',
+            '12hr-areal-example/Fig6_7_ aep0p2EY_du12hourtp1.out'
+          )) {
+            if (!(Test-Path -Path (Join-Path $fixture $name) -PathType Leaf)) {
+              throw "Required source fixture missing: $name"
+            }
+          }
+
+      - name: Set up supported Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Download and authenticate the exact index-published PyRORB wheel
+        shell: pwsh
+        run: |
+          $wheelDir = Join-Path $env:RUNNER_TEMP 'qualified-pyrorb-reader'
+          New-Item -ItemType Directory -Force -Path $wheelDir | Out-Null
+          python -m pip --isolated download --index-url https://pypi.org/simple --no-cache-dir --only-binary=:all: --no-deps --dest $wheelDir "pyrorb==26.11.24.1"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $wheel = Join-Path $wheelDir 'pyrorb-26.11.24.1-py3-none-any.whl'
+          $digest = (Get-FileHash -Algorithm SHA256 -LiteralPath $wheel).Hash.ToLowerInvariant()
+          if ($digest -ne 'd5987b0213fb4fc1b709f268c0c2f0ae2de0b643b97563a7d6f2a26463e703f1') {
+            throw "PyRORB published wheel SHA-256 mismatch: $digest"
+          }
+          Write-Host "Authenticated PyPI wheel: $wheel SHA-256 $digest"
+          python -m pip --isolated install --index-url https://pypi.org/simple --only-binary=:all: $wheel pytest
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Verify installed reader provenance, compatibility and original 6.45/6.52 populations
+        run: python -m pytest -q -rs --noconftest tests/functions/RORB/test_reader_compatibility.py tests/functions/RORB/test_original_645_readers.py tests/functions/RORB/test_original_652_readers.py

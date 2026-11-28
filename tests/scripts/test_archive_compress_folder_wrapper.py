@@ -54,9 +54,23 @@ def test_archive_helper_preserves_output_and_native_exclusions(tmp_path: Path, m
     executable.touch()
     observed: dict[str, object] = {}
 
-    def fake_7zip(*, executable: Path, output_archive: Path, inputs: list[str], exclusions: list[str]) -> None:
-        observed.update(exe=executable, output=output_archive, inputs=inputs, exclusions=exclusions)
+    def fake_7zip(
+        *,
+        executable: Path,
+        output_archive: Path,
+        inputs: list[str],
+        exclusions: list[str],
+        max_part_size_gib: int | None,
+    ) -> tuple[Path, ...]:
+        observed.update(
+            exe=executable,
+            output=output_archive,
+            inputs=inputs,
+            exclusions=exclusions,
+            max_part_size_gib=max_part_size_gib,
+        )
         output_archive.write_text("compressed", encoding="utf-8")
+        return (output_archive,)
 
     monkeypatch.setattr(archive_utils, "create_7zip_archive", fake_7zip)
     job = archive_utils.FolderCompressionJob(source, executable, ("xf",), (".dat", "xmdf"))
@@ -64,9 +78,10 @@ def test_archive_helper_preserves_output_and_native_exclusions(tmp_path: Path, m
     assert result.status == "SUCCESS"
     assert observed == {
         "exe": executable,
-        "output": source.with_suffix(".7z"),
+        "output": source.with_name(f"{source.name}.7z"),
         "inputs": [f"{source}\\*"],
         "exclusions": ["-xr!xf", "-xr!*.dat", "-xr!*.xmdf"],
+        "max_part_size_gib": None,
     }
     second = archive_utils.compress_folder_7zip(job)
     assert second.status == "SKIPPED"
@@ -83,14 +98,23 @@ def test_wrapper_reports_each_folder_without_tty_progress(
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(wrapper.multiprocessing, "Pool", InlinePool)
 
-    def fake_7zip(*, executable: Path, output_archive: Path, inputs: list[str], exclusions: list[str]) -> None:
+    def fake_7zip(
+        *,
+        executable: Path,
+        output_archive: Path,
+        inputs: list[str],
+        exclusions: list[str],
+        max_part_size_gib: int | None,
+    ) -> tuple[Path, ...]:
         assert executable.exists()
         assert inputs
         assert exclusions
+        assert max_part_size_gib is None
         if output_archive.stem == "second":
             message = "Synthetic archive failure"
             raise RuntimeError(message)
         output_archive.write_text("compressed", encoding="utf-8")
+        return (output_archive,)
 
     monkeypatch.setattr(archive_utils, "create_7zip_archive", fake_7zip)
     code = wrapper.main(
@@ -114,7 +138,86 @@ def test_wrapper_defaults_and_invalid_worker_count(
 ) -> None:
     monkeypatch.chdir(tmp_path)
     assert wrapper.DEFAULT_MAX_WORKERS is None
+    assert wrapper.DEFAULT_MAX_PART_SIZE_GIB is None
+    assert wrapper.DEFAULT_DRY_RUN is False
+    assert wrapper.DEFAULT_PAUSE_ON_FINISH is True
     assert wrapper.DEFAULT_SHOW_PROGRESS is True
     assert wrapper.DEFAULT_CONSOLE_LOG_LEVEL == "INFO"
     assert wrapper._parse_cli_arguments(["--no-progress", "--workers", "3"]).progress is False
-    assert wrapper.main(input_paths=[tmp_path], working_directory=tmp_path, max_workers=0) == 2
+    assert wrapper._parse_cli_arguments(["--max-part-size-gib", "5"]).max_part_size_gib == 5
+    assert wrapper._parse_cli_arguments(["--no-pause"]).pause is False
+    assert wrapper.main(input_paths=[tmp_path], working_directory=tmp_path, max_workers=0) == 1
+
+
+def test_dry_run_does_not_require_7zip_or_create_an_archive(
+    wrapper: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(wrapper, "find_7zip", lambda: None)
+
+    code = wrapper.main(
+        input_paths=[source],
+        working_directory=tmp_path,
+        force_auto_discovery=True,
+        dry_run=True,
+        show_progress=False,
+    )
+
+    assert code == 0
+    assert not source.with_suffix(".7z").exists()
+    assert "Would create:" in capsys.readouterr().out
+
+
+def test_dotted_folder_siblings_have_distinct_archive_plan(
+    wrapper: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    first, second = tmp_path / "model.v1", tmp_path / "model.v2"
+    first.mkdir()
+    second.mkdir()
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(wrapper, "find_7zip", lambda: None)
+
+    result = wrapper.main(
+        input_paths=[first, second],
+        working_directory=tmp_path,
+        force_auto_discovery=True,
+        dry_run=True,
+        show_progress=False,
+    )
+    output = capsys.readouterr().out
+    assert result == 0
+    assert "model.v1.7z" in output
+    assert "model.v2.7z" in output
+    assert not (tmp_path / "model.7z").exists()
+
+
+def test_wrapper_rejects_physical_output_aliases_before_dispatch(
+    wrapper: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = tmp_path / "models" / "A"
+    folder.mkdir(parents=True)
+    alias = tmp_path / "alias"
+    try:
+        alias.symlink_to(folder.parent, target_is_directory=True)
+    except OSError:
+        pytest.skip("This runtime cannot create directory aliases.")
+    executable = tmp_path / "7z.exe"
+    executable.touch()
+    monkeypatch.chdir(tmp_path)
+
+    def unexpected_pool(*_args: object, **_kwargs: object) -> None:
+        pytest.fail("Archive workers must not start for duplicated destinations")
+
+    monkeypatch.setattr(wrapper.multiprocessing, "Pool", unexpected_pool)
+    assert (
+        wrapper.main(
+            input_paths=[folder, alias / folder.name],
+            working_directory=tmp_path,
+            seven_zip_exe=executable,
+            max_workers=2,
+            show_progress=False,
+        )
+        == 1
+    )

@@ -14,7 +14,7 @@ from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Literal, TypeAlias
 
 from loguru import logger
 
@@ -32,7 +32,7 @@ from ryan_library.orchestrators.tuflow.asc_to_asc_batch import (
     run_raster_operation_stage,
 )
 
-type FirstStageStatistic = Literal["mean", "median"]
+FirstStageStatistic: TypeAlias = Literal["mean", "median"]
 
 
 @dataclass(slots=True, frozen=True)
@@ -348,7 +348,7 @@ def run_stat_then_max_workflow(
     write_source: bool = False,
     use_live_dashboard: bool = True,
     live_refresh_per_second: float = 2.0,
-    live_max_rows: int = 25,
+    live_max_rows: int = 10,
     live_use_alternate_screen: bool = False,
 ) -> int:
     """Validate and run the statistic-then-maximum workflow.

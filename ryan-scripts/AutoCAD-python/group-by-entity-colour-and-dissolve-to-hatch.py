@@ -11,14 +11,22 @@ and Shapely unions are written back as solid hatches on colour-specific layers.
 Inspect the new DXF in CAD before replacing any production data.
 """
 
-import os
-from datetime import datetime
+# External optional keyword signatures are incomplete; exceptions stay on individual calls.
 
-import ezdxf
+import os
+from collections.abc import Iterable
+from datetime import datetime
+from typing import cast
+
 from ezdxf.document import Drawing
 from ezdxf.entities.dxfgfx import DXFGraphic
+from ezdxf.entities.lwpolyline import LWPolyline
+from ezdxf.filemanagement import (
+    readfile,  # pyright: ignore[reportUnknownVariableType] - external encoding default lacks annotations
+)
 from ezdxf.layouts.layout import Modelspace
-from shapely.geometry import Polygon
+from shapely.geometry import GeometryCollection, MultiPolygon, Polygon
+from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 
 # tolerance for merging “point-touchers” (in drawing units)
@@ -38,18 +46,19 @@ def main() -> None:
     # ────────────────────────────────────────────────────────────────────────
 
     print(f"[{now()}] Reading '{input_file}'…")
-    doc: Drawing = ezdxf.readfile(input_file)
+    doc: Drawing = readfile(input_file)
     msp: Modelspace = doc.modelspace()
 
     # 1) Re-layer by true_color / index color
     print(f"[{now()}] Re-layering entities by color…")
     colour_map: dict[str, int] = {}
+    idx = 0
     for idx, e in enumerate(msp, start=1):
         tc = e.get_dxf_attrib("true_color", None)
         ic = e.get_dxf_attrib("color", None)
         lname = make_layer_name(tc, ic)
         if lname not in doc.layers:
-            doc.layers.add(name=lname)
+            doc.layers.add(name=lname)  # pyright: ignore[reportUnknownMemberType]
         colour_map[lname] = tc if tc is not None else ic
         e.dxf.layer = lname
         if idx % PROGRESS_INTERVAL == 0:
@@ -60,15 +69,15 @@ def main() -> None:
     print(f"[{now()}] Computing dissolved regions per layer…")
     dissolved_map: dict[str, list[Polygon]] = {}
     for layer in colour_map:
-        raws: list[Polygon] = []
-        for count, e in enumerate(msp.query(f'*[layer=="{layer}"]'), start=1):
+        raws: list[BaseGeometry] = []
+        for count, e in enumerate(cast("Iterable[DXFGraphic]", msp.query(f'*[layer=="{layer}"]')), start=1):
             for poly in extract_polygons(e):
                 raws.append(poly.buffer(TOLERANCE))
             if count % PROGRESS_INTERVAL == 0:
                 print(f"[{now()}]   • Scanned {count} entities in {layer}…")
         if raws:
-            merged = unary_union(raws).buffer(-TOLERANCE)
-            polys = [merged] if isinstance(merged, Polygon) else list(merged.geoms)
+            merged = cast("BaseGeometry", unary_union(raws).buffer(-TOLERANCE))
+            polys = [merged] if isinstance(merged, Polygon) else list(cast("MultiPolygon", merged).geoms)
         else:
             polys = []
         dissolved_map[layer] = polys
@@ -77,7 +86,7 @@ def main() -> None:
     # 3) Remove original entities
     print(f"[{now()}] Removing original solids/polylines…")
     for layer in colour_map:
-        for e in list(msp.query(f'*[layer=="{layer}"]')):
+        for e in list(cast("Iterable[DXFGraphic]", msp.query(f'*[layer=="{layer}"]'))):
             msp.delete_entity(e)
 
     # 4) Hatch & outline, clipped by adjacent colors
@@ -95,14 +104,14 @@ def main() -> None:
             if isinstance(clipped, Polygon):
                 regions = [clipped]
             elif hasattr(clipped, "geoms"):
-                for part in clipped.geoms:
+                for part in cast("MultiPolygon | GeometryCollection", clipped).geoms:
                     if isinstance(part, Polygon):
                         regions.append(part)
             for region in regions:
                 coords_ext = list(region.exterior.coords)
 
                 # 1) true solid-fill hatch
-                hatch = msp.add_hatch(
+                hatch = msp.add_hatch(  # pyright: ignore[reportUnknownMemberType]
                     dxfattribs={
                         "layer": layer,
                         "solid_fill": 1,
@@ -120,7 +129,7 @@ def main() -> None:
                     hatch.dxf.true_color = cv
 
                 # 2) outline polyline
-                pl = msp.add_lwpolyline(coords_ext, close=True, dxfattribs={"layer": layer})
+                pl = msp.add_lwpolyline(coords_ext, close=True, dxfattribs={"layer": layer})  # pyright: ignore[reportUnknownMemberType]
                 if 1 <= cv <= 256:
                     pl.dxf.color = cv
                 else:
@@ -128,7 +137,7 @@ def main() -> None:
 
     # 5) Save
     print(f"[{now()}] Saving '{output_file}'…")
-    doc.saveas(filename=output_file)
+    doc.saveas(filename=output_file)  # pyright: ignore[reportUnknownMemberType]
     print(f"[{now()}] Done.")
 
 
@@ -147,11 +156,11 @@ def make_layer_name(tc: int | None, ic: int) -> str:
     return f"I_{ic:03d}"
 
 
-def extract_polygons(e: DXFGraphic) -> list[Polygon]:
+def extract_polygons(e: DXFGraphic) -> list[BaseGeometry]:
     et = e.dxftype()
     pts: list[tuple[float, float]] = []
-    if et == "LWPOLYLINE" and e.closed:
-        pts = [(x, y) for x, y, *_ in e.get_points()]
+    if et == "LWPOLYLINE" and cast("LWPolyline", e).closed:
+        pts = [(x, y) for x, y, *_ in cast("LWPolyline", e).get_points()]
     elif et in ("SOLID", "3DFACE"):
         v0 = e.get_dxf_attrib("vtx0", None)
         v1 = e.get_dxf_attrib("vtx1", None)
@@ -167,7 +176,7 @@ def extract_polygons(e: DXFGraphic) -> list[Polygon]:
             pts = [p0, p1, p2]
     if len(pts) < 3:
         return []
-    poly = Polygon(pts)
+    poly: BaseGeometry = Polygon(pts)
     if not poly.is_valid:
         poly = poly.buffer(0)
     return [poly] if not poly.is_empty else []

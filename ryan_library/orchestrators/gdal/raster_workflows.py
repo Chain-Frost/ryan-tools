@@ -9,7 +9,7 @@ allocation. Individual raster operations remain in
 from collections.abc import Callable, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Literal
+from typing import Literal, TypeVar
 
 from loguru import logger
 
@@ -22,6 +22,8 @@ from ryan_library.functions.gdal.raster_processing import (
     plan_gdal_concurrency,
     translate_to_geotiff,
 )
+
+_RUN_BATCH_T = TypeVar("_RUN_BATCH_T")
 
 DEFAULT_SOURCE_EXTENSIONS: tuple[str, ...] = (".flt", ".asc", ".rst", ".xyz")
 
@@ -40,15 +42,17 @@ def convert_rasters(
     workers: int | None = None,
     overwrite: bool = False,
 ) -> list[Path]:
-    """Convert supported rasters and optionally create external overviews.
+    """Convert one raster or discover rasters in a directory and optionally create external overviews.
 
     Each input is written beside its source with the same stem and a ``.tif``
     extension. A current output is skipped unless ``overwrite`` is true. When
     a TIFF is regenerated, its external overviews are refreshed automatically.
 
     Args:
-        directory: Root directory searched for source rasters.
-        extensions: Case-insensitive input extensions, with or without dots.
+        directory: Source raster or root directory searched for source rasters.
+        extensions: Case-insensitive input extensions, with or without dots,
+            used when discovering files in a directory. An explicitly selected
+            file is processed regardless of its extension.
         output_directory: Optional output root. The source directory structure
             is reproduced below it.
         output_suffix: Text appended to each source stem before ``.tif``.
@@ -63,21 +67,27 @@ def convert_rasters(
     Returns:
         Output TIFF paths, including current files that required no work.
     """
-    sources: list[Path] = _find_sources(directory, extensions, recursive)
+    input_path: Path = directory.absolute()
+    if input_path.is_file():
+        sources: list[Path] = [input_path]
+        source_root: Path = input_path.parent
+    else:
+        sources = _find_sources(input_path, extensions, recursive)
+        source_root = input_path
     if not sources:
-        logger.warning(f"No source rasters found in: {directory}")
+        logger.warning("No source rasters found in: {}", input_path)
         return []
 
     concurrency: GdalConcurrency = plan_gdal_concurrency(len(sources), workers)
-    output_root = output_directory.absolute() if output_directory is not None else directory.absolute()
+    output_root = output_directory.absolute() if output_directory is not None else source_root
     logger.info(
         f"Processing {len(sources)} raster(s) with {concurrency.workers} worker(s) and "
         f"{concurrency.threads_per_dataset} GDAL thread(s) per raster."
     )
 
     def process(source: Path) -> Path:
-        relative = source.relative_to(directory.absolute())
-        output = output_root / relative.parent / f"{source.stem}{output_suffix}.tif"
+        relative: Path = source.relative_to(source_root)
+        output: Path = output_root / relative.parent / f"{source.stem}{output_suffix}.tif"
         # Timestamp checks avoid recompressing large terrain rasters on routine reruns.
         needs_conversion: bool = overwrite or not output.exists() or output.stat().st_mtime < source.stat().st_mtime
         if needs_conversion:
@@ -164,14 +174,14 @@ def _find_sources(directory: Path, extensions: Sequence[str], recursive: bool) -
     )
 
 
-def _run_batch[T](items: Sequence[Path], workers: int, operation: Callable[[Path], T]) -> list[T]:
+def _run_batch(items: Sequence[Path], workers: int, operation: Callable[[Path], _RUN_BATCH_T]) -> list[_RUN_BATCH_T]:
     """Run one path operation serially or in a bounded thread pool."""
     if workers == 1:
         return [operation(item) for item in items]
 
-    results: list[T] = []
+    results: list[_RUN_BATCH_T] = []
     with ThreadPoolExecutor(max_workers=workers) as executor:
-        futures: dict[Future[T], Path] = {executor.submit(operation, item): item for item in items}
+        futures: dict[Future[_RUN_BATCH_T], Path] = {executor.submit(operation, item): item for item in items}
         for future in as_completed(futures):
             item: Path = futures[future]
             try:

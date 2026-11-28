@@ -13,17 +13,22 @@ __lazy_modules__ = ["pandas"]
 from collections.abc import Collection, Sequence
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Literal, cast
 
 import pandas as pd
 from loguru import logger
 from pandas.api.types import is_numeric_dtype
 
 from ryan_library.functions.excel_export import ExcelExporter
+from ryan_library.functions.live_dashboard import LiveWorkflowDashboard, WorkflowMetric
 from ryan_library.functions.loguru_helpers import setup_logger
-from ryan_library.functions.pandas.median_calc import upper_middle_row, upper_middle_value
-from ryan_library.functions.tuflow.tuflow_common import bulk_read_and_merge_tuflow_csv
-from ryan_library.functions.tuflow.wrapper_helpers import normalize_data_types, warn_on_invalid_types
+from ryan_library.functions.pandas.median_calc import finite_sorted_rows, upper_middle_row, upper_middle_value
+from ryan_library.functions.tuflow.tuflow_common import FileBatchProgress, bulk_read_and_merge_tuflow_csv
+from ryan_library.functions.tuflow.wrapper_helpers import (
+    normalize_data_types,
+    validate_discovery_settings,
+    warn_on_invalid_types,
+)
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 
 DEFAULT_DATA_TYPES: tuple[str, ...] = ("Nmx", "Cmx", "Chan", "ccA", "RLL_Qmx", "EOF")
@@ -34,22 +39,19 @@ StatisticName = Literal["mean", "median"]
 def run_culvert_mean_report(
     script_directory: Path | None = None,
     paths_to_process: Sequence[Path] | None = None,
-    log_level: str = "INFO",
+    log_level: str | None = None,
     include_data_types: Sequence[str] | None = None,
     locations_to_include: Collection[str] | None = None,
     export_raw: bool = True,
-) -> None:
-    """Generate AEP/Duration mean statistics for culvert results and export them to Excel.
-
-    Args:
-        script_directory: Output directory for exported files.
-        paths_to_process: Folder roots to search for culvert result files.
-        log_level: Console logging verbosity.
-        include_data_types: List of file types to include (e.g. "Nmx", "Chan").
-        locations_to_include: Filter for specific culvert IDs/locations.
-        export_raw: If True, includes the raw combined maximums in a separate Excel sheet.
-    """
-    _run_culvert_statistic_report(
+    *,
+    use_live_dashboard: bool = True,
+    live_refresh_per_second: float = 2.0,
+    live_max_rows: int = 10,
+    log_file: str | None = None,
+    file_log_level: str = "INFO",
+) -> bool:
+    """Generate AEP/Duration mean statistics and export the existing Excel report."""
+    return _run_culvert_statistic_report(
         statistic="mean",
         output_suffix="mean",
         script_directory=script_directory,
@@ -58,28 +60,30 @@ def run_culvert_mean_report(
         include_data_types=include_data_types,
         locations_to_include=locations_to_include,
         export_raw=export_raw,
+        use_live_dashboard=use_live_dashboard,
+        live_refresh_per_second=live_refresh_per_second,
+        live_max_rows=live_max_rows,
+        log_file=log_file,
+        file_log_level=file_log_level,
     )
 
 
 def run_culvert_median_report(
     script_directory: Path | None = None,
     paths_to_process: Sequence[Path] | None = None,
-    log_level: str = "INFO",
+    log_level: str | None = None,
     include_data_types: Sequence[str] | None = None,
     locations_to_include: Collection[str] | None = None,
     export_raw: bool = True,
-) -> None:
-    """Generate AEP/Duration median statistics for culvert results and export them to Excel.
-
-    Args:
-        script_directory: Output directory for exported files.
-        paths_to_process: Folder roots to search for culvert result files.
-        log_level: Console logging verbosity.
-        include_data_types: List of file types to include (e.g. "Nmx", "Chan").
-        locations_to_include: Filter for specific culvert IDs/locations.
-        export_raw: If True, includes the raw combined maximums in a separate Excel sheet.
-    """
-    _run_culvert_statistic_report(
+    *,
+    use_live_dashboard: bool = True,
+    live_refresh_per_second: float = 2.0,
+    live_max_rows: int = 10,
+    log_file: str | None = None,
+    file_log_level: str = "INFO",
+) -> bool:
+    """Generate upper-middle median statistics and export the existing Excel report."""
+    return _run_culvert_statistic_report(
         statistic="median",
         output_suffix="med",
         script_directory=script_directory,
@@ -88,6 +92,11 @@ def run_culvert_median_report(
         include_data_types=include_data_types,
         locations_to_include=locations_to_include,
         export_raw=export_raw,
+        use_live_dashboard=use_live_dashboard,
+        live_refresh_per_second=live_refresh_per_second,
+        live_max_rows=live_max_rows,
+        log_file=log_file,
+        file_log_level=file_log_level,
     )
 
 
@@ -97,15 +106,20 @@ def _run_culvert_statistic_report(
     output_suffix: str,
     script_directory: Path | None = None,
     paths_to_process: Sequence[Path] | None = None,
-    log_level: str = "INFO",
+    log_level: str | None = None,
     include_data_types: Sequence[str] | None = None,
     locations_to_include: Collection[str] | None = None,
     export_raw: bool = True,
-) -> None:
-    """Generate AEP/Duration culvert statistics and export them to Excel."""
+    use_live_dashboard: bool = True,
+    live_refresh_per_second: float = 2.0,
+    live_max_rows: int = 10,
+    log_file: str | None = None,
+    file_log_level: str = "INFO",
+) -> bool:
+    """Compute existing peak statistics while reporting the full export lifecycle."""
     if script_directory is None:
         script_directory = Path.cwd()
-    effective_paths_to_process: list[Path] = list(paths_to_process or (script_directory,))
+    effective_paths_to_process: list[Path] = list((script_directory,) if paths_to_process is None else paths_to_process)
     context: str = f"Culvert {statistic} report"
 
     data_types, invalid_types = normalize_data_types(
@@ -113,94 +127,144 @@ def _run_culvert_statistic_report(
         default=DEFAULT_DATA_TYPES,
         accepted=ACCEPTED_DATA_TYPES,
     )
+    validate_discovery_settings(
+        paths_to_process=effective_paths_to_process,
+        selected_data_types=data_types,
+        accepted_data_types=ACCEPTED_DATA_TYPES,
+        context=context,
+    )
+    dashboard = LiveWorkflowDashboard(
+        title=context,
+        enabled=use_live_dashboard,
+        refresh_per_second=live_refresh_per_second,
+        max_rows=live_max_rows,
+    )
+    progress = FileBatchProgress()
+    console_level = log_level if log_level is not None else ("SUCCESS" if use_live_dashboard else "INFO")
 
-    with setup_logger(console_log_level=log_level) as log_queue:
-        warn_on_invalid_types(
-            invalid_types=invalid_types,
-            accepted_types=ACCEPTED_DATA_TYPES,
-            context=context,
-        )
+    with setup_logger(
+        console_log_level=console_level,
+        log_file=log_file,
+        file_log_level=file_log_level,
+    ) as log_queue:
+        with dashboard:
+            try:
+                dashboard.set_phase("Discovering")
+                warn_on_invalid_types(
+                    invalid_types=invalid_types,
+                    accepted_types=ACCEPTED_DATA_TYPES,
+                    context=context,
+                )
+                collection: ProcessorCollection = bulk_read_and_merge_tuflow_csv(
+                    paths_to_process=effective_paths_to_process,
+                    include_data_types=data_types,
+                    log_queue=log_queue,
+                    console_log_level=console_level,
+                    dashboard=dashboard if use_live_dashboard else None,
+                    batch_progress=progress,
+                )
+                # Preserve existing collection-level filtering and the warning for
+                # nonempty but whitespace-only selections.
+                if locations_to_include:
+                    normalized_locations: frozenset[str] = collection.filter_locations(locations=locations_to_include)
+                    if not normalized_locations:
+                        logger.warning(
+                            "Location filter provided but no valid values found. Continuing without filtering."
+                        )
 
-        collection: ProcessorCollection = bulk_read_and_merge_tuflow_csv(
-            paths_to_process=effective_paths_to_process,
-            include_data_types=data_types,
-            log_queue=log_queue,
-            console_log_level=log_level,
-        )
+                if not collection.processors:
+                    warn_on_invalid_types(
+                        invalid_types=invalid_types,
+                        accepted_types=ACCEPTED_DATA_TYPES,
+                        context=f"{context} completed",
+                    )
+                    logger.warning("No culvert result files were processed. Skipping export.")
+                    dashboard.finish(outcome="FAILED" if progress.failed else "SKIPPED", detail="no inputs to export")
+                    return progress.failed == 0
 
-        if locations_to_include:
-            normalized_locations: frozenset[str] = collection.filter_locations(locations=locations_to_include)
-            if not normalized_locations:
-                logger.warning("Location filter provided but no valid values found. Continuing without filtering.")
+                dashboard.set_phase("Aggregating")
+                aggregated_df: pd.DataFrame = collection.combine_1d_maximums()
+                if aggregated_df.empty:
+                    warn_on_invalid_types(
+                        invalid_types=invalid_types,
+                        accepted_types=ACCEPTED_DATA_TYPES,
+                        context=f"{context} completed",
+                    )
+                    logger.warning("Combined culvert maximums DataFrame is empty. Skipping export.")
+                    dashboard.finish(outcome="FAILED" if progress.failed else "SKIPPED", detail="empty maximums")
+                    return progress.failed == 0
 
-        if not collection.processors:
-            warn_on_invalid_types(
-                invalid_types=invalid_types,
-                accepted_types=ACCEPTED_DATA_TYPES,
-                context=f"{context} completed",
-            )
-            logger.warning("No culvert result files were processed. Skipping export.")
-            return
+                aep_dur_stat: pd.DataFrame = _find_culvert_aep_dur_statistic(
+                    aggregated_df=aggregated_df,
+                    statistic=statistic,
+                )
+                dashboard.set_metrics(
+                    [
+                        WorkflowMetric("AEP-duration groups", len(aep_dur_stat), unit="groups"),
+                        WorkflowMetric("Files finished", progress.completed, total=progress.scheduled, unit="files"),
+                    ]
+                )
+                if aep_dur_stat.empty:
+                    warn_on_invalid_types(
+                        invalid_types=invalid_types,
+                        accepted_types=ACCEPTED_DATA_TYPES,
+                        context=f"{context} completed",
+                    )
+                    logger.warning("Unable to calculate AEP/Duration {} statistics. Skipping export.", statistic)
+                    dashboard.finish(outcome="FAILED" if progress.failed else "SKIPPED", detail="no statistic groups")
+                    return progress.failed == 0
 
-        aggregated_df: pd.DataFrame = collection.combine_1d_maximums()
-        if aggregated_df.empty:
-            warn_on_invalid_types(
-                invalid_types=invalid_types,
-                accepted_types=ACCEPTED_DATA_TYPES,
-                context=f"{context} completed",
-            )
-            logger.warning("Combined culvert maximums DataFrame is empty. Skipping export.")
-            return
+                aep_stat_max: pd.DataFrame = _find_culvert_aep_statistic_max(
+                    aep_dur_stat=aep_dur_stat,
+                    statistic=statistic,
+                )
+                dashboard.set_metrics(
+                    [
+                        WorkflowMetric("AEP-duration groups", len(aep_dur_stat), unit="groups"),
+                        WorkflowMetric("Critical groups", len(aep_stat_max), unit="groups"),
+                    ]
+                )
 
-        # Calculate statistics grouped by AEP and Duration.
-        aep_dur_stat: pd.DataFrame = _find_culvert_aep_dur_statistic(
-            aggregated_df=aggregated_df,
-            statistic=statistic,
-        )
-        if aep_dur_stat.empty:
-            warn_on_invalid_types(
-                invalid_types=invalid_types,
-                accepted_types=ACCEPTED_DATA_TYPES,
-                context=f"{context} completed",
-            )
-            logger.warning(f"Unable to calculate AEP/Duration {statistic} statistics. Skipping export.")
-            return
+                timestamp: str = datetime.now().strftime("%Y%m%d-%H%M")
+                output_name: str = f"{timestamp}_culvert_{output_suffix}_peaks.xlsx"
+                sheet_names: list[str] = [f"aep-dur-{output_suffix}", f"aep-{output_suffix}-max"]
+                sheet_frames: list[pd.DataFrame] = [aep_dur_stat, aep_stat_max]
+                if export_raw:
+                    sheet_names.append("culvert-maximums")
+                    sheet_frames.append(aggregated_df)
 
-        # Calculate the duration with the highest statistic for each AEP.
-        aep_stat_max: pd.DataFrame = _find_culvert_aep_statistic_max(
-            aep_dur_stat=aep_dur_stat,
-            statistic=statistic,
-        )
-
-        timestamp: str = datetime.now().strftime(format="%Y%m%d-%H%M")
-        output_name: str = f"{timestamp}_culvert_{output_suffix}_peaks.xlsx"
-        sheet_names: list[str] = [f"aep-dur-{output_suffix}", f"aep-{output_suffix}-max"]
-        sheet_frames: list[pd.DataFrame] = [aep_dur_stat, aep_stat_max]
-
-        if export_raw:
-            sheet_names.append("culvert-maximums")
-            sheet_frames.append(aggregated_df)
-
-        ExcelExporter().export_dataframes(
-            export_dict={
-                Path(output_name).stem: {
-                    "dataframes": sheet_frames,
-                    "sheets": sheet_names,
-                }
-            },
-            output_directory=script_directory,
-            file_name=output_name,
-            include_data_dictionary=True,
-            data_dictionary_metadata={"Workflow": f"Culvert {statistic} peak report"},
-        )
-
-        logger.info(f"Culvert {statistic} report exported to {script_directory / output_name}")
-
-        warn_on_invalid_types(
-            invalid_types=invalid_types,
-            accepted_types=ACCEPTED_DATA_TYPES,
-            context=f"{context} completed",
-        )
+                dashboard.set_phase("Exporting")
+                ExcelExporter().export_dataframes(
+                    export_dict={
+                        Path(output_name).stem: {
+                            "dataframes": sheet_frames,
+                            "sheets": sheet_names,
+                        }
+                    },
+                    output_directory=script_directory,
+                    file_name=output_name,
+                    include_data_dictionary=True,
+                    data_dictionary_metadata={"Workflow": f"Culvert {statistic} peak report"},
+                )
+                logger.info("Culvert {} report exported to {}", statistic, script_directory / output_name)
+                warn_on_invalid_types(
+                    invalid_types=invalid_types,
+                    accepted_types=ACCEPTED_DATA_TYPES,
+                    context=f"{context} completed",
+                )
+                dashboard.set_phase("Complete")
+                dashboard.finish(
+                    outcome="FAILED" if progress.failed else "SUCCESS",
+                    detail="exported with input failures" if progress.failed else "report exported",
+                )
+                return progress.failed == 0
+            except KeyboardInterrupt:
+                dashboard.finish(outcome="INTERRUPTED", detail="processing interrupted")
+                raise
+            except Exception:
+                logger.exception("Culvert {} report failed during processing or export.", statistic)
+                dashboard.finish(outcome="FAILED", detail="processing or export failed")
+                raise
 
 
 ADOPTED_SOURCE_COLUMNS: tuple[str, ...] = ("Q", "V", "DS_h", "US_h")
@@ -240,16 +304,31 @@ def _find_culvert_aep_dur_statistic(aggregated_df: pd.DataFrame, statistic: Stat
         logger.error("Required grouping columns were not found in the aggregated culvert DataFrame.")
         return pd.DataFrame()
 
+    if "Q" not in aggregated_df.columns:
+        logger.warning("Discharge Q is required for culvert TP statistics; refusing geometry-only report.")
+        return pd.DataFrame()
+
+    q_values = pd.to_numeric(arg=aggregated_df["Q"], errors="coerce")
+    finite_q = q_values.notna() & q_values.abs().ne(float("inf"))
+    valid_df = aggregated_df.loc[finite_q].copy()
+    valid_df["Q"] = q_values.loc[finite_q]
+
     numeric_columns: list[str] = [
         col
-        for col in aggregated_df.columns
-        if col not in EXCLUDED_MEAN_NUMERIC_COLUMNS and is_numeric_dtype(arr_or_dtype=aggregated_df[col])
+        for col in valid_df.columns
+        if col not in EXCLUDED_MEAN_NUMERIC_COLUMNS and is_numeric_dtype(arr_or_dtype=valid_df[col])
     ]
     if not numeric_columns:
         logger.warning(f"No numeric columns available for culvert {statistic} calculations.")
         return pd.DataFrame()
 
-    grouped = aggregated_df.groupby(group_columns, observed=True)
+    # Keep only finite field values, and base the group population on finite Q.
+    # Other independent fields may still be unavailable for an otherwise valid TP.
+    for column in numeric_columns:
+        values = pd.to_numeric(arg=valid_df[column], errors="coerce")
+        valid_df[column] = values.where(values.abs().ne(float("inf")))
+
+    grouped = valid_df.groupby(group_columns, observed=True)
 
     # Calculate statistic values for all numeric columns.
     if statistic == "mean":
@@ -265,8 +344,21 @@ def _find_culvert_aep_dur_statistic(aggregated_df: pd.DataFrame, statistic: Stat
     rename_map: dict[str, str] = {column: f"{statistic}_{column}" for column in numeric_columns}
     statistic_df = statistic_df.rename(columns=rename_map)
 
-    count_df: pd.DataFrame = grouped.size().rename("count").reset_index()
-    count_df["count"] = count_df["count"].astype("Int64")
+    observed = aggregated_df.groupby(group_columns, observed=True).size().rename("count_total").reset_index()
+    contributing = grouped.size().rename("count").reset_index()
+    count_df: pd.DataFrame = observed.merge(right=contributing, on=group_columns, how="left")
+    count_df["count"] = count_df["count"].fillna(0).astype("Int64")
+    count_df["count_total"] = count_df["count_total"].astype("Int64")
+    count_df["count_unusable"] = count_df["count_total"] - count_df["count"]
+    count_df["tp_population_status"] = "OK"
+    count_df.loc[count_df["count_unusable"] > 0, "tp_population_status"] = "PARTIAL"
+    count_df.loc[count_df["count"] == 0, "tp_population_status"] = "UNUSABLE"
+    if bool((~finite_q).any()):
+        logger.warning(
+            "Excluded {} missing/nonfinite Q observations from culvert {} statistics.",
+            int((~finite_q).sum()),
+            statistic,
+        )
 
     # Determine min/max values for key columns
     range_columns: list[str] = [column for column in ADOPTED_SOURCE_COLUMNS if column in aggregated_df.columns]
@@ -292,13 +384,13 @@ def _find_culvert_aep_dur_statistic(aggregated_df: pd.DataFrame, statistic: Stat
             q_series: pd.Series | None = pd.to_numeric(group["Q"], errors="coerce") if "Q" in group.columns else None
             closest_row: pd.Series | None = None
             if q_series is not None and bool(q_series.notna().any()):
+                ordered = finite_sorted_rows(group=group, value_column="Q")
                 if statistic == "mean":
-                    target_q = q_series.mean()
-                    # Find index of value closest to the statistic.
-                    idx: Any = (q_series - target_q).abs().idxmin()
-                    closest_row = cast("pd.Series", group.loc[idx])
+                    target_q = float(ordered["Q"].mean())
+                    nearest = int((ordered["Q"] - target_q).abs().to_numpy().argmin())
+                    closest_row = ordered.iloc[nearest]
                 else:
-                    closest_row = upper_middle_row(group=group, value_column="Q")
+                    closest_row = upper_middle_row(group=ordered, value_column="Q")
 
             if closest_row is not None:
                 for column in range_columns:
@@ -328,7 +420,7 @@ def _find_culvert_aep_dur_statistic(aggregated_df: pd.DataFrame, statistic: Stat
     ordered_columns: list[str] = _ordered_columns(
         df=merged,
         lead=group_columns,
-        secondary=["count"],
+        secondary=["count", "count_total", "count_unusable", "tp_population_status"],
         value_prefixes=(f"{statistic}_", "adopted_", "min_", "max_"),
     )
     return merged.loc[:, ordered_columns]
@@ -355,9 +447,11 @@ def _find_culvert_aep_statistic_max(aep_dur_stat: pd.DataFrame, statistic: Stati
     if aep_dur_stat.empty:
         return pd.DataFrame()
 
-    metric_column: str | None = _preferred_metric_column(aep_dur_stat=aep_dur_stat, statistic=statistic)
-    if metric_column is None:
-        logger.warning(f"No {statistic} columns were found for culvert {statistic}-max calculation.")
+    # Discharge-based reports must not promote geometry or metadata to the
+    # governing hydraulic statistic when Q is absent.
+    metric_column = _preferred_metric_column(aep_dur_stat=aep_dur_stat, statistic=statistic)
+    if metric_column != f"{statistic}_Q":
+        logger.warning("No discharge Q statistic found for culvert {}-max calculation.", statistic)
         return pd.DataFrame()
 
     # Group by AEP/Culvert (exclude duration) to find the max across durations.
@@ -371,7 +465,7 @@ def _find_culvert_aep_statistic_max(aep_dur_stat: pd.DataFrame, statistic: Stati
     has_metric_column: str = f"_has_{statistic}_metric"
     bin_column: str = f"{statistic}_bin"
     df[metric_work_column] = pd.to_numeric(df[metric_column], errors="coerce")
-    df[has_metric_column] = df[metric_work_column].notna()
+    df[has_metric_column] = df[metric_work_column].notna() & df[metric_work_column].abs().ne(float("inf"))
 
     if not df[has_metric_column].any():
         logger.warning(f"{statistic.title()} metric column '{metric_column}' does not contain any numeric values.")

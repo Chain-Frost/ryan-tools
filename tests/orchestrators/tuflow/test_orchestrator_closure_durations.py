@@ -1,5 +1,7 @@
+# pyright: reportPrivateUsage=false
 """Unit tests for ryan_library.orchestrators.tuflow.closure_durations."""
 
+from collections.abc import Iterator
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -13,7 +15,7 @@ from ryan_library.orchestrators.tuflow.closure_durations import (
 
 
 @pytest.fixture
-def mock_pipeline():
+def mock_pipeline() -> Iterator[dict[str, MagicMock]]:
     with (
         patch("ryan_library.orchestrators.tuflow.closure_durations.bulk_read_and_merge_tuflow_csv") as mock_bulk,
         patch("ryan_library.orchestrators.tuflow.closure_durations._collect_po_data") as mock_collect,
@@ -34,7 +36,7 @@ def mock_pipeline():
         }
 
 
-def test_run_closure_durations_no_processors(mock_pipeline) -> None:
+def test_run_closure_durations_no_processors(mock_pipeline: dict[str, MagicMock]) -> None:
     collection = MagicMock()
     collection.processors = []
     mock_pipeline["bulk"].return_value = collection
@@ -45,7 +47,7 @@ def test_run_closure_durations_no_processors(mock_pipeline) -> None:
     mock_pipeline["collect"].assert_not_called()
 
 
-def test_run_closure_durations_no_po_data(mock_pipeline) -> None:
+def test_run_closure_durations_no_po_data(mock_pipeline: dict[str, MagicMock]) -> None:
     collection = MagicMock()
     collection.processors = ["dummy"]
     mock_pipeline["bulk"].return_value = collection
@@ -58,7 +60,7 @@ def test_run_closure_durations_no_po_data(mock_pipeline) -> None:
     mock_pipeline["calc"].assert_not_called()
 
 
-def test_run_closure_durations_no_exceedance_data(mock_pipeline) -> None:
+def test_run_closure_durations_no_exceedance_data(mock_pipeline: dict[str, MagicMock]) -> None:
     collection = MagicMock()
     collection.processors = ["dummy"]
     mock_pipeline["bulk"].return_value = collection
@@ -72,7 +74,7 @@ def test_run_closure_durations_no_exceedance_data(mock_pipeline) -> None:
     mock_pipeline["summary"].assert_not_called()
 
 
-def test_run_closure_durations_success(mock_pipeline) -> None:
+def test_run_closure_durations_success(mock_pipeline: dict[str, MagicMock]) -> None:
     collection = MagicMock()
     collection.processors = ["dummy"]
     mock_pipeline["bulk"].return_value = collection
@@ -88,8 +90,9 @@ def test_run_closure_durations_success(mock_pipeline) -> None:
 
     run_closure_durations(paths=[Path("test")], thresholds=[10.0], allowed_locations=("L1",))
 
-    mock_pipeline["parquet"].assert_called_once()
-    mock_pipeline["csv"].assert_called_once()
+    # All raw/report writes now belong to the shared protected export batch.
+    mock_pipeline["parquet"].assert_not_called()
+    mock_pipeline["csv"].assert_not_called()
     mock_pipeline["summary"].assert_called_once()
     mock_pipeline["export"].assert_called_once()
 
@@ -99,7 +102,7 @@ def test_run_closure_durations_success(mock_pipeline) -> None:
 
 
 @patch("ryan_library.orchestrators.tuflow.closure_durations.ExcelExporter")
-def test_export_closure_duration_artifacts(mock_exporter) -> None:
+def test_export_closure_duration_artifacts(mock_exporter: MagicMock) -> None:
     # Empty dataframes
     _export_closure_duration_artifacts(
         durations_df=pd.DataFrame(), summary_df=pd.DataFrame(), timestamp="20200101-1200", export_mode="excel"

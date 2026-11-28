@@ -1,12 +1,18 @@
+> **Current reconciliation (2026-11-10): scoped implementation delivered.** GitHub confirms [PR #109](https://github.com/Chain-Frost/ryan-tools/pull/109) merged at 2026-10-15T13:03:49Z (UTC), commit `1775f227ceb20f59da3bda4bd772c1f9809d3149`, into `main`. Shared verification follow-up #116 is also merged.
+>
+> Earlier pending-review, no-merge and next-action statements below are historical snapshots, not current delivery instructions.
+>
+> This reconciliation checks GitHub delivery and available final-head check conclusions; it does not rerun local/native tests or imply every wider engineering gate passed.
+
 # Safe GeoTIFF recompression
 
 | Field | Value |
 | --- | --- |
-| Status | Ready for review |
+| Status | Complete - scoped implementation merged; see current reconciliation |
 | Owner | ChatGPT |
 | Created | 2026-10-15 |
-| Updated | 2026-10-15 |
-| Next review | 2026-10-22 |
+| Updated | 2026-11-10 |
+| Next review | None - completed delivery |
 | Baseline | `feature/safe-geotiff-recompression` at `31560a5`; clean parent worktree |
 
 ## Outcome and scope

@@ -9,6 +9,7 @@ It aggregates this information into a summary Excel report.
 __lazy_modules__ = ["pandas"]
 
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 from typing import Literal
 
@@ -22,7 +23,7 @@ from ryan_library.functions.dataframe_helpers import (
 )
 from ryan_library.functions.excel_export import ExcelExporter
 from ryan_library.functions.file_utils import find_files_parallel
-from ryan_library.functions.live_dashboard import LiveWorkflowDashboard, WorkflowColumn, WorkflowStatus
+from ryan_library.functions.live_dashboard import LiveWorkflowDashboard, WorkflowColumn, WorkflowMetric, WorkflowStatus
 from ryan_library.functions.loguru_helpers import LogQueue, setup_logger
 from ryan_library.functions.multiprocessing_helpers import calculate_pool_size
 from ryan_library.functions.parse_tlf import (
@@ -33,6 +34,7 @@ from ryan_library.functions.parse_tlf import (
     search_for_completion,
 )
 from ryan_library.functions.path_stuff import convert_to_relative_path
+from ryan_library.functions.tuflow.hpc_companion import read_hpc_companion_metrics
 
 LogSummaryStatus = Literal["OK", "SKIP", "FAIL"]
 
@@ -56,6 +58,21 @@ LOG_SUMMARY_SECOND_PRIORITY_COLUMNS: tuple[str, ...] = (
     "Final_RunTime",
     "Model_Start_Time",
     "Model_End_Time",
+    "TLF_Quadtree_ZC_Cells",
+    "TLF_1D_Negative_Depths",
+    "TLF_HPC_HCN_Repeated_Timesteps",
+    "TLF_HPC_NaN_Repeated_Timesteps",
+    "TLF_Warnings_Prior",
+    "TLF_Warnings_During",
+    "TLF_Checks_Prior",
+    "TLF_Checks_During",
+    "HPC_Active_2D_Cells",
+    "HPC_Sealed_Wall_Cells",
+    "HPC_Groundwater_Active_Cells",
+    "HPC_Groundwater_Sealed_Wall_Cells",
+    "HPC_nWet_Observed_Max",
+    "HPC_nWet_Sampled_Records",
+    "HPC_Companion_Status",
     "TGC",
     "TBC",
     "ECF",
@@ -70,7 +87,12 @@ LOG_SUMMARY_SECOND_PRIORITY_COLUMNS: tuple[str, ...] = (
     "Duration",
     "TP",
 )
-LOG_SUMMARY_COLUMNS_TO_END: tuple[str, ...] = ("orig_TCF_path", "orig_log_path", "orig_results_path")
+LOG_SUMMARY_COLUMNS_TO_END: tuple[str, ...] = (
+    "orig_TCF_path",
+    "orig_log_path",
+    "orig_results_path",
+    "HPC_Companion_Path",
+)
 
 
 @dataclass(slots=True)
@@ -83,7 +105,7 @@ class LogFileProcessingResult:
     detail: str
 
 
-def process_log_file(logfile: Path) -> pd.DataFrame:
+def process_log_file(logfile: Path, *, include_hpc_companion_metrics: bool = False) -> pd.DataFrame:
     """Processes a single log file and returns a DataFrame with the extracted data.
 
     This function attempts to:
@@ -98,13 +120,19 @@ def process_log_file(logfile: Path) -> pd.DataFrame:
     Returns:
         pd.DataFrame: DataFrame containing the processed data, or an empty DataFrame on failure/incomplete run.
     """
-    return _process_log_file_dataframe(logfile=logfile)
+    return _process_log_file_dataframe(logfile=logfile, include_hpc_companion_metrics=include_hpc_companion_metrics)
 
 
-def process_log_file_for_dashboard(logfile: Path) -> LogFileProcessingResult:
+def process_log_file_for_dashboard(
+    logfile: Path, *, include_hpc_companion_metrics: bool = False
+) -> LogFileProcessingResult:
     """Process one log file and return enough metadata to update a live dashboard."""
     try:
-        data_frame: pd.DataFrame = _process_log_file_dataframe(logfile=logfile)
+        data_frame: pd.DataFrame = (
+            _process_log_file_dataframe(logfile=logfile, include_hpc_companion_metrics=True)
+            if include_hpc_companion_metrics
+            else _process_log_file_dataframe(logfile=logfile)
+        )
     except Exception as exc:
         logger.exception("Unhandled error while processing {}", logfile)
         return LogFileProcessingResult(
@@ -130,7 +158,14 @@ def process_log_file_for_dashboard(logfile: Path) -> LogFileProcessingResult:
     )
 
 
-def _process_log_file_dataframe(logfile: Path) -> pd.DataFrame:
+def _attach_hpc_companion_metrics(*, data_frame: pd.DataFrame, logfile_path: Path) -> pd.DataFrame:
+    """Add opt-in companion observations only to an already validated TLF row."""
+    for field, value in read_hpc_companion_metrics(logfile_path).items():
+        data_frame[field] = value
+    return data_frame
+
+
+def _process_log_file_dataframe(logfile: Path, *, include_hpc_companion_metrics: bool = False) -> pd.DataFrame:
     logfile_path: Path = logfile
     sim_complete: int = 0
     success: int = 0
@@ -141,6 +176,9 @@ def _process_log_file_dataframe(logfile: Path) -> pd.DataFrame:
     current_section = None
 
     file_size: int = logfile_path.stat().st_size
+    if file_size == 0:
+        message = f"Empty TUFLOW log input: {logfile_path}"
+        raise ValueError(message)
     is_large_file: bool = file_size > 10 * 1024 * 1024  # 10 MB
 
     lines, last_lines = get_log_lines(
@@ -152,6 +190,11 @@ def _process_log_file_dataframe(logfile: Path) -> pd.DataFrame:
     # Preserve file order when scanning for completion markers.
 
     if not lines and not last_lines:
+        # get_log_lines currently logs and returns empty lists on I/O errors.
+        # A nonempty file without any readable lines is not an incomplete run.
+        if file_size:
+            message = f"Could not read nonempty TUFLOW log: {logfile_path}"
+            raise OSError(message)
         return pd.DataFrame()
 
     runcode: str = logfile_path.stem
@@ -193,14 +236,29 @@ def _process_log_file_dataframe(logfile: Path) -> pd.DataFrame:
                 logfile_path=logfile_path,
             )
             if not df.empty:
+                if include_hpc_companion_metrics:
+                    df = _attach_hpc_companion_metrics(data_frame=df, logfile_path=logfile_path)
                 logger.debug(df.head())
                 return df
-            logger.warning("Finalization failed for {}, skipping", runcode)
-            return pd.DataFrame()
-        logger.warning("{} ({}) did not complete, skipping", runcode, success)
-        return pd.DataFrame()
+            message = f"Completed TUFLOW log failed report finalization: {logfile_path}"
+            raise ValueError(message)
+        message = f"Completed TUFLOW log has incomplete header metadata ({success}/4): {logfile_path}"
+        raise ValueError(message)
     logger.warning("{} did not complete, skipping", runcode)
     return pd.DataFrame()
+
+
+def _discover_logs_for_dashboard(*, root_dir: Path, dashboard: LiveWorkflowDashboard) -> list[Path]:
+    """Discover before starting Rich Live, keeping early errors outside its frame."""
+    try:
+        return discover_log_files(root_dir=root_dir, skip_inaccessible_subdirectories=True)
+    except KeyboardInterrupt:
+        dashboard.finish(outcome="INTERRUPTED", detail="processing was interrupted")
+        raise
+    except Exception:
+        logger.exception("Log summary discovery failed.")
+        dashboard.finish(outcome="FAILED", detail="file discovery failed")
+        raise
 
 
 def main_processing(
@@ -208,73 +266,127 @@ def main_processing(
     *,
     use_live_dashboard: bool = True,
     live_refresh_per_second: float = 2.0,
-    live_max_rows: int = 25,
-) -> None:
-    """Main function to process log files using multiprocessing.
+    live_max_rows: int = 10,
+    log_file: str | None = None,
+    file_log_level: str = "INFO",
+    include_hpc_companion_metrics: bool = False,
+) -> bool:
+    """Discover, process, aggregate and export logs; return False on a failed report.
 
-    Finds all *.tlf files in the current working directory (excluding hpc/gpu logs recursively),
-    distributes processing across a process pool, and aggregates the results into an Excel report.
+    No files or no completed logs is a non-failure SKIPPED outcome (no output).
+    Per-file FAIL results may produce a partial report but never overall success.
+    Unexpected infrastructure failures propagate after logging and cleanup.
     """
-    processing_results: list[LogFileProcessingResult] = []
-    successful_runs: int = 0
-    if not console_log_level:
-        console_log_level = "INFO"
-    with setup_logger(console_log_level=console_log_level) as log_queue:
+    # Validate effective settings before discovery or logging side effects.
+    dashboard = LiveWorkflowDashboard(
+        title="TUFLOW Log Summary",
+        subtitle=str(Path.cwd()),
+        enabled=use_live_dashboard,
+        refresh_per_second=live_refresh_per_second,
+        max_rows=live_max_rows,
+        columns=LOG_SUMMARY_DASHBOARD_COLUMNS,
+    )
+    # Choose the concise default only when the caller has not selected a level.
+    # A user-supplied INFO/DEBUG override must not be silently reinterpreted.
+    console_level = (
+        console_log_level if console_log_level is not None else ("SUCCESS" if use_live_dashboard else "INFO")
+    )
+
+    with setup_logger(
+        console_log_level=console_level,
+        log_file=log_file,
+        file_log_level=file_log_level,
+    ) as log_queue:
+        # Discover before starting Rich Live: an unreadable folder must not
+        # leave a partial dashboard frame in the terminal on early failure.
         logger.info("Starting log file processing...")
         logger.info("Built and tested with modern TUFLOW logs; older completed logs use compatibility parsing.")
-
         root_dir: Path = Path.cwd()
-        files: list[Path] = discover_log_files(root_dir=root_dir)
+        files: list[Path] = _discover_logs_for_dashboard(root_dir=root_dir, dashboard=dashboard)
 
-        logger.info(f"Found {len(files)} log files.")
-
+        logger.info("Found {} log files.", len(files))
         if not files:
             logger.warning("No log files found to process.")
-        else:
-            processing_results.extend(
-                process_log_files(
-                    files=files,
-                    root_dir=root_dir,
-                    use_live_dashboard=use_live_dashboard,
-                    live_refresh_per_second=live_refresh_per_second,
-                    live_max_rows=live_max_rows,
-                    log_queue=log_queue,
-                    console_log_level=console_log_level,
-                )
-            )
+            dashboard.finish(outcome="SKIPPED", detail="0 completed run(s)")
+            return True
 
-        successful_runs = _count_successful_results(processing_results=processing_results)
-        merged_df: pd.DataFrame = build_log_summary_dataframe(
-            files=files,
-            processing_results=processing_results,
-        )
-        if not merged_df.empty:
+        dashboard.set_phase("Processing")
+        with dashboard:
             try:
-                ExcelExporter().save_to_excel(
-                    data_frame=merged_df,
-                    file_name_prefix="ModellingLog",
-                    sheet_name="Log Summary",
-                    include_data_dictionary=True,
-                    data_dictionary_metadata={"Workflow": "TUFLOW log summary"},
+                processing_results: list[LogFileProcessingResult] = []
+                if not files:
+                    logger.warning("No log files found to process.")
+                else:
+                    processing_results = process_log_files(
+                        files=files,
+                        root_dir=root_dir,
+                        use_live_dashboard=use_live_dashboard,
+                        live_refresh_per_second=live_refresh_per_second,
+                        live_max_rows=live_max_rows,
+                        log_queue=log_queue,
+                        console_log_level=console_level,
+                        dashboard=dashboard,
+                        include_hpc_companion_metrics=include_hpc_companion_metrics,
+                    )
+
+                dashboard.set_phase("Aggregating")
+                successful_runs = _count_successful_results(processing_results=processing_results)
+                failed_runs = sum(result.status == "FAIL" for result in processing_results)
+                merged_df: pd.DataFrame = build_log_summary_dataframe(
+                    files=files,
+                    processing_results=processing_results,
                 )
+                if merged_df.empty:
+                    logger.warning("No completed logs found - no output generated.")
+                    outcome = "FAILED" if failed_runs else "SKIPPED"
+                else:
+                    dashboard.set_phase("Exporting")
+                    try:
+                        ExcelExporter().save_to_excel(
+                            data_frame=merged_df,
+                            file_name_prefix="ModellingLog",
+                            sheet_name="Log Summary",
+                            include_data_dictionary=True,
+                            data_dictionary_metadata={"Workflow": "TUFLOW log summary"},
+                        )
+                    except Exception:
+                        logger.exception("Error during merging/saving DataFrames")
+                        dashboard.finish(outcome="FAILED", detail="report export failed")
+                        return False
+                    outcome = "FAILED" if failed_runs else "SUCCESS"
+                    if outcome == "SUCCESS":
+                        if not use_live_dashboard:
+                            logger.success("Log summary report exported successfully.")
+                    else:
+                        logger.error("{} log(s) failed; exported report contains only completed runs.", failed_runs)
 
-                logger.success("Log file processing completed successfully.")
+                if not use_live_dashboard:
+                    logger.success("Number of successful runs: {}", successful_runs)
+                dashboard.set_phase("Complete")
+                dashboard.finish(outcome=outcome, detail=f"{successful_runs} completed run(s)")
+                return outcome != "FAILED"
+            except KeyboardInterrupt:
+                dashboard.finish(outcome="INTERRUPTED", detail="processing was interrupted")
+                raise
             except Exception:
-                logger.exception("Error during merging/saving DataFrames")
-        else:
-            logger.warning("No completed logs found - no output generated.")
-
-        logger.success(f"Number of successful runs: {successful_runs}")
+                logger.exception("Log summary workflow failed before completion.")
+                dashboard.finish(outcome="FAILED", detail="processing or aggregation failed")
+                raise
 
 
-def discover_log_files(*, root_dir: Path) -> list[Path]:
-    return list(
-        find_files_parallel(
-            root_dirs=[root_dir],
-            patterns="*.tlf",
-            excludes=["*.hpc.tlf", "*.gpu.tlf"],
-        )
+def discover_log_files(*, root_dir: Path, skip_inaccessible_subdirectories: bool = False) -> list[Path]:
+    files = find_files_parallel(
+        root_dirs=[root_dir],
+        patterns="*.tlf",
+        excludes=["*.hpc.tlf", "*.gpu.tlf"],
+        skip_inaccessible_subdirectories=skip_inaccessible_subdirectories,
     )
+    # A zero-byte file matches the requested input format but cannot be parsed.
+    for logfile in files:
+        if logfile.stat().st_size == 0:
+            message = f"Empty TUFLOW log input: {logfile}"
+            raise OSError(message)
+    return files
 
 
 def process_log_files(
@@ -286,35 +398,41 @@ def process_log_files(
     live_max_rows: int,
     log_queue: LogQueue | None,
     console_log_level: str,
+    dashboard: LiveWorkflowDashboard | None = None,
+    include_hpc_companion_metrics: bool = False,
 ) -> list[LogFileProcessingResult]:
     pool_size = calculate_pool_size(num_files=len(files))
+    logger.debug("Log summary selected console level: {}", console_log_level)
     logger.info(f"Processing {len(files)} files using {pool_size} processes.")
 
-    dashboard = LiveWorkflowDashboard(
-        title="TUFLOW Log Summary",
-        subtitle=str(root_dir),
-        enabled=use_live_dashboard,
-        refresh_per_second=live_refresh_per_second,
-        max_rows=live_max_rows,
-        columns=LOG_SUMMARY_DASHBOARD_COLUMNS,
-    )
-    dashboard.set_tasks(
-        labels=[_format_dashboard_label(logfile=file) for file in files],
-        metadata=[{"size": _format_bytes(file.stat().st_size)} for file in files],
-    )
-    dashboard.set_extra_metrics(metrics={"workers": pool_size})
+    if dashboard is None:
+        dashboard = LiveWorkflowDashboard(
+            title="TUFLOW Log Summary",
+            subtitle=str(root_dir),
+            enabled=use_live_dashboard,
+            refresh_per_second=live_refresh_per_second,
+            max_rows=live_max_rows,
+            columns=LOG_SUMMARY_DASHBOARD_COLUMNS,
+        )
+    # Shared file-workflow metadata is fetched in the background, never here.
+    dashboard.set_tasks(labels=[_format_dashboard_label(logfile=file) for file in files])
+    dashboard.set_metrics([WorkflowMetric(label="Workers", value=pool_size)])
 
     # LogSummary owns TLF parsing and result shaping; the shared helper
     # owns serial/process-pool execution and dashboard state updates.
     processing_results: list[LogFileProcessingResult] = run_dashboard_workflow(
         items=files,
-        process_item=process_log_file_for_dashboard,
+        process_item=(
+            partial(process_log_file_for_dashboard, include_hpc_companion_metrics=True)
+            if include_hpc_companion_metrics
+            else process_log_file_for_dashboard
+        ),
         dashboard=dashboard,
         pool_size=pool_size,
         status_for_result=_dashboard_status,
         detail_for_result=_dashboard_detail,
         log_queue=log_queue,
-        worker_log_level="ERROR" if use_live_dashboard else console_log_level,
+        worker_log_level=None,  # Preserve the least restrictive configured sink, including DEBUG files.
         max_start_events=max(pool_size * 2, live_max_rows),
     )
     _log_processing_results(processing_results=processing_results)
@@ -349,7 +467,7 @@ def _reorder_log_summary_columns(*, data_frame: pd.DataFrame) -> pd.DataFrame:
 
 
 def _count_successful_results(*, processing_results: list[LogFileProcessingResult]) -> int:
-    return sum(1 for result in processing_results if not result.data_frame.empty)
+    return sum(result.status == "OK" and not result.data_frame.empty for result in processing_results)
 
 
 def _format_dashboard_label(*, logfile: Path) -> str:
@@ -363,11 +481,11 @@ def _log_processing_results(*, processing_results: list[LogFileProcessingResult]
     for result in processing_results:
         relative_logfile_path: str = _format_dashboard_label(logfile=result.logfile)
         if result.status == "OK":
-            logger.info(f"Completed {relative_logfile_path}")
+            logger.info("Completed {}", relative_logfile_path)
         elif result.status == "SKIP":
-            logger.warning(f"Skipped {relative_logfile_path}: {result.detail}")
+            logger.warning("Skipped {}: {}", relative_logfile_path, result.detail)
         else:
-            logger.error(f"Failed {relative_logfile_path}: {result.detail}")
+            logger.error("Failed {}: {}", relative_logfile_path, result.detail)
 
 
 def _dashboard_status(result: LogFileProcessingResult) -> WorkflowStatus:
@@ -378,7 +496,7 @@ def _dashboard_detail(result: LogFileProcessingResult) -> str:
     return result.detail
 
 
-def _format_bytes(size_bytes: int) -> str:
+def _format_bytes(size_bytes: int) -> str:  # pyright: ignore[reportUnusedFunction] - retained for legacy tests
     value: float = float(size_bytes)
     for unit in ("B", "KB", "MB", "GB"):
         if value < 1024 or unit == "GB":

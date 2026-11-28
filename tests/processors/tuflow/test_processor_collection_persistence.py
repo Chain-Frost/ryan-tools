@@ -1,5 +1,5 @@
-import shutil
-import tempfile
+"""Retired HDF5 entrypoints fail explicitly without touching source/cache files."""
+
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -10,127 +10,37 @@ from ryan_library.processors.tuflow.base_processor import BaseProcessor
 from ryan_library.processors.tuflow.processor_collection import ProcessorCollection
 
 
-class DummyProcessor(BaseProcessor):
-    def process(self):
-        pass
+def test_copy() -> None:
+    collection = ProcessorCollection()
+    processor = MagicMock(spec=BaseProcessor)
+    processor.file_name = "test_file.csv"
+    processor.processed = True
+    processor.df = pd.DataFrame({"A": [1]})
+    collection.add_processor(processor)
+
+    copied = collection.copy()
+    assert len(copied.processors) == 1
+    assert copied.processors[0] is not processor
+    pd.testing.assert_frame_equal(copied.processors[0].df, processor.df)
 
 
-class TestProcessorCollectionPersistence:
-    @pytest.fixture
-    def setup_collection(self):
-        """Create a collection with one dummy processor."""
-        # Create a real file for the processor (needed for initialization)
-        temp_dir = Path(tempfile.mkdtemp())
-        csv_file = temp_dir / "test_1d_Q.csv"
-        csv_file.touch()
+@pytest.mark.parametrize("overwrite", [False, True])
+def test_retired_hdf_write_raises_without_creating_file(tmp_path: Path, *, overwrite: bool) -> None:
+    destination = tmp_path / "nonexistent.h5"
+    with pytest.raises(NotImplementedError, match="ryan-tools==26"):
+        ProcessorCollection().to_hdf(destination, overwrite=overwrite)
+    assert not destination.exists()
 
-        yield temp_dir
-        # cleanup
-        try:
-            shutil.rmtree(temp_dir)
-        except OSError:
-            pass
 
-    def test_copy(self):
-        coll = ProcessorCollection()
-        p1 = MagicMock(spec=BaseProcessor)
-        p1.file_name = "test_file.csv"
-        p1.processed = True
-        p1.df = pd.DataFrame({"A": [1]})
-        coll.add_processor(p1)
+def test_retired_hdf_write_preserves_existing_file(tmp_path: Path) -> None:
+    destination = tmp_path / "existing.h5"
+    destination.write_bytes(b"original-contents")
+    with pytest.raises(NotImplementedError, match="2027-03-31"):
+        ProcessorCollection().to_hdf(destination, overwrite=True)
+    assert destination.read_bytes() == b"original-contents"
 
-        coll_copy = coll.copy()
 
-        assert len(coll_copy.processors) == 1
-        assert coll_copy.processors[0] is not p1
-        pd.testing.assert_frame_equal(coll_copy.processors[0].df, p1.df)
-
-        # Modify copy
-        coll_copy.processors[0].df = pd.DataFrame()
-        assert not p1.df.empty
-
-    def test_hdf_roundtrip(self, setup_collection):
-        """Test to_hdf and from_hdf with mocks."""
-        # Mock sys.modules to satisfy 'import tables'
-        import sys
-
-        with pytest.MonkeyPatch.context() as m:
-            mock_tables = MagicMock()
-            mock_tables.__name__ = "tables"
-            mock_tables.__version__ = "4.0.0"
-            mock_tables.filters.all_complibs = ["blosc:zstd"]
-            m.setitem(sys.modules, "tables", mock_tables)
-
-            coll = ProcessorCollection()
-            p1 = MagicMock(spec=BaseProcessor)
-            p1.file_path = Path("mock/path/run_hdf.csv")
-            p1.__class__.__name__ = "MockProcessor"
-            p1.processor_module = "mock_mod"
-            p1.dataformat = "Timeseries"
-            p1.data_type = "Q"
-            p1.applied_location_filter = None
-            p1.applied_entity_filter = None
-            p1.df = pd.DataFrame({"Col1": [1, 2]})
-            coll.processors.append(p1)
-
-            hdf_path = setup_collection / "data.h5"
-            # Ensure file exists check passes after save
-            hdf_path.touch()
-
-            # Mock pd.HDFStore context manager
-            mock_store = MagicMock()
-            mock_store.__enter__.return_value = mock_store
-
-            store_data = {}
-
-            def put_side_effect(key, value, format=None, **kwargs):
-                store_data[key] = value
-
-            def get_side_effect(key):
-                if key not in store_data:
-                    raise KeyError(key)
-                return store_data[key]
-
-            def contains_side_effect(key):
-                return key in store_data
-
-            mock_store.put.side_effect = put_side_effect
-            mock_store.get.side_effect = get_side_effect
-            mock_store.__contains__.side_effect = contains_side_effect
-
-            # Mock HDFStore constructor
-            with m.context() as m_pd:
-                from ryan_library.processors.tuflow import processor_collection
-
-                mock_hdf_store_cls = MagicMock(return_value=mock_store)
-                m_pd.setattr(processor_collection, "HDFStore", mock_hdf_store_cls)
-
-                # 1. Test to_hdf
-                coll.to_hdf(hdf_path)
-
-                assert "metadata" in store_data
-                assert "proc_0000" in store_data
-
-                # Check compression kwargs were passed
-                mock_hdf_store_cls.assert_any_call(str(hdf_path), mode="w", complevel=9, complib="blosc:zstd")
-
-                # 2. Test from_hdf
-                class MockProcessorClass:
-                    def __init__(self, file_path, entity_filter=None):
-                        self.file_path = file_path
-                        self.processed = False
-                        self.applied_location_filter = None
-                        self.df = pd.DataFrame()
-
-                original_get = BaseProcessor.get_processor_class
-
-                def get_side_effect_cls(class_name, **kwargs):
-                    if class_name == "MockProcessor":
-                        return MockProcessorClass
-                    return original_get(class_name, **kwargs)
-
-                m_pd.setattr(BaseProcessor, "get_processor_class", get_side_effect_cls)
-
-                loaded = ProcessorCollection.from_hdf(hdf_path)
-                assert len(loaded.processors) == 1
-                pd.testing.assert_frame_equal(loaded.processors[0].df, p1.df)
+@pytest.mark.parametrize("verify_sources", [False, True])
+def test_retired_hdf_read_raises_before_opening_file(*, verify_sources: bool) -> None:
+    with pytest.raises(NotImplementedError, match="ryan-tools==26"):
+        ProcessorCollection.from_hdf("nonexistent.h5", locations=["C1"], verify_sources=verify_sources)

@@ -8,7 +8,7 @@ import shutil
 from pathlib import Path
 
 import numpy as np
-import rasterio  # pyright: ignore[reportMissingTypeStubs]
+import rasterio
 
 from ryan_library.functions.gdal.raster_processing import (
     build_external_overviews,

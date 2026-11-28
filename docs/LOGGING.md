@@ -17,7 +17,10 @@ Use the lowest-volume level that still suits the person or system reading the ou
 `SUCCESS` is the recommended low-context setting for an AI agent or MCP client. Loguru orders `SUCCESS` between
 `INFO` and `WARNING`, so it naturally removes routine progress without hiding completion or failure signals.
 
-Keep complete diagnostics outside the AI context by using independent console and file levels:
+File sinks default to `INFO` in shared helpers, supported workflows and maintained
+scripts. Select `DEBUG` explicitly for detailed diagnosis; console and file
+levels remain independent. For example, keep complete diagnostics outside the
+AI context with an explicitly enabled DEBUG file sink:
 
 ```python
 from loguru import logger
@@ -36,6 +39,61 @@ with setup_logger(
 
 Maintained wrappers that use the common CLI accept `--console-log-level SUCCESS`. This is preferable to truncating
 captured output after execution because warnings and final status remain visible.
+
+## Dashboard sink policy
+
+For substantial batches use the shared [dashboard contract](DASHBOARDS.md). The
+rendered dashboard is a **console presentation** decision, not a reason to
+discard worker records. Use `SUCCESS` for a concise dashboard console while
+retaining independently configured `DEBUG` file logs. Call
+`run_dashboard_workflow(..., worker_log_level=None)` (the default) so the
+existing Loguru queue captures the least restrictive level required by any sink.
+An explicit worker override that would discard records destined for a
+configured sink is invalid. Worker warnings/errors and serialized tracebacks
+remain visible through the logging listener. Keep routine per-item INFO
+out of the dashboard console; do not replay it after the live region closes.
+
+Disabling the dashboard restores the caller's chosen ordinary console logging
+level. A redirected terminal must not receive repeated Rich frames or ANSI
+cursor controls. Report the whole workflow through aggregation/export and
+emit one truthful final outcome, including failed/partial reports.
+
+## Live dashboards and copied wrappers
+
+The default stdout sink follows `sys.stdout` at each write. Configure serial logging
+before entering a Rich `Live` dashboard as usual: Rich can then clear the live region,
+print each message above it and redraw the table. Capturing `sys.stdout` directly when
+adding a sink bypasses that later redirection and can leave repeated partial panels.
+This default also supports older copied TUFLOW runners that do not supply a custom
+`console_sink`. Explicit console writers and notebook stderr routing remain unchanged.
+
+Installing a corrected library affects newly started Python processes; it does not
+repair an already running dashboard or remove old terminal scrollback. Terminal
+reconnection/reflow can still leave display artifacts. For a future unattended run,
+the TUFLOW wrapper accepts `--no-live-dashboard` for ordinary logging.
+Multiprocessing listeners have their own stdout; this does not route a separate
+listener process through a parent process's Rich display.
+
+`LiveWorkflowDashboard` does not start Rich's background auto-refresh thread. Its
+coordinator owns state updates and calls `refresh()` while polling; task updates
+can also request an immediate refresh. The TUFLOW runner and generic dashboard
+workflow already provide the polling refresh loop.
+
+Background stdout/stderr messages can still trigger a Rich redraw. The dashboard
+console therefore serializes the complete render and write, with the coordinator
+entering that console context before calling Live. This keeps cursor measurements
+and frame output together and maintains the same lock order during startup,
+refresh and shutdown. Locking writes alone leaves a window for a worker's older
+frame to overwrite a newer, differently sized frame. Warnings remain visible;
+this does not add a polling delay or change the optional GPU-inspection budget.
+
+The TUFLOW runner also enters `forward_standard_logging("pytuflow")` before
+starting checks. PyTUFLOW otherwise captures stdout when first imported, which
+can occur before Live redirects it. Those saved-stream writes bypass Rich and
+leave stale frames even when all Rich rendering is serialized. The temporary
+forwarder sends dependency records through the wrapper's current Loguru sinks,
+preserves their logger threshold, and restores the named logger's previous
+handlers, level and propagation on exit. It does not change the root logger.
 
 ## Jupyter notebooks
 
@@ -95,8 +153,8 @@ Run the formatting-policy check after changing logging calls:
 python repo-scripts/check_loguru_formatting.py
 ```
 
-The check covers active repository-owned Loguru code, excludes the deprecated `ryan_library/scripts` compatibility
-namespace, and ignores modules using the standard-library `logging.Logger` API.
+The check covers active repository-owned Loguru code and ignores modules using the standard-library
+`logging.Logger` API. The obsolete `ryan_library/scripts` compatibility namespace was removed.
 
 ## Multiprocessing behaviour
 

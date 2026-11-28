@@ -16,7 +16,7 @@ validates the input and preserves rainfall depth and individual interval timing.
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-15.1"
+WRAPPER_VERSION = "2026-11-28.1"
 DEFAULT_OUTPUT_DIR = Path()
 DEFAULT_RUN_INCREMENTS = 200  # RORBwin 6.52 default; review routing tail.
 DEFAULT_CLIMATE_SUFFIX = "2030_SSP3-7.0"
@@ -190,10 +190,19 @@ def main(args: argparse.Namespace) -> int:
 
 
 if __name__ == "__main__":
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        wrapper_source="RORB-python/tuflow_bc_to_rorb_stm.py",
+    )
     arguments = parse_args()
     result = main(arguments)
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION, leading_blank_line=True)
+    print_wrapper_banner(
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+        wrapper_source="RORB-python/tuflow_bc_to_rorb_stm.py",
+        leading_blank_line=True,
+    )
     if not arguments.no_pause:
         pause_console()
     raise SystemExit(result)

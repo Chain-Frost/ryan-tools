@@ -1,6 +1,8 @@
 """Plotting tests using real, already-computed solver results."""
 
+from collections.abc import Sized
 from pathlib import Path
+from typing import cast
 
 from matplotlib import pyplot as plt
 
@@ -43,7 +45,7 @@ def test_plot_longitudinal_profile_from_computed_result(tmp_path: Path) -> None:
     target = save_figure(figure, tmp_path / "profile.png")
 
     assert target.stat().st_size > 0
-    assert len(figure.axes[0].lines) >= 4
+    assert len(cast("Sized", figure.axes[0].lines)) >= 4
     plt.close(figure)
 
 

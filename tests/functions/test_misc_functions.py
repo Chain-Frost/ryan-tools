@@ -62,7 +62,9 @@ def test_split_strings_in_dict_preserves_unrelated_keys() -> None:
         "needs_split": "kappa lambda",
     }
 
-    expected_already_split = params["already_split"].copy()
+    already_split = params["already_split"]
+    assert isinstance(already_split, list)
+    expected_already_split = already_split.copy()
 
     split_strings_in_dict(params_dict=params)
 

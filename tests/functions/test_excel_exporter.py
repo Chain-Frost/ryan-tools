@@ -1,24 +1,25 @@
+# pyright: reportPrivateUsage=false
 """Tests for ExcelExporter class in misc_functions."""
 
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
 
-from ryan_library.functions.excel_export import ExcelExporter
+from ryan_library.functions.excel_export import ExcelExporter, ExportContent
 
 
 class TestExcelExporterHelpers:
     """Test helper methods of ExcelExporter."""
 
-    def test_exceeds_excel_limits_normal(self):
+    def test_exceeds_excel_limits_normal(self) -> None:
         """Test that normal DataFrames don't exceed limits."""
         exporter = ExcelExporter()
         df = pd.DataFrame({"A": range(100), "B": range(100)})
         assert not exporter._exceeds_excel_limits([df])
 
-    def test_exceeds_excel_limits_too_many_rows(self):
+    def test_exceeds_excel_limits_too_many_rows(self) -> None:
         """Test detection of too many rows."""
         exporter = ExcelExporter()
         # Create a DF that exceeds row limit
@@ -26,14 +27,14 @@ class TestExcelExporterHelpers:
         df = pd.DataFrame({"A": huge_index})
         assert exporter._exceeds_excel_limits([df])
 
-    def test_exceeds_excel_limits_too_many_columns(self):
+    def test_exceeds_excel_limits_too_many_columns(self) -> None:
         """Test detection of too many columns."""
         exporter = ExcelExporter()
         # Create a DF that exceeds column limit
         df = pd.DataFrame({f"Col{i}": [1] for i in range(exporter.MAX_EXCEL_COLUMNS + 1)})
         assert exporter._exceeds_excel_limits([df])
 
-    def test_resolve_export_stem_with_file_name(self):
+    def test_resolve_export_stem_with_file_name(self) -> None:
         """Test stem resolution with explicit filename."""
         exporter = ExcelExporter()
         stem = exporter._resolve_export_stem(
@@ -41,49 +42,49 @@ class TestExcelExporterHelpers:
         )
         assert stem == "custom"
 
-    def test_resolve_export_stem_without_extension(self):
+    def test_resolve_export_stem_without_extension(self) -> None:
         """Test stem resolution without xlsx extension."""
         exporter = ExcelExporter()
         stem = exporter._resolve_export_stem(datetime_string="20250101-1200", export_key="Report", file_name="custom")
         assert stem == "custom"
 
-    def test_resolve_export_stem_default(self):
+    def test_resolve_export_stem_default(self) -> None:
         """Test default stem generation."""
         exporter = ExcelExporter()
         stem = exporter._resolve_export_stem(datetime_string="20250101-1200", export_key="Report", file_name=None)
         assert stem == "20250101-1200_Report"
 
-    def test_build_parquet_filename_gzip(self):
+    def test_build_parquet_filename_gzip(self) -> None:
         """Test parquet filename with gzip compression."""
         exporter = ExcelExporter()
         filename = exporter._build_parquet_filename("base", "gzip")
         assert filename == "base.parquet.gzip"
 
-    def test_build_parquet_filename_other_compression(self):
+    def test_build_parquet_filename_other_compression(self) -> None:
         """Test parquet filename with other compression."""
         exporter = ExcelExporter()
         filename = exporter._build_parquet_filename("base", "snappy")
         assert filename == "base.parquet.snappy"
 
-    def test_build_parquet_filename_no_compression(self):
+    def test_build_parquet_filename_no_compression(self) -> None:
         """Test parquet filename without compression."""
         exporter = ExcelExporter()
         filename = exporter._build_parquet_filename("base", None)
         assert filename == "base.parquet"
 
-    def test_build_output_path_with_directory(self):
+    def test_build_output_path_with_directory(self) -> None:
         """Test output path building with directory."""
         exporter = ExcelExporter()
         path = exporter._build_output_path("file.xlsx", Path("/tmp"))
         assert path == Path("/tmp/file.xlsx")
 
-    def test_build_output_path_without_directory(self):
+    def test_build_output_path_without_directory(self) -> None:
         """Test output path building without directory."""
         exporter = ExcelExporter()
         path = exporter._build_output_path("file.xlsx", None)
         assert path == Path("file.xlsx")
 
-    def test_sanitize_name(self):
+    def test_sanitize_name(self) -> None:
         """Test name sanitization."""
         exporter = ExcelExporter()
         assert exporter._sanitize_name("My-Sheet_1") == "My-Sheet_1"
@@ -95,57 +96,50 @@ class TestExcelExporterHelpers:
 class TestExcelExporterExport:
     """Test export functionality."""
 
-    def test_export_dataframes_validation_error_mismatch(self):
+    def test_export_dataframes_validation_error_mismatch(self) -> None:
         """Test error when dataframes and sheets don't match."""
         exporter = ExcelExporter()
-        export_dict = {"Report": {"dataframes": [pd.DataFrame({"A": [1]})], "sheets": ["Sheet1", "Sheet2"]}}  # Mismatch
+        export_dict: dict[str, ExportContent] = {
+            "Report": {"dataframes": [pd.DataFrame({"A": [1]})], "sheets": ["Sheet1", "Sheet2"]}
+        }  # Mismatch
         with pytest.raises(ValueError, match="number of dataframes"):
             exporter.export_dataframes(export_dict)
 
-    def test_export_dataframes_invalid_mode(self):
+    def test_export_dataframes_invalid_mode(self) -> None:
         """Test error with invalid export mode."""
         exporter = ExcelExporter()
-        export_dict = {"Report": {"dataframes": [pd.DataFrame({"A": [1]})], "sheets": ["Sheet1"]}}
+        export_dict: dict[str, ExportContent] = {
+            "Report": {"dataframes": [pd.DataFrame({"A": [1]})], "sheets": ["Sheet1"]}
+        }
         with pytest.raises(ValueError, match="Invalid export_mode"):
-            exporter.export_dataframes(export_dict, export_mode="invalid")
+            exporter.export_dataframes(export_dict, export_mode="invalid")  # pyright: ignore[reportArgumentType]
 
-    def test_export_dataframes_file_name_multiple_workbooks(self):
+    def test_export_dataframes_file_name_multiple_workbooks(self) -> None:
         """Test error when file_name provided for multiple workbooks."""
         exporter = ExcelExporter()
-        export_dict = {
+        export_dict: dict[str, ExportContent] = {
             "Report1": {"dataframes": [pd.DataFrame()], "sheets": ["S1"]},
             "Report2": {"dataframes": [pd.DataFrame()], "sheets": ["S2"]},
         }
         with pytest.raises(ValueError, match="single workbook"):
             exporter.export_dataframes(export_dict, file_name="custom.xlsx")
 
-    @patch("pandas.DataFrame.to_parquet")
-    def test_export_as_parquet_only(self, mock_to_parquet, tmp_path):
-        """Test parquet-only export."""
-        exporter = ExcelExporter()
-        df = pd.DataFrame({"A": [1, 2], "B": [3, 4]})
-
-        exporter._export_as_parquet_only(
-            export_stem="test", dataframes=[df], sheets=["Sheet1"], output_directory=tmp_path, compression="gzip"
+    def test_export_as_parquet_only(self, tmp_path: Path) -> None:
+        frame = pd.DataFrame({"A": [1, 2], "B": [3, 4]})
+        ExcelExporter().save_to_excel(
+            frame, file_name="test", sheet_name="Sheet1", output_directory=tmp_path, export_mode="parquet"
         )
+        actual = pd.read_parquet(tmp_path / "test_Sheet1.parquet.gzip")
+        pd.testing.assert_frame_equal(actual, frame)
 
-        mock_to_parquet.assert_called_once()
+    def test_export_as_parquet_and_csv(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        frame = pd.DataFrame({"A": [1, 2], "B": [3, 4]})
+        monkeypatch.setattr(ExcelExporter, "MAX_EXCEL_ROWS", 1)
+        ExcelExporter().save_to_excel(frame, file_name="test", sheet_name="Sheet1", output_directory=tmp_path)
+        pd.testing.assert_frame_equal(pd.read_parquet(tmp_path / "test_Sheet1.parquet.gzip"), frame)
+        pd.testing.assert_frame_equal(pd.read_csv(tmp_path / "test_Sheet1.csv"), frame)
 
-    @patch("pandas.DataFrame.to_csv")
-    @patch("pandas.DataFrame.to_parquet")
-    def test_export_as_parquet_and_csv(self, mock_to_parquet, mock_to_csv, tmp_path):
-        """Test combined parquet and CSV export."""
-        exporter = ExcelExporter()
-        df = pd.DataFrame({"A": [1, 2], "B": [3, 4]})
-
-        exporter._export_as_parquet_and_csv(
-            export_stem="test", dataframes=[df], sheets=["Sheet1"], output_directory=tmp_path, compression="gzip"
-        )
-
-        mock_to_parquet.assert_called_once()
-        mock_to_csv.assert_called_once()
-
-    def test_calculate_column_widths(self):
+    def test_calculate_column_widths(self) -> None:
         """Test column width calculation."""
         exporter = ExcelExporter()
         df = pd.DataFrame({"Short": ["A", "B"], "LongerColumn": ["Value1", "Value2"]})
@@ -160,7 +154,7 @@ class TestExcelExporterSaveToExcel:
     """Test save_to_excel convenience method."""
 
     @patch.object(ExcelExporter, "export_dataframes")
-    def test_save_to_excel_delegates(self, mock_export):
+    def test_save_to_excel_delegates(self, mock_export: MagicMock) -> None:
         """Test that save_to_excel delegates to export_dataframes."""
         exporter = ExcelExporter()
         df = pd.DataFrame({"A": [1, 2]})

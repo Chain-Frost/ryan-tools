@@ -1,5 +1,8 @@
 """Tests for ryan_library.functions.tuflow.po_timeseries_checks."""
 
+# Unit tests intentionally exercise the implementation helpers under test.
+# pyright: reportPrivateUsage=false
+
 from pathlib import Path
 
 import pandas as pd

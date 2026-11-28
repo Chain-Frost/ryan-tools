@@ -1,298 +1,1013 @@
+"""Maintained wrapper contract and process-boundary acceptance for scope 03."""
+
+from __future__ import annotations
+
+import argparse
 import importlib.util
+import logging
+import os
+import runpy
+import signal
+import subprocess
 import sys
+from collections.abc import Callable, Sequence
+from contextlib import AbstractContextManager
+from datetime import datetime
+from io import StringIO
 from pathlib import Path
+from threading import Event
+from typing import Protocol, cast
 
 import pytest
+from loguru import logger
+
+from ryan_library.functions.tuflow.command_plan import CommandPlan, PlannedRun
+from ryan_library.functions.tuflow.execution_history import CsvExecutionLog
+from ryan_library.functions.tuflow.runner_settings import OP
+from ryan_library.functions.tuflow.runner_user_inputs import choice
+from ryan_library.orchestrators.tuflow import command_preflight, simulation_workflow
+from ryan_library.orchestrators.tuflow.command_preflight import CommandPreflightReport
+from ryan_library.orchestrators.tuflow.simulation_runner import (
+    AdvisoryInputCheck,
+    BatchOutcome,
+    RunnerSettings,
+    RunOutcome,
+    prepare_plan,
+)
 
 
-# --- Module Loading Helper ---
-@pytest.fixture(scope="module")
-def rtb():
-    """Load the run_tuflow_simulations module dynamically."""
-    repo_root = Path(__file__).parents[2]
-    script_path = repo_root / "ryan-scripts" / "TUFLOW-python" / "model_management" / "run_tuflow_simulations.py"
+class _RunnerWrapper(Protocol):
+    __file__: str
+    EXPORT_COMMANDS: bool
+    NEXT_RUN_FILE: str | Path | None
+    OPERATION: str
 
-    if not script_path.exists():
-        pytest.fail(f"Could not find script at {script_path}")
+    def main(self, argv: list[str] | None = None) -> int: ...
 
-    spec = importlib.util.spec_from_file_location("run_tuflow_simulations", script_path)
+
+@pytest.fixture
+def wrapper(tmp_path: Path) -> _RunnerWrapper:
+    source = (
+        Path(__file__).absolute().parents[2] / "ryan-scripts/TUFLOW-python/model_management/run_tuflow_simulations.py"
+    )
+    # The real wrapper owns an adjacent CSV. A disposable copy prevents tests
+    # from writing history into the tracked repository wrapper directory.
+    copied = tmp_path / "run_tuflow_simulations.py"
+    copied.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+    spec = importlib.util.spec_from_file_location("tested_runner_wrapper", copied)
+    assert spec is not None
+    assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
-    sys.modules["run_tuflow_simulations"] = module
+    sys.modules[spec.name] = module
     spec.loader.exec_module(module)
-    return module
+    # A harmless file satisfies the wrapper's pre-launch existence check;
+    # fake-process callbacks still prevent any solver execution.
+    solver = tmp_path / "TUFLOW_Synthetic.exe"
+    solver.write_bytes(b"synthetic solver placeholder")
+    module.__dict__["TUFLOW_EXE"] = solver
+    module.__dict__["OPERATION"] = "run"  # Explicit execution mode for these run-focused fixtures.
+    return cast(_RunnerWrapper, module)
 
 
-# --- Fixtures ---
-@pytest.fixture
-def mock_paths(tmp_path):
-    """Create dummy TCF and EXE files."""
-    tcf = tmp_path / "test_model_~s1~_~e1~.tcf"
-    tcf.touch()
-    exe = tmp_path / "TUFLOW_iSP_w64.exe"
-    exe.touch()
-    return tcf, exe
+def _source(path: Path) -> Path:
+    batch = path / "models.bat"
+    batch.write_text(
+        f'START /WAIT "" "TUFLOW.exe" -b -e1 A "{path / "model.tcf"}"\n',
+        encoding="utf-8",
+    )
+    return batch
 
 
-@pytest.fixture
-def core_params(rtb, mock_paths):
-    """Return a valid CoreParameters instance."""
-    tcf, exe = mock_paths
-    return rtb.CoreParameters(tcf=tcf, tuflowexe=exe, gpu_devices=None, smart_mode="parameter_product")
+def test_configured_export_only_operation_and_cli_override(
+    tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    module = sys.modules["tested_runner_wrapper"]
+    source = _source(tmp_path)
+    monkeypatch.setattr(module, "OPERATION", "export_only")
+    monkeypatch.setattr(module, "TUFLOW_EXE", tmp_path / "TUFLOW_MISSING.exe")
+
+    def forbid(*_args: object, **_kwargs: object) -> None:
+        pytest.fail("Export-only attempted to launch a solver")
+
+    monkeypatch.setattr(simulation_workflow, "launch_plan", forbid)
+    args = ["--mode", "textfiles", "--input-file", str(source), "--no-tcf", "--no-pause"]
+    assert wrapper.main(args) == 0
+    output = capsys.readouterr().out
+    assert "OPERATION: export_only" in output
+    assert "EXPORT_COMMANDS: True" in output
+    assert "CHECK_INPUTS: False" in output
+    assert "PAUSE_ON_FINISH: False" in output
+    assert "Simulation plan: 1 unique runs" in output
+    assert "Run 001: -b -e1 A" in output
+    assert "source models.bat:1" in output
+    assert "  BATCH_COMMANDS: -b" in output
+    assert "  OPERATION: export_only" in output
+    assert "\x1b[" not in output  # Captured output is non-interactive.
+    assert "Editable commands exported to" in output
+    assert Path(wrapper.__file__).with_suffix(".txt").is_file()
+    assert not Path(wrapper.__file__).with_name("run_tuflow_simulations_runs.csv").exists()
+
+    # CLI launch intent overrides the configured export-only operation; the missing
+    # solver then fails before writing a continuation CSV.
+    assert wrapper.main([*args, "--run-simulations"]) == 1
+    assert not Path(wrapper.__file__).with_name("run_tuflow_simulations_runs.csv").exists()
 
 
-# --- Tests ---
+@pytest.mark.parametrize("terminal", [False, True])
+def test_wrapper_preserves_terminal_log_colours_without_colouring_redirected_output(
+    tmp_path: Path,
+    wrapper: _RunnerWrapper,
+    monkeypatch: pytest.MonkeyPatch,
+    terminal: bool,
+) -> None:
+    """Exercise the copied wrapper's actual logger configuration, without a solver."""
+    source = _source(tmp_path)
+    stream = StringIO()
+    monkeypatch.setattr(stream, "isatty", lambda: terminal)
+    monkeypatch.setattr(sys, "stdout", stream)
+    try:
+        assert (
+            wrapper.main(
+                [
+                    "--working-directory",
+                    str(tmp_path),
+                    "--mode",
+                    "textfiles",
+                    "--input-file",
+                    str(source),
+                    "--no-tcf",
+                    "--export-only",
+                    "--no-pause",
+                ]
+            )
+            == 0
+        )
+    finally:
+        logger.remove()
+    output = stream.getvalue()
+    assert "OPERATION: export_only" in output
+    assert "Export-only: no solver processes, GPU scan or input checking." in output
+    if terminal:
+        assert "\x1b[36m  OPERATION: export_only" in output
+        assert "\x1b[90m  CONSOLE_LOG_LEVEL: INFO" in output
+        assert "\x1b[32m" in output  # SUCCESS keeps its green terminal styling.
+    else:
+        assert "\x1b[" not in output
 
 
-def test_core_params_defaults(rtb, mock_paths):
-    """Test CoreParameters default values."""
-    tcf, exe = mock_paths
-    cp = rtb.CoreParameters(tcf=tcf, tuflowexe=exe)
-    assert cp.batch_commands == "-x"
-    assert cp.computational_priority == "NORMAL"
-    assert cp.run_simulations is True
-    assert cp.gpu_devices is None
+def test_editable_settings_and_cli_precedence(
+    tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = cast(_RunnerWrapper, sys.modules["tested_runner_wrapper"])
+    monkeypatch.setattr(module, "USE_LIVE_DASHBOARD", True)
+    monkeypatch.setattr(module, "LIVE_REFRESH_PER_SECOND", 1.0)
+    monkeypatch.setattr(module, "LIVE_MAX_ROWS", 10)
+    monkeypatch.setattr(module, "WAIT_FOR_AVAILABLE_GPU", True)
+    monkeypatch.setattr(module, "GPU_CHECK_INTERVAL_SECONDS", 60.0)
+    monkeypatch.setattr(module, "MONITOR_PROGRESS", True)
+    monkeypatch.setattr(module, "PROGRESS_POLL_INTERVAL_SECONDS", 10.0)
+    monkeypatch.setattr(module, "SHOW_PROGRESS_DIAGNOSTICS", True)
+    monkeypatch.setattr(module, "WAIT_TIME_AFTER_RUN", 2.0)
+    parse_arguments = cast(
+        Callable[[list[str]], argparse.Namespace],
+        getattr(module, "_arguments"),  # noqa: B009 - explicitly test the copied wrapper
+    )
+    build_settings = cast(
+        Callable[[argparse.Namespace], RunnerSettings],
+        getattr(module, "_settings"),  # noqa: B009 - explicitly test the copied wrapper
+    )
+    args = parse_arguments(
+        [
+            "--no-preflight",
+            "--no-live-dashboard",
+            "--live-refresh-per-second",
+            "0.5",
+            "--live-max-rows",
+            "4",
+            "--no-wait-for-available-gpu",
+            "--gpu-check-interval",
+            "0.25",
+            "--no-monitor-progress",
+            "--progress-poll-interval",
+            "30",
+            "--no-progress-diagnostics",
+            "--launch-delay",
+            "0",
+            "--working-directory",
+            str(tmp_path),
+            "--no-pause",
+        ]
+    )
+    settings = build_settings(args)
+    assert settings.use_live_dashboard is False
+    assert settings.live_refresh_per_second == 0.5
+    assert settings.live_max_rows == 4
+    assert settings.wait_for_available_gpu is False
+    assert settings.gpu_check_interval_seconds == 0.25
+    assert settings.monitor_progress is False
+    assert settings.progress_poll_interval_seconds == 30.0
+    assert settings.show_progress_diagnostics is False
+    assert settings.wait_time_after_run == 0
+    assert args.preflight is False
+    with pytest.raises(SystemExit) as invalid:
+        parse_arguments(["--pause", "--no-pause"])
+    assert invalid.value.code == 2
 
 
-def test_check_and_set_defaults_valid(rtb, core_params):
-    """Test validation with valid parameters."""
-    params = rtb.Parameters(core_params=core_params, run_variables={})
-    # Should not raise
-    rtb.check_and_set_defaults(params)
+def _settings_from_wrapper(wrapper: _RunnerWrapper) -> RunnerSettings:
+    """Exercise the copied file's editable-default normalization."""
+    module = sys.modules["tested_runner_wrapper"]
+    parser = cast(Callable[[list[str]], argparse.Namespace], module.__dict__["_arguments"])
+    settings_factory = cast(Callable[[argparse.Namespace], RunnerSettings], module.__dict__["_settings"])
+    return settings_factory(parser(["--no-pause"]))
 
 
-def test_check_and_set_defaults_missing_files(rtb, tmp_path):
-    """Test validation fails if files don't exist."""
-    tcf = tmp_path / "non_existent.tcf"
-    exe = tmp_path / "non_existent.exe"
-    cp = rtb.CoreParameters(tcf=tcf, tuflowexe=exe)
-    params = rtb.Parameters(core_params=cp, run_variables={})
-
-    with pytest.raises(FileNotFoundError, match="TCF file not found"):
-        rtb.check_and_set_defaults(params)
-
-
-def test_check_and_set_defaults_invalid_priority(rtb, core_params):
-    """Test validation fails with invalid priority."""
-    core_params.computational_priority = "SUPER_HIGH"
-    params = rtb.Parameters(core_params=core_params, run_variables={})
-    with pytest.raises(ValueError, match=r"Invalid priority: SUPER_HIGH\. Must be one of:"):
-        rtb.check_and_set_defaults(params)
-
-
-def test_check_and_set_defaults_invalid_gpu(rtb, core_params):
-    """Test validation fails with invalid GPU flags."""
-    core_params.gpu_devices = ["-puA"]  # Invalid format
-    params = rtb.Parameters(core_params=core_params, run_variables={})
-    with pytest.raises(ValueError, match="Invalid GPU flag"):
-        rtb.check_and_set_defaults(params)
-
-
-def test_check_and_set_defaults_invalid_run_var_key(rtb, core_params):
-    """Test validation fails with invalid run variable keys."""
-    params = rtb.Parameters(core_params=core_params, run_variables={"x1": ["val"]})
-    with pytest.raises(ValueError, match="Invalid run variable key"):
-        rtb.check_and_set_defaults(params)
+def test_progress_monitor_defaults_edits_and_cli_enable_override(
+    wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    defaults = _settings_from_wrapper(wrapper)
+    assert defaults.monitor_progress is True
+    assert defaults.progress_poll_interval_seconds == 10.0
+    assert defaults.show_progress_diagnostics is True
+    module = sys.modules["tested_runner_wrapper"]
+    monkeypatch.setattr(module, "MONITOR_PROGRESS", False)
+    monkeypatch.setattr(module, "PROGRESS_POLL_INTERVAL_SECONDS", 60.0)
+    monkeypatch.setattr(module, "SHOW_PROGRESS_DIAGNOSTICS", False)
+    configured = _settings_from_wrapper(wrapper)
+    assert configured.monitor_progress is False
+    assert configured.progress_poll_interval_seconds == 60.0
+    assert configured.show_progress_diagnostics is False
+    parser = cast(Callable[[list[str]], argparse.Namespace], module.__dict__["_arguments"])
+    settings_factory = cast(Callable[[argparse.Namespace], RunnerSettings], module.__dict__["_settings"])
+    explicit = settings_factory(
+        parser(["--monitor-progress", "--progress-poll-interval", "5", "--progress-diagnostics", "--no-pause"])
+    )
+    assert explicit.monitor_progress is True
+    assert explicit.progress_poll_interval_seconds == 5.0
+    assert explicit.show_progress_diagnostics is True
+    with pytest.raises(ValueError, match="PROGRESS_POLL_INTERVAL_SECONDS"):
+        settings_factory(parser(["--progress-poll-interval", "0", "--no-pause"]))
 
 
-def test_compute_simulations_product(rtb, core_params):
-    """Test simulation generation using parameter product."""
-    run_vars = {"s1": ["A", "B"], "e1": ["10", "20"]}
-    params = rtb.Parameters(core_params=core_params, run_variables=run_vars)
-
-    sims = rtb.compute_simulations(params)
-
-    # Should have 2 * 2 = 4 simulations
-    assert len(sims) == 4
-
-    # Check args of first sim
-    # Order depends on priority_order or insertion order.
-    # Default is insertion order: s1 then e1.
-    # Sim 1: s1=A, e1=10
-    args0 = sims[0].args_for_python
-    assert "-s1" in args0
-    assert "A" in args0
-    assert "-e1" in args0
-    assert "10" in args0
-
-
-def test_compute_simulations_filtering(rtb, core_params, tmp_path):
-    """Test that variables not in TCF filename are ignored/warned (depending on implementation).
-    Actually the implementation says: "We can return flags that are not present in the tcf filename."
-    But `filter_parameters` warns. `_enforce_placeholders` is used in textfiles mode?
-    Wait, `compute_simulations` calls `filter_parameters`.
-    """
-    # TCF name is "test_model_~s1~_~e1~.tcf" (from mock_paths)
-    # Add an extra variable "s2"
-    run_vars = {"s1": ["A"], "e1": ["10"], "s2": ["Extra"]}
-    params = rtb.Parameters(core_params=core_params, run_variables=run_vars)
-
-    # filter_parameters will warn but return non_empty.
-    # compute_simulations uses filtered_vars.
-
-    sims = rtb.compute_simulations(params)
-    assert len(sims) == 1
-    args = sims[0].args_for_python
-    # s2 should be present because filter_parameters only filters empty values,
-    # it just warns about extras.
-    assert "-s2" in args
+@pytest.mark.parametrize(
+    ("configured", "expected"),
+    [
+        ("-pu1", (("-pu1",),)),
+        (["-pu0", "-pu1"], (("-pu0",), ("-pu1",))),
+        (("-pu0", "-pu1"), (("-pu0",), ("-pu1",))),
+        ([["-pu0", "-pu1"], "-pu2"], (("-pu0", "-pu1"), ("-pu2",))),
+        ((("-pu0", "-pu1"), ("-pu2",)), (("-pu0", "-pu1"), ("-pu2",))),
+        ([], ()),
+        ((), ()),
+        (None, ()),
+    ],
+)
+def test_editable_gpu_formats_normalize_to_scheduler_slots(
+    wrapper: _RunnerWrapper,
+    monkeypatch: pytest.MonkeyPatch,
+    configured: object,
+    expected: tuple[tuple[str, ...], ...],
+) -> None:
+    module = sys.modules["tested_runner_wrapper"]
+    monkeypatch.setattr(module, "GPU_DEVICES", configured)
+    settings = _settings_from_wrapper(wrapper)
+    assert settings.gpu_devices == expected
 
 
-def test_parse_input_files(rtb, tmp_path):
-    """Test parsing of text files."""
-    f = tmp_path / "runs.txt"
-    content = """
-    -s1 A -e1 10
-    -s1 B -e1 20  ! Comment
-    # Comment line
-    -s1 A -e1 10  ! Duplicate
-    """
-    f.write_text(content, encoding="utf-8")
+@pytest.mark.parametrize(
+    "configured",
+    [
+        "-puA",
+        "-pu0,1",
+        "-pu0 -pu1",
+        "pu1",
+        ["-pu0", "-pu0"],
+        ["-pu0", "-pu00"],
+        [["-pu0", "-pu0"]],
+        [[], "-pu1"],
+        2,
+        [3],
+    ],
+)
+def test_invalid_gpu_settings_fail_before_export(
+    wrapper: _RunnerWrapper,
+    monkeypatch: pytest.MonkeyPatch,
+    configured: object,
+) -> None:
+    module = sys.modules["tested_runner_wrapper"]
+    monkeypatch.setattr(module, "GPU_DEVICES", configured)
+    monkeypatch.setattr(module, "RUN_VARIABLES_RAW", {"e1": "A"})
+    monkeypatch.setattr(module, "TCF", "model_~e1~.tcf")
+    assert wrapper.main(["--no-pause", "--export-only"]) == 1
+    assert not Path(wrapper.__file__).with_suffix(".txt").exists()
+    assert not Path(wrapper.__file__).with_name("run_tuflow_simulations_runs.csv").exists()
 
-    combos, _first_seen = rtb.parse_input_files([f])
 
-    assert len(combos) == 2  # A-10 and B-20. Duplicate A-10 ignored.
-    assert combos[0] == {"s1": "A", "e1": "10"}
-    assert combos[1] == {"s1": "B", "e1": "20"}
-
-
-def test_get_batch_flags_conflict(rtb, core_params):
-    """Test conflict detection between batch_commands and gpu_devices."""
-    core_params.batch_commands = "-b -pu0"
-    core_params.gpu_devices = ["-pu1"]
-
-    with pytest.raises(ValueError, match="GPU flags were specified in BOTH places"):
-        rtb.get_batch_flags(core=core_params)
-
-
-def test_generate_arg_for_batch(rtb, core_params):
-    """Test batch command generation."""
-    cmd = rtb.generate_arg_for_batch(
-        priority="NORMAL",
-        tuflowexe=core_params.tuflowexe,
-        batch=["-b"],
-        tcf=core_params.tcf,
-        keys=["s1"],
-        combo=("val1",),
-        max_lengths={"s1": 4},
+def test_editable_string_paths_and_single_input_source_normalize(
+    tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = sys.modules["tested_runner_wrapper"]
+    monkeypatch.setattr(module, "WORKING_DIR", str(tmp_path))
+    monkeypatch.setattr(module, "TCF", "model_~e1~.tcf")
+    monkeypatch.setattr(module, "TUFLOW_EXE", str(tmp_path / "TUFLOW_Synthetic.exe"))
+    monkeypatch.setattr(module, "INPUT_FILES", "runs1.bat")
+    settings = _settings_from_wrapper(wrapper)
+    assert settings.working_directory == tmp_path
+    assert settings.tcf == Path("model_~e1~.tcf")
+    assert settings.executable == tmp_path / "TUFLOW_Synthetic.exe"
+    assert settings.input_files == (Path("runs1.bat"),)
+    monkeypatch.setattr(module, "INPUT_FILES", ["runs1.bat", Path("runs2.txt")])
+    assert _settings_from_wrapper(wrapper).input_files == (
+        Path("runs1.bat"),
+        Path("runs2.txt"),
     )
 
-    assert "START /NORMAL /WAIT" in cmd
-    assert str(core_params.tuflowexe) in cmd
-    assert "-b" in cmd
-    assert "-s1" in cmd
-    assert "val1" in cmd
-    assert str(core_params.tcf) in cmd
+
+@pytest.mark.parametrize(
+    ("setting", "invalid"),
+    [
+        ("WORKING_DIR", "   "),
+        ("TCF", ""),
+        ("TUFLOW_EXE", ""),
+        ("INPUT_FILES", [""]),
+    ],
+)
+def test_blank_editable_paths_are_rejected(
+    wrapper: _RunnerWrapper,
+    monkeypatch: pytest.MonkeyPatch,
+    setting: str,
+    invalid: object,
+) -> None:
+    module = sys.modules["tested_runner_wrapper"]
+    monkeypatch.setattr(module, setting, invalid)
+    # A malformed user setting must identify the actual field, including
+    # the index of an invalid BAT/TXT source.
+    with pytest.raises(ValueError, match=rf"^{setting}(?:\[0\])? is blank"):
+        _settings_from_wrapper(wrapper)
 
 
-# --- Additional Tests ---
+@pytest.mark.parametrize(
+    ("setting", "invalid"),
+    [
+        ("MODE", "spelling_error"),
+        ("OPERATION", "launch_something"),
+        ("CONTINUATION_MODE", "some"),
+        ("COMPUTATIONAL_PRIORITY", "MAXIMUM"),
+        ("INPUT_FILES", ["a.csv"]),
+        ("INPUT_FILES", [123]),
+        ("RUN_VARIABLES_RAW", {"e1": ""}),
+        ("RUN_VARIABLES_RAW", {"e1": [""]}),
+        ("RUN_VARIABLES_RAW", {"e1": [1]}),
+        ("RUN_VARIABLES_RAW", {"e1": "A", "E1": "B"}),
+        ("RUN_VARIABLES_RAW", {"e0": "A"}),
+        ("RUN_VARIABLES_RAW", "e1 A"),
+        ("PRIORITY_ORDER", "e3 bad"),
+        ("PRIORITY_ORDER", "e1 e1"),
+        ("TCF", "not_a_tcf.txt"),
+        ("TUFLOW_EXE", "not_an_exe.bat"),
+        ("NEXT_RUN_FILE", "next_batch.txt"),
+        ("BATCH_COMMANDS", ["-b"]),
+        ("WAIT_TIME_AFTER_RUN", -1),
+        ("WAIT_FOR_AVAILABLE_GPU", "False"),
+        ("GPU_CHECK_INTERVAL_SECONDS", 0),
+        ("GPU_CHECK_INTERVAL_SECONDS", float("nan")),
+        ("MONITOR_PROGRESS", "False"),
+        ("MONITOR_PROGRESS", 1),
+        ("SHOW_PROGRESS_DIAGNOSTICS", "False"),
+        ("SHOW_PROGRESS_DIAGNOSTICS", 1),
+        ("PROGRESS_POLL_INTERVAL_SECONDS", 0),
+        ("PROGRESS_POLL_INTERVAL_SECONDS", -1),
+        ("PROGRESS_POLL_INTERVAL_SECONDS", True),
+        ("PROGRESS_POLL_INTERVAL_SECONDS", float("nan")),
+        ("PROGRESS_POLL_INTERVAL_SECONDS", float("inf")),
+        ("LIVE_REFRESH_PER_SECOND", 0),
+        ("LIVE_REFRESH_PER_SECOND", float("nan")),
+        ("LIVE_MAX_ROWS", 0),
+        ("LIVE_MAX_ROWS", True),
+        ("LIVE_MAX_ROWS", 1.5),
+        ("CHECK_INPUTS", "False"),
+        ("MINIMIZE_ON_LAUNCH", 1),
+        ("EXPORT_COMMANDS", "True"),
+        ("CONSOLE_LOG_LEVEL", "verbosity"),
+    ],
+)
+def test_invalid_configuration_is_rejected_before_any_output(
+    tmp_path: Path,
+    wrapper: _RunnerWrapper,
+    monkeypatch: pytest.MonkeyPatch,
+    setting: str,
+    invalid: object,
+) -> None:
+    module = sys.modules["tested_runner_wrapper"]
+    monkeypatch.setattr(module, setting, invalid)
+    assert wrapper.main(["--no-pause"]) == 1
+    assert not Path(wrapper.__file__).with_suffix(".txt").exists()
+    assert not Path(wrapper.__file__).with_name("run_tuflow_simulations_runs.csv").exists()
 
 
-def test_format_duration(rtb):
-    """Test duration formatting utility."""
-    assert rtb.format_duration(0) == "00:00:00"
-    assert rtb.format_duration(59) == "00:00:59"
-    assert rtb.format_duration(60) == "00:01:00"
-    assert rtb.format_duration(3600) == "01:00:00"
-    assert rtb.format_duration(3661) == "01:01:01"
-    assert rtb.format_duration(86400) == "24:00:00"
+def test_enum_defaults_and_raw_string_values_both_work(
+    wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = sys.modules["tested_runner_wrapper"]
+    op = module.__dict__["params"].OP
+    src = module.__dict__["params"].SRC
+    cont = module.__dict__["params"].CONT
+    prio = module.__dict__["params"].PRIO
+    normal = choice
+    assert normal("OPERATION", op.RUN, op) is op.RUN
+    assert normal("OPERATION", "run", op) is op.RUN
+    assert normal("OPERATION", "RUN", op) is op.RUN
+    assert normal("CONTINUATION_MODE", cont.RESUME, cont) is cont.RESUME
+    assert normal("CONTINUATION_MODE", "resume", cont) is cont.RESUME
+    assert normal("PRIORITY", prio.LOW, prio) is prio.LOW
+    assert normal("PRIORITY", "low", prio) is prio.LOW
+    monkeypatch.setattr(module, "MODE", src.PARAMETER_PRODUCT)
+    monkeypatch.setattr(module, "COMPUTATIONAL_PRIORITY", prio.HIGH)
+    settings = _settings_from_wrapper(wrapper)
+    assert settings.mode == "parameter_product"
+    assert settings.computational_priority == "HIGH"
 
 
-def test_split_input_strings(rtb):
-    """Test input string splitting."""
-    # String input
-    assert rtb.split_input_strings("a b c") == ["a", "b", "c"]
-    assert rtb.split_input_strings("  a   b  ") == ["a", "b"]
-    assert rtb.split_input_strings("") == []
+def test_missing_optional_paths_warn_once_each_not_fail_planning(
+    tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = sys.modules["tested_runner_wrapper"]
+    monkeypatch.setattr(module, "TCF", "runs/model_~e1~.tcf")
+    monkeypatch.setattr(module, "TUFLOW_EXE", "TUFLOW_missing.exe")
+    monkeypatch.setattr(module, "NEXT_RUN_FILE", "follow_up.py")
+    monkeypatch.setattr(module, "RUN_VARIABLES_RAW", {"e1": ["A", "B"]})
+    settings = _settings_from_wrapper(wrapper)
+    warnings: list[str] = []
+    sink = logger.add(warnings.append, level="WARNING", format="{message}")
+    controls = simulation_workflow.WorkflowControls(operation=OP.PREFLIGHT_ONLY, export_commands=False)
 
-    # List input
-    assert rtb.split_input_strings(["a", "b"]) == ["a", "b"]
-    assert rtb.split_input_strings(["  a  ", "b"]) == ["a", "b"]
+    def checked(_plan: CommandPlan) -> bool:
+        return True
 
-
-def test_parse_input_files_gpu_stripped(rtb, tmp_path):
-    """Test that -puN flags are stripped from parsed input files."""
-    f = tmp_path / "runs.txt"
-    f.write_text("-s1 A -pu0 -e1 10 -pu1\n-s1 B -e1 20", encoding="utf-8")
-
-    combos, _first_seen = rtb.parse_input_files([f])
-
-    # GPU flags should be stripped, only s1 and e1 remain
-    assert len(combos) == 2
-    assert combos[0] == {"s1": "A", "e1": "10"}
-    assert combos[1] == {"s1": "B", "e1": "20"}
-
-
-def test_parse_input_files_various_comments(rtb, tmp_path):
-    """Test parsing handles various comment styles."""
-    f = tmp_path / "runs.txt"
-    content = """
-    REM This is a comment
-    :: Another comment
-    # Python style
-    ; Semicolon
-    // C++ style
-    -s1 A -e1 10
-    """
-    f.write_text(content, encoding="utf-8")
-
-    combos, _ = rtb.parse_input_files([f])
-    assert len(combos) == 1
-    assert combos[0] == {"s1": "A", "e1": "10"}
+    monkeypatch.setattr(simulation_workflow, "check_plan_only", checked)
+    try:
+        outcome = simulation_workflow.run_simulation_workflow(settings, controls, follow_up=Path("follow_up.py"))
+        assert outcome.preflight_passed is True
+        assert sum("TCF not found" in warning for warning in warnings) == 1
+        assert sum("TUFLOW_EXE not found" in warning for warning in warnings) == 1
+        assert sum("NEXT_RUN_FILE not found" in warning for warning in warnings) == 1
+        (tmp_path / "runs").mkdir()
+        (tmp_path / "runs/model_~e1~.tcf").write_text("synthetic", encoding="utf-8")
+        (tmp_path / "TUFLOW_missing.exe").write_bytes(b"synthetic")
+        (tmp_path / "follow_up.py").write_text("pass\n", encoding="utf-8")
+        warnings.clear()
+        outcome = simulation_workflow.run_simulation_workflow(settings, controls, follow_up=Path("follow_up.py"))
+        assert outcome.preflight_passed is True
+        assert warnings == []
+    finally:
+        logger.remove(sink)
 
 
-def test_priority_order_custom(rtb, core_params):
-    """Test custom priority_order affects key ordering in command."""
-    core_params.priority_order = "e1 s1"
-    run_vars = {"s1": ["A"], "e1": ["10"]}
-    params = rtb.Parameters(core_params=core_params, run_variables=run_vars)
+def test_textfiles_accept_deleted_tcf_and_run_variables(
+    tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = sys.modules["tested_runner_wrapper"]
+    source = _source(tmp_path)
+    monkeypatch.setattr(module, "MODE", "textfiles")
+    monkeypatch.setattr(module, "INPUT_FILES", source.name)
+    monkeypatch.delattr(module, "TCF")
+    monkeypatch.delattr(module, "RUN_VARIABLES_RAW")
 
-    sims = rtb.compute_simulations(params)
-    args = sims[0].args_for_python
-
-    # Find positions of flags
-    e1_idx = args.index("-e1")
-    s1_idx = args.index("-s1")
-
-    # e1 should come before s1 due to priority_order
-    assert e1_idx < s1_idx
-
-
-def test_empty_run_variables_rejected_for_placeholder_tcf(rtb, core_params):
-    """A placeholder-bearing TCF must receive matching run variables."""
-    params = rtb.Parameters(core_params=core_params, run_variables={})
-    with pytest.raises(ValueError, match="run_variables is missing"):
-        rtb.compute_simulations(params)
+    settings = _settings_from_wrapper(wrapper)
+    assert settings.tcf is None
+    assert settings.run_variables == {}
+    assert settings.live_max_rows == 10
+    plan = prepare_plan(settings)
+    assert len(plan.runs) == 1
+    assert plan.runs[0].tcf == tmp_path / "model.tcf"
+    assert plan.runs[0].flags == {"e1": "A"}
 
 
-def test_simulation_equality_and_hash(rtb):
-    """Test Simulation equality ignores GPU assignment."""
-    # Create two identical simulations
-    sim1 = rtb.Simulation(
-        args_for_python=["exe", "-b", "-s1", "A", "tcf.tcf"], command_for_batch="START /NORMAL ...", index=1
+@pytest.mark.parametrize("mode", ["parameter_product", "both"])
+def test_generated_modes_still_require_run_variables_setting(
+    mode: str, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = sys.modules["tested_runner_wrapper"]
+    monkeypatch.setattr(module, "MODE", mode)
+    monkeypatch.delattr(module, "RUN_VARIABLES_RAW")
+    with pytest.raises(ValueError, match="RUN_VARIABLES_RAW"):
+        _settings_from_wrapper(wrapper)
+
+
+def test_one_string_input_file_can_be_imported_without_a_python_tcf(
+    tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = sys.modules["tested_runner_wrapper"]
+    path = _source(tmp_path)
+    monkeypatch.setattr(module, "MODE", "textfiles")
+    monkeypatch.setattr(module, "TCF", None)
+    monkeypatch.setattr(module, "INPUT_FILES", path.name)
+    settings = _settings_from_wrapper(wrapper)
+    assert settings.input_files == (Path(path.name),)
+    plan = prepare_plan(settings)
+    assert len(plan.runs) == 1
+    assert plan.runs[0].tcf == tmp_path / "model.tcf"
+
+
+def test_export_only_copied_workflow_needs_neither_solver_nor_gpu(
+    tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from ryan_library.orchestrators.tuflow import simulation_runner
+
+    source = _source(tmp_path)
+    output = Path(wrapper.__file__).with_suffix(".txt")
+
+    def forbidden_gpu(*_args: object) -> None:
+        pytest.fail("Export-only inspected GPUs")
+
+    monkeypatch.setattr(simulation_runner, "_gpu_startup_message", forbidden_gpu)
+    assert (
+        wrapper.main(
+            [
+                "--working-directory",
+                str(tmp_path),
+                "--mode",
+                "textfiles",
+                "--input-file",
+                str(source),
+                "--no-tcf",
+                "--export-only",
+                "--solver-exe",
+                str(tmp_path / "TUFLOW_MISSING.EXE"),
+                "--no-pause",
+            ]
+        )
+        == 0
     )
-    sim2 = rtb.Simulation(
-        args_for_python=["exe", "-b", "-s1", "A", "tcf.tcf"], command_for_batch="START /NORMAL ...", index=2
+    assert output.is_file()
+    assert source.read_text(encoding="utf-8").startswith("START /WAIT")
+
+
+def test_wrapper_preflight_only_waits_and_returns_failure(
+    tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = _source(tmp_path)
+    calls: list[str] = []
+
+    def check(*_args: object, **_kwargs: object) -> bool:
+        calls.append("preflight")
+        return False
+
+    monkeypatch.setattr(simulation_workflow, "check_plan_only", check)
+
+    def forbidden_launch(*_args: object, **_kwargs: object) -> None:
+        pytest.fail("Launched during check-only")
+
+    monkeypatch.setattr(simulation_workflow, "launch_plan", forbidden_launch)
+    assert (
+        wrapper.main(
+            [
+                "--working-directory",
+                str(tmp_path),
+                "--mode",
+                "textfiles",
+                "--input-file",
+                str(source),
+                "--no-tcf",
+                "--preflight-only",
+                "--no-export",
+                "--no-pause",
+            ]
+        )
+        == 1
     )
-
-    # Should be equal despite different index
-    assert sim1 == sim2
-    assert hash(sim1) == hash(sim2)
+    assert calls == ["preflight"]
 
 
-def test_enforce_placeholders(rtb, core_params):
-    """Test placeholder enforcement in textfiles mode."""
-    # TCF expects ~s1~ and ~e1~
-    combos = [
-        {"s1": "A", "e1": "10"},  # Valid
-        {"s1": "B"},  # Missing e1 - should be filtered
-        {"e1": "20"},  # Missing s1 - should be filtered
-        {"s1": "C", "e1": "30", "s2": "X"},  # Has extra s2, but has required
+@pytest.mark.parametrize("next_run", [None, "post.py"])
+def test_interruption_only_mentions_a_configured_follow_up(
+    tmp_path: Path,
+    wrapper: _RunnerWrapper,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    next_run: str | None,
+) -> None:
+    module = sys.modules["tested_runner_wrapper"]
+    monkeypatch.setattr(module, "EXPORT_COMMANDS", False)
+    monkeypatch.setattr(module, "CHECK_INPUTS", False)
+    monkeypatch.setattr(module, "NEXT_RUN_FILE", next_run)
+    if next_run is not None:
+        (tmp_path / next_run).write_text("pass\n", encoding="utf-8")
+
+    def interrupted(plan: CommandPlan, *_args: object, **_kwargs: object) -> BatchOutcome:
+        return BatchOutcome(plan.runs, (), interrupted=True)
+
+    def forbidden_follow_up(*_args: object) -> None:
+        pytest.fail("An interrupted batch must never launch the follow-up")
+
+    monkeypatch.setattr(simulation_workflow, "launch_plan", interrupted)
+    monkeypatch.setattr(module, "_run_follow_up", forbidden_follow_up)
+    assert wrapper.main(["--working-directory", str(tmp_path), "--no-pause"]) == 1
+    output = capsys.readouterr().out
+    if next_run is None:
+        assert "Batch interrupted." in output
+        assert "configured follow-up" not in output
+    else:
+        assert "Batch interrupted; configured follow-up was not started." in output
+
+
+def test_failed_child_still_chains_but_keeps_failure_exit_code(
+    tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = sys.modules["tested_runner_wrapper"]
+    calls: list[str] = []
+    monkeypatch.setattr(module, "EXPORT_COMMANDS", False)
+    monkeypatch.setattr(module, "NEXT_RUN_FILE", "post.py")
+
+    def fake_launch(plan: CommandPlan, *_args: object, **_kwargs: object) -> BatchOutcome:
+        calls.append("launch")
+        selected = plan.runs
+        return BatchOutcome(
+            selected,
+            tuple(RunOutcome(run, 1, datetime.now(), datetime.now(), 123) for run in selected),
+        )
+
+    def post(path: Path, working_directory: Path) -> bool:
+        assert path == Path("post.py")
+        assert working_directory == tmp_path
+        calls.append("post")
+        return True
+
+    monkeypatch.setattr(simulation_workflow, "launch_plan", fake_launch)
+    monkeypatch.setattr(module, "_run_follow_up", post)
+    assert wrapper.main(["--working-directory", str(tmp_path), "--no-pause"]) == 1
+    assert calls == ["launch", "post"]
+
+
+def test_planning_failure_does_not_export_check_or_chain(
+    tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = sys.modules["tested_runner_wrapper"]
+    monkeypatch.setattr(module, "NEXT_RUN_FILE", Path("post.py"))
+
+    def forbidden_follow_up(*_args: object) -> None:
+        pytest.fail("Chained after preparation failure")
+
+    def forbidden_launch(*_args: object, **_kwargs: object) -> None:
+        pytest.fail("Launched bad input")
+
+    monkeypatch.setattr(module, "_run_follow_up", forbidden_follow_up)
+    monkeypatch.setattr(simulation_workflow, "launch_plan", forbidden_launch)
+    assert (
+        wrapper.main(
+            [
+                "--working-directory",
+                str(tmp_path),
+                "--mode",
+                "textfiles",
+                "--input-file",
+                str(tmp_path / "missing.bat"),
+                "--no-tcf",
+                "--no-pause",
+            ]
+        )
+        == 1
+    )
+    assert not Path(wrapper.__file__).with_suffix(".txt").exists()
+
+
+def test_process_signal_handler_is_restored(wrapper: _RunnerWrapper) -> None:
+    previous = signal.getsignal(signal.SIGINT)
+    interrupt_context = cast(
+        Callable[[], AbstractContextManager[Event]],
+        getattr(wrapper, "_interruption_flag"),  # noqa: B009 - copied module private hook
+    )
+    with interrupt_context():
+        assert signal.getsignal(signal.SIGINT) is not previous
+    assert signal.getsignal(signal.SIGINT) is previous
+
+
+def test_optional_help_is_available_without_loading_pytuflow() -> None:
+    source = (
+        Path(__file__).absolute().parents[2] / "ryan-scripts/TUFLOW-python/model_management/run_tuflow_simulations.py"
+    )
+    content = source.read_text(encoding="utf-8")
+    assert "sys.path.insert" not in content
+    # Source-checkout subprocesses do not inherit pytest's sys.path; the copied
+    # wrapper / installed-wheel acceptance runs separately with no PYTHONPATH.
+    env = os.environ.copy()
+    env["PYTHONPATH"] = os.pathsep.join(value for value in (str(source.parents[3]), env.get("PYTHONPATH")) if value)
+    result = subprocess.run(
+        [sys.executable, str(source), "--help"], capture_output=True, text=True, check=False, env=env
+    )
+    assert result.returncode == 0
+    assert "--export-only" in result.stdout
+    assert "--preflight-only" in result.stdout
+    assert "--no-pause" in result.stdout
+
+
+def test_default_txt_is_refreshed_for_all_complete_resume_without_extra_logs(
+    tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = _source(tmp_path)
+    wrapper_path = Path(wrapper.__file__)
+    output = wrapper_path.with_suffix(".txt")
+    history = wrapper_path.with_name(f"{wrapper_path.stem}_runs.csv")
+    initial_files = set(tmp_path.iterdir())
+    calls: list[list[int]] = []
+
+    def complete(
+        plan: CommandPlan,
+        _settings: RunnerSettings,
+        *,
+        on_before_launch: Callable[[PlannedRun], None],
+        on_observed_completion: Callable[[RunOutcome], None],
+        **_options: object,
+    ) -> BatchOutcome:
+        calls.append([run.index for run in plan.runs])
+        outcomes: list[RunOutcome] = []
+        for run in plan.runs:
+            on_before_launch(run)
+            outcome = RunOutcome(run, 0, datetime.now(), datetime.now(), 123)
+            on_observed_completion(outcome)
+            outcomes.append(outcome)
+        return BatchOutcome(plan.runs, tuple(outcomes))
+
+    monkeypatch.setattr(simulation_workflow, "launch_plan", complete)
+    arguments = ["--mode", "textfiles", "--input-file", str(source), "--no-tcf", "--no-pause"]
+    assert wrapper.main(arguments) == 0
+    first_export, first_history = output.read_bytes(), history.read_bytes()
+    output.write_text("stale previous export\n", encoding="utf-8")
+    assert wrapper.main(arguments) == 0
+    assert output.read_bytes() == first_export
+    assert history.read_bytes() == first_history
+    assert calls == [[1]]
+    assert set(tmp_path.iterdir()) == initial_files | {output, history}
+
+
+def test_default_txt_cannot_replace_its_own_imported_source(
+    tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = Path(wrapper.__file__).with_suffix(".txt")
+    source.write_bytes(_source(tmp_path).read_bytes())
+    before = source.read_bytes()
+
+    def forbidden(*_args: object, **_kwargs: object) -> None:
+        pytest.fail("Conflicting export launched a solver")
+
+    monkeypatch.setattr(simulation_workflow, "launch_plan", forbidden)
+    assert wrapper.main(["--mode", "textfiles", "--input-file", str(source), "--no-tcf", "--no-pause"]) == 1
+    assert source.read_bytes() == before
+    assert not tuple(tmp_path.glob("*_runs.csv"))
+
+
+@pytest.mark.parametrize(
+    ("pause_default", "pause_flag", "no_pause", "expected_pause"),
+    [
+        (True, False, False, True),
+        (True, False, True, False),
+        (False, True, False, True),
+        (False, False, False, False),
+    ],
+)
+def test_cli_closes_logging_before_optional_pause(
+    wrapper: _RunnerWrapper,
+    monkeypatch: pytest.MonkeyPatch,
+    pause_default: bool,
+    pause_flag: bool,
+    no_pause: bool,
+    expected_pause: bool,
+) -> None:
+    """The UI prompt must outlive main's decorated resource contexts."""
+    module = sys.modules["tested_runner_wrapper"]
+    events: list[str] = []
+    arguments = argparse.Namespace(pause=pause_flag, no_pause=no_pause)
+
+    def parsed_args() -> argparse.Namespace:
+        events.append("parsed")
+        return arguments
+
+    def completed_main(*, _parsed_arguments: argparse.Namespace) -> int:
+        assert _parsed_arguments is arguments
+        events.append("main_finished")
+        return 7
+
+    def close_logging() -> None:
+        events.append("logger_closed")
+
+    def pause() -> None:
+        events.append("paused")
+
+    class StubLogger:
+        def remove(self) -> None:
+            close_logging()
+
+    monkeypatch.setattr(module, "PAUSE_ON_FINISH", pause_default)
+    monkeypatch.setattr(module, "_arguments", parsed_args)
+    monkeypatch.setattr(module, "main", completed_main)
+    monkeypatch.setattr(module, "logger", StubLogger())
+    monkeypatch.setattr(module, "pause_console", pause)
+    cli = cast(Callable[[], int], module.__dict__["_cli_main"])
+
+    assert cli() == 7
+    assert events == ["parsed", "main_finished", "logger_closed", *(["paused"] if expected_pause else [])]
+
+
+@pytest.mark.parametrize("launch_error", [False, True])
+def test_cli_releases_real_workflow_resources_before_pause(
+    tmp_path: Path,
+    wrapper: _RunnerWrapper,
+    monkeypatch: pytest.MonkeyPatch,
+    launch_error: bool,
+) -> None:
+    """Both normal and exceptional sessions release their resources before the prompt."""
+    module = sys.modules["tested_runner_wrapper"]
+    source = _source(tmp_path)
+    wrapper_path = Path(wrapper.__file__)
+    history_path = wrapper_path.with_name(f"{wrapper_path.stem}_runs.csv")
+    previous_signal = signal.getsignal(signal.SIGINT)
+    dependency = logging.getLogger("pytuflow")
+    original_handler = logging.NullHandler()
+    monkeypatch.setattr(dependency, "handlers", [original_handler])
+    monkeypatch.setattr(dependency, "level", logging.WARNING)
+    monkeypatch.setattr(dependency, "propagate", True)
+    checking_started, release_check, sink_closed = Event(), Event(), Event()
+    checkers: list[AdvisoryInputCheck] = []
+    pauses: list[str] = []
+
+    def held_input_check(plan: CommandPlan, **_options: object) -> CommandPreflightReport:
+        checking_started.set()
+        assert release_check.wait(5)
+        report = CommandPreflightReport(plan)
+        report.completed_runs = len(plan.runs)
+        return report
+
+    class ClosingSink:
+        def write(self, message: str) -> None:
+            """Accept records until the wrapper closes the real Loguru sink."""
+            del message
+
+        def stop(self) -> None:
+            sink_closed.set()
+
+    def launch(
+        plan: CommandPlan,
+        _settings: RunnerSettings,
+        *,
+        advisory: AdvisoryInputCheck | None,
+        on_before_launch: Callable[[PlannedRun], None],
+        on_observed_completion: Callable[[RunOutcome], None],
+        **_options: object,
+    ) -> BatchOutcome:
+        assert advisory is not None
+        checkers.append(advisory)
+        assert checking_started.wait(2)
+        assert signal.getsignal(signal.SIGINT) is not previous_signal
+        assert dependency.handlers != [original_handler]
+        logger.add(ClosingSink(), format="{message}")
+        run = plan.runs[0]
+        on_before_launch(run)
+        if launch_error:
+            message = "Synthetic launch failure after opening the session"
+            raise RuntimeError(message)
+        outcome = RunOutcome(run, 0, datetime.now(), datetime.now(), 123)
+        on_observed_completion(outcome)
+        return BatchOutcome(plan.runs, (outcome,))
+
+    def pause() -> None:
+        assert signal.getsignal(signal.SIGINT) is previous_signal
+        assert dependency.handlers == [original_handler]
+        assert dependency.level == logging.WARNING
+        assert dependency.propagate
+        assert sink_closed.is_set()
+        assert len(checkers) == 1
+        # Closing an advisory cancels delivery without waiting for slow input I/O.
+        assert checkers[0].status == "Incomplete"
+        assert not checkers[0].finished.is_set()
+        # This is the actual CSV lock, not a fake close event or a sidecar file.
+        with CsvExecutionLog(history_path) as reopened:
+            assert len(reopened.successful_keys()) == (0 if launch_error else 1)
+        contents = history_path.read_bytes()
+        assert b",START," in contents
+        assert (b",FINISH," in contents) == (not launch_error)
+        pauses.append("paused")
+
+    monkeypatch.setattr(command_preflight, "check_command_plan", held_input_check)
+    monkeypatch.setattr(simulation_workflow, "launch_plan", launch)
+    monkeypatch.setattr(module, "pause_console", pause)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            wrapper.__file__,
+            "--working-directory",
+            str(tmp_path),
+            "--mode",
+            "textfiles",
+            "--input-file",
+            str(source),
+            "--no-tcf",
+            "--no-export",
+            "--preflight",
+            "--pause",
+        ],
+    )
+    cli = cast(Callable[[], int], module.__dict__["_cli_main"])
+    try:
+        assert cli() == (1 if launch_error else 0)
+        assert pauses == ["paused"]
+    finally:
+        release_check.set()
+        for checker in checkers:
+            assert checker.finished.wait(2)
+        logger.remove()
+
+
+def test_script_entrypoint_parses_arguments_once(
+    tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = _source(tmp_path)
+    calls: list[int] = []
+    original = argparse.ArgumentParser.parse_args
+
+    def parse_once(
+        parser: argparse.ArgumentParser, args: Sequence[str] | None = None, namespace: argparse.Namespace | None = None
+    ) -> argparse.Namespace:
+        calls.append(1)
+        if namespace is None:
+            return original(parser, args)
+        return original(parser, args, namespace)
+
+    monkeypatch.setattr(argparse.ArgumentParser, "parse_args", parse_once)
+    # runpy uses the pytest interpreter: do not remove its shared Loguru sinks.
+    monkeypatch.setattr(logger, "remove", lambda: None)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            wrapper.__file__,
+            "--mode",
+            "textfiles",
+            "--input-file",
+            str(source),
+            "--no-tcf",
+            "--export-only",
+            "--no-pause",
+        ],
+    )
+    with pytest.raises(SystemExit) as ended:
+        runpy.run_path(wrapper.__file__, run_name="__main__")
+    assert ended.value.code == 0
+    assert calls == [1]
+
+
+def test_preflight_report_option_is_explicit_and_preserves_working_directory(
+    tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = _source(tmp_path)
+    report_path = tmp_path / "reports" / "findings.csv"
+    captured: list[Path | None] = []
+
+    def checked(_plan: CommandPlan, *, report_csv: Path | None = None) -> bool:
+        captured.append(report_csv)
+        return False
+
+    monkeypatch.setattr(simulation_workflow, "check_plan_only", checked)
+    arguments = [
+        "--working-directory",
+        str(tmp_path),
+        "--mode",
+        "textfiles",
+        "--input-file",
+        str(source),
+        "--no-tcf",
+        "--preflight-only",
+        "--no-export",
+        "--no-pause",
     ]
+    assert wrapper.main([*arguments, "--preflight-report", "reports/findings.csv"]) == 1
+    assert captured == [report_path]
+    assert not report_path.exists()
+    captured.clear()
+    assert wrapper.main([*arguments, "--no-preflight-report"]) == 1
+    assert captured == [None]
 
-    filtered = rtb._enforce_placeholders(core=core_params, combos=combos)
 
-    # Should only keep combos with both s1 and e1
-    assert len(filtered) == 2
-    # Extra run variables are preserved when all required placeholders exist.
-    assert filtered[0] == {"s1": "A", "e1": "10"}
-    assert filtered[1] == {"s1": "C", "e1": "30", "s2": "X"}
+def test_preflight_report_setting_fails_closed_outside_strict_preflight(
+    tmp_path: Path, wrapper: _RunnerWrapper, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = sys.modules["tested_runner_wrapper"]
+    monkeypatch.setattr(module, "PREFLIGHT_REPORT_CSV", "reports/findings.csv")
+    source = _source(tmp_path)
+    assert (
+        wrapper.main(
+            [
+                "--working-directory",
+                str(tmp_path),
+                "--mode",
+                "textfiles",
+                "--input-file",
+                str(source),
+                "--no-tcf",
+                "--export-only",
+                "--no-pause",
+            ]
+        )
+        == 1
+    )
+    assert not (tmp_path / "reports" / "findings.csv").exists()

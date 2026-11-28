@@ -1,3 +1,5 @@
+from typing import TypeVar
+
 # ryan_library/functions/process_12D_culverts.py
 
 __lazy_modules__ = ["pandas"]
@@ -7,6 +9,8 @@ from typing import TypedDict, overload
 
 import pandas as pd
 from loguru import logger
+
+_EXTRACT_NUMERIC_T = TypeVar("_EXTRACT_NUMERIC_T", int, float)
 
 
 class RptCulvertRecord(TypedDict):
@@ -112,9 +116,9 @@ def get_field(upstream_val: object, downstream_val: object, default: str | None 
     return default
 
 
-def extract_numeric[T: (int, float)](
-    value: str, field_name: str, culvert_name: str | None, dtype: type[T], default: T
-) -> T:
+def extract_numeric(
+    value: str, field_name: str, culvert_name: str | None, dtype: type[_EXTRACT_NUMERIC_T], default: _EXTRACT_NUMERIC_T
+) -> _EXTRACT_NUMERIC_T:
     """Converts a string value to a numeric type with error handling.
 
     Args:

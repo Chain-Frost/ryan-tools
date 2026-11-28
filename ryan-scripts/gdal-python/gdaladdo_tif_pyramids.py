@@ -22,13 +22,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-10-16.1"
+WRAPPER_VERSION = "2026-11-07.2"
 
 # Editable defaults for normal double-click or IDE execution.
 WORKING_DIR: Path = Path(__file__).absolute().parent
 CONSOLE_LOG_LEVEL = "INFO"
 PROFILE: RasterProfile = "tuflow"
-OVERVIEW_LEVELS: tuple[int, ...] = (2, 4, 8, 16, 32)
+OVERVIEW_LEVELS: list[int] = [2, 4, 8, 16, 32]
 OVERVIEW_RESAMPLING: OverviewResampling = "nearest"
 WORKERS: int | None = None
 RECURSIVE = True
@@ -60,7 +60,11 @@ def main(
     refresh: bool | None = None,
 ) -> int:
     """Resolve wrapper settings and run the shared external-overview workflow."""
-    print_wrapper_banner(wrapper_file=Path(__file__), wrapper_version=WRAPPER_VERSION)
+    print_wrapper_banner(
+        wrapper_source="gdal-python/gdaladdo_tif_pyramids.py",
+        wrapper_file=Path(__file__),
+        wrapper_version=WRAPPER_VERSION,
+    )
     # Resolve before chdir so relative CLI paths remain relative to the launch directory.
     target_directory = (working_directory or WORKING_DIR).absolute()
     if not change_working_directory(target_dir=target_directory):
@@ -73,7 +77,7 @@ def main(
                 target_directory,
                 recursive=RECURSIVE if recursive is None else recursive,
                 profile=profile or PROFILE,
-                levels=levels or OVERVIEW_LEVELS,
+                levels=tuple(levels or OVERVIEW_LEVELS),
                 resampling=resampling or OVERVIEW_RESAMPLING,
                 workers=workers if workers is not None else WORKERS,
                 refresh=REFRESH if refresh is None else refresh,
@@ -126,6 +130,7 @@ if __name__ == "__main__":
         refresh=args.refresh,
     )
     print_wrapper_banner(
+        wrapper_source="gdal-python/gdaladdo_tif_pyramids.py",
         wrapper_file=Path(__file__),
         wrapper_version=WRAPPER_VERSION,
         leading_blank_line=True,
