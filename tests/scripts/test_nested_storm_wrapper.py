@@ -49,6 +49,10 @@ class _Response:
         return 0.8, 0.5
 
 
+def _fake_read_response(_path: Path) -> _Response:
+    return _Response()
+
+
 def _row(name: str, source: dict[str, Any], losses: dict[str, Any] | None) -> dict[str, Any]:
     options: dict[str, Any] = {"timestep_min": 5}
     if losses is not None:
@@ -60,7 +64,7 @@ def test_user_losses_primary_and_regional_opt_in(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     module = _wrapper()
-    monkeypatch.setattr(module, "read_arr_response", lambda _path: _Response())
+    monkeypatch.setattr(module, "read_arr_response", _fake_read_response)
     source = {"kind": "arr", "arr_response": "site.json", "aep": "1%", "climate": [2050, "SSP2"]}
     manual = {"spec": {"initial_loss_mm": 25, "continuing_loss_mm_per_hour": 4}}
     regional = {"arr_regional_losses": True}
@@ -89,7 +93,7 @@ def test_user_losses_primary_and_regional_opt_in(
 
 def test_no_implicit_regional_fallback_and_complete_prefix(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     module = _wrapper()
-    monkeypatch.setattr(module, "read_arr_response", lambda _path: _Response())
+    monkeypatch.setattr(module, "read_arr_response", _fake_read_response)
     source = {"kind": "arr", "arr_response": "site.json", "aep": "1%"}
     path = tmp_path / "events.json"
     path.write_text(json.dumps([_row("gross", source, None)]), encoding="utf-8")

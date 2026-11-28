@@ -206,7 +206,8 @@ def curve_from_arr_response(
     Only exact source AEP/duration anchors are admitted. No TP downloads or
     event assembly are performed; loss selection is separate.
     """
-    depths = _exact_column(response.ifd_table(1990 if climate is not None else baseline_year), aep)
+    source_year = 1990 if climate is not None else baseline_year
+    depths = _exact_column(response.ifd_table(source_year), aep)
     durations = tuple(sorted(depths))
     rain_factors = dict.fromkeys(durations, 1.0) if climate is None else _rainfall_factors(response, durations, climate)
     arfs = arf_for_curve(response, aep=aep, durations=durations, area_km2=area_km2, override=arf_override)
@@ -214,7 +215,16 @@ def curve_from_arr_response(
         DepthAnchor(duration, depths[duration], arfs[duration], rain_factors[duration]) for duration in durations
     )
     scenario = None if climate is None else f"{climate[0]}_{climate[1]}"
-    return RainfallCurve(aep, source, anchors, scenario, _arf_notes(area_km2, arfs, arf_override))
+    return RainfallCurve(
+        aep,
+        source,
+        anchors,
+        scenario,
+        _arf_notes(area_km2, arfs, arf_override),
+        ifd_baseline_year=source_year,
+        area_km2=area_km2,
+        source_arf_override=arf_override,
+    )
 
 
 def curve_from_bom_file(
@@ -233,7 +243,12 @@ def curve_from_bom_file(
     curve = curve_from_bom(
         ifd, aep, source=str(path), arf_by_duration=factors, rainfall_factors=rainfall_factors, scenario=scenario
     )
-    return replace(curve, cautions=_arf_notes(area_km2, factors, arf_override))
+    return replace(
+        curve,
+        cautions=_arf_notes(area_km2, factors, arf_override),
+        area_km2=area_km2,
+        source_arf_override=arf_override,
+    )
 
 
 def regional_storm_losses(

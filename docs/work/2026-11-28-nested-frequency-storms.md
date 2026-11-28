@@ -77,7 +77,7 @@ Write a NEW file: `python ryan-scripts/hydrology-python/generate_nested_storms.p
 
 ## Validation and delivery
 
-The previous pushed head 853189d passed all seven hosted CI jobs (run 46142159802), including 3493 Python 3.11 tests (16 skipped, 8 deselected), 10 additional focused checks, 64 copied-wrapper tests, strict Pyright on Windows Python 3.14, package/installed-wheel smoke checks, and Ruff. The accepted PyTUFLOW 1.3.1 wheel was verified by CI. The independent gross workbook algorithm comparison is recorded below. Current changes require fresh CI. Direct container Git clone/raw retrieval remains blocked by DNS. Native TUFLOW acceptance and Windows Python 3.14 focused numerical acceptance remain open.
+The earlier pushed head 853189d passed all seven hosted CI jobs (run 46142159802), including 3493 Python 3.11 tests (16 skipped, 8 deselected), 10 additional focused checks, 64 copied-wrapper tests, strict Pyright on Windows Python 3.14, package/installed-wheel smoke checks, and Ruff. The accepted PyTUFLOW 1.3.1 wheel was verified by CI. The independent gross workbook algorithm comparison is recorded below. Current changes require fresh CI. Direct container Git clone/raw retrieval remains blocked by DNS. Native TUFLOW acceptance and Windows Python 3.14 focused numerical acceptance remain open.
 
 Related existing work [#317](https://github.com/Chain-Frost/ryan-tools/issues/317), [#319](https://github.com/Chain-Frost/ryan-tools/issues/319), [#322](https://github.com/Chain-Frost/ryan-tools/issues/322). The rainfall screening work record's review date is overdue; reconcile independently without starting unrelated tasks.
 
@@ -114,3 +114,17 @@ Added focused synthetic tests for exact NSW rows, non-NSW regional losses, missi
 Follow-up: added CLI regressions covering manual versus regional opt-in, no implicit fallback, explicit complete prefix, preview and output manifest, and mocked live request caching. The cached public NSW and Queensland PyTUFLOW fixtures at accepted source revision 0121101650fd8e931af8d09cadb23bd43f6fefbd confirm the NewStormLosses and StormLossesNonNSW field schemas. CI run 46144163743 failed Ruff import spacing before tests; corrected I001 and reviewed formatting. Exact-head CI remains required.
 
 Run 46144343611 passed Ruff lint but reported three formatter-only changes; applied the exact reported replacements. Tests were not reached on that revision.
+
+
+## 28 November 2026 — real-source regression and strict typing
+
+At 5d35097, hosted run 46144403042 passed six jobs and 3500 Python 3.11 source tests (16 skipped, 8 deselected), including the regional and CLI tests, plus 10 focused checks, 64 installed-wrapper checks, package/MCP/POSIX and Ruff. Windows strict Pyright reported only four unknown-lambda-type errors in the new CLI tests; use an annotated test double, without weakening policy.
+
+Inspected the accepted PyTUFLOW source revision [0121101650fd8e931af8d09cadb23bd43f6fefbd](https://github.com/TUFLOW-Support/PyTuflow/tree/0121101650fd8e931af8d09cadb23bd43f6fefbd/tests/arr/fixtures). Added minimal real-number regression extracts (one 1% AEP column, 5–60 min, one PB/loss row, shared ARF parameters), not entire response files. Source blob identities: NSW 95621ea57f915dc74a72d86ff0aa02f1309938e9, SEQ 508653d3bb0b98c2ae70b8af98b894ff84b80ee0. Expected 60-minute ARFs independently evaluated from ARR short-duration equation 2.4.1 and, for SEQ area 5 km², area interpolation 2.4.4. These are pinned numerical checks of the existing library, not new production ARF equations.
+
+| Reference | Area (km²) | 2030 point depth (mm) | ARF | Areal depth (mm) | Storm IL (mm) | CL (mm/h) | PB depth (mm) | Reduced burst IL (mm) |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| NSW | 11.4 | 88.3 | 0.9688030158772767 | 85.54530630196354 | 20 | 1 | 40.1765 | Refuse (PB exceeds IL) |
+| SEQ | 5 | 93.8 | 0.9832168546165964 | 92.22574096303674 | 14 | 2.1 | 9.6614 | 4.3386 |
+
+The NSW complete-storm check requires a deliberately chosen 60-minute constant-rate PB prefix and verifies positive preburst excess. SEQ verifies point-depth-based PB reduction independent of ARF override, and gross mass conservation. Both tests use actual installed PyTUFLOW response/ARF interfaces. The genuine response fixtures lack a CC layer; climate-factor tests remain synthetic. Added actual published BoM-reader checks on synthetic, schema-correct depth and intensity CSVs (exact rare AEP identity retained, explicit unit conversion, original bytes unchanged). The test values do not assert a site-specific BoM download. RainfallCurve now preserves source baseline year, area and source ARF override separately in bundle manifests; unknown metadata remains absent. Confirm direct native model acceptance and real live data separately. These new tests require exact-head CI; no claim that they have already passed.

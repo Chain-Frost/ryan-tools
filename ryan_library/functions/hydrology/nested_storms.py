@@ -82,6 +82,9 @@ class RainfallCurve:
     anchors: tuple[DepthAnchor, ...]
     scenario: str | None = None
     cautions: tuple[str, ...] = ()
+    ifd_baseline_year: int | None = None
+    area_km2: float | None = None
+    source_arf_override: float | None = None
 
     def __post_init__(self) -> None:
         if not self.aep.strip() or not self.source.strip() or not self.anchors:
@@ -91,6 +94,13 @@ class RainfallCurve:
         if durations != tuple(sorted(set(durations))):
             msg = "Rainfall anchors must be strictly increasing and unique"
             raise ValueError(msg)
+        if self.area_km2 is not None:
+            _nonnegative(self.area_km2, "Catchment area")
+        if self.source_arf_override is not None:
+            _arf(self.source_arf_override)
+            if any(anchor.arf != self.source_arf_override for anchor in self.anchors):
+                msg = "Source ARF override disagrees with stored anchor factors"
+                raise ValueError(msg)
 
 
 @dataclass(frozen=True, slots=True)
