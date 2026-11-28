@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from bisect import bisect_left
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import replace
@@ -80,15 +81,42 @@ def read_bom_source(path: Path) -> BomDepthSource:
     return reader(path)
 
 
-def _exact_column(table: Mapping[str, Any], aep: str) -> dict[int, float]:
-    """Select an exact numerical AEP column; never round or clamp probabilities."""
-    if not aep.endswith("%"):
-        msg = "ARR response AEP must be an exact percentage label, e.g. 1%"
+def _arr_probability_label(aep: str) -> str:
+    """Adapt unambiguous BoM notation to the existing PyTUFLOW interface."""
+    label = re.sub(r"\s+AEP$", "", aep.strip(), flags=re.IGNORECASE).strip()
+    match = re.fullmatch(r"1\s*(?:in|/|:)\s*(\d+(?:\.\d+)?)", label, flags=re.IGNORECASE)
+    if match is not None:
+        return f"1 in {match.group(1)}"
+    if label.upper().endswith("EY"):
+        return f"{label[:-2].strip()}EY"
+    if label.endswith("%"):
+        return f"{label[:-1].strip()}%"
+    return label
+
+
+def _exact_aep_percentage(aep: str) -> float:
+    """Admit explicit percentages and exact one-in-N probability semantics only."""
+    label = _arr_probability_label(aep)
+    if label.endswith("%"):
+        probability = float(label[:-1])
+    elif label.startswith("1 in "):
+        denominator = float(label[5:])
+        if not isfinite(denominator) or denominator < 1:
+            msg = "Invalid one-in-N AEP denominator"
+            raise ValueError(msg)
+        probability = 100 / denominator
+    else:
+        msg = "ARR table requires an explicit AEP percentage or one-in-N probability"
         raise ValueError(msg)
-    probability = float(aep[:-1])
     if not isfinite(probability) or not 0 < probability <= 100:
         msg = "Invalid AEP percentage"
         raise ValueError(msg)
+    return probability
+
+
+def _exact_column(table: Mapping[str, Any], aep: str) -> dict[int, float]:
+    """Select an exact numerical AEP column; never round or clamp probabilities."""
+    probability = _exact_aep_percentage(aep)
     columns = cast("Sequence[object]", table["columns"])
     indices = cast("Sequence[object]", table["index"])
     rows = cast("Sequence[Sequence[object]]", table["data"])
@@ -170,8 +198,9 @@ def arf_for_curve(
     if params is None:
         msg = "ARR response lacks ARFParams"
         raise ValueError(msg)
-    table = calculate(area_km2, durations, [aep], dict(params), arf_frequent=False, min_arf=0)
-    return {duration: float(str(table.loc[duration, aep])) for duration in durations}
+    label = _arr_probability_label(aep)
+    table = calculate(area_km2, durations, [label], dict(params), arf_frequent=False, min_arf=0)
+    return {duration: float(str(table.loc[duration, label])) for duration in durations}
 
 
 def _arf_notes(area_km2: float, factors: Mapping[int, float], override: float | None) -> tuple[str, ...]:
@@ -266,13 +295,7 @@ def regional_storm_losses(
     """
     current = response.layer("NewStormLosses")
     if current is not None:
-        if not aep.endswith("%"):
-            msg = "NSW regional storm losses require an exact AEP percentage"
-            raise ValueError(msg)
-        probability = float(aep[:-1])
-        if not isfinite(probability) or not 0 < probability <= 100:
-            msg = "Invalid AEP percentage for regional storm losses"
-            raise ValueError(msg)
+        probability = _exact_aep_percentage(aep)
         rows = cast("Sequence[Mapping[str, object]]", current["losses"])
         matches = [row for row in rows if float(str(row["AEP"]).strip().removesuffix("%")) == probability]
         if len(matches) != 1:

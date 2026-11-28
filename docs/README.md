@@ -53,6 +53,7 @@ These documents stay near the code they describe so that browsing a target direc
 | TUFLOW initialiser | [Initialiser implementation](../ryan_library/orchestrators/tuflow/initialiser/README.md) | Maintained CLI, shared hydrology/project boundaries and #312 engineering framework |
 | TUFLOW processors | [Processor development notes](../ryan_library/processors/tuflow/README.md) | Processor lifecycle, collections, combinations, filtering, caching and extension |
 | TUFLOW wrappers | [TUFLOW Python wrappers](../ryan-scripts/TUFLOW-python/README.md) | Maintained entry points, shared CLI behavior and wrapper selection |
+| RORB storm conversion | [TUFLOW rainfall to RORB STM](../ryan-scripts/RORB-python/README.md) | Timestep convention, batch configuration, run limits and validation requirements |
 | TUFLOW run preflight | [Proposed-run input preflight](TUFLOW_INPUT_PREFLIGHT.md) | Check event/scenario-dependent input references, boundary source CSVs and GPKG layers before launching simulations |
 | TUFLOW GPU scheduling | [GPU and CodeMeter validation](TUFLOW_GPU_CODEMETER_VALIDATION.md) | Licensed two-GPU procedure, polling benchmark, measured limitations and scheduler evidence |
 | TUFLOW GPU hardware handoff | [Licensed two-GPU agent prompt](TUFLOW_GPU_HARDWARE_TEST_PROMPT.md) | Copy-ready prompt for completing PR #193 validation on suitable hardware |
@@ -124,6 +125,7 @@ but they are not current architectural policy when they conflict with the canoni
 | [Dashboard defaults and background file properties](work/2026-11-07-dashboard-file-properties.md) | Shared presentation defaults, nonblocking file-size metadata and preserved legacy banner calls |
 | [Offline wrapper revision warnings](work/2026-11-07-wrapper-version-warnings.md) | Shared installed-package comparison, stable script identities and maintained-script rollout |
 | [Batch dashboard foundation](work/2026-11-01-batch-dashboard-foundation-180.md) | #180 stacked PR 1: shared batch display/diagnostics, optional workflow metrics, log-summary reference and concrete consumer handoff |
+| [TUFLOW rainfall to RORB validation](work/2026-11-28-rorb-storm-conversion.md) | Public 60-minute export, timing, per-bin depth, native and release status for #118 |
 | [RORB reader audit and MCP scope](work/2026-11-05-rorb-readers-mcp.md) | Canonical source-aware RORB report/CSV readers, preservation, linked consumer and pending original 420-pair acceptance |
 | [RORB reader API and format limits](../ryan_library/functions/RORB/README.md) | Strict source-preserving report grammar, explicit statuses, companion associations, source clocks and DataFrame migration |
 | [PyRORB canonical reader package](https://github.com/Chain-Frost/pyrorb/tree/v26.11.24.1/src/runoff_routing/rorb_readers) | Published canonical readers; downstream compatibility imports, no standalone reader wheel |
@@ -157,7 +159,7 @@ but they are not current architectural policy when they conflict with the canoni
 | [Installed scripts and distribution rename](work/2026-10-18-installed-scripts.md) | PR #120 wheel scripts, automatic MCP resolution, removed import shim and PyPI name migration |
 | [Installed scripts and MCP requirements](work/2026-10-17-installed-scripts-mcp-pip-distribution.md) | PR #130/#137: corrected wrapper copying, provisional packaging and outstanding engineering acceptance |
 | [Original script distribution requirements](audits/2026-10-17-installed-scripts-original-requirements.md) | Preserved original A–F requirements |
-| [Installed script inventory](audits/2026-10-19-installed-scripts-inventory.md) | All 163 source paths; 84 selected and 79 excluded; lifecycle sign-off outstanding |
+| [Installed script inventory](audits/2026-10-19-installed-scripts-inventory.md) | All 165 source paths; 84 selected and 81 excluded; lifecycle sign-off outstanding |
 | [Script remediation backlog](audits/2026-10-22-script-remediation-backlog.md) | 47 AB items: open/deferred work plus accepted-closed HY-8 evidence (AB-023); triaged safety, engineering and lifecycle tasks |
 | [CI resource efficiency and Windows acceptance](work/2026-11-08-ci-resource-efficiency.md) | Merged #272 implementation, post-merge validation and coordinated adoption by active stacks |
 | [CI dependency and PyTuflow wheel implementation](work/2026-11-08-ci-dependency-groups.md) | Completed #274/#272 wheel delivery and accepted Windows coverage; deferred, bounded dependency follow-up |

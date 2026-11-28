@@ -269,7 +269,7 @@ def test_real_nsw_reference_requires_complete_storm(tmp_path: Path) -> None:
     _regional_reference(path, nsw=True)
     response = read_arr_response(path)
     curve = curve_from_arr_response(response, "1%", source="NSW reference", area_km2=11.4)
-    assert curve.anchors[-1].arf == pytest.approx(0.9688030158772767, rel=1e-12)
+    assert curve.anchors[-1].arf == pytest.approx(0.8901146437226994, rel=1e-12)
     assert curve.area_km2 == 11.4
     assert curve.ifd_baseline_year == 2030
     assert curve.source_arf_override is None
@@ -284,7 +284,7 @@ def test_real_nsw_reference_requires_complete_storm(tmp_path: Path) -> None:
         curve, 60, timestep_min=5, losses=EventLosses(spec, "complete", preburst_increments_mm=prefix)
     )
     assert storm.preburst_mm == pytest.approx(40.1765)
-    assert storm.burst_total_mm == pytest.approx(85.54530630196354)
+    assert storm.burst_total_mm == pytest.approx(78.59712304071435)
     assert storm.applied_losses == LossSpec(20, continuing_loss_mm_per_hour=1)
     assert storm.excess_mm is not None
     assert sum(storm.excess_mm[:12]) > 0
@@ -297,7 +297,7 @@ def test_real_queensland_reference_regional_and_unity_arf(tmp_path: Path) -> Non
     _regional_reference(path, nsw=False)
     response = read_arr_response(path)
     curve = curve_from_arr_response(response, "1%", source="SEQ reference", area_km2=5)
-    assert curve.anchors[-1].arf == pytest.approx(0.9832168546165964, rel=1e-12)
+    assert curve.anchors[-1].arf == pytest.approx(0.9374810668222707, rel=1e-12)
     spec, source = regional_storm_losses(response, "1%")
     ratio, layer = selected_preburst_ratio(response, "1%", 60, percentile="recommended")
     assert source == "ARR StormLossesNonNSW"
@@ -305,7 +305,7 @@ def test_real_queensland_reference_regional_and_unity_arf(tmp_path: Path) -> Non
     losses = EventLosses(spec, "storm_reduce", preburst_ratio=ratio)
     storm = generate_storm(curve, 60, timestep_min=5, losses=losses)
     unity = generate_storm(curve, 60, timestep_min=5, losses=losses, arf_override=1)
-    assert storm.burst_total_mm == pytest.approx(92.22574096303674)
+    assert storm.burst_total_mm == pytest.approx(87.93572406792899)
     assert unity.burst_total_mm == pytest.approx(93.8)
     assert storm.preburst_mm == pytest.approx(9.6614)
     assert storm.applied_losses is not None
@@ -320,7 +320,7 @@ def test_bom_csv_reader_round_trip_depth_and_intensity(tmp_path: Path, *, intens
     path = tmp_path / "bom.csv"
     title = "All Design Rainfall Intensity (mm/h)" if intensity else "All Design Rainfall Depth (mm)"
     values = "5 min,5,120,144\n1 hour,60,30,36\n" if intensity else "5 min,5,10,12\n1 hour,60,30,36\n"
-    path.write_text(f"{title}\nDuration,Duration in min,1%,1 in 200\n{values}", encoding="utf-8")
+    path.write_text(f"{title}\nDuration,Duration in min,1% AEP,1 in 200\n{values}", encoding="utf-8")
     original = path.read_bytes()
     curve = curve_from_bom_file(path, "1 in 200", area_km2=5, arf_override=1)
     assert [anchor.point_depth_mm for anchor in curve.anchors] == [12, 36]
@@ -329,3 +329,44 @@ def test_bom_csv_reader_round_trip_depth_and_intensity(tmp_path: Path, *, intens
     assert curve.source_arf_override == 1
     assert generate_storm(curve, 60, timestep_min=5).burst_total_mm == pytest.approx(36)
     assert path.read_bytes() == original
+    common = curve_from_bom_file(path, "1% AEP", arf_override=1)
+    assert common.aep == "1% AEP"
+    assert [anchor.point_depth_mm for anchor in common.anchors] == [10, 30]
+
+
+def test_bom_label_uses_actual_arr_arf_and_preburst_lookup(tmp_path: Path) -> None:
+    pytest.importorskip("runoff_routing.bom_ifd")
+    pytest.importorskip("pytuflow.arr.api_client")
+    pytest.importorskip("pytuflow.arr.arf")
+    response_path = tmp_path / "arr.json"
+    _regional_reference(response_path, nsw=False)
+    response = read_arr_response(response_path)
+    bom_path = tmp_path / "bom.csv"
+    bom_path.write_text(
+        "All Design Rainfall Depth (mm)\nDuration,Duration in min,1% AEP\n5 min,5,25.8\n1 hour,60,93.8\n",
+        encoding="utf-8",
+    )
+    curve = curve_from_bom_file(bom_path, "1% AEP", response=response, area_km2=5)
+    assert curve.aep == "1% AEP"
+    assert curve.anchors[-1].arf == pytest.approx(0.9374810668222707, rel=1e-12)
+    assert generate_storm(curve, 60, timestep_min=5).burst_total_mm == pytest.approx(87.93572406792899)
+    assert selected_preburst_ratio(response, curve.aep, 60, percentile="recommended") == (0.103, "Preburst50")
+    assert regional_storm_losses(response, curve.aep)[0] == LossSpec(14, continuing_loss_mm_per_hour=2.1)
+
+
+@pytest.mark.parametrize("label", ["0.5%", "0.5% AEP", "1 in 200", "1/200 AEP", "1:200"])
+def test_exact_rare_aep_labels(label: str, tmp_path: Path) -> None:
+    pytest.importorskip("pytuflow.arr.api_client")
+    path = tmp_path / "rare.json"
+    path.write_text(
+        json.dumps({"layers": {"Preburst50": {"index": [60], "columns": [0.5], "data": [[0.2]]}}}),
+        encoding="utf-8",
+    )
+    response = read_arr_response(path)
+    assert arr_preburst_ratio(response, label, 60, percentile="50%") == 0.2
+
+
+@pytest.mark.parametrize("label", ["0.5EY", "200 year ARI", "1 in 0"])
+def test_preburst_does_not_infer_unavailable_probability(label: str) -> None:
+    with pytest.raises(ValueError):
+        arr_preburst_ratio(_Response(), label, 60, percentile="recommended")
