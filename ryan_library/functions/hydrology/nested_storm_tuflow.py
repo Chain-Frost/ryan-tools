@@ -100,9 +100,7 @@ def _event_manifest(storm: StormResult, kind: RainKind) -> dict[str, object]:
     }
 
 
-def write_tuflow_bundle(
-    folder: Path, storms: Mapping[str, StormResult], *, boundary_name: str, kind: RainKind
-) -> None:
+def write_tuflow_bundle(folder: Path, storms: Mapping[str, StormResult], *, boundary_name: str, kind: RainKind) -> None:
     """Create a new bundle, one CSV per event; never change an existing model.
 
     TRD sets loss variables only; it does not edit materials or soils.

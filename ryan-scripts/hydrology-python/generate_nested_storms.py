@@ -39,7 +39,7 @@ from ryan_library.functions.hydrology.nested_storms import (
 from ryan_library.functions.hydrology.rainfall_loss_screening import LossSpec
 
 
-def _source_curve(  # noqa: C901 - dispatch source-specific contracts
+def _source_curve(
     raw: dict[str, Any], directory: Path, cache: dict[Path, ArrResponse]
 ) -> tuple[RainfallCurve, ArrResponse | None, tuple[int, str] | None]:
     if "curve" in raw:

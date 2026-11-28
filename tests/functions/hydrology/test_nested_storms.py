@@ -34,9 +34,7 @@ def test_loading_and_depth_checks() -> None:
 
 
 def test_arf_and_rainfall_factors_apply_at_each_anchor() -> None:
-    curve = RainfallCurve(
-        "1%", "synthetic", (DepthAnchor(1, 4, 0.5, 1.5), DepthAnchor(4, 8, 0.75, 1.25)), "future"
-    )
+    curve = RainfallCurve("1%", "synthetic", (DepthAnchor(1, 4, 0.5, 1.5), DepthAnchor(4, 8, 0.75, 1.25)), "future")
     assert generate_storm(curve, 4).burst_total_mm == pytest.approx(7.5)
     assert generate_storm(curve, 4, arf_override=1).burst_total_mm == pytest.approx(10)
 
@@ -67,9 +65,7 @@ def test_event_specific_preburst_and_cc_losses() -> None:
     assert supplied_burst.excess_mm == (0, 0, 1, 1)
     with pytest.raises(ValueError, match="exceeds"):
         generate_storm(curve, 4, losses=EventLosses(spec, "storm_reduce", preburst_depth_mm=7))
-    complete = generate_storm(
-        curve, 4, loading="FL", losses=EventLosses(spec, "complete", preburst_increments_mm=(7,))
-    )
+    complete = generate_storm(curve, 4, loading="FL", losses=EventLosses(spec, "complete", preburst_increments_mm=(7,)))
     assert complete.gross_mm == (7, 4, 2, 1, 1)
     assert complete.excess_mm == (1, 4, 2, 1, 1)
     assert complete.burst_total_mm == 8

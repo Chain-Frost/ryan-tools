@@ -278,7 +278,9 @@ def generate_storm(
     """
     burst, checks, target = _burst(curve, duration_min, timestep_min, loading, arf_override)
     if losses is None:
-        return StormResult(curve, duration_min, timestep_min, loading, arf_override, burst, None, None, None, 0.0, 0, checks)
+        return StormResult(
+            curve, duration_min, timestep_min, loading, arf_override, burst, None, None, None, 0.0, 0, checks
+        )
     applied, preburst = losses.applied(target.scenario_point_mm)
     gross = (*losses.preburst_increments_mm, *burst)
     retained = 1 - losses.proportional_loss_fraction
@@ -412,9 +414,7 @@ def burst_losses_from_arr(event: ArrEvent) -> EventLosses:
     return EventLosses(LossSpec(event.initial_loss, continuing_loss_mm_per_hour=event.continuing_loss))
 
 
-def write_tuflow_csv(
-    path: Path, storms: Mapping[str, StormResult], *, kind: Literal["gross", "excess"]
-) -> None:
+def write_tuflow_csv(path: Path, storms: Mapping[str, StormResult], *, kind: Literal["gross", "excess"]) -> None:
     """Exclusive-create workbook-shaped candidate RF CSV (not native qualified).
 
     Time in hours; mm per interval; leading/trailing zero, then blank for

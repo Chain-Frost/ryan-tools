@@ -21,7 +21,9 @@ class ArrResponse(Protocol):
 
     def layer(self, name: str, required: bool = False) -> Mapping[str, Any] | None: ...
 
-    def climate_change_rainfall_factors(self, baseline_year: int, ssp: str) -> tuple[Sequence[float], Sequence[float]]: ...
+    def climate_change_rainfall_factors(
+        self, baseline_year: int, ssp: str
+    ) -> tuple[Sequence[float], Sequence[float]]: ...
 
     def climate_change_loss_factors(self, baseline_year: int, ssp: str) -> tuple[float, float]: ...
 
@@ -143,7 +145,7 @@ def _arf_notes(area_km2: float, factors: Mapping[int, float], override: float | 
     if override is not None:
         notes.append(f"Explicit ARF override: {override:g}")
     elif area_km2 > 1:
-        notes.append("Calculated ARFs: verify AEP applicability (0.05%–50%) and unity fallbacks")
+        notes.append("Calculated ARFs: verify AEP applicability (0.05%-50%) and unity fallbacks")
         if any(duration < 30 for duration in factors):
             notes.append("ARF anchors below 30 min are extrapolated")
         if area_km2 > 30000 or any(duration > 10080 for duration in factors):

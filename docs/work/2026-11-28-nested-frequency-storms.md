@@ -33,7 +33,7 @@ The original workbook applies proportional loss before IL/CL (Enter Losses!B5:B6
 
 ## Experimental CLI
 
-The repository-only script `ryan-scripts/hydrology-python/generate_nested_storms.py` accepts normalized JSON with explicit per-event options. It does not fetch data, select a preburst percentile, infer ARF or independently derive SSP factors. Existing PyTUFLOW/BoM workflows may produce the normalized inputs; a source-specific CLI adapter should follow the existing public APIs. Example synthetic config:
+The repository-only script `ryan-scripts/hydrology-python/generate_nested_storms.py` accepts normalized JSON with explicit per-event options. It reads either normalized rainfall curves or saved BoM/ARR inputs, using the existing readers and public ARF and climate factor interfaces. Live network retrieval is not performed. See the source settings below. Example synthetic config:
 
 ```json
 [
@@ -65,14 +65,14 @@ The repository-only script `ryan-scripts/hydrology-python/generate_nested_storms
 
 Preview: `python ryan-scripts/hydrology-python/generate_nested_storms.py --config events.json`.
 
-Write a NEW file: `python ryan-scripts/hydrology-python/generate_nested_storms.py --config events.json --output gross.csv --kind gross --write`. Use `--kind excess` only when losses are provided for every event. Separate gross and excess outputs. CSV uses hours, mm per interval, leading/trailing zero, blanks after shorter columns. Native TUFLOW ingestion, BC database/TEF and event-loss control exports are still unqualified/unimplemented; do not assume correct production model timing. CLI is experimental and not yet an installed/MCP-discoverable supported wrapper.
+Write a NEW file: `python ryan-scripts/hydrology-python/generate_nested_storms.py --config events.json --output gross.csv --kind gross --write`. Use `--kind excess` only when losses are provided for every event. Separate gross and excess outputs. CSV uses hours, mm per interval, leading/trailing zero, blanks after shorter columns. The candidate bundle exporter also writes BC database, TEF and event loss variable controls; native TUFLOW ingestion and loss timing remain unqualified. CLI is experimental and not yet an installed/MCP-discoverable supported wrapper.
 
 ## Next action and completion criteria
 
 1. Continue implementation and portable validation through GitHub and the available Python container. Review exact-head hosted Python 3.11 CI and address preflight, Ruff, strict Pyright and test failures without changing CI policy. Reserve Windows Python 3.14, installed-wheel or native model checks for a local agent only where they cannot be run here.
 2. Independently reproduce all 324 workbook storm combinations and per-interval comparisons against the authenticated source, with separate disposition of the 30 h defect and ML variations. Validate nonzero proportional/IL/CL conventions without silently preserving spreadsheet artefacts. Record test environment and exact hashes, no site data in public fixtures.
 3. Obtain real BoM and ARR JSON/RecIFD/ARF/preburst/loss sources for a permission-cleared test site. Use existing PyTUFLOW public APIs and exact matching durations/AEPs; provide source-specific CLI wiring without new scientific formula duplication. Preserve ARF cautions (notably extrapolation below 30 min and published area/frequency limits), distinguish calculated vs overridden unity. Test baseline and SSP rainfall and loss changes, event-specific overrides, NSW probability-neutral losses, missing PB and overflow, explicit prefix and no double reduction.
-4. Check native TUFLOW RF ingestion and stepped time convention with a minimal model; compare processed rainfall and independently verify correct loss application or loss disabling for excess. Produce BC database/TEF and event loss control outputs if required. Promote and register wrapper/MCP only after stable acceptance.
+4. Check native TUFLOW RF ingestion and stepped time convention with a minimal model; compare processed rainfall and independently verify correct loss application or loss disabling for excess. Verify the generated BC database/TEF and event loss variable controls. Promote and register wrapper/MCP only after stable acceptance.
 5. Do not merge or release without owner approval.
 
 ## Validation and delivery
@@ -96,3 +96,7 @@ The original uploaded workbook is still accessible in the Python container; SHA-
   - In "options.losses" use "mode":"storm_reduce", "spec":{"initial_loss_mm":30,"continuing_loss_mm_per_hour":3}, "arr_preburst_percentile":"recommended", "arr_climate_loss_factors":true with an ARR response and SSP scenario. The supplied spec must be baseline storm loss in that case. For preadjusted event losses use explicit burst/complete mode, with no second climate adjustment. Use a timestep supported by the available IFD rows. No network fallback. Paths relative to config; saved ARR responses cached in memory per invocation.
 - Bundle: pass --boundary-name RF --output new_folder --write --kind gross (or excess). A new directory contains one CSV per event in rf_inflow, bc_dbase.csv, Event_File.tef, rainfall_losses.trd and manifest.json. Composite event tokens select one entire AEP/duration/loading/climate combination. Use safe case-insensitive unique ASCII alphanumeric/underscore event tokens and one site/source per bundle. Mixed timestep events have separate CSVs. TRD sets IL_RF and CL_RF variables but does not modify or configure existing materials/soils; connect these explicitly to the chosen model mechanism. Excess exports set both variables to zero; gross requires explicit ordinary IL/CL (including zeros) and refuses proportional/coefficient losses. Native TUFLOW acceptance remains open. Existing CSV-only mode remains available.
 - Remaining: execute new unit tests and strict CI, verify actual BoM and ARR response datasets and installed PyTUFLOW version, automate supported live retrieval and loss selection where the upstream public APIs permit, review source factors/provenance, native TUFLOW ingestion and loss application. No RORB routing integration. No merge/release.
+
+## CI correction
+
+Run 46142010593 reported RUF100 (unnecessary C901 suppression) and RUF001 (Unicode dash in ARF diagnostic). Corrected both and reconciled stale CLI descriptions. The new tests were not reached in that run. Direct raw.githubusercontent.com retrieval to the Python container also failed on DNS; the independent workbook calculation comparison remains distinct from full source testing. Exact-head CI remains required.
