@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Draft; ARR point source and local NTFS verified; reference comparison pending |
+| Status | Draft; GDA94 Windows software validation passed; owner reference comparison pending |
 | Owner | Unassigned |
 | Created | 2026-11-28 |
 | Updated | 2026-11-28 |
@@ -59,7 +59,7 @@ The reference depth of 100 mm above is illustrative, not a catchment mean. For a
 2. Owner to provide a small BoM ASCII raster (5×5 to 10×10 preferred) and AEP, duration, datum/CRS, units, issue/version, extent/registration metadata when convenient. No user data is required now. Retain source privately unless publication is authorised.
 3. Derive exact sampling coordinates from that raster, compare point response values, axes and NoData mask; report max absolute/relative difference, MAE, RMSE and rounding/quantisation effects. Declare numerical tolerance based on source precision before comparison, and check multipliers against a common reference. Do not declare parity unless evidence supports it.
 4. Check polygon weights on authentic catchment geometry and consider catalogue/installed-script promotion once qualified. Windows source and installed-library CLI checks passed on local NTFS using a disposable polygon. Reconcile stable API with #350; do not modify its branch.
-5. Review hosted Python 3.11 checks for the pushed correction batch. Keep PR #351 in draft while the scientific gate is open.
+5. Keep PR #351 in draft pending the owner reference comparison and scientific review. The Windows GDA94 software and hosted checks are recorded below.
 
 ## Validation and delivery
 
@@ -133,3 +133,11 @@ The native BoM IFD 2016 raster uses GDA94 (EPSG:4283), as shown in [Jolly and Gr
 The [ARR Data Hub documentation](https://data.arr-software.org/about) refers to WGS84 uploaded geographic shapes, but scalar coordinate requests have no datum parameter or explicit sampled-cell metadata. A GDA94 grid therefore requires an explicit `--request-crs EPSG:4283` or `--request-crs EPSG:4326` reflecting a confirmed or provisional operator decision. If different, transform individual native grid centres using PROJ, always longitude/latitude and no ballpark operation; never warp the rainfall raster. Record the assumed request datum, grid CRS and mapping in GeoTIFF tags. Exact HTTP query coordinates and the snapshot still identify raw response bytes; choose a new snapshot when changing the interpretation or source revision deliberately. Legacy WGS84-only sampling retains the previous request convention. Neither selecting GDA94 nor applying a coordinate transformation proves the ARR service samples the identical underlying BoM grid cell.
 
 Catchment geometry must already use the grid CRS. GDA94 uses the GRS80 ellipsoid for intersection areas; WGS84 retains its earlier ellipsoid. Reference comparison requires matching dimensions, registration and CRS. Retain the previous source and numerical acceptance limits. Re-run the changed source/installed-wheel/CLI tests and confirm the actual native CRS/registration against the owner reference when supplied. No new live requests or bulk access authorised; no merge/release.
+
+### Windows validation of the GDA94 correction (2026-11-28)
+
+- Tested implementation commit `0be7790337ae0fafbff6f700405c3c4bfdb6ea8c` on Windows 10 with CPython 3.14.6. The focused source run had 63 passes and eight skips in the installed-script checks. All 21 spatial IFD tests passed, including native GDA94, WGS84 compatibility, aligned-reference and vector-CRS guards. Strict Pyright targeting Python 3.14 reported zero diagnostics on the seven changed Python files. Ruff lint and format passed on the same files.
+- Rebuilt and verified wheel `ryan_tools-26.11.17.3-py3-none-any.whl` with `--skip-pip --no-bump`, SHA-256 `10abffdfc34fba5df76b6de58d52cbcf8c3b2619b9bcadfa25be9c611db65728`. All 21 spatial IFD tests passed against the disposable installation outside the checkout. The three spatial IFD modules resolved to that installation. The experimental wrapper was copied from the tested checkout.
+- With four synthetic cache points and a zero network budget, the copied CLI produced GDA94 GeoTIFFs for both native GDA94 and PROJ-mapped WGS84 request coordinates. Rasterio reopened the outputs with EPSG:4283, the expected 2 ? 2 pixel values, 0.025? spacing and native centres, and matching grid/request CRS and mapping tags. Reference-led export preserved those values and registration. Explicit WGS84 grid geometry retained EPSG:4326 and the implicit WGS84 request convention. The CLI rejected a GDA94 grid without a request datum, a conflicting reference-CRS declaration, and a WGS84 catchment against the GDA94 grid. The focused tests also rejected cross-CRS numerical comparison.
+- All seven [hosted checks](https://github.com/Chain-Frost/ryan-tools/actions/runs/46145677554) passed on the implementation commit. The Windows Python 3.11 job reported 3,502 passes, 16 skips and eight deselections, including all 21 spatial IFD tests. The Windows Python 3.14 evidence advances draft [PR #351](https://github.com/Chain-Frost/ryan-tools/pull/351) as a documentation update.
+- The owner-provided BoM raster, its datum/registration, the ARR request-coordinate convention, numerical comparison and authentic catchment-geometry validation remain open. Next review is 2026-12-12 or receipt of the reference.
