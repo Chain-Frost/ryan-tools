@@ -112,6 +112,9 @@ class EventLosses:
     preburst_ratio: float | None = None
     preburst_increments_mm: tuple[float, ...] = ()
     proportional_loss_fraction: float = 0.0
+    source: str = "user"
+    preburst_source: str | None = None
+    climate_factors_source: str | None = None
 
     def __post_init__(self) -> None:
         _nonnegative(self.initial_loss_factor, "IL factor")
@@ -411,7 +414,10 @@ def burst_losses_from_arr(event: ArrEvent) -> EventLosses:
     if event.preburst is not None:
         msg = "ARR event has explicit preburst; supply complete-storm EventLosses with a chosen prefix"
         raise ValueError(msg)
-    return EventLosses(LossSpec(event.initial_loss, continuing_loss_mm_per_hour=event.continuing_loss))
+    return EventLosses(
+        LossSpec(event.initial_loss, continuing_loss_mm_per_hour=event.continuing_loss),
+        source="PyTUFLOW assembled burst event",
+    )
 
 
 def write_tuflow_csv(path: Path, storms: Mapping[str, StormResult], *, kind: Literal["gross", "excess"]) -> None:

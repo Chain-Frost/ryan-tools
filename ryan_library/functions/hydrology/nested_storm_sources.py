@@ -9,9 +9,10 @@ from dataclasses import replace
 from importlib import import_module
 from math import isfinite, log10
 from pathlib import Path
-from typing import Any, Protocol, cast
+from typing import Any, Literal, Protocol, cast
 
 from .nested_storms import BomDepthSource, DepthAnchor, EventLosses, RainfallCurve, curve_from_bom
+from .rainfall_loss_screening import LossSpec
 
 
 class ArrResponse(Protocol):
@@ -38,6 +39,37 @@ def read_arr_response(path: Path) -> ArrResponse:
         "Callable[[dict[str, Any]], ArrResponse]", import_module("pytuflow.arr.api_client").ArrApiResponse
     )
     return constructor(cast("dict[str, Any]", raw))
+
+
+class _ArrClient(Protocol):
+    def fetch(self, config: object) -> ArrResponse: ...
+
+
+def fetch_arr_response(
+    latitude: float, longitude: float, *, aep: str, duration_min: int, climate: tuple[int, str] | None = None
+) -> ArrResponse:
+    """Explicit live point request through PyTUFLOW; no temporal pattern downloads.
+
+    Configured event fields are required by ArrConfig, not additional API
+    filtering. No files are written. Prefer a saved response for repeatable runs.
+    """
+    if not isfinite(latitude) or not -90 <= latitude <= 90 or not isfinite(longitude) or not -180 <= longitude <= 180:
+        msg = "Invalid ARR latitude/longitude"
+        raise ValueError(msg)
+    if duration_min <= 0:
+        msg = "ARR request requires positive duration"
+        raise ValueError(msg)
+    config_factory = cast("Callable[[dict[str, Any]], object]", import_module("pytuflow.arr.config").ArrConfig.from_dict)
+    settings: dict[str, Any] = {
+        "site": {"name": "nested_storm", "latitude": latitude, "longitude": longitude},
+        "events": {"aep": [aep], "duration": [duration_min]},
+        "output": {"path": "."},
+    }
+    if climate is not None:
+        year, ssp = climate
+        settings["climate_change"] = {"enabled": True, "scenarios": [{"baseline_year": year, "ssp": ssp}]}
+    client = cast("_ArrClient", import_module("pytuflow.arr.api_client").ArrApiClient())
+    return client.fetch(config_factory(settings))
 
 
 def read_bom_source(path: Path) -> BomDepthSource:
@@ -202,7 +234,57 @@ def curve_from_bom_file(
     return replace(curve, cautions=_arf_notes(area_km2, factors, arf_override))
 
 
-def arr_preburst_ratio(response: ArrResponse, aep: str, duration_min: int, *, percentile: str) -> float:
+def regional_storm_losses(
+    response: ArrResponse,
+    aep: str,
+    *,
+    continuing_loss_timing: Literal["fractional", "full_increment"] = "fractional",
+) -> tuple[LossSpec, str]:
+    """Opt-in generic full-storm IL/CL from a single Data Hub layer.
+
+    Read the exact NSW AEP row when NewStormLosses exists; otherwise use the
+    non-NSW summary, or the legacy summary if no current layer exists. Refuse
+    missing/ambiguous current values rather than silently fall back or
+    extrapolate NSW losses. This is not the probability-neutral burst table.
+    """
+    current = response.layer("NewStormLosses")
+    if current is not None:
+        if not aep.endswith("%"):
+            msg = "NSW regional storm losses require an exact AEP percentage"
+            raise ValueError(msg)
+        probability = float(aep[:-1])
+        rows = cast("Sequence[Mapping[str, object]]", current["losses"])
+        matches = [row for row in rows if float(str(row["AEP"]).strip().removesuffix("%")) == probability]
+        if len(matches) != 1:
+            msg = f"No unique NewStormLosses row for {aep}; supply explicit user losses"
+            raise ValueError(msg)
+        row = matches[0]
+        return (
+            LossSpec(
+                float(str(row["Storm Initial Loss (mm)"])),
+                continuing_loss_mm_per_hour=float(str(row["Continuing Loss (mm/h)"])),
+                continuing_loss_timing=continuing_loss_timing,
+            ),
+            f"ARR NewStormLosses ({aep})",
+        )
+    for layer in ("StormLossesNonNSW", "StormLosses"):
+        summary = response.layer(layer)
+        if summary is not None:
+            return (
+                LossSpec(
+                    float(str(summary["Storm Initial Losses (mm)"])),
+                    continuing_loss_mm_per_hour=float(str(summary["Storm Continuing Losses (mm/h)"])),
+                    continuing_loss_timing=continuing_loss_timing,
+                ),
+                f"ARR {layer}",
+            )
+    msg = "No regional storm loss data; supply explicit user losses"
+    raise ValueError(msg)
+
+
+def selected_preburst_ratio(
+    response: ArrResponse, aep: str, duration_min: int, *, percentile: str
+) -> tuple[float, str]:
     """Read an exact PB ratio to point depth; no extrapolation/interpolation.
 
     Recommended uses RecPreburst if present, otherwise Preburst50.
@@ -213,17 +295,60 @@ def arr_preburst_ratio(response: ArrResponse, aep: str, duration_min: int, *, pe
     layer = "RecPreburst" if percentile == "recommended" else f"Preburst{percentile[:-1]}"
     table = response.layer(layer)
     if table is None and percentile == "recommended":
-        table = response.layer("Preburst50", required=True)
+        layer = "Preburst50"
+        table = response.layer(layer, required=True)
     if table is None:
         msg = f"ARR response lacks {layer}"
         raise ValueError(msg)
-    return _exact_column(table, aep)[duration_min]
+    return _exact_column(table, aep)[duration_min], layer
+
+
+def arr_preburst_ratio(response: ArrResponse, aep: str, duration_min: int, *, percentile: str) -> float:
+    """Return only the exact source preburst ratio; use selected_preburst_ratio for provenance."""
+    return selected_preburst_ratio(response, aep, duration_min, percentile=percentile)[0]
+
+
+def constant_preburst_increments(
+    curve: RainfallCurve, duration_min: int, *, timestep_min: int, preburst_duration_min: int, ratio: float
+) -> tuple[float, ...]:
+    """Construct an explicitly chosen constant-rate complete-storm prefix.
+
+    Uses scenario point depth, not areal depth, and never selects a duration
+    or shape automatically. The prefix is gross rain before loss accounting.
+    """
+    if (
+        type(timestep_min) is not int
+        or type(preburst_duration_min) is not int
+        or timestep_min <= 0
+        or preburst_duration_min <= 0
+        or preburst_duration_min % timestep_min
+    ):
+        msg = "Preburst duration must be a positive integer multiple of the timestep"
+        raise ValueError(msg)
+    if not isfinite(ratio) or ratio < 0:
+        msg = "Preburst ratio must be finite and nonnegative"
+        raise ValueError(msg)
+    anchors = {anchor.duration_min: anchor for anchor in curve.anchors}
+    if duration_min not in anchors:
+        msg = "Preburst requires an exact target-duration IFD anchor"
+        raise ValueError(msg)
+    count = preburst_duration_min // timestep_min
+    depth = anchors[duration_min].scenario_point_mm * ratio
+    if not isfinite(depth):
+        msg = "Nonfinite preburst depth"
+        raise ValueError(msg)
+    return (depth / count,) * count
 
 
 def apply_arr_loss_factors(response: ArrResponse, losses: EventLosses, climate: tuple[int, str]) -> EventLosses:
     """Apply source factors to baseline user-supplied IL/CL before PB reduction."""
-    if losses.initial_loss_factor != 1 or losses.continuing_loss_factor != 1:
+    if losses.climate_factors_source is not None or losses.initial_loss_factor != 1 or losses.continuing_loss_factor != 1:
         msg = "Do not combine ARR climate loss factors with additional loss factors"
         raise ValueError(msg)
     il_factor, cl_factor = response.climate_change_loss_factors(*climate)
-    return replace(losses, initial_loss_factor=il_factor, continuing_loss_factor=cl_factor)
+    return replace(
+        losses,
+        initial_loss_factor=il_factor,
+        continuing_loss_factor=cl_factor,
+        climate_factors_source=f"ARR ClimateChange {climate[0]}_{climate[1]}",
+    )
