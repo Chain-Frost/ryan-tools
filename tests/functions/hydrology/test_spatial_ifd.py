@@ -9,10 +9,13 @@ import pytest
 
 from ryan_library.functions.hydrology.spatial_ifd import (
     GridSpec,
+    IFDEvent,
     IFDSource,
     Point,
     PointCache,
     collect_grid,
+    collect_grids,
+    inspect_cache,
     parse_ifd,
     write_ascii_grid,
 )
@@ -139,3 +142,56 @@ def test_reject_recommended_and_invalid_grid() -> None:
         IFDSource(("RecIFD", "Default Historical (1961-1990) Baseline"), "test")
     with pytest.raises(ValueError, match="cells"):
         GridSpec(Decimal(-23), Decimal(119), 101, 100)
+
+
+def test_batch_fetches_once_per_point_and_reuses_all_events(tmp_path: Path) -> None:
+    cache = PointCache(tmp_path / "ifd.sqlite3")
+    events = (IFDEvent(60, 1), IFDEvent(60, 10), IFDEvent(120, 1))
+    seen: list[Point] = []
+
+    def fetch(point: Point) -> bytes:
+        seen.append(point)
+        return response(point)
+
+    coverage = inspect_cache(GRID, SOURCE, cache, events)
+    assert coverage.cached_cells == 0
+    assert len(coverage.missing_points) == 4
+    first, second, third = collect_grids(GRID, SOURCE, cache, events, max_new_points=4, fetcher=fetch)
+    assert len(seen) == 4
+    np.testing.assert_allclose(first.depths_mm, [[100, 110], [120, 130]])
+    np.testing.assert_allclose(second.depths_mm, first.depths_mm / 2)
+    np.testing.assert_allclose(third.depths_mm, first.depths_mm * 2)
+    coverage = inspect_cache(GRID, SOURCE, cache, events)
+    assert coverage.cached_cells == 4
+    assert not coverage.missing_points
+    offline = collect_grids(GRID, SOURCE, cache, events, fetcher=fetch)
+    assert len(seen) == 4
+    assert all(grid.cached_cells == 4 for grid in offline)
+
+
+def test_batch_preflights_cached_events_before_fetching(tmp_path: Path) -> None:
+    cache = PointCache(tmp_path / "ifd.sqlite3")
+    cached_point = Point(Decimal("-23.025"), Decimal("119.025"))
+    cache.store(cached_point, SOURCE, response(cached_point))
+    seen: list[Point] = []
+
+    def fetch(point: Point) -> bytes:
+        seen.append(point)
+        return response(point)
+
+    events = (IFDEvent(60, 1), IFDEvent(90, 1))
+    with pytest.raises(ValueError, match="not tabulated"):
+        collect_grids(GRID, SOURCE, cache, events, max_new_points=4, fetcher=fetch)
+    assert not seen
+    with pytest.raises(ValueError, match="unique"):
+        collect_grids(GRID, SOURCE, cache, (events[0], events[0]), max_new_points=4, fetcher=fetch)
+    assert not seen
+
+
+def test_missing_event_is_not_admitted_to_cache(tmp_path: Path) -> None:
+    cache = PointCache(tmp_path / "ifd.sqlite3")
+    with pytest.raises(ValueError, match="not tabulated"):
+        collect_grids(
+            GRID, SOURCE, cache, (IFDEvent(60, 1), IFDEvent(90, 1)), max_new_points=4, fetcher=response
+        )
+    assert inspect_cache(GRID, SOURCE, cache, (IFDEvent(60, 1),)).cached_cells == 0

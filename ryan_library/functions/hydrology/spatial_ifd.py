@@ -6,7 +6,7 @@ import hashlib
 import json
 import sqlite3
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import closing
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -340,6 +340,106 @@ class SpatialIFDGrid:
         return self.depths_mm / _positive_depth(reference_depth_mm)
 
 
+@dataclass(frozen=True, slots=True)
+class IFDEvent:
+    """An exact source-table event, with duration in minutes and AEP in percent."""
+
+    duration_min: int
+    aep_percent: float
+
+    def __post_init__(self) -> None:
+        _duration(self.duration_min)
+        _aep(self.aep_percent)
+
+
+@dataclass(frozen=True, slots=True)
+class CacheCoverage:
+    """Validated coverage for the selected source and events, without network access."""
+
+    cached_cells: int
+    missing_points: tuple[Point, ...]
+
+
+def _event_depths(table: IFDTable, events: Sequence[IFDEvent]) -> tuple[float, ...]:
+    return tuple(table.depth(event.duration_min, event.aep_percent) for event in events)
+
+
+def _validate_events(events: Sequence[IFDEvent]) -> None:
+    if not events or len(set(events)) != len(events):
+        msg = "Events must be nonempty and unique"
+        raise ValueError(msg)
+
+
+def inspect_cache(
+    spec: GridSpec, source: IFDSource, cache: PointCache, events: Sequence[IFDEvent]
+) -> CacheCoverage:
+    """Report missing coordinates; corrupt, wrong-source or unsupported data raise.
+
+    This does not contact the network or count unvalidated cached payloads as
+    hits. A missing coordinate is distinct from a cache validation failure.
+    """
+    _validate_events(events)
+    missing: list[Point] = []
+    for _, _, point in spec.points():
+        raw = cache.get(point, source)
+        if raw is None:
+            missing.append(point)
+        else:
+            _event_depths(parse_ifd(raw, point, source), events)
+    return CacheCoverage(spec.rows * spec.cols - len(missing), tuple(missing))
+
+
+def collect_grids(
+    spec: GridSpec,
+    source: IFDSource,
+    cache: PointCache,
+    events: Sequence[IFDEvent],
+    *,
+    max_new_points: int = 0,
+    fetcher: Callable[[Point], bytes] = fetch_arr_point,
+) -> tuple[SpatialIFDGrid, ...]:
+    """Collect all selected events, parsing each cached point just once.
+
+    Complete cached-cell validation and the missing-point budget check before
+    contacting the service. Each new payload must contain every requested
+    event and is committed before moving on. Return no partial event grids on
+    failure, but retain validated cached responses for restart.
+    """
+    events = tuple(events)
+    _validate_events(events)
+    if not 0 <= max_new_points <= MAX_GRID_CELLS:
+        msg = "New-point budget is outside the supported range"
+        raise ValueError(msg)
+    if len(events) * spec.rows * spec.cols > 10_000_000:
+        msg = "Batch exceeds ten million event-cell values; split event selection"
+        raise ValueError(msg)
+
+    depths = np.empty((len(events), spec.rows, spec.cols), dtype=np.float64)
+    missing: list[tuple[int, int, Point]] = []
+    for row, col, point in spec.points():
+        raw = cache.get(point, source)
+        if raw is None:
+            missing.append((row, col, point))
+        else:
+            depths[:, row, col] = _event_depths(parse_ifd(raw, point, source), events)
+    if len(missing) > max_new_points:
+        msg = f"{len(missing)} missing points exceed the explicit new-point budget ({max_new_points})"
+        raise ValueError(msg)
+
+    for row, col, point in missing:
+        raw = fetcher(point)
+        _event_depths(parse_ifd(raw, point, source), events)
+        table = cache.store(point, source, raw)
+        depths[:, row, col] = _event_depths(table, events)
+
+    fetched = len(missing)
+    cached = spec.rows * spec.cols - fetched
+    return tuple(
+        SpatialIFDGrid(spec, source, event.duration_min, event.aep_percent, depths[index], cached, fetched)
+        for index, event in enumerate(events)
+    )
+
+
 def collect_grid(
     spec: GridSpec,
     source: IFDSource,
@@ -350,38 +450,15 @@ def collect_grid(
     max_new_points: int = 0,
     fetcher: Callable[[Point], bytes] = fetch_arr_point,
 ) -> SpatialIFDGrid:
-    """Collect one event; default is offline and new-point budget is explicit.
-
-    Check the budget before any network access. Every successfully validated point
-    is committed before the next request. A failed batch never returns a partial
-    raster. Other events can reuse all tabulated values in the same raw responses.
-    """
-    _duration(duration_min)
-    _aep(aep_percent)
-    if not 0 <= max_new_points <= MAX_GRID_CELLS:
-        msg = "New-point budget is outside the supported range"
-        raise ValueError(msg)
-    missing = sum(cache.get(point, source) is None for _, _, point in spec.points())
-    if missing > max_new_points:
-        msg = f"{missing} missing points exceed the explicit new-point budget ({max_new_points})"
-        raise ValueError(msg)
-    depths = np.empty((spec.rows, spec.cols), dtype=np.float64)
-    fetched = 0
-    for row, col, point in spec.points():
-        raw = cache.get(point, source)
-        if raw is None:
-            if fetched >= max_new_points:
-                msg = "New-point budget exhausted"
-                raise ValueError(msg)
-            raw = fetcher(point)
-            table = parse_ifd(raw, point, source)
-            table.depth(duration_min, aep_percent)
-            table = cache.store(point, source, raw)
-            fetched += 1
-        else:
-            table = parse_ifd(raw, point, source)
-        depths[row, col] = table.depth(duration_min, aep_percent)
-    return SpatialIFDGrid(spec, source, duration_min, aep_percent, depths, spec.rows * spec.cols - fetched, fetched)
+    """Collect a single event using the same offline-first batch workflow."""
+    return collect_grids(
+        spec,
+        source,
+        cache,
+        (IFDEvent(duration_min, aep_percent),),
+        max_new_points=max_new_points,
+        fetcher=fetcher,
+    )[0]
 
 
 def write_ascii_grid(path: Path, spec: GridSpec, values: npt.NDArray[np.float64]) -> None:

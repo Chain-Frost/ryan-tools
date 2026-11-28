@@ -24,8 +24,8 @@ The existing `pytuflow.arr.api_client.ArrApiResponse.ifd_table` implementation o
 - No production requests made. The live response was inaccessible in this environment. AllIFDDatasets table keys, real schema, units, source revision consistency, grid registration and numerical equivalence are not verified. The test keys are artificial.
 - Do not launch large API batches without confirming the service's acceptable request rate and bulk-access options. The budget limits new coordinates, not the number of HTTP retries. Prefer a licensed authoritative raster if available.
 - Added GeoTIFF output with embedded EPSG:4326 and provenance tags; staged hard-link publication is atomic/no-clobber and fails closed on filesystems without hard-link support. Added single-band reference-raster import, exact grid registration comparison, explicit NoData reporting and error metrics. No automatic resampling or CRS conversion; missing CRS requires explicit WGS84 confirmation. Reference transform coordinates are represented to ten decimal places to remove binary floating-point noise.
-- Added physical area-weighted mean using caller-provided cell intersection areas (m²); polygon intersection generation and multi-event convenience remain future work. ASCII does not embed a CRS. Assign the appropriate datum on import after verifying it; never treat degrees as metres.
-- Added experimental repository-only wrapper `ryan-scripts/hydrology-python/generate_spatial_ifd.py` with editable defaults, reference or explicit grid, explicit source keys, immutable cache namespace and offline-by-default behaviour. Do not add to the installed/MCP catalogue before authentic source qualification and wrapper acceptance.
+- Added physical area-weighted mean using caller-provided areas (m²), plus WGS84 polygon/cell intersections and normalization via `spatial_ifd_catchments.catchment_weights`. Polygon holes, multipart and fractional cells use Shapely and ellipsoidal WGS84 PyProj areas. Approximate straight lon/lat boundaries with geodesic segments no longer than 0.001 degrees; require independent total-area closure at 1e-6 relative and complete catchment coverage. These are numerical controls, not scientific BoM parity tolerances. Input must already be WGS84; vector file import/reprojection and polygon-driven grid masking are not yet included. ASCII does not embed a CRS. Assign the appropriate datum on import after verifying it; never treat degrees as metres.
+- Added experimental repository-only wrapper `ryan-scripts/hydrology-python/generate_spatial_ifd.py` with editable defaults, reference or explicit grid, explicit source keys, immutable cache namespace and offline-by-default behaviour. Multi-event extraction accepts duration/AEP lists (Cartesian product); use an existing output directory for multiple GeoTIFFs. A single reference raster is event-specific. Cache inspection validates exact selected source/event tables and reports missing coordinates without fetching. Batch extraction checks all existing responses and the missing-point budget before the first new request, reads each cached point once, and commits each successful new point. Do not add to the installed/MCP catalogue before authentic source qualification and wrapper acceptance.
 
 ## Example (offline-first Python API)
 
@@ -57,7 +57,7 @@ The reference depth of 100 mm above is illustrative, not a catchment mean. For a
 1. Local agent: obtain one genuine point response using the documented AllIFDDatasets query (small authorised request); retain original bytes/hash, request URL/coordinates, response metadata/revision, exact layer/table path and units. Identify whether a bulk authoritative raster is available and confirm acceptable usage before any larger batch. Verify baseline and source identity explicitly; do not use default/adjusted tables. Update parser/fixture only using evidenced schema; allow explicit missing/NoData policy only after verifying semantics.
 2. Owner to provide a small BoM ASCII raster (5×5 to 10×10 preferred) and AEP, duration, datum/CRS, units, issue/version, extent/registration metadata when convenient. No user data is required now. Retain source privately unless publication is authorised.
 3. Derive exact sampling coordinates from that raster, compare point response values, axes and NoData mask; report max absolute/relative difference, MAE, RMSE and rounding/quantisation effects. Declare numerical tolerance based on source precision before comparison, and check multipliers against a common reference. Do not declare parity unless evidence supports it.
-4. Validate GeoTIFF and the reference-driven wrapper on Windows, add polygon-derived physical intersection areas and multi-event convenience after CRS/source admission, and consider catalogue/installed-script promotion once qualified. Reconcile stable API with #350; do not modify its branch.
+4. Validate GeoTIFF, batch and the reference-driven wrapper on Windows, check polygon weights on authentic catchment geometry, and consider catalogue/installed-script promotion once qualified. Reconcile stable API with #350; do not modify its branch.
 5. Run focused tests, Ruff format/lint, strict modified-file Pyright and package/installed-wheel verification per repository policy (Python 3.11 PR CI and Windows Python 3.14 primary acceptance). No extra CI matrix or release/merge authorised.
 
 ## Validation and delivery
@@ -68,7 +68,7 @@ The reference depth of 100 mm above is illustrative, not a catchment mean. For a
 
 ## Validation and wrapper usage update (2026-11-28)
 
-- First PR head `7de6950` failed [Ruff and whitespace](https://github.com/Chain-Frost/ryan-tools/actions/runs/46140063698/job/140963819391) on 11 deterministic findings; policy failed consequently and tests were skipped. Corrected those findings in the next batch. Head `b59428f` stopped at the installed-script inventory documentation guard: 163 tracked paths, 84 selected and 79 excluded. Updated the two index/register counts while retaining repository-only status. Exact-head hosted results remain pending.
+- First PR head `7de6950` failed [Ruff and whitespace](https://github.com/Chain-Frost/ryan-tools/actions/runs/46140063698/job/140963819391) on 11 deterministic findings; policy failed consequently and tests were skipped. Corrected those findings in the next batch. Head `b59428f` stopped at the installed-script inventory documentation guard: 163 tracked paths, 84 selected and 79 excluded. Updated the two index/register counts while retaining repository-only status. Head `dc2a05b` passed Ruff/whitespace and POSIX wrapper security; remaining jobs were running when the next feature batch was prepared. New-head results remain pending.
 - An isolated Python 3.13.5 Linux prototype with a stub of the grid dataclass interface passed synthetic Rasterio GeoTIFF roundtrip, no-clobber, multiplier tags/values, physical weighted mean and NoData/error-metric checks. This is not a full repository or exact-head validation. The container cannot resolve GitHub or the Data Hub; direct `git ls-remote` and DNS checks failed. The documented point-query URL could not be retrieved using web access either. No authentic response was admitted.
 - CLI example (only after verifying dataset keys and datum; no network by default):
 
@@ -78,8 +78,27 @@ python ryan-scripts/hydrology-python/generate_spatial_ifd.py --reference bom.asc
 
 The command assumes an existing cache. For a genuinely admitted, service-approved point batch, explicitly provide a small `--max-new-points` budget. For unknown source keys, inspect one raw genuine response rather than guessing. No parity assertion is emitted by the comparison.
 
+## Batch and catchment API examples
+
+```python
+from ryan_library.functions.hydrology.spatial_ifd import IFDEvent, collect_grids, inspect_cache
+from ryan_library.functions.hydrology.spatial_ifd_catchments import catchment_weights
+
+events = (IFDEvent(60, 1), IFDEvent(120, 1), IFDEvent(120, 10))
+coverage = inspect_cache(spec, source, cache, events)
+grids = collect_grids(spec, source, cache, events)  # cache-only by default
+# 'polygon' is a valid WGS84 Shapely Polygon or MultiPolygon, fully inside spec.
+weights = catchment_weights(spec, polygon)
+mean_mm = weights.mean_depth(grids[0])
+factors = weights.multipliers(grids[0])
+```
+
+For multiple events, supply e.g. `--duration-min 60 120 --aep-percent 1 10 --output existing_directory`. The batch returns every requested event only on complete acquisition; each GeoTIFF is published independently and an export failure can leave already published complete files. Never overwrite an existing file. `--inspect-cache` is network-free regardless of the supplied request budget. It does create the cache database if absent. No output is written in that mode. Use a new cache snapshot for intentional refresh. A snapshot does not guarantee uniform server revisions.
+
 ## Progress
 
 ### 2026-11-28
 
 Established independent cache/grid foundation and synthetic test suite; production API schema, bulk access permission, source equivalence and full GIS workflow remain open. Existing rainfall-loss screening record is overdue; not part of this scope.
+
+- Added multi-event collection, validated cache diagnostics and ellipsoidal catchment weighting. The isolated Python 3.13.5 numerical probe of a fractional rectangle and triangle found relative area-closure errors below 2e-9 using Shapely 2.1.2/PyProj 3.7.2. New regression tests are written; exact-head CI remains to be verified. Authentic source and owner BoM comparison are still required.

@@ -11,7 +11,7 @@ from __future__ import annotations
 from decimal import Decimal
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-28.1"
+WRAPPER_VERSION = "2026-11-28.2"
 WORKING_DIR = Path.cwd()
 REFERENCE: Path | None = None
 ASSUME_WGS84 = False
@@ -23,8 +23,9 @@ SPACING = Decimal("0.025")
 SOURCE_PATH: list[str] = []
 SNAPSHOT = ""
 CACHE = Path.home() / ".ryan-tools" / "spatial-ifd" / "cache.sqlite3"
-DURATION_MIN = 60
-AEP_PERCENT = 1.0
+DURATION_MIN = [60]
+AEP_PERCENT = [1.0]
+INSPECT_CACHE = False
 MAX_NEW_POINTS = 0
 OUTPUT: Path | None = None
 REFERENCE_DEPTH_MM: float | None = None
@@ -33,10 +34,20 @@ PAUSE_ON_FINISH = False
 import argparse
 import sqlite3
 from collections.abc import Sequence
+from math import isfinite
 
 from rasterio.errors import RasterioError
 
-from ryan_library.functions.hydrology.spatial_ifd import GridSpec, IFDSource, PointCache, collect_grid, write_ascii_grid
+from ryan_library.functions.hydrology.spatial_ifd import (
+    GridSpec,
+    IFDEvent,
+    IFDSource,
+    PointCache,
+    SpatialIFDGrid,
+    collect_grids,
+    inspect_cache,
+    write_ascii_grid,
+)
 from ryan_library.functions.hydrology.spatial_ifd_rasters import (
     ReferenceGrid,
     compare_reference,
@@ -60,8 +71,9 @@ class _Options(argparse.Namespace):
     source_path: list[str]
     snapshot: str
     cache: Path
-    duration_min: int
-    aep_percent: float
+    duration_min: list[int]
+    aep_percent: list[float]
+    inspect_cache: bool
     max_new_points: int
     output: Path | None
     reference_depth_mm: float | None
@@ -84,10 +96,11 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--source-path", nargs="+", default=SOURCE_PATH, help="Exact layer/table keys")
     parser.add_argument("--snapshot", default=SNAPSHOT, help="Local immutable cache namespace")
     parser.add_argument("--cache", type=Path, default=CACHE)
-    parser.add_argument("--duration-min", type=int, default=DURATION_MIN)
-    parser.add_argument("--aep-percent", type=float, default=AEP_PERCENT)
+    parser.add_argument("--duration-min", type=int, nargs="+", default=DURATION_MIN)
+    parser.add_argument("--aep-percent", type=float, nargs="+", default=AEP_PERCENT)
+    parser.add_argument("--inspect-cache", action=argparse.BooleanOptionalAction, default=INSPECT_CACHE)
     parser.add_argument("--max-new-points", type=int, default=MAX_NEW_POINTS, help="Default zero: no network access")
-    parser.add_argument("--output", type=Path, default=OUTPUT, help="New .asc or .tif file")
+    parser.add_argument("--output", type=Path, default=OUTPUT, help="New .asc/.tif file (one event) or existing output directory (batch)")
     parser.add_argument(
         "--reference-depth-mm", type=float, default=REFERENCE_DEPTH_MM, help="Export depth ratios instead"
     )
@@ -110,47 +123,75 @@ def _spec(options: _Options) -> tuple[GridSpec, ReferenceGrid | None]:
     return GridSpec(options.north_lat, options.west_lon, options.rows, options.cols, options.spacing), None
 
 
-def _output_path(options: _Options) -> Path | None:
-    if options.output is None:
-        if options.reference is None:
-            msg = "Set an output or reference raster"
-            raise ValueError(msg)
-        return None
-    path = (options.working_dir / options.output).absolute()
-    if path.exists() or path.is_symlink():
-        raise FileExistsError(path)
-    if path.suffix.lower() not in {".asc", ".tif", ".tiff"} or not path.parent.is_dir():
-        msg = "Output must be .asc or .tif/.tiff in an existing directory"
+def _events(options: _Options) -> tuple[IFDEvent, ...]:
+    events = tuple(IFDEvent(duration, aep) for duration in options.duration_min for aep in options.aep_percent)
+    if not events or len(set(events)) != len(events):
+        msg = "Choose nonempty, unique durations and AEPs"
         raise ValueError(msg)
-    return path
+    if options.reference is not None and len(events) != 1:
+        msg = "A reference depth raster is specific to one event"
+        raise ValueError(msg)
+    return events
+
+
+def _output_paths(options: _Options, events: tuple[IFDEvent, ...]) -> tuple[Path, ...]:
+    if options.output is None:
+        if options.reference is None and not options.inspect_cache:
+            msg = "Set an output or reference raster, or inspect the cache"
+            raise ValueError(msg)
+        return ()
+    path = (options.working_dir / options.output).absolute()
+    if len(events) == 1:
+        outputs = (path,)
+    else:
+        if not path.is_dir():
+            msg = "Batch output must be an existing directory"
+            raise ValueError(msg)
+        prefix = "depth" if options.reference_depth_mm is None else "factor"
+        outputs = tuple(path / f"{prefix}_{event.aep_percent}pct_{event.duration_min}min.tif" for event in events)
+    for output in outputs:
+        if output.exists() or output.is_symlink():
+            raise FileExistsError(output)
+        if output.suffix.lower() not in {".asc", ".tif", ".tiff"} or not output.parent.is_dir():
+            msg = "Output must be .asc or .tif/.tiff in an existing directory"
+            raise ValueError(msg)
+    return outputs
+
+
+def _write_output(path: Path, grid: SpatialIFDGrid, reference_depth_mm: float | None) -> None:
+    if path.suffix.lower() == ".asc":
+        values = grid.depths_mm if reference_depth_mm is None else grid.multipliers(reference_depth_mm)
+        write_ascii_grid(path, grid.spec, values)
+    else:
+        write_geotiff(path, grid, reference_depth_mm=reference_depth_mm)
+    print(f"Created {path}")
 
 
 def _run(options: _Options) -> None:
     spec, reference = _spec(options)
-    output = _output_path(options)
+    events = _events(options)
     source = IFDSource(tuple(options.source_path), options.snapshot)
     cache = PointCache((options.working_dir / options.cache).absolute())
-    grid = collect_grid(
-        spec,
-        source,
-        cache,
-        options.duration_min,
-        options.aep_percent,
-        max_new_points=options.max_new_points,
-    )
-    print(f"Completed {spec.rows} x {spec.cols} grid; cached={grid.cached_cells}, fetched={grid.fetched_cells}")
+    if options.inspect_cache:
+        coverage = inspect_cache(spec, source, cache, events)
+        print(f"Cached: {coverage.cached_cells}; missing: {len(coverage.missing_points)}; network disabled")
+        for point in coverage.missing_points:
+            print(f"Missing: {point.latitude}, {point.longitude}")
+        return
+    outputs = _output_paths(options, events)
+    if options.reference_depth_mm is not None:
+        if not isfinite(options.reference_depth_mm) or options.reference_depth_mm <= 0:
+            msg = "Reference depth must be finite and positive"
+            raise ValueError(msg)
+    grids = collect_grids(spec, source, cache, events, max_new_points=options.max_new_points)
+    print(f"Completed {spec.rows} x {spec.cols} grid for {len(grids)} events")
+    print(f"Cached={grids[0].cached_cells}, fetched={grids[0].fetched_cells}")
     if reference is not None:
-        print(compare_reference(grid, reference))
+        print(compare_reference(grids[0], reference))
         print("Numerical comparison only; source equivalence and acceptance tolerance require independent review.")
-    if output is not None:
-        if output.suffix.lower() == ".asc":
-            values = (
-                grid.depths_mm if options.reference_depth_mm is None else grid.multipliers(options.reference_depth_mm)
-            )
-            write_ascii_grid(output, spec, values)
-        else:
-            write_geotiff(output, grid, reference_depth_mm=options.reference_depth_mm)
-        print(f"Created {output}")
+    if outputs:
+        for output, grid in zip(outputs, grids, strict=True):
+            _write_output(output, grid, options.reference_depth_mm)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
