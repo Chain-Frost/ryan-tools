@@ -2,12 +2,34 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Bounded native acceptance passed locally; isolation correction awaits final-head CI and independent review |
+| Status | Bounded native acceptance passed; current-main integration validated locally, with hosted checks and review tracked on #145 |
 | Owner | ChatGPT / local maintainer agent |
 | Created | 2026-10-21 |
 | Updated | 2026-11-28 |
 | Next review | 2026-12-05 |
-| Baseline | main `5eda4f06cafbbdc5f528bb108909438302a13ce5`; existing branch `feature/rorb-parameter-calibration-20261021` |
+| Baseline | main `5a237cb94841dfff250b30a376451c26680440c8`; existing branch `feature/rorb-parameter-calibration-20261021` |
+
+## 2026-11-28 reconciliation after #118
+
+The reconciliation commit joins reviewed #145 head `4578e22319ecca897c7ded27a9f7f57e321fa21b` and
+the accepted #118 squash `5a237cb94841dfff250b30a376451c26680440c8` in an isolated worktree.
+Calibration and converter code and tests match their respective parent trees. The combined guide and per-file
+ledger cover 165 tracked paths, with 84 wheel selections and 81 exclusions. Both RORB scripts and their guide
+are repository-only. The existing bare PyRORB dependency and the bounded CMD 6.44 native receipt carry forward.
+
+Windows / Python 3.14.6 validation: 83 focused calibration, reader compatibility, conversion and inventory tests
+passed. Six Windows symlink tests skipped for lack of symlink privilege. The Windows junction test passed.
+Ruff lint and format passed on ten Python files. Strict Pyright on the same files passed with the repository CI
+typing constraint NumPy 2.3.5 supplied from a scratch install. The normal runtime NumPy remained 2.5.3.
+The inventory audit, documentation/links and whitespace checks passed. The no-bump
+`python repo-scripts/build_library.py --no-bump --skip-pip` build and `verify_wheel.py` verified
+26.11.17.3. The copied converter imported both conversion modules from the installed wheel and passed a
+synthetic dry run, STM write and existing-output refusal. This reconciliation required no new local RORB_CMD run.
+
+[PR #145](https://github.com/Chain-Frost/ryan-tools/pull/145) tracks hosted acceptance and independent review
+for the integrated head. Owner approval is required before merge or release. Once #145 is on main, reconcile
+and retarget [PR #347](https://github.com/Chain-Frost/ryan-tools/pull/347). Keep the private archive reader
+qualification under [#348](https://github.com/Chain-Frost/ryan-tools/issues/348).
 
 ## 2026-11-28 other-PC native acceptance (#345)
 

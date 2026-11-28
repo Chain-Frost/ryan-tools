@@ -3,12 +3,15 @@
 Read this at the start of repository work. Follow [work tracking](../WORK_TRACKING.md) for status meanings, review rules
 and the handoff template. The linked record owns detailed progress; this table is the compact discovery summary.
 
+Current script inventory scope with #118 and #145: 165-file lifecycle audit (84 selected, 81 excluded). Both scripts and their shared guide are repository-only. Wheel and MCP script selection stays at the existing scope.
+
 ## Open work
 
 | Work front / status record | Status | Owner | Updated | Next review | Next action / dependency |
 | --- | --- | --- | --- | --- | --- |
+| [TUFLOW rainfall to RORB STM](2026-11-28-rorb-storm-conversion.md) | Public rainfall conversion verified; native and upstream release pending | #118 maintainer | 2026-11-28 | 2026-12-05 | Compare a matching RORBwin 6.52 reference, then qualify adoption of the released #252 codec under #346. |
 | [RORB readers and MCP cross-repo adoption](2026-11-05-rorb-readers-mcp.md) | Phase B complete; dependency-policy follow-up in #145 | PR #145 / maintainer | 2026-11-28 | 2026-12-05 | #344 merged and v26.11.27.1 published; #145 removes the exact version constraint and validates the resolved PyRORB wheel. Keep original reader gates and calibration acceptance separate. |
-| [Generalised RORB calibration](2026-10-21-rorb-calibration.md) | Native single-case acceptance passed locally; final correction review pending | ChatGPT / local maintainer agent | 2026-11-28 | 2026-12-05 | #345/#145: archived inputs authenticated; corrected per-run staging reproduces all 2,023 Q ordinates and 289 clocks/increments exactly. 23 focused tests and strict Pyright pass; local Ruff is application-control blocked. Require final-head hosted CI, independent native-receipt review and owner integration approval. |
+| [Generalised RORB calibration](2026-10-21-rorb-calibration.md) | Native single-case acceptance passed; current-main reconciliation under validation | ChatGPT / local maintainer agent | 2026-11-28 | 2026-12-05 | #145 preserves the #345 CMD 6.44 receipt and integrates the #118 squash. Obtain refreshed hosted checks and review, then owner merge approval. Reconcile #347 after the parent reaches main. |
 | [Python 3.11 compatibility](2026-11-24-python311-compatibility.md) | Needs review; local four-version acceptance passes | Compatibility migration | 2026-11-24 | 2026-11-25 | #335: publish checked PR, independent final-head review and hosted matrix; standalone readers feed PyRORB #226. |
 | [TUFLOW preflight grouping and scalability](2026-11-17-tuflow-preflight-scalability-320.md) | Draft; PR checks, installed wheel and SMB comparison outstanding | TUFLOW / maintainer | 2026-11-17 | 2026-11-19 | #320: consolidate BC console messages, preserve complete CSV issue provenance and timings; verify candidate, then pair baseline and upstream performance measurements. |
 | [Design storm rainfall-loss screening](2026-11-16-rainfall-loss-screening.md) | Draft implementation; source/native acceptance open | Hydrology / maintainer | 2026-11-16 | 2026-11-23 | PR #318 adds wrapper, AEP/TP screening and preburst options; confirm exact-head CI, ARR Data Hub/BoM site acceptance, native IL/CL parity, installed wheel before merging. |
