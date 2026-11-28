@@ -108,6 +108,7 @@ but they are not current architectural policy when they conflict with the canoni
 
 | Document | Scope and status |
 | --- | --- |
+| [Nested frequency storms](work/2026-11-28-nested-frequency-storms.md) | Depth-curve API, ARF/preburst/climate-loss design and experimental TUFLOW CSV workflow |
 | [Rainfall-loss screening development](work/2026-11-16-rainfall-loss-screening.md) | Draft #317/#318 wrapper, BoM/ARR 2026 adapters, outstanding genuine-data and engine-acceptance gates |
 | [WP13 QGIS project structural comparison](work/2026-11-08-wp13-qgis-project-comparison.md) | Selected read-only #169 structural layer comparison, focused tests, review and Windows acceptance gates for draft #283 |
 | [WP06 owned-output publication](work/2026-11-08-wp06-publication.md) | Profile PNG staging, archive and GDAL output safety, validation and stacked PR delivery |

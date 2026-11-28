@@ -165,19 +165,18 @@ def _steps(
     return tuple((depth * fraction, float(timestep_min)) for fraction in _fractions(increments, name))
 
 
-def _rainfall_excess(steps: Sequence[tuple[float, float]], losses: LossSpec) -> tuple[float, float, float]:
-    """Compute each TP bin's effective rain and aggregate it across the whole storm.
+def rainfall_excess_increments(steps: Sequence[tuple[float, float]], losses: LossSpec) -> tuple[float, ...]:
+    """Apply the shared IL/CL or IL/coefficient convention per (mm, minutes) bin.
 
-    Fractional CL timing uses the post-IL rainfall fraction of the crossing bin.
-    Explicit full_increment timing instead applies the *whole* bin's CL capacity
-    when IL is exhausted, following the separately researched experimental
-    RORBwin 6.52 candidate. Neither profile has full native-model acceptance.
+    Neither crossing-bin timing option is qualified as native TUFLOW equivalence.
     """
     il_remaining = losses.initial_loss_mm
-    total_excess = 0.0
-    peak_rate = 0.0
-    max_bin = 0.0
+    increments: list[float] = []
     for rain, dt in steps:
+        _nonnegative(rain, "Rainfall increment")
+        if not isfinite(dt) or dt <= 0:
+            msg = "Rainfall timestep must be finite and positive"
+            raise ValueError(msg)
         consumed_il = min(il_remaining, rain)
         il_remaining -= consumed_il
         after_il = rain - consumed_il
@@ -192,9 +191,19 @@ def _rainfall_excess(steps: Sequence[tuple[float, float]], losses: LossSpec) -> 
             continuing_fraction = 1.0 if losses.continuing_loss_timing == "full_increment" else post_il_fraction
             continuing_capacity = continuing_loss * dt / 60.0 * continuing_fraction
             excess = after_il - min(after_il, continuing_capacity)
+        increments.append(excess)
+    return tuple(increments)
+
+
+def _rainfall_excess(steps: Sequence[tuple[float, float]], losses: LossSpec) -> tuple[float, float, float]:
+    """Summarize the shared per-interval loss accounting."""
+    total_excess = 0.0
+    peak_rate = 0.0
+    max_bin = 0.0
+    for excess, (_, dt) in zip(rainfall_excess_increments(steps, losses), steps, strict=True):
         total_excess += excess
-        max_bin = max(max_bin, excess)
         peak_rate = max(peak_rate, excess * 60.0 / dt)
+        max_bin = max(max_bin, excess)
     return total_excess, peak_rate, max_bin
 
 
