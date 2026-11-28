@@ -162,13 +162,22 @@ def test_editable_settings_and_explicit_cli_overrides(tmp_path: Path, monkeypatc
 
 def test_synthetic_rorb_execution(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     catg, stm = tmp_path / "a.catg", tmp_path / "b.stm"
-    catg.write_text("a")
-    stm.write_text("b")
+    catg_bytes, stm_bytes = b"catchment\r\nfixed padding   \r\n", b"storm\r\n1,2,-99\r\n"
+    catg.write_bytes(catg_bytes)
+    stm.write_bytes(stm_bytes)
 
     def fake_run(*_args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
         work_dir = kwargs["cwd"]
         assert isinstance(work_dir, Path)
-        (work_dir / "fake.out").write_text("Inc Time Hyd001 Hyd002\n1 0 1 2\n2 1 4 3\n")
+        par_lines = (work_dir / "calibration.par").read_text().splitlines()
+        catchment_locator, storm_locator = Path(par_lines[1][10:]), Path(par_lines[2][10:])
+        assert not catchment_locator.is_absolute()
+        assert not storm_locator.is_absolute()
+        staged_catchment, staged_storm = work_dir / catchment_locator, work_dir / storm_locator
+        assert staged_catchment.read_bytes() == catg_bytes
+        assert staged_storm.read_bytes() == stm_bytes
+        # Match the observed native rule: output follows the catchment, not cwd.
+        staged_catchment.with_suffix(".out").write_text("Inc Time Hyd001 Hyd002\n1 0 1 2\n2 1 4 3\n")
         return subprocess.CompletedProcess(args=["RORB_CMD"], returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(calibration.subprocess, "run", fake_run)
@@ -205,6 +214,10 @@ def test_synthetic_rorb_execution(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     assert len(records) == 1
     assert records[0]["status"] == "success"
     assert records[0]["rmse"] == "1.0"
+    assert Path(records[0]["output_report"]).parent == Path(records[0]["directory"])
+    assert catg.read_bytes() == catg_bytes
+    assert stm.read_bytes() == stm_bytes
+    assert not catg.with_suffix(".out").exists()
 
 
 def test_score_archived_output_without_rorb(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -2,12 +2,62 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Blocked on verified inputs on another computer; CI typing correction checked locally |
+| Status | Bounded native acceptance passed locally; isolation correction awaits final-head CI and independent review |
 | Owner | ChatGPT / local maintainer agent |
 | Created | 2026-10-21 |
 | Updated | 2026-11-28 |
 | Next review | 2026-12-05 |
 | Baseline | main `5eda4f06cafbbdc5f528bb108909438302a13ce5`; existing branch `feature/rorb-parameter-calibration-20261021` |
+
+## 2026-11-28 other-PC native acceptance (#345)
+
+This receipt supersedes the unavailable-input and pre-start execution blockers below for this machine and case.
+Baseline software head `2a66697c3cc8e1f97becb1253d2fd3d843ee333e`; continue the existing PR #145 branch.
+Private receipt **RT345-NATIVE-20261128** retains exact original/staged paths, SHA-256/size, executable identity,
+generated PAR/report, complete comparisons and before/after source checks. No proprietary data or binary is committed.
+
+Authenticated the original model, storm, 15/10/5 PAR/report, historical script and CSV from read-only custody.
+Report site headings identify calculated versus actual discharge; all 289 observed ordinates agree with the storm
+source at printed precision. Archive inspection/scoring reproduces RMSE **95.1206399347255**, MSE
+**9047.936141591696**, NSE **-20.074156571084288**, calculated peak **467.856 m3/s at 5.75 h** and observed
+peak **101.09 m3/s at 11.5 h**. These times use the original one-based printed table clock, 0.25 to 72.25 h;
+the report summary clocks are one 0.25 h step earlier. Both conventions are retained without shifting series.
+The archived CSV's rounded 9048 entry is MSE, not RMSE. This is workflow reproduction, not acceptable calibration fit.
+
+Windows / normal **Python 3.14.5**, all Python commands/scripts executed from an isolated W-drive worktree;
+generated evidence and model copies are local scratch. Original project files remained read-only. Used the installed
+Program Files executable in place; its fresh output identifies **CMD 6.44 (12 March 2019)**, separately from the
+older documentation's 6.31 basis and bundled release-note versions. Original settings verified: Kc 15, m 0.8,
+IL/CL mode 1, one ISA/burst, IL 10 mm, CL 5 mm/h, verbosity 3 and 0.25 h / 288 calculation increments.
+
+**Reproducible isolation defect and correction.** The first single-combination/one-worker process returned exit 0
+and generated the correct report beside its absolute-path catchment input in local scratch, outside the per-run
+folder. The CLI correctly refused to score an absent per-run report and returned 1. Nothing was written to original
+custody or Program Files. Fix: stage byte-preserved catchment/storm copies in each fresh run directory, with short
+relative PAR locators. A focused synthetic native-placement check now follows the catchment path, verifies staged
+bytes and source preservation, and would expose the original defect.
+
+The second and final native process repeated **only the same single case**, one worker, after correction:
+native and CLI exits **0**, exactly one report inside its run directory, all **seven Q series / 2,023 ordinates**
+plus **289 times and increments exactly equal** to the archive (zero absolute difference), identical metrics and
+byte-identical comparison PNG to archive scoring. No sweep, parallel run or application-control workaround.
+Input and executable hashes remained unchanged. The first diagnostic's unexpected scratch report is retained and
+documented; the corrected report, logs, PAR, inputs and plot are isolated within its run directory.
+
+**Local checks:** 23 focused calibration tests passed; strict Pyright on both changed Python files returned zero
+errors. Three input-specific audited preflights (default; explicit execute plus dry-run; configured execute plus
+dry-run) returned 0 with zero external launch events, no CLI-created output directory and unchanged inputs, both
+before and after correction. Archive inspect and score CLI modes passed. Local Ruff lint/format were attempted but
+the installed Ruff executable was denied before startup (`WinError 5`); neither is claimed passed locally. The prior
+accepted software head's CI/review remains historical; final pushed-head hosted checks and independent review are
+required for this correction. No package/library/dependency change; bare `pyrorb` retained.
+
+**Limits / next:** direct mapped/UNC native inputs, parallel licensing and PyHMA scoring are not tested. Original
+source authentication and local staged execution are distinct. Keep [#345](https://github.com/Chain-Frost/ryan-tools/issues/345)
+open until this native receipt and final correction are reviewed. Refresh exact-head CI and independent review,
+then obtain owner integration approval; no merge, release or proprietary publication is authorised.
+
+Earlier current-state and next-action sections below describe their dated stages, not a reason to repeat the run.
 
 ## 2026-11-28 integration and dependency follow-up
 

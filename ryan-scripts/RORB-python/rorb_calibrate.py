@@ -27,7 +27,7 @@ from pathlib import Path
 from statistics import mean
 from typing import Any, cast
 
-SCRIPT_VERSION = "2026-11-28.1"
+SCRIPT_VERSION = "2026-11-28.2"
 
 # Editable settings. Paths are relative to the invocation directory unless absolute.
 # Leave both report paths unset for calibration; choose only one observation source.
@@ -323,8 +323,13 @@ def run_one(
     }
     try:
         run_dir.mkdir()  # never overwrite a previous calibration run
+        # CMD writes the report beside its catchment input, even when cwd differs.
+        # Stage byte-preserved inputs per run and use short relative PAR locators.
+        staged_catg, staged_stm = Path("catchment.catg"), Path("storm.stm")
+        shutil.copyfile(catg, run_dir / staged_catg)
+        shutil.copyfile(stm, run_dir / staged_stm)
         par = run_dir / "calibration.par"
-        par.write_text(render_par(catg, stm, case, m, loss_model), encoding="utf-8")
+        par.write_text(render_par(staged_catg, staged_stm, case, m, loss_model), encoding="utf-8")
         process = subprocess.run(
             [str(executable), par.name],
             cwd=run_dir,
