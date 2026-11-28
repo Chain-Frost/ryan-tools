@@ -3,6 +3,7 @@
 import csv
 import subprocess
 import sys
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -17,6 +18,44 @@ def test_parameter_ranges() -> None:
         calibration.values("0:5:3")
     with pytest.raises(ValueError):
         calibration.values("0:5:0")
+
+
+@pytest.mark.parametrize(("model", "continuing"), [(1, "5"), (2, "0.35")])
+def test_cmd_par_matches_calibration_format(model: int, continuing: str) -> None:
+    case = calibration.Combination(Decimal(15), Decimal(10), Decimal(continuing))
+    text = calibration.render_par(Path("catchment.catg"), Path("storm.stm"), case, Decimal("0.8"), model)
+    assert text == (
+        "# BEGIN\nCat file :catchment.catg\nStm file :storm.stm\nLumped kc:T\nVerbosity:3\n"
+        f"Lossmodel:{model}\nNum ISA  :1\nISA 1    :15,0.8\nNum burst:1\nISA 1    :10,{continuing}\n# END\n"
+    )
+
+
+@pytest.mark.parametrize("flags", [["--dry-run"], ["--execute"]])
+def test_invalid_runoff_coefficient_is_rejected_before_writes(tmp_path: Path, flags: list[str]) -> None:
+    catg, stm = tmp_path / "model.catg", tmp_path / "event.stm"
+    catg.touch()
+    stm.touch()
+    out = tmp_path / "results"
+    args = [
+        "--catg",
+        str(catg),
+        "--stm",
+        str(stm),
+        "--rorb",
+        sys.executable,
+        "--output",
+        str(out),
+        "--sim-column",
+        "Hyd001",
+        "--obs-column",
+        "Hyd002",
+        "--loss-model",
+        "2",
+        "--continuing",
+        "0.5,1.01",
+    ]
+    assert calibration.main([*args, *flags]) == 1
+    assert not out.exists()
 
 
 def test_rmse_is_square_root_of_mse() -> None:

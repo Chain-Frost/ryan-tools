@@ -27,7 +27,7 @@ from pathlib import Path
 from statistics import mean
 from typing import Any, cast
 
-SCRIPT_VERSION = "2026-11-28.2"
+SCRIPT_VERSION = "2026-11-28.3"
 
 # Editable settings. Paths are relative to the invocation directory unless absolute.
 # Leave both report paths unset for calibration; choose only one observation source.
@@ -199,22 +199,22 @@ def score(observed: list[float], simulated: list[float], time: list[float]) -> d
 
 
 def render_par(catg: Path, stm: Path, case: Combination, m: Decimal, loss_model: int) -> str:
-    return "\n".join(
-        (
-            "# BEGIN",
-            f"Cat file :{catg}",
-            f"Stm file :{stm}",
-            "Lumped kc:T",
-            "Verbosity:3",
-            f"Lossmodel:{loss_model}",
-            "Num ISA  :1",
-            f"ISA 1    :{case.kc},{m}",
-            "Num burst:1",
-            f"ISA 1    :{case.il},{case.continuing}",
-            "# END",
-            "",
-        )
+    """Serialize the supported one-ISA, one-burst trial with PyRORB's CMD writer."""
+    from runoff_routing.rorb_codec import serialize_cmd_par
+    from runoff_routing.rorb_model import LossMode, LossValue, ParameterSet, RoutingValue
+
+    parameters = ParameterSet(
+        catchment_reference=str(catg),
+        storm_reference=str(stm),
+        lumped_kc=True,
+        verbosity=3,
+        loss_model=LossMode(loss_model),
+        num_isa=1,
+        num_bursts=1,
+        routing=(RoutingValue(1, case.kc, m),),
+        losses=(LossValue(1, 1, case.il, case.continuing),),
     )
+    return serialize_cmd_par(parameters).decode("utf-8")
 
 
 def plot_hydrograph(path: Path, time: list[float], observed: list[float], simulated: list[float]) -> None:
@@ -539,6 +539,9 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901 -- standalone CLI 
         kcs, ils, continuing = values(args.kc), values(args.il), values(args.continuing)
         if min(kcs) <= 0 or min(ils) < 0 or min(continuing) < 0:
             message = "Kc must be positive; losses must be nonnegative"
+            raise ValueError(message)
+        if args.loss_model == 2 and max(continuing) > 1:
+            message = "Loss model 2 requires a runoff coefficient between 0 and 1"
             raise ValueError(message)
         run_count = len(kcs) * len(ils) * len(continuing)
         if run_count > args.max_runs:
