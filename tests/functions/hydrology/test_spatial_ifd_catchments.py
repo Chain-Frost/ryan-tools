@@ -71,7 +71,7 @@ def test_vector_union_and_explicit_crs(tmp_path: Path) -> None:
     path = tmp_path / "catchment.gpkg"
     first = box(118.99, -23.01, 119.01, -22.99)
     second = box(119.02, -23.03, 119.03, -23.02)
-    schema = {"geometry": "Polygon", "properties": {}}
+    schema: dict[str, str | dict[str, str]] = {"geometry": "Polygon", "properties": {}}
     with fiona.open(path, "w", driver="GPKG", layer="basin", schema=schema, crs="EPSG:4326") as sink:
         sink.write({"geometry": mapping(first), "properties": {}})
         sink.write({"geometry": mapping(second), "properties": {}})

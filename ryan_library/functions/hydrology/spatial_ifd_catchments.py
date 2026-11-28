@@ -11,6 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from math import fsum, isclose, isfinite
 from pathlib import Path
+from typing import cast
 
 import fiona
 import numpy as np
@@ -55,14 +56,15 @@ def _ellipsoidal_area(geometry: BaseGeometry, geod: Geod) -> float:
         if geometry.is_empty:
             return 0.0
         dense = geometry.segmentize(_EDGE_SEGMENT_DEGREES)
-        if not isinstance(dense, Polygon):
-            msg = "Unexpected densified geometry type"
-            raise ValueError(msg)
         # A counter-clockwise exterior and clockwise holes ensure subtraction.
-        area, _ = geod.geometry_area_perimeter(orient(dense, sign=1.0))
-        return abs(float(area))
-    if isinstance(geometry, (MultiPolygon, GeometryCollection)):
+        # PyProj accepts a Shapely geometry but leaves that parameter untyped.
+        area, _ = geod.geometry_area_perimeter(orient(dense, sign=1.0))  # pyright: ignore[reportUnknownMemberType]
+        return abs(area)
+    if isinstance(geometry, MultiPolygon):
         return fsum(_ellipsoidal_area(part, geod) for part in geometry.geoms)
+    if isinstance(geometry, GeometryCollection):
+        collection = cast("GeometryCollection[BaseGeometry]", geometry)
+        return fsum(_ellipsoidal_area(part, geod) for part in collection.geoms)
     # Intersection boundaries may include lines and points, with zero area.
     return 0.0
 

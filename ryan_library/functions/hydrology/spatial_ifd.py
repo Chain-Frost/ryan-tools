@@ -188,8 +188,8 @@ def _positive_depth(value: object) -> float:
 def parse_ifd(raw: bytes, point: Point, source: IFDSource) -> IFDTable:
     """Validate coordinate identity and one explicitly selected split-format table.
 
-    The table structure is based on PyTUFLOW's recorded ARR responses. The
-    production AllIFDDatasets path still requires genuine-response acceptance.
+    ARR Data Hub 2026v1 uses this structure for AllIFDDatasets / BoM IFD
+    Depths. The axes and values carry no unit or baseline metadata in JSON.
     """
     root = _mapping(cast("object", json.loads(raw)))
     inputs = _mapping(root.get("input_data"))
