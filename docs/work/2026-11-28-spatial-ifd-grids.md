@@ -2,7 +2,7 @@
 
 | Field | Value |
 | --- | --- |
-| Status | Draft foundation; production schema and source equivalence blocked |
+| Status | Draft implementation; authentic source and scientific acceptance blocked |
 | Owner | Unassigned |
 | Created | 2026-11-28 |
 | Updated | 2026-11-28 |
@@ -23,7 +23,9 @@ The existing `pytuflow.arr.api_client.ArrApiResponse.ifd_table` implementation o
 - Cache identity is endpoint + canonical coordinate/request parameters + operator snapshot. All returned AEPs/durations are retained in the raw payload; no TTL or silent overwrite. The snapshot is a local namespace, not an upstream version. Re-run with the same snapshot after interruption; choose a new snapshot for a deliberate refresh. Cache corruption, missing source or event and coordinate mismatches fail closed. Use a local filesystem SQLite database and one downloader process per cache. Do not distribute raw response archives without checking data rights and project privacy.
 - No production requests made. The live response was inaccessible in this environment. AllIFDDatasets table keys, real schema, units, source revision consistency, grid registration and numerical equivalence are not verified. The test keys are artificial.
 - Do not launch large API batches without confirming the service's acceptable request rate and bulk-access options. The budget limits new coordinates, not the number of HTTP retries. Prefer a licensed authoritative raster if available.
-- GeoTIFF output, polygon masks and area-weighted mean/extraction, multi-event convenience and a maintained wrapper/MCP catalogue entry are follow-ups after source admission. ASCII is geographic WGS84 and does not embed CRS; assign the appropriate CRS on import after datum verification, never treat degrees as metres.
+- Added GeoTIFF output with embedded EPSG:4326 and provenance tags; staged hard-link publication is atomic/no-clobber and fails closed on filesystems without hard-link support. Added single-band reference-raster import, exact grid registration comparison, explicit NoData reporting and error metrics. No automatic resampling or CRS conversion; missing CRS requires explicit WGS84 confirmation. Reference transform coordinates are represented to ten decimal places to remove binary floating-point noise.
+- Added physical area-weighted mean using caller-provided cell intersection areas (m²); polygon intersection generation and multi-event convenience remain future work. ASCII does not embed a CRS. Assign the appropriate datum on import after verifying it; never treat degrees as metres.
+- Added experimental repository-only wrapper `ryan-scripts/hydrology-python/generate_spatial_ifd.py` with editable defaults, reference or explicit grid, explicit source keys, immutable cache namespace and offline-by-default behaviour. Do not add to the installed/MCP catalogue before authentic source qualification and wrapper acceptance.
 
 ## Example (offline-first Python API)
 
@@ -55,7 +57,7 @@ The reference depth of 100 mm above is illustrative, not a catchment mean. For a
 1. Local agent: obtain one genuine point response using the documented AllIFDDatasets query (small authorised request); retain original bytes/hash, request URL/coordinates, response metadata/revision, exact layer/table path and units. Identify whether a bulk authoritative raster is available and confirm acceptable usage before any larger batch. Verify baseline and source identity explicitly; do not use default/adjusted tables. Update parser/fixture only using evidenced schema; allow explicit missing/NoData policy only after verifying semantics.
 2. Owner to provide a small BoM ASCII raster (5×5 to 10×10 preferred) and AEP, duration, datum/CRS, units, issue/version, extent/registration metadata when convenient. No user data is required now. Retain source privately unless publication is authorised.
 3. Derive exact sampling coordinates from that raster, compare point response values, axes and NoData mask; report max absolute/relative difference, MAE, RMSE and rounding/quantisation effects. Declare numerical tolerance based on source precision before comparison, and check multipliers against a common reference. Do not declare parity unless evidence supports it.
-4. Implement GeoTIFF with CRS and provenance, optional catchment geometry area weights and maintained entry point in accordance with wrapper and no-clobber standards. Reconcile stable API with #350; do not modify its branch. Assess MCP catalogue when the interface is stable.
+4. Validate GeoTIFF and the reference-driven wrapper on Windows, add polygon-derived physical intersection areas and multi-event convenience after CRS/source admission, and consider catalogue/installed-script promotion once qualified. Reconcile stable API with #350; do not modify its branch.
 5. Run focused tests, Ruff format/lint, strict modified-file Pyright and package/installed-wheel verification per repository policy (Python 3.11 PR CI and Windows Python 3.14 primary acceptance). No extra CI matrix or release/merge authorised.
 
 ## Validation and delivery
@@ -63,6 +65,18 @@ The reference depth of 100 mm above is illustrative, not a catchment mean. For a
 - Synthetic regression tests included for restart, overlapping extent/event reuse, budget, snapshot separation, malformed/incorrect data, immutable cache, exact event lookup, raster orientation via rasterio and no overwrite.
 - Container could not resolve GitHub and had no local checkout or repo-pinned Ruff/Pyright; no source or wheel tests have been executed against this GitHub revision in this session. Hosted checks and local Windows verification remain required. Do not treat tests added as tests passed.
 - Draft PR is the implementation checkpoint. Update this record with exact-head evidence before marking ready. No merge or release.
+
+## Validation and wrapper usage update (2026-11-28)
+
+- First PR head `7de6950` failed [Ruff and whitespace](https://github.com/Chain-Frost/ryan-tools/actions/runs/46140063698/job/140963819391) on 11 deterministic findings; policy failed consequently and tests were skipped. Corrected those findings in the next batch. Exact-head hosted results remain pending.
+- An isolated Python 3.13.5 Linux prototype with a stub of the grid dataclass interface passed synthetic Rasterio GeoTIFF roundtrip, no-clobber, multiplier tags/values, physical weighted mean and NoData/error-metric checks. This is not a full repository or exact-head validation. The container cannot resolve GitHub or the Data Hub; direct `git ls-remote` and DNS checks failed. The documented point-query URL could not be retrieved using web access either. No authentic response was admitted.
+- CLI example (only after verifying dataset keys and datum; no network by default):
+
+```powershell
+python ryan-scripts/hydrology-python/generate_spatial_ifd.py --reference bom.asc --assume-wgs84 --source-path VERIFIED_LAYER VERIFIED_TABLE --snapshot reference-v1 --duration-min 60 --aep-percent 1 --output candidate.tif --no-pause
+```
+
+The command assumes an existing cache. For a genuinely admitted, service-approved point batch, explicitly provide a small `--max-new-points` budget. For unknown source keys, inspect one raw genuine response rather than guessing. No parity assertion is emitted by the comparison.
 
 ## Progress
 

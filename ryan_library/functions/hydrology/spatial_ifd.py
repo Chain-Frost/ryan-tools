@@ -64,7 +64,7 @@ class GridSpec:
 
     def __post_init__(self) -> None:
         if self.rows <= 0 or self.cols <= 0 or self.rows * self.cols > MAX_GRID_CELLS:
-            msg = f"Grid must contain 1–{MAX_GRID_CELLS} cells"
+            msg = f"Grid must contain 1-{MAX_GRID_CELLS} cells"
             raise ValueError(msg)
         if not self.spacing.is_finite() or self.spacing <= 0:
             msg = "Grid spacing must be finite and positive"
@@ -72,7 +72,9 @@ class GridSpec:
         Point(self.north_lat, self.west_lon)
         half = self.spacing / 2
         Point(self.north_lat + half, self.west_lon - half)
-        Point(self.north_lat - (self.rows - 1) * self.spacing - half, self.west_lon + (self.cols - 1) * self.spacing + half)
+        Point(
+            self.north_lat - (self.rows - 1) * self.spacing - half, self.west_lon + (self.cols - 1) * self.spacing + half
+        )
 
     def points(self) -> Iterator[tuple[int, int, Point]]:
         """Yield cells in north-to-south, west-to-east raster order."""

@@ -23,7 +23,7 @@ GRID = GridSpec(Decimal("-23.000"), Decimal("119.000"), 2, 2)
 
 
 def response(point: Point) -> bytes:
-    depth = 100 + float((point.longitude - Decimal("119")) * 400) - float((point.latitude + 23) * 800)
+    depth = 100 + float((point.longitude - Decimal(119)) * 400) - float((point.latitude + 23) * 800)
     table = {"index": [60, 120], "columns": [1, 10], "data": [[depth, depth / 2], [depth * 2, depth]]}
     return json.dumps(
         {
@@ -65,7 +65,7 @@ def test_resume_overlap_and_offline_events(tmp_path: Path) -> None:
     assert offline.cached_cells == 4
     assert not seen
 
-    overlap = GridSpec(Decimal("-23"), Decimal("119.025"), 2, 1)
+    overlap = GridSpec(Decimal(-23), Decimal("119.025"), 2, 1)
     subset = collect_grid(overlap, SOURCE, PointCache(path), 60, 1, fetcher=fetch)
     np.testing.assert_array_equal(subset.depths_mm, [[110], [130]])
     assert not seen
@@ -91,8 +91,8 @@ def test_budget_preflight_and_new_snapshot(tmp_path: Path) -> None:
 
 def test_invalid_responses_never_admitted(tmp_path: Path) -> None:
     cache = PointCache(tmp_path / "ifd.sqlite3")
-    point = Point(Decimal("-23"), Decimal("119"))
-    other = Point(Decimal("-24"), Decimal("119"))
+    point = Point(Decimal(-23), Decimal(119))
+    other = Point(Decimal(-24), Decimal(119))
     for raw in (b"<html>error</html>", b"{}", response(other)):
         with pytest.raises(ValueError):
             cache.store(point, SOURCE, raw)
@@ -115,7 +115,7 @@ def test_exact_events_and_immutable_snapshot(tmp_path: Path) -> None:
     cache.store(point, SOURCE, raw)
     replacement = raw.replace(b"100.0", b"101.0")
     assert cache.store(point, SOURCE, replacement).depth(60, 1) == 100
-    assert cache.get(Point(Decimal("-23"), Decimal("119")), SOURCE) == raw
+    assert cache.get(Point(Decimal(-23), Decimal(119)), SOURCE) == raw
 
 
 def test_ascii_orientation_and_no_overwrite(tmp_path: Path) -> None:
@@ -138,4 +138,4 @@ def test_reject_recommended_and_invalid_grid() -> None:
     with pytest.raises(ValueError, match="Recommended"):
         IFDSource(("RecIFD", "Default Historical (1961-1990) Baseline"), "test")
     with pytest.raises(ValueError, match="cells"):
-        GridSpec(Decimal("-23"), Decimal("119"), 101, 100)
+        GridSpec(Decimal(-23), Decimal(119), 101, 100)
