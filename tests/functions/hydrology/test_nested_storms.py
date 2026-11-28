@@ -31,7 +31,9 @@ def test_loading_and_depth_checks() -> None:
     assert middle.gross_mm == (1, 2, 4, 1)
     assert back.gross_mm == (1, 1, 2, 4)
     assert [(check.duration_min, check.maximum_rolling_mm) for check in middle.depth_checks] == [
-        (1, 4), (2, 6), (4, 8)
+        (1, 4),
+        (2, 6),
+        (4, 8),
     ]
 
 
@@ -100,7 +102,7 @@ class _Event:
 
 def test_arr_uses_scenario_point_depth_once_and_retains_identity() -> None:
     events = (_Event("1%", 1, 4, 0.5, 2, "2050_SSP2"), _Event("1%", 4, 8, 0.75, 6, "2050_SSP2"))
-    curve, = curves_from_arr(events, source="site A")
+    (curve,) = curves_from_arr(events, source="site A")
     assert curve.scenario == "2050_SSP2"
     assert generate_storm(curve, 4).burst_total_mm == 6
     assert generate_storm(curve, 4, arf_override=1).burst_total_mm == 8
@@ -130,3 +132,41 @@ def test_csv_gross_and_excess_are_explicit_and_no_clobber(tmp_path: Path) -> Non
     with pytest.raises(ValueError, match="Missing"):
         write_tuflow_csv(tmp_path / "missing.csv", {"short": short}, kind="excess")
     write_tuflow_csv(tmp_path / "excess.csv", {"long": storm}, kind="excess")
+
+
+
+def test_proportional_loss_before_il_cl_preserves_gross_series() -> None:
+    spec = LossSpec(2, continuing_loss_mm_per_hour=30, continuing_loss_timing="full_increment")
+    result = generate_storm(
+        _curve(),
+        4,
+        loading="FL",
+        losses=EventLosses(spec, proportional_loss_fraction=0.25),
+    )
+    assert result.gross_mm == (4, 2, 1, 1)
+    assert result.excess_mm == pytest.approx((0.5, 1, 0.25, 0.25))
+    reduced = generate_storm(
+        _curve(),
+        4,
+        losses=EventLosses(spec, "storm_reduce", preburst_depth_mm=2, proportional_loss_fraction=0.25),
+    )
+    assert reduced.preburst_mm == 2
+    assert reduced.applied_losses == LossSpec(
+        0.5, continuing_loss_mm_per_hour=30, continuing_loss_timing="full_increment"
+    )
+    with pytest.raises(ValueError, match="fraction"):
+        EventLosses(spec, proportional_loss_fraction=1.1)
+
+
+def test_initial_loss_does_not_reset_after_dry_gap() -> None:
+    curve = RainfallCurve(
+        "1%", "synthetic", (DepthAnchor(1, 4), DepthAnchor(2, 4), DepthAnchor(3, 6))
+    )
+    result = generate_storm(
+        curve,
+        3,
+        loading="FL",
+        losses=EventLosses(LossSpec(2, continuing_loss_mm_per_hour=0)),
+    )
+    assert result.gross_mm == (4, 0, 2)
+    assert result.excess_mm == (2, 0, 2)

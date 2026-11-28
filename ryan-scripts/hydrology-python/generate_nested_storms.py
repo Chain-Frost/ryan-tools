@@ -79,7 +79,8 @@ def main() -> int:
                 f"{name}: source={storm.curve.source}, AEP={storm.curve.aep}, scenario={storm.curve.scenario}, "
                 f"burst={storm.burst_total_mm:g} mm, total={fsum(storm.gross_mm):g} mm, "
                 f"PB={storm.preburst_mm:g} mm, IL/CL={storm.applied_losses}, "
-                f"ARF override={storm.arf_override}"
+                f"ARF override={storm.arf_override}, "
+                f"proportional loss={storm.loss_selection.proportional_loss_fraction if storm.loss_selection else 0:g}"
             )
             for check in storm.depth_checks:
                 print(f"  {check.duration_min} min: target={check.target_mm:g}, max={check.maximum_rolling_mm:g} mm")

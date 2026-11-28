@@ -99,6 +99,8 @@ class EventLosses:
     Preburst depth/prefix is already scenario-specific. Alternatively, a ratio
     multiplies the scenario point depth at the full target burst duration.
     The explicit prefix uses the same timestep as the nested burst.
+    Proportional loss (fraction, not percent) precedes IL/CL and applies to
+    both the prefix and burst, or to the omitted PB used for IL reduction.
     """
 
     spec: LossSpec
@@ -108,10 +110,17 @@ class EventLosses:
     preburst_depth_mm: float | None = None
     preburst_ratio: float | None = None
     preburst_increments_mm: tuple[float, ...] = ()
+    proportional_loss_fraction: float = 0.0
 
     def __post_init__(self) -> None:
         _nonnegative(self.initial_loss_factor, "IL factor")
         _nonnegative(self.continuing_loss_factor, "CL factor")
+        if not isfinite(self.proportional_loss_fraction) or not 0 <= self.proportional_loss_fraction <= 1:
+            msg = "Proportional loss fraction must be within [0, 1]"
+            raise ValueError(msg)
+        if self.spec.runoff_coefficient is not None and self.proportional_loss_fraction != 0:
+            msg = "Do not combine proportional loss with the post-IL runoff coefficient"
+            raise ValueError(msg)
         if self.spec.runoff_coefficient is not None and self.continuing_loss_factor != 1:
             msg = "A CL factor is not applicable to runoff coefficient losses"
             raise ValueError(msg)
@@ -140,7 +149,7 @@ class EventLosses:
                 preburst = self.preburst_ratio * scenario_point_mm
             elif self.preburst_depth_mm is not None:
                 preburst = self.preburst_depth_mm
-            initial = reduced_burst_initial_loss(initial, preburst)
+            initial = reduced_burst_initial_loss(initial, preburst * (1 - self.proportional_loss_fraction))
         continuing = self.spec.continuing_loss_mm_per_hour
         return (
             LossSpec(
@@ -264,7 +273,8 @@ def generate_storm(
         )
     applied, preburst = losses.applied(target.scenario_point_mm)
     gross = (*losses.preburst_increments_mm, *burst)
-    excess = rainfall_excess_increments(tuple((depth, float(timestep_min)) for depth in gross), applied)
+    retained = 1 - losses.proportional_loss_fraction
+    excess = rainfall_excess_increments(tuple((depth * retained, float(timestep_min)) for depth in gross), applied)
     return StormResult(
         curve,
         duration_min,
