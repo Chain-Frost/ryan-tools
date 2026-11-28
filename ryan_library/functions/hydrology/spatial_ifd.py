@@ -73,7 +73,8 @@ class GridSpec:
         half = self.spacing / 2
         Point(self.north_lat + half, self.west_lon - half)
         Point(
-            self.north_lat - (self.rows - 1) * self.spacing - half, self.west_lon + (self.cols - 1) * self.spacing + half
+            self.north_lat - (self.rows - 1) * self.spacing - half,
+            self.west_lon + (self.cols - 1) * self.spacing + half,
         )
 
     def points(self) -> Iterator[tuple[int, int, Point]]:

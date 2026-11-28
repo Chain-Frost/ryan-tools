@@ -72,7 +72,9 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--version", action="version", version=WRAPPER_VERSION)
     parser.add_argument("--working-dir", type=Path, default=WORKING_DIR)
-    parser.add_argument("--reference", type=Path, default=REFERENCE, help="Reference depth raster for the selected event")
+    parser.add_argument(
+        "--reference", type=Path, default=REFERENCE, help="Reference depth raster for the selected event"
+    )
     parser.add_argument("--assume-wgs84", action=argparse.BooleanOptionalAction, default=ASSUME_WGS84)
     parser.add_argument("--north-lat", type=Decimal, default=NORTH_LAT, help="Latitude of north-west cell centre")
     parser.add_argument("--west-lon", type=Decimal, default=WEST_LON, help="Longitude of north-west cell centre")
@@ -86,7 +88,9 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--aep-percent", type=float, default=AEP_PERCENT)
     parser.add_argument("--max-new-points", type=int, default=MAX_NEW_POINTS, help="Default zero: no network access")
     parser.add_argument("--output", type=Path, default=OUTPUT, help="New .asc or .tif file")
-    parser.add_argument("--reference-depth-mm", type=float, default=REFERENCE_DEPTH_MM, help="Export depth ratios instead")
+    parser.add_argument(
+        "--reference-depth-mm", type=float, default=REFERENCE_DEPTH_MM, help="Export depth ratios instead"
+    )
     parser.add_argument("--pause", action=argparse.BooleanOptionalAction, default=PAUSE_ON_FINISH)
     return parser
 
@@ -140,7 +144,9 @@ def _run(options: _Options) -> None:
         print("Numerical comparison only; source equivalence and acceptance tolerance require independent review.")
     if output is not None:
         if output.suffix.lower() == ".asc":
-            values = grid.depths_mm if options.reference_depth_mm is None else grid.multipliers(options.reference_depth_mm)
+            values = (
+                grid.depths_mm if options.reference_depth_mm is None else grid.multipliers(options.reference_depth_mm)
+            )
             write_ascii_grid(output, spec, values)
         else:
             write_geotiff(output, grid, reference_depth_mm=options.reference_depth_mm)

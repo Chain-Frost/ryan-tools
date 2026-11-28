@@ -68,7 +68,7 @@ The reference depth of 100 mm above is illustrative, not a catchment mean. For a
 
 ## Validation and wrapper usage update (2026-11-28)
 
-- First PR head `7de6950` failed [Ruff and whitespace](https://github.com/Chain-Frost/ryan-tools/actions/runs/46140063698/job/140963819391) on 11 deterministic findings; policy failed consequently and tests were skipped. Corrected those findings in the next batch. Exact-head hosted results remain pending.
+- First PR head `7de6950` failed [Ruff and whitespace](https://github.com/Chain-Frost/ryan-tools/actions/runs/46140063698/job/140963819391) on 11 deterministic findings; policy failed consequently and tests were skipped. Corrected those findings in the next batch. Head `b59428f` stopped at the installed-script inventory documentation guard: 163 tracked paths, 84 selected and 79 excluded. Updated the two index/register counts while retaining repository-only status. Exact-head hosted results remain pending.
 - An isolated Python 3.13.5 Linux prototype with a stub of the grid dataclass interface passed synthetic Rasterio GeoTIFF roundtrip, no-clobber, multiplier tags/values, physical weighted mean and NoData/error-metric checks. This is not a full repository or exact-head validation. The container cannot resolve GitHub or the Data Hub; direct `git ls-remote` and DNS checks failed. The documented point-query URL could not be retrieved using web access either. No authentic response was admitted.
 - CLI example (only after verifying dataset keys and datum; no network by default):
 

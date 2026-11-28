@@ -102,9 +102,7 @@ def read_reference_raster(path: Path, *, assume_wgs84: bool = False) -> Referenc
     return ReferenceGrid(spec, depths, valid)
 
 
-def _validate_depths(
-    spec: GridSpec, values: npt.NDArray[np.float64], valid: npt.NDArray[np.bool_]
-) -> None:
+def _validate_depths(spec: GridSpec, values: npt.NDArray[np.float64], valid: npt.NDArray[np.bool_]) -> None:
     shape = (spec.rows, spec.cols)
     if values.shape != shape or valid.shape != shape or not valid.any():
         msg = "Grid dimensions must agree and at least one valid cell is required"
