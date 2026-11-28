@@ -82,8 +82,9 @@ lengths shorter than the rainfall burst.
   implicitly.
 - Regression tests assert the complete rainfall interval sequence and full
   generated STM text, not just total depth, to catch the historic off-by-one
-  issue. The included TUFLOW-format fixture is synthetic; a verified real
-  project export is still needed for final engineering acceptance.
+  issue. The included fixture is synthetic. Both CLI modes have also been checked against an original public
+  PyTuflow ARR rainfall export, including the depth in every interval. See the
+  [validation record](../../docs/work/2026-11-28-rorb-storm-conversion.md) for the reference data and native acceptance status.
 - Test a generated storm against a known RORBwin 6.52 reference model before
   relying on the output for design. Native execution of RORB is not part of
   the Python tests.

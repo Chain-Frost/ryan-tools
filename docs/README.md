@@ -124,6 +124,7 @@ but they are not current architectural policy when they conflict with the canoni
 | [Dashboard defaults and background file properties](work/2026-11-07-dashboard-file-properties.md) | Shared presentation defaults, nonblocking file-size metadata and preserved legacy banner calls |
 | [Offline wrapper revision warnings](work/2026-11-07-wrapper-version-warnings.md) | Shared installed-package comparison, stable script identities and maintained-script rollout |
 | [Batch dashboard foundation](work/2026-11-01-batch-dashboard-foundation-180.md) | #180 stacked PR 1: shared batch display/diagnostics, optional workflow metrics, log-summary reference and concrete consumer handoff |
+| [TUFLOW rainfall to RORB validation](work/2026-11-28-rorb-storm-conversion.md) | Public 60-minute export, timing, per-bin depth, native and release status for #118 |
 | [RORB reader audit and MCP scope](work/2026-11-05-rorb-readers-mcp.md) | Canonical source-aware RORB report/CSV readers, preservation, linked consumer and pending original 420-pair acceptance |
 | [RORB reader API and format limits](../ryan_library/functions/RORB/README.md) | Strict source-preserving report grammar, explicit statuses, companion associations, source clocks and DataFrame migration |
 | [PyRORB canonical reader package](https://github.com/Chain-Frost/pyrorb/tree/v26.11.24.1/src/runoff_routing/rorb_readers) | Published canonical readers; downstream compatibility imports, no standalone reader wheel |
