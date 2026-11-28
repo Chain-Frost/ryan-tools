@@ -16,7 +16,7 @@ import numpy as np
 import numpy.typing as npt
 import rasterio
 
-from .spatial_ifd import ARR_ENDPOINT, GridSpec, SpatialIFDGrid
+from .spatial_ifd import ARR_ENDPOINT, SUPPORTED_GRID_CRS, WGS84, GridSpec, SpatialIFDGrid
 
 
 class _Dataset(Protocol):
@@ -64,10 +64,16 @@ def _decimal_coordinate(value: float) -> Decimal:
     return Decimal(str(round(value, 10)))
 
 
-def _reference_spec(dataset: _Dataset, *, assume_wgs84: bool) -> GridSpec:
-    crs = dataset.crs
-    if str(crs) != "EPSG:4326" and not (crs is None and assume_wgs84):
-        msg = "Reference must use WGS84 (EPSG:4326); explicitly confirm the datum for a CRS-less ASCII grid"
+def _reference_spec(dataset: _Dataset, *, assume_crs: str | None) -> GridSpec:
+    if assume_crs is not None and assume_crs not in SUPPORTED_GRID_CRS:
+        msg = "Assumed reference CRS must be GDA94 (EPSG:4283) or WGS84 (EPSG:4326)"
+        raise ValueError(msg)
+    crs = assume_crs if dataset.crs is None else str(dataset.crs)
+    if crs is None or crs not in SUPPORTED_GRID_CRS:
+        msg = "Reference must use GDA94 or WGS84; explicitly confirm the datum for a CRS-less ASCII grid"
+        raise ValueError(msg)
+    if assume_crs is not None and crs != assume_crs:
+        msg = "Explicit reference CRS conflicts with its embedded CRS; do not relabel the raster"
         raise ValueError(msg)
     transform = dataset.transform
     if transform.b != 0 or transform.d != 0 or transform.a <= 0 or transform.e != -transform.a:
@@ -80,22 +86,28 @@ def _reference_spec(dataset: _Dataset, *, assume_wgs84: bool) -> GridSpec:
         dataset.height,
         dataset.width,
         spacing,
+        crs,
     )
 
 
-def read_reference_raster(path: Path, *, assume_wgs84: bool = False) -> ReferenceGrid:
+def read_reference_raster(path: Path, *, assume_crs: str | None = None, assume_wgs84: bool = False) -> ReferenceGrid:
     """Read a single-band, geographic depth raster with explicit datum and NoData handling.
 
     Caller verifies the event, units (mm) and original raster provenance. No
     reprojection or resampling is performed. A missing CRS is never assumed by
     default. Projected and other-datum rasters require separate reconciliation.
     """
+    if assume_wgs84:
+        if assume_crs is not None and assume_crs != WGS84:
+            msg = "Conflicting explicit reference CRS options"
+            raise ValueError(msg)
+        assume_crs = WGS84
     open_raster = cast("Callable[[Path], _Dataset]", rasterio.open)
     with closing(open_raster(path)) as dataset:
         if dataset.count != 1:
             msg = "Reference must have one band"
             raise ValueError(msg)
-        spec = _reference_spec(dataset, assume_wgs84=assume_wgs84)
+        spec = _reference_spec(dataset, assume_crs=assume_crs)
         depths = np.asarray(dataset.read(1), dtype=np.float64)
         valid = dataset.read_masks(1) != 0
     _validate_depths(spec, depths, valid)
@@ -162,7 +174,7 @@ def write_geotiff(
     reference_depth_mm: float | None = None,
     catchment_area_m2: float | None = None,
 ) -> None:
-    """Export depth or multiplier with explicit WGS84 CRS and provenance tags.
+    """Export depth or multiplier with native geographic CRS and provenance tags.
 
     Stage a complete single-file GeoTIFF beside the destination, then publish
     via a hard link (atomic no-clobber). A filesystem without hard-link support
@@ -174,6 +186,7 @@ def write_geotiff(
         msg = "Catchment normalization requires a positive area and reference depth"
         raise ValueError(msg)
     spec = grid.spec
+    request_crs = grid.source.effective_request_crs(spec)
     values = grid.depths_mm if reference_depth_mm is None else grid.multipliers(reference_depth_mm)
     _validate_depths(spec, values, np.ones(values.shape, dtype=np.bool_))
     if path.suffix.lower() not in {".tif", ".tiff"}:
@@ -201,7 +214,7 @@ def write_geotiff(
                 height=spec.rows,
                 count=1,
                 dtype="float64",
-                crs="EPSG:4326",
+                crs=spec.crs,
                 transform=transform,
                 compress="deflate",
             ),
@@ -212,6 +225,9 @@ def write_geotiff(
                 IFD_DATASET_PATH=json.dumps(grid.source.table_path),
                 IFD_CACHE_SNAPSHOT=grid.source.snapshot,
                 IFD_SOURCE_ENDPOINT=ARR_ENDPOINT,
+                IFD_GRID_CRS=spec.crs,
+                IFD_REQUEST_CRS=request_crs,
+                IFD_REQUEST_MAPPING="native centres" if request_crs == spec.crs else "PROJ coordinate transform",
                 IFD_SOURCE_STATUS="point-sampled; BoM raster equivalence not established",
                 IFD_DURATION_MIN=str(grid.duration_min),
                 IFD_AEP_PERCENT=str(grid.aep_percent),

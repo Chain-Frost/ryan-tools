@@ -1,6 +1,7 @@
 """Synthetic spatial IFD regression tests; no BoM equivalence claim."""
 
 import json
+from dataclasses import replace
 from decimal import Decimal
 from pathlib import Path
 
@@ -22,7 +23,7 @@ from ryan_library.functions.hydrology.spatial_ifd import (
 
 # Artificial source keys, not asserted to be the production API's keys.
 SOURCE = IFDSource(("AllIFDDatasets", "Synthetic unadjusted IFD"), "test-v1")
-GRID = GridSpec(Decimal("-23.000"), Decimal("119.000"), 2, 2)
+GRID = GridSpec(Decimal("-23.000"), Decimal("119.000"), 2, 2, crs="EPSG:4326")
 
 
 def response(point: Point) -> bytes:
@@ -68,7 +69,7 @@ def test_resume_overlap_and_offline_events(tmp_path: Path) -> None:
     assert offline.cached_cells == 4
     assert not seen
 
-    overlap = GridSpec(Decimal(-23), Decimal("119.025"), 2, 1)
+    overlap = GridSpec(Decimal(-23), Decimal("119.025"), 2, 1, crs="EPSG:4326")
     subset = collect_grid(overlap, SOURCE, PointCache(path), 60, 1, fetcher=fetch)
     np.testing.assert_array_equal(subset.depths_mm, [[110], [130]])
     assert not seen
@@ -193,3 +194,34 @@ def test_missing_event_is_not_admitted_to_cache(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="not tabulated"):
         collect_grids(GRID, SOURCE, cache, (IFDEvent(60, 1), IFDEvent(90, 1)), max_new_points=4, fetcher=response)
     assert inspect_cache(GRID, SOURCE, cache, (IFDEvent(60, 1),)).cached_cells == 0
+
+
+def test_gda94_grid_requires_explicit_request_crs(tmp_path: Path) -> None:
+    spec = GridSpec(Decimal(-23), Decimal(119), 2, 2)
+    assert spec.crs == "EPSG:4283"
+    cache = PointCache(tmp_path / "ifd.sqlite3")
+    events = (IFDEvent(60, 1),)
+    with pytest.raises(ValueError, match="explicit ARR request CRS"):
+        inspect_cache(spec, SOURCE, cache, events)
+    with pytest.raises(ValueError, match="explicit ARR request CRS"):
+        collect_grids(spec, SOURCE, cache, events, max_new_points=4, fetcher=response)
+    source = replace(SOURCE, request_crs="EPSG:4283")
+    grid = collect_grid(spec, source, cache, 60, 1, max_new_points=4, fetcher=response)
+    assert grid.spec.crs == "EPSG:4283"
+    np.testing.assert_array_equal(grid.depths_mm, [[100, 110], [120, 130]])
+    assert inspect_cache(spec, source, cache, events).cached_cells == 4
+
+
+def test_gda94_grid_wgs84_request_mapping(tmp_path: Path) -> None:
+    spec = GridSpec(Decimal(-23), Decimal(119), 1, 1)
+    source = replace(SOURCE, request_crs="EPSG:4326")
+    cache = PointCache(tmp_path / "ifd.sqlite3")
+    coverage = inspect_cache(spec, source, cache, (IFDEvent(60, 1),))
+    assert len(coverage.missing_points) == 1
+    point = coverage.missing_points[0]
+    assert float(point.latitude) == pytest.approx(-23, abs=0.0001)
+    assert float(point.longitude) == pytest.approx(119, abs=0.0001)
+    grid = collect_grid(spec, source, cache, 60, 1, max_new_points=1, fetcher=response)
+    assert grid.spec == spec
+    assert cache.get(point, source) is not None
+    assert inspect_cache(spec, source, cache, (IFDEvent(60, 1),)).cached_cells == 1

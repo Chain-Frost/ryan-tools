@@ -12,7 +12,7 @@ from shapely.geometry import MultiPolygon, Polygon, box, mapping
 from ryan_library.functions.hydrology.spatial_ifd import GridSpec, IFDSource, SpatialIFDGrid
 from ryan_library.functions.hydrology.spatial_ifd_catchments import catchment_weights, read_catchment_polygon
 
-GRID = GridSpec(Decimal(-23), Decimal(119), 2, 2)
+GRID = GridSpec(Decimal(-23), Decimal(119), 2, 2, crs="EPSG:4326")
 
 
 def test_partial_cells_and_mean_normalization() -> None:
@@ -75,12 +75,27 @@ def test_vector_union_and_explicit_crs(tmp_path: Path) -> None:
     with fiona.open(path, "w", driver="GPKG", layer="basin", schema=schema, crs="EPSG:4326") as sink:
         sink.write({"geometry": mapping(first), "properties": {}})
         sink.write({"geometry": mapping(second), "properties": {}})
-    result = read_catchment_polygon(path)
+    result = read_catchment_polygon(path, crs=GRID.crs)
     assert result.equals(MultiPolygon([first, second]))
     assert catchment_weights(GRID, result).covered_area_m2 > 0
 
     wrong = tmp_path / "projected.gpkg"
     with fiona.open(wrong, "w", driver="GPKG", layer="basin", schema=schema, crs="EPSG:3577") as sink:
         sink.write({"geometry": mapping(first), "properties": {}})
-    with pytest.raises(ValueError, match="WGS84"):
-        read_catchment_polygon(wrong)
+    with pytest.raises(ValueError, match="grid CRS"):
+        read_catchment_polygon(wrong, crs=GRID.crs)
+
+
+def test_gda94_catchment_layer(tmp_path: Path) -> None:
+    path = tmp_path / "gda94.gpkg"
+    geometry = box(118.99, -23.01, 119.01, -22.99)
+    schema: dict[str, str | dict[str, str]] = {"geometry": "Polygon", "properties": {}}
+    with fiona.open(path, "w", driver="GPKG", layer="basin", schema=schema, crs="EPSG:4283") as sink:
+        sink.write({"geometry": mapping(geometry), "properties": {}})
+    spec = replace(GRID, crs="EPSG:4283")
+    polygon = read_catchment_polygon(path, crs=spec.crs)
+    weights = catchment_weights(spec, polygon)
+    assert weights.covered_area_m2 == pytest.approx(weights.catchment_area_m2, rel=1e-6)
+    assert weights.catchment_area_m2 > 0
+    with pytest.raises(ValueError, match="grid CRS"):
+        read_catchment_polygon(path, crs=GRID.crs)

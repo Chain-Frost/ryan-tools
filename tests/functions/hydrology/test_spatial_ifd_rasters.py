@@ -19,7 +19,7 @@ from ryan_library.functions.hydrology.spatial_ifd_rasters import (
 @pytest.fixture
 def grid() -> SpatialIFDGrid:
     return SpatialIFDGrid(
-        GridSpec(Decimal(-23), Decimal(119), 2, 2),
+        GridSpec(Decimal(-23), Decimal(119), 2, 2, crs="EPSG:4326"),
         IFDSource(("AllIFDDatasets", "Synthetic"), "fixture"),
         60,
         1.0,
@@ -93,3 +93,31 @@ def test_area_weighted_mean_and_multipliers(grid: SpatialIFDGrid) -> None:
         weighted_depth(grid, -areas)
     with pytest.raises(ValueError, match="at least one valid"):
         weighted_depth(grid, np.zeros_like(areas))
+
+
+def test_gda94_native_reference_and_output(grid: SpatialIFDGrid, tmp_path: Path) -> None:
+    rasterio = pytest.importorskip("rasterio")
+    native = replace(
+        grid,
+        spec=replace(grid.spec, crs="EPSG:4283"),
+        source=replace(grid.source, request_crs="EPSG:4326"),
+    )
+    path = tmp_path / "native.tif"
+    write_geotiff(path, native)
+    reference = read_reference_raster(path)
+    assert reference.spec == native.spec
+    np.testing.assert_array_equal(reference.depths_mm, native.depths_mm)
+    with rasterio.open(path) as dataset:
+        assert dataset.crs.to_epsg() == 4283
+        assert dataset.tags()["IFD_GRID_CRS"] == "EPSG:4283"
+        assert dataset.tags()["IFD_REQUEST_CRS"] == "EPSG:4326"
+    with pytest.raises(ValueError, match="aligned"):
+        compare_reference(grid, reference)
+    with pytest.raises(ValueError, match="conflicts"):
+        read_reference_raster(path, assume_wgs84=True)
+
+    ascii_path = tmp_path / "native.asc"
+    write_ascii_grid(ascii_path, native.spec, native.depths_mm)
+    assert read_reference_raster(ascii_path, assume_crs="EPSG:4283").spec == native.spec
+    with pytest.raises(ValueError, match="Conflicting"):
+        read_reference_raster(ascii_path, assume_crs="EPSG:4283", assume_wgs84=True)

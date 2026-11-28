@@ -1,6 +1,6 @@
 """Physical catchment/cell intersection weights for geographic spatial IFD grids.
 
-Intersect in the stated WGS84 lon/lat geometry before calculating signed
+Intersect in the stated geographic CRS before calculating signed
 ellipsoidal areas. Densification approximates the straight lon/lat edges
 (including parallels) by short geodesic segments. No equal-cell-area shortcut
 or silent partial-extent normalisation is used.
@@ -23,7 +23,7 @@ from shapely.geometry.base import BaseGeometry
 from shapely.geometry.polygon import orient
 from shapely.ops import unary_union
 
-from .spatial_ifd import GridSpec, SpatialIFDGrid
+from .spatial_ifd import GDA94, SUPPORTED_GRID_CRS, GridSpec, SpatialIFDGrid
 from .spatial_ifd_rasters import weighted_depth
 
 # Explicit approximation controls, not BoM/ARR source-equivalence tolerances.
@@ -87,7 +87,7 @@ def _validate_catchment(spec: GridSpec, catchment: BaseGeometry) -> None:
         msg = "Catchment bounds must be finite"
         raise ValueError(msg)
     if west < -180 or east > 180 or south <= -85 or north >= 85 or east - west >= 180:
-        msg = "Catchment must use non-dateline-crossing WGS84 lon/lat coordinates away from the poles"
+        msg = "Catchment must use non-dateline-crossing geographic coordinates away from the poles"
         raise ValueError(msg)
     if not _grid_extent(spec).covers(catchment):
         msg = "Grid does not cover the entire catchment; extend it before calculating the mean"
@@ -97,14 +97,14 @@ def _validate_catchment(spec: GridSpec, catchment: BaseGeometry) -> None:
 def catchment_weights(spec: GridSpec, catchment: BaseGeometry) -> CatchmentWeights:
     """Calculate ellipsoidal areas of every cell/catchment intersection in m².
 
-    Input coordinates must already be EPSG:4326, longitude then latitude, with
+    Input coordinates must already use spec.crs, longitude then latitude, with
     no antimeridian crossing. The grid must cover the whole catchment. Holes,
     multipart geometries and fractional cells are supported. The adopted
     segment length and independent area-closure check are approximation
     controls; engineering acceptance of genuine polygons remains separate.
     """
     _validate_catchment(spec, catchment)
-    geod = Geod(ellps="WGS84")
+    geod = Geod(ellps="GRS80" if spec.crs == GDA94 else "WGS84")
     total = _ellipsoidal_area(catchment, geod)
     areas = np.zeros((spec.rows, spec.cols), dtype=np.float64)
     for row in range(spec.rows):
@@ -120,13 +120,16 @@ def catchment_weights(spec: GridSpec, catchment: BaseGeometry) -> CatchmentWeigh
     return CatchmentWeights(spec, areas, total, covered)
 
 
-def read_catchment_polygon(path: Path, *, layer: str | None = None) -> Polygon | MultiPolygon:
-    """Read and explicitly union all polygon features of one WGS84 vector layer.
+def read_catchment_polygon(path: Path, *, layer: str | None = None, crs: str = GDA94) -> Polygon | MultiPolygon:
+    """Read and explicitly union polygons from one layer in the stated grid CRS.
 
     Reject missing CRS, nonpolygon or invalid features and ambiguous layer
     selection. Reproject other datums/projected inputs explicitly before use.
     Use separate calls/inputs to retain distinct subcatchment identities.
     """
+    if crs not in SUPPORTED_GRID_CRS:
+        msg = "Catchment CRS must be GDA94 or WGS84"
+        raise ValueError(msg)
     if layer is None:
         layers = fiona.listlayers(path)
         if len(layers) != 1:
@@ -135,8 +138,8 @@ def read_catchment_polygon(path: Path, *, layer: str | None = None) -> Polygon |
         layer = layers[0]
     polygons: list[Polygon | MultiPolygon] = []
     with fiona.open(path, layer=layer) as source:
-        if not source.crs_wkt or CRS.from_wkt(source.crs_wkt) != CRS.from_epsg(4326):
-            msg = "Catchment layer must have an explicit WGS84 (EPSG:4326) CRS"
+        if not source.crs_wkt or CRS.from_wkt(source.crs_wkt) != CRS.from_string(crs):
+            msg = f"Catchment layer must have the explicit grid CRS {crs}; reproject separately"
             raise ValueError(msg)
         for feature in source:
             if feature.geometry is None:

@@ -23,13 +23,16 @@ import numpy as np
 import numpy.typing as npt
 
 ARR_ENDPOINT = "https://data.arr-software.org/"
+GDA94 = "EPSG:4283"
+WGS84 = "EPSG:4326"
+SUPPORTED_GRID_CRS = (GDA94, WGS84)
 MAX_GRID_CELLS = 10_000
 _MAX_RESPONSE_BYTES = 8 * 1024 * 1024
 
 
 @dataclass(frozen=True, slots=True)
 class Point:
-    """Exact decimal-degree coordinate, without implicit rounding or snapping."""
+    """Exact decimal-degree coordinate; its CRS is defined by the calling context."""
 
     latitude: Decimal
     longitude: Decimal
@@ -54,15 +57,19 @@ class Point:
 
 @dataclass(frozen=True, slots=True)
 class GridSpec:
-    """North-west cell centre, explicit dimensions and angular spacing (WGS84)."""
+    """North-west cell centre and angular spacing in an explicit geographic CRS."""
 
     north_lat: Decimal
     west_lon: Decimal
     rows: int
     cols: int
     spacing: Decimal = Decimal("0.025")
+    crs: str = GDA94
 
     def __post_init__(self) -> None:
+        if self.crs not in SUPPORTED_GRID_CRS:
+            msg = "Grid CRS must be GDA94 (EPSG:4283) or WGS84 (EPSG:4326)"
+            raise ValueError(msg)
         if self.rows <= 0 or self.cols <= 0 or self.rows * self.cols > MAX_GRID_CELLS:
             msg = f"Grid must contain 1-{MAX_GRID_CELLS} cells"
             raise ValueError(msg)
@@ -98,12 +105,18 @@ class IFDSource:
 
     The snapshot is a local namespace, NOT a claim about the server's data version.
     Use a new namespace for an intentional refresh; never replace old responses.
+    request_crs is the operator-selected scalar API coordinate convention, not
+    an assertion about the CRS of the server's underlying raster.
     """
 
     table_path: tuple[str, ...]
     snapshot: str
+    request_crs: str | None = None
 
     def __post_init__(self) -> None:
+        if self.request_crs is not None and self.request_crs not in SUPPORTED_GRID_CRS:
+            msg = "ARR request CRS must be GDA94 (EPSG:4283) or WGS84 (EPSG:4326)"
+            raise ValueError(msg)
         if len(self.table_path) < 2 or any(not key.strip() for key in self.table_path):
             msg = "Specify the exact layer and IFD table path"
             raise ValueError(msg)
@@ -113,6 +126,38 @@ class IFDSource:
         if not self.snapshot.strip():
             msg = "A nonempty cache snapshot is required"
             raise ValueError(msg)
+
+    def effective_request_crs(self, spec: GridSpec) -> str:
+        """Resolve the selected API coordinate convention.
+
+        The scalar ARR API does not declare a datum. WGS84-only workflows
+        retain the previous convention; GDA94 grids require an explicit
+        operator decision before cache lookup or fetch.
+        """
+        if self.request_crs is not None:
+            return self.request_crs
+        if spec.crs == WGS84:
+            return WGS84
+        msg = "GDA94 sampling requires an explicit ARR request CRS; confirm the service coordinate convention"
+        raise ValueError(msg)
+
+
+def _request_points(spec: GridSpec, source: IFDSource) -> Iterator[tuple[int, int, Point]]:
+    """Transform grid centres only, not the raster, to the selected request datum."""
+    request_crs = source.effective_request_crs(spec)
+    if request_crs == spec.crs:
+        yield from spec.points()
+        return
+
+    from pyproj import Transformer
+
+    transformer = Transformer.from_crs(spec.crs, request_crs, always_xy=True, allow_ballpark=False)
+    for row, col, point in spec.points():
+        longitude, latitude = cast(
+            "tuple[float, float]",
+            transformer.transform(float(point.longitude), float(point.latitude), errcheck=True),
+        )
+        yield row, col, Point(Decimal(str(latitude)), Decimal(str(longitude)))
 
 
 @dataclass(frozen=True, slots=True)
@@ -382,7 +427,7 @@ def inspect_cache(spec: GridSpec, source: IFDSource, cache: PointCache, events: 
     """
     _validate_events(events)
     missing: list[Point] = []
-    for _, _, point in spec.points():
+    for _, _, point in _request_points(spec, source):
         raw = cache.get(point, source)
         if raw is None:
             missing.append(point)
@@ -418,7 +463,7 @@ def collect_grids(
 
     depths = np.empty((len(events), spec.rows, spec.cols), dtype=np.float64)
     missing: list[tuple[int, int, Point]] = []
-    for row, col, point in spec.points():
+    for row, col, point in _request_points(spec, source):
         raw = cache.get(point, source)
         if raw is None:
             missing.append((row, col, point))
@@ -464,10 +509,10 @@ def collect_grid(
 
 
 def write_ascii_grid(path: Path, spec: GridSpec, values: npt.NDArray[np.float64]) -> None:
-    """Write a complete ESRI ASCII grid in WGS84 degrees without overwriting.
+    """Write a complete ESRI ASCII grid in native geographic degrees without overwriting.
 
-    ASCII does not embed a CRS. Assign EPSG:4326 on import; this is not a projected
-    model grid. The caller chooses depth (mm) or dimensionless multiplier values.
+    ASCII does not embed a CRS. Assign the stated spec.crs on import; this is
+    not a projected model grid. The caller chooses depth (mm) or multipliers.
     """
     if values.shape != (spec.rows, spec.cols) or not np.isfinite(values).all() or np.any(values <= 0):
         msg = "Grid must have the stated dimensions and finite positive values"

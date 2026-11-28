@@ -11,10 +11,12 @@ from __future__ import annotations
 from decimal import Decimal
 from pathlib import Path
 
-WRAPPER_VERSION = "2026-11-28.3"
+WRAPPER_VERSION = "2026-11-28.4"
 WORKING_DIR = Path.cwd()
 REFERENCE: Path | None = None
-ASSUME_WGS84 = False
+ASSUME_WGS84 = False  # Legacy option for a confirmed WGS84 reference.
+GRID_CRS: str | None = None  # Explicit grids default to GDA94; references retain their CRS.
+REQUEST_CRS: str | None = None  # Explicit ARR scalar-coordinate convention for GDA94 grids.
 NORTH_LAT: Decimal | None = None
 WEST_LON: Decimal | None = None
 ROWS: int | None = None
@@ -29,7 +31,7 @@ INSPECT_CACHE = False
 MAX_NEW_POINTS = 0
 OUTPUT: Path | None = None
 REFERENCE_DEPTH_MM: float | None = None
-CATCHMENT: Path | None = None  # WGS84 polygon layer; normalize to each event's catchment mean.
+CATCHMENT: Path | None = None  # Polygon layer in grid CRS; normalize to each event's catchment mean.
 CATCHMENT_LAYER: str | None = None
 PAUSE_ON_FINISH = False
 
@@ -43,6 +45,8 @@ from rasterio.errors import RasterioError
 from shapely.errors import ShapelyError
 
 from ryan_library.functions.hydrology.spatial_ifd import (
+    GDA94,
+    SUPPORTED_GRID_CRS,
     GridSpec,
     IFDEvent,
     IFDSource,
@@ -72,6 +76,8 @@ class _Options(argparse.Namespace):
     working_dir: Path
     reference: Path | None
     assume_wgs84: bool
+    crs: str | None
+    request_crs: str | None
     north_lat: Decimal | None
     west_lon: Decimal | None
     rows: int | None
@@ -99,6 +105,15 @@ def _parser() -> argparse.ArgumentParser:
         "--reference", type=Path, default=REFERENCE, help="Reference depth raster for the selected event"
     )
     parser.add_argument("--assume-wgs84", action=argparse.BooleanOptionalAction, default=ASSUME_WGS84)
+    parser.add_argument(
+        "--crs",
+        choices=SUPPORTED_GRID_CRS,
+        default=GRID_CRS,
+        help="Explicit grid CRS (default EPSG:4283), or confirmed CRS for an unreferenced raster",
+    )
+    parser.add_argument(
+        "--request-crs", choices=SUPPORTED_GRID_CRS, default=REQUEST_CRS, help="ARR point datum assumption"
+    )
     parser.add_argument("--north-lat", type=Decimal, default=NORTH_LAT, help="Latitude of north-west cell centre")
     parser.add_argument("--west-lon", type=Decimal, default=WEST_LON, help="Longitude of north-west cell centre")
     parser.add_argument("--rows", type=int, default=ROWS)
@@ -120,7 +135,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--reference-depth-mm", type=float, default=REFERENCE_DEPTH_MM, help="Export depth ratios instead"
     )
-    parser.add_argument("--catchment", type=Path, default=CATCHMENT, help="WGS84 polygon file; export catchment ratios")
+    parser.add_argument("--catchment", type=Path, default=CATCHMENT, help="Polygon in grid CRS for ratios")
     parser.add_argument("--catchment-layer", default=CATCHMENT_LAYER, help="Required when the file has multiple layers")
     parser.add_argument("--pause", action=argparse.BooleanOptionalAction, default=PAUSE_ON_FINISH)
     return parser
@@ -132,13 +147,23 @@ def _spec(options: _Options) -> tuple[GridSpec, ReferenceGrid | None]:
             msg = "Choose the reference raster OR explicit grid geometry, not both"
             raise ValueError(msg)
         reference = read_reference_raster(
-            (options.working_dir / options.reference).absolute(), assume_wgs84=options.assume_wgs84
+            (options.working_dir / options.reference).absolute(),
+            assume_crs=options.crs,
+            assume_wgs84=options.assume_wgs84,
         )
         return reference.spec, reference
     if options.north_lat is None or options.west_lon is None or options.rows is None or options.cols is None:
         msg = "Set a reference raster or all four explicit grid geometry settings"
         raise ValueError(msg)
-    return GridSpec(options.north_lat, options.west_lon, options.rows, options.cols, options.spacing), None
+    if options.assume_wgs84:
+        msg = "--assume-wgs84 applies to a reference raster; use --crs for explicit grid geometry"
+        raise ValueError(msg)
+    return (
+        GridSpec(
+            options.north_lat, options.west_lon, options.rows, options.cols, options.spacing, options.crs or GDA94
+        ),
+        None,
+    )
 
 
 def _events(options: _Options) -> tuple[IFDEvent, ...]:
@@ -195,7 +220,7 @@ def _weights(options: _Options, spec: GridSpec) -> CatchmentWeights | None:
         msg = "Choose either a fixed reference depth or catchment normalization"
         raise ValueError(msg)
     polygon = read_catchment_polygon(
-        (options.working_dir / options.catchment).absolute(), layer=options.catchment_layer
+        (options.working_dir / options.catchment).absolute(), layer=options.catchment_layer, crs=spec.crs
     )
     return catchment_weights(spec, polygon)
 
@@ -204,13 +229,14 @@ def _run(options: _Options) -> None:
     spec, reference = _spec(options)
     events = _events(options)
     weights = _weights(options, spec)
-    source = IFDSource(tuple(options.source_path), options.snapshot)
+    source = IFDSource(tuple(options.source_path), options.snapshot, options.request_crs)
+    print(f"Grid CRS: {spec.crs}; ARR request CRS assumption: {source.effective_request_crs(spec)}")
     cache = PointCache((options.working_dir / options.cache).absolute())
     if options.inspect_cache:
         coverage = inspect_cache(spec, source, cache, events)
         print(f"Cached: {coverage.cached_cells}; missing: {len(coverage.missing_points)}; network disabled")
         for point in coverage.missing_points:
-            print(f"Missing: {point.latitude}, {point.longitude}")
+            print(f"Missing request coordinates: {point.latitude}, {point.longitude}")
         return
     outputs = _output_paths(options, events)
     if options.reference_depth_mm is not None and (
