@@ -417,6 +417,7 @@ def burst_losses_from_arr(event: ArrEvent) -> EventLosses:
     return EventLosses(
         LossSpec(event.initial_loss, continuing_loss_mm_per_hour=event.continuing_loss),
         source="PyTUFLOW assembled burst event",
+        climate_factors_source=f"PyTUFLOW assembled {event.cc_scenario}" if event.cc_scenario is not None else None,
     )
 
 

@@ -56,10 +56,12 @@ def fetch_arr_response(
     if not isfinite(latitude) or not -90 <= latitude <= 90 or not isfinite(longitude) or not -180 <= longitude <= 180:
         msg = "Invalid ARR latitude/longitude"
         raise ValueError(msg)
-    if duration_min <= 0:
-        msg = "ARR request requires positive duration"
+    if type(duration_min) is not int or duration_min <= 0:
+        msg = "ARR request requires positive integer duration in minutes"
         raise ValueError(msg)
-    config_factory = cast("Callable[[dict[str, Any]], object]", import_module("pytuflow.arr.config").ArrConfig.from_dict)
+    config_factory = cast(
+        "Callable[[dict[str, Any]], object]", import_module("pytuflow.arr.config").ArrConfig.from_dict
+    )
     settings: dict[str, Any] = {
         "site": {"name": "nested_storm", "latitude": latitude, "longitude": longitude},
         "events": {"aep": [aep], "duration": [duration_min]},
@@ -253,6 +255,9 @@ def regional_storm_losses(
             msg = "NSW regional storm losses require an exact AEP percentage"
             raise ValueError(msg)
         probability = float(aep[:-1])
+        if not isfinite(probability) or not 0 < probability <= 100:
+            msg = "Invalid AEP percentage for regional storm losses"
+            raise ValueError(msg)
         rows = cast("Sequence[Mapping[str, object]]", current["losses"])
         matches = [row for row in rows if float(str(row["AEP"]).strip().removesuffix("%")) == probability]
         if len(matches) != 1:
@@ -342,7 +347,9 @@ def constant_preburst_increments(
 
 def apply_arr_loss_factors(response: ArrResponse, losses: EventLosses, climate: tuple[int, str]) -> EventLosses:
     """Apply source factors to baseline user-supplied IL/CL before PB reduction."""
-    if losses.climate_factors_source is not None or losses.initial_loss_factor != 1 or losses.continuing_loss_factor != 1:
+    if (
+        losses.climate_factors_source is not None or losses.initial_loss_factor != 1 or losses.continuing_loss_factor != 1
+    ):
         msg = "Do not combine ARR climate loss factors with additional loss factors"
         raise ValueError(msg)
     il_factor, cl_factor = response.climate_change_loss_factors(*climate)

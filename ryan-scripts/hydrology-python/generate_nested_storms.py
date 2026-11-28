@@ -42,7 +42,6 @@ from ryan_library.functions.hydrology.nested_storms import (
 )
 from ryan_library.functions.hydrology.rainfall_loss_screening import LossSpec
 
-
 ResponseCache = dict[Path | tuple[float, float, bool], ArrResponse]
 
 
@@ -72,7 +71,9 @@ def _response(
     latitude, longitude = float(settings["latitude"]), float(settings["longitude"])
     key = (latitude, longitude, climate is not None)
     if key not in cache:
-        cache[key] = fetch_arr_response(latitude, longitude, aep=settings["aep"], duration_min=duration, climate=climate)
+        cache[key] = fetch_arr_response(
+            latitude, longitude, aep=settings["aep"], duration_min=duration, climate=climate
+        )
     return cache[key], f"ARR point {latitude},{longitude}"
 
 
@@ -148,6 +149,9 @@ def _select_loss_spec(
         ):
             data["arr_preburst_percentile"] = "recommended"
     else:
+        if "spec" not in data:
+            msg = "Supply user loss spec or explicitly opt in to arr_regional_losses"
+            raise ValueError(msg)
         data["spec"] = LossSpec(**data["spec"])
 
 
